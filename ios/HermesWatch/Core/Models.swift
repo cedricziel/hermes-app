@@ -3,7 +3,8 @@ import Foundation
 struct ThreadSummary: Identifiable, Equatable, Codable {
   let id: String
   let title: String
-  let updatedAt: Date
+  /// Nil when the phone knows no time for the chat.
+  let updatedAt: Date?
   let pinned: Bool
 }
 

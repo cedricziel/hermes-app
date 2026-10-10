@@ -26,7 +26,7 @@ final class RelayClientTests: XCTestCase {
       "ok": true,
       "threads": [
         ["id": "s1", "title": "Groceries", "updatedAt": 1_780_000_600, "pinned": true],
-        ["id": "s2", "title": "Trip", "updatedAt": 1_780_000_100, "pinned": false],
+        ["id": "s2", "title": "Trip", "updatedAt": 0, "pinned": false],
       ],
     ])
 
@@ -37,6 +37,7 @@ final class RelayClientTests: XCTestCase {
     XCTAssertEqual(threads[0].title, "Groceries")
     XCTAssertTrue(threads[0].pinned)
     XCTAssertEqual(threads[0].updatedAt, Date(timeIntervalSince1970: 1_780_000_600))
+    XCTAssertNil(threads[1].updatedAt, "the phone sends 0 for a chat it has no time for")
   }
 
   func testThreadRowsMissingAnIdAreSkipped() async throws {

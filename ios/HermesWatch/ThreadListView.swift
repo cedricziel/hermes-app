@@ -37,14 +37,14 @@ struct ThreadListView: View {
       .navigationDestination(for: Route.self) { route in
         switch route {
         case .newChat:
-          ConversationView(model: ConversationModel(client: model.client, threadId: nil, cache: model.cache))
+          ConversationView(model: ConversationModel(client: model.client, threadId: nil))
         case .voiceChat:
           ConversationView(
-            model: ConversationModel(client: model.client, threadId: nil, cache: model.cache),
+            model: ConversationModel(client: model.client, threadId: nil),
             startRecording: true
           )
         case .thread(let id, let title):
-          ConversationView(model: ConversationModel(client: model.client, threadId: id, cache: model.cache), title: title)
+          ConversationView(model: ConversationModel(client: model.client, threadId: id), title: title)
         }
       }
     }
@@ -107,9 +107,8 @@ private struct ThreadRow: View {
         }
         Text(thread.title).lineLimit(2)
       }
-      // The phone sends 0 for a chat it has no time for.
-      if thread.updatedAt.timeIntervalSince1970 > 0 {
-        Text(thread.updatedAt, format: .relative(presentation: .named, unitsStyle: .abbreviated))
+      if let updatedAt = thread.updatedAt {
+        Text(updatedAt, format: .relative(presentation: .named, unitsStyle: .abbreviated))
           .font(.footnote)
           .foregroundStyle(.secondary)
       }

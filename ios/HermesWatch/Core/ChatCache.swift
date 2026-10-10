@@ -12,12 +12,54 @@ protocol ChatCache {
   func clear()
 }
 
-struct NoChatCache: ChatCache {
-  func threads() -> [ThreadSummary]? { nil }
-  func save(threads: [ThreadSummary]) {}
-  func messages(threadId: String) -> [ChatMessage]? { nil }
-  func save(messages: [ChatMessage], threadId: String) {}
-  func clear() {}
+/// A [HermesClient] that keeps in [cache] what [inner] answers, offers it
+/// back as what was saved, and forgets it all once the phone signed out.
+struct CachingClient: HermesClient {
+  let inner: HermesClient
+  let cache: ChatCache
+
+  func savedThreads() -> [ThreadSummary]? { cache.threads() }
+
+  func savedMessages(threadId: String) -> [ChatMessage]? { cache.messages(threadId: threadId) }
+
+  func threads() async throws -> [ThreadSummary] {
+    let threads = try await forgettingOnSignOut { try await inner.threads() }
+    cache.save(threads: threads)
+    return threads
+  }
+
+  func messages(threadId: String) async throws -> [ChatMessage] {
+    let messages = try await forgettingOnSignOut { try await inner.messages(threadId: threadId) }
+    cache.save(messages: messages, threadId: threadId)
+    return messages
+  }
+
+  func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
+    let result = try await forgettingOnSignOut {
+      try await inner.send(threadId: threadId, text: text, sendId: sendId)
+    }
+    if !result.failed, let boundId = result.threadId ?? threadId {
+      let turn = [
+        ChatMessage(id: "local-\(sendId)", role: .user, content: text, at: Date()),
+        ChatMessage(id: "local-\(sendId)-reply", role: .assistant, content: result.text, at: Date(), tools: result.tools),
+      ]
+      cache.save(messages: (cache.messages(threadId: boundId) ?? []) + turn, threadId: boundId)
+    }
+    return result
+  }
+
+  func transcribe(audio: Data, mimeType: String) async throws -> String {
+    try await forgettingOnSignOut { try await inner.transcribe(audio: audio, mimeType: mimeType) }
+  }
+
+  private func forgettingOnSignOut<T>(_ call: () async throws -> T) async throws -> T {
+    do {
+      return try await call()
+    } catch HermesClientError.signedOut {
+      cache.clear()
+      throw HermesClientError.signedOut
+    }
+  }
 }
 
 /// Keeps the cache as JSON files in [directory]: one for the list, one per

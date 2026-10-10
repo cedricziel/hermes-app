@@ -22,6 +22,7 @@
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		3B3F0E457E5C88A69D9646B9 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542EFF511980215AB1E79AED /* ErrorView.swift */; };
+		48A4F90ED33E51C970241BB5 /* DemoClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B286A77E08A3B2AA9CA86B6 /* DemoClient.swift */; };
 		3EC1A4A5266F115E826C5E0F /* RelayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DF22DC249C3DAEEF3763874 /* RelayClient.swift */; };
 		42C39EC6774CE7DAEE5A6ACD /* WCSessionTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E3CA37F8EEB16A589FBEBB /* WCSessionTransport.swift */; };
 		716D696945CB43F29555F6C9 /* WatchRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B21F50268EC1F9DD82F2DF0 /* WatchRelay.swift */; };
@@ -135,6 +136,7 @@
 		44674DEA816FAA2B55FE0208 /* Runner.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		51DEB56C491EC2EB383EE443 /* ConversationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		542EFF511980215AB1E79AED /* ErrorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
+		5B286A77E08A3B2AA9CA86B6 /* DemoClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DemoClient.swift; sourceTree = "<group>"; };
 		5BF79B50BC0B3A3CBB709B7F /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		5DE2754C6FBF29FC3568C927 /* ThreadListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThreadListView.swift; sourceTree = "<group>"; };
 		622004240C2CA69DA54B7D54 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -266,6 +268,7 @@
 				F884F744E1BE6D3436E17C0A /* Assets.xcassets */,
 				B7E3CA37F8EEB16A589FBEBB /* WCSessionTransport.swift */,
 				542EFF511980215AB1E79AED /* ErrorView.swift */,
+				5B286A77E08A3B2AA9CA86B6 /* DemoClient.swift */,
 				5DE2754C6FBF29FC3568C927 /* ThreadListView.swift */,
 				51DEB56C491EC2EB383EE443 /* ConversationView.swift */,
 				A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */,
@@ -613,6 +616,7 @@
 				243E0384F034364349120A76 /* HermesWatchApp.swift in Sources */,
 				42C39EC6774CE7DAEE5A6ACD /* WCSessionTransport.swift in Sources */,
 				3B3F0E457E5C88A69D9646B9 /* ErrorView.swift in Sources */,
+				48A4F90ED33E51C970241BB5 /* DemoClient.swift in Sources */,
 				90C55ECCF78CFBB766EB71C9 /* ThreadListView.swift in Sources */,
 				71E13F16F7691B4DE3192276 /* ConversationView.swift in Sources */,
 				A7C1D2E3F4051627384950B1 /* WatchShortcuts.swift in Sources */,

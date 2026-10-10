@@ -25,4 +25,13 @@ protocol HermesClient {
   func send(threadId: String?, text: String, sendId: String) async throws -> SendResult
   /// What the dashboard heard in a recording, empty when it heard no speech.
   func transcribe(audio: Data, mimeType: String) async throws -> String
+  /// The chat list saved last time, shown until [threads] answers.
+  func savedThreads() -> [ThreadSummary]?
+  /// A chat's messages saved last time, shown until [messages] answers.
+  func savedMessages(threadId: String) -> [ChatMessage]?
+}
+
+extension HermesClient {
+  func savedThreads() -> [ThreadSummary]? { nil }
+  func savedMessages(threadId: String) -> [ChatMessage]? { nil }
 }

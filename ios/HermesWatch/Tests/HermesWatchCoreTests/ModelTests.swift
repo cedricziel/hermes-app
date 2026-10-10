@@ -26,7 +26,7 @@ final class FakeClient: HermesClient {
 final class ThreadListModelTests: XCTestCase {
   func testLoadsThreads() async {
     let client = FakeClient()
-    let thread = ThreadSummary(id: "s1", title: "Groceries", updatedAt: .distantPast, pinned: false)
+    let thread = ThreadSummary(id: "s1", title: "Groceries", updatedAt: nil, pinned: false)
     client.threadsResult = .success([thread])
     let model = ThreadListModel(client: client)
     XCTAssertEqual(model.state, .loading)

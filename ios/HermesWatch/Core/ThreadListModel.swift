@@ -14,23 +14,20 @@ final class ThreadListModel {
   /// chats saved last time meanwhile.
   private(set) var refreshFailure: HermesClientError?
   let client: HermesClient
-  let cache: ChatCache
 
-  init(client: HermesClient, cache: ChatCache = NoChatCache()) {
+  init(client: HermesClient) {
     self.client = client
-    self.cache = cache
-    if let saved = cache.threads() { state = .loaded(saved) }
   }
 
+  /// Shows the chats saved last time, if there are any, until the phone
+  /// answers.
   func load() async {
+    if state == .loading, let saved = client.savedThreads() { state = .loaded(saved) }
     do {
-      let threads = try await client.threads()
-      state = .loaded(threads)
+      state = .loaded(try await client.threads())
       refreshFailure = nil
-      cache.save(threads: threads)
     } catch {
       let failure = error as? HermesClientError ?? .failed
-      if failure == .signedOut { cache.clear() }
       if case .loaded = state, failure != .signedOut {
         refreshFailure = failure
       } else {

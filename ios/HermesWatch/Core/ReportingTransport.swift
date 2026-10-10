@@ -44,8 +44,9 @@ struct DeliveryReports {
     store(Array((pending + [report]).suffix(Self.limit)))
   }
 
-  func remove(_ handedOver: [DeliveryReport]) {
-    store(Array(pending.dropFirst(handedOver.count)))
+  /// Drops the [count] oldest, which reached the phone.
+  func removeFirst(_ count: Int) {
+    store(Array(pending.dropFirst(count)))
   }
 
   private func store(_ reports: [DeliveryReport]) {
@@ -70,7 +71,7 @@ struct ReportingTransport: RelayTransport {
     }
     do {
       let reply = try await inner.request(message)
-      if !pending.isEmpty { reports.remove(pending) }
+      if !pending.isEmpty { reports.removeFirst(pending.count) }
       return reply
     } catch let failure as RelayFailure {
       reports.add(
