@@ -15,7 +15,7 @@ Background refresh, App Intents ("Ask Hermes" while the phone is locked) and not
 
   None of them touches stored state.
 - It refreshes an expired access token with the stored refresh token and writes the new pair back only when storage still holds the pair it started from. It never clears the stored session and never signs the user out; a rejected or conflicting refresh means "give up quietly".
-- The foreground `AuthController` learns to adopt a session that background work has already rotated: before it refreshes, and when a refresh is rejected, it re-reads secure storage and, if that holds a newer pair, uses it instead of signing the user out.
+- Builds on the adoption `AuthController` already has on main (#587): `HermesSession.serverUrl`/`mintedAt`, `sameOwner`, `isNewerThan`, a store re-read before every refresh and a re-check after a rejection. The headless refresh uses the same predicate for its compare-and-swap.
 - iOS gets a curated plugin list for background engines (`BackgroundPlugins.register(with:)`), so the plugins the runtime needs work in a second engine without registering UI and URL-handling plugins twice.
 - `lib/src/background/entry_points.dart` holds the isolate setup every `@pragma('vm:entry-point')` function calls first.
 
@@ -32,7 +32,7 @@ Security and privacy impact: background code reads the same keychain entry as th
 Observability:
 
 - Span `background.task` (attributes `task`, `outcome` and the connection's `hermes.*` server attributes): a background run takes seconds and crosses the network, and iOS kills it without warning, so the span shows how far it got and how long it took.
-- Log event `auth.session.adopted` (`trigger`: `before_refresh`, `after_rejected`) from `AuthController`: counting it shows how often background work rotates tokens under the foreground, which is the race this change guards.
+- `auth.session.adopted`, already logged by `AuthController` on main, shows how often background work rotates tokens under the foreground.
 - Log event `background.refresh_conflict` (no attributes beyond the connection's): a refresh the runtime gave up on because storage changed under it.
 - No breadcrumbs: nothing here is a user step.
 
@@ -50,5 +50,5 @@ None in `openspec/specs/`. The foreground adoption rule is stated in the new cap
 
 - Dart: new `lib/src/background/headless_hermes.dart` and `entry_points.dart`; `AuthController._refreshSession` and its 401 path re-read `TokenStore`; the saved-server preferences key becomes a shared constant.
 - iOS: new `ios/Runner/BackgroundPlugins.swift`, added to the Runner target in `project.pbxproj`. No entitlement or Info.plist change in this change.
-- Dependencies: none inside this set of changes. Overlaps peer PR #587, which also makes `AuthController` re-read `TokenStore` and adopt a newer pair before signing out on a rejected refresh. Whichever lands second reconciles the two into one adoption path. Once both are on main, `RequestAnswerSender`'s own bootstrap (`_answerAlone` in `lib/src/notifications/request_answers.dart`) is replaced by `withHeadlessHermes`.
+- Dependencies: none inside this set of changes. Builds on #587's session adoption (on main). `LoneAnswerer` in `lib/src/notifications/request_answers.dart` is replaced by `withHeadlessHermes`.
 - Backend: `GET /api/status`, `POST /auth/native/refresh`, `GET /api/profiles`, and the `/api/ws` gateway, all already used.

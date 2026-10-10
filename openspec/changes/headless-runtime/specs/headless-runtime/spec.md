@@ -48,7 +48,7 @@ Headless work SHALL NOT delete or overwrite a stored session because of an error
 
 ### Requirement: Refreshing tokens alongside the app
 
-Before refreshing, headless work SHALL re-read the stored session and use it without refreshing when it holds a different refresh token than the work started with. After a successful refresh it SHALL store the new pair only when storage still holds the refresh token it spent; otherwise it SHALL leave storage as it is.
+Before refreshing, headless work SHALL re-read the stored session and use it without refreshing when it belongs to the same user on the same server and was received after the pair the work started with. After a successful refresh it SHALL store the new pair only when storage still holds the refresh token it spent; otherwise it SHALL leave storage as it is.
 
 The app in front SHALL do the same: before it refreshes, and when the server rejects its refresh, it SHALL re-read the stored session and, when that holds a different refresh token, use it instead of refreshing or signing the user out. Several rejected requests at once SHALL still lead to at most one refresh and SHALL NOT sign the user out (unchanged rule).
 
@@ -87,7 +87,7 @@ Headless work SHALL read Hermes through the same repositories and chat transport
 
 ### Requirement: Telemetry without content
 
-Each headless run SHALL record one span named `background.task` with the task name, its outcome (`ok`, `no_server`, `unreachable`, `no_session`, `locked`, `auth_failed`, `timeout`, `failed`) and the server attributes the app records for its connection. A refresh given up because storage changed SHALL be logged as `background.refresh_conflict`. The app in front adopting a stored pair SHALL be logged as `auth.session.adopted` with the trigger. None of these SHALL hold a token, server address, profile name, chat id or message text.
+Each headless run SHALL record one span named `background.task` with the task name, its outcome (`ok`, `no_server`, `unreachable`, `no_session`, `locked`, `auth_failed`, `timeout`, `failed`) and the server attributes the app records for its connection. A refresh given up because storage changed SHALL be logged as `background.refresh_conflict`. The app in front adopting a stored pair SHALL be logged as `auth.session.adopted`. None of these SHALL hold a token, server address, profile name, chat id or message text.
 
 #### Scenario: Run with telemetry on
 

@@ -8,7 +8,7 @@ See proposal.md for motivation and specs/request-intents/spec.md for behavior.
 - `ask-hermes-intent` adds `IntentsBridge` (engine choice, serialized calls, background engine on `intentsMain`) and the `hermes_app/intents` handler in Dart. This change adds two methods to both.
 - Gateway (`openrpc/hermes-gateway.openrpc.json`): `session.active_list {profile?}` returns live sessions with `id` (live session id), `session_key` (stored session id) and `status`; `approval.pending {session_id, profile?}` returns `{approvals: [{request_id, command, description, choices, allow_session, allow_permanent, …}]}` with the command already redacted by the server; `approval.respond {session_id, profile?, request_id?, choice?}` returns `{resolved: int}` and falls back to the durable identity when the live session id is stale.
 - `headless-runtime`: `withHeadlessHermes(body, task:, timeout:)` returns a sealed `HeadlessOutcome<T>`: `HeadlessDone(value)`, `HeadlessSignedOut`, `HeadlessLocked` (secure storage unreadable before the first unlock) or `HeadlessUnreachable`.
-- PR #587 (actionable notifications) adds `ChatTransport.answerOpenRequest(String id, OpenRequestAnswer answer, {String? profile})` (Hermes `request.answer`, falling back to `approval.respond` / the clarify answer) and `RequestAnswerSender` in `lib/src/notifications/request_answers.dart`, which answers a request by id from any engine. `HermesGatewayTransport.answerApproval(requestId, choice)` only answers requests the same transport saw raised, so it is not used here.
+- #587 (on main) added `ChatTransport.answerOpenRequest(String id, OpenRequestAnswer answer, {String? profile})` (Hermes `request.answer`, falling back to `approval.respond` / the clarify answer) and `RequestAnswerSender` in `lib/src/notifications/request_answers.dart`, which answers a request by id from any engine. `HermesGatewayTransport.answerApproval(requestId, choice)` only answers requests the same transport saw raised, so it is not used here.
 
 ## Goals / Non-Goals
 
@@ -68,7 +68,7 @@ Answering is #587's: `RequestAnswerSender` and `ChatTransport.answerOpenRequest`
 
 ## Dependencies
 
-- PR #587: `answerOpenRequest`, `OpenRequestAnswer`, `RequestAnswerSender`.
+- #587 (on main): `answerOpenRequest`, `OpenRequestAnswer`, `RequestAnswerSender`.
 - `headless-runtime`: `withHeadlessHermes` and `HeadlessOutcome`.
 - `background-refresh`: `HeadlessHermes.refreshSnapshot()`.
 - `surface-snapshot`: the `pending` rows.

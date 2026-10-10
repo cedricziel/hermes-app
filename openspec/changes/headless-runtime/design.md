@@ -31,23 +31,16 @@ What exists today:
 
 `_HeadlessAuth` attaches the bearer token and refreshes at most once per run, proactively when `needsRefresh()` or after a 401, using compare-and-swap on storage:
 
-- Before refreshing, re-read `TokenStore`. If the stored refresh token differs from the one held, adopt the stored pair (someone else rotated it) and retry without refreshing.
+- Before refreshing, re-read `TokenStore`. If the stored pair `sameOwner` the held one, has the same `serverUrl` and `isNewerThan` it, adopt it (someone else rotated it) and retry without refreshing. The same predicate `AuthController._adoptStored` uses on main; no second definition.
 - Refresh with `refreshNativeSession` (same retry rule as the foreground).
-- On success, re-read storage: write the new pair only if storage still holds the token that was spent; otherwise keep the stored one and use the new pair for this run only.
+- On success, re-read storage: write the new pair (with its `serverUrl` and a fresh `mintedAt`) only if storage still holds the token that was spent and no pair that `isNewerThan` it; otherwise keep the stored one and use the new pair for this run only.
 - On rejection: end the run with `HeadlessSignedOut` (`outcome: auth_failed`), unless storage changed meanwhile, in which case record `background.refresh_conflict` and end with `HeadlessUnreachable`. On a parse failure or network error: `HeadlessUnreachable` (`outcome: auth_failed`). Storage is never cleared.
 
 Why this is safe without a lock: the foreground and background can only spend the same refresh token if both read it before either wrote the rotated pair. A refresh plus write takes at most two 12 s attempts, so the second spend falls inside Hermes' 30 s replay window and gets the same pair back. Every other ordering makes the second party see the rotated pair in storage and adopt it.
 
-### Foreground adoption in `AuthController`
+### Foreground adoption in `AuthController` (on main)
 
-Peer PR #587 makes the same change for the rejected-refresh case (re-read `TokenStore`, adopt a newer pair before clearing on `refresh_rejected`). Whichever of the two lands second reconciles them into one code path and keeps both sets of tests; this change then only adds what #587 lacks (the `before_refresh` read and the `auth.session.adopted` event).
-
-Two small changes in `_refreshSession` and its 401 handler:
-
-- Before calling `refreshNativeSession`, read `TokenStore`; if it holds a session for the same provider whose refresh token differs from `_session`, adopt it (`_session = stored`, `auth.session.adopted` with `trigger: before_refresh`) and return it when it does not itself need a refresh.
-- When the refresh is rejected, read `TokenStore` again before `_handleSessionExpired`; if it holds a different refresh token, adopt it (`trigger: after_rejected`) and retry the request once instead of signing out.
-
-Both reads go through the existing single-flight future, so concurrent 401s in the foreground still share one refresh and one read (invariant kept).
+#587 already gives `AuthController` what this change needs: `HermesSession` carries `serverUrl` and `mintedAt`; the controller re-reads `TokenStore` before every refresh, and when a refresh is rejected `_refreshRejected` re-reads it (again 1 s later) and `_adoptStored` takes over a stored pair only if it `sameOwner` the spent one, has the controller's `serverUrl` and `isNewerThan` it, logging `auth.session.adopted`. This change adds nothing to `AuthController` beyond exporting `kSavedServerUrlKey`.
 
 ### `withHeadlessHermes` shape
 
@@ -103,7 +96,7 @@ Platforms affected: iOS (new Swift file in the Runner target). The Dart runtime 
 
 - Auth: "concurrent 401s must not sign the user out" is extended across isolates: the foreground adopts a rotated pair instead of signing out, and the background never signs out. Tokens stay in secure storage only.
 - API layering: the runtime uses the generated client through `HermesRepositories`; only `/api/status` goes through the existing hand-written call.
-- Telemetry: the span is recorded in `withHeadlessHermes` with `task`, `outcome` (`ok`, `no_server`, `unreachable`, `no_session`, `locked`, `auth_failed`, `timeout`, `failed`) and `hermes.*`; `background.refresh_conflict` in `_HeadlessAuth`; `auth.session.adopted` in `AuthController` with `trigger`. None holds a token, URL or text. Telemetry failures are swallowed through `safely`.
+- Telemetry: the span is recorded in `withHeadlessHermes` with `task`, `outcome` (`ok`, `no_server`, `unreachable`, `no_session`, `locked`, `auth_failed`, `timeout`, `failed`) and `hermes.*`; `background.refresh_conflict` in `_HeadlessAuth`; `auth.session.adopted` stays as `AuthController` logs it on main. None holds a token, URL or text. Telemetry failures are swallowed through `safely`.
 - Tests: `FakeHermesServer` for HTTP, `MemoryTokenStore` for storage.
 
 ## Risks / Trade-offs
@@ -118,4 +111,4 @@ Platforms affected: iOS (new Swift file in the Runner target). The Dart runtime 
 
 No stored format changes. Rollback removes the runtime; the foreground adoption is harmless without it.
 
-Once both this change and #587 are on main, `RequestAnswerSender`'s `_answerAlone` bootstrap moves onto `withHeadlessHermes(task: 'answer_request')`, so one headless path remains.
+`LoneAnswerer` (`lib/src/notifications/request_answers.dart`), which builds its own `AuthController` and transport in the iOS background isolate, moves onto `withHeadlessHermes(task: 'answer_request')`, so one headless path remains.

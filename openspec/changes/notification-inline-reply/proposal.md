@@ -10,12 +10,12 @@ A "Reply ready" notification often calls for a short answer: "yes, book it", "tr
 - The answer arrives later as the usual "Reply ready" (or request) notification: posted by the background work while iOS keeps it running, otherwise by the background check for finished replies (`background-refresh`).
 - The action requires the device to be unlocked.
 - When the prompt cannot be sent (signed out, device not yet unlocked since restart, server unreachable, the chat gone), a "Reply not sent" notification for that chat says so; tapping it opens the chat with the unsent text in the composer (`hermes://chat?...&prompt=`), not sent.
-- The reply action is added to the "Reply ready" category through the peer session's reusable category builder (actionable-notifications PR, not merged yet), and its response is handled in the same background notification handler the peer adds for its buttons. **It starts after that PR merges**, and after `notification-presentation` if both touch the builder at once.
+- The reply action lives in a new category `hermes.reply` with action `hermes.action.reply-chat`, built with `RequestCategory`/`RequestAction` in `request_notifications.dart` and registered with `staticRequestCategories()`. On iOS its response goes through the Runner's `NotificationActions` (which handles every `hermes.action.*` id but Open) into `answerRequestInBackground`, and in front through `LocalNotificationService._onResponse`.
 
 Non-goals:
 
 - No inline reply on Android in this change: Android runs the background handler in its own isolate, and the headless runtime (`headless-runtime`) only promises iOS background engines. A later change can add it.
-- No reply to request notifications (approvals and questions have the peer's buttons and text answers).
+- No reply to request notifications (approvals and questions have #587's buttons and text answers).
 - No attachments, model choice or slash commands from a notification.
 - No "Reply failed" or scheduled-task notifications with a reply action.
 - No answering of requests here: that is #587's `answerOpenRequest`; no coordinate-based answer methods.
@@ -45,7 +45,7 @@ None.
 
 ## Impact
 
-- Dart: `lib/src/notifications/inline_reply.dart` (send through `withHeadlessHermes` and the same turn runner "Ask Hermes" uses), the reply action in the peer's "Reply ready" category, a branch in the peer's background response handler and in the foreground response handler.
+- Dart: `lib/src/notifications/inline_reply.dart` (send through `withHeadlessHermes` and the same turn runner "Ask Hermes" uses), the `hermes.reply` category and `hermes.action.reply-chat` action in `request_notifications.dart`, a branch in `answerRequestInBackground` and in `LocalNotificationService._onResponse`.
 - iOS and macOS: no native code; `flutter_local_notifications` 22.3.1 supports text-input actions and background responses.
-- Dependencies: PR #587 (actionable notifications), `headless-runtime`, `deep-links`, `ask-hermes-intent` (shared turn runner), and for late answers `background-refresh`.
+- Dependencies: #587/#589 (on main), `headless-runtime`, `deep-links`, `ask-hermes-intent` (shared turn runner), and for late answers `background-refresh`.
 - Backend: no new routes; `session.resume`, `prompt.submit` and the reply events.

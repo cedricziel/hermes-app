@@ -46,4 +46,4 @@ Observability: the `background.task` span of the refresh run gets two more count
 - Dependencies: none new.
 - Native: none.
 - Backend: gateway `session.active_list`; REST `GET /api/sessions/{session_id}/messages`, `GET /api/cron/delivery-targets` and `GET /api/cron/jobs?profile=all`. The app already uses all of them.
-- Depends on `background-refresh` being merged (and through it on `headless-runtime`, `surface-snapshot` and peer PR #587).
+- Depends on `background-refresh` being merged (and through it on `headless-runtime`, `surface-snapshot` and #587 (on main)).

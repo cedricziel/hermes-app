@@ -2,10 +2,9 @@
 
 One PR, `feat(background): run Hermes work without a screen`. About 500 changed lines with tests (runtime ~200, AuthController ~40, Swift ~30, tests ~230). No API routes change, so no OpenAPI regeneration. No UI.
 
-## 1. Foreground adoption (TDD)
+## 1. Groundwork
 
-- [ ] 1.1 Write failing tests in `test/auth_controller_refresh_test.dart`: a proactive refresh adopts a newer pair found in `MemoryTokenStore` without calling `/auth/native/refresh`; a rejected refresh with a newer stored pair retries the request with it and does not sign out; a rejected refresh with the same stored pair still signs out as today; concurrent 401s still make one refresh and one storage read. Implement in `AuthController._refreshSession` and the 401 handler; export `kSavedServerUrlKey`; verify.
-- [ ] 1.2 If peer PR #587 merged first, reconcile: keep one adoption path for the rejected refresh (#587's or this one), keep both sets of tests, and add only what is missing. If this change merges first, note in #587 that it reconciles.
+- [ ] 1.1 Export `kSavedServerUrlKey` from `auth_controller.dart`. Build on #587's adoption on main (`HermesSession.serverUrl`/`mintedAt`, `sameOwner`, `isNewerThan`, `_adoptStored`); extract the adoption predicate into a shared function only if `_HeadlessAuth` needs it, keeping `test/auth_controller_refresh_test.dart` green; verify.
 
 ## 2. Headless runtime (TDD)
 
@@ -15,7 +14,7 @@ One PR, `feat(background): run Hermes work without a screen`. About 500 changed 
 
 ## 3. Telemetry
 
-- [ ] 3.1 Write failing tests with a recording tracer and event logger: one `background.task` span per run with `task`, each `outcome` and the `hermes.*` attributes; `background.refresh_conflict` on a storage conflict; `auth.session.adopted` with `trigger`; no token, URL or text in any attribute. Implement; verify.
+- [ ] 3.1 Write failing tests with a recording tracer and event logger: one `background.task` span per run with `task`, each `outcome` and the `hermes.*` attributes; `background.refresh_conflict` on a storage conflict; no token, URL or text in any attribute. Implement; verify.
 
 ## 4. iOS background plugins
 
@@ -24,7 +23,7 @@ One PR, `feat(background): run Hermes work without a screen`. About 500 changed 
 
 ## 5. Replace `RequestAnswerSender`'s bootstrap
 
-- [ ] 5.1 Once #587 is on main (now, or in a follow-up PR if it merges later): write a failing test that `RequestAnswerSender` answers through `withHeadlessHermes(task: 'answer_request')` and maps each outcome to its existing fallback (open the app); replace `_answerAlone`; verify.
+- [ ] 5.1 Write a failing test that `LoneAnswerer` (`lib/src/notifications/request_answers.dart`) answers through `withHeadlessHermes(task: 'answer_request')` and maps each outcome to its existing fallback (open the app); replace its own `AuthController`/transport bootstrap; verify.
 
 ## 6. Docs and skills
 

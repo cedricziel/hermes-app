@@ -1,10 +1,10 @@
 # Tasks
 
-One PR, `feat(ios): list pending requests and answer approvals from Siri and Shortcuts`. Needs PR #587, `headless-runtime`, `background-refresh`, `surface-snapshot`, `app-intents` and `ask-hermes-intent` merged. No API routes change, so no OpenAPI regeneration.
+One PR, `feat(ios): list pending requests and answer approvals from Siri and Shortcuts`. Builds on #587 (on main); needs `headless-runtime`, `background-refresh`, `surface-snapshot`, `app-intents` and `ask-hermes-intent` merged. No API routes change, so no OpenAPI regeneration.
 
 ## 1. Gateway calls (TDD)
 
-- [ ] 1.1 Confirm PR #587's `answerOpenRequest`, `OpenRequestAnswer` and `RequestAnswerSender` are on main; answering uses them only.
+- [ ] 1.1 Answer only through `answerOpenRequest`, `OpenRequestAnswer` and `RequestAnswerSender` (on main since #587).
 - [ ] 1.2 Write failing transport tests with scripted RPC answers: `pendingApprovals` finds the live session by `session_key` through `session.active_list` and returns `approval.pending`'s rows (none when the session is not live, malformed rows skipped); implement on `HermesGatewayTransport` and `FakeChatTransport`; verify.
 - [ ] 1.3 Add a case to `test/real_backend_contract_test.dart` (behind `HERMES_DEV_MODEL_CALLS=1`) that raises an approval, finds it by `session_key` with `approval.pending`, and answers it with `answerOpenRequest`; run it against `scripts/dev-backend.sh`.
 

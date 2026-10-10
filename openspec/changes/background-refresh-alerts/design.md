@@ -2,7 +2,7 @@
 
 ## Context
 
-See proposal.md for motivation and specs/ for behaviour. This change builds on `background-refresh` (and through it on `headless-runtime`, `surface-snapshot` and peer PR #587): it uses its run, the `BackgroundStep` and `BackgroundContext` contract, its shared gateway socket and its budget.
+See proposal.md for motivation and specs/ for behaviour. This change builds on `background-refresh` (and through it on `headless-runtime`, `surface-snapshot` and #587 (on main)): it uses its run, the `BackgroundStep` and `BackgroundContext` contract, its shared gateway socket and its budget.
 
 What exists today:
 

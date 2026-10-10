@@ -46,6 +46,6 @@ None.
 ## Impact
 
 - Swift (`ios/HermesSurfaceKit`): `PendingRequestEntity`, `ApprovalChoice`, `PendingRequestsIntent`, `AnswerApprovalIntent`; phrases in `HermesAppShortcuts`; two methods on the `IntentsBridge` channel.
-- Dart: `lib/src/intents/request_intents.dart`; one read-only gateway call on the transport that lists the approvals of one session. Answering goes through PR #587's `RequestAnswerSender` and `ChatTransport.answerOpenRequest`; no answering method is added.
-- Depends on PR #587 (`answerOpenRequest`, `RequestAnswerSender`), `headless-runtime` (`withHeadlessHermes`, `HeadlessOutcome`), `background-refresh` (`refreshSnapshot()`), `surface-snapshot` (`pending` rows), `app-intents` (Profile entity, shortcuts provider) and `ask-hermes-intent` (bridge, channel, entry point).
+- Dart: `lib/src/intents/request_intents.dart`; one read-only gateway call on the transport that lists the approvals of one session. Answering goes through #587's `RequestAnswerSender` and `ChatTransport.answerOpenRequest`; no answering method is added.
+- Builds on #587 (on main) (`answerOpenRequest`, `RequestAnswerSender`), `headless-runtime` (`withHeadlessHermes`, `HeadlessOutcome`), `background-refresh` (`refreshSnapshot()`), `surface-snapshot` (`pending` rows), `app-intents` (Profile entity, shortcuts provider) and `ask-hermes-intent` (bridge, channel, entry point).
 - Backend: no new routes. Uses `session.active_list` and `approval.pending`, and through #587 `request.answer` (falling back to `approval.respond`).

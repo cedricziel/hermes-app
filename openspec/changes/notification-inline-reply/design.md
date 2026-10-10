@@ -5,7 +5,7 @@
 See proposal.md for motivation and specs/notifications/spec.md for behavior.
 
 - `flutter_local_notifications` 22.3.1 offers `DarwinNotificationAction.text(id, title, buttonTitle:, placeholder:, options:)` with `DarwinNotificationActionOption.authenticationRequired`, categories registered at initialization, `onDidReceiveNotificationResponse` for responses while the app runs, and `onDidReceiveBackgroundNotificationResponse` (an `@pragma('vm:entry-point')` top-level function) for responses when the app is not running; the response carries `actionId`, `input` and the notification's `payload`.
-- PR #587 (actionable notifications, not merged) adds a reusable category builder, categories for requests and the background response handler for its buttons. This change adds one action to the "Reply ready" category through that builder and one branch to its handlers. Names are roles here until the PR merges.
+- #587/#589 (on main) define `RequestCategory`/`RequestAction` and the request categories in `lib/src/notifications/request_notifications.dart` (`staticRequestCategories`, `requestCategoryFor`; ids `hermes.request.*`, actions `hermes.action.*` such as `kReplyAction` = `hermes.action.reply`), registered by `LocalNotificationService` at start and natively through `registerCategoriesNatively`. Responses go to `LocalNotificationService._onResponse` in front and `answerRequestInBackground` (`request_answers.dart`) in the background. On iOS the Runner's `NotificationActions` (AppDelegate.swift) is the notification-centre delegate: it handles every `hermes.action.*` id except `hermes.action.open` itself (starting the background engine) and forwards the rest to the plugin. "Reply ready" notifications have no category today.
 - The payload of a "Reply ready" notification already holds its target (`{t: <thread id>, p: <profile>}`).
 - `headless-runtime` provides `withHeadlessHermes`, which returns a sealed `HeadlessOutcome<T>` (`HeadlessDone`, `HeadlessSignedOut`, `HeadlessLocked`, `HeadlessUnreachable`), and its background-engine plugin registration;
 - `deep-links` provides `deepLinkUri` and `hermes://chat?profile=&id=&prompt=`, which opens a chat with its composer prefilled and never sends; `ask-hermes-intent` reuses `WatchRequestHandler.handle({'op': 'send', ...})` to send a turn and wait for it, with a gated `announce`.
@@ -25,11 +25,11 @@ See proposal.md for motivation and specs/notifications/spec.md for behavior.
 
 ### The action
 
-The builder's "Reply ready" category (iOS and macOS) gains `DarwinNotificationAction.text('reply', 'Reply', buttonTitle: 'Send', placeholder: 'Reply to Hermes', options: {authenticationRequired})`. No `foreground` option, so iOS does not open the app. Only notifications whose body is a completed reply preview or "Reply ready" use the category; "Reply failed", request and task notifications do not get the action.
+A new `RequestCategory` `hermes.reply` (`kReplyReadyCategory`) in `request_notifications.dart`, added to `staticRequestCategories()`, holds one text `RequestAction` `hermes.action.reply-chat` (`kReplyChatAction`, 'Reply', button 'Send', placeholder 'Reply to Hermes', `authenticationRequired`). The id keeps the `hermes.action.` prefix so `NotificationActions` routes it through the same background-engine path as the request buttons; no change to its forwarding chain. `attentionFor` sets the category on completed-reply notifications. No `foreground` option, so iOS does not open the app. Only notifications whose body is a completed reply preview or "Reply ready" use the category; "Reply failed", request and task notifications do not get the action.
 
 ### One handler for both paths
 
-`sendInlineReply(NotificationResponse response)` in `lib/src/notifications/inline_reply.dart` is called from the peer's background handler and from the foreground response handler when `actionId == 'reply'`. It:
+`sendInlineReply(NotificationResponse response)` in `lib/src/notifications/inline_reply.dart` is called from `answerRequestInBackground` and from `LocalNotificationService._onResponse` when `actionId == kReplyChatAction`, before `answerFromResponse` is tried. It:
 
 1. Decodes the target from the payload; an empty `input` (whitespace only) or a job target does nothing.
 2. Runs `withHeadlessHermes(body, task: 'notification.reply', timeout: 25 s)` and handles every outcome: `HeadlessDone` as below; `HeadlessSignedOut`, `HeadlessLocked` (secure storage not yet readable) and `HeadlessUnreachable` each post "Reply not sent" (`unavailable`).
@@ -51,7 +51,7 @@ An `AttentionNotification` for the same chat (same id, so it replaces "Reply rea
 
 ### Platforms and native changes
 
-- iOS: no native code or entitlement; the background handler's plugin registration is the peer's and `headless-runtime`'s.
+- iOS: no native code or entitlement; `NotificationActions` already starts the background engine for `hermes.action.*` ids; plugin registration is `NotificationActions.registerPlugins` and `headless-runtime`'s.
 - macOS: the same action. macOS launches or activates the app to deliver a notification response, so it is handled in the main isolate by the foreground path.
 - Android, Windows, Linux, watchOS: none.
 
@@ -64,7 +64,7 @@ An `AttentionNotification` for the same chat (same id, so it replaces "Reply rea
 
 ### Dependencies
 
-PR #587 (category builder, response handlers), `headless-runtime` (`withHeadlessHermes`), `deep-links` (prefilled chat link), `ask-hermes-intent` (shared turn runner), and `background-refresh` for late answers.
+#587/#589 on main (`request_notifications.dart`, `answerRequestInBackground`, `NotificationActions`), `headless-runtime` (`withHeadlessHermes`), `deep-links` (prefilled chat link), `ask-hermes-intent` (shared turn runner), and `background-refresh` for late answers.
 
 ## Risks / Trade-offs
 

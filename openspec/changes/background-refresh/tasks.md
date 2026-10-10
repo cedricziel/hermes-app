@@ -1,6 +1,6 @@
 # Tasks
 
-One PR, `feat(background): refresh requests and the snapshot in the background`, about 450 changed lines with tests. No API routes change, so no OpenAPI regeneration. No UI. Requires `headless-runtime`, `surface-snapshot` and peer PR #587 to be merged.
+One PR, `feat(background): refresh requests and the snapshot in the background`, about 450 changed lines with tests. No API routes change, so no OpenAPI regeneration. No UI. Requires `headless-runtime`, `surface-snapshot` to be merged; #587 is on main.
 
 ## 1. Check the backend first
 
@@ -35,7 +35,7 @@ One PR, `feat(background): refresh requests and the snapshot in the background`,
   - the announced list keeps the newest 200;
   - nothing is posted when notifications are off;
   - the approval's command never reaches the notification;
-  - an approval is posted with #587's approval category, built by its category builder.
+  - an approval is posted with #587's `hermes.request.approval.<choices>` category from `requestCategoryFor`.
 
   Implement the step contract (`BackgroundStep`, `BackgroundContext`), the requests step and the announced-ids store; verify.
 

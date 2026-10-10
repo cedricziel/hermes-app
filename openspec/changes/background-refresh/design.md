@@ -2,7 +2,7 @@
 
 ## Context
 
-See proposal.md for motivation and specs/ for behaviour. Builds on `headless-runtime` (`withHeadlessHermes`, `HeadlessOutcome`, `BackgroundPlugins`, `prepareBackgroundIsolate`), `surface-snapshot` (`SurfaceSnapshotBuilder`, `SurfaceSnapshotStore`) and peer PR #587 (the reusable notification category builder for approvals and questions). `background-refresh-alerts` adds steps to the run defined here.
+See proposal.md for motivation and specs/ for behaviour. Builds on `headless-runtime` (`withHeadlessHermes`, `HeadlessOutcome`, `BackgroundPlugins`, `prepareBackgroundIsolate`), `surface-snapshot` (`SurfaceSnapshotBuilder`, `SurfaceSnapshotStore`) and #587 (on main) (`requestCategoryFor` and the `hermes.request.*` categories in `request_notifications.dart`). `background-refresh-alerts` adds steps to the run defined here.
 
 What exists today:
 
@@ -88,7 +88,7 @@ No case clears the session or the snapshot; the snapshot's sign-out form is writ
 3. Each approval becomes a `PendingRequest(kind: approval, requestId)`.
 4. A waiting session without any approval becomes `kind: input`, with the id `waiting:<session_key>:<last_active>`.
 
-The chat id is `session_key`; the title comes from the session item. The requests found but not yet in `hermes.background.announced.v1` are posted with `kApprovalBody` or `kNeedsYouBody`, only when `settings.enabled` is on. The notification goes through #587's category builder, so an approval gets the same category and buttons as one raised in front; this change adds no category of its own. The result is the cross-profile pending list.
+The chat id is `session_key`; the title comes from the session item. The requests found but not yet in `hermes.background.announced.v1` are posted with `kApprovalBody` or `kNeedsYouBody`, only when `settings.enabled` is on. The notification goes through #587's `requestCategoryFor`, so an approval gets the same category and buttons as one raised in front; this change adds no category of its own. The result is the cross-profile pending list.
 
 **Snapshot step:** waits for the requests step's pending list, or uses the previous list if that step failed. Then it calls `refreshSnapshot(pending:)`:
 

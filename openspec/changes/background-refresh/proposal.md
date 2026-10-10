@@ -8,7 +8,7 @@ Hermes has no push channel, so today the app learns about anything only while it
 
 - The app asks the system for periodic background runs while someone is signed in, every 15 minutes at the earliest (iOS and Android decide when), and cancels them on sign-out.
 - Each run uses the headless runtime and finishes within about 25 seconds:
-  - **Open requests:** lists each profile's live sessions on the gateway and reads the pending approvals of sessions waiting for the user. It posts a notification for each request not announced before, using the same generic texts as today ("Waiting for your approval", "Waiting for you in Hermes") and the actionable categories of peer PR #587 (built with its reusable category builder, so an approval carries its buttons). Announced request ids are remembered.
+  - **Open requests:** lists each profile's live sessions on the gateway and reads the pending approvals of sessions waiting for the user. It posts a notification for each request not announced before, using the same generic texts as today ("Waiting for your approval", "Waiting for you in Hermes") and the actionable categories of #587 (on main) (from `requestCategoryFor`, so an approval carries its buttons). Announced request ids are remembered.
   - **Snapshot and Spotlight:** rebuilds the surface snapshot with every profile's chats, all open requests, Kanban and schedules, and writes it for widgets. In-app snapshot listeners (the Spotlight index, later) run with it.
 - The run is built as independent steps, so `background-refresh-alerts` can add its own.
 - Nothing is posted when notifications are off. The run handles each outcome of the headless runtime explicitly: signed out (the scheduled task is cancelled), locked (nothing happens; the next run tries again), unreachable (nothing happens). It never signs the user out.
@@ -48,4 +48,4 @@ None.
 - Dependency: `workmanager` from pub.dev.
 - iOS: `BGTaskSchedulerPermittedIdentifiers` and `UIBackgroundModes: fetch` in `ios/Runner/Info.plist`. `AppDelegate` registers the task and the background plugin registrant (`BackgroundPlugins`, plus `home_widget` and `workmanager_apple`). Android: WorkManager needs no manifest change.
 - Backend: gateway `session.active_list` and `approval.pending`, plus the snapshot's REST routes. The app already uses all of them.
-- Depends on `headless-runtime` and `surface-snapshot` being merged, and on peer PR #587 for the request notification categories.
+- Depends on `headless-runtime` and `surface-snapshot` being merged, and on #587 (on main) for the request notification categories.

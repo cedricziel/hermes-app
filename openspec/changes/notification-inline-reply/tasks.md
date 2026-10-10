@@ -1,12 +1,12 @@
 # Tasks
 
-One PR, `feat(notifications): reply to a finished reply from the notification`. **Starts after PR #587 (actionable notifications) merges**; needs `headless-runtime`, `deep-links` and `ask-hermes-intent` merged (shared use of the turn runner). No API routes change, so no OpenAPI regeneration.
+One PR, `feat(notifications): reply to a finished reply from the notification`. Builds on #587/#589 (on main); needs `headless-runtime`, `deep-links` and `ask-hermes-intent` merged (shared use of the turn runner). No API routes change, so no OpenAPI regeneration.
 
 ## 1. Send path (TDD)
 
-- [ ] 1.1 Read merged PR #587 and record in design.md the builder, the "Reply ready" category id and the background handler's name; adjust the seams named in design.md, nothing else.
+- [ ] 1.1 Add `kReplyReadyCategory` (`hermes.reply`) and `kReplyChatAction` (`hermes.action.reply-chat`) to `request_notifications.dart` and the category to `staticRequestCategories()`; check `NotificationActions` in `ios/Runner/AppDelegate.swift` routes it without change.
 - [ ] 1.2 Write failing tests in `test/notifications/inline_reply_test.dart` with `FakeChatTransport` behind a fake `HeadlessHermes`: text sent once to the payload's chat and profile with `queued: true`; empty input and job targets ignored; answer within the window announced; window over without answer (`sent`) and no "Reply failed" announced when the transport closes; `HeadlessSignedOut`, `HeadlessLocked` and `HeadlessUnreachable` each (`unavailable`), profile gone and send error before acceptance (`failed`) each post "Reply not sent" without the text in its body and with `hermes://chat?profile=&id=&prompt=<text>` (built by `deepLinkUri`) as its tap target; no retry; implement `lib/src/notifications/inline_reply.dart`; verify.
-- [ ] 1.3 Write failing tests that the "Reply ready" category built by the peer's builder has the `reply` text action with `authenticationRequired` and no `foreground` option, that only completed-reply notifications use it, and that both the background and the foreground response handlers call `sendInlineReply` for `actionId == 'reply'`; implement; verify.
+- [ ] 1.3 Write failing tests that `hermes.reply` has the `hermes.action.reply-chat` text action with `authenticationRequired` and no `foreground` option, that only completed-reply notifications use it, and that both `answerRequestInBackground` and `LocalNotificationService._onResponse` call `sendInlineReply` for `kReplyChatAction`; implement; verify.
 
 ## 2. Telemetry
 

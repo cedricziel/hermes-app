@@ -1,6 +1,6 @@
 # Tasks
 
-One PR, `feat(background): announce finished replies and scheduled runs in the background`, about 350 changed lines with tests. No API routes change, so no OpenAPI regeneration. No UI. Requires `background-refresh` to be merged (which requires `headless-runtime`, `surface-snapshot` and peer PR #587).
+One PR, `feat(background): announce finished replies and scheduled runs in the background`, about 350 changed lines with tests. No API routes change, so no OpenAPI regeneration. No UI. Requires `background-refresh` to be merged (which requires `headless-runtime`, `surface-snapshot` and #587 (on main)).
 
 ## 1. Check the backend first
 
