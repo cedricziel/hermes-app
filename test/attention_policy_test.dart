@@ -131,17 +131,74 @@ void main() {
       expect(n.body, 'Reply failed');
     });
 
-    test('an approval never shows the command', () {
+    test('an approval shows the command, with its buttons', () {
       final n = _for(const ApprovalRequested(_approval))!;
 
-      expect(n.body, 'Waiting for your approval');
-      expect(n.body, isNot(contains('rm')));
+      expect(n.body, 'rm -rf build');
+      expect(n.category?.id, 'hermes.request.approval.once-deny');
+      expect(n.category?.placeholder, kApprovalBody);
+      expect(n.request?.requestId, 'r1');
     });
 
-    test('a clarify question never shows the question', () {
+    test('an approval without a command shows its description', () {
+      const bare = ApprovalRequest(
+        requestId: 'r1',
+        command: ' ',
+        description: 'delete files',
+        choices: ['once'],
+      );
+
+      expect(_for(const ApprovalRequested(bare))!.body, 'delete files');
+    });
+
+    test('an approval without either says it waits', () {
+      const bare = ApprovalRequest(
+        requestId: 'r1',
+        command: '',
+        description: '',
+        choices: ['once'],
+      );
+
+      expect(_for(const ApprovalRequested(bare))!.body, kApprovalBody);
+    });
+
+    test('a very long command is cut', () {
+      final long = ApprovalRequest(
+        requestId: 'r1',
+        command: 'x' * 1500,
+        description: '',
+        choices: const ['once'],
+      );
+
+      final body = _for(ApprovalRequested(long))!.body;
+
+      expect(body.length, kRequestBodyLength + 1);
+      expect(body, endsWith('…'));
+    });
+
+    test('a clarify question shows the question, with its buttons', () {
       final n = _for(const ClarifyRequested(_question))!;
 
-      expect(n.body, 'Has a question for you');
+      expect(n.body, 'Which colour?');
+      expect(n.category?.placeholder, kQuestionBody);
+      expect(n.request?.requestId, 'r2');
+    });
+
+    test('several questions at once stay generic, without buttons', () {
+      const batch = ClarifyRequest(
+        requestId: 'r2',
+        batch: true,
+        questions: [
+          ClarifyQuestion(qid: 'a', question: 'One?'),
+          ClarifyQuestion(qid: 'b', question: 'Two?'),
+        ],
+      );
+
+      final n = _for(const ClarifyRequested(batch))!;
+
+      expect(n.body, kQuestionBody);
+      expect(n.category, isNull);
+      expect(n.request, isNull);
     });
 
     test('a request the app cannot answer stays generic', () {
@@ -149,6 +206,7 @@ void main() {
 
       expect(n.body, 'Waiting for you in Hermes');
       expect(n.body, kNeedsYouBody);
+      expect(n.category, isNull);
     });
   });
 
