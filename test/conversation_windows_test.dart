@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
@@ -345,6 +346,7 @@ void main() {
 
     test('later toggles show or hide the open panel', () async {
       await windows.togglePanel();
+      await host.present('p0');
       await windows.togglePanel();
 
       expect(host.panels, hasLength(1));
@@ -355,6 +357,31 @@ void main() {
       await Future.wait([windows.togglePanel(), windows.togglePanel()]);
 
       expect(host.panels, hasLength(1));
+    });
+
+    test(
+      'a press while the panel\'s engine starts makes no second one',
+      () async {
+        await windows.togglePanel();
+
+        expect(await windows.togglePanel(), isTrue);
+
+        expect(host.panels, hasLength(1));
+        expect(host.panelToggles, 0);
+      },
+    );
+
+    test('a panel whose engine never reports in is replaced', () async {
+      final start = DateTime(2026, 10, 10, 12);
+      await withClock(Clock.fixed(start), windows.togglePanel);
+
+      await withClock(
+        Clock.fixed(start.add(const Duration(seconds: 30))),
+        windows.togglePanel,
+      );
+
+      expect(host.closedNatively, ['p0']);
+      expect(host.panels.keys, ['p1']);
     });
 
     test('without a connection there is no panel', () async {

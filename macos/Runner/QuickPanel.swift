@@ -10,6 +10,26 @@ private final class QuickPanelWindow: NSPanel {
   /// Also keeps the panel out of AppDelegate's windowless check, so showing
   /// it does not count as a window that ends running windowless.
   override var canBecomeMain: Bool { false }
+
+  var onCloseChord: (() -> Void)?
+
+  /// Flutter takes a chord first (the field's ⌘C, ⌘V, ⌘A, ⌘Z and so on).
+  /// What it leaves would reach the main menu and act on the main window,
+  /// so here ⌘W hides the panel, ⌘Q quits and every other chord does
+  /// nothing.
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if super.performKeyEquivalent(with: event) { return true }
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+    guard flags.contains(.command) else { return false }
+    if flags == .command {
+      switch event.charactersIgnoringModifiers?.lowercased() {
+      case "w": onCloseChord?()
+      case "q": NSApp.terminate(nil)
+      default: break
+      }
+    }
+    return true
+  }
 }
 
 /// The quick panel: a floating, non-activating panel over every Space and
@@ -22,6 +42,11 @@ private final class QuickPanelWindow: NSPanel {
 final class QuickPanel: NSObject, NSWindowDelegate {
   private(set) static var shared: QuickPanel?
 
+  /// True while the panel itself takes or gives back key status, so the
+  /// window that loses or regains it does not take that for the user
+  /// switching windows (which reloads its chats).
+  private(set) static var switchingKey = false
+
   private static let width: CGFloat = 680
   private static let height: CGFloat = 132
 
@@ -32,6 +57,8 @@ final class QuickPanel: NSObject, NSWindowDelegate {
   private let hostWindow: NSWindow
   private let channel: FlutterMethodChannel
   private var shown = false
+  private weak var controller: FlutterViewController?
+  private var activeObservers: [NSObjectProtocol] = []
 
   /// Moves [controller], which desktop_multi_window showed in [window], into
   /// the panel. Called once, when the panel's engine first reports in.
@@ -55,6 +82,7 @@ final class QuickPanel: NSObject, NSWindowDelegate {
 
   private init(windowId: String, controller: FlutterViewController, window: NSWindow) {
     self.windowId = windowId
+    self.controller = controller
     hostWindow = window
     channel = FlutterMethodChannel(
       name: "hermes_app/window", binaryMessenger: controller.engine.binaryMessenger)
@@ -69,9 +97,24 @@ final class QuickPanel: NSObject, NSWindowDelegate {
     panel.contentViewController = controller
     panel.setContentSize(NSSize(width: Self.width, height: Self.height))
     panel.delegate = self
+    panel.onCloseChord = { [weak self] in self?.hide(reason: "escape") }
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call, result: result) ?? result(nil)
     }
+    // desktop_multi_window forwards these through the window it made, whose
+    // content this panel has taken over.
+    activeObservers = [
+      NSApplication.willBecomeActiveNotification, NSApplication.didResignActiveNotification,
+    ].map { name in
+      NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) {
+        [weak self] notification in
+        self?.controller?.engine.handleDidChangeOcclusionState(notification)
+      }
+    }
+  }
+
+  deinit {
+    activeObservers.forEach(NotificationCenter.default.removeObserver)
   }
 
   private func configure(_ panel: NSPanel) {
@@ -110,21 +153,38 @@ final class QuickPanel: NSObject, NSWindowDelegate {
 
   func show() {
     if !shown { place() }
-    shown = true
-    panel.makeKeyAndOrderFront(nil)
-    channel.invokeMethod("panelShown", arguments: nil)
+    // A hidden app (⌘H) keeps its windows off screen, the panel too. This
+    // brings Hermes' other windows back as well, without activating it.
+    if NSApp.isHidden { NSApp.unhideWithoutActivation() }
+    switchingKey(panel.makeKeyAndOrderFront)
+    shown = panel.isVisible
+    if shown { channel.invokeMethod("panelShown", arguments: nil) }
   }
 
   func hide(reason: String) {
     guard shown else { return }
     shown = false
-    panel.orderOut(nil)
+    // Losing focus already gave the key status to what the user picked.
+    if reason == "focus_lost" {
+      panel.orderOut(nil)
+    } else {
+      switchingKey(panel.orderOut)
+    }
     channel.invokeMethod("panelHidden", arguments: reason)
+  }
+
+  private func switchingKey(_ change: (Any?) -> Void) {
+    Self.switchingKey = true
+    change(nil)
+    // After the key observers, whether they ran inline or were queued.
+    DispatchQueue.main.async { Self.switchingKey = false }
   }
 
   /// Closes the panel and its engine (sign-out, another server).
   func close() {
     shown = false
+    activeObservers.forEach(NotificationCenter.default.removeObserver)
+    activeObservers = []
     panel.delegate = nil
     panel.orderOut(nil)
     panel.contentViewController = nil

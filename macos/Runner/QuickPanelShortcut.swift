@@ -55,9 +55,12 @@ private final class ShortcutRecorderFactory: NSObject, FlutterPlatformViewFactor
     self.shortcut = shortcut
   }
 
+  /// Flutter asks for platform views on the main thread.
   func create(withViewIdentifier viewId: Int64, arguments args: Any?) -> NSView {
-    KeyboardShortcuts.RecorderCocoa(for: .quickPanel) { [weak shortcut] chord in
-      shortcut?.changed(set: chord != nil)
+    MainActor.assumeIsolated {
+      KeyboardShortcuts.RecorderCocoa(for: .quickPanel) { [weak shortcut] chord in
+        shortcut?.changed(set: chord != nil)
+      }
     }
   }
 

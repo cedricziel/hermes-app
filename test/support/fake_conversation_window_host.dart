@@ -21,6 +21,9 @@ class FakeConversationWindowHost implements ConversationWindowHost {
   /// toggled.
   final panels = <String, QuickPanelLaunch>{};
   var panelToggles = 0;
+
+  /// The panels whose engine has started and shown them; see [present].
+  final presentedPanels = <String>{};
   var _next = 0;
   final _live = StreamController<Set<String>>.broadcast(sync: true);
   final _mainFocus = StreamController<void>.broadcast(sync: true);
@@ -48,10 +51,11 @@ class FakeConversationWindowHost implements ConversationWindowHost {
     return id;
   }
 
-  /// Like the native side, false while no panel is open.
+  /// Like the native side, false until a panel's engine has started and
+  /// presented it.
   @override
   Future<bool> togglePanel() async {
-    if (panels.isEmpty) return false;
+    if (!panels.keys.any(presentedPanels.contains)) return false;
     panelToggles++;
     return true;
   }
@@ -105,6 +109,12 @@ class FakeConversationWindowHost implements ConversationWindowHost {
   void vanished(String id) => created.remove(id);
 
   void focusMain() => _mainFocus.add(null);
+
+  /// Panel [id]'s engine started, moved into its panel and showed it.
+  Future<void> present(String id) async {
+    presentedPanels.add(id);
+    await call('panel', {'window_id': id, 'event': 'shown'});
+  }
 
   void dispose() {
     _live.close();

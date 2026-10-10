@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -172,9 +173,13 @@ class ConversationWindows extends ChangeNotifier {
   /// set by the shell that owns the profiles.
   String? Function()? currentProfile;
 
-  /// The quick panel's window id and server. It is kept apart from
-  /// [windows]: it is neither saved nor listed.
-  ({String id, String baseUrl})? _panel;
+  /// The quick panel. It is kept apart from [windows]: it is neither saved
+  /// nor listed.
+  _QuickPanel? _panel;
+
+  /// How long a new panel's engine has to start and show the panel before a
+  /// press gives up on it and makes another.
+  static const _panelStartup = Duration(seconds: 15);
   Future<bool>? _creatingPanel;
 
   bool _restored = false;
@@ -274,7 +279,19 @@ class ConversationWindows extends ChangeNotifier {
   Future<bool> togglePanel() async {
     final creating = _creatingPanel;
     if (creating != null) return creating;
-    if (_panel != null && await _host.togglePanel()) return true;
+    if (_panel case final panel?) {
+      // Until its engine reports in, natively there is no panel to toggle,
+      // and the press must not start a second engine.
+      if (!panel.presented) {
+        if (clock.now().difference(panel.createdAt) < _panelStartup) {
+          return true;
+        }
+        _panel = null;
+        await _host.close(panel.id);
+      } else if (await _host.togglePanel()) {
+        return true;
+      }
+    }
     final connection = _connection();
     if (connection == null) return false;
     final created = _createPanel(
@@ -304,7 +321,7 @@ class ConversationWindows extends ChangeNotifier {
       await _host.close(windowId);
       return false;
     }
-    _panel = (id: windowId, baseUrl: launch.baseUrl);
+    _panel = _QuickPanel(windowId, launch.baseUrl, clock.now());
     return true;
   }
 
@@ -444,6 +461,9 @@ class ConversationWindows extends ChangeNotifier {
       case 'profile.current':
         return currentProfile?.call();
       case 'panel':
+        if (args['event'] == 'shown' && windowId == _panel?.id) {
+          _panel?.presented = true;
+        }
         _recordPanel(args['event'], args['reason']);
       case 'closed':
         // The native side waits for this before the app may quit.
@@ -493,4 +513,16 @@ class ConversationWindows extends ChangeNotifier {
     _showInMain.close();
     super.dispose();
   }
+}
+
+/// The quick panel's window and the server it was started for.
+class _QuickPanel {
+  _QuickPanel(this.id, this.baseUrl, this.createdAt);
+
+  final String id;
+  final String baseUrl;
+  final DateTime createdAt;
+
+  /// Whether its engine has started and shown the panel.
+  bool presented = false;
 }

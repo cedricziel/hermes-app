@@ -2,7 +2,7 @@ This change is two PRs. PR A (sections 1-2) ships the native panel host and the 
 
 ## 1. PR A: native panel host — `feat(macos): add a quick panel window`
 
-- [x] 1.1 Spike, with a failing native check first (Runner test or a scripted `scripts/dev-app.sh` screenshot when XCTest cannot host it): create a `desktop_multi_window` window marked `kind: panel`, re-parent its `FlutterViewController` into a non-activating floating `NSPanel` (`QuickPanel` in `MainFlutterWindow.swift`), hide and show it ten times, and confirm the engine and main channel survive. Fall back to `object_setClass` if re-parenting fails; record the choice in design.md.
+- [x] 1.1 Spike, with a failing native check first (Runner test or a scripted `scripts/dev-app.sh` screenshot when XCTest cannot host it): create a `desktop_multi_window` window marked `kind: panel`, re-parent its `FlutterViewController` into a non-activating floating `NSPanel` (`QuickPanel` in `MainFlutterWindow.swift`), hide and show it ten times, and confirm the engine and main channel survive. Fall back to `object_setClass` if re-parenting fails; record the choice in design.md. (Done as a scripted check, not a committed test; see the verify-in-app skill.)
 - [x] 1.2 Failing Dart tests first: panel launch args (`kind: panel`) round-trip in `conversation_window_args.dart`; `ConversationWindows` skips the panel in persistence and the Window menu, answers `profile.current` from `ChatProfiles`, and closes the panel on sign-out. Implement.
 - [x] 1.3 Register `RecordPlugin` and `HermesSpeechPlugin` in `QuickPanel` only; keep `ConversationWindow.registerPlugins` unchanged. Comment why.
 

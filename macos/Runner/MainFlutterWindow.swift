@@ -145,10 +145,14 @@ final class WindowKeyObserver {
     observers = [
       center.addObserver(
         forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
-      ) { _ in channel.invokeMethod("keyChanged", arguments: true) },
+      ) { _ in
+        if !QuickPanel.switchingKey { channel.invokeMethod("keyChanged", arguments: true) }
+      },
       center.addObserver(
         forName: NSWindow.didResignKeyNotification, object: window, queue: .main
-      ) { _ in channel.invokeMethod("keyChanged", arguments: false) },
+      ) { _ in
+        if !QuickPanel.switchingKey { channel.invokeMethod("keyChanged", arguments: false) }
+      },
     ]
   }
 
@@ -291,6 +295,10 @@ final class ConversationWindow: NSObject {
         return result(nil)
       }
       Self.open.removeValue(forKey: ObjectIdentifier(window))
+      if Self.closeOnPresent.take(windowId) {
+        window.close()
+        return result(nil)
+      }
       QuickPanel.adopt(windowId: windowId, controller: controller, window: window)
       result(nil)
     case "setTitle":
