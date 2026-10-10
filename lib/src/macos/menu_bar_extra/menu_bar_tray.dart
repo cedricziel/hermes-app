@@ -8,11 +8,14 @@ import 'menu_bar_menu.dart';
 /// The menu bar item as the app sees it: what to show, and what the user did.
 abstract interface class MenuBarTray {
   /// Shows the item with [state]'s icon and [items] as its menu, or removes
-  /// it when not [visible].
+  /// it when not [visible]. An [urgent] update replaces a menu that is open
+  /// instead of waiting for it to close: the app just locked, and the open
+  /// menu still shows what the lock hides.
   Future<void> update({
     required bool visible,
     required MenuBarIconState state,
     required List<MenuBarItem> items,
+    bool urgent = false,
   });
 
   /// The keys of the items the user picks.
@@ -51,8 +54,10 @@ class ChannelMenuBarTray implements MenuBarTray {
     required bool visible,
     required MenuBarIconState state,
     required List<MenuBarItem> items,
+    bool urgent = false,
   }) => _channel.invokeMethod<void>('update', {
     'visible': visible,
+    'urgent': urgent,
     'state': state.name,
     'items': [for (final item in items) item.toJson()],
   });

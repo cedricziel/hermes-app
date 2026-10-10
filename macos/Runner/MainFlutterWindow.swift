@@ -478,8 +478,14 @@ final class MenuBarStatusItem: NSObject, NSMenuDelegate {
 
   private func update(_ args: [String: Any]) {
     if menuOpen {
-      deferred = args
-      return
+      // A lock cannot wait: the open menu would keep showing what it hides.
+      guard args["urgent"] as? Bool == true else {
+        deferred = args
+        return
+      }
+      menu.cancelTracking()
+      menuOpen = false
+      deferred = nil
     }
     guard args["visible"] as? Bool == true else { return hide() }
     let item = self.item ?? NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)

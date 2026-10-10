@@ -53,6 +53,7 @@ void main() {
     expect(calls.single.method, 'update');
     expect(calls.single.arguments, {
       'visible': true,
+      'urgent': false,
       'state': 'attention',
       'items': [
         {
@@ -84,6 +85,17 @@ void main() {
         },
       ],
     });
+  });
+
+  test('marks an update the open menu must not outlast', () async {
+    await tray.update(
+      visible: true,
+      state: MenuBarIconState.idle,
+      items: const [],
+      urgent: true,
+    );
+
+    expect((calls.single.arguments as Map)['urgent'], isTrue);
   });
 
   test('passes on the picks and openings the runner reports', () async {

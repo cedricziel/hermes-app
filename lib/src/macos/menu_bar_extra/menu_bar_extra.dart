@@ -135,12 +135,18 @@ class MenuBarExtra {
         listEquals(inFlight, _shownInFlight)) {
       return;
     }
+    // Only the move into the lock cannot wait for an open menu to close.
+    final urgent = locked && !_locked;
     _locked = locked;
     _shownInFlight = inFlight;
-    _send(visible: true, model: model);
+    _send(visible: true, model: model, urgent: urgent);
   }
 
-  void _send({required bool visible, required MenuBarExtraModel model}) {
+  void _send({
+    required bool visible,
+    required MenuBarExtraModel model,
+    bool urgent = false,
+  }) {
     _shown = visible;
     _model = model;
     final menu = visible
@@ -153,6 +159,7 @@ class MenuBarExtra {
             visible: visible,
             state: visible ? model.state : MenuBarIconState.idle,
             items: menu.items,
+            urgent: urgent,
           )
           .catchError((Object error) {
             debugPrint('Could not update the menu bar item: $error');

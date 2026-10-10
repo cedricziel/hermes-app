@@ -8,6 +8,7 @@ typedef TrayUpdate = ({
   bool visible,
   MenuBarIconState state,
   List<MenuBarItem> items,
+  bool urgent,
 });
 
 /// Stands in for the runner's status item: records what the app shows and
@@ -30,7 +31,13 @@ class FakeMenuBarTray implements MenuBarTray {
     required bool visible,
     required MenuBarIconState state,
     required List<MenuBarItem> items,
-  }) async => updates.add((visible: visible, state: state, items: items));
+    bool urgent = false,
+  }) async => updates.add((
+    visible: visible,
+    state: state,
+    items: items,
+    urgent: urgent,
+  ));
 
   /// The titles of the top-level items, separators left out.
   List<String> get titles => [

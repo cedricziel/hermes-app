@@ -614,6 +614,27 @@ void main() {
       expect(transport.approvalAnswers, isEmpty);
     });
 
+    test(
+      'locking is urgent so an open menu does not keep the titles',
+      () async {
+        connect();
+        startReply();
+        await raiseApproval();
+        expect(tray.updates.every((u) => !u.urgent), isTrue);
+
+        await lockApp();
+
+        expect(tray.last.urgent, isTrue);
+        expect(tray.titles, contains('Unlock Hermes…'));
+
+        authenticator.succeeds = true;
+        await tray.pick('Unlock Hermes…');
+        await pumpEventQueue();
+
+        expect(tray.last.urgent, isFalse);
+      },
+    );
+
     test('unlock leaves a fixed crumb', () async {
       connect();
       startReply();
