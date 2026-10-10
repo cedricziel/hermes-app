@@ -5,7 +5,8 @@ import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'input_card_frame.dart';
 
-const _labels = {
+/// The button text of each approval choice, here and in the Mac menu bar item.
+const approvalChoiceLabels = {
   'once': 'Allow once',
   'session': 'Allow for session',
   'always': 'Always allow',
@@ -22,6 +23,20 @@ const _outcomes = {
 /// Offered when the agent sends no choices, so the card never has no way to
 /// answer. Nothing broader than a single allow is granted by default.
 const _defaultChoices = ['once', 'deny'];
+
+/// The choices the card for [request] offers: what the agent listed, or the
+/// narrowest pair when it listed none.
+List<String> offeredApprovalChoices(ApprovalRequest request) =>
+    request.choices.isEmpty ? _defaultChoices : request.choices;
+
+/// Asks before an approval is answered "always", which grants more than the
+/// command in front of the user.
+Future<bool> confirmAlwaysAllow(BuildContext context) => showConfirmDialog(
+  context,
+  title: 'Always allow this?',
+  message: 'Hermes will run matching commands without asking again.',
+  confirmLabel: 'Yes, always allow',
+);
 
 const kAnswerFailedMessage = 'Could not send your answer. Try again.';
 
@@ -51,7 +66,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
       _error = null;
     });
     try {
-      if (choice == 'always' && !await _confirmAlways()) return;
+      if (choice == 'always' && !await confirmAlwaysAllow(context)) return;
       if (!mounted) return;
       await widget.onAnswer!(choice);
     } on Object catch (_) {
@@ -61,20 +76,11 @@ class _ApprovalCardState extends State<ApprovalCard> {
     }
   }
 
-  Future<bool> _confirmAlways() async {
-    return showConfirmDialog(
-      context,
-      title: 'Always allow this?',
-      message: 'Hermes will run matching commands without asking again.',
-      confirmLabel: 'Yes, always allow',
-    );
-  }
-
   Widget _button(String choice) {
     final onPressed = _busy || widget.onAnswer == null
         ? null
         : () => _choose(choice);
-    final label = Text(_labels[choice] ?? choice);
+    final label = Text(approvalChoiceLabels[choice] ?? choice);
     return switch (choice) {
       'once' => FilledButton.tonal(onPressed: onPressed, child: label),
       'deny' => TextButton(onPressed: onPressed, child: label),
@@ -117,10 +123,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final choice
-                    in request.choices.isEmpty
-                        ? _defaultChoices
-                        : request.choices)
+                for (final choice in offeredApprovalChoices(request))
                   _button(choice),
               ],
             ),
