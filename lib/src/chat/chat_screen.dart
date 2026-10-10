@@ -1139,6 +1139,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   thread: selected,
                   displayTitle: bot?.title,
                   housekeeping: chat.housekeeping,
+                  onShowConnection: _showConnection,
                   onNewChat: _newThread,
                 ),
           onLoadOlder: selected == null || !chat.hasOlder(selected.id)
