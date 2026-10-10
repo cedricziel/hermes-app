@@ -1,0 +1,3 @@
+// Only the Flutter version variables, so the extension carries the version of
+// the watch app it ships inside.
+#include "../Flutter/Generated.xcconfig"
