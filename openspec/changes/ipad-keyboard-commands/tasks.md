@@ -8,8 +8,8 @@ One PR, `feat(ios): add Hermes commands to the iPad menu bar`. Wave 1, independe
 
 ## 2. Shared layout (refactor, then TDD)
 
-- [ ] 2.1 Refactor: move the menu table out of `macMenus` into `menuLayout` (`MenuSection`, `MenuEntry` with a platform set); `macMenus` renders it. `test/macos/mac_menu_bar_test.dart` passes unchanged.
-- [ ] 2.2 Write failing tests that the iPad layout lists exactly the spec's sections, items and chords, has no duplicate chord, and binds none of ⌘C, ⌘V, ⌘X, ⌘A, ⌘Z, ⇧⌘Z, ⌘⌫. Mark the entries; verify.
+- [x] 2.1 Refactor: move the menu table out of `macMenus` into `menuLayout` (`MenuSection`, `MenuEntry` with a platform set); `macMenus` renders it. `test/macos/mac_menu_bar_test.dart` passes unchanged.
+- [x] 2.2 Write failing tests that the iPad layout lists exactly the spec's sections, items and chords, has no duplicate chord, and binds none of ⌘C, ⌘V, ⌘X, ⌘A, ⌘Z, ⇧⌘Z, ⌘⌫. Mark the entries; verify.
 
 ## 3. Bridge (TDD)
 
