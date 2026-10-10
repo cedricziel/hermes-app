@@ -26,6 +26,7 @@ class WatchRequestHandler {
     this.ready = _alreadyReady,
     this.sendTimeout = const Duration(seconds: 60),
     this.announce = _ignore,
+    this.transcribeOnDevice,
   });
 
   /// What the watch is told when the agent asks for something only the phone's
@@ -65,6 +66,10 @@ class WatchRequestHandler {
   /// Tells the user a turn they sent from the watch is over. The watch may
   /// have lost sight of it by then, so it is called whatever the phone shows.
   final void Function(AttentionNotification notification) announce;
+
+  /// What the phone's own recognizer heard in a voice message, or null when
+  /// it is not the one to transcribe it; the server transcribes it then.
+  final Future<String?> Function(Uint8List audio)? transcribeOnDevice;
 
   static void _ignore(AttentionNotification _) {}
 
@@ -147,12 +152,23 @@ class WatchRequestHandler {
     }
     final repo = repository();
     if (repo == null) return _noSession();
+    final heard = await _heardOnDevice(audio);
+    if (heard != null) return {'ok': true, 'text': heard, 'engine': 'device'};
     final text = await repo.transcribe(
       audio,
       mimeType: mimeType,
       profile: await activeProfile(),
     );
-    return {'ok': true, 'text': text};
+    return {'ok': true, 'text': text, 'engine': 'hermes'};
+  }
+
+  /// A recognizer failure is no answer: the server gets the recording then.
+  Future<String?> _heardOnDevice(Uint8List audio) async {
+    try {
+      return await transcribeOnDevice?.call(audio);
+    } on Object {
+      return null;
+    }
   }
 
   Future<Map<String, Object?>> _send(Object? threadId, Object? text) async {

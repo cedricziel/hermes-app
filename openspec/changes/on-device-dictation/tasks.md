@@ -132,3 +132,12 @@ A review of PR 5 after it merged found two bugs and a handful of rough edges.
 
   Each has a controller, composer or waveform test.
 
+## 7. PR 7: `feat(watch): transcribe voice messages on the phone`
+
+The watch cannot run `SpeechAnalyzer` (no Speech framework in the watchOS SDK), but its recordings already reach the phone.
+
+- [x] 7.1 Add `transcribeFile` to `hermes_speech` (whole recording through `AVAudioFile`, `unsupported`/`modelMissing`/`failed` codes) and `OnDeviceSpeech.transcribeFile`, with channel tests. Check it on macOS with a 12 kbps AAC clip like the watch's.
+- [x] 7.2 Write failing `WatchRequestHandler` tests: the phone's text is used without a server request, a decline or failure falls back to the server, signed out stays `signed_out`. Implement `transcribeOnDevice`.
+- [x] 7.3 Write failing `WatchBridge` tests: the device engine transcribes in the device language, the Hermes engine declines, an unloaded setting is read first, and `watch.transcribe_engine` is recorded. Wire `OnDeviceSpeech` and `DictationSettings` in `main.dart`.
+- [ ] 7.4 On a paired iPhone and watch: a voice message with the phone in front, and with the phone locked and the app suspended (does `SpeechAnalyzer` run when the watch wakes the app in the background?).
+

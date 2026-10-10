@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
+import 'package:hermes_app/src/voice/dictation_settings.dart';
+import 'package:hermes_app/src/voice/on_device_speech.dart';
 import 'package:hermes_app/src/watch/watch_bridge.dart';
 import 'package:hermes_app/src/watch/watch_request_handler.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -182,6 +184,71 @@ void main() {
     });
   }
 
+  test('records which engine transcribed a voice message', () async {
+    bridge.dispose();
+    bridge = WatchBridge(
+      events: events.call,
+      authState: () => 'ready',
+      handler: _ReplyHandler({'ok': true, 'text': 'Hi', 'engine': 'device'}),
+    )..start();
+
+    expect(await fromNative('request', {'op': 'transcribe'}), {
+      'ok': true,
+      'text': 'Hi',
+    });
+    expect(events.named('watch.request.completed').single, {
+      'watch.operation': 'transcribe',
+      'auth.state': 'ready',
+      'watch.result': 'ok',
+      'watch.duration_ms': isNonNegative,
+      'watch.transcribe_engine': 'device',
+    });
+  });
+
+  group('onDeviceTranscriber', () {
+    final audio = Uint8List.fromList([1, 2, 3]);
+    late _FakeSpeech speech;
+
+    setUp(() {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      speech = _FakeSpeech();
+    });
+
+    test('transcribes in the device language for the device engine', () async {
+      final dictation = DictationSettings();
+      await dictation.setEngine(DictationEngine.device);
+
+      final text = await WatchBridge.onDeviceTranscriber(speech, dictation)(
+        audio,
+      );
+
+      expect(text, 'Remind me to call Sam');
+      expect(speech.files, [(audio, OnDeviceSpeech.deviceLocale())]);
+    });
+
+    test('leaves the recording to the server for the Hermes engine', () async {
+      final dictation = DictationSettings();
+      await dictation.setEngine(DictationEngine.hermes);
+
+      expect(
+        await WatchBridge.onDeviceTranscriber(speech, dictation)(audio),
+        isNull,
+      );
+      expect(speech.files, isEmpty);
+    });
+
+    test('reads the saved engine first when the app just woke', () async {
+      await DictationSettings().setEngine(DictationEngine.device);
+      final dictation = DictationSettings();
+
+      await WatchBridge.onDeviceTranscriber(speech, dictation)(audio);
+
+      expect(dictation.loaded, isTrue);
+      expect(speech.files, hasLength(1));
+    });
+  });
+
   group('announcer', () {
     const notification = AttentionNotification(
       threadId: 's1',
@@ -266,4 +333,17 @@ class _ReplyHandler extends WatchRequestHandler {
   @override
   Future<Map<String, Object?>> handle(Map<Object?, Object?> request) async =>
       reply;
+}
+
+class _FakeSpeech extends OnDeviceSpeech {
+  final files = <(Uint8List, String)>[];
+
+  @override
+  Future<String> transcribeFile(
+    Uint8List audio, {
+    required String locale,
+  }) async {
+    files.add((audio, locale));
+    return 'Remind me to call Sam';
+  }
 }

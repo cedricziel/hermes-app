@@ -317,7 +317,11 @@ void main() {
         'mimeType': 'audio/mp4',
       });
 
-      expect(reply, {'ok': true, 'text': 'Remind me to call Sam'});
+      expect(reply, {
+        'ok': true,
+        'text': 'Remind me to call Sam',
+        'engine': 'hermes',
+      });
       final request = server.requestsTo('POST', '/api/audio/transcribe').single;
       expect(request.queryParameters['profile'], 'work');
       expect(jsonDecode(request.data as String), {
@@ -338,7 +342,7 @@ void main() {
         'mimeType': 'audio/mp4',
       });
 
-      expect(reply, {'ok': true, 'text': ''});
+      expect(reply, {'ok': true, 'text': '', 'engine': 'hermes'});
     });
 
     test('refuses a request without audio', () async {
@@ -372,6 +376,82 @@ void main() {
       });
 
       expect(reply, {'ok': false, 'error': 'failed'});
+    });
+
+    group('on the device', () {
+      late List<Uint8List> heard;
+      late Future<String?> Function() answer;
+
+      setUp(() {
+        heard = [];
+        answer = () async => 'Remind me to call Sam';
+        handler = WatchRequestHandler(
+          repository: () =>
+              signedOut ? null : HermesChatRepository(server.client().raw),
+          transport: () => transport,
+          activeProfile: () async => profile,
+          transcribeOnDevice: (audio) {
+            heard.add(audio);
+            return answer();
+          },
+        );
+      });
+
+      Future<Map<String, Object?>> transcribe() => handler.handle({
+        'op': 'transcribe',
+        'audio': audio,
+        'mimeType': 'audio/mp4',
+      });
+
+      test('returns what the phone heard without asking the server', () async {
+        expect(await transcribe(), {
+          'ok': true,
+          'text': 'Remind me to call Sam',
+          'engine': 'device',
+        });
+        expect(heard, [audio]);
+        expect(server.requests, isEmpty);
+      });
+
+      test('returns empty text when the phone heard no speech', () async {
+        answer = () async => '';
+
+        expect(await transcribe(), {
+          'ok': true,
+          'text': '',
+          'engine': 'device',
+        });
+        expect(server.requests, isEmpty);
+      });
+
+      for (final (name, fails) in [
+        ('declines', () async => null),
+        ('fails', () async => throw StateError('modelMissing')),
+      ]) {
+        test(
+          'sends the recording to the server when the phone $name',
+          () async {
+            answer = fails;
+            server.on('POST', '/api/audio/transcribe', {
+              'ok': true,
+              'transcript': 'Remind me to call Sam',
+            });
+
+            expect(await transcribe(), {
+              'ok': true,
+              'text': 'Remind me to call Sam',
+              'engine': 'hermes',
+            });
+          },
+        );
+      }
+
+      test('answers a signed-out phone with signed_out', () async {
+        signedOut = true;
+
+        expect(await transcribe(), {'ok': false, 'error': 'signed_out'});
+        expect(heard, isEmpty);
+      });
     });
   });
 

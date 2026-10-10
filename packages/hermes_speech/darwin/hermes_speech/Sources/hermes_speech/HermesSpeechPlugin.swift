@@ -8,7 +8,8 @@ import Speech
 #endif
 
 /// Recognizes speech on the device with SpeechAnalyzer, from 16-bit mono PCM
-/// the app records itself. Errors reach Dart only as fixed codes
+/// the app records itself or from a whole recording. Errors reach Dart only as
+/// fixed codes
 /// (`unsupported`, `modelMissing`, `failed`), never as recognizer text.
 public final class HermesSpeechPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
   public static func register(with registrar: FlutterPluginRegistrar) {
@@ -87,6 +88,11 @@ public final class HermesSpeechPlugin: NSObject, FlutterPlugin, FlutterStreamHan
           result(FlutterError(code: "failed", message: nil, details: nil))
         }
       }
+    case "transcribeFile":
+      let audio = (args["audio"] as? FlutterStandardTypedData)?.data
+      Task { @MainActor in
+        result(await Self.transcribeFile(audio, locale: args["locale"] as? String))
+      }
     case "cancel":
       if let id = args["id"] as? Int { sessions.removeValue(forKey: id)?.cancel() }
       result(nil)
@@ -97,11 +103,13 @@ public final class HermesSpeechPlugin: NSObject, FlutterPlugin, FlutterStreamHan
 
   // MARK: Model
 
-  private static func transcriber(_ tag: String?) async -> SpeechTranscriber? {
+  private static func transcriber(
+    _ tag: String?, preset: SpeechTranscriber.Preset = .progressiveTranscription
+  ) async -> SpeechTranscriber? {
     guard SpeechTranscriber.isAvailable, let tag,
       let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: tag))
     else { return nil }
-    return SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+    return SpeechTranscriber(locale: locale, preset: preset)
   }
 
   /// `unsupported`, `missing`, `downloading` or `installed`.
@@ -132,6 +140,33 @@ public final class HermesSpeechPlugin: NSObject, FlutterPlugin, FlutterStreamHan
       try await request.downloadAndInstall()
       sink?(["type": "progress", "fraction": 1.0])
       return nil
+    } catch {
+      return FlutterError(code: "failed", message: nil, details: nil)
+    }
+  }
+
+  // MARK: Recordings
+
+  /// Everything heard in [audio], a recording in any format AVAudioFile reads.
+  @MainActor
+  private static func transcribeFile(_ audio: Data?, locale tag: String?) async -> Any? {
+    guard let audio, let transcriber = await transcriber(tag, preset: .transcription) else {
+      return FlutterError(code: "unsupported", message: nil, details: nil)
+    }
+    guard await AssetInventory.status(forModules: [transcriber]) == .installed else {
+      return FlutterError(code: "modelMissing", message: nil, details: nil)
+    }
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: url) }
+    do {
+      try audio.write(to: url)
+      let file = try AVAudioFile(forReading: url)
+      let analyzer = SpeechAnalyzer(modules: [transcriber])
+      async let text = transcriber.results.reduce(into: "") { text, result in
+        if result.isFinal { text += String(result.text.characters) }
+      }
+      try await analyzer.start(inputAudioFile: file, finishAfterFile: true)
+      return try await text
     } catch {
       return FlutterError(code: "failed", message: nil, details: nil)
     }

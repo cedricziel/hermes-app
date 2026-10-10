@@ -106,7 +106,7 @@ The recognizer takes the PCM `record` already captures, instead of opening the m
 
 - **iOS and macOS:** the new local plugin and the regenerated plugin registrants. No entitlement change: the microphone entitlement and `NSMicrophoneUsageDescription` exist already. The model download goes through the system, and the 1.1 spike confirms it works under the Release sandbox.
 - **Android, Windows and Linux:** no change. The plugin declares only iOS and macOS, and the setting is hidden there.
-- **watchOS:** none.
+- **watchOS:** the watchOS SDK has no Speech framework, so the watch cannot run the recognizer. Its voice messages already travel to the phone as AAC (`transcribe`), and the phone now transcribes them with the same engine as its own dictation: `transcribeFile` hands the whole recording to `SpeechAnalyzer` through `AVAudioFile` (`.transcription` preset, finals only), and anything it cannot do falls back to Hermes. There is no language detection on either side: `SpeechTranscriber` takes one locale, the device's. The watch app itself is unchanged.
 
 ## Spike findings (macOS 27, Xcode 27, unsandboxed command-line build)
 

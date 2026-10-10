@@ -128,6 +128,38 @@ void main() {
     });
   });
 
+  group('transcribeFile', () {
+    final audio = Uint8List.fromList([1, 2, 3]);
+
+    test('answers the trimmed text heard in the recording', () async {
+      answers['transcribeFile'] = (_) => ' Remind me to call Sam ';
+
+      final text = await OnDeviceSpeech().transcribeFile(
+        audio,
+        locale: 'de-DE',
+      );
+
+      expect(text, 'Remind me to call Sam');
+      expect(calls.single.arguments, {'audio': audio, 'locale': 'de-DE'});
+    });
+
+    test('reports a missing model by its code', () async {
+      answers['transcribeFile'] = (_) =>
+          throw PlatformException(code: 'modelMissing');
+
+      await expectLater(
+        OnDeviceSpeech().transcribeFile(audio, locale: 'de-DE'),
+        throwsA(
+          isA<OnDeviceSpeechException>().having(
+            (e) => e.code,
+            'code',
+            'modelMissing',
+          ),
+        ),
+      );
+    });
+  });
+
   group('session', () {
     late OnDeviceSpeech speech;
 
