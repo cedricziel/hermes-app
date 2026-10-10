@@ -167,11 +167,8 @@ class MacProfileDetail extends StatelessWidget {
                   subtitle: profile.description.isEmpty
                       ? null
                       : profile.description,
-                  leading: GroupedTile(
-                    child: ExcludeSemantics(
-                      child: Text(initialsOf(profile.label)),
-                    ),
-                  ),
+                  subtitleMaxLines: null,
+                  leading: GroupedTile(child: Text(initialsOf(profile.label))),
                 ),
                 if (path != null && path.isNotEmpty)
                   Padding(
