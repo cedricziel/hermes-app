@@ -359,8 +359,8 @@ SendPort? _lookupApp() =>
     IsolateNameServer.lookupPortByName(kRequestAnswersPort);
 
 /// Answers in the iOS background isolate when the app's own isolate is not
-/// running. One sign-in serves every answer of the isolate, and answers go
-/// one at a time, so two of them never refresh the token pair at once.
+/// running. Answers go one at a time, so two of them never refresh the token
+/// pair at once.
 class LoneAnswerer {
   LoneAnswerer({
     AuthController Function()? createAuth,
@@ -374,7 +374,6 @@ class LoneAnswerer {
   final AuthController Function() _createAuth;
   final ChatTransport? Function(AuthController auth) _transportFor;
   final NotificationService _notifications;
-  AuthController? _auth;
   Future<void> _last = Future.value();
 
   Future<AnswerOutcome> answer(NotificationAnswer answer, DateTime deadline) {
@@ -383,15 +382,23 @@ class LoneAnswerer {
     return run;
   }
 
-  Future<AnswerOutcome> _answer(NotificationAnswer answer, DateTime deadline) {
-    final auth = _auth ??= _createAuth();
-    return RequestAnswerSender(
-      transport: () => _transportFor(auth),
-      notifications: _notifications,
-      ready: () async {
-        if (auth.state != HermesConnectionState.ready) await auth.bootstrap();
-      },
-    ).send(answer, route: 'background', deadline: deadline);
+  /// Each answer starts from the saved server and session as they are now:
+  /// a controller kept from an earlier answer would miss a sign-out or a
+  /// switch to another server meanwhile.
+  Future<AnswerOutcome> _answer(
+    NotificationAnswer answer,
+    DateTime deadline,
+  ) async {
+    final auth = _createAuth();
+    try {
+      return await RequestAnswerSender(
+        transport: () => _transportFor(auth),
+        notifications: _notifications,
+        ready: auth.bootstrap,
+      ).send(answer, route: 'background', deadline: deadline);
+    } finally {
+      auth.dispose();
+    }
   }
 }
 

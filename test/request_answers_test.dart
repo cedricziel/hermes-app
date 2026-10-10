@@ -299,7 +299,7 @@ void main() {
     );
 
     test(
-      'two answers at once share one sign-in and go one at a time',
+      'two answers at once go one at a time, each signed in afresh',
       () async {
         var signIns = 0;
         final lone = LoneAnswerer(
@@ -322,7 +322,7 @@ void main() {
         expect(await first, AnswerOutcome.ok);
         expect(await second, AnswerOutcome.ok);
         expect(transport.openAnswers, hasLength(2));
-        expect(signIns, 1);
+        expect(signIns, 2);
       },
     );
   });
