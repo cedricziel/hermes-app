@@ -57,6 +57,22 @@ Future<void> _settleIo(WidgetTester tester, {int rounds = 8}) async {
   }
 }
 
+/// Gives real I/O wall-clock time until [done] holds, so a busy machine
+/// fails only after [timeout], not after a fixed guess.
+Future<void> _waitUntil(
+  WidgetTester tester,
+  bool Function() done, {
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (!done() && DateTime.now().isBefore(deadline)) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 25)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 /// A picture with something in it, so a thumbnail is worth looking at.
 Future<Uint8List> _picture(int w, int h, Color a, Color b) async {
   final recorder = ui.PictureRecorder();
@@ -501,10 +517,7 @@ void main() {
       await shots.capture(tester, 'file-downloading');
 
       gate.complete();
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 200)),
-      );
-      await tester.pump(const Duration(milliseconds: 50));
+      await _waitUntil(tester, () => actions.opened.isNotEmpty);
       expect(actions.opened, hasLength(1));
 
       await tester.runAsync(() async {
