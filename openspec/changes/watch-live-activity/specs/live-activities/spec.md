@@ -2,7 +2,7 @@
 
 ### Requirement: Watch Smart Stack presentation
 
-On iOS 18 and watchOS 11 or later, the activity SHALL declare a compact `small` presentation, which watchOS shows in the Smart Stack of a paired Apple Watch. It SHALL show the Hermes icon in the state's tint, the chat's title on one line, one short state word and, in the working state, the time since the send. The state word SHALL be "Working" for working, "Waiting for you" for an approval request, a question or a request that needs the user in Hermes, "Done" for a ready reply and "Failed" for a failed one. The presentation SHALL follow "Nothing sensitive on a locked device": it SHALL NOT show reply text, reasoning, tool names or arguments, the command of an approval, the text of a question or the name of a secret. The system SHALL start an activity only for a reply sent from the phone; a turn sent from the watch SHALL get none, because the phone app handles it in the background, where iOS does not allow an activity to start.
+On iOS 18 and watchOS 11 or later, the activity SHALL declare a compact `small` presentation, which watchOS shows in the Smart Stack of a paired Apple Watch. It SHALL show the Hermes icon in the state's tint, the chat's title on one line, one short state word and, in the working state, the time since the send. While the activity is stale and the reply has not finished, it SHALL show "Open Hermes" in place of the state word and the time. The state word SHALL be "Working" for working, "Waiting for you" for an approval request, a question or a request that needs the user in Hermes, "Done" for a ready reply and "Failed" for a failed one. The presentation SHALL follow "Nothing sensitive on a locked device": it SHALL NOT show reply text, reasoning, tool names or arguments, the command of an approval, the text of a question or the name of a secret. The system SHALL start an activity only for a reply sent from the phone; a turn sent from the watch SHALL get none, because the phone app handles it in the background, where iOS does not allow an activity to start.
 
 #### Scenario: Working reply
 
@@ -18,6 +18,11 @@ On iOS 18 and watchOS 11 or later, the activity SHALL declare a compact `small` 
 
 - **WHEN** the reply completes
 - **THEN** the card shows "Done" and no counter
+
+#### Scenario: Stale activity
+
+- **WHEN** the activity has gone stale while the reply had not finished, because iOS suspended the app
+- **THEN** the card shows "Open Hermes" instead of the state word and the counter, as the Lock Screen does
 
 #### Scenario: Turn sent from the watch
 

@@ -140,7 +140,7 @@ struct ActivityContent: View {
 
   var body: some View {
     switch family {
-    case .small: SmallView(reply: reply)
+    case .small: SmallView(reply: reply, stale: stale)
     default: LockScreenView(reply: reply, stale: stale)
     }
   }
@@ -149,6 +149,7 @@ struct ActivityContent: View {
 /// The watch Smart Stack card: icon, chat title, a short state word and the timer.
 struct SmallView: View {
   let reply: ReplyActivity
+  let stale: Bool
 
   var body: some View {
     HStack(spacing: 8) {
@@ -157,7 +158,9 @@ struct SmallView: View {
         .foregroundStyle(reply.tint)
       VStack(alignment: .leading, spacing: 0) {
         Text(reply.title).font(.headline).lineLimit(1)
-        if reply.working {
+        if stale && !reply.finished {
+          Text("Open Hermes").font(.caption).foregroundStyle(.secondary)
+        } else if reply.working {
           HStack(spacing: 4) {
             Text(reply.shortLabel)
             ElapsedTime(since: reply.startedAt, width: 44)
