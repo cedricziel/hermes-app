@@ -57,6 +57,10 @@ final class QuickPanel: NSObject, NSWindowDelegate {
   private let hostWindow: NSWindow
   private let channel: FlutterMethodChannel
   private var shown = false
+
+  /// Set by Dart while the panel's own file dialog, microphone prompt or
+  /// recording has the focus; losing it then does not hide the panel.
+  private var held = false
   private weak var controller: FlutterViewController?
   private var activeObservers: [NSObjectProtocol] = []
 
@@ -137,6 +141,14 @@ final class QuickPanel: NSObject, NSWindowDelegate {
     case "hidePanel":
       hide(reason: call.arguments as? String ?? "escape")
       result(nil)
+    case "holdPanel":
+      held = call.arguments as? Bool ?? false
+      // Back from our own dialog the panel takes the keys again; if the user
+      // went to another app meanwhile, it hides as it would have.
+      if !held && shown && !panel.isKeyWindow {
+        if NSApp.isActive { panel.makeKey() } else { hide(reason: "focus_lost") }
+      }
+      result(nil)
     case "resizePanel":
       if let height = call.arguments as? Double { resize(to: CGFloat(height)) }
       result(nil)
@@ -197,7 +209,19 @@ final class QuickPanel: NSObject, NSWindowDelegate {
   }
 
   func windowDidResignKey(_ notification: Notification) {
-    hide(reason: "focus_lost")
+    // The key window moves once this returns; look then.
+    DispatchQueue.main.async { [weak self] in
+      guard let self, self.shown, !self.panel.isKeyWindow, !self.keepsFocusHere else { return }
+      self.hide(reason: "focus_lost")
+    }
+  }
+
+  /// Whether the focus went to something the panel opened: a sheet on it, a
+  /// modal of this app, an open or save dialog, or what Dart holds it for.
+  private var keepsFocusHere: Bool {
+    if held || panel.attachedSheet != nil || NSApp.modalWindow != nil { return true }
+    guard let key = NSApp.keyWindow else { return false }
+    return key is NSOpenPanel || key is NSSavePanel || key.sheetParent === panel
   }
 
   /// Grows or shrinks the panel to [height], at most 60% of its screen,

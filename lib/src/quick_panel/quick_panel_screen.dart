@@ -8,18 +8,18 @@ import '../chat/attachments/attachment_surface.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
 import '../chat/chat_models.dart';
+import '../chat/chat_thread_bindings.dart';
 import '../chat/chat_transport.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../chat/widgets/chat_composer.dart';
 import '../chat/widgets/chat_composer_builder.dart';
-import '../chat/widgets/chat_thread_view.dart';
-import '../chat/widgets/message_actions.dart' show TurnActionStatus;
 import '../models/hermes_models_repository.dart';
-import '../models/widgets/composer_model_pill.dart';
 import '../notifications/attention_notifier.dart';
+import '../profiles/hermes_profiles_repository.dart';
 import '../share/shared_item.dart';
 import '../voice/composer_dictation.dart';
+import '../voice/dictation_controller.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/dictation_view.dart';
 import '../voice/on_device_speech.dart';
@@ -31,12 +31,14 @@ import 'widgets/quick_panel_view.dart';
 
 /// The quick panel's content (macOS): one chat on the main window's current
 /// profile. Each show continues the chat when it was used in the last five
-/// minutes on that profile, and otherwise starts empty.
+/// minutes on that profile, and otherwise starts empty. The unsent draft
+/// and picked files stay across hides.
 class QuickPanelScreen extends StatefulWidget {
   const QuickPanelScreen({
     super.key,
     required this.link,
     required this.chat,
+    this.profiles,
     this.models,
     this.transport,
     this.attachmentSource,
@@ -48,6 +50,9 @@ class QuickPanelScreen extends StatefulWidget {
 
   final QuickPanelLink link;
   final HermesChatRepository chat;
+
+  /// The sticky active profile, for when the main window names none.
+  final HermesProfilesRepository? profiles;
   final HermesModelsRepository? models;
   final ChatTransport? transport;
 
@@ -76,16 +81,26 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
   final _composerController = TextEditingController();
   final _composerFocus = FocusNode();
   final _attachments = <SharedFile>[];
-  final _latestReplyId = ValueNotifier<String?>(null);
-  final _turnActionStatus = ValueNotifier(TurnActionStatus.idle);
+  final _latestReply = LatestReply();
   final _compactKey = GlobalKey();
   final _subscriptions = <StreamSubscription<void>>[];
 
-  /// Whether threads were loaded for the profile the chat is on.
+  /// The profile the main window named on the last show, and whether its
+  /// chats loaded. Nothing is sent until they have: a send would go to the
+  /// wrong profile.
+  String? _profile;
   var _loaded = false;
+  var _loading = false;
+  var _loadFailed = false;
+
+  /// A send asked for while the profile was loading; it goes out once the
+  /// load is done.
+  var _sendWhenLoaded = false;
+  var _dictating = false;
   double? _height;
 
   QuickPanelLink get _link => widget.link;
+  DictationController? get _voice => _dictation?.controller;
 
   @override
   void initState() {
@@ -97,12 +112,16 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
     );
     _chat = ChatController(
       repository: widget.chat,
+      profiles: widget.profiles,
       models: widget.models,
       transport: widget.transport,
       attention: _attention,
       report: _showMessage,
     )..addListener(_changed);
-    _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
+    _attachmentSource = _HeldAttachmentSource(
+      widget.attachmentSource ?? PluginAttachmentSource(),
+      _link.hold,
+    );
     if (widget.voiceRecorder case final recorder?) {
       _dictation = ComposerDictation(
         repository: widget.chat,
@@ -114,48 +133,77 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
         settings: widget.dictationSettings,
         onDevice: widget.onDevice,
       );
-      _dictation!.controller.addListener(_rebuild);
+      _voice!.addListener(_onVoice);
     }
     _subscriptions
       ..add(_link.shown.listen((_) => unawaited(_onShown())))
-      ..add(_link.hidden.listen((_) => _dictation?.controller.cancel()));
+      ..add(_link.hidden.listen((_) => _voice?.cancel()))
+      ..add(
+        _link.commands.listen((command) {
+          if (command == 'stopDictation') unawaited(_voice?.cancel());
+        }),
+      );
     // Listening first: presenting shows the panel.
     unawaited(_link.present());
   }
 
   Future<void> _onShown() async {
     _composerFocus.requestFocus();
+    // Another engine may have changed it since the last show.
+    unawaited(widget.dictationSettings?.load());
+    _chat.checkConnection();
     final profile = await _link.currentProfile();
     if (!mounted) return;
-    final continued = _session.resume(profile) && _chat.selectedThread != null;
+    final thread = _chat.selectedThread;
+    final continued = _session.resume(profile) && thread != null;
     _link.reportChat(continued: continued);
-    if (continued) return;
-    if (!_loaded || profile != _chat.profile) {
-      _loaded = true;
-      await _chat.loadThreads(profile);
-      if (!mounted) return;
-      unawaited(_dictation?.configure(profile));
+    if (continued) {
+      if (thread.remote) unawaited(_chat.refreshThread(thread.id));
+      return;
     }
-    _startEmpty();
-  }
-
-  void _startEmpty() {
     _chat.clearSelection();
-    setState(() {
-      _composerController.clear();
-      _attachments.clear();
-    });
-    _composerFocus.requestFocus();
+    if (!_loaded || profile != _profile) await _load(profile);
   }
 
-  void _rebuild() {
+  Future<void> _load(String? profile) async {
+    _profile = profile;
+    setState(() {
+      _loaded = false;
+      _loading = true;
+      _loadFailed = false;
+    });
+    await _chat.loadThreads(profile);
+    if (!mounted || _profile != profile) return;
+    final loaded = !_chat.threadsFailed;
+    setState(() {
+      _loading = false;
+      _loaded = loaded;
+      _loadFailed = !loaded;
+    });
+    if (!loaded) return;
+    unawaited(_dictation?.configure(_chat.profile));
+    if (_sendWhenLoaded) {
+      _sendWhenLoaded = false;
+      _send(_composerController.text);
+    }
+  }
+
+  /// Keeps the panel up while a recording starts (the first one asks for
+  /// the microphone) and runs, and tells the main window to stop its own.
+  void _onVoice() {
+    final dictating = _voice!.busy;
+    if (dictating != _dictating) {
+      _dictating = dictating;
+      unawaited(_link.hold(dictating));
+      if (dictating) _link.reportDictating();
+    }
     if (mounted) setState(() {});
   }
 
   void _changed() {
     if (!mounted) return;
-    if (_chat.selectedThread case final thread?
-        when thread.messages.isNotEmpty) {
+    // Reply events keep the chat going; reloads and model options do not.
+    if (_chat.selectedThread?.isReplying ?? false) {
       _session.touch(_chat.profile);
     }
     setState(() {});
@@ -192,10 +240,16 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
   }
 
   void _send(String text) {
+    if (_loading) {
+      _sendWhenLoaded = true;
+      return;
+    }
+    if (!_loaded) return;
     final typed = text.trim();
     final files = List.of(_attachments);
     if (typed.isEmpty && files.isEmpty) return;
     if (!_chat.submit(typed, files)) return;
+    _session.touch(_chat.profile);
     setState(() {
       _composerController.clear();
       _attachments.clear();
@@ -203,15 +257,15 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
   }
 
   void _addAttachments(List<SharedFile> files) {
-    final added = files.where((f) => !_attachments.contains(f)).toList();
+    final added = newAttachments(_attachments, files);
     if (added.isEmpty) return;
     setState(() => _attachments.addAll(added));
   }
 
   void _escape() {
-    final dictation = _dictation?.controller;
-    if (dictation != null && dictation.busy) {
-      unawaited(dictation.cancel());
+    final voice = _voice;
+    if (voice != null && voice.busy) {
+      unawaited(voice.cancel());
       return;
     }
     unawaited(_link.hide('escape'));
@@ -224,7 +278,9 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
 
   /// Moves the chat, with what the composer holds, to a conversation window
   /// and starts the next show empty. The panel hides first, so the window
-  /// coming forward does not count as the panel losing focus.
+  /// coming forward does not count as the panel losing focus. A window that
+  /// already showed the chat takes no draft, so the panel keeps it; a move
+  /// that failed keeps the chat too.
   Future<void> _openInHermes() async {
     final thread = _savedThread;
     if (thread == null) return;
@@ -233,49 +289,29 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
       files: List.of(_attachments),
     );
     await _link.hide('open_in_hermes');
-    await _link.showInWindow(
+    final move = await _link.showInWindow(
       threadId: thread.id,
       profile: _chat.profile,
       title: thread.title,
       draft: draft.isEmpty ? null : draft,
     );
-    if (!mounted) return;
+    if (!mounted || move == WindowMove.failed) return;
     _session.clear();
-    _startEmpty();
-  }
-
-  void _followLatestReply(ChatThread? thread) {
-    final id = latestFinishedReplyId(thread);
-    final status = thread == null
-        ? TurnActionStatus.idle
-        : _chat.turnActionStatus(thread);
-    if (_latestReplyId.value == id && _turnActionStatus.value == status) {
-      return;
+    _chat.clearSelection();
+    if (move == WindowMove.opened) {
+      setState(() {
+        _composerController.clear();
+        _attachments.clear();
+      });
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _latestReplyId.value = id;
-      _turnActionStatus.value = status;
-    });
-  }
-
-  Widget? _modelPill() {
-    final options = _chat.modelOptions;
-    if (options == null || options.providers.isEmpty) return null;
-    return ComposerModelPill(
-      options: options,
-      choice: _chat.modelChoice,
-      onChanged: _chat.chooseModel,
-    );
   }
 
   DictationView? _dictationView() {
-    final dictation = _dictation?.controller;
-    if (dictation == null || !dictation.available) return null;
+    final voice = _voice;
+    if (voice == null || !voice.available) return null;
     return DictationView.of(
-      dictation,
-      onSend: () =>
-          sendAfterDictation(dictation, _composerController, _send, null),
+      voice,
+      onSend: () => sendAfterDictation(voice, _composerController, _send, null),
     );
   }
 
@@ -288,70 +324,20 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
       ..removeListener(_changed)
       ..dispose();
     _attention.dispose();
-    _dictation?.controller.removeListener(_rebuild);
+    _voice?.removeListener(_onVoice);
     _dictation?.dispose();
     _composerController.dispose();
     _composerFocus.dispose();
-    _latestReplyId.dispose();
-    _turnActionStatus.dispose();
+    _latestReply.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final chat = _chat;
-    final thread = chat.selectedThread;
-    _followLatestReply(thread);
-    _fit();
-    final Widget body;
-    if (thread != null && _expanded) {
-      body = ChatThreadView(
-        thread: thread,
-        chatController: chat.controllerFor(thread),
-        composerController: _composerController,
-        composerFocus: _composerFocus,
-        dictation: _dictation?.controller,
-        attachments: _attachments,
-        attachmentSource: _attachmentSource,
-        onAddAttachments: _addAttachments,
-        onRemoveAttachment: (file) => setState(() => _attachments.remove(file)),
-        onSend: _send,
-        onPickStarter: (_) {},
-        latestReplyId: _latestReplyId,
-        turnActionStatus: _turnActionStatus,
-        welcome: false,
-        modelPill: _modelPill(),
-        botContext: thread.botContext,
-        onLoadOlder: chat.hasOlder(thread.id)
-            ? () => chat.loadOlder(thread.id)
-            : null,
-        onRetry: chat.lastPromptText(thread) == null
-            ? null
-            : () => chat.retry(thread),
-        onAnswerApproval: (id, choice) =>
-            chat.answerApproval(thread, id, choice),
-        onAnswerClarify: (id, answers) =>
-            chat.answerClarify(thread, id, answers),
-        onSkipUnsupported: (id, kind) => chat.skipUnsupported(thread, id, kind),
-        onAnswerVault:
-            (id, kind, {identifier = '', password = '', code = ''}) =>
-                chat.answerVaultRequest(
-                  thread,
-                  id,
-                  kind,
-                  identifier: identifier,
-                  password: password,
-                  code: code,
-                ),
-        onStop: chat.transport == null ? null : () => chat.stopReply(thread),
-        queued: chat.queuedIn(thread),
-        onRemoveQueued: (prompt) => chat.removeQueued(thread, prompt),
-        onSendQueued: chat.queuePaused(thread)
-            ? () => chat.sendQueued(thread)
-            : null,
-      );
-    } else {
-      body = Padding(
+  Widget _compact() => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (_loadFailed) _LoadFailed(onRetry: () => unawaited(_load(_profile))),
+      Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: AttachmentSurface(
           source: _attachmentSource,
@@ -364,8 +350,63 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
             attachments: _attachments,
             onRemoveAttachment: (file) =>
                 setState(() => _attachments.remove(file)),
-            modelPill: _modelPill(),
+            modelPill: composerModelPill(_chat),
             dictation: _dictationView(),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final chat = _chat;
+    final thread = chat.selectedThread;
+    _latestReply.follow(chat, thread);
+    _fit();
+    final saved = _savedThread;
+    final open = saved == null ? null : () => unawaited(_openInHermes());
+    final Widget content;
+    if (thread != null && _expanded) {
+      content = QuickPanelView(
+        title: saved?.title,
+        onOpenInHermes: open,
+        child: boundChatThreadView(
+          chat: chat,
+          thread: thread,
+          composerController: _composerController,
+          composerFocus: _composerFocus,
+          dictation: _voice,
+          attachments: _attachments,
+          attachmentSource: _attachmentSource,
+          onAddAttachments: _addAttachments,
+          onRemoveAttachment: (file) =>
+              setState(() => _attachments.remove(file)),
+          onSend: _send,
+          latestReply: _latestReply,
+          welcome: false,
+        ),
+      );
+    } else {
+      // Unbounded in height, so the measured size is what the content
+      // needs, not what the panel has now.
+      content = OverflowBox(
+        alignment: Alignment.topCenter,
+        maxHeight: double.infinity,
+        child: NotificationListener<SizeChangedLayoutNotification>(
+          // A taller prompt or a row of attachments grows the panel.
+          onNotification: (_) {
+            _fit();
+            return true;
+          },
+          child: SizeChangedLayoutNotifier(
+            key: _compactKey,
+            child: QuickPanelView(
+              title: saved?.title,
+              onOpenInHermes: open,
+              compact: true,
+              child: _compact(),
+            ),
           ),
         ),
       );
@@ -376,23 +417,76 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
         const SingleActivator(LogicalKeyboardKey.keyO, meta: true): () =>
             unawaited(_openInHermes()),
       },
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: KeyedSubtree(
-            key: _expanded ? null : _compactKey,
-            child: QuickPanelView(
-              title: _savedThread?.title,
-              onOpenInHermes: _savedThread == null
-                  ? null
-                  : () => unawaited(_openInHermes()),
-              compact: !_expanded,
-              child: body,
+      child: Scaffold(backgroundColor: Colors.transparent, body: content),
+    );
+  }
+}
+
+/// The panel's chats did not load, so it cannot send yet.
+class _LoadFailed extends StatelessWidget {
+  const _LoadFailed({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Could not load your chats.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
             ),
           ),
-        ),
+          TextButton(onPressed: onRetry, child: const Text('Try Again')),
+        ],
       ),
     );
   }
+}
+
+/// Holds the panel open while a file dialog has the focus.
+class _HeldAttachmentSource implements AttachmentSource {
+  _HeldAttachmentSource(this._source, this._hold);
+
+  final AttachmentSource _source;
+  final Future<void> Function(bool held) _hold;
+
+  @override
+  List<AttachOrigin> get origins => _source.origins;
+
+  @override
+  bool get acceptsDrops => _source.acceptsDrops;
+
+  @override
+  Future<List<SharedFile>> pick(AttachOrigin origin) async {
+    await _hold(true);
+    try {
+      return await _source.pick(origin);
+    } finally {
+      unawaited(_hold(false));
+    }
+  }
+
+  @override
+  Widget dropTarget({
+    required Widget child,
+    required ValueChanged<bool> onHover,
+    required ValueChanged<List<SharedFile>> onDrop,
+  }) => _source.dropTarget(child: child, onHover: onHover, onDrop: onDrop);
+
+  @override
+  Future<bool> hasFilesToPaste() => _source.hasFilesToPaste();
+
+  @override
+  Future<List<SharedFile>> pasted() => _source.pasted();
+
+  @override
+  Future<List<SharedFile>> inserted(KeyboardInsertedContent content) =>
+      _source.inserted(content);
 }

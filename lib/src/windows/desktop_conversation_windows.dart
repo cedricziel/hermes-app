@@ -285,7 +285,7 @@ abstract interface class QuickPanelLink {
 
   /// Opens [threadId] in a conversation window, with [draft] in its
   /// composer, or focuses the window that shows it.
-  Future<void> showInWindow({
+  Future<WindowMove> showInWindow({
     required String threadId,
     required String? profile,
     required String title,
@@ -295,12 +295,28 @@ abstract interface class QuickPanelLink {
   /// Tells the main window, for its breadcrumbs, whether a show continued
   /// the chat.
   void reportChat({required bool continued});
+
+  /// What the main window asks of the panel: `stopDictation` when it starts
+  /// recording itself.
+  Stream<String> get commands;
+
+  /// Tells the main window the panel started recording, so it stops its own.
+  void reportDictating();
+
+  /// Keeps the panel up while [held], when its own file dialog or a
+  /// permission prompt takes the focus.
+  Future<void> hold(bool held);
 }
 
 /// [QuickPanelLink] for the panel window [windowId]. Tells the main window
 /// each time the panel shows or hides, for its breadcrumbs.
 class DesktopQuickPanelLink implements QuickPanelLink {
   DesktopQuickPanelLink(this.windowId) {
+    unawaited(
+      _windowChannel(windowId).setMethodCallHandler((call) async {
+        _commands.add(call.method);
+      }),
+    );
     _nativeWindow.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'panelShown':
@@ -316,6 +332,7 @@ class DesktopQuickPanelLink implements QuickPanelLink {
   final String windowId;
   final _shown = StreamController<void>.broadcast();
   final _hidden = StreamController<void>.broadcast();
+  final _commands = StreamController<String>.broadcast();
 
   Future<T?> _main<T>(String method, [Map<String, Object?> args = const {}]) =>
       _mainChannel.invokeMethod<T>(method, {'window_id': windowId, ...args});
@@ -360,21 +377,40 @@ class DesktopQuickPanelLink implements QuickPanelLink {
       _askHeaders(windowId, rejected);
 
   @override
-  Future<void> showInWindow({
+  Future<WindowMove> showInWindow({
     required String threadId,
     required String? profile,
     required String title,
     ConversationDraft? draft,
-  }) => DesktopConversationWindowLink._quietly(
-    _main<void>('panel.showInWindow', {
-      'thread_id': threadId,
-      'profile': profile,
-      'title': title,
-      'draft': ?draft?.toJson(),
-    }),
-  );
+  }) async {
+    try {
+      final move = await _main<String>('panel.showInWindow', {
+        'thread_id': threadId,
+        'profile': profile,
+        'title': title,
+        'draft': ?draft?.toJson(),
+      });
+      return WindowMove.values.asNameMap()[move] ?? WindowMove.failed;
+    } on Object catch (error) {
+      debugPrint('The main window did not open the chat: $error');
+      return WindowMove.failed;
+    }
+  }
 
   @override
   void reportChat({required bool continued}) =>
       _report({'event': 'chat', 'continued': continued});
+
+  @override
+  Stream<String> get commands => _commands.stream;
+
+  @override
+  void reportDictating() => unawaited(
+    DesktopConversationWindowLink._quietly(_main<void>('panel.dictating')),
+  );
+
+  @override
+  Future<void> hold(bool held) => DesktopConversationWindowLink._quietly(
+    _nativeWindow.invokeMethod<void>('holdPanel', held),
+  );
 }

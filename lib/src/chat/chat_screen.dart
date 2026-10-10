@@ -200,6 +200,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   ConversationWindows? _windows;
   StreamSubscription<void>? _mainFocused;
 
+  /// The quick panel and this window never record at once: whichever starts
+  /// last stops the other.
+  StreamSubscription<void>? _panelTookVoice;
+  var _recording = false;
+
   /// The last thread picked in the sidebar and when, to tell a double-click.
   ({String id, DateTime at})? _lastPick;
 
@@ -319,6 +324,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _absorbShared(held: true);
     _windows = _maybeRead<ConversationWindows?>()?..addListener(_advertise);
     _mainFocused = _windows?.mainFocused.listen((_) => _refreshFromWindows());
+    _panelTookVoice = _windows?.panelTookVoice.listen(
+      (_) => _dictation?.cancel(),
+    );
+    _dictation?.addListener(_takeVoice);
+  }
+
+  void _takeVoice() {
+    final recording = _dictation!.busy;
+    if (recording && !_recording) unawaited(_windows?.stopPanelDictation());
+    _recording = recording;
   }
 
   /// Shows a chat where it already is: in its conversation window when one is
@@ -664,6 +679,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
     _mainFocused?.cancel();
+    _panelTookVoice?.cancel();
     _windows?.removeListener(_advertise);
     _attention.dispose();
     _chat

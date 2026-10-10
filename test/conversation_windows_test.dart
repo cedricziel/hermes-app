@@ -489,7 +489,7 @@ void main() {
     test('Open in Hermes opens the chat in a window with its draft', () async {
       await windows.togglePanel();
 
-      await host.call('panel.showInWindow', {
+      final move = await host.call('panel.showInWindow', {
         'window_id': 'p0',
         'thread_id': 's1',
         'profile': 'work',
@@ -504,6 +504,7 @@ void main() {
       );
       expect(host.drafts.values.single?.text, 'and then?');
       expect(events, ['panel.opened_in_window {}']);
+      expect(move, 'opened');
     });
 
     test(
@@ -512,7 +513,7 @@ void main() {
         await windows.open('s1', profile: 'work', title: 'Plan');
         await windows.togglePanel();
 
-        await host.call('panel.showInWindow', {
+        final move = await host.call('panel.showInWindow', {
           'window_id': 'p1',
           'thread_id': 's1',
           'profile': 'work',
@@ -521,8 +522,37 @@ void main() {
 
         expect(host.created, hasLength(1));
         expect(host.focused, ['w0']);
+        expect(move, 'focused', reason: 'the window took no draft');
       },
     );
+
+    test('Open in Hermes without a connection fails', () async {
+      await windows.togglePanel();
+      connection = null;
+
+      final move = await host.call('panel.showInWindow', {
+        'window_id': 'p0',
+        'thread_id': 's1',
+        'profile': 'work',
+        'title': 'Plan',
+      });
+
+      expect(move, 'failed');
+    });
+
+    test('the panel and the main window never record at once', () async {
+      var stopped = 0;
+      windows.panelTookVoice.listen((_) => stopped++);
+      await windows.togglePanel();
+      await host.present('p0');
+
+      await host.call('panel.dictating', {'window_id': 'p0'});
+      await pumpEventQueue();
+      await windows.stopPanelDictation();
+
+      expect(stopped, 1);
+      expect(host.commands, [('p0', 'stopDictation')]);
+    });
 
     test('only the panel may open a chat in a window this way', () async {
       await windows.togglePanel();

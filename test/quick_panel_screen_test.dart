@@ -10,6 +10,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/quick_panel/quick_panel_screen.dart';
 import 'package:hermes_app/src/quick_panel/widgets/quick_panel_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -28,12 +29,26 @@ class _FakePanelLink implements QuickPanelLink {
   final chats = <bool>[];
   final shownIn = StreamController<void>.broadcast(sync: true);
   final hiddenIn = StreamController<void>.broadcast(sync: true);
+  final commandsIn = StreamController<String>.broadcast(sync: true);
+  final holds = <bool>[];
+  var dictatingReports = 0;
+  WindowMove move = WindowMove.opened;
   ({String threadId, String? profile, String title, String? draft})? opened;
 
   void dispose() {
     shownIn.close();
     hiddenIn.close();
+    commandsIn.close();
   }
+
+  @override
+  Stream<String> get commands => commandsIn.stream;
+
+  @override
+  Future<void> hold(bool held) async => holds.add(held);
+
+  @override
+  void reportDictating() => dictatingReports++;
 
   @override
   Stream<void> get shown => shownIn.stream;
@@ -61,7 +76,7 @@ class _FakePanelLink implements QuickPanelLink {
       const {};
 
   @override
-  Future<void> showInWindow({
+  Future<WindowMove> showInWindow({
     required String threadId,
     required String? profile,
     required String title,
@@ -74,6 +89,7 @@ class _FakePanelLink implements QuickPanelLink {
       title: title,
       draft: draft?.text,
     );
+    return move;
   }
 
   @override
@@ -97,15 +113,28 @@ void main() {
         'stt': {'mode': 'relay', 'reason': 'local provider'},
         'tts': {'mode': 'relay'},
       })
-      ..on('GET', '/api/model/options', {'detail': 'boom'}, status: 500);
+      ..on('GET', '/api/model/options', {'detail': 'boom'}, status: 500)
+      ..on('GET', '/api/sessions/s9', sessionRow(id: 's9', title: 'Today'))
+      ..on(
+        'GET',
+        '/api/sessions/s9/messages',
+        messageListBody('s9', [
+          messageRow(id: 1, role: 'user', content: 'What is due today?'),
+          messageRow(id: 2, role: 'assistant', content: 'Two reviews'),
+        ]),
+      );
     link = _FakePanelLink();
     transport = FakeChatTransport();
     recorder = FakeVoiceRecorder();
     addTearDown(link.dispose);
   });
 
-  Future<void> pump(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(680, 540);
+  Future<void> pump(
+    WidgetTester tester, {
+    double height = 540,
+    DictationSettings? dictationSettings,
+  }) async {
+    tester.view.physicalSize = Size(680, height);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final api = server.client().raw;
@@ -119,6 +148,7 @@ void main() {
           transport: transport,
           attachmentSource: FakeAttachmentSource(),
           voiceRecorder: recorder,
+          dictationSettings: dictationSettings,
         ),
       ),
     );
@@ -272,4 +302,161 @@ void main() {
 
     expect(link.calls, isNot(contains('showInWindow')));
   });
+
+  testWidgets('typing and Return during the first load keep the draft and '
+      'send once the profile has loaded', (tester) async {
+    final loaded = Completer<void>();
+    server.onRequest('GET', '/api/sessions', (_) async {
+      await loaded.future;
+      return (status: 200, body: sessionListBody(const []));
+    });
+    await pump(tester);
+    link.shownIn.add(null);
+    await tester.pump();
+
+    await tester.enterText(composerField, 'Quick one');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(transport.sends, isEmpty);
+    expect(_draft(tester), 'Quick one');
+
+    loaded.complete();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    final send = transport.sends.single;
+    expect((send.text, send.profile), ('Quick one', 'work'));
+  });
+
+  testWidgets('a failed load offers a retry and refuses to send', (
+    tester,
+  ) async {
+    server.on('GET', '/api/sessions', {'detail': 'down'}, status: 500);
+    await pump(tester);
+    await show(tester);
+
+    expect(find.text('Could not load your chats.'), findsOneWidget);
+    await tester.enterText(composerField, 'Hello?');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(transport.sends, isEmpty);
+    expect(_draft(tester), 'Hello?');
+
+    server.on('GET', '/api/sessions', sessionListBody(const []));
+    await tester.tap(find.text('Try Again'));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not load your chats.'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(transport.sends.single.profile, 'work');
+  });
+
+  testWidgets('hiding during a dictation releases the microphone', (
+    tester,
+  ) async {
+    await pump(tester);
+    await show(tester);
+    await tester.tap(find.bySemanticsLabel('Dictate'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(recorder.recording, isTrue);
+    expect(link.dictatingReports, 1);
+
+    await link.hide('focus_lost');
+    await tester.pumpAndSettle();
+
+    expect(recorder.recording, isFalse);
+  });
+
+  testWidgets('the main window taking the microphone stops the panel\'s', (
+    tester,
+  ) async {
+    await pump(tester);
+    await show(tester);
+    await tester.tap(find.bySemanticsLabel('Dictate'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    link.commandsIn.add('stopDictation');
+    await tester.pumpAndSettle();
+
+    expect(recorder.recording, isFalse);
+  });
+
+  testWidgets('the draft stays across a hide that started nothing', (
+    tester,
+  ) async {
+    await pump(tester);
+    await show(tester);
+    await tester.enterText(composerField, 'half a thought');
+
+    await link.hide('focus_lost');
+    await show(tester);
+
+    expect(_draft(tester), 'half a thought');
+  });
+
+  testWidgets('before the first send the panel grows with the prompt', (
+    tester,
+  ) async {
+    await pump(tester, height: 168);
+    await show(tester);
+    final small = link.heights.last;
+
+    await tester.enterText(composerField, List.filled(8, 'line').join('\n'));
+    await tester.pumpAndSettle();
+
+    expect(link.heights.last, greaterThan(small));
+    expect(link.heights.last, greaterThan(168));
+  });
+
+  testWidgets('every show checks the connection', (tester) async {
+    await pump(tester);
+    await show(tester);
+    await show(tester);
+
+    expect(transport.connectionChecks, 2);
+  });
+
+  testWidgets('a show reads the Dictation setting again', (tester) async {
+    final settings = DictationSettings();
+    await pump(tester, dictationSettings: settings);
+    await show(tester);
+    await DictationSettings().setEngine(DictationEngine.device);
+
+    await show(tester);
+
+    expect(settings.engine, DictationEngine.device);
+  });
+
+  testWidgets('a chat a window already shows keeps the panel\'s draft', (
+    tester,
+  ) async {
+    await pump(tester);
+    await show(tester);
+    (await ask(tester, 'Plan the trip'))
+      ..emit(const ThreadBound('s9'))
+      ..emit(const ReplyCompleted('Lisbon'));
+    await tester.pumpAndSettle();
+    await tester.enterText(composerField, 'and Porto?');
+    link.move = WindowMove.focused;
+
+    await tester.tap(find.text('Open in Hermes'));
+    await tester.pumpAndSettle();
+
+    expect(_draft(tester), 'and Porto?');
+  });
+
+  testWidgets('picking files holds the panel open', (tester) async {
+    await pump(tester);
+    await show(tester);
+
+    await tester.tap(find.bySemanticsLabel('Add attachment'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+
+    expect(link.holds, [true, false]);
+  });
 }
+
+String _draft(WidgetTester tester) =>
+    tester.widget<EditableText>(composerField).controller.text;

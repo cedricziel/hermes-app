@@ -61,6 +61,7 @@ Future<void> runQuickPanel(String windowId, QuickPanelLaunch launch) async {
           home: QuickPanelScreen(
             link: link,
             chat: repositories.chat,
+            profiles: repositories.profiles,
             models: repositories.models,
             transport: transport,
             voiceRecorder: RecordVoiceRecorder(),

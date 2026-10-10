@@ -7,13 +7,11 @@ import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
 import '../chat/chat_models.dart';
+import '../chat/chat_thread_bindings.dart';
 import '../chat/chat_transport.dart';
 import '../chat/hermes_chat_repository.dart';
-import '../chat/widgets/chat_thread_view.dart';
-import '../chat/widgets/message_actions.dart' show TurnActionStatus;
 import '../chat/widgets/thread_actions_menu.dart';
 import '../models/hermes_models_repository.dart';
-import '../models/widgets/composer_model_pill.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../share/shared_item.dart';
@@ -62,8 +60,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   );
   final _composerFocus = FocusNode();
   late final _attachments = <SharedFile>[...?widget.draft?.files];
-  final _latestReplyId = ValueNotifier<String?>(null);
-  final _turnActionStatus = ValueNotifier(TurnActionStatus.idle);
+  final _latestReply = LatestReply();
   final _subscriptions = <StreamSubscription<Object?>>[];
 
   /// Whether the chat was shown; once it is, losing it (deleted or archived)
@@ -170,21 +167,6 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     });
   }
 
-  void _followLatestReply(ChatThread? thread) {
-    final id = latestFinishedReplyId(thread);
-    final status = thread == null
-        ? TurnActionStatus.idle
-        : _chat.turnActionStatus(thread);
-    if (_latestReplyId.value == id && _turnActionStatus.value == status) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _latestReplyId.value = id;
-      _turnActionStatus.value = status;
-    });
-  }
-
   String? _subtitle() {
     final model = (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
     final parts = [?_args.profile, ?model];
@@ -202,8 +184,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     _attention.dispose();
     _composerController.dispose();
     _composerFocus.dispose();
-    _latestReplyId.dispose();
-    _turnActionStatus.dispose();
+    _latestReply.dispose();
     super.dispose();
   }
 
@@ -211,8 +192,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   Widget build(BuildContext context) {
     final chat = _chat;
     final thread = _thread;
-    final modelOptions = chat.modelOptions;
-    _followLatestReply(thread);
+    _latestReply.follow(chat, thread);
     final toolbar = ConversationWindowToolbar(
       title: thread?.title ?? _args.title,
       subtitle: _subtitle(),
@@ -233,58 +213,21 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     );
     final Widget body;
     if (thread != null) {
-      body = ChatThreadView(
+      body = boundChatThreadView(
+        chat: chat,
         thread: thread,
-        chatController: chat.controllerFor(thread),
         composerController: _composerController,
         composerFocus: _composerFocus,
         attachments: _attachments,
         attachmentSource: _attachmentSource,
         onAddAttachments: (files) {
-          final added = files.where((f) => !_attachments.contains(f));
+          final added = newAttachments(_attachments, files);
           if (added.isEmpty) return;
-          setState(() => _attachments.addAll(added.toList()));
+          setState(() => _attachments.addAll(added));
         },
         onRemoveAttachment: (file) => setState(() => _attachments.remove(file)),
         onSend: _send,
-        onPickStarter: (_) {},
-        latestReplyId: _latestReplyId,
-        turnActionStatus: _turnActionStatus,
-        modelPill: modelOptions == null || modelOptions.providers.isEmpty
-            ? null
-            : ComposerModelPill(
-                options: modelOptions,
-                choice: chat.modelChoice,
-                onChanged: chat.chooseModel,
-              ),
-        onRetry: chat.lastPromptText(thread) == null
-            ? null
-            : () => chat.retry(thread),
-        onLoadOlder: chat.hasOlder(thread.id)
-            ? () => chat.loadOlder(thread.id)
-            : null,
-        onAnswerApproval: (id, choice) =>
-            chat.answerApproval(thread, id, choice),
-        onAnswerClarify: (id, answers) =>
-            chat.answerClarify(thread, id, answers),
-        onSkipUnsupported: (id, kind) => chat.skipUnsupported(thread, id, kind),
-        onAnswerVault:
-            (id, kind, {identifier = '', password = '', code = ''}) =>
-                chat.answerVaultRequest(
-                  thread,
-                  id,
-                  kind,
-                  identifier: identifier,
-                  password: password,
-                  code: code,
-                ),
-        botContext: thread.botContext,
-        onStop: chat.transport == null ? null : () => chat.stopReply(thread),
-        queued: chat.queuedIn(thread),
-        onRemoveQueued: (prompt) => chat.removeQueued(thread, prompt),
-        onSendQueued: chat.queuePaused(thread)
-            ? () => chat.sendQueued(thread)
-            : null,
+        latestReply: _latestReply,
       );
     } else if (_opened) {
       // Gone (deleted or archived); the window is closing.

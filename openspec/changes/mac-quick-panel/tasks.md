@@ -27,3 +27,7 @@ This change is two PRs. PR A (sections 1-2) ships the native panel host and the 
 
 - [x] 5.1 Update CLAUDE.md (Conversation windows paragraph) and `.claude/skills/verify-in-app/SKILL.md` with how to record a shortcut (the native recorder) and check the panel over a full-screen app.
 - [ ] 5.2 Run `dart format`, `flutter analyze`, `flutter test`, build macOS (Release, sandboxed), and verify-in-app against `scripts/dev-backend.sh`: summon over another app and a full-screen app, send, dictate, continue within 5 minutes, start fresh after, Open in Hermes while streaming, Escape, sign out.
+
+## 6. Follow-up
+
+- [ ] 6.1 Move `ChatScreen` onto `ComposerDictation` (build one, call `configure(_chat.profile)` on profile changes and on resume, delete its inline `_refreshVoice`, `_downloadModel`, `_insertTranscript` and `_onDictation`), once the open changes to `chat_screen.dart` have landed. Switch its model pill to `composerModelPill` and its latest-reply tracking to `LatestReply` at the same time.

@@ -141,6 +141,18 @@ class ConversationWindows extends ChangeNotifier {
   final _subscriptions = <StreamSubscription<void>>[];
   final _mainFocused = StreamController<void>.broadcast();
   final _showInMain = StreamController<ConversationRef>.broadcast();
+  final _panelTookVoice = StreamController<void>.broadcast();
+
+  /// Fires when the quick panel starts recording, so the main window stops
+  /// its own dictation.
+  Stream<void> get panelTookVoice => _panelTookVoice.stream;
+
+  /// Stops the quick panel's dictation, as the main window starts its own.
+  Future<void> stopPanelDictation() async {
+    if (_panel case final panel? when panel.presented) {
+      await _host.command(panel.id, 'stopDictation');
+    }
+  }
 
   final _windows = <ConversationWindowEntry>[];
   List<ConversationWindowEntry> get windows => List.unmodifiable(_windows);
@@ -473,17 +485,25 @@ class ConversationWindows extends ChangeNotifier {
         // The panel has hidden itself; its chat goes on in a window.
         final threadId = args['thread_id'];
         final title = args['title'];
-        if (windowId != _panel?.id || threadId is! String) return null;
+        if (windowId != _panel?.id || threadId is! String) {
+          return WindowMove.failed.name;
+        }
         _events('panel.opened_in_window');
-        await open(
+        final profile = args['profile'] as String?;
+        final existed = windowFor(threadId, profile) != null;
+        final shown = await open(
           threadId,
-          profile: args['profile'] as String?,
+          profile: profile,
           title: title is String ? title : '',
           draft: switch (ConversationDraft.fromJson(args['draft'])) {
             final draft? when !draft.isEmpty => draft,
             _ => null,
           },
         );
+        if (!shown) return WindowMove.failed.name;
+        return (existed ? WindowMove.focused : WindowMove.opened).name;
+      case 'panel.dictating':
+        if (windowId == _panel?.id) _panelTookVoice.add(null);
       case 'closed':
         // The native side waits for this before the app may quit.
         if (windowId is String) await _drop(windowId);
@@ -532,6 +552,7 @@ class ConversationWindows extends ChangeNotifier {
     }
     _mainFocused.close();
     _showInMain.close();
+    _panelTookVoice.close();
     super.dispose();
   }
 }
