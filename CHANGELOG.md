@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.1.58](https://github.com/cedricziel/hermes-app/compare/v0.1.57...v0.1.58) (2026-10-10)
+
+
+### Features
+
+* **chat:** keep Connection details in the wide chat header ([#583](https://github.com/cedricziel/hermes-app/issues/583)) ([1e89c45](https://github.com/cedricziel/hermes-app/commit/1e89c456a7943cb79c8cc84a6b89976d51196983))
+* **chat:** put New Chat in the header's top-right corner ([#581](https://github.com/cedricziel/hermes-app/issues/581)) ([9ac974e](https://github.com/cedricziel/hermes-app/commit/9ac974e725056fd3fb900e14f27225c1430cc8a5))
+* **chat:** show retry and edit progress and failures on the reply ([#574](https://github.com/cedricziel/hermes-app/issues/574)) ([5351e9c](https://github.com/cedricziel/hermes-app/commit/5351e9cda8e0e5abe85d006ee3e44753a84c4caa))
+* **ios:** show a running reply on the watch Smart Stack ([#586](https://github.com/cedricziel/hermes-app/issues/586)) ([0a4a4e5](https://github.com/cedricziel/hermes-app/commit/0a4a4e540e7986a34f659fa49c7d4941a5548f23))
+* **macos:** add Ask Hermes to the Services menu ([#591](https://github.com/cedricziel/hermes-app/issues/591)) ([454a1bf](https://github.com/cedricziel/hermes-app/commit/454a1bf7e370f7690dc7ac73b1a1facf4a23fe1c))
+* **macos:** add New Chat and recent chats to the Dock menu ([#596](https://github.com/cedricziel/hermes-app/issues/596)) ([936c55a](https://github.com/cedricziel/hermes-app/commit/936c55a90513341ea6535a46d2bebc803bc8ecb7))
+* **macos:** keep running after the last window closes ([#590](https://github.com/cedricziel/hermes-app/issues/590)) ([93fb946](https://github.com/cedricziel/hermes-app/commit/93fb9467ca9907101f3eea2b4333d3d8c9356a07))
+* **macos:** open a quick panel with a global shortcut ([#592](https://github.com/cedricziel/hermes-app/issues/592)) ([c6cf7e7](https://github.com/cedricziel/hermes-app/commit/c6cf7e7249f4e861c1a75e098f5fe5081d209ff4))
+* **notifications:** answer approvals and questions from the notification ([#587](https://github.com/cedricziel/hermes-app/issues/587)) ([033a2f7](https://github.com/cedricziel/hermes-app/commit/033a2f7a715ebd38e9df6e773e1067cbb72a3155))
+* **telemetry:** log the step a chat send failed at ([#576](https://github.com/cedricziel/hermes-app/issues/576)) ([0b7030e](https://github.com/cedricziel/hermes-app/commit/0b7030e897f19cd6aceb739fcba0d64a3b7af1af))
+* **watch:** add quick replies and double tap to a chat ([#585](https://github.com/cedricziel/hermes-app/issues/585)) ([caecc19](https://github.com/cedricziel/hermes-app/commit/caecc19b2c16282fd9b327309a978a73852e6126))
+* **watch:** hand a watch chat off to the iPhone or Mac ([#593](https://github.com/cedricziel/hermes-app/issues/593)) ([a0216a6](https://github.com/cedricziel/hermes-app/commit/a0216a63d2f4de877c1018db6b0afa16e2946f99))
+* **watch:** render replies as Markdown and show what Hermes used ([#582](https://github.com/cedricziel/hermes-app/issues/582)) ([25617d1](https://github.com/cedricziel/hermes-app/commit/25617d1b9387137273c92bae2ef6dc4c4f962ce9))
+* **watch:** show saved chats at once and report requests that never reached the phone ([#584](https://github.com/cedricziel/hermes-app/issues/584)) ([4d9187a](https://github.com/cedricziel/hermes-app/commit/4d9187af52b6d6aade0c18f5216ed93e2c515bb3))
+* **watch:** transcribe voice messages on the phone ([#573](https://github.com/cedricziel/hermes-app/issues/573)) ([fc94472](https://github.com/cedricziel/hermes-app/commit/fc94472fb60a8ac6c6e89386997cabf6bf23ff12))
+
+
+### Bug Fixes
+
+* **app-lock:** hide content as soon as the app goes inactive on phones ([#570](https://github.com/cedricziel/hermes-app/issues/570)) ([8e20745](https://github.com/cedricziel/hermes-app/commit/8e20745d2586e3c713ecc498bf36ab0ec0d62f5f))
+* **chat:** retry a send whose socket or session would not open ([#579](https://github.com/cedricziel/hermes-app/issues/579)) ([80917c3](https://github.com/cedricziel/hermes-app/commit/80917c3393c672db739b6ba2a28d8b7aa08e780c))
+* **chat:** retry on a gateway that predates the undo intent ([#569](https://github.com/cedricziel/hermes-app/issues/569)) ([20ba846](https://github.com/cedricziel/hermes-app/commit/20ba846283086309e86cf563b54d7f7a70a2d1f0))
+* **chat:** say plainly why Try again or Edit failed ([#572](https://github.com/cedricziel/hermes-app/issues/572)) ([c4e3f87](https://github.com/cedricziel/hermes-app/commit/c4e3f87102e6d4e60d8503bbbffb07becd5873f4))
+* **notifications:** harden answering requests from notifications ([#589](https://github.com/cedricziel/hermes-app/issues/589)) ([8fb69c1](https://github.com/cedricziel/hermes-app/commit/8fb69c10a3ef86d965c97f536ceda7aac141ecad))
+* **watch:** give a watch voice message as long to transcribe as dictation ([#580](https://github.com/cedricziel/hermes-app/issues/580)) ([b58575b](https://github.com/cedricziel/hermes-app/commit/b58575b65b715aaf349203846219226d027d4a1b))
+* **watch:** keep a watch chat working after a profile switch ([#578](https://github.com/cedricziel/hermes-app/issues/578)) ([bbe4134](https://github.com/cedricziel/hermes-app/commit/bbe413411112163399ed9cd9e8c601a549d309cd))
+* **watch:** never send a retried watch message twice ([#577](https://github.com/cedricziel/hermes-app/issues/577)) ([ef60ad8](https://github.com/cedricziel/hermes-app/commit/ef60ad825bc5420e843f3a2121445c34639baad8))
+* **watch:** show what a turn that used tools said ([#575](https://github.com/cedricziel/hermes-app/issues/575)) ([0792d47](https://github.com/cedricziel/hermes-app/commit/0792d471c30be1add916c894270df4b1bea2a5d0))
+
+
+### Documentation
+
+* **openspec:** propose macOS integration changes ([#588](https://github.com/cedricziel/hermes-app/issues/588)) ([ed4020c](https://github.com/cedricziel/hermes-app/commit/ed4020c77c643d7b0f91eef61778d4993dc622de))
+
 ## [0.1.57](https://github.com/cedricziel/hermes-app/compare/v0.1.56...v0.1.57) (2026-10-10)
 
 
