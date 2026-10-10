@@ -43,7 +43,7 @@ public struct SurfaceSnapshot: Equatable, Sendable {
     self.signedIn = signedIn
     self.profile = profile
     self.profiles = profiles
-    self.recentChats = recentChats
+    self.recentChats = SurfaceSnapshot.newestFirstOnce(recentChats)
     self.pending = pending
     self.kanban = kanban
     self.schedules = schedules
@@ -60,19 +60,25 @@ public struct SurfaceSnapshot: Equatable, Sendable {
   public static func decode(_ json: String?) -> SurfaceSnapshot? {
     guard let data = json?.data(using: .utf8),
       let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-      root["version"] as? Int == 1,
+      SurfaceJSON.int(root["version"]) == 1,
       let updatedAt = SurfaceTime.parse(root["updatedAt"])
     else { return nil }
     return SurfaceSnapshot(
       updatedAt: updatedAt,
-      signedIn: root["signedIn"] as? Bool ?? false,
+      signedIn: SurfaceJSON.bool(root["signedIn"]) ?? false,
       profile: root["profile"] as? String,
       profiles: (root["profiles"] as? [Any])?.compactMap { $0 as? String } ?? [],
-      recentChats: rows(root["recentChats"], RecentChat.init(json:))
-        .sorted { $0.updatedAt > $1.updatedAt },
+      recentChats: rows(root["recentChats"], RecentChat.init(json:)),
       pending: rows(root["pending"], PendingRequest.init(json:)),
       kanban: KanbanSummary(json: root["kanban"]),
       schedules: ScheduleSummary(json: root["schedules"]))
+  }
+
+  /// Newest first, a chat listed twice once (its newest entry).
+  private static func newestFirstOnce(_ chats: [RecentChat]) -> [RecentChat] {
+    var seen = Set<String>()
+    return chats.sorted { $0.updatedAt > $1.updatedAt }
+      .filter { seen.insert("\($0.profile)/\($0.id)").inserted }
   }
 
   private static func rows<T>(_ json: Any?, _ read: ([String: Any]) -> T?) -> [T] {
@@ -182,8 +188,8 @@ public struct KanbanSummary: Equatable, Sendable {
 
   init?(json: Any?) {
     guard let json = json as? [String: Any],
-      let blocked = json["blocked"] as? Int,
-      let review = json["review"] as? Int
+      let blocked = SurfaceJSON.int(json["blocked"]),
+      let review = SurfaceJSON.int(json["review"])
     else { return nil }
     self.init(blocked: blocked, review: review)
   }
@@ -244,15 +250,36 @@ public struct ScheduleSummary: Equatable, Sendable {
   }
 }
 
+/// JSON numbers and booleans share a type in Foundation, so `true` would read
+/// as the number 1; these accept only a value of the kind asked for.
+enum SurfaceJSON {
+  static func int(_ value: Any?) -> Int? {
+    guard let number = value as? NSNumber, !isBool(number) else { return nil }
+    return value as? Int
+  }
+
+  static func bool(_ value: Any?) -> Bool? {
+    guard let number = value as? NSNumber, isBool(number) else { return nil }
+    return number.boolValue
+  }
+
+  private static func isBool(_ number: NSNumber) -> Bool {
+    CFGetTypeID(number) == CFBooleanGetTypeID()
+  }
+}
+
 enum SurfaceTime {
+  private static let plain = ISO8601DateFormatter()
+  private static let fractional: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
+
   /// The app writes whole seconds; fractional ones are read too.
   static func parse(_ value: Any?) -> Date? {
     guard let text = value as? String else { return nil }
-    let plain = ISO8601DateFormatter()
-    if let date = plain.date(from: text) { return date }
-    let fractional = ISO8601DateFormatter()
-    fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return fractional.date(from: text)
+    return plain.date(from: text) ?? fractional.date(from: text)
   }
 }
 

@@ -25,7 +25,7 @@ final class SurfaceSnapshotTests: XCTestCase {
     XCTAssertEqual(snapshot.profile, "default")
     XCTAssertEqual(snapshot.profiles, ["default", "work"])
 
-    XCTAssertEqual(snapshot.recentChats.map(\.title), ["Trip plan", "C++ review", "Groceries"])
+    XCTAssertEqual(snapshot.recentChats.map(\.title), ["Trip plan", "C++ review", "Compiler notes", "Groceries"])
     let first = snapshot.recentChats[0]
     XCTAssertEqual(first.id, "abc")
     XCTAssertEqual(first.profile, "default")
@@ -33,7 +33,12 @@ final class SurfaceSnapshotTests: XCTestCase {
     XCTAssertEqual(first.updatedAt, date("2026-10-10T11:50:00Z"))
     XCTAssertEqual(first.url.absoluteString, "hermes://chat?profile=default&id=abc")
     XCTAssertEqual(snapshot.recentChats[1].url.absoluteString, "hermes://chat?profile=work&id=w%201")
-    XCTAssertNil(snapshot.recentChats[2].snippet)
+    XCTAssertEqual(snapshot.recentChats[2].url.absoluteString, "hermes://chat?profile=default&id=c%2B%2B")
+    XCTAssertEqual(
+      URLComponents(url: snapshot.recentChats[2].url, resolvingAgainstBaseURL: false)?
+        .queryItems?.first { $0.name == "id" }?.value,
+      "c++")
+    XCTAssertNil(snapshot.recentChats[3].snippet)
 
     XCTAssertEqual(snapshot.pending.map(\.kind), [.approval, .question])
     XCTAssertEqual(snapshot.pending[1].threadTitle, "C++ review")
@@ -63,6 +68,40 @@ final class SurfaceSnapshotTests: XCTestCase {
 
   func testUnknownVersionIsUnreadable() {
     XCTAssertNil(SurfaceSnapshot.decode(#"{"version":2,"updatedAt":"2026-10-10T12:00:00Z","signedIn":true}"#))
+  }
+
+  func testVersionMustBeTheNumberOne() {
+    for version in ["true", "1.5", #""1""#, "null"] {
+      XCTAssertNil(
+        SurfaceSnapshot.decode(
+          #"{"version":\#(version),"updatedAt":"2026-10-10T12:00:00Z","signedIn":true}"#),
+        "version \(version)")
+    }
+  }
+
+  func testFlagsAndCountsMustBeOfTheirOwnType() throws {
+    let snapshot = try XCTUnwrap(
+      SurfaceSnapshot.decode(
+        #"{"version":1,"updatedAt":"2026-10-10T12:00:00Z","signedIn":1,"kanban":{"blocked":true,"review":2}}"#))
+    XCTAssertFalse(snapshot.signedIn)
+    XCTAssertNil(snapshot.kanban)
+  }
+
+  func testFallbackLinksAreTheOnesTheAppBuilds() throws {
+    let url = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appendingPathComponent("Fixtures/surface_fallback_urls.json")
+    let fallbacks = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: String])
+    XCTAssertEqual(
+      fallbacks,
+      [
+        "newChat": SurfaceFallbackURL.newChat.absoluteString,
+        "requests": SurfaceFallbackURL.requests.absoluteString,
+        "kanban": SurfaceFallbackURL.kanban.absoluteString,
+        "schedules": SurfaceFallbackURL.schedules.absoluteString,
+      ])
   }
 
   func testBadJSONIsUnreadable() {

@@ -30,7 +30,7 @@ This change creates `ios/HermesSurfaceKit`, the one Swift package the system sur
 - `profiles` is decoded too (empty when missing), so `app-intents` reads the same type.
 - `WidgetModels.swift`: pure functions from a snapshot and a date to what each widget shows: rows per family (small 1, medium 3, large 6 chats; medium Needs you 3 chats), the oldest request's URL, whether the snapshot is stale (`updatedAt` older than 6 h), fallback URLs (`hermes://requests`, `hermes://kanban`, `hermes://schedules`).
 
-The views (`RecentChatsWidget.swift`, `NeedsYouWidget.swift`, `BoardWidget.swift`, `SurfaceViews.swift`, `SurfaceProvider.swift`) are only in the extension target. The package's sources are compiled straight into the target, in the same module, so the views do not `import HermesSurfaceKit`. Decoding skips a row with no `hermes://` link (a snapshot link of another scheme is never followed), and a request kind this version does not know reads as `input`, so it still counts. CI's watch job gets a second step (`working-directory: ios/HermesSurfaceKit`, `swift test`).
+The views (`RecentChatsWidget.swift`, `NeedsYouWidget.swift`, `BoardWidget.swift`, `SurfaceViews.swift`, `SurfaceProvider.swift`) are only in the extension target. The package's sources are compiled straight into the target, in the same module, so the views do not `import HermesSurfaceKit`. Decoding skips a row with no `hermes://` link (a snapshot link of another scheme is never followed), and a request kind this version does not know reads as `input`, so it still counts. A chat listed twice shows once, `version`, counts and flags must be of their own JSON type (`true` is not 1), and a small Board widget that shows a failed job opens that job. CI's watch job gets a second step (`working-directory: ios/HermesSurfaceKit`, `swift test`).
 
 ### One timeline provider, reloaded by the app
 
@@ -76,7 +76,7 @@ None holds user content.
 - [Widgets show what the app last wrote] → the stale note after six hours; `background-refresh` narrows the gap.
 - [Snapshot schema drift between Dart and Swift] → `version` gate plus a Dart test that writes the fixture `test/fixtures/surface_snapshot_v1.json` the Swift tests also decode (copied into `ios/HermesSurfaceKit/Tests/Fixtures/`, checked equal by a Dart test).
 - [The target name no longer matches its content] → a comment at the bundle; renaming is not worth re-provisioning.
-- [Large widget with few chats looks empty] → fills with an "Open Hermes" row; accepted.
+- [Large widget with few chats looks empty] → fills with a "New chat" row that opens a new chat; accepted.
 
 ## Migration Plan
 

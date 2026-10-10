@@ -86,6 +86,21 @@ final class RecentChatsModelTests: XCTestCase {
     XCTAssertEqual(model.rows.map(\.profile), ["default"])
   }
 
+  func testAChatListedTwiceShowsOnce() {
+    let twice = [
+      chat("a", title: "Newer", minutesAgo: 1), chat("a", title: "Older", minutesAgo: 9), chat("b"),
+    ]
+    let model = RecentChatsModel(snapshot: snapshot(chats: twice), family: .medium, now: now)
+    XCTAssertEqual(model.rows.map(\.id), ["default/a", "default/b"])
+    XCTAssertEqual(model.rows[0].title, "Newer")
+  }
+
+  func testSameIdInAnotherProfileIsAnotherChat() {
+    let two = [chat("a"), chat("a", profile: "work", minutesAgo: 9)]
+    let model = RecentChatsModel(snapshot: snapshot(chats: two), family: .medium, now: now)
+    XCTAssertEqual(model.rows.map(\.id), ["default/a", "work/a"])
+  }
+
   func testSnippetOnlyFromMedium() {
     let small = RecentChatsModel(snapshot: snapshot(chats: chats), family: .small, now: now)
     let medium = RecentChatsModel(snapshot: snapshot(chats: chats), family: .medium, now: now)
@@ -235,6 +250,19 @@ final class BoardModelTests: XCTestCase {
       snapshot: snapshot(kanban: KanbanSummary(blocked: 0, review: 0), schedules: schedules(failed: failed)),
       family: .small, now: now)
     XCTAssertEqual(model.parts.count, 2)
+  }
+
+  func testSmallOpensTheFailedJobItShows() {
+    let model = BoardModel(
+      snapshot: snapshot(kanban: KanbanSummary(blocked: 1, review: 0), schedules: schedules(failed: failed)),
+      family: .small, now: now)
+    XCTAssertEqual(model.url, failed.url)
+  }
+
+  func testSmallWithoutAFailureOpensItsFirstPart() {
+    let model = BoardModel(
+      snapshot: snapshot(kanban: KanbanSummary(blocked: 1, review: 0), schedules: schedules()),
+      family: .small, now: now)
     XCTAssertEqual(model.url, link("kanban"))
   }
 

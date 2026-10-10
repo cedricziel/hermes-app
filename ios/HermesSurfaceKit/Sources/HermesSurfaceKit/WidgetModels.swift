@@ -225,7 +225,8 @@ public struct BoardModel: Equatable, Sendable {
     parts = Array(all.prefix(family == .small ? 2 : 3))
     emptyText =
       parts.isEmpty ? (snapshot.schedules == nil ? "No board or schedules on this server" : "Nothing scheduled") : nil
-    url = parts.first?.url
+    // A small widget has one tap target, so a failure it shows is the better one.
+    url = parts.first { if case .failedJob = $0 { true } else { false } }?.url ?? parts.first?.url
   }
 }
 

@@ -26,6 +26,14 @@
     },
     {
       "profile": "default",
+      "id": "c++",
+      "title": "Compiler notes",
+      "snippet": "Why 1 + 1 is not 2 in C++.",
+      "updatedAt": "2026-10-09T20:00:00Z",
+      "url": "hermes://chat?profile=default&id=c%2B%2B"
+    },
+    {
+      "profile": "default",
       "id": "def",
       "title": "Groceries",
       "updatedAt": "2026-10-09T18:00:00Z",
