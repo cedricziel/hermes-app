@@ -318,18 +318,12 @@ class DictationController extends ChangeNotifier {
         wavFromPcm16(clip, sampleRate: sampleRate),
         mimeType: 'audio/wav',
         profile: _profile,
-        timeout: _uploadTimeout(clip.length),
+        timeout: HermesChatRepository.transcribeTimeout(clip.length),
       );
     } on Object {
       return null;
     }
   }
-
-  /// At least three minutes, and longer for a long recording, as Hermes'
-  /// desktop allows: 0.1 ms per character of the base64 upload.
-  static Duration _uploadTimeout(int clipBytes) => Duration(
-    milliseconds: (clipBytes * 4 / 3 * 0.1).round().clamp(180000, 600000),
-  );
 
   /// Drops the recording, or the transcript on its way.
   Future<void> cancel() async {

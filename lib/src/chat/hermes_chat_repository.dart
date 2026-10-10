@@ -158,6 +158,13 @@ class HermesChatRepository {
     return parts;
   }
 
+  /// How long transcribing [clipBytes] of audio may take: at least three
+  /// minutes, and longer for a long recording, as Hermes' desktop allows
+  /// (0.1 ms per character of the base64 upload).
+  static Duration transcribeTimeout(int clipBytes) => Duration(
+    milliseconds: (clipBytes * 4 / 3 * 0.1).round().clamp(180000, 600000),
+  );
+
   /// What the dashboard's speech-to-text heard in [audio], empty when it
   /// heard no speech. A long recording can take longer to transcribe than a
   /// request normally waits; [timeout] allows for that.

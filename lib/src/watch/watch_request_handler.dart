@@ -177,6 +177,7 @@ class WatchRequestHandler {
       audio,
       mimeType: mimeType,
       profile: await activeProfile(),
+      timeout: HermesChatRepository.transcribeTimeout(audio.length),
     );
     return {'ok': true, 'text': text, 'engine': 'hermes'};
   }

@@ -368,6 +368,25 @@ void main() {
       });
     });
 
+    test("waits as long for the server as the phone's dictation", () async {
+      server.on('POST', '/api/audio/transcribe', {
+        'ok': true,
+        'transcript': 'Hi',
+      });
+
+      await handler.handle({
+        'op': 'transcribe',
+        'audio': audio,
+        'mimeType': 'audio/mp4',
+      });
+
+      final request = server.requestsTo('POST', '/api/audio/transcribe').single;
+      expect(
+        request.extra.values.whereType<Duration>().single,
+        HermesChatRepository.transcribeTimeout(audio.length),
+      );
+    });
+
     test('returns empty text when no speech was heard', () async {
       server.on('POST', '/api/audio/transcribe', {
         'ok': true,
