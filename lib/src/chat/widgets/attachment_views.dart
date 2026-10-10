@@ -7,10 +7,12 @@ import 'package:provider/provider.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_icon_button.dart';
+import '../attachments/attachment_file_actions.dart';
 import '../chat_models.dart';
 import '../media/media_source.dart';
 import '../media/media_store.dart';
 import 'image_viewer.dart';
+import 'quick_look_target.dart';
 
 /// A size for people: bytes below 1 KB, whole kilobytes below 1 MB, then
 /// megabytes with one decimal.
@@ -46,12 +48,21 @@ class AttachmentThumbnail extends StatefulWidget {
   State<AttachmentThumbnail> createState() => _AttachmentThumbnailState();
 }
 
-class _AttachmentThumbnailState extends State<AttachmentThumbnail> {
+class _AttachmentThumbnailState extends State<AttachmentThumbnail>
+    with AttachmentFileActions<AttachmentThumbnail> {
   Uint8List? _fetched;
   MediaFailure? _failure;
   var _loading = false;
 
   ChatAttachment get _attachment => widget.attachment;
+
+  @override
+  ChatAttachment get attachment => _attachment;
+
+  @override
+  void failedToFetch(MediaFailure reason) =>
+      ScaffoldMessenger.maybeOf(context)
+          ?.showSnackBar(SnackBar(content: Text(mediaFailureMessage(reason))));
 
   /// The path to fetch from the server, when nothing on this device shows it.
   String? get _remotePath =>
@@ -105,7 +116,7 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail> {
     if (_loading) return const _ThumbnailPlaceholder();
     final failure = _failure;
     if (failure != null) {
-      return _CardFrame(
+      return AttachmentCardFrame(
         attachment: _attachment,
         notice: mediaFailureMessage(failure),
         noticeIsError: true,
@@ -120,26 +131,19 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail> {
         ? FileImage(File(path))
         : null;
     if (provider == null) return card;
-    return GestureDetector(
-      onTap: () => _open(provider, bytes),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(kHermesRadius),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: _thumbnailSize,
-            maxHeight: _thumbnailSize,
-          ),
-          child: Image(
-            // A photo can weigh 25 MB; decode it at the size it is shown.
-            image: ResizeImage.resizeIfNeeded(
-              (_thumbnailSize * MediaQuery.devicePixelRatioOf(context)).round(),
-              null,
-              provider,
-            ),
-            semanticLabel: _attachment.name,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => card,
-          ),
+    return quickLookTarget(
+      onOpen: () => _open(provider, bytes),
+      child: GestureDetector(
+        // On a Mac a click selects; opening is the double-click.
+        onTap: quickLookTargetsAt(context)
+            ? null
+            : () => _open(provider, bytes),
+        child: ImageThumbnailView(
+          image: provider,
+          name: _attachment.name,
+          loading: busy,
+          // Not the whole card: this widget is already the target.
+          fallback: AttachmentCardFrame(attachment: _attachment),
         ),
       ),
     );
@@ -166,6 +170,58 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail> {
   }
 }
 
+/// The picture of an image attachment, scaled down to at most 240 logical
+/// pixels, with a thin progress bar along its bottom edge while [loading] a
+/// request for its file runs. [fallback] shows when [image] cannot be drawn.
+class ImageThumbnailView extends StatelessWidget {
+  const ImageThumbnailView({
+    super.key,
+    required this.image,
+    required this.name,
+    this.loading = false,
+    this.fallback,
+  });
+
+  final ImageProvider image;
+  final String name;
+  final bool loading;
+  final Widget? fallback;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(kHermesRadius),
+    child: Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: _thumbnailSize,
+            maxHeight: _thumbnailSize,
+          ),
+          child: Image(
+            // A photo can weigh 25 MB; decode it at the size it is shown.
+            image: ResizeImage.resizeIfNeeded(
+              (_thumbnailSize * MediaQuery.devicePixelRatioOf(context)).round(),
+              null,
+              image,
+            ),
+            semanticLabel: name,
+            fit: BoxFit.cover,
+            errorBuilder: fallback == null ? null : (_, _, _) => fallback!,
+          ),
+        ),
+        if (loading)
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
+      ],
+    ),
+  );
+}
+
 class _ThumbnailPlaceholder extends StatelessWidget {
   const _ThumbnailPlaceholder();
 
@@ -189,7 +245,8 @@ class _ThumbnailPlaceholder extends StatelessWidget {
 /// A file attachment as a card with its name and, when known, its size. When
 /// the file is on the server at an absolute path, tapping the card downloads
 /// it and opens it in the system's app for its type, and the card offers to
-/// save it.
+/// save it. On macOS the card is selected by a click, opened by a
+/// double-click and previewed with Space (see [QuickLookTarget]).
 class AttachmentCard extends StatefulWidget {
   const AttachmentCard({super.key, required this.attachment});
 
@@ -199,93 +256,64 @@ class AttachmentCard extends StatefulWidget {
   State<AttachmentCard> createState() => _AttachmentCardState();
 }
 
-class _AttachmentCardState extends State<AttachmentCard> {
-  var _busy = false;
+class _AttachmentCardState extends State<AttachmentCard>
+    with AttachmentFileActions<AttachmentCard> {
   MediaFailure? _failure;
 
-  ChatAttachment get _attachment => widget.attachment;
+  @override
+  ChatAttachment get attachment => widget.attachment;
+
+  @override
+  void failedToFetch(MediaFailure reason) => setState(() => _failure = reason);
+
+  @override
+  void clearFetchFailure() => _failure = null;
 
   @override
   Widget build(BuildContext context) {
-    final downloadable =
-        _attachment.fetchPath != null && context.read<MediaStore?>() != null;
+    // On a Mac any file the chat can make can be previewed, opened and saved,
+    // by the menu and by the button alike; elsewhere only a server file can.
+    final available = hasFile;
     final failure = _failure;
-    return _CardFrame(
-      attachment: _attachment,
-      notice: _busy
-          ? 'Downloading…'
-          : failure == null
-          ? null
-          : mediaFailureMessage(failure),
-      noticeIsError: !_busy && failure != null,
-      onTap: downloadable && !_busy ? () => _use(_openFile) : null,
-      trailing: !downloadable
-          ? null
-          : _busy
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            )
-          : NamedIconButton(
-              label: 'Save ${_attachment.name}',
-              tooltip: 'Save',
-              icon: AppIcons.download,
-              iconSize: 20,
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _use(_saveFile),
-            ),
+    return quickLookTarget(
+      onOpen: available ? () => useFile(openWithSystem) : null,
+      child: AttachmentCardFrame(
+        attachment: attachment,
+        notice: busy
+            ? 'Downloading…'
+            : failure == null
+            ? null
+            : mediaFailureMessage(failure),
+        noticeIsError: !busy && failure != null,
+        // On a Mac a click selects; opening is the double-click.
+        onTap: !quickLookTargetsAt(context) && available && !busy
+            ? () => useFile(openWithSystem)
+            : null,
+        trailing: !available
+            ? null
+            : busy
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+              )
+            : NamedIconButton(
+                label: 'Save ${attachment.name}',
+                tooltip: 'Save',
+                icon: AppIcons.download,
+                iconSize: 20,
+                visualDensity: VisualDensity.compact,
+                onPressed: () => useFile(saveToDevice),
+              ),
+      ),
     );
-  }
-
-  /// Downloads the file if it is not on this device yet, then hands it to
-  /// [then]. A failure to fetch stays on the card, where a tap tries again.
-  Future<void> _use(
-    Future<void> Function(MediaStore store, File file) then,
-  ) async {
-    final store = context.read<MediaStore?>();
-    final path = _attachment.fetchPath;
-    if (store == null || path == null || _busy) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    setState(() {
-      _busy = true;
-      _failure = null;
-    });
-    try {
-      final file = await store.file(path, _attachment.name);
-      await then(store, file);
-    } on MediaFetchException catch (e) {
-      if (mounted) setState(() => _failure = e.reason);
-    } on Object {
-      messenger?.showSnackBar(
-        const SnackBar(content: Text('Something went wrong. Try again.')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _openFile(MediaStore store, File file) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (!await store.open(file)) {
-      messenger?.showSnackBar(
-        const SnackBar(content: Text('No app can open this file.')),
-      );
-    }
-  }
-
-  Future<void> _saveFile(MediaStore store, File file) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final name = _attachment.name;
-    if (await store.save(name, await file.readAsBytes())) {
-      messenger?.showSnackBar(SnackBar(content: Text('Saved $name')));
-    }
   }
 }
 
 /// The look of a file card: an icon, the name, and under it a [notice] or the
 /// size.
-class _CardFrame extends StatelessWidget {
-  const _CardFrame({
+class AttachmentCardFrame extends StatelessWidget {
+  const AttachmentCardFrame({
+    super.key,
     required this.attachment,
     this.notice,
     this.noticeIsError = false,

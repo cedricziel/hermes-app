@@ -15,6 +15,7 @@ import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/chat/media/media_source.dart';
 import 'src/chat/media/media_store.dart';
+import 'src/chat/media/quick_look.dart';
 import 'src/macos/dock/dock_menu_bridge.dart';
 import 'src/macos/dock/dock_menu_controller.dart';
 import 'src/macos/mac_window.dart';
@@ -77,9 +78,13 @@ Future<void> main([List<String> args = const []]) async {
           create: (context) {
             final auth = context.read<AuthController>();
             return MediaStore(
-              source: HermesMediaSource(() => auth.api),
-              cacheDirectory: getApplicationCacheDirectory,
-            )..clearOnSignOut(auth.signedOut);
+                source: HermesMediaSource(() => auth.api),
+                cacheDirectory: getApplicationCacheDirectory,
+                quickLook: platformQuickLook(),
+              )
+              ..clearOnSignOut(auth.signedOut)
+              // Files from an earlier run that nobody opened again.
+              ..sweep(mediaCacheMaxAge);
           },
           dispose: (_, store) => store?.dispose(),
         ),

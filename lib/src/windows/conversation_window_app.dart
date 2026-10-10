@@ -10,6 +10,7 @@ import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/media/media_source.dart';
 import '../chat/media/media_store.dart';
+import '../chat/media/quick_look.dart';
 import '../macos/mac_window.dart';
 import '../quick_panel/quick_panel_app.dart';
 import '../settings/theme_controller.dart';
@@ -69,6 +70,7 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
           create: (_) => MediaStore(
             source: HermesMediaSource(() => api),
             cacheDirectory: getApplicationCacheDirectory,
+            quickLook: platformQuickLook(),
           ),
           dispose: (_, store) => store?.dispose(),
         ),
