@@ -86,6 +86,14 @@ None carries text, titles, profile names or ids.
 - A chord another app has already taken may register without an error; the recorder warns only about system and menu-bar clashes. The user sees that the panel does not appear and records another chord.
 - Two engines each holding an audio engine: only the key window dictates, and the panel stops recording on hide.
 
+## As built (PR B)
+
+- Layout: before the first send the panel is the header and the composer alone, as tall as they are (Dart measures and calls `resizePanel`). After it, the panel shows the chat's own `ChatThreadView` (with the new `welcome: false`, so an empty list draws nothing), with the composer at the bottom as in the chat, at 540 pt, which the native side caps at 60% of the screen. It does not grow with each streamed line: the thread view scrolls inside a fixed height, which avoids a resize per delta.
+- Open in Hermes hides the panel first, then calls `panel.showInWindow` on the main channel (opening or focusing the window through `ConversationWindows.open`, with the composer's draft). Hiding first keeps the window coming forward from counting as `focus_lost`.
+- Dictation goes through `ComposerDictation` (`lib/src/voice/composer_dictation.dart`), a port of what `ChatScreen` does inline: the Dictation setting, the profile's voice support, the on-device model download and the draft shown while dictating. `ChatScreen` can move onto it later; it was left alone here to keep clear of other open changes to that file.
+- The secondary engines' API client (`windowApiClient`) now also applies `RequestTimeoutInterceptor`, so a dictation upload gets its longer timeout in the panel.
+- The panel continues a chat on any change of the selected chat (send, reply events), which is what `lastUsed` tracks.
+
 ## Decisions left to implementation
 
 - The panel opens on the screen with the mouse, centred horizontally, in the upper third.

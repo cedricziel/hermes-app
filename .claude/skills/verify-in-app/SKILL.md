@@ -147,6 +147,12 @@ built, add `--skip-build` to the isolated command to avoid rebuilding them.
   exercise the panel without it, temporarily call `_pressed()` from a
   `Timer` in `QuickPanelShortcut.start` and watch `panel.*` reports in
   `dev-app.sh logs`. Don't commit that.
+- A send from the panel without typing: temporarily call `_send('…')` at the
+  end of `QuickPanelScreen._onShown`, then look for the session in the
+  throwaway home: `sqlite3 .dart_tool/hermes-dev/home/state.db "select id,
+  source from sessions"` shows it with source `hermes_app`, and `messages`
+  holds the prompt. The dashboard's REST routes need the page's session
+  token, so `curl` answers 401. Don't commit the hack.
 - Check it over another app and over a full-screen app: `lsappinfo front`
   must keep naming the other app while the panel is shown, and Escape must
   give that app the focus back.

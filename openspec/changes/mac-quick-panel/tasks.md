@@ -15,15 +15,15 @@ This change is two PRs. PR A (sections 1-2) ships the native panel host and the 
 
 ## 3. PR B: panel chat — `feat(macos): chat in the quick panel`
 
-- [ ] 3.1 Failing unit tests for `QuickPanelSession` with a fake clock: continue under 5 minutes on the same profile, fresh after 5 minutes or a profile change, cleared after Open in Hermes. Implement; record `panel.chat {continued}`.
-- [ ] 3.2 Widgetbook use cases for `QuickPanelView` (empty, typing, dictating, streaming, approval request, failed reply) at panel width, both themes.
-- [ ] 3.3 Failing widget tests with `FakeChatTransport` and `FakeHermesServer`: Return sends on the current profile, reply streams, Escape cancels dictation then hides, model pill hides when options fail. Wire `QuickPanelScreen` with `ChatController`, `ChatComposer`, `ComposerModelPill`, attachments and a panel-owned `DictationController`; resize the panel as content grows.
+- [x] 3.1 Failing unit tests for `QuickPanelSession` with a fake clock: continue under 5 minutes on the same profile, fresh after 5 minutes or a profile change, cleared after Open in Hermes. Implement; record `panel.chat {continued}`.
+- [x] 3.2 Widgetbook use cases for `QuickPanelView` (empty, typing, dictating, streaming, approval request, failed reply) at panel width, both themes.
+- [x] 3.3 Failing widget tests with `FakeChatTransport` and `FakeHermesServer`: Return sends on the current profile, reply streams, Escape cancels dictation then hides, model pill hides when options fail. Wire `QuickPanelScreen` with `ChatController`, `ChatComposer`, `ComposerModelPill`, attachments and a panel-owned `DictationController`; resize the panel as content grows.
 
 ## 4. PR B: Open in Hermes
 
-- [ ] 4.1 Failing test first: `showInWindow` opens or focuses the chat's conversation window via `ConversationWindows`, hides the panel and logs `panel.opened_in_window`. Implement button and ⌘O.
+- [x] 4.1 Failing test first: `showInWindow` opens or focuses the chat's conversation window via `ConversationWindows`, hides the panel and logs `panel.opened_in_window`. Implement button and ⌘O.
 
 ## 5. Docs and verify (each PR)
 
-- [ ] 5.1 Update CLAUDE.md (Conversation windows paragraph) and `.claude/skills/verify-in-app/SKILL.md` with how to record a shortcut (the native recorder) and check the panel over a full-screen app.
+- [x] 5.1 Update CLAUDE.md (Conversation windows paragraph) and `.claude/skills/verify-in-app/SKILL.md` with how to record a shortcut (the native recorder) and check the panel over a full-screen app.
 - [ ] 5.2 Run `dart format`, `flutter analyze`, `flutter test`, build macOS (Release, sandboxed), and verify-in-app against `scripts/dev-backend.sh`: summon over another app and a full-screen app, send, dictate, continue within 5 minutes, start fresh after, Open in Hermes while streaming, Escape, sign out.
