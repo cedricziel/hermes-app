@@ -19,6 +19,16 @@ context: |
     schema in the spec are hand-written.
   - Telemetry (flutter_otel, lib/src/telemetry) is opt-in via `--dart-define` and must never break
     the app; failures are swallowed.
+  - Observability: every change makes its own behaviour observable where that helps someone
+    understand a failure or how the feature is used, with the signal that fits the job:
+    - a span for work that takes time or crosses a boundary (a request, a socket, a native
+      call), with `hermes.*` server attributes from the connection's telemetry;
+    - a log event through `AppEventLogger` for an outcome or failure worth counting or
+      alerting on;
+    - a breadcrumb through `Breadcrumbs` for a user step that explains a later crash.
+    Breadcrumbs hold fixed names, counts, flags and outcomes only, never text, titles,
+    profile names, server addresses or ids; spans and logs never carry message text,
+    tokens or file contents. Pure UI restyles, refactors and docs usually need none.
   - Tests run the real generated client against `FakeHermesServer` at the HTTP layer,
     not against mocks of the client.
 
@@ -27,13 +37,15 @@ rules:
     - State non-goals, meaning what the change deliberately does not do.
     - State the security and privacy impact (tokens, secure storage, telemetry data), or
       say "None".
-    - State the telemetry the feature emits through flutter_otel (spans, log events,
-      attributes), or say "None".
+    - State the observability the feature adds, by signal (spans, log events, breadcrumbs,
+      attributes) and why each fits, or say "None" and why none applies.
     - Keep the change small enough for one PR. If it is not, split it into several changes.
   design:
     - List the platforms affected (iOS, Android, macOS, Windows, Linux, watchOS) and any
       native entitlement, manifest or Xcode project change.
     - Call out any invariant from the project context the design touches.
+    - Name where each span, log event and breadcrumb is recorded and the attributes it
+      carries, and confirm none of them holds user content.
   specs:
     - Describe user-visible or protocol behaviour, not implementation classes.
     - Cover the backend contract, meaning the Hermes Agent routes or RPC methods relied on,
@@ -46,7 +58,8 @@ rules:
       openapi/hermes-agent.openapi.json and run scripts/generate_hermes_api_client.sh.
     - For UI changes, put the Widgetbook use cases (see the component-catalog skill) before
       the tasks that wire the widget into a screen.
-    - Include a task to add the telemetry the proposal names, or note that there is none.
+    - Include a task, with a test, to add the spans, log events and breadcrumbs the
+      proposal names, or note that there are none.
     - Include a task to update any .claude/skills entry the change makes stale (for example
       verify-in-app or the openspec skills), and to add a new project skill when a workflow
       keeps repeating.
