@@ -1454,9 +1454,11 @@ void main() {
   });
   group('complication status', () {
     late List<Map<String, Object>> statuses;
+    late List<bool> urgents;
 
     setUp(() {
       statuses = [];
+      urgents = [];
       handler = WatchRequestHandler(
         repository: () => HermesChatRepository(server.client().raw),
         transport: () => transport,
@@ -1464,8 +1466,9 @@ void main() {
         announce: announce,
         appLock: () => appLocked,
         complication: WatchComplicationStatus(
-          send: (payload) async {
+          send: (payload, {required urgent}) async {
             statuses.add(payload);
+            urgents.add(urgent);
             return 'complication';
           },
           appLock: () => appLocked,
@@ -1540,17 +1543,81 @@ void main() {
       );
     });
 
-    test('a request the watch cannot answer leaves nothing to show', () async {
-      final pending = send();
+    for (final (name, request) in [
+      ('an approval it cannot answer', approval as ChatEvent),
+      (
+        'a sudo password',
+        const UnsupportedRequested(
+          UnsupportedRequest(requestId: 'r2', kind: UnsupportedKind.sudo),
+        ),
+      ),
+      (
+        'a secret',
+        const VaultRequested(
+          VaultRequest(requestId: 'r3', kind: VaultKind.saveLogin),
+        ),
+      ),
+    ]) {
+      test('$name leaves the chat waiting for the user', () async {
+        final pending = send();
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(request);
+        await pending;
+
+        expect(statuses.last['state'], 'waiting');
+        expect(statuses.last['threadId'], '/new-1');
+      });
+    }
+
+    test(
+      'a turn the prompt ran after does not end with the one ahead',
+      () async {
+        final pending = send();
+        await pumpEventQueue();
+        final turn = transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const UnsolicitedEvent(ReplyStarted()))
+          ..emit(const UnsolicitedEvent(ReplyCompleted('resumed work')));
+        await pumpEventQueue();
+
+        expect(statuses.last['state'], 'working');
+        expect(
+          statuses.map((status) => status['state']),
+          isNot(contains('ready')),
+        );
+
+        turn
+          ..emit(const ReplyCompleted('Done.'))
+          ..finish();
+        await pending;
+        expect(statuses.last['state'], 'ready');
+      },
+    );
+
+    test('a request of the turn run ahead of the prompt waits too', () async {
+      final pending = send(waits: true);
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const UnsolicitedEvent(ReplyStarted()))
+        ..emit(const UnsolicitedEvent(approval));
+      await pending;
+
+      expect(statuses.last['state'], 'waiting');
+    });
+
+    test('does not spend the complication budget on its own turns', () async {
+      final pending = send(waits: true);
       await pumpEventQueue();
       transport.sends.single
         ..emit(const ThreadBound('new-1'))
         ..emit(approval);
       await pending;
 
-      final states = statuses.map((status) => status['state']);
-      expect(states, isNot(contains('waiting')));
-      expect(states.last, 'none');
+      expect(urgents, isNotEmpty);
+      expect(urgents, everyElement(isFalse));
     });
 
     test('a broken connection is a failed reply', () async {
@@ -1585,7 +1652,10 @@ void main() {
       await pending;
 
       for (final status in statuses) {
-        expect(status.keys, unorderedEquals(['v', 'state', 'updatedAt']));
+        expect(
+          status.keys,
+          unorderedEquals(['v', 'state', 'updatedAt', 'seq']),
+        );
       }
     });
   });

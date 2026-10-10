@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,8 @@ import 'package:hermes_app/src/watch/watch_complication.dart';
 
 void main() {
   late List<Map<String, Object>> sent;
+  late List<bool> urgents;
+  late ChangeNotifier lock;
   late WatchComplicationStatus status;
   var appLocked = false;
   var now = DateTime.utc(2026, 10, 10, 12);
@@ -15,7 +18,7 @@ void main() {
   String via = 'complication';
   late BreadcrumbTrail trail;
 
-  Map<String, Object> last() => sent.last;
+  Map<String, Object> last() => {...sent.last}..remove('seq');
 
   const approval = ApprovalRequested(
     ApprovalRequest(
@@ -28,18 +31,22 @@ void main() {
 
   setUp(() {
     sent = [];
+    urgents = [];
+    lock = ChangeNotifier();
     appLocked = false;
     now = DateTime.utc(2026, 10, 10, 12);
     failure = null;
     via = 'complication';
     trail = BreadcrumbTrail();
     status = WatchComplicationStatus(
-      send: (payload) async {
+      send: (payload, {required urgent}) async {
         if (failure != null) throw failure!;
         sent.add(payload);
+        urgents.add(urgent);
         return via;
       },
       appLock: () => appLocked,
+      lockChanges: lock,
       breadcrumbs: Breadcrumbs.of(trail),
       now: () => now,
     );
@@ -237,13 +244,16 @@ void main() {
     expect(last()['state'], 'none');
   });
 
-  test('clears once on sign-out, and not when nothing was shown', () async {
+  test('clears on sign-out even when this run showed nothing', () async {
     status.clear();
     await settle();
-    expect(sent, isEmpty);
 
+    expect(last(), {'v': 1, 'state': 'none'});
+    expect(urgents.last, isFalse);
+  });
+
+  test('clears what was shown', () async {
     status.begin(Object(), title: 'A');
-    status.clear();
     status.clear();
     await settle();
 
@@ -300,6 +310,227 @@ void main() {
     expect(trail.recent, isEmpty);
   });
 
+  group('a finished turn', () {
+    test('restarts when the same chat opens another turn', () async {
+      final turn = Object();
+      status.begin(turn, title: 'A', threadId: 'p/s1');
+      status.onEvent(turn, const ReplyCompleted('ok'), title: 'A');
+      now = now.add(const Duration(minutes: 1));
+      status.onEvent(turn, const ReplyStarted(), title: 'A', threadId: 'p/s1');
+      await settle();
+
+      expect(last()['state'], 'working');
+      expect(last()['updatedAt'], now.millisecondsSinceEpoch ~/ 1000);
+    });
+
+    test('restarts on a request, which needs the user', () async {
+      final turn = Object();
+      status.begin(turn, title: 'A');
+      status.onEvent(turn, const ReplyCompleted('ok'), title: 'A');
+      status.onEvent(turn, approval, title: 'A');
+      await settle();
+
+      expect(last()['state'], 'waiting');
+    });
+
+    test('is not restarted by what is not a turn', () async {
+      final turn = Object();
+      status.begin(turn, title: 'A');
+      status.onEvent(turn, const ReplyCompleted('ok'), title: 'A');
+      status.onEvent(turn, const SessionInfo(running: false), title: 'A');
+      status.onEvent(turn, const ReplyCompleted('late'), title: 'A');
+      await settle();
+
+      expect(last()['state'], 'ready');
+    });
+
+    test('still takes the title that arrives after the reply', () async {
+      final turn = Object();
+      status.begin(turn, title: null, threadId: 'p/s1');
+      status.onEvent(turn, const ReplyCompleted('ok'), title: null);
+      status.onEvent(
+        turn,
+        const ThreadTitled('Backup'),
+        title: 'Backup',
+        threadId: 'p/s1',
+      );
+      await settle();
+
+      expect(last()['state'], 'ready');
+      expect(last()['title'], 'Backup');
+    });
+
+    test('a turn nobody began here opens on a turn event', () async {
+      final turn = Object();
+      status.onEvent(turn, const SessionInfo(running: false), title: 'A');
+      status.onEvent(turn, const ThreadTitled('A'), title: 'A');
+      await settle();
+      expect(sent, isEmpty);
+
+      status.onEvent(turn, const ReplyDelta('x'), title: 'A', threadId: 'p/s1');
+      await settle();
+      expect(last()['state'], 'working');
+      expect(last()['title'], 'A');
+    });
+  });
+
+  group('the sequence number', () {
+    test('rises with every payload, even on a standing clock', () async {
+      final turn = Object();
+      status.begin(turn, title: 'A');
+      status.onEvent(turn, approval, title: 'A');
+      status.onEvent(turn, const ReplyCompleted('ok'), title: 'A');
+      await settle();
+
+      final seqs = sent.map((payload) => payload['seq'] as int).toList();
+      expect(seqs, hasLength(3));
+      expect(seqs[1], greaterThan(seqs[0]));
+      expect(seqs[2], greaterThan(seqs[1]));
+    });
+
+    test(
+      'is the clock in milliseconds at least, so a restart keeps going',
+      () async {
+        status.begin(Object(), title: 'A');
+        await settle();
+        final before = sent.last['seq'] as int;
+
+        now = now.add(const Duration(seconds: 3));
+        final restarted = WatchComplicationStatus(
+          send: (payload, {required urgent}) async {
+            sent.add(payload);
+            return 'context';
+          },
+          now: () => now,
+        );
+        restarted.begin(Object(), title: 'B');
+        await settle();
+
+        expect(sent.last['seq'], greaterThan(before));
+        expect(
+          sent.last['seq'],
+          greaterThanOrEqualTo(now.millisecondsSinceEpoch),
+        );
+      },
+    );
+
+    test('does not go back when the clock does', () async {
+      final turn = Object();
+      status.begin(turn, title: 'A');
+      now = now.subtract(const Duration(hours: 1));
+      status.onEvent(turn, approval, title: 'A');
+      await settle();
+
+      expect(sent.last['seq'], greaterThan(sent.first['seq'] as int));
+    });
+  });
+
+  group('which update wakes the watch app', () {
+    test('a change of state does, a new title does not', () async {
+      final turn = Object();
+      status.begin(turn, title: null, threadId: 'p/s1');
+      status.onEvent(
+        turn,
+        const ThreadTitled('A'),
+        title: 'A',
+        threadId: 'p/s1',
+      );
+      status.onEvent(turn, approval, title: 'A', threadId: 'p/s1');
+      await settle();
+
+      expect(urgents, [true, false, true]);
+    });
+
+    test('a turn the watch sent does not spend it', () async {
+      final turn = Object();
+      status.begin(turn, title: null, fromWatch: true);
+      status.onEvent(turn, approval, title: null);
+      await settle();
+
+      expect(urgents, [false, false]);
+    });
+
+    test('a clear does not', () async {
+      status.begin(Object(), title: 'A');
+      status.clear();
+      await settle();
+
+      expect(urgents, [true, false]);
+    });
+  });
+
+  group('a delivery that did not happen', () {
+    test('is tried again with the next change', () async {
+      final turn = Object();
+      failure = StateError('no session');
+      status.begin(turn, title: 'A');
+      await settle();
+      failure = null;
+
+      status.onEvent(turn, const ReplyDelta('x'), title: 'A');
+      await settle();
+
+      expect(last()['state'], 'working');
+    });
+
+    test('is tried again when no watch could be told', () async {
+      final turn = Object();
+      via = 'none';
+      status.begin(turn, title: 'A');
+      await settle();
+      via = 'complication';
+
+      status.onEvent(turn, const ReplyDelta('x'), title: 'A');
+      await settle();
+
+      expect(sent, hasLength(2));
+    });
+
+    test('is not repeated when it did arrive', () async {
+      final turn = Object();
+      status.begin(turn, title: 'A');
+      await settle();
+      status.onEvent(turn, const ReplyDelta('x'), title: 'A');
+      await settle();
+
+      expect(sent, hasLength(1));
+    });
+  });
+
+  group('App Lock', () {
+    test('turning it on takes the title off the watch', () async {
+      status.begin(Object(), title: 'Backup', threadId: 'p/s1');
+      await settle();
+      expect(last()['title'], 'Backup');
+
+      appLocked = true;
+      lock.notifyListeners();
+      await settle();
+
+      expect(last().keys, unorderedEquals(['v', 'state', 'updatedAt']));
+    });
+
+    test('turning it off gives the title back', () async {
+      appLocked = true;
+      status.begin(Object(), title: 'Backup');
+      await settle();
+
+      appLocked = false;
+      lock.notifyListeners();
+      await settle();
+
+      expect(last()['title'], 'Backup');
+    });
+
+    test('a change with nothing shown sends nothing', () async {
+      appLocked = true;
+      lock.notifyListeners();
+      await settle();
+
+      expect(sent, isEmpty);
+    });
+  });
+
   test('goes to the native side as a complication call', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     const channel = MethodChannel('test/watch');
@@ -322,9 +553,11 @@ void main() {
     await settle();
 
     expect(calls.single.method, 'complication');
-    expect((calls.single.arguments as Map)['state'], 'working');
+    final arguments = calls.single.arguments as Map;
+    expect((arguments['payload'] as Map)['state'], 'working');
+    expect(arguments['urgent'], isTrue);
     expect(trail.recent.single.attributes, {'via': 'context'});
   });
 }
 
-const _allowed = {'v', 'state', 'title', 'threadId', 'updatedAt'};
+const _allowed = {'v', 'state', 'title', 'threadId', 'updatedAt', 'seq'};

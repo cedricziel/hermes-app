@@ -392,23 +392,25 @@ class WatchRequestHandler {
       return posted && notification.request != null;
     }
 
-    void track(ChatEvent event) => complication?.onEvent(
-      attempt,
-      event,
-      title: named,
-      threadId: boundId == null ? null : _bind(profile, boundId),
-    );
-
-    // The connection closes with the send, so nothing is left to answer.
-    Map<String, Object?> cannotAnswer() {
-      complication?.drop(attempt);
-      return {
-        'ok': true,
-        ..._threadEntry(profile, boundId),
-        'text': cannotAnswerText,
-        'failed': false,
-      };
+    void track(ChatEvent event) {
+      // The turn Hermes ran ahead of the prompt ends before the prompt's own
+      // turn does, so its completion says nothing about the chat.
+      if (event is UnsolicitedEvent && event.event is ReplyCompleted) return;
+      complication?.onEvent(
+        attempt,
+        event is UnsolicitedEvent ? event.event : event,
+        title: named,
+        threadId: boundId == null ? null : _bind(profile, boundId),
+        fromWatch: true,
+      );
     }
+
+    Map<String, Object?> cannotAnswer() => {
+      'ok': true,
+      ..._threadEntry(profile, boundId),
+      'text': cannotAnswerText,
+      'failed': false,
+    };
 
     StreamIterator<ChatEvent>? events;
     try {
@@ -421,6 +423,7 @@ class WatchRequestHandler {
         attempt,
         title: null,
         threadId: boundId == null ? null : _bind(profile, boundId),
+        fromWatch: true,
       );
       final turn = events = StreamIterator(
         chat.send(threadId: boundId, profile: profile, text: text),
@@ -437,18 +440,20 @@ class WatchRequestHandler {
             // Announced either way; only an answerable notification, for a
             // watch that can show it, is worth waiting for.
             final answerable = await announce(own);
+            // Left unanswered here, it still waits for the user on the phone.
+            track(own);
             if (!attempt.waits || !answerable) return cannotAnswer();
             attempt.open(request.requestId, 'approval');
-            track(own);
             continue;
           case ClarifyRequested(:final request):
             final answerable = await announce(own);
+            track(own);
             if (!attempt.waits || !answerable) return cannotAnswer();
             attempt.open(request.requestId, 'question');
-            track(own);
             continue;
           case VaultRequested() || UnsupportedRequested():
             unawaited(announce(own));
+            track(own);
             return cannotAnswer();
           case InputRequestExpired(:final requestId):
             attempt.close([requestId]);
@@ -458,7 +463,7 @@ class WatchRequestHandler {
             attempt.progressed();
           default:
         }
-        track(own);
+        track(event);
         switch (event) {
           case ThreadBound(:final threadId):
             boundId = threadId;

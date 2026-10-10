@@ -1,18 +1,20 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show mapEquals;
+import 'package:flutter/foundation.dart' show Listenable, mapEquals;
 import 'package:flutter/services.dart';
 
 import '../chat/chat_transport.dart';
 import '../live_activities/live_activity_state.dart';
 import '../telemetry/breadcrumbs.dart';
 
-/// How the status reached the watch: `complication` (a budgeted transfer that
-/// wakes the watch app), `context` (the latest-wins fallback), or `none` when
-/// there is no watch to tell.
+/// Hands [payload] to the watch and answers how it went: `complication` (a
+/// budgeted transfer that wakes the watch app), `context` (the latest-wins
+/// fallback), or `none` when there is no watch to tell. [urgent] asks for the
+/// transfer: a change of state, which the watch face should show now.
 typedef ComplicationSender = Future<String> Function(
-  Map<String, Object> payload,
-);
+  Map<String, Object> payload, {
+  required bool urgent,
+});
 
 /// The chat id the watch uses for a chat of [profile]: the profile and the
 /// session id, because a session id is only unique within a profile.
@@ -28,20 +30,29 @@ class WatchComplicationStatus {
   WatchComplicationStatus({
     required this.send,
     this.appLock = _off,
+    this.lockChanges,
     this.breadcrumbs = Breadcrumbs.none,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+  }) : _now = now ?? DateTime.now {
+    lockChanges?.addListener(_publish);
+  }
 
   /// A status that goes to the watch app over [channel], the one the watch
   /// relay uses.
   factory WatchComplicationStatus.overChannel(
     MethodChannel channel, {
     bool Function() appLock = _off,
+    Listenable? lockChanges,
     Breadcrumbs breadcrumbs = Breadcrumbs.none,
   }) => WatchComplicationStatus(
-    send: (payload) async =>
-        await channel.invokeMethod<String>('complication', payload) ?? 'none',
+    send: (payload, {required urgent}) async =>
+        await channel.invokeMethod<String>('complication', {
+          'payload': payload,
+          'urgent': urgent,
+        }) ??
+        'none',
     appLock: appLock,
+    lockChanges: lockChanges,
     breadcrumbs: breadcrumbs,
   );
 
@@ -49,6 +60,10 @@ class WatchComplicationStatus {
 
   /// Whether App Lock is on: the status then holds the state alone.
   final bool Function() appLock;
+
+  /// Notifies when [appLock] may have changed, so a title already on the watch
+  /// is taken off it.
+  final Listenable? lockChanges;
   final Breadcrumbs breadcrumbs;
   final DateTime Function() _now;
 
@@ -57,30 +72,53 @@ class WatchComplicationStatus {
   static const _version = 1;
 
   final _turns = <Object, _Turn>{};
-  Map<String, Object>? _last;
 
-  /// A turn [turn] has started for a chat. [title] is null for a chat the
-  /// gateway has not named, [threadId] the watch's id for it once stored.
-  /// A turn that is still running keeps its state.
-  void begin(Object turn, {required String? title, String? threadId}) {
+  /// What was last handed to [send], without its sequence number.
+  Map<String, Object>? _last;
+  var _seq = 0;
+
+  /// The turn [turn] has started for a chat. [title] is null until the gateway
+  /// or the server has named the chat: a title made from the prompt would put
+  /// the prompt on the watch face. [threadId] is the watch's id for the chat
+  /// once it is stored. A turn that is still running keeps its state; one the
+  /// watch sent ([fromWatch]) does not spend the complication budget.
+  void begin(
+    Object turn, {
+    required String? title,
+    String? threadId,
+    bool fromWatch = false,
+  }) {
     final current = _turns[turn];
     if (current != null && !current.state.finished) return;
-    _turns[turn] = _Turn(ReplyActivityState.working, _now())
+    _turns[turn] = _Turn(ReplyActivityState.working, _now(), fromWatch)
       ..title = title
       ..threadId = threadId;
     _publish();
   }
 
   /// Moves [turn] along for [event]. The title and chat are as they are now,
-  /// since both can arrive during the turn.
+  /// since both can arrive during the turn. A finished turn starts again when
+  /// the same chat opens another one (a goal that goes on, a queued prompt)
+  /// or asks for something, and a turn nobody began here opens the same way.
   void onEvent(
     Object turn,
     ChatEvent event, {
     required String? title,
     String? threadId,
+    bool fromWatch = false,
   }) {
-    final current = _turns[turn];
-    if (current == null) return;
+    var current = _turns[turn];
+    if (current == null || current.state.finished) {
+      if (opensTurn(event) || _asks(event)) {
+        current = _turns[turn] = _Turn(
+          ReplyActivityState.working,
+          _now(),
+          fromWatch,
+        );
+      } else if (current == null) {
+        return;
+      }
+    }
     final next = nextActivityState(current.state, event);
     if (next == null) {
       _turns.remove(turn);
@@ -94,16 +132,35 @@ class WatchComplicationStatus {
     _publish();
   }
 
+  static bool _asks(ChatEvent event) =>
+      event is ApprovalRequested ||
+      event is ClarifyRequested ||
+      event is VaultRequested ||
+      event is UnsupportedRequested;
+
   /// [turn]'s chat is gone, so it is not shown.
   void drop(Object turn) {
     if (_turns.remove(turn) != null) _publish();
   }
 
-  /// Forgets every turn, as when the user signs out.
+  /// [turn] can no longer be followed, as when the chat's profile went out of
+  /// view: it stops being shown unless it already finished, since a "working"
+  /// nobody can end would stay on the watch.
+  void abandon(Object turn) {
+    final current = _turns[turn];
+    if (current == null || current.state.finished) return;
+    drop(turn);
+  }
+
+  /// Forgets every turn and tells the watch, as when the user signs out. The
+  /// watch may still hold a status from an earlier run, so it is sent whether
+  /// or not this run showed anything.
   void clear() {
     _turns.clear();
-    _publish();
+    _publish(force: true);
   }
+
+  void dispose() => lockChanges?.removeListener(_publish);
 
   /// The turn worth showing: the newest one waiting for the user, else the
   /// newest.
@@ -115,7 +172,7 @@ class WatchComplicationStatus {
     return best;
   }
 
-  void _publish() {
+  void _publish({bool force = false}) {
     _forgetOldFinished();
     final shown = _shown();
     final payload = <String, Object>{
@@ -130,10 +187,21 @@ class WatchComplicationStatus {
       },
     };
     final last = _last;
-    if (last == null && shown == null) return;
-    if (last != null && mapEquals(last, payload)) return;
+    if (!force) {
+      if (last == null && shown == null) return;
+      if (last != null && mapEquals(last, payload)) return;
+    }
     _last = payload;
-    unawaited(_deliver(payload));
+    // The watch applies a payload only if it is newer than what it holds, and
+    // two transports can deliver out of order. The clock in milliseconds also
+    // keeps it rising across a restart.
+    final now = _now().millisecondsSinceEpoch;
+    _seq = now > _seq ? now : _seq + 1;
+    final urgent =
+        shown != null &&
+        !shown.fromWatch &&
+        (last == null || last['state'] != payload['state']);
+    unawaited(_deliver(payload, {...payload, 'seq': _seq}, urgent));
   }
 
   /// Only the newest finished turn is kept, as the glance's last word.
@@ -150,23 +218,32 @@ class WatchComplicationStatus {
     );
   }
 
-  Future<void> _deliver(Map<String, Object> payload) async {
+  Future<void> _deliver(
+    Map<String, Object> shown,
+    Map<String, Object> payload,
+    bool urgent,
+  ) async {
+    var delivered = false;
     try {
-      final via = await send(payload);
-      if (via != 'none') breadcrumbs('watch.complication.sent', {'via': via});
+      final via = await send(payload, urgent: urgent);
+      delivered = via != 'none';
+      if (delivered) breadcrumbs('watch.complication.sent', {'via': via});
     } on Object {
       breadcrumbs('watch.complication.failed');
     }
+    // What did not arrive is sent again with the next change.
+    if (!delivered && identical(_last, shown)) _last = null;
   }
 }
 
 class _Turn {
-  _Turn(this.state, this.updatedAt);
+  _Turn(this.state, this.updatedAt, this.fromWatch);
 
   ReplyActivityState state;
   DateTime updatedAt;
   String? title;
   String? threadId;
+  final bool fromWatch;
 
   bool get waiting => switch (state) {
     ReplyActivityState.approval ||

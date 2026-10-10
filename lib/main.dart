@@ -227,10 +227,11 @@ Future<void> main([List<String> args = const []]) async {
           lazy: false,
           create: (context) {
             if (defaultTargetPlatform != TargetPlatform.iOS) return null;
+            final appLock = context.read<AppLockController>();
             final status = WatchComplicationStatus.overChannel(
               const MethodChannel(WatchBridge.channelName),
-              appLock: () =>
-                  appLockHidesRequests(context.read<AppLockController>()),
+              appLock: () => appLockHidesRequests(appLock),
+              lockChanges: appLock,
               breadcrumbs: context.read<Breadcrumbs>(),
             );
             context.read<AuthController>().signedOut.listen(
@@ -238,6 +239,7 @@ Future<void> main([List<String> args = const []]) async {
             );
             return status;
           },
+          dispose: (_, status) => status?.dispose(),
         ),
         // Read after the notification providers above: a provider only sees
         // the ones declared before it.
