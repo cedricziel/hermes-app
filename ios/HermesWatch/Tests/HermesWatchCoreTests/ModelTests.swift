@@ -7,13 +7,13 @@ final class FakeClient: HermesClient {
   var messagesResult: Result<[ChatMessage], Error> = .success([])
   var sendResult: Result<SendResult, Error> = .success(SendResult(threadId: nil, text: "ok", failed: false))
   var transcribeResult: Result<String, Error> = .success("")
-  private(set) var sends: [(threadId: String?, text: String)] = []
+  private(set) var sends: [(threadId: String?, text: String, sendId: String)] = []
   private(set) var transcribed: [(audio: Data, mimeType: String)] = []
 
   func threads() async throws -> [ThreadSummary] { try threadsResult.get() }
   func messages(threadId: String) async throws -> [ChatMessage] { try messagesResult.get() }
-  func send(threadId: String?, text: String) async throws -> SendResult {
-    sends.append((threadId, text))
+  func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
+    sends.append((threadId, text, sendId))
     return try sendResult.get()
   }
   func transcribe(audio: Data, mimeType: String) async throws -> String {
@@ -108,6 +108,44 @@ final class ConversationModelTests: XCTestCase {
     XCTAssertTrue(model.messages.isEmpty)
     XCTAssertEqual(model.unsent, "Hello")
     XCTAssertEqual(model.phase, .failed(.phoneUnreachable))
+  }
+
+  func testTryingAgainAfterALostReplyReusesTheSendId() async {
+    let client = FakeClient()
+    client.sendResult = .failure(HermesClientError.unavailable)
+    let model = ConversationModel(client: client, threadId: nil)
+    await model.send("Hello")
+    client.sendResult = .success(SendResult(threadId: "new-1", text: "Hi", failed: false))
+
+    await model.send(model.unsent!)
+    await model.send("Hello")
+
+    XCTAssertEqual(client.sends.count, 3)
+    XCTAssertEqual(client.sends[1].sendId, client.sends[0].sendId)
+    XCTAssertNotEqual(client.sends[2].sendId, client.sends[1].sendId)
+  }
+
+  func testTryingAgainAfterAFailedTurnIsANewSend() async {
+    let client = FakeClient()
+    client.sendResult = .success(SendResult(threadId: "new-1", text: "Model unavailable", failed: true))
+    let model = ConversationModel(client: client, threadId: nil)
+    await model.send("Hello")
+
+    await model.send(model.unsent!)
+
+    XCTAssertNotEqual(client.sends[1].sendId, client.sends[0].sendId)
+  }
+
+  func testADifferentMessageAfterAFailureGetsItsOwnSendId() async {
+    let client = FakeClient()
+    client.sendResult = .failure(HermesClientError.phoneUnreachable)
+    let model = ConversationModel(client: client, threadId: "s1")
+    await model.load()
+    await model.send("Hello")
+
+    await model.send("Something else")
+
+    XCTAssertNotEqual(client.sends[1].sendId, client.sends[0].sendId)
   }
 
   func testNothingIsSentWhileTheThreadIsStillLoading() async {

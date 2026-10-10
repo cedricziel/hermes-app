@@ -35,8 +35,8 @@ struct RelayClient: HermesClient {
     }
   }
 
-  func send(threadId: String?, text: String) async throws -> SendResult {
-    var message: [String: Any] = ["op": "send", "text": text]
+  func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
+    var message: [String: Any] = ["op": "send", "text": text, "sendId": sendId]
     if let threadId { message["threadId"] = threadId }
     let reply = try await call(message)
     guard let text = reply["text"] as? String else { throw HermesClientError.failed }

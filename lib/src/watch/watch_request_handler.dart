@@ -38,12 +38,21 @@ class WatchRequestHandler {
   /// What the watch shows for a successful reply that has no text at all.
   static const emptyReplyText = 'Hermes replied without any text.';
 
+  /// What a retried send answers when Hermes had the prompt but has not
+  /// finished replying to it.
+  static const stillReplyingText =
+      'Hermes is still replying. Open the chat again in a moment.';
+
   /// The title of a notification for a chat the gateway has not named.
   static const untitledChat = 'Hermes';
 
   static const threadLimit = 20;
   static const messageLimit = 20;
   static const contentLimit = 4000;
+
+  /// How many sends are remembered by their id, so a retry finds its first
+  /// try.
+  static const sendMemory = 16;
 
   /// Both return null while nobody is signed in.
   final HermesChatRepository? Function() repository;
@@ -77,6 +86,9 @@ class WatchRequestHandler {
 
   static Future<void> _alreadyReady() async {}
 
+  /// Recent sends by the id the watch gave them, oldest first.
+  final _sends = <String, _SendAttempt>{};
+
   Future<Map<String, Object?>> handle(Map<Object?, Object?> request) async {
     try {
       if (connecting()) {
@@ -85,7 +97,11 @@ class WatchRequestHandler {
       return switch (request['op']) {
         'threads' => await _threads(),
         'messages' => await _messages(request['threadId']),
-        'send' => await _send(request['threadId'], request['text']),
+        'send' => await _sendOnce(
+          request['sendId'],
+          request['threadId'],
+          request['text'],
+        ),
         'transcribe' => await _transcribe(
           request['audio'],
           request['mimeType'],
@@ -190,7 +206,67 @@ class WatchRequestHandler {
     }
   }
 
-  Future<Map<String, Object?>> _send(Object? threadId, Object? text) async {
+  /// Sends [text] unless the send [id] names already reached Hermes. The
+  /// watch retries with the same id when it lost sight of a send: the phone
+  /// may have been suspended mid-turn, or the watch may have gone to sleep.
+  /// A retry joins a send still running, repeats a reply already given, and
+  /// for a send that failed after Hermes had the prompt reads the chat
+  /// instead, so the agent never gets the prompt twice.
+  Future<Map<String, Object?>> _sendOnce(
+    Object? id,
+    Object? threadId,
+    Object? text,
+  ) async {
+    if (id is! String || id.isEmpty) return _send(threadId, text);
+    if (_sends[id] case final earlier?) {
+      final reply = await earlier.reply;
+      if (reply['ok'] == true) return reply;
+      if (earlier.reached) return _afterLostReply(earlier);
+      _sends.remove(id);
+    }
+    final attempt = _SendAttempt();
+    attempt.reply = _send(
+      threadId,
+      text,
+      attempt,
+    ).catchError((Object _) => _error('failed'));
+    _sends[id] = attempt;
+    while (_sends.length > sendMemory) {
+      _sends.remove(_sends.keys.first);
+    }
+    return attempt.reply;
+  }
+
+  /// What the chat of a send that failed after reaching Hermes holds now:
+  /// the reply, or word that Hermes is still on it.
+  Future<Map<String, Object?>> _afterLostReply(_SendAttempt attempt) async {
+    final threadId = attempt.threadId;
+    final repo = repository();
+    if (repo == null) return _noSession();
+    if (threadId == null) return _error('failed');
+    final messages = await repo.loadMessages(
+      threadId,
+      profile: attempt.profile,
+    );
+    final last = messages.reversed
+        .map((message) => (message: message, text: _text(message)))
+        .where((entry) => entry.text.isNotEmpty)
+        .firstOrNull;
+    return {
+      'ok': true,
+      ..._threadEntry(attempt.profile, threadId),
+      'text': last != null && last.message.role == ChatRole.assistant
+          ? _cut(last.text)
+          : stillReplyingText,
+      'failed': false,
+    };
+  }
+
+  Future<Map<String, Object?>> _send(
+    Object? threadId,
+    Object? text, [
+    _SendAttempt? attempt,
+  ]) async {
     if (text is! String || text.trim().isEmpty) return _error('bad_request');
     final thread = threadId == null ? null : _unbind(threadId);
     if (threadId != null && thread == null) return _error('bad_request');
@@ -218,13 +294,18 @@ class WatchRequestHandler {
       profile = await activeProfile();
       if (thread != null && !thread.isIn(profile)) return _error('bad_request');
       boundId = thread?.id;
+      attempt
+        ?..profile = profile
+        ..threadId = boundId;
       final events = chat
           .send(threadId: boundId, profile: profile, text: text)
           .timeout(sendTimeout);
       await for (final event in events) {
+        attempt?.reached = true;
         switch (event) {
           case ThreadBound(:final threadId):
             boundId = threadId;
+            attempt?.threadId = threadId;
           case ThreadTitled(title: final named):
             title = named;
           case ReplyDelta(:final text):
@@ -239,11 +320,13 @@ class WatchRequestHandler {
             };
           case ApprovalRequested() ||
               ClarifyRequested() ||
+              VaultRequested() ||
               UnsupportedRequested() ||
               // The turn Hermes ran ahead of the prompt asks too.
               UnsolicitedEvent(
                 event: ApprovalRequested() ||
                     ClarifyRequested() ||
+                    VaultRequested() ||
                     UnsupportedRequested(),
               ):
             announceEnd(event is UnsolicitedEvent ? event.event : event);
@@ -308,6 +391,15 @@ class WatchRequestHandler {
     'ok': false,
     'error': code,
   };
+}
+
+class _SendAttempt {
+  late final Future<Map<String, Object?>> reply;
+  String? profile;
+  String? threadId;
+
+  /// Hermes answered something, so it has the prompt.
+  bool reached = false;
 }
 
 class _Thread {
