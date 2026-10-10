@@ -23,6 +23,7 @@ import 'chat_message_mapper.dart';
 import 'chat_models.dart';
 import 'chat_reply.dart';
 import 'chat_transport.dart';
+import 'gateway/gateway_rpc_client.dart' show GatewayRpcException;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'queued_prompt.dart';
@@ -1023,7 +1024,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       try {
         await _undoLastTurn(thread, retry: true);
       } on Object catch (error) {
-        if (!disposed) report('Could not try again: $error');
+        if (!disposed) report(_undoFailure(error, 'try again'));
         return;
       }
       if (disposed) return;
@@ -1040,7 +1041,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     try {
       undone = await _undoLastTurn(thread);
     } on Object catch (error) {
-      if (!disposed) report('Could not edit the prompt: $error');
+      if (!disposed) report(_undoFailure(error, 'edit the prompt'));
       return;
     }
     if (disposed) return;
@@ -1049,6 +1050,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       return;
     }
     onPrefill?.call(prompt);
+  }
+
+  /// What to tell the user when taking back the last turn failed. The error
+  /// itself is meant for developers, so only its kind goes to the crumb.
+  String _undoFailure(Object error, String action) {
+    final rejected = error is GatewayRpcException;
+    breadcrumbs('chat.undo.failed', {
+      'cause': rejected ? 'rejected' : 'unreachable',
+    });
+    return rejected
+        ? "Hermes couldn't $action."
+        : "Couldn't reach Hermes to $action. Check your connection.";
   }
 
   /// The threads whose last turn is being dropped, so a second tap does not
