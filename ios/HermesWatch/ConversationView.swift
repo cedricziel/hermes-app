@@ -63,6 +63,7 @@ struct ConversationView: View {
         Label("Stop and send", systemImage: "stop.circle.fill")
       }
       .tint(.red)
+      .handGestureShortcut(.primaryAction)
     case .finished:
       ProgressView()
     case .idle, .denied, .failed:
@@ -71,6 +72,7 @@ struct ConversationView: View {
       } else if recorder.state == .failed {
         Text("Couldn't start recording.").foregroundStyle(.secondary)
       }
+      QuickReplies(disabled: busy) { text in Task { await model.send(text) } }
       HStack {
         TextField("Reply", text: $draft)
           .onSubmit { Task { await submit() } }
@@ -81,6 +83,7 @@ struct ConversationView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Record a voice message")
+        .handGestureShortcut(.primaryAction)
       }
       .disabled(busy)
     }
@@ -107,6 +110,26 @@ struct ConversationView: View {
     } else {
       await model.load()
     }
+  }
+}
+
+/// One-tap answers to the usual follow-ups; a tap sends like the field does.
+private struct QuickReplies: View {
+  static let texts = ["Continue", "Yes", "No", "Summarize"]
+
+  let disabled: Bool
+  let send: (String) -> Void
+
+  var body: some View {
+    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+      ForEach(Self.texts, id: \.self) { text in
+        Button(text) { send(text) }
+          .font(.footnote)
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
+      }
+    }
+    .disabled(disabled)
   }
 }
 
