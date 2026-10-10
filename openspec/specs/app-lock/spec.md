@@ -31,7 +31,7 @@ The system SHALL disable the switch and explain why when the device has no biome
 
 ### Requirement: Locking and unlocking
 
-While app lock is on, the system SHALL lock the app at launch and whenever it leaves the screen (hidden or in the background), and SHALL ask the device to confirm the person at launch and when the app returns. While locked, the system SHALL show a lock screen with an "Unlock" button that asks again, and SHALL keep the app's content out of sight, without discarding its state. Until the saved choice has loaded the app SHALL stay covered. Losing focus alone SHALL NOT lock the app.
+While app lock is on, the system SHALL lock the app at launch and whenever it leaves the screen (hidden or in the background), and SHALL ask the device to confirm the person at launch and when the app returns. While locked, the system SHALL show a lock screen with an "Unlock" button that asks again, and SHALL keep the app's content out of sight, without discarding its state. Until the saved choice has loaded the app SHALL stay covered. Losing focus alone SHALL NOT lock the app. On iOS and Android the system SHALL also cover the content as soon as the app loses focus, other than to the device prompt, so the app switcher and the return to the app never show it; the cover SHALL lift without asking when the app regains focus without having left the screen.
 
 #### Scenario: Launch
 
@@ -42,6 +42,11 @@ While app lock is on, the system SHALL lock the app at launch and whenever it le
 
 - **WHEN** the app goes to the background and comes back
 - **THEN** it shows the lock screen until the device confirms the person
+
+#### Scenario: App switcher
+
+- **WHEN** app lock is on and the person opens the app switcher on a phone
+- **THEN** the app's preview shows the lock screen, not its content
 
 #### Scenario: Confirmation cancelled
 

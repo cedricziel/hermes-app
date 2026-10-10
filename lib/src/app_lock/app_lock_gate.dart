@@ -15,7 +15,7 @@ class AppLockGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lock = context.watch<AppLockController>();
-    final covered = !lock.loaded || lock.locked;
+    final covered = lock.covered;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -24,7 +24,7 @@ class AppLockGate extends StatelessWidget {
           offstage: covered,
           child: TickerMode(enabled: !covered, child: child),
         ),
-        if (covered) _LockScreen(onUnlock: lock.loaded ? lock.unlock : null),
+        if (covered) _LockScreen(onUnlock: lock.locked ? lock.unlock : null),
       ],
     );
   }
