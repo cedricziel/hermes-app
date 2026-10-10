@@ -659,29 +659,43 @@ class AuthController extends ChangeNotifier {
       return Future.error(StateError('No server configured'));
     }
 
-    final future = refreshNativeSession(url, current, httpClient: _tokenDio)
-        .then((refreshed) async {
-          // Signing out or switching server while this was in flight must
-          // not bring the old session back.
-          if (!identical(_session, current)) {
-            throw StateError('The session changed during the refresh');
-          }
-          _session = refreshed;
-          await _tokenStore.write(refreshed);
-          _events('auth.session.refreshed', {'trigger': trigger});
-          return refreshed;
-        })
-        .onError<NativeLoginException>((e, stack) {
-          _events('auth.session.refresh_failed', {
-            'trigger': trigger,
-            'rejected': e.rejected,
-            'http.response.status_code': ?e.statusCode,
-          });
-          Error.throwWithStackTrace(e, stack);
-        })
-        .whenComplete(() {
-          _refreshInFlight = null;
-        });
+    final future =
+        refreshNativeSession(
+              url,
+              current,
+              httpClient: _tokenDio,
+              onRetry: () =>
+                  _events('auth.session.refresh_retried', {'trigger': trigger}),
+            )
+            .then((refreshed) async {
+              // Signing out or switching server must not bring the old session
+              // back; the same session read again keeps the rotated tokens, as
+              // its refresh token is spent.
+              if (_session?.refreshToken != current.refreshToken) {
+                throw StateError('The session changed during the refresh');
+              }
+              _session = refreshed;
+              try {
+                await _tokenStore.write(refreshed);
+              } on Object catch (error) {
+                _events('auth.session.store_failed', {
+                  'error.type': error.runtimeType.toString(),
+                });
+              }
+              _events('auth.session.refreshed', {'trigger': trigger});
+              return refreshed;
+            })
+            .onError<NativeLoginException>((e, stack) {
+              _events('auth.session.refresh_failed', {
+                'trigger': trigger,
+                'rejected': e.rejected,
+                'http.response.status_code': ?e.statusCode,
+              });
+              Error.throwWithStackTrace(e, stack);
+            })
+            .whenComplete(() {
+              _refreshInFlight = null;
+            });
     _refreshInFlight = future;
     return future;
   }

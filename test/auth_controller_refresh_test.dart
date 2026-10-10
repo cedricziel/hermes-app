@@ -40,6 +40,16 @@ class _GatedDashboard {
   /// How long the refresh route takes before answering.
   Duration refreshDelay = Duration.zero;
 
+  /// Whether the next rotation drops the connection instead of answering,
+  /// like a response lost on the way back to the app.
+  bool dropNextRefreshAnswer = false;
+
+  /// Whether the refresh token just rotated away still answers with the set
+  /// it was rotated into, like Hermes' short cache of refresh results.
+  bool replayLastRotation = false;
+
+  String? _rotatedAway;
+
   /// Delays applied, in order, to the next 401 answers, so one request's
   /// rejection can land after a concurrent request has rotated the tokens.
   final List<Duration> unauthorizedDelays = [];
@@ -66,12 +76,25 @@ class _GatedDashboard {
         if (failure != null) {
           return _json(request, failure, {'detail': 'refresh failed'});
         }
-        if (body['refresh_token'] != validRefresh) {
+        final replay =
+            replayLastRotation && body['refresh_token'] == _rotatedAway;
+        if (body['refresh_token'] != validRefresh && !replay) {
           return _json(request, 401, {'detail': 'session_expired'});
         }
-        rotations++;
-        validAccess = 'access-${rotations + 1}';
-        validRefresh = 'refresh-${rotations + 1}';
+        if (!replay) {
+          rotations++;
+          _rotatedAway = validRefresh;
+          validAccess = 'access-${rotations + 1}';
+          validRefresh = 'refresh-${rotations + 1}';
+        }
+        if (dropNextRefreshAnswer) {
+          dropNextRefreshAnswer = false;
+          final socket = await request.response.detachSocket(
+            writeHeaders: false,
+          );
+          socket.destroy();
+          return;
+        }
         return _json(request, 200, {
           'access_token': validAccess,
           'refresh_token': validRefresh,
@@ -266,15 +289,64 @@ void main() {
     expect(events.named('auth.session.expired'), isEmpty);
   });
 
-  test('a proactive refresh that fails for an unexpected reason is not '
-      'hidden', () async {
-    dashboard.refreshExpiresAt = 1;
-    await bootstrapWith(_session(expiresAt: 1));
-    store.failWrites = true;
+  test('a refreshed session that cannot be stored is still used', () async {
+    store = MemoryTokenStore(_session(expiresAt: 1))..failWrites = true;
+    controller = AuthController(
+      tokenStore: store,
+      devServerUrl: dashboard.url,
+      telemetry: events.connection,
+    );
+    await controller.bootstrap();
 
-    await expectLater(controller.api!.fetchMe(), throwsA(isA<DioException>()));
+    await controller.api!.fetchMe();
 
     expect(controller.state, HermesConnectionState.ready);
+    expect(dashboard.rotations, 1);
+    expect(events.named('auth.session.store_failed'), [
+      {'error.type': 'UnsupportedError'},
+    ]);
+  });
+
+  test('a refresh whose answer is lost is asked again at once and keeps the '
+      'rotated session', () async {
+    dashboard
+      ..dropNextRefreshAnswer = true
+      ..replayLastRotation = true;
+    await bootstrapWith(_session(expiresAt: 1));
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(dashboard.rotations, 1);
+    expect(store.session?.refreshToken, 'refresh-2');
+    expect(events.named('auth.session.refresh_retried'), [
+      {'trigger': 'proactive'},
+    ]);
+    expect(events.named('auth.session.refreshed'), [
+      {'trigger': 'proactive'},
+    ]);
+  });
+
+  test('a refresh that lands after the same session was read again is '
+      'kept', () async {
+    store = MemoryTokenStore(_session(), true);
+    controller = AuthController(
+      tokenStore: store,
+      devServerUrl: dashboard.url,
+      telemetry: events.connection,
+    );
+    await controller.bootstrap();
+    dashboard
+      ..validAccess = 'revoked'
+      ..refreshDelay = const Duration(milliseconds: 300);
+
+    final request = controller.api!.fetchMe();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await controller.connect(dashboard.url, remember: false);
+    await request.then<void>((_) {}, onError: (_) {});
+
+    expect(store.session?.refreshToken, 'refresh-2');
+    expect(events.named('auth.session.refreshed'), [
+      {'trigger': 'after_401'},
+    ]);
   });
 
   test('signs the user out when the refresh token is rejected', () async {

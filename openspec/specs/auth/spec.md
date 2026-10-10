@@ -358,7 +358,7 @@ While a sign-in runs, the state SHALL be signing in, and the login screen SHALL 
 
 ### Requirement: Auth outcomes are reported without secrets
 
-The system SHALL report the connection state changes and the outcome of each sign-in (started, succeeded, cancelled, failed) and refresh (refreshed, refresh failed, expired) through its telemetry hook. A failed sign-in SHALL carry only a fixed reason code, the HTTP status when there is one, the type name of an unexpected error, and non-sensitive context (whether the provider is password-based, and the elapsed time). It SHALL NOT carry the message text, tokens or codes.
+The system SHALL report the connection state changes and the outcome of each sign-in (started, succeeded, cancelled, failed) and refresh (refreshed, refresh retried, refresh failed, store failed, expired) through its telemetry hook. A failed sign-in SHALL carry only a fixed reason code, the HTTP status when there is one, the type name of an unexpected error, and non-sensitive context (whether the provider is password-based, and the elapsed time). It SHALL NOT carry the message text, tokens or codes.
 
 #### Scenario: Failure is recorded by reason only
 
@@ -393,7 +393,7 @@ The system SHALL keep the session (access token, refresh token, expiry, provider
 
 ### Requirement: Authenticated requests carry a fresh bearer token
 
-Every request made through the authenticated client on a gated server SHALL carry `Authorization: Bearer <access token>` when a session exists. Before sending, the system SHALL refresh the session with `POST /auth/native/refresh` (body `refresh_token` and `provider`) when the access token expires within 60 seconds and a refresh token is available. An access token with no known expiry (the server left `expires_at` out) SHALL NOT be refreshed before a request; it is refreshed only after a 401. A stored session whose expiry is 0 (how earlier versions saved an unknown expiry) SHALL be read as having no known expiry. The rotated token set SHALL replace the stored session. If that refresh fails because the server refused or could not be reached, or answered with a token set that does not parse, the request SHALL still be sent with the existing token; any other failure SHALL NOT be hidden. Requests to the sign-in and refresh routes SHALL NOT use the authenticated client.
+Every request made through the authenticated client on a gated server SHALL carry `Authorization: Bearer <access token>` when a session exists. Before sending, the system SHALL refresh the session with `POST /auth/native/refresh` (body `refresh_token` and `provider`) when the access token expires within 60 seconds and a refresh token is available. An access token with no known expiry (the server left `expires_at` out) SHALL NOT be refreshed before a request; it is refreshed only after a 401. A stored session whose expiry is 0 (how earlier versions saved an unknown expiry) SHALL be read as having no known expiry. The rotated token set SHALL replace the session in use. If it cannot be written to the secure storage, the system SHALL keep using it and report the failure, since the refresh token in the storage is already spent. If that refresh fails because the server refused or could not be reached, or answered with a token set that does not parse, the request SHALL still be sent with the existing token; any other failure SHALL NOT be hidden. Requests to the sign-in and refresh routes SHALL NOT use the authenticated client.
 
 #### Scenario: Token near expiry
 
@@ -406,6 +406,12 @@ Every request made through the authenticated client on a gated server SHALL carr
 
 - **WHEN** the refresh before a request fails
 - **THEN** the request is sent with the existing token
+
+#### Scenario: Refreshed tokens cannot be stored
+
+- **WHEN** a refresh succeeds but writing the new token set to the secure storage fails
+- **THEN** the request carries the new access token
+- **AND** later requests and refreshes use the new token set
 
 #### Scenario: Session has no refresh token
 
@@ -446,7 +452,9 @@ Treating the session as expired SHALL clear the stored tokens and identity, set 
 
 ### Requirement: Concurrent refreshes and 401s do not sign the user out
 
-The system SHALL run at most one refresh at a time and let concurrent callers share its result. A request whose 401 came from a token that another request has since rotated SHALL be retried with the current token instead of spending the already used refresh token. A refresh that completes after the session was cleared or replaced, for example by sign-out, SHALL be discarded and SHALL NOT restore the old session.
+The system SHALL run at most one refresh at a time and let concurrent callers share its result. A request whose 401 came from a token that another request has since rotated SHALL be retried with the current token instead of spending the already used refresh token. A refresh that completes after the session was cleared or replaced, for example by sign-out, SHALL be discarded and SHALL NOT restore the old session. A refresh that completes after the same session was read from the storage again (same refresh token) SHALL be kept.
+
+The identity provider may rotate the refresh token on every use and end the session when a spent one comes back. When a refresh request may have reached the server but got no answer (a send or receive timeout, or a dropped connection, as opposed to an HTTP status or a failure to connect), the system SHALL repeat it once, at once, with the same refresh token: the server may have completed the first one, and Hermes answers a repeat it receives within 30 seconds with the same rotated token set. Each attempt SHALL wait at most 12 seconds for its answer, so that both fit in that window.
 
 #### Scenario: Two requests fail with 401 at once
 
@@ -454,6 +462,18 @@ The system SHALL run at most one refresh at a time and let concurrent callers sh
 - **THEN** exactly one refresh is made
 - **AND** both requests end up succeeding
 - **AND** the state stays ready and the stored session holds the rotated tokens
+
+#### Scenario: Refresh answer lost
+
+- **WHEN** the server rotates the tokens but the answer to the refresh never reaches the app
+- **THEN** the refresh is repeated at once with the same refresh token
+- **AND** the rotated token set it answers with is stored
+- **AND** the state stays ready
+
+#### Scenario: Session read again during a refresh
+
+- **WHEN** the stored session is read again, for example by a reconnect, while a refresh of it is in flight
+- **THEN** the rotated token set is stored when the refresh completes
 
 #### Scenario: Sign-out during a refresh
 
