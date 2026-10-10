@@ -3,6 +3,7 @@ import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 import flutter_local_notifications
+import workmanager_apple
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -21,6 +22,18 @@ import flutter_local_notifications
     // Lets a notification show while the app is in the foreground and lets a tap reach Flutter.
     NotificationActions.shared.next = self as? UNUserNotificationCenterDelegate
     UNUserNotificationCenter.current().delegate = NotificationActions.shared
+    // The periodic background refresh. BGTaskScheduler only accepts a launch
+    // handler before launching ends, and the engine registers its plugins
+    // later, so the handler is set here; Dart schedules the task once someone
+    // is signed in. The background engine gets the same plugins as a
+    // notification button's.
+    WorkmanagerPlugin.setPluginRegistrantCallback { registry in
+      NotificationActions.registerPlugins(registry)
+    }
+    if let bundleId = Bundle.main.bundleIdentifier {
+      WorkmanagerPlugin.registerPeriodicTask(
+        withIdentifier: "\(bundleId).refresh", earliestBeginInSeconds: NSNumber(value: 15 * 60))
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

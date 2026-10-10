@@ -17,6 +17,7 @@ import 'src/handoff/handoff_bridge.dart';
 import 'src/api/hermes_repositories.dart';
 import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
+import 'src/background/background_scheduler.dart';
 import 'src/chat/media/media_source.dart';
 import 'src/deep_links/deep_link_listener.dart';
 import 'src/chat/media/media_store.dart';
@@ -365,6 +366,14 @@ Future<void> main([List<String> args = const []]) async {
             )..start();
           },
           dispose: (_, answers) => answers?.dispose(),
+        ),
+        Provider<BackgroundScheduler>(
+          lazy: false,
+          create: (context) => BackgroundScheduler.forAuth(
+            context.read<AuthController>(),
+            events: telemetry.events(),
+          )..start(),
+          dispose: (_, scheduler) => scheduler.dispose(),
         ),
         shareProvider(),
       ],

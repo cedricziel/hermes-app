@@ -764,6 +764,51 @@ void main() {
     );
   }, skip: skip);
 
+  test('live sessions and their pending approvals read the way background '
+      'refresh asks for them', () async {
+    final rpc = GatewayRpcClient(
+      await hermesGatewayConnect(
+        baseUrl: url!,
+        authRequired: false,
+        api: client,
+      )(),
+    );
+    addTearDown(rpc.close);
+    final created = await rpc.request('session.create', const {});
+    final runtimeId = created['session_id'] as String;
+    const statuses = {
+      'idle',
+      'starting',
+      'waiting',
+      'working',
+      'streaming',
+      'resuming',
+    };
+
+    for (final params in [
+      const <String, Object?>{},
+      const <String, Object?>{'profile': 'default'},
+    ]) {
+      final listed = await rpc.request('session.active_list', params);
+      final rows = (listed['sessions'] as List).cast<Map<String, dynamic>>();
+      for (final row in rows) {
+        expect(row['id'], isA<String>());
+        expect(row['session_key'], isA<String>());
+        expect(row['title'], isA<String>());
+        expect(row['last_active'], isA<num>());
+        expect(statuses, contains(row['status']));
+      }
+      expect(rows.map((row) => row['id']), contains(runtimeId));
+    }
+
+    // The runtime id is what the approvals are asked by.
+    final pending = await rpc.request('approval.pending', {
+      'session_id': runtimeId,
+      'profile': 'default',
+    });
+    expect(pending['approvals'], isEmpty);
+  }, skip: skip);
+
   group('media the agent sends (local backend, no model call)', () {
     late MediaSource media;
     late Directory temp;

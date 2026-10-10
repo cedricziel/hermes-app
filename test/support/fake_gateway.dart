@@ -3,6 +3,14 @@ import 'dart:convert';
 
 import 'package:stream_channel/stream_channel.dart';
 
+/// A JSON-RPC error a [FakeGateway.handlers] entry answers with.
+class FakeRpcError implements Exception {
+  const FakeRpcError(this.code, [this.message = 'error']);
+
+  final int code;
+  final String message;
+}
+
 /// Plays the dashboard's side of the socket: answers each RPC the way the
 /// real gateway does and pushes the events a turn produces.
 class FakeGateway {
@@ -143,6 +151,11 @@ class FakeGateway {
   /// Every request goes unanswered.
   bool deaf = false;
 
+  /// Answers a method with the result its handler returns, or with the
+  /// JSON-RPC error of a [FakeRpcError] it throws. Tried before the built-in
+  /// answers.
+  final handlers = <String, Object? Function(Map<String, Object?> params)>{};
+
   /// The runtime session of the latest `prompt.submit`.
   String lastSessionId = '';
 
@@ -255,6 +268,17 @@ class FakeGateway {
     if (deaf || silent.contains(request['method'])) return;
     final id = request['id'];
     final params = request['params'] as Map<String, Object?>;
+    if (handlers[request['method']] case final handler?) {
+      try {
+        _send({'id': id, 'result': handler(params)});
+      } on FakeRpcError catch (error) {
+        _send({
+          'id': id,
+          'error': {'code': error.code, 'message': error.message},
+        });
+      }
+      return;
+    }
     switch (request['method']) {
       case 'session.create' || 'session.resume' when sessionErrorCode != null:
         _send({

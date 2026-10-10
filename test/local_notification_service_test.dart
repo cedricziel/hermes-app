@@ -331,6 +331,31 @@ void main() {
         expect(plugin.onBackgroundResponse, isNotNull);
       });
 
+      test(
+        'a background service registers only the category it posts under',
+        () async {
+          final background = LocalNotificationService(
+            plugin: plugin,
+            background: true,
+            registerCategories: (categories) async =>
+                registered.add([for (final c in categories) c.id]),
+          );
+          addTearDown(background.dispose);
+          final note = _request(_approval);
+
+          await background.show(note);
+
+          expect(plugin.settings!.iOS!.notificationCategories, isEmpty);
+          expect(registered, [
+            [note.category!.id],
+          ]);
+          expect(
+            plugin.posted.single.details!.iOS!.categoryIdentifier,
+            note.category!.id,
+          );
+        },
+      );
+
       test('is posted under its category with the command', () async {
         await service.show(_request(_approval));
 
