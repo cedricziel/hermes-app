@@ -20,7 +20,8 @@ struct RelayClient: HermesClient {
         id: id,
         title: title,
         updatedAt: (row["updatedAt"] as? NSNumber).flatMap { $0.doubleValue > 0 ? Date(timeIntervalSince1970: $0.doubleValue) : nil },
-        pinned: row["pinned"] as? Bool ?? false
+        pinned: row["pinned"] as? Bool ?? false,
+        handoff: HandoffTarget(row: row)
       )
     }
   }
@@ -52,7 +53,7 @@ struct RelayClient: HermesClient {
     if let waiting = reply["waiting"] as? String {
       return SendResult(
         threadId: boundId, text: "", failed: false,
-        waiting: SendResult.Waiting(rawValue: waiting) ?? .working)
+        waiting: SendResult.Waiting(rawValue: waiting) ?? .working, handoff: HandoffTarget(row: reply))
     }
     guard let text = reply["text"] as? String else { throw HermesClientError.failed }
     if threadId == nil, boundId == nil { throw HermesClientError.failed }
@@ -60,7 +61,8 @@ struct RelayClient: HermesClient {
       threadId: boundId,
       text: text,
       failed: reply["failed"] as? Bool ?? false,
-      tools: reply["tools"] as? [String] ?? []
+      tools: reply["tools"] as? [String] ?? [],
+      handoff: HandoffTarget(row: reply)
     )
   }
 

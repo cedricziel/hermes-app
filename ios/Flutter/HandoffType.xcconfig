@@ -1,0 +1,4 @@
+// The Handoff activity type of the iOS app and the watch app. The Debug one
+// carries the debug bundle ID's suffix. The macOS configs hold the same pair.
+HERMES_HANDOFF_TYPE = com.cedricziel.hermesApp.continueChat
+HERMES_HANDOFF_TYPE[config=Debug] = com.cedricziel.hermesApp.continueChat.dev

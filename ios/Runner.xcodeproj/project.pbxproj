@@ -166,6 +166,7 @@
 		A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchShortcuts.swift; sourceTree = "<group>"; };
 		B7E3CA37F8EEB16A589FBEBB /* WCSessionTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WCSessionTransport.swift; sourceTree = "<group>"; };
 		C2F0C32DC8A15DCD964CDCBC /* ShareExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
+		A7C1D2E3F4051627384950C1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C3209CC4CC0AEEABCB8B7C61 /* HermesWatch.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = HermesWatch.xcconfig; sourceTree = "<group>"; };
 		C38423933E5F7974F5AAD4C4 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WebAuthSession.swift; sourceTree = "<group>"; };
@@ -263,6 +264,7 @@
 			isa = PBXGroup;
 			children = (
 				C3209CC4CC0AEEABCB8B7C61 /* HermesWatch.xcconfig */,
+				A7C1D2E3F4051627384950C1 /* Info.plist */,
 				A1B2C3D4E5F60718293A4B03 /* PrivacyInfo.xcprivacy */,
 				881128D4B7DE0DB07C68576B /* HermesWatchApp.swift */,
 				F884F744E1BE6D3436E17C0A /* Assets.xcassets */,
@@ -798,6 +800,7 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HermesWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hermes records your voice message and sends it to your Hermes server to turn it into text.";
 				INFOPLIST_KEY_WKApplication = YES;
@@ -933,6 +936,7 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HermesWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hermes records your voice message and sends it to your Hermes server to turn it into text.";
 				INFOPLIST_KEY_WKApplication = YES;
@@ -1011,6 +1015,7 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HermesWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hermes records your voice message and sends it to your Hermes server to turn it into text.";
 				INFOPLIST_KEY_WKApplication = YES;

@@ -1,3 +1,2 @@
 #include "Generated.xcconfig"
-
-HERMES_HANDOFF_TYPE = com.cedricziel.hermesApp.continueChat.dev
+#include "HandoffType.xcconfig"

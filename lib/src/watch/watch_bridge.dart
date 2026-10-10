@@ -9,6 +9,7 @@ import '../api/hermes_api_client.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
 import '../chat/hermes_chat_repository.dart';
+import '../handoff/handoff_activity.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
@@ -131,6 +132,10 @@ class WatchBridge {
         return api == null ? null : HermesChatRepository(api.raw);
       },
       transport: () => gatewayTransportFor(auth, events: events),
+      serverUrl: () {
+        final url = auth.baseUrl;
+        return url == null ? null : HandoffActivity.server(url);
+      },
       activeProfile: () async {
         final api = readyApi();
         if (api == null) return null;

@@ -7,7 +7,7 @@ struct ThreadListView: View {
     /// still starts a fresh one.
     case newChat(UUID = UUID())
     case voiceChat(UUID = UUID())
-    case thread(id: String, title: String)
+    case thread(id: String, title: String, handoff: HandoffTarget?)
   }
 
   @State var model: ThreadListModel
@@ -43,15 +43,18 @@ struct ThreadListView: View {
             model: ConversationModel(client: model.client, threadId: nil),
             startRecording: true
           )
-        case .thread(let id, let title):
-          ConversationView(model: ConversationModel(client: model.client, threadId: id), title: title)
+        case .thread(let id, let title, let handoff):
+          ConversationView(
+            model: ConversationModel(client: model.client, threadId: id, handoff: handoff),
+            title: title
+          )
         }
       }
     }
     .task {
       #if DEBUG
         if DemoClient.opensChat, let thread = DemoClient.threads.first {
-          path = [.thread(id: thread.id, title: thread.title)]
+          path = [.thread(id: thread.id, title: thread.title, handoff: thread.handoff)]
         }
       #endif
       await model.load()
@@ -74,7 +77,7 @@ struct ThreadListView: View {
         Text("No chats yet.")
       }
       ForEach(threads) { thread in
-        NavigationLink(value: Route.thread(id: thread.id, title: thread.title)) {
+        NavigationLink(value: Route.thread(id: thread.id, title: thread.title, handoff: thread.handoff)) {
           ThreadRow(thread: thread)
         }
       }

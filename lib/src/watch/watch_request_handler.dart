@@ -23,6 +23,7 @@ class WatchRequestHandler {
     required this.repository,
     required this.transport,
     required this.activeProfile,
+    this.serverUrl = _noServer,
     this.connecting = _never,
     this.ready = _alreadyReady,
     this.sendTimeout = const Duration(seconds: 60),
@@ -63,6 +64,10 @@ class WatchRequestHandler {
   final ChatTransport? Function() transport;
   final Future<String?> Function() activeProfile;
 
+  /// The canonical address of the connected server, which the watch only
+  /// passes on for Handoff. Null when there is none.
+  final String? Function() serverUrl;
+
   /// Whether the phone is still getting ready to serve, rather than signed
   /// out: restoring its session, reaching the server, or mid sign-in. Then
   /// the watch is told to open the phone app instead of to sign in.
@@ -101,6 +106,8 @@ class WatchRequestHandler {
   static Future<bool> _ignore(AttentionNotification _) async => false;
 
   static bool _off() => false;
+
+  static String? _noServer() => null;
 
   static bool _never() => false;
 
@@ -152,6 +159,7 @@ class WatchRequestHandler {
             'title': thread.title,
             'updatedAt': thread.updatedAt.millisecondsSinceEpoch ~/ 1000,
             'pinned': thread.pinned,
+            ..._handoff(profile, thread.id),
           },
       ],
     };
@@ -459,8 +467,22 @@ class WatchRequestHandler {
 
   /// The `threadId` entry of a reply, left out when there is no thread: a null
   /// is not a property-list type and WatchConnectivity would refuse the reply.
-  static Map<String, Object?> _threadEntry(String? profile, String? id) =>
-      id == null ? const {} : {'threadId': _bind(profile, id)};
+  /// It also names the chat for Handoff, so a chat started on the watch can be
+  /// continued before the list is loaded again.
+  Map<String, Object?> _threadEntry(String? profile, String? id) => id == null
+      ? const {}
+      : {'threadId': _bind(profile, id), ..._handoff(profile, id)};
+
+  /// What a Handoff to the phone or Mac needs, with the raw session id since
+  /// the thread id the watch sees is bound to a profile. Left out unless the
+  /// server and the profile are both known: the receivers reject less.
+  Map<String, Object?> _handoff(String? profile, String sessionId) {
+    final server = serverUrl();
+    if (server == null || profile == null || profile.trim().isEmpty) {
+      return const {};
+    }
+    return {'serverUrl': server, 'profile': profile, 'sessionId': sessionId};
+  }
 
   static String _bind(String? profile, String sessionId) =>
       '${Uri.encodeComponent(profile ?? '')}/$sessionId';

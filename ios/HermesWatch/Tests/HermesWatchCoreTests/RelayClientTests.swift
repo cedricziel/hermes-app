@@ -194,3 +194,91 @@ final class RelayClientTests: XCTestCase {
     XCTAssertEqual(text, "Hello there")
   }
 }
+
+final class HandoffTargetTests: XCTestCase {
+  private let row: [String: Any] = [
+    "serverUrl": "https://hermes.test", "profile": "work", "sessionId": "s1",
+  ]
+
+  func testPayloadIsTheVersionOneActivityTheAppsAccept() throws {
+    let target = try XCTUnwrap(HandoffTarget(row: row))
+
+    let info = target.userInfo
+
+    XCTAssertEqual(Set(info.keys), HandoffTarget.requiredKeys)
+    XCTAssertEqual(info["version"] as? Int, 1)
+    XCTAssertEqual(info["serverUrl"] as? String, "https://hermes.test")
+    XCTAssertEqual(info["profile"] as? String, "work")
+    XCTAssertEqual(info["threadId"] as? String, "s1", "the raw session id, not the bound id")
+  }
+
+  func testARowNeedsAllThreeFieldsNonBlank() {
+    for key in ["serverUrl", "profile", "sessionId"] {
+      var missing = row
+      missing[key] = nil
+      XCTAssertNil(HandoffTarget(row: missing), "without \(key)")
+      var blank = row
+      blank[key] = "  "
+      XCTAssertNil(HandoffTarget(row: blank), "blank \(key)")
+    }
+  }
+
+  func testThreadsCarryTheTargetFromTheAnswer() async throws {
+    let transport = FakeTransport()
+    transport.reply = .success([
+      "ok": true,
+      "threads": [
+        ["id": "work/s1", "title": "A"].merging(row) { $1 },
+        ["id": "/s2", "title": "B"],
+      ],
+    ])
+
+    let threads = try await RelayClient(transport: transport).threads()
+
+    XCTAssertEqual(threads[0].handoff, HandoffTarget(serverUrl: "https://hermes.test", profile: "work", sessionId: "s1"))
+    XCTAssertNil(threads[1].handoff)
+  }
+
+  func testASavedListFromBeforeHandoffStillDecodes() throws {
+    let old = Data(#"[{"id":"s1","title":"A","pinned":false}]"#.utf8)
+
+    let threads = try JSONDecoder().decode([ThreadSummary].self, from: old)
+
+    XCTAssertNil(threads[0].handoff)
+  }
+
+  @MainActor
+  func testANewChatHasNoTarget() {
+    let target = HandoffTarget(serverUrl: "https://hermes.test", profile: "work", sessionId: "s1")
+
+    XCTAssertEqual(ConversationModel(client: FakeClient(), threadId: "work/s1", handoff: target).handoff, target)
+    XCTAssertNil(ConversationModel(client: FakeClient(), threadId: nil, handoff: target).handoff)
+  }
+}
+
+@MainActor
+final class NewChatHandoffTests: XCTestCase {
+  func testRelayClientReadsTheTargetOfASend() async throws {
+    let transport = FakeTransport()
+    transport.reply = .success([
+      "ok": true, "threadId": "work/n1", "text": "Hi", "failed": false,
+      "serverUrl": "https://hermes.test", "profile": "work", "sessionId": "n1",
+    ])
+
+    let result = try await RelayClient(transport: transport).send(threadId: nil, text: "Hi", sendId: "x", retry: false)
+
+    XCTAssertEqual(result.handoff, HandoffTarget(serverUrl: "https://hermes.test", profile: "work", sessionId: "n1"))
+  }
+
+  func testANewChatAdoptsTheTargetOfItsFirstSend() async {
+    let target = HandoffTarget(serverUrl: "https://hermes.test", profile: "work", sessionId: "n1")
+    let client = FakeClient()
+    client.sendResult = .success(SendResult(threadId: "work/n1", text: "Hi", failed: false, handoff: target))
+    let model = ConversationModel(client: client, threadId: nil)
+    XCTAssertNil(model.handoff)
+
+    await model.send("Hello")
+
+    XCTAssertEqual(model.handoff, target)
+  }
+}
