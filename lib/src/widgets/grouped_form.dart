@@ -435,13 +435,17 @@ class GroupedFooter extends StatelessWidget {
         metrics.rowPadding,
         0,
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: metrics.footerSize,
-          color: error
-              ? Theme.of(context).colorScheme.error
-              : context.hermesColors.subtleText,
+      // A screen reader reads an error out as soon as it shows.
+      child: Semantics(
+        liveRegion: error,
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: metrics.footerSize,
+            color: error
+                ? Theme.of(context).colorScheme.error
+                : context.hermesColors.subtleText,
+          ),
         ),
       ),
     );

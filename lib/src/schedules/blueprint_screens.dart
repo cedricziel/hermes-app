@@ -185,15 +185,7 @@ class BlueprintFormScreen extends StatefulWidget {
 }
 
 class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
-  final _scroll = ScrollController();
-
   BlueprintFormController get _form => widget.controller;
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
 
   Future<void> _save() async {
     final job = await _form.save();
@@ -201,7 +193,7 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
     if (job != null) {
       Navigator.of(context).pop(job);
     } else {
-      revealFormError(_scroll);
+      revealFormError(context);
     }
   }
 
@@ -298,7 +290,6 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
             onPressed: _save,
           ),
           body: GroupedListView(
-            controller: _scroll,
             children: [
               if (_form.error ??
                       (_form.fieldErrors.isEmpty

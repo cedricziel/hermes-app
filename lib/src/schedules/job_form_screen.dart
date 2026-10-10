@@ -24,10 +24,13 @@ Future<bool> confirmDiscard(BuildContext context) => showConfirmDialog(
   filled: false,
 );
 
-/// Scrolls a form to its top, where it says why a save was refused: Save is
-/// in the bar, so the reason must not be left below the fold.
-void revealFormError(ScrollController scroll) {
-  if (!scroll.hasClients) return;
+/// Scrolls the form in front to its top, where it says why a save was
+/// refused: Save is in the bar, so the reason must not be left below the
+/// fold. The form scrolls with the route's primary controller, which a tap
+/// on the iOS status bar also scrolls.
+void revealFormError(BuildContext context) {
+  final scroll = PrimaryScrollController.maybeOf(context);
+  if (scroll == null || !scroll.hasClients) return;
   scroll.animateTo(
     0,
     duration: const Duration(milliseconds: 250),
@@ -65,7 +68,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
   late final TextEditingController _contextFrom;
   late final TextEditingController _workdir;
   late bool _advancedOpen = _hasAdvanced;
-  final _scroll = ScrollController();
 
   JobFormController get _form => widget.controller;
   JobDraft get _draft => _form.draft;
@@ -101,7 +103,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
       c.dispose();
     }
     _form.dispose();
-    _scroll.dispose();
     super.dispose();
   }
 
@@ -111,7 +112,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
     if (job != null) {
       Navigator.of(context).pop(job);
     } else {
-      revealFormError(_scroll);
+      revealFormError(context);
     }
   }
 
@@ -151,7 +152,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
               onPressed: _save,
             ),
             body: GroupedListView(
-              controller: _scroll,
               children: [
                 if (_form.error case final error?)
                   GroupedFooter(

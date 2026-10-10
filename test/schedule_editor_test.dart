@@ -83,27 +83,39 @@ void main() {
 
   tearDown(() => controller.dispose());
 
-  Future<void> pumpScreen(WidgetTester tester, {double height = 900}) async {
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    double height = 900,
+    TargetPlatform? platform,
+  }) async {
     tester.view.physicalSize = Size(400, height);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme(),
+        theme: buildHermesLightTheme(platform: platform),
         home: SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
       ),
     );
     await tester.pumpAndSettle();
   }
 
-  Future<void> openGallery(WidgetTester tester, {double height = 900}) async {
-    await pumpScreen(tester, height: height);
+  Future<void> openGallery(
+    WidgetTester tester, {
+    double height = 900,
+    TargetPlatform? platform,
+  }) async {
+    await pumpScreen(tester, height: height, platform: platform);
     await tester.tap(find.byKey(const Key('schedules-new')));
     await tester.pumpAndSettle();
   }
 
-  Future<void> openCustom(WidgetTester tester, {double height = 900}) async {
-    await openGallery(tester, height: height);
+  Future<void> openCustom(
+    WidgetTester tester, {
+    double height = 900,
+    TargetPlatform? platform,
+  }) async {
+    await openGallery(tester, height: height, platform: platform);
     await tester.tap(find.byKey(const Key('custom-task')));
     await tester.pumpAndSettle();
   }
@@ -285,6 +297,24 @@ void main() {
   });
 
   group('job form', () {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('$platform announces why Save was refused', (tester) async {
+        final handle = tester.ensureSemantics();
+        await openCustom(tester, height: 560, platform: platform);
+
+        await save(tester);
+
+        expect(
+          tester.getSemantics(find.byKey(const Key('job-error'))),
+          isSemantics(
+            label: 'A task needs a prompt, a skill or a script',
+            isLiveRegion: true,
+          ),
+        );
+        handle.dispose();
+      });
+    }
+
     testWidgets('shows why Save was refused on a short phone', (tester) async {
       await openCustom(tester, height: 560);
 
