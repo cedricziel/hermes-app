@@ -1462,8 +1462,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           unawaited(refreshActive());
         } else {
           _turnEnded(thread, halted: true);
-          // The turn it was folded into is the one that failed to be followed;
-          // the notification for it is not this prompt's to post.
+          // No notification: the prompt's reply was folded away, so none is
+          // pending to announce.
           _announce(
             thread,
             const ReplyCompleted('', failed: true),
