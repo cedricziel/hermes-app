@@ -786,7 +786,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _refetch.remove(thread);
     liveActivities?.endChat(thread.id, _profile);
     watchStatus?.drop(thread);
-    _watchTurns.remove(thread);
+    _announcedTurns.remove(thread);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
@@ -804,8 +804,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     for (final reply in _replies) {
       reply.cancel();
     }
-    for (final thread in _watchTurns) {
-      watchStatus?.abandon(thread);
+    for (final thread in _announcedTurns) {
+      _abandon(thread);
     }
     _stopFollowing();
     _cancelSettleWaits();
@@ -903,6 +903,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   final _followingIds = <String>{};
+
+  /// How many sends of a thread are streaming. A thread that is followed while
+  /// its own send runs is not abandoned: the send goes on feeding it.
+  final _sending = <ChatThread, int>{};
 
   /// The remote threads a turn is running in right now, by id — including
   /// turns started outside this client. Drives the sidebar's working
@@ -1499,6 +1503,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
     void end([Object? error]) {
       _replies.remove(subscription);
+      _sending.update(thread, (n) => n - 1);
+      if (_sending[thread] == 0) _sending.remove(thread);
       breadcrumbs('chat.reply.ended', {'outcome': outcome(error)});
       _closeOwnTurn(
         thread,
@@ -1518,11 +1524,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           unawaited(refreshActive());
         } else {
           _turnEnded(thread, halted: true);
-          watchStatus?.onEvent(
+          // No notification: the prompt's reply was folded away, so none is
+          // pending to announce.
+          _announce(
             thread,
             const ReplyCompleted('', failed: true),
-            title: _watchTitle(thread),
-            threadId: _watchThreadId(thread, profile),
+            profile,
+            notify: false,
           );
           notifyListeners();
         }
@@ -1562,8 +1570,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
     }
 
+    _sending.update(thread, (n) => n + 1, ifAbsent: () => 1);
     liveActivities?.begin(thread, profile: profile);
-    _watchTurns.add(thread);
+    _announcedTurns.add(thread);
     watchStatus?.begin(
       thread,
       title: _watchTitle(thread),
@@ -1729,10 +1738,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
   }
 
+  /// [thread]'s turn can no longer be followed, so nothing would end what the
+  /// Lock Screen and the watch show of it.
+  void _abandon(ChatThread thread) {
+    liveActivities?.abandon(thread);
+    watchStatus?.abandon(thread);
+  }
+
   void _stopFollowing() {
     // A turn nobody listens to any more can no longer say it ended.
     for (final thread in _threads) {
-      if (_followingIds.contains(thread.id)) watchStatus?.abandon(thread);
+      if (_followingIds.contains(thread.id) && !_sending.containsKey(thread)) {
+        _abandon(thread);
+      }
     }
     for (final subscription in _following) {
       subscription.cancel();
@@ -1990,11 +2008,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     bool notify = true,
     bool ownTurn = false,
   }) {
-    liveActivities?.onEvent(thread, event);
     // The turn Hermes ran ahead of the prompt ends before the prompt's own
     // turn does, so its completion says nothing about the chat.
     if (!(ownTurn && event is ReplyCompleted)) {
-      _watchTurns.add(thread);
+      _announcedTurns.add(thread);
+      liveActivities?.onEvent(thread, event);
       watchStatus?.onEvent(
         thread,
         event,
@@ -2011,10 +2029,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
   }
 
-  /// The threads the watch status was told about, whatever profile is in view:
-  /// a reply goes on in a profile that went out of view, and closing the chat
-  /// must end it on the watch too.
-  final _watchTurns = <ChatThread>{};
+  /// The threads the Live Activities and the watch status were told about,
+  /// whatever profile is in view: a reply goes on in a profile that went out of
+  /// view, and closing the chat must end it on both too.
+  final _announcedTurns = <ChatThread>{};
 
   void _titled(ChatThread thread, String title) {
     if (thread.isCanonicalBotChat) return;
@@ -2298,6 +2316,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
                 applyReplyEvent(reply, const ReplyCompleted('', stopped: true)),
           );
         }
+        liveActivities?.onEvent(
+          thread,
+          const ReplyCompleted('', stopped: true),
+        );
         watchStatus?.drop(thread);
         return;
       }

@@ -168,6 +168,15 @@ class LiveActivities with WidgetsBindingObserver {
     }
   }
 
+  /// [thread]'s turn can no longer be followed, as when its profile went out
+  /// of view: a running activity ends, since a "Working" nothing can finish
+  /// would stay on the Lock Screen, and a finished one lingers as usual.
+  void abandon(ChatThread thread) {
+    final activity = _activities[thread];
+    if (activity == null || activity.state.finished) return;
+    _end(thread, 'abandoned');
+  }
+
   /// Ends the activity of the chat [threadId] of [profile], which was deleted.
   void endChat(String threadId, String? profile) {
     final thread = _activities.keys
