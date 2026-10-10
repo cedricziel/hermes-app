@@ -18,7 +18,7 @@ One PR, `feat(ios): add Hermes commands to the iPad menu bar`. Wave 1, independe
 
 ## 4. Native side
 
-- [ ] 4.1 Add `ios/Runner/KeyCommandMenu.swift` (layout and state from the channel, `UIKeyCommand`s with the command name as property list) and the `buildMenu(with:)`, `canPerformAction(_:withSender:)`, `validate(_:)` and `hermesCommand(_:)` overrides in `AppDelegate.swift`; remove `.find`, `.format` and `.newScene`; add the file to the Runner target. Verify `flutter build ios --simulator -d <udid>`.
+- [x] 4.1 Add `ios/Runner/KeyCommandMenu.swift` (layout and state from the channel, `UIKeyCommand`s with the command name as property list) and the `buildMenu(with:)`, `canPerformAction(_:withSender:)`, `validate(_:)` and `hermesCommand(_:)` overrides in `AppDelegate.swift`; remove `.find`, `.format` and `.newScene`; add the file to the Runner target. Verify `flutter build ios --simulator -d <udid>`.
 
 ## 5. Observability
 
@@ -26,7 +26,7 @@ One PR, `feat(ios): add Hermes commands to the iPad menu bar`. Wave 1, independe
 
 ## 6. Docs and skills
 
-- [ ] 6.1 Update CLAUDE.md's macOS menu bar paragraph (the layout is shared with iPad; ⌘F is `MacCommand.find` on both) and add an iPad keyboard check to the `verify-in-app` skill.
+- [x] 6.1 Update CLAUDE.md's macOS menu bar paragraph (the layout is shared with iPad; ⌘F is `MacCommand.find` on both) and add an iPad keyboard check to the `verify-in-app` skill.
 
 ## 7. Verify
 

@@ -30,7 +30,7 @@ How keys reach Flutter on iOS: `FlutterViewController` overrides `pressesBegan`/
 
 `ios/Runner/KeyCommandMenu.swift` keeps the layout and state. `AppDelegate`:
 
-- `buildMenu(with:)` (main system only): removes `.find`, `.format`, `.newScene`; inserts About into `.about`, Settings… into `.preferences`, Connection Details and Sign Out… after it, New Chat at the start of `.file`, Back at the start of `.view`, a "Chat" menu after `.view`, Hermes Help into `.help`. Each item is a `UIKeyCommand(title:action:#selector(hermesCommand(_:)), input:modifierFlags:propertyList: commandName)`, or a `UICommand` without a chord.
+- `buildMenu(with:)` (main system only): removes `.find`, `.format`, `.newScene`, `.sidebar` and `.toolbar` (Show Sidebar, Customize Toolbar); replaces the system About and Settings items (`.about`, `.preferences`) with the layout's three Hermes groups, inserted at the start of `.application`; New Chat at the start of `.file`, Back at the start of `.view`, a "Chat" menu after `.view`, Hermes Help at the start of `.help`. Checked by logging the built tree on the iPad simulator. Each item is a `UIKeyCommand(title:action:#selector(hermesCommand(_:)), input:modifierFlags:propertyList: commandName)`, or a `UICommand` without a chord.
 - `canPerformAction` returns the Dart state's enabled flag for `hermesCommand(_:)`; `validate(_:)` sets the Dart title (Pin/Unpin, New Task).
 - `hermesCommand(_:)` calls `invoke(command)` on the channel; Dart runs `registry.invoke` and adds the breadcrumb.
 - `setState` calls `UIMenuSystem.main.setNeedsRevalidate()`; `setLayout` calls `setNeedsRebuild()`.
