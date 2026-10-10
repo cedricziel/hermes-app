@@ -11,16 +11,19 @@ import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'support/attachment_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
+import 'support/fake_quick_look.dart';
 
 void main() {
   late FakeHermesServer server;
   late Directory cache;
   late FakeMediaActions actions;
+  late FakeQuickLook quickLook;
 
   MediaStore newStore({int imageBudget = 1 << 20}) => MediaStore(
     source: HermesMediaSource(() => server.client()),
     cacheDirectory: () async => cache,
     actions: actions,
+    quickLook: quickLook,
     imageBudget: imageBudget,
   );
 
@@ -28,6 +31,7 @@ void main() {
     server = FakeHermesServer();
     cache = tempDir('media_store');
     actions = FakeMediaActions();
+    quickLook = FakeQuickLook();
   });
 
   final pdf = Uint8List.fromList(utf8.encode('%PDF-1.7 fake'));
@@ -269,6 +273,164 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       expect(filesUnder(cache), isEmpty);
+      store.dispose();
+    });
+  });
+
+  group('stage', () {
+    test('shares the folder rule and the in-flight fetch with file', () async {
+      final gate = Completer<void>();
+      var fetches = 0;
+      final store = newStore();
+
+      Future<Uint8List> fetch() async {
+        fetches++;
+        await gate.future;
+        return pdf;
+      }
+
+      final first = store.stage('kanban:ops:3', '../../x', fetch);
+      final second = store.stage('kanban:ops:3', '../../x', fetch);
+      gate.complete();
+
+      expect((await first).path, (await second).path);
+      expect(fetches, 1);
+      expect((await first).path, startsWith('${cache.path}/hermes_media/'));
+      expect((await first).path, isNot(contains('..')));
+      expect((await first).readAsBytesSync(), pdf);
+    });
+
+    test('an error from the fetch reaches the caller as it is', () async {
+      final store = newStore();
+
+      await expectLater(
+        store.stage('k', 'a.pdf', () async => throw StateError('nope')),
+        throwsStateError,
+      );
+      expect(filesUnder(cache), isEmpty);
+      expect(
+        (await store.stage('k', 'a.pdf', () async => pdf)).readAsBytesSync(),
+        pdf,
+      );
+    });
+
+    test('a clear during the fetch leaves no file', () async {
+      final gate = Completer<void>();
+      final store = newStore();
+
+      final pending = store.stage('k', 'a.pdf', () async {
+        await gate.future;
+        return pdf;
+      });
+      final outcome = expectLater(pending, throwsA(isA<MediaFetchException>()));
+      await Future<void>.delayed(Duration.zero);
+      await store.clear();
+      gate.complete();
+      await outcome;
+
+      expect(filesUnder(cache), isEmpty);
+    });
+
+    test('stageBytes writes the bytes inside the media folder', () async {
+      final file = await newStore().stageBytes('m1:0', 'a.png', kTinyPng);
+
+      expect(file.path, startsWith('${cache.path}/hermes_media/'));
+      expect(file.readAsBytesSync(), kTinyPng);
+    });
+
+    test('stageCopy copies a file from elsewhere into the folder', () async {
+      final picked = writeTemp(tempDir('picked'), 'notes.txt', [1, 2, 3]);
+      final store = newStore();
+
+      final file = await store.stageCopy('notes.txt', picked);
+
+      expect(file.path, startsWith('${cache.path}/hermes_media/'));
+      expect(file.readAsBytesSync(), [1, 2, 3]);
+      expect(file.path, isNot(picked.path));
+    });
+
+    test('stageCopy copies again when the file changed', () async {
+      final picked = writeTemp(tempDir('picked'), 'notes.txt', [1]);
+      final store = newStore();
+      await store.stageCopy('notes.txt', picked);
+
+      picked.writeAsBytesSync([9, 9]);
+      final again = await store.stageCopy('notes.txt', picked);
+
+      expect(again.readAsBytesSync(), [9, 9]);
+    });
+
+    test('stageCopy of a file that is gone is missing', () async {
+      await expectLater(
+        newStore().stageCopy('x.txt', File('${cache.path}/nothing.txt')),
+        throwsA(
+          isA<MediaFetchException>().having(
+            (e) => e.reason,
+            'reason',
+            MediaFailure.missing,
+          ),
+        ),
+      );
+    });
+
+    test('a file downloaded for open is reused by the preview', () async {
+      server.on('GET', '/api/files/download', pdf);
+      final store = newStore();
+      final opened = await store.file('/srv/report.pdf', 'report.pdf');
+
+      final again = await store.file('/srv/report.pdf', 'report.pdf');
+      expect(await store.quickLook(again), isTrue);
+
+      expect(downloads(), 1);
+      expect(quickLook.shown, opened.path);
+    });
+  });
+
+  group('sweep', () {
+    File aged(String folder, String name, Duration age) {
+      final file = File('${cache.path}/hermes_media/$folder/$name')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1]);
+      file.setLastModifiedSync(DateTime.now().subtract(age));
+      return file;
+    }
+
+    test('deletes only what is older than the limit', () async {
+      final old = aged('a', 'old.pdf', const Duration(days: 2));
+      final fresh = aged('b', 'fresh.pdf', const Duration(hours: 1));
+
+      await newStore().sweep(const Duration(hours: 24));
+
+      expect(old.existsSync(), isFalse);
+      expect(old.parent.existsSync(), isFalse);
+      expect(fresh.existsSync(), isTrue);
+    });
+
+    test('does nothing when nothing was ever cached', () async {
+      await newStore().sweep(const Duration(hours: 24));
+    });
+  });
+
+  group('quick look', () {
+    test('clear closes the panel', () async {
+      final store = newStore();
+      await store.quickLook(File('${cache.path}/a.pdf'));
+
+      await store.clear();
+
+      expect(quickLook.closes, 1);
+      expect(quickLook.shown, isNull);
+    });
+
+    test('sign-out closes the panel too', () async {
+      final signedOut = StreamController<void>.broadcast(sync: true);
+      addTearDown(signedOut.close);
+      final store = newStore()..clearOnSignOut(signedOut.stream);
+
+      signedOut.add(null);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(quickLook.closes, 1);
       store.dispose();
     });
   });
