@@ -65,7 +65,7 @@ struct ThreadListView: View {
       switch request {
       case .newChat: path = [.newChat()]
       case .voiceChat: path = [.voiceChat()]
-      case .thread(let id, let title): path = [.thread(id: id, title: title)]
+      case .thread(let id, let title): path = [.thread(id: id, title: title, handoff: nil)]
       }
     }
     // A chat started or continued in a conversation belongs in the list once
