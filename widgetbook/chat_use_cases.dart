@@ -11,6 +11,7 @@ import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
 import 'package:hermes_app/src/chat/widgets/chat_app_bar.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/voice/dictation_controller.dart';
+import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/voice/dictation_view.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
@@ -518,18 +519,21 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _composer('Replying with a queue', replying: true, queued: _queued),
         _composer('No model pill', pill: false),
         _composer('Dictation, idle', dictation: DictationPhase.idle),
+        _composer('Dictation, recording', dictation: DictationPhase.recording),
         _composer(
-          'Dictation, recording',
-          text: 'Please',
+          'Dictation, words in the field',
+          text: 'Please $dictationLiveTranscript',
           dictation: DictationPhase.recording,
         ),
         _composer(
-          'Dictation, live transcript',
+          'Dictation, through Hermes',
+          text: 'Please',
           dictation: DictationPhase.recording,
-          liveTranscript: dictationLiveTranscript,
+          engine: DictationEngine.hermes,
         ),
         _composer(
           'Dictation, transcribing',
+          text: 'Please $dictationLiveTranscript',
           dictation: DictationPhase.settling,
         ),
         _composer('Dictation failed', dictation: DictationPhase.failed),
@@ -571,7 +575,7 @@ WidgetbookUseCase _composer(
   List<SlashCommand> slashCommands = const [],
   bool commandRunning = false,
   DictationPhase? dictation,
-  String liveTranscript = '',
+  DictationEngine engine = DictationEngine.device,
 }) => WidgetbookUseCase(
   name: name,
   builder: (_) => frame(
@@ -582,8 +586,9 @@ WidgetbookUseCase _composer(
               phase: dictation,
               levels: dictationLevels,
               elapsed: const Duration(seconds: 9),
-              liveTranscript: liveTranscript,
               canRetry: dictation == DictationPhase.failed,
+              engine: engine,
+              onSend: () {},
               onStart: () {},
               onStop: () {},
               onCancel: () {},

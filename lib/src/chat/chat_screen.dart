@@ -51,6 +51,7 @@ import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import '../voice/dictation_controller.dart';
+import '../voice/dictation_draft.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import '../voice/voice_recorder.dart';
@@ -278,6 +279,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
         onDevice: _onDeviceSpeech = _maybeRead<OnDeviceSpeech>(),
       );
+      _dictation!.addListener(_onDictation);
       _dictationSettings = _maybeRead<DictationSettings>()
         ?..addListener(_refreshVoice);
       _modelInstalls = _onDeviceSpeech?.installed.listen((_) {
@@ -639,26 +641,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Puts a dictated [transcript] where the cursor is, a space apart from the
   /// text around it, without sending.
-  void _insertTranscript(String transcript) {
-    final value = _composerController.value;
-    final text = value.text;
-    final selection = value.selection.isValid
-        ? value.selection
-        : TextSelection.collapsed(offset: text.length);
-    final before = text.substring(0, selection.start);
-    final after = text.substring(selection.end);
-    bool spaced(String s) => s.isEmpty || RegExp(r'\s').hasMatch(s);
-    final lead = spaced(before.isEmpty ? '' : before[before.length - 1])
-        ? ''
-        : ' ';
-    final trail = spaced(after.isEmpty ? '' : after[0]) ? '' : ' ';
-    final inserted = '$lead$transcript$trail';
-    _composerController.value = TextEditingValue(
-      text: '$before$inserted$after',
-      selection: TextSelection.collapsed(
-        offset: before.length + lead.length + transcript.length,
-      ),
-    );
+  void _insertTranscript(String transcript) =>
+      _composerController.value = DictationDraft(_composerController.value)
+          .showing(transcript);
+
+  /// The draft as the running dictation found it; null when none runs.
+  DictationDraft? _dictationDraft;
+
+  /// Shows the words recognized so far in the field while dictating, and
+  /// gives the draft back when the dictation ends without a transcript.
+  /// The transcript itself arrives through [_insertTranscript].
+  void _onDictation() {
+    final dictation = _dictation!;
+    if (dictation.busy) {
+      final draft = _dictationDraft ??= DictationDraft(
+        _composerController.value,
+      );
+      final shown = draft.showing(dictation.liveTranscript);
+      if (shown != _composerController.value) {
+        _composerController.value = shown;
+      }
+    } else if (_dictationDraft case final draft?) {
+      _dictationDraft = null;
+      _composerController.value = draft.original;
+    }
   }
 
   void _newThread() {

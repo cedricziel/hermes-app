@@ -38,8 +38,11 @@ class ComposerModelPill extends StatelessWidget {
     final style = theme.textTheme.labelMedium;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 320),
+      // A tonal chip, like the round buttons beside it in the composer.
       child: Material(
-        type: MaterialType.transparency,
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           key: const Key('composer-model-pill'),
           borderRadius: BorderRadius.circular(999),
@@ -51,7 +54,7 @@ class ComposerModelPill extends StatelessWidget {
             onUseDefault: onUseDefault,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/voice/dictation_controller.dart';
+import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/voice/dictation_view.dart';
 import 'package:hermes_app/src/voice/widgets/voice_waveform.dart';
 
@@ -19,15 +20,15 @@ void main() {
 
   DictationView view(
     DictationPhase phase, {
-    String liveTranscript = '',
     bool canRetry = false,
     Duration elapsed = Duration.zero,
   }) => DictationView(
     phase: phase,
     levels: const [0.2, 0.6, 0.4],
     elapsed: elapsed,
-    liveTranscript: liveTranscript,
     canRetry: canRetry,
+    engine: DictationEngine.device,
+    onSend: () => calls.add('stop and send'),
     onStart: () => calls.add('start'),
     onStop: () => calls.add('stop'),
     onCancel: () => calls.add('cancel'),
@@ -73,56 +74,50 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('recording swaps the field for the waveform and the microphone '
-      'for stop', (tester) async {
-    text.text = 'Please';
-    await pump(
-      tester,
-      view(DictationPhase.recording, elapsed: const Duration(seconds: 7)),
-    );
+  testWidgets('recording keeps the field and puts the waveform, stop and '
+      'send in one row', (tester) async {
+    text.text = 'Please book a';
+    await pump(tester, view(DictationPhase.recording));
 
-    expect(find.byKey(chatComposerFieldKey), findsNothing);
+    final field = tester.widget<TextField>(find.byKey(chatComposerFieldKey));
+    expect(field.readOnly, isTrue);
+    expect(find.text('Please book a'), findsOneWidget);
     expect(find.byType(VoiceWaveform), findsOneWidget);
-    expect(find.text('0:07'), findsOneWidget);
+    expect(find.text('On this device'), findsOneWidget);
     expect(button('Dictate'), findsNothing);
+    expect(button('Add attachment'), findsNothing);
 
     await tester.tap(button('Stop voice input'));
     await tester.tap(button('Cancel voice input'));
     expect(calls, ['stop', 'cancel']);
   });
 
-  testWidgets('sending waits until the transcript lands', (tester) async {
+  testWidgets('send while recording stops and sends', (tester) async {
     text.text = 'Please';
     await pump(tester, view(DictationPhase.recording));
 
-    final send = tester.widget<IconButton>(
-      find.ancestor(of: button('Send'), matching: find.byType(IconButton)),
-    );
-    expect(send.onPressed, isNull);
+    await tester.tap(button('Send'));
+
+    expect(calls, ['stop and send']);
   });
 
-  testWidgets('the live transcript shows over the waveform', (tester) async {
-    await pump(
-      tester,
-      view(DictationPhase.recording, liveTranscript: 'book a table'),
-    );
-
-    expect(find.text('book a table'), findsOneWidget);
-    expect(text.text, isEmpty, reason: 'the draft is not edited');
-  });
-
-  testWidgets('settling says it is transcribing', (tester) async {
+  testWidgets('settling says it is transcribing and still offers send', (
+    tester,
+  ) async {
     await pump(tester, view(DictationPhase.settling));
 
     expect(find.text('Transcribing…'), findsOneWidget);
     expect(button('Stop voice input'), findsNothing);
+    await tester.tap(button('Send'));
+    expect(calls, ['stop and send']);
   });
 
-  testWidgets('the field returns with the draft once idle', (tester) async {
+  testWidgets('the field is editable again once idle', (tester) async {
     text.text = 'Please book a table';
     await pump(tester, view(DictationPhase.idle));
 
-    expect(find.byKey(chatComposerFieldKey), findsOneWidget);
+    final field = tester.widget<TextField>(find.byKey(chatComposerFieldKey));
+    expect(field.readOnly, isFalse);
     expect(find.byType(VoiceWaveform), findsNothing);
   });
 

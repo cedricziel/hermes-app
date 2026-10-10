@@ -218,6 +218,10 @@ class _ChatComposerState extends State<ChatComposer> {
     final modelPill = widget.modelPill;
     final dictation = widget.dictation;
     final dictating = dictation != null && dictation.active;
+    // The round buttons beside the field, as in the Claude app.
+    final tonal = IconButton.styleFrom(
+      backgroundColor: scheme.onSurface.withValues(alpha: 0.06),
+    );
     final paste = AttachmentPaste.maybeOf(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -319,38 +323,31 @@ class _ChatComposerState extends State<ChatComposer> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (dictating)
-                    VoiceWaveform(
-                      levels: dictation.levels,
-                      elapsed: dictation.elapsed,
-                      liveTranscript: dictation.liveTranscript,
-                      settling: dictation.phase == DictationPhase.settling,
-                      onDevice: dictation.engine == DictationEngine.device,
-                    )
-                  else
-                    TextField(
-                      key: chatComposerFieldKey,
-                      controller: widget.controller,
-                      focusNode: _focusNode,
-                      minLines: 1,
-                      maxLines: 8,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.newline,
-                      contextMenuBuilder: paste?.contextMenu ?? _platformMenu,
-                      contentInsertionConfiguration: paste?.contentInsertion,
-                      decoration: InputDecoration(
-                        hintText: widget.replying
-                            ? 'Queue a message…'
-                            : widget.botContext == null
-                            ? 'Message Hermes…'
-                            : 'Message ${widget.botContext!.title}…',
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-                      ),
+                  TextField(
+                    key: chatComposerFieldKey,
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    // The recognized words go in while dictating.
+                    readOnly: dictating,
+                    minLines: 1,
+                    maxLines: 8,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.newline,
+                    contextMenuBuilder: paste?.contextMenu ?? _platformMenu,
+                    contentInsertionConfiguration: paste?.contentInsertion,
+                    decoration: InputDecoration(
+                      hintText: widget.replying
+                          ? 'Queue a message…'
+                          : widget.botContext == null
+                          ? 'Message Hermes…'
+                          : 'Message ${widget.botContext!.title}…',
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
                     ),
+                  ),
                   Row(
                     children: [
                       if (dictating)
@@ -358,6 +355,7 @@ class _ChatComposerState extends State<ChatComposer> {
                           label: 'Cancel voice input',
                           icon: AppIcons.close,
                           color: subtle,
+                          style: tonal,
                           onPressed: dictation.onCancel,
                         )
                       else if (widget.onAttach case final onAttach?)
@@ -365,16 +363,31 @@ class _ChatComposerState extends State<ChatComposer> {
                           label: 'Add attachment',
                           icon: AppIcons.add,
                           color: subtle,
+                          style: tonal,
                           onPressed: onAttach,
                         ),
                       Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: modelPill,
-                        ),
+                        child: dictating
+                            ? VoiceWaveform(
+                                levels: dictation.levels,
+                                elapsed: dictation.elapsed,
+                                settling:
+                                    dictation.phase == DictationPhase.settling,
+                                onDevice:
+                                    dictation.engine == DictationEngine.device,
+                              )
+                            : Align(
+                                alignment: Alignment.centerLeft,
+                                child: modelPill,
+                              ),
                       ),
+                      if (dictating) const SizedBox(width: 8),
                       if (dictation != null)
-                        _DictationButton(dictation: dictation, color: subtle),
+                        _DictationButton(
+                          dictation: dictation,
+                          color: subtle,
+                          style: tonal,
+                        ),
                       ListenableBuilder(
                         listenable: widget.controller,
                         builder: (context, _) => NamedIconButton(
@@ -390,7 +403,11 @@ class _ChatComposerState extends State<ChatComposer> {
                                 .withValues(alpha: 0.08),
                             disabledForegroundColor: subtle,
                           ),
-                          onPressed: _canSend ? _send : null,
+                          onPressed: dictating
+                              ? dictation.onSend
+                              : _canSend
+                              ? _send
+                              : null,
                         ),
                       ),
                     ],
@@ -414,17 +431,23 @@ Widget _platformMenu(BuildContext context, EditableTextState state) =>
 /// Starts dictation, or stops the recording while one runs. Hidden while the
 /// transcript settles.
 class _DictationButton extends StatelessWidget {
-  const _DictationButton({required this.dictation, required this.color});
+  const _DictationButton({
+    required this.dictation,
+    required this.color,
+    required this.style,
+  });
 
   final DictationView dictation;
   final Color color;
+  final ButtonStyle style;
 
   @override
   Widget build(BuildContext context) => switch (dictation.phase) {
     DictationPhase.recording => NamedIconButton(
       label: 'Stop voice input',
       icon: AppIcons.stopRecording,
-      color: Theme.of(context).colorScheme.error,
+      color: Theme.of(context).colorScheme.onSurface,
+      style: style,
       onPressed: dictation.onStop,
     ),
     DictationPhase.settling => const SizedBox.shrink(),
@@ -432,6 +455,7 @@ class _DictationButton extends StatelessWidget {
       label: 'Dictate',
       icon: AppIcons.mic,
       color: color,
+      style: style,
       onPressed: dictation.onStart,
     ),
   };

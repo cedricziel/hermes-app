@@ -4,15 +4,18 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/voice/widgets/voice_waveform.dart';
 
 void main() {
+  /// The waveform sits between cancel and stop in a phone's composer row.
   Future<void> pump(WidgetTester tester, VoiceWaveform waveform) =>
       tester.pumpWidget(
         MaterialApp(
           theme: buildHermesDarkTheme(),
-          home: Scaffold(body: waveform),
+          home: Scaffold(
+            body: Center(child: SizedBox(width: 200, child: waveform)),
+          ),
         ),
       );
 
-  testWidgets('recording shows the dot and the time as m:ss', (tester) async {
+  testWidgets('recording shows the dot and no clock', (tester) async {
     await pump(
       tester,
       const VoiceWaveform(
@@ -21,8 +24,8 @@ void main() {
       ),
     );
 
-    expect(find.text('1:05'), findsOneWidget);
     expect(find.bySemanticsLabel('Recording'), findsOneWidget);
+    expect(find.text('1:05'), findsNothing);
   });
 
   for (final (onDevice, label) in [
@@ -52,11 +55,12 @@ void main() {
         levels: [0.1, 0.9],
         elapsed: Duration(seconds: 12),
         settling: true,
+        onDevice: true,
       ),
     );
 
     expect(find.text('Transcribing…'), findsOneWidget);
-    expect(find.text('0:12'), findsNothing);
+    expect(find.text('On this device'), findsNothing);
     expect(find.bySemanticsLabel('Recording'), findsNothing);
   });
 
@@ -68,7 +72,7 @@ void main() {
       VoiceWaveform(
         levels: List.generate(500, (i) => (i % 10) / 10),
         elapsed: Duration.zero,
-        liveTranscript: 'a long ' * 40,
+        onDevice: true,
       ),
     );
 

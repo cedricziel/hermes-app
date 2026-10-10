@@ -30,19 +30,10 @@ WidgetbookNode voiceNode() => WidgetbookFolder(
           ),
         ),
         _waveform(
-          'Live transcript',
-          const VoiceWaveform(
-            levels: dictationLevels,
-            elapsed: Duration(seconds: 12),
-            liveTranscript: dictationLiveTranscript,
-          ),
-        ),
-        _waveform(
           'On this device',
           const VoiceWaveform(
             levels: dictationLevels,
             elapsed: Duration(seconds: 9),
-            liveTranscript: dictationLiveTranscript,
             onDevice: true,
           ),
         ),
@@ -60,13 +51,6 @@ WidgetbookNode voiceNode() => WidgetbookFolder(
             levels: dictationLevels,
             elapsed: Duration(seconds: 15),
             settling: true,
-          ),
-        ),
-        _waveform(
-          'Near the time limit',
-          const VoiceWaveform(
-            levels: dictationLevels,
-            elapsed: Duration(minutes: 4, seconds: 58),
           ),
         ),
       ],

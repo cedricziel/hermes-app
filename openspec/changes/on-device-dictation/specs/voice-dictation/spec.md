@@ -52,12 +52,12 @@ The on-device engine SHALL recognize speech in the language the device's setting
 
 ### Requirement: On-device recognition
 
-With the on-device engine, the app SHALL record as described in "Recording state", feed the recording to the on-device recognizer while the user speaks, and show the recognizer's latest text as the live transcript over the waveform, styled as provisional and without editing the draft. On stop, the recognizer's final text SHALL be the transcript and SHALL be inserted as described in "Inserting the transcript". Cancel SHALL discard the recognizer's text. When recording starts, the app SHALL check the model again; if it is no longer ready (the system may remove an unused model), the app SHALL NOT record and SHALL show that the speech model needs downloading in the Dictation setting. When the recognizer fails, the app SHALL leave the draft unchanged and show the failure without Retry, and SHALL NOT keep the recording.
+With the on-device engine, the app SHALL record as described in "Recording state", feed the recording to the on-device recognizer while the user speaks, and show the recognizer's latest text in the text field at the cursor, as described in "Recording state". On stop, the recognizer's final text SHALL be the transcript and SHALL be inserted as described in "Inserting the transcript". Cancel SHALL discard the recognizer's text. When recording starts, the app SHALL check the model again; if it is no longer ready (the system may remove an unused model), the app SHALL NOT record and SHALL show that the speech model needs downloading in the Dictation setting. When the recognizer fails, the app SHALL leave the draft unchanged and show the failure without Retry, and SHALL NOT keep the recording.
 
 #### Scenario: Text while speaking
 
 - **WHEN** the user speaks during an on-device recording
-- **THEN** the waveform shows the recognized text as a provisional live transcript, and the draft is unchanged
+- **THEN** the recognized text appears in the text field at the cursor while the user speaks
 
 #### Scenario: Transcript inserted
 
@@ -76,17 +76,17 @@ With the on-device engine, the app SHALL record as described in "Recording state
 
 ### Requirement: Engine shown while recording
 
-While recording and while transcribing, the composer SHALL say which engine turns the speech into text: "On this device" or "Hermes".
+While recording and while transcribing, the composer's controls row SHALL say which engine turns the speech into text: "On this device" or "Hermes".
 
 #### Scenario: Recording on the device
 
 - **WHEN** the user records with the on-device engine
-- **THEN** the waveform says "On this device"
+- **THEN** the controls row says "On this device"
 
 #### Scenario: Recording through Hermes
 
 - **WHEN** the user records with the Hermes engine
-- **THEN** the waveform says "Hermes"
+- **THEN** the controls row says "Hermes"
 
 ### Requirement: Changing the engine
 
@@ -111,7 +111,45 @@ With the on-device engine, the app SHALL NOT send the recording, any part of it 
 - **WHEN** the user dictates with the on-device engine
 - **THEN** the app makes no request to `/api/audio/voice-config`, `/api/audio/transcribe`, `/api/audio/transcribe-stream` or `/api/audio/stt-lease`
 
+### Requirement: Send while dictating
+
+The send button SHALL stay available while recording and while transcribing. Tapping it SHALL stop the recording and, once the transcript lands, send the draft with the transcript in place. When nothing was heard, it SHALL send the draft as it was, if it has text. When transcription fails, the app SHALL send nothing and SHALL show the failure as described in "Inserting the transcript".
+
+#### Scenario: Send ends the recording
+
+- **WHEN** the user taps send while recording and the transcript "book a table" lands for the draft "Please"
+- **THEN** the app sends "Please book a table"
+
+#### Scenario: Send after a failed transcription
+
+- **WHEN** the user taps send while recording and transcription fails
+- **THEN** nothing is sent and the composer shows the failure
+
 ## MODIFIED Requirements
+
+### Requirement: Recording state
+
+While recording, the composer SHALL keep the text field, read-only, holding the draft with the text recognized so far at the cursor, separated from the draft by a single space. Where the engine gives no text until the end, the field SHALL show the draft unchanged. The row below the field SHALL show a cancel button ("Cancel voice input"), a live waveform that follows the input level after a pulsing recording dot, the engine's name, a stop button ("Stop voice input") and the send button, in place of attach, the model picker and the microphone. Cancel SHALL discard the recording and give the draft back as it was before recording. After stop, the waveform SHALL dim and say "Transcribing" until the transcript lands, and the field SHALL then become editable again with the transcript in place. Recording SHALL stop by itself after 5 minutes, as if the user had tapped stop.
+
+#### Scenario: Recording in progress
+
+- **WHEN** the user has started a recording
+- **THEN** the text field stays visible and the row below it shows cancel, the waveform, the engine's name, stop and send
+
+#### Scenario: Cancel gives the draft back
+
+- **WHEN** the draft was "Please", text was recognized while recording, and the user taps cancel
+- **THEN** the field reads "Please" again
+
+#### Scenario: Settling
+
+- **WHEN** the user taps stop
+- **THEN** the waveform says "Transcribing" until the transcript is in the field, and then the field is editable again
+
+#### Scenario: Time limit
+
+- **WHEN** a recording reaches 5 minutes
+- **THEN** recording stops and the transcript is fetched as if the user had tapped stop
 
 ### Requirement: Microphone button availability
 
@@ -144,22 +182,22 @@ The composer SHALL show a microphone button ("Dictate" for assistive technologie
 
 ### Requirement: Live transcription
 
-With the Hermes engine, when `voice-config` reports `stt.streaming: true`, the app SHALL open the `/api/audio/transcribe-stream` socket (with the dashboard-socket credential and `profile`) when recording starts, send `{"sample_rate": N}` with N between 8000 and 48000, then binary 16-bit little-endian mono PCM frames while the user speaks, and `{"eos": true}` when the user taps stop. It SHALL show the latest `{"type":"partial","text":…}` frame's text as a live transcript over the waveform, styled as provisional and without editing the draft, and SHALL take `{"type":"final","transcript":…}` as the result. Cancel SHALL close the socket without sending `eos`.
+With the Hermes engine, when `voice-config` reports `stt.streaming: true`, the app SHALL open the `/api/audio/transcribe-stream` socket (with the dashboard-socket credential and `profile`) when recording starts, send `{"sample_rate": N}` with N between 8000 and 48000, then binary 16-bit little-endian mono PCM frames while the user speaks, and `{"eos": true}` when the user taps stop. It SHALL show the latest `{"type":"partial","text":…}` frame's text in the text field at the cursor, as described in "Recording state", and SHALL take `{"type":"final","transcript":…}` as the result. Cancel SHALL close the socket without sending `eos`.
 
 #### Scenario: Partial text while speaking
 
 - **WHEN** the server sends a partial frame during a recording
-- **THEN** the waveform shows the partial text as a provisional live transcript, and the draft itself is unchanged
+- **THEN** the partial text appears in the text field at the cursor
 
 #### Scenario: Final transcript
 
 - **WHEN** the user taps stop and the server sends a final frame with a non-empty transcript
-- **THEN** the provisional text is replaced by the transcript inserted into the draft
+- **THEN** the partial text in the field is replaced by the transcript
 
 #### Scenario: Cancel during live transcription
 
 - **WHEN** the user taps cancel while the socket is open
-- **THEN** the app closes the socket without sending `eos`, removes the provisional text and leaves the draft as it was before recording
+- **THEN** the app closes the socket without sending `eos`, removes the partial text and leaves the draft as it was before recording
 
 ### Requirement: Upload fallback
 

@@ -95,3 +95,22 @@ On a TestFlight iPhone, dictation still went to Hermes: the engine defaulted to 
 - [x] 4.4 Add the engine label to `VoiceWaveform` with Widgetbook use cases (On this device, Hermes), then pass it from the composer. Verify with the widget and Widgetbook tests.
 - [x] 4.5 Update `CLAUDE.md`'s Voice paragraph for the new default. Then run `dart format`, `flutter analyze`, `flutter test` and `openspec validate on-device-dictation --strict`.
 
+## 5. PR 5: `feat(voice): dictate into the field, with send in the controls row`
+
+As in the Claude app: the words appear in the field as they are recognized, and one row below the field holds cancel, the waveform with the engine's name, stop and send. Send works while dictating.
+
+- [x] 5.1 Write failing tests for a pure `DictationDraft` (`lib/src/voice/`) that holds the draft at the start of a recording: it shows recognized text at the cursor with single-space separation, puts the final transcript in its place, and gives the draft back on cancel or failure. Implement it, and move `ChatScreen._insertTranscript`'s spacing rule into it.
+- [x] 5.2 Rework `VoiceWaveform` into the controls row's middle: recording dot, bars and the engine's name, or "Transcribing…" while settling. It has no live text and no clock. Update its Widgetbook use cases and tests (phone width).
+- [x] 5.3 Rework the composer's dictation layout as a plain-model change with Widgetbook use cases for recording and settling, each with a draft:
+  - the field stays and is read-only while dictating;
+  - the row shows cancel, waveform, stop and send;
+  - send is enabled while dictating and calls a new `DictationView.onSend`.
+- [x] 5.4 Write failing `ChatScreen` tests:
+  - partials appear in the field at the cursor;
+  - cancel gives the draft back;
+  - send while recording sends the draft with the transcript;
+  - send after a failed transcription sends nothing.
+
+  Wire `DictationDraft` and send-while-dictating into `ChatScreen` until they pass.
+- [x] 5.5 Update `CLAUDE.md`'s Voice paragraph. Run `dart format`, `flutter analyze`, `flutter test` and `openspec validate on-device-dictation --strict`, and render the composer states on a phone width.
+

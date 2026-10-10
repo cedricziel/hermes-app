@@ -9,9 +9,9 @@ class DictationView {
     required this.phase,
     this.levels = const [],
     this.elapsed = Duration.zero,
-    this.liveTranscript = '',
     this.canRetry = false,
     this.engine = DictationEngine.hermes,
+    this.onSend,
     required this.onStart,
     required this.onStop,
     required this.onCancel,
@@ -19,14 +19,18 @@ class DictationView {
     required this.onDismiss,
   });
 
-  /// The view of [controller]'s current state.
-  factory DictationView.of(DictationController controller) => DictationView(
+  /// The view of [controller]'s current state; [onSend] ends the dictation
+  /// and sends the draft.
+  factory DictationView.of(
+    DictationController controller, {
+    VoidCallback? onSend,
+  }) => DictationView(
     phase: controller.phase,
     levels: controller.levels,
     elapsed: controller.elapsed,
-    liveTranscript: controller.liveTranscript,
     canRetry: controller.canRetry,
     engine: controller.engine,
+    onSend: onSend,
     onStart: controller.start,
     onStop: controller.stop,
     onCancel: controller.cancel,
@@ -39,9 +43,12 @@ class DictationView {
   /// Recent input levels, oldest first, from 0 to 1.
   final List<double> levels;
   final Duration elapsed;
-  final String liveTranscript;
   final bool canRetry;
   final DictationEngine engine;
+
+  /// Sends while dictating: stops the recording, then sends the draft with
+  /// the transcript once it lands.
+  final VoidCallback? onSend;
   final VoidCallback onStart;
   final VoidCallback onStop;
   final VoidCallback onCancel;
