@@ -9,7 +9,7 @@ The watch app has no network of its own; every screen asks the phone over
 WatchConnectivity (`RelayClient`), and the phone answers in
 `lib/src/watch/`. A watch simulator has no phone to ask, so on its own it only
 ever shows "Can't reach your iPhone". Debug builds can answer from canned
-chats instead (`DemoClient` in `HermesWatchApp.swift`).
+chats instead (`DemoClient.swift`).
 
 ## Tests and compile check
 
