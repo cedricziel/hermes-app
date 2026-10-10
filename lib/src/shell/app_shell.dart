@@ -322,6 +322,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         _openJob(pending);
       }
     }
+    _releaseWaitingLink();
+  }
+
+  /// Opens the link that waited for a check, unless App Lock covers the app;
+  /// the lock's own change brings it back here.
+  void _releaseWaitingLink() {
+    if (_appLock?.covered ?? false) return;
     if (_waitingLink case final waiting?) {
       _waitingLink = null;
       _openDeepLink(waiting, waited: true);
@@ -405,6 +412,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _lockHeld = false;
       _openDeepLink(link, waited: waited);
     }
+    _releaseWaitingLink();
   }
 
   /// Shows what a `hermes://` link names. Screens pushed over the page are

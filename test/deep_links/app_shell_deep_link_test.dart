@@ -413,6 +413,35 @@ void main() {
     });
   });
 
+  testWidgets('a link that waited for the server check also waits for the '
+      'lock that came on meanwhile', (tester) async {
+    kanbanPlugin(on: true);
+    cronRoutes(on: false);
+    final device = FakeDeviceAuthenticator();
+    late AppLockController lock;
+    await tester.runAsync(() async {
+      lock = AppLockController(authenticator: device, coverWhenInactive: true);
+      await lock.load();
+      await lock.setEnabled(true);
+    });
+    addTearDown(lock.dispose);
+    await pumpShell(tester, lock: lock, settle: false);
+    links.add(Uri.parse('hermes://kanban'));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pumpAndSettle();
+    expect(lock.covered, isTrue);
+    expect(selectedTab(tester), 0);
+    expect(crumbs(), isEmpty);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(selectedTab(tester), 1);
+    expect(crumbs(), [
+      'deeplink.opened {kind: kanban, cold: false, waited: true}',
+    ]);
+  });
+
   group('a server that could not be asked', () {
     testWidgets('keeps a Kanban link until a check answers', (tester) async {
       server.on('GET', '/api/dashboard/plugins', {'detail': 'x'}, status: 503);

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_open_requests.dart';
@@ -23,6 +24,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_chat_transport.dart';
 import '../support/fake_conversation_window_host.dart';
+import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_share_inbox.dart';
 import '../support/fake_voice_recorder.dart';
@@ -45,6 +47,7 @@ void main() {
   late BreadcrumbTrail trail;
   FakeConversationWindowHost? host;
   ConversationWindows? windows;
+  AppLockController? lock;
 
   void seedProfile(String profile, List<Map<String, Object?>> sessions) =>
       server.on(
@@ -78,6 +81,7 @@ void main() {
     trail = BreadcrumbTrail(capacity: 50);
     host = null;
     windows = null;
+    lock = null;
     transport = FakeChatTransport();
     recorder = FakeVoiceRecorder();
     server = FakeHermesServer()
@@ -120,6 +124,8 @@ void main() {
             create: (_) => ShareController(FakeShareInbox()),
           ),
           Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
+          if (lock case final lock?)
+            ChangeNotifierProvider<AppLockController>.value(value: lock),
           if (windows case final windows?)
             ChangeNotifierProvider<ConversationWindows?>.value(value: windows),
         ],
@@ -527,6 +533,43 @@ void main() {
 
     expect(selectedId(tester), 'recent');
     expect(composerText(tester), isEmpty);
+  });
+
+  testWidgets('dictation does not start if the lock came on while the open '
+      'was waiting', (tester) async {
+    final voiceConfig = Completer<FakeResponse>();
+    server.onRequest(
+      'GET',
+      '/api/audio/voice-config',
+      (_) => voiceConfig.future,
+    );
+    final device = FakeDeviceAuthenticator();
+    await tester.runAsync(() async {
+      lock = AppLockController(authenticator: device, coverWhenInactive: true);
+      await lock!.load();
+      await lock!.setEnabled(true);
+    });
+    addTearDown(lock!.dispose);
+    await pumpChat(tester, settle: false);
+    await tester.pump(const Duration(seconds: 1));
+
+    requests.requestNew(dictate: true, prompt: 'Hello');
+    await tester.pump(const Duration(seconds: 1));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(lock!.covered, isTrue);
+    voiceConfig.complete((
+      status: 200,
+      body: {
+        'ok': true,
+        'stt': {'mode': 'relay', 'reason': 'local provider'},
+        'tts': {'mode': 'relay'},
+      },
+    ));
+    await tester.pumpAndSettle();
+
+    expect(recorder.starts, 0);
+    expect(newChatRows(), findsNWidgets(2));
+    expect(composerText(tester), 'Hello');
   });
 
   group('on a Mac with conversation windows', () {
