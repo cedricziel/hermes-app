@@ -10,6 +10,8 @@ public enum AskOutcome: String, Sendable, CaseIterable {
   case answered
   case stillWorking = "still_working"
   case needsYou = "needs_you"
+  /// The question went into a turn already running in that chat.
+  case folded
   case failed
   case signedOut = "signed_out"
   case deviceLocked = "device_locked"
@@ -17,6 +19,15 @@ public enum AskOutcome: String, Sendable, CaseIterable {
   /// The Dart side could not be started. Only Swift reports it.
   case unavailable
   case appLocked = "app_locked"
+}
+
+/// Why an ask could not use an engine. Dart records it later, with these
+/// names and no others, as `intent.unavailable`.
+public enum AskUnavailable: String, Sendable, CaseIterable {
+  /// The background engine did not say it was ready in [AskHermes.readyWait].
+  case readyTimeout = "ready_timeout"
+  /// The background engine could not be started.
+  case engineStartFailed = "engine_start_failed"
 }
 
 /// What the intent has to say about a question.
@@ -54,6 +65,7 @@ public struct AskAnswer: Equatable, Sendable {
     case .answered: return ""
     case .stillWorking: return "Still working — I'll notify you."
     case .needsYou: return "Hermes needs your answer. Open the chat in Hermes."
+    case .folded: return "Added to the running chat."
     case .failed: return "Hermes couldn't answer."
     case .signedOut: return "Sign in to Hermes first."
     case .deviceLocked: return "Unlock your iPhone first."
@@ -80,6 +92,11 @@ public enum AskHermes {
   /// How long Siri may wait for a reply: it gives an intent a little over 30
   /// seconds, and the engine's start is paid out of the same window.
   public static let window: Duration = .seconds(25)
+
+  /// How long a background engine may take to say it is ready. A cold start
+  /// was measured at about 5.4 s on a device; the rest of the window is for
+  /// the connection and the reply.
+  public static let readyWait: Duration = .seconds(12)
 
   /// The bridge the Runner installs at launch.
   public static var service: AskTurnService?
@@ -109,7 +126,7 @@ public enum AskHermes {
     work: @escaping @Sendable () async -> AskAnswer
   ) async -> AskAnswer {
     await withCheckedContinuation { continuation in
-      let once = Once(continuation)
+      let once = Latch<AskAnswer>(continuation)
       let timer = Task {
         do { try await clock.sleep(until: deadline) } catch { return }
         once.resume(AskAnswer(.stillWorking))
@@ -124,20 +141,23 @@ public enum AskHermes {
 
 /// Resumes a continuation the first time it is asked to, however many tasks
 /// race for it.
-private final class Once: @unchecked Sendable {
+final class Latch<Value>: @unchecked Sendable {
   private let lock = NSLock()
-  private var continuation: CheckedContinuation<AskAnswer, Never>?
+  private var continuation: CheckedContinuation<Value, Never>?
 
-  init(_ continuation: CheckedContinuation<AskAnswer, Never>) {
+  init(_ continuation: CheckedContinuation<Value, Never>) {
     self.continuation = continuation
   }
 
-  func resume(_ answer: AskAnswer) {
+  /// Whether this call was the one that resumed it.
+  @discardableResult
+  func resume(_ value: Value) -> Bool {
     lock.lock()
     let taken = continuation
     continuation = nil
     lock.unlock()
-    taken?.resume(returning: answer)
+    taken?.resume(returning: value)
+    return taken != nil
   }
 }
 

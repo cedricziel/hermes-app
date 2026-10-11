@@ -37,6 +37,7 @@ final class AskAnswerTests: XCTestCase {
     let words: [AskOutcome: String] = [
       .stillWorking: "Still working — I'll notify you.",
       .needsYou: "Hermes needs your answer. Open the chat in Hermes.",
+      .folded: "Added to the running chat.",
       .failed: "Hermes couldn't answer.",
       .signedOut: "Sign in to Hermes first.",
       .deviceLocked: "Unlock your iPhone first.",
@@ -108,6 +109,25 @@ final class SpokenTextTests: XCTestCase {
 final class AskWindowTests: XCTestCase {
   func testTheWindowIsTwentyFiveSeconds() {
     XCTAssertEqual(AskHermes.window, .seconds(25))
+  }
+
+  func testAColdEngineGetsTwelveSecondsToBeReadyAndStillLeavesRoomForTheReply() {
+    XCTAssertEqual(AskHermes.readyWait, .seconds(12))
+    XCTAssertLessThan(AskHermes.readyWait, AskHermes.window)
+  }
+
+  func testUnavailableReasonsAreAFixedSet() {
+    XCTAssertEqual(
+      Set(AskUnavailable.allCases.map(\.rawValue)), ["ready_timeout", "engine_start_failed"])
+  }
+
+  func testALatchResumesOnlyOnce() async {
+    let value = await withCheckedContinuation { (continuation: CheckedContinuation<Int, Never>) in
+      let latch = Latch<Int>(continuation)
+      XCTAssertTrue(latch.resume(1))
+      XCTAssertFalse(latch.resume(2))
+    }
+    XCTAssertEqual(value, 1)
   }
 
   func testAnAnswerInTimeIsReturnedAsIs() async {
