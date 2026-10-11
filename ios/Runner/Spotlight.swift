@@ -44,36 +44,53 @@ final class Spotlight {
     }
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self else { result(nil); return }
-      let arguments = call.arguments as? [String: Any]
-      switch call.method {
-      case "replace":
-        guard let domain = arguments?["domain"] as? String,
-          let items = arguments?["items"] as? [[String: String]]
-        else { return result(FlutterError(code: "bad_arguments", message: nil, details: nil)) }
-        self.replace(domain: domain, items: items, result: result)
-      case "update":
-        guard let domain = arguments?["domain"] as? String,
-          let items = arguments?["items"] as? [[String: String]],
-          let remove = arguments?["remove"] as? [String]
-        else { return result(FlutterError(code: "bad_arguments", message: nil, details: nil)) }
-        self.update(domain: domain, items: items, remove: remove, result: result)
-      case "isAvailable":
-        result(UIApplication.shared.isProtectedDataAvailable)
-      case "deleteDomain":
-        guard let domain = arguments?["domain"] as? String else {
-          return result(FlutterError(code: "bad_arguments", message: nil, details: nil))
-        }
-        self.index.deleteSearchableItems(withDomainIdentifiers: [self.domainIdentifier(domain)]) {
-          Self.answer($0, result)
-        }
-      case "deleteAll":
-        self.index.deleteAllSearchableItems { Self.answer($0, result) }
-      case "take":
-        result(self.pending)
-        self.pending = nil
-      default:
-        result(FlutterMethodNotImplemented)
+      self.handle(call, result, takesTaps: true)
+    }
+  }
+
+  /// For a background engine, which only puts items in the index: the same
+  /// channel without `take`, and without `opened` or `becameAvailable`, which
+  /// belong to the engine that shows the app. Installing the full `install`
+  /// there would take the taps away from it.
+  func installIndexing(messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: Self.channelName, binaryMessenger: messenger)
+      .setMethodCallHandler { [weak self] call, result in
+        guard let self else { result(nil); return }
+        self.handle(call, result, takesTaps: false)
       }
+  }
+
+  private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult, takesTaps: Bool) {
+    let arguments = call.arguments as? [String: Any]
+    switch call.method {
+    case "replace":
+      guard let domain = arguments?["domain"] as? String,
+        let items = arguments?["items"] as? [[String: String]]
+      else { return result(FlutterError(code: "bad_arguments", message: nil, details: nil)) }
+      self.replace(domain: domain, items: items, result: result)
+    case "update":
+      guard let domain = arguments?["domain"] as? String,
+        let items = arguments?["items"] as? [[String: String]],
+        let remove = arguments?["remove"] as? [String]
+      else { return result(FlutterError(code: "bad_arguments", message: nil, details: nil)) }
+      self.update(domain: domain, items: items, remove: remove, result: result)
+    case "isAvailable":
+      result(UIApplication.shared.isProtectedDataAvailable)
+    case "deleteDomain":
+      guard let domain = arguments?["domain"] as? String else {
+        return result(FlutterError(code: "bad_arguments", message: nil, details: nil))
+      }
+      self.index.deleteSearchableItems(withDomainIdentifiers: [self.domainIdentifier(domain)]) {
+        Self.answer($0, result)
+      }
+    case "deleteAll":
+      self.index.deleteAllSearchableItems { Self.answer($0, result) }
+    case "take":
+      guard takesTaps else { return result(nil) }
+      result(self.pending)
+      self.pending = nil
+    default:
+      result(FlutterMethodNotImplemented)
     }
   }
 

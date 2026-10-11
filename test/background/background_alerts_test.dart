@@ -3,6 +3,7 @@ import 'package:hermes_app/src/auth/account_key.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/background/background_alerts.dart';
 import 'package:hermes_app/src/background/background_refresh.dart';
+import 'package:hermes_app/src/background/background_spotlight.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/background/running_replies.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -10,6 +11,8 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/schedule_alerts.dart';
+import 'package:hermes_app/src/spotlight/spotlight_index.dart';
+import 'package:hermes_app/src/spotlight/spotlight_settings.dart';
 import 'package:hermes_app/src/schedules/schedule_baseline.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
@@ -21,6 +24,7 @@ import '../support/cron_fixtures.dart';
 import '../support/fake_gateway.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_notification_service.dart';
+import '../support/fake_spotlight_index.dart';
 import '../support/fake_surface_storage.dart';
 import '../support/memory_token_store.dart';
 import '../support/recorded_events.dart';
@@ -785,6 +789,110 @@ void main() {
         expect(span.attributes.toString(), isNot(contains('Morning brief')));
       },
     );
+  });
+
+  group('Spotlight', () {
+    late FakeSpotlightIndex index;
+    var lockOn = false;
+
+    setUp(() {
+      index = FakeSpotlightIndex();
+      lockOn = false;
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'd1', title: 'Trip plan', lastActive: 1780000100),
+        ]),
+        query: {'profile': 'default'},
+      );
+    });
+
+    tearDown(() => index.dispose());
+
+    Future<void> run() => runBackgroundRefresh(
+      deps: BackgroundRefreshDeps(
+        headless: HeadlessDeps(
+          tokenStore: tokens,
+          prefs: SharedPreferencesAsync(),
+          devServerUrl: '',
+          adapter: server,
+          openSocket: (_) => gateway.connect(),
+          snapshotStore: store,
+          appLockOn: () async => lockOn,
+        ),
+        notifications: notifications,
+        announced: AnnouncedRequests(),
+        notificationsEnabled: () async => notificationsOn,
+        appLockOn: () async => lockOn,
+        cancelSchedule: () async {},
+        appInFront: () async => appOpen,
+        steps: () {
+          final requests = OpenRequestsStep();
+          final snapshot = SnapshotStep(requests);
+          return [
+            requests,
+            snapshot,
+            SpotlightRefreshStep(snapshot, index: index),
+          ];
+        },
+        timeout: const Duration(seconds: 5),
+        stepTimeout: const Duration(seconds: 3),
+      ),
+    );
+
+    test('puts the chats of the fresh snapshot in the index', () async {
+      await SpotlightSettings().setEnabled(true);
+
+      await run();
+
+      expect(index.calls, ['replace chat']);
+      expect(index.items['chat']!.single.title, 'Trip plan');
+    });
+
+    test('does nothing while the user has not turned it on', () async {
+      await run();
+
+      expect(index.calls, isEmpty);
+    });
+
+    test('empties an index that holds chats while App Lock is on', () async {
+      await SpotlightSettings().setEnabled(true);
+      await SharedPreferencesAsync().setBool('hermes.spotlight.dirty', true);
+      index.items['chat'] = const [
+        SpotlightItem(
+          domain: 'chat',
+          id: 'default/d1',
+          title: 'Trip plan',
+          text: '',
+          url: 'hermes://chat?profile=default&id=d1',
+        ),
+      ];
+      lockOn = true;
+
+      await run();
+
+      expect(index.calls, ['deleteAll']);
+      expect(index.items, isEmpty);
+    });
+
+    test('leaves the index alone while the device is locked', () async {
+      await SpotlightSettings().setEnabled(true);
+      index.available = false;
+
+      await run();
+
+      expect(index.calls, isEmpty);
+    });
+
+    test('leaves the index to the app while it is in front', () async {
+      await SpotlightSettings().setEnabled(true);
+      appOpen = true;
+
+      await run();
+
+      expect(index.calls, isEmpty);
+    });
   });
 
   test('the default run includes both checks', () async {

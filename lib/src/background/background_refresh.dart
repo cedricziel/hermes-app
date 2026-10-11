@@ -26,6 +26,7 @@ import '../surfaces/surface_snapshot.dart';
 import 'app_presence.dart';
 import 'background_alerts.dart';
 import 'background_scheduler.dart';
+import 'background_spotlight.dart';
 import 'headless_hermes.dart';
 
 /// The whole run, which iOS allows about 30 seconds.
@@ -447,14 +448,25 @@ class SnapshotStep extends BackgroundStep {
   /// How long the build waits for the requests before it goes on without.
   final Duration requestsWait;
 
+  final _written = Completer<SurfaceSnapshot?>();
+
+  /// The snapshot this step stored; null when it was dropped or the step
+  /// failed.
+  Future<SurfaceSnapshot?> get written => _written.future;
+
   @override
   Future<StepCounts> run(BackgroundContext context) async {
-    final pending = await _requests.found.timeout(
-      requestsWait,
-      onTimeout: () => null,
-    );
-    await context.hermes.refreshSnapshot(pending: pending);
-    return const StepCounts();
+    try {
+      final pending = await _requests.found.timeout(
+        requestsWait,
+        onTimeout: () => null,
+      );
+      final snapshot = await context.hermes.refreshSnapshot(pending: pending);
+      _written.complete(snapshot);
+      return const StepCounts();
+    } finally {
+      if (!_written.isCompleted) _written.complete(null);
+    }
   }
 }
 
@@ -498,9 +510,11 @@ class BackgroundRefreshDeps {
 
 List<BackgroundStep> _defaultSteps() {
   final requests = OpenRequestsStep();
+  final snapshot = SnapshotStep(requests);
   return [
     requests,
-    SnapshotStep(requests),
+    snapshot,
+    SpotlightRefreshStep(snapshot),
     RunningRepliesStep(),
     ScheduleAlertsStep(),
   ];
