@@ -25,12 +25,13 @@ import UIKit
 /// - `openLink` `url`: take this `hermes://` link as if the platform had
 ///   delivered it; answers whether Dart took it.
 ///
+/// (Siri's chat list is refreshed on its own channel, `hermes_app/shortcuts`.)
+///
 /// Dart calls Swift:
 /// - `ready`: the handler is in place, calls may come.
 /// - `finished` `id`: that ask has nothing left to do, so its background task
 ///   may end.
 /// - `closed`: Dart stopped listening (the engine's `ready` is void).
-/// - `refreshShortcuts` (app engine only): re-read the chats Siri knows.
 ///
 /// A background task is held from the start of an ask until `finished` or
 /// until iOS expires it. Calls reach an engine one at a time until it has
@@ -110,8 +111,6 @@ final class IntentsBridge: AskTurnService {
     channel.setMethodCallHandler { [weak endpoint] call, result in
       MainActor.assumeIsolated {
         switch call.method {
-        case "refreshShortcuts":
-          HermesAppShortcuts.updateAppShortcutParameters()
         case "ready":
           if let endpoint { IntentsBridge.shared.becameReady(endpoint) }
         case "finished":
