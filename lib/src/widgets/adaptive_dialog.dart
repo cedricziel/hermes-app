@@ -74,8 +74,6 @@ class AppDialogTextField extends StatelessWidget {
     this.hint,
     this.minLines = 1,
     this.maxLines = 1,
-    this.enabled = true,
-    this.autofocus = true,
   });
 
   final TextEditingController controller;
@@ -83,8 +81,6 @@ class AppDialogTextField extends StatelessWidget {
   final String? hint;
   final int minLines;
   final int maxLines;
-  final bool enabled;
-  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -93,8 +89,7 @@ class AppDialogTextField extends StatelessWidget {
         padding: const EdgeInsets.only(top: 8),
         child: CupertinoTextField(
           controller: controller,
-          autofocus: autofocus,
-          enabled: enabled,
+          autofocus: true,
           placeholder: hint,
           minLines: minLines,
           maxLines: maxLines,
@@ -105,8 +100,7 @@ class AppDialogTextField extends StatelessWidget {
     }
     return TextField(
       controller: controller,
-      autofocus: autofocus,
-      enabled: enabled,
+      autofocus: true,
       minLines: minLines,
       maxLines: maxLines,
       decoration: InputDecoration(hintText: hint),

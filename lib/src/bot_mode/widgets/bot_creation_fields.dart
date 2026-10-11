@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../models/model_provider_option.dart';
 import '../../widgets/disclosure_tile.dart';
-import '../../widgets/adaptive_dialog.dart';
-import '../../theme/platform_chrome.dart';
+import '../../widgets/grouped_dialog.dart';
+import '../../widgets/grouped_form.dart';
+import '../../widgets/grouped_list.dart';
 
 class BotCreationFields extends StatelessWidget {
   const BotCreationFields({
@@ -40,111 +41,91 @@ class BotCreationFields extends StatelessWidget {
   final bool initiallyExpanded;
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (platformChromeOf(context).isApple) ...[
-        AppDialogTextField(
-          controller: name,
-          hint: 'Name',
-          enabled: !saving && createdName == null,
-          autofocus: false,
-        ),
-        const Text('Permanent profile identifier.'),
-        if (nameError != null) Text(nameError!),
-      ] else
-        TextField(
-          controller: name,
-          enabled: !saving && createdName == null,
-          decoration: InputDecoration(
-            labelText: 'Name',
-            helperText: 'Permanent profile identifier.',
-            errorText: nameError,
-          ),
-        ),
-      const SizedBox(height: 12),
-      if (platformChromeOf(context).isApple)
-        AppDialogTextField(
-          controller: title,
-          hint: 'Title',
-          enabled: !saving,
-          autofocus: false,
-        )
-      else
-        TextField(
-          controller: title,
-          enabled: !saving,
-          decoration: const InputDecoration(labelText: 'Title'),
-        ),
-      const SizedBox(height: 12),
-      if (platformChromeOf(context).isApple)
-        AppDialogTextField(
-          controller: description,
-          hint: 'Description',
-          enabled: !saving,
-          autofocus: false,
-        )
-      else
-        TextField(
-          controller: description,
-          enabled: !saving,
-          decoration: const InputDecoration(labelText: 'Description'),
-        ),
-      DisclosureTile(
-        title: const Text('Advanced'),
-        initiallyExpanded: initiallyExpanded,
-        tilePadding: EdgeInsets.zero,
-        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (platformChromeOf(context).isApple)
-            AppDialogTextField(
-              controller: soul,
-              hint: 'Standing instructions',
-              enabled: !saving && createdName == null,
-              maxLines: 3,
-              autofocus: false,
-            )
-          else
-            TextField(
-              controller: soul,
-              enabled: !saving && createdName == null,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Standing instructions',
-              ),
+  Widget build(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    final editable = !saving && createdName == null;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GroupedSection(
+          footer: nameError ?? 'Name is the permanent profile identifier.',
+          children: [
+            GroupedTextFieldRow(
+              label: 'Name',
+              hint: 'writer',
+              controller: name,
+              enabled: editable,
+              autocorrect: false,
             ),
-          const SizedBox(height: 12),
-          if (onChooseModel != null) ...[
-            TextButton(
-              onPressed: saving || modelLoading || createdName != null
-                  ? null
-                  : onChooseModel,
-              child: Text(
-                modelLoading
-                    ? 'Loading models…'
-                    : chosen == null
-                    ? 'Choose model and provider'
-                    : '${chosen!.providerId} · ${chosen!.modelId}',
-              ),
+            GroupedTextFieldRow(
+              label: 'Title',
+              hint: 'Writing assistant',
+              controller: title,
+              enabled: !saving,
             ),
-            if (chosen == null)
-              const Text('Leave unset to use the server’s default model.'),
-            if (modelError != null) Text(modelError!),
+            GroupedTextFieldRow(
+              label: 'Description',
+              hint: 'Role or focus',
+              controller: description,
+              enabled: !saving,
+            ),
           ],
-          SwitchListTile.adaptive(
-            value: copyKeys,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Copy provider API keys'),
-            subtitle: const Text(
-              'The server copies API keys. OAuth sign-ins require separate authentication.',
-            ),
-            onChanged: saving || createdName != null ? null : onCopyKeysChanged,
+        ),
+        DisclosureTile(
+          title: Text(
+            'Advanced',
+            style: TextStyle(fontSize: metrics.titleSize),
           ),
-        ],
-      ),
-      if (createdName != null)
-        Text('Profile $createdName was created. Retry saves its details.'),
-    ],
-  );
+          initiallyExpanded: initiallyExpanded,
+          tilePadding: EdgeInsets.symmetric(horizontal: metrics.rowPadding),
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          children: [
+            GroupedSection(
+              header: 'Standing instructions',
+              children: [
+                GroupedTextFieldRow(
+                  label: 'Standing instructions',
+                  hint: 'How should this bot work?',
+                  controller: soul,
+                  enabled: editable,
+                  minLines: 3,
+                  maxLines: 5,
+                ),
+              ],
+            ),
+            if (onChooseModel != null)
+              GroupedSection(
+                children: [
+                  GroupedValueRow(
+                    title: 'Default model',
+                    value: chosen?.modelId ?? 'Use server default',
+                    caption: chosen?.providerId,
+                    warning: modelError,
+                    busy: modelLoading,
+                    onTap: editable ? onChooseModel : null,
+                  ),
+                ],
+              ),
+            GroupedSection(
+              footer: 'The server copies API keys. OAuth sign-ins require separate authentication.',
+              children: [
+                GroupedSwitchRow(
+                  title: 'Copy provider API keys',
+                  value: copyKeys,
+                  onChanged: editable ? onCopyKeysChanged : null,
+                ),
+              ],
+            ),
+          ],
+        ),
+        if (createdName != null)
+          GroupedDialogNote(
+            'Profile $createdName was created. Retry saves its details.',
+          ),
+      ],
+    );
+  }
 }

@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/bot_mode/widgets/bot_creation_fields.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_screen.dart';
@@ -18,24 +20,20 @@ void main() {
     testWidgets('creation uses adaptive controls on $platform', (tester) async {
       final fixture = _CreationFixture();
       await fixture.pump(tester, platform: platform);
-      final apple = platform != TargetPlatform.android;
-      expect(
-        find.byType(CupertinoAlertDialog),
-        apple ? findsOneWidget : findsNothing,
-      );
-      expect(
-        find.byType(CupertinoTextField),
-        apple ? findsNWidgets(3) : findsNothing,
-      );
-      expect(
-        find.byType(CupertinoDialogAction),
-        apple ? findsNWidgets(2) : findsNothing,
-      );
+      expect(find.byType(GroupedDialog), findsOneWidget);
+      expect(find.byType(GroupedTextFieldRow), findsNWidgets(3));
+      expect(find.byKey(const Key('grouped-dialog-done')), findsNothing);
+      if (platform == TargetPlatform.macOS) {
+        expect(
+          tester.getSize(find.byType(BotCreationFields)).width,
+          greaterThan(400),
+        );
+      }
       expect(find.text('Standing instructions'), findsNothing);
       await tester.tap(find.text('Advanced'));
       await tester.pumpAndSettle();
       expect(find.text('Copy provider API keys'), findsOneWidget);
-      if (apple) expect(find.byType(CupertinoTextField), findsNWidgets(4));
+      expect(find.byType(GroupedTextFieldRow), findsNWidgets(4));
       expect(tester.takeException(), isNull);
       await tester.enterText(find.byType(EditableText).first, 'writer');
       await tester.tap(find.text('Create'));
@@ -68,8 +66,8 @@ void main() {
           find.widgetWithText(TextField, 'Standing instructions'),
           'Check claims.',
         );
-        await tester.ensureVisible(find.text('Choose model and provider'));
-        await tester.tap(find.text('Choose model and provider'));
+        await tester.ensureVisible(find.text('Use server default'));
+        await tester.tap(find.text('Use server default'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('test-model'));
         await tester.pumpAndSettle();
@@ -145,18 +143,18 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Name'), 'writer');
     await tester.tap(find.text('Advanced'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Choose model and provider'));
-    await tester.tap(find.text('Choose model and provider'));
+    await tester.ensureVisible(find.text('Use server default'));
+    await tester.tap(find.text('Use server default'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('test-model'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('test-provider · test-model'));
-    await tester.tap(find.text('test-provider · test-model'));
+    await tester.ensureVisible(find.text('test-model'));
+    await tester.tap(find.text('test-model'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('model-default')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Copy provider API keys'));
-    await tester.tap(find.text('Copy provider API keys'));
+    await tester.tap(find.byType(Switch).last);
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
     expect(fixture.creates.single.containsKey('model'), false);
@@ -172,8 +170,8 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Name'), 'writer');
     await tester.tap(find.text('Advanced'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Choose model and provider'));
-    await tester.tap(find.text('Choose model and provider'));
+    await tester.ensureVisible(find.text('Use server default'));
+    await tester.tap(find.text('Use server default'));
     await tester.pumpAndSettle();
     expect(find.text('Could not load models. Try again.'), findsOneWidget);
     await tester.tap(find.text('Create'));

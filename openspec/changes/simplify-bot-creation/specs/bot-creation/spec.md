@@ -2,7 +2,7 @@
 
 ### Requirement: Progressive bot creation
 
-The system SHALL initially show Name, Title, and Description with guidance that Name is permanent. Advanced SHALL disclose standing instructions, model and provider selection, and a default-on option labelled Copy provider API keys. The form SHALL explain that OAuth sign-ins require separate authentication. Dialog chrome, actions, text fields, and switches SHALL adapt to Apple and Material platforms.
+The system SHALL initially show Name, Title, and Description with guidance that Name is permanent. Advanced SHALL disclose standing instructions, model and provider selection, and a default-on option labelled Copy provider API keys. The form SHALL explain that OAuth sign-ins require separate authentication. Dialog chrome, actions, text fields, and switches SHALL adapt to Apple and Material platforms using the same grouped form layout as app settings, with persistent field labels and enough desktop width for the form.
 
 #### Scenario: Basic creation
 

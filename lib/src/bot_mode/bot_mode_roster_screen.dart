@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 
-import '../widgets/adaptive_dialog.dart';
+import '../widgets/grouped_dialog.dart';
 
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
@@ -121,71 +120,14 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
       Widget buildDialog(BuildContext dialogContext) => StatefulBuilder(
         builder: (context, update) => PopScope(
           canPop: !saving,
-          child: AppAlertDialog(
-            title: const Text('Create bot'),
-            content: SizedBox(
-              width: 430,
-              child: SingleChildScrollView(
-                child: BotCreationFields(
-                  name: name,
-                  title: title,
-                  description: description,
-                  soul: soul,
-                  copyKeys: mirror,
-                  onCopyKeysChanged: (value) => update(() => mirror = value),
-                  saving: saving,
-                  createdName: createdName,
-                  nameError: nameError,
-                  chosen: chosen,
-                  modelLoading: modelLoading,
-                  modelError: modelError,
-                  onChooseModel: widget.models == null
-                      ? null
-                      : () async {
-                          update(() {
-                            modelLoading = true;
-                            modelError = null;
-                          });
-                          try {
-                            final options = await widget.models!.load();
-                            if (!dialogContext.mounted ||
-                                ModalRoute.of(dialogContext)?.isCurrent !=
-                                    true) {
-                              return;
-                            }
-                            await showModelPicker(
-                              dialogContext,
-                              options: options,
-                              selected: chosen,
-                              withEffort: false,
-                              title: 'Default model',
-                              onUseDefault: () => update(() => chosen = null),
-                              onChanged: (choice) =>
-                                  update(() => chosen = choice),
-                            );
-                          } on Object {
-                            if (dialogContext.mounted) {
-                              update(
-                                () => modelError =
-                                    'Could not load models. Try again.',
-                              );
-                            }
-                          } finally {
-                            if (dialogContext.mounted) {
-                              update(() => modelLoading = false);
-                            }
-                          }
-                        },
-                ),
-              ),
-            ),
+          child: GroupedDialog(
+            title: 'Create bot',
             actions: [
-              AppDialogAction(
+              TextButton(
                 onPressed: saving ? null : () => Navigator.pop(dialogContext),
                 child: const Text('Cancel'),
               ),
-              AppDialogAction(
-                isDefault: true,
+              FilledButton(
                 onPressed: saving
                     ? null
                     : () async {
@@ -254,20 +196,67 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                 ),
               ),
             ],
+            children: [
+              BotCreationFields(
+                name: name,
+                title: title,
+                description: description,
+                soul: soul,
+                copyKeys: mirror,
+                onCopyKeysChanged: (value) => update(() => mirror = value),
+                saving: saving,
+                createdName: createdName,
+                nameError: nameError,
+                chosen: chosen,
+                modelLoading: modelLoading,
+                modelError: modelError,
+                onChooseModel: widget.models == null
+                    ? null
+                    : () async {
+                        update(() {
+                          modelLoading = true;
+                          modelError = null;
+                        });
+                        try {
+                          final options = await widget.models!.load();
+                          if (!dialogContext.mounted ||
+                              ModalRoute.of(dialogContext)?.isCurrent != true) {
+                            return;
+                          }
+                          update(() => modelLoading = false);
+                          await showModelPicker(
+                            dialogContext,
+                            options: options,
+                            selected: chosen,
+                            withEffort: false,
+                            title: 'Default model',
+                            onUseDefault: () => update(() => chosen = null),
+                            onChanged: (choice) =>
+                                update(() => chosen = choice),
+                          );
+                        } on Object {
+                          if (dialogContext.mounted) {
+                            update(
+                              () => modelError =
+                                  'Could not load models. Try again.',
+                            );
+                          }
+                        } finally {
+                          if (dialogContext.mounted) {
+                            update(() => modelLoading = false);
+                          }
+                        }
+                      },
+              ),
+            ],
           ),
         ),
       );
-      final route = platformChromeOf(context).isApple
-          ? CupertinoDialogRoute<BotModeBot>(
-              context: context,
-              builder: buildDialog,
-              barrierDismissible: false,
-            )
-          : DialogRoute<BotModeBot>(
-              context: context,
-              builder: buildDialog,
-              barrierDismissible: false,
-            );
+      final route = DialogRoute<BotModeBot>(
+        context: context,
+        builder: buildDialog,
+        barrierDismissible: false,
+      );
       final createdBot = await Navigator.of(context).push(route);
       await route.completed;
       if (createdBot != null && mounted) {

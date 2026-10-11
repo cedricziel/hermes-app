@@ -6,3 +6,8 @@
 ## 2. Verification
 
 - [x] 2.1 Run dart format, flutter analyze, relevant flutter tests, Widgetbook and workflow screenshots, OpenSpec validation, and the isolated verify-in-app loop. Record any environment limitations.
+
+## 3. Grouped form alignment
+
+- [x] 3.1 Start with failing platform layout tests, replace the narrow alert with the shared grouped settings layout, and preserve existing settings dialog actions.
+- [x] 3.2 Render desktop and phone previews in both themes, verify the creation and shared grouped controls, run formatting and analysis, and update the PR.
