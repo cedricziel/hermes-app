@@ -4,8 +4,8 @@ One PR, `feat(notifications): group per chat, time-sensitive requests, badge ope
 
 ## 1. Grouping and level (TDD)
 
-- [x] 1.1 Write failing tests for `attentionFor` and `LocalNotificationService.show`'s details: the group key for chats and jobs (percent-encoded profile, same id in two profiles apart), `threadIdentifier` and Android `groupKey`, `timeSensitive` for every `hermes.request.*` category (placeholders included) and secret/sudo/unsupported notifications only, bodies and `categoryIdentifier` unchanged; implement in `attention_policy.dart` and `local_notification_service.dart`; verify.
-- [x] 1.2 Add `com.apple.developer.usernotifications.time-sensitive` to `ios/Runner/Runner.entitlements` and both macOS entitlements files, and the capability to fastlane signing; verify the iOS and macOS builds. (macOS: Release only, see design.md Deviations; fastlane gets a portal reminder, since the public API cannot set the capability.)
+- [x] 1.1 Write failing tests for `attentionFor` and `LocalNotificationService.show`'s details: the group key for chats and jobs (percent-encoded profile, same id in two profiles apart), `threadIdentifier` (none on Android), `timeSensitive` for every `hermes.request.*` category (placeholders included) and secret/sudo/unsupported notifications only, bodies and `categoryIdentifier` unchanged; implement in `attention_policy.dart` and `local_notification_service.dart`; verify.
+- [x] 1.2 Add `com.apple.developer.usernotifications.time-sensitive` to `ios/Runner/Runner.entitlements` and both macOS entitlements files, and the capability to fastlane signing; verify the iOS and macOS builds. (macOS: added by the fastlane lane, see design.md; fastlane gets a portal reminder, since the public API cannot set the capability.)
 
 ## 2. Badge (TDD)
 

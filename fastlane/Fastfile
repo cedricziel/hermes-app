@@ -377,6 +377,19 @@ def build_target(key, options)
   sh("cd #{FLUTTER_ROOT.shellescape} && flutter build #{t[:flutter_platform]} --release --config-only#{flutter_flags} " \
      "--build-name=#{version.shellescape} --build-number=#{build_number.shellescape}#{telemetry_flags}")
 
+  # Approvals and questions break through a Focus. The entitlement is
+  # restricted, so only this lane, which signs with a distribution profile,
+  # adds it: a local ad-hoc `flutter build macos --release` would be killed
+  # at launch with it in the checked-in file. (iOS keeps it in
+  # Runner.entitlements; its simulator and --no-codesign builds ignore it.)
+  if key == :mac
+    set_info_plist_value(
+      path: File.join(FLUTTER_ROOT, "macos/Runner/Release.entitlements"),
+      key: "com.apple.developer.usernotifications.time-sensitive",
+      value: true
+    )
+  end
+
   build_app(
     workspace: t[:workspace],
     scheme: "Runner",

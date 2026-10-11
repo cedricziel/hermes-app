@@ -10,11 +10,6 @@
 	<array>
 		<string>group.com.cedricziel.hermesApp</string>
 	</array>
-	<!-- Approvals and questions break through a Focus. DebugProfile leaves
-	     it out: it is a restricted entitlement, and a build signed ad hoc
-	     would not launch with it. -->
-	<key>com.apple.developer.usernotifications.time-sensitive</key>
-	<true/>
 	<!-- REST calls to the configured Hermes dashboard. -->
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
