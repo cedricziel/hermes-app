@@ -197,12 +197,69 @@ void main() {
       ]);
     });
 
+    test('is dropped when what is stored cannot be understood', () async {
+      storage.saved.add('{"version":1,"updatedAt":"not a time"');
+
+      final written = await background(snapshot(5));
+
+      expect(written, isNull);
+      expect(storage.saved, hasLength(1));
+      expect(events.named('surface.snapshot.write_skipped'), [
+        {'reason': 'unreadable'},
+      ]);
+    });
+
+    test('is dropped when the stored snapshot cannot be read at all', () async {
+      final failing = _FailingLoad(storage);
+      final unreadable = SurfaceSnapshotStore(
+        storage: failing,
+        events: events.call,
+      );
+      addTearDown(unreadable.dispose);
+
+      final written = await unreadable.writeIfCurrent(
+        snapshot(5),
+        appLockOn: () async => false,
+      );
+
+      expect(written, isNull);
+      expect(storage.saved, isEmpty);
+      expect(events.named('surface.snapshot.write_skipped'), [
+        {'reason': 'unreadable'},
+      ]);
+    });
+
+    test('the app in front still writes over what it cannot read', () async {
+      storage.saved.add('garbage');
+
+      final written = await store.write(snapshot(5));
+
+      expect(written.revision, 1);
+      expect(stored().revision, 1);
+    });
+
     test('starts from nothing stored', () async {
       final written = await background(snapshot(5));
 
       expect(written!.revision, 1);
     });
   });
+}
+
+/// A storage whose reads fail.
+class _FailingLoad implements SurfaceStorage {
+  _FailingLoad(this._inner);
+
+  final FakeSurfaceStorage _inner;
+
+  @override
+  Future<String?> load() async => throw StateError('keychain locked');
+
+  @override
+  Future<void> save(String json) => _inner.save(json);
+
+  @override
+  Future<void> reload(String kind) => _inner.reload(kind);
 }
 
 /// Records the order of the storage calls.

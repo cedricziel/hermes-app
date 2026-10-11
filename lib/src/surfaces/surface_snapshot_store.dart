@@ -87,6 +87,19 @@ class SurfaceSnapshotStore {
     }
   }
 
+  /// The stored snapshot and whether it could be read: nothing stored is
+  /// readable, a failing storage or a snapshot that cannot be understood is
+  /// not.
+  Future<({SurfaceSnapshot? snapshot, bool readable})> _readChecked() async {
+    try {
+      final json = await _storage.load();
+      final snapshot = SurfaceSnapshot.fromJson(json);
+      return (snapshot: snapshot, readable: json == null || snapshot != null);
+    } on Object {
+      return (snapshot: null, readable: false);
+    }
+  }
+
   /// Stores [snapshot] as the next revision and reloads the widgets. Content
   /// the last write already held is stored again only to move its time
   /// forward, so the widgets do not call it out of date after the user opened
@@ -100,7 +113,8 @@ class SurfaceSnapshotStore {
   /// was built from ([SurfaceSnapshot.revision]), and not a signed-out one.
   /// Someone else having written since means this build is out of date as a
   /// whole, so it is dropped (`surface.snapshot.write_skipped`, with the
-  /// reason) and null returned; there is no merging. App Lock is asked
+  /// reason) and null returned; there is no merging. A stored snapshot that
+  /// cannot be read counts as not having been seen, and is not replaced. App Lock is asked
   /// before the stored snapshot is read, so that nothing but that read and
   /// the save lies between the check and the write. A snapshot saved while
   /// App Lock is on carries no titles. [cancelled] says the run it belongs
@@ -113,7 +127,9 @@ class SurfaceSnapshotStore {
     if (cancelled?.call() ?? false) return _skipped('cancelled');
     final lockOn = await appLockOn();
     if (cancelled?.call() ?? false) return _skipped('cancelled');
-    final stored = await read();
+    final (snapshot: stored, :readable) = await _readChecked();
+    // Never save without having seen what is stored.
+    if (!readable) return _skipped('unreadable');
     if (stored != null && !stored.signedIn) return _skipped('signed_out');
     if ((stored?.revision ?? 0) != snapshot.revision) {
       return _skipped('revision_changed');

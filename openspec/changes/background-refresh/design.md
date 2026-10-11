@@ -120,6 +120,7 @@ The app in front and a background run both build the snapshot from the one they 
 
 - Every write saves the revision of what it replaces, plus one (`SurfaceSnapshotStore`).
 - A background run reads the stored snapshot first (revision R) and builds from it. Right before saving, `writeIfCurrent` reads again. If the stored revision is still R, it saves R+1. Otherwise the app or another writer won, and the run drops its build whole and logs `surface.snapshot.write_skipped` (`reason`: `revision_changed`). There is no merging. Notifications already posted stay posted.
+- A run never saves without having seen the stored state: a storage that fails to read, or a snapshot that cannot be understood, drops the build (`reason`: `unreadable`; nothing stored at all is fine). The app in front is not held to this.
 - A run never writes over a stored snapshot that says signed out (`reason`: `signed_out`), and not after its own run is over (`reason`: `cancelled`; a body that outlived the timeout must not write).
 - App Lock is read when saving, not when building, and asked before the stored snapshot is read, so only that read and the save lie between check and write. If it is on, the snapshot is redacted before saving.
 - The app in front adopts the stored snapshot as its base when its revision is newer than the one it holds: on resume and before each build. That is how a run's open requests of every profile reach the app, whose own builds then replace only what they read (the open profile's chats and requests).
