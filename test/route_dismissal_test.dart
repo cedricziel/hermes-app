@@ -75,6 +75,59 @@ void main() {
     expect(find.text('List'), findsOneWidget);
   });
 
+  testWidgets('a void route can dismiss with an ignored result', (
+    tester,
+  ) async {
+    await openPage(tester);
+    navigator.currentState!.push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          pageContext = context;
+          return const Scaffold(body: Text('Editor'));
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    dismissRoute(pageContext, true);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Details'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an untyped covered route delivers its result', (tester) async {
+    await openPage(tester);
+    Object? result;
+    unawaited(
+      navigator.currentState!
+          .push<dynamic>(
+            MaterialPageRoute<dynamic>(
+              builder: (context) {
+                pageContext = context;
+                return const Scaffold(body: Text('Editor'));
+              },
+            ),
+          )
+          .then((value) => result = value),
+    );
+    await tester.pumpAndSettle();
+    unawaited(
+      showDialog<void>(
+        context: pageContext,
+        builder: (_) => const AlertDialog(title: Text('Overlay')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    dismissRoute(pageContext, true);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Overlay'), findsOneWidget);
+    expect(find.text('Editor', skipOffstage: false), findsNothing);
+    expect(result, true);
+  });
+
   testWidgets('a completion after disposal leaves the list alone', (
     tester,
   ) async {
