@@ -12,7 +12,7 @@ When the app moves to the background, it SHALL remember the chats whose reply is
 
 A chat whose session is no longer listed or has a status the app does not know, one that ends on the user's own prompt or on a tool call, and one whose reply has no text, SHALL be forgotten without a notification: nothing says its reply was completed, and a turn that was stopped or lost shows no differently. A chat whose history cannot be read SHALL be kept for the next run.
 
-When the app returns and replays the ending of a reply a run announced, it SHALL NOT announce it again: a run records the chats it announced, and the app checks and consumes that record when the reply ends.
+When the app returns and replays the ending of a reply a run announced, it SHALL NOT announce it again: a run records the chats it announced, and the app checks and consumes that record when the reply ends, and discards it a short while after returning, so it can only silence the replay of that ending.
 
 A chat SHALL be forgotten after 24 hours. When the run is signed out, locked or cannot reach the server, nothing SHALL be announced or forgotten, and the schedule baseline SHALL stay as it was. When the live sessions cannot be read, nothing SHALL be announced or forgotten. Nothing SHALL be posted while notifications are off.
 

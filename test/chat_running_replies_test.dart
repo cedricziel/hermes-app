@@ -238,6 +238,88 @@ void main() {
     );
   });
 
+  group('how long a remembered reply counts', () {
+    ChatController chatAt(DateTime Function() now) {
+      final other = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        transport: transport,
+        attention: attention,
+        runningReplies: running,
+        now: now,
+        report: (_) {},
+      );
+      addTearDown(other.dispose);
+      return other;
+    }
+
+    test('keeps the time it was first remembered across pauses', () async {
+      await replyIn('s1');
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+      final first = (await running.read()).single.since;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      chat.forgetRunningReplies();
+      await pumpEventQueue();
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect((await running.read()).single.since, first);
+    });
+
+    test('lets a reply carried out of its profile expire', () async {
+      var now = DateTime.utc(2026, 10, 11, 8);
+      final aging = chatAt(() => now);
+      await aging.loadThreads('work');
+      aging.select('s1');
+      await pumpEventQueue();
+      aging.submit('Any news?', const []);
+      await pumpEventQueue();
+      await aging.loadThreads('home');
+      aging.rememberRunningReplies();
+      await pumpEventQueue();
+      expect(await running.read(), hasLength(1));
+
+      now = now.add(const Duration(hours: 25));
+      aging.forgetRunningReplies();
+      await pumpEventQueue();
+      aging.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect(await running.read(), isEmpty);
+    });
+
+    test('drops a carried reply whose session no longer runs', () async {
+      await replyIn('s1');
+      await chat.loadThreads('home');
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+      transport.activeInProfile['work'] = {'s1': 'idle'};
+
+      chat.forgetRunningReplies();
+      await pumpEventQueue();
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect(await running.read(), isEmpty);
+    });
+
+    test('keeps a carried reply whose session still works', () async {
+      await replyIn('s1');
+      await chat.loadThreads('home');
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+      transport.activeInProfile['work'] = {'s1': 'working'};
+
+      chat.forgetRunningReplies();
+      await pumpEventQueue();
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect((await running.read()).map((r) => r.threadId), ['s1']);
+    });
+  });
+
   group('a reply a background run announced', () {
     RunningReply announced() =>
         RunningReply(profile: 'work', threadId: 's1', since: DateTime.now());
@@ -286,6 +368,74 @@ void main() {
       await pumpEventQueue();
 
       expect(service.shown.map((n) => n.body), ['Again.']);
+    });
+
+    ChatController resumedWith(Duration grace) {
+      final other = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        transport: transport,
+        attention: attention,
+        runningReplies: running,
+        replayGrace: grace,
+        report: (_) {},
+      );
+      addTearDown(other.dispose);
+      return other;
+    }
+
+    test(
+      'stops silencing once the replay on return has had its time',
+      () async {
+        final back = resumedWith(const Duration(milliseconds: 80));
+        TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+          AppLifecycleState.paused,
+        );
+        addTearDown(
+          () => TestWidgetsFlutterBinding.instance
+              .handleAppLifecycleStateChanged(AppLifecycleState.resumed),
+        );
+        await back.loadThreads('work');
+        back.select('s1');
+        await pumpEventQueue();
+        back.submit('Any news?', const []);
+        await pumpEventQueue();
+        final turn = transport.sends.last;
+        back.rememberRunningReplies();
+        await running.markAnnounced([announced()]);
+        back.forgetRunningReplies();
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+
+        turn.emit(const ReplyCompleted('Later.'));
+        await pumpEventQueue();
+
+        expect(service.shown.map((n) => n.body), ['Later.']);
+      },
+    );
+
+    test('still silences the replayed ending within that time', () async {
+      final back = resumedWith(const Duration(seconds: 5));
+      TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      addTearDown(
+        () => TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        ),
+      );
+      await back.loadThreads('work');
+      back.select('s1');
+      await pumpEventQueue();
+      back.submit('Any news?', const []);
+      await pumpEventQueue();
+      final turn = transport.sends.last;
+      back.rememberRunningReplies();
+      await running.markAnnounced([announced()]);
+      back.forgetRunningReplies();
+
+      turn.emit(const ReplyCompleted('Done.'));
+      await pumpEventQueue();
+
+      expect(service.shown, isEmpty);
     });
 
     test('is forgotten when the user sends a new prompt in the chat', () async {

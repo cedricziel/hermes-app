@@ -495,7 +495,7 @@ class _Connection {
       _Connection(
         baseUrl: normalized,
         authRequired: status.authRequired,
-        accountKey: accountKeyFor(normalized, held?.userId),
+        accountKey: accountKeyFor(normalized, held),
         repositories: HermesRepositories(
           HermesApiClient(authed),
           telemetry: telemetry,

@@ -43,6 +43,15 @@ import 'thread_search.dart';
 import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
 
 const couldNotOpenChat = 'Could not open that chat.';
+
+/// The `session.active_list` statuses of a session that still runs a turn.
+const _runningStatuses = {
+  'starting',
+  'waiting',
+  'working',
+  'streaming',
+  'resuming',
+};
 const _couldNotStop = 'Could not stop the reply. Try again.';
 
 /// The chat's state without its screen: the threads of the active profile,
@@ -72,7 +81,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.readSnapshot,
     this.onDraft,
     this.breadcrumbs = Breadcrumbs.none,
-  }) {
+    this.replayGrace = const Duration(seconds: 20),
+    DateTime Function()? now,
+  }) : _clock = now ?? DateTime.now {
     final repository = this.repository;
     if (repository == null) {
       _threads = buildMockThreads();
@@ -122,6 +133,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// run to announce; null where there are no background runs.
   final RunningReplies? runningReplies;
 
+  /// How long after the app returns the ending of a reply a background run
+  /// announced may still arrive as a replay. Later than that, an ending is a
+  /// new one.
+  final Duration replayGrace;
+  final DateTime Function() _clock;
+  Timer? _replayEnds;
+
   /// Whether [runningReplies] holds what [rememberRunningReplies] wrote, so a
   /// reply that ends meanwhile is taken off it.
   var _replyListWritten = false;
@@ -130,6 +148,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// this one loaded again) and have not ended: the threads on screen no longer
   /// show them, but the list for a background run must.
   final _carried = <(String?, String)>{};
+
+  /// When each reply in the list was first remembered, so that pausing again
+  /// does not make an old reply young; kept until its turn ends.
+  final _rememberedSince = <(String?, String), DateTime>{};
 
   /// Tells the user something went wrong.
   final ValueChanged<String> report;
@@ -858,6 +880,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     watchStatus?.drop(thread);
     _announcedTurns.remove(thread);
     _carried.remove((_profile, thread.id));
+    _rememberedSince.remove((_profile, thread.id));
     _touched.remove(thread);
     _reportSurface(SurfaceTrigger.threads);
     if (_selectedId != thread.id) return;
@@ -874,6 +897,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   @override
   void dispose() {
+    _replayEnds?.cancel();
     for (final reply in _replies) {
       reply.cancel();
     }
@@ -1562,6 +1586,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final profile = _profile;
     // A new turn: what a run announced of an earlier one says nothing of it.
     unawaited(runningReplies?.takeAnnounced(profile, thread.id));
+    _rememberedSince.remove((profile, thread.id));
     var failed = false;
     var stopped = false;
     var folded = false;
@@ -2135,30 +2160,51 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void rememberRunningReplies() {
     final store = runningReplies;
     if (store == null) return;
-    final now = DateTime.now();
+    final now = _clock();
+    _replayEnds?.cancel();
+    _carried.removeWhere((key) => _expired(key, now));
     final running = {
       for (final thread in _threads)
         if (thread.remote && thread.isReplying) (_profile, thread.id),
       ..._carried,
     };
+    _rememberedSince.removeWhere((key, _) => !running.contains(key));
+    for (final key in running) {
+      _rememberedSince.putIfAbsent(key, () => now);
+    }
     _replyListWritten = true;
     unawaited(store.clearAnnounced());
     unawaited(
       store.replace([
         for (final (profile, id) in running)
-          RunningReply(profile: profile, threadId: id, since: now),
+          RunningReply(
+            profile: profile,
+            threadId: id,
+            since: _rememberedSince[(profile, id)]!,
+          ),
       ]),
     );
   }
 
+  bool _expired((String?, String) key, DateTime now) {
+    final since = _rememberedSince[key];
+    return since != null && now.difference(since) > kRunningReplyLifetime;
+  }
+
   /// The app is in front: the replies are shown here, so nothing is left for
-  /// a background run to announce. A run that already finished a reply took it
-  /// off the list, and it is no longer running.
+  /// a background run to announce. A reply that a run finished or whose
+  /// session no longer runs has ended, and is not carried on. What a run
+  /// announced stays on record only for the replay of its ending, which
+  /// [replayGrace] allows for.
   void forgetRunningReplies() {
     final store = runningReplies;
     if (store == null) return;
     final written = _replyListWritten;
     _replyListWritten = false;
+    if (written) {
+      _replayEnds?.cancel();
+      _replayEnds = Timer(replayGrace, () => unawaited(store.clearAnnounced()));
+    }
     unawaited(_resumeRunningReplies(store, written));
   }
 
@@ -2168,12 +2214,32 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         for (final reply in await store.read()) (reply.profile, reply.threadId),
       };
       _carried.retainAll(left);
+      await _dropEnded();
     }
     await store.clear();
   }
 
+  /// Takes off [_carried] the replies whose session reports a turn that has
+  /// ended. A server that cannot say, or does not list a session, decides
+  /// nothing: the expiry does.
+  Future<void> _dropEnded() async {
+    final transport = this.transport;
+    if (transport == null) return;
+    for (final profile in {for (final (profile, _) in _carried) profile}) {
+      final statuses = await transport.activeStatuses(profile: profile);
+      _carried.removeWhere((key) {
+        if (key.$1 != profile) return false;
+        final status = statuses[key.$2];
+        if (status == null || _runningStatuses.contains(status)) return false;
+        _rememberedSince.remove(key);
+        return true;
+      });
+    }
+  }
+
   void _replyEnded(ChatThread thread, String? profile) {
     _carried.remove((profile, thread.id));
+    _rememberedSince.remove((profile, thread.id));
     final store = runningReplies;
     if (store == null || !_replyListWritten) return;
     unawaited(

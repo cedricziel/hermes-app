@@ -148,7 +148,7 @@ class AuthController extends ChangeNotifier {
   /// before a server is connected.
   String? get accountKey {
     final url = _baseUrl;
-    return url == null ? null : accountKeyFor(url, _session?.userId);
+    return url == null ? null : accountKeyFor(url, _session);
   }
 
   int _userGeneration = 0;
