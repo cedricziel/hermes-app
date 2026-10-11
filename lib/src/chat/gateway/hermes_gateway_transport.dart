@@ -775,7 +775,7 @@ class HermesGatewayTransport implements ChatTransport {
         final answered =
             error is GatewayRpcException ||
             error is ProfileUnavailableException;
-        if (answered || attempt + 1 >= _sendOpenAttempts) rethrow;
+        if (answered || _closed || attempt + 1 >= _sendOpenAttempts) rethrow;
       }
     }
     var runtimeId = '';
@@ -1375,7 +1375,7 @@ class HermesGatewayTransport implements ChatTransport {
     final timer = Timer(_reconnectBudget, () {
       if (!budget.isCompleted) budget.complete();
     });
-    bool stop() => budget.isCompleted || cancelled();
+    bool stop() => budget.isCompleted || _closed || cancelled();
     // Attempts that got as far as opening a socket, for telemetry.
     var tried = 0;
     try {
@@ -2718,8 +2718,14 @@ class HermesGatewayTransport implements ChatTransport {
   Future<GatewayRpcClient> _openNew() async {
     // With the heartbeat, a socket the OS dropped while the app slept closes
     // itself once it goes quiet, and the reply in flight reconnects.
+    final channel = await _connectBounded();
+    if (_closed) {
+      // close() ran while the socket was opening; nothing would close it.
+      unawaited(channel.sink.close());
+      throw const GatewayConnectionClosed();
+    }
     final client = GatewayRpcClient(
-      await _connectBounded(),
+      channel,
       telemetry: _telemetry,
       heartbeat: true,
     );
