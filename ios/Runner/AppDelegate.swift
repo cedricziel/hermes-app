@@ -81,6 +81,7 @@ import workmanager_apple
     ClipboardFiles.install(messenger: engineBridge.applicationRegistrar.messenger())
     BackgroundRefreshStatus.install(messenger: engineBridge.applicationRegistrar.messenger())
     IntentsChannel.install(messenger: engineBridge.applicationRegistrar.messenger())
+    ShortcutsChannel.install(messenger: engineBridge.applicationRegistrar.messenger())
   }
 }
 
@@ -110,8 +111,8 @@ final class NotificationActions: NSObject, UNUserNotificationCenterDelegate {
     if let registrar = registry.registrar(forPlugin: "HermesSpotlightIndexing") {
       Spotlight.shared.installIndexing(messenger: registrar.messenger())
     }
-    if let registrar = registry.registrar(forPlugin: "HermesIntentsChannel") {
-      IntentsChannel.install(messenger: registrar.messenger())
+    if let registrar = registry.registrar(forPlugin: "HermesShortcutsChannel") {
+      ShortcutsChannel.install(messenger: registrar.messenger())
     }
   }
 

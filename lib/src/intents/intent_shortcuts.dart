@@ -8,11 +8,17 @@ import '../surfaces/surface_snapshot_store.dart';
 /// The Runner's channel for App Intents (`HermesAppShortcuts.swift`).
 const kIntentsChannel = 'hermes_app/intents';
 
+/// The Runner's channel for refreshing the shortcuts' chat list
+/// (`HermesAppShortcuts.swift`). It is served in every engine, the background
+/// ones included, which is why it is not the App Intents channel: that one
+/// belongs to the engine of the app in front.
+const kShortcutsChannel = 'hermes_app/shortcuts';
+
 /// Tells iOS to re-read the chats Siri can open by name. A refresh that fails
 /// leaves Siri with the chats it already knows, so nothing is thrown.
 Future<void> refreshAppShortcuts() async {
   try {
-    await const MethodChannel(kIntentsChannel)
+    await const MethodChannel(kShortcutsChannel)
         .invokeMethod<void>('refreshShortcuts');
   } on Object {
     // The shortcuts catch up at the next write.

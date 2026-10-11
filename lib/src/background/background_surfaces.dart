@@ -2,24 +2,40 @@
 /// list of chats in step with the snapshot the run just stored.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 
 import '../intents/intent_shortcuts.dart';
 import '../notifications/badge_controller.dart';
 import '../notifications/notification_settings.dart';
+import '../surfaces/surface_snapshot.dart';
 import 'background_refresh.dart';
 
-/// Sets the icon's badge to the open requests of the snapshot [_snapshot]
-/// stored. A dropped snapshot means someone newer wrote, and that writer sets
-/// the badge.
+/// The snapshot [step] stored, or null when it was dropped or failed. A step
+/// that cannot say within [wait] (by default what is left of the step budget)
+/// fails, so the run counts it instead of reporting a skip as done.
+Future<SurfaceSnapshot?> _storedBy(
+  SnapshotStep step,
+  BackgroundContext context,
+  Duration? wait,
+) => step.written.timeout(
+  wait ?? context.remainingStepBudget(),
+  onTimeout: () => throw TimeoutException('snapshot step did not finish'),
+);
+
+/// Sets the icon's badge to the open requests of the stored snapshot, once the
+/// snapshot step has stored its own. A dropped one means someone else wrote
+/// newer, which this reads as well: the badge may be stale when that writer
+/// ran in another engine.
 class BadgeRefreshStep extends BackgroundStep {
   BadgeRefreshStep(
     this._snapshot, {
     this.badge = const PluginBadgeService(),
     this.settings,
     TargetPlatform? platform,
-    this.snapshotWait = const Duration(seconds: 15),
+    this.snapshotWait,
   }) : _platform = platform ?? defaultTargetPlatform;
 
   final SnapshotStep _snapshot;
@@ -27,16 +43,13 @@ class BadgeRefreshStep extends BackgroundStep {
   final NotificationSettings? settings;
   final TargetPlatform _platform;
 
-  /// How long to wait for the snapshot step; after that the badge is left as
-  /// it is.
-  final Duration snapshotWait;
+  /// How long to wait for the snapshot step; the rest of the step budget by
+  /// default.
+  final Duration? snapshotWait;
 
   @override
   Future<StepCounts> run(BackgroundContext context) async {
-    if (await _snapshot.written.timeout(snapshotWait, onTimeout: () => null) ==
-        null) {
-      return const StepCounts();
-    }
+    await _storedBy(_snapshot, context, snapshotWait);
     final settings = this.settings ?? NotificationSettings();
     if (!settings.loaded) await settings.load();
     final controller = BadgeController.forPlatform(
@@ -63,13 +76,13 @@ class ShortcutsRefreshStep extends BackgroundStep {
     this._snapshot, {
     this.refresh = refreshAppShortcuts,
     TargetPlatform? platform,
-    this.snapshotWait = const Duration(seconds: 15),
+    this.snapshotWait,
   }) : _platform = platform ?? defaultTargetPlatform;
 
   final SnapshotStep _snapshot;
   final Future<void> Function() refresh;
   final TargetPlatform _platform;
-  final Duration snapshotWait;
+  final Duration? snapshotWait;
 
   @override
   Future<StepCounts> run(BackgroundContext context) async {
@@ -81,10 +94,7 @@ class ShortcutsRefreshStep extends BackgroundStep {
       (_) => changed = true,
     );
     try {
-      final written = await _snapshot.written.timeout(
-        snapshotWait,
-        onTimeout: () => null,
-      );
+      final written = await _storedBy(_snapshot, context, snapshotWait);
       if (written != null && changed) await refresh();
     } finally {
       await writes.cancel();

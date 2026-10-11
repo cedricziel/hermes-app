@@ -34,6 +34,23 @@ struct HermesAppShortcuts: AppShortcutsProvider {
   }
 }
 
+/// `hermes_app/shortcuts`: Dart calls `refreshShortcuts` after the surface
+/// snapshot changed, so Siri hears the chats as they are now. It is installed
+/// in every engine, the background ones included, and does nothing else, so
+/// it never competes with the App Intents channel for the app's engine.
+enum ShortcutsChannel {
+  static func install(messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "hermes_app/shortcuts", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in
+        guard call.method == "refreshShortcuts" else {
+          return result(FlutterMethodNotImplemented)
+        }
+        HermesAppShortcuts.updateAppShortcutParameters()
+        result(nil)
+      }
+  }
+}
+
 /// `hermes_app/intents`: Dart calls `refreshShortcuts` after the surface
 /// snapshot changed, so Siri hears the chats as they are now.
 enum IntentsChannel {
