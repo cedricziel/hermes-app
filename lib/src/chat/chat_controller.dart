@@ -2218,24 +2218,28 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     bool written,
     int pauses,
   ) async {
+    // Each await below can outlast a pause, whose list and carried replies
+    // are newer than anything this return learns: it stops at the first one.
     if (written && _carried.isNotEmpty) {
       final left = {
         for (final reply in await store.read()) (reply.profile, reply.threadId),
       };
+      if (pauses != _pauses) return;
       _carried.retainAll(left);
-      await _dropEnded();
+      if (!await _dropEnded(pauses)) return;
     }
-    if (pauses == _pauses) await store.clear();
+    await store.clear();
   }
 
   /// Takes off [_carried] the replies whose session reports a turn that has
-  /// ended. A server that cannot say, or does not list a session, decides
-  /// nothing: the expiry does.
-  Future<void> _dropEnded() async {
+  /// ended; false when a pause came meanwhile. A server that cannot say, or
+  /// does not list a session, decides nothing: the expiry does.
+  Future<bool> _dropEnded(int pauses) async {
     final transport = this.transport;
-    if (transport == null) return;
+    if (transport == null) return true;
     for (final profile in {for (final (profile, _) in _carried) profile}) {
       final statuses = await transport.activeStatuses(profile: profile);
+      if (pauses != _pauses) return false;
       _carried.removeWhere((key) {
         if (key.$1 != profile) return false;
         final status = statuses[key.$2];
@@ -2244,6 +2248,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         return true;
       });
     }
+    return pauses == _pauses;
   }
 
   void _replyEnded(ChatThread thread, String? profile) {

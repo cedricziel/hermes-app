@@ -322,6 +322,47 @@ void main() {
       expect((await running.read()).map((r) => r.threadId), ['s1']);
     });
 
+    test('keeps what a pause carried while the return is still reading the '
+        'list', () async {
+      final held = _HeldRead();
+      final slow = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        transport: transport,
+        attention: attention,
+        runningReplies: held,
+        report: (_) {},
+      );
+      addTearDown(slow.dispose);
+      await slow.loadThreads('work');
+      slow.select('s1');
+      await pumpEventQueue();
+      slow.submit('Any news?', const []);
+      await pumpEventQueue();
+      await slow.loadThreads('home');
+      slow.rememberRunningReplies();
+      await pumpEventQueue();
+      held.gate = Completer<void>();
+
+      slow.forgetRunningReplies();
+      await pumpEventQueue();
+      slow.select('s9');
+      await pumpEventQueue();
+      slow.submit('Here too', const []);
+      await pumpEventQueue();
+      await slow.loadThreads('work');
+      slow.rememberRunningReplies();
+      await pumpEventQueue();
+      held.gate!.complete();
+      await pumpEventQueue();
+      slow.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect(
+        (await held.read()).map((r) => (r.profile, r.threadId)),
+        unorderedEquals([('work', 's1'), ('home', 's9')]),
+      );
+    });
+
     test('drops a carried reply whose session no longer runs', () async {
       await replyIn('s1');
       await chat.loadThreads('home');
@@ -578,5 +619,17 @@ class _HeldStatuses extends FakeChatTransport {
   Future<Map<String, String>> activeStatuses({String? profile}) async {
     await gate?.future;
     return {};
+  }
+}
+
+/// A list whose read answers with what it held when asked, but late.
+class _HeldRead extends RunningReplies {
+  Completer<void>? gate;
+
+  @override
+  Future<List<RunningReply>> read() async {
+    final held = await super.read();
+    await gate?.future;
+    return held;
   }
 }
