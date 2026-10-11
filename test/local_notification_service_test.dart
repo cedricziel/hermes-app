@@ -407,19 +407,24 @@ void main() {
         });
       }
 
-      test('groups Android notifications under the chat', () async {
+      test('leaves Android to bundle by itself', () async {
         await service.show(reply);
 
-        final android = plugin.posted.single.details!.android!;
-        expect(android.groupKey, 'chat:work/s1');
-        expect(android.setAsGroupSummary, isFalse);
+        expect(plugin.posted.single.details!.android!.groupKey, isNull);
       });
 
-      test('keeps one id per chat, grouped or not', () async {
-        await service.show(reply);
-        await service.show(reply);
+      test('a request replaces the chat\'s reply under the same id', () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
-        expect(plugin.posted.map((p) => p.id).toSet(), hasLength(1));
+        await service.show(reply);
+        await service.show(_request(_approval));
+
+        final [first, second] = plugin.posted;
+        expect(second.id, first.id);
+        expect(
+          second.details!.iOS!.threadIdentifier,
+          first.details!.iOS!.threadIdentifier,
+        );
       });
     });
 

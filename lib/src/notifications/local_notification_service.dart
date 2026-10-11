@@ -302,13 +302,12 @@ class LocalNotificationService implements NotificationService {
             ? notification.body
             : notification.category?.placeholder ?? notification.body,
         notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
+          android: const AndroidNotificationDetails(
             _channelId,
             _channelName,
             channelDescription: 'Replies and requests from Hermes',
             importance: Importance.high,
             priority: Priority.high,
-            groupKey: notification.groupKey,
           ),
           iOS: darwin,
           macOS: darwin,
