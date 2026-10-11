@@ -21,7 +21,7 @@ One PR, `feat(surfaces): keep a snapshot for widgets and system surfaces`. About
 ## 3. Store
 
 - [x] 3.1 Add `home_widget: ^0.10.0` to `pubspec.yaml`, run `flutter pub get`, verify `flutter analyze`.
-- [x] 3.2 Write failing tests in `test/surfaces/surface_snapshot_store_test.dart` with a fake `home_widget` method channel: the App Group id is set, the JSON is saved under `hermes.surface.v1`, each kind in `kSurfaceWidgetKinds` is reloaded, an unchanged snapshot is not written again, a channel error is swallowed and still reaches listeners, `clear()` writes the signed-out form. Implement `surface_snapshot_store.dart`; verify.
+- [x] 3.2 Write failing tests in `test/surfaces/surface_snapshot_store_test.dart` with a fake `home_widget` method channel: the App Group id is set, the JSON is saved under `hermes.surface.v1`, each kind in `kSurfaceWidgetKinds` is reloaded, an unchanged snapshot is stored again only to move its time forward, without a reload, a channel error is swallowed and still reaches listeners, `clear()` writes the signed-out form. Implement `surface_snapshot_store.dart`; verify.
 
 ## 4. Writing from the app
 

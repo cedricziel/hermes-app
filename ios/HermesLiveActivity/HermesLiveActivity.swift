@@ -19,7 +19,7 @@ extension LiveActivitiesAppAttributes {
   }
 }
 
-private let appGroup = Bundle.main.object(forInfoDictionaryKey: "AppGroupId") as? String
+let appGroup = Bundle.main.object(forInfoDictionaryKey: "AppGroupId") as? String
   ?? "group.com.cedricziel.hermesApp"
 
 /// What the app last wrote for one activity. Only a title and a fixed label:
@@ -87,8 +87,15 @@ struct ReplyActivity {
 
 @main
 struct HermesLiveActivityBundle: WidgetBundle {
+  // Despite its name this extension is the app's one WidgetKit extension: the
+  // Home Screen widgets live here too, because a second target would need a
+  // new bundle ID, App ID, profile and fastlane entry. Renaming it would
+  // orphan the provisioning profile and the activities already on devices.
   var body: some Widget {
     HermesReplyActivity()
+    HermesRecentChats()
+    HermesNeedsYou()
+    HermesBoard()
   }
 }
 

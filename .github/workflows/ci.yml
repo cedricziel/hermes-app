@@ -63,16 +63,17 @@ jobs:
           path: build/workflow_screenshots
           if-no-files-found: ignore
 
-  # The required check. It passes only when analysis and every test shard did.
+  # The required check. It passes only when analysis, every test shard and the
+  # Swift package tests did.
   analyze-and-test:
     name: Analyze & test
     runs-on: ubuntu-latest
-    needs: [analyze, test]
+    needs: [analyze, test, test-watch]
     if: always()
     steps:
       - name: Check results
         run: |
-          [ "${{ needs.analyze.result }}" = success ] && [ "${{ needs.test.result }}" = success ]
+          [ "${{ needs.analyze.result }}" = success ] && [ "${{ needs.test.result }}" = success ] && [ "${{ needs.test-watch.result }}" = success ]
 
   build-android:
     name: Build Android (debug)
@@ -98,7 +99,9 @@ jobs:
         run: flutter build apk --debug
 
   # The watch app's logic lives in a Swift package (ios/HermesWatch) so it can
-  # be tested on the Mac without a watch simulator.
+  # be tested on the Mac without a watch simulator. The system surfaces' shared
+  # package (ios/HermesSurfaceKit: snapshot reader, widget models) is tested
+  # here too.
   test-watch:
     name: Test watch core
     runs-on: macos-26
@@ -111,6 +114,10 @@ jobs:
 
       - name: swift test
         working-directory: ios/HermesWatch
+        run: swift test
+
+      - name: swift test (surface kit)
+        working-directory: ios/HermesSurfaceKit
         run: swift test
 
   # Builds the app together with its share extension and watch app. The extension links the

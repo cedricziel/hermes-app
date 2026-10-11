@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +43,7 @@ import 'src/spotlight/spotlight_links.dart';
 import 'src/spotlight/spotlight_settings.dart';
 import 'src/surfaces/surface_snapshot_store.dart';
 import 'src/surfaces/surface_snapshots.dart';
+import 'src/surfaces/widget_usage_reporter.dart';
 import 'src/telemetry/breadcrumbs.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
@@ -244,6 +247,17 @@ Future<void> main([List<String> args = const []]) async {
               ? SurfaceSnapshotStore(events: telemetry.events())
               : null,
           dispose: (_, store) => store?.dispose(),
+        ),
+        // Only the iOS Home Screen widgets exist; the report says which are
+        // placed, at most once a day.
+        Provider<WidgetUsageReporter?>(
+          lazy: false,
+          create: (_) {
+            if (defaultTargetPlatform != TargetPlatform.iOS) return null;
+            final reporter = WidgetUsageReporter(events: telemetry.events());
+            unawaited(reporter.report());
+            return reporter;
+          },
         ),
         ProxyProvider3<
           HermesRepositories?,

@@ -11,6 +11,11 @@ import '../notifications/attention_policy.dart';
 const kSurfaceSnapshotKey = 'hermes.surface.v1';
 
 const kSurfaceSnapshotVersion = 1;
+
+/// How often a refreshed time of an unchanged snapshot reloads the widgets.
+/// They call a snapshot out of date six hours after it (`surfaceStaleAfter` in
+/// `HermesSurfaceKit`), and only a reload moves that note back.
+const kSurfaceRefreshReloadEvery = Duration(hours: 1);
 const kMaxRecentChats = 10;
 const kMaxSnippetLength = 120;
 const kMaxTitleLength = 80;
