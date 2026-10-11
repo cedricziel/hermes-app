@@ -96,6 +96,9 @@ struct HermesLiveActivityBundle: WidgetBundle {
     HermesRecentChats()
     HermesNeedsYou()
     HermesBoard()
+    HermesNewChat()
+    HermesDictate()
+    HermesQuickLaunch()
   }
 }
 

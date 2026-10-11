@@ -1,0 +1,153 @@
+[
+  {
+    "name": "new chat",
+    "target": {
+      "kind": "new"
+    },
+    "url": "hermes://new"
+  },
+  {
+    "name": "requests",
+    "target": {
+      "kind": "requests"
+    },
+    "url": "hermes://requests"
+  },
+  {
+    "name": "kanban",
+    "target": {
+      "kind": "kanban"
+    },
+    "url": "hermes://kanban"
+  },
+  {
+    "name": "schedules",
+    "target": {
+      "kind": "schedules"
+    },
+    "url": "hermes://schedules"
+  },
+  {
+    "name": "new chat with dictation",
+    "target": {
+      "kind": "new",
+      "dictate": true
+    },
+    "url": "hermes://new?dictate=1"
+  },
+  {
+    "name": "chat",
+    "target": {
+      "kind": "chat",
+      "profile": "default",
+      "id": "abc"
+    },
+    "url": "hermes://chat?profile=default&id=abc"
+  },
+  {
+    "name": "chat without a profile",
+    "target": {
+      "kind": "chat",
+      "id": "abc"
+    },
+    "url": "hermes://chat?id=abc"
+  },
+  {
+    "name": "chat with spaces",
+    "target": {
+      "kind": "chat",
+      "profile": "my bot",
+      "id": "w 1"
+    },
+    "url": "hermes://chat?profile=my%20bot&id=w%201"
+  },
+  {
+    "name": "chat with an ampersand",
+    "target": {
+      "kind": "chat",
+      "profile": "a&b",
+      "id": "c&d"
+    },
+    "url": "hermes://chat?profile=a%26b&id=c%26d"
+  },
+  {
+    "name": "chat with slashes",
+    "target": {
+      "kind": "chat",
+      "profile": "a/b",
+      "id": "x/y/z"
+    },
+    "url": "hermes://chat?profile=a%2Fb&id=x%2Fy%2Fz"
+  },
+  {
+    "name": "chat with percent signs",
+    "target": {
+      "kind": "chat",
+      "profile": "50%",
+      "id": "a%20b"
+    },
+    "url": "hermes://chat?profile=50%25&id=a%2520b"
+  },
+  {
+    "name": "chat with a plus",
+    "target": {
+      "kind": "chat",
+      "profile": "default",
+      "id": "c++"
+    },
+    "url": "hermes://chat?profile=default&id=c%2B%2B"
+  },
+  {
+    "name": "chat with non-ASCII ids",
+    "target": {
+      "kind": "chat",
+      "profile": "Büro",
+      "id": "ü-日本-🚀"
+    },
+    "url": "hermes://chat?profile=B%C3%BCro&id=%C3%BC-%E6%97%A5%E6%9C%AC-%F0%9F%9A%80"
+  },
+  {
+    "name": "chat with a prompt",
+    "target": {
+      "kind": "chat",
+      "id": "abc",
+      "prompt": "Yes, book it"
+    },
+    "url": "hermes://chat?id=abc&prompt=Yes%2C%20book%20it"
+  },
+  {
+    "name": "new chat with every parameter",
+    "target": {
+      "kind": "new",
+      "profile": "work",
+      "dictate": true,
+      "prompt": "Plan a trip & 🚀"
+    },
+    "url": "hermes://new?profile=work&dictate=1&prompt=Plan%20a%20trip%20%26%20%F0%9F%9A%80"
+  },
+  {
+    "name": "new chat with C++",
+    "target": {
+      "kind": "new",
+      "prompt": "C++"
+    },
+    "url": "hermes://new?prompt=C%2B%2B"
+  },
+  {
+    "name": "new chat with reserved characters",
+    "target": {
+      "kind": "new",
+      "prompt": "a=b?c#d"
+    },
+    "url": "hermes://new?prompt=a%3Db%3Fc%23d"
+  },
+  {
+    "name": "schedules with a job",
+    "target": {
+      "kind": "schedules",
+      "profile": "work",
+      "job": "j 1"
+    },
+    "url": "hermes://schedules?profile=work&job=j%201"
+  }
+]

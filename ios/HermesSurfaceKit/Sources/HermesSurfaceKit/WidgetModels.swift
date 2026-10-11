@@ -14,15 +14,6 @@ public enum SurfaceFamily: Equatable, Sendable {
   case large
 }
 
-/// The `hermes://` links a widget falls back to when the snapshot holds no
-/// link of its own. Every other link comes from the snapshot verbatim.
-public enum SurfaceFallbackURL {
-  public static let newChat = URL(string: "hermes://new")!
-  public static let requests = URL(string: "hermes://requests")!
-  public static let kanban = URL(string: "hermes://kanban")!
-  public static let schedules = URL(string: "hermes://schedules")!
-}
-
 /// How long a snapshot may go unwritten before the widgets say it may be behind.
 public let surfaceStaleAfter: TimeInterval = 6 * 3600
 
@@ -103,7 +94,7 @@ public struct RecentChatsModel: Equatable, Sendable {
         updatedAt: chat.updatedAt, url: chat.url)
     }
     showsOpenRow = family == .large && !rows.isEmpty && rows.count < capacity
-    url = rows.first?.url ?? SurfaceFallbackURL.newChat
+    url = rows.first?.url ?? DeepLink.newChat()
   }
 }
 
@@ -154,7 +145,7 @@ public struct NeedsYouModel: Equatable, Sendable {
     }
     let oldestFirst = snapshot.pending.sorted { $0.createdAt < $1.createdAt }
     count = oldestFirst.count
-    url = oldestFirst.first?.url ?? SurfaceFallbackURL.requests
+    url = oldestFirst.first?.url ?? DeepLink.requests
     guard family != .small else {
       rows = []
       return
@@ -168,6 +159,110 @@ public struct NeedsYouModel: Equatable, Sendable {
         createdAt: request.createdAt, url: request.url)
     }
     rows = Array(perChat.prefix(3))
+  }
+}
+
+/// The Needs you widget on the Lock Screen (circular, rectangular, inline).
+/// The count, the kind label and the words stay readable on a locked device;
+/// only the chat title is private.
+public struct NeedsYouAccessoryModel: Equatable, Sendable {
+  public let status: WidgetStatus
+
+  /// Every open request.
+  public let count: Int
+
+  /// The fixed word for the oldest open request; `nil` when none is open.
+  public let kindLabel: String?
+
+  /// The oldest open request's chat title; `nil` when none is open or the
+  /// title is redacted.
+  public let title: String?
+
+  /// The oldest request has no title: the snapshot holds none (App Lock).
+  public let isRedacted: Bool
+
+  /// The chat of the oldest open request; the chat list when none is open;
+  /// `nil` when signed out, which opens the app as it is.
+  public let url: URL?
+
+  public var isEmpty: Bool { count == 0 }
+
+  public var inlineText: String {
+    if status.isSignedOut { return "Sign in" }
+    return isEmpty ? "Nothing waiting" : "\(count) waiting in Hermes"
+  }
+
+  /// What VoiceOver reads for the whole widget: never a chat title, since a
+  /// spoken label is not redacted on a locked device.
+  public var accessibilityLabel: String {
+    if status.isSignedOut { return "Sign in to Hermes" }
+    guard let kindLabel else { return "Nothing waiting in Hermes" }
+    return "\(count) waiting for you in Hermes. \(kindLabel)."
+  }
+
+  public init(snapshot: SurfaceSnapshot?, now: Date) {
+    status = WidgetStatus(snapshot: snapshot, now: now)
+    guard let snapshot, !status.isSignedOut else {
+      count = 0
+      kindLabel = nil
+      title = nil
+      isRedacted = false
+      url = nil
+      return
+    }
+    let oldest = snapshot.pending.min { $0.createdAt < $1.createdAt }
+    count = snapshot.pending.count
+    kindLabel = oldest.map { NeedsYouModel.label(for: $0.kind) }
+    title = oldest.flatMap { shownTitle($0.threadTitle) }
+    isRedacted = oldest != nil && title == nil
+    url = oldest?.url ?? DeepLink.requests
+  }
+}
+
+/// A button of the Quick launch widgets.
+public enum QuickLaunchAction: Equatable, Sendable {
+  case newChat
+  case dictate
+}
+
+/// The New Chat, Dictate and Quick launch widgets. They show no chat
+/// content; the snapshot only says whether anyone is signed in.
+public struct QuickLaunchModel: Equatable, Sendable {
+  public struct Button: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let label: String
+
+    /// An SF Symbol name.
+    public let symbol: String
+    public let url: URL
+  }
+
+  public let status: WidgetStatus
+
+  /// One per action; a single "Sign in" while signed out, since both would
+  /// open the app on its sign-in screen.
+  public let buttons: [Button]
+
+  /// What a tap on the widget opens (small and Lock Screen widgets have only
+  /// this); the first button's link.
+  public var url: URL { buttons[0].url }
+
+  public init(snapshot: SurfaceSnapshot?, actions: [QuickLaunchAction], now: Date) {
+    status = WidgetStatus(snapshot: snapshot, now: now)
+    if status.isSignedOut || actions.isEmpty {
+      buttons = [
+        Button(id: "sign-in", label: "Sign in", symbol: "person.crop.circle", url: DeepLink.newChat())
+      ]
+      return
+    }
+    buttons = actions.map { action in
+      switch action {
+      case .newChat:
+        Button(id: "new", label: "New Chat", symbol: "square.and.pencil", url: DeepLink.newChat())
+      case .dictate:
+        Button(id: "dictate", label: "Dictate", symbol: "mic.fill", url: DeepLink.newChat(dictate: true))
+      }
+    }
   }
 }
 
@@ -211,7 +306,7 @@ public struct BoardModel: Equatable, Sendable {
     }
     var all: [Part] = []
     if let kanban = snapshot.kanban {
-      all.append(.kanban(blocked: kanban.blocked, review: kanban.review, url: SurfaceFallbackURL.kanban))
+      all.append(.kanban(blocked: kanban.blocked, review: kanban.review, url: DeepLink.kanban))
     }
     if let failed = snapshot.schedules?.lastFailed {
       all.append(.failedJob(name: shownTitle(failed.name), at: failed.at, url: failed.url))
@@ -220,7 +315,7 @@ public struct BoardModel: Equatable, Sendable {
       all.append(
         .nextRun(
           name: snapshot.schedules?.nextJobName.flatMap(shownTitle), at: at, isDue: at <= now,
-          url: SurfaceFallbackURL.schedules))
+          url: DeepLink.schedules()))
     }
     parts = Array(all.prefix(family == .small ? 2 : 3))
     emptyText =

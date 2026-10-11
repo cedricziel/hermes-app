@@ -220,6 +220,122 @@ final class NeedsYouModelTests: XCTestCase {
   }
 }
 
+final class NeedsYouAccessoryModelTests: XCTestCase {
+  func testCountsEveryRequest() {
+    let pending = [request("a"), request("a", kind: .question), request("b", kind: .input)]
+    let model = NeedsYouAccessoryModel(snapshot: snapshot(pending: pending), now: now)
+    XCTAssertEqual(model.count, 3)
+    XCTAssertFalse(model.isEmpty)
+  }
+
+  func testKindLabelAndTitleAreThoseOfTheOldestRequest() {
+    let pending = [
+      request("new", kind: .question, title: "Newer", minutesAgo: 1),
+      request("old", kind: .input, title: "Older", minutesAgo: 30),
+    ]
+    let model = NeedsYouAccessoryModel(snapshot: snapshot(pending: pending), now: now)
+    XCTAssertEqual(model.kindLabel, "Waiting for you")
+    XCTAssertEqual(model.title, "Older")
+    XCTAssertFalse(model.isRedacted)
+  }
+
+  func testInlineText() {
+    func inline(_ pending: [PendingRequest]) -> String {
+      NeedsYouAccessoryModel(snapshot: snapshot(pending: pending), now: now).inlineText
+    }
+    XCTAssertEqual(inline([request("a"), request("b")]), "2 waiting in Hermes")
+    XCTAssertEqual(inline([request("a")]), "1 waiting in Hermes")
+    XCTAssertEqual(inline([]), "Nothing waiting")
+  }
+
+  func testTapOpensTheOldestRequestsChat() {
+    let pending = [request("new", minutesAgo: 1), request("old", minutesAgo: 30)]
+    let model = NeedsYouAccessoryModel(snapshot: snapshot(pending: pending), now: now)
+    XCTAssertEqual(model.url, link("chat?profile=default&id=old"))
+  }
+
+  func testNothingWaitingOpensTheChatList() {
+    let model = NeedsYouAccessoryModel(snapshot: snapshot(), now: now)
+    XCTAssertTrue(model.isEmpty)
+    XCTAssertNil(model.kindLabel)
+    XCTAssertNil(model.title)
+    XCTAssertFalse(model.isRedacted)
+    XCTAssertEqual(model.url, link("requests"))
+  }
+
+  func testSignedOutSaysSignInAndOpensTheAppAsItIs() {
+    for model in [
+      NeedsYouAccessoryModel(snapshot: nil, now: now),
+      NeedsYouAccessoryModel(snapshot: snapshot(signedIn: false, pending: [request("a")]), now: now),
+    ] {
+      XCTAssertTrue(model.status.isSignedOut)
+      XCTAssertEqual(model.inlineText, "Sign in")
+      XCTAssertEqual(model.count, 0)
+      XCTAssertNil(model.url)
+    }
+  }
+
+  func testTitleIsRedactedWhileAppLockLeftItOut() {
+    let locked = [request("a", kind: .approval, title: "")]
+    let model = NeedsYouAccessoryModel(snapshot: snapshot(pending: locked), now: now)
+    XCTAssertNil(model.title)
+    XCTAssertTrue(model.isRedacted)
+    XCTAssertEqual(model.count, 1)
+    XCTAssertEqual(model.kindLabel, "Approval")
+    XCTAssertEqual(model.url, link("chat?profile=default&id=a"))
+  }
+
+  func testSpokenLabelsNeverHoldATitle() {
+    let pending = [request("a", title: "Secret plans")]
+    let model = NeedsYouAccessoryModel(snapshot: snapshot(pending: pending), now: now)
+    XCTAssertEqual(model.accessibilityLabel, "1 waiting for you in Hermes. Approval.")
+    XCTAssertFalse(model.accessibilityLabel.contains("Secret"))
+    XCTAssertEqual(
+      NeedsYouAccessoryModel(snapshot: snapshot(), now: now).accessibilityLabel,
+      "Nothing waiting in Hermes")
+    XCTAssertEqual(
+      NeedsYouAccessoryModel(snapshot: nil, now: now).accessibilityLabel, "Sign in to Hermes")
+  }
+}
+
+final class QuickLaunchModelTests: XCTestCase {
+  func testNewChatOpensANewChat() {
+    let model = QuickLaunchModel(snapshot: snapshot(), actions: [.newChat], now: now)
+    XCTAssertEqual(model.buttons.map(\.label), ["New Chat"])
+    XCTAssertEqual(model.buttons.map(\.url), [link("new")])
+    XCTAssertEqual(model.url, link("new"))
+  }
+
+  func testDictateOpensANewChatWithTheMicrophone() {
+    let model = QuickLaunchModel(snapshot: snapshot(), actions: [.dictate], now: now)
+    XCTAssertEqual(model.buttons.map(\.label), ["Dictate"])
+    XCTAssertEqual(model.url, link("new?dictate=1"))
+  }
+
+  func testThePairKeepsBothButtonsApart() {
+    let model = QuickLaunchModel(snapshot: snapshot(), actions: [.newChat, .dictate], now: now)
+    XCTAssertEqual(model.buttons.map(\.label), ["New Chat", "Dictate"])
+    XCTAssertEqual(model.buttons.map(\.url), [link("new"), link("new?dictate=1")])
+    XCTAssertEqual(Set(model.buttons.map(\.id)).count, 2)
+  }
+
+  func testSignedOutReadsSignInAndOpensTheApp() {
+    for snapshot in [nil, snapshot(signedIn: false)] {
+      let model = QuickLaunchModel(snapshot: snapshot, actions: [.newChat, .dictate], now: now)
+      XCTAssertTrue(model.status.isSignedOut)
+      XCTAssertEqual(model.buttons.map(\.label), ["Sign in"])
+      XCTAssertEqual(model.url, link("new"))
+    }
+  }
+
+  func testShowsNoChatContent() {
+    let model = QuickLaunchModel(
+      snapshot: snapshot(chats: [chat("a", title: "Secret plans")], pending: [request("a")]),
+      actions: [.newChat], now: now)
+    XCTAssertEqual(model.buttons.map(\.label), ["New Chat"])
+  }
+}
+
 final class BoardModelTests: XCTestCase {
   private let failed = FailedJob(
     profile: "default", jobId: "j1", name: "Backup", at: now.addingTimeInterval(-3600),
