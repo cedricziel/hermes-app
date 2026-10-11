@@ -30,6 +30,11 @@ const _turnStatuses = {
   'resuming',
 };
 
+/// Whether a step says nothing: notifications are off, or the app is in
+/// front and announces by itself.
+Future<bool> _quiet(BackgroundContext context) async =>
+    !context.notificationsOn || await context.isAppInFront();
+
 /// Announces the chats the app remembered as replying when it left, once
 /// their session no longer runs a turn.
 class RunningRepliesStep extends BackgroundStep {
@@ -46,17 +51,14 @@ class RunningRepliesStep extends BackgroundStep {
 
   @override
   Future<StepCounts> run(BackgroundContext context) async {
-    if (!context.notificationsOn || await context.isAppInFront()) {
-      return const StepCounts();
-    }
+    if (await _quiet(context)) return const StepCounts();
     final now = _now();
     final remembered = await _running.read();
-    final stale = [
-      for (final reply in remembered)
-        if (now.difference(reply.since) > kRunningReplyLifetime) reply,
-    ];
+    bool expired(RunningReply reply) =>
+        now.difference(reply.since) > kRunningReplyLifetime;
+    final stale = remembered.where(expired).toList();
     if (stale.isNotEmpty) await _running.forget(stale);
-    final current = remembered.where((reply) => !stale.contains(reply));
+    final current = remembered.where((reply) => !expired(reply)).toList();
     if (current.isEmpty) return const StepCounts();
 
     final profiles = {for (final reply in current) reply.profile};
@@ -171,9 +173,7 @@ class ScheduleAlertsStep extends BackgroundStep {
 
   @override
   Future<StepCounts> run(BackgroundContext context) async {
-    if (!context.notificationsOn || await context.isAppInFront()) {
-      return const StepCounts();
-    }
+    if (await _quiet(context)) return const StepCounts();
     final settings = _settings ?? NotificationSettings();
     if (!settings.loaded) await settings.load();
     if (!settings.scheduleAlerts) return const StepCounts();
