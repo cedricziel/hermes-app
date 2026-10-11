@@ -325,17 +325,15 @@ WidgetbookNode pluginsScreensNode() => WidgetbookFolder(
     ),
     WidgetbookComponent(
       name: 'GitInstallDialog',
-      useCases: [
-        WidgetbookUseCase(
-          name: 'Warning',
-          builder: (_) => Center(
-            child: GitInstallDialog(
-              install: (identifier, {required enable, required force}) async =>
-                  const PluginInstallResult(ok: true, pluginName: 'example'),
-            ),
+      useCases: onEachPlatform(
+        'Warning',
+        (_) => Center(
+          child: GitInstallDialog(
+            install: (identifier, {required enable, required force}) async =>
+                const PluginInstallResult(ok: true, pluginName: 'example'),
           ),
         ),
-      ],
+      ),
     ),
     WidgetbookComponent(
       name: 'InstallActions',

@@ -4,12 +4,13 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
-import 'package:hermes_app/src/widgets/grouped_list.dart';
 
 import 'hermes_plugin_manager_repository_test.dart'
     show catalogBody, catalogRow, hubBody, hubRow;
@@ -678,18 +679,19 @@ void main() {
       );
       expect(
         tester
-            .widget<CheckboxListTile>(
-              find.byKey(const Key('git-trust-checkbox')),
-            )
-            .value,
+            .widget<GroupedRow>(find.byKey(const Key('git-trust-checkbox')))
+            .checked,
         isFalse,
       );
       expect(
         tester
-            .widget<SwitchListTile>(find.byKey(const Key('git-enable-switch')))
+            .widget<GroupedSwitchRow>(
+              find.byKey(const Key('git-enable-switch')),
+            )
             .value,
         isTrue,
       );
+      expect(find.byType(GroupedDialog), findsOneWidget);
       expect(find.byKey(const Key('git-force-switch')), findsNothing);
       expect(installButton(tester).onPressed, isNull);
     });
