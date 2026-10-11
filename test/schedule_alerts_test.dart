@@ -4,7 +4,9 @@ import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_alerts.dart';
+import 'package:hermes_app/src/schedules/schedule_baseline.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -386,6 +388,104 @@ void main() {
       });
     });
 
+    group('baseline kept on the device', () {
+      late ScheduleBaseline stored;
+      setUp(() => stored = ScheduleBaseline());
+
+      testWidgets('is saved after each look', (tester) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+
+          expect(await stored.read(), {
+            'work/job1': DateTime.utc(2026, 9, 20, 8),
+          });
+        });
+      });
+
+      testWidgets('is loaded before the first look', (tester) async {
+        await tester.runAsync(() async {
+          await stored.write({'work/job1': DateTime.utc(2026, 9, 20, 8)});
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          watcher.available = true;
+
+          await look();
+
+          expect(service.shown.single.title, 'Morning brief');
+        });
+      });
+
+      testWidgets('does not announce a run a background run announced', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+          await stored.write({'work/job1': DateTime.utc(2026, 9, 21, 8)});
+
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          await look();
+
+          expect(service.shown, isEmpty);
+        });
+      });
+
+      testWidgets('is forgotten when the setting is switched off', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+
+          await settings.setScheduleAlerts(false);
+          await pumpEventQueue();
+
+          expect(await stored.read(), isNull);
+        });
+      });
+
+      testWidgets('is forgotten when the cron routes go away', (tester) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+
+          watcher.available = false;
+          await pumpEventQueue();
+
+          expect(await stored.read(), isNull);
+        });
+      });
+
+      testWidgets('keeps a run unannounced when saving the baseline fails', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          await stored.write({'work/job1': DateTime.utc(2026, 9, 20, 8)});
+          SharedPreferencesAsyncPlatform.instance = _FailingWritePrefs();
+          final failing = ScheduleWatcher(
+            repository: HermesCronRepository(server.client().raw),
+            service: service,
+            settings: settings,
+            baseline: ScheduleBaseline(),
+          );
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          failing.available = true;
+          await failing.check();
+          failing.dispose();
+          expect(service.shown, isEmpty);
+
+          watcher.available = true;
+          await look();
+
+          expect(service.shown, hasLength(1));
+        });
+      });
+    });
+
     testWidgets('keeps quiet after a failed look and tries again', (
       tester,
     ) async {
@@ -503,4 +603,19 @@ void main() {
       }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
     });
   });
+}
+
+base class _FailingWritePrefs extends InMemorySharedPreferencesAsync {
+  _FailingWritePrefs()
+    : super.withData({
+        'hermes.schedules.baseline.v1':
+            '{"work/job1":"2026-09-20T08:00:00.000Z"}',
+      });
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) async => throw StateError('disk full');
 }
