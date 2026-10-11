@@ -31,29 +31,25 @@ struct DictateControl: ControlWidget {
   }
 }
 
+// The label is fixed: a control shows on a locked device, so it never carries
+// the chat's title.
 struct OpenChatControl: ControlWidget {
-  struct Value: Sendable {
-    let intent: OpenChatControlIntent
-    let title: String
-  }
-
   struct Provider: AppIntentControlValueProvider {
-    // The gallery never shows the user's own chats.
-    func previewValue(configuration: OpenChatControlIntent) -> Value {
-      Value(intent: configuration, title: "Open Chat")
+    func previewValue(configuration: OpenChatControlIntent) -> OpenChatControlIntent {
+      configuration
     }
 
-    func currentValue(configuration: OpenChatControlIntent) async throws -> Value {
-      Value(intent: configuration, title: configuration.title(in: .current()))
+    func currentValue(configuration: OpenChatControlIntent) async throws -> OpenChatControlIntent {
+      configuration
     }
   }
 
   var body: some ControlWidgetConfiguration {
     AppIntentControlConfiguration(
       kind: "com.cedricziel.hermesApp.control.open-chat", provider: Provider()
-    ) { value in
-      ControlWidgetButton(action: value.intent) {
-        Label(value.title, systemImage: "bubble.left")
+    ) { intent in
+      ControlWidgetButton(action: intent) {
+        Label("Open Chat", systemImage: "bubble.left")
       }
     }
     .displayName("Open Chat")

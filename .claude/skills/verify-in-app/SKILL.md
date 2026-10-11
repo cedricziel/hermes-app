@@ -1002,11 +1002,12 @@ run an intent nor tap, so use a simulator window (Simulator.app) or a device.
 - Shortcuts app: the "Hermes" tile lists New Chat, Dictate and Open Chat (the
   App Shortcuts); tap one to run it. In the editor, add "Open Chat" and open
   its Chat parameter: the recent chats are listed newest first, with the
-  profile as subtitle when chats of several profiles are offered. With App Lock
-  on every chat reads "Chat" with its profile and age.
+  profile as subtitle when chats of several profiles are offered; an unnamed
+  chat reads "New chat" with profile and age. With App Lock on no chats are
+  listed.
 - Controls: Control Center, "+" , "Add a control", search "Hermes": New Chat,
-  Dictate and Open Chat (choose a chat when adding it; its label follows a
-  rename). On the Lock Screen they ask to unlock first. The Action button and
+  Dictate and Open Chat (choose a chat when adding it; the label stays "Open
+  Chat", never the title). On the Lock Screen they ask to unlock first. The Action button and
   the Lock Screen's control slots take the same controls.
 - Each run must land in the app on the `hermes://` link the intent builds
   (`new`, `new?dictate=1`, `chat?profile=&id=`). Run it with the app killed to

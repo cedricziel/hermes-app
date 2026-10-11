@@ -81,12 +81,6 @@ struct OpenChatControlIntent: ControlConfigurationIntent {
   @Parameter(title: "Chat")
   var chat: ChatEntity?
 
-  /// The chat's current title, so a rename shows without choosing it again.
-  func title(in directory: IntentDirectory) -> String {
-    guard let chat else { return "Open Chat" }
-    return directory.chats(withIDs: [chat.id]).first?.title ?? ChatEntity.untitled
-  }
-
   func link(in directory: IntentDirectory) -> URL {
     chat.map(directory.link(opening:)) ?? DeepLink.requests
   }

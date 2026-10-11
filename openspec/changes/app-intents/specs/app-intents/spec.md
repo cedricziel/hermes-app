@@ -38,12 +38,12 @@ Without a Profile, the intents SHALL use the profile the app last reported as cu
 
 ### Requirement: Chat entity
 
-The Chat parameter SHALL offer the recent chats the app last shared with the system (at most 10, newest first, across profiles), each shown with its title and, when chats of more than one profile are offered, its profile. Searching SHALL match chat titles ignoring case and diacritics. A chat SHALL be identified by its profile and thread id together, so chats with the same id in two profiles stay apart. A chat that a saved shortcut or control names but that is no longer among the shared chats SHALL still open, shown with the title "Chat". While nobody is signed in the parameter SHALL offer no chats. While App Lock is on, the shared chats carry no titles; each SHALL be shown as "Chat" with its profile, and title search and spoken chat names SHALL match nothing. The chat entity SHALL NOT be indexed in Spotlight.
+The Chat parameter SHALL offer the recent chats the app last shared with the system (at most 10, newest first, across profiles), each shown with its title and, when chats of more than one profile are offered, its profile. Searching SHALL match chat titles ignoring case and diacritics. A chat SHALL be identified by its profile and thread id together, so chats with the same id in two profiles stay apart. A chat that a saved shortcut or control names but that is no longer among the shared chats SHALL still open, shown with the title "Chat". While nobody is signed in the parameter SHALL offer no chats. A chat the app has not named yet (its label "New chat" stands in for the first prompt) SHALL be shown with its profile and age and SHALL NOT match a title search. While App Lock is on, the shared chats carry no titles; the parameter SHALL then offer no chats, and a chat a saved shortcut names SHALL be shown as "Chat" with its profile, so no chat can be found or spoken by name. The chat entity SHALL NOT be indexed in Spotlight.
 
 #### Scenario: App Lock on
 
 - **WHEN** App Lock is on and the user opens the Chat parameter
-- **THEN** the recent chats are listed as "Chat" with their profiles, and no title is shown
+- **THEN** no chats are listed, and a saved shortcut's chat reads "Chat" with its profile
 
 #### Scenario: Pick a recent chat
 
@@ -90,7 +90,7 @@ The system SHALL register App Shortcuts so the intents work by voice without set
 
 ### Requirement: Controls
 
-The system SHALL offer on iOS three controls for Control Center, the Lock Screen and the Action button: "New Chat" and "Dictate", which run the intents of the same name, and "Open Chat", which the user configures with a chat and which shows that chat's title (or "Open Chat" before one is chosen). A control SHALL open the app on its link; iOS asks to unlock the device first when it is locked.
+The system SHALL offer on iOS three controls for Control Center, the Lock Screen and the Action button: "New Chat" and "Dictate", which run the intents of the same name, and "Open Chat", which the user configures with a chat and which is always labelled "Open Chat", never with the chat's title, since controls show on a locked device. A control SHALL open the app on its link; iOS asks to unlock the device first when it is locked.
 
 #### Scenario: Dictate from the Lock Screen
 

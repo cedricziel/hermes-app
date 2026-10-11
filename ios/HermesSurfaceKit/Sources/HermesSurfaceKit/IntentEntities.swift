@@ -14,6 +14,11 @@ struct ChatEntity: AppEntity, Equatable {
   /// among the recent ones, or App Lock is on.
   static let untitled = "Chat"
 
+  /// What the app writes for a chat the server has not named yet
+  /// (`kUnnamedChatLabel` in Dart). It stands in for the first prompt, so it is
+  /// shown but never searched.
+  static let unnamed = "New chat"
+
   /// `<percent-encoded profile>/<thread id>`, the shape the watch binds a
   /// thread to its profile with, so chats with one id in two profiles differ.
   let id: String
@@ -35,12 +40,18 @@ struct ChatEntity: AppEntity, Equatable {
     self.threadID = threadID
     self.title = trimmed.isEmpty ? Self.untitled : trimmed
     self.updatedAt = updatedAt
-    self.titleHidden = trimmed.isEmpty
+    self.titleHidden = Self.hides(trimmed)
     self.showsProfile = showsProfile
   }
 
   static func makeID(profile: String, threadID: String) -> String {
     "\(profile.addingPercentEncoding(withAllowedCharacters: DeepLink.unreserved) ?? "")/\(threadID)"
+  }
+
+  /// Whether [title] says nothing about the chat: empty (App Lock) or the
+  /// app's label for an unnamed one.
+  static func hides(_ title: String) -> Bool {
+    title.isEmpty || title == unnamed
   }
 
   /// A chat named only by its [id], with no title.
@@ -52,7 +63,7 @@ struct ChatEntity: AppEntity, Equatable {
   }
 
   /// The profile when chats of several profiles are offered, and always for a
-  /// chat without a title, which needs it (and its age) to be told apart.
+  /// chat without a real title, which needs it (and its age) to be told apart.
   func subtitle(now: Date = .now) -> String? {
     guard titleHidden else { return showsProfile ? profile : nil }
     guard let updatedAt else { return profile }
@@ -143,9 +154,18 @@ struct IntentDirectory {
       showsProfile: severalProfilesInChats)
   }
 
-  /// The recent chats, newest first.
+  /// While App Lock is on the app writes every title empty. A chat is never
+  /// unnamed-and-empty otherwise, so that is how it shows here.
+  private var appLockOn: Bool {
+    guard let chats = snapshot?.recentChats, !chats.isEmpty else { return false }
+    return chats.allSatisfy { $0.title.isEmpty }
+  }
+
+  /// The recent chats, newest first; none under App Lock, which would list
+  /// only "Chat" rows and let Siri match them by that name.
   var suggestedChats: [ChatEntity] {
-    (offered?.recentChats ?? []).prefix(Self.chatLimit).map(entity)
+    guard !appLockOn else { return [] }
+    return (offered?.recentChats ?? []).prefix(Self.chatLimit).map(entity)
   }
 
   /// A chat the snapshot no longer holds is still returned, titled "Chat": a
@@ -162,12 +182,12 @@ struct IntentDirectory {
   }
 
   /// Titles that contain [query], ignoring case and diacritics. A chat
-  /// without a title (App Lock) never matches.
+  /// without a real title (App Lock, unnamed) never matches.
   func chats(matching query: String) -> [ChatEntity] {
     let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !needle.isEmpty else { return suggestedChats }
     return (offered?.recentChats ?? []).filter {
-      Self.matches($0.title, needle)
+      !ChatEntity.hides($0.title) && Self.matches($0.title, needle)
     }.prefix(Self.chatLimit).map(entity)
   }
 
@@ -186,9 +206,16 @@ struct IntentDirectory {
     return names.filter { !$0.isEmpty && seen.insert($0).inserted }.map(ProfileEntity.init(id:))
   }
 
+  /// A profile that is not among the server's falls back to the current one.
+  /// While signed out nothing is known, so the name stands: a saved shortcut
+  /// then opens the app on its sign-in.
   func profiles(withIDs ids: [String]) -> [ProfileEntity] {
     let known = profiles
-    return ids.compactMap { id in known.first { $0.id == id } }
+    return ids.compactMap { id in
+      if known.contains(where: { $0.id == id }) { return ProfileEntity(id: id) }
+      guard offered != nil else { return ProfileEntity(id: id) }
+      return currentProfile.map(ProfileEntity.init(id:))
+    }
   }
 
   func profiles(matching query: String) -> [ProfileEntity] {

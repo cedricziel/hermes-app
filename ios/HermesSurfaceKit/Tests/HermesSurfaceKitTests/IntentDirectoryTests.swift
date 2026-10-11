@@ -120,19 +120,27 @@ final class IntentDirectoryChatsTests: XCTestCase {
     XCTAssertEqual(IntentDirectory(snapshot: nil).chats(withIDs: [id]).map(\.threadID), ["a"])
   }
 
-  func testUnnamedChatsKeepTheLabelTheAppWrote() {
-    let found = directory(chats: [chat("a", title: "New chat")]).suggestedChats
-    XCTAssertEqual(found.map(\.title), ["New chat"])
+  func testUnnamedChatsKeepTheLabelTheAppWroteButMatchNoSearch() {
+    let dir = directory(chats: [chat("a", title: "New chat"), chat("b", title: "New plan")])
+    XCTAssertEqual(dir.suggestedChats.map(\.title), ["New chat", "New plan"])
+    XCTAssertEqual(dir.chats(matching: "new").map(\.threadID), ["b"])
+    XCTAssertEqual(dir.chats(matching: "chat"), [])
   }
 
-  func testAppLockShowsChatAndMatchesNoTitle() {
+  func testAppLockOffersNoChatsToPickOrSpeak() {
     let locked = directory(
       profiles: ["default", "work"],
       chats: [chat("a", title: "", profile: "default"), chat("b", title: "", profile: "work")])
-    XCTAssertEqual(locked.suggestedChats.map(\.title), ["Chat", "Chat"])
+    XCTAssertEqual(locked.suggestedChats, [])
     XCTAssertEqual(locked.chats(matching: "chat"), [])
     XCTAssertEqual(locked.chats(matching: "Chat a"), [])
-    XCTAssertEqual(locked.suggestedChats.map(\.profile), ["default", "work"])
+  }
+
+  func testAppLockStillResolvesASavedChatAsChatWithItsProfile() {
+    let locked = directory(chats: [chat("a", title: "", profile: "work")])
+    let id = ChatEntity(profile: "work", threadID: "a", title: "x").id
+    XCTAssertEqual(locked.chats(withIDs: [id]).map(\.title), ["Chat"])
+    XCTAssertEqual(locked.chats(withIDs: [id]).map(\.profile), ["work"])
   }
 
   func testAnOpenTitleAndALockedOneNeverMeetInASearch() {
@@ -156,7 +164,14 @@ final class ChatSubtitleTests: XCTestCase {
   }
 
   func testALockedChatShowsItsProfileAndAge() {
-    let found = directory(chats: [chat("a", title: "", minutesAgo: 120)]).suggestedChats
+    let id = ChatEntity(profile: "default", threadID: "a", title: "").id
+    let found = directory(chats: [chat("a", title: "", minutesAgo: 120)]).chats(withIDs: [id])
+    let subtitle = found[0].subtitle(now: now)
+    XCTAssertTrue(subtitle?.hasPrefix("default · ") == true, subtitle ?? "nil")
+  }
+
+  func testAnUnnamedChatShowsItsProfileAndAge() {
+    let found = directory(chats: [chat("a", title: "New chat", minutesAgo: 120)]).suggestedChats
     let subtitle = found[0].subtitle(now: now)
     XCTAssertTrue(subtitle?.hasPrefix("default · ") == true, subtitle ?? "nil")
   }
@@ -190,9 +205,19 @@ final class IntentDirectoryProfilesTests: XCTestCase {
     XCTAssertEqual(IntentDirectory(snapshot: nil).profiles, [])
   }
 
-  func testLooksUpOnlyKnownProfiles() {
-    let dir = directory(profiles: ["default", "work"])
-    XCTAssertEqual(dir.profiles(withIDs: ["work", "gone"]).map(\.id), ["work"])
+  func testAnUnknownProfileFallsBackToTheCurrentOne() {
+    let dir = directory(profile: "default", profiles: ["default", "work"])
+    XCTAssertEqual(dir.profiles(withIDs: ["work", "gone"]).map(\.id), ["work", "default"])
+  }
+
+  func testAnUnknownProfileIsDroppedWhenNoneIsCurrent() {
+    let dir = directory(profile: nil, profiles: ["work"])
+    XCTAssertEqual(dir.profiles(withIDs: ["gone"]), [])
+  }
+
+  func testAProfileAskedForByIdStillResolvesWhileSignedOut() {
+    XCTAssertEqual(directory(signedIn: false).profiles(withIDs: ["work"]).map(\.id), ["work"])
+    XCTAssertEqual(IntentDirectory(snapshot: nil).profiles(withIDs: ["work"]).map(\.id), ["work"])
   }
 
   func testSearchesTheNamesIgnoringCaseAndDiacritics() {
@@ -293,14 +318,5 @@ final class OpenIntentsTests: XCTestCase {
     control.chat = ChatEntity(profile: "default", threadID: "abc", title: "T")
     XCTAssertEqual(
       control.link(in: directory()).absoluteString, "hermes://chat?profile=default&id=abc")
-  }
-
-  func testTheControlTitleFollowsARenamedChat() {
-    let control = OpenChatControlIntent()
-    XCTAssertEqual(control.title(in: directory()), "Open Chat")
-    control.chat = ChatEntity(profile: "default", threadID: "abc", title: "Old name")
-    XCTAssertEqual(
-      control.title(in: directory(chats: [chat("abc", title: "New name")])), "New name")
-    XCTAssertEqual(control.title(in: directory()), "Chat")
   }
 }

@@ -25,7 +25,7 @@ Non-goals:
 - No change to the watch's intents.
 - No Android equivalent (App Actions / AppFunctions).
 
-Security and privacy impact: the intents read only the surface snapshot, which holds no token, server address or user identity (Contract 2), and they never touch the network or secure storage. While App Lock is on the snapshot holds no titles, so chats are offered as "Chat". Otherwise chat titles become visible in the Shortcuts editor and the Siri chat picker, also on a locked device, in the same way notifications already show chat titles. Opening a chat still goes through the app, so App lock and sign-in apply as usual. Nothing new is sent to telemetry.
+Security and privacy impact: the intents read only the surface snapshot, which holds no token, server address or user identity (Contract 2), and they never touch the network or secure storage. While App Lock is on the snapshot holds no titles, so no chats are offered. Otherwise chat titles become visible in the Shortcuts editor and the Siri chat picker, also on a locked device, in the same way notifications already show chat titles; the Open Chat control's label is fixed so a title never reaches the Lock Screen. Opening a chat still goes through the app, so App lock and sign-in apply as usual. Nothing new is sent to telemetry.
 
 Observability: none in this change. The intents only open `hermes://` links, and the `deep-links` change already records `deeplink.opened` / `deeplink.ignored` breadcrumbs where the link is handled, which explains a later crash just as well. The Swift side runs outside Flutter's telemetry; a failed snapshot read leaves the chat picker empty, which a user can see and report.
 
