@@ -1,22 +1,22 @@
 # Tasks
 
-One PR, `feat(ios): index recent chats in Spotlight`. Lands after `deep-links` and `surface-snapshot`. No API routes change, so no OpenAPI regeneration.
+One feature PR for indexing recent chats on iOS and macOS; the activation fix can ship separately. Lands after `deep-links` and `surface-snapshot`. No API routes change, so no OpenAPI regeneration.
 
 ## 1. Index interface and native channel
 
-- [x] 1.1 Add `lib/src/spotlight/spotlight_index.dart` (`SpotlightItem`, `SpotlightIndex`, `ChannelSpotlightIndex` with every call caught, no-op off iOS) and `test/support/fake_spotlight_index.dart`. Write failing channel tests (method names and arguments for `replace`, `deleteDomain`, `deleteAll`, `take`; an `opened` call reaches the stream; a `PlatformException` is swallowed); implement; verify.
+- [x] 1.1 Add `lib/src/spotlight/spotlight_index.dart` (`SpotlightItem`, `SpotlightIndex`, `ChannelSpotlightIndex` with every call caught, no-op outside iOS and macOS) and `test/support/fake_spotlight_index.dart`. Write failing channel tests (method names and arguments for `replace`, `deleteDomain`, `deleteAll`, `take`; an `opened` call reaches the stream; a `PlatformException` is swallowed); implement; verify.
 - [x] 1.2 Add `ios/Runner/Spotlight.swift` (named index `hermes` with `.complete` protection, `replace`/`deleteDomain`/`deleteAll`, `receive` for `CSSearchableItemActionType` with the `hermes` scheme check, `take`, `opened`), add it to the Runner target and link `CoreSpotlight`; install it in `AppDelegate` and call it from `SceneDelegate` next to `ChatHandoff`. Verify `flutter build ios --simulator -d <udid>`.
 
 ## 2. Setting and indexer (TDD)
 
-- [x] 2.1 Write failing tests for `SpotlightSettings`: default off, persisted, a change during `load()` wins, `offered` only on iOS. Implement; verify.
+- [x] 2.1 Write failing tests for `SpotlightSettings`: default on after loading, persisted opt-out, a change during `load()` wins, `offered` on iOS and macOS. Implement; verify.
 - [x] 2.2 Write failing tests for `ChatSpotlightIndexer`: on + signed in replaces the `chat` domain from `recentChats` (title, snippet, URL); an unchanged snapshot makes no call; off, signed-out snapshot, App Lock turned on (the snapshot then carries no titles), `AuthController.signedOut` and server change each call `deleteAll`; turning App Lock off re-indexes on the next snapshot; a failed delete sets the dirty flag and is retried on the next start; calls run one at a time. Implement; verify.
 - [x] 2.3 Write failing tests that an `opened` URL and a cold-start `take` URL reach the `deep-links` entry as an `OpenChat` target, and a non-`hermes` identifier is ignored. Implement; verify.
 
 ## 3. Settings UI
 
 - [x] 3.1 Add Widgetbook use cases for `SpotlightSettingsView` (on, off), both themes, phone and desktop width; verify `flutter test test/widgetbook_test.dart`.
-- [x] 3.2 Add `showSpotlightDialog`, the iOS-only "Spotlight" item in the sidebar account menu and the "Spotlight" row in the Settings dialog, with widget tests that both open the dialog on iOS and are absent on Android and macOS; wire `SpotlightSettings` and the indexer in `main.dart`; verify.
+- [x] 3.2 Add `showSpotlightDialog`, the iOS-only "Spotlight" item in the sidebar account menu and the "Spotlight" row in the Settings dialog, with widget tests that both open the dialog on iOS and are absent on Android; macOS offers the Settings row; wire `SpotlightSettings` and the indexer in `main.dart`; verify.
 
 ## 4. Observability
 
@@ -24,5 +24,13 @@ One PR, `feat(ios): index recent chats in Spotlight`. Lands after `deep-links` a
 
 ## 5. Docs, skills and verify
 
-- [x] 5.1 Add Spotlight to CLAUDE.md's Architecture (opt-in, snapshot-fed, domain API, Handoff stays out of search) and a Spotlight check to the `verify-in-app` skill (search in the iOS simulator, lock to confirm protection).
+- [x] 5.1 Add Spotlight to CLAUDE.md's Architecture (enabled by default with saved opt-outs, snapshot-fed, domain API, Handoff stays out of search) and a Spotlight check to the `verify-in-app` skill (search in the iOS simulator, lock to confirm protection).
 - [ ] 5.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`; all pass. In the iOS simulator against `scripts/dev-backend.sh`: turn the switch on, search a chat title in Spotlight, open it with the app running and terminated, rename a chat and see the result change, lock the device and see no result, sign out and turn off and see the results gone. Restore the `ios/`/`macos/` Xcode files the build rewrites, staging files by name.
+
+## 6. macOS and default indexing
+
+- [x] 6.1 Remove the unsupported activation superclass callback and add native regression coverage.
+- [x] 6.2 Add the macOS Core Spotlight channel, pending-result handling and window activation; enable the Dart index and Settings entry on macOS.
+- [x] 6.3 Default indexing to on on iOS and macOS when no saved choice exists, preserve opt-outs, and update settings, channel and widget tests.
+- [x] 6.4 Verify static analysis, formatting, macOS build and native test compilation.
+- [ ] 6.5 Run native regression tests and confirm system search results on an isolated macOS installation.

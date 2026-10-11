@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../widgets/grouped_list.dart';
 
@@ -16,9 +17,11 @@ class SpotlightSettingsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GroupedSection(
-    footer:
-        "Your recent chats' titles and latest messages become searchable on "
-        'this device while it is unlocked. Turning this off removes them.',
+    footer: defaultTargetPlatform == TargetPlatform.macOS
+        ? "Your recent chats' titles and latest messages become searchable on "
+              'this Mac. Turning this off removes them.'
+        : "Your recent chats' titles and latest messages become searchable on "
+              'this device while it is unlocked. Turning this off removes them.',
     children: [
       GroupedSwitchRow(
         key: const Key('spotlight-switch'),

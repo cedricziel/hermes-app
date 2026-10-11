@@ -2,11 +2,11 @@
 
 ## Why
 
-People remember a conversation by what it was about, not where it sits in the chat list. iOS Spotlight is where they already search for that. Hermes indexes nothing today: Handoff publishes its activity with `isEligibleForSearch = false` on purpose, so chats never show up in system search. Making recent chats findable from Spotlight, and opening them on a tap, saves opening the app and scrolling. Because chat titles and snippets can be private, it is the user's choice.
+People remember a conversation by what it was about, not where it sits in the chat list. Spotlight on Apple platforms is where they already search for that. Hermes originally indexed nothing: Handoff publishes its activity with `isEligibleForSearch = false` on purpose, so chats never show up in system search. Making recent chats findable from Spotlight, and opening them on a tap, saves opening the app and scrolling. The setting lets users remove indexed content.
 
 ## What Changes
 
-- A "Show chats in Spotlight" switch, off by default, on iOS: in the account menu's new "Spotlight" entry and in the Settings dialog.
+- A "Show chats in Spotlight" switch, enabled by default on iOS and macOS when no saved choice exists. It is available in Settings, with an account-menu entry on iOS. Saved opt-outs remain off.
 - While it is on, the app adds its recent chats (the surface snapshot's, up to ten across profiles) to Spotlight with the chat's title and latest-message snippet, and keeps that set in step with each new snapshot: new chats appear, renamed ones change, chats that fall out of the recent set are removed.
 - Tapping a Hermes result in Spotlight opens Hermes on that chat in its profile, also when Hermes was not running.
 - Turning the switch off, signing out and changing server remove every Hermes item from Spotlight.
@@ -16,11 +16,10 @@ People remember a conversation by what it was about, not where it sits in the ch
 Non-goals:
 
 - No full-history index: only the chats in the snapshot, not every chat on the server, and no message bodies beyond the 120-character snippet.
-- No Spotlight on macOS in this change (the native index call lives in the iOS Runner; the macOS gaps change can reuse the Dart side).
 - No Siri suggestions or App Shortcuts from indexed items (`app-intents`).
 - No Android equivalent (AppSearch).
 
-Security and privacy impact: the indexed titles and snippets leave the app's sandbox for the system's Spotlight index, where any user of the unlocked device can search them, and iOS may show them in suggestions. That is why the switch is off by default and its description says so. The items are stored in a named index with complete file protection, so they are not searchable while the device is locked. The index holds no token, server address or user identity; the link holds the profile name and chat id. Everything is removed on sign-out, server change, switching off, or turning App Lock on, and nothing is indexed while App Lock is on. Telemetry carries counts, domains and outcomes, never a title, snippet or id.
+Security and privacy impact: the indexed titles and snippets leave the app's sandbox for the system's Spotlight index, where any user of the unlocked device can search them, and iOS may show them in suggestions. The switch defaults to on on both platforms and retains saved choices. iOS uses a named index with complete file protection; macOS uses a named index without an iOS lock-screen protection guarantee. The index holds no token, server address or user identity; the link holds the profile name and chat id. Everything is removed on sign-out, server change, switching off, or turning App Lock on, and nothing is indexed while App Lock is on. Telemetry carries counts, domains and outcomes, never a title, snippet or id.
 
 Observability:
 
@@ -33,7 +32,7 @@ Observability:
 
 ### New Capabilities
 
-- `spotlight-search`: the opt-in setting, what is indexed and when it is removed, opening a result, and the generic domain-based index.
+- `spotlight-search`: the persisted setting, what is indexed and when it is removed, opening a result, and the generic domain-based index.
 
 ### Modified Capabilities
 
@@ -45,4 +44,5 @@ None. Handoff's behavior is unchanged.
 - Dependency: none. A small method channel instead of a plugin (see design.md).
 - Dart: a new `lib/src/spotlight/` module, the setting and its dialog, a row in the Settings dialog and the account menu, Widgetbook use cases.
 - iOS: `ios/Runner/Spotlight.swift` (channel `hermes_app/spotlight`), hooks in `AppDelegate.swift` and `SceneDelegate.swift`, `CoreSpotlight` linked. No entitlement or Info.plist change.
+- macOS: a Core Spotlight channel in `macos/Runner/Spotlight.swift`, installed by `AppDelegate`, with continuation handling and the activation exception fixed. No added entitlement.
 - Backend: none.

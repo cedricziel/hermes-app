@@ -5,17 +5,18 @@ import '../telemetry/breadcrumbs.dart';
 
 const _prefsEnabledKey = 'hermes.spotlight';
 
-/// Whether the user lets the app put their recent chats in Spotlight. Off
-/// until they say otherwise, and kept across launches.
+/// Whether recent chats appear in Spotlight. Saved choices survive launches.
 class SpotlightSettings extends ChangeNotifier {
   SpotlightSettings({
     SharedPreferencesAsync? prefs,
     this.breadcrumbs = Breadcrumbs.none,
   }) : _prefs = prefs ?? SharedPreferencesAsync();
 
-  /// Whether this platform has a Spotlight to offer (iOS and iPadOS).
+  /// Platforms with native Spotlight indexing.
   static bool get offered =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   final SharedPreferencesAsync _prefs;
   final Breadcrumbs breadcrumbs;
@@ -33,7 +34,7 @@ class SpotlightSettings extends ChangeNotifier {
   Future<void> load() async {
     final editsBefore = _edits;
     final saved = await _prefs.getBool(_prefsEnabledKey);
-    if (_edits == editsBefore) _enabled = saved ?? false;
+    if (_edits == editsBefore) _enabled = saved ?? true;
     _loaded = true;
     notifyListeners();
   }

@@ -12,9 +12,9 @@ See proposal.md for motivation and specs/spotlight-search/spec.md for behavior.
 
 ## Goals / Non-Goals
 
-**Goals:** opt-in indexing that can never outlive the session or the switch, and an API another domain can reuse.
+**Goals:** indexing enabled by default with a persistent opt-out that can never outlive the session or the switch, and an API another domain can reuse.
 
-**Non-Goals:** paging the whole chat history into the index; macOS.
+**Non-Goals:** paging the whole chat history into the index.
 
 ## Decisions
 
@@ -31,18 +31,18 @@ The deep link is the identifier because Spotlight hands back only the identifier
 
 ### Dart module `lib/src/spotlight/`
 
-- `spotlight_index.dart`: `SpotlightItem {domain, id, title, text, url}`, interface `SpotlightIndex` (`replace`, `deleteDomain`, `deleteAll`, each answering whether it worked, `opened` stream, `takeLaunch`), `ChannelSpotlightIndex` on iOS, `NoSpotlightIndex` elsewhere (`SpotlightIndex.forPlatform`). Every call catches and logs. Only the item's url, title and text cross the channel; the `id` stays on the Dart side.
-- `spotlight_settings.dart`: `SpotlightSettings` (`enabled`, key `hermes.spotlight`, default false, edit counter so a change during `load()` wins; `offered` is iOS only).
+- `spotlight_index.dart`: `SpotlightItem {domain, id, title, text, url}`, interface `SpotlightIndex` (`replace`, `deleteDomain`, `deleteAll`, each answering whether it worked, `opened` stream, `takeLaunch`), `ChannelSpotlightIndex` on iOS and macOS, `NoSpotlightIndex` elsewhere (`SpotlightIndex.forPlatform`). Every call catches and logs. Only the item's url, title and text cross the channel; the `id` stays on the Dart side.
+- `spotlight_settings.dart`: `SpotlightSettings` (`enabled`, key `hermes.spotlight`, default true after loading when no choice is saved, edit counter so a change during `load()` wins; `offered` is iOS and macOS).
 - `chat_spotlight_indexer.dart`: listens to snapshot writes, the setting, `AppLockController` and `AuthController.signedOut`. On, signed in, App Lock off: maps `recentChats` to `chat` items, leaving out chats with no title (App Lock) or the unnamed label (`kUnnamedChatLabel`, whose snippet could repeat the prompt) and calls `replace` only when the items changed since the last call. Otherwise (off, `signedIn: false`, signed out, App Lock on): `deleteAll` once. It waits until the setting and App Lock have loaded, so a start never clears and re-adds. A snapshot read from storage at start is indexed only once the connection (`session`, with `sessionChanges`) says signed in, and dropped when it says signed out, because the app may have been killed between a sign-out and the signed-out write; a snapshot this app writes is trusted at once, and what is indexed stays as it is while the connection is not known.
 - Opened results: `linksWithSpotlight` (`spotlight_links.dart`) merges the `opened` and `takeLaunch` URLs into the stream `DeepLinks` listens to (with `AppLinks().uriLinkStream`), so a tap is parsed and opened like a `hermes://` link, a cold start included, and `spotlight.opened` is logged there.
 
 ### Settings UI
 
-`SpotlightSettingsView` (plain model: `enabled`, `onChanged`; `widgets/spotlight_settings_view.dart`) inside `showSpotlightDialog`: a `GroupedDialog` titled "Spotlight" with the switch "Show chats in Spotlight" and the footer "Your recent chats' titles and latest messages become searchable on this device while it is unlocked. Turning this off removes them." Reached from the account menu's "Spotlight" item and a "Spotlight" row in the Settings dialog, both iOS only. Widgetbook use cases come first.
+`SpotlightSettingsView` (plain model: `enabled`, `onChanged`; `widgets/spotlight_settings_view.dart`) inside `showSpotlightDialog`: a `GroupedDialog` titled "Spotlight" with the switch "Show chats in Spotlight" and the footer "Your recent chats' titles and latest messages become searchable on this device while it is unlocked. Turning this off removes them." Reached from the account menu's "Spotlight" item and a "Spotlight" row in the Settings dialog, on iOS; Settings also offers the dialog on macOS. macOS describes on-device search without promising lock-screen protection. Widgetbook use cases come first.
 
 ### Platforms and native changes
 
-iOS and iPadOS. `ios/Runner/Spotlight.swift` (new file in the Runner target in `project.pbxproj`; `import CoreSpotlight` links the framework), installed in `AppDelegate.didInitializeImplicitFlutterEngine`, called from `SceneDelegate` next to `ChatHandoff`. No entitlement or Info.plist change. Android, macOS, Windows, Linux get the no-op.
+iOS and iPadOS. `ios/Runner/Spotlight.swift` (new file in the Runner target in `project.pbxproj`; `import CoreSpotlight` links the framework), installed in `AppDelegate.didInitializeImplicitFlutterEngine`, called from `SceneDelegate` next to `ChatHandoff`. No entitlement or Info.plist change. macOS adds `macos/Runner/Spotlight.swift` to the Runner target and installs it from `AppDelegate`. It uses `CSSearchableIndex(name: "hermes")`, `isIndexingAvailable()` and an activation notification to retry. Spotlight continuation brings the main window forward before handing the pending link to Dart. The activation delegate omits the unsupported superclass callback. No entitlement change. Android, Windows and Linux get the no-op.
 
 ### Invariants touched
 
@@ -79,4 +79,4 @@ With App Lock on, `surface-snapshot` writes no titles or snippets, so the indexe
 
 ## Migration Plan
 
-Additive and off by default. Rollback ships a build whose start calls `deleteAll` once.
+Enabled by default on iOS and macOS when `hermes.spotlight` is absent. A saved false value remains false. Rollback ships a build whose start calls `deleteAll` once.

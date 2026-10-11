@@ -1,3 +1,4 @@
+import CoreSpotlight
 import Cocoa
 import FlutterMacOS
 import XCTest
@@ -8,6 +9,26 @@ class RunnerTests: XCTestCase {
     AppDelegate().applicationDidBecomeActive(
       Notification(name: NSApplication.didBecomeActiveNotification)
     )
+  }
+
+  func testSpotlightKeepsLatestResultUntilTaken() {
+    let spotlight = Spotlight()
+    let activity = NSUserActivity(activityType: CSSearchableItemActionType)
+    activity.userInfo = [CSSearchableItemActivityIdentifier: "hermes://chat?id=first"]
+    XCTAssertTrue(spotlight.receive(activity))
+    activity.userInfo = [CSSearchableItemActivityIdentifier: "hermes://chat?id=second"]
+    XCTAssertTrue(spotlight.receive(activity))
+    XCTAssertEqual(spotlight.take(), "hermes://chat?id=second")
+    XCTAssertNil(spotlight.take())
+  }
+
+  func testSpotlightRejectsUnrelatedActivitiesAndExternalLinks() {
+    let spotlight = Spotlight()
+    XCTAssertFalse(spotlight.receive(NSUserActivity(activityType: "unrelated")))
+    let activity = NSUserActivity(activityType: CSSearchableItemActionType)
+    activity.userInfo = [CSSearchableItemActivityIdentifier: "https://example.com"]
+    XCTAssertTrue(spotlight.receive(activity))
+    XCTAssertNil(spotlight.take())
   }
 
   func testHandoffReceivesBeforeFlutterAndKeepsLatestActivity() {
