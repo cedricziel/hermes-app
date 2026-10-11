@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../deep_links/deep_link_target.dart';
 import '../deep_links/deep_link_uri.dart';
-import '../notifications/attention_policy.dart';
+import '../notifications/notification_preview.dart';
 
 /// The key the snapshot is stored under in the App Group.
 const kSurfaceSnapshotKey = 'hermes.surface.v1';
@@ -31,7 +31,9 @@ String _cut(String text, int length) {
 
 String? _snippet(String? text) {
   if (text == null) return null;
-  final preview = replyPreview(text);
+  final preview = notificationPreview(text)
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
   return preview.isEmpty ? null : _cut(preview, kMaxSnippetLength);
 }
 

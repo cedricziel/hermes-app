@@ -241,7 +241,7 @@ void main() {
         expect(shown.threadId, 'c1');
         expect(shown.profile, 'work');
         expect(shown.title, 'Trip plan');
-        expect(shown.body, 'Booked the flights. Hotel is next.');
+        expect(shown.body, 'Booked the flights.\n\nHotel is next.');
         expect(await running.read(), isEmpty);
         expect(activeLists(), [
           {'profile': 'work'},
@@ -286,7 +286,7 @@ void main() {
         final shown = notifications.shown.single;
         expect(shown.threadId, 'c1');
         expect(shown.profile, 'work');
-        expect(shown.body, 'Booked the flights. Hotel is next.');
+        expect(shown.body, 'Booked the flights.\n\nHotel is next.');
         expect(await running.read(), isEmpty);
       },
     );
@@ -327,7 +327,7 @@ void main() {
 
       expect(
         notifications.shown.single.body,
-        'Booked the flights. Hotel is next.',
+        'Booked the flights.\n\nHotel is next.',
       );
     });
 
@@ -336,7 +336,7 @@ void main() {
       idle('c1');
       stored('c1');
       final inFront = attentionFor(
-        event: const ReplyCompleted('Booked the flights. Hotel is next.'),
+        event: const ReplyCompleted('Booked the flights.\n\nHotel is next.'),
         thread: ChatThread(id: 'c1', title: 'Trip plan', updatedAt: _now),
         appFocused: false,
         selectedThreadId: null,
