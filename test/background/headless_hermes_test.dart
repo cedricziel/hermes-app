@@ -48,6 +48,9 @@ class _Store extends MemoryTokenStore {
   /// How long a write takes, as a busy keychain would.
   Duration writeDelay = Duration.zero;
 
+  /// When the latest write finished.
+  DateTime? wroteAt;
+
   @override
   Future<SessionRead> readState({bool repair = true}) {
     final read = reads++;
@@ -60,6 +63,7 @@ class _Store extends MemoryTokenStore {
     writes++;
     await Future<void>.delayed(writeDelay);
     await super.write(next);
+    wroteAt = DateTime.now();
   }
 }
 
@@ -218,7 +222,12 @@ void main() {
       SharedPreferencesAsyncPlatform.instance =
           InMemorySharedPreferencesAsync.empty();
 
-      expect(await run(readProfiles), isA<HeadlessSignedOut<List<String?>>>());
+      final outcome = await run(readProfiles);
+
+      expect(outcome, isA<HeadlessSignedOut<List<String?>>>());
+      final signedOut = outcome as HeadlessSignedOut<List<String?>>;
+      expect(signedOut.reason, SignedOutReason.noServer);
+      expect(signedOut.nothingStored, isTrue);
       expect(dashboard.server.requests, isEmpty);
       expect(spanOutcome(), 'no_server');
     });
@@ -239,7 +248,12 @@ void main() {
     test('is signed out when no session is stored', () async {
       store.session = null;
 
-      expect(await run(readProfiles), isA<HeadlessSignedOut<List<String?>>>());
+      final outcome = await run(readProfiles);
+
+      expect(outcome, isA<HeadlessSignedOut<List<String?>>>());
+      final signedOut = outcome as HeadlessSignedOut<List<String?>>;
+      expect(signedOut.reason, SignedOutReason.noSession);
+      expect(signedOut.nothingStored, isTrue);
       expect(dashboard.server.requestsTo('GET', '/api/profiles'), isEmpty);
       expect(spanOutcome(), 'no_session');
     });
@@ -468,6 +482,10 @@ void main() {
         final outcome = await run(readProfiles);
 
         expect(outcome, isA<HeadlessSignedOut<List<String?>>>());
+        // The server's refusal is not proof that nobody is signed in.
+        final signedOut = outcome as HeadlessSignedOut<List<String?>>;
+        expect(signedOut.reason, SignedOutReason.rejected);
+        expect(signedOut.nothingStored, isFalse);
         expect(store.session, same(before));
         expect(dashboard.refreshes, 1);
         expect(spanOutcome(), 'auth_failed');
@@ -617,6 +635,28 @@ void main() {
       expect(outcome, isA<HeadlessSignedOut<void>>());
       expect(watch.elapsed, lessThan(const Duration(milliseconds: 900)));
     });
+
+    test(
+      'closes the gateway socket while a refresh still stores its pair',
+      () async {
+        dashboard.validAccess = 'access-9';
+        store.writeDelay = const Duration(milliseconds: 700);
+        gateway.activeSessions = {};
+        DateTime? closedAt;
+        unawaited(
+          gateway.closedByClient.then((_) => closedAt = DateTime.now()),
+        );
+
+        await run<void>((hermes) async {
+          await hermes.transport().request('session.active_list');
+          await hermes.repositories.profiles.list();
+        }, timeout: const Duration(milliseconds: 300));
+
+        await gateway.closedByClient.timeout(const Duration(seconds: 2));
+        await Future<void>.delayed(Duration.zero);
+        expect(closedAt!.isBefore(store.wroteAt!), isTrue);
+      },
+    );
 
     test(
       'a refresh still storing its pair is waited for only so long',

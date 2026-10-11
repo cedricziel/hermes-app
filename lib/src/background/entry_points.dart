@@ -41,10 +41,15 @@ Future<void> _prepare() async {
 ConnectionTelemetry backgroundTelemetry(Map<String, Object> serverAttributes) =>
     _telemetry?.forConnection(serverAttributes) ?? const ConnectionTelemetry();
 
+/// How long the whole background task, from readying the isolate to the last
+/// telemetry, may take. iOS allows about 30 seconds and workmanager's
+/// expiration handler only logs, so the engine's start-up is left outside it.
+const kBackgroundTaskBudget = Duration(seconds: 25);
+
 /// Sends what the run recorded before the system suspends the process.
 Future<void> flushBackgroundTelemetry() async {
   try {
-    await _telemetry?.flush().timeout(_flushBudget);
+    await _telemetry?.flush();
   } on Object {
     // Telemetry must never fail a background run.
   }
@@ -58,19 +63,39 @@ void backgroundRefreshDispatcher() {
 }
 
 /// One background run: readies the isolate, refreshes, and sends the
-/// telemetry. Always true, whatever happened: failing the task would make iOS
-/// less willing to run it again, and a failure is in the telemetry already.
+/// telemetry, all within [budget]. The run gets what is left after the
+/// isolate is ready, less the [closeGrace] its wind-down may wait and the
+/// [flushBudget]. Always true, whatever happened: failing the task would make
+/// iOS less willing to run it again, and a failure is in the telemetry
+/// already.
 Future<bool> backgroundRefreshTask({
+  Duration budget = kBackgroundTaskBudget,
+  Duration closeGrace = const Duration(seconds: 3),
+  Duration flushBudget = _flushBudget,
   Future<void> Function()? prepare,
-  Future<void> Function()? run,
+  Future<void> Function(Duration timeout)? run,
   Future<void> Function()? flush,
 }) async {
+  final started = DateTime.now();
   try {
     await (prepare ?? prepareBackgroundIsolate)();
-    await (run ?? runBackgroundRefresh)();
+    final left = budget - DateTime.now().difference(started);
+    final runBudget = left - closeGrace - flushBudget;
+    await (run ?? _refresh)(runBudget < _minimumRun ? _minimumRun : runBudget);
   } on Object {
     // The run reports its own failures.
   }
-  await (flush ?? flushBackgroundTelemetry)();
+  try {
+    await (flush ?? flushBackgroundTelemetry)().timeout(flushBudget);
+  } on Object {
+    // Telemetry must never fail a background run.
+  }
   return true;
 }
+
+/// Less than this is not worth starting a run for; the run is cut off by its
+/// own timeout anyway.
+const _minimumRun = Duration(milliseconds: 500);
+
+Future<void> _refresh(Duration timeout) =>
+    runBackgroundRefresh(deps: BackgroundRefreshDeps(timeout: timeout));

@@ -104,7 +104,7 @@ The store writes the snapshot and its `writes` stream tells the listeners regist
 
 ### Remembering announced requests
 
-`hermes.background.announced.v1` in `SharedPreferencesAsync` holds the request ids already announced, keeping the newest 200. The app in front does not write it. A request the app already showed in front may be announced once more in the background. That notification replaces the chat's earlier one, so the user never sees two.
+`hermes.background.announced.v1` in `SharedPreferencesAsync` holds what was already announced, keeping the newest 200. An entry is a request id, or the key of a wait (`g:<profile>/<session>/<turn>` for a wait announced without request ids, `a:...` for one announced with its approvals). The turn is the session's message count, else its `last_active`, else the hour, so a server that reports neither is announced once an hour. A request is new unless its id, or a `g:` key for its wait, is known; a generic wait is new unless either key for it is known. Ids are written before the notification is posted, and kept in memory too, so a failing preferences write cannot make every run announce again. The app in front does not write it. A request the app already showed in front may be announced once more in the background. That notification replaces the chat's earlier one, so the user never sees two.
 
 ### `HeadlessHermes.refreshSnapshot()`
 
@@ -114,9 +114,33 @@ Added here, because `surface-snapshot` and `headless-runtime` were built in para
 
 `HeadlessDeps.closeGrace` used to be waited for twice: for a body to settle after the session failed (`execute`), then for a refresh to store its pair (`close`). All the waiting of a winding-down run, the sockets closing included, now shares one window that starts at the first wait. A run still lasts at most its timeout plus that grace (28 s at the defaults). The double wait could not be reproduced (a failed session leaves no refresh in flight), so the tests pin the bound instead.
 
+### Two writers of the snapshot
+
+The app in front and a background run both build the snapshot from the one they last read, and a run can be hours older than the app's idea of it. Left alone each write would undo the other: the app restores other profiles' stale requests, the run drops what the app saw. So:
+
+- `SnapshotBuild` says what it read afresh (`SnapshotFreshness`: which profiles' chats and requests, the profile list, Kanban, schedules) and which snapshot it started from.
+- `SurfaceSnapshotStore.writeBuilt` reads the stored snapshot again right before saving, inside the write queue. If that supersedes the base (it differs and is not older, to the second the stored form keeps), `SurfaceSnapshot.adopting` takes from it everything the build did not read afresh: chats and requests of the profiles it did not ask about, the sections it did not refresh. A background run that read every profile's requests owns the whole pending list. App Lock redaction is applied after the merge. A signed-out snapshot written since wins over a signed-in build; a signed-out build always writes.
+- The foreground (`SurfaceSnapshots`) also takes the stored snapshot as its base on resume and before each build, when it supersedes the one it holds.
+
+### The task has one budget
+
+`backgroundRefreshTask` allows 25 s from the start of `prepare` to the end of the flush. The run's timeout is what is left after the isolate is ready, less `closeGrace` (3 s) and the flush budget (2 s), so a run that is cut off still has its wind-down and telemetry inside it. workmanager's expiration handler only logs, so nothing else would end the task. The engine's own start-up is outside this and is what the remaining seconds are for.
+
+### Only an empty storage cancels
+
+`HeadlessSignedOut` carries a reason. `noServer` and `noSession` cancel the periodic task. `rejected` (the server refused the refresh token) does not: the app in front may have rotated the pair, and the run lost a race. The foreground scheduler also checks on every resume that the system still has the task (`isScheduled`: WorkManager's query on Android, the plugin's pending-request listing on iOS) and registers it again if not; where the system cannot say, it leaves it. Register and cancel carry a generation, so a registration that was waiting on the platform gives way to a cancel that came after it.
+
+### iOS refusals are logged
+
+Background App Refresh turned off (or restricted) makes the whole feature a no-op. On iOS the scheduler reads `UIApplication.backgroundRefreshStatus` over `hermes_app/background_refresh` once per launch, after sign-in, and logs `background.refresh.unavailable` with the status (`denied` or `restricted`) when it is not `available`.
+
+### The open app announces for itself
+
+WorkManager runs a task while the app is open. The app answers pings on `IsolateNameServer` (`AppPresence`, started with the scheduler); a run that gets an answer within 500 ms posts nothing and records nothing as announced, but still reads the requests for the snapshot. A port left by a dead isolate answers nothing, so only an answer counts.
+
 ### `hermes://requests` uses the snapshot
 
-`ChatController.openOldestStoredRequest` (called before `openOldestRequest` from the chat screen) reads the stored snapshot's `pending` through `SurfaceSnapshotStore.read`: the oldest `createdAt`, in any profile, opened with `fetchMissing` (a profile the server no longer has is dropped by `knownProfile`, so the chat opens in the current one). It falls back to the loaded chats when the snapshot lists none.
+The chat screen first tries `ChatController.openOldestRequest`: the open profile's loaded chats are live, so they are the truth for that profile. Only then does `openOldestStoredRequest` read the stored snapshot's `pending`, for profiles other than the open one: the oldest `createdAt`, opened with `fetchMissing` (a profile the server no longer has is skipped by `knownProfile`). The snapshot can be stale, so the chat is kept only if it shows an open request within 3 s; otherwise the selection is cleared and the chat list shows.
 
 ### Invariants touched
 

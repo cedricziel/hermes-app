@@ -1,16 +1,32 @@
 import 'dart:async';
+import 'dart:isolate';
+import 'dart:ui' show IsolateNameServer;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/background/app_presence.dart';
 import 'package:hermes_app/src/background/background_scheduler.dart';
 
 class _Tasks implements PeriodicTasks {
   final calls = <String>[];
   Exception? registerFailure;
 
+  /// What [isScheduled] answers; null is "cannot tell".
+  bool? scheduled = true;
+
+  /// Holds back [initialize] until it completes.
+  Completer<void>? initializeGate;
+
   @override
-  Future<void> initialize(Function dispatcher) async => calls.add('initialize');
+  Future<void> initialize(Function dispatcher) async {
+    calls.add('initialize');
+    await initializeGate?.future;
+  }
+
+  @override
+  Future<bool?> isScheduled(String name) async => scheduled;
 
   @override
   Future<void> register(String name, {required Duration interval}) async {
@@ -20,6 +36,19 @@ class _Tasks implements PeriodicTasks {
 
   @override
   Future<void> cancel(String name) async => calls.add('cancel $name');
+}
+
+class _Status implements BackgroundRefreshStatus {
+  _Status(this.value);
+
+  final String? value;
+  var reads = 0;
+
+  @override
+  Future<String?> read() async {
+    reads++;
+    return value;
+  }
 }
 
 class _Connection extends ChangeNotifier {
@@ -48,7 +77,11 @@ void main() {
     addTearDown(connection.ended.close);
   });
 
-  BackgroundScheduler scheduler(TargetPlatform platform) => BackgroundScheduler(
+  BackgroundScheduler scheduler(
+    TargetPlatform platform, {
+    BackgroundRefreshStatus? status,
+    AppPresence? presence,
+  }) => BackgroundScheduler(
     changes: connection,
     state: () => connection.state,
     ended: connection.ended.stream,
@@ -57,6 +90,9 @@ void main() {
     name: () async => 'hermes.refresh',
     dispatcher: _dispatcher,
     events: (name, [attributes = const {}]) => events.add((name, attributes)),
+    status: status,
+    presence: presence ?? AppPresence(name: 'test-presence-${platform.name}'),
+    observeLifecycle: false,
   )..start();
 
   Future<void> settle() => Future<void>.delayed(Duration.zero);
@@ -155,6 +191,147 @@ void main() {
       );
     });
   }
+
+  group('keeping the run registered', () {
+    test('registers it again on resume when the system lost it', () async {
+      final started = scheduler(TargetPlatform.android);
+      connection.moveTo(HermesConnectionState.ready);
+      await settle();
+      tasks.calls.clear();
+      tasks.scheduled = false;
+
+      started.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await settle();
+
+      expect(tasks.calls, ['register hermes.refresh 15m']);
+      started.dispose();
+    });
+
+    test('leaves it alone on resume while it is there', () async {
+      final started = scheduler(TargetPlatform.android);
+      connection.moveTo(HermesConnectionState.ready);
+      await settle();
+      tasks.calls.clear();
+
+      started.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await settle();
+
+      expect(tasks.calls, isEmpty);
+      started.dispose();
+    });
+
+    test('leaves it alone on resume when the system cannot say', () async {
+      final started = scheduler(TargetPlatform.iOS);
+      connection.moveTo(HermesConnectionState.ready);
+      await settle();
+      tasks.calls.clear();
+      tasks.scheduled = null;
+
+      started.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await settle();
+
+      expect(tasks.calls, isEmpty);
+      started.dispose();
+    });
+
+    test('does nothing on resume while signed out', () async {
+      final started = scheduler(TargetPlatform.android);
+      connection.moveTo(HermesConnectionState.needsLogin);
+      tasks.scheduled = false;
+
+      started.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await settle();
+
+      expect(tasks.calls, isEmpty);
+      started.dispose();
+    });
+
+    test('a sign-out during the setup cancels, and nothing registers after '
+        'it', () async {
+      tasks.initializeGate = Completer<void>();
+      final started = scheduler(TargetPlatform.android);
+      connection.moveTo(HermesConnectionState.ready);
+      await settle();
+
+      connection.ended.add(null);
+      connection.moveTo(HermesConnectionState.needsLogin);
+      await settle();
+      tasks.initializeGate!.complete();
+      await settle();
+
+      expect(tasks.calls, ['initialize', 'cancel hermes.refresh']);
+      started.dispose();
+    });
+  });
+
+  group('when the system will not run it', () {
+    test('logs the status once per launch on iOS', () async {
+      final status = _Status('denied');
+      final started = scheduler(TargetPlatform.iOS, status: status);
+
+      connection.moveTo(HermesConnectionState.ready);
+      await settle();
+      started.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await settle();
+
+      expect(events.map((e) => e.$1), ['background.refresh.unavailable']);
+      expect(events.single.$2, {'status': 'denied'});
+      expect(status.reads, 1);
+      started.dispose();
+    });
+
+    test('is silent while Background App Refresh is available', () async {
+      final started = scheduler(
+        TargetPlatform.iOS,
+        status: _Status('available'),
+      );
+
+      connection.moveTo(HermesConnectionState.ready);
+      await settle();
+
+      expect(events, isEmpty);
+      started.dispose();
+    });
+
+    test('has nothing to read on Android', () async {
+      final started = scheduler(TargetPlatform.android, status: _Status(null));
+
+      connection.moveTo(HermesConnectionState.ready);
+      await settle();
+
+      expect(events, isEmpty);
+      started.dispose();
+    });
+  });
+
+  group('telling the background runs the app is open', () {
+    test('answers pings while running and stops after', () async {
+      final started = scheduler(
+        TargetPlatform.android,
+        presence: AppPresence(name: 'test-presence-open'),
+      );
+      expect(await mainIsolateAlive(name: 'test-presence-open'), isTrue);
+
+      started.dispose();
+
+      expect(await mainIsolateAlive(name: 'test-presence-open'), isFalse);
+    });
+
+    test('a port nobody answers on does not count', () async {
+      final silent = ReceivePort();
+      addTearDown(silent.close);
+      IsolateNameServer.registerPortWithName(silent.sendPort, 'test-silent');
+      addTearDown(() => IsolateNameServer.removePortNameMapping('test-silent'));
+
+      expect(
+        await mainIsolateAlive(
+          name: 'test-silent',
+          timeout: const Duration(milliseconds: 100),
+        ),
+        isFalse,
+      );
+    });
+  });
 
   for (final platform in [
     TargetPlatform.macOS,

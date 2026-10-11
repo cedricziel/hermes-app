@@ -4,9 +4,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/background/background_refresh.dart';
 import 'package:hermes_app/src/background/entry_points.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
+import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
@@ -21,6 +23,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_notification_service.dart';
 import '../support/fake_surface_storage.dart';
 import '../support/memory_token_store.dart';
+import '../support/recorded_events.dart';
 import '../support/recording_tracer.dart';
 
 const _url = 'http://hermes.test';
@@ -31,15 +34,16 @@ Map<String, Object?> _session(
   String title = 'Trip plan',
   String status = 'waiting',
   String? id,
-  double lastActive = 1780000000,
+  double? lastActive = 1780000000,
+  int? messageCount = 2,
 }) => {
   'id': id ?? 'rt-$key',
   'session_key': key,
   'title': title,
   'status': status,
-  'last_active': lastActive,
+  'last_active': ?lastActive,
   'current': false,
-  'message_count': 2,
+  'message_count': ?messageCount,
   'model': 'hermes-4',
   'preview': 'private words',
   'started_at': 1780000000.0,
@@ -63,6 +67,7 @@ void main() {
   late FakeNotificationService notifications;
   late AnnouncedRequests announced;
   late RecordingTracer tracer;
+  late RecordedEvents events;
   late MemoryTokenStore tokens;
   late int cancelled;
   var notificationsOn = true;
@@ -127,22 +132,31 @@ void main() {
     notifications = FakeNotificationService();
     announced = AnnouncedRequests();
     tracer = RecordingTracer();
+    events = RecordedEvents();
     tokens = MemoryTokenStore();
     cancelled = 0;
   });
 
   tearDown(() => store.dispose());
 
-  HeadlessDeps headless() => HeadlessDeps(
+  HeadlessDeps headless({
+    Duration closeGrace = const Duration(seconds: 3),
+    Duration rejectionRecheck = const Duration(seconds: 1),
+  }) => HeadlessDeps(
     tokenStore: tokens,
     prefs: SharedPreferencesAsync(),
     devServerUrl: '',
     adapter: server,
     openSocket: (_) => gateway.connect(),
-    telemetry: (attributes) =>
-        ConnectionTelemetry(tracer: tracer, serverAttributes: attributes),
+    telemetry: (attributes) => ConnectionTelemetry(
+      tracer: tracer,
+      events: events.connection(attributes).events,
+      serverAttributes: attributes,
+    ),
     snapshotStore: store,
     appLockOn: () async => lockOn,
+    closeGrace: closeGrace,
+    rejectionRecheck: rejectionRecheck,
   );
 
   BackgroundRefreshDeps deps({
@@ -150,6 +164,13 @@ void main() {
     HeadlessDeps? wiring,
     Duration timeout = const Duration(seconds: 5),
     Duration stepTimeout = const Duration(seconds: 3),
+    bool appOpen = false,
+    Future<Map<String, Object?>> Function(
+      HermesGatewayTransport transport,
+      String method,
+      Map<String, Object?> params,
+    )?
+    request,
   }) => BackgroundRefreshDeps(
     headless: wiring ?? headless(),
     notifications: notifications,
@@ -157,6 +178,8 @@ void main() {
     notificationsEnabled: () async => notificationsOn,
     appLockOn: () async => lockOn,
     cancelSchedule: () async => cancelled++,
+    mainIsolateAlive: () async => appOpen,
+    request: request,
     steps: steps,
     timeout: timeout,
     stepTimeout: stepTimeout,
@@ -307,7 +330,7 @@ void main() {
       await refresh();
 
       expect(notifications.shown, hasLength(1));
-      expect(await announced.read(), {'r1', 'r2'});
+      expect(await announced.read(), containsAll(['r1', 'r2']));
       expect(taskSpan().attributes['requests.new'], 2);
     });
 
@@ -340,6 +363,20 @@ void main() {
 
     test('announces a second wait of the same session again', () async {
       sessions = {
+        'default': [_session('chat-q', messageCount: 2)],
+      };
+      await refresh();
+      sessions = {
+        'default': [_session('chat-q', messageCount: 5)],
+      };
+
+      await refresh();
+
+      expect(notifications.shown, hasLength(2));
+    });
+
+    test('does not announce one wait again when the session moved', () async {
+      sessions = {
         'default': [_session('chat-q', lastActive: 1780000000)],
       };
       await refresh();
@@ -349,7 +386,178 @@ void main() {
 
       await refresh();
 
+      expect(notifications.shown, hasLength(1));
+    });
+
+    test('tells a wait with no turn marker once an hour', () async {
+      sessions = {
+        'default': [_session('chat-q', lastActive: null, messageCount: null)],
+      };
+      var now = DateTime.utc(2026, 10, 11, 8, 10);
+      List<BackgroundStep> steps() {
+        final requests = OpenRequestsStep(now: () => now);
+        return [requests, SnapshotStep(requests)];
+      }
+
+      await refresh(with_: deps(steps: steps));
+      now = DateTime.utc(2026, 10, 11, 8, 50);
+      await refresh(with_: deps(steps: steps));
+      expect(notifications.shown, hasLength(1));
+
+      now = DateTime.utc(2026, 10, 11, 9, 20);
+      await refresh(with_: deps(steps: steps));
       expect(notifications.shown, hasLength(2));
+    });
+
+    test(
+      'counts an approval.pending the server refused, by code only',
+      () async {
+        gateway.handlers['approval.pending'] = (_) =>
+            throw const FakeRpcError(5032, 'secret-project has no provider');
+        sessions = {
+          'default': [_session('chat-q')],
+        };
+
+        await refresh();
+
+        expect(events.named('background.requests_unreadable'), [
+          {'code': 5032},
+        ]);
+        expect(
+          events.named('background.requests_unreadable').toString(),
+          isNot(contains('secret-project')),
+        );
+      },
+    );
+
+    test(
+      'does not announce a wait generically and then by its approval',
+      () async {
+        gateway.handlers['approval.pending'] = (_) =>
+            throw const FakeRpcError(5032, 'no provider');
+        sessions = {
+          'work': [_session('chat-a')],
+        };
+        await refresh();
+        gateway.handlers['approval.pending'] = (params) => {
+          'approvals': [_approval('r1')],
+        };
+
+        await refresh();
+
+        expect(notifications.shown, hasLength(1));
+        expect(notifications.shown.single.body, kNeedsYouBody);
+      },
+    );
+
+    test(
+      'does not announce a wait by its approval and then generically',
+      () async {
+        sessions = {
+          'work': [_session('chat-a')],
+        };
+        approvals = {
+          'rt-chat-a': [_approval('r1')],
+        };
+        await refresh();
+        gateway.handlers['approval.pending'] = (_) =>
+            throw const FakeRpcError(5032, 'no provider');
+
+        await refresh();
+
+        expect(notifications.shown, hasLength(1));
+        expect(notifications.shown.single.body, kApprovalBody);
+      },
+    );
+
+    test('announces a second approval of the same turn', () async {
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+      await refresh();
+      approvals = {
+        'rt-chat-a': [_approval('r1'), _approval('r2')],
+      };
+
+      await refresh();
+
+      expect(notifications.shown, hasLength(2));
+    });
+
+    test(
+      'leaves announcing to the open app but still reads the requests',
+      () async {
+        sessions = {
+          'work': [_session('chat-a')],
+        };
+        approvals = {
+          'rt-chat-a': [_approval('r1')],
+        };
+
+        await refresh(with_: deps(appOpen: true));
+
+        expect(notifications.shown, isEmpty);
+        expect(await announced.read(), isEmpty);
+        expect(storedSnapshot()['pending'], [containsPair('requestId', 'r1')]);
+
+        await refresh();
+
+        expect(notifications.shown, hasLength(1));
+      },
+    );
+
+    test('remembers a request before it posts the notification', () async {
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+      final seenWhenShown = <Set<String>>[];
+      notifications = _SpyNotifications(
+        () async => seenWhenShown.add(await announced.read()),
+      );
+
+      await refresh();
+
+      expect(seenWhenShown.single, contains('r1'));
+    });
+
+    test('does not announce again when remembering failed', () async {
+      announced = _UnwritableAnnounced();
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+
+      await refresh();
+      await refresh();
+
+      expect(notifications.shown, hasLength(1));
+    });
+
+    test('keeps the other profiles when one profile errors out', () async {
+      sessions = {
+        'default': [_session('chat-q')],
+      };
+
+      final outcome = await refresh(
+        with_: deps(
+          request: (transport, method, params) async {
+            if (params['profile'] == 'work') throw TimeoutException('slow');
+            return transport.request(method, params);
+          },
+        ),
+      );
+
+      expect(outcome, isA<HeadlessDone<void>>());
+      expect(notifications.shown.single.threadId, 'chat-q');
+      expect(taskSpan().attributes['steps_failed'], 1);
     });
 
     test('remembers the newest 200 ids', () async {
@@ -637,11 +845,13 @@ void main() {
         with_: deps(
           timeout: const Duration(milliseconds: 400),
           stepTimeout: const Duration(seconds: 10),
+          wiring: headless(closeGrace: const Duration(milliseconds: 100)),
         ),
       );
 
       expect(outcome, isA<HeadlessUnreachable<void>>());
-      expect(watch.elapsed, lessThan(const Duration(seconds: 4)));
+      // The timeout and one grace, not a step's own limit.
+      expect(watch.elapsed, lessThan(const Duration(milliseconds: 750)));
     });
 
     test(
@@ -658,6 +868,39 @@ void main() {
         expect(cancelled, 1);
         expect(notifications.shown, isEmpty);
         expect(storage.saved, isEmpty);
+      },
+    );
+
+    test(
+      'keeps the periodic run when the refresh token was rejected',
+      () async {
+        server
+          ..on('GET', '/api/status', {
+            'auth_required': true,
+            'version': '0.9.0',
+          })
+          ..on('POST', '/auth/native/refresh', {
+            'detail': 'invalid refresh token',
+          }, status: 401);
+        tokens.session = HermesSession(
+          accessToken: 'old',
+          refreshToken: 'spent',
+          expiresAt: 1,
+          provider: 'basic',
+          userId: 'u1',
+          serverUrl: _url,
+          mintedAt: 1000,
+        );
+
+        final outcome = await refresh(
+          with_: deps(wiring: headless(rejectionRecheck: Duration.zero)),
+        );
+
+        // The steps swallow the failure, so the run ends as done; whatever
+        // the outcome, a rejected token does not end the schedule.
+        expect(outcome, isA<HeadlessDone<void>>());
+        expect(cancelled, 0);
+        expect(notifications.shown, isEmpty);
       },
     );
 
@@ -716,7 +959,7 @@ void main() {
 
       final ok = await backgroundRefreshTask(
         prepare: () async => calls.add('prepare'),
-        run: () async {
+        run: (_) async {
           calls.add('run');
           throw StateError('boom');
         },
@@ -732,14 +975,74 @@ void main() {
 
       final ok = await backgroundRefreshTask(
         prepare: () async => throw StateError('no plugins'),
-        run: () async => calls.add('run'),
+        run: (_) async => calls.add('run'),
         flush: () async => calls.add('flush'),
       );
 
       expect(ok, isTrue);
       expect(calls, ['flush']);
     });
+
+    test('keeps the readying, the run, its wind-down and the flush inside '
+        'one budget', () async {
+      gateway.deaf = true;
+      Duration? given;
+      final watch = Stopwatch()..start();
+
+      final ok = await backgroundRefreshTask(
+        budget: const Duration(milliseconds: 1500),
+        closeGrace: const Duration(milliseconds: 200),
+        flushBudget: const Duration(milliseconds: 200),
+        prepare: () => Future<void>.delayed(const Duration(milliseconds: 300)),
+        run: (timeout) async {
+          given = timeout;
+          await runBackgroundRefresh(
+            deps: deps(
+              timeout: timeout,
+              wiring: headless(closeGrace: const Duration(milliseconds: 200)),
+            ),
+          );
+        },
+        flush: () => Future<void>.delayed(const Duration(milliseconds: 150)),
+      );
+
+      expect(ok, isTrue);
+      expect(given, lessThanOrEqualTo(const Duration(milliseconds: 800)));
+      expect(watch.elapsed, lessThan(const Duration(milliseconds: 1500)));
+    });
+
+    test('cuts a flush that outlasts its share', () async {
+      final watch = Stopwatch()..start();
+
+      final ok = await backgroundRefreshTask(
+        flushBudget: const Duration(milliseconds: 100),
+        prepare: () async {},
+        run: (_) async {},
+        flush: () => Future<void>.delayed(const Duration(seconds: 5)),
+      );
+
+      expect(ok, isTrue);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 1)));
+    });
   });
+}
+
+class _SpyNotifications extends FakeNotificationService {
+  _SpyNotifications(this._onShow);
+
+  final Future<void> Function() _onShow;
+
+  @override
+  Future<void> show(AttentionNotification notification) async {
+    await _onShow();
+    await super.show(notification);
+  }
+}
+
+class _UnwritableAnnounced extends AnnouncedRequests {
+  @override
+  Future<void> persist(Set<String> ids) async =>
+      throw StateError('preferences are read-only');
 }
 
 class _Step extends BackgroundStep {

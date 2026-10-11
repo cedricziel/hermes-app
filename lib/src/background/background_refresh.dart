@@ -7,6 +7,8 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_lock/app_lock_controller.dart';
@@ -21,6 +23,7 @@ import '../notifications/request_notifications.dart'
     show pendingRequestFor, requestCategoryFor;
 import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
 import '../surfaces/surface_snapshot.dart';
+import 'app_presence.dart';
 import 'background_scheduler.dart';
 import 'headless_hermes.dart';
 
@@ -51,6 +54,8 @@ class BackgroundContext {
     required this.notifications,
     required this.announced,
     required this._appLockOn,
+    this._mainAlive = mainIsolateAlive,
+    this._request,
   });
 
   final HeadlessHermes hermes;
@@ -60,15 +65,44 @@ class BackgroundContext {
   final NotificationService notifications;
   final AnnouncedRequests announced;
   final Future<bool> Function() _appLockOn;
+  final Future<bool> Function() _mainAlive;
+  final GatewayRequest? _request;
 
   HermesGatewayTransport? _transport;
   Future<bool>? _lockOn;
+  Future<bool>? _appOpen;
 
   HermesGatewayTransport get transport => _transport ??= hermes.transport();
 
   /// Whether App Lock is on, read once: unreadable counts as on.
   Future<bool> appLockOn() => _lockOn ??= _appLockOn();
+
+  /// Whether the app's own isolate is running, asked once. WorkManager runs
+  /// a task while the app is open, which announces requests itself.
+  Future<bool> appOpen() => _appOpen ??= _mainAlive();
+
+  /// Sends a gateway request on the run's shared socket.
+  Future<Map<String, Object?>> request(
+    String method, [
+    Map<String, Object?> params = const {},
+  ]) => (_request ?? _viaTransport)(transport, method, params);
+
+  static Future<Map<String, Object?>> _viaTransport(
+    HermesGatewayTransport transport,
+    String method,
+    Map<String, Object?> params,
+  ) => transport.request(method, params);
+
+  /// For telemetry events; the run's server attributes are on it.
+  AppEventLogger get events => hermes.repositories.telemetry.events;
 }
+
+/// How a gateway request is sent; tests stand in for the socket's failures.
+typedef GatewayRequest = Future<Map<String, Object?>> Function(
+  HermesGatewayTransport transport,
+  String method,
+  Map<String, Object?> params,
+);
 
 /// One independent piece of a run.
 abstract class BackgroundStep {
@@ -78,21 +112,44 @@ abstract class BackgroundStep {
   Future<StepCounts> run(BackgroundContext context);
 }
 
-/// The ids of the requests earlier runs told the user about, the newest
-/// [kMaxAnnouncedRequests] of them. Only background runs write it: a request
-/// the app already showed in front may be announced once more, and that
-/// notification replaces the chat's earlier one.
+/// What earlier runs told the user about, the newest
+/// [kMaxAnnouncedRequests] entries: request ids, and a key for each wait
+/// (`g:` for one announced without a request id, `a:` for one announced with
+/// its approvals). Only background runs write it: a request the app already
+/// showed in front may be announced once more, and that notification
+/// replaces the chat's earlier one.
 class AnnouncedRequests {
   AnnouncedRequests({SharedPreferencesAsync? prefs})
     : _prefs = prefs ?? SharedPreferencesAsync();
 
   final SharedPreferencesAsync _prefs;
 
-  Future<Set<String>> read() async => (await _read()).toSet();
+  /// Kept apart from the preferences so that a write that fails is not
+  /// forgotten for the rest of the run.
+  final _remembered = <String>{};
 
+  Future<Set<String>> read() async => {...await _read(), ..._remembered};
+
+  /// Remembers [ids]. A preferences write that fails is not thrown: the ids
+  /// stay known to this object.
   Future<void> add(Iterable<String> ids) async {
     final added = ids.toSet();
     if (added.isEmpty) return;
+    _remembered
+      ..removeAll(added)
+      ..addAll(added);
+    while (_remembered.length > kMaxAnnouncedRequests) {
+      _remembered.remove(_remembered.first);
+    }
+    try {
+      await persist(added);
+    } on Object {
+      // Announced once more by a later run at worst.
+    }
+  }
+
+  @visibleForTesting
+  Future<void> persist(Set<String> added) async {
     final kept = [
       for (final id in await _read())
         if (!added.contains(id)) id,
@@ -123,6 +180,7 @@ class _Waiting {
     required this.title,
     required this.kind,
     required this.requestId,
+    required this.waitKey,
     this.approval,
   });
 
@@ -132,6 +190,9 @@ class _Waiting {
   final String title;
   final PendingKind kind;
   final String requestId;
+
+  /// One wait of one session: the same whatever Hermes could tell of it.
+  final String waitKey;
   final ApprovalRequest? approval;
 }
 
@@ -189,7 +250,7 @@ class OpenRequestsStep extends BackgroundStep {
   /// a failed read, which keeps the stored requests as they were.
   Future<_ProfileRead> _read(BackgroundContext context, String? profile) async {
     try {
-      final listed = await context.transport.request('session.active_list', {
+      final listed = await context.request('session.active_list', {
         'profile': ?profile,
       });
       final rows = listed['sessions'];
@@ -200,7 +261,8 @@ class OpenRequestsStep extends BackgroundStep {
               _waitingIn(context, profile, row.cast<String, Object?>()),
       ]);
       return _ProfileRead.ok([for (final session in sessions) ...session]);
-    } on GatewayRpcException {
+    } on Object {
+      // One profile's timeout or refusal must not silence the others.
       return const _ProfileRead.failed();
     }
   }
@@ -217,17 +279,19 @@ class OpenRequestsStep extends BackgroundStep {
     final title = rawTitle is String && rawTitle.trim().isNotEmpty
         ? rawTitle.trim()
         : kUnnamedChatLabel;
+    // Hermes lists approvals only; a clarify, secret or sudo request has no
+    // id of its own, so a wait is told by its session and turn.
+    final waitKey = '${profile ?? ''}/$key/${_turn(session)}';
     final approvals = await _approvals(context, profile, id);
     if (approvals.isEmpty) {
-      // Hermes lists approvals only; a clarify, secret or sudo request has no
-      // id of its own, so one wait is told by when the session last moved.
       return [
         _Waiting(
           profile: profile,
           key: key,
           title: title,
           kind: PendingKind.input,
-          requestId: 'waiting:$key:${session['last_active']}',
+          requestId: 'waiting:$waitKey',
+          waitKey: waitKey,
         ),
       ];
     }
@@ -239,13 +303,26 @@ class OpenRequestsStep extends BackgroundStep {
           title: title,
           kind: PendingKind.approval,
           requestId: approval.requestId,
+          waitKey: waitKey,
           approval: approval,
         ),
     ];
   }
 
+  /// What marks the turn a session is waiting in: its message count, else
+  /// when it last moved, else the hour, so that a server that reports neither
+  /// is announced once an hour rather than never again.
+  String _turn(Map<String, Object?> session) {
+    return switch ((session['message_count'], session['last_active'])) {
+      (final int count, _) => 'm$count',
+      (_, final num active) => 't${active.floor()}',
+      _ => 'h${_now().millisecondsSinceEpoch ~/ Duration.millisecondsPerHour}',
+    };
+  }
+
   /// The approvals a session waits on, without their commands. A server that
-  /// refuses the question is the same as one that lists none.
+  /// refuses the question is the same as one that lists none; that is
+  /// counted, by code only.
   Future<List<ApprovalRequest>> _approvals(
     BackgroundContext context,
     String? profile,
@@ -253,11 +330,16 @@ class OpenRequestsStep extends BackgroundStep {
   ) async {
     final Map<String, Object?> result;
     try {
-      result = await context.transport.request('approval.pending', {
+      result = await context.request('approval.pending', {
         'session_id': sessionId,
         'profile': ?profile,
       });
-    } on GatewayRpcException {
+    } on GatewayRpcException catch (error) {
+      try {
+        context.events('background.requests_unreadable', {'code': error.code});
+      } on Object {
+        // Telemetry must not break the run.
+      }
       return const [];
     }
     final rows = result['approvals'];
@@ -279,27 +361,43 @@ class OpenRequestsStep extends BackgroundStep {
   }
 
   /// Posts one notification per chat that has a request not announced
-  /// before, and remembers them. Returns how many requests were new.
+  /// before, and remembers them first. Returns how many requests were new.
+  /// While the app is open it announces nothing: the app does.
   Future<int> _announce(
     BackgroundContext context,
     List<_Waiting> waiting,
   ) async {
     if (!context.notificationsOn || waiting.isEmpty) return 0;
+    if (await context.appOpen()) return 0;
     final known = await context.announced.read();
     final fresh = [
       for (final w in waiting)
-        if (!known.contains(w.requestId)) w,
+        if (_isNew(w, known)) w,
     ];
     if (fresh.isEmpty) return 0;
+    // Before the notification, so a failure after it cannot announce twice.
+    await context.announced.add([for (final w in fresh) ..._marks(w)]);
     final lockOn = await context.appLockOn();
     final posted = <(String?, String)>{};
     for (final w in fresh) {
       if (!posted.add((w.profile, w.key))) continue;
       await context.notifications.show(_notification(w, lockOn));
     }
-    await context.announced.add([for (final w in fresh) w.requestId]);
     return fresh.length;
   }
+
+  /// A request is new unless it, or the wait it belongs to, was announced:
+  /// a wait told generically is not told again once its approval is known,
+  /// nor the other way round. A second approval of one turn is still new.
+  bool _isNew(_Waiting w, Set<String> known) {
+    if (known.contains('g:${w.waitKey}')) return false;
+    return w.approval == null
+        ? !known.contains('a:${w.waitKey}')
+        : !known.contains(w.requestId);
+  }
+
+  List<String> _marks(_Waiting w) =>
+      w.approval == null ? ['g:${w.waitKey}'] : [w.requestId, 'a:${w.waitKey}'];
 
   /// The generic text and the buttons of #587's categories; the command is
   /// never read into either.
@@ -359,6 +457,8 @@ class BackgroundRefreshDeps {
     this.appLockOn,
     this.steps,
     this.cancelSchedule,
+    this.mainIsolateAlive,
+    this.request,
     this.timeout = kBackgroundRefreshBudget,
     this.stepTimeout = kBackgroundStepBudget,
   });
@@ -374,6 +474,13 @@ class BackgroundRefreshDeps {
 
   /// Cancels the periodic run when nobody is signed in.
   final Future<void> Function()? cancelSchedule;
+
+  /// Whether the app's own isolate is running; asked over its presence port
+  /// by default.
+  final Future<bool> Function()? mainIsolateAlive;
+
+  /// Sends the gateway requests of the steps; the shared socket by default.
+  final GatewayRequest? request;
   final Duration timeout;
   final Duration stepTimeout;
 }
@@ -390,8 +497,9 @@ Future<bool> _notificationsEnabled() async {
 }
 
 /// Runs the background refresh and says how it ended. Nothing is thrown, and
-/// no outcome signs the user out: signed out cancels the periodic run,
-/// locked and unreachable leave everything as it is for the next one.
+/// no outcome signs the user out: nothing stored cancels the periodic run;
+/// a rejected refresh token, locked and unreachable leave everything as it is
+/// for the next one.
 Future<HeadlessOutcome<void>> runBackgroundRefresh({
   BackgroundRefreshDeps deps = const BackgroundRefreshDeps(),
 }) async {
@@ -405,6 +513,8 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
             deps.notifications ?? LocalNotificationService(background: true),
         announced: deps.announced ?? AnnouncedRequests(),
         appLockOn: deps.appLockOn ?? AppLockController.savedEnabled,
+        mainAlive: deps.mainIsolateAlive ?? mainIsolateAlive,
+        request: deps.request,
       );
       var newRequests = 0;
       var failed = 0;
@@ -431,7 +541,9 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
     timeout: deps.timeout,
     deps: deps.headless,
   );
-  if (outcome is HeadlessSignedOut<void>) {
+  // Only an empty storage cancels: a refresh token the server rejected may
+  // just be one the app in front has rotated, and the schedule must outlive it.
+  if (outcome is HeadlessSignedOut<void> && outcome.nothingStored) {
     await (deps.cancelSchedule ?? cancelBackgroundRefresh)();
   }
   return outcome;

@@ -8,12 +8,16 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart'
     show Listenable, TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter/widgets.dart'
+    show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../auth/auth_controller.dart';
+import 'app_presence.dart';
 import 'entry_points.dart';
 
 /// The least time between two runs; both platforms refuse less.
@@ -40,6 +44,32 @@ abstract interface class PeriodicTasks {
   Future<void> register(String name, {required Duration interval});
 
   Future<void> cancel(String name);
+
+  /// Whether a run is registered under [name]; null where the system cannot
+  /// say.
+  Future<bool?> isScheduled(String name);
+}
+
+/// Whether the user lets the app refresh in the background (iOS).
+abstract interface class BackgroundRefreshStatus {
+  /// `available`, `denied` or `restricted`; null where there is no such
+  /// setting.
+  Future<String?> read();
+}
+
+/// [BackgroundRefreshStatus] over the Runner's channel. It is asked on iOS
+/// only; elsewhere the channel is not there.
+class ChannelRefreshStatus implements BackgroundRefreshStatus {
+  static const _channel = MethodChannel('hermes_app/background_refresh');
+
+  @override
+  Future<String?> read() async {
+    try {
+      return await _channel.invokeMethod<String>('status');
+    } on Object {
+      return null;
+    }
+  }
 }
 
 /// [PeriodicTasks] on the `workmanager` plugin.
@@ -65,11 +95,26 @@ class WorkmanagerTasks implements PeriodicTasks {
 
   @override
   Future<void> cancel(String name) => Workmanager().cancelByUniqueName(name);
+
+  @override
+  Future<bool?> isScheduled(String name) async {
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        return await Workmanager().isScheduledByUniqueName(name);
+      }
+      // BGTaskScheduler has no query of its own; the plugin lists its pending
+      // requests as text.
+      return (await Workmanager().printScheduledTasks()).contains(name);
+    } on Object {
+      return null;
+    }
+  }
 }
 
-/// Registers the periodic run once the app is signed in, and cancels it when
-/// the session ends: sign-out, expiry or a change of server.
-class BackgroundScheduler {
+/// Registers the periodic run once the app is signed in, checks on every
+/// resume that the system still has it, and cancels it when the session
+/// ends: sign-out, expiry or a change of server.
+class BackgroundScheduler with WidgetsBindingObserver {
   BackgroundScheduler({
     required this._changes,
     required this._state,
@@ -79,9 +124,14 @@ class BackgroundScheduler {
     TargetPlatform? platform,
     Future<String> Function()? name,
     this._dispatcher = backgroundRefreshDispatcher,
+    BackgroundRefreshStatus? status,
+    AppPresence? presence,
+    this._observeLifecycle = true,
   }) : _tasks = tasks ?? WorkmanagerTasks(),
        _platform = platform ?? defaultTargetPlatform,
-       _name = name ?? backgroundRefreshName;
+       _name = name ?? backgroundRefreshName,
+       _status = status ?? ChannelRefreshStatus(),
+       _presence = presence ?? AppPresence();
 
   /// Follows [auth]: a run is wanted while it is ready, and ends with its
   /// sign-outs.
@@ -103,11 +153,19 @@ class BackgroundScheduler {
   final TargetPlatform _platform;
   final Future<String> Function() _name;
   final void Function() _dispatcher;
+  final BackgroundRefreshStatus _status;
+  final AppPresence _presence;
+  final bool _observeLifecycle;
 
   StreamSubscription<void>? _signedOut;
   var _registered = false;
   var _initialized = false;
   var _disposed = false;
+  var _statusLogged = false;
+
+  /// Moves on with every register and cancel, so one that was waiting for
+  /// the platform gives way to the one that came after it.
+  var _generation = 0;
 
   /// Phones only: other platforms never schedule a run.
   bool get _supported =>
@@ -116,42 +174,80 @@ class BackgroundScheduler {
 
   void start() {
     if (!_supported) return;
+    _presence.start();
     _signedOut = _ended.listen((_) => unawaited(_cancel()));
     _changes.addListener(_onAuth);
+    if (_observeLifecycle) WidgetsBinding.instance.addObserver(this);
     _onAuth();
   }
 
+  bool get _signedIn => _state() == HermesConnectionState.ready;
+
   void _onAuth() {
-    if (_state() == HermesConnectionState.ready && !_registered) {
-      _registered = true;
-      unawaited(_register());
+    if (!_signedIn) return;
+    if (!_registered) unawaited(_register());
+    unawaited(_logStatus());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _supported && _signedIn) {
+      unawaited(_verify());
+    }
+  }
+
+  /// The system can drop a task (a cleared app state, a reinstall of the
+  /// work database), and nothing else would put it back.
+  Future<void> _verify() async {
+    if (!_registered) return _register();
+    try {
+      final scheduled = await _tasks.isScheduled(await _name());
+      if (scheduled == false && _signedIn && !_disposed) await _register();
+    } on Object catch (error) {
+      _log('background.refresh.schedule_failed', error);
     }
   }
 
   Future<void> _register() async {
+    final generation = ++_generation;
+    _registered = true;
     try {
       if (!_initialized) {
         await _tasks.initialize(_dispatcher);
         _initialized = true;
       }
+      final name = await _name();
       // A sign-out while this was under way cancels after it, not before.
-      if (_disposed || !_registered) return;
-      await _tasks.register(
-        await _name(),
-        interval: kBackgroundRefreshInterval,
-      );
+      if (_disposed || generation != _generation) return;
+      await _tasks.register(name, interval: kBackgroundRefreshInterval);
     } on Object catch (error) {
-      _registered = false;
+      if (generation == _generation) _registered = false;
       _log('background.refresh.schedule_failed', error);
     }
   }
 
   Future<void> _cancel() async {
+    _generation++;
     _registered = false;
     try {
       await _tasks.cancel(await _name());
     } on Object catch (error) {
       _log('background.refresh.schedule_failed', error);
+    }
+  }
+
+  /// Once per launch, says when the user has turned Background App Refresh
+  /// off for the app: without it the feature fails invisibly.
+  Future<void> _logStatus() async {
+    if (_statusLogged || _platform != TargetPlatform.iOS) return;
+    _statusLogged = true;
+    try {
+      final status = await _status.read();
+      if (status != null && status != 'available') {
+        events('background.refresh.unavailable', {'status': status});
+      }
+    } on Object {
+      // Telemetry must not break the app.
     }
   }
 
@@ -169,7 +265,11 @@ class BackgroundScheduler {
   void dispose() {
     _disposed = true;
     unawaited(_signedOut?.cancel());
-    if (_supported) _changes.removeListener(_onAuth);
+    if (_supported) {
+      _changes.removeListener(_onAuth);
+      _presence.dispose();
+      if (_observeLifecycle) WidgetsBinding.instance.removeObserver(this);
+    }
   }
 }
 

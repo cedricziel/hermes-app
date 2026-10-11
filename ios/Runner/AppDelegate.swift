@@ -79,6 +79,7 @@ import workmanager_apple
     watchRelay = WatchRelay(messenger: engineBridge.applicationRegistrar.messenger())
     webAuth = WebAuthSession(messenger: engineBridge.applicationRegistrar.messenger())
     ClipboardFiles.install(messenger: engineBridge.applicationRegistrar.messenger())
+    BackgroundRefreshStatus.install(messenger: engineBridge.applicationRegistrar.messenger())
   }
 }
 
@@ -248,6 +249,23 @@ enum NotificationCategories {
       identifier: id, actions: actions, intentIdentifiers: [],
       hiddenPreviewsBodyPlaceholder: spec["placeholder"] as? String ?? "",
       options: [])
+  }
+}
+
+/// Whether the user lets the app refresh in the background, which the
+/// periodic refresh depends on and iOS gives no other way to notice.
+enum BackgroundRefreshStatus {
+  static func install(messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "hermes_app/background_refresh", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in
+        guard call.method == "status" else { result(FlutterMethodNotImplemented); return }
+        switch UIApplication.shared.backgroundRefreshStatus {
+        case .available: result("available")
+        case .denied: result("denied")
+        case .restricted: result("restricted")
+        @unknown default: result("unknown")
+        }
+      }
   }
 }
 
