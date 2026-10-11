@@ -897,10 +897,21 @@ void main() {
     }
 
     test('approvals are asked by the runtime session id', () async {
-      final pending = await rpc.request('approval.pending', {
-        'session_id': sessionId,
-        'profile': 'default',
-      });
+      final Map<String, Object?> pending;
+      try {
+        pending = await rpc.request('approval.pending', {
+          'session_id': sessionId,
+          'profile': 'default',
+        });
+      } on GatewayRpcException catch (error) {
+        // A backend with no provider cannot build the agent that holds them;
+        // background refresh then reads the session as waiting on something.
+        if (error.code == 5032) {
+          markTestSkipped('needs a provider configured in the backend');
+          return;
+        }
+        rethrow;
+      }
       expect(pending['approvals'], isEmpty);
     }, skip: skip);
 
