@@ -47,6 +47,22 @@ class HomeWidgetSurfaceStorage implements SurfaceStorage {
   }
 }
 
+/// [SurfaceStorage] that keeps the JSON in memory, for a platform with no
+/// widgets or extensions to share it with, where in-app readers still follow
+/// the snapshot.
+class MemorySurfaceStorage implements SurfaceStorage {
+  String? _json;
+
+  @override
+  Future<void> save(String json) async => _json = json;
+
+  @override
+  Future<String?> load() async => _json;
+
+  @override
+  Future<void> reload(String kind) async {}
+}
+
 /// Writes the [SurfaceSnapshot] to the shared storage and tells listeners in
 /// the app about each change.
 class SurfaceSnapshotStore {

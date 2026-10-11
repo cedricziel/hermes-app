@@ -39,7 +39,7 @@ None.
 ## Impact
 
 - iOS: time-sensitive entitlement on the Runner; fastlane profiles regenerated for the capability.
-- macOS: time-sensitive entitlement in `DebugProfile.entitlements` and `Release.entitlements`; Dock badge.
+- macOS: time-sensitive entitlement in `Release.entitlements` (the debug profile is ad-hoc signed); Dock badge.
 - Dart: `AttentionNotification` gains a group key; `LocalNotificationService.show` sets thread identifier, interruption level and Android group key; a `BadgeController` listening to the snapshot store.
 - Dependency: `app_badge_plus` (1.3.5) from pub.dev.
 - Backend: none.

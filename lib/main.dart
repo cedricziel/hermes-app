@@ -28,6 +28,7 @@ import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
 import 'src/live_activities/live_activities.dart';
 import 'src/notifications/attention_notifier.dart' show appLockHidesRequests;
+import 'src/notifications/badge_controller.dart';
 import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
 import 'src/macos/menu_bar_extra/menu_bar_extra_settings.dart';
@@ -240,13 +241,21 @@ Future<void> main([List<String> args = const []]) async {
           dispose: (_, service) => service.dispose(),
         ),
         // Widgets, quick actions and shortcuts read what the app shares
-        // through the App Group; only phones have them.
+        // through the App Group; only phones have them. The Mac has none of
+        // them but follows the open requests in its Dock badge.
         Provider<SurfaceSnapshotStore?>(
-          create: (_) =>
-              defaultTargetPlatform == TargetPlatform.iOS ||
-                  defaultTargetPlatform == TargetPlatform.android
-              ? SurfaceSnapshotStore(events: telemetry.events())
-              : null,
+          create: (_) {
+            final mac = defaultTargetPlatform == TargetPlatform.macOS;
+            if (!mac &&
+                defaultTargetPlatform != TargetPlatform.iOS &&
+                defaultTargetPlatform != TargetPlatform.android) {
+              return null;
+            }
+            return SurfaceSnapshotStore(
+              storage: mac ? MemorySurfaceStorage() : null,
+              events: telemetry.events(),
+            );
+          },
           dispose: (_, store) => store?.dispose(),
         ),
         // Only the iOS Home Screen widgets exist; the report says which are
@@ -288,6 +297,18 @@ Future<void> main([List<String> args = const []]) async {
               ..sessionChanged();
           },
           dispose: (_, snapshots) => snapshots?.dispose(),
+        ),
+        // The icon's badge counts the open requests of the snapshot.
+        Provider<BadgeController?>(
+          lazy: false,
+          create: (context) => BadgeController.forPlatform(
+            platform: defaultTargetPlatform,
+            store: context.read<SurfaceSnapshotStore?>(),
+            settings: context.read<NotificationSettings>(),
+            signedOut: context.read<AuthController>().signedOut,
+            breadcrumbs: context.read<Breadcrumbs>(),
+          )?..start(),
+          dispose: (_, controller) => controller?.dispose(),
         ),
         Provider<QuickActionsController?>(
           lazy: false,
