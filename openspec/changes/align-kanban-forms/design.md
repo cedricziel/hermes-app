@@ -9,3 +9,7 @@ Existing task, board and orchestration tests protect backend payloads and errors
 Eighty-five task, board and orchestration behavior checks passed. Fourteen existing catalog/workflow cases passed, and four additional workflows rendered all forms in explicit iOS/macOS light/dark styles. The profile-menu workflow also asserts the selected assignee reaches the backend. Renders were inspected; formatting, analysis and strict validation passed.
 
 Standalone task-edit and orchestration field components accept only presentation values/controllers and callbacks. Direct catalog cases cover empty, populated and long task descriptions, plus loading, failed, inherited, pinned and stale-profile orchestration states on all platform styles. Repository-backed screen examples remain integration previews.
+
+## Completion
+
+The form series merged sequentially in PRs [627](https://github.com/cedricziel/hermes-app/pull/627), [629](https://github.com/cedricziel/hermes-app/pull/629), [630](https://github.com/cedricziel/hermes-app/pull/630), [631](https://github.com/cedricziel/hermes-app/pull/631), and [632](https://github.com/cedricziel/hermes-app/pull/632). Required CI passed, and the standalone catalog review finding was fixed and approved before the final form merge.
