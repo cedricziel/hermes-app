@@ -680,8 +680,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// list: the drawer on a phone, the sidebar that is already there when wide.
   Future<void> _openOldestRequest() async {
     unawaited(_windows?.showMainWindow());
-    if (await _chat.openOldestStoredRequest() || !mounted) return;
+    // What this profile shows is live; the snapshot only speaks for the
+    // others, and a chat it names is kept only if it has a request open.
     if (_chat.openOldestRequest()) return;
+    if (await _chat.openOldestStoredRequest() || !mounted) return;
     widget.onShowChat?.call();
     if (hasMacSidebar(context)) {
       final sidebar = MacSidebarScope.read(context);

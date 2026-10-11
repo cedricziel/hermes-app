@@ -19,7 +19,12 @@ import '../profiles/hermes_profiles_repository.dart';
 import '../share/shared_item.dart';
 import '../surfaces/chat_hints.dart';
 import '../surfaces/surface_snapshot.dart'
-    show PendingKind, SurfaceSnapshot, kMaxRecentChats;
+    show
+        PendingKind,
+        PendingRequest,
+        SurfaceSnapshot,
+        kDefaultProfile,
+        kMaxRecentChats;
 import '../telemetry/breadcrumbs.dart';
 import '../watch/watch_complication.dart';
 import 'chat_controller_sync.dart';
@@ -638,9 +643,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     return null;
   }
 
-  /// Opens the chat of the open request the snapshot has had longest, in
-  /// whichever profile it is. False when the snapshot lists none.
-  Future<bool> openOldestStoredRequest() async {
+  /// Opens the chat of the open request in another profile that the snapshot
+  /// has had longest, for when the open profile has none of its own. The
+  /// snapshot can be out of date, so the chat is kept only if it shows an open
+  /// request within [settle]; otherwise the selection is cleared and this is
+  /// false, which leaves the chat list showing.
+  Future<bool> openOldestStoredRequest({
+    Duration settle = const Duration(seconds: 3),
+  }) async {
     final read = readSnapshot;
     if (read == null) return false;
     final SurfaceSnapshot? snapshot;
@@ -649,18 +659,43 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     } on Object {
       return false;
     }
-    final waiting = snapshot?.pending;
-    if (waiting == null || waiting.isEmpty) return false;
+    final current = _profile ?? kDefaultProfile;
+    final waiting = [
+      for (final request in snapshot?.pending ?? const <PendingRequest>[])
+        if (request.profile != current) request,
+    ];
+    if (waiting.isEmpty) return false;
     final oldest = waiting.reduce(
       (a, b) => b.createdAt.isBefore(a.createdAt) ? b : a,
     );
     final profile = await knownProfile(oldest.profile);
-    if (disposed) return true;
+    if (disposed || profile == null) return false;
+    final id = oldest.threadId;
     open(
-      NotificationTarget(threadId: oldest.threadId, profile: profile),
+      NotificationTarget(threadId: id, profile: profile),
       fetchMissing: true,
     );
-    return true;
+    await _opening.catchError((Object _) {});
+    bool shown() =>
+        _selectedId == id &&
+        selectedThread?.messages.any((m) => m.awaitingInput) == true;
+    if (!shown()) {
+      final changed = Completer<void>();
+      void check() {
+        if (shown() && !changed.isCompleted) changed.complete();
+      }
+
+      addListener(check);
+      try {
+        await changed.future.timeout(settle, onTimeout: () {});
+      } finally {
+        removeListener(check);
+      }
+    }
+    if (disposed) return true;
+    if (shown()) return true;
+    if (_selectedId == id) clearSelection();
+    return false;
   }
 
   /// Opens the chat whose open approval, question or input request was

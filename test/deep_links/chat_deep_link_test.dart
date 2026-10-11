@@ -409,20 +409,26 @@ void main() {
       );
     }
 
-    testWidgets('opens the oldest one the snapshot lists, in any profile', (
+    testWidgets('opens the oldest one the snapshot lists for another profile', (
       tester,
     ) async {
       seedProfile('home', [sessionRow(id: 'h1', title: 'Home chat')]);
       seedMessages('h1', 'home', 'the home transcript');
       await storePending([
-        ('work', 'recent', DateTime.utc(2026, 10, 11, 9)),
+        ('work', 'recent', DateTime.utc(2026, 10, 11, 7)),
         ('home', 'h1', DateTime.utc(2026, 10, 11, 8)),
       ]);
       await pumpChat(tester);
 
       requests.requestOldestPending();
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+      transport.followUpStreams['h1']!
+        ..emit(const ReplyStarted())
+        ..emit(const ApprovalRequested(_approval));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(seconds: 1));
 
+      // The work request is the open profile's: the live chats speak for it.
       expect(selectedId(tester), 'h1');
       expect(
         server
@@ -430,6 +436,34 @@ void main() {
             .map((r) => r.queryParameters['profile']),
         contains('home'),
       );
+    });
+
+    testWidgets('does not open a chat of the open profile the snapshot still '
+        'lists after its request was answered', (tester) async {
+      await storePending([('work', 'older', DateTime.utc(2026, 10, 11, 8))]);
+      await pumpChat(tester);
+      await openThread(tester, 'Recent chat');
+
+      requests.requestOldestPending();
+      await tester.pumpAndSettle();
+
+      expect(selectedId(tester), 'recent');
+    });
+
+    testWidgets('falls back to the chat list when the chat the snapshot names '
+        'has no open request', (tester) async {
+      seedProfile('home', [sessionRow(id: 'h1', title: 'Home chat')]);
+      seedMessages('h1', 'home', 'the home transcript');
+      await storePending([('home', 'h1', DateTime.utc(2026, 10, 11, 8))]);
+      await pumpChat(tester, size: const Size(400, 800));
+
+      requests.requestOldestPending();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+
+      expect(selectedId(tester), isNull);
+      expect(find.byType(ThreadSidebar), findsOneWidget);
     });
 
     testWidgets('falls back to the loaded chats when the snapshot lists none', (
