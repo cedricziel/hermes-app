@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_icons.dart';
 import 'plugin_install_result.dart';
 
 import '../widgets/disclosure_tile.dart';
+import '../widgets/grouped_dialog.dart';
+import '../widgets/grouped_form.dart';
+import '../widgets/grouped_list.dart';
 
 /// Runs an install from [identifier]; [enable] and [force] are the user's
 /// choices.
@@ -56,87 +58,11 @@ class _GitInstallDialogState extends State<GitInstallDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final metrics = GroupedMetrics.of(context);
     return PopScope(
       canPop: !_busy,
-      child: AlertDialog(
-        title: const Text('Install from Git URL'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                key: const Key('git-url-field'),
-                controller: _url,
-                enabled: !_busy,
-                autofocus: true,
-                autocorrect: false,
-                enableSuggestions: false,
-                keyboardType: TextInputType.url,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Git URL or owner/repo',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.colorScheme.onSurface),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AppIcon(AppIcons.shieldWarning, size: 20),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Unreviewed code. This plugin is not from the Hermes catalog. It runs on your server with full access.',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              CheckboxListTile(
-                key: const Key('git-trust-checkbox'),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('I trust this source'),
-                value: _trust,
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _trust = value ?? false),
-              ),
-              SwitchListTile.adaptive(
-                key: const Key('git-enable-switch'),
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Enable after install'),
-                value: _enable,
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _enable = value),
-              ),
-              DisclosureTile(
-                tilePadding: EdgeInsets.zero,
-                title: const Text('Advanced'),
-                children: [
-                  SwitchListTile.adaptive(
-                    key: const Key('git-force-switch'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Overwrite existing (force)'),
-                    value: _force,
-                    onChanged: _busy
-                        ? null
-                        : (value) => setState(() => _force = value),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+      child: GroupedDialog(
+        title: 'Install from Git URL',
         actions: [
           TextButton(
             onPressed: _busy ? null : () => Navigator.of(context).pop(),
@@ -152,6 +78,84 @@ class _GitInstallDialogState extends State<GitInstallDialog> {
                     child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                   )
                 : const Text('Install'),
+          ),
+        ],
+        children: [
+          GroupedSection(
+            children: [
+              GroupedTextFieldRow(
+                key: const Key('git-url-field'),
+                label: 'Source',
+                hint: 'Git URL or owner/repo',
+                controller: _url,
+                enabled: !_busy,
+                autofocus: true,
+                autocorrect: false,
+                enableSuggestions: false,
+                keyboardType: TextInputType.url,
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+          const GroupedSection(
+            children: [
+              GroupedRow(
+                title: 'Source warning',
+                warning: 'Unreviewed code. This plugin is not from the Hermes catalog. It runs on your server with full access.',
+              ),
+            ],
+          ),
+          GroupedSection(
+            children: [
+              GroupedRow(
+                key: const Key('git-trust-checkbox'),
+                title: 'I trust this source',
+                checked: _trust,
+                enabled: !_busy,
+                onTap: () => setState(() => _trust = !_trust),
+                trailing: Checkbox.adaptive(
+                  value: _trust,
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _trust = value ?? false),
+                ),
+              ),
+              GroupedSwitchRow(
+                key: const Key('git-enable-switch'),
+                title: 'Enable after install',
+                value: _enable,
+                onTap: _busy ? null : () => setState(() => _enable = !_enable),
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _enable = value),
+              ),
+            ],
+          ),
+          DisclosureTile(
+            title: Text(
+              'Advanced',
+              style: TextStyle(fontSize: metrics.titleSize),
+            ),
+            tilePadding: EdgeInsets.symmetric(horizontal: metrics.rowPadding),
+            shape: const Border(),
+            collapsedShape: const Border(),
+            children: [
+              GroupedSection(
+                children: [
+                  GroupedSwitchRow(
+                    key: const Key('git-force-switch'),
+                    title: 'Overwrite existing (force)',
+                    value: _force,
+                    onTap: _busy
+                        ? null
+                        : () => setState(() => _force = !_force),
+                    onChanged: _busy
+                        ? null
+                        : (value) => setState(() => _force = value),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),

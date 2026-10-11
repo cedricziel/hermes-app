@@ -250,6 +250,7 @@ class GroupedTextFieldRow extends StatelessWidget {
     this.textCapitalization = TextCapitalization.none,
     this.autofocus = false,
     this.autocorrect = true,
+    this.enableSuggestions = true,
     this.monospace = false,
     this.onChanged,
     this.onSubmitted,
@@ -267,6 +268,7 @@ class GroupedTextFieldRow extends StatelessWidget {
   final TextCapitalization textCapitalization;
   final bool autofocus;
   final bool autocorrect;
+  final bool enableSuggestions;
   final bool monospace;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
@@ -316,6 +318,7 @@ class GroupedTextFieldRow extends StatelessWidget {
       textCapitalization: textCapitalization,
       autofocus: autofocus,
       autocorrect: autocorrect,
+      enableSuggestions: enableSuggestions,
       style: style,
       decoration: decoration,
       onChanged: onChanged,
