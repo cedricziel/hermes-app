@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/chat_open_requests.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
@@ -23,12 +24,14 @@ void main() {
   late FakeNotificationService service;
   late List<NotificationTarget> opened;
   late int shown;
+  late ChatOpenRequests requests;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     opened = [];
     shown = 0;
+    requests = ChatOpenRequests();
     service = FakeNotificationService();
     server = FakeHermesServer()
       ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
@@ -63,12 +66,15 @@ void main() {
             transport: FakeChatTransport(),
             onShowChat: () => shown++,
             onOpenJob: opened.add,
+            openRequests: requests,
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  tearDown(() => requests.dispose());
 
   testWidgets('a tap on a job notification is handed over', (tester) async {
     await pumpChat(tester);
@@ -103,5 +109,34 @@ void main() {
 
     expect(opened, isEmpty);
     expect(shown, greaterThan(0));
+  });
+
+  testWidgets(
+    'a tap on a notification for an unsent question fills a new chat',
+    (tester) async {
+      await pumpChat(tester);
+
+      service.tapTarget(
+        const NotificationTarget.newChat(
+          prompt: 'What is C++?',
+          profile: 'work',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(opened, isEmpty);
+      expect(find.text('What is C++?'), findsOneWidget);
+    },
+  );
+
+  testWidgets('one that started the app opens the new chat too', (
+    tester,
+  ) async {
+    service.launchPrompt = 'What is C++?';
+
+    await pumpChat(tester);
+
+    expect(opened, isEmpty);
+    expect(find.text('What is C++?'), findsOneWidget);
   });
 }

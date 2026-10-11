@@ -75,6 +75,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     required this.report,
     this.onShowChat,
     this.onOpenJob,
+    this.onOpenNewChat,
     this.onOpened,
     this.onPrefill,
     this.onSurfaceChange,
@@ -165,6 +166,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Called for a notification about a scheduled task.
   final void Function(NotificationTarget target)? onOpenJob;
+
+  /// Called for a notification about a question that never reached Hermes.
+  final void Function(NotificationTarget target)? onOpenNewChat;
 
   /// Called after a chat asked for from outside was selected.
   final VoidCallback? onOpened;
@@ -305,6 +309,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       var launched = await _attention.takeLaunchTarget();
       if (launched != null && launched.isJob) {
         onOpenJob?.call(launched);
+        launched = null;
+      }
+      if (launched != null && launched.prompt != null) {
+        onOpenNewChat?.call(launched);
         launched = null;
       }
       if (disposed || generation != _loadGeneration) return;

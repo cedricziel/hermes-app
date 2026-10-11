@@ -20,15 +20,25 @@ enum NotificationPermission {
 /// none.
 class NotificationTarget {
   const NotificationTarget({required this.threadId, this.profile})
-    : jobId = null;
+    : jobId = null,
+      prompt = null;
+
+  /// A new chat with [prompt] in the composer, unsent.
+  const NotificationTarget.newChat({required String this.prompt, this.profile})
+    : threadId = '',
+      jobId = null;
 
   /// A scheduled task. It has no chat, so [threadId] is empty.
   const NotificationTarget.job({required String this.jobId, this.profile})
-    : threadId = '';
+    : threadId = '',
+      prompt = null;
 
   final String threadId;
   final String? jobId;
   final String? profile;
+
+  /// The question of a [NotificationTarget.newChat].
+  final String? prompt;
 
   bool get isJob => jobId != null;
 }

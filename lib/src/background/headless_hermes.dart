@@ -135,7 +135,9 @@ class HeadlessDeps {
 
 /// Runs [body] against the saved server with the stored session, within
 /// [timeout] for connecting and work together. [task] names the run in
-/// telemetry. Nothing is thrown: a failing [body] ends as
+/// telemetry, and [attributes] (counts and flags, never ids or text) are on
+/// its span from the start, so a run that never reaches [body] carries them
+/// too. Nothing is thrown: a failing [body] ends as
 /// [HeadlessUnreachable], since a background callback that throws is reported
 /// to the system as a failure.
 ///
@@ -147,6 +149,7 @@ class HeadlessDeps {
 Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
   Future<T> Function(HeadlessHermes hermes) body, {
   required String task,
+  Map<String, Object> attributes = const {},
   Duration timeout = const Duration(seconds: 25),
   HeadlessDeps? deps,
 }) async {
@@ -160,7 +163,10 @@ Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
     () => run
         .telemetry(const {})
         .tracer
-        ?.startSpan('background.task', attributes: {'task': task}),
+        ?.startSpan(
+          'background.task',
+          attributes: {...attributes, 'task': task},
+        ),
   );
   var ended = _Ended<T>('failed', const HeadlessUnreachable());
   try {

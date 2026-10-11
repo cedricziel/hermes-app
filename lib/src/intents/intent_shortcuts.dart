@@ -5,13 +5,13 @@ import 'package:flutter/services.dart';
 import '../surfaces/surface_snapshot.dart';
 import '../surfaces/surface_snapshot_store.dart';
 
-/// The Runner's channel for App Intents (`HermesAppShortcuts.swift`).
+/// The Runner's channel for App Intents that need Dart (`IntentsBridge.swift`).
 const kIntentsChannel = 'hermes_app/intents';
 
 /// The Runner's channel for refreshing the shortcuts' chat list
 /// (`HermesAppShortcuts.swift`). It is served in every engine, the background
-/// ones included, which is why it is not the App Intents channel: that one
-/// belongs to the engine of the app in front.
+/// ones included, which is why it is not the App Intents channel: that one is
+/// served by the bridge's own engines only.
 const kShortcutsChannel = 'hermes_app/shortcuts';
 
 /// Tells iOS to re-read the chats Siri can open by name. A refresh that fails

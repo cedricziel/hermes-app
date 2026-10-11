@@ -782,4 +782,36 @@ void main() {
       expect(methods, ['forget']);
     });
   });
+
+  group('a question that never reached Hermes', () {
+    test('carries the question in its payload and opens a new chat', () {
+      final payload = notificationPayload(
+        const AttentionNotification(
+          threadId: 'ask:1',
+          title: 'Hermes',
+          body: "Couldn't send your question",
+          profile: 'work',
+          prompt: 'What is C++?',
+        ),
+      );
+
+      final target = targetFromPayload(payload)!;
+
+      expect(target.prompt, 'What is C++?');
+      expect(target.profile, 'work');
+      expect(target.isJob, isFalse);
+      expect(payload, contains('ask:1'));
+    });
+
+    test('is a plain chat tap without a question', () {
+      final target = targetFromPayload(
+        notificationPayload(
+          const AttentionNotification(threadId: 's1', title: 't', body: 'b'),
+        ),
+      )!;
+
+      expect(target.prompt, isNull);
+      expect(target.threadId, 's1');
+    });
+  });
 }

@@ -8,9 +8,13 @@ import 'package:hermes_app/src/models/model_provider_option.dart';
 
 /// A [ChatTransport] the test drives by hand: every [send] is recorded and
 /// its reply stream is fed through the returned [FakeSend].
-class FakeChatTransport implements ChatTransport {
+class FakeChatTransport implements ChatTransport, PromptAcknowledgement {
   final sends = <FakeSend>[];
   bool closed = false;
+
+  /// What [promptAccepted] reports: whether the server answered the submit.
+  @override
+  bool promptAccepted = false;
 
   List<SlashCommand> availableSlashCommands = const [];
   final catalogGates = <Completer<List<SlashCommand>>>[];

@@ -18,6 +18,7 @@ class RunningReply {
     required this.profile,
     required this.threadId,
     required this.since,
+    this.fromAsk = false,
   });
 
   /// Null on a server without profiles.
@@ -26,23 +27,29 @@ class RunningReply {
   /// The chat's id, which is also the session key the server lists it under.
   final String threadId;
 
-  /// When the app left.
+  /// When the app left, or when the ask was handed to the background.
   final DateTime since;
+
+  /// An "Ask Hermes" turn that outlived its answer, not a chat the app was
+  /// showing: the chat screen's pauses and returns leave it alone.
+  final bool fromAsk;
 
   @override
   bool operator ==(Object other) =>
       other is RunningReply &&
       other.profile == profile &&
       other.threadId == threadId &&
-      other.since == since;
+      other.since == since &&
+      other.fromAsk == fromAsk;
 
   @override
-  int get hashCode => Object.hash(profile, threadId, since);
+  int get hashCode => Object.hash(profile, threadId, since, fromAsk);
 
   Map<String, Object?> toJson() => {
     'profile': ?profile,
     'threadId': threadId,
     'since': since.toUtc().toIso8601String(),
+    if (fromAsk) 'ask': true,
   };
 
   static RunningReply? fromJson(Object? json) {
@@ -56,6 +63,7 @@ class RunningReply {
         profile: profile as String?,
         threadId: threadId,
         since: at,
+        fromAsk: json['ask'] == true,
       );
     }
     return null;
@@ -79,11 +87,44 @@ class RunningReplies {
   /// The remembered chats; unreadable storage reads as none.
   Future<List<RunningReply>> read() => _read(_runningKey);
 
-  /// Remembers exactly [replies]; none forgets everything.
-  Future<void> replace(List<RunningReply> replies) =>
-      _queue(() => _save(_runningKey, replies));
+  /// Remembers [replies] as the chats the app was showing, keeping the
+  /// entries an ask added ([add]) that [replies] does not name.
+  Future<void> replace(List<RunningReply> replies) => _queue(() async {
+    final named = {
+      for (final reply in replies) (reply.profile, reply.threadId),
+    };
+    final before = await _read(_runningKey);
+    await _save(_runningKey, [
+      for (final reply in before)
+        if (reply.fromAsk && !named.contains((reply.profile, reply.threadId)))
+          reply,
+      ...replies,
+    ]);
+  });
 
-  Future<void> clear() => replace(const []);
+  /// Remembers [reply], replacing an entry for the same chat.
+  Future<void> add(RunningReply reply) => _queue(() async {
+    await _save(_runningKey, [
+      for (final known in await _read(_runningKey))
+        if (known.profile != reply.profile || known.threadId != reply.threadId)
+          known,
+      reply,
+    ]);
+  });
+
+  /// Forgets what the chat screen remembered: the app is in front. The entries
+  /// of asks stay, since that chat may never have been on screen and the next
+  /// pause would not add it again; the background check drops an ended turn,
+  /// and an entry expires after [kRunningReplyLifetime].
+  Future<void> clear() => _queue(() async {
+    await _save(_runningKey, [
+      for (final reply in await _read(_runningKey))
+        if (reply.fromAsk) reply,
+    ]);
+  });
+
+  /// Forgets everything, the entries of asks included: nobody is signed in.
+  Future<void> clearAll() => _queue(() => _save(_runningKey, const []));
 
   /// Forgets [gone] and keeps the rest as it is stored now.
   Future<void> forget(Iterable<RunningReply> gone) =>

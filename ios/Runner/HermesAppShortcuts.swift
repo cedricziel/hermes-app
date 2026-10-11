@@ -26,6 +26,15 @@ struct HermesAppShortcuts: AppShortcutsProvider {
       systemImageName: "mic.fill"
     )
     AppShortcut(
+      intent: AskHermesIntent(),
+      phrases: [
+        "Ask \(.applicationName)",
+        "Ask \(.applicationName) something",
+      ],
+      shortTitle: "Ask Hermes",
+      systemImageName: "text.bubble"
+    )
+    AppShortcut(
       intent: OpenChatIntent(),
       phrases: ["Open \(\.$chat) in \(.applicationName)"],
       shortTitle: "Open Chat",
@@ -61,17 +70,10 @@ enum ShortcutsChannel {
   }
 }
 
-/// `hermes_app/intents`: Dart calls `refreshShortcuts` after the surface
-/// snapshot changed, so Siri hears the chats as they are now.
+/// `hermes_app/intents` on the app's engine, for "Ask Hermes" (`IntentsBridge`).
 enum IntentsChannel {
+  @MainActor
   static func install(messenger: FlutterBinaryMessenger) {
-    FlutterMethodChannel(name: "hermes_app/intents", binaryMessenger: messenger)
-      .setMethodCallHandler { call, result in
-        guard call.method == "refreshShortcuts" else {
-          return result(FlutterMethodNotImplemented)
-        }
-        HermesAppShortcuts.updateAppShortcutParameters()
-        result(nil)
-      }
+    IntentsBridge.shared.attach(messenger: messenger, isApp: true)
   }
 }

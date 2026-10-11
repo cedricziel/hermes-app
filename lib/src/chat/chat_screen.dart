@@ -268,6 +268,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       report: _showMessage,
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),
+      onOpenNewChat: _openNewChatFromNotification,
       onOpened: () => _scaffoldKey.currentState?.closeDrawer(),
       breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
       onPrefill: (draft) => _composerController.value = TextEditingValue(
@@ -572,7 +573,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _openFromNotification(NotificationTarget target) {
     _handoff?.cancel();
     if (target.isJob) return widget.onOpenJob?.call(target);
+    if (target.prompt != null) return _openNewChatFromNotification(target);
     _chat.open(target, fetchMissing: false);
+  }
+
+  /// A notification about a question that never reached Hermes: a new chat
+  /// with the question in the composer, as a `hermes://new?prompt=` link does.
+  void _openNewChatFromNotification(NotificationTarget target) {
+    widget.openRequests?.requestNew(
+      profile: target.profile,
+      prompt: target.prompt,
+    );
   }
 
   /// Another destination asked for something. Unlike a notification tap, a

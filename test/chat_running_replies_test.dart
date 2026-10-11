@@ -101,6 +101,23 @@ void main() {
     expect(remembered.map((r) => (r.profile, r.threadId)), [('work', 's1')]);
   });
 
+  test('keeps the chats an ask handed over when the app leaves', () async {
+    await running.add(
+      RunningReply(
+        profile: 'work',
+        threadId: 'asked',
+        since: DateTime.now(),
+        fromAsk: true,
+      ),
+    );
+    await replyIn('s1');
+
+    chat.rememberRunningReplies();
+    await pumpEventQueue();
+
+    expect((await running.read()).map((r) => r.threadId), ['asked', 's1']);
+  });
+
   test('remembers nothing when no reply runs', () async {
     await chat.loadThreads('work');
 
@@ -571,6 +588,11 @@ void main() {
         tester.binding.handleAppLifecycleStateChanged(state);
       }
 
+      // The write reads the stored list first, which takes both clocks.
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(pumpEventQueue);
+        await tester.pump();
+      }
       // The mock chats are not on the server, so none is remembered.
       expect(
         await tester.runAsync(() async {
@@ -600,6 +622,10 @@ void main() {
         tester.binding.handleAppLifecycleStateChanged(state);
       }
 
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(pumpEventQueue);
+        await tester.pump();
+      }
       expect(
         await tester.runAsync(() async {
           await pumpEventQueue();
