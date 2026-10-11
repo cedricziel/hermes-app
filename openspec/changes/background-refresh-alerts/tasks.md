@@ -68,5 +68,5 @@ One PR, `feat(background): announce finished replies and scheduled runs in the b
 ## 6. Folded in from the follow-ups of `headless-runtime` and `background-refresh`
 
 - [x] 6.1 Spotlight refresh in the background run (`SpotlightRefreshStep`, `Spotlight.installIndexing`): opt-in, App Lock respected, no tap channel.
-- [ ] 6.2 `refreshShortcuts` for App Intents: skipped, #617 has not merged.
-- [ ] 6.3 `BadgeController` in the background isolate and `app_badge_plus` in `BackgroundPlugins.swift`: skipped, #615 has not merged.
+- [x] 6.2 `refreshShortcuts` for App Intents (`ShortcutsRefreshStep`, `IntentsChannel` installed in the background engine): iOS only, errors swallowed, skipped when the run's write changed nothing.
+- [x] 6.3 `BadgeController` in the background isolate (`BadgeRefreshStep`) and `app_badge_plus` in `BackgroundPlugins.swift`.

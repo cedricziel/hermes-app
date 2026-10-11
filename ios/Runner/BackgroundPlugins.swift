@@ -1,4 +1,5 @@
 import Flutter
+import app_badge_plus
 import device_info_plus
 import flutter_local_notifications
 import flutter_secure_storage_darwin
@@ -8,8 +9,8 @@ import shared_preferences_foundation
 import workmanager_apple
 
 /// The plugins a background engine needs to reach Hermes: the session in the
-/// keychain, the saved server, telemetry, notifications, the snapshot for
-/// widgets and the task scheduler. A second engine
+/// keychain, the saved server, telemetry, notifications, the app icon's badge,
+/// the snapshot for widgets and the task scheduler. A second engine
 /// must not get `GeneratedPluginRegistrant`'s whole list: several plugins act
 /// as application or scene delegates (share, URL and Live Activity handling),
 /// and registering them twice would handle every URL and share twice.
@@ -37,6 +38,9 @@ enum BackgroundPlugins {
     }
     if let registrar = registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin") {
       FlutterLocalNotificationsPlugin.register(with: registrar)
+    }
+    if let registrar = registry.registrar(forPlugin: "AppBadgePlusPlugin") {
+      AppBadgePlusPlugin.register(with: registrar)
     }
     if let registrar = registry.registrar(forPlugin: "HomeWidgetPlugin") {
       HomeWidgetPlugin.register(with: registrar)

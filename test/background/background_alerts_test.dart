@@ -1,14 +1,17 @@
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/account_key.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/background/background_alerts.dart';
 import 'package:hermes_app/src/background/background_refresh.dart';
 import 'package:hermes_app/src/background/background_spotlight.dart';
+import 'package:hermes_app/src/background/background_surfaces.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/background/running_replies.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/notifications/badge_controller.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/schedule_alerts.dart';
 import 'package:hermes_app/src/spotlight/spotlight_index.dart';
@@ -33,6 +36,13 @@ import '../support/recording_tracer.dart';
 const _url = 'http://hermes.test';
 
 final _now = DateTime.utc(2026, 10, 11, 12);
+
+class _FakeBadge implements BadgeService {
+  final counts = <int>[];
+
+  @override
+  Future<void> update(int count) async => counts.add(count);
+}
 
 /// The account the fake server's runs belong to.
 final _account = accountKeyFor(_url, null);
@@ -892,6 +902,97 @@ void main() {
       await run();
 
       expect(index.calls, isEmpty);
+    });
+  });
+
+  group('badge and Siri', () {
+    late _FakeBadge badge;
+    late List<String> asked;
+
+    setUp(() {
+      badge = _FakeBadge();
+      asked = [];
+      gateway.handlers['approval.pending'] = (_) => {'approvals': []};
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'd1', title: 'Trip plan', lastActive: 1780000100),
+        ]),
+        query: {'profile': 'default'},
+      );
+    });
+
+    Future<void> run({TargetPlatform platform = TargetPlatform.iOS}) =>
+        refresh(() {
+          final requests = OpenRequestsStep();
+          final snapshot = SnapshotStep(requests);
+          return [
+            requests,
+            snapshot,
+            BadgeRefreshStep(
+              snapshot,
+              badge: badge,
+              settings: NotificationSettings(),
+              platform: platform,
+            ),
+            ShortcutsRefreshStep(
+              snapshot,
+              refresh: () async {
+                asked.add('refresh');
+              },
+              platform: platform,
+            ),
+          ];
+        });
+
+    test('shows the number of open requests on the icon', () async {
+      sessions = {
+        'default': [
+          {
+            'id': 'rt-d1',
+            'session_key': 'd1',
+            'title': 'Trip plan',
+            'status': 'waiting',
+            'message_count': 2,
+          },
+        ],
+      };
+
+      await run();
+
+      expect(badge.counts, [1]);
+    });
+
+    test('clears the badge when nothing waits', () async {
+      await run();
+
+      expect(badge.counts, [0]);
+    });
+
+    test('leaves the badge alone where the icon has none', () async {
+      await run(platform: TargetPlatform.linux);
+
+      expect(badge.counts, isEmpty);
+    });
+
+    test('asks Siri to re-read the chats after a changed snapshot', () async {
+      await run();
+
+      expect(asked, ['refresh']);
+    });
+
+    test('does not ask again when the run changed nothing', () async {
+      await run();
+      await run();
+
+      expect(asked, ['refresh']);
+    });
+
+    test('asks on iOS only', () async {
+      await run(platform: TargetPlatform.android);
+
+      expect(asked, isEmpty);
     });
   });
 

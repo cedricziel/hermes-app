@@ -8,6 +8,17 @@ import '../surfaces/surface_snapshot_store.dart';
 /// The Runner's channel for App Intents (`HermesAppShortcuts.swift`).
 const kIntentsChannel = 'hermes_app/intents';
 
+/// Tells iOS to re-read the chats Siri can open by name. A refresh that fails
+/// leaves Siri with the chats it already knows, so nothing is thrown.
+Future<void> refreshAppShortcuts() async {
+  try {
+    await const MethodChannel(kIntentsChannel)
+        .invokeMethod<void>('refreshShortcuts');
+  } on Object {
+    // The shortcuts catch up at the next write.
+  }
+}
+
 /// Tells iOS to re-read the chats Siri can open by name each time the surface
 /// snapshot changes, since a phrase only knows the chats iOS last asked for.
 class IntentShortcuts {
@@ -23,20 +34,10 @@ class IntentShortcuts {
       : IntentShortcuts(store: store);
 
   final SurfaceSnapshotStore store;
-  static const _channel = MethodChannel(kIntentsChannel);
   StreamSubscription<SurfaceSnapshot>? _writes;
 
   void start() {
-    _writes ??= store.writes.listen((_) => unawaited(_refresh()));
-  }
-
-  /// A refresh that fails leaves Siri with the chats it already knows.
-  Future<void> _refresh() async {
-    try {
-      await _channel.invokeMethod<void>('refreshShortcuts');
-    } on Object {
-      // The shortcuts catch up at the next write.
-    }
+    _writes ??= store.writes.listen((_) => unawaited(refreshAppShortcuts()));
   }
 
   Future<void> dispose() async {

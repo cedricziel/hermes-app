@@ -27,6 +27,7 @@ import 'app_presence.dart';
 import 'background_alerts.dart';
 import 'background_scheduler.dart';
 import 'background_spotlight.dart';
+import 'background_surfaces.dart';
 import 'headless_hermes.dart';
 
 /// The whole run, which iOS allows about 30 seconds.
@@ -515,6 +516,8 @@ List<BackgroundStep> _defaultSteps() {
     requests,
     snapshot,
     SpotlightRefreshStep(snapshot),
+    BadgeRefreshStep(snapshot),
+    ShortcutsRefreshStep(snapshot),
     RunningRepliesStep(),
     ScheduleAlertsStep(),
   ];

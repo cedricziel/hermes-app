@@ -71,7 +71,7 @@ The steps run inside the `HeadlessDone` branch of `background-refresh`'s run. Fo
 - The schedule baseline is cleared when the cron routes go away as well as when the setting is switched on, as the in-memory baseline was. `ScheduleWatcher` reads it at every look instead of keeping a copy, because a background run may have moved it.
 - A reply that ends in front while the list is written is taken off it, so the run does not announce it a second time (the per-chat notification id would replace the first, but the second would alert again).
 - Spotlight is refreshed in the same run (follow-up of `background-refresh`): `SpotlightRefreshStep` waits for the snapshot step and lets `ChatSpotlightIndexer` apply the stored snapshot, with App Lock given as a callback. The Runner's `Spotlight.installIndexing` adds the index calls to a background engine without the tap handling.
-- `refreshShortcuts` (#617) and the badge (#615) are not part of this change: neither has merged.
+- Once #617 and #615 merged, two more steps follow the snapshot step. `BadgeRefreshStep` starts a `BadgeController` on the run's store, which reads the stored snapshot, sets the badge and ends. `ShortcutsRefreshStep` listens to the store's writes (which only announce a change of content) from the start of the run and calls `refreshShortcuts` once the snapshot is written, if one came. Both skip a dropped snapshot, since the newer writer does the same. `BackgroundPlugins` registers `app_badge_plus` and `NotificationActions.registerPlugins` installs the `hermes_app/intents` channel.
 
 ## Risks / Trade-offs
 

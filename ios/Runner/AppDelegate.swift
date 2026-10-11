@@ -110,6 +110,9 @@ final class NotificationActions: NSObject, UNUserNotificationCenterDelegate {
     if let registrar = registry.registrar(forPlugin: "HermesSpotlightIndexing") {
       Spotlight.shared.installIndexing(messenger: registrar.messenger())
     }
+    if let registrar = registry.registrar(forPlugin: "HermesIntentsChannel") {
+      IntentsChannel.install(messenger: registrar.messenger())
+    }
   }
 
   func userNotificationCenter(
