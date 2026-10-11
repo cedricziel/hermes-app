@@ -28,7 +28,9 @@ import 'src/macos/dock/dock_menu_bridge.dart';
 import 'src/macos/dock/dock_menu_controller.dart';
 import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
+import 'src/intents/ask_hermes.dart';
 import 'src/intents/intent_shortcuts.dart';
+import 'src/intents/intents_channel.dart';
 import 'src/live_activities/live_activities.dart';
 import 'src/notifications/attention_notifier.dart' show appLockHidesRequests;
 import 'src/notifications/badge_controller.dart';
@@ -354,6 +356,26 @@ Future<void> main([List<String> args = const []]) async {
             platform: defaultTargetPlatform,
           )?..start(),
           dispose: (_, shortcuts) => shortcuts?.dispose(),
+        ),
+        // "Ask Hermes" from Siri and Shortcuts, when the app's own engine is
+        // the one that is up.
+        Provider<IntentsChannel?>(
+          lazy: false,
+          create: (context) {
+            if (defaultTargetPlatform != TargetPlatform.iOS) return null;
+            final channel = IntentsChannel(
+              AskHermes(
+                engine: AskEngine.foreground,
+                notifications: context.read<NotificationService>(),
+                settings: context.read<NotificationSettings>(),
+                events: telemetry.events(),
+                breadcrumbs: context.read<Breadcrumbs>(),
+              ),
+            );
+            unawaited(channel.start());
+            return channel;
+          },
+          dispose: (_, channel) => channel?.dispose(),
         ),
         // Recent chats in Spotlight, only when the user turned that on.
         Provider<ChatSpotlightIndexer?>(

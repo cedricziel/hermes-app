@@ -8,7 +8,11 @@ import 'dart:ui' show DartPluginRegistrant;
 import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 import 'package:workmanager/workmanager.dart';
 
+import '../intents/ask_hermes.dart';
+import '../intents/intents_channel.dart';
 import '../intents/request_intents.dart';
+import '../notifications/local_notification_service.dart';
+import '../notifications/notification_settings.dart';
 import '../telemetry/telemetry.dart';
 import '../telemetry/telemetry_config.dart';
 import 'background_refresh.dart';
@@ -118,3 +122,23 @@ Future<void> _refresh(Duration timeout, Duration closeGrace) =>
         headless: HeadlessDeps(closeGrace: closeGrace),
       ),
     );
+
+IntentsChannel? _intents;
+
+/// What the Runner starts in a background engine when "Ask Hermes" runs and
+/// the app's own engine is not up: the engine answers `ask` calls until the
+/// Runner shuts it down.
+@pragma('vm:entry-point')
+Future<void> intentsMain() async {
+  await prepareBackgroundIsolate();
+  final channel = _intents ??= IntentsChannel(
+    AskHermes(
+      engine: AskEngine.headless,
+      notifications: LocalNotificationService(background: true),
+      settings: NotificationSettings(),
+      events: backgroundTelemetry(const {}).events,
+      flush: flushBackgroundTelemetry,
+    ),
+  );
+  await channel.start();
+}
