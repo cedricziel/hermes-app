@@ -509,4 +509,62 @@ void main() {
       expect(await prefs.getBool(_flagKey), isTrue);
     });
   });
+
+  group('for one background run, with no App Lock controller', () {
+    ChatSpotlightIndexer once({required bool locked}) => ChatSpotlightIndexer(
+      index: index,
+      settings: settings,
+      store: store,
+      locked: () => locked,
+      prefs: prefs,
+    );
+
+    test('has indexed the stored chats when it settles', () async {
+      await storage.save(snapshot([chat('a', 'Trip plan')]).encode());
+      await settings.setEnabled(true);
+      final run = once(locked: false);
+      addTearDown(run.dispose);
+
+      await run.start();
+      await run.settled();
+
+      expect(index.calls, ['replace chat']);
+      expect(index.items['chat']!.single.title, 'Trip plan');
+    });
+
+    test('indexes nothing while locked, and clears what it holds', () async {
+      await storage.save(snapshot([chat('a', 'Trip plan')]).encode());
+      await settings.setEnabled(true);
+      await prefs.setBool(_flagKey, true);
+      final run = once(locked: true);
+      addTearDown(run.dispose);
+
+      await run.start();
+      await run.settled();
+
+      expect(index.calls, ['deleteAll']);
+    });
+
+    test('leaves a device that is locked alone', () async {
+      await storage.save(snapshot([chat('a', 'Trip plan')]).encode());
+      await settings.setEnabled(true);
+      index.available = false;
+      final run = once(locked: false);
+      addTearDown(run.dispose);
+
+      await run.start();
+      await run.settled();
+
+      expect(index.calls, isEmpty);
+    });
+
+    test('settles at once when nothing changed', () async {
+      final run = once(locked: false);
+      addTearDown(run.dispose);
+
+      await run.settled();
+
+      expect(index.calls, isEmpty);
+    });
+  });
 }

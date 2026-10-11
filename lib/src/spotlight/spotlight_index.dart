@@ -47,10 +47,14 @@ class SpotlightItem {
 /// caller's next change.
 abstract interface class SpotlightIndex {
   /// The index of this platform: Spotlight on iOS, nothing elsewhere.
+  ///
+  /// With [indexOnly] it only puts items in the index, as a background engine
+  /// does: it takes no tap and hears no unlock from the Runner.
   factory SpotlightIndex.forPlatform({
     AppEventLogger events = noopAppEventLogger,
+    bool indexOnly = false,
   }) => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
-      ? ChannelSpotlightIndex(events: events)
+      ? ChannelSpotlightIndex(events: events, indexOnly: indexOnly)
       : const NoSpotlightIndex();
 
   /// Makes [items] the whole of [domain]: whatever else it held is removed.
@@ -125,7 +129,11 @@ class NoSpotlightIndex implements SpotlightIndex {
 /// [SpotlightIndex] over the Runner's `hermes_app/spotlight` channel
 /// (`Spotlight.swift`).
 class ChannelSpotlightIndex implements SpotlightIndex {
-  ChannelSpotlightIndex({this.events = noopAppEventLogger}) {
+  ChannelSpotlightIndex({
+    this.events = noopAppEventLogger,
+    bool indexOnly = false,
+  }) {
+    if (indexOnly) return;
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'opened':

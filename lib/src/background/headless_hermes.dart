@@ -223,6 +223,10 @@ class HeadlessHermes {
   /// Tells this account on this server from any other (`accountKeyFor`).
   String get accountKey => _connection.accountKey;
 
+  /// The store [refreshSnapshot] writes to, for what reacts to its writes.
+  SurfaceSnapshotStore get snapshotStore =>
+      _run.snapshotStore(_connection.repositories);
+
   /// Reads every profile's chats, Kanban and schedules, builds the snapshot
   /// and stores it for the widgets. With [pending] those are the open
   /// requests of every profile and replace the stored ones; without it the
@@ -359,13 +363,18 @@ class _Run {
     return transport;
   }
 
+  SurfaceSnapshotStore? _store;
+
+  SurfaceSnapshotStore snapshotStore(HermesRepositories repositories) =>
+      _store ??=
+          _deps.snapshotStore ??
+          SurfaceSnapshotStore(events: repositories.telemetry.events);
+
   Future<SurfaceSnapshot?> refreshSnapshot(
     HermesRepositories repositories,
     List<PendingRequest>? pending,
   ) async {
-    final store =
-        _deps.snapshotStore ??
-        SurfaceSnapshotStore(events: repositories.telemetry.events);
+    final store = snapshotStore(repositories);
     final previous = await store.read();
     final built = await SurfaceSnapshotBuilder(repositories).build(
       signedIn: true,

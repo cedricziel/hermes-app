@@ -33,6 +33,7 @@ class ChatSpotlightIndexer {
     required this.settings,
     required this.store,
     this.appLock,
+    this.locked,
     Stream<void>? signedOut,
     SharedPreferencesAsync? prefs,
     this.events = noopAppEventLogger,
@@ -56,6 +57,10 @@ class ChatSpotlightIndexer {
   final SpotlightSettings settings;
   final SurfaceSnapshotStore store;
   final AppLockController? appLock;
+
+  /// Whether App Lock is on, for an isolate that has no [appLock] controller
+  /// and only looks once, such as a background run.
+  final bool Function()? locked;
   final AppEventLogger events;
   final SharedPreferencesAsync _prefs;
 
@@ -77,6 +82,7 @@ class ChatSpotlightIndexer {
   var _disposed = false;
   var _running = false;
   var _again = false;
+  Future<void>? _draining;
 
   /// Reads what the last run left behind, then starts following changes.
   Future<void> start() async {
@@ -95,7 +101,7 @@ class ChatSpotlightIndexer {
   List<SpotlightItem>? _wanted() {
     final snapshot = _latest;
     if (!settings.enabled ||
-        (appLock?.enabled ?? false) ||
+        (appLock?.enabled ?? locked?.call() ?? false) ||
         snapshot == null ||
         !snapshot.signedIn) {
       return null;
@@ -120,8 +126,11 @@ class ChatSpotlightIndexer {
       _again = true;
       return;
     }
-    unawaited(_drain());
+    _draining = _drain();
   }
+
+  /// Completes when the changes seen so far are in the index.
+  Future<void> settled() => _draining ?? Future.value();
 
   Future<void> _drain() async {
     _running = true;
