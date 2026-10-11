@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/background/running_replies.dart';
@@ -289,6 +291,37 @@ void main() {
       expect(await running.read(), isEmpty);
     });
 
+    test('keeps the list of a pause that comes while the return is still '
+        'asking the server', () async {
+      final held = _HeldStatuses();
+      final slow = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        transport: held,
+        attention: attention,
+        runningReplies: running,
+        report: (_) {},
+      );
+      addTearDown(slow.dispose);
+      await slow.loadThreads('work');
+      slow.select('s1');
+      await pumpEventQueue();
+      slow.submit('Any news?', const []);
+      await pumpEventQueue();
+      await slow.loadThreads('home');
+      slow.rememberRunningReplies();
+      await pumpEventQueue();
+      held.gate = Completer<void>();
+
+      slow.forgetRunningReplies();
+      await pumpEventQueue();
+      slow.rememberRunningReplies();
+      await pumpEventQueue();
+      held.gate!.complete();
+      await pumpEventQueue();
+
+      expect((await running.read()).map((r) => r.threadId), ['s1']);
+    });
+
     test('drops a carried reply whose session no longer runs', () async {
       await replyIn('s1');
       await chat.loadThreads('home');
@@ -535,4 +568,15 @@ void main() {
       );
     });
   });
+}
+
+/// A transport whose answer about live sessions can be held back.
+class _HeldStatuses extends FakeChatTransport {
+  Completer<void>? gate;
+
+  @override
+  Future<Map<String, String>> activeStatuses({String? profile}) async {
+    await gate?.future;
+    return {};
+  }
 }

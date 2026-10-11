@@ -144,6 +144,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// reply that ends meanwhile is taken off it.
   var _replyListWritten = false;
 
+  /// Counts the pauses, so that a return that is still asking the server does
+  /// not wipe the list a later pause wrote.
+  var _pauses = 0;
+
   /// The replies of chats that left the screen (another profile was opened, or
   /// this one loaded again) and have not ended: the threads on screen no longer
   /// show them, but the list for a background run must.
@@ -2161,6 +2165,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final store = runningReplies;
     if (store == null) return;
     final now = _clock();
+    _pauses++;
     _replayEnds?.cancel();
     _carried.removeWhere((key) => _expired(key, now));
     final running = {
@@ -2205,10 +2210,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _replayEnds?.cancel();
       _replayEnds = Timer(replayGrace, () => unawaited(store.clearAnnounced()));
     }
-    unawaited(_resumeRunningReplies(store, written));
+    unawaited(_resumeRunningReplies(store, written, _pauses));
   }
 
-  Future<void> _resumeRunningReplies(RunningReplies store, bool written) async {
+  Future<void> _resumeRunningReplies(
+    RunningReplies store,
+    bool written,
+    int pauses,
+  ) async {
     if (written && _carried.isNotEmpty) {
       final left = {
         for (final reply in await store.read()) (reply.profile, reply.threadId),
@@ -2216,7 +2225,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _carried.retainAll(left);
       await _dropEnded();
     }
-    await store.clear();
+    if (pauses == _pauses) await store.clear();
   }
 
   /// Takes off [_carried] the replies whose session reports a turn that has
