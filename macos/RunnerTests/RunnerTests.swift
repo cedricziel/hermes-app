@@ -4,6 +4,12 @@ import XCTest
 @testable import Hermes
 
 class RunnerTests: XCTestCase {
+  func testActivationWithoutMainWindowDoesNotCallMissingSuperclassCallback() {
+    AppDelegate().applicationDidBecomeActive(
+      Notification(name: NSApplication.didBecomeActiveNotification)
+    )
+  }
+
   func testHandoffReceivesBeforeFlutterAndKeepsLatestActivity() {
     let handoff = ChatHandoff()
     let first = NSUserActivity(activityType: ChatHandoff.activityType)
