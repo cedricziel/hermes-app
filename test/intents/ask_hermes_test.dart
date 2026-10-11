@@ -302,6 +302,8 @@ void main() {
       expect(finished, isFalse);
       expect(transport.closed, isFalse);
 
+      transport.promptAccepted = true;
+
       send
         ..emit(const ThreadBound('new-1'))
         ..emit(const ReplyCompleted('Done thinking.'));
@@ -318,6 +320,8 @@ void main() {
       final send = await sent();
       await run.answer;
 
+      transport.promptAccepted = true;
+
       send
         ..emit(const ThreadBound('new-1'))
         ..emit(const ReplyCompleted('boom', failed: true));
@@ -331,6 +335,8 @@ void main() {
       final send = await sent();
       await run.answer;
 
+      transport.promptAccepted = true;
+
       send
         ..emit(const ThreadBound('new-1'))
         ..emit(_approval);
@@ -343,17 +349,19 @@ void main() {
     test('stops announcing once iOS has ended the time', () async {
       final run = ask('Think hard', within: const Duration(milliseconds: 20));
       final send = await sent();
+      transport.promptAccepted = true;
       send.emit(const ThreadBound('new-1'));
       await run.answer;
 
       run.expire();
       await run.finished;
-      // Closing the socket ends the turn, which the handler would announce
-      // as a failed reply.
-      send.finish();
+      // The reply still arrives on the socket the handler listens to; iOS has
+      // taken the time, so it is not announced from here.
+      send.emit(const ReplyCompleted('Done thinking.'));
       await pumpEventQueue();
 
       expect(notifications.shown, isEmpty);
+      expect(await running.read(), hasLength(1));
     });
   });
 
@@ -370,6 +378,7 @@ void main() {
       );
       final send = await sent();
       await run.answer;
+      transport.promptAccepted = true;
       send.emit(const ThreadBound('new-1'));
       await pumpEventQueue();
 
@@ -383,6 +392,7 @@ void main() {
         within: const Duration(milliseconds: 800),
       );
       final send = await sent();
+      transport.promptAccepted = true;
       send.emit(const ThreadBound('new-1'));
       await pumpEventQueue();
       expect(await remembered(), isEmpty);
@@ -393,19 +403,30 @@ void main() {
       expect(await remembered(), [('work', 'new-1', true)]);
     });
 
-    test('remembers a continued chat in its own profile at once', () async {
-      final run = ask(
-        'Go on',
-        profile: 'default',
-        chatId: 'work/abc',
-        within: const Duration(milliseconds: 20),
-      );
-      await sent();
-      await run.answer;
-      await pumpEventQueue();
+    test(
+      'remembers a continued chat in its own profile once accepted',
+      () async {
+        final run = ask(
+          'Go on',
+          profile: 'default',
+          chatId: 'work/abc',
+          within: const Duration(milliseconds: 20),
+        );
+        await sent();
+        await run.answer;
+        await pumpEventQueue();
+        // The earlier reply of that chat must not be announced for a question
+        // Hermes has not got yet.
+        expect(await remembered(), isEmpty);
 
-      expect(await remembered(), [('work', 'abc', true)]);
-    });
+        transport.promptAccepted = true;
+        for (var i = 0; i < 100 && (await remembered()).isEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+
+        expect(await remembered(), [('work', 'abc', true)]);
+      },
+    );
 
     test('remembers nothing for a reply given in place', () async {
       final run = ask('Hello');
@@ -422,6 +443,7 @@ void main() {
       final run = ask('Think hard', within: const Duration(milliseconds: 20));
       final send = await sent();
       await run.answer;
+      transport.promptAccepted = true;
       send
         ..emit(const ThreadBound('new-1'))
         ..emit(const ReplyCompleted('Done.'));
@@ -435,6 +457,7 @@ void main() {
     test('keeps it when iOS ends the time', () async {
       final run = ask('Think hard', within: const Duration(milliseconds: 20));
       final send = await sent();
+      transport.promptAccepted = true;
       send.emit(const ThreadBound('new-1'));
       await run.answer;
 
@@ -450,6 +473,7 @@ void main() {
       () async {
         final run = ask('Think hard', within: const Duration(milliseconds: 20));
         final send = await sent();
+        transport.promptAccepted = true;
         send.emit(const ThreadBound('new-1'));
         await run.answer;
 
@@ -516,16 +540,58 @@ void main() {
       expect(notifications.shown, isEmpty);
     });
 
-    test('is not told once the question reached Hermes', () async {
+    test('is not told once Hermes accepted the question', () async {
       final run = ask('Hello', within: const Duration(milliseconds: 20));
       final send = await sent();
       send.emit(const ThreadBound('new-1'));
       await run.answer;
+      // prompt.submit was answered, then the socket died before any frame.
+      transport.promptAccepted = true;
 
       send.finish();
       await run.finished;
+      await pumpEventQueue();
 
       expect(notifications.shown, isEmpty);
+      expect(await running.read(), hasLength(1));
+    });
+
+    test(
+      'is told when the chat was made but the prompt not accepted',
+      () async {
+        final run = ask('Hello', within: const Duration(milliseconds: 20));
+        final send = await sent();
+        send.emit(const ThreadBound('new-1'));
+        await run.answer;
+
+        send.finish();
+        await run.finished;
+
+        expect(notifications.shown.single.body, kAskNotSentBody);
+        expect(await running.read(), isEmpty);
+      },
+    );
+
+    test('carries at most 4000 characters of the question', () async {
+      final run = ask('é' * 5000, within: Duration.zero);
+      await sent();
+      await run.answer;
+      (transport.sends.single).finish();
+      await run.finished;
+
+      expect(notifications.shown.single.prompt, 'é' * 4000);
+    });
+
+    test('carries none of it once App Lock is on', () async {
+      final run = ask('Hello', within: Duration.zero);
+      await sent();
+      await run.answer;
+      appLockOn = true;
+      transport.sends.single.finish();
+      await run.finished;
+
+      expect(notifications.shown.single.body, kAskNotSentBody);
+      expect(notifications.shown.single.prompt, isNull);
     });
   });
 

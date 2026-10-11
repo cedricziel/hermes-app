@@ -252,7 +252,7 @@ void main() {
     test(
       'announces the reply of an ask that ran out of time before it ended',
       () async {
-        final transport = FakeChatTransport();
+        final transport = FakeChatTransport()..promptAccepted = true;
         final ask = AskHermes(
           engine: AskEngine.headless,
           notifications: notifications,
@@ -290,6 +290,46 @@ void main() {
         expect(await running.read(), isEmpty);
       },
     );
+
+    test('announces the reply of an ask although the app opened and left meanwhile', () async {
+      final transport = FakeChatTransport()..promptAccepted = true;
+      final ask = AskHermes(
+        engine: AskEngine.headless,
+        notifications: notifications,
+        running: running,
+        appLockOn: () async => false,
+        transportFor: (_) => transport,
+        deps: headless(),
+      );
+      final run = ask.start(
+        const AskRequest(
+          question: 'Plan my trip',
+          profile: 'work',
+          answerWithin: Duration.zero,
+        ),
+      );
+      for (var i = 0; i < 200 && transport.sends.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      transport.sends.single.emit(const ThreadBound('c1'));
+      await run.answer;
+      run.expire();
+      await run.finished;
+
+      // The app comes to the front and leaves again without ever showing
+      // that chat: what the chat screen does on a return and on a pause.
+      await running.clear();
+      await running.replace(const []);
+
+      idle('c1');
+      stored('c1');
+      await refresh(() => [RunningRepliesStep(running: running)]);
+
+      expect(
+        notifications.shown.single.body,
+        'Booked the flights. Hotel is next.',
+      );
+    });
 
     test('names the notification as the app in front does', () async {
       await running.replace([left('c1')]);

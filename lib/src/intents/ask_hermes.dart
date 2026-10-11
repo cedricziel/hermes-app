@@ -6,6 +6,7 @@ library;
 
 import 'dart:async';
 
+import 'package:characters/characters.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, Tracer, noopAppEventLogger;
 
@@ -13,6 +14,7 @@ import '../app_lock/app_lock_controller.dart';
 import '../background/headless_hermes.dart';
 import '../background/running_replies.dart';
 import '../chat/chat_transport.dart';
+import '../deep_links/deep_link_parser.dart' show deepLinkPromptLimit;
 import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -205,13 +207,21 @@ class _Ask {
   /// a notification.
   var _stillWorkingAnswered = false;
 
-  /// What the turn did, as its events went by.
-  var _sent = false;
+  /// What the turn did, as its events went by. A frame of the reply means
+  /// Hermes has the question; so does the transport saying that
+  /// `prompt.submit` was answered, which comes before any frame.
+  var _frameSeen = false;
+  PromptAcknowledgement? _acknowledgement;
+  Timer? _watching;
   var _completed = false;
   var _folded = false;
   var _registered = false;
 
   bool get _foreground => _owner.engine == AskEngine.foreground;
+
+  /// Whether Hermes has the question.
+  bool get _reached =>
+      _frameSeen || (_acknowledgement?.promptAccepted ?? false);
 
   void abandon() {
     _muted = true;
@@ -226,7 +236,18 @@ class _Ask {
     _stillWorkingAnswered = result.outcome == AskOutcome.stillWorking;
     answered.complete(result);
     _record(result.outcome);
-    if (_stillWorkingAnswered) _handOver();
+    if (_stillWorkingAnswered) _watchForHandOver();
+  }
+
+  /// Hands the reply over as soon as Hermes has the question, which a
+  /// transport can know without a single frame having come.
+  void _watchForHandOver() {
+    _handOver();
+    if (_registered) return;
+    _watching ??= Timer.periodic(
+      const Duration(milliseconds: 250),
+      (_) => _handOver(),
+    );
   }
 
   void _record(AskOutcome outcome) {
@@ -303,11 +324,15 @@ class _Ask {
         case HeadlessUnreachable():
           _answer(const AskResult(AskOutcome.unreachable));
       }
-      if (_stillWorkingAnswered && !_sent) await _tellNotSent();
+      if (_stillWorkingAnswered) {
+        _handOver();
+        if (!_reached) await _tellNotSent();
+      }
     } on Object {
       _answer(const AskResult(AskOutcome.failed));
     } finally {
       _timer.cancel();
+      _watching?.cancel();
       await _flush();
     }
   }
@@ -332,10 +357,13 @@ class _Ask {
     final post = _poster();
     final handler = WatchRequestHandler(
       repository: () => hermes.repositories.chat,
-      transport: () => TappedTransport(
-        _owner.transportFor?.call(hermes) ?? hermes.transport(),
-        _seen,
-      ),
+      transport: () {
+        final inner = _owner.transportFor?.call(hermes) ?? hermes.transport();
+        if (inner is PromptAcknowledgement) {
+          _acknowledgement = inner as PromptAcknowledgement;
+        }
+        return TappedTransport(inner, _seen);
+      },
       activeProfile: () async => _request.profile,
       announce: (notification) async {
         if (_muted) return false;
@@ -366,19 +394,22 @@ class _Ask {
 
   /// Notes what a turn's event says about how the ask is going.
   void _seen(ChatEvent event) {
-    _sent = true;
     switch (event) {
       case ThreadBound(:final threadId):
+        // The chat exists; the question may not have gone into it yet.
         _threadId = threadId;
-        if (_stillWorkingAnswered) _handOver();
       case PromptFolded():
+        _frameSeen = true;
         _folded = true;
       case ReplyCompleted():
+        _frameSeen = true;
         _completed = true;
         // Announced by this process, so there is nothing left to hand over.
         if (_registered && !_muted) _forget();
       default:
+        _frameSeen = true;
     }
+    if (_stillWorkingAnswered) _handOver();
   }
 
   AskResult _resultOf(Map<String, Object?> reply) {
@@ -398,8 +429,17 @@ class _Ask {
   void _handOver() {
     final running = _owner.running;
     final thread = _threadId;
-    if (_registered || running == null || thread == null) return;
+    // A chat whose question never went in must not be announced for its
+    // earlier reply.
+    if (_registered ||
+        _completed ||
+        running == null ||
+        thread == null ||
+        !_reached) {
+      return;
+    }
     _registered = true;
+    _watching?.cancel();
     unawaited(
       _quietly(
         () => running.add(
@@ -433,22 +473,26 @@ class _Ask {
 
   /// Tells the person that the question they were promised an answer to never
   /// reached Hermes. The notification opens a new chat with it, unsent.
-  Future<void> _tellNotSent() => _quietly(
-    () => _poster()(
+  Future<void> _tellNotSent() => _quietly(() async {
+    // With App Lock on, nothing of the question stays in the notification.
+    final keep = !await _appLocked();
+    await _poster()(
       AttentionNotification(
         threadId: 'ask:${DateTime.now().microsecondsSinceEpoch}',
         title: WatchRequestHandler.untitledChat,
         body: kAskNotSentBody,
         profile: _profile,
-        prompt: _request.question,
+        prompt: keep
+            ? _request.question.characters.take(deepLinkPromptLimit).toString()
+            : null,
       ),
-    ),
-  );
+    );
+  });
 
   Future<bool> Function(AttentionNotification) _poster() =>
       WatchBridge.announcer(_owner.notifications, _owner.settings);
 
-  static Future<void> _quietly(Future<Object?> Function() work) async {
+  static Future<void> _quietly(Future<void> Function() work) async {
     try {
       await work();
     } on Object {
