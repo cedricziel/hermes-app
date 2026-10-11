@@ -77,6 +77,8 @@ void main() {
       expect(fixture.creates, hasLength(1));
       expect(fixture.creates.single['mirror_credentials'], true);
       expect(fixture.creates.single['clone_channels'], false);
+      expect(fixture.creates.single['soul'], advanced ? 'Check claims.' : null);
+      if (!advanced) expect(fixture.creates.single.containsKey('soul'), false);
       expect(fixture.creates.single['model'], advanced ? 'test-model' : null);
       expect(
         fixture.creates.single['provider'],

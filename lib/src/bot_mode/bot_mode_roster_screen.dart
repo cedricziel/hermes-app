@@ -146,7 +146,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                             final created = await widget.repository.create(
                               name: profile,
                               description: description.text,
-                              soul: soul.text,
+                              soul: soul.text.trim().isEmpty ? null : soul.text,
                               model: chosen?.modelId,
                               provider: chosen?.providerId,
                               mirrorCredentials: mirror,
