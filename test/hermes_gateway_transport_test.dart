@@ -994,6 +994,33 @@ void main() {
     await expectLater(gateway.closedByClient, completes);
   });
 
+  test(
+    'a reply running when the transport closes does not reconnect',
+    () async {
+      var opened = 0;
+      final closing = HermesGatewayTransport(
+        connect: () async {
+          opened++;
+          return gateway.channel;
+        },
+        sleep: (_) async {},
+      );
+      addTearDown(closing.close);
+      final ended = Completer<void>();
+      closing
+          .send(text: 'hi')
+          .listen((_) {}, onError: (_) {}, onDone: ended.complete);
+      while (!gateway.methods.contains('prompt.submit')) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      await closing.close();
+      await ended.future.timeout(const Duration(seconds: 5));
+
+      expect(opened, 1);
+    },
+  );
+
   group('agent input requests', () {
     const approvalPayload = {
       'request_id': 'r1',

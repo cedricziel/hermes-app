@@ -2667,6 +2667,7 @@ class HermesGatewayTransport implements ChatTransport {
 
   @override
   Future<void> close() async {
+    _closed = true;
     final open = _open;
     _open = null;
     final idle = _idle.values.toList();
@@ -2680,7 +2681,12 @@ class HermesGatewayTransport implements ChatTransport {
     unawaited(open?.close());
   }
 
+  /// Set by [close]. A reply still running then would otherwise reconnect on
+  /// the socket that close just ended, and leave the new one open.
+  var _closed = false;
+
   Future<GatewayRpcClient> _client() async {
+    if (_closed) throw const GatewayConnectionClosed();
     final open = _connected();
     if (open != null && open.isStale && !await _alive(open)) {
       // Nothing was pinging it, so a socket the OS dropped meanwhile would
