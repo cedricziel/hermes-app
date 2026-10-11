@@ -102,11 +102,7 @@ class RequestIntents {
             if (profile == null || request.profile == profile) request,
         ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
         return {
-          'outcome':
-              (rows.isEmpty
-                      ? RequestIntentOutcome.none
-                      : RequestIntentOutcome.answered)
-                  .wire,
+          'outcome': _listed(rows).wire,
           'count': rows.length,
           'appLock': lockOn,
           'requests': [
@@ -149,14 +145,17 @@ class RequestIntents {
       // `found` reports it.
     }
     final found = await step.found;
-    if (found == null) throw const _Unreadable();
+    if (found == null) throw StateError('The open requests were not read');
     final rows = await _refreshed(hermes, found);
     hermes
       ..annotate('engine', engine)
-      ..annotate('result', rows.isEmpty ? 'none' : 'answered')
+      ..annotate('result', _listed(rows).wire)
       ..annotate('requests', rows.length);
     return rows;
   }
+
+  static RequestIntentOutcome _listed(List<PendingRequest> rows) =>
+      rows.isEmpty ? RequestIntentOutcome.none : RequestIntentOutcome.answered;
 
   /// Stores [found] as the snapshot's requests, so the widgets and the badge
   /// agree with what the intent says, and returns the stored rows (which
@@ -375,10 +374,6 @@ class RequestIntents {
 
   static String? _text(Object? value) =>
       value is String && value.isNotEmpty ? value : null;
-}
-
-class _Unreadable implements Exception {
-  const _Unreadable();
 }
 
 /// The step that lists the open requests needs a notification service even

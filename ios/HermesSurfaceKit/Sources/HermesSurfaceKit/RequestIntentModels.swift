@@ -205,10 +205,8 @@ enum RequestSpeech {
     _ rows: [PendingRow], count: Int, asOf: Date? = nil, locale: Locale = .current,
     timeZone: TimeZone = .current
   ) -> String {
-    let prefix = asOf.map { "As of \(time($0, locale: locale, timeZone: timeZone)), " } ?? ""
-    guard count > 0 else {
-      return asOf == nil ? nothingWaiting : prefix + "nothing is waiting for you."
-    }
+    let prefix = asOfPrefix(asOf, locale: locale, timeZone: timeZone)
+    guard count > 0 else { return nothing(prefix) }
     let header = count == 1 ? "1 request:" : "\(count) requests:"
     var parts = rows.prefix(listLimit).map { "\(name($0)) \(kindPhrase($0.kind))." }
     if count > listLimit { parts.append("and \(count - listLimit) more.") }
@@ -219,15 +217,21 @@ enum RequestSpeech {
   static func countOnly(_ count: Int, asOf: Date? = nil, locale: Locale = .current, timeZone: TimeZone = .current)
     -> String
   {
-    let prefix = asOf.map { "As of \(time($0, locale: locale, timeZone: timeZone)), " } ?? ""
-    guard count > 0 else {
-      return asOf == nil ? nothingWaiting : prefix + "nothing is waiting for you."
-    }
+    let prefix = asOfPrefix(asOf, locale: locale, timeZone: timeZone)
+    guard count > 0 else { return nothing(prefix) }
     let body =
       count == 1
       ? "1 request is waiting. Open Hermes to see it."
       : "\(count) requests are waiting. Open Hermes to see them."
     return asOf == nil ? body : prefix + body.prefix(1).lowercased() + body.dropFirst()
+  }
+
+  private static func asOfPrefix(_ asOf: Date?, locale: Locale, timeZone: TimeZone) -> String {
+    asOf.map { "As of \(time($0, locale: locale, timeZone: timeZone)), " } ?? ""
+  }
+
+  private static func nothing(_ prefix: String) -> String {
+    prefix.isEmpty ? nothingWaiting : prefix + "nothing is waiting for you."
   }
 
   private static func name(_ row: PendingRow) -> String {
