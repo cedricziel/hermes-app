@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
+import '../widgets/grouped_list.dart';
+import 'widgets/mcp_credential_fields.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
 import 'mcp_catalog_controller.dart';
@@ -115,38 +117,25 @@ class _McpInstallPanelState extends State<McpInstallPanel> {
             _RunBlock(entry: entry),
             if (entry.requiredEnv.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const _Label('CREDENTIALS'),
-              for (final credential in entry.requiredEnv)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: TextField(
-                    controller: _fields[credential.name],
-                    obscureText: true,
-                    enableSuggestions: false,
-                    autocorrect: false,
-                    decoration: InputDecoration(
-                      labelText: credential.name,
-                      helperText: credential.required
-                          ? credential.prompt
-                          : '${credential.prompt} (optional)',
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 4),
-              Text(
-                'Saved on your Hermes server. It is never shown again.',
-                style: theme.textTheme.bodySmall,
+              McpCredentialFields(
+                credentials: entry.requiredEnv,
+                controllers: _fields,
+                busy: _install.busy,
               ),
             ],
-            const SizedBox(height: 8),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Turn on after installing'),
-              value: _enable,
-              onChanged: _install.busy
-                  ? null
-                  : (on) => setState(() => _enable = on),
+            GroupedSection(
+              children: [
+                GroupedSwitchRow(
+                  title: 'Turn on after installing',
+                  value: _enable,
+                  onChanged: _install.busy
+                      ? null
+                      : (on) => setState(() => _enable = on),
+                  onTap: _install.busy
+                      ? null
+                      : () => setState(() => _enable = !_enable),
+                ),
+              ],
             ),
             _Outcome(state: state),
             const SizedBox(height: 8),
@@ -167,18 +156,6 @@ class _McpInstallPanelState extends State<McpInstallPanel> {
       },
     );
   }
-}
-
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 0.6),
-  );
 }
 
 /// The "What Hermes will run" block: everything the catalog's trust model

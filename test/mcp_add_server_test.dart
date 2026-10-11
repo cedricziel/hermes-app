@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_add_server_screen.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_controller.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -73,10 +74,22 @@ void main() {
   bool addEnabled(WidgetTester tester) =>
       tester.widget<ButtonStyleButton>(addButton).onPressed != null;
 
-  Finder field(String label) => find.widgetWithText(TextField, label);
+  Finder field(String label) => find.byWidgetPredicate((widget) {
+    if (widget is! TextField) return false;
+    if (widget.decoration?.labelText == label) return true;
+    return find
+        .ancestor(
+          of: find.byWidget(widget),
+          matching: find.byWidgetPredicate(
+            (row) => row is GroupedTextFieldRow && row.label == label,
+          ),
+        )
+        .evaluate()
+        .isNotEmpty;
+  });
 
   Finder authChoice(String label) => find.descendant(
-    of: find.byType(SegmentedButton<McpRemoteAuth>),
+    of: find.byType(GroupedSegmentedRow<McpRemoteAuth>),
     matching: find.text(label),
   );
 
