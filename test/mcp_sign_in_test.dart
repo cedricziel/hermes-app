@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
@@ -386,8 +387,8 @@ void main() {
 
       expect(
         tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'Close'))
-            .onPressed,
+            .widget<GroupedRow>(find.widgetWithText(GroupedRow, 'Close'))
+            .onTap,
         isNull,
       );
       await tester.tap(find.byTooltip('Back').last);

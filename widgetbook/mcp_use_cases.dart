@@ -5,6 +5,8 @@ import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_server_row.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_credential_fields.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_server_fields.dart';
+import 'package:hermes_app/src/mcp/widgets/mcp_json_field.dart';
+import 'package:hermes_app/src/mcp/widgets/mcp_sign_in_status.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -85,6 +87,61 @@ Widget _rows(BuildContext context) => GroupedListView(
 WidgetbookNode mcpNode() => WidgetbookFolder(
   name: 'MCP servers',
   children: [
+    WidgetbookComponent(
+      name: 'McpJsonField',
+      useCases: [
+        for (final readOnly in [false, true])
+          ...onEachPlatform(
+            readOnly ? 'Saving' : 'Editing',
+            (_) => frame(_JsonExample(readOnly: readOnly), maxWidth: 600),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'McpSignInStatus',
+      useCases: [
+        for (final state in [
+          'Waiting',
+          'Browser failed',
+          'Address refused',
+          'Expired',
+          'Failed',
+          'Retrying',
+        ])
+          ...onEachPlatform(
+            state,
+            (_) => frame(
+              McpSignInStatus(
+                title:
+                    state == 'Waiting' ||
+                        state == 'Browser failed' ||
+                        state == 'Address refused'
+                    ? 'Waiting for you to approve'
+                    : state == 'Expired'
+                    ? 'The sign-in expired'
+                    : 'Could not sign in',
+                detail: state == 'Expired'
+                    ? 'Hermes dropped it. Start it again to get a new link.'
+                    : 'Approve the sign-in in your browser. It finishes on your Hermes server, so this screen closes by itself.',
+                waiting: [
+                  'Waiting',
+                  'Browser failed',
+                  'Address refused',
+                ].contains(state),
+                starting: state == 'Retrying',
+                addressRefused: state == 'Address refused',
+                address: state == 'Browser failed'
+                    ? 'https://auth.example/authorize?state=example'
+                    : null,
+                onClose: () {},
+                onRetry: () {},
+                onCopyAddress: () {},
+                onOpenBrowser: state == 'Address refused' ? null : () {},
+              ),
+            ),
+          ),
+      ],
+    ),
     WidgetbookComponent(
       name: 'McpServerFields',
       useCases: [
@@ -279,5 +336,29 @@ class _ServerExampleState extends State<_ServerExample> {
     environment: [
       McpEnvironmentField(name: envName, value: envValue, onRemove: () {}),
     ],
+  );
+}
+
+class _JsonExample extends StatefulWidget {
+  const _JsonExample({required this.readOnly});
+  final bool readOnly;
+  @override
+  State<_JsonExample> createState() => _JsonExampleState();
+}
+
+class _JsonExampleState extends State<_JsonExample> {
+  final controller = TextEditingController(
+    text: '{\n  "example": {\n    "url": "https://mcp.example.com/mcp"\n  }\n}',
+  );
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 320,
+    child: McpJsonField(controller: controller, readOnly: widget.readOnly),
   );
 }
