@@ -237,6 +237,83 @@ void main() {
     });
   });
 
+  group('grouping and urgency', () {
+    test('a chat is grouped by profile and thread id together', () {
+      final work = _for(const ReplyCompleted('Done.'), profile: 'work')!;
+      final home = _for(const ReplyCompleted('Done.'), profile: 'home')!;
+      final bare = _for(const ReplyCompleted('Done.'))!;
+
+      expect(work.groupKey, 'chat:work/t1');
+      expect(home.groupKey, isNot(work.groupKey));
+      expect(bare.groupKey, isNot(work.groupKey));
+    });
+
+    test('a profile with a slash cannot pass for another chat', () {
+      const tricky = AttentionNotification(
+        threadId: 'b',
+        profile: 'a/b',
+        title: 't',
+        body: 'x',
+      );
+      const plain = AttentionNotification(
+        threadId: 'b/b',
+        profile: 'a',
+        title: 't',
+        body: 'x',
+      );
+
+      expect(tricky.groupKey, isNot(plain.groupKey));
+    });
+
+    test('a scheduled task is grouped by profile and job id', () {
+      const job = AttentionNotification.job(
+        jobId: 'j1',
+        profile: 'work',
+        title: 'Backup',
+        body: 'Done',
+      );
+
+      expect(job.groupKey, 'job:work/j1');
+    });
+
+    test('every request is time-sensitive, a reply and a task are not', () {
+      for (final event in const <ChatEvent>[
+        ApprovalRequested(_approval),
+        ClarifyRequested(_question),
+        UnsupportedRequested(_unsupported),
+        VaultRequested(VaultRequest(requestId: 'r4', kind: VaultKind.unlock)),
+      ]) {
+        expect(_for(event)!.timeSensitive, isTrue, reason: '$event');
+      }
+      expect(_for(const ReplyCompleted('Done.'))!.timeSensitive, isFalse);
+      expect(
+        _for(const ReplyCompleted('', failed: true))!.timeSensitive,
+        isFalse,
+      );
+      expect(
+        const AttentionNotification.job(
+          jobId: 'j1',
+          title: 'Backup',
+          body: 'Done',
+        ).timeSensitive,
+        isFalse,
+      );
+    });
+
+    test('a request under App Lock stays time-sensitive', () {
+      final n = attentionFor(
+        event: const ApprovalRequested(_approval),
+        thread: _thread(),
+        appFocused: false,
+        selectedThreadId: null,
+        enabled: true,
+        appLock: true,
+      )!;
+
+      expect(n.timeSensitive, isTrue);
+    });
+  });
+
   group('when it is said', () {
     const events = <ChatEvent>[
       ReplyCompleted('Done.'),

@@ -5,6 +5,7 @@
 import FlutterMacOS
 import Foundation
 
+import app_badge_plus
 import app_links
 import connectivity_plus
 import desktop_drop
@@ -27,6 +28,7 @@ import url_launcher_macos
 import workmanager_apple
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
+  AppBadgePlusPlugin.register(with: registry.registrar(forPlugin: "AppBadgePlusPlugin"))
   AppLinksMacosPlugin.register(with: registry.registrar(forPlugin: "AppLinksMacosPlugin"))
   ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
   DesktopDropPlugin.register(with: registry.registrar(forPlugin: "DesktopDropPlugin"))

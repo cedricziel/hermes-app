@@ -20,6 +20,21 @@ SurfaceSnapshot snapshot({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('in memory, keeps the last snapshot and announces each write', () async {
+    final store = SurfaceSnapshotStore(storage: MemorySurfaceStorage());
+    addTearDown(store.dispose);
+    final seen = <SurfaceSnapshot>[];
+    store.writes.listen(seen.add);
+
+    expect(await store.read(), isNull);
+    await store.write(snapshot(profile: 'work'));
+    await store.write(snapshot(profile: 'work'));
+    await pumpEventQueue();
+
+    expect((await store.read())?.profile, 'work');
+    expect(seen, hasLength(1));
+  });
+
   group('on the home_widget channel', () {
     late List<MethodCall> calls;
     late Object? Function(MethodCall call) answer;

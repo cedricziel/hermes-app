@@ -287,6 +287,10 @@ class LocalNotificationService implements NotificationService {
       }
       final darwin = DarwinNotificationDetails(
         categoryIdentifier: category?.id,
+        threadIdentifier: notification.groupKey,
+        interruptionLevel: notification.timeSensitive
+            ? InterruptionLevel.timeSensitive
+            : null,
       );
       await _plugin.show(
         id: notificationIdFor(

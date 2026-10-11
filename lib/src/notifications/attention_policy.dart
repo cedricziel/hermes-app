@@ -26,6 +26,7 @@ class AttentionNotification {
     this.profile,
     this.category,
     this.request,
+    this.needsInput = false,
   }) : jobId = null;
 
   /// A scheduled task's run. It replaces an earlier notification for the same
@@ -37,7 +38,8 @@ class AttentionNotification {
     this.profile,
   }) : threadId = 'job:$jobId',
        category = null,
-       request = null;
+       request = null,
+       needsInput = false;
 
   /// Names the notification: the chat's id, or `job:<id>` for a task, so the
   /// two never replace each other.
@@ -57,6 +59,23 @@ class AttentionNotification {
 
   /// What answering it needs; set together with [category].
   final PendingRequest? request;
+
+  /// The agent waits for something that has no [category]: a secret, or input
+  /// the app cannot ask for.
+  final bool needsInput;
+
+  /// Whether the agent is blocked on the user, which is what may break
+  /// through a Focus.
+  bool get timeSensitive => category != null || needsInput;
+
+  /// What the system stacks this notification with: the chat, or the
+  /// scheduled task, within its profile. The profile is encoded so that no
+  /// profile name can pass for part of an id.
+  String get groupKey {
+    final owner = Uri.encodeComponent(profile ?? '');
+    final job = jobId;
+    return job == null ? 'chat:$owner/$threadId' : 'job:$owner/$job';
+  }
 }
 
 /// The start of [text] on one line, for a notification body.
@@ -120,6 +139,7 @@ AttentionNotification? attentionFor({
     title: thread.title,
     body: body,
     profile: profile,
+    needsInput: event is VaultRequested || event is UnsupportedRequested,
     category: request == null
         ? null
         : requestCategoryFor(request, appLock: appLock),

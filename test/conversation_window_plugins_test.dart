@@ -23,6 +23,8 @@ const _inConversationWindows = {
 /// panel adds them, see below), and the rest is unused in a conversation
 /// window.
 const _mainEngineOnly = {
+  // The Dock badge follows the main engine's snapshot.
+  'AppBadgePlusPlugin',
   // Only the main engine opens hermes:// links; a window has no stream of them.
   'AppLinksMacosPlugin',
   'ConnectivityPlusPlugin',
