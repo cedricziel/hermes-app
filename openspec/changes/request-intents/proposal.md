@@ -11,7 +11,7 @@ When Hermes waits for an approval, the user may be away from the phone's screen:
 - A Pending Request entity for the Request parameter, from the pending list the app shares with the system (`surface-snapshot`).
 - Both take an optional Profile; without it, "Pending Requests" covers every profile and "Answer Approval" offers every profile's approvals.
 - App Shortcut phrases "What does Hermes need", "Hermes requests" and "Pending Hermes requests". "Answer Approval" has no phrase (it needs a request picked) but can be run from Siri by name and from Shortcuts.
-- Both run in the app's process through the bridge and the headless runtime that `ask-hermes-intent` adds.
+- Both run in the app's process: a small bridge in the Runner starts a background Flutter engine, and Dart works through the headless runtime.
 
 Non-goals:
 
@@ -28,9 +28,8 @@ Security and privacy impact:
 
 Observability:
 
-- Span `background.task` with `task` = `intent.pending` or `intent.answer_approval` and `outcome` (`answered`, `none`, `gone`, `cancelled`, `failed`, `signed_out`, `device_locked`, `unreachable`, `unavailable`), plus `engine`. Each crosses into Dart and the gateway.
+- Span `background.task` with `task` = `intent.pending` or `intent.answer_approval`, `engine` and `result` (`answered`, `none`, `gone`, `failed`, `signed_out`, `device_locked`, `unreachable`, `app_locked`). Each crosses into Dart and the gateway.
 - Log event `intent.answer_approval` with `outcome` and `choice` (`once`, `session`, `always`, `deny`): approving from Siri is a security-relevant action worth counting.
-- Breadcrumbs `intent.pending.ended` and `intent.answer_approval.ended` with `outcome`, in the app's own engine only.
 - None carries a command, title, profile name or id.
 
 ## Capabilities
@@ -45,7 +44,7 @@ None.
 
 ## Impact
 
-- Swift (`ios/HermesSurfaceKit`): `PendingRequestEntity`, `ApprovalChoice`, `PendingRequestsIntent`, `AnswerApprovalIntent`; phrases in `HermesAppShortcuts`; two methods on the `IntentsBridge` channel.
+- Swift (`ios/HermesSurfaceKit`): `PendingRequestEntity`, `ApprovalChoice`, `PendingRequestsIntent`, `AnswerApprovalIntent`; phrases in `HermesAppShortcuts`; `RequestIntentsBridge` in the Runner (a background Flutter engine on the `hermes_app/request_intents` channel).
 - Dart: `lib/src/intents/request_intents.dart`; one read-only gateway call on the transport that lists the approvals of one session. Answering goes through #587's `RequestAnswerSender` and `ChatTransport.answerOpenRequest`; no answering method is added.
-- Builds on #587 (on main) (`answerOpenRequest`, `RequestAnswerSender`), `headless-runtime` (`withHeadlessHermes`, `HeadlessOutcome`), `background-refresh` (`refreshSnapshot()`), `surface-snapshot` (`pending` rows), `app-intents` (Profile entity, shortcuts provider) and `ask-hermes-intent` (bridge, channel, entry point).
+- Builds on #587 (on main) (`answerOpenRequest`, `RequestAnswerSender`), `headless-runtime` (`withHeadlessHermes`, `HeadlessOutcome`), `background-refresh` (`OpenRequestsStep`, `refreshSnapshot(pending:)`), `surface-snapshot` (`pending` rows) and `app-intents` (Profile entity, shortcuts provider). It does not wait for `ask-hermes-intent`: it has its own bridge, and the two may be merged once both are on main.
 - Backend: no new routes. Uses `session.active_list` and `approval.pending`, and through #587 `request.answer` (falling back to `approval.respond`).
