@@ -477,7 +477,7 @@ class _Unsolicited {
 
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
-class HermesGatewayTransport implements ChatTransport {
+class HermesGatewayTransport implements ChatTransport, PromptAcknowledgement {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
@@ -489,6 +489,11 @@ class HermesGatewayTransport implements ChatTransport {
     Random? random,
     this._sleep = _delay,
   }) : _random = random ?? Random();
+
+  var _promptAccepted = false;
+
+  @override
+  bool get promptAccepted => _promptAccepted;
 
   /// Jitters the delay before each reconnect attempt. Tests inject a fixed one.
   final Random _random;
@@ -668,6 +673,7 @@ class HermesGatewayTransport implements ChatTransport {
     ModelChoice? model,
     bool queued = false,
   }) {
+    _promptAccepted = false;
     final stopped = CancelFlag();
     final step = _SendStep();
     return CancelAwareStream(
@@ -919,6 +925,7 @@ class HermesGatewayTransport implements ChatTransport {
         rethrow;
       }
       step.name = 'reply';
+      _promptAccepted = true;
       // What the session sent before it answered. A turn of Hermes' own in it
       // ends before the prompt's reply starts.
       final earlier = watch.stopRecording();

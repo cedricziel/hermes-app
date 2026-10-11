@@ -394,6 +394,15 @@ final class QuestionAnswer extends OpenRequestAnswer {
   final bool multiSelect;
 }
 
+/// A transport that can say whether the server accepted the prompt of its
+/// latest [ChatTransport.send], however that send ended afterwards. A sender
+/// that must not ask twice (a question that cannot be repeated) reads it.
+abstract interface class PromptAcknowledgement {
+  /// True once `prompt.submit` was answered for the latest send: the server
+  /// has the question even if the connection died before any frame.
+  bool get promptAccepted;
+}
+
 abstract interface class ChatTransport {
   /// Commands available in the current session or new-chat profile.
   Future<List<SlashCommand>> slashCommands({String? threadId, String? profile});
