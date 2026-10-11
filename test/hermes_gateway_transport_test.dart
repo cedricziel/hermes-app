@@ -994,6 +994,73 @@ void main() {
     await expectLater(gateway.closedByClient, completes);
   });
 
+  test(
+    'a reply running when the transport closes does not reconnect',
+    () async {
+      var opened = 0;
+      final closing = HermesGatewayTransport(
+        connect: () async {
+          opened++;
+          return gateway.channel;
+        },
+        sleep: (_) async {},
+      );
+      addTearDown(closing.close);
+      final ended = Completer<void>();
+      closing
+          .send(text: 'hi')
+          .listen((_) {}, onError: (_) {}, onDone: ended.complete);
+      while (!gateway.methods.contains('prompt.submit')) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      await closing.close();
+      await ended.future.timeout(const Duration(seconds: 5));
+
+      expect(opened, 1);
+    },
+  );
+
+  test('a reply running when the transport closes retries nothing', () async {
+    final sleeps = <Duration>[];
+    final closing = HermesGatewayTransport(
+      connect: () async => gateway.channel,
+      sleep: (delay) async => sleeps.add(delay),
+    );
+    addTearDown(closing.close);
+    final ended = Completer<void>();
+    closing
+        .send(text: 'hi')
+        .listen((_) {}, onError: (_) {}, onDone: ended.complete);
+    while (!gateway.methods.contains('prompt.submit')) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    await closing.close();
+    await ended.future.timeout(const Duration(seconds: 5));
+
+    expect(sleeps, isEmpty);
+  });
+
+  test('a socket that finishes opening after close is closed', () async {
+    final opening = Completer<StreamChannel<String>>();
+    final closing = HermesGatewayTransport(connect: () => opening.future);
+    addTearDown(closing.close);
+    final failure = closing.send(text: 'hi').toList();
+    final failed = expectLater(
+      failure,
+      throwsA(isA<GatewayConnectionClosed>()),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    await closing.close();
+    opening.complete(gateway.channel);
+
+    await failed;
+    await expectLater(gateway.closedByClient, completes);
+    expect(gateway.methods, isEmpty);
+  });
+
   group('agent input requests', () {
     const approvalPayload = {
       'request_id': 'r1',

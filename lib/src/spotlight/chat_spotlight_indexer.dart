@@ -9,6 +9,7 @@ import '../app_lock/app_lock_controller.dart';
 import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
 import '../surfaces/surface_snapshot.dart';
 import '../surfaces/surface_snapshot_store.dart';
+import '../surfaces/surface_snapshots.dart' show SurfaceSession;
 import 'spotlight_index.dart';
 import 'spotlight_settings.dart';
 
@@ -34,6 +35,8 @@ class ChatSpotlightIndexer {
     required this.store,
     this.appLock,
     this.locked,
+    this.session,
+    this.sessionChanges,
     Stream<void>? signedOut,
     SharedPreferencesAsync? prefs,
     this.events = noopAppEventLogger,
@@ -41,9 +44,12 @@ class ChatSpotlightIndexer {
     settings.addListener(_changed);
     appLock?.addListener(_changed);
     _available = index.becameAvailable.listen((_) => _changed());
+    sessionChanges?.addListener(_sessionChanged);
     _writes = store.writes.listen((snapshot) {
       _generation++;
       _latest = snapshot;
+      // Written by this app, so it is of the account that is signed in.
+      _unverified = false;
       _changed();
     });
     _signedOut = signedOut?.listen((_) {
@@ -61,6 +67,15 @@ class ChatSpotlightIndexer {
   /// Whether App Lock is on, for an isolate that has no [appLock] controller
   /// and only looks once, such as a background run.
   final bool Function()? locked;
+
+  /// What the connection says about the account. A snapshot found in storage
+  /// at start may be of one that signed out while the app was not running to
+  /// write that, so it is indexed only once this says signed in. Without it,
+  /// the stored snapshot is trusted.
+  final SurfaceSession Function()? session;
+
+  /// Notifies when [session] may have changed.
+  final Listenable? sessionChanges;
   final AppEventLogger events;
   final SharedPreferencesAsync _prefs;
 
@@ -69,6 +84,10 @@ class ChatSpotlightIndexer {
   StreamSubscription<void>? _signedOut;
 
   SurfaceSnapshot? _latest;
+
+  /// Whether [_latest] was read from storage and the connection has not yet
+  /// said it belongs to the signed-in account.
+  var _unverified = false;
   List<SpotlightItem>? _indexed;
   var _holding = false;
 
@@ -89,9 +108,35 @@ class ChatSpotlightIndexer {
     final generation = _generation;
     _holding = _persisted = await _prefs.getBool(_prefsHoldingKey) ?? false;
     final stored = await store.read();
-    if (generation == _generation) _latest = stored;
+    if (generation == _generation) {
+      _latest = stored;
+      _unverified = session != null && (stored?.signedIn ?? false);
+      _verify();
+    }
     _started = true;
     _changed();
+  }
+
+  void _sessionChanged() {
+    if (!_unverified) return;
+    _verify();
+    _changed();
+  }
+
+  /// Settles a stored snapshot against the connection: confirmed when signed
+  /// in, dropped when signed out, undecided while it is not known.
+  void _verify() {
+    if (!_unverified) return;
+    switch (session!()) {
+      case SurfaceSession.signedIn:
+        _unverified = false;
+      case SurfaceSession.signedOut:
+        _unverified = false;
+        _generation++;
+        _latest = null;
+      case SurfaceSession.unknown:
+        break;
+    }
   }
 
   bool get _ready =>
@@ -161,6 +206,9 @@ class ChatSpotlightIndexer {
       }
       return;
     }
+    // What is indexed is left as it is until the connection says whose chats
+    // the stored snapshot holds.
+    if (_unverified) return;
     final previous = _indexed;
     if (previous != null && listEquals(previous, wanted)) return;
     if (!await index.isAvailable()) return;
@@ -212,6 +260,7 @@ class ChatSpotlightIndexer {
     _disposed = true;
     settings.removeListener(_changed);
     appLock?.removeListener(_changed);
+    sessionChanges?.removeListener(_sessionChanged);
     unawaited(_available.cancel());
     unawaited(_writes.cancel());
     unawaited(_signedOut?.cancel());

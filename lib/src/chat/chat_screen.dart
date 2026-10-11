@@ -671,9 +671,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final dictation = _dictation;
     if (!request.dictate || dictation == null) return;
     await dictation.refresh();
+    if (overtaken()) return;
     // The lock may have come on during the waits above.
     final covered = _maybeRead<AppLockController>()?.covered ?? false;
-    if (!overtaken() && !covered && dictation.controller.available) {
+    if (!covered && dictation.controller.available) {
       unawaited(dictation.controller.start());
     }
   }

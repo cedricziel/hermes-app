@@ -775,7 +775,7 @@ class HermesGatewayTransport implements ChatTransport {
         final answered =
             error is GatewayRpcException ||
             error is ProfileUnavailableException;
-        if (answered || attempt + 1 >= _sendOpenAttempts) rethrow;
+        if (answered || _closed || attempt + 1 >= _sendOpenAttempts) rethrow;
       }
     }
     var runtimeId = '';
@@ -1375,7 +1375,7 @@ class HermesGatewayTransport implements ChatTransport {
     final timer = Timer(_reconnectBudget, () {
       if (!budget.isCompleted) budget.complete();
     });
-    bool stop() => budget.isCompleted || cancelled();
+    bool stop() => budget.isCompleted || _closed || cancelled();
     // Attempts that got as far as opening a socket, for telemetry.
     var tried = 0;
     try {
@@ -2667,6 +2667,7 @@ class HermesGatewayTransport implements ChatTransport {
 
   @override
   Future<void> close() async {
+    _closed = true;
     final open = _open;
     _open = null;
     final idle = _idle.values.toList();
@@ -2680,7 +2681,12 @@ class HermesGatewayTransport implements ChatTransport {
     unawaited(open?.close());
   }
 
+  /// Set by [close]. A reply still running then would otherwise reconnect on
+  /// the socket that close just ended, and leave the new one open.
+  var _closed = false;
+
   Future<GatewayRpcClient> _client() async {
+    if (_closed) throw const GatewayConnectionClosed();
     final open = _connected();
     if (open != null && open.isStale && !await _alive(open)) {
       // Nothing was pinging it, so a socket the OS dropped meanwhile would
@@ -2712,8 +2718,14 @@ class HermesGatewayTransport implements ChatTransport {
   Future<GatewayRpcClient> _openNew() async {
     // With the heartbeat, a socket the OS dropped while the app slept closes
     // itself once it goes quiet, and the reply in flight reconnects.
+    final channel = await _connectBounded();
+    if (_closed) {
+      // close() ran while the socket was opening; nothing would close it.
+      unawaited(channel.sink.close());
+      throw const GatewayConnectionClosed();
+    }
     final client = GatewayRpcClient(
-      await _connectBounded(),
+      channel,
       telemetry: _telemetry,
       heartbeat: true,
     );

@@ -63,9 +63,6 @@ private struct NeedsYouAccessoryView: View {
       default: inline(model)
       }
     }
-    // The rectangular card holds three lines in 76 pt, so it cannot grow with
-    // the largest text sizes.
-    .dynamicTypeSize(...DynamicTypeSize.xLarge)
     .widgetURL(model.url)
     .containerBackground(.clear, for: .widget)
   }
@@ -113,6 +110,9 @@ private struct NeedsYouAccessoryView: View {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
+    // The card holds three lines in 76 pt, so it cannot grow with the largest
+    // text sizes; the circular and inline forms scale on their own.
+    .dynamicTypeSize(...DynamicTypeSize.xLarge)
   }
 
   private func inline(_ model: NeedsYouAccessoryModel) -> some View {
