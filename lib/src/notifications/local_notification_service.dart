@@ -31,6 +31,7 @@ String notificationPayload(AttentionNotification notification) {
     else
       't': notification.threadId,
     'p': ?notification.profile,
+    'q': ?notification.prompt,
     if (request != null) 'n': notification.title,
     if (request != null) 'r': request.toJson(),
   });
@@ -46,6 +47,12 @@ NotificationTarget? targetFromPayload(String? payload) {
   final decoded = _decode(payload);
   if (decoded == null) return NotificationTarget(threadId: payload);
   final profile = decoded['p'] is String ? decoded['p'] as String : null;
+  if (decoded['q'] is String) {
+    return NotificationTarget.newChat(
+      prompt: decoded['q'] as String,
+      profile: profile,
+    );
+  }
   if (decoded['j'] is String) {
     return NotificationTarget.job(
       jobId: decoded['j'] as String,

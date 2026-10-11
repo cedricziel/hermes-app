@@ -27,6 +27,9 @@ class FakeNotificationService implements NotificationService {
   /// The scheduled task whose notification started the app, if it was one.
   String? launchJob;
 
+  /// The question of the unsent-question notification that started the app.
+  String? launchPrompt;
+
   final shown = <AttentionNotification>[];
 
   /// How many times [withdrawAnswerable] was called.
@@ -53,6 +56,9 @@ class FakeNotificationService implements NotificationService {
   void tap(String threadId, {String? profile}) =>
       _taps.add(NotificationTarget(threadId: threadId, profile: profile));
 
+  /// Simulates a tap on a notification that opens [target].
+  void tapTarget(NotificationTarget target) => _taps.add(target);
+
   void tapJob(String jobId, {String? profile}) =>
       _taps.add(NotificationTarget.job(jobId: jobId, profile: profile));
 
@@ -71,6 +77,12 @@ class FakeNotificationService implements NotificationService {
 
   @override
   Future<NotificationTarget?> launchTarget() async {
+    if (launchPrompt != null) {
+      return NotificationTarget.newChat(
+        prompt: launchPrompt!,
+        profile: launchProfile,
+      );
+    }
     if (launchJob != null) {
       return NotificationTarget.job(jobId: launchJob!, profile: launchProfile);
     }

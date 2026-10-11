@@ -27,6 +27,7 @@ class AttentionNotification {
     this.category,
     this.request,
     this.needsInput = false,
+    this.prompt,
   }) : jobId = null;
 
   /// A scheduled task's run. It replaces an earlier notification for the same
@@ -39,7 +40,8 @@ class AttentionNotification {
   }) : threadId = 'job:$jobId',
        category = null,
        request = null,
-       needsInput = false;
+       needsInput = false,
+       prompt = null;
 
   /// Names the notification: the chat's id, or `job:<id>` for a task, so the
   /// two never replace each other.
@@ -63,6 +65,11 @@ class AttentionNotification {
   /// The agent waits for something that has no [category]: a secret, or input
   /// the app cannot ask for.
   final bool needsInput;
+
+  /// A question that never reached Hermes: tapping the notification opens a
+  /// new chat with it in the composer, unsent. Only the payload holds it, the
+  /// notification does not show it.
+  final String? prompt;
 
   /// Whether the agent is blocked on the user, which is what may break
   /// through a Focus.
