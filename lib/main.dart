@@ -313,13 +313,7 @@ Future<void> main([List<String> args = const []]) async {
             return (previous ??
                   SurfaceSnapshots(
                     store: store,
-                    session: () => switch (auth.state) {
-                      HermesConnectionState.ready => SurfaceSession.signedIn,
-                      HermesConnectionState.needsLogin ||
-                      HermesConnectionState.needsServerUrl =>
-                        SurfaceSession.signedOut,
-                      _ => SurfaceSession.unknown,
-                    },
+                    session: () => _surfaceSession(auth),
                     signedOut: auth.signedOut,
                     appLock: context.read<AppLockController>(),
                     // The Mac only has the Dock badge to feed.
@@ -367,12 +361,15 @@ Future<void> main([List<String> args = const []]) async {
           create: (context) {
             final store = context.read<SurfaceSnapshotStore?>();
             if (store == null || !SpotlightSettings.offered) return null;
+            final auth = context.read<AuthController>();
             return ChatSpotlightIndexer(
               index: context.read<SpotlightIndex>(),
               settings: context.read<SpotlightSettings>(),
               store: store,
               appLock: context.read<AppLockController>(),
               signedOut: context.read<AuthController>().signedOut,
+              session: () => _surfaceSession(auth),
+              sessionChanges: auth,
               events: telemetry.events(),
             )..start();
           },
@@ -442,3 +439,12 @@ Future<void> main([List<String> args = const []]) async {
     ),
   );
 }
+
+/// What the connection says about the account, for the surfaces that must
+/// not trust a stored snapshot of an account that may be gone.
+SurfaceSession _surfaceSession(AuthController auth) => switch (auth.state) {
+  HermesConnectionState.ready => SurfaceSession.signedIn,
+  HermesConnectionState.needsLogin ||
+  HermesConnectionState.needsServerUrl => SurfaceSession.signedOut,
+  _ => SurfaceSession.unknown,
+};

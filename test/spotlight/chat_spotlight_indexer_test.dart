@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/spotlight/chat_spotlight_indexer.dart';
@@ -8,6 +9,8 @@ import 'package:hermes_app/src/spotlight/spotlight_settings.dart';
 import 'package:hermes_app/src/surfaces/chat_hints.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
+import 'package:hermes_app/src/surfaces/surface_snapshots.dart'
+    show SurfaceSession;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -478,6 +481,145 @@ void main() {
 
       expect(index.calls, isEmpty);
     });
+  });
+
+  group('a stored snapshot of an account that may be gone', () {
+    late ValueNotifier<SurfaceSession> session;
+
+    setUp(() async {
+      session = ValueNotifier(SurfaceSession.unknown);
+      addTearDown(session.dispose);
+      await settings.setEnabled(true);
+      await store.write(snapshot([chat('a', 'Trip plan')]));
+      indexer.dispose();
+      indexer = ChatSpotlightIndexer(
+        index: index,
+        settings: settings,
+        store: store,
+        appLock: lock,
+        signedOut: signedOut.stream,
+        session: () => session.value,
+        sessionChanges: session,
+        prefs: prefs,
+        events: events.call,
+      );
+    });
+
+    Future<void> owe() async {
+      await prefs.setBool(_flagKey, true);
+      index.items['chat'] = const [
+        SpotlightItem(
+          domain: 'chat',
+          id: 'default/a',
+          title: 'Trip plan',
+          text: '',
+          url: 'hermes://chat?profile=default&id=a',
+        ),
+      ];
+    }
+
+    test('is not indexed when the app settled signed out', () async {
+      session.value = SurfaceSession.signedOut;
+
+      await indexer.start();
+      await settle();
+
+      expect(index.calls, isEmpty);
+    });
+
+    test('is removed when the app settled signed out', () async {
+      await owe();
+      session.value = SurfaceSession.signedOut;
+
+      await indexer.start();
+      await settle();
+
+      expect(index.calls, ['deleteAll']);
+    });
+
+    test('waits while the connection is not known', () async {
+      await indexer.start();
+      await settle();
+
+      expect(index.calls, isEmpty);
+    });
+
+    test('keeps what is indexed while the connection is not known', () async {
+      await owe();
+
+      await indexer.start();
+      await settle();
+
+      expect(index.calls, isEmpty);
+      expect(index.items['chat'], isNotEmpty);
+    });
+
+    test('is indexed once the connection says signed in', () async {
+      await indexer.start();
+      session.value = SurfaceSession.signedIn;
+      await settle();
+
+      expect(index.items['chat']!.single.title, 'Trip plan');
+    });
+
+    test('is dropped once the connection says signed out', () async {
+      await owe();
+      await indexer.start();
+
+      session.value = SurfaceSession.signedOut;
+      await settle();
+
+      expect(index.calls, ['deleteAll']);
+    });
+
+    test('still honours the switch while the connection is unknown', () async {
+      await owe();
+      await indexer.start();
+
+      await settings.setEnabled(false);
+      await settle();
+
+      expect(index.calls, ['deleteAll']);
+    });
+
+    test('gives way to a snapshot written in this app', () async {
+      await indexer.start();
+
+      await record(snapshot([chat('b', 'Groceries')]));
+
+      expect([for (final i in index.items['chat']!) i.title], ['Groceries']);
+    });
+  });
+
+  test('a restart while the device is locked clears the removal that was '
+      'owed once it is unlocked', () async {
+    await settings.setEnabled(true);
+    await store.clear();
+    await prefs.setBool(_flagKey, true);
+    index.items['chat'] = const [
+      SpotlightItem(
+        domain: 'chat',
+        id: 'default/a',
+        title: 'Trip plan',
+        text: '',
+        url: 'hermes://chat?profile=default&id=a',
+      ),
+    ];
+    index.available = false;
+    indexer.dispose();
+    indexer = newIndexer();
+
+    await indexer.start();
+    await settle();
+    expect(index.calls, isEmpty);
+
+    index.available = true;
+    index.becameAvailableController.add(null);
+    await settle();
+
+    expect(index.calls, ['deleteAll']);
+    expect(index.items, isEmpty);
+    expect(await prefs.getBool(_flagKey), isFalse);
   });
 
   group('the flag that a removal is owed', () {
