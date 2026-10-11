@@ -252,6 +252,7 @@ class GroupedTextFieldRow extends StatelessWidget {
     this.autocorrect = true,
     this.monospace = false,
     this.onChanged,
+    this.onSubmitted,
     this.enabled = true,
   }) : assert(controller == null || initialValue == null);
 
@@ -268,6 +269,7 @@ class GroupedTextFieldRow extends StatelessWidget {
   final bool autocorrect;
   final bool monospace;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final bool enabled;
 
   @override
@@ -317,6 +319,7 @@ class GroupedTextFieldRow extends StatelessWidget {
       style: style,
       decoration: decoration,
       onChanged: onChanged,
+      onFieldSubmitted: onSubmitted,
     );
     final Widget content;
     if (apple && oneLine) {

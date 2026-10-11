@@ -14,6 +14,9 @@ import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/skill_job_sheet.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'package:hermes_app/src/profiles/widgets/new_profile_dialog.dart';
+
+import 'frame.dart';
 import 'fixtures.dart';
 import 'host.dart';
 import 'kanban_screen_use_cases.dart';
@@ -37,6 +40,15 @@ class _NoFiles implements KanbanFiles {
 WidgetbookNode dialogsNode() => WidgetbookFolder(
   name: 'Dialogs and sheets',
   children: [
+    WidgetbookComponent(
+      name: 'New profile',
+      useCases: onEachPlatform(
+        'Empty',
+        (_) => openOnShow((context) async {
+          await showNewProfileDialog(context);
+        }),
+      ),
+    ),
     WidgetbookComponent(
       name: 'askKanbanText',
       useCases: [

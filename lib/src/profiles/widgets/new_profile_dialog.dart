@@ -1,15 +1,19 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
-import '../../widgets/adaptive_dialog.dart';
+import '../../theme/platform_chrome.dart';
+import '../../widgets/grouped_dialog.dart';
+import '../../widgets/grouped_form.dart';
+import '../../widgets/grouped_list.dart';
 
 typedef NewProfile = ({String name, String description});
 
 /// Asks for the name and an optional description of a new profile; null
 /// when cancelled.
 Future<NewProfile?> showNewProfileDialog(BuildContext context) =>
-    showAdaptiveDialog<NewProfile>(
+    showDialog<NewProfile>(
       context: context,
+      barrierDismissible: !platformChromeOf(context).isApple,
       builder: (_) => const _NewProfileDialog(),
     );
 
@@ -44,37 +48,42 @@ class _NewProfileDialogState extends State<_NewProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AppAlertDialog(
-      title: const Text('New Profile'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppDialogTextField(
-            key: const Key('new-profile-name'),
-            controller: _name,
-            hint: 'Name',
-            onSubmitted: (_) => _save(),
-          ),
-          AppDialogTextField(
-            key: const Key('new-profile-description'),
-            controller: _description,
-            hint: 'Description (optional)',
-            onSubmitted: (_) => _save(),
-          ),
-        ],
-      ),
+    return GroupedDialog(
+      title: 'New Profile',
       actions: [
-        AppDialogAction(
+        TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         ListenableBuilder(
           listenable: _name,
-          builder: (context, _) => AppDialogAction(
-            isDefault: true,
+          builder: (context, _) => FilledButton(
             onPressed: _valid ? _save : null,
             child: const Text('Create'),
           ),
+        ),
+      ],
+      children: [
+        GroupedSection(
+          footer: 'Use letters, numbers, hyphens, or underscores. Start with a letter or number.',
+          children: [
+            GroupedTextFieldRow(
+              key: const Key('new-profile-name'),
+              label: 'Name',
+              hint: 'writer',
+              controller: _name,
+              autofocus: true,
+              autocorrect: false,
+              onSubmitted: (_) => _save(),
+            ),
+            GroupedTextFieldRow(
+              key: const Key('new-profile-description'),
+              label: 'Description',
+              hint: 'Optional',
+              controller: _description,
+              onSubmitted: (_) => _save(),
+            ),
+          ],
         ),
       ],
     );
