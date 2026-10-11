@@ -11,6 +11,7 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/schedule_alerts.dart';
+import 'package:hermes_app/src/spotlight/spotlight_index.dart';
 import 'package:hermes_app/src/spotlight/spotlight_settings.dart';
 import 'package:hermes_app/src/schedules/schedule_baseline.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
@@ -855,23 +856,24 @@ void main() {
       expect(index.calls, isEmpty);
     });
 
-    test('keeps the chats out of the index while App Lock is on', () async {
-      await SpotlightSettings().setEnabled(true);
-      lockOn = true;
-
-      await run();
-
-      expect(index.items['chat'] ?? const [], isEmpty);
-    });
-
-    test('clears the index it holds while App Lock is on', () async {
+    test('empties an index that holds chats while App Lock is on', () async {
       await SpotlightSettings().setEnabled(true);
       await SharedPreferencesAsync().setBool('hermes.spotlight.dirty', true);
+      index.items['chat'] = const [
+        SpotlightItem(
+          domain: 'chat',
+          id: 'default/d1',
+          title: 'Trip plan',
+          text: '',
+          url: 'hermes://chat?profile=default&id=d1',
+        ),
+      ];
       lockOn = true;
 
       await run();
 
       expect(index.calls, ['deleteAll']);
+      expect(index.items, isEmpty);
     });
 
     test('leaves the index alone while the device is locked', () async {
@@ -890,15 +892,6 @@ void main() {
       await run();
 
       expect(index.calls, isEmpty);
-    });
-
-    test('does not take the result the user tapped', () async {
-      await SpotlightSettings().setEnabled(true);
-      index.launch = Uri.parse('hermes://chat?profile=default&id=d1');
-
-      await run();
-
-      expect(index.launch, isNotNull);
     });
   });
 

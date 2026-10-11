@@ -148,6 +148,11 @@ class ChatSpotlightIndexer {
     await _saveFlag();
     final wanted = _wanted();
     if (wanted == null) {
+      // A background run may have indexed since this one last looked; only the
+      // saved flag knows.
+      if (!_holding) {
+        _holding = _persisted = await _prefs.getBool(_prefsHoldingKey) ?? false;
+      }
       if (!_holding || !await index.isAvailable()) return;
       _indexed = null;
       if (await index.deleteAll()) {

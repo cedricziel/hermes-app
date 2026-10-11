@@ -510,6 +510,50 @@ void main() {
     });
   });
 
+  group('when a background run put chats in the index meanwhile', () {
+    setUp(() async {
+      await settings.setEnabled(true);
+      await indexer.start();
+      await settle();
+      // What a run leaves: the index holds chats and the saved flag says so,
+      // while this indexer never indexed anything itself.
+      await prefs.setBool(_flagKey, true);
+      index.items['chat'] = const [
+        SpotlightItem(
+          domain: 'chat',
+          id: 'default/a',
+          title: 'Trip plan',
+          text: '',
+          url: 'hermes://chat?profile=default&id=a',
+        ),
+      ];
+    });
+
+    test('removes everything when the switch is turned off', () async {
+      await settings.setEnabled(false);
+      await settle();
+
+      expect(index.calls, ['deleteAll']);
+      expect(index.items, isEmpty);
+    });
+
+    test('removes everything when App Lock is turned on', () async {
+      await lock.setEnabled(true);
+      await settle();
+
+      expect(index.calls, ['deleteAll']);
+      expect(index.items, isEmpty);
+    });
+
+    test('removes everything on sign-out', () async {
+      signedOut.add(null);
+      await settle();
+
+      expect(index.calls, ['deleteAll']);
+      expect(index.items, isEmpty);
+    });
+  });
+
   group('for one background run, with no App Lock controller', () {
     ChatSpotlightIndexer once({required bool locked}) => ChatSpotlightIndexer(
       index: index,
