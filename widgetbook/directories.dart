@@ -13,6 +13,7 @@ import 'chat_use_cases.dart';
 import 'conversation_window_use_cases.dart';
 import 'dialogs_use_cases.dart';
 import 'kanban_use_cases.dart';
+import 'kanban_form_use_cases.dart';
 import 'mac_sidebar_use_cases.dart';
 import 'mac_toolbar_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
@@ -68,6 +69,7 @@ final List<WidgetbookNode> directories = [
   quickPanelNode(),
   modelNode(),
   kanbanNode(),
+  kanbanFormFieldsNode(),
   schedulesNode(),
   schedulesScreensNode(),
   schedulesMacNode(),

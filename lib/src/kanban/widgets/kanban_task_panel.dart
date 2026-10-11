@@ -7,8 +7,6 @@ import '../../chat/media/media_store.dart';
 import '../../chat/media/quick_look_telemetry.dart';
 import '../../theme/breakpoints.dart';
 import '../../widgets/grouped_dialog.dart';
-import '../../widgets/grouped_form.dart';
-import '../../widgets/grouped_list.dart';
 import '../../theme/platform_chrome.dart';
 
 import '../../models/model_provider_option.dart';
@@ -19,6 +17,7 @@ import '../kanban_models.dart';
 import '../kanban_repository.dart';
 import '../kanban_task_controller.dart';
 import 'kanban_task_log_dialog.dart';
+import 'kanban_task_edit_fields.dart';
 import 'task_panel/kanban_task_actions.dart';
 import 'task_panel/kanban_task_attachments.dart';
 import 'task_panel/kanban_task_channels.dart';
@@ -500,21 +499,6 @@ class _EditTaskDialogState extends State<_EditTaskDialog> {
         child: const Text('Save'),
       ),
     ],
-    children: [
-      GroupedSection(
-        children: [GroupedTextFieldRow(label: 'Title', controller: _title)],
-      ),
-      GroupedSection(
-        header: 'Description',
-        children: [
-          GroupedTextFieldRow(
-            label: 'Description',
-            controller: _body,
-            minLines: 3,
-            maxLines: 8,
-          ),
-        ],
-      ),
-    ],
+    children: [KanbanTaskEditFields(title: _title, body: _body)],
   );
 }

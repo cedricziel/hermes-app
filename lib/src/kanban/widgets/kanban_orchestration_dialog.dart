@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/grouped_dialog.dart';
-import '../../widgets/grouped_form.dart';
-import '../../widgets/grouped_list.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
+import 'kanban_orchestration_fields.dart';
 
 /// Edits how the plugin fans out and picks up tasks (`kanban.*` in the
 /// server's config).
@@ -83,22 +82,6 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
     if (ok && mounted) Navigator.pop(context);
   }
 
-  Widget _profilePicker(
-    String label,
-    String value,
-    ValueChanged<String> onChanged,
-  ) {
-    final names = {..._profiles, if (value.isNotEmpty) value}.toList();
-    return GroupedMenuRow<String>(
-      title: label,
-      selected: value,
-      options: ['', ...names],
-      labelOf: (name) =>
-          name.isEmpty ? 'Active profile (${_settings!.activeProfile})' : name,
-      onSelected: (name) => setState(() => onChanged(name)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
@@ -115,48 +98,22 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
         ),
       ],
       children: [
-        if (settings == null)
-          SizedBox(
-            height: 80,
-            child: Center(
-              child: _failed
-                  ? const Text('Could not load the settings')
-                  : const CircularProgressIndicator.adaptive(),
-            ),
-          )
-        else ...[
-          GroupedSection(
-            children: [
-              GroupedSwitchRow(
-                title: 'Auto-decompose triage tasks',
-                caption: 'Off: decompose by hand',
-                value: _autoDecompose,
-                onTap: () => setState(() => _autoDecompose = !_autoDecompose),
-                onChanged: (value) => setState(() => _autoDecompose = value),
-              ),
-              GroupedSwitchRow(
-                title: 'Promote children when ready',
-                value: _autoPromote,
-                onTap: () => setState(() => _autoPromote = !_autoPromote),
-                onChanged: (value) => setState(() => _autoPromote = value),
-              ),
-            ],
-          ),
-          GroupedSection(
-            children: [
-              _profilePicker(
-                'Orchestrator profile',
-                _orchestrator,
-                (value) => _orchestrator = value,
-              ),
-              _profilePicker(
-                'Default assignee',
-                _defaultAssignee,
-                (value) => _defaultAssignee = value,
-              ),
-            ],
-          ),
-        ],
+        KanbanOrchestrationFields(
+          loading: settings == null && !_failed,
+          error: _failed ? 'Could not load the settings' : null,
+          autoDecompose: settings == null ? false : _autoDecompose,
+          autoPromote: settings == null ? false : _autoPromote,
+          orchestrator: settings == null ? '' : _orchestrator,
+          defaultAssignee: settings == null ? '' : _defaultAssignee,
+          activeProfile: settings?.activeProfile ?? '',
+          profiles: _profiles,
+          onDecomposeChanged: (value) => setState(() => _autoDecompose = value),
+          onPromoteChanged: (value) => setState(() => _autoPromote = value),
+          onOrchestratorChanged: (value) =>
+              setState(() => _orchestrator = value),
+          onAssigneeChanged: (value) =>
+              setState(() => _defaultAssignee = value),
+        ),
       ],
     );
   }
