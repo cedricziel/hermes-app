@@ -298,6 +298,36 @@ void main() {
       expect(target.profile, 'work');
     });
 
+    for (final platform in [
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+      TargetPlatform.android,
+    ]) {
+      test('posts plain Markdown previews on $platform', () async {
+        debugDefaultTargetPlatformOverride = platform;
+        await service.show(
+          const AttentionNotification(
+            threadId: 's1',
+            title: 'Update',
+            body: '**Done**\n\n- [Docs](https://example.com)\n- *Next*',
+          ),
+        );
+        expect(plugin.posted.single.body, 'Done\n\n• Docs\n• Next');
+      });
+    }
+
+    test('keeps literal formatting in an already rendered reply', () async {
+      await service.show(
+        const AttentionNotification(
+          threadId: 's1',
+          title: 'Update',
+          body: '**literal**',
+          bodyIsPlainText: true,
+        ),
+      );
+      expect(plugin.posted.single.body, '**literal**');
+    });
+
     test('posts a scheduled task with a payload that opens the task', () async {
       await service.show(
         const AttentionNotification.job(

@@ -3,6 +3,7 @@ import 'package:characters/characters.dart';
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 import 'request_notifications.dart';
+import 'notification_preview.dart';
 
 const kPreviewLength = 120;
 const kReplyReadyBody = 'Reply ready';
@@ -28,6 +29,7 @@ class AttentionNotification {
     this.request,
     this.needsInput = false,
     this.prompt,
+    this.bodyIsPlainText = false,
   }) : jobId = null;
 
   /// A scheduled task's run. It replaces an earlier notification for the same
@@ -40,6 +42,7 @@ class AttentionNotification {
   }) : threadId = 'job:$jobId',
        category = null,
        request = null,
+       bodyIsPlainText = false,
        needsInput = false,
        prompt = null;
 
@@ -54,6 +57,9 @@ class AttentionNotification {
   final String? profile;
   final String title;
   final String body;
+
+  /// Prevents reparsing rendered code and escaped punctuation in reply previews.
+  final bool bodyIsPlainText;
 
   /// The buttons that answer the request this is about, if it can be
   /// answered from the notification.
@@ -85,9 +91,9 @@ class AttentionNotification {
   }
 }
 
-/// The start of [text] on one line, for a notification body.
+/// The start of [text] as plain Markdown text, for a notification body.
 String replyPreview(String text) =>
-    _cut(text.replaceAll(RegExp(r'\s+'), ' ').trim(), kPreviewLength);
+    _cut(notificationPreview(text), kPreviewLength);
 
 /// [text] cut at [length] user-perceived characters, with an ellipsis when
 /// cut.
@@ -145,6 +151,7 @@ AttentionNotification? attentionFor({
     threadId: thread.id,
     title: thread.title,
     body: body,
+    bodyIsPlainText: event is ReplyCompleted,
     profile: profile,
     needsInput: event is VaultRequested || event is UnsupportedRequested,
     category: request == null

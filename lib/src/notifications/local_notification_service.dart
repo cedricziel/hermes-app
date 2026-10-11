@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'attention_policy.dart';
 import 'notification_service.dart';
+import 'notification_preview.dart';
 import 'request_answers.dart';
 import 'request_notifications.dart';
 
@@ -299,15 +300,16 @@ class LocalNotificationService implements NotificationService {
             ? InterruptionLevel.timeSensitive
             : null,
       );
+      final body = _darwin
+          ? notification.body
+          : notification.category?.placeholder ?? notification.body;
       await _plugin.show(
         id: notificationIdFor(
           notification.threadId,
           profile: notification.profile,
         ),
         title: notification.title,
-        body: _darwin
-            ? notification.body
-            : notification.category?.placeholder ?? notification.body,
+        body: notification.bodyIsPlainText ? body : notificationPreview(body),
         notificationDetails: NotificationDetails(
           android: const AndroidNotificationDetails(
             _channelId,
