@@ -5,16 +5,8 @@ import '../schedules/schedule_models.dart';
 import 'chat_hints.dart';
 import 'surface_snapshot.dart';
 
-/// A built snapshot, how many of its sources could not be read, what it
-/// read afresh (the rest is [base] carried over) and the snapshot it was
-/// built from, so a writer can tell whether another has written since.
-typedef SnapshotBuild = ({
-  SurfaceSnapshot snapshot,
-  int sourcesFailed,
-  SnapshotFreshness fresh,
-  SurfaceSnapshot? base,
-  bool redacted,
-});
+/// A built snapshot and how many of its sources could not be read.
+typedef SnapshotBuild = ({SurfaceSnapshot snapshot, int sourcesFailed});
 
 /// What a job without a name of its own is called: its prompt is never used,
 /// since the snapshot must not carry what the user asked for.
@@ -69,10 +61,6 @@ class SurfaceSnapshotBuilder {
     var kanban = previous?.kanban;
     var schedules = previous?.schedules;
     var failed = 0;
-    final freshChats = <String>{};
-    var freshProfiles = false;
-    var freshKanban = false;
-    var freshSchedules = false;
 
     if (refreshRemote) {
       final (names, kanbanRead, schedulesRead) = await (
@@ -81,7 +69,6 @@ class SurfaceSnapshotBuilder {
         _read(() => _schedules(now, openProfile)),
       ).wait;
       if (names.ok) {
-        freshProfiles = true;
         profiles = names.value!;
         // The hints stand in for a request for the open profile's chats.
         final toRead = [
@@ -90,10 +77,6 @@ class SurfaceSnapshotBuilder {
         ];
         final reads = await Future.wait([
           for (final name in toRead) _read(() => _chats(name)),
-        ]);
-        freshChats.addAll([
-          for (final (index, read) in reads.indexed)
-            if (read.ok) toRead[index],
         ]);
         chats = [
           for (final (index, read) in reads.indexed)
@@ -106,13 +89,11 @@ class SurfaceSnapshotBuilder {
         failed++;
       }
       if (kanbanRead.ok) {
-        freshKanban = true;
         kanban = kanbanRead.value;
       } else {
         failed++;
       }
       if (schedulesRead.ok) {
-        freshSchedules = true;
         schedules = schedulesRead.value;
       } else {
         failed++;
@@ -129,9 +110,7 @@ class SurfaceSnapshotBuilder {
         for (final p in pending) p.firstSeen(seen[p.requestId] ?? p.createdAt),
       ];
     }
-    final freshPending = <String>{};
     if (hints != null) {
-      freshChats.add(openProfile);
       chats = [
         ...chats.where((c) => c.profile != openProfile),
         for (final thread in hints.threads)
@@ -144,7 +123,6 @@ class SurfaceSnapshotBuilder {
           ),
       ];
       if (pending == null) {
-        freshPending.add(openProfile);
         open = [
           ...open.where((p) => p.profile != openProfile),
           for (final request in hints.requests)
@@ -162,6 +140,7 @@ class SurfaceSnapshotBuilder {
 
     final snapshot = SurfaceSnapshot(
       updatedAt: now,
+      revision: previous?.revision ?? 0,
       signedIn: signedIn,
       profile: openProfile,
       profiles: profiles,
@@ -173,17 +152,6 @@ class SurfaceSnapshotBuilder {
     return (
       snapshot: redact ? snapshot.redacted() : snapshot,
       sourcesFailed: failed,
-      fresh: SnapshotFreshness(
-        chatProfiles: freshChats,
-        pendingProfiles: freshPending,
-        allPending: pending != null,
-        openProfile: hints != null,
-        profileList: freshProfiles,
-        kanban: freshKanban,
-        schedules: freshSchedules,
-      ),
-      base: previous,
-      redacted: redact,
     );
   }
 

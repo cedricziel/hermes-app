@@ -12,6 +12,7 @@ const _swiftFixture =
 /// characters a link has to encode.
 SurfaceSnapshot fixtureSnapshot() => SurfaceSnapshot(
   updatedAt: DateTime.utc(2026, 10, 10, 12),
+  revision: 7,
   profile: 'default',
   profiles: const ['default', 'work'],
   recentChats: [

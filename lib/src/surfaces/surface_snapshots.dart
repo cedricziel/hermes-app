@@ -119,17 +119,15 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     _request(const _Job(SurfaceTrigger.pause, remote: true));
   }
 
-  /// Takes the stored snapshot as the base of the next build when someone
-  /// else wrote it since this one last did.
+  /// Takes the stored snapshot as the base of the next build when it is a
+  /// later write than the one held: that is how a background run's open
+  /// requests of every profile reach the app, whose own builds then replace
+  /// only what they read.
   Future<void> _adoptStored() async {
     final generation = _generation;
-    try {
-      final stored = await store.read();
-      if (stored == null || generation != _generation || _disposed) return;
-      if (stored.supersedes(_previous)) _previous = stored;
-    } on Object {
-      // The next build tries again.
-    }
+    final stored = await store.read();
+    if (stored == null || generation != _generation || _disposed) return;
+    if (stored.revision > (_previous?.revision ?? -1)) _previous = stored;
   }
 
   /// Tells that the connection moved. Settling on the login or setup screen
@@ -175,8 +173,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
       final known = _previous ?? await store.read();
       if (known == null || generation != _generation || _disposed) return;
       if (!_lockOn) return;
-      final hidden = _previous = known.redacted();
-      await store.write(hidden);
+      _previous = await store.write(known.redacted());
     } on Object {
       // The job requested alongside writes it again.
     }
@@ -205,9 +202,8 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     if (repositories == null || !_signedIn || _disposed) return;
     final generation = _generation;
     try {
-      final stored = await store.read();
+      await _adoptStored();
       if (generation != _generation) return;
-      if (stored != null && stored.supersedes(_previous)) _previous = stored;
       final stale =
           _lastRemote == null ||
           !_now().isBefore(_lastRemote!.add(remoteInterval));
@@ -280,16 +276,8 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     if (generation != _generation || _disposed || !_signedIn) return;
     if (remote) _lastRemote = _now();
     // App Lock may have changed while the build was under way.
-    final built = _lockOn
-        ? (
-            snapshot: result.snapshot.redacted(),
-            sourcesFailed: result.sourcesFailed,
-            fresh: result.fresh,
-            base: result.base,
-            redacted: true,
-          )
-        : result;
-    _previous = await store.writeBuilt(built);
+    final snapshot = _lockOn ? result.snapshot.redacted() : result.snapshot;
+    _previous = await store.write(snapshot);
   }
 
   Future<void> _clear() async {

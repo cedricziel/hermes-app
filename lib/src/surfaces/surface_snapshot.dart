@@ -286,41 +286,6 @@ class ScheduleSummary {
   }
 }
 
-/// What a build read afresh, as against what it carried over from the
-/// snapshot it started from. Two writers that built from the same base each
-/// know only some of it, so the one writing second keeps the other's part.
-@immutable
-class SnapshotFreshness {
-  const SnapshotFreshness({
-    this.chatProfiles = const {},
-    this.pendingProfiles = const {},
-    this.allPending = false,
-    this.openProfile = false,
-    this.profileList = false,
-    this.kanban = false,
-    this.schedules = false,
-  });
-
-  /// The profiles whose recent chats were read.
-  final Set<String> chatProfiles;
-
-  /// The profiles whose open requests were read.
-  final Set<String> pendingProfiles;
-
-  /// Every profile's open requests were read.
-  final bool allPending;
-
-  /// The open profile is the app's own.
-  final bool openProfile;
-  final bool profileList;
-  final bool kanban;
-  final bool schedules;
-}
-
-DateTime _inSeconds(DateTime time) => DateTime.fromMillisecondsSinceEpoch(
-  time.millisecondsSinceEpoch ~/ 1000 * 1000,
-);
-
 /// What the app shares with widgets, quick actions, Spotlight and App
 /// Intents: a short picture of the user's Hermes state. It holds no token,
 /// server address or identity, and never the text of a request.
@@ -328,6 +293,7 @@ DateTime _inSeconds(DateTime time) => DateTime.fromMillisecondsSinceEpoch(
 class SurfaceSnapshot {
   SurfaceSnapshot({
     required this.updatedAt,
+    this.revision = 0,
     this.signedIn = true,
     this.profile,
     this.profiles = const [],
@@ -342,6 +308,11 @@ class SurfaceSnapshot {
     : this(updatedAt: updatedAt, signedIn: false);
 
   final DateTime updatedAt;
+
+  /// Counts the writes of the stored snapshot. Every writer saves one more
+  /// than the revision it replaces, and a background run saves only if the
+  /// revision is still the one it built from. Readers ignore it.
+  final int revision;
   final bool signedIn;
 
   /// The profile the app shows.
@@ -367,6 +338,7 @@ class SurfaceSnapshot {
   /// on: counts, kinds, times, ids and links stay.
   SurfaceSnapshot redacted() => SurfaceSnapshot(
     updatedAt: updatedAt,
+    revision: revision,
     signedIn: signedIn,
     profile: profile,
     profiles: profiles,
@@ -376,9 +348,23 @@ class SurfaceSnapshot {
     schedules: schedules?.redacted(),
   );
 
+  /// This as the [revision]th write.
+  SurfaceSnapshot atRevision(int revision) => SurfaceSnapshot(
+    updatedAt: updatedAt,
+    revision: revision,
+    signedIn: signedIn,
+    profile: profile,
+    profiles: profiles,
+    recentChats: recentChats,
+    pending: pending,
+    kanban: kanban,
+    schedules: schedules,
+  );
+
   Map<String, Object?> toJson() => {
     'version': kSurfaceSnapshotVersion,
     'updatedAt': _time(updatedAt),
+    'revision': revision,
     'signedIn': signedIn,
     'profile': profile,
     'profiles': profiles,
@@ -390,41 +376,14 @@ class SurfaceSnapshot {
 
   String encode() => jsonEncode(toJson());
 
-  /// Whether this was written by someone else since [base] was: it says
-  /// something else and is not older, to the second the stored form keeps.
-  bool supersedes(SurfaceSnapshot? base) =>
-      base == null ||
-      (!sameContent(base) &&
-          !_inSeconds(updatedAt).isBefore(_inSeconds(base.updatedAt)));
-
-  /// This, built from an older base, with what [newer] (written since) holds
-  /// of the parts this did not read afresh.
-  SurfaceSnapshot adopting(SurfaceSnapshot newer, SnapshotFreshness fresh) {
-    bool mine(String profile) => fresh.chatProfiles.contains(profile);
-    bool minePending(String profile) =>
-        fresh.allPending || fresh.pendingProfiles.contains(profile);
-    return SurfaceSnapshot(
-      updatedAt: updatedAt,
-      signedIn: signedIn,
-      profile: fresh.openProfile ? profile : (newer.profile ?? profile),
-      profiles: fresh.profileList ? profiles : newer.profiles,
-      recentChats: [
-        ...recentChats.where((c) => mine(c.profile)),
-        ...newer.recentChats.where((c) => !mine(c.profile)),
-      ],
-      pending: [
-        ...pending.where((p) => minePending(p.profile)),
-        ...newer.pending.where((p) => !minePending(p.profile)),
-      ],
-      kanban: fresh.kanban ? kanban : newer.kanban,
-      schedules: fresh.schedules ? schedules : newer.schedules,
-    );
-  }
-
   /// Whether [other] says the same, whenever it was written.
   bool sameContent(SurfaceSnapshot other) {
-    final mine = toJson()..remove('updatedAt');
-    final theirs = other.toJson()..remove('updatedAt');
+    final mine = toJson()
+      ..remove('updatedAt')
+      ..remove('revision');
+    final theirs = other.toJson()
+      ..remove('updatedAt')
+      ..remove('revision');
     return jsonEncode(mine) == jsonEncode(theirs);
   }
 
@@ -451,6 +410,7 @@ class SurfaceSnapshot {
     ];
     return SurfaceSnapshot(
       updatedAt: updatedAt,
+      revision: json['revision'] is int ? json['revision'] as int : 0,
       signedIn: json['signedIn'] as bool? ?? false,
       profile: json['profile'] as String?,
       profiles: [

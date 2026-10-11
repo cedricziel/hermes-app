@@ -126,8 +126,9 @@ class HeadlessDeps {
   /// Where [HeadlessHermes.refreshSnapshot] writes; the App Group by default.
   final SurfaceSnapshotStore? snapshotStore;
 
-  /// Whether App Lock is on, which keeps titles out of the snapshot. The
-  /// saved setting by default, where unreadable counts as on.
+  /// Whether App Lock is on, which keeps titles out of the snapshot; asked
+  /// when the snapshot is saved. The saved setting by default, where
+  /// unreadable counts as on.
   final Future<bool> Function()? appLockOn;
 }
 
@@ -221,8 +222,10 @@ class HeadlessHermes {
   /// Reads every profile's chats, Kanban and schedules, builds the snapshot
   /// and stores it for the widgets. With [pending] those are the open
   /// requests of every profile and replace the stored ones; without it the
-  /// stored requests stay.
-  Future<SurfaceSnapshot> refreshSnapshot({List<PendingRequest>? pending}) =>
+  /// stored requests stay. The snapshot is saved only if nobody wrote since
+  /// this read the stored one, nobody signed out and the run is not over;
+  /// otherwise it is dropped whole and this is null.
+  Future<SurfaceSnapshot?> refreshSnapshot({List<PendingRequest>? pending}) =>
       _run.refreshSnapshot(_connection.repositories, pending);
 }
 
@@ -352,22 +355,26 @@ class _Run {
     return transport;
   }
 
-  Future<SurfaceSnapshot> refreshSnapshot(
+  Future<SurfaceSnapshot?> refreshSnapshot(
     HermesRepositories repositories,
     List<PendingRequest>? pending,
   ) async {
-    final store = _deps.snapshotStore ?? SurfaceSnapshotStore();
-    final lockOn = _deps.appLockOn ?? AppLockController.savedEnabled;
+    final store =
+        _deps.snapshotStore ??
+        SurfaceSnapshotStore(events: repositories.telemetry.events);
     final previous = await store.read();
     final built = await SurfaceSnapshotBuilder(repositories).build(
       signedIn: true,
       previous: previous,
       refreshRemote: true,
-      redact: await lockOn(),
       pending: pending,
     );
     annotations['snapshot.sources_failed'] = built.sourcesFailed;
-    return store.writeBuilt(built);
+    return store.writeIfCurrent(
+      built.snapshot,
+      appLockOn: _deps.appLockOn ?? AppLockController.savedEnabled,
+      cancelled: () => _closed,
+    );
   }
 
   /// Ends the run: no new refresh or request starts, the sockets are closed

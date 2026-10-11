@@ -116,70 +116,90 @@ void main() {
     expect(lastWrite().profile, 'default');
   });
 
-  test('a snapshot a background run stored meanwhile is built upon, not '
-      'undone', () async {
-    snapshots.chatChanged(SurfaceTrigger.threads, hints());
-    await nextWrite();
-    // A background run, in another isolate, stores the open requests of
-    // every profile.
-    final background = SurfaceSnapshotStore(
+  /// A background run, in another isolate, stores what it read of every
+  /// profile on top of the revision it built from.
+  Future<void> backgroundWrites({
+    required List<PendingRequest> pending,
+    KanbanSummary? kanban,
+  }) async {
+    final stored = SurfaceSnapshot.fromJson(storage.saved.last)!;
+    final other = SurfaceSnapshotStore(
       storage: storage,
       widgetKinds: const ['Recent'],
     );
-    addTearDown(background.dispose);
-    await background.write(
+    addTearDown(other.dispose);
+    final written = await other.writeIfCurrent(
       SurfaceSnapshot(
         updatedAt: now.add(const Duration(minutes: 1)),
+        revision: stored.revision,
         profile: 'default',
-        recentChats: lastWrite().recentChats,
-        pending: [
-          PendingRequest(
-            profile: 'work',
-            threadId: 'w1',
-            threadTitle: 'Numbers',
-            kind: PendingKind.approval,
-            requestId: 'r-work',
-            createdAt: now,
-          ),
-        ],
+        recentChats: stored.recentChats,
+        pending: pending,
+        kanban: kanban,
       ),
+      appLockOn: () async => false,
     );
+    expect(written, isNotNull);
+  }
 
-    now = now.add(const Duration(minutes: 2));
-    snapshots.chatChanged(SurfaceTrigger.reply, hints(title: 'Changed'));
-    await nextWrite();
+  PendingRequest workRequest() => PendingRequest(
+    profile: 'work',
+    threadId: 'w1',
+    threadTitle: 'Numbers',
+    kind: PendingKind.approval,
+    requestId: 'r-work',
+    createdAt: now,
+  );
 
-    expect(lastWrite().recentChats.single.title, 'Changed');
-    expect(lastWrite().pending.map((p) => p.requestId), ['r-work']);
-  });
+  test(
+    'a background write is built upon by the next one, not undone',
+    () async {
+      snapshots.chatChanged(SurfaceTrigger.threads, hints());
+      await nextWrite();
+      await backgroundWrites(pending: [workRequest()]);
+
+      now = now.add(const Duration(minutes: 2));
+      snapshots.chatChanged(SurfaceTrigger.reply, hints(title: 'Changed'));
+      await nextWrite();
+
+      expect(lastWrite().recentChats.single.title, 'Changed');
+      expect(lastWrite().pending.map((p) => p.requestId), ['r-work']);
+    },
+  );
 
   test(
     'resuming adopts what a background run stored while suspended',
     () async {
       snapshots.chatChanged(SurfaceTrigger.threads, hints());
       await nextWrite();
-      final background = SurfaceSnapshotStore(
-        storage: storage,
-        widgetKinds: const ['Recent'],
-      );
-      addTearDown(background.dispose);
-      await background.write(
-        SurfaceSnapshot(
-          updatedAt: now.add(const Duration(minutes: 1)),
-          profile: 'default',
-          kanban: const KanbanSummary(blocked: 3, review: 1),
-        ),
+      await backgroundWrites(
+        pending: const [],
+        kanban: const KanbanSummary(blocked: 3, review: 1),
       );
 
       snapshots.didChangeAppLifecycleState(AppLifecycleState.resumed);
       await Future<void>.delayed(const Duration(milliseconds: 50));
       now = now.add(const Duration(minutes: 2));
+      // A change that reads no server: only the held base can carry the
+      // Kanban counts over.
       snapshots.chatChanged(SurfaceTrigger.reply, hints(title: 'Changed'));
       await nextWrite();
 
       expect(lastWrite().kanban?.blocked, 3);
     },
   );
+
+  test('each write is one revision on', () async {
+    snapshots.chatChanged(SurfaceTrigger.threads, hints());
+    await nextWrite();
+    final first = lastWrite().revision;
+
+    now = now.add(const Duration(minutes: 1));
+    snapshots.chatChanged(SurfaceTrigger.reply, hints(title: 'Changed'));
+    await nextWrite();
+
+    expect(lastWrite().revision, first + 1);
+  });
 
   test('the first write reads the server, later ones within five minutes '
       'do not', () async {

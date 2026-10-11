@@ -66,6 +66,14 @@ final class SurfaceSnapshotTests: XCTestCase {
     XCTAssertNil(snapshot.schedules)
   }
 
+  func testRevisionIsAWriterConcernAndIgnoredHere() throws {
+    let snapshot = try XCTUnwrap(
+      SurfaceSnapshot.decode(
+        #"{"version":1,"updatedAt":"2026-10-10T12:00:00Z","revision":"not even a number","signedIn":true}"#
+      ))
+    XCTAssertTrue(snapshot.signedIn)
+  }
+
   func testUnknownVersionIsUnreadable() {
     XCTAssertNil(SurfaceSnapshot.decode(#"{"version":2,"updatedAt":"2026-10-10T12:00:00Z","signedIn":true}"#))
   }
