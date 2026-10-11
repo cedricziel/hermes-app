@@ -21,6 +21,7 @@ import workmanager_apple
     }
     // Lets a notification show while the app is in the foreground and lets a tap reach Flutter.
     NotificationActions.shared.next = self as? UNUserNotificationCenterDelegate
+    AskHermes.service = IntentsBridge.shared
     UNUserNotificationCenter.current().delegate = NotificationActions.shared
     // The periodic background refresh. BGTaskScheduler only accepts a launch
     // handler before launching ends, and the engine registers its plugins
