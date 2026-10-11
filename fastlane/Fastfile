@@ -377,31 +377,38 @@ def build_target(key, options)
   sh("cd #{FLUTTER_ROOT.shellescape} && flutter build #{t[:flutter_platform]} --release --config-only#{flutter_flags} " \
      "--build-name=#{version.shellescape} --build-number=#{build_number.shellescape}#{telemetry_flags}")
 
-  # Approvals and questions break through a Focus. The entitlement is
+  # Approvals and questions can break through a Focus. The entitlement is
   # restricted, so only this lane, which signs with a distribution profile,
   # adds it: a local ad-hoc `flutter build macos --release` would be killed
-  # at launch with it in the checked-in file. (iOS keeps it in
-  # Runner.entitlements; its simulator and --no-codesign builds ignore it.)
-  if key == :mac
-    set_info_plist_value(
-      path: File.join(FLUTTER_ROOT, "macos/Runner/Release.entitlements"),
-      key: "com.apple.developer.usernotifications.time-sensitive",
-      value: true
-    )
-  end
+  # at launch with it in the checked-in file. The file is put back after the
+  # build. (iOS keeps it in Runner.entitlements; its simulator and
+  # --no-codesign builds ignore it.)
+  entitlements = File.join(FLUTTER_ROOT, "macos/Runner/Release.entitlements")
+  original_entitlements = File.read(entitlements) if key == :mac
+  begin
+    if key == :mac
+      set_info_plist_value(
+        path: entitlements,
+        key: "com.apple.developer.usernotifications.time-sensitive",
+        value: true
+      )
+    end
 
-  build_app(
-    workspace: t[:workspace],
-    scheme: "Runner",
-    configuration: "Release",
-    destination: t[:destination],
-    export_method: "app-store",
-    export_team_id: TEAM_ID,
-    output_directory: OUTPUT_DIR,
-    output_name: OUTPUT_NAME,
-    clean: true,
-    include_symbols: true
-  )
+    build_app(
+      workspace: t[:workspace],
+      scheme: "Runner",
+      configuration: "Release",
+      destination: t[:destination],
+      export_method: "app-store",
+      export_team_id: TEAM_ID,
+      output_directory: OUTPUT_DIR,
+      output_name: OUTPUT_NAME,
+      clean: true,
+      include_symbols: true
+    )
+  ensure
+    File.write(entitlements, original_entitlements) if original_entitlements
+  end
 
   { version: version, build_number: build_number }
 end
