@@ -80,6 +80,7 @@ import workmanager_apple
     webAuth = WebAuthSession(messenger: engineBridge.applicationRegistrar.messenger())
     ClipboardFiles.install(messenger: engineBridge.applicationRegistrar.messenger())
     BackgroundRefreshStatus.install(messenger: engineBridge.applicationRegistrar.messenger())
+    IntentsChannel.install(messenger: engineBridge.applicationRegistrar.messenger())
   }
 }
 
