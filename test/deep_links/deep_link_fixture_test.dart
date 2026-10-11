@@ -36,6 +36,15 @@ const _cases = <(String, Map<String, Object?>)>[
   ('kanban', {'kind': 'kanban'}),
   ('schedules', {'kind': 'schedules'}),
   ('new chat with dictation', {'kind': 'new', 'dictate': true}),
+  ('new chat in a profile', {'kind': 'new', 'profile': 'work'}),
+  (
+    'new chat in a profile with an ampersand',
+    {'kind': 'new', 'profile': 'R&D team'},
+  ),
+  (
+    'new chat with dictation in a profile',
+    {'kind': 'new', 'profile': 'work', 'dictate': true},
+  ),
   ('chat', {'kind': 'chat', 'profile': 'default', 'id': 'abc'}),
   ('chat without a profile', {'kind': 'chat', 'id': 'abc'}),
   ('chat with spaces', {'kind': 'chat', 'profile': 'my bot', 'id': 'w 1'}),

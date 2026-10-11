@@ -88,9 +88,10 @@ struct ReplyActivity {
 @main
 struct HermesLiveActivityBundle: WidgetBundle {
   // Despite its name this extension is the app's one WidgetKit extension: the
-  // Home Screen widgets live here too, because a second target would need a
-  // new bundle ID, App ID, profile and fastlane entry. Renaming it would
-  // orphan the provisioning profile and the activities already on devices.
+  // Home Screen widgets and the controls live here too, because a second
+  // target would need a new bundle ID, App ID, profile and fastlane entry.
+  // Renaming it would orphan the provisioning profile and the activities
+  // already on devices.
   var body: some Widget {
     HermesReplyActivity()
     HermesRecentChats()
@@ -99,6 +100,9 @@ struct HermesLiveActivityBundle: WidgetBundle {
     HermesNewChat()
     HermesDictate()
     HermesQuickLaunch()
+    NewChatControl()
+    DictateControl()
+    OpenChatControl()
   }
 }
 

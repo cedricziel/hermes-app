@@ -26,6 +26,7 @@ import 'src/macos/dock/dock_menu_bridge.dart';
 import 'src/macos/dock/dock_menu_controller.dart';
 import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
+import 'src/intents/intent_shortcuts.dart';
 import 'src/live_activities/live_activities.dart';
 import 'src/notifications/attention_notifier.dart' show appLockHidesRequests;
 import 'src/notifications/badge_controller.dart';
@@ -322,6 +323,14 @@ Future<void> main([List<String> args = const []]) async {
             breadcrumbs: context.read<Breadcrumbs>(),
           )?..start(),
           dispose: (_, controller) => controller?.dispose(),
+        ),
+        Provider<IntentShortcuts?>(
+          lazy: false,
+          create: (context) => IntentShortcuts.forPlatform(
+            store: context.read<SurfaceSnapshotStore?>(),
+            platform: defaultTargetPlatform,
+          )?..start(),
+          dispose: (_, shortcuts) => shortcuts?.dispose(),
         ),
         // Recent chats in Spotlight, only when the user turned that on.
         Provider<ChatSpotlightIndexer?>(
