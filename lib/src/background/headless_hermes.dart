@@ -44,11 +44,31 @@ final class HeadlessDone<T> extends HeadlessOutcome<T> {
   final T value;
 }
 
+/// Why a run found nobody signed in.
+enum SignedOutReason {
+  /// No server address is saved.
+  noServer,
+
+  /// The server needs a sign-in and no session is stored.
+  noSession,
+
+  /// The server rejected the refresh token. The stored session is untouched:
+  /// the app in front may have rotated it meanwhile, so this is a lost
+  /// race as often as it is a sign-out.
+  rejected,
+}
+
 /// Nobody is signed in: no server saved, no session stored, or the server
 /// rejected the refresh token. Stored state is untouched, even in the last
 /// case.
 final class HeadlessSignedOut<T> extends HeadlessOutcome<T> {
-  const HeadlessSignedOut();
+  const HeadlessSignedOut([this.reason = SignedOutReason.rejected]);
+
+  final SignedOutReason reason;
+
+  /// Whether storage itself holds no server or session, which no other
+  /// isolate's write can contradict.
+  bool get nothingStored => reason != SignedOutReason.rejected;
 }
 
 /// Secure storage cannot be read yet (on iOS: before the first unlock after
@@ -307,7 +327,8 @@ class _Run {
   }
 
   _Ended<T> _refused<T>(String outcome) => _Ended(outcome, switch (outcome) {
-    'no_server' || 'no_session' => const HeadlessSignedOut(),
+    'no_server' => const HeadlessSignedOut(SignedOutReason.noServer),
+    'no_session' => const HeadlessSignedOut(SignedOutReason.noSession),
     'locked' => const HeadlessLocked(),
     _ => const HeadlessUnreachable(),
   });
@@ -346,20 +367,22 @@ class _Run {
       pending: pending,
     );
     annotations['snapshot.sources_failed'] = built.sourcesFailed;
-    await store.write(built.snapshot);
-    return built.snapshot;
+    return store.writeBuilt(built);
   }
 
-  /// Ends the run: no new refresh or request starts, a refresh in flight gets
-  /// to store its pair, then every socket and client is closed so that
-  /// nothing the body still does reaches the server.
+  /// Ends the run: no new refresh or request starts, the sockets are closed
+  /// at once, a refresh in flight gets to store its pair, then every client
+  /// is closed so that nothing the body still does reaches the server.
   Future<void> close() async {
     _closed = true;
-    await _auth?.shutdown(_graceLeft());
-    await Future.wait([
+    // Started before the wait for the refresh, so a run whose grace the
+    // refresh uses up has still closed them.
+    final closing = Future.wait([
       for (final transport in _transports)
         transport.close().catchError((Object _) {}),
-    ]).timeout(_graceLeft(), onTimeout: () => const []);
+    ]);
+    await _auth?.shutdown(_graceLeft());
+    await closing.timeout(_graceLeft(), onTimeout: () => const []);
     for (final client in _clients) {
       client.close(force: true);
     }

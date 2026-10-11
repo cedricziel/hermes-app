@@ -116,6 +116,71 @@ void main() {
     expect(lastWrite().profile, 'default');
   });
 
+  test('a snapshot a background run stored meanwhile is built upon, not '
+      'undone', () async {
+    snapshots.chatChanged(SurfaceTrigger.threads, hints());
+    await nextWrite();
+    // A background run, in another isolate, stores the open requests of
+    // every profile.
+    final background = SurfaceSnapshotStore(
+      storage: storage,
+      widgetKinds: const ['Recent'],
+    );
+    addTearDown(background.dispose);
+    await background.write(
+      SurfaceSnapshot(
+        updatedAt: now.add(const Duration(minutes: 1)),
+        profile: 'default',
+        recentChats: lastWrite().recentChats,
+        pending: [
+          PendingRequest(
+            profile: 'work',
+            threadId: 'w1',
+            threadTitle: 'Numbers',
+            kind: PendingKind.approval,
+            requestId: 'r-work',
+            createdAt: now,
+          ),
+        ],
+      ),
+    );
+
+    now = now.add(const Duration(minutes: 2));
+    snapshots.chatChanged(SurfaceTrigger.reply, hints(title: 'Changed'));
+    await nextWrite();
+
+    expect(lastWrite().recentChats.single.title, 'Changed');
+    expect(lastWrite().pending.map((p) => p.requestId), ['r-work']);
+  });
+
+  test(
+    'resuming adopts what a background run stored while suspended',
+    () async {
+      snapshots.chatChanged(SurfaceTrigger.threads, hints());
+      await nextWrite();
+      final background = SurfaceSnapshotStore(
+        storage: storage,
+        widgetKinds: const ['Recent'],
+      );
+      addTearDown(background.dispose);
+      await background.write(
+        SurfaceSnapshot(
+          updatedAt: now.add(const Duration(minutes: 1)),
+          profile: 'default',
+          kanban: const KanbanSummary(blocked: 3, review: 1),
+        ),
+      );
+
+      snapshots.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      now = now.add(const Duration(minutes: 2));
+      snapshots.chatChanged(SurfaceTrigger.reply, hints(title: 'Changed'));
+      await nextWrite();
+
+      expect(lastWrite().kanban?.blocked, 3);
+    },
+  );
+
   test('the first write reads the server, later ones within five minutes '
       'do not', () async {
     snapshots.chatChanged(SurfaceTrigger.threads, hints());

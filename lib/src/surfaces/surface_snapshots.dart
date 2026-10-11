@@ -109,9 +109,27 @@ class SurfaceSnapshots with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // A background run may have written while the app was suspended.
+      unawaited(_adoptStored());
+      return;
+    }
     if (state != AppLifecycleState.paused) return;
     _timer?.cancel();
     _request(const _Job(SurfaceTrigger.pause, remote: true));
+  }
+
+  /// Takes the stored snapshot as the base of the next build when someone
+  /// else wrote it since this one last did.
+  Future<void> _adoptStored() async {
+    final generation = _generation;
+    try {
+      final stored = await store.read();
+      if (stored == null || generation != _generation || _disposed) return;
+      if (stored.supersedes(_previous)) _previous = stored;
+    } on Object {
+      // The next build tries again.
+    }
   }
 
   /// Tells that the connection moved. Settling on the login or setup screen
@@ -187,11 +205,9 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     if (repositories == null || !_signedIn || _disposed) return;
     final generation = _generation;
     try {
-      if (_previous == null) {
-        final stored = await store.read();
-        if (generation != _generation) return;
-        _previous = stored;
-      }
+      final stored = await store.read();
+      if (generation != _generation) return;
+      if (stored != null && stored.supersedes(_previous)) _previous = stored;
       final stale =
           _lastRemote == null ||
           !_now().isBefore(_lastRemote!.add(remoteInterval));
@@ -264,10 +280,16 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     if (generation != _generation || _disposed || !_signedIn) return;
     if (remote) _lastRemote = _now();
     // App Lock may have changed while the build was under way.
-    final snapshot = _previous = _lockOn
-        ? result.snapshot.redacted()
-        : result.snapshot;
-    await store.write(snapshot);
+    final built = _lockOn
+        ? (
+            snapshot: result.snapshot.redacted(),
+            sourcesFailed: result.sourcesFailed,
+            fresh: result.fresh,
+            base: result.base,
+            redacted: true,
+          )
+        : result;
+    _previous = await store.writeBuilt(built);
   }
 
   Future<void> _clear() async {

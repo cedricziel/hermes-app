@@ -7,6 +7,7 @@ import 'package:home_widget/home_widget.dart';
 import '../live_activities/live_activity_service.dart'
     show kLiveActivityAppGroup;
 import 'surface_snapshot.dart';
+import 'surface_snapshot_builder.dart' show SnapshotBuild;
 import 'widget_kinds.dart';
 
 export 'widget_kinds.dart';
@@ -133,6 +134,32 @@ class SurfaceSnapshotStore {
       ]);
     }
     if (!unchanged && !_writes.isClosed) _writes.add(snapshot);
+  }
+
+  /// Stores what [built] read, keeping what someone else stored since its
+  /// base: the stored snapshot is read again right before saving, and when
+  /// it supersedes the base the parts [built] did not read afresh are taken
+  /// from it (the open requests of profiles it did not ask about, a section
+  /// it did not refresh). A snapshot that says signed out, written since,
+  /// wins over any build that says signed in. Returns what is stored.
+  Future<SurfaceSnapshot> writeBuilt(SnapshotBuild built) {
+    final done = _tail.then((_) async {
+      final snapshot = await _reconciled(built);
+      await _write(snapshot);
+      return snapshot;
+    });
+    _tail = done.then((_) {}, onError: (Object _) {});
+    return done;
+  }
+
+  Future<SurfaceSnapshot> _reconciled(SnapshotBuild built) async {
+    final mine = built.snapshot;
+    final stored = await read();
+    if (stored == null || !stored.supersedes(built.base)) return mine;
+    if (!stored.signedIn) return mine.signedIn ? stored : mine;
+    if (!mine.signedIn) return mine;
+    final merged = mine.adopting(stored, built.fresh);
+    return built.redacted ? merged.redacted() : merged;
   }
 
   /// A widget that cannot be reloaded must not keep the others stale, and
