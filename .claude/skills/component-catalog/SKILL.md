@@ -66,6 +66,14 @@ lower-cased names with `-` for spaces.
 
 ## Platforms and screenshots
 
+Inside `testWidgets`, use `tester.runAsync` for controller HTTP loads that must
+finish before the first pump. Directly awaiting the fake adapter in the fake-clock
+zone can stall screenshot setup.
+
+For Material and macOS checked popup menus, tap the `CheckedPopupMenuItem` entry,
+not its child text, which may ignore pointer hits. For an iOS pull-down, tap the
+rendered menu item or label. Keep hit-test warnings enabled.
+
 Workflow screenshots must pass `platform` explicitly to `pumpScreen` when checking
 Apple chrome. `phoneSize` and `desktopSize` change only the viewport; they do not
 select iOS or macOS.
