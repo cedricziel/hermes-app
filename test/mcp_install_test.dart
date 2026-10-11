@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_catalog_controller.dart';
@@ -137,7 +138,19 @@ void main() {
   bool installEnabled(WidgetTester tester) =>
       tester.widget<FilledButton>(installButton).onPressed != null;
 
-  Finder field(String label) => find.widgetWithText(TextField, label);
+  Finder field(String label) => find.byWidgetPredicate((widget) {
+    if (widget is! TextField) return false;
+    if (widget.decoration?.labelText == label) return true;
+    return find
+        .ancestor(
+          of: find.byWidget(widget),
+          matching: find.byWidgetPredicate(
+            (row) => row is GroupedTextFieldRow && row.label == label,
+          ),
+        )
+        .evaluate()
+        .isNotEmpty;
+  });
 
   Future<void> fillKey(WidgetTester tester, [String value = 'pat-1']) async {
     await tester.enterText(field('AIRTABLE_API_KEY'), value);
@@ -302,10 +315,11 @@ void main() {
 
       expect(field('AIRTABLE_API_KEY'), findsOneWidget);
       expect(find.text('Personal access token'), findsOneWidget);
-      expect(
-        tester.widget<TextField>(field('AIRTABLE_API_KEY')).obscureText,
-        isTrue,
-      );
+      final credential = tester.widget<TextField>(field('AIRTABLE_API_KEY'));
+      expect(credential.obscureText, isTrue);
+      expect(credential.enableSuggestions, isFalse);
+      expect(credential.autocorrect, isFalse);
+      expect(credential.enableIMEPersonalizedLearning, isFalse);
       expect(
         find.textContaining('Saved on your Hermes server'),
         findsOneWidget,

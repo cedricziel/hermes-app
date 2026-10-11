@@ -255,6 +255,12 @@ class GroupedTextFieldRow extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.enabled = true,
+    this.readOnly = false,
+    this.obscureText = false,
+    this.enableIMEPersonalizedLearning = true,
+    this.textInputAction,
+    this.errorText,
+    this.errorMaxLines,
   }) : assert(controller == null || initialValue == null);
 
   final String label;
@@ -273,6 +279,12 @@ class GroupedTextFieldRow extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final bool enabled;
+  final bool readOnly;
+  final bool obscureText;
+  final bool enableIMEPersonalizedLearning;
+  final TextInputAction? textInputAction;
+  final String? errorText;
+  final int? errorMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -310,6 +322,10 @@ class GroupedTextFieldRow extends StatelessWidget {
     final field = TextFormField(
       controller: controller,
       enabled: enabled,
+      readOnly: readOnly,
+      obscureText: obscureText,
+      enableIMEPersonalizedLearning: enableIMEPersonalizedLearning,
+      textInputAction: textInputAction,
       initialValue: initialValue,
       minLines: minLines,
       maxLines: maxLines,
@@ -320,7 +336,10 @@ class GroupedTextFieldRow extends StatelessWidget {
       autocorrect: autocorrect,
       enableSuggestions: enableSuggestions,
       style: style,
-      decoration: decoration,
+      decoration: decoration.copyWith(
+        errorText: errorText,
+        errorMaxLines: errorMaxLines,
+      ),
       onChanged: onChanged,
       onFieldSubmitted: onSubmitted,
     );
@@ -328,11 +347,13 @@ class GroupedTextFieldRow extends StatelessWidget {
     if (apple && oneLine) {
       content = Row(
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: metrics.titleSize,
-              color: scheme.onSurface,
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: metrics.titleSize,
+                color: scheme.onSurface,
+              ),
             ),
           ),
           SizedBox(width: metrics.leadingGap + 4),

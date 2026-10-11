@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
 import '../widgets/settings_scaffold.dart';
+import 'widgets/mcp_server_fields.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
 import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_servers_controller.dart';
-
-import '../widgets/named_icon_button.dart';
 
 final _envName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
 
@@ -198,7 +197,6 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return SettingsScaffold(
       title: 'Add server',
       subtitle: widget.servers.profile,
@@ -216,30 +214,36 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: true, label: Text('Remote (URL)')),
-                  ButtonSegment(value: false, label: Text('Command')),
-                ],
-                selected: {_remote},
-                onSelectionChanged: _saving
-                    ? null
-                    : (choice) => setState(() => _remote = choice.single),
-              ),
-              const SizedBox(height: 16),
-              _field(
-                _name,
-                'Name',
-                errorText: _nameTaken
+              McpServerFields(
+                name: _name,
+                url: _url,
+                token: _token,
+                command: _command,
+                args: _args,
+                remote: _remote,
+                auth: _auth,
+                saving: _saving,
+                nameError: _nameTaken
                     ? 'A server with this name already exists'
                     : null,
-                onChanged: (_) => _nameTaken = false,
+                urlError: _url.text.trim().isNotEmpty && !_validUrl
+                    ? 'Enter an http or https address'
+                    : null,
+                onNameChanged: (_) => setState(() => _nameTaken = false),
+                onRemoteChanged: (choice) => setState(() => _remote = choice),
+                onAuthChanged: (choice) => setState(() => _auth = choice),
+                onSubmit: _submit,
+                onAddVariable: _addRow,
+                environment: [
+                  for (final row in _env)
+                    McpEnvironmentField(
+                      name: row.name,
+                      value: row.value,
+                      error: _envError(row),
+                      onRemove: () => _removeRow(row),
+                    ),
+                ],
               ),
-              const SizedBox(height: 12),
-              if (_remote)
-                ..._remoteFields(theme)
-              else
-                ..._commandFields(theme),
               if (_error case final error?) ...[
                 const SizedBox(height: 16),
                 McpBanner(
@@ -253,152 +257,5 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
         ),
       ),
     );
-  }
-
-  /// A text field of the form. Every field is read-only while saving. A
-  /// secret is obscured and kept out of the keyboard's learning, and Enter in
-  /// any field that submits goes through the same [_submit], review included.
-  Widget _field(
-    TextEditingController controller,
-    String label, {
-    String? hint,
-    String? errorText,
-    int? errorMaxLines,
-    TextInputType? keyboardType,
-    bool secret = false,
-    bool mono = false,
-    bool multiline = false,
-    bool submits = true,
-    bool next = false,
-    ValueChanged<String>? onChanged,
-  }) {
-    return TextField(
-      controller: controller,
-      readOnly: _saving,
-      obscureText: secret,
-      autocorrect: false,
-      enableSuggestions: false,
-      enableIMEPersonalizedLearning: !secret,
-      keyboardType: multiline ? TextInputType.multiline : keyboardType,
-      minLines: multiline ? 3 : null,
-      maxLines: multiline ? 8 : 1,
-      textInputAction: multiline
-          ? null
-          : next
-          ? TextInputAction.next
-          : TextInputAction.done,
-      onChanged: onChanged,
-      onSubmitted: submits ? (_) => _submit() : null,
-      style: mono ? const TextStyle(fontFamily: 'monospace') : null,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        border: const OutlineInputBorder(),
-        errorText: errorText,
-        errorMaxLines: errorMaxLines,
-        alignLabelWithHint: multiline ? true : null,
-      ),
-    );
-  }
-
-  List<Widget> _remoteFields(ThemeData theme) {
-    return [
-      _field(
-        _url,
-        'URL',
-        hint: 'https://mcp.example.com/mcp',
-        keyboardType: TextInputType.url,
-        errorText: _url.text.trim().isNotEmpty && !_validUrl
-            ? 'Enter an http or https address'
-            : null,
-      ),
-      const SizedBox(height: 16),
-      Text('Authentication', style: theme.textTheme.labelLarge),
-      const SizedBox(height: 8),
-      SegmentedButton<McpRemoteAuth>(
-        segments: const [
-          ButtonSegment(value: McpRemoteAuth.none, label: Text('None')),
-          ButtonSegment(
-            value: McpRemoteAuth.bearerToken,
-            label: Text('Bearer token'),
-          ),
-          ButtonSegment(value: McpRemoteAuth.oauth, label: Text('OAuth')),
-        ],
-        selected: {_auth},
-        onSelectionChanged: _saving
-            ? null
-            : (choice) => setState(() => _auth = choice.single),
-      ),
-      const SizedBox(height: 12),
-      if (_auth == McpRemoteAuth.oauth)
-        Text(
-          "After adding, you sign in from the server's page.",
-          style: theme.textTheme.bodySmall,
-        ),
-      if (_auth == McpRemoteAuth.bearerToken) ...[
-        _field(_token, 'Bearer token', secret: true),
-        const SizedBox(height: 4),
-        Text(
-          'Kept on your Hermes server. It is never shown again.',
-          style: theme.textTheme.bodySmall,
-        ),
-      ],
-    ];
-  }
-
-  List<Widget> _commandFields(ThemeData theme) {
-    return [
-      _field(_command, 'Command', hint: 'npx', mono: true),
-      const SizedBox(height: 12),
-      _field(
-        _args,
-        'Arguments (one per line)',
-        mono: true,
-        multiline: true,
-        submits: false,
-      ),
-      const SizedBox(height: 16),
-      Text('Environment variables', style: theme.textTheme.labelLarge),
-      for (final row in _env)
-        Padding(
-          key: ObjectKey(row),
-          padding: const EdgeInsets.only(top: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _field(
-                  row.name,
-                  'Variable name',
-                  mono: true,
-                  submits: false,
-                  next: true,
-                  errorText: _envError(row),
-                  errorMaxLines: 2,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: _field(row.value, 'Value', secret: true)),
-              NamedIconButton(
-                label: 'Remove variable',
-                icon: AppIcons.close,
-                onPressed: _saving ? null : () => _removeRow(row),
-              ),
-            ],
-          ),
-        ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: _saving ? null : _addRow,
-          icon: const AppIcon(AppIcons.add),
-          label: const Text('Add variable'),
-        ),
-      ),
-      Text(
-        'Values are sent to your Hermes server once and never shown again.',
-        style: theme.textTheme.bodySmall,
-      ),
-    ];
   }
 }

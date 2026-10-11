@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart' show RequestOptions;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
@@ -193,7 +194,19 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder field(String label) => find.widgetWithText(TextField, label);
+  Finder field(String label) => find.byWidgetPredicate((widget) {
+    if (widget is! TextField) return false;
+    if (widget.decoration?.labelText == label) return true;
+    return find
+        .ancestor(
+          of: find.byWidget(widget),
+          matching: find.byWidgetPredicate(
+            (row) => row is GroupedTextFieldRow && row.label == label,
+          ),
+        )
+        .evaluate()
+        .isNotEmpty;
+  });
 
   for (final (name, size) in [('phone', phoneSize), ('desktop', desktopSize)]) {
     testWidgets('$name: servers, detail and tools', (tester) async {

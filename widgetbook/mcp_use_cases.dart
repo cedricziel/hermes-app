@@ -3,6 +3,8 @@ import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_banner.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_server_row.dart';
+import 'package:hermes_app/src/mcp/widgets/mcp_credential_fields.dart';
+import 'package:hermes_app/src/mcp/widgets/mcp_server_fields.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -84,6 +86,33 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
   name: 'MCP servers',
   children: [
     WidgetbookComponent(
+      name: 'McpServerFields',
+      useCases: [
+        for (final state in [
+          'Remote',
+          'Bearer token',
+          'OAuth',
+          'Command',
+          'Invalid',
+          'Saving',
+        ])
+          ...onEachPlatform(
+            state,
+            (_) => frame(_ServerExample(state: state), maxWidth: 560),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'McpCredentialFields',
+      useCases: [
+        for (final busy in [false, true])
+          ...onEachPlatform(
+            busy ? 'Installing' : 'Required and optional',
+            (_) => frame(_CredentialExample(busy: busy)),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'McpServerRow',
       useCases: onEachPlatform(
         'Tested, sign-in needed, off and switching',
@@ -158,3 +187,97 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
     ),
   ],
 );
+
+class _CredentialExample extends StatefulWidget {
+  const _CredentialExample({required this.busy});
+  final bool busy;
+  @override
+  State<_CredentialExample> createState() => _CredentialExampleState();
+}
+
+class _CredentialExampleState extends State<_CredentialExample> {
+  final controllers = {
+    'API_KEY': TextEditingController(),
+    'WORKSPACE': TextEditingController(text: 'example'),
+  };
+  @override
+  void dispose() {
+    for (final controller in controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => McpCredentialFields(
+    credentials: const [
+      HermesMcpCredential(name: 'API_KEY', prompt: 'Personal access token'),
+      HermesMcpCredential(
+        name: 'WORKSPACE',
+        prompt: 'Workspace identifier',
+        required: false,
+      ),
+    ],
+    controllers: controllers,
+    busy: widget.busy,
+  );
+}
+
+class _ServerExample extends StatefulWidget {
+  const _ServerExample({required this.state});
+  final String state;
+  @override
+  State<_ServerExample> createState() => _ServerExampleState();
+}
+
+class _ServerExampleState extends State<_ServerExample> {
+  final name = TextEditingController(text: 'example');
+  final url = TextEditingController(text: 'https://mcp.example.com/mcp');
+  final token = TextEditingController();
+  final command = TextEditingController(text: 'npx');
+  final args = TextEditingController(text: '-y\nexample-mcp');
+  final envName = TextEditingController(text: 'API_KEY');
+  final envValue = TextEditingController();
+  @override
+  void dispose() {
+    for (final controller in [
+      name,
+      url,
+      token,
+      command,
+      args,
+      envName,
+      envValue,
+    ]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => McpServerFields(
+    name: name,
+    url: url,
+    token: token,
+    command: command,
+    args: args,
+    remote: widget.state != 'Command',
+    saving: widget.state == 'Saving',
+    auth: widget.state == 'Bearer token'
+        ? McpRemoteAuth.bearerToken
+        : widget.state == 'OAuth'
+        ? McpRemoteAuth.oauth
+        : McpRemoteAuth.none,
+    nameError: widget.state == 'Invalid'
+        ? 'A server with this name already exists'
+        : null,
+    onRemoteChanged: (_) {},
+    onAuthChanged: (_) {},
+    onNameChanged: (_) {},
+    onSubmit: () {},
+    onAddVariable: () {},
+    environment: [
+      McpEnvironmentField(name: envName, value: envValue, onRemove: () {}),
+    ],
+  );
+}
