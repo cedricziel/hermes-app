@@ -114,13 +114,17 @@ Nothing to migrate. Rollback removes the intent and the phrases; saved shortcuts
 - The bridge serializes asks only until the engine has answered the first, not until it has finished: a long reply must not keep the next ask from being sent.
 - `unavailable` is Swift's alone; Dart never reports it. `waited_s` is measured from when Dart starts the ask.
 - A run that cannot connect after "Still working" was already said sends nothing and posts nothing; the connect phases have their own short timeouts, so this needs a server that is reachable at first and then gone.
-- A reply that outlives iOS's background time is handed to `background-refresh` (#620): once "Still working" is said, the chat goes into `RunningReplies` as a `fromAsk` entry, which `replace` (the chat screen's pause) keeps and `clear` (the app returning) drops. The ask forgets the entry when it announces the reply itself.
+- A reply that outlives iOS's background time is handed to `background-refresh` (#620): once "Still working" is said, the chat goes into `RunningReplies` as a `fromAsk` entry, which `replace` (the chat screen's pause) and `clear` (the app returning) keep; only `clearAll` (sign-out) drops it. The ask forgets the entry when it announces the reply itself.
 - The bridge's ready wait is 12 s (`AskHermes.readyWait`), after a cold start was measured at 5.4 s, and a slow engine is kept; `intent.unavailable` (`ready_timeout`, `engine_start_failed`) is logged by Dart once an engine is there to tell.
 - A question that never got to Hermes after "Still working" posts "Couldn't send your question"; its tap opens a new chat with the question unsent (`NotificationTarget.newChat`, payload key `q`).
 - A turn that ends without a reply after the hand-over posts no "Reply failed" (the 60 s send timeout and the 3-minute run timeout would otherwise report a turn that still runs).
 - Dart decides 500 ms before Swift's clock. A call that gets no reply by Swift's deadline gives up its place in the engine's line. A prompt Hermes folded into a running turn answers "Added to the running chat." (`AskOutcome.folded`).
 - The App Lock hand-over goes through Dart (`openLink` to `DeepLinks.open`), which holds a link that arrives before the shell; iOS opens the URL itself only when the app's engine never answers.
 - The Swift protocol is `AskTurnService` (macOS already has an `AskHermesService` class).
+
+- The question of a "Couldn't send your question" notification stays in its hidden payload (`q`, at most `deepLinkPromptLimit` = 4000 characters, left out under App Lock) until the notification is dismissed. iOS keeps a notification's `userInfo` on the device for that long.
+- "Sent" means Hermes has the question: a frame of its reply, or `PromptAcknowledgement.promptAccepted` (the gateway transport sets it when `prompt.submit` is answered, before any frame). A `ThreadBound` alone is only a chat that exists. A prompt that was accepted but whose socket died is left to the background check; nothing is posted that says it was not sent. The chat is handed to `RunningReplies` only once Hermes has the question, so an earlier reply of a continued chat is never announced for a question that did not arrive.
+- `RunningReplies.clear` (the app returning) keeps `fromAsk` entries; the next pause would not add a chat that was never on screen. `clearAll` (sign-out) drops them. An ended turn is dropped by the background check and every entry expires after 24 hours. `replace` and `add` read, then write, in the same queue but another isolate's write between the two is not seen; the worst case is a lost entry for a reply the background check would have announced, accepted as the cost of keeping the store a plain preferences string.
 
 ## Bridge contract
 

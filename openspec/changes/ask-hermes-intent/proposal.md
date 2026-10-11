@@ -27,6 +27,7 @@ Security and privacy impact:
 
 - Allowed while locked means anyone holding the locked phone can ask Hermes a question by voice and hear the answer, in a chat that can run tools on the user's server. Siri may also speak the answer aloud where others hear it. That was chosen deliberately; the mitigations are: the intent only sends what was said and returns the reply, it cannot answer approvals or questions (so a dangerous command still needs the unlocked phone), it does not work before the first unlock after a restart (the tokens are readable only after first unlock; it says "Unlock your iPhone first."), and turning on App lock in Hermes turns in-place answering off. A Settings switch is not added; App lock is the opt-out.
 - Tokens stay in secure storage; the headless runtime reads and, when it must, refreshes them as the app would (Contract 3). Nothing new is written to the App Group or preferences.
+- When the question never reaches Hermes after "Still working" was said, the "Couldn't send your question" notification keeps the question (at most 4000 characters, as a deep-link prompt) in its hidden payload, so that tapping it opens a new chat with the question unsent. iOS holds the payload in the notification's `userInfo` until the notification is dismissed. It is not in the title or body, and not kept at all while App lock is on.
 - The question and the reply text cross the method channel between Swift and Dart in memory only; they are never logged, traced or stored outside Hermes' own chat history.
 
 Observability:
