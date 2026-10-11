@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Describes the opt-in Spotlight index on iOS: the setting, which chats are indexed with what, when they are removed, what tapping a result opens, and the domain-based index other features can add to.
+Describes the Spotlight index on iOS and macOS: the setting, which chats are indexed with what, when they are removed, what tapping a result opens, and the domain-based index other features can add to.
 
 ## ADDED Requirements
 
@@ -17,21 +17,21 @@ While App Lock is on, the app SHALL remove every Hermes item from Spotlight and 
 
 ### Requirement: Spotlight setting
 
-On iOS and iPadOS the app SHALL offer a "Show chats in Spotlight" switch, off by default, in a "Spotlight" dialog reached from the account menu and from the Settings dialog. The dialog SHALL say that the recent chats' titles and latest messages become searchable on the device while it is unlocked, and that turning the switch off removes them. The choice SHALL persist across launches, and a change made while the saved value is loading SHALL win over the loaded value. On other platforms neither the entry nor the switch SHALL be shown.
+On iOS, iPadOS and macOS the app SHALL offer a "Show chats in Spotlight" switch, enabled by default when no saved choice exists. A saved opt-out SHALL remain off after upgrading. The Spotlight dialog SHALL be available from Settings on all three platforms and from the account menu on iOS and iPadOS. The dialog SHALL describe indexing recent chat titles and latest messages and removing them when switched off. Only the iOS description SHALL promise availability while the device is unlocked. The choice SHALL persist across launches, and a change made while the saved value is loading SHALL win over the loaded value. Unsupported platforms SHALL hide the setting.
 
 #### Scenario: Default
 
 - **WHEN** the user opens the Spotlight dialog on a fresh install
-- **THEN** "Show chats in Spotlight" is off and no Hermes chat appears in Spotlight
+- **THEN** "Show chats in Spotlight" is on and recent chats are indexed once the user signs in
 
 #### Scenario: Other platforms
 
-- **WHEN** the user opens the account menu on Android or macOS
+- **WHEN** the user opens the account menu on Android
 - **THEN** there is no Spotlight entry
 
 ### Requirement: What is indexed
 
-While the switch is on and a user is signed in, the system SHALL keep the recent chats of the app's surface snapshot (at most ten, across profiles) in Spotlight, each with the chat's title and its latest-message snippet of at most 120 characters. When the app records a new snapshot, chats that joined it SHALL be added, changed titles or snippets SHALL be updated, and chats no longer in it SHALL be removed. A chat that has no name yet (the dashboard or gateway has not titled it) SHALL NOT be indexed. Nothing else SHALL be indexed: no older chat, no full message, no command, question or secret, no token or server address. Indexed items SHALL NOT be searchable while the device is locked.
+While the switch is on and a user is signed in, the system SHALL keep the recent chats of the app's surface snapshot (at most ten, across profiles) in Spotlight, each with the chat's title and its latest-message snippet of at most 120 characters. When the app records a new snapshot, chats that joined it SHALL be added, changed titles or snippets SHALL be updated, and chats no longer in it SHALL be removed. A chat that has no name yet (the dashboard or gateway has not titled it) SHALL NOT be indexed. Nothing else SHALL be indexed: no older chat, no full message, no command, question or secret, no token or server address. On iOS, indexed items SHALL use complete file protection. macOS SHALL use a named Core Spotlight index without claiming iOS lock-screen protection.
 
 #### Scenario: Turning it on
 
@@ -45,7 +45,7 @@ While the switch is on and a user is signed in, the system SHALL keep the recent
 
 #### Scenario: Locked device
 
-- **WHEN** the device is locked
+- **WHEN** the iOS device is locked
 - **THEN** no Hermes chat is found in Spotlight
 
 ### Requirement: Removing indexed chats
@@ -93,3 +93,17 @@ Spotlight indexing SHALL rely on no Hermes route, RPC method or minimum version 
 
 - **WHEN** the app is connected to the oldest Hermes it supports
 - **THEN** Spotlight indexing works without any server change
+
+### Requirement: macOS result activation
+
+The macOS Runner SHALL handle Spotlight continuation activities, bring the main window forward, and deliver the result identifier to the existing deep-link flow. A result received before Flutter starts SHALL remain pending until consumed. Non-Hermes URLs SHALL be ignored. Becoming active SHALL restore a hidden main window when no main-capable window is visible without calling an unimplemented superclass delegate callback.
+
+#### Scenario: Activation
+
+- **WHEN** Hermes becomes active on macOS
+- **THEN** the activation callback completes without an unrecognized-selector exception
+
+#### Scenario: Pending result
+
+- **WHEN** a Spotlight result arrives before the native channel is installed
+- **THEN** Dart can take its Hermes link once after startup

@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/spotlight/spotlight_index.dart';
 
@@ -200,7 +201,16 @@ void main() {
     }
   });
 
-  test('the platform index does nothing off iOS', () async {
+  test('macOS uses the native index', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final mac = SpotlightIndex.forPlatform(events: events.call);
+    addTearDown(mac.dispose);
+    expect(await mac.replace('chat', [item]), isTrue);
+    expect(calls.single.method, 'replace');
+  });
+
+  test('the platform index does nothing on unsupported platforms', () async {
     final none = SpotlightIndex.forPlatform(events: events.call);
 
     expect(await none.replace('chat', [item]), isTrue);

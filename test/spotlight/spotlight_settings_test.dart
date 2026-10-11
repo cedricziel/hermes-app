@@ -16,14 +16,14 @@ void main() {
     prefs = SharedPreferencesAsync();
   });
 
-  test('is off until loaded, and off on a fresh install', () async {
+  test('is off until loaded, then enabled on a fresh install', () async {
     final settings = SpotlightSettings(prefs: prefs);
     expect(settings.enabled, isFalse);
     expect(settings.loaded, isFalse);
 
     await settings.load();
 
-    expect(settings.enabled, isFalse);
+    expect(settings.enabled, isTrue);
     expect(settings.loaded, isTrue);
   });
 
@@ -34,6 +34,13 @@ void main() {
     await next.load();
 
     expect(next.enabled, isTrue);
+  });
+
+  test('preserves a saved opt-out', () async {
+    await prefs.setBool('hermes.spotlight', false);
+    final settings = SpotlightSettings(prefs: prefs);
+    await settings.load();
+    expect(settings.enabled, isFalse);
   });
 
   test('a change made while loading wins over the saved value', () async {
@@ -75,12 +82,12 @@ void main() {
   group('offered', () {
     tearDown(() => debugDefaultTargetPlatformOverride = null);
 
-    test('only on iOS', () {
+    test('on iOS and macOS', () {
       for (final platform in TargetPlatform.values) {
         debugDefaultTargetPlatformOverride = platform;
         expect(
           SpotlightSettings.offered,
-          platform == TargetPlatform.iOS,
+          platform == TargetPlatform.iOS || platform == TargetPlatform.macOS,
           reason: '$platform',
         );
       }

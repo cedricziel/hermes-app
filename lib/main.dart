@@ -380,7 +380,6 @@ Future<void> main([List<String> args = const []]) async {
           },
           dispose: (_, channel) => channel?.dispose(),
         ),
-        // Recent chats in Spotlight, only when the user turned that on.
         Provider<ChatSpotlightIndexer?>(
           lazy: false,
           create: (context) {

@@ -46,14 +46,17 @@ class SpotlightItem {
 /// throws: Spotlight is a convenience, and a failed call is retried by the
 /// caller's next change.
 abstract interface class SpotlightIndex {
-  /// The index of this platform: Spotlight on iOS, nothing elsewhere.
+  /// The index of this platform: Spotlight on iOS and macOS, nothing elsewhere.
   ///
   /// With [indexOnly] it only puts items in the index, as a background engine
   /// does: it takes no tap and hears no unlock from the Runner.
   factory SpotlightIndex.forPlatform({
     AppEventLogger events = noopAppEventLogger,
     bool indexOnly = false,
-  }) => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+  }) =>
+      !kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.iOS ||
+              defaultTargetPlatform == TargetPlatform.macOS)
       ? ChannelSpotlightIndex(events: events, indexOnly: indexOnly)
       : const NoSpotlightIndex();
 

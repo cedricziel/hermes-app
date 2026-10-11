@@ -86,6 +86,7 @@ class AppDelegate: FlutterAppDelegate {
             }
             webAuth = WebAuthSession(messenger: controller.engine.binaryMessenger)
             ChatHandoff.shared.install(messenger: controller.engine.binaryMessenger)
+            Spotlight.shared.install(messenger: controller.engine.binaryMessenger)
         }
         super.applicationDidFinishLaunching(notification)
     }
@@ -100,6 +101,10 @@ class AppDelegate: FlutterAppDelegate {
 
     override func application(_ application: NSApplication, continue userActivity: NSUserActivity,
                               restorationHandler: @escaping ([NSUserActivityRestoring]) -> Void) -> Bool {
+        if Spotlight.shared.receive(userActivity) {
+            bringMainWindowForward()
+            return true
+        }
         if ChatHandoff.shared.receive(userActivity) { return true }
         return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
@@ -125,7 +130,6 @@ class AppDelegate: FlutterAppDelegate {
     /// A tapped notification activates the app without a reopen event, so a
     /// windowless app would answer the tap with nothing on screen.
     override func applicationDidBecomeActive(_ notification: Notification) {
-        super.applicationDidBecomeActive(notification)
         guard let main = mainWindow, !main.isMiniaturized, !NSApp.isHidden else { return }
         if !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeMain }) {
             main.makeKeyAndOrderFront(nil)

@@ -959,7 +959,8 @@ void main() {
       expect(index.items['chat']!.single.title, 'Trip plan');
     });
 
-    test('does nothing while the user has not turned it on', () async {
+    test('does nothing after the user turns it off', () async {
+      await SpotlightSettings().setEnabled(false);
       await run();
 
       expect(index.calls, isEmpty);

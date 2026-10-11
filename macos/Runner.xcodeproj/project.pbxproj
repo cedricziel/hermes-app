@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		ABCD12340000000000000002 /* Spotlight.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD12340000000000000001 /* Spotlight.swift */; };
 		4B5C0A012F00000000000001 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 4B5C0A012F00000000000002 /* KeyboardShortcuts */; };
 		4B5C0A012F00000000000005 /* QuickPanelShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B5C0A012F00000000000004 /* QuickPanelShortcut.swift */; };
 		4B5C0A012F00000000000007 /* QuickPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B5C0A012F00000000000006 /* QuickPanel.swift */; };
@@ -94,6 +95,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		ABCD12340000000000000001 /* Spotlight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spotlight.swift; sourceTree = "<group>"; };
 		4B5C0A012F00000000000004 /* QuickPanelShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPanelShortcut.swift; sourceTree = "<group>"; };
 		4B5C0A012F00000000000006 /* QuickPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPanel.swift; sourceTree = "<group>"; };
 		132EB2B997822C76E37901D4 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -237,6 +239,7 @@
 				D8B2F3D4C5A6471B9CAD2E01 /* QuickLookPanel.swift */,
 				CF974F06499C4ED8C4491C6E /* WebAuthSession.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
+				ABCD12340000000000000001 /* Spotlight.swift */,
 				4B5C0A012F00000000000006 /* QuickPanel.swift */,
 				4B5C0A012F00000000000004 /* QuickPanelShortcut.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
@@ -488,6 +491,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
+				ABCD12340000000000000002 /* Spotlight.swift in Sources */,
 				4B5C0A012F00000000000007 /* QuickPanel.swift in Sources */,
 				4B5C0A012F00000000000005 /* QuickPanelShortcut.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,

@@ -131,6 +131,7 @@ void main() {
   });
 
   test('indexes nothing while the switch is off', () async {
+    await settings.setEnabled(false);
     await indexer.start();
     await record(snapshot([chat('a', 'Trip plan')]));
 

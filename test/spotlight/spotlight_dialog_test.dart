@@ -18,10 +18,11 @@ import '../support/fake_share_inbox.dart';
 void main() {
   late SpotlightSettings settings;
 
-  setUp(() {
+  setUp(() async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     settings = SpotlightSettings();
+    await settings.load();
   });
 
   Future<void> openAccountMenu(
@@ -79,7 +80,7 @@ void main() {
   }
 
   group('the account menu', () {
-    testWidgets('opens the Spotlight dialog on iOS, off by default', (
+    testWidgets('opens the Spotlight dialog on iOS, enabled by default', (
       tester,
     ) async {
       await openAccountMenu(tester);
@@ -88,13 +89,13 @@ void main() {
 
       expect(find.text('Show chats in Spotlight'), findsOneWidget);
       expect(find.textContaining('while it is unlocked'), findsOneWidget);
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
 
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
-      expect(settings.enabled, isTrue);
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      expect(settings.enabled, isFalse);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
     testWidgets('has no Spotlight entry on Android', (tester) async {
@@ -127,7 +128,14 @@ void main() {
       expect(find.text('Show chats in Spotlight'), findsOneWidget);
     });
 
-    for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
+    testWidgets('opens Spotlight settings on macOS', (tester) async {
+      await openSettings(tester, TargetPlatform.macOS);
+      await tester.tap(find.byKey(const ValueKey('setting-spotlight')));
+      await tester.pumpAndSettle();
+      expect(find.text('Show chats in Spotlight'), findsOneWidget);
+    });
+
+    for (final platform in [TargetPlatform.android]) {
       testWidgets('has no Spotlight row on $platform', (tester) async {
         await openSettings(tester, platform);
 
