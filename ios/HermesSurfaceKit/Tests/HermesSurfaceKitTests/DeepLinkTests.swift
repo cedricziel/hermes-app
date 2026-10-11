@@ -45,7 +45,7 @@ private func cases() throws -> [Case] {
 final class DeepLinkTests: XCTestCase {
   func testBuildsEveryLinkTheAppBuilds() throws {
     let all = try cases()
-    XCTAssertGreaterThanOrEqual(all.count, 15)
+    XCTAssertEqual(all.count, 18)
     for item in all {
       XCTAssertEqual(item.built?.absoluteString, item.url, item.name)
     }

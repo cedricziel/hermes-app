@@ -48,8 +48,8 @@ struct NeedsYouView: View {
 }
 
 /// The Lock Screen and StandBy forms. Only the chat title is private; the
-/// count and the words stay readable on a locked device. The spoken label
-/// holds no title, since VoiceOver would read it aloud.
+/// count and the words stay readable on a locked device. VoiceOver is not
+/// redacted, so the title is hidden from it and the spoken label holds none.
 private struct NeedsYouAccessoryView: View {
   @Environment(\.widgetFamily) private var family
   let entry: SurfaceEntry
@@ -63,6 +63,9 @@ private struct NeedsYouAccessoryView: View {
       default: inline(model)
       }
     }
+    // The rectangular card holds three lines in 76 pt, so it cannot grow with
+    // the largest text sizes.
+    .dynamicTypeSize(...DynamicTypeSize.xLarge)
     .widgetURL(model.url)
     .containerBackground(.clear, for: .widget)
   }
@@ -75,7 +78,10 @@ private struct NeedsYouAccessoryView: View {
           .font(.caption)
           .widgetAccentable()
         if model.status.isSignedOut {
-          Text("Sign in").font(.system(size: 9, weight: .semibold))
+          Text("Sign in")
+            .font(.caption2.weight(.semibold))
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
         } else {
           Text("\(model.count)")
             .font(.system(.title2, design: .rounded, weight: .bold))
@@ -103,6 +109,7 @@ private struct NeedsYouAccessoryView: View {
       .accessibilityLabel(model.accessibilityLabel)
       if !model.isEmpty && !model.status.isSignedOut {
         TitleText(title: model.title, font: .caption2)
+          .accessibilityHidden(true)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)

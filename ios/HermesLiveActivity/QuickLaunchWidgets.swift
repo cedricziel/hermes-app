@@ -74,33 +74,40 @@ private struct CircularButton: View {
       AccessoryWidgetBackground()
       if isSignedOut {
         VStack(spacing: 0) {
-          Image(systemName: button.symbol).font(.caption)
-          Text(button.label).font(.system(size: 9, weight: .semibold))
+          Image(systemName: button.symbol)
+            .font(.caption)
+            .widgetAccentable()
+          Text(button.label)
+            .font(.caption2.weight(.semibold))
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
         }
       } else {
         Image(systemName: button.symbol)
           .font(.title2.weight(.semibold))
+          .widgetAccentable()
       }
     }
-    .widgetAccentable()
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(button.label)
   }
 }
 
 private struct LaunchButton: View {
+  @Environment(\.widgetRenderingMode) private var renderingMode
   let button: QuickLaunchModel.Button
 
   var body: some View {
     VStack(spacing: 8) {
       Image(systemName: button.symbol)
         .font(.system(size: 30, weight: .semibold))
-        .foregroundStyle(.orange)
+        .foregroundStyle(renderingMode == .fullColor ? Color.orange : Color.primary)
+        .widgetAccentable()
+        .accessibilityHidden(true)
       Text(button.label)
         .font(.subheadline.weight(.semibold))
         .lineLimit(1)
     }
-    .widgetAccentable()
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(.quaternary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     .accessibilityElement(children: .combine)
