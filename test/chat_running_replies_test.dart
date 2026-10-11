@@ -5,12 +5,14 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/fake_notification_service.dart';
 import 'support/pump_chat.dart';
 
 /// The chats a background run is told about when the app leaves while their
@@ -21,10 +23,11 @@ void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
   late AttentionNotifier attention;
+  late FakeNotificationService service;
   late RunningReplies running;
   late ChatController chat;
 
-  setUp(() {
+  setUp(() async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     transport = FakeChatTransport();
@@ -41,6 +44,12 @@ void main() {
       )
       ..on(
         'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 's9', title: 'Elsewhere')]),
+        query: {'profile': 'home'},
+      )
+      ..on(
+        'GET',
         '/api/sessions/s1/messages',
         messageListBody('s1', [messageRow(id: 1, role: 'user', content: 'Hi')]),
       )
@@ -49,9 +58,12 @@ void main() {
         '/api/sessions/s2/messages',
         messageListBody('s2', [messageRow(id: 1, role: 'user', content: 'Hi')]),
       );
+    service = FakeNotificationService();
+    final settings = NotificationSettings();
+    await settings.load();
     attention = AttentionNotifier(
-      service: null,
-      settings: null,
+      service: service,
+      settings: settings,
       onOpen: (_) {},
     );
     chat = ChatController(
@@ -147,6 +159,169 @@ void main() {
     await pumpEventQueue();
 
     expect((await running.read()).map((r) => r.threadId), ['s2']);
+  });
+
+  group('across profiles', () {
+    test(
+      'keeps a reply that runs on after a switch to another profile',
+      () async {
+        await replyIn('s1');
+        await chat.loadThreads('home');
+
+        chat.rememberRunningReplies();
+        await pumpEventQueue();
+
+        expect((await running.read()).map((r) => (r.profile, r.threadId)), [
+          ('work', 's1'),
+        ]);
+      },
+    );
+
+    test('adds the replies of both profiles', () async {
+      await replyIn('s1');
+      await chat.loadThreads('home');
+      chat.select('s9');
+      await pumpEventQueue();
+      chat.submit('Here too', const []);
+      await pumpEventQueue();
+
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect(
+        (await running.read()).map((r) => (r.profile, r.threadId)),
+        unorderedEquals([('work', 's1'), ('home', 's9')]),
+      );
+    });
+
+    test('keeps it when the profile is loaded again', () async {
+      await replyIn('s1');
+      await chat.loadThreads('home');
+      await chat.loadThreads('work');
+
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect((await running.read()).map((r) => r.threadId), ['s1']);
+    });
+
+    test('forgets it when its reply ends in the other profile', () async {
+      final turn = await replyIn('s1');
+      await chat.loadThreads('home');
+      turn.emit(const ReplyCompleted('Done.'));
+      await pumpEventQueue();
+
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect(await running.read(), isEmpty);
+    });
+
+    test(
+      'lets go of a reply that a run ended while the app was away',
+      () async {
+        await replyIn('s1');
+        await chat.loadThreads('home');
+        chat.rememberRunningReplies();
+        await pumpEventQueue();
+        await running.forget([
+          RunningReply(profile: 'work', threadId: 's1', since: DateTime.now()),
+        ]);
+
+        chat.forgetRunningReplies();
+        await pumpEventQueue();
+        chat.rememberRunningReplies();
+        await pumpEventQueue();
+
+        expect(await running.read(), isEmpty);
+      },
+    );
+  });
+
+  group('a reply a background run announced', () {
+    RunningReply announced() =>
+        RunningReply(profile: 'work', threadId: 's1', since: DateTime.now());
+
+    Future<FakeSend> awayReply() async {
+      TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      addTearDown(
+        () => TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        ),
+      );
+      return replyIn('s1');
+    }
+
+    test('is not announced again when its ending arrives on return', () async {
+      final turn = await awayReply();
+      chat.rememberRunningReplies();
+      await running.markAnnounced([announced()]);
+
+      turn.emit(const ReplyCompleted('Done.'));
+      await pumpEventQueue();
+
+      expect(service.shown, isEmpty);
+    });
+
+    test('is announced when no run announced it', () async {
+      final turn = await awayReply();
+
+      turn.emit(const ReplyCompleted('Done.'));
+      await pumpEventQueue();
+
+      expect(service.shown.single.body, 'Done.');
+    });
+
+    test('is checked only once', () async {
+      final turn = await awayReply();
+      await running.markAnnounced([announced()]);
+      turn.emit(const ReplyCompleted('Done.'));
+      await pumpEventQueue();
+
+      chat.submit('And again?', const []);
+      await pumpEventQueue();
+      transport.sends.last.emit(const ReplyCompleted('Again.'));
+      await pumpEventQueue();
+
+      expect(service.shown.map((n) => n.body), ['Again.']);
+    });
+
+    test('is forgotten when the user sends a new prompt in the chat', () async {
+      final turn = await awayReply();
+      turn.emit(const ReplyCompleted('Done.'));
+      await pumpEventQueue();
+      await running.markAnnounced([announced()]);
+
+      chat.submit('Next', const []);
+      await pumpEventQueue();
+
+      expect(await running.readAnnounced(), isEmpty);
+    });
+
+    test('is forgotten when the app is left again', () async {
+      await running.markAnnounced([announced()]);
+
+      chat.rememberRunningReplies();
+      await pumpEventQueue();
+
+      expect(await running.readAnnounced(), isEmpty);
+    });
+
+    test('is forgotten at start', () async {
+      await running.markAnnounced([announced()]);
+      final restarted = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        attention: attention,
+        runningReplies: running,
+        report: (_) {},
+      );
+      addTearDown(restarted.dispose);
+      await pumpEventQueue();
+
+      expect(await running.readAnnounced(), isEmpty);
+    });
   });
 
   group('on the chat screen', () {

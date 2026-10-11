@@ -96,6 +96,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     // Whatever an earlier run left is old news now that the app is in front.
     forgetRunningReplies();
+    unawaited(runningReplies?.clearAnnounced());
   }
 
   final HermesChatRepository? repository;
@@ -124,6 +125,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Whether [runningReplies] holds what [rememberRunningReplies] wrote, so a
   /// reply that ends meanwhile is taken off it.
   var _replyListWritten = false;
+
+  /// The replies of chats that left the screen (another profile was opened, or
+  /// this one loaded again) and have not ended: the threads on screen no longer
+  /// show them, but the list for a background run must.
+  final _carried = <(String?, String)>{};
 
   /// Tells the user something went wrong.
   final ValueChanged<String> report;
@@ -302,6 +308,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _newChatModel = null;
         search?.clear();
       }
+      _carryReplies();
       _profile = profile;
       breadcrumbs('chat.threads.loaded', {
         'switched': switched,
@@ -850,6 +857,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     liveActivities?.endChat(thread.id, _profile);
     watchStatus?.drop(thread);
     _announcedTurns.remove(thread);
+    _carried.remove((_profile, thread.id));
     _touched.remove(thread);
     _reportSurface(SurfaceTrigger.threads);
     if (_selectedId != thread.id) return;
@@ -1552,6 +1560,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }) {
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
+    // A new turn: what a run announced of an earlier one says nothing of it.
+    unawaited(runningReplies?.takeAnnounced(profile, thread.id));
     var failed = false;
     var stopped = false;
     var folded = false;
@@ -2087,40 +2097,83 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     }
     if (!notify) return;
-    _attention.announce(
-      thread,
-      event,
-      selectedThreadId: profile == _profile ? _selectedId : null,
-      profile: profile,
-    );
+    void announce() {
+      if (disposed) return;
+      _attention.announce(
+        thread,
+        event,
+        selectedThreadId: profile == _profile ? _selectedId : null,
+        profile: profile,
+      );
+    }
+
+    final store = runningReplies;
+    if (store == null || event is! ReplyCompleted) return announce();
+    // A background run may have told the user of this very ending already;
+    // the replay on return, or a reconnect during its wake, would tell again.
+    store
+        .takeAnnounced(profile, thread.id)
+        .then(
+          (was) => was ? null : announce(),
+          onError: (Object _) => announce(),
+        )
+        .ignore();
   }
 
-  /// The app is leaving the front: remembers the chats of this profile whose
-  /// reply still runs, which a background run announces once they finish.
+  void _carryReplies() {
+    for (final thread in _threads) {
+      if (thread.remote && thread.isReplying) {
+        _carried.add((_profile, thread.id));
+      }
+    }
+  }
+
+  /// The app is leaving the front: remembers the chats whose reply still runs,
+  /// in this profile and in the ones left since, which a background run
+  /// announces once they finish. What an earlier run announced is forgotten:
+  /// it described the last time the app was away.
   void rememberRunningReplies() {
     final store = runningReplies;
     if (store == null) return;
     final now = DateTime.now();
+    final running = {
+      for (final thread in _threads)
+        if (thread.remote && thread.isReplying) (_profile, thread.id),
+      ..._carried,
+    };
     _replyListWritten = true;
+    unawaited(store.clearAnnounced());
     unawaited(
       store.replace([
-        for (final thread in _threads)
-          if (thread.remote && thread.isReplying)
-            RunningReply(profile: _profile, threadId: thread.id, since: now),
+        for (final (profile, id) in running)
+          RunningReply(profile: profile, threadId: id, since: now),
       ]),
     );
   }
 
   /// The app is in front: the replies are shown here, so nothing is left for
-  /// a background run to announce.
+  /// a background run to announce. A run that already finished a reply took it
+  /// off the list, and it is no longer running.
   void forgetRunningReplies() {
     final store = runningReplies;
     if (store == null) return;
+    final written = _replyListWritten;
     _replyListWritten = false;
-    unawaited(store.clear());
+    unawaited(_resumeRunningReplies(store, written));
+  }
+
+  Future<void> _resumeRunningReplies(RunningReplies store, bool written) async {
+    if (written && _carried.isNotEmpty) {
+      final left = {
+        for (final reply in await store.read()) (reply.profile, reply.threadId),
+      };
+      _carried.retainAll(left);
+    }
+    await store.clear();
   }
 
   void _replyEnded(ChatThread thread, String? profile) {
+    _carried.remove((profile, thread.id));
     final store = runningReplies;
     if (store == null || !_replyListWritten) return;
     unawaited(

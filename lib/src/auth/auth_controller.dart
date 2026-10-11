@@ -12,6 +12,7 @@ import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
 import '../network/network_signals.dart';
 import '../telemetry/telemetry.dart';
+import 'account_key.dart';
 import 'connect_failure.dart';
 import 'native_login_flow.dart';
 import 'page_token.dart';
@@ -142,6 +143,14 @@ class AuthController extends ChangeNotifier {
 
   HermesConnectionState get state => _state;
   String? get baseUrl => _baseUrl;
+
+  /// Tells this account on this server from any other (`accountKeyFor`); null
+  /// before a server is connected.
+  String? get accountKey {
+    final url = _baseUrl;
+    return url == null ? null : accountKeyFor(url, _session?.userId);
+  }
+
   int _userGeneration = 0;
   int get userGeneration => _userGeneration;
   bool get hasDevServer => _devServerUrl.isNotEmpty;

@@ -23,6 +23,7 @@ import 'src/chat/media/media_source.dart';
 import 'src/deep_links/deep_link_listener.dart';
 import 'src/chat/media/media_store.dart';
 import 'src/chat/media/quick_look.dart';
+import 'src/core/signed_out_cleanup.dart';
 import 'src/macos/dock/dock_menu_bridge.dart';
 import 'src/macos/dock/dock_menu_controller.dart';
 import 'src/macos/mac_window.dart';
@@ -252,21 +253,30 @@ Future<void> main([List<String> args = const []]) async {
           dispose: (_, store) => store?.dispose(),
         ),
         // What background runs announce when the app is away: replies that
-        // were running when it left, and scheduled runs.
+        // were running when it left. Scheduled runs keep their baseline on
+        // every platform, the app in front uses it too.
         Provider<RunningReplies?>(
+          create: (_) =>
+              defaultTargetPlatform == TargetPlatform.iOS ||
+                  defaultTargetPlatform == TargetPlatform.android
+              ? RunningReplies()
+              : null,
+        ),
+        Provider<SignedOutCleanup>(
+          lazy: false,
           create: (context) {
-            if (defaultTargetPlatform != TargetPlatform.iOS &&
-                defaultTargetPlatform != TargetPlatform.android) {
-              return null;
-            }
-            final running = RunningReplies();
+            final running = context.read<RunningReplies?>();
             final baseline = ScheduleBaseline();
-            context.read<AuthController>().signedOut.listen((_) {
-              unawaited(running.clear());
-              unawaited(baseline.clear());
-            });
-            return running;
+            return SignedOutCleanup(
+              context.read<AuthController>().signedOut,
+              () => Future.wait([
+                baseline.clear(),
+                if (running != null) running.clear(),
+                if (running != null) running.clearAnnounced(),
+              ]),
+            );
           },
+          dispose: (_, cleanup) => cleanup.dispose(),
         ),
         // Only the iOS Home Screen widgets exist; the report says which are
         // placed, at most once a day.

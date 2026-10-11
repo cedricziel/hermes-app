@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/auth/account_key.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/background/background_alerts.dart';
 import 'package:hermes_app/src/background/background_refresh.dart';
@@ -28,6 +29,9 @@ import '../support/recording_tracer.dart';
 const _url = 'http://hermes.test';
 
 final _now = DateTime.utc(2026, 10, 11, 12);
+
+/// The account the fake server's runs belong to.
+final _account = accountKeyFor(_url, null);
 
 void main() {
   late FakeHermesServer server;
@@ -140,6 +144,21 @@ void main() {
     RunningRepliesStep step() =>
         RunningRepliesStep(running: running, now: () => _now);
 
+    Map<String, Object?> listed(String id, String status) => {
+      'id': 'rt-$id',
+      'session_key': id,
+      'status': status,
+    };
+
+    /// The session of [id] ended its turn and is still listed.
+    void idle(String id, {String profile = 'work'}) {
+      final rows = sessions[profile] as List<Object?>? ?? [];
+      sessions = {
+        ...sessions,
+        profile: [...rows, listed(id, 'idle')],
+      };
+    }
+
     void stored(
       String id, {
       String profile = 'work',
@@ -182,6 +201,7 @@ void main() {
       'announces a reply that finished, with the start of its text',
       () async {
         await running.replace([left('c1')]);
+        idle('c1');
         stored('c1');
 
         await refresh(() => [step()]);
@@ -200,6 +220,7 @@ void main() {
 
     test('names the notification as the app in front does', () async {
       await running.replace([left('c1')]);
+      idle('c1');
       stored('c1');
       final inFront = attentionFor(
         event: const ReplyCompleted('Booked the flights. Hotel is next.'),
@@ -219,52 +240,19 @@ void main() {
       expect(shown.body, inFront.body);
     });
 
-    test('says the reply failed when the chat ends on the prompt', () async {
+    test('records the announcement for the app to find on return', () async {
       await running.replace([left('c1')]);
-      stored(
-        'c1',
-        messages: [messageRow(id: 1, role: 'user', content: 'Plan my trip')],
-      );
+      idle('c1');
+      stored('c1');
 
       await refresh(() => [step()]);
 
-      expect(notifications.shown.single.body, kReplyFailedBody);
-      expect(await running.read(), isEmpty);
-    });
-
-    test('says a reply is ready when it has no text', () async {
-      await running.replace([left('c1')]);
-      stored(
-        'c1',
-        messages: [
-          messageRow(id: 1, role: 'user', content: 'Plan my trip'),
-          messageRow(id: 2, role: 'assistant', content: '  '),
-        ],
-      );
-
-      await refresh(() => [step()]);
-
-      expect(notifications.shown.single.body, kReplyReadyBody);
-    });
-
-    test('says a reply is ready when the chat cannot be read', () async {
-      await running.replace([left('c1')]);
-      server
-        ..on('GET', '/api/sessions/c1', {'detail': 'down'}, status: 500)
-        ..on('GET', '/api/sessions/c1/messages', {
-          'detail': 'down',
-        }, status: 500);
-
-      await refresh(() => [step()]);
-
-      final shown = notifications.shown.single;
-      expect(shown.body, kReplyReadyBody);
-      expect(shown.title, 'New chat');
-      expect(await running.read(), isEmpty);
+      expect((await running.readAnnounced()).map((r) => r.threadId), ['c1']);
     });
 
     test('reads the chat of the profile it ran in', () async {
       await running.replace([left('c1', profile: 'default')]);
+      idle('c1', profile: 'default');
       stored('c1', profile: 'default');
 
       await refresh(() => [step()]);
@@ -279,6 +267,122 @@ void main() {
       );
     });
 
+    group('posts nothing and forgets the chat', () {
+      test(
+        'when the chat ends on the prompt, as a cut-off turn does',
+        () async {
+          await running.replace([left('c1')]);
+          idle('c1');
+          stored(
+            'c1',
+            messages: [
+              messageRow(id: 1, role: 'user', content: 'Plan my trip'),
+            ],
+          );
+
+          await refresh(() => [step()]);
+
+          expect(notifications.shown, isEmpty);
+          expect(await running.read(), isEmpty);
+        },
+      );
+
+      test('when the turn was cut off after a tool call', () async {
+        await running.replace([left('c1')]);
+        idle('c1');
+        stored(
+          'c1',
+          messages: [
+            messageRow(id: 1, role: 'user', content: 'Plan my trip'),
+            messageRow(
+              id: 2,
+              role: 'assistant',
+              content: '',
+              toolCalls: [functionCall('search', '{}')],
+            ),
+          ],
+        );
+
+        await refresh(() => [step()]);
+
+        expect(notifications.shown, isEmpty);
+        expect(await running.read(), isEmpty);
+      });
+
+      test('when the reply has no text', () async {
+        await running.replace([left('c1')]);
+        idle('c1');
+        stored(
+          'c1',
+          messages: [
+            messageRow(id: 1, role: 'user', content: 'Plan my trip'),
+            messageRow(id: 2, role: 'assistant', content: '  '),
+          ],
+        );
+
+        await refresh(() => [step()]);
+
+        expect(notifications.shown, isEmpty);
+        expect(await running.read(), isEmpty);
+      });
+
+      test('when the session is no longer listed', () async {
+        await running.replace([left('c1')]);
+        stored('c1');
+
+        await refresh(() => [step()]);
+
+        expect(notifications.shown, isEmpty);
+        expect(await running.read(), isEmpty);
+        expect(server.requestsTo('GET', '/api/sessions/c1/messages'), isEmpty);
+      });
+
+      test('when the session reports a status it does not know', () async {
+        await running.replace([left('c1')]);
+        sessions = {
+          'work': [listed('c1', 'mysterious')],
+        };
+        stored('c1');
+
+        await refresh(() => [step()]);
+
+        expect(notifications.shown, isEmpty);
+        expect(await running.read(), isEmpty);
+      });
+    });
+
+    test('keeps the chat when its history cannot be read', () async {
+      await running.replace([left('c1')]);
+      idle('c1');
+      server
+        ..on('GET', '/api/sessions/c1', {'detail': 'down'}, status: 500)
+        ..on('GET', '/api/sessions/c1/messages', {
+          'detail': 'down',
+        }, status: 500);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await running.read(), hasLength(1));
+    });
+
+    test('says "New chat" when only the title cannot be read', () async {
+      await running.replace([left('c1')]);
+      idle('c1');
+      stored('c1');
+      server.on(
+        'GET',
+        '/api/sessions/c1',
+        {'detail': 'down'},
+        status: 500,
+        query: {'profile': 'work'},
+      );
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.title, 'New chat');
+    });
+
     for (final status in [
       'starting',
       'waiting',
@@ -289,9 +393,7 @@ void main() {
       test('keeps a chat whose session is $status', () async {
         await running.replace([left('c1')]);
         sessions = {
-          'work': [
-            {'id': 'rt-1', 'session_key': 'c1', 'status': status},
-          ],
+          'work': [listed('c1', status)],
         };
         stored('c1');
 
@@ -303,27 +405,10 @@ void main() {
       });
     }
 
-    test('announces a chat whose session is listed as idle', () async {
-      await running.replace([left('c1')]);
-      sessions = {
-        'work': [
-          {'id': 'rt-1', 'session_key': 'c1', 'status': 'idle'},
-        ],
-      };
-      stored('c1');
-
-      await refresh(() => [step()]);
-
-      expect(notifications.shown, hasLength(1));
-      expect(await running.read(), isEmpty);
-    });
-
     test('announces only the chats that finished', () async {
       await running.replace([left('c1'), left('c2')]);
       sessions = {
-        'work': [
-          {'id': 'rt-2', 'session_key': 'c2', 'status': 'working'},
-        ],
+        'work': [listed('c1', 'idle'), listed('c2', 'working')],
       };
       stored('c1');
       stored('c2');
@@ -340,6 +425,9 @@ void main() {
         left('c2'),
         left('c3', profile: 'default'),
       ]);
+      idle('c1');
+      idle('c2');
+      idle('c3', profile: 'default');
       stored('c1');
       stored('c2');
       stored('c3', profile: 'default');
@@ -355,6 +443,7 @@ void main() {
 
     test('drops a chat remembered for more than a day', () async {
       await running.replace([left('old', ago: const Duration(hours: 25))]);
+      idle('old');
       stored('old');
 
       await refresh(() => [step()]);
@@ -378,7 +467,8 @@ void main() {
 
     test('still announces the profiles that could be read', () async {
       await running.replace([left('c1'), left('c2', profile: 'default')]);
-      sessions = {'default': const FakeRpcError(-32000, 'down')};
+      idle('c1');
+      sessions = {...sessions, 'default': const FakeRpcError(-32000, 'down')};
       stored('c1');
       stored('c2', profile: 'default');
 
@@ -391,6 +481,7 @@ void main() {
     test('posts nothing while notifications are off', () async {
       notificationsOn = false;
       await running.replace([left('c1')]);
+      idle('c1');
       stored('c1');
 
       await refresh(() => [step()]);
@@ -403,6 +494,7 @@ void main() {
     test('leaves the announcing to the app while it is in front', () async {
       appOpen = true;
       await running.replace([left('c1')]);
+      idle('c1');
       stored('c1');
 
       await refresh(() => [step()]);
@@ -411,32 +503,31 @@ void main() {
       expect(await running.read(), hasLength(1));
     });
 
-    test(
-      'forgets a chat before it posts, so a failure cannot repeat it',
-      () async {
-        await running.replace([left('c1')]);
-        stored('c1');
-        final order = <String>[];
-        final service = _OrderedService(() async {
-          order.add('remembered: ${(await running.read()).length}');
-        });
+    test('posts before it forgets the chat, so a cut run repeats', () async {
+      await running.replace([left('c1')]);
+      idle('c1');
+      stored('c1');
+      final remembered = <int>[];
+      final service = _OrderedService(() async {
+        remembered.add((await running.read()).length);
+      });
 
-        await runBackgroundRefresh(
-          deps: BackgroundRefreshDeps(
-            headless: headless(),
-            notifications: service,
-            announced: AnnouncedRequests(),
-            notificationsEnabled: () async => true,
-            appLockOn: () async => false,
-            cancelSchedule: () async {},
-            appInFront: () async => false,
-            steps: () => [step()],
-          ),
-        );
+      await runBackgroundRefresh(
+        deps: BackgroundRefreshDeps(
+          headless: headless(),
+          notifications: service,
+          announced: AnnouncedRequests(),
+          notificationsEnabled: () async => true,
+          appLockOn: () async => false,
+          cancelSchedule: () async {},
+          appInFront: () async => false,
+          steps: () => [step()],
+        ),
+      );
 
-        expect(order, ['remembered: 0']);
-      },
-    );
+      expect(remembered, [1]);
+      expect(await running.read(), isEmpty);
+    });
 
     for (final (name, arrange, expected)
         in <(String, void Function(), Matcher)>[
@@ -463,7 +554,10 @@ void main() {
         ]) {
       test('does not run and keeps its list when $name', () async {
         await running.replace([left('c1')]);
-        await baseline.write({'work/job1': DateTime.utc(2026, 9, 20)});
+        await baseline.write(_account, {
+          'work/job1': DateTime.utc(2026, 9, 20),
+        });
+        idle('c1');
         stored('c1');
         arrange();
 
@@ -474,7 +568,9 @@ void main() {
         expect(outcome, expected);
         expect(notifications.shown, isEmpty);
         expect(await running.read(), hasLength(1));
-        expect(await baseline.read(), {'work/job1': DateTime.utc(2026, 9, 20)});
+        expect(await baseline.read(_account), {
+          'work/job1': DateTime.utc(2026, 9, 20),
+        });
       });
     }
 
@@ -482,6 +578,7 @@ void main() {
       'counts the replies it announced, and nothing else, on the span',
       () async {
         await running.replace([left('secret-chat')]);
+        idle('secret-chat');
         stored('secret-chat', title: 'Merger plans');
 
         await refresh(() => [step()]);
@@ -518,7 +615,7 @@ void main() {
     final seen = {'work/job1': DateTime.utc(2026, 9, 20, 8)};
 
     test('announces the runs since the stored baseline', () async {
-      await baseline.write(seen);
+      await baseline.write(_account, seen);
       jobs([ran('2026-09-21T08:00:00+00:00', status: 'error')]);
 
       await refresh(() => [step()]);
@@ -527,13 +624,13 @@ void main() {
       expect(shown.jobId, 'job1');
       expect(shown.title, 'Morning brief (work)');
       expect(shown.body, kJobFailedBody);
-      expect(await baseline.read(), {
+      expect(await baseline.read(_account), {
         'work/job1': DateTime.utc(2026, 9, 21, 8),
       });
     });
 
     test('announces a run once across two runs', () async {
-      await baseline.write(seen);
+      await baseline.write(_account, seen);
       jobs([ran('2026-09-21T08:00:00+00:00')]);
 
       await refresh(() => [step()]);
@@ -548,85 +645,122 @@ void main() {
       await refresh(() => [step()]);
 
       expect(notifications.shown, isEmpty);
-      expect(await baseline.read(), {
+      expect(await baseline.read(_account), {
         'work/job1': DateTime.utc(2026, 9, 21, 8),
       });
     });
 
     test('follows the schedule setting', () async {
       await NotificationSettings().setScheduleAlerts(false);
-      await baseline.write(seen);
+      await baseline.write(_account, seen);
       jobs([ran('2026-09-21T08:00:00+00:00')]);
 
       await refresh(() => [step()]);
 
       expect(notifications.shown, isEmpty);
-      expect(await baseline.read(), seen);
+      expect(await baseline.read(_account), seen);
       expect(server.requestsTo('GET', '/api/cron/jobs'), isEmpty);
     });
 
     test('is silent for a muted job but moves its baseline', () async {
       await NotificationSettings().setMuted('work/job1', true);
-      await baseline.write(seen);
+      await baseline.write(_account, seen);
       jobs([ran('2026-09-21T08:00:00+00:00')]);
 
       await refresh(() => [step()]);
 
       expect(notifications.shown, isEmpty);
-      expect(await baseline.read(), {
+      expect(await baseline.read(_account), {
         'work/job1': DateTime.utc(2026, 9, 21, 8),
       });
     });
 
     test('does nothing while notifications are off', () async {
       notificationsOn = false;
-      await baseline.write(seen);
+      await baseline.write(_account, seen);
       jobs([ran('2026-09-21T08:00:00+00:00')]);
 
       await refresh(() => [step()]);
 
       expect(notifications.shown, isEmpty);
-      expect(await baseline.read(), seen);
+      expect(await baseline.read(_account), seen);
     });
 
     test('does nothing while the app is in front', () async {
       appOpen = true;
-      await baseline.write(seen);
+      await baseline.write(_account, seen);
       jobs([ran('2026-09-21T08:00:00+00:00')]);
 
       await refresh(() => [step()]);
 
       expect(notifications.shown, isEmpty);
-      expect(await baseline.read(), seen);
+      expect(await baseline.read(_account), seen);
     });
 
     test('does nothing without the cron routes', () async {
       server.on('GET', '/api/cron/delivery-targets', {
         'detail': 'no',
       }, status: 404);
-      await baseline.write(seen);
+      await baseline.write(_account, seen);
       jobs([ran('2026-09-21T08:00:00+00:00')]);
 
       await refresh(() => [step()]);
 
       expect(notifications.shown, isEmpty);
-      expect(await baseline.read(), seen);
+      expect(await baseline.read(_account), seen);
       expect(server.requestsTo('GET', '/api/cron/jobs'), isEmpty);
     });
 
+    test('saves the baseline after it posts, so a cut run repeats', () async {
+      await baseline.write(_account, seen);
+      jobs([ran('2026-09-21T08:00:00+00:00')]);
+      final stored = <Map<String, DateTime>?>[];
+      final service = _OrderedService(() async {
+        stored.add(await baseline.read(_account));
+      });
+
+      await runBackgroundRefresh(
+        deps: BackgroundRefreshDeps(
+          headless: headless(),
+          notifications: service,
+          announced: AnnouncedRequests(),
+          notificationsEnabled: () async => true,
+          appLockOn: () async => false,
+          cancelSchedule: () async {},
+          appInFront: () async => false,
+          steps: () => [step()],
+        ),
+      );
+
+      expect(stored, [seen]);
+      expect(await baseline.read(_account), {
+        'work/job1': DateTime.utc(2026, 9, 21, 8),
+      });
+    });
+
+    test('does not use the baseline of another account', () async {
+      await baseline.write('someone-else', seen);
+      jobs([ran('2026-09-21T08:00:00+00:00', status: 'error')]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await baseline.read(_account), isNotNull);
+    });
+
     test('announces nothing when the jobs cannot be read', () async {
-      await baseline.write(seen);
+      await baseline.write(_account, seen);
       server.on('GET', '/api/cron/jobs', {'detail': 'down'}, status: 500);
 
       await refresh(() => [step()]);
 
       expect(notifications.shown, isEmpty);
-      expect(await baseline.read(), seen);
+      expect(await baseline.read(_account), seen);
       expect(taskSpan().attributes['steps_failed'], 1);
     });
 
     test('folds a burst into one notification as the app does', () async {
-      await baseline.write({
+      await baseline.write(_account, {
         for (var i = 0; i < 7; i++) 'work/j$i': DateTime.utc(2026, 9, 20),
       });
       jobs([
@@ -641,7 +775,7 @@ void main() {
     test(
       'counts the runs it announced, and nothing else, on the span',
       () async {
-        await baseline.write(seen);
+        await baseline.write(_account, seen);
         jobs([ran('2026-09-21T08:00:00+00:00')]);
 
         await refresh(() => [step()]);
@@ -657,16 +791,22 @@ void main() {
     await running.replace([
       RunningReply(profile: 'work', threadId: 'c1', since: DateTime.now()),
     ]);
+    sessions = {
+      'work': [
+        {'id': 'rt-c1', 'session_key': 'c1', 'status': 'idle'},
+      ],
+    };
     server
       ..on('GET', '/api/sessions/c1', sessionRow(id: 'c1', title: 'Trip plan'))
       ..on(
         'GET',
         '/api/sessions/c1/messages',
         messageListBody('c1', [
-          messageRow(id: 1, role: 'assistant', content: 'Done'),
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'assistant', content: 'Done'),
         ]),
       );
-    await baseline.write({'work/job1': DateTime.utc(2026, 9, 20)});
+    await baseline.write(_account, {'work/job1': DateTime.utc(2026, 9, 20)});
     server.on('GET', '/api/cron/jobs', [
       cronJobRow(lastRunAt: '2026-09-21T08:00:00+00:00', lastStatus: 'ok'),
     ]);

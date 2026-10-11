@@ -896,6 +896,40 @@ void main() {
       }, skip: skip);
     }
 
+    test('a session is listed from a fresh socket once the one that made it '
+        'is gone, which is how a background run finds it', () async {
+      final made = GatewayRpcClient(
+        await hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        )(),
+      );
+      final created = await made.request('session.create', const {});
+      final id = created['session_id'] as String;
+      await made.close();
+
+      final fresh = GatewayRpcClient(
+        await hermesGatewayConnect(
+          baseUrl: url,
+          authRequired: false,
+          api: client,
+        )(),
+      );
+      addTearDown(fresh.close);
+      final listed = await fresh.request('session.active_list', const {});
+
+      final row = [
+        for (final row in listed['sessions'] as List)
+          if ((row as Map)['id'] == id) row.cast<String, Object?>(),
+      ].singleOrNull;
+      expect(row, isNotNull, reason: 'the session outlives its socket');
+      expect(row!['status'], 'idle');
+      if (created['stored_session_id'] case final String stored) {
+        expect(row['session_key'], stored);
+      }
+    }, skip: skip);
+
     test('approvals are asked by the runtime session id', () async {
       final Map<String, Object?> pending;
       try {
@@ -1183,20 +1217,10 @@ void main() {
           'session.info {running: false} after message.complete',
         );
 
-        // Background refresh reads a finished turn as an absent session or one
-        // whose status is not a running one.
+        // Background refresh announces a reply only when its session is listed
+        // with its turn ended.
         final finished = await listed();
-        expect(
-          finished == null ||
-              !const {
-                'starting',
-                'waiting',
-                'working',
-                'streaming',
-                'resuming',
-              }.contains(finished['status']),
-          isTrue,
-        );
+        expect(finished?['status'], 'idle');
         final page = await HermesChatRepository(client.raw)
             .loadMessagePage(stored, limit: 5);
         expect(page.messages.last.role, ChatRole.assistant);

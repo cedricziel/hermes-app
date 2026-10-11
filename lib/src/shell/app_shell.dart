@@ -176,11 +176,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
     if (service != null && settings != null && _cron != null) {
+      final accounts = _maybeRead<AuthController>();
       _watcher = ScheduleWatcher(
         repository: _cron!,
         service: service,
         settings: settings,
         profiles: _profiles,
+        account: () => accounts?.accountKey ?? '',
       );
     }
     WidgetsBinding.instance.addObserver(this);
@@ -314,7 +316,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         if (!kanban) _drop(_Destination.kanban);
         if (!schedules) _drop(_Destination.schedules);
       });
-      _watcher?.available = schedules;
+      // An answer that could not be had says nothing about the routes, and
+      // the watcher forgets what it saw when they are gone.
+      if (_schedulesKnown) _watcher?.available = schedules;
       _syncSchedules();
       final pending = _pendingJob;
       if (schedules && pending != null) {

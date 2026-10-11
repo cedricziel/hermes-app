@@ -16,6 +16,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../api/hermes_api_client.dart';
 import '../api/hermes_repositories.dart';
 import '../api/request_timeout.dart';
+import '../auth/account_key.dart';
 import '../auth/auth_controller.dart';
 import '../auth/native_login_flow.dart';
 import '../auth/page_token.dart';
@@ -219,6 +220,9 @@ class HeadlessHermes {
   /// flags only: the span never holds ids, titles or text.
   void annotate(String name, Object value) => _run.annotations[name] = value;
 
+  /// Tells this account on this server from any other (`accountKeyFor`).
+  String get accountKey => _connection.accountKey;
+
   /// Reads every profile's chats, Kanban and schedules, builds the snapshot
   /// and stores it for the widgets. With [pending] those are the open
   /// requests of every profile and replace the stored ones; without it the
@@ -411,6 +415,7 @@ class _Connection {
   _Connection({
     required this.baseUrl,
     required this.authRequired,
+    required this.accountKey,
     required this.repositories,
     this.auth,
   });
@@ -490,6 +495,7 @@ class _Connection {
       _Connection(
         baseUrl: normalized,
         authRequired: status.authRequired,
+        accountKey: accountKeyFor(normalized, held?.userId),
         repositories: HermesRepositories(
           HermesApiClient(authed),
           telemetry: telemetry,
@@ -502,6 +508,7 @@ class _Connection {
 
   final String baseUrl;
   final bool authRequired;
+  final String accountKey;
   final HermesRepositories repositories;
   final _HeadlessAuth? auth;
 }
