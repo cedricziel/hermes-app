@@ -30,7 +30,7 @@ void main() {
     calls = [];
     failure = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(const MethodChannel(kIntentsChannel), (
+        .setMockMethodCallHandler(const MethodChannel(kShortcutsChannel), (
           call,
         ) async {
           calls.add(call.method);
@@ -41,7 +41,7 @@ void main() {
 
   tearDown(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(const MethodChannel(kIntentsChannel), null);
+        .setMockMethodCallHandler(const MethodChannel(kShortcutsChannel), null);
     await store.dispose();
   });
 

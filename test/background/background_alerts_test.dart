@@ -1,19 +1,27 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/account_key.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/background/background_alerts.dart';
 import 'package:hermes_app/src/background/background_refresh.dart';
 import 'package:hermes_app/src/background/background_spotlight.dart';
+import 'package:hermes_app/src/background/background_surfaces.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/background/running_replies.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/intents/intent_shortcuts.dart'
+    show kShortcutsChannel;
 import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/notifications/badge_controller.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/schedule_alerts.dart';
 import 'package:hermes_app/src/spotlight/spotlight_index.dart';
 import 'package:hermes_app/src/spotlight/spotlight_settings.dart';
 import 'package:hermes_app/src/schedules/schedule_baseline.dart';
+import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,10 +42,19 @@ const _url = 'http://hermes.test';
 
 final _now = DateTime.utc(2026, 10, 11, 12);
 
+class _FakeBadge implements BadgeService {
+  final counts = <int>[];
+
+  @override
+  Future<void> update(int count) async => counts.add(count);
+}
+
 /// The account the fake server's runs belong to.
 final _account = accountKeyFor(_url, null);
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late FakeHermesServer server;
   late FakeGateway gateway;
   late FakeSurfaceStorage storage;
@@ -51,12 +68,17 @@ void main() {
   var notificationsOn = true;
   var appOpen = false;
 
+  /// Runs where the snapshot write checks App Lock, just before it reads what
+  /// is stored: a stand-in for another engine writing meanwhile.
+  Future<void> Function()? beforeSnapshotWrite;
+
   /// What `session.active_list` answers, by profile.
   late Map<String?, Object> sessions;
 
   setUp(() {
     notificationsOn = true;
     appOpen = false;
+    beforeSnapshotWrite = null;
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.withData({kSavedServerUrlKey: _url});
     server = FakeHermesServer()
@@ -113,7 +135,10 @@ void main() {
       serverAttributes: attributes,
     ),
     snapshotStore: store,
-    appLockOn: () async => false,
+    appLockOn: () async {
+      await beforeSnapshotWrite?.call();
+      return false;
+    },
   );
 
   BackgroundRefreshDeps deps(List<BackgroundStep> Function()? steps) =>
@@ -892,6 +917,197 @@ void main() {
       await run();
 
       expect(index.calls, isEmpty);
+    });
+  });
+
+  group('badge and Siri', () {
+    late _FakeBadge badge;
+    late List<String> asked;
+
+    setUp(() {
+      badge = _FakeBadge();
+      asked = [];
+      gateway.handlers['approval.pending'] = (_) => {'approvals': []};
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'd1', title: 'Trip plan', lastActive: 1780000100),
+        ]),
+        query: {'profile': 'default'},
+      );
+    });
+
+    Future<void> run({
+      TargetPlatform platform = TargetPlatform.iOS,
+      Duration? snapshotWait,
+    }) => refresh(() {
+      final requests = OpenRequestsStep();
+      final snapshot = SnapshotStep(requests);
+      return [
+        requests,
+        snapshot,
+        BadgeRefreshStep(
+          snapshot,
+          badge: badge,
+          settings: NotificationSettings(),
+          platform: platform,
+          snapshotWait: snapshotWait,
+        ),
+        ShortcutsRefreshStep(
+          snapshot,
+          refresh: () async {
+            asked.add('refresh');
+          },
+          platform: platform,
+        ),
+      ];
+    });
+
+    test('shows the number of open requests on the icon', () async {
+      sessions = {
+        'default': [
+          {
+            'id': 'rt-d1',
+            'session_key': 'd1',
+            'title': 'Trip plan',
+            'status': 'waiting',
+            'message_count': 2,
+          },
+        ],
+      };
+
+      await run();
+
+      expect(badge.counts, [1]);
+    });
+
+    test('shows the stored count when its own snapshot was dropped', () async {
+      beforeSnapshotWrite = () async {
+        final other = SurfaceSnapshot(
+          updatedAt: DateTime.utc(2026, 10, 11, 12),
+          pending: [
+            for (final id in ['a', 'b'])
+              PendingRequest(
+                profile: 'default',
+                threadId: id,
+                threadTitle: 'Chat',
+                kind: PendingKind.approval,
+                requestId: id,
+                createdAt: DateTime.utc(2026, 10, 11, 11),
+              ),
+          ],
+        ).atRevision(9);
+        await storage.save(other.encode());
+      };
+
+      await run();
+
+      expect(events.named('surface.snapshot.write_skipped'), isNotEmpty);
+      expect(badge.counts, [2]);
+      expect(asked, isEmpty);
+    });
+
+    test('clears the badge while notifications are off', () async {
+      await NotificationSettings().setEnabled(false);
+      sessions = {
+        'default': [
+          {
+            'id': 'rt-d1',
+            'session_key': 'd1',
+            'title': 'Trip plan',
+            'status': 'waiting',
+            'message_count': 2,
+          },
+        ],
+      };
+
+      await run();
+
+      expect(badge.counts, [0]);
+    });
+
+    test('counts a snapshot that never comes as a failed step', () async {
+      final snapshot = SnapshotStep(OpenRequestsStep());
+      await refresh(
+        () => [
+          BadgeRefreshStep(
+            snapshot,
+            badge: badge,
+            settings: NotificationSettings(),
+            platform: TargetPlatform.iOS,
+            snapshotWait: const Duration(milliseconds: 50),
+          ),
+          ShortcutsRefreshStep(
+            snapshot,
+            refresh: () async => asked.add('refresh'),
+            platform: TargetPlatform.iOS,
+            snapshotWait: const Duration(milliseconds: 50),
+          ),
+        ],
+      );
+
+      expect(taskSpan().attributes['steps_failed'], 2);
+      expect(badge.counts, isEmpty);
+      expect(asked, isEmpty);
+    });
+
+    test('the default run updates the badge and asks Siri', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final calls = <String>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      for (final name in ['app_badge_plus', kShortcutsChannel]) {
+        messenger.setMockMethodCallHandler(MethodChannel(name), (call) async {
+          calls.add('$name ${call.method}');
+          return null;
+        });
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(MethodChannel(name), null),
+        );
+      }
+
+      await refresh(null);
+
+      expect(
+        calls,
+        containsAll([
+          'app_badge_plus updateBadge',
+          '$kShortcutsChannel refreshShortcuts',
+        ]),
+      );
+    });
+
+    test('clears the badge when nothing waits', () async {
+      await run();
+
+      expect(badge.counts, [0]);
+    });
+
+    test('leaves the badge alone where the icon has none', () async {
+      await run(platform: TargetPlatform.linux);
+
+      expect(badge.counts, isEmpty);
+    });
+
+    test('asks Siri to re-read the chats after a changed snapshot', () async {
+      await run();
+
+      expect(asked, ['refresh']);
+    });
+
+    test('does not ask again when the run changed nothing', () async {
+      await run();
+      await run();
+
+      expect(asked, ['refresh']);
+    });
+
+    test('asks on iOS only', () async {
+      await run(platform: TargetPlatform.android);
+
+      expect(asked, isEmpty);
     });
   });
 

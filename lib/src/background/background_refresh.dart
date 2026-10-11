@@ -27,6 +27,7 @@ import 'app_presence.dart';
 import 'background_alerts.dart';
 import 'background_scheduler.dart';
 import 'background_spotlight.dart';
+import 'background_surfaces.dart';
 import 'headless_hermes.dart';
 
 /// The whole run, which iOS allows about 30 seconds.
@@ -68,7 +69,10 @@ class BackgroundContext {
     required this._appLockOn,
     this._inFront = appInFront,
     this._request,
-  });
+    this.stepTimeout = kBackgroundStepBudget,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now,
+       _started = (now ?? DateTime.now)();
 
   final HeadlessHermes hermes;
 
@@ -79,6 +83,11 @@ class BackgroundContext {
   final Future<bool> Function() _appLockOn;
   final Future<bool> Function() _inFront;
   final GatewayRequest? _request;
+
+  /// How long each step may take, from the start of the run.
+  final Duration stepTimeout;
+  final DateTime Function() _now;
+  final DateTime _started;
 
   HermesGatewayTransport? _transport;
   Future<bool>? _lockOn;
@@ -93,6 +102,15 @@ class BackgroundContext {
   /// the app is open, which announces requests itself; an app that is only
   /// alive in the background does not.
   Future<bool> isAppInFront() => _inFrontNow ??= _inFront();
+
+  /// What is left of a step's time, less [reserve] for the work it still has
+  /// to do after waiting; never below zero. All steps start with the run.
+  Duration remainingStepBudget({
+    Duration reserve = const Duration(seconds: 2),
+  }) {
+    final left = stepTimeout - _now().difference(_started) - reserve;
+    return left.isNegative ? Duration.zero : left;
+  }
 
   /// Sends a gateway request on the run's shared socket.
   Future<Map<String, Object?>> request(
@@ -515,6 +533,8 @@ List<BackgroundStep> _defaultSteps() {
     requests,
     snapshot,
     SpotlightRefreshStep(snapshot),
+    BadgeRefreshStep(snapshot),
+    ShortcutsRefreshStep(snapshot),
     RunningRepliesStep(),
     ScheduleAlertsStep(),
   ];
@@ -545,6 +565,7 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
         appLockOn: deps.appLockOn ?? AppLockController.savedEnabled,
         inFront: deps.appInFront ?? appInFront,
         request: deps.request,
+        stepTimeout: deps.stepTimeout,
       );
       var newRequests = 0;
       var repliesFinished = 0;
