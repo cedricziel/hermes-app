@@ -16,15 +16,15 @@ One PR, `feat(background): announce finished replies and scheduled runs in the b
 ## 2. Running replies (TDD)
 
 - [x] 2.1 Write failing `ChatController` tests:
-  - on `paused`, each chat with a running reply is stored as `{profile, threadId, sessionKey, since}`;
+  - on `paused`, each chat with a running reply is stored as `{profile, threadId, since}`;
   - on `resumed`, the list is cleared.
 
   Implement; verify.
 
 - [x] 2.2 Write failing tests for the running-replies step, with a fake gateway and `FakeHermesServer`:
   - a remembered chat whose session no longer runs a turn is announced with the preview of its last assistant message;
-  - a failed reply is announced as "Reply failed";
-  - when the read fails, the empty-reply text is used;
+  - a chat that ends on the prompt or on a tool call, has no text, or whose session is not listed is forgotten with no notification;
+  - when the read fails, the chat is kept;
   - a `working` or `resuming` session stays remembered;
   - entries older than 24 hours are dropped;
   - when `session.active_list` fails, nothing changes;

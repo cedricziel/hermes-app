@@ -8,11 +8,11 @@ Describes how background runs announce replies that finished while the app was s
 
 ### Requirement: Finished replies in the background
 
-When the app moves to the background, it SHALL remember the chats whose reply is still running, and SHALL forget them when it returns to the front. A background run SHALL check the session of each remembered chat. When the session no longer runs a turn, the run SHALL post the chat's notification, as the notifications spec defines it for a completed reply, and forget the chat:
+When the app moves to the background, it SHALL remember the chats whose reply is still running, in every profile, and SHALL forget them when it returns to the front. A background run SHALL check the session of each remembered chat and SHALL announce only on positive evidence: the session is listed with its turn ended (`idle`) and the newest stored message is the assistant's own text. The run SHALL then post the chat's notification, as the notifications spec defines it for a completed reply, with a one-line preview of that text, and only after posting forget the chat.
 
-- a one-line preview of the last reply;
-- "Reply ready" when the reply cannot be read or is empty;
-- "Reply failed" for a reply that never got an answer, which the stored chat shows by ending on the user's own prompt.
+A chat whose session is no longer listed or has a status the app does not know, one that ends on the user's own prompt or on a tool call, and one whose reply has no text, SHALL be forgotten without a notification: nothing says its reply was completed, and a turn that was stopped or lost shows no differently. A chat whose history cannot be read SHALL be kept for the next run.
+
+When the app returns and replays the ending of a reply a run announced, it SHALL NOT announce it again: a run records the chats it announced, and the app checks and consumes that record when the reply ends.
 
 A chat SHALL be forgotten after 24 hours. When the run is signed out, locked or cannot reach the server, nothing SHALL be announced or forgotten, and the schedule baseline SHALL stay as it was. When the live sessions cannot be read, nothing SHALL be announced or forgotten. Nothing SHALL be posted while notifications are off.
 

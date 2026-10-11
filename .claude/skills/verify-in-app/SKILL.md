@@ -392,7 +392,7 @@ The same run announces replies and scheduled runs that happened while the app
 was away. For a reply: send a prompt, send the app to the background before it
 finishes (the pause is what remembers the chat in
 `hermes.background.running.v1`), let the reply finish, simulate the launch, and
-see the "Reply ready" notification with the start of the reply. For a schedule:
+see a notification with the start of the reply (the session must be listed idle; a reply that is lost or stopped posts nothing). For a schedule:
 make a cron job fail on the dev backend, simulate the launch (the first run
 only records `hermes.schedules.baseline.v1`, so simulate it once before the job
 runs), and see one "Failed" notification. Open the app afterwards: neither is
