@@ -333,7 +333,7 @@ extension and draw only the snapshot above. Install the debug app, long-press
 the Home Screen, tap "+" and search "Hermes": add each widget in each size.
 The gallery shows made-up content; the placed widget shows the snapshot, so
 open a chat and let a reply finish, and it appears within a moment (the store
-reloads `HermesRecentChats`, `HermesNeedsYou` and `HermesBoard` after each
+reloads every kind in `kSurfaceWidgetKinds` after each
 write). Tap a chat row, the Needs you count and a failed job: each lands on its
 chat or tab. Lock the device (Cmd-L) and look at the lock screen or StandBy
 view: titles and snippets are redacted, counts stay. For App Lock turn it on,
@@ -343,6 +343,18 @@ and every widget reads "Open Hermes to sign in". Reload failures and the daily
 `widgets.installed` report show in the telemetry as `widgets.reload_failed` and
 `widgets.installed`. A quick look without the simulator: the pure models run
 with `swift test` in `ios/HermesSurfaceKit`.
+
+Lock Screen and StandBy widgets share the extension: Needs you also offers
+circular, rectangular and inline, and New Chat, Dictate (both circular and
+small) and the medium Quick launch are widgets of their own. Lock the
+simulator (Cmd-L), wake it, long-press the Lock Screen, tap Customize, then
+the widget row under the clock, and search "Hermes". For StandBy, use a phone
+simulator with the device lying sideways: in Settings > StandBy turn it on,
+then rotate the simulator (Cmd-arrow) while it is locked; the small widgets
+show there. Raise an approval and check the circular count and the rectangular
+kind label, with the chat title hidden while locked and a grey bar with App
+Lock on. A tap lands on the oldest request's chat, a new chat, and a new chat
+with the microphone for Dictate. Signed out, each reads "Sign in".
 
 ## Background work (iOS simulator)
 
