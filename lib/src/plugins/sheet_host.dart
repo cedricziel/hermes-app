@@ -33,7 +33,11 @@ class _SheetHostState extends State<SheetHost> {
   }
 
   void _closeIfGone() {
-    if (widget.isGone() && mounted) Navigator.of(context).maybePop();
+    if (mounted &&
+        widget.isGone() &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      Navigator.of(context).maybePop();
+    }
   }
 
   @override

@@ -185,6 +185,39 @@ void main() {
   });
 
   group('details', () {
+    testWidgets('dismissing details stays on the pushed plugin list', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = const Size(400, 900)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          home: const Scaffold(body: Text('Chats')),
+        ),
+      );
+      navigator.currentState!.push<void>(
+        MaterialPageRoute(
+          builder: (_) => PluginsScreen(
+            repository: HermesPluginManagerRepository(server.client().raw),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(_row('netbox'));
+      await tester.pumpAndSettle();
+
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(_row('netbox'), findsOneWidget);
+      expect(find.text('Chats'), findsNothing);
+    });
+
     testWidgets('open as a bottom sheet on a phone-width screen', (
       tester,
     ) async {
