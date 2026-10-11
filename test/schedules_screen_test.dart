@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
@@ -74,6 +76,47 @@ void main() {
   );
 
   group('list', () {
+    testWidgets('a job vanishing during back navigation keeps the list', (
+      tester,
+    ) async {
+      jobs([healthy()]);
+      server
+        ..on('GET', '/api/cron/jobs/job1', healthy())
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      tester.view
+        ..physicalSize = const Size(400, 800)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          home: const Scaffold(body: Text('Chats')),
+        ),
+      );
+      navigator.currentState!.push<void>(
+        MaterialPageRoute(
+          builder: (_) => SchedulesScreen(
+            controller: controller,
+            onOpenRun: (run, job) => opened.add((run, job)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Morning brief'));
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(ScheduleDetail));
+
+      Navigator.of(context).pop();
+      jobs([]);
+      unawaited(controller.refresh());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SchedulesScreen), findsOneWidget);
+      expect(find.text('No scheduled tasks'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('shows how a healthy job is doing', (tester) async {
       jobs([healthy()]);
 
