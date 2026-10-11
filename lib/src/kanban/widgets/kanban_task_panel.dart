@@ -26,6 +26,7 @@ import 'task_panel/kanban_task_fields.dart';
 import 'task_panel/kanban_task_header.dart';
 import 'task_panel/kanban_task_runs.dart';
 import 'task_panel/kanban_task_sheet.dart';
+import '../../widgets/route_dismissal.dart';
 
 /// Opens a task as a bottom sheet on a phone and a dialog on a wide screen.
 /// On Apple platforms the sheet has medium and large detents and the dialog is
@@ -208,7 +209,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     }
     if (!await _run(action) || !close || !mounted) return;
     final onClose = widget.onClose;
-    onClose == null ? Navigator.pop(context) : onClose();
+    onClose == null ? dismissRoute(context) : onClose();
   }
 
   Future<void> _download(KanbanAttachment a) async {

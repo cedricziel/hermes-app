@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import 'hermes_mcp_repository.dart';
 import 'mcp_servers_controller.dart';
+import '../widgets/route_dismissal.dart';
 
 /// Waits while the user approves a sign-in to an OAuth server in the browser.
 ///
@@ -136,7 +137,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
       switch (flow.status) {
         case McpFlowStatus.approved:
           _phase = _Phase.done;
-          Navigator.of(context).pop(true);
+          dismissRoute(context, true);
           return;
         case McpFlowStatus.error:
           setState(() {
@@ -165,7 +166,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
   void _cancel() {
     widget.controller.cancelSignIn(_flow);
     _phase = _Phase.done;
-    Navigator.of(context).pop(false);
+    dismissRoute(context, false);
   }
 
   Future<void> _tryAgain() async {
@@ -187,7 +188,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
               'Could not start signing in to ${widget.server.name}';
           _phase = _Phase.failed;
         case McpSignInGone():
-          Navigator.of(context).pop(false);
+          dismissRoute(context, false);
       }
     });
   }
@@ -310,7 +311,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
               : const Text('Try again'),
         ),
         TextButton(
-          onPressed: _starting ? null : () => Navigator.of(context).pop(false),
+          onPressed: _starting ? null : () => dismissRoute(context, false),
           child: const Text('Close'),
         ),
       ],

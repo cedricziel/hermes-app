@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/content_column.dart';
 import 'hermes_messaging_repository.dart';
+import '../widgets/route_dismissal.dart';
 
 typedef LinkLauncher = Future<bool> Function(Uri uri);
 
@@ -154,7 +155,7 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
     try {
       await widget.repository.applyTelegramPairing(_pairing!.id, _userIds);
       _pairing = null;
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) dismissRoute(context, true);
     } on Object catch (e) {
       if (!mounted) return;
       setState(() {

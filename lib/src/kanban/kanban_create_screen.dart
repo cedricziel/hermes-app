@@ -9,6 +9,7 @@ import '../widgets/settings_scaffold.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
+import '../widgets/route_dismissal.dart';
 
 /// The quick-create form in grouped sections, with Create in the bar. Pops
 /// `true` once the task exists.
@@ -108,7 +109,7 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(warning!)));
       }
-      Navigator.pop(context, true);
+      dismissRoute(context, true);
     } else {
       setState(() => _saving = false);
     }
