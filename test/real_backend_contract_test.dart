@@ -896,6 +896,40 @@ void main() {
       }, skip: skip);
     }
 
+    test('a session is listed from a fresh socket once the one that made it '
+        'is gone, which is how a background run finds it', () async {
+      final made = GatewayRpcClient(
+        await hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        )(),
+      );
+      final created = await made.request('session.create', const {});
+      final id = created['session_id'] as String;
+      await made.close();
+
+      final fresh = GatewayRpcClient(
+        await hermesGatewayConnect(
+          baseUrl: url,
+          authRequired: false,
+          api: client,
+        )(),
+      );
+      addTearDown(fresh.close);
+      final listed = await fresh.request('session.active_list', const {});
+
+      final row = [
+        for (final row in listed['sessions'] as List)
+          if ((row as Map)['id'] == id) row.cast<String, Object?>(),
+      ].singleOrNull;
+      expect(row, isNotNull, reason: 'the session outlives its socket');
+      if (created['stored_session_id'] case final String stored) {
+        expect(row!['session_key'], stored);
+      }
+      expect(row!['status'], isIn(liveStatuses));
+    }, skip: skip);
+
     test('approvals are asked by the runtime session id', () async {
       final Map<String, Object?> pending;
       try {
@@ -1143,6 +1177,54 @@ void main() {
         expect(seqs, everyElement(isA<int>()));
         expect(seqs, orderedEquals([...seqs]..sort()));
         expect(seqs.toSet(), hasLength(seqs.length));
+      },
+      skip: modelSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'a session lists under its stored id while it runs, and its finished '
+      'reply is the newest stored message',
+      () async {
+        final tap = await open();
+        final session = await tap.rpc.request('session.create', {});
+        final sid = session['session_id'] as String;
+        final stored = session['stored_session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': counting,
+        });
+        await tap.until(
+          () => tap.types(sid).contains('message.start'),
+          'message.start',
+        );
+
+        Future<Map<String, Object?>?> listed() async {
+          final answer = await tap.rpc.request('session.active_list', {});
+          return [
+            for (final row in (answer['sessions'] as List))
+              if ((row as Map)['id'] == sid) row.cast<String, Object?>(),
+          ].firstOrNull;
+        }
+
+        final running = await listed();
+        expect(running, isNotNull);
+        expect(running!['session_key'], stored);
+        expect(running['status'], isIn(['starting', 'working', 'streaming']));
+
+        await tap.until(
+          () => tap.idleAfterComplete(sid),
+          'session.info {running: false} after message.complete',
+        );
+
+        // Background refresh announces a reply only when its session is listed
+        // with its turn ended.
+        final finished = await listed();
+        expect(finished?['status'], 'idle');
+        final page = await HermesChatRepository(client.raw)
+            .loadMessagePage(stored, limit: 5);
+        expect(page.messages.last.role, ChatRole.assistant);
+        expect(page.messages.last.content.trim(), isNotEmpty);
       },
       skip: modelSkip,
       timeout: const Timeout(Duration(minutes: 3)),

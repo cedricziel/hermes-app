@@ -4,9 +4,11 @@ import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_alerts.dart';
+import 'package:hermes_app/src/schedules/schedule_baseline.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:shared_preferences_platform_interface/types.dart';
 
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
@@ -252,6 +254,7 @@ void main() {
         service: service,
         settings: settings,
         profiles: HermesProfilesRepository(server.client().raw),
+        account: () => 'acct',
         interval: const Duration(minutes: 1),
       );
     });
@@ -386,6 +389,156 @@ void main() {
       });
     });
 
+    group('baseline kept on the device', () {
+      late ScheduleBaseline stored;
+      setUp(() => stored = ScheduleBaseline());
+
+      testWidgets('is saved after each look', (tester) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+
+          expect(await stored.read('acct'), {
+            'work/job1': DateTime.utc(2026, 9, 20, 8),
+          });
+        });
+      });
+
+      testWidgets('is loaded before the first look', (tester) async {
+        await tester.runAsync(() async {
+          await stored.write('acct', {
+            'work/job1': DateTime.utc(2026, 9, 20, 8),
+          });
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          watcher.available = true;
+
+          await look();
+
+          expect(service.shown.single.title, 'Morning brief');
+        });
+      });
+
+      testWidgets('does not announce a run a background run announced', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+          await stored.write('acct', {
+            'work/job1': DateTime.utc(2026, 9, 21, 8),
+          });
+
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          await look();
+
+          expect(service.shown, isEmpty);
+        });
+      });
+
+      testWidgets('is forgotten when the setting is switched off', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+
+          await settings.setScheduleAlerts(false);
+          await pumpEventQueue();
+
+          expect(await stored.read('acct'), isNull);
+        });
+      });
+
+      testWidgets('is forgotten when the cron routes go away', (tester) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+
+          watcher.available = false;
+          await pumpEventQueue();
+
+          expect(await stored.read('acct'), isNull);
+        });
+      });
+
+      testWidgets('of another account is not used', (tester) async {
+        await tester.runAsync(() async {
+          await stored.write('other', {
+            'work/job1': DateTime.utc(2026, 9, 20, 8),
+          });
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          watcher.available = true;
+
+          await look();
+
+          expect(service.shown, isEmpty);
+          expect(await stored.read('acct'), isNotNull);
+        });
+      });
+
+      testWidgets('is gone before the look that follows its removal', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          final slow = _SlowClearPrefs();
+          SharedPreferencesAsyncPlatform.instance = slow;
+          final fresh = ScheduleWatcher(
+            repository: HermesCronRepository(server.client().raw),
+            service: service,
+            settings: settings,
+            baseline: ScheduleBaseline(),
+            account: () => 'acct',
+          );
+          addTearDown(fresh.dispose);
+          await ScheduleBaseline().write('acct', {
+            'work/job1': DateTime.utc(2026, 9, 20, 8),
+          });
+          fresh.available = true;
+          await fresh.check();
+          fresh.available = false;
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          fresh.available = true;
+
+          await fresh.check();
+
+          expect(service.shown, isEmpty);
+        });
+      });
+
+      testWidgets('keeps a run unannounced when saving the baseline fails', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          await stored.write('acct', {
+            'work/job1': DateTime.utc(2026, 9, 20, 8),
+          });
+          SharedPreferencesAsyncPlatform.instance = _FailingWritePrefs();
+          final failing = ScheduleWatcher(
+            repository: HermesCronRepository(server.client().raw),
+            service: service,
+            settings: settings,
+            baseline: ScheduleBaseline(),
+            account: () => 'acct',
+          );
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          failing.available = true;
+          await failing.check();
+          failing.dispose();
+          expect(service.shown, isEmpty);
+
+          watcher.available = true;
+          await look();
+
+          expect(service.shown, hasLength(1));
+        });
+      });
+    });
+
     testWidgets('keeps quiet after a failed look and tries again', (
       tester,
     ) async {
@@ -503,4 +656,32 @@ void main() {
       }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
     });
   });
+}
+
+base class _FailingWritePrefs extends InMemorySharedPreferencesAsync {
+  _FailingWritePrefs()
+    : super.withData({
+        'hermes.schedules.baseline.v1':
+            '{"work/job1":"2026-09-20T08:00:00.000Z"}',
+      });
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) async => throw StateError('disk full');
+}
+
+base class _SlowClearPrefs extends InMemorySharedPreferencesAsync {
+  _SlowClearPrefs() : super.empty();
+
+  @override
+  Future<bool> clear(
+    ClearPreferencesParameters parameters,
+    SharedPreferencesOptions options,
+  ) async {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    return super.clear(parameters, options);
+  }
 }

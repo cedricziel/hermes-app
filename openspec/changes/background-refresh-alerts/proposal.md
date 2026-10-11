@@ -11,7 +11,7 @@ Both checks already exist in front. This change runs them during the background 
 
 ## What Changes
 
-- **Finished replies:** when the app moves to the background, it remembers the chats whose reply is still running. A background run checks whether each one's session is still working. For each reply that finished, it posts the usual notification with the reply's one-line preview, or "Reply failed".
+- **Finished replies:** when the app moves to the background, it remembers the chats whose reply is still running. A background run checks whether each one's session is still working. For each reply that finished (the session is listed as idle and its newest stored message is the assistant's text), it posts the usual notification with the reply's one-line preview. Anything less certain posts nothing.
 - **Scheduled tasks:** a background run makes the existing schedule check, with the same rules (`runsSince`, `alertsFor`), settings and mutes, and posts its notifications.
 - The last-seen run time of each job is now kept on the device, so the app in front and the background runs never announce the same run twice.
 - Both checks are added as steps to the background run and follow its budget, its failure isolation and its handling of the headless outcomes: they run only when the run got a connection, so when signed out, locked or unreachable they post nothing and keep their lists and baseline.

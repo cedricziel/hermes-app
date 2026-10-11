@@ -23,6 +23,7 @@ import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -977,6 +978,67 @@ void main() {
             .every((r) => r.queryParameters['profile'] == 'all'),
         isTrue,
       );
+    });
+
+    group('the run times it keeps', () {
+      Future<String?> stored(WidgetTester tester) async {
+        final value = await tester.runAsync(() async {
+          await pumpEventQueue();
+          return SharedPreferencesAsync().getString(
+            'hermes.schedules.baseline.v1',
+          );
+        });
+        return value;
+      }
+
+      Future<void> recheck(WidgetTester tester) async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      }
+
+      Future<void> pumpWithBaseline(WidgetTester tester) async {
+        kanbanPlugin(on: false);
+        cronRoutes(on: true);
+        server.on('GET', '/api/cron/jobs', [
+          cronJobRow(lastRunAt: '2026-09-20T08:00:00+00:00', lastStatus: 'ok'),
+        ]);
+        final settings = NotificationSettings();
+        await tester.runAsync(settings.load);
+        await pumpShell(tester, size: const Size(400, 800), settings: settings);
+        expect(await stored(tester), isNotNull);
+      }
+
+      testWidgets('survive a check that could not tell', (tester) async {
+        await pumpWithBaseline(tester);
+        server.on('GET', '/api/cron/delivery-targets', {
+          'detail': 'down',
+        }, status: 503);
+
+        await recheck(tester);
+
+        expect(await stored(tester), isNotNull);
+      });
+
+      testWidgets('go with a server that has no cron routes', (tester) async {
+        await pumpWithBaseline(tester);
+        cronRoutes(on: false);
+
+        await recheck(tester);
+
+        expect(await stored(tester), isNull);
+      });
     });
 
     testWidgets(

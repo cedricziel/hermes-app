@@ -8,6 +8,7 @@ import '../notifications/notification_settings.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../shell/app_presence.dart';
 import 'hermes_cron_repository.dart';
+import 'schedule_baseline.dart';
 import 'schedule_models.dart';
 
 const kJobFinishedBody = 'Finished';
@@ -91,8 +92,11 @@ class ScheduleWatcher with WidgetsBindingObserver {
     required this.service,
     required this.settings,
     this.profiles,
+    ScheduleBaseline? baseline,
+    String Function()? account,
     this.interval = const Duration(minutes: 1),
-  }) {
+  }) : _baseline = baseline ?? ScheduleBaseline(),
+       _account = account ?? _noAccount {
     _foreground = AppPresence.foreground(
       WidgetsBinding.instance.lifecycleState,
     );
@@ -107,13 +111,26 @@ class ScheduleWatcher with WidgetsBindingObserver {
   final HermesProfilesRepository? profiles;
   final Duration interval;
 
+  /// What the last look, here or in a background run, saw of each job. Read
+  /// at every look: a background run may have moved it while the app was away.
+  final ScheduleBaseline _baseline;
+
+  /// The account (`accountKeyFor`) the baseline belongs to, asked at every
+  /// look.
+  final String Function() _account;
+
+  static String _noAccount() => '';
+
+  /// The removal of the baseline last asked for. A look waits for it, so that
+  /// it never compares with a baseline that was about to go.
+  Future<void> _forgetting = Future.value();
+
   bool _available = false;
   bool _inFront = false;
   bool _foreground = true;
   bool _wasEnabled = false;
   Future<void>? _inflight;
   bool _disposed = false;
-  Map<String, DateTime>? _baseline;
   Timer? _timer;
 
   bool get _enabled =>
@@ -123,7 +140,7 @@ class ScheduleWatcher with WidgetsBindingObserver {
   set available(bool value) {
     if (_available == value) return;
     _available = value;
-    if (!value) _baseline = null;
+    if (!value) _forgetBaseline();
     _sync();
   }
 
@@ -145,7 +162,7 @@ class ScheduleWatcher with WidgetsBindingObserver {
     final enabled = _enabled;
     // Turning it on starts from a new baseline, so runs from the time it was
     // off are not announced.
-    if (enabled != _wasEnabled) _baseline = null;
+    if (enabled != _wasEnabled) _forgetBaseline();
     _wasEnabled = enabled;
     _sync();
   }
@@ -169,8 +186,12 @@ class ScheduleWatcher with WidgetsBindingObserver {
       final jobs = await repository.listJobs(profile: 'all');
       if (_disposed || !_enabled) return;
       unawaited(settings.forgetMutes({for (final j in jobs) j.key}));
-      final pass = runsSince(_baseline, jobs);
-      _baseline = pass.baseline;
+      await _forgetting;
+      final account = _account();
+      final pass = runsSince(await _baseline.read(account), jobs);
+      // Before the alerts, so that a baseline that cannot be saved announces
+      // nothing now rather than once more at every look.
+      await _baseline.write(account, pass.baseline);
       if (_inFront) return;
       final unmuted = [
         for (final job in pass.ran)
@@ -184,6 +205,16 @@ class ScheduleWatcher with WidgetsBindingObserver {
     } on Object {
       // A look that failed is tried again on the next tick.
     }
+  }
+
+  void _forgetBaseline() {
+    _forgetting = _forgetting.then((_) async {
+      try {
+        await _baseline.clear();
+      } on Object {
+        // The next look still compares with what is stored.
+      }
+    });
   }
 
   Future<String?> _activeProfile() async {

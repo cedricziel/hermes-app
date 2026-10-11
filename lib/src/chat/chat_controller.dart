@@ -7,6 +7,7 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../background/running_replies.dart';
 import '../core/safe_notifier.dart';
 import '../bot_mode/bot_chat_context.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
@@ -42,6 +43,15 @@ import 'thread_search.dart';
 import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
 
 const couldNotOpenChat = 'Could not open that chat.';
+
+/// The `session.active_list` statuses of a session that still runs a turn.
+const _runningStatuses = {
+  'starting',
+  'waiting',
+  'working',
+  'streaming',
+  'resuming',
+};
 const _couldNotStop = 'Could not stop the reply. Try again.';
 
 /// The chat's state without its screen: the threads of the active profile,
@@ -61,6 +71,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     required this._attention,
     this.liveActivities,
     this.watchStatus,
+    this.runningReplies,
     required this.report,
     this.onShowChat,
     this.onOpenJob,
@@ -70,7 +81,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.readSnapshot,
     this.onDraft,
     this.breadcrumbs = Breadcrumbs.none,
-  }) {
+    this.replayGrace = const Duration(seconds: 20),
+    DateTime Function()? now,
+  }) : _clock = now ?? DateTime.now {
     final repository = this.repository;
     if (repository == null) {
       _threads = buildMockThreads();
@@ -92,6 +105,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         recentStore: SharedPreferencesAsync(),
       );
     }
+    // Whatever an earlier run left is old news now that the app is in front.
+    forgetRunningReplies();
+    unawaited(runningReplies?.clearAnnounced());
   }
 
   final HermesChatRepository? repository;
@@ -112,6 +128,34 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Tells the watch's complications what a reply sent here is doing; null
   /// where there is no watch.
   final WatchComplicationStatus? watchStatus;
+
+  /// The chats whose reply was running when the app left, for a background
+  /// run to announce; null where there are no background runs.
+  final RunningReplies? runningReplies;
+
+  /// How long after the app returns the ending of a reply a background run
+  /// announced may still arrive as a replay. Later than that, an ending is a
+  /// new one.
+  final Duration replayGrace;
+  final DateTime Function() _clock;
+  Timer? _replayEnds;
+
+  /// Whether [runningReplies] holds what [rememberRunningReplies] wrote, so a
+  /// reply that ends meanwhile is taken off it.
+  var _replyListWritten = false;
+
+  /// Counts the pauses, so that a return that is still asking the server does
+  /// not wipe the list a later pause wrote.
+  var _pauses = 0;
+
+  /// The replies of chats that left the screen (another profile was opened, or
+  /// this one loaded again) and have not ended: the threads on screen no longer
+  /// show them, but the list for a background run must.
+  final _carried = <(String?, String)>{};
+
+  /// When each reply in the list was first remembered, so that pausing again
+  /// does not make an old reply young; kept until its turn ends.
+  final _rememberedSince = <(String?, String), DateTime>{};
 
   /// Tells the user something went wrong.
   final ValueChanged<String> report;
@@ -290,6 +334,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _newChatModel = null;
         search?.clear();
       }
+      _carryReplies();
       _profile = profile;
       breadcrumbs('chat.threads.loaded', {
         'switched': switched,
@@ -838,6 +883,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     liveActivities?.endChat(thread.id, _profile);
     watchStatus?.drop(thread);
     _announcedTurns.remove(thread);
+    _carried.remove((_profile, thread.id));
+    _rememberedSince.remove((_profile, thread.id));
     _touched.remove(thread);
     _reportSurface(SurfaceTrigger.threads);
     if (_selectedId != thread.id) return;
@@ -854,6 +901,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   @override
   void dispose() {
+    _replayEnds?.cancel();
     for (final reply in _replies) {
       reply.cancel();
     }
@@ -1540,6 +1588,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }) {
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
+    // A new turn: what a run announced of an earlier one says nothing of it.
+    unawaited(runningReplies?.takeAnnounced(profile, thread.id));
+    _rememberedSince.remove((profile, thread.id));
     var failed = false;
     var stopped = false;
     var folded = false;
@@ -2064,6 +2115,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     // The turn Hermes ran ahead of the prompt ends before the prompt's own
     // turn does, so its completion says nothing about the chat.
     if (!(ownTurn && event is ReplyCompleted)) {
+      if (event is ReplyCompleted) _replyEnded(thread, profile);
       _announcedTurns.add(thread);
       liveActivities?.onEvent(thread, event);
       watchStatus?.onEvent(
@@ -2074,11 +2126,144 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     }
     if (!notify) return;
-    _attention.announce(
-      thread,
-      event,
-      selectedThreadId: profile == _profile ? _selectedId : null,
-      profile: profile,
+    void announce() {
+      if (disposed) return;
+      _attention.announce(
+        thread,
+        event,
+        selectedThreadId: profile == _profile ? _selectedId : null,
+        profile: profile,
+      );
+    }
+
+    final store = runningReplies;
+    if (store == null || event is! ReplyCompleted) return announce();
+    // A background run may have told the user of this very ending already;
+    // the replay on return, or a reconnect during its wake, would tell again.
+    store
+        .takeAnnounced(profile, thread.id)
+        .then(
+          (was) => was ? null : announce(),
+          onError: (Object _) => announce(),
+        )
+        .ignore();
+  }
+
+  void _carryReplies() {
+    for (final thread in _threads) {
+      if (thread.remote && thread.isReplying) {
+        _carried.add((_profile, thread.id));
+      }
+    }
+  }
+
+  /// The app is leaving the front: remembers the chats whose reply still runs,
+  /// in this profile and in the ones left since, which a background run
+  /// announces once they finish. What an earlier run announced is forgotten:
+  /// it described the last time the app was away.
+  void rememberRunningReplies() {
+    final store = runningReplies;
+    if (store == null) return;
+    final now = _clock();
+    _pauses++;
+    _replayEnds?.cancel();
+    _carried.removeWhere((key) => _expired(key, now));
+    final running = {
+      for (final thread in _threads)
+        if (thread.remote && thread.isReplying) (_profile, thread.id),
+      ..._carried,
+    };
+    _rememberedSince.removeWhere((key, _) => !running.contains(key));
+    for (final key in running) {
+      _rememberedSince.putIfAbsent(key, () => now);
+    }
+    _replyListWritten = true;
+    unawaited(store.clearAnnounced());
+    unawaited(
+      store.replace([
+        for (final (profile, id) in running)
+          RunningReply(
+            profile: profile,
+            threadId: id,
+            since: _rememberedSince[(profile, id)]!,
+          ),
+      ]),
+    );
+  }
+
+  bool _expired((String?, String) key, DateTime now) {
+    final since = _rememberedSince[key];
+    return since != null && now.difference(since) > kRunningReplyLifetime;
+  }
+
+  /// The app is in front: the replies are shown here, so nothing is left for
+  /// a background run to announce. A reply that a run finished or whose
+  /// session no longer runs has ended, and is not carried on. What a run
+  /// announced stays on record only for the replay of its ending, which
+  /// [replayGrace] allows for.
+  void forgetRunningReplies() {
+    final store = runningReplies;
+    if (store == null) return;
+    final written = _replyListWritten;
+    _replyListWritten = false;
+    if (written) {
+      _replayEnds?.cancel();
+      _replayEnds = Timer(replayGrace, () => unawaited(store.clearAnnounced()));
+    }
+    unawaited(_resumeRunningReplies(store, written, _pauses));
+  }
+
+  Future<void> _resumeRunningReplies(
+    RunningReplies store,
+    bool written,
+    int pauses,
+  ) async {
+    // Each await below can outlast a pause, whose list and carried replies
+    // are newer than anything this return learns: it stops at the first one.
+    if (written && _carried.isNotEmpty) {
+      final left = {
+        for (final reply in await store.read()) (reply.profile, reply.threadId),
+      };
+      if (pauses != _pauses) return;
+      _carried.retainAll(left);
+      if (!await _dropEnded(pauses)) return;
+    }
+    await store.clear();
+  }
+
+  /// Takes off [_carried] the replies whose session reports a turn that has
+  /// ended; false when a pause came meanwhile. A server that cannot say, or
+  /// does not list a session, decides nothing: the expiry does.
+  Future<bool> _dropEnded(int pauses) async {
+    final transport = this.transport;
+    if (transport == null) return true;
+    for (final profile in {for (final (profile, _) in _carried) profile}) {
+      final statuses = await transport.activeStatuses(profile: profile);
+      if (pauses != _pauses) return false;
+      _carried.removeWhere((key) {
+        if (key.$1 != profile) return false;
+        final status = statuses[key.$2];
+        if (status == null || _runningStatuses.contains(status)) return false;
+        _rememberedSince.remove(key);
+        return true;
+      });
+    }
+    return pauses == _pauses;
+  }
+
+  void _replyEnded(ChatThread thread, String? profile) {
+    _carried.remove((profile, thread.id));
+    _rememberedSince.remove((profile, thread.id));
+    final store = runningReplies;
+    if (store == null || !_replyListWritten) return;
+    unawaited(
+      store.forget([
+        RunningReply(
+          profile: profile,
+          threadId: thread.id,
+          since: DateTime.now(),
+        ),
+      ]),
     );
   }
 
