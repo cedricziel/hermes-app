@@ -143,6 +143,10 @@ lane :bootstrap_app do
     #{COMPLICATION_IDENTIFIER} and assign them to
     group.#{APP_IDENTIFIER}, then run
     `fastlane bootstrap_signing force:true` to regenerate the profiles.
+
+    Also enable "Time Sensitive Notifications" on #{APP_IDENTIFIER} (iOS and macOS):
+    approvals and questions are posted at that level, and the profiles must
+    carry the entitlement.
   MSG
 
   # The public API refuses to create app records, so that step stays manual.

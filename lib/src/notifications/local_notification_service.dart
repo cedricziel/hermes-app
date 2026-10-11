@@ -287,6 +287,10 @@ class LocalNotificationService implements NotificationService {
       }
       final darwin = DarwinNotificationDetails(
         categoryIdentifier: category?.id,
+        threadIdentifier: notification.groupKey,
+        interruptionLevel: notification.timeSensitive
+            ? InterruptionLevel.timeSensitive
+            : null,
       );
       await _plugin.show(
         id: notificationIdFor(
@@ -298,12 +302,13 @@ class LocalNotificationService implements NotificationService {
             ? notification.body
             : notification.category?.placeholder ?? notification.body,
         notificationDetails: NotificationDetails(
-          android: const AndroidNotificationDetails(
+          android: AndroidNotificationDetails(
             _channelId,
             _channelName,
             channelDescription: 'Replies and requests from Hermes',
             importance: Importance.high,
             priority: Priority.high,
+            groupKey: notification.groupKey,
           ),
           iOS: darwin,
           macOS: darwin,

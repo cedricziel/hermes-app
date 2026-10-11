@@ -1003,6 +1003,8 @@ void main() {
         expect(announced.single.profile, 'work');
         expect(announced.single.title, 'Hermes');
         expect(announced.single.body, 'Done. Two files changed.');
+        expect(announced.single.groupKey, 'chat:work/new-1');
+        expect(announced.single.timeSensitive, isFalse);
       },
     );
 
@@ -1225,6 +1227,7 @@ void main() {
         expect(transport.closed, isFalse);
         expect(announced.single.body, body);
         expect(announced.single.category, isNotNull);
+        expect(announced.single.timeSensitive, isTrue);
       });
     }
 
