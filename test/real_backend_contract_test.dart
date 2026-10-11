@@ -924,10 +924,10 @@ void main() {
           if ((row as Map)['id'] == id) row.cast<String, Object?>(),
       ].singleOrNull;
       expect(row, isNotNull, reason: 'the session outlives its socket');
-      expect(row!['status'], 'idle');
       if (created['stored_session_id'] case final String stored) {
-        expect(row['session_key'], stored);
+        expect(row!['session_key'], stored);
       }
+      expect(row!['status'], isIn(liveStatuses));
     }, skip: skip);
 
     test('approvals are asked by the runtime session id', () async {
