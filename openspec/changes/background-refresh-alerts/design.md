@@ -27,8 +27,8 @@ What exists today:
 
 `ChatController` handles the two lifecycle changes:
 
-- On `AppLifecycleState.paused`, it writes `hermes.background.running.v1`: one `{profile, threadId, sessionKey, since}` entry for each chat with a pending reply.
-- On `resumed`, it clears the list, because the app in front catches up through replay.
+- On `AppLifecycleState.paused`, it writes `hermes.background.running.v1`: one `{profile, threadId, since}` entry for each chat with a pending reply.
+- On `resumed`, and when it starts, it clears the list, because the app in front catches up through replay. A reply that ends after the pause is taken off the list.
 
 The step reads that list, drops entries older than 24 hours, and calls `session.active_list({profile})` once for each profile in the list, on the run's shared socket. A chat has finished when its session is absent from the answer, or present with a status outside `starting`, `waiting`, `working`, `streaming` and `resuming`.
 
@@ -37,7 +37,7 @@ For each finished chat, the step reads `loadMessagePage(limit: 5)` and builds th
 | Outcome                         | Notification body                           |
 | ------------------------------- | ------------------------------------------- |
 | The last assistant message      | `replyPreview` of that message              |
-| The last reply failed           | "Reply failed"                              |
+| The chat ends on the user's prompt | "Reply failed"                           |
 | The read fails or finds no text | the empty-reply text, as for an empty reply |
 
 Then it removes the chat from the list. When `session.active_list` fails, the step does nothing. Notifications are posted only while `settings.enabled` is on.
@@ -64,6 +64,15 @@ The steps run inside the `HeadlessDone` branch of `background-refresh`'s run. Fo
 - API layering: the existing repositories and `HermesGatewayTransport.request`.
 - Telemetry: `replies.finished` and `schedules.ran` are added to the run's `background.task` span in the two steps. They are counts only, with no id, title or text.
 - Notifications: unchanged texts and lock-screen rules.
+
+## Deviations from the first plan
+
+- The list holds no `sessionKey`: a stored chat's id is the key `session.active_list` reports (the transport matches them the same way), so one field says both.
+- History records no failure, so "the last reply failed" is read as a chat whose newest message is the user's own prompt.
+- The chat's title comes from `loadThread` in the same step (6 s limit, "New chat" when it fails), since the list holds no text.
+- The schedule baseline is cleared when the cron routes go away as well as when the setting is switched on, as the in-memory baseline was. `ScheduleWatcher` reads it at every look instead of keeping a copy, because a background run may have moved it.
+- A reply that ends in front while the list is written is taken off it, so the run does not announce it a second time (the per-chat notification id would replace the first, but the second would alert again).
+- `refreshShortcuts` (#617) and the badge (#615) are not part of this change: neither has merged.
 
 ## Risks / Trade-offs
 

@@ -11,15 +11,17 @@ One PR, `feat(background): announce finished replies and scheduled runs in the b
 
   Record the answers in design.md and adjust the running-replies step if any answer differs.
 
+  Status: the case is written (`a session lists under its stored id while it runs…` in the model-calls group) but has not run, since `hermes` is not on PATH where this was built. The transport already treats `session_key` as the stored id (`_stillRunning`), which is what the step relies on.
+
 ## 2. Running replies (TDD)
 
-- [ ] 2.1 Write failing `ChatController` tests:
+- [x] 2.1 Write failing `ChatController` tests:
   - on `paused`, each chat with a running reply is stored as `{profile, threadId, sessionKey, since}`;
   - on `resumed`, the list is cleared.
 
   Implement; verify.
 
-- [ ] 2.2 Write failing tests for the running-replies step, with a fake gateway and `FakeHermesServer`:
+- [x] 2.2 Write failing tests for the running-replies step, with a fake gateway and `FakeHermesServer`:
   - a remembered chat whose session no longer runs a turn is announced with the preview of its last assistant message;
   - a failed reply is announced as "Reply failed";
   - when the read fails, the empty-reply text is used;
@@ -33,14 +35,14 @@ One PR, `feat(background): announce finished replies and scheduled runs in the b
 
 ## 3. Scheduled tasks (TDD)
 
-- [ ] 3.1 Write failing `ScheduleWatcher` tests:
+- [x] 3.1 Write failing `ScheduleWatcher` tests:
   - the watcher loads `hermes.schedules.baseline.v1` before its first look and saves it after each look, so a run already announced in the background is not announced again in front;
   - the first look on a fresh install only sets the baseline;
   - turning the setting on still starts from a new baseline.
 
   Implement; verify.
 
-- [ ] 3.2 Write failing tests for the schedule step:
+- [x] 3.2 Write failing tests for the schedule step:
   - it announces the runs since the stored baseline with `alertsFor`;
   - it follows the schedule setting and the mutes;
   - on the first run, it sets the baseline without announcing anything;
@@ -50,11 +52,11 @@ One PR, `feat(background): announce finished replies and scheduled runs in the b
 
 ## 4. Telemetry
 
-- [ ] 4.1 Write failing tests that the run's `background.task` span carries `replies.finished` and `schedules.ran`, and no id, title or text. Implement; verify.
+- [x] 4.1 Write failing tests that the run's `background.task` span carries `replies.finished` and `schedules.ran`, and no id, title or text. Implement; verify.
 
 ## 5. Docs, skills and verify
 
-- [ ] 5.1 In CLAUDE.md, update the Notifications section: background runs now announce finished replies and scheduled runs, and the schedule baseline is shared with the watcher. Add a step to the `verify-in-app` section on background tasks.
+- [x] 5.1 In CLAUDE.md, update the Notifications section: background runs now announce finished replies and scheduled runs, and the schedule baseline is shared with the watcher. Add a step to the `verify-in-app` section on background tasks.
 - [ ] 5.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`; all must pass.
 - [ ] 5.3 In the iOS simulator against `scripts/dev-backend.sh`:
   1. Send a prompt and send the app to the background before the reply finishes. Let the reply finish, simulate the task launch, and see the reply-ready notification with its preview.
@@ -62,3 +64,9 @@ One PR, `feat(background): announce finished replies and scheduled runs in the b
   3. Open the app. No second "Failed" notification appears.
 
   Restore the Xcode files the build rewrites, staging files by name.
+
+## 6. Folded in from the follow-ups of `headless-runtime` and `background-refresh`
+
+- [ ] 6.1 Spotlight refresh in the background run (`SpotlightRefreshStep`, `Spotlight.installIndexing`): opt-in, App Lock respected, no tap channel. Done in a second PR, stacked on this one.
+- [ ] 6.2 `refreshShortcuts` for App Intents: skipped, #617 has not merged.
+- [ ] 6.3 `BadgeController` in the background isolate and `app_badge_plus` in `BackgroundPlugins.swift`: skipped, #615 has not merged.

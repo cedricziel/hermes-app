@@ -1149,6 +1149,64 @@ void main() {
     );
 
     test(
+      'a session lists under its stored id while it runs, and its finished '
+      'reply is the newest stored message',
+      () async {
+        final tap = await open();
+        final session = await tap.rpc.request('session.create', {});
+        final sid = session['session_id'] as String;
+        final stored = session['stored_session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': counting,
+        });
+        await tap.until(
+          () => tap.types(sid).contains('message.start'),
+          'message.start',
+        );
+
+        Future<Map<String, Object?>?> listed() async {
+          final answer = await tap.rpc.request('session.active_list', {});
+          return [
+            for (final row in (answer['sessions'] as List))
+              if ((row as Map)['id'] == sid) row.cast<String, Object?>(),
+          ].firstOrNull;
+        }
+
+        final running = await listed();
+        expect(running, isNotNull);
+        expect(running!['session_key'], stored);
+        expect(running['status'], isIn(['starting', 'working', 'streaming']));
+
+        await tap.until(
+          () => tap.idleAfterComplete(sid),
+          'session.info {running: false} after message.complete',
+        );
+
+        // Background refresh reads a finished turn as an absent session or one
+        // whose status is not a running one.
+        final finished = await listed();
+        expect(
+          finished == null ||
+              !const {
+                'starting',
+                'waiting',
+                'working',
+                'streaming',
+                'resuming',
+              }.contains(finished['status']),
+          isTrue,
+        );
+        final page = await HermesChatRepository(client.raw)
+            .loadMessagePage(stored, limit: 5);
+        expect(page.messages.last.role, ChatRole.assistant);
+        expect(page.messages.last.content.trim(), isNotEmpty);
+      },
+      skip: modelSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
       'session.events.since after a forced socket close returns the missed '
       'seqs',
       () async {

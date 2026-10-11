@@ -12,7 +12,7 @@ When the app moves to the background, it SHALL remember the chats whose reply is
 
 - a one-line preview of the last reply;
 - "Reply ready" when the reply cannot be read or is empty;
-- "Reply failed" for a failed reply.
+- "Reply failed" for a reply that never got an answer, which the stored chat shows by ending on the user's own prompt.
 
 A chat SHALL be forgotten after 24 hours. When the run is signed out, locked or cannot reach the server, nothing SHALL be announced or forgotten, and the schedule baseline SHALL stay as it was. When the live sessions cannot be read, nothing SHALL be announced or forgotten. Nothing SHALL be posted while notifications are off.
 
