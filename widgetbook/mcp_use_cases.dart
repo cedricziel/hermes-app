@@ -120,9 +120,12 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
                     : state == 'Expired'
                     ? 'The sign-in expired'
                     : 'Could not sign in',
-                detail: state == 'Expired'
-                    ? 'Hermes dropped it. Start it again to get a new link.'
-                    : 'Approve the sign-in in your browser. It finishes on your Hermes server, so this screen closes by itself.',
+                detail: switch (state) {
+                  'Expired' =>
+                    'Hermes dropped it. Start it again to get a new link.',
+                  'Failed' || 'Retrying' => 'The provider rejected the sign-in request. Try again to get a new link.',
+                  _ => 'Approve the sign-in in your browser. It finishes on your Hermes server, so this screen closes by itself.',
+                },
                 waiting: [
                   'Waiting',
                   'Browser failed',
