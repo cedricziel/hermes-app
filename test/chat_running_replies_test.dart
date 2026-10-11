@@ -622,6 +622,10 @@ void main() {
         tester.binding.handleAppLifecycleStateChanged(state);
       }
 
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(pumpEventQueue);
+        await tester.pump();
+      }
       expect(
         await tester.runAsync(() async {
           await pumpEventQueue();

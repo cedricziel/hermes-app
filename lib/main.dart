@@ -283,7 +283,7 @@ Future<void> main([List<String> args = const []]) async {
               context.read<AuthController>().signedOut,
               () => Future.wait([
                 baseline.clear(),
-                if (running != null) running.clear(),
+                if (running != null) running.clearAll(),
                 if (running != null) running.clearAnnounced(),
               ]),
             );

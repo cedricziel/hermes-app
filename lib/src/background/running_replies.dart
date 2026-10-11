@@ -112,8 +112,19 @@ class RunningReplies {
     ]);
   });
 
-  /// Forgets everything, the entries of asks included: the app is in front.
-  Future<void> clear() => _queue(() => _save(_runningKey, const []));
+  /// Forgets what the chat screen remembered: the app is in front. The entries
+  /// of asks stay, since that chat may never have been on screen and the next
+  /// pause would not add it again; the background check drops an ended turn,
+  /// and an entry expires after [kRunningReplyLifetime].
+  Future<void> clear() => _queue(() async {
+    await _save(_runningKey, [
+      for (final reply in await _read(_runningKey))
+        if (reply.fromAsk) reply,
+    ]);
+  });
+
+  /// Forgets everything, the entries of asks included: nobody is signed in.
+  Future<void> clearAll() => _queue(() => _save(_runningKey, const []));
 
   /// Forgets [gone] and keeps the rest as it is stored now.
   Future<void> forget(Iterable<RunningReply> gone) =>

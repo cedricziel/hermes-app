@@ -64,11 +64,23 @@ void main() {
     expect(await running.read(), hasLength(1));
   });
 
-  test('the app returning forgets everything, asks included', () async {
+  test(
+    'the app returning forgets what it showed, not what an ask handed over',
+    () async {
+      await running.add(reply('asked', fromAsk: true));
+      await running.replace([reply('shown')]);
+
+      await running.clear();
+
+      expect(await running.read(), [reply('asked', fromAsk: true)]);
+    },
+  );
+
+  test('signing out forgets everything, asks included', () async {
     await running.add(reply('asked', fromAsk: true));
     await running.replace([reply('shown')]);
 
-    await running.clear();
+    await running.clearAll();
 
     expect(await running.read(), isEmpty);
   });
