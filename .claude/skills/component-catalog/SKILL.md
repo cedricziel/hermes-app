@@ -66,6 +66,10 @@ lower-cased names with `-` for spaces.
 
 ## Platforms and screenshots
 
+Workflow screenshots must pass `platform` explicitly to `pumpScreen` when checking
+Apple chrome. `phoneSize` and `desktopSize` change only the viewport; they do not
+select iOS or macOS.
+
 The viewports are Phone (iOS) and Desktop (macOS) only. To show the Material
 variant, wrap the use case in `Theme(data: Theme.of(context).copyWith(platform:
 TargetPlatform.android))`; `widgetbook/settings_chrome_use_cases.dart` builds

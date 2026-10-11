@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_screen.dart';
 
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
+
+import '../support/fake_hermes_server.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
@@ -64,9 +67,26 @@ void main() {
       await pumpScreen(
         tester,
         shots,
-        BotModeRosterScreen(repository: repository),
+        BotModeRosterScreen(
+          repository: repository,
+          models: HermesModelsRepository(
+            (FakeHermesServer()..on('GET', '/api/model/options', {
+                  'providers': [
+                    {
+                      'slug': 'demo',
+                      'models': ['demo-model'],
+                    },
+                  ],
+                }))
+                .client()
+                .raw,
+          ),
+        ),
         size: size,
         brightness: brightness,
+        platform: label.startsWith('phone')
+            ? TargetPlatform.iOS
+            : TargetPlatform.macOS,
       );
       await tester.pumpAndSettle();
       await shots.capture(tester, 'roster');
@@ -78,6 +98,9 @@ void main() {
       await tester.tap(find.byTooltip('Create bot'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'create');
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'create-advanced');
     });
   }
 }

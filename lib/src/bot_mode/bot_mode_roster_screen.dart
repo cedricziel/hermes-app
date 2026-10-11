@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+
+import '../widgets/adaptive_dialog.dart';
 
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
@@ -15,6 +18,7 @@ import '../widgets/state_message.dart';
 import 'group_protocol/hermes_groups_repository.dart';
 import 'groups/group_rooms_panel.dart';
 import 'bot_mode_roster_repository.dart';
+import 'widgets/bot_creation_fields.dart';
 
 /// Server-backed specialist roster. Profile names stay stable; titles are
 /// presentation metadata and can be edited independently.
@@ -107,117 +111,169 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
     final description = TextEditingController();
     final soul = TextEditingController();
     var mirror = true;
+    var saving = false;
+    var modelLoading = false;
+    String? nameError;
+    String? modelError;
     String? createdName;
+    ModelChoice? chosen;
     try {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (context, update) => AlertDialog(
+      Widget buildDialog(BuildContext dialogContext) => StatefulBuilder(
+        builder: (context, update) => PopScope(
+          canPop: !saving,
+          child: AppAlertDialog(
             title: const Text('Create bot'),
             content: SizedBox(
               width: 430,
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: name,
-                      enabled: createdName == null,
-                      decoration: const InputDecoration(
-                        labelText: 'Profile name',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: title,
-                      decoration: const InputDecoration(labelText: 'Bot title'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: description,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: soul,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Standing instructions',
-                      ),
-                    ),
-                    SwitchListTile(
-                      value: mirror,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Copy provider sign-in'),
-                      subtitle: const Text(
-                        'The server copies credentials to this profile.',
-                      ),
-                      onChanged: createdName == null
-                          ? (value) => update(() => mirror = value)
-                          : null,
-                    ),
-                    if (createdName != null)
-                      Text(
-                        'Profile $createdName was created. Retry saves its details.',
-                      ),
-                  ],
+                child: BotCreationFields(
+                  name: name,
+                  title: title,
+                  description: description,
+                  soul: soul,
+                  copyKeys: mirror,
+                  onCopyKeysChanged: (value) => update(() => mirror = value),
+                  saving: saving,
+                  createdName: createdName,
+                  nameError: nameError,
+                  chosen: chosen,
+                  modelLoading: modelLoading,
+                  modelError: modelError,
+                  onChooseModel: widget.models == null
+                      ? null
+                      : () async {
+                          update(() {
+                            modelLoading = true;
+                            modelError = null;
+                          });
+                          try {
+                            final options = await widget.models!.load();
+                            if (!dialogContext.mounted ||
+                                ModalRoute.of(dialogContext)?.isCurrent !=
+                                    true) {
+                              return;
+                            }
+                            await showModelPicker(
+                              dialogContext,
+                              options: options,
+                              selected: chosen,
+                              withEffort: false,
+                              title: 'Default model',
+                              onUseDefault: () => update(() => chosen = null),
+                              onChanged: (choice) =>
+                                  update(() => chosen = choice),
+                            );
+                          } on Object {
+                            if (dialogContext.mounted) {
+                              update(
+                                () => modelError =
+                                    'Could not load models. Try again.',
+                              );
+                            }
+                          } finally {
+                            if (dialogContext.mounted) {
+                              update(() => modelLoading = false);
+                            }
+                          }
+                        },
                 ),
               ),
             ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
+              AppDialogAction(
+                onPressed: saving ? null : () => Navigator.pop(dialogContext),
                 child: const Text('Cancel'),
               ),
-              FilledButton(
-                onPressed: () async {
-                  final profile = name.text.trim();
-                  if (profile.isEmpty) return;
-                  try {
-                    if (createdName == null) {
-                      final created = await widget.repository.create(
-                        name: profile,
-                        description: description.text,
-                        soul: soul.text,
-                        mirrorCredentials: mirror,
-                      );
-                      createdName = created.name;
-                    }
-                    final roster = await widget.repository.load();
-                    final bot = [
-                      ...roster.bots,
-                      ...roster.availableProfiles,
-                    ].where((bot) => bot.name == createdName).first;
-                    final saved = await widget.repository.save(
-                      bot,
-                      title: title.text.trim().isEmpty
-                          ? profile
-                          : title.text.trim(),
-                    );
-                    if (!saved.succeeded) {
-                      throw StateError('Presentation was not saved');
-                    }
-                    if (dialogContext.mounted) Navigator.pop(dialogContext);
-                    await _load();
-                  } on Object {
-                    update(() {});
-                    if (mounted) {
-                      _message(
-                        createdName == null
-                            ? 'Could not create bot'
-                            : 'Bot created; details were not saved. Retry.',
-                      );
-                    }
-                  }
-                },
-                child: Text(createdName == null ? 'Create' : 'Retry save'),
+              AppDialogAction(
+                isDefault: true,
+                onPressed: saving
+                    ? null
+                    : () async {
+                        if (saving) return;
+                        final profile = name.text.trim();
+                        if (profile.isEmpty) {
+                          update(() => nameError = 'Enter a profile name.');
+                          return;
+                        }
+                        update(() {
+                          saving = true;
+                          nameError = null;
+                        });
+                        try {
+                          if (createdName == null) {
+                            final created = await widget.repository.create(
+                              name: profile,
+                              description: description.text,
+                              soul: soul.text,
+                              model: chosen?.modelId,
+                              provider: chosen?.providerId,
+                              mirrorCredentials: mirror,
+                            );
+                            createdName = created.name;
+                          }
+                          final roster = await widget.repository.load();
+                          final bot = [
+                            ...roster.bots,
+                            ...roster.availableProfiles,
+                          ].singleWhere((bot) => bot.name == createdName);
+                          final saved = await widget.repository.save(
+                            bot,
+                            title: title.text.trim().isEmpty
+                                ? profile
+                                : title.text.trim(),
+                            summary: description.text,
+                          );
+                          if (!saved.succeeded) {
+                            throw StateError('Presentation was not saved');
+                          }
+                          final fresh = await widget.repository.load();
+                          final ready = fresh.bots.singleWhere(
+                            (bot) => bot.name == createdName,
+                          );
+                          if (dialogContext.mounted) {
+                            update(() => saving = false);
+                            Navigator.pop(dialogContext, ready);
+                          }
+                        } on Object {
+                          if (dialogContext.mounted) {
+                            update(() => saving = false);
+                          }
+                          if (mounted) {
+                            _message(
+                              createdName == null ? 'Could not create bot' : 'Bot created; details were not saved. Retry.',
+                            );
+                          }
+                        }
+                      },
+                child: Text(
+                  saving
+                      ? 'Creating…'
+                      : createdName == null
+                      ? 'Create'
+                      : 'Retry save',
+                ),
               ),
             ],
           ),
         ),
       );
+      final route = platformChromeOf(context).isApple
+          ? CupertinoDialogRoute<BotModeBot>(
+              context: context,
+              builder: buildDialog,
+              barrierDismissible: false,
+            )
+          : DialogRoute<BotModeBot>(
+              context: context,
+              builder: buildDialog,
+              barrierDismissible: false,
+            );
+      final createdBot = await Navigator.of(context).push(route);
+      await route.completed;
+      if (createdBot != null && mounted) {
+        await _load();
+        if (mounted) widget.onOpen?.call(createdBot);
+      }
     } finally {
       name.dispose();
       title.dispose();
