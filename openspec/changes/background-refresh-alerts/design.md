@@ -70,6 +70,7 @@ The steps run inside the `HeadlessDone` branch of `background-refresh`'s run. Fo
 - The chat's title comes from `loadThread` in the same step (6 s limit, "New chat" when it fails), since the list holds no text.
 - The schedule baseline is cleared when the cron routes go away as well as when the setting is switched on, as the in-memory baseline was. `ScheduleWatcher` reads it at every look instead of keeping a copy, because a background run may have moved it.
 - A reply that ends in front while the list is written is taken off it, so the run does not announce it a second time (the per-chat notification id would replace the first, but the second would alert again).
+- Spotlight is refreshed in the same run (follow-up of `background-refresh`): `SpotlightRefreshStep` waits for the snapshot step and lets `ChatSpotlightIndexer` apply the stored snapshot, with App Lock given as a callback. The Runner's `Spotlight.installIndexing` adds the index calls to a background engine without the tap handling.
 - `refreshShortcuts` (#617) and the badge (#615) are not part of this change: neither has merged.
 
 ## Risks / Trade-offs

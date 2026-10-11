@@ -397,7 +397,8 @@ make a cron job fail on the dev backend, simulate the launch (the first run
 only records `hermes.schedules.baseline.v1`, so simulate it once before the job
 runs), and see one "Failed" notification. Open the app afterwards: neither is
 announced again, since a reply notification replaces the chat's earlier one and
-the foreground check reads the same baseline.
+the foreground check reads the same baseline. With Spotlight switched on, the
+launch also refreshes the index.
 
 ## When the screenshot can't be taken
 
