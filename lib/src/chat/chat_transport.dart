@@ -491,6 +491,15 @@ abstract interface class ChatTransport {
     DateTime? deadline,
   });
 
+  /// The approvals the live session [threadId] (a stored id) is waiting on,
+  /// with the command and the choices Hermes offers for each. Empty when the
+  /// session is not live in the gateway, as for a request that was answered
+  /// meanwhile. Throws when the call itself fails.
+  Future<List<ApprovalRequest>> pendingApprovals({
+    required String threadId,
+    String? profile,
+  });
+
   /// Answers a masked vault prompt: the login to save for [origin], the
   /// master password of [backend], or the one-time code. An empty everything
   /// skips the request: Hermes carries on as if the user declined. Returns

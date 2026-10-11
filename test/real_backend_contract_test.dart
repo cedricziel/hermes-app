@@ -2642,6 +2642,52 @@ approvals:
     );
 
     test(
+      'an approval is found by its chat on another connection and answered '
+      'there by its id',
+      () async {
+        final doomed = Directory('${scratch.path}/doomed')..createSync();
+        final transport = connect();
+        final other = connect();
+        String? threadId;
+        final found = <ApprovalRequest>[];
+        final accepted = <bool>[];
+
+        final events = await transport
+            .send(profile: profile, text: 'Clean up.')
+            .asyncMap((event) async {
+              if (event is ThreadBound) threadId = event.threadId;
+              if (event is ApprovalRequested) {
+                found.addAll(
+                  await other.pendingApprovals(
+                    threadId: threadId!,
+                    profile: profile,
+                  ),
+                );
+                accepted.add(
+                  await other.answerOpenRequest(
+                    event.request.requestId,
+                    const ApprovalChoiceAnswer('once'),
+                    threadId: threadId,
+                    profile: profile,
+                    raisedAsEvent: true,
+                  ),
+                );
+              }
+              return event;
+            })
+            .toList();
+
+        expect(found.single.command, contains('rm -rf'));
+        expect(found.single.choices, containsAll(['once', 'deny']));
+        expect(accepted, [isTrue]);
+        expect((events.last as ReplyCompleted).failed, isFalse);
+        expect(doomed.existsSync(), isFalse);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
       'a session made in a second profile is listed and resumed only '
       'there',
       () async {

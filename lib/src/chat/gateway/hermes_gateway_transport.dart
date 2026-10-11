@@ -2440,6 +2440,44 @@ class HermesGatewayTransport implements ChatTransport {
     return result != null && result['status'] != 'expired';
   }
 
+  @override
+  Future<List<ApprovalRequest>> pendingApprovals({
+    required String threadId,
+    String? profile,
+  }) async {
+    final client = await _client();
+    final listed = await _call(client, 'session.active_list', {
+      'profile': ?profile,
+    });
+    String? sessionId;
+    if (listed['sessions'] case final List<Object?> rows) {
+      for (final row in rows) {
+        if (row case {'session_key': final String key, 'id': final String id}
+            when key == threadId) {
+          sessionId = id;
+          break;
+        }
+      }
+    }
+    if (sessionId == null) return const [];
+    final Map<String, Object?> pending;
+    try {
+      pending = await _call(client, 'approval.pending', {
+        'session_id': sessionId,
+        'profile': ?profile,
+      });
+    } on GatewayRpcException catch (error) {
+      if (error.code == kGatewayMethodNotFound) return const [];
+      rethrow;
+    }
+    return [
+      if (pending['approvals'] case final List<Object?> rows)
+        for (final row in rows)
+          if (row case {'request_id': final String id} when id.isNotEmpty)
+            toApproval(id, (row as Map).cast<String, Object?>()),
+    ];
+  }
+
   /// `request.answer` resolves an open server-to-client request by its id,
   /// with no session attached, for a client that never received the frame.
   /// A request the server raised as an event (`approval.request`,

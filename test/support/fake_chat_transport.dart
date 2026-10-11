@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:hermes_app/src/chat/chat_models.dart'
-    show UnsupportedKind, VaultKind;
+    show ApprovalRequest, UnsupportedKind, VaultKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
@@ -157,6 +157,27 @@ class FakeChatTransport implements ChatTransport {
     openAnswerThreads.add(threadId);
     await openAnswerGate?.future;
     return accepts;
+  }
+
+  /// What [pendingApprovals] answers for a stored thread id.
+  final pendingApprovalsOf = <String, List<ApprovalRequest>>{};
+
+  /// The (thread, profile) pairs [pendingApprovals] was asked about.
+  final pendingApprovalsAsked = <(String, String?)>[];
+
+  /// When set, [pendingApprovals] throws it.
+  Object? pendingApprovalsError;
+
+  @override
+  Future<List<ApprovalRequest>> pendingApprovals({
+    required String threadId,
+    String? profile,
+  }) async {
+    pendingApprovalsAsked.add((threadId, profile));
+    if (pendingApprovalsError case final error?) {
+      throw error; // ignore: only_throw_errors
+    }
+    return pendingApprovalsOf[threadId] ?? const [];
   }
 
   @override
