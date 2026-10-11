@@ -252,6 +252,7 @@ class GroupedTextFieldRow extends StatelessWidget {
     this.autocorrect = true,
     this.monospace = false,
     this.onChanged,
+    this.enabled = true,
   }) : assert(controller == null || initialValue == null);
 
   final String label;
@@ -267,6 +268,7 @@ class GroupedTextFieldRow extends StatelessWidget {
   final bool autocorrect;
   final bool monospace;
   final ValueChanged<String>? onChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -303,6 +305,7 @@ class GroupedTextFieldRow extends StatelessWidget {
     }
     final field = TextFormField(
       controller: controller,
+      enabled: enabled,
       initialValue: initialValue,
       minLines: minLines,
       maxLines: maxLines,

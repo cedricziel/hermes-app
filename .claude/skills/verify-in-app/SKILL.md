@@ -42,6 +42,13 @@ Say plainly what you could not check.
 ## Rules
 
 - Never point the app or `hermes` at the real `~/.hermes`.
+- Profile creation also writes command aliases to `Path.home() / ".local/bin"`.
+  `HERMES_HOME` alone does not isolate those aliases. Before testing creation,
+  redirect the backend process's `hermes_cli.profiles._get_wrapper_dir` to the
+  throwaway directory in a verification-only launcher after runtime bootstrap,
+  or use an isolated OS account. Confirm bootstrap did not re-exec and discard
+  the redirection before creating the profile. Do not change production source
+  or the user's home directory.
 - Never run `hermes dashboard --stop`: it kills every Hermes web server on the
   machine, including other sessions' and the developer's.
 - Never rely on the app's saved server address. Only the

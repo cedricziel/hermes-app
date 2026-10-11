@@ -4,16 +4,23 @@ import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'grouped_list.dart';
 
-/// A small settings dialog whose content is [GroupedSection]s on the page
-/// background: on Apple platforms a centered title with a Done button, on
-/// Material a title at the leading edge, as the settings pages' bars have.
+/// A grouped settings or form dialog using the platform's page chrome.
+/// Custom [actions] replace the default Done button.
 class GroupedDialog extends StatelessWidget {
-  const GroupedDialog({super.key, required this.title, required this.children});
+  const GroupedDialog({
+    super.key,
+    required this.title,
+    required this.children,
+    this.actions,
+  });
 
   final String title;
 
   /// The [GroupedSection]s, and any [GroupedDialogNote] between them.
   final List<Widget> children;
+
+  /// Null keeps Done in the header; custom actions appear in the footer.
+  final List<Widget>? actions;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +54,7 @@ class GroupedDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Title(title: title, chrome: chrome),
+              _Title(title: title, chrome: chrome, showDone: actions == null),
               Flexible(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
@@ -62,6 +69,18 @@ class GroupedDialog extends StatelessWidget {
                   ),
                 ),
               ),
+              if (actions != null) ...[
+                const Divider(height: 1),
+                Padding(
+                  padding: EdgeInsets.all(metrics.gutter),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: actions!,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -99,10 +118,15 @@ class GroupedDialogNote extends StatelessWidget {
 }
 
 class _Title extends StatelessWidget {
-  const _Title({required this.title, required this.chrome});
+  const _Title({
+    required this.title,
+    required this.chrome,
+    required this.showDone,
+  });
 
   final String title;
   final PlatformChrome chrome;
+  final bool showDone;
 
   @override
   Widget build(BuildContext context) {
@@ -146,20 +170,26 @@ class _Title extends StatelessWidget {
               ),
             ),
           ),
-          PositionedDirectional(
-            end: ios ? 4 : 8,
-            child: TextButton(
-              key: const Key('grouped-dialog-done'),
-              style: TextButton.styleFrom(
-                textStyle: Theme.of(context).textTheme.labelLarge
-                    ?.copyWith(fontSize: fontSize, fontWeight: FontWeight.w600),
-                minimumSize: Size(ios ? kAppleMinTapTarget : 0, ios ? 44 : 28),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          if (showDone)
+            PositionedDirectional(
+              end: ios ? 4 : 8,
+              child: TextButton(
+                key: const Key('grouped-dialog-done'),
+                style: TextButton.styleFrom(
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  minimumSize: Size(
+                    ios ? kAppleMinTapTarget : 0,
+                    ios ? 44 : 28,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Done'),
               ),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Done'),
             ),
-          ),
         ],
       ),
     );
