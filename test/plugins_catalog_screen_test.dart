@@ -57,6 +57,41 @@ void main() {
       );
   });
 
+  testWidgets('dismissing catalog details keeps the pushed plugin list', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(400, 900)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigator,
+        home: const Scaffold(body: Text('Chats')),
+      ),
+    );
+    navigator.currentState!.push<void>(
+      MaterialPageRoute(
+        builder: (_) => PluginsScreen(
+          repository: HermesPluginManagerRepository(server.client().raw),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_tab('Catalog'));
+    await tester.pumpAndSettle();
+    await tester.tap(_entry('hermes-plugin-chrome-profiles'));
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(_entry('hermes-plugin-chrome-profiles'), findsOneWidget);
+    expect(find.text('Chats'), findsNothing);
+  });
+
   final launched = <Uri>[];
   final events = <(String, Map<String, Object>)>[];
 
