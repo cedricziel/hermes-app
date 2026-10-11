@@ -10,6 +10,8 @@ import '../notifications/notification_settings.dart';
 import '../notifications/notifications_dialog.dart';
 import '../quick_panel/global_shortcut.dart';
 import '../quick_panel/widgets/quick_panel_shortcut_row.dart';
+import '../spotlight/spotlight_dialog.dart';
+import '../spotlight/spotlight_settings.dart';
 import '../voice/dictation_dialog.dart';
 import '../voice/dictation_settings.dart';
 import '../widgets/grouped_dialog.dart';
@@ -22,6 +24,7 @@ enum _Setting {
   appearance('Appearance'),
   notifications('Notifications'),
   dictation('Dictation'),
+  spotlight('Spotlight'),
   appLock('App Lock'),
   about('About Hermes'),
   changeServer('Change Server');
@@ -49,6 +52,10 @@ Future<void> showSettingsDialog(BuildContext context) async {
         DictationEngine.hermes => 'Hermes',
         DictationEngine.device => 'On this device',
       },
+    ),
+    _Setting.spotlight: _read<SpotlightSettings>(
+      context,
+      (settings) => _onOff(settings.enabled),
     ),
     _Setting.appLock: _read<AppLockController>(
       context,
@@ -78,6 +85,7 @@ Future<void> showSettingsDialog(BuildContext context) async {
               row(_Setting.notifications),
               if (DictationSettings.offered) row(_Setting.dictation),
               if (shortcut != null) QuickPanelShortcutRow(shortcut: shortcut),
+              if (SpotlightSettings.offered) row(_Setting.spotlight),
               row(_Setting.appLock),
             ],
           ),
@@ -104,6 +112,8 @@ Future<void> showSettingsDialog(BuildContext context) async {
       await showNotificationsDialog(context);
     case _Setting.dictation:
       await showDictationDialog(context);
+    case _Setting.spotlight:
+      await showSpotlightDialog(context);
     case _Setting.appLock:
       await showAppLockDialog(context);
     case _Setting.about:

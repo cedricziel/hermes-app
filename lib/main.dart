@@ -35,6 +35,10 @@ import 'src/quick_panel/quick_panel_shortcut.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_provider.dart';
 import 'src/quick_actions/quick_actions_controller.dart';
+import 'src/spotlight/chat_spotlight_indexer.dart';
+import 'src/spotlight/spotlight_index.dart';
+import 'src/spotlight/spotlight_links.dart';
+import 'src/spotlight/spotlight_settings.dart';
 import 'src/surfaces/surface_snapshot_store.dart';
 import 'src/surfaces/surface_snapshots.dart';
 import 'src/telemetry/breadcrumbs.dart';
@@ -95,6 +99,12 @@ Future<void> main([List<String> args = const []]) async {
           dispose: (_, store) => store?.dispose(),
         ),
         Provider<Breadcrumbs>.value(value: telemetry.breadcrumbs()),
+        // Where the system search is; nothing off iOS. Its taps are links, so
+        // it sits before the deep links.
+        Provider<SpotlightIndex>(
+          create: (_) => SpotlightIndex.forPlatform(events: telemetry.events()),
+          dispose: (_, index) => index.dispose(),
+        ),
         // Above the screens, so a link opened on the sign-in screen waits for
         // the shell. Only where the `hermes` scheme is registered.
         ChangeNotifierProvider<DeepLinks?>(
@@ -107,7 +117,11 @@ Future<void> main([List<String> args = const []]) async {
               return null;
             }
             return DeepLinks(
-              links: AppLinks().uriLinkStream,
+              links: linksWithSpotlight(
+                AppLinks().uriLinkStream,
+                context.read<SpotlightIndex>(),
+                events: telemetry.events(),
+              ),
               signedOut: context.read<AuthController>().signedOut,
               breadcrumbs: context.read<Breadcrumbs>(),
             );
@@ -177,6 +191,11 @@ Future<void> main([List<String> args = const []]) async {
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
         ChangeNotifierProvider(create: (_) => DictationSettings()..load()),
+        ChangeNotifierProvider(
+          create: (context) =>
+              SpotlightSettings(breadcrumbs: context.read<Breadcrumbs>())
+                ..load(),
+        ),
         ChangeNotifierProvider(create: (_) => MenuBarExtraSettings()..load()),
         // One app-wide listener: the recognizer's event channel has a single
         // native sink.
@@ -265,6 +284,23 @@ Future<void> main([List<String> args = const []]) async {
             breadcrumbs: context.read<Breadcrumbs>(),
           )?..start(),
           dispose: (_, controller) => controller?.dispose(),
+        ),
+        // Recent chats in Spotlight, only when the user turned that on.
+        Provider<ChatSpotlightIndexer?>(
+          lazy: false,
+          create: (context) {
+            final store = context.read<SurfaceSnapshotStore?>();
+            if (store == null || !SpotlightSettings.offered) return null;
+            return ChatSpotlightIndexer(
+              index: context.read<SpotlightIndex>(),
+              settings: context.read<SpotlightSettings>(),
+              store: store,
+              appLock: context.read<AppLockController>(),
+              signedOut: context.read<AuthController>().signedOut,
+              events: telemetry.events(),
+            )..start();
+          },
+          dispose: (_, indexer) => indexer?.dispose(),
         ),
         Provider<WatchComplicationStatus?>(
           lazy: false,

@@ -22,27 +22,27 @@ See proposal.md for motivation and specs/spotlight-search/spec.md for behavior.
 
 `flutter_core_spotlight` (1.0.4) was last published in July 2021, has no UIScene support and indexes through `NSUserActivity` continuation only. `system_search_index` (0.1.0, September 2026) has no track record yet (no likes, about 200 downloads a month, one release). Neither meets the project's maturity bar, and the native side is about 100 lines next to an existing pattern. `ios/Runner/Spotlight.swift`:
 
-- `replace(domain, items)`: `deleteSearchableItems(withDomainIdentifiers: ["hermes.<domain>"])`, then `indexSearchableItems` with one `CSSearchableItem` per item: `uniqueIdentifier` = the item's deep link, `domainIdentifier` = `hermes.<domain>`, attribute set (`UTType.text`) with `title`, `contentDescription` = text, `displayName` = title.
-- `deleteDomain(domain)`, `deleteAll()`.
+- `replace(domain, items)` (when what Spotlight holds is unknown, such as after a start): `deleteSearchableItems(withDomainIdentifiers: ["hermes.<domain>"])`, then `indexSearchableItems` with one `CSSearchableItem` per item. `update(domain, items, remove)` (every later change) indexes only the changed items, which replace their identifiers in place, and deletes the dropped identifiers, so the domain is never empty in between. Each item is: `uniqueIdentifier` = the item's deep link, `domainIdentifier` = `hermes.<domain>`, attribute set (`UTType.text`) with `title`, `contentDescription` = text, `displayName` = title.
+- `deleteDomain(domain)`, `deleteAll()`, `isAvailable()` (`UIApplication.isProtectedDataAvailable`) and a `becameAvailable` call to Dart on `protectedDataDidBecomeAvailable` and `didBecomeActive`.
 - `receive(_ activity:)` for `CSSearchableItemActionType`: reads `CSSearchableItemActivityIdentifier`, accepts it only with the `hermes` scheme, keeps it as pending and calls `opened` on the channel; `take` hands it to Dart once.
-- The index is `CSSearchableIndex(name: "hermes", protectionClass: .complete)`, so items are unreadable while the device is locked. An index call made while locked fails and is retried on the next snapshot.
+- The index is `CSSearchableIndex(name: "hermes", protectionClass: .complete)`, so items are unreadable while the device is locked. While the device is locked the indexer makes no call (so none fails or is logged) and catches up on `becameAvailable`. Whether `.complete` protection really hides the items while locked is still to be checked on a device (task 5.2).
 
 The deep link is the identifier because Spotlight hands back only the identifier on a tap; the generic `id` keeps items distinct within a domain on the Dart side.
 
 ### Dart module `lib/src/spotlight/`
 
-- `spotlight_index.dart`: `SpotlightItem {domain, id, title, text, url}`, interface `SpotlightIndex` (`replace`, `deleteDomain`, `deleteAll`, `opened` stream, `takeLaunch`), `ChannelSpotlightIndex` on iOS, a no-op elsewhere. Every call catches and logs.
+- `spotlight_index.dart`: `SpotlightItem {domain, id, title, text, url}`, interface `SpotlightIndex` (`replace`, `deleteDomain`, `deleteAll`, each answering whether it worked, `opened` stream, `takeLaunch`), `ChannelSpotlightIndex` on iOS, `NoSpotlightIndex` elsewhere (`SpotlightIndex.forPlatform`). Every call catches and logs. Only the item's url, title and text cross the channel; the `id` stays on the Dart side.
 - `spotlight_settings.dart`: `SpotlightSettings` (`enabled`, key `hermes.spotlight`, default false, edit counter so a change during `load()` wins; `offered` is iOS only).
-- `chat_spotlight_indexer.dart`: listens to snapshot writes and the setting. On, signed in: maps `recentChats` to `chat` items and calls `replace` only when the list of (url, title, snippet) changed since the last call. Off, or `signedIn: false`: `deleteAll` once. Also `deleteAll` on `AuthController.signedOut` and server change, which may come before the signed-out snapshot.
-- Opened results: `opened` and `takeLaunch` URLs go through `parseDeepLink` to the `deep-links` entry, like a widget tap.
+- `chat_spotlight_indexer.dart`: listens to snapshot writes, the setting, `AppLockController` and `AuthController.signedOut`. On, signed in, App Lock off: maps `recentChats` to `chat` items, leaving out chats with no title (App Lock) or the unnamed label (`kUnnamedChatLabel`, whose snippet could repeat the prompt) and calls `replace` only when the items changed since the last call. Otherwise (off, `signedIn: false`, signed out, App Lock on): `deleteAll` once. It waits until the setting and App Lock have loaded, so a start never clears and re-adds.
+- Opened results: `linksWithSpotlight` (`spotlight_links.dart`) merges the `opened` and `takeLaunch` URLs into the stream `DeepLinks` listens to (with `AppLinks().uriLinkStream`), so a tap is parsed and opened like a `hermes://` link, a cold start included, and `spotlight.opened` is logged there.
 
 ### Settings UI
 
-`SpotlightSettingsView` (plain model: `enabled`, `onChanged`) inside `showSpotlightDialog`: a `GroupedDialog` titled "Spotlight" with the switch "Show chats in Spotlight" and the footer "Your recent chats' titles and latest messages become searchable on this device while it is unlocked. Turning this off removes them." Reached from the account menu's "Spotlight" item and a "Spotlight" row in the Settings dialog, both iOS only. Widgetbook use cases come first.
+`SpotlightSettingsView` (plain model: `enabled`, `onChanged`; `widgets/spotlight_settings_view.dart`) inside `showSpotlightDialog`: a `GroupedDialog` titled "Spotlight" with the switch "Show chats in Spotlight" and the footer "Your recent chats' titles and latest messages become searchable on this device while it is unlocked. Turning this off removes them." Reached from the account menu's "Spotlight" item and a "Spotlight" row in the Settings dialog, both iOS only. Widgetbook use cases come first.
 
 ### Platforms and native changes
 
-iOS and iPadOS. `ios/Runner/Spotlight.swift` (new file in the Runner target in `project.pbxproj`, `CoreSpotlight` framework linked), installed in `AppDelegate.didInitializeImplicitFlutterEngine`, called from `SceneDelegate` next to `ChatHandoff`. No entitlement or Info.plist change. Android, macOS, Windows, Linux get the no-op.
+iOS and iPadOS. `ios/Runner/Spotlight.swift` (new file in the Runner target in `project.pbxproj`; `import CoreSpotlight` links the framework), installed in `AppDelegate.didInitializeImplicitFlutterEngine`, called from `SceneDelegate` next to `ChatHandoff`. No entitlement or Info.plist change. Android, macOS, Windows, Linux get the no-op.
 
 ### Invariants touched
 
@@ -74,7 +74,7 @@ With App Lock on, `surface-snapshot` writes no titles or snippets, so the indexe
 
 - [Only ten chats are searchable] → stated in the spec; a full index needs paging every profile's sessions and is left for later.
 - [Delete and index race when snapshots come quickly] → calls are serialized in Dart (one at a time, latest wins).
-- [A failed delete leaves items in Spotlight after sign-out or switching off] → `deleteAll` is retried on the next start while the setting is off or nobody is signed in (a stored `hermes.spotlight.dirty` flag).
+- [A failed delete leaves items in Spotlight after sign-out or switching off] → `hermes.spotlight.dirty` is set before the first index call and cleared when a `deleteAll` worked; while it is set and nothing should be indexed, `deleteAll` is retried at the next start and with every later change.
 - [The named, protected index behaves differently from the default one] → checked in the simulator (task 5.2); fallback is the default index with a shorter description in the footer.
 
 ## Migration Plan

@@ -11,6 +11,8 @@ import '../../settings/appearance_dialog.dart';
 import '../../settings/account_actions.dart';
 import '../../settings/settings_dialog.dart';
 import '../../settings/widgets/mac_account_footer.dart';
+import '../../spotlight/spotlight_dialog.dart';
+import '../../spotlight/spotlight_settings.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -744,6 +746,7 @@ class AccountFooter extends StatelessWidget {
                 if (value == 'notifications') showNotificationsDialog(context);
                 if (value == 'dictation') showDictationDialog(context);
                 if (value == 'app-lock') showAppLockDialog(context);
+                if (value == 'spotlight') showSpotlightDialog(context);
                 if (value == 'about') showAppAboutDialog(context);
                 if (value == 'connection') showConnectionDetails(context);
               },
@@ -768,6 +771,11 @@ class AccountFooter extends StatelessWidget {
                   const PopupMenuItem(
                     value: 'dictation',
                     child: Text('Dictation'),
+                  ),
+                if (SpotlightSettings.offered)
+                  const PopupMenuItem(
+                    value: 'spotlight',
+                    child: Text('Spotlight'),
                   ),
                 const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
                 const PopupMenuItem(
