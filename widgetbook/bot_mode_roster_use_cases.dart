@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/bot_mode/widgets/bot_creation_fields.dart';
+import 'package:hermes_app/src/bot_mode/widgets/bot_edit_fields.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
@@ -30,6 +31,13 @@ WidgetbookNode botModeRosterNode() => WidgetbookFolder(
             (_) => frame(_CreationPreview(state: state)),
           ),
       ],
+    ),
+    WidgetbookComponent(
+      name: 'Edit fields',
+      useCases: onEachPlatform(
+        'Edit',
+        (_) => frame(const _CreationPreview(state: 'Edit')),
+      ),
     ),
     WidgetbookComponent(
       name: 'Roster',
@@ -192,23 +200,34 @@ class _CreationPreviewState extends State<_CreationPreview> {
   }
 
   @override
-  Widget build(BuildContext context) => BotCreationFields(
-    name: name,
-    title: title,
-    description: description,
-    soul: soul,
-    copyKeys: copyKeys,
-    onCopyKeysChanged: (value) => setState(() => copyKeys = value),
-    onChooseModel: () {},
-    chosen: widget.state == 'Advanced'
-        ? const ModelChoice('demo', 'demo-model')
-        : null,
-    initiallyExpanded: widget.state != 'Basic',
-    modelError: widget.state == 'Model error'
-        ? 'Could not load models. Try again.'
-        : null,
-    saving: widget.state == 'Saving',
-    modelLoading: widget.state == 'Loading models',
-    createdName: widget.state == 'Retry' ? 'writer' : null,
-  );
+  Widget build(BuildContext context) => widget.state == 'Edit'
+      ? BotEditFields(
+          profile: 'writer',
+          title: title,
+          summary: description,
+          description: description,
+          soul: soul,
+          model: 'demo-model',
+          provider: 'demo',
+          onChooseModel: () {},
+        )
+      : BotCreationFields(
+          name: name,
+          title: title,
+          description: description,
+          soul: soul,
+          copyKeys: copyKeys,
+          onCopyKeysChanged: (value) => setState(() => copyKeys = value),
+          onChooseModel: () {},
+          chosen: widget.state == 'Advanced'
+              ? const ModelChoice('demo', 'demo-model')
+              : null,
+          initiallyExpanded: widget.state != 'Basic',
+          modelError: widget.state == 'Model error'
+              ? 'Could not load models. Try again.'
+              : null,
+          saving: widget.state == 'Saving',
+          modelLoading: widget.state == 'Loading models',
+          createdName: widget.state == 'Retry' ? 'writer' : null,
+        );
 }

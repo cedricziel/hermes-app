@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_screen.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 
 void main() {
   testWidgets('shows managed bots, filters them and offers explicit add', (
@@ -86,6 +87,54 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Add'), findsNothing);
+  });
+
+  testWidgets('editing uses grouped fields and saves all profile sections', (
+    tester,
+  ) async {
+    Map<String, Object?>? saved;
+    final repository = BotModeRosterRepository((method, params) async {
+      if (method == 'profiles.describe') {
+        return {
+          'name': 'writer',
+          'description': 'Editing',
+          'soul': 'Check claims.',
+        };
+      }
+      if (method == 'profiles.configure') {
+        saved = params;
+        return {
+          'applied': {'ui_meta': true, 'description': true, 'soul': true},
+        };
+      }
+      return {
+        'bot_mode_protocol': true,
+        'profiles': [
+          {
+            'name': 'writer',
+            'ui_meta_revisions': {'hermes-bots': 1},
+            'ui_meta': {
+              'hermes-bots': {'title': 'Editor', 'description': 'Clear prose'},
+            },
+          },
+        ],
+      };
+    }, serverId: 'local');
+    await tester.pumpWidget(
+      MaterialApp(home: BotModeRosterScreen(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit bot'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GroupedDialog), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved!['description'], 'Editing');
+    expect(saved!['soul'], 'Check claims.');
+    expect((saved!['ui_meta'] as Map)['hermes-bots'], {
+      'title': 'Editor',
+      'description': 'Clear prose',
+    });
   });
 
   for (final (count, subtitle) in [(1, '1 bot'), (2, '2 bots')]) {

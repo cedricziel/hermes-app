@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
 import '../../widgets/grouped_list.dart';
+import '../../widgets/grouped_dialog.dart';
+import '../../widgets/grouped_form.dart';
 import '../bot_mode_roster_repository.dart';
 import '../group_protocol/hermes_groups_repository.dart';
 import 'group_room_controller.dart';
@@ -141,33 +143,8 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
         context: context,
         barrierDismissible: false,
         builder: (dialog) => StatefulBuilder(
-          builder: (context, update) => AlertDialog(
-            title: const Text('Create group'),
-            content: SizedBox(
-              width: 480,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: name,
-                      enabled: !pending && !attempted,
-                      decoration: const InputDecoration(labelText: 'Room name'),
-                      onChanged: (_) => update(() {}),
-                    ),
-                    const SizedBox(height: 16),
-                    GroupMemberChecklist(
-                      members: members,
-                      selected: selected,
-                      enabled: !pending && !attempted,
-                      note: groupInteractionLimitation,
-                      onChanged: (value) => update(() => selected = value),
-                    ),
-                    if (error != null) Text(error!),
-                  ],
-                ),
-              ),
-            ),
+          builder: (context, update) => GroupedDialog(
+            title: 'Create group',
             actions: [
               TextButton(
                 onPressed: pending ? null : () => Navigator.pop(dialog),
@@ -211,6 +188,27 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
                       : 'Retry',
                 ),
               ),
+            ],
+            children: [
+              GroupedSection(
+                children: [
+                  GroupedTextFieldRow(
+                    label: 'Room name',
+                    controller: name,
+                    enabled: !pending && !attempted,
+                    onChanged: (_) => update(() {}),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              GroupMemberChecklist(
+                members: members,
+                selected: selected,
+                enabled: !pending && !attempted,
+                note: groupInteractionLimitation,
+                onChanged: (value) => update(() => selected = value),
+              ),
+              if (error != null) GroupedDialogNote(error!),
             ],
           ),
         ),

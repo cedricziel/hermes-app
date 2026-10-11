@@ -18,6 +18,7 @@ import 'group_protocol/hermes_groups_repository.dart';
 import 'groups/group_rooms_panel.dart';
 import 'bot_mode_roster_repository.dart';
 import 'widgets/bot_creation_fields.dart';
+import 'widgets/bot_edit_fields.dart';
 
 /// Server-backed specialist roster. Profile names stay stable; titles are
 /// presentation metadata and can be edited independently.
@@ -292,80 +293,11 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
     var failed = <String>[];
     var conflict = false;
     try {
-      await showDialog<void>(
+      final route = DialogRoute<void>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(
-          builder: (context, update) => AlertDialog(
-            title: Text('Edit ${bot.title}'),
-            content: SizedBox(
-              width: 480,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Profile: ${bot.name}'),
-                    TextField(
-                      controller: title,
-                      decoration: const InputDecoration(labelText: 'Title'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: summary,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Roster summary',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: description,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: soul,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'Standing instructions',
-                      ),
-                    ),
-                    if (widget.models != null)
-                      TextButton(
-                        onPressed: () async {
-                          final options = await widget.models!.load(
-                            profile: bot.name,
-                          );
-                          if (!dialogContext.mounted) return;
-                          await showModelPicker(
-                            dialogContext,
-                            options: options,
-                            selected: chosen ?? options.current,
-                            withEffort: false,
-                            title: 'Default model',
-                            onChanged: (choice) =>
-                                update(() => chosen = choice),
-                          );
-                        },
-                        child: Text(
-                          chosen?.modelId ??
-                              details.model ??
-                              'Choose default model',
-                        ),
-                      ),
-                    if (conflict)
-                      const Text(
-                        'Another client changed this bot. Your edits are still here.',
-                      ),
-                    if (failed.isNotEmpty)
-                      Text('Not saved: ${failed.join(', ')}'),
-                  ],
-                ),
-              ),
-            ),
+          builder: (context, update) => GroupedDialog(
+            title: 'Edit ${bot.title}',
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
@@ -445,9 +377,44 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                 child: const Text('Save'),
               ),
             ],
+            children: [
+              BotEditFields(
+                profile: bot.name,
+                title: title,
+                summary: summary,
+                description: description,
+                soul: soul,
+                model: chosen?.modelId ?? details.model,
+                provider: chosen?.providerId ?? details.provider,
+                onChooseModel: widget.models == null
+                    ? null
+                    : () async {
+                        final options = await widget.models!.load(
+                          profile: bot.name,
+                        );
+                        if (!dialogContext.mounted) return;
+                        await showModelPicker(
+                          dialogContext,
+                          options: options,
+                          selected: chosen ?? options.current,
+                          withEffort: false,
+                          title: 'Default model',
+                          onChanged: (choice) => update(() => chosen = choice),
+                        );
+                      },
+              ),
+              if (conflict)
+                const GroupedDialogNote(
+                  'Another client changed this bot. Your edits are still here.',
+                ),
+              if (failed.isNotEmpty)
+                GroupedDialogNote('Not saved: ${failed.join(', ')}'),
+            ],
           ),
         ),
       );
+      await Navigator.of(context).push(route);
+      await route.completed;
     } finally {
       title.dispose();
       summary.dispose();
