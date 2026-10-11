@@ -310,7 +310,9 @@ class _PushedDetail extends StatelessWidget {
         final job = controller.jobs.where((j) => j.key == jobKey).firstOrNull;
         if (job == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) Navigator.of(context).maybePop();
+            if (context.mounted && ModalRoute.of(context)?.isCurrent == true) {
+              Navigator.of(context).maybePop();
+            }
           });
           return const Scaffold(body: SizedBox.shrink());
         }
