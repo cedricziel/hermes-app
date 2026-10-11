@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';
 import 'package:hermes_app/src/bot_mode/groups/group_rooms_panel.dart';
@@ -55,6 +56,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create group'));
     await tester.pumpAndSettle();
+    expect(find.byType(GroupedDialog), findsOneWidget);
     expect(
       find.textContaining('Interactive requests cannot be answered'),
       findsOneWidget,
