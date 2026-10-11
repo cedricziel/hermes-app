@@ -62,6 +62,11 @@ class SurfaceSnapshotStore {
 
   final _writes = StreamController<SurfaceSnapshot>.broadcast();
   SurfaceSnapshot? _written;
+
+  /// The `updatedAt` of the snapshot the widgets were last reloaded for. The
+  /// widgets hold that snapshot's stale entry, due six hours after it, until
+  /// the next reload; null before this run reloaded any.
+  DateTime? _reloadedFor;
   var _seeded = false;
 
   /// Writes run one after another, in the order they were asked for, so an
@@ -83,9 +88,10 @@ class SurfaceSnapshotStore {
 
   /// Stores [snapshot] and reloads the widgets. Content the last write
   /// already held is stored again only to move its time forward, so the
-  /// widgets do not call it out of date after the user opened the app; that
-  /// reloads them only when the time they hold had gone stale. A storage that
-  /// fails is logged and never throws.
+  /// widgets do not call it out of date after the user opened the app. That
+  /// reloads them (their stale entry is due six hours after the snapshot they
+  /// last loaded) at most once per `kSurfaceRefreshReloadEvery`. A storage
+  /// that fails is logged and never throws.
   Future<void> write(SurfaceSnapshot snapshot) {
     final done = _tail.then((_) => _write(snapshot));
     _tail = done.then((_) {}, onError: (Object _) {});
@@ -100,9 +106,12 @@ class SurfaceSnapshotStore {
     final written = _written;
     final unchanged = written != null && written.sameContent(snapshot);
     if (unchanged && !snapshot.updatedAt.isAfter(written.updatedAt)) return;
+    final reloadedFor = _reloadedFor;
     final reload =
         !unchanged ||
-        snapshot.updatedAt.difference(written.updatedAt) > kSurfaceStaleAfter;
+        reloadedFor == null ||
+        snapshot.updatedAt.difference(reloadedFor) >=
+            kSurfaceRefreshReloadEvery;
     try {
       await _storage.save(snapshot.encode());
       _written = snapshot;
@@ -112,6 +121,7 @@ class SurfaceSnapshotStore {
       if (unchanged) return;
     }
     if (_written != null && reload) {
+      _reloadedFor = snapshot.updatedAt;
       await Future.wait([for (final kind in widgetKinds) _reload(kind)]);
     }
     if (!unchanged && !_writes.isClosed) _writes.add(snapshot);
