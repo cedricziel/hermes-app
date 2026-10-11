@@ -15,6 +15,13 @@ public struct SurfaceSnapshot: Equatable, Sendable {
   /// The UserDefaults key, in the App Group, the JSON is stored under.
   public static let key = "hermes.surface.v1"
 
+  /// The App Group both the app and its extensions belong to, named in their
+  /// Info.plists.
+  public static var appGroup: String {
+    Bundle.main.object(forInfoDictionaryKey: "AppGroupId") as? String
+      ?? "group.com.cedricziel.hermesApp"
+  }
+
   public let updatedAt: Date
   public let signedIn: Bool
 

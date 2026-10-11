@@ -7,7 +7,7 @@ import PackageDescription
 // The Xcode project compiles the same files straight into its targets.
 let package = Package(
   name: "HermesSurfaceKit",
-  platforms: [.macOS(.v14), .iOS(.v17)],
+  platforms: [.macOS("26.0"), .iOS("26.0")],
   products: [.library(name: "HermesSurfaceKit", targets: ["HermesSurfaceKit"])],
   targets: [
     .target(name: "HermesSurfaceKit", path: "Sources/HermesSurfaceKit"),

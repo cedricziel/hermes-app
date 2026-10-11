@@ -144,6 +144,14 @@ final class SurfaceSnapshotTests: XCTestCase {
     XCTAssertTrue(snapshot.recentChats.isEmpty)
   }
 
+  func testMalformedProfilesReadAsEmptyOrSkipTheBadEntries() throws {
+    let head = #"{"version":1,"updatedAt":"2026-10-10T12:00:00Z","signedIn":true,"profiles":"#
+    XCTAssertEqual(try XCTUnwrap(SurfaceSnapshot.decode(head + #""default"}"#)).profiles, [])
+    XCTAssertEqual(
+      try XCTUnwrap(SurfaceSnapshot.decode(head + #"["default",3,null,"work"]}"#)).profiles,
+      ["default", "work"])
+  }
+
   func testSchedulesWithNothingScheduledAreStillOffered() throws {
     let snapshot = try XCTUnwrap(
       SurfaceSnapshot.decode(

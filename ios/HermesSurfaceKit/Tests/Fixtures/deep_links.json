@@ -36,6 +36,31 @@
     "url": "hermes://new?dictate=1"
   },
   {
+    "name": "new chat in a profile",
+    "target": {
+      "kind": "new",
+      "profile": "work"
+    },
+    "url": "hermes://new?profile=work"
+  },
+  {
+    "name": "new chat in a profile with an ampersand",
+    "target": {
+      "kind": "new",
+      "profile": "R&D team"
+    },
+    "url": "hermes://new?profile=R%26D%20team"
+  },
+  {
+    "name": "new chat with dictation in a profile",
+    "target": {
+      "kind": "new",
+      "profile": "work",
+      "dictate": true
+    },
+    "url": "hermes://new?profile=work&dictate=1"
+  },
+  {
     "name": "chat",
     "target": {
       "kind": "chat",

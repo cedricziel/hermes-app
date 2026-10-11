@@ -25,7 +25,7 @@ public enum DeepLink {
 
   // Dart's Uri.encodeComponent leaves only these alone, so a space is "%20"
   // and a plus "%2B" (a reader may take a "+" in a query for a space).
-  private static let unreserved = CharacterSet(
+  static let unreserved = CharacterSet(
     charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()")
 
   private static func link(_ host: String, _ parameters: [(String, String?)]) -> URL {
