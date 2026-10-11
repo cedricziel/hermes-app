@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.59](https://github.com/cedricziel/hermes-app/compare/v0.1.58...v0.1.59) (2026-10-11)
+
+
+### Features
+
+* **background:** update the badge and Siri's chat list in the background ([#624](https://github.com/cedricziel/hermes-app/issues/624)) ([f95acdf](https://github.com/cedricziel/hermes-app/commit/f95acdf8bcef67a7d2a214e3848da9cd90bb2bcd))
+* **ios:** answer Ask Hermes from Siri and Shortcuts in place ([#622](https://github.com/cedricziel/hermes-app/issues/622)) ([cf8e55d](https://github.com/cedricziel/hermes-app/commit/cf8e55dd7bfde7fd0c2c9ee2149695faf205d701))
+* **ios:** list pending requests and answer approvals from Siri and Shortcuts ([#623](https://github.com/cedricziel/hermes-app/issues/623)) ([eb2caf0](https://github.com/cedricziel/hermes-app/commit/eb2caf0193cc7e48e171b51059e2dc5453403a7c))
+
+
+### Bug Fixes
+
+* small follow-ups from the iOS surfaces reviews ([#625](https://github.com/cedricziel/hermes-app/issues/625)) ([321cf15](https://github.com/cedricziel/hermes-app/commit/321cf15c542fa73714efed37f59d3cc5f2f87119))
+
 ## [0.1.58](https://github.com/cedricziel/hermes-app/compare/v0.1.57...v0.1.58) (2026-10-11)
 
 
