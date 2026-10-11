@@ -991,3 +991,30 @@ finished in a new chat moves it to the top. With App Lock on only New Chat and
 Dictate remain; signed out, none do. With telemetry on, `quick_action.used`
 holds `kind` only and the breadcrumb `quick_action.opened` holds `kind` and
 `cold_start`.
+
+## Verify the App Intents and controls (iOS)
+
+The intents (New Chat, Dictate, Open Chat), the Chat and Profile pickers and
+the three controls read only the surface snapshot, so sign in and load chats
+first. Siri is not available in the simulator and `xcrun simctl` can neither
+run an intent nor tap, so use a simulator window (Simulator.app) or a device.
+
+- Shortcuts app: the "Hermes" tile lists New Chat, Dictate and Open Chat (the
+  App Shortcuts); tap one to run it. In the editor, add "Open Chat" and open
+  its Chat parameter: the recent chats are listed newest first, with the
+  profile as subtitle when chats of several profiles are offered. With App Lock
+  on every chat reads "Chat" with its profile and age.
+- Controls: Control Center, "+" , "Add a control", search "Hermes": New Chat,
+  Dictate and Open Chat (choose a chat when adding it; its label follows a
+  rename). On the Lock Screen they ask to unlock first. The Action button and
+  the Lock Screen's control slots take the same controls.
+- Each run must land in the app on the `hermes://` link the intent builds
+  (`new`, `new?dictate=1`, `chat?profile=&id=`). Run it with the app killed to
+  check the cold start. If a link does nothing, `xcrun simctl openurl booted
+  'hermes://new?dictate=1'` tells the intent (`OpenURLIntent`) apart from the
+  link handling.
+- After a chat is renamed, the new title should be spoken-matchable within a
+  moment: the app calls `refreshShortcuts` on `hermes_app/intents` after each
+  changed snapshot write.
+- `swift test` in `ios/HermesSurfaceKit` runs the entity queries and the
+  links without a simulator.
