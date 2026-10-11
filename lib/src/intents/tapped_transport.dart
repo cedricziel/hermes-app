@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import '../chat/chat_models.dart' show UnsupportedKind, VaultKind;
+import '../chat/chat_models.dart'
+    show ApprovalRequest, UnsupportedKind, VaultKind;
 import '../chat/chat_transport.dart';
 import '../chat/slash_command.dart';
 import '../models/model_provider_option.dart';
@@ -111,6 +112,12 @@ class TappedTransport implements ChatTransport {
     password: password,
     code: code,
   );
+
+  @override
+  Future<List<ApprovalRequest>> pendingApprovals({
+    required String threadId,
+    String? profile,
+  }) => _inner.pendingApprovals(threadId: threadId, profile: profile);
 
   @override
   Future<bool> stopReply(String threadId, {String? profile}) =>
