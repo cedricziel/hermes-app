@@ -305,16 +305,33 @@ void main() {
   });
 
   group('telling the background runs the app is open', () {
-    test('answers pings while running and stops after', () async {
+    test('answers pings while in front and stops after', () async {
       final started = scheduler(
         TargetPlatform.android,
-        presence: AppPresence(name: 'test-presence-open'),
+        presence: AppPresence(name: 'test-presence-open', resumed: () => true),
       );
-      expect(await mainIsolateAlive(name: 'test-presence-open'), isTrue);
+      expect(await appInFront(name: 'test-presence-open'), isTrue);
 
       started.dispose();
 
-      expect(await mainIsolateAlive(name: 'test-presence-open'), isFalse);
+      expect(await appInFront(name: 'test-presence-open'), isFalse);
+    });
+
+    test('an app that is alive but not resumed is not in front', () async {
+      var resumed = false;
+      final started = scheduler(
+        TargetPlatform.android,
+        presence: AppPresence(
+          name: 'test-presence-paused',
+          resumed: () => resumed,
+        ),
+      );
+
+      expect(await appInFront(name: 'test-presence-paused'), isFalse);
+      resumed = true;
+      expect(await appInFront(name: 'test-presence-paused'), isTrue);
+
+      started.dispose();
     });
 
     test('a port nobody answers on does not count', () async {
@@ -324,7 +341,7 @@ void main() {
       addTearDown(() => IsolateNameServer.removePortNameMapping('test-silent'));
 
       expect(
-        await mainIsolateAlive(
+        await appInFront(
           name: 'test-silent',
           timeout: const Duration(milliseconds: 100),
         ),

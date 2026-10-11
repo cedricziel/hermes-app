@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/background/app_presence.dart';
 import 'package:hermes_app/src/background/background_refresh.dart';
 import 'package:hermes_app/src/background/entry_points.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
@@ -128,11 +129,11 @@ void main() {
       'approvals': approvals[params['session_id']] ?? [],
     };
     storage = FakeSurfaceStorage();
-    store = SurfaceSnapshotStore(storage: storage);
+    events = RecordedEvents();
+    store = SurfaceSnapshotStore(storage: storage, events: events.call);
     notifications = FakeNotificationService();
     announced = AnnouncedRequests();
     tracer = RecordingTracer();
-    events = RecordedEvents();
     tokens = MemoryTokenStore();
     cancelled = 0;
   });
@@ -178,7 +179,7 @@ void main() {
     notificationsEnabled: () async => notificationsOn,
     appLockOn: () async => lockOn,
     cancelSchedule: () async => cancelled++,
-    mainIsolateAlive: () async => appOpen,
+    appInFront: () async => appOpen,
     request: request,
     steps: steps,
     timeout: timeout,
@@ -509,6 +510,34 @@ void main() {
       },
     );
 
+    test('announces while the app is alive but not in front', () async {
+      final presence = AppPresence(
+        name: 'test-run-presence',
+        resumed: () => false,
+      )..start();
+      addTearDown(presence.dispose);
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+
+      await refresh(
+        with_: BackgroundRefreshDeps(
+          headless: headless(),
+          notifications: notifications,
+          announced: announced,
+          notificationsEnabled: () async => true,
+          appLockOn: () async => false,
+          cancelSchedule: () async {},
+          appInFront: () => appInFront(name: 'test-run-presence'),
+        ),
+      );
+
+      expect(notifications.shown, hasLength(1));
+    });
+
     test('remembers a request before it posts the notification', () async {
       sessions = {
         'work': [_session('chat-a')],
@@ -618,6 +647,104 @@ void main() {
   });
 
   group('the snapshot', () {
+    /// Holds the snapshot build at its Kanban check until released, so a
+    /// test can act while the background run is under way.
+    Completer<void> holdBuild() {
+      final gate = Completer<void>();
+      server.onRequest('GET', '/api/dashboard/plugins', (_) async {
+        await gate.future;
+        return (status: 200, body: <Object?>[]);
+      });
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      return gate;
+    }
+
+    test(
+      'is dropped whole when the app wrote while the run was under way',
+      () async {
+        final gate = holdBuild();
+        sessions = {
+          'work': [_session('chat-a')],
+        };
+        approvals = {
+          'rt-chat-a': [_approval('r1')],
+        };
+        final run = refresh();
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+        await store.write(
+          SurfaceSnapshot(
+            updatedAt: DateTime.utc(2026, 10, 11, 9),
+            profile: 'work',
+            kanban: const KanbanSummary(blocked: 2, review: 0),
+          ),
+        );
+        gate.complete();
+        await run;
+
+        expect(storage.saved, hasLength(1));
+        expect(storedSnapshot()['profile'], 'work');
+        expect(storedSnapshot()['pending'], isEmpty);
+        expect(events.named('surface.snapshot.write_skipped'), [
+          {'reason': 'revision_changed'},
+        ]);
+        // What was posted stays posted.
+        expect(notifications.shown, hasLength(1));
+      },
+    );
+
+    test('never writes over a snapshot that says signed out', () async {
+      await store.write(SurfaceSnapshot.signedOut(DateTime.utc(2026, 10, 11)));
+
+      await refresh();
+
+      expect(storage.saved, hasLength(1));
+      expect(storedSnapshot()['signedIn'], isFalse);
+      expect(events.named('surface.snapshot.write_skipped'), [
+        {'reason': 'signed_out'},
+      ]);
+    });
+
+    test('hides titles when App Lock went on while it was built', () async {
+      final gate = holdBuild();
+      sessions = {
+        'work': [_session('chat-a', title: 'Merger plans')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+      final run = refresh();
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      lockOn = true;
+      gate.complete();
+      await run;
+
+      final snapshot = storedSnapshot();
+      expect(snapshot['pending'], [containsPair('threadTitle', '')]);
+      for (final chat in snapshot['recentChats']! as List) {
+        expect((chat as Map)['title'], '');
+      }
+    });
+
+    test('is not written by a body that outlived the run', () async {
+      final gate = holdBuild();
+
+      final outcome = await refresh(
+        with_: deps(timeout: const Duration(milliseconds: 400)),
+      );
+      gate.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+      expect(outcome, isA<HeadlessUnreachable<void>>());
+      expect(storage.saved, isEmpty);
+      expect(events.named('surface.snapshot.write_skipped'), [
+        {'reason': 'cancelled'},
+      ]);
+    });
+
     test('lists the requests found in every profile as pending', () async {
       sessions = {
         'work': [_session('chat-a')],
@@ -959,7 +1086,7 @@ void main() {
 
       final ok = await backgroundRefreshTask(
         prepare: () async => calls.add('prepare'),
-        run: (_) async {
+        run: (_, _) async {
           calls.add('run');
           throw StateError('boom');
         },
@@ -975,7 +1102,7 @@ void main() {
 
       final ok = await backgroundRefreshTask(
         prepare: () async => throw StateError('no plugins'),
-        run: (_) async => calls.add('run'),
+        run: (_, _) async => calls.add('run'),
         flush: () async => calls.add('flush'),
       );
 
@@ -987,6 +1114,7 @@ void main() {
         'one budget', () async {
       gateway.deaf = true;
       Duration? given;
+      Duration? givenGrace;
       final watch = Stopwatch()..start();
 
       final ok = await backgroundRefreshTask(
@@ -994,12 +1122,13 @@ void main() {
         closeGrace: const Duration(milliseconds: 200),
         flushBudget: const Duration(milliseconds: 200),
         prepare: () => Future<void>.delayed(const Duration(milliseconds: 300)),
-        run: (timeout) async {
+        run: (timeout, grace) async {
           given = timeout;
+          givenGrace = grace;
           await runBackgroundRefresh(
             deps: deps(
               timeout: timeout,
-              wiring: headless(closeGrace: const Duration(milliseconds: 200)),
+              wiring: headless(closeGrace: grace),
             ),
           );
         },
@@ -1008,6 +1137,7 @@ void main() {
 
       expect(ok, isTrue);
       expect(given, lessThanOrEqualTo(const Duration(milliseconds: 800)));
+      expect(givenGrace, const Duration(milliseconds: 200));
       expect(watch.elapsed, lessThan(const Duration(milliseconds: 1500)));
     });
 
@@ -1017,7 +1147,7 @@ void main() {
       final ok = await backgroundRefreshTask(
         flushBudget: const Duration(milliseconds: 100),
         prepare: () async {},
-        run: (_) async {},
+        run: (_, _) async {},
         flush: () => Future<void>.delayed(const Duration(seconds: 5)),
       );
 

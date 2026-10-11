@@ -1,22 +1,31 @@
-/// Lets a background run tell whether the app's own isolate is alive.
+/// Lets a background run tell whether the app is in front.
 ///
 /// WorkManager runs a task in the same process as the app, even while the
-/// app is open, and the open app announces requests itself. A run that finds
-/// the app alive leaves the announcing to it.
+/// app is open, and the open app announces requests itself. A suspended or
+/// cached app does not: its isolate may be alive and answer, but nobody is
+/// looking, so only an app whose lifecycle is `resumed` counts as in front.
 library;
 
 import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui' show IsolateNameServer;
 
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
+
 /// The name the app's presence port is registered under.
 const kAppPresencePort = 'hermes_app.presence';
 
-/// Answers pings from background runs for as long as the app's isolate runs.
+bool _lifecycleResumed() =>
+    WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+
+/// Answers pings from background runs for as long as the app's isolate runs:
+/// whether the app is in front.
 class AppPresence {
-  AppPresence({this.name = kAppPresencePort});
+  AppPresence({this.name = kAppPresencePort, bool Function()? resumed})
+    : _resumed = resumed ?? _lifecycleResumed;
 
   final String name;
+  final bool Function() _resumed;
   ReceivePort? _port;
 
   void start() {
@@ -25,7 +34,7 @@ class AppPresence {
     IsolateNameServer.removePortNameMapping(name);
     IsolateNameServer.registerPortWithName(port.sendPort, name);
     port.listen((message) {
-      if (message is SendPort) message.send(true);
+      if (message is SendPort) message.send(_resumed());
     });
   }
 
@@ -38,9 +47,10 @@ class AppPresence {
   }
 }
 
-/// Whether the app's isolate answers within [timeout]. A port left behind by
-/// an isolate that is gone answers nothing, so only an answer counts.
-Future<bool> mainIsolateAlive({
+/// Whether the app's isolate answers within [timeout] that it is in front. A
+/// port left behind by an isolate that is gone answers nothing, which counts
+/// as not in front, like an app that is suspended or not running.
+Future<bool> appInFront({
   String name = kAppPresencePort,
   Duration timeout = const Duration(milliseconds: 500),
 }) async {

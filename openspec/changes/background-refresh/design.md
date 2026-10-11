@@ -98,7 +98,7 @@ If a profile's `session.active_list` is refused, the other profiles' requests ar
 
 - the builder runs with `refreshRemote`;
 - the full cross-profile pending list replaces every profile's entries (`SurfaceSnapshotBuilder.build(pending:)`), which also drops entries of other profiles that earlier foreground snapshots left behind; a request already in the stored snapshot keeps its `createdAt`;
-- `redact` comes from the stored App Lock setting: with it on, titles and snippets are omitted (counts stay) and the Spotlight listener clears the index instead of refreshing it, as in `surface-snapshot`.
+- the stored App Lock setting is read when the snapshot is saved: with it on, titles and snippets are omitted (counts stay) and the Spotlight listener clears the index instead of refreshing it, as in `surface-snapshot`.
 
 The store writes the snapshot and its `writes` stream tells the listeners registered in the run's isolate. Nothing registers one yet; `spotlight-search` adds the Spotlight index there.
 
@@ -116,11 +116,15 @@ Added here, because `surface-snapshot` and `headless-runtime` were built in para
 
 ### Two writers of the snapshot
 
-The app in front and a background run both build the snapshot from the one they last read, and a run can be hours older than the app's idea of it. Left alone each write would undo the other: the app restores other profiles' stale requests, the run drops what the app saw. So:
+The app in front and a background run both build the snapshot from the one they last read, and a run can be hours older than the app's idea of it. Contract 2 gains `revision`, an integer counting the writes of the stored snapshot (the Dart model carries it; the Swift reader never looks at it and ignores it whatever it holds). The rules are deliberately small:
 
-- `SnapshotBuild` says what it read afresh (`SnapshotFreshness`: which profiles' chats and requests, the profile list, Kanban, schedules) and which snapshot it started from.
-- `SurfaceSnapshotStore.writeBuilt` reads the stored snapshot again right before saving, inside the write queue. If that supersedes the base (it differs and is not older, to the second the stored form keeps), `SurfaceSnapshot.adopting` takes from it everything the build did not read afresh: chats and requests of the profiles it did not ask about, the sections it did not refresh. A background run that read every profile's requests owns the whole pending list. App Lock redaction is applied after the merge. A signed-out snapshot written since wins over a signed-in build; a signed-out build always writes.
-- The foreground (`SurfaceSnapshots`) also takes the stored snapshot as its base on resume and before each build, when it supersedes the one it holds.
+- Every write saves the revision of what it replaces, plus one (`SurfaceSnapshotStore`).
+- A background run reads the stored snapshot first (revision R) and builds from it. Right before saving, `writeIfCurrent` reads again. If the stored revision is still R, it saves R+1. Otherwise the app or another writer won, and the run drops its build whole and logs `surface.snapshot.write_skipped` (`reason`: `revision_changed`). There is no merging. Notifications already posted stay posted.
+- A run never writes over a stored snapshot that says signed out (`reason`: `signed_out`), and not after its own run is over (`reason`: `cancelled`; a body that outlived the timeout must not write).
+- App Lock is read when saving, not when building, and asked before the stored snapshot is read, so only that read and the save lie between check and write. If it is on, the snapshot is redacted before saving.
+- The app in front adopts the stored snapshot as its base when its revision is newer than the one it holds: on resume and before each build. That is how a run's open requests of every profile reach the app, whose own builds then replace only what they read (the open profile's chats and requests).
+
+Remaining risk: between the re-read and the save there is one storage round trip. A sign-out landing in it is not seen by the run; the signed-in snapshot it saves is replaced by the next foreground write, which is the sign-out's own `clear` (a signed-out snapshot always writes) or, failing that, `SurfaceSnapshots.sessionChanged`. Two writers can still both pass the check if their reads interleave inside that window; the loser's data is one build old.
 
 ### The task has one budget
 
@@ -134,13 +138,13 @@ The app in front and a background run both build the snapshot from the one they 
 
 Background App Refresh turned off (or restricted) makes the whole feature a no-op. On iOS the scheduler reads `UIApplication.backgroundRefreshStatus` over `hermes_app/background_refresh` once per launch, after sign-in, and logs `background.refresh.unavailable` with the status (`denied` or `restricted`) when it is not `available`.
 
-### The open app announces for itself
+### The app in front announces for itself
 
-WorkManager runs a task while the app is open. The app answers pings on `IsolateNameServer` (`AppPresence`, started with the scheduler); a run that gets an answer within 500 ms posts nothing and records nothing as announced, but still reads the requests for the snapshot. A port left by a dead isolate answers nothing, so only an answer counts.
+WorkManager runs a task while the app is open. The app answers pings on `IsolateNameServer` (`AppPresence`, started with the scheduler) with whether its lifecycle is `resumed`; a run that gets `true` within 500 ms posts nothing and records nothing as announced, but still reads the requests for the snapshot. An app that is alive but suspended or cached answers `false`, and a port left by a dead isolate answers nothing, so neither suppresses the announcement.
 
 ### `hermes://requests` uses the snapshot
 
-The chat screen first tries `ChatController.openOldestRequest`: the open profile's loaded chats are live, so they are the truth for that profile. Only then does `openOldestStoredRequest` read the stored snapshot's `pending`, for profiles other than the open one: the oldest `createdAt`, opened with `fetchMissing` (a profile the server no longer has is skipped by `knownProfile`). The snapshot can be stale, so the chat is kept only if it shows an open request within 3 s; otherwise the selection is cleared and the chat list shows.
+The chat screen first tries `ChatController.openOldestRequest`: the open profile's loaded chats are live, so they are the truth for that profile. Only then does `openOldestStoredRequest` read the stored snapshot's `pending`, for profiles other than the open one: the oldest `createdAt`, opened with `fetchMissing` (a profile the server no longer has is skipped by `knownProfile`). The snapshot can be stale, so each such request (oldest first) is checked with `session.active_list` for its profile before anything changes: the first whose session is still `waiting` is opened, and when none is, nothing moves and the chat list shows.
 
 ### Invariants touched
 

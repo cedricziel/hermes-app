@@ -54,7 +54,7 @@ class BackgroundContext {
     required this.notifications,
     required this.announced,
     required this._appLockOn,
-    this._mainAlive = mainIsolateAlive,
+    this._inFront = appInFront,
     this._request,
   });
 
@@ -65,21 +65,22 @@ class BackgroundContext {
   final NotificationService notifications;
   final AnnouncedRequests announced;
   final Future<bool> Function() _appLockOn;
-  final Future<bool> Function() _mainAlive;
+  final Future<bool> Function() _inFront;
   final GatewayRequest? _request;
 
   HermesGatewayTransport? _transport;
   Future<bool>? _lockOn;
-  Future<bool>? _appOpen;
+  Future<bool>? _inFrontNow;
 
   HermesGatewayTransport get transport => _transport ??= hermes.transport();
 
   /// Whether App Lock is on, read once: unreadable counts as on.
   Future<bool> appLockOn() => _lockOn ??= _appLockOn();
 
-  /// Whether the app's own isolate is running, asked once. WorkManager runs
-  /// a task while the app is open, which announces requests itself.
-  Future<bool> appOpen() => _appOpen ??= _mainAlive();
+  /// Whether the app is in front, asked once. WorkManager runs a task while
+  /// the app is open, which announces requests itself; an app that is only
+  /// alive in the background does not.
+  Future<bool> isAppInFront() => _inFrontNow ??= _inFront();
 
   /// Sends a gateway request on the run's shared socket.
   Future<Map<String, Object?>> request(
@@ -362,13 +363,13 @@ class OpenRequestsStep extends BackgroundStep {
 
   /// Posts one notification per chat that has a request not announced
   /// before, and remembers them first. Returns how many requests were new.
-  /// While the app is open it announces nothing: the app does.
+  /// While the app is in front it announces nothing: the app does.
   Future<int> _announce(
     BackgroundContext context,
     List<_Waiting> waiting,
   ) async {
     if (!context.notificationsOn || waiting.isEmpty) return 0;
-    if (await context.appOpen()) return 0;
+    if (await context.isAppInFront()) return 0;
     final known = await context.announced.read();
     final fresh = [
       for (final w in waiting)
@@ -457,7 +458,7 @@ class BackgroundRefreshDeps {
     this.appLockOn,
     this.steps,
     this.cancelSchedule,
-    this.mainIsolateAlive,
+    this.appInFront,
     this.request,
     this.timeout = kBackgroundRefreshBudget,
     this.stepTimeout = kBackgroundStepBudget,
@@ -475,9 +476,8 @@ class BackgroundRefreshDeps {
   /// Cancels the periodic run when nobody is signed in.
   final Future<void> Function()? cancelSchedule;
 
-  /// Whether the app's own isolate is running; asked over its presence port
-  /// by default.
-  final Future<bool> Function()? mainIsolateAlive;
+  /// Whether the app is in front; asked over its presence port by default.
+  final Future<bool> Function()? appInFront;
 
   /// Sends the gateway requests of the steps; the shared socket by default.
   final GatewayRequest? request;
@@ -513,7 +513,7 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
             deps.notifications ?? LocalNotificationService(background: true),
         announced: deps.announced ?? AnnouncedRequests(),
         appLockOn: deps.appLockOn ?? AppLockController.savedEnabled,
-        mainAlive: deps.mainIsolateAlive ?? mainIsolateAlive,
+        inFront: deps.appInFront ?? appInFront,
         request: deps.request,
       );
       var newRequests = 0;

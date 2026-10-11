@@ -32,7 +32,7 @@ On iOS and Android, while someone is signed in, the app SHALL ask the system for
 
 ### Requirement: Open requests in the background
 
-Each run SHALL list every profile's live sessions on the gateway and read the pending approvals of each session that waits for the user. While the app's own isolate is running, the run SHALL leave announcing to the app, but still read the requests for the snapshot.
+Each run SHALL list every profile's live sessions on the gateway and read the pending approvals of each session that waits for the user. While the app is in front (its lifecycle is `resumed`), the run SHALL leave announcing to the app, but still read the requests for the snapshot; an app that is only alive in the background SHALL NOT suppress announcements.
 
 - For each approval not announced before, it SHALL post a notification on that chat with the body "Waiting for your approval".
 - For a waiting session without a pending approval, it SHALL post "Waiting for you in Hermes", once per wait.
@@ -62,7 +62,7 @@ Each run SHALL rebuild and store the surface snapshot with:
 - the open requests the run found across all profiles, replacing the previous list;
 - Kanban and schedules.
 
-The snapshot's privacy rules apply. With App Lock on, the stored snapshot SHALL omit chat titles and snippets (counts stay) and the Spotlight index SHALL be cleared instead of refreshed. When the run could not read the requests, the previous open requests SHALL be kept. The readers registered for snapshot writes, such as the Spotlight index, SHALL be run.
+Every write of the snapshot SHALL carry a revision one above the stored one. A background run SHALL save only if the stored revision is still the one it built from and the stored snapshot does not say signed out, and otherwise SHALL drop its build whole and log `surface.snapshot.write_skipped` with a fixed reason; the app in front SHALL take a newer stored snapshot as its base on resume. The snapshot's privacy rules apply; App Lock is read when the snapshot is saved. With App Lock on, the stored snapshot SHALL omit chat titles and snippets (counts stay) and the Spotlight index SHALL be cleared instead of refreshed. When the run could not read the requests, the previous open requests SHALL be kept. The readers registered for snapshot writes, such as the Spotlight index, SHALL be run.
 
 #### Scenario: Widget after a run
 
@@ -81,7 +81,7 @@ The snapshot's privacy rules apply. With App Lock on, the stored snapshot SHALL 
 
 ### Requirement: Opening the oldest request from the snapshot
 
-A `hermes://requests` link SHALL open the chat of the oldest open request of the open profile when the app has one loaded. Otherwise it SHALL open the chat of the oldest request the stored snapshot lists for another profile, and keep it only if that chat shows an open request. A request the snapshot lists for the open profile SHALL NOT be opened, since the app knows that profile live. When no chat qualifies, the chat list SHALL show.
+A `hermes://requests` link SHALL open the chat of the oldest open request of the open profile when the app has one loaded. Otherwise it SHALL open the chat of the oldest request the stored snapshot lists for another profile whose session the server still reports as waiting, checking before it switches profile. A request the snapshot lists for the open profile SHALL NOT be opened, since the app knows that profile live. When no chat qualifies, the chat list SHALL show.
 
 #### Scenario: Request in another profile
 

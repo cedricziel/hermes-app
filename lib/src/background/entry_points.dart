@@ -11,6 +11,7 @@ import 'package:workmanager/workmanager.dart';
 import '../telemetry/telemetry.dart';
 import '../telemetry/telemetry_config.dart';
 import 'background_refresh.dart';
+import 'headless_hermes.dart';
 
 /// How long telemetry may take to start: a run has about 30 seconds.
 const _telemetryBudget = Duration(seconds: 3);
@@ -73,7 +74,7 @@ Future<bool> backgroundRefreshTask({
   Duration closeGrace = const Duration(seconds: 3),
   Duration flushBudget = _flushBudget,
   Future<void> Function()? prepare,
-  Future<void> Function(Duration timeout)? run,
+  Future<void> Function(Duration timeout, Duration closeGrace)? run,
   Future<void> Function()? flush,
 }) async {
   final started = DateTime.now();
@@ -81,7 +82,10 @@ Future<bool> backgroundRefreshTask({
     await (prepare ?? prepareBackgroundIsolate)();
     final left = budget - DateTime.now().difference(started);
     final runBudget = left - closeGrace - flushBudget;
-    await (run ?? _refresh)(runBudget < _minimumRun ? _minimumRun : runBudget);
+    await (run ?? _refresh)(
+      runBudget < _minimumRun ? _minimumRun : runBudget,
+      closeGrace,
+    );
   } on Object {
     // The run reports its own failures.
   }
@@ -97,5 +101,10 @@ Future<bool> backgroundRefreshTask({
 /// own timeout anyway.
 const _minimumRun = Duration(milliseconds: 500);
 
-Future<void> _refresh(Duration timeout) =>
-    runBackgroundRefresh(deps: BackgroundRefreshDeps(timeout: timeout));
+Future<void> _refresh(Duration timeout, Duration closeGrace) =>
+    runBackgroundRefresh(
+      deps: BackgroundRefreshDeps(
+        timeout: timeout,
+        headless: HeadlessDeps(closeGrace: closeGrace),
+      ),
+    );
