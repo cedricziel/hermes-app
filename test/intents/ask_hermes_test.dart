@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
+import 'package:hermes_app/src/background/running_replies.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/intents/ask_hermes.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/notifications/local_notification_service.dart'
+    show targetFromPayload, notificationPayload;
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart'
@@ -50,6 +53,7 @@ void main() {
   late RecordedEvents events;
   late RecordingTracer tracer;
   late BreadcrumbTrail trail;
+  late RunningReplies running;
   var appLockOn = false;
 
   setUp(() {
@@ -73,6 +77,7 @@ void main() {
     events = RecordedEvents();
     tracer = RecordingTracer();
     trail = BreadcrumbTrail();
+    running = RunningReplies();
     appLockOn = false;
   });
 
@@ -82,6 +87,8 @@ void main() {
     events: events.call,
     breadcrumbs: Breadcrumbs.of(trail),
     appLockOn: () async => appLockOn,
+    running: running,
+    tracer: tracer,
     transportFor: (_) => transport,
     deps: HeadlessDeps(
       tokenStore: store,
@@ -336,6 +343,7 @@ void main() {
     test('stops announcing once iOS has ended the time', () async {
       final run = ask('Think hard', within: const Duration(milliseconds: 20));
       final send = await sent();
+      send.emit(const ThreadBound('new-1'));
       await run.answer;
 
       run.expire();
@@ -349,6 +357,226 @@ void main() {
     });
   });
 
+  group('handing the reply to the background check', () {
+    Future<List<(String?, String, bool)>> remembered() async => [
+      for (final r in await running.read()) (r.profile, r.threadId, r.fromAsk),
+    ];
+
+    test('remembers a new chat once the answer was "still working"', () async {
+      final run = ask(
+        'Think hard',
+        profile: 'work',
+        within: const Duration(milliseconds: 20),
+      );
+      final send = await sent();
+      await run.answer;
+      send.emit(const ThreadBound('new-1'));
+      await pumpEventQueue();
+
+      expect(await remembered(), [('work', 'new-1', true)]);
+    });
+
+    test('remembers a new chat bound before the deadline', () async {
+      final run = ask(
+        'Think hard',
+        profile: 'work',
+        within: const Duration(milliseconds: 800),
+      );
+      final send = await sent();
+      send.emit(const ThreadBound('new-1'));
+      await pumpEventQueue();
+      expect(await remembered(), isEmpty);
+
+      await run.answer;
+      await pumpEventQueue();
+
+      expect(await remembered(), [('work', 'new-1', true)]);
+    });
+
+    test('remembers a continued chat in its own profile at once', () async {
+      final run = ask(
+        'Go on',
+        profile: 'default',
+        chatId: 'work/abc',
+        within: const Duration(milliseconds: 20),
+      );
+      await sent();
+      await run.answer;
+      await pumpEventQueue();
+
+      expect(await remembered(), [('work', 'abc', true)]);
+    });
+
+    test('remembers nothing for a reply given in place', () async {
+      final run = ask('Hello');
+      (await sent())
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ReplyCompleted('Hi'));
+      await run.finished;
+      await pumpEventQueue();
+
+      expect(await remembered(), isEmpty);
+    });
+
+    test('forgets it when the reply is announced by the ask itself', () async {
+      final run = ask('Think hard', within: const Duration(milliseconds: 20));
+      final send = await sent();
+      await run.answer;
+      send
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ReplyCompleted('Done.'));
+      await run.finished;
+      await pumpEventQueue();
+
+      expect(notifications.shown.single.body, 'Done.');
+      expect(await remembered(), isEmpty);
+    });
+
+    test('keeps it when iOS ends the time', () async {
+      final run = ask('Think hard', within: const Duration(milliseconds: 20));
+      final send = await sent();
+      send.emit(const ThreadBound('new-1'));
+      await run.answer;
+
+      run.expire();
+      await run.finished;
+      await pumpEventQueue();
+
+      expect(await remembered(), [(null, 'new-1', true)]);
+    });
+
+    test(
+      'posts no "Reply failed" when the turn ends without a reply',
+      () async {
+        final run = ask('Think hard', within: const Duration(milliseconds: 20));
+        final send = await sent();
+        send.emit(const ThreadBound('new-1'));
+        await run.answer;
+
+        send.finish();
+        await run.finished;
+        await pumpEventQueue();
+
+        expect(notifications.shown, isEmpty);
+        expect(await remembered(), [(null, 'new-1', true)]);
+      },
+    );
+  });
+
+  group('a question that never got to Hermes', () {
+    test('is told once, with the question behind a tap', () async {
+      final run = ask(
+        'What is C++?',
+        profile: 'work',
+        within: const Duration(milliseconds: 20),
+      );
+      final send = await sent();
+      await run.answer;
+
+      send.finish();
+      await run.finished;
+      await pumpEventQueue();
+
+      final shown = notifications.shown.single;
+      expect(shown.body, "Couldn't send your question");
+      expect(shown.title, 'Hermes');
+      expect(shown.body, isNot(contains('C++')));
+      final target = targetFromPayload(notificationPayload(shown))!;
+      expect(target.prompt, 'What is C++?');
+      expect(target.profile, 'work');
+    });
+
+    test('is told when the server cannot be reached after all', () async {
+      server.on('GET', '/api/status', {}, status: 503);
+      final run = ask('Hello', within: Duration.zero);
+
+      expect((await run.answer).outcome, AskOutcome.stillWorking);
+      await run.finished;
+
+      expect(notifications.shown.single.prompt, 'Hello');
+    });
+
+    test('is told when nobody is signed in after all', () async {
+      store.session = null;
+      final run = ask('Hello', within: Duration.zero);
+
+      await run.answer;
+      await run.finished;
+
+      expect(notifications.shown.single.prompt, 'Hello');
+    });
+
+    test('is not told when the answer was given in time', () async {
+      store.session = null;
+      final run = ask('Hello');
+
+      expect((await run.answer).outcome, AskOutcome.signedOut);
+      await run.finished;
+
+      expect(notifications.shown, isEmpty);
+    });
+
+    test('is not told once the question reached Hermes', () async {
+      final run = ask('Hello', within: const Duration(milliseconds: 20));
+      final send = await sent();
+      send.emit(const ThreadBound('new-1'));
+      await run.answer;
+
+      send.finish();
+      await run.finished;
+
+      expect(notifications.shown, isEmpty);
+    });
+  });
+
+  group('a second ask on a chat that is replying', () {
+    test('is added to the running turn and posts nothing', () async {
+      final run = ask('And this', chatId: 'work/abc');
+      final send = await sent();
+      send
+        ..emit(const PromptFolded())
+        ..finish();
+
+      final result = await run.answer;
+      await run.finished;
+      await pumpEventQueue();
+
+      expect(result.outcome, AskOutcome.folded);
+      expect(notifications.shown, isEmpty);
+    });
+  });
+
+  group('the deadline', () {
+    test('is decided half a second before the intent gives up', () {
+      const request = AskRequest(
+        question: 'q',
+        answerWithin: Duration(seconds: 20),
+      );
+      expect(request.decideWithin, const Duration(milliseconds: 19500));
+      expect(
+        const AskRequest(
+          question: 'q',
+          answerWithin: Duration(milliseconds: 200),
+        ).decideWithin,
+        Duration.zero,
+      );
+    });
+  });
+
+  group('an engine that was not there', () {
+    test('is recorded with a fixed reason', () {
+      hermes()
+        ..recordUnavailable('ready_timeout')
+        ..recordUnavailable('engine_start_failed')
+        ..recordUnavailable('whatever the caller made up');
+
+      expect(events.named('intent.unavailable'), [
+        {'reason': 'ready_timeout'},
+        {'reason': 'engine_start_failed'},
+        {'reason': 'other'},
+      ]);
+    });
+  });
   group('telemetry', () {
     Future<void> settle(AskRun run) async {
       await run.answer;
@@ -392,6 +620,25 @@ void main() {
           'intent.ask.started {continued: true}',
           'intent.ask.ended {outcome: answered}',
         ],
+      );
+    });
+
+    test('App Lock and a blank question have a span of their own', () async {
+      appLockOn = true;
+      await settle(ask('Hello', chatId: 'work/abc'));
+      appLockOn = false;
+      await settle(ask('  '));
+
+      expect(
+        [
+          for (final s in tracer.spans)
+            (
+              s.attributes['task'],
+              s.attributes['ask.outcome'],
+              s.attributes['continued'],
+            ),
+        ],
+        [('intent.ask', 'app_locked', true), ('intent.ask', 'failed', false)],
       );
     });
 

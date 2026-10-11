@@ -370,7 +370,10 @@ Future<void> main([List<String> args = const []]) async {
                 settings: context.read<NotificationSettings>(),
                 events: telemetry.events(),
                 breadcrumbs: context.read<Breadcrumbs>(),
+                running: context.read<RunningReplies?>(),
+                tracer: telemetry.forConnection(const {}).tracer,
               ),
+              openLink: context.read<DeepLinks?>()?.open,
             );
             unawaited(channel.start());
             return channel;

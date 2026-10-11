@@ -16,6 +16,7 @@ import '../notifications/notification_settings.dart';
 import '../telemetry/telemetry.dart';
 import '../telemetry/telemetry_config.dart';
 import 'background_refresh.dart';
+import 'running_replies.dart';
 import 'headless_hermes.dart';
 
 /// How long telemetry may take to start: a run has about 30 seconds.
@@ -137,6 +138,8 @@ Future<void> intentsMain() async {
       notifications: LocalNotificationService(background: true),
       settings: NotificationSettings(),
       events: backgroundTelemetry(const {}).events,
+      tracer: backgroundTelemetry(const {}).tracer,
+      running: RunningReplies(),
       flush: flushBackgroundTelemetry,
     ),
   );

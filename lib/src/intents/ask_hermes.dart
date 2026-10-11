@@ -7,22 +7,28 @@ library;
 import 'dart:async';
 
 import 'package:flutter_otel/flutter_otel.dart'
-    show AppEventLogger, noopAppEventLogger;
+    show AppEventLogger, Tracer, noopAppEventLogger;
 
 import '../app_lock/app_lock_controller.dart';
 import '../background/headless_hermes.dart';
+import '../background/running_replies.dart';
 import '../chat/chat_transport.dart';
+import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../watch/watch_bridge.dart';
 import '../watch/watch_request_handler.dart';
+import 'tapped_transport.dart';
 
 /// How a question ended for the person who asked it.
 enum AskOutcome {
   answered('answered'),
   stillWorking('still_working'),
   needsYou('needs_you'),
+
+  /// The question went into a turn that was already running in the chat.
+  folded('folded'),
   failed('failed'),
   signedOut('signed_out'),
   deviceLocked('device_locked'),
@@ -44,6 +50,12 @@ class AskResult {
   final String? text;
 }
 
+/// How much earlier than Swift's clock the answer is decided.
+const kAskMargin = Duration(milliseconds: 500);
+
+/// What the notification for a question that never reached Hermes says.
+const kAskNotSentBody = "Couldn't send your question";
+
 class AskRequest {
   const AskRequest({
     required this.question,
@@ -64,6 +76,13 @@ class AskRequest {
   /// What is left of the intent's 25 seconds. The question is sent whatever
   /// happens; only the answer is cut at this.
   final Duration answerWithin;
+
+  /// How long this side waits before it says "still working": a little less
+  /// than [answerWithin], so that it decides before Swift's clock does.
+  Duration get decideWithin {
+    final left = answerWithin - kAskMargin;
+    return left.isNegative ? Duration.zero : left;
+  }
 }
 
 /// One ask under way.
@@ -95,6 +114,8 @@ enum AskEngine { foreground, headless }
 /// process long before, and [AskRun.expire] with it.
 const _runTimeout = Duration(minutes: 3);
 
+const _unavailableReasons = {'ready_timeout', 'engine_start_failed'};
+
 /// Sends questions for the "Ask Hermes" intent.
 class AskHermes {
   AskHermes({
@@ -107,6 +128,8 @@ class AskHermes {
     this.transportFor,
     this.deps,
     this.flush,
+    this.running,
+    this.tracer,
   });
 
   final AskEngine engine;
@@ -128,6 +151,13 @@ class AskHermes {
   /// a background engine, which no one else flushes for, has one.
   final Future<void> Function()? flush;
 
+  /// Where a reply that outlives its answer is remembered, so that a
+  /// background run announces it if this process is suspended first.
+  final RunningReplies? running;
+
+  /// For the span of an ask that starts no run (App Lock, a blank question).
+  final Tracer? tracer;
+
   AskRun start(AskRequest request) {
     final ask = _Ask(this, request);
     return AskRun(
@@ -136,12 +166,27 @@ class AskHermes {
       onExpire: ask.abandon,
     );
   }
+
+  /// Records that the Runner could not run an ask in an engine, which Dart
+  /// can only learn afterwards. [reason] is one of a fixed few.
+  void recordUnavailable(String reason) {
+    try {
+      events('intent.unavailable', {
+        'reason': _unavailableReasons.contains(reason) ? reason : 'other',
+      });
+    } on Object {
+      // Telemetry must never keep an ask from running.
+    }
+  }
 }
 
 class _Ask {
   _Ask(this._owner, this._request) {
+    final chat = _unbind(_request.chatId);
+    _profile = chat != null ? chat.$1 : _request.profile;
+    _threadId = chat?.$2;
     _timer = Timer(
-      _request.answerWithin,
+      _request.decideWithin,
       () => _answer(const AskResult(AskOutcome.stillWorking)),
     );
   }
@@ -152,13 +197,21 @@ class _Ask {
   final _abandoned = Completer<void>();
   final _clock = Stopwatch()..start();
   late final Timer _timer;
+  late final String? _profile;
+  String? _threadId;
   var _muted = false;
-
-  bool get _foreground => _owner.engine == AskEngine.foreground;
 
   /// Whether the intent already told the person that the reply will come as
   /// a notification.
   var _stillWorkingAnswered = false;
+
+  /// What the turn did, as its events went by.
+  var _sent = false;
+  var _completed = false;
+  var _folded = false;
+  var _registered = false;
+
+  bool get _foreground => _owner.engine == AskEngine.foreground;
 
   void abandon() {
     _muted = true;
@@ -173,6 +226,7 @@ class _Ask {
     _stillWorkingAnswered = result.outcome == AskOutcome.stillWorking;
     answered.complete(result);
     _record(result.outcome);
+    if (_stillWorkingAnswered) _handOver();
   }
 
   void _record(AskOutcome outcome) {
@@ -192,6 +246,25 @@ class _Ask {
     }
   }
 
+  /// The span of an ask that never started a run.
+  void _spanWithoutRun(AskOutcome outcome) {
+    try {
+      _owner.tracer
+          ?.startSpan(
+            'background.task',
+            attributes: {
+              'task': 'intent.ask',
+              'engine': _owner.engine.name,
+              'continued': _request.chatId != null,
+              'ask.outcome': outcome.wire,
+            },
+          )
+          .end();
+    } on Object {
+      // Telemetry must never keep an answer from the person asking.
+    }
+  }
+
   Future<void> run() async {
     if (_foreground) {
       _owner.breadcrumbs('intent.ask.started', {
@@ -201,10 +274,12 @@ class _Ask {
     try {
       if (await _appLocked()) {
         _answer(const AskResult(AskOutcome.appLocked));
+        _spanWithoutRun(AskOutcome.appLocked);
         return;
       }
       if (_request.question.trim().isEmpty) {
         _answer(const AskResult(AskOutcome.failed));
+        _spanWithoutRun(AskOutcome.failed);
         return;
       }
       final outcome = await withHeadlessHermes<void>(
@@ -228,6 +303,7 @@ class _Ask {
         case HeadlessUnreachable():
           _answer(const AskResult(AskOutcome.unreachable));
       }
+      if (_stillWorkingAnswered && !_sent) await _tellNotSent();
     } on Object {
       _answer(const AskResult(AskOutcome.failed));
     } finally {
@@ -253,19 +329,24 @@ class _Ask {
   }
 
   Future<void> _turn(HeadlessHermes hermes) async {
-    final announce = WatchBridge.announcer(
-      _owner.notifications,
-      _owner.settings,
-    );
+    final post = _poster();
     final handler = WatchRequestHandler(
       repository: () => hermes.repositories.chat,
-      transport: () => _owner.transportFor?.call(hermes) ?? hermes.transport(),
+      transport: () => TappedTransport(
+        _owner.transportFor?.call(hermes) ?? hermes.transport(),
+        _seen,
+      ),
       activeProfile: () async => _request.profile,
       announce: (notification) async {
-        // What the intent answered in place is not told again; a request is
-        // always told, since only the app can answer it.
-        final wanted = notification.timeSensitive || _stillWorkingAnswered;
-        return !_muted && wanted && await announce(notification);
+        if (_muted) return false;
+        // A request is always told, since only the app can answer it.
+        if (notification.timeSensitive) return post(notification);
+        // What was answered in place is not told again.
+        if (!_stillWorkingAnswered) return false;
+        // The turn ending without a reply (a timeout, a closed socket) says
+        // nothing about the reply: the background check decides.
+        if (notification.body == kReplyFailedBody && !_completed) return false;
+        return post(notification);
       },
     );
     final reply = handler.handle({
@@ -283,7 +364,25 @@ class _Ask {
     if (result != null) hermes.annotate('ask.reply', result.outcome.wire);
   }
 
-  static AskResult _resultOf(Map<String, Object?> reply) {
+  /// Notes what a turn's event says about how the ask is going.
+  void _seen(ChatEvent event) {
+    _sent = true;
+    switch (event) {
+      case ThreadBound(:final threadId):
+        _threadId = threadId;
+        if (_stillWorkingAnswered) _handOver();
+      case PromptFolded():
+        _folded = true;
+      case ReplyCompleted():
+        _completed = true;
+        // Announced by this process, so there is nothing left to hand over.
+        if (_registered && !_muted) _forget();
+      default:
+    }
+  }
+
+  AskResult _resultOf(Map<String, Object?> reply) {
+    if (_folded && !_completed) return const AskResult(AskOutcome.folded);
     if (reply['ok'] != true || reply['failed'] == true) {
       return const AskResult(AskOutcome.failed);
     }
@@ -292,6 +391,83 @@ class _Ask {
       return const AskResult(AskOutcome.needsYou);
     }
     return AskResult(AskOutcome.answered, text is String ? text : '');
+  }
+
+  /// Hands the reply to the background check, which announces it if this
+  /// process is suspended before it does: "I'll notify you" was promised.
+  void _handOver() {
+    final running = _owner.running;
+    final thread = _threadId;
+    if (_registered || running == null || thread == null) return;
+    _registered = true;
+    unawaited(
+      _quietly(
+        () => running.add(
+          RunningReply(
+            profile: _profile,
+            threadId: thread,
+            since: DateTime.now(),
+            fromAsk: true,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _forget() {
+    final running = _owner.running;
+    final thread = _threadId;
+    if (running == null || thread == null) return;
+    unawaited(
+      _quietly(
+        () => running.forget([
+          RunningReply(
+            profile: _profile,
+            threadId: thread,
+            since: DateTime.now(),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  /// Tells the person that the question they were promised an answer to never
+  /// reached Hermes. The notification opens a new chat with it, unsent.
+  Future<void> _tellNotSent() => _quietly(
+    () => _poster()(
+      AttentionNotification(
+        threadId: 'ask:${DateTime.now().microsecondsSinceEpoch}',
+        title: WatchRequestHandler.untitledChat,
+        body: kAskNotSentBody,
+        profile: _profile,
+        prompt: _request.question,
+      ),
+    ),
+  );
+
+  Future<bool> Function(AttentionNotification) _poster() =>
+      WatchBridge.announcer(_owner.notifications, _owner.settings);
+
+  static Future<void> _quietly(Future<Object?> Function() work) async {
+    try {
+      await work();
+    } on Object {
+      // Nothing here may keep an ask from ending.
+    }
+  }
+
+  /// The profile and the id of a chat id in the `<encoded profile>/<id>`
+  /// shape, or null for none; the profile is null for the server's default.
+  static (String?, String)? _unbind(String? chatId) {
+    if (chatId == null) return null;
+    final slash = chatId.indexOf('/');
+    if (slash < 0 || slash == chatId.length - 1) return null;
+    try {
+      final profile = Uri.decodeComponent(chatId.substring(0, slash));
+      return (profile.isEmpty ? null : profile, chatId.substring(slash + 1));
+    } on ArgumentError {
+      return null;
+    }
   }
 }
 

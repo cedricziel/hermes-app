@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/deep_links/deep_link_listener.dart';
+import 'package:hermes_app/src/deep_links/deep_link_target.dart';
 import 'package:hermes_app/src/intents/ask_hermes.dart';
 import 'package:hermes_app/src/intents/intent_shortcuts.dart';
 import 'package:hermes_app/src/intents/intents_channel.dart';
@@ -13,6 +15,10 @@ class _Ask extends AskHermes {
   final answers = <Completer<AskResult>>[];
   final finishes = <Completer<void>>[];
   var expired = 0;
+  final unavailable = <String>[];
+
+  @override
+  void recordUnavailable(String reason) => unavailable.add(reason);
 
   @override
   AskRun start(AskRequest request) {
@@ -111,6 +117,16 @@ void main() {
       expect(await reply, {'outcome': 'answered', 'text': 'Three.'});
     });
 
+    test('still tells Swift a malformed ask is over, so it lets go', () async {
+      expect(await fromSwift('ask', askArguments(question: 7)), {
+        'outcome': 'failed',
+      });
+      await pumpEventQueue();
+
+      expect(outgoing.last.method, 'finished');
+      expect(outgoing.last.arguments, 'a1');
+    });
+
     test('answers an outcome without text as its name alone', () async {
       final reply = fromSwift('ask', askArguments(profile: null));
       await pumpEventQueue();
@@ -190,6 +206,74 @@ void main() {
 
       expect(ask.expired, 2);
     });
+  });
+
+  group('unavailable', () {
+    setUp(() => intents.start());
+
+    test('is recorded with the reason Swift gives', () async {
+      await fromSwift('unavailable', 'ready_timeout');
+
+      expect(ask.unavailable, ['ready_timeout']);
+    });
+
+    test('ignores a reason that is not text', () async {
+      await fromSwift('unavailable', 3);
+
+      expect(ask.unavailable, isEmpty);
+    });
+  });
+
+  group('openLink', () {
+    test(
+      'hands a link to the deep links, which hold it for the shell',
+      () async {
+        final firstFrame = Completer<void>();
+        final links = DeepLinks(
+          links: const Stream.empty(),
+          firstFrame: firstFrame.future,
+        );
+        addTearDown(links.dispose);
+        intents.dispose();
+        intents = IntentsChannel(ask, openLink: links.open);
+        await intents.start();
+
+        final reply = await fromSwift(
+          'openLink',
+          'hermes://new?prompt=Hi%20there',
+        );
+
+        expect(reply, true);
+        final pending = links.pending!;
+        expect(pending.cold, isTrue);
+        expect(pending.target, const NewChat(prompt: 'Hi there'));
+      },
+    );
+
+    test('says no to a link nobody can take', () async {
+      intents.dispose();
+      intents = IntentsChannel(ask, openLink: (_) => null);
+      await intents.start();
+
+      expect(await fromSwift('openLink', 'hermes://new'), false);
+      expect(await fromSwift('openLink', 'nonsense'), false);
+      expect(await fromSwift('openLink', 4), false);
+    });
+
+    test('says no without deep links', () async {
+      await intents.start();
+
+      expect(await fromSwift('openLink', 'hermes://new'), false);
+    });
+  });
+
+  test('tells Swift it is gone when it stops listening', () async {
+    await intents.start();
+    outgoing.clear();
+
+    intents.dispose();
+
+    expect([for (final call in outgoing) call.method], ['closed']);
   });
 
   test('does not know other methods', () async {
