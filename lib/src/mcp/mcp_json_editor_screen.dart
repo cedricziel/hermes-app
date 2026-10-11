@@ -156,7 +156,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
     if (!mounted) return;
     switch (outcome) {
       case McpReplaced():
-        popCurrentRoute(context, true);
+        dismissRoute(context, true);
       case McpReplaceRefused(:final problems) when problems.isNotEmpty:
         setState(() => _problems = problems);
       case McpReplaceRefused() || McpReplaceFailed():
@@ -173,7 +173,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       confirm: 'Discard',
       cancel: 'Keep editing',
     );
-    if (discard && mounted) popCurrentRoute(context);
+    if (discard && mounted) dismissRoute(context);
   }
 
   @override

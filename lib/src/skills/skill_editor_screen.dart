@@ -86,7 +86,7 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
     final error = await widget.onSave(name, _category.text.trim(), _text.text);
     if (!mounted) return;
     if (error == null) {
-      popCurrentRoute(context, name);
+      dismissRoute(context, name);
     } else {
       setState(() {
         _saving = false;
@@ -125,7 +125,7 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         if (await _confirmDiscard() && context.mounted) {
-          popCurrentRoute(context);
+          dismissRoute(context);
         }
       },
       child: Scaffold(

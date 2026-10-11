@@ -137,7 +137,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
       switch (flow.status) {
         case McpFlowStatus.approved:
           _phase = _Phase.done;
-          popCurrentRoute(context, true);
+          dismissRoute(context, true);
           return;
         case McpFlowStatus.error:
           setState(() {
@@ -166,7 +166,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
   void _cancel() {
     widget.controller.cancelSignIn(_flow);
     _phase = _Phase.done;
-    popCurrentRoute(context, false);
+    dismissRoute(context, false);
   }
 
   Future<void> _tryAgain() async {
@@ -188,7 +188,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
               'Could not start signing in to ${widget.server.name}';
           _phase = _Phase.failed;
         case McpSignInGone():
-          popCurrentRoute(context, false);
+          dismissRoute(context, false);
       }
     });
   }
@@ -311,7 +311,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
               : const Text('Try again'),
         ),
         TextButton(
-          onPressed: _starting ? null : () => popCurrentRoute(context, false),
+          onPressed: _starting ? null : () => dismissRoute(context, false),
           child: const Text('Close'),
         ),
       ],

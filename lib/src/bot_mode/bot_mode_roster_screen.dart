@@ -176,7 +176,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                           );
                           if (dialogContext.mounted) {
                             update(() => saving = false);
-                            popCurrentRoute(dialogContext, ready);
+                            dismissRoute(dialogContext, ready);
                           }
                         } on Object {
                           if (dialogContext.mounted) {
@@ -354,7 +354,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                       }
                     }
                     if (result.succeeded) {
-                      if (dialogContext.mounted) popCurrentRoute(dialogContext);
+                      if (dialogContext.mounted) dismissRoute(dialogContext);
                       await _load();
                     } else {
                       if (result.conflict ||

@@ -80,7 +80,7 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
             : _autoPromote,
       ),
     );
-    if (ok && mounted) popCurrentRoute(context);
+    if (ok && mounted) dismissRoute(context);
   }
 
   @override

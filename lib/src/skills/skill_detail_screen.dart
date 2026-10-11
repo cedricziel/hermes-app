@@ -98,7 +98,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
       confirmLabel: 'Draft message',
     );
     if (confirmed && mounted) {
-      popCurrentRoute(context, deleteRequestFor(widget.name));
+      dismissRoute(context, deleteRequestFor(widget.name));
     }
   }
 

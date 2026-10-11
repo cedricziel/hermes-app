@@ -31,7 +31,7 @@ Future<void> showPlatformHintPrompt(
           failed: offer.failed,
           saved: offer.saved,
           onAdd: () async {
-            if (await offer.add() && route.mounted) popCurrentRoute(route);
+            if (await offer.add() && route.mounted) dismissRoute(route);
           },
           onLater: () {
             offer.later();

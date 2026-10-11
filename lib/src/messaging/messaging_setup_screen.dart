@@ -66,7 +66,7 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
         env: env,
         clear: _cleared.toList(),
       );
-      if (mounted) popCurrentRoute(context, true);
+      if (mounted) dismissRoute(context, true);
     } on Object catch (e) {
       if (!mounted) return;
       setState(() {
@@ -83,7 +83,7 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
         builder: (_) => TelegramPairingScreen(repository: widget.repository),
       ),
     );
-    if (paired == true && mounted) popCurrentRoute(context, true);
+    if (paired == true && mounted) dismissRoute(context, true);
   }
 
   void _toggleCleared(String key) {

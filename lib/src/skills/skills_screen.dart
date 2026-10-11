@@ -127,7 +127,7 @@ class _SkillsScreenState extends State<SkillsScreen>
         ),
       ),
     );
-    if (draft != null && mounted) popCurrentRoute(context, draft);
+    if (draft != null && mounted) dismissRoute(context, draft);
   }
 
   Future<void> _openHub(HubSkill skill) async {

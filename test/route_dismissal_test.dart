@@ -33,17 +33,22 @@ void main() {
     final route = ModalRoute.of(pageContext)!;
     unawaited(route.popped.then((value) => result = value as String?));
 
-    popCurrentRoute(pageContext, 'saved');
+    dismissRoute(pageContext, 'saved');
     await tester.pumpAndSettle();
 
     expect(find.text('List'), findsOneWidget);
     expect(result, 'saved');
   });
 
-  testWidgets('a completion cannot dismiss an overlay above its page', (
+  testWidgets('a completion closes its own page and preserves the overlay', (
     tester,
   ) async {
     await openPage(tester);
+    String? result;
+    unawaited(
+      ModalRoute.of(pageContext)!.popped
+          .then((value) => result = value as String?),
+    );
     unawaited(
       showDialog<void>(
         context: pageContext,
@@ -52,18 +57,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    popCurrentRoute(pageContext);
+    dismissRoute(pageContext, 'saved');
     await tester.pumpAndSettle();
 
     expect(find.text('Overlay'), findsOneWidget);
-    expect(find.text('Details', skipOffstage: false), findsOneWidget);
+    expect(find.text('Details', skipOffstage: false), findsNothing);
+    expect(result, 'saved');
   });
 
   testWidgets('a second dismissal during exit keeps the list', (tester) async {
     await openPage(tester);
 
     navigator.currentState!.pop();
-    popCurrentRoute(pageContext);
+    dismissRoute(pageContext);
     await tester.pumpAndSettle();
 
     expect(find.text('List'), findsOneWidget);
@@ -76,7 +82,7 @@ void main() {
     navigator.currentState!.pop();
     await tester.pumpAndSettle();
 
-    popCurrentRoute(pageContext);
+    dismissRoute(pageContext);
     await tester.pumpAndSettle();
 
     expect(find.text('List'), findsOneWidget);

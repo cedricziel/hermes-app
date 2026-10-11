@@ -534,7 +534,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           repository: groups,
           room: room,
           onDisbanded: () {
-            popCurrentRoute(routeContext);
+            dismissRoute(routeContext);
           },
         ),
       ),

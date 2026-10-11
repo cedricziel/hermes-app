@@ -62,7 +62,7 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
   Future<void> _open(Widget screen) async {
     final job = await Navigator.of(context)
         .push<CronJob>(MaterialPageRoute(builder: (_) => screen));
-    if (job != null && mounted) popCurrentRoute(context, job);
+    if (job != null && mounted) dismissRoute(context, job);
   }
 
   void _custom() => _open(
@@ -192,7 +192,7 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
     final job = await _form.save();
     if (!mounted) return;
     if (job != null) {
-      popCurrentRoute(context, job);
+      dismissRoute(context, job);
     } else {
       revealFormError(context);
     }

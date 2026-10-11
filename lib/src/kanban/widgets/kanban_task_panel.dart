@@ -209,7 +209,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     }
     if (!await _run(action) || !close || !mounted) return;
     final onClose = widget.onClose;
-    onClose == null ? popCurrentRoute(context) : onClose();
+    onClose == null ? dismissRoute(context) : onClose();
   }
 
   Future<void> _download(KanbanAttachment a) async {

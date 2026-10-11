@@ -186,7 +186,7 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
     if (!mounted) return;
     switch (outcome) {
       case McpAdded(:final name):
-        popCurrentRoute(context, name);
+        dismissRoute(context, name);
       case McpAddDuplicate():
         setState(() => _nameTaken = true);
       case McpAddRefused(:final reason) when reason.isNotEmpty:

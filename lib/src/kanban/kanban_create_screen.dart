@@ -109,7 +109,7 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(warning!)));
       }
-      popCurrentRoute(context, true);
+      dismissRoute(context, true);
     } else {
       setState(() => _saving = false);
     }

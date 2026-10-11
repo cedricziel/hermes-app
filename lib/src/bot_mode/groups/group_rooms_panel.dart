@@ -171,7 +171,7 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
                                 .toList(),
                             operationId: operation,
                           );
-                          if (dialog.mounted) popCurrentRoute(dialog);
+                          if (dialog.mounted) dismissRoute(dialog);
                         } on Object catch (failure) {
                           if (dialog.mounted) {
                             update(() {

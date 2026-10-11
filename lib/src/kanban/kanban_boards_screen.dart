@@ -166,7 +166,7 @@ class KanbanBoardsScreen extends StatelessWidget {
     if (options.open && result!.board.isNotEmpty) {
       // Opened here, not by the server: `switch` on the import would also
       // make it the server's current board for the CLI and other clients.
-      if (context.mounted) popCurrentRoute(context);
+      if (context.mounted) dismissRoute(context);
       await controller.selectBoard(result!.board);
     }
   }

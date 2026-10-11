@@ -155,7 +155,7 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
     try {
       await widget.repository.applyTelegramPairing(_pairing!.id, _userIds);
       _pairing = null;
-      if (mounted) popCurrentRoute(context, true);
+      if (mounted) dismissRoute(context, true);
     } on Object catch (e) {
       if (!mounted) return;
       setState(() {

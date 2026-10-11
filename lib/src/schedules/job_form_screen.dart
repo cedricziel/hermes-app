@@ -111,7 +111,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
     final job = await _form.save();
     if (!mounted) return;
     if (job != null) {
-      popCurrentRoute(context, job);
+      dismissRoute(context, job);
     } else {
       revealFormError(context);
     }
@@ -120,7 +120,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
   Future<void> _close(bool didPop) async {
     if (didPop) return;
     if (await confirmDiscard(context) && mounted) {
-      popCurrentRoute(context);
+      dismissRoute(context);
     }
   }
 
