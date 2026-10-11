@@ -7,6 +7,7 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../background/running_replies.dart';
 import '../core/safe_notifier.dart';
 import '../bot_mode/bot_chat_context.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
@@ -61,6 +62,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     required this._attention,
     this.liveActivities,
     this.watchStatus,
+    this.runningReplies,
     required this.report,
     this.onShowChat,
     this.onOpenJob,
@@ -92,6 +94,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         recentStore: SharedPreferencesAsync(),
       );
     }
+    // Whatever an earlier run left is old news now that the app is in front.
+    forgetRunningReplies();
   }
 
   final HermesChatRepository? repository;
@@ -112,6 +116,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Tells the watch's complications what a reply sent here is doing; null
   /// where there is no watch.
   final WatchComplicationStatus? watchStatus;
+
+  /// The chats whose reply was running when the app left, for a background
+  /// run to announce; null where there are no background runs.
+  final RunningReplies? runningReplies;
+
+  /// Whether [runningReplies] holds what [rememberRunningReplies] wrote, so a
+  /// reply that ends meanwhile is taken off it.
+  var _replyListWritten = false;
 
   /// Tells the user something went wrong.
   final ValueChanged<String> report;
@@ -2064,6 +2076,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     // The turn Hermes ran ahead of the prompt ends before the prompt's own
     // turn does, so its completion says nothing about the chat.
     if (!(ownTurn && event is ReplyCompleted)) {
+      if (event is ReplyCompleted) _replyEnded(thread, profile);
       _announcedTurns.add(thread);
       liveActivities?.onEvent(thread, event);
       watchStatus?.onEvent(
@@ -2079,6 +2092,45 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       event,
       selectedThreadId: profile == _profile ? _selectedId : null,
       profile: profile,
+    );
+  }
+
+  /// The app is leaving the front: remembers the chats of this profile whose
+  /// reply still runs, which a background run announces once they finish.
+  void rememberRunningReplies() {
+    final store = runningReplies;
+    if (store == null) return;
+    final now = DateTime.now();
+    _replyListWritten = true;
+    unawaited(
+      store.replace([
+        for (final thread in _threads)
+          if (thread.remote && thread.isReplying)
+            RunningReply(profile: _profile, threadId: thread.id, since: now),
+      ]),
+    );
+  }
+
+  /// The app is in front: the replies are shown here, so nothing is left for
+  /// a background run to announce.
+  void forgetRunningReplies() {
+    final store = runningReplies;
+    if (store == null) return;
+    _replyListWritten = false;
+    unawaited(store.clear());
+  }
+
+  void _replyEnded(ChatThread thread, String? profile) {
+    final store = runningReplies;
+    if (store == null || !_replyListWritten) return;
+    unawaited(
+      store.forget([
+        RunningReply(
+          profile: profile,
+          threadId: thread.id,
+          since: DateTime.now(),
+        ),
+      ]),
     );
   }
 

@@ -1,0 +1,694 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/background/background_alerts.dart';
+import 'package:hermes_app/src/background/background_refresh.dart';
+import 'package:hermes_app/src/background/headless_hermes.dart';
+import 'package:hermes_app/src/background/running_replies.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/notifications/notification_settings.dart';
+import 'package:hermes_app/src/schedules/schedule_alerts.dart';
+import 'package:hermes_app/src/schedules/schedule_baseline.dart';
+import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import '../support/cron_fixtures.dart';
+import '../support/fake_gateway.dart';
+import '../support/fake_hermes_server.dart';
+import '../support/fake_notification_service.dart';
+import '../support/fake_surface_storage.dart';
+import '../support/memory_token_store.dart';
+import '../support/recorded_events.dart';
+import '../support/recording_tracer.dart';
+
+const _url = 'http://hermes.test';
+
+final _now = DateTime.utc(2026, 10, 11, 12);
+
+void main() {
+  late FakeHermesServer server;
+  late FakeGateway gateway;
+  late FakeSurfaceStorage storage;
+  late SurfaceSnapshotStore store;
+  late FakeNotificationService notifications;
+  late RecordingTracer tracer;
+  late RecordedEvents events;
+  late MemoryTokenStore tokens;
+  late RunningReplies running;
+  late ScheduleBaseline baseline;
+  var notificationsOn = true;
+  var appOpen = false;
+
+  /// What `session.active_list` answers, by profile.
+  late Map<String?, Object> sessions;
+
+  setUp(() {
+    notificationsOn = true;
+    appOpen = false;
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.withData({kSavedServerUrlKey: _url});
+    server = FakeHermesServer()
+      ..on('GET', '/api/status', {'auth_required': false, 'version': '0.9.0'})
+      ..on(
+        'GET',
+        '/',
+        '<script>window.__HERMES_SESSION_TOKEN__="page-token"</script>',
+      )
+      ..on(
+        'GET',
+        '/api/profiles',
+        profileListBody([
+          profileRow(name: 'default', isDefault: true),
+          profileRow(name: 'work'),
+        ]),
+      )
+      ..on('GET', '/api/profiles/active', {
+        'active': 'default',
+        'current': 'default',
+      })
+      ..on('GET', '/api/sessions', sessionListBody([]))
+      ..on('GET', '/api/dashboard/plugins', [])
+      ..on('GET', '/api/cron/delivery-targets', cronDeliveryTargets)
+      ..on('GET', '/api/cron/jobs', []);
+    gateway = FakeGateway();
+    sessions = {};
+    gateway.handlers['session.active_list'] = (params) {
+      final answer = sessions[params['profile']];
+      if (answer is Exception) throw answer;
+      return {'sessions': answer ?? []};
+    };
+    storage = FakeSurfaceStorage();
+    events = RecordedEvents();
+    store = SurfaceSnapshotStore(storage: storage, events: events.call);
+    notifications = FakeNotificationService();
+    tracer = RecordingTracer();
+    tokens = MemoryTokenStore();
+    running = RunningReplies();
+    baseline = ScheduleBaseline();
+  });
+
+  tearDown(() => store.dispose());
+
+  HeadlessDeps headless() => HeadlessDeps(
+    tokenStore: tokens,
+    prefs: SharedPreferencesAsync(),
+    devServerUrl: '',
+    adapter: server,
+    openSocket: (_) => gateway.connect(),
+    telemetry: (attributes) => ConnectionTelemetry(
+      tracer: tracer,
+      events: events.connection(attributes).events,
+      serverAttributes: attributes,
+    ),
+    snapshotStore: store,
+    appLockOn: () async => false,
+  );
+
+  BackgroundRefreshDeps deps(List<BackgroundStep> Function()? steps) =>
+      BackgroundRefreshDeps(
+        headless: headless(),
+        notifications: notifications,
+        announced: AnnouncedRequests(),
+        notificationsEnabled: () async => notificationsOn,
+        appLockOn: () async => false,
+        cancelSchedule: () async {},
+        appInFront: () async => appOpen,
+        steps: steps,
+        timeout: const Duration(seconds: 5),
+        stepTimeout: const Duration(seconds: 3),
+      );
+
+  Future<HeadlessOutcome<void>> refresh(
+    List<BackgroundStep> Function()? steps,
+  ) => runBackgroundRefresh(deps: deps(steps));
+
+  RecordingSpan taskSpan() =>
+      tracer.spans.singleWhere((span) => span.name == 'background.task');
+
+  group('finished replies', () {
+    RunningReply left(
+      String id, {
+      String? profile = 'work',
+      Duration ago = const Duration(minutes: 5),
+    }) =>
+        RunningReply(profile: profile, threadId: id, since: _now.subtract(ago));
+
+    RunningRepliesStep step() =>
+        RunningRepliesStep(running: running, now: () => _now);
+
+    void stored(
+      String id, {
+      String profile = 'work',
+      String title = 'Trip plan',
+      List<Map<String, Object?>>? messages,
+    }) {
+      server
+        ..on(
+          'GET',
+          '/api/sessions/$id',
+          sessionRow(id: id, title: title),
+          query: {'profile': profile},
+        )
+        ..on(
+          'GET',
+          '/api/sessions/$id/messages',
+          messageListBody(
+            id,
+            messages ??
+                [
+                  messageRow(id: 1, role: 'user', content: 'Plan my trip'),
+                  messageRow(
+                    id: 2,
+                    role: 'assistant',
+                    content: 'Booked the flights.\n\nHotel is next.',
+                  ),
+                ],
+          ),
+          query: {'profile': profile},
+        );
+    }
+
+    List<Map<String, Object?>> activeLists() => [
+      for (final request in gateway.requests)
+        if (request['method'] == 'session.active_list')
+          request['params']! as Map<String, Object?>,
+    ];
+
+    test(
+      'announces a reply that finished, with the start of its text',
+      () async {
+        await running.replace([left('c1')]);
+        stored('c1');
+
+        await refresh(() => [step()]);
+
+        final shown = notifications.shown.single;
+        expect(shown.threadId, 'c1');
+        expect(shown.profile, 'work');
+        expect(shown.title, 'Trip plan');
+        expect(shown.body, 'Booked the flights. Hotel is next.');
+        expect(await running.read(), isEmpty);
+        expect(activeLists(), [
+          {'profile': 'work'},
+        ]);
+      },
+    );
+
+    test('names the notification as the app in front does', () async {
+      await running.replace([left('c1')]);
+      stored('c1');
+      final inFront = attentionFor(
+        event: const ReplyCompleted('Booked the flights. Hotel is next.'),
+        thread: ChatThread(id: 'c1', title: 'Trip plan', updatedAt: _now),
+        appFocused: false,
+        selectedThreadId: null,
+        enabled: true,
+        profile: 'work',
+      )!;
+
+      await refresh(() => [step()]);
+
+      final shown = notifications.shown.single;
+      expect(shown.threadId, inFront.threadId);
+      expect(shown.profile, inFront.profile);
+      expect(shown.title, inFront.title);
+      expect(shown.body, inFront.body);
+    });
+
+    test('says the reply failed when the chat ends on the prompt', () async {
+      await running.replace([left('c1')]);
+      stored(
+        'c1',
+        messages: [messageRow(id: 1, role: 'user', content: 'Plan my trip')],
+      );
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.body, kReplyFailedBody);
+      expect(await running.read(), isEmpty);
+    });
+
+    test('says a reply is ready when it has no text', () async {
+      await running.replace([left('c1')]);
+      stored(
+        'c1',
+        messages: [
+          messageRow(id: 1, role: 'user', content: 'Plan my trip'),
+          messageRow(id: 2, role: 'assistant', content: '  '),
+        ],
+      );
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.body, kReplyReadyBody);
+    });
+
+    test('says a reply is ready when the chat cannot be read', () async {
+      await running.replace([left('c1')]);
+      server
+        ..on('GET', '/api/sessions/c1', {'detail': 'down'}, status: 500)
+        ..on('GET', '/api/sessions/c1/messages', {
+          'detail': 'down',
+        }, status: 500);
+
+      await refresh(() => [step()]);
+
+      final shown = notifications.shown.single;
+      expect(shown.body, kReplyReadyBody);
+      expect(shown.title, 'New chat');
+      expect(await running.read(), isEmpty);
+    });
+
+    test('reads the chat of the profile it ran in', () async {
+      await running.replace([left('c1', profile: 'default')]);
+      stored('c1', profile: 'default');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.profile, 'default');
+      expect(
+        server
+            .requestsTo('GET', '/api/sessions/c1/messages')
+            .single
+            .queryParameters,
+        containsPair('profile', 'default'),
+      );
+    });
+
+    for (final status in [
+      'starting',
+      'waiting',
+      'working',
+      'streaming',
+      'resuming',
+    ]) {
+      test('keeps a chat whose session is $status', () async {
+        await running.replace([left('c1')]);
+        sessions = {
+          'work': [
+            {'id': 'rt-1', 'session_key': 'c1', 'status': status},
+          ],
+        };
+        stored('c1');
+
+        await refresh(() => [step()]);
+
+        expect(notifications.shown, isEmpty);
+        expect(await running.read(), hasLength(1));
+        expect(server.requestsTo('GET', '/api/sessions/c1/messages'), isEmpty);
+      });
+    }
+
+    test('announces a chat whose session is listed as idle', () async {
+      await running.replace([left('c1')]);
+      sessions = {
+        'work': [
+          {'id': 'rt-1', 'session_key': 'c1', 'status': 'idle'},
+        ],
+      };
+      stored('c1');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, hasLength(1));
+      expect(await running.read(), isEmpty);
+    });
+
+    test('announces only the chats that finished', () async {
+      await running.replace([left('c1'), left('c2')]);
+      sessions = {
+        'work': [
+          {'id': 'rt-2', 'session_key': 'c2', 'status': 'working'},
+        ],
+      };
+      stored('c1');
+      stored('c2');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.map((n) => n.threadId), ['c1']);
+      expect((await running.read()).map((r) => r.threadId), ['c2']);
+    });
+
+    test('asks each profile once', () async {
+      await running.replace([
+        left('c1'),
+        left('c2'),
+        left('c3', profile: 'default'),
+      ]);
+      stored('c1');
+      stored('c2');
+      stored('c3', profile: 'default');
+
+      await refresh(() => [step()]);
+
+      expect(
+        activeLists().map((p) => p['profile']),
+        unorderedEquals(['work', 'default']),
+      );
+      expect(notifications.shown, hasLength(3));
+    });
+
+    test('drops a chat remembered for more than a day', () async {
+      await running.replace([left('old', ago: const Duration(hours: 25))]);
+      stored('old');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await running.read(), isEmpty);
+      expect(activeLists(), isEmpty);
+    });
+
+    test('changes nothing when the live sessions cannot be read', () async {
+      await running.replace([left('c1')]);
+      sessions = {'work': const FakeRpcError(-32000, 'down')};
+      stored('c1');
+
+      final outcome = await refresh(() => [step()]);
+
+      expect(outcome, isA<HeadlessDone<void>>());
+      expect(notifications.shown, isEmpty);
+      expect(await running.read(), hasLength(1));
+    });
+
+    test('still announces the profiles that could be read', () async {
+      await running.replace([left('c1'), left('c2', profile: 'default')]);
+      sessions = {'default': const FakeRpcError(-32000, 'down')};
+      stored('c1');
+      stored('c2', profile: 'default');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.map((n) => n.threadId), ['c1']);
+      expect((await running.read()).map((r) => r.threadId), ['c2']);
+    });
+
+    test('posts nothing while notifications are off', () async {
+      notificationsOn = false;
+      await running.replace([left('c1')]);
+      stored('c1');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await running.read(), hasLength(1));
+      expect(activeLists(), isEmpty);
+    });
+
+    test('leaves the announcing to the app while it is in front', () async {
+      appOpen = true;
+      await running.replace([left('c1')]);
+      stored('c1');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await running.read(), hasLength(1));
+    });
+
+    test(
+      'forgets a chat before it posts, so a failure cannot repeat it',
+      () async {
+        await running.replace([left('c1')]);
+        stored('c1');
+        final order = <String>[];
+        final service = _OrderedService(() async {
+          order.add('remembered: ${(await running.read()).length}');
+        });
+
+        await runBackgroundRefresh(
+          deps: BackgroundRefreshDeps(
+            headless: headless(),
+            notifications: service,
+            announced: AnnouncedRequests(),
+            notificationsEnabled: () async => true,
+            appLockOn: () async => false,
+            cancelSchedule: () async {},
+            appInFront: () async => false,
+            steps: () => [step()],
+          ),
+        );
+
+        expect(order, ['remembered: 0']);
+      },
+    );
+
+    for (final (name, arrange, expected)
+        in <(String, void Function(), Matcher)>[
+          (
+            'locked',
+            () => tokens.unreadable = true,
+            isA<HeadlessLocked<void>>(),
+          ),
+          (
+            'server down',
+            () => server.on('GET', '/api/status', {
+              'detail': 'down',
+            }, status: 503),
+            isA<HeadlessUnreachable<void>>(),
+          ),
+          (
+            'signed out',
+            () => server.on('GET', '/api/status', {
+              'auth_required': true,
+              'version': '0.9.0',
+            }),
+            isA<HeadlessSignedOut<void>>(),
+          ),
+        ]) {
+      test('does not run and keeps its list when $name', () async {
+        await running.replace([left('c1')]);
+        await baseline.write({'work/job1': DateTime.utc(2026, 9, 20)});
+        stored('c1');
+        arrange();
+
+        final outcome = await refresh(
+          () => [step(), ScheduleAlertsStep(baseline: baseline)],
+        );
+
+        expect(outcome, expected);
+        expect(notifications.shown, isEmpty);
+        expect(await running.read(), hasLength(1));
+        expect(await baseline.read(), {'work/job1': DateTime.utc(2026, 9, 20)});
+      });
+    }
+
+    test(
+      'counts the replies it announced, and nothing else, on the span',
+      () async {
+        await running.replace([left('secret-chat')]);
+        stored('secret-chat', title: 'Merger plans');
+
+        await refresh(() => [step()]);
+
+        final span = taskSpan();
+        expect(span.attributes['replies.finished'], 1);
+        final recorded = span.attributes.toString();
+        for (final secret in ['secret-chat', 'Merger', 'Booked']) {
+          expect(recorded, isNot(contains(secret)));
+        }
+      },
+    );
+  });
+
+  group('scheduled tasks', () {
+    ScheduleAlertsStep step() => ScheduleAlertsStep(baseline: baseline);
+
+    void jobs(List<Map<String, Object?>> rows) =>
+        server.on('GET', '/api/cron/jobs', rows);
+
+    Map<String, Object?> ran(
+      String at, {
+      String id = 'job1',
+      String status = 'ok',
+      String profile = 'work',
+    }) => cronJobRow(
+      id: id,
+      name: 'Morning brief',
+      lastRunAt: at,
+      lastStatus: status,
+      profile: profile,
+    );
+
+    final seen = {'work/job1': DateTime.utc(2026, 9, 20, 8)};
+
+    test('announces the runs since the stored baseline', () async {
+      await baseline.write(seen);
+      jobs([ran('2026-09-21T08:00:00+00:00', status: 'error')]);
+
+      await refresh(() => [step()]);
+
+      final shown = notifications.shown.single;
+      expect(shown.jobId, 'job1');
+      expect(shown.title, 'Morning brief (work)');
+      expect(shown.body, kJobFailedBody);
+      expect(await baseline.read(), {
+        'work/job1': DateTime.utc(2026, 9, 21, 8),
+      });
+    });
+
+    test('announces a run once across two runs', () async {
+      await baseline.write(seen);
+      jobs([ran('2026-09-21T08:00:00+00:00')]);
+
+      await refresh(() => [step()]);
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, hasLength(1));
+    });
+
+    test('only records the run times on the first run', () async {
+      jobs([ran('2026-09-21T08:00:00+00:00', status: 'error')]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await baseline.read(), {
+        'work/job1': DateTime.utc(2026, 9, 21, 8),
+      });
+    });
+
+    test('follows the schedule setting', () async {
+      await NotificationSettings().setScheduleAlerts(false);
+      await baseline.write(seen);
+      jobs([ran('2026-09-21T08:00:00+00:00')]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await baseline.read(), seen);
+      expect(server.requestsTo('GET', '/api/cron/jobs'), isEmpty);
+    });
+
+    test('is silent for a muted job but moves its baseline', () async {
+      await NotificationSettings().setMuted('work/job1', true);
+      await baseline.write(seen);
+      jobs([ran('2026-09-21T08:00:00+00:00')]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await baseline.read(), {
+        'work/job1': DateTime.utc(2026, 9, 21, 8),
+      });
+    });
+
+    test('does nothing while notifications are off', () async {
+      notificationsOn = false;
+      await baseline.write(seen);
+      jobs([ran('2026-09-21T08:00:00+00:00')]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await baseline.read(), seen);
+    });
+
+    test('does nothing while the app is in front', () async {
+      appOpen = true;
+      await baseline.write(seen);
+      jobs([ran('2026-09-21T08:00:00+00:00')]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await baseline.read(), seen);
+    });
+
+    test('does nothing without the cron routes', () async {
+      server.on('GET', '/api/cron/delivery-targets', {
+        'detail': 'no',
+      }, status: 404);
+      await baseline.write(seen);
+      jobs([ran('2026-09-21T08:00:00+00:00')]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await baseline.read(), seen);
+      expect(server.requestsTo('GET', '/api/cron/jobs'), isEmpty);
+    });
+
+    test('announces nothing when the jobs cannot be read', () async {
+      await baseline.write(seen);
+      server.on('GET', '/api/cron/jobs', {'detail': 'down'}, status: 500);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await baseline.read(), seen);
+      expect(taskSpan().attributes['steps_failed'], 1);
+    });
+
+    test('folds a burst into one notification as the app does', () async {
+      await baseline.write({
+        for (var i = 0; i < 7; i++) 'work/j$i': DateTime.utc(2026, 9, 20),
+      });
+      jobs([
+        for (var i = 0; i < 7; i++) ran('2026-09-21T08:00:00+00:00', id: 'j$i'),
+      ]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.body, '7 scheduled tasks ran');
+    });
+
+    test(
+      'counts the runs it announced, and nothing else, on the span',
+      () async {
+        await baseline.write(seen);
+        jobs([ran('2026-09-21T08:00:00+00:00')]);
+
+        await refresh(() => [step()]);
+
+        final span = taskSpan();
+        expect(span.attributes['schedules.ran'], 1);
+        expect(span.attributes.toString(), isNot(contains('Morning brief')));
+      },
+    );
+  });
+
+  test('the default run includes both checks', () async {
+    await running.replace([
+      RunningReply(profile: 'work', threadId: 'c1', since: DateTime.now()),
+    ]);
+    server
+      ..on('GET', '/api/sessions/c1', sessionRow(id: 'c1', title: 'Trip plan'))
+      ..on(
+        'GET',
+        '/api/sessions/c1/messages',
+        messageListBody('c1', [
+          messageRow(id: 1, role: 'assistant', content: 'Done'),
+        ]),
+      );
+    await baseline.write({'work/job1': DateTime.utc(2026, 9, 20)});
+    server.on('GET', '/api/cron/jobs', [
+      cronJobRow(lastRunAt: '2026-09-21T08:00:00+00:00', lastStatus: 'ok'),
+    ]);
+
+    await refresh(null);
+
+    expect(
+      notifications.shown.map((n) => n.body),
+      containsAll(['Done', kJobFinishedBody]),
+    );
+  });
+}
+
+/// Calls [onShow] before it records a notification.
+class _OrderedService extends FakeNotificationService {
+  _OrderedService(this.onShow);
+
+  final Future<void> Function() onShow;
+
+  @override
+  Future<void> show(AttentionNotification notification) async {
+    await onShow();
+    await super.show(notification);
+  }
+}

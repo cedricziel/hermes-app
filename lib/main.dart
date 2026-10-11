@@ -18,6 +18,7 @@ import 'src/api/hermes_repositories.dart';
 import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/background/background_scheduler.dart';
+import 'src/background/running_replies.dart';
 import 'src/chat/media/media_source.dart';
 import 'src/deep_links/deep_link_listener.dart';
 import 'src/chat/media/media_store.dart';
@@ -35,6 +36,7 @@ import 'src/notifications/notification_settings.dart';
 import 'src/notifications/request_answers.dart';
 import 'src/quick_panel/global_shortcut.dart';
 import 'src/quick_panel/quick_panel_shortcut.dart';
+import 'src/schedules/schedule_baseline.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_provider.dart';
 import 'src/quick_actions/quick_actions_controller.dart';
@@ -248,6 +250,23 @@ Future<void> main([List<String> args = const []]) async {
               ? SurfaceSnapshotStore(events: telemetry.events())
               : null,
           dispose: (_, store) => store?.dispose(),
+        ),
+        // What background runs announce when the app is away: replies that
+        // were running when it left, and scheduled runs.
+        Provider<RunningReplies?>(
+          create: (context) {
+            if (defaultTargetPlatform != TargetPlatform.iOS &&
+                defaultTargetPlatform != TargetPlatform.android) {
+              return null;
+            }
+            final running = RunningReplies();
+            final baseline = ScheduleBaseline();
+            context.read<AuthController>().signedOut.listen((_) {
+              unawaited(running.clear());
+              unawaited(baseline.clear());
+            });
+            return running;
+          },
         ),
         // Only the iOS Home Screen widgets exist; the report says which are
         // placed, at most once a day.

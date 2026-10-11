@@ -24,6 +24,7 @@ import '../notifications/request_notifications.dart'
 import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
 import '../surfaces/surface_snapshot.dart';
 import 'app_presence.dart';
+import 'background_alerts.dart';
 import 'background_scheduler.dart';
 import 'headless_hermes.dart';
 
@@ -40,10 +41,20 @@ const _announcedKey = 'hermes.background.announced.v1';
 
 /// What a step reports of its work; counts only.
 class StepCounts {
-  const StepCounts({this.newRequests = 0});
+  const StepCounts({
+    this.newRequests = 0,
+    this.repliesFinished = 0,
+    this.schedulesRan = 0,
+  });
 
   /// Open requests announced for the first time.
   final int newRequests;
+
+  /// Replies that finished while the app was away, announced.
+  final int repliesFinished;
+
+  /// Scheduled runs announced.
+  final int schedulesRan;
 }
 
 /// Everything a step may use. The gateway socket is shared by all steps.
@@ -487,7 +498,12 @@ class BackgroundRefreshDeps {
 
 List<BackgroundStep> _defaultSteps() {
   final requests = OpenRequestsStep();
-  return [requests, SnapshotStep(requests)];
+  return [
+    requests,
+    SnapshotStep(requests),
+    RunningRepliesStep(),
+    ScheduleAlertsStep(),
+  ];
 }
 
 Future<bool> _notificationsEnabled() async {
@@ -517,10 +533,14 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
         request: deps.request,
       );
       var newRequests = 0;
+      var repliesFinished = 0;
+      var schedulesRan = 0;
       var failed = 0;
       void report() {
         hermes
           ..annotate('requests.new', newRequests)
+          ..annotate('replies.finished', repliesFinished)
+          ..annotate('schedules.ran', schedulesRan)
           ..annotate('steps_failed', failed);
       }
 
@@ -532,6 +552,8 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
               failed++;
             } else {
               newRequests += counts.newRequests;
+              repliesFinished += counts.repliesFinished;
+              schedulesRan += counts.schedulesRan;
             }
             report();
           }),

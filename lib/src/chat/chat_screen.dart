@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import '../background/running_replies.dart';
 import '../handoff/handoff_controller.dart';
 import '../handoff/handoff_activity.dart';
 import '../messaging/messaging_screen.dart';
@@ -263,6 +264,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onSurfaceChange: _maybeRead<SurfaceSnapshots?>()?.chatChanged,
       readSnapshot: _maybeRead<SurfaceSnapshotStore?>()?.read,
       watchStatus: _maybeRead<WatchComplicationStatus?>(),
+      runningReplies: _maybeRead<RunningReplies?>(),
       report: _showMessage,
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),
@@ -791,7 +793,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (state case AppLifecycleState.paused || AppLifecycleState.hidden) {
       _dictation?.controller.cancel();
     }
+    if (state == AppLifecycleState.paused) _chat.rememberRunningReplies();
     if (!_foreground) return;
+    _chat.forgetRunningReplies();
     unawaited(_dictation?.refresh());
     _chat.checkConnection();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
