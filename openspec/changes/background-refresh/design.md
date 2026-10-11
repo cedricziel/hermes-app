@@ -74,12 +74,12 @@ The listener only needs a `Listenable`, the connection state and the sign-out st
 
 `runBackgroundRefresh` loads `NotificationSettings`, then calls `withHeadlessHermes(task: 'refresh', timeout: 25 s)` and switches over the `HeadlessOutcome`:
 
-| Outcome               | Run does                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------- |
-| `HeadlessDone`        | adds the step counts to the span                                                          |
+| Outcome               | Run does                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `HeadlessDone`        | adds the step counts to the span                                                           |
 | `HeadlessSignedOut`   | cancels the periodic task (the app in front registers it again on sign-in); nothing posted |
-| `HeadlessLocked`      | nothing; the snapshot and announced ids stay as they are, the next run tries again        |
-| `HeadlessUnreachable` | nothing; same as locked                                                                   |
+| `HeadlessLocked`      | nothing; the snapshot and announced ids stay as they are, the next run tries again         |
+| `HeadlessUnreachable` | nothing; same as locked                                                                    |
 
 No case clears the session or the snapshot; the snapshot's sign-out form is written only by the app in front. It runs a list of `BackgroundStep`s concurrently. A step is `Future<StepCounts> run(BackgroundContext)`, where the context holds the `HeadlessHermes`, whether notifications are on, the gateway transport (one socket shared by all steps, opened on first use), the announced-ids store, the notification service and the saved App Lock setting. Each step is settled on its own: an error or 20 s without an answer adds to `steps_failed`. The counts reach the `background.task` span through `HeadlessHermes.annotate`, after every step, so a run the budget cut off still shows what it had. `background-refresh-alerts` appends its steps to this list.
 
@@ -134,7 +134,7 @@ Added here, because `surface-snapshot` and `headless-runtime` were built in para
 - [iOS runs the task at its discretion, often hours apart, and never after the user force-quits the app] → The spec documents it as best effort; widgets show the snapshot time.
 - [About 30 s of runtime] → A 25 s budget, steps in parallel, one socket.
 - [`session.active_list` may only see the dashboard process's sessions, and its answer may differ per profile] → It is asked per profile. A real-backend contract case checks its row shape; whether other profiles' sessions show without `profile` is not yet verified (task 1.1 was not run: no `hermes` on the build machine).
-- [`approval.pending` may expect the `session_key` rather than the runtime `id`] → The step sends the runtime `id`, as every other `session_id` parameter takes. The contract case asks it that way; unverified against a real server.
+- [`approval.pending` may expect the `session_key` rather than the runtime `id`] → The step sends the runtime `id`, as every other `session_id` parameter takes. The contract case asks it that way. On CI's backend (no model provider) `session.active_list` answered for every profile argument, but `approval.pending` was refused with code 5032 ("not connected to any AI provider"), so that case skips there; the step reads a refused `approval.pending` as no approvals.
 - [A waiting session may be a clarify, secret or sudo request] → It is announced as "Waiting for you in Hermes" without a request id. Deduplication uses `last_active`, so a new wait is announced again.
 - [The periodic frequency cannot be shortened once registered] → It is set once, at 15 minutes.
 
