@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/grouped_dialog.dart';
+import '../../widgets/grouped_form.dart';
+import '../../widgets/grouped_list.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
@@ -86,69 +89,21 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
     ValueChanged<String> onChanged,
   ) {
     final names = {..._profiles, if (value.isNotEmpty) value}.toList();
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: label),
-      items: [
-        DropdownMenuItem(
-          value: '',
-          child: Text('Active profile (${_settings!.activeProfile})'),
-        ),
-        for (final n in names) DropdownMenuItem(value: n, child: Text(n)),
-      ],
-      onChanged: (v) => setState(() => onChanged(v ?? '')),
+    return GroupedMenuRow<String>(
+      title: label,
+      selected: value,
+      options: ['', ...names],
+      labelOf: (name) =>
+          name.isEmpty ? 'Active profile (${_settings!.activeProfile})' : name,
+      onSelected: (name) => setState(() => onChanged(name)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
-    return AlertDialog(
-      title: const Text('Orchestration'),
-      content: settings == null
-          ? SizedBox(
-              height: 80,
-              child: Center(
-                child: _failed
-                    ? const Text('Could not load the settings')
-                    : const CircularProgressIndicator.adaptive(),
-              ),
-            )
-          : ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Auto-decompose triage tasks'),
-                      subtitle: const Text('Off: decompose by hand'),
-                      value: _autoDecompose,
-                      onChanged: (v) => setState(() => _autoDecompose = v),
-                    ),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Promote children when ready'),
-                      value: _autoPromote,
-                      onChanged: (v) => setState(() => _autoPromote = v),
-                    ),
-                    _profilePicker(
-                      'Orchestrator profile',
-                      _orchestrator,
-                      (v) => _orchestrator = v,
-                    ),
-                    const SizedBox(height: 8),
-                    _profilePicker(
-                      'Default assignee',
-                      _defaultAssignee,
-                      (v) => _defaultAssignee = v,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    return GroupedDialog(
+      title: 'Orchestration',
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -158,6 +113,50 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
           onPressed: settings == null ? null : _save,
           child: const Text('Save'),
         ),
+      ],
+      children: [
+        if (settings == null)
+          SizedBox(
+            height: 80,
+            child: Center(
+              child: _failed
+                  ? const Text('Could not load the settings')
+                  : const CircularProgressIndicator.adaptive(),
+            ),
+          )
+        else ...[
+          GroupedSection(
+            children: [
+              GroupedSwitchRow(
+                title: 'Auto-decompose triage tasks',
+                caption: 'Off: decompose by hand',
+                value: _autoDecompose,
+                onTap: () => setState(() => _autoDecompose = !_autoDecompose),
+                onChanged: (value) => setState(() => _autoDecompose = value),
+              ),
+              GroupedSwitchRow(
+                title: 'Promote children when ready',
+                value: _autoPromote,
+                onTap: () => setState(() => _autoPromote = !_autoPromote),
+                onChanged: (value) => setState(() => _autoPromote = value),
+              ),
+            ],
+          ),
+          GroupedSection(
+            children: [
+              _profilePicker(
+                'Orchestrator profile',
+                _orchestrator,
+                (value) => _orchestrator = value,
+              ),
+              _profilePicker(
+                'Default assignee',
+                _defaultAssignee,
+                (value) => _defaultAssignee = value,
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

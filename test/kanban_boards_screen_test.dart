@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
@@ -162,6 +163,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Export…'));
     await tester.pumpAndSettle();
+    expect(find.byType(GroupedDialog), findsOneWidget);
     await tester.tap(find.text('Include worker logs'));
     await tester.tap(find.widgetWithText(FilledButton, 'Export'));
     await tester.pumpAndSettle();
@@ -187,6 +189,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Import a board'));
     await tester.pumpAndSettle();
+    expect(find.byType(GroupedDialog), findsOneWidget);
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, 'Import'))
@@ -194,7 +197,7 @@ void main() {
       isNull,
     );
     await tester.enterText(
-      find.widgetWithText(TextField, 'Archive path on the server'),
+      find.widgetWithText(TextField, 'Archive path'),
       '/srv/hermes/exports/ops.tar.gz',
     );
     await tester.pump();
@@ -222,7 +225,7 @@ void main() {
     await tester.tap(find.byTooltip('Import a board'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Archive path on the server'),
+      find.widgetWithText(TextField, 'Archive path'),
       '/a.tar.gz',
     );
     await tester.pump();
@@ -241,7 +244,7 @@ void main() {
     await tester.tap(find.byTooltip('Import a board'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Archive path on the server'),
+      find.widgetWithText(TextField, 'Archive path'),
       '/a.tar.gz',
     );
     await tester.pump();

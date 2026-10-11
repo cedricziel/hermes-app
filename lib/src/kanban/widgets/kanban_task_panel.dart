@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 import '../../chat/media/media_store.dart';
 import '../../chat/media/quick_look_telemetry.dart';
 import '../../theme/breakpoints.dart';
+import '../../widgets/grouped_dialog.dart';
+import '../../widgets/grouped_form.dart';
+import '../../widgets/grouped_list.dart';
 import '../../theme/platform_chrome.dart';
 
 import '../../models/model_provider_option.dart';
@@ -484,24 +487,8 @@ class _EditTaskDialogState extends State<_EditTaskDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Edit task'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextField(
-          controller: _title,
-          decoration: const InputDecoration(labelText: 'Title'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _body,
-          minLines: 3,
-          maxLines: 8,
-          decoration: const InputDecoration(labelText: 'Description'),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => GroupedDialog(
+    title: 'Edit task',
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
@@ -511,6 +498,22 @@ class _EditTaskDialogState extends State<_EditTaskDialog> {
         onPressed: () =>
             Navigator.pop(context, (_title.text.trim(), _body.text.trim())),
         child: const Text('Save'),
+      ),
+    ],
+    children: [
+      GroupedSection(
+        children: [GroupedTextFieldRow(label: 'Title', controller: _title)],
+      ),
+      GroupedSection(
+        header: 'Description',
+        children: [
+          GroupedTextFieldRow(
+            label: 'Description',
+            controller: _body,
+            minLines: 3,
+            maxLines: 8,
+          ),
+        ],
       ),
     ],
   );
