@@ -89,8 +89,17 @@ class FakeChatTransport implements ChatTransport {
   /// Session id → status, as [ChatController.refreshActive] reads it.
   final active = <String, String>{};
 
+  /// What [activeStatuses] answers for a profile asked about by name.
+  final activeInProfile = <String, Map<String, String>>{};
+
+  /// The profiles [activeStatuses] was asked about, in order.
+  final activeAsked = <String?>[];
+
   @override
-  Future<Map<String, String>> activeStatuses() async => Map.of(active);
+  Future<Map<String, String>> activeStatuses({String? profile}) async {
+    activeAsked.add(profile);
+    return Map.of(profile == null ? active : activeInProfile[profile] ?? {});
+  }
 
   final approvalAnswers = <(String, String)>[];
   final clarifyAnswers =

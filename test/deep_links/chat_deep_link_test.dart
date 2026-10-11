@@ -414,6 +414,7 @@ void main() {
     ) async {
       seedProfile('home', [sessionRow(id: 'h1', title: 'Home chat')]);
       seedMessages('h1', 'home', 'the home transcript');
+      transport.activeInProfile['home'] = {'h1': 'waiting'};
       await storePending([
         ('work', 'recent', DateTime.utc(2026, 10, 11, 7)),
         ('home', 'h1', DateTime.utc(2026, 10, 11, 8)),
@@ -421,21 +422,11 @@ void main() {
       await pumpChat(tester);
 
       requests.requestOldestPending();
-      await tester.pump(const Duration(milliseconds: 500));
-      transport.followUpStreams['h1']!
-        ..emit(const ReplyStarted())
-        ..emit(const ApprovalRequested(_approval));
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
 
       // The work request is the open profile's: the live chats speak for it.
       expect(selectedId(tester), 'h1');
-      expect(
-        server
-            .requestsTo('GET', '/api/sessions')
-            .map((r) => r.queryParameters['profile']),
-        contains('home'),
-      );
+      expect(transport.activeAsked, contains('home'));
     });
 
     testWidgets('does not open a chat of the open profile the snapshot still '
@@ -450,20 +441,59 @@ void main() {
       expect(selectedId(tester), 'recent');
     });
 
-    testWidgets('falls back to the chat list when the chat the snapshot names '
-        'has no open request', (tester) async {
+    testWidgets('a request that is no longer open switches no profile', (
+      tester,
+    ) async {
       seedProfile('home', [sessionRow(id: 'h1', title: 'Home chat')]);
       seedMessages('h1', 'home', 'the home transcript');
+      // The server no longer lists h1 as waiting.
+      transport.activeInProfile['home'] = {'h1': 'idle'};
       await storePending([('home', 'h1', DateTime.utc(2026, 10, 11, 8))]);
       await pumpChat(tester, size: const Size(400, 800));
+      final before = server.requestsTo('GET', '/api/sessions').length;
 
       requests.requestOldestPending();
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump(const Duration(seconds: 4));
       await tester.pumpAndSettle();
 
+      expect(transport.activeAsked, contains('home'));
+      expect(server.requestsTo('GET', '/api/sessions'), hasLength(before));
       expect(selectedId(tester), isNull);
       expect(find.byType(ThreadSidebar), findsOneWidget);
+    });
+
+    testWidgets('tries the next request when the oldest is no longer open', (
+      tester,
+    ) async {
+      seedProfile('home', [sessionRow(id: 'h1', title: 'Home chat')]);
+      seedProfile('play', [sessionRow(id: 'p1', title: 'Play chat')]);
+      seedMessages('p1', 'play', 'the play transcript');
+      server.on(
+        'GET',
+        '/api/profiles',
+        profileListBody([
+          profileRow(name: 'work', isDefault: true),
+          profileRow(name: 'home'),
+          profileRow(name: 'play'),
+        ]),
+      );
+      transport.activeInProfile['home'] = {};
+      transport.activeInProfile['play'] = {'p1': 'waiting'};
+      await storePending([
+        ('home', 'h1', DateTime.utc(2026, 10, 11, 7)),
+        ('play', 'p1', DateTime.utc(2026, 10, 11, 8)),
+      ]);
+      await pumpChat(tester);
+
+      requests.requestOldestPending();
+      await tester.pumpAndSettle();
+
+      expect(selectedId(tester), 'p1');
+      expect(
+        server
+            .requestsTo('GET', '/api/sessions')
+            .map((r) => r.queryParameters['profile']),
+        isNot(contains('home')),
+      );
     });
 
     testWidgets('falls back to the loaded chats when the snapshot lists none', (

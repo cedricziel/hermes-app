@@ -645,13 +645,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Opens the chat of the open request in another profile that the snapshot
   /// has had longest, for when the open profile has none of its own. The
-  /// snapshot can be out of date, so the chat is kept only if it shows an open
-  /// request within [settle]; otherwise the selection is cleared and this is
-  /// false, which leaves the chat list showing.
-  Future<bool> openOldestStoredRequest({
-    Duration settle = const Duration(seconds: 3),
-  }) async {
+  /// snapshot can be out of date, so each request, oldest first, is checked
+  /// with the server before anything changes: the first whose session still
+  /// waits is opened (switching to its profile), and when none does nothing
+  /// moves and this is false, which leaves the chat list showing.
+  Future<bool> openOldestStoredRequest() async {
     final read = readSnapshot;
+    final transport = this.transport;
     if (read == null) return false;
     final SurfaceSnapshot? snapshot;
     try {
@@ -663,38 +663,23 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final waiting = [
       for (final request in snapshot?.pending ?? const <PendingRequest>[])
         if (request.profile != current) request,
-    ];
-    if (waiting.isEmpty) return false;
-    final oldest = waiting.reduce(
-      (a, b) => b.createdAt.isBefore(a.createdAt) ? b : a,
-    );
-    final profile = await knownProfile(oldest.profile);
-    if (disposed || profile == null) return false;
-    final id = oldest.threadId;
-    open(
-      NotificationTarget(threadId: id, profile: profile),
-      fetchMissing: true,
-    );
-    await _opening.catchError((Object _) {});
-    bool shown() =>
-        _selectedId == id &&
-        selectedThread?.messages.any((m) => m.awaitingInput) == true;
-    if (!shown()) {
-      final changed = Completer<void>();
-      void check() {
-        if (shown() && !changed.isCompleted) changed.complete();
+    ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    for (final request in waiting) {
+      if (transport != null) {
+        final statuses = await transport.activeStatuses(
+          profile: request.profile,
+        );
+        if (statuses[request.threadId] != 'waiting') continue;
       }
-
-      addListener(check);
-      try {
-        await changed.future.timeout(settle, onTimeout: () {});
-      } finally {
-        removeListener(check);
-      }
+      final profile = await knownProfile(request.profile);
+      if (disposed) return true;
+      if (profile == null) continue;
+      open(
+        NotificationTarget(threadId: request.threadId, profile: profile),
+        fetchMissing: true,
+      );
+      return true;
     }
-    if (disposed) return true;
-    if (shown()) return true;
-    if (_selectedId == id) clearSelection();
     return false;
   }
 

@@ -447,8 +447,9 @@ abstract interface class ChatTransport {
   /// while a turn runs, `waiting` while it waits for the user's answer. A
   /// turn started outside this client (the TUI, another device) shows up
   /// here without this client ever having streamed it. A transport that
-  /// cannot ask returns an empty map.
-  Future<Map<String, String>> activeStatuses();
+  /// cannot ask returns an empty map. With [profile], the sessions of that
+  /// profile.
+  Future<Map<String, String>> activeStatuses({String? profile});
 
   /// Makes sure the connection still works, for when the app comes back from
   /// sleep: iOS and Android drop sockets then, often without saying so. A
