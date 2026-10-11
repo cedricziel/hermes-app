@@ -34,6 +34,9 @@ import workmanager_apple
       WorkmanagerPlugin.registerPeriodicTask(
         withIdentifier: "\(bundleId).refresh", earliestBeginInSeconds: NSNumber(value: 15 * 60))
     }
+    // The intents that run Dart ("Pending Requests", "Answer Approval") start
+    // in a launch with no scene, so their backend is set here too.
+    RequestIntentsRuntime.backend = RequestIntentsBridge.shared
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

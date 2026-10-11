@@ -8,6 +8,7 @@ import 'dart:ui' show DartPluginRegistrant;
 import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 import 'package:workmanager/workmanager.dart';
 
+import '../intents/request_intents.dart';
 import '../telemetry/telemetry.dart';
 import '../telemetry/telemetry_config.dart';
 import 'background_refresh.dart';
@@ -61,6 +62,15 @@ Future<void> flushBackgroundTelemetry() async {
 @pragma('vm:entry-point')
 void backgroundRefreshDispatcher() {
   Workmanager().executeTask((task, input) => backgroundRefreshTask());
+}
+
+/// What the Runner starts to serve "Pending Requests" and "Answer Approval":
+/// an engine that answers `hermes_app/request_intents` and says when it is
+/// ready.
+@pragma('vm:entry-point')
+Future<void> requestIntentsMain() async {
+  await prepareBackgroundIsolate();
+  await RequestIntentsChannel(RequestIntents()).serve();
 }
 
 /// One background run: readies the isolate, refreshes, and sends the

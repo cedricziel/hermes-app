@@ -74,6 +74,9 @@
 		5D0000000000000000000074 /* IntentEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D000000000000000000000B /* IntentEntities.swift */; };
 		5D0000000000000000000075 /* OpenIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D000000000000000000000C /* OpenIntents.swift */; };
 		5D0000000000000000000076 /* HermesAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D000000000000000000000E /* HermesAppShortcuts.swift */; };
+		5D00000000000000000052B1 /* RequestIntentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D00000000000000000052A1 /* RequestIntentModels.swift */; };
+		5D00000000000000000052B2 /* RequestIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D00000000000000000052A2 /* RequestIntents.swift */; };
+		5D00000000000000000052B3 /* RequestIntentsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D00000000000000000052A3 /* RequestIntentsBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -244,6 +247,9 @@
 		5D000000000000000000000C /* OpenIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenIntents.swift; sourceTree = "<group>"; };
 		5D000000000000000000000D /* IntentControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntentControls.swift; sourceTree = "<group>"; };
 		5D000000000000000000000E /* HermesAppShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesAppShortcuts.swift; sourceTree = "<group>"; };
+		5D00000000000000000052A1 /* RequestIntentModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestIntentModels.swift; sourceTree = "<group>"; };
+		5D00000000000000000052A2 /* RequestIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestIntents.swift; sourceTree = "<group>"; };
+		5D00000000000000000052A3 /* RequestIntentsBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestIntentsBridge.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -305,6 +311,8 @@
 				5D0000000000000000000009 /* DeepLink.swift */,
 				5D000000000000000000000B /* IntentEntities.swift */,
 				5D000000000000000000000C /* OpenIntents.swift */,
+				5D00000000000000000052A1 /* RequestIntentModels.swift */,
+				5D00000000000000000052A2 /* RequestIntents.swift */,
 			);
 			name = HermesSurfaceKit;
 			path = HermesSurfaceKit/Sources/HermesSurfaceKit;
@@ -460,6 +468,7 @@
 				5A1F0C2E7B3D4E6F90A1B2C3 /* KeyCommandMenu.swift */,
 				5F0A7C1E2B3D4A6980C1D2E4 /* Spotlight.swift */,
 				5D000000000000000000000E /* HermesAppShortcuts.swift */,
+				5D00000000000000000052A3 /* RequestIntentsBridge.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -824,6 +833,9 @@
 				5D0000000000000000000074 /* IntentEntities.swift in Sources */,
 				5D0000000000000000000075 /* OpenIntents.swift in Sources */,
 				5D0000000000000000000076 /* HermesAppShortcuts.swift in Sources */,
+				5D00000000000000000052B1 /* RequestIntentModels.swift in Sources */,
+				5D00000000000000000052B2 /* RequestIntents.swift in Sources */,
+				5D00000000000000000052B3 /* RequestIntentsBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

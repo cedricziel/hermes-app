@@ -136,7 +136,7 @@ struct IntentDirectory {
 
   /// Nothing is offered while nobody is signed in or the snapshot is
   /// unreadable; links still open the app.
-  private var offered: SurfaceSnapshot? {
+  var offered: SurfaceSnapshot? {
     guard let snapshot, snapshot.signedIn else { return nil }
     return snapshot
   }

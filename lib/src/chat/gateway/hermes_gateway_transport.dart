@@ -2440,13 +2440,81 @@ class HermesGatewayTransport implements ChatTransport {
     return result != null && result['status'] != 'expired';
   }
 
+  @override
+  Future<List<ApprovalRequest>> pendingApprovals({
+    required String threadId,
+    String? profile,
+  }) async {
+    final client = await _client();
+    final listed = await _call(client, 'session.active_list', {
+      'profile': ?profile,
+    });
+    String? sessionId;
+    if (listed['sessions'] case final List<Object?> rows) {
+      for (final row in rows) {
+        if (row case {'session_key': final String key, 'id': final String id}
+            when key == threadId) {
+          sessionId = id;
+          break;
+        }
+      }
+    }
+    if (sessionId == null) return const [];
+    final Map<String, Object?> pending;
+    try {
+      pending = await _call(client, 'approval.pending', {
+        'session_id': sessionId,
+        'profile': ?profile,
+      });
+    } on GatewayRpcException catch (error) {
+      if (error.code == kGatewayMethodNotFound) return const [];
+      rethrow;
+    }
+    return [
+      if (pending['approvals'] case final List<Object?> rows)
+        for (final row in rows)
+          if (row case {'request_id': final String id} when id.isNotEmpty)
+            _replayedApproval(id, (row as Map).cast<String, Object?>()),
+    ];
+  }
+
+  /// An approval from `approval.pending`, which replays the queue's entries
+  /// and may leave `choices` out; they are then worked out from the flags the
+  /// entry does carry, claiming only what the entry allows.
+  static ApprovalRequest _replayedApproval(
+    String requestId,
+    Map<String, Object?> fields,
+  ) {
+    final approval = toApproval(requestId, fields);
+    if (approval.choices.isNotEmpty) return approval;
+    return ApprovalRequest(
+      requestId: approval.requestId,
+      command: approval.command,
+      description: approval.description,
+      toolName: approval.toolName,
+      choices: [
+        'once',
+        if (fields['allow_session'] == true) 'session',
+        if (fields['allow_permanent'] == true) 'always',
+        'deny',
+      ],
+    );
+  }
+
   /// `request.answer` resolves an open server-to-client request by its id,
   /// with no session attached, for a client that never received the frame.
   /// A request the server raised as an event (`approval.request`,
   /// `clarify.request`), or any request on a server without
-  /// `request.answer`, takes the older answers: `approval.respond` on the
-  /// resumed chat, `clarify.respond`. An `expired` answer is final: nothing
-  /// is resumed for it.
+  /// `request.answer`, takes the older answers: `approval.respond`,
+  /// `clarify.respond`. An approval `request.answer` does not know (`expired`)
+  /// may still be one of those, so it is tried there too; a question's
+  /// `expired` is final.
+  ///
+  /// The chat is never resumed to answer: that rebuilds the session, may
+  /// start Hermes' continuation of an interrupted turn and can take the live
+  /// session from the socket that owns it. `approval.respond` names the chat
+  /// by its stored id, which Hermes accepts as the durable identity of a live
+  /// session.
   @override
   Future<bool> answerOpenRequest(
     String requestId,
@@ -2482,18 +2550,19 @@ class HermesGatewayTransport implements ChatTransport {
         'result': result,
         'profile': ?profile,
       });
-      return reply['status'] == 'ok';
+      if (reply['status'] == 'ok') return true;
+      if (answer is! ApprovalChoiceAnswer) return false;
     } on GatewayRpcException catch (error) {
       if (error.code != kGatewayMethodNotFound) rethrow;
-      return _answerEventRequest(
-        client,
-        requestId,
-        answer,
-        threadId: threadId,
-        profile: profile,
-        deadline: deadline,
-      );
     }
+    return _answerEventRequest(
+      client,
+      requestId,
+      answer,
+      threadId: threadId,
+      profile: profile,
+      deadline: deadline,
+    );
   }
 
   Future<bool> _answerEventRequest(
@@ -2516,14 +2585,9 @@ class HermesGatewayTransport implements ChatTransport {
       case ApprovalChoiceAnswer(:final choice):
         if (threadId == null) return false;
         _beforeDeadline(deadline);
-        final resumed = await _call(client, 'session.resume', {
+        final reply = await _call(client, 'approval.respond', {
           'session_id': threadId,
           'profile': ?profile,
-          'source': gatewaySessionSource,
-        });
-        _beforeDeadline(deadline);
-        final reply = await _call(client, 'approval.respond', {
-          'session_id': resumed['session_id'] as String? ?? threadId,
           'request_id': requestId,
           'choice': choice,
         });

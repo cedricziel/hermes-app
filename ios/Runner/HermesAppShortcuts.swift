@@ -31,6 +31,16 @@ struct HermesAppShortcuts: AppShortcutsProvider {
       shortTitle: "Open Chat",
       systemImageName: "bubble.left"
     )
+    AppShortcut(
+      intent: PendingRequestsIntent(),
+      phrases: [
+        "What does \(.applicationName) need",
+        "\(.applicationName) requests",
+        "Pending \(.applicationName) requests",
+      ],
+      shortTitle: "Pending Requests",
+      systemImageName: "bell.badge"
+    )
   }
 }
 

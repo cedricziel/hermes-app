@@ -1031,3 +1031,25 @@ run an intent nor tap, so use a simulator window (Simulator.app) or a device.
   changed snapshot write.
 - `swift test` in `ios/HermesSurfaceKit` runs the entity queries and the
   links without a simulator.
+
+### Pending Requests and Answer Approval
+
+Raise an approval on the dev backend first (`scripts/dev-backend.sh start`,
+then in the app send a prompt that makes the agent run a command with approvals
+set to `manual`, as `test/real_backend_contract_test.dart`'s scripted-model
+profile does) and leave it unanswered. Then, in the Shortcuts app with the app
+killed and again running:
+
+- "Pending Requests" (also "What does Hermes need" to Siri on a device): says
+  the count and the chat's title with "is waiting for your approval", never the
+  command. Turn the server off: it says "As of <time>," with the last list.
+  With App Lock on: "N requests are waiting. Open Hermes to see them.".
+- "Answer Approval": the Request parameter lists the approval by chat title,
+  "Approval" and its age. It asks to unlock, then asks which Choice when none is
+  set, then shows the command and asks to confirm. Check Once (the chat goes
+  on), Deny (no confirmation), a Choice the approval does not offer, and
+  answering in the app first ("That request is no longer waiting."). The
+  request should leave the list and the app icon badge afterwards.
+- With App Lock on: "Open Hermes to answer this request.", nothing is sent.
+- The Dart side logs `intent.answer_approval` (`outcome`, `choice`) when
+  telemetry is on; the command must not appear in any attribute.
