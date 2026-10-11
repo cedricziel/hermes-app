@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../widgets/adaptive_sheet.dart';
 import 'platform_hint_offer.dart';
 import 'widgets/platform_hint_prompt.dart';
+import '../widgets/route_dismissal.dart';
 
 /// Asks about [offer] in a dialog on a wide layout and a bottom sheet on a
 /// compact one. It stays open while the hint is saved and after a failed
@@ -30,7 +31,7 @@ Future<void> showPlatformHintPrompt(
           failed: offer.failed,
           saved: offer.saved,
           onAdd: () async {
-            if (await offer.add() && route.mounted) Navigator.of(route).pop();
+            if (await offer.add() && route.mounted) popCurrentRoute(route);
           },
           onLater: () {
             offer.later();

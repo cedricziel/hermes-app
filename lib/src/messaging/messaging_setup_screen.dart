@@ -7,6 +7,7 @@ import '../widgets/disclosure_tile.dart';
 import '../widgets/named_icon_button.dart';
 import 'hermes_messaging_repository.dart';
 import 'telegram_pairing_screen.dart';
+import '../widgets/route_dismissal.dart';
 
 /// A form for the credentials and settings a platform reads from its
 /// environment. Values the dashboard already holds are never shown, only
@@ -65,7 +66,7 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
         env: env,
         clear: _cleared.toList(),
       );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) popCurrentRoute(context, true);
     } on Object catch (e) {
       if (!mounted) return;
       setState(() {
@@ -82,7 +83,7 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
         builder: (_) => TelegramPairingScreen(repository: widget.repository),
       ),
     );
-    if (paired == true && mounted) Navigator.pop(context, true);
+    if (paired == true && mounted) popCurrentRoute(context, true);
   }
 
   void _toggleCleared(String key) {

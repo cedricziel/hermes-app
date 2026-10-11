@@ -5,6 +5,7 @@ import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
 import 'kanban_orchestration_fields.dart';
+import '../../widgets/route_dismissal.dart';
 
 /// Edits how the plugin fans out and picks up tasks (`kanban.*` in the
 /// server's config).
@@ -79,7 +80,7 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
             : _autoPromote,
       ),
     );
-    if (ok && mounted) Navigator.pop(context);
+    if (ok && mounted) popCurrentRoute(context);
   }
 
   @override

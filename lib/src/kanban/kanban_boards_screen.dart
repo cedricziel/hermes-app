@@ -11,6 +11,7 @@ import '../widgets/grouped_list.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_form.dart';
 import '../widgets/settings_scaffold.dart';
+import '../widgets/route_dismissal.dart';
 
 /// Lists the plugin's boards; opens, creates, renames, archives or deletes them.
 class KanbanBoardsScreen extends StatelessWidget {
@@ -165,7 +166,7 @@ class KanbanBoardsScreen extends StatelessWidget {
     if (options.open && result!.board.isNotEmpty) {
       // Opened here, not by the server: `switch` on the import would also
       // make it the server's current board for the CLI and other clients.
-      if (context.mounted) Navigator.pop(context);
+      if (context.mounted) popCurrentRoute(context);
       await controller.selectBoard(result!.board);
     }
   }

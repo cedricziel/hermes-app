@@ -6,6 +6,7 @@ import '../theme/app_icons.dart';
 import '../widgets/markdown_links.dart';
 import '../widgets/named_icon_button.dart';
 import 'skill_detail_screen.dart' show skillMarkdownBody;
+import '../widgets/route_dismissal.dart';
 
 const newSkillTemplate = '''---
 name:
@@ -85,7 +86,7 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
     final error = await widget.onSave(name, _category.text.trim(), _text.text);
     if (!mounted) return;
     if (error == null) {
-      Navigator.of(context).pop(name);
+      popCurrentRoute(context, name);
     } else {
       setState(() {
         _saving = false;
@@ -123,8 +124,9 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
       canPop: !_dirty || _saving,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        final navigator = Navigator.of(context);
-        if (await _confirmDiscard()) navigator.pop();
+        if (await _confirmDiscard() && context.mounted) {
+          popCurrentRoute(context);
+        }
       },
       child: Scaffold(
         appBar: AppBar(

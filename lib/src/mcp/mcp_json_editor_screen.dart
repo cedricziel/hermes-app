@@ -11,6 +11,7 @@ import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_json_check.dart';
 import 'mcp_servers_controller.dart';
+import '../widgets/route_dismissal.dart';
 
 /// Edits the profile's whole `mcp_servers` map as JSON and replaces it on
 /// Save. Pops with true once Hermes has saved.
@@ -155,7 +156,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
     if (!mounted) return;
     switch (outcome) {
       case McpReplaced():
-        Navigator.of(context).pop(true);
+        popCurrentRoute(context, true);
       case McpReplaceRefused(:final problems) when problems.isNotEmpty:
         setState(() => _problems = problems);
       case McpReplaceRefused() || McpReplaceFailed():
@@ -172,7 +173,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       confirm: 'Discard',
       cancel: 'Keep editing',
     );
-    if (discard && mounted) Navigator.of(context).pop();
+    if (discard && mounted) popCurrentRoute(context);
   }
 
   @override

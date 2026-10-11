@@ -19,6 +19,7 @@ import 'groups/group_rooms_panel.dart';
 import 'bot_mode_roster_repository.dart';
 import 'widgets/bot_creation_fields.dart';
 import 'widgets/bot_edit_fields.dart';
+import '../widgets/route_dismissal.dart';
 
 /// Server-backed specialist roster. Profile names stay stable; titles are
 /// presentation metadata and can be edited independently.
@@ -175,7 +176,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                           );
                           if (dialogContext.mounted) {
                             update(() => saving = false);
-                            Navigator.pop(dialogContext, ready);
+                            popCurrentRoute(dialogContext, ready);
                           }
                         } on Object {
                           if (dialogContext.mounted) {
@@ -353,7 +354,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                       }
                     }
                     if (result.succeeded) {
-                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      if (dialogContext.mounted) popCurrentRoute(dialogContext);
                       await _load();
                     } else {
                       if (result.conflict ||
