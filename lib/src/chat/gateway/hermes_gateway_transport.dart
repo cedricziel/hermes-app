@@ -2482,9 +2482,16 @@ class HermesGatewayTransport implements ChatTransport {
   /// with no session attached, for a client that never received the frame.
   /// A request the server raised as an event (`approval.request`,
   /// `clarify.request`), or any request on a server without
-  /// `request.answer`, takes the older answers: `approval.respond` on the
-  /// resumed chat, `clarify.respond`. An `expired` answer is final: nothing
-  /// is resumed for it.
+  /// `request.answer`, takes the older answers: `approval.respond`,
+  /// `clarify.respond`. An approval `request.answer` does not know (`expired`)
+  /// may still be one of those, so it is tried there too; a question's
+  /// `expired` is final.
+  ///
+  /// The chat is never resumed to answer: that rebuilds the session, may
+  /// start Hermes' continuation of an interrupted turn and can take the live
+  /// session from the socket that owns it. `approval.respond` names the chat
+  /// by its stored id, which Hermes accepts as the durable identity of a live
+  /// session.
   @override
   Future<bool> answerOpenRequest(
     String requestId,
@@ -2520,18 +2527,19 @@ class HermesGatewayTransport implements ChatTransport {
         'result': result,
         'profile': ?profile,
       });
-      return reply['status'] == 'ok';
+      if (reply['status'] == 'ok') return true;
+      if (answer is! ApprovalChoiceAnswer) return false;
     } on GatewayRpcException catch (error) {
       if (error.code != kGatewayMethodNotFound) rethrow;
-      return _answerEventRequest(
-        client,
-        requestId,
-        answer,
-        threadId: threadId,
-        profile: profile,
-        deadline: deadline,
-      );
     }
+    return _answerEventRequest(
+      client,
+      requestId,
+      answer,
+      threadId: threadId,
+      profile: profile,
+      deadline: deadline,
+    );
   }
 
   Future<bool> _answerEventRequest(
@@ -2554,14 +2562,9 @@ class HermesGatewayTransport implements ChatTransport {
       case ApprovalChoiceAnswer(:final choice):
         if (threadId == null) return false;
         _beforeDeadline(deadline);
-        final resumed = await _call(client, 'session.resume', {
+        final reply = await _call(client, 'approval.respond', {
           'session_id': threadId,
           'profile': ?profile,
-          'source': gatewaySessionSource,
-        });
-        _beforeDeadline(deadline);
-        final reply = await _call(client, 'approval.respond', {
-          'session_id': resumed['session_id'] as String? ?? threadId,
           'request_id': requestId,
           'choice': choice,
         });

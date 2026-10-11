@@ -133,9 +133,20 @@ final class ApprovalsDirectoryTests: XCTestCase {
     XCTAssertEqual(IntentDirectory(snapshot: nil).approvals(), [])
   }
 
-  func testTheCommandIsNowhereInTheEntity() {
-    let described = String(describing: directory([row("a")]).approvals())
+  func testACommandInADartRowNeverReachesTheEntity() throws {
+    let reply = PendingReply(json: [
+      "outcome": "answered", "count": 1,
+      "requests": [
+        [
+          "profile": "default", "threadId": "t", "title": "Trip", "kind": "approval",
+          "requestId": "r", "command": "rm -rf /", "description": "secret plan",
+        ]
+      ],
+    ])
+    let described = String(describing: reply.requests.map(PendingRequestEntity.init))
+    XCTAssertEqual(reply.requests.count, 1)
     XCTAssertFalse(described.contains("rm -rf"))
+    XCTAssertFalse(described.contains("secret plan"))
   }
 
   func testAKnownIdKeepsItsKindAndTitle() {
@@ -305,8 +316,20 @@ final class PendingRequestsFlowTests: XCTestCase {
     XCTAssertEqual(answer.rows.map(\.requestID), ["old", "new"])
   }
 
-  func testAStoredListWrittenUnderAppLockGivesTheCountOnly() async {
-    backend.pendingReply = PendingReply(outcome: .unreachable, count: 0, appLock: false, requests: [])
+  func testAppLockFromDartGivesTheCountOnlyEvenWithTitlesStored() async {
+    backend.pendingReply = PendingReply(outcome: .unreachable, count: 0, appLock: true, requests: [])
+    stored = snapshot(
+      pending: [row("1"), row("2")], updatedAt: date("2026-10-10T10:42:00Z"))
+
+    let answer = await run()
+
+    XCTAssertEqual(
+      answer.text, "As of 10:42, 2 requests are waiting. Open Hermes to see them.")
+    XCTAssertEqual(answer.rows, [])
+  }
+
+  func testWithoutAnyAnswerFromDartEmptyTitlesStandForAppLock() async {
+    backend.pendingReply = .unavailable
     stored = snapshot(
       pending: [row("1", title: ""), row("2", title: "")],
       updatedAt: date("2026-10-10T10:42:00Z"))
@@ -509,6 +532,20 @@ final class ApprovalAnswerFlowTests: XCTestCase {
     }
   }
 
+  func testAFailedLookupIsNotSaidToBeAFailedSend() async {
+    backend.detailReply = .ended(.failed)
+    let said = await run(choice: .once)
+    XCTAssertEqual(said, "Couldn't read this request.")
+    XCTAssertEqual(backend.calls, ["detail default/t-r1/r1"])
+  }
+
+  func testRefusedListingIsNotSaidToBeUnreachable() async {
+    backend.detailReply = .ended(.cannotList)
+    let said = await run(choice: .once)
+    XCTAssertEqual(said, "Hermes can't list approvals right now.")
+    XCTAssertNotEqual(said, RequestSpeech.unreachable)
+  }
+
   func testOnlyApprovalsAreAnswered() async {
     let said = await run(entity("q", kind: .question), choice: .once)
 
@@ -559,9 +596,29 @@ final class RequestReplyDecodingTests: XCTestCase {
     XCTAssertEqual(DetailReply(json: nil), .ended(.unavailable))
   }
 
+  func testReadsTheRefusedListing() {
+    XCTAssertEqual(DetailReply(json: ["outcome": "cannot_list"]), .ended(.cannotList))
+  }
+
   func testTheOutcomeWordsAreTheOnesDartSends() {
     XCTAssertEqual(RequestOutcome(rawValue: "signed_out"), .signedOut)
     XCTAssertEqual(RequestOutcome(rawValue: "device_locked"), .deviceLocked)
     XCTAssertEqual(RequestOutcome(rawValue: "app_locked"), .appLocked)
+  }
+}
+
+final class RequestTimeoutsTests: XCTestCase {
+  func testTheWaitCoversDartsBudgetItsWindDownAndAMargin() {
+    for budget in [RequestTimeouts.read, RequestTimeouts.answer] {
+      let wait = RequestTimeouts.wait(forBudget: budget)
+      XCTAssertGreaterThanOrEqual(
+        wait, budget + RequestTimeouts.dartOverhead + RequestTimeouts.margin)
+      XCTAssertGreaterThanOrEqual(RequestTimeouts.margin, 3)
+    }
+  }
+
+  func testBudgetsAreSentInMilliseconds() {
+    XCTAssertEqual(RequestTimeouts.milliseconds(12), 12_000)
+    XCTAssertEqual(RequestTimeouts.milliseconds(0.4), 400)
   }
 }

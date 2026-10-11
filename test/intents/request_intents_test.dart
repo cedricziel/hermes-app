@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
+import 'dart:ui' show IsolateNameServer;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/intents/request_intents.dart';
+import 'package:hermes_app/src/notifications/request_answers.dart'
+    show kRequestAnswersPort;
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
@@ -131,12 +136,13 @@ void main() {
     closeGrace: const Duration(milliseconds: 200),
   );
 
-  RequestIntents intents() => RequestIntents(
+  RequestIntents intents({
+    Duration snapshotWait = const Duration(seconds: 1),
+  }) => RequestIntents(
+    snapshotWait: snapshotWait,
     headless: headless(),
     appLockOn: () async => lockOn,
     events: () => events.call,
-    pendingTimeout: const Duration(seconds: 5),
-    answerTimeout: const Duration(seconds: 5),
   );
 
   List<Map<String, Object?>> rpcs(String method) => [
@@ -266,8 +272,53 @@ void main() {
       expect(answer['requests'], isEmpty);
     });
 
+    test(
+      'replies from the read alone, without rebuilding the snapshot',
+      () async {
+        waiting();
+
+        await intents().pending({});
+
+        expect(server.requestsTo('GET', '/api/sessions'), isEmpty);
+        expect(server.requestsTo('GET', '/api/cron/jobs'), isEmpty);
+      },
+    );
+
+    test('keeps the time a request was first seen', () async {
+      waiting();
+      await store.write(
+        SurfaceSnapshot(
+          updatedAt: DateTime.utc(2026, 10, 10),
+          profile: 'default',
+          pending: [
+            PendingRequest(
+              profile: 'default',
+              threadId: 'chat-d',
+              threadTitle: 'Backup',
+              kind: PendingKind.approval,
+              requestId: 'r-d',
+              createdAt: DateTime.utc(2026, 10, 10, 8),
+            ),
+          ],
+        ),
+      );
+
+      final answer = await intents().pending({});
+
+      final backup = (answer['requests']! as List).cast<Map>().singleWhere(
+        (r) => r['requestId'] == 'r-d',
+      );
+      expect(backup['createdAt'], '2026-10-10T08:00:00.000Z');
+    });
+
     test('stores the fresh list for the widgets and the badge', () async {
       waiting();
+      await store.write(
+        SurfaceSnapshot(
+          updatedAt: DateTime.utc(2026, 10, 10),
+          profile: 'default',
+        ),
+      );
 
       await intents().pending({});
 
@@ -300,10 +351,31 @@ void main() {
 
         final answer = await intents().pending({});
 
-        expect(answer, {'outcome': outcome});
+        expect(answer, {'outcome': outcome, 'appLock': false});
         expect(storage.saved, isEmpty);
       });
     }
+
+    test('says whether App Lock is on when it cannot ask the server', () async {
+      serverDown();
+      lockOn = true;
+
+      expect(await intents().pending({}), {
+        'outcome': 'unreachable',
+        'appLock': true,
+      });
+    });
+
+    test('ends within its budget when the server never answers', () async {
+      waiting();
+      gateway.deaf = true;
+      final watch = Stopwatch()..start();
+
+      final answer = await intents().pending({'budgetMs': 400});
+
+      expect(answer['outcome'], 'unreachable');
+      expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
+    });
 
     test('reads a profile it cannot list as unreachable', () async {
       waiting();
@@ -318,7 +390,7 @@ void main() {
 
       final answer = await intents().pending({});
 
-      expect(answer, {'outcome': 'unreachable'});
+      expect(answer, {'outcome': 'unreachable', 'appLock': false});
     });
 
     test('records the task with counts and no text', () async {
@@ -386,6 +458,39 @@ void main() {
       expect(gateway.requests, isEmpty);
     });
 
+    test('says Hermes cannot list approvals when it has no provider', () async {
+      waiting();
+      gateway.handlers['approval.pending'] = (_) =>
+          throw const FakeRpcError(5032, 'no provider');
+
+      expect(await intents().approvalDetail(ask()), {'outcome': 'cannot_list'});
+    });
+
+    test(
+      'says failed, not unreachable, when Hermes refuses the lookup',
+      () async {
+        waiting();
+        gateway.handlers['approval.pending'] = (_) =>
+            throw const FakeRpcError(-32000, 'boom');
+
+        expect(await intents().approvalDetail(ask()), {'outcome': 'failed'});
+      },
+    );
+
+    test('ends within its budget when the server never answers', () async {
+      waiting();
+      gateway.deaf = true;
+      final watch = Stopwatch()..start();
+
+      final detail = await intents().approvalDetail({
+        ...ask(),
+        'budgetMs': 400,
+      });
+
+      expect(detail['outcome'], 'unreachable');
+      expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
+    });
+
     test('refuses a request without its ids', () async {
       expect(await intents().approvalDetail({'threadId': 'a'}), {
         'outcome': 'failed',
@@ -416,22 +521,45 @@ void main() {
       'choice': choice,
     };
 
-    test('sends the choice for the request through the shared path', () async {
+    test('answers by request id first, without resuming the chat', () async {
       waiting();
 
       final result = await intents().answerApproval(answer('session'));
 
       expect(result, {'outcome': 'answered'});
-      final sent = rpcs('approval.respond').single;
-      expect(sent['request_id'], 'r-w');
-      expect(sent['choice'], 'session');
-      expect(rpcs('session.resume').single['session_id'], 'chat-w');
-      expect(rpcs('session.resume').single['profile'], 'work');
+      expect(rpcs('request.answer').single, {
+        'id': 'r-w',
+        'result': {'choice': 'session'},
+        'profile': 'work',
+      });
+      expect(gateway.methods, isNot(contains('session.resume')));
+      expect(gateway.methods, isNot(contains('approval.respond')));
     });
+
+    test(
+      'falls back to approval.respond by the chat, never resuming it',
+      () async {
+        waiting();
+        gateway.answerStatus = 'expired';
+
+        final result = await intents().answerApproval(answer('once'));
+
+        expect(result, {'outcome': 'answered'});
+        expect(rpcs('approval.respond').single, {
+          'session_id': 'chat-w',
+          'profile': 'work',
+          'request_id': 'r-w',
+          'choice': 'once',
+        });
+        expect(gateway.methods, isNot(contains('session.resume')));
+      },
+    );
 
     test('says gone when Hermes reports nothing was waiting', () async {
       waiting();
-      gateway.approvalsResolved = 0;
+      gateway
+        ..answerStatus = 'expired'
+        ..approvalsResolved = 0;
 
       final result = await intents().answerApproval(answer('once'));
 
@@ -440,12 +568,60 @@ void main() {
 
     test('says failed when the answer does not get through', () async {
       waiting();
-      gateway.handlers['approval.respond'] = (_) =>
+      gateway.handlers['request.answer'] = (_) =>
           throw const FakeRpcError(-32000, 'boom');
 
       final result = await intents().answerApproval(answer('once'));
 
       expect(result, {'outcome': 'failed'});
+    });
+
+    test('hands the answer to the running app, which sends it', () async {
+      waiting();
+      final app = ReceivePort();
+      addTearDown(app.close);
+      IsolateNameServer.registerPortWithName(app.sendPort, kRequestAnswersPort);
+      addTearDown(
+        () => IsolateNameServer.removePortNameMapping(kRequestAnswersPort),
+      );
+      final taken = <Object?>[];
+      app.listen((message) {
+        final [payload, actionId, input, deadline, reply] = message as List;
+        taken.add([payload, actionId]);
+        final confirm = ReceivePort();
+        (reply as SendPort).send(['offer', confirm.sendPort]);
+        confirm.first.then((_) {
+          reply.send('ok');
+          confirm.close();
+        });
+      });
+
+      final result = await intents().answerApproval(answer('once'));
+
+      expect(result, {'outcome': 'answered'});
+      expect(taken, hasLength(1));
+      expect((taken.single! as List)[1], 'hermes.action.allow-once');
+      expect(gateway.requests, isEmpty);
+    });
+
+    test('answers although the snapshot store is stuck', () async {
+      waiting();
+      await store.write(
+        SurfaceSnapshot(
+          updatedAt: DateTime.utc(2026, 10, 10),
+          profile: 'default',
+          pending: [_stored('r-w', chat: 'chat-w')],
+        ),
+      );
+      storage.loadGate = Completer<void>();
+      final watch = Stopwatch()..start();
+
+      final result = await intents(
+        snapshotWait: const Duration(milliseconds: 200),
+      ).answerApproval(answer('once'));
+
+      expect(result, {'outcome': 'answered'});
+      expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
     });
 
     test('takes the answered request off the snapshot', () async {
@@ -475,7 +651,9 @@ void main() {
       'takes a request that was no longer waiting off the snapshot',
       () async {
         waiting();
-        gateway.approvalsResolved = 0;
+        gateway
+          ..answerStatus = 'expired'
+          ..approvalsResolved = 0;
         await store.write(
           SurfaceSnapshot(
             updatedAt: DateTime.utc(2026, 10, 10),
@@ -489,6 +667,20 @@ void main() {
         expect(storedSnapshot()['pending'], isEmpty);
       },
     );
+
+    test('ends within its budget when the server never answers', () async {
+      waiting();
+      gateway.deaf = true;
+      final watch = Stopwatch()..start();
+
+      final result = await intents().answerApproval({
+        ...answer('once'),
+        'budgetMs': 400,
+      });
+
+      expect(result['outcome'], isIn(['failed', 'unreachable']));
+      expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
+    });
 
     test('sends nothing while App Lock is on', () async {
       waiting();

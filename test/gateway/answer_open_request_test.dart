@@ -76,7 +76,33 @@ void main() {
     );
   });
 
-  test('an expired request is not resumed or answered another way', () async {
+  test(
+    'an expired request is looked for by approval.respond, never resumed',
+    () async {
+      gateway
+        ..answerStatus = 'expired'
+        ..approvalsResolved = 0;
+
+      final accepted = await transport.answerOpenRequest(
+        'r1',
+        const ApprovalChoiceAnswer('once'),
+        threadId: 's1',
+        profile: 'work',
+      );
+
+      expect(accepted, isFalse);
+      expect(gateway.methods, isNot(contains('session.resume')));
+      expect(gateway.requestOf('approval.respond')['params'], {
+        'session_id': 's1',
+        'profile': 'work',
+        'request_id': 'r1',
+        'choice': 'once',
+      });
+    },
+  );
+
+  test('an approval the server did not raise as a request is answered by '
+      'approval.respond after request.answer expired', () async {
     gateway.answerStatus = 'expired';
 
     final accepted = await transport.answerOpenRequest(
@@ -85,9 +111,25 @@ void main() {
       threadId: 's1',
     );
 
-    expect(accepted, isFalse);
+    expect(accepted, isTrue);
+    expect(
+      gateway.methods,
+      containsAllInOrder(['request.answer', 'approval.respond']),
+    );
     expect(gateway.methods, isNot(contains('session.resume')));
-    expect(gateway.methods, isNot(contains('approval.respond')));
+  });
+
+  test('an expired question is final', () async {
+    gateway.answerStatus = 'expired';
+
+    final accepted = await transport.answerOpenRequest(
+      'r2',
+      const QuestionAnswer(questionId: 'q1', values: ['dev']),
+      threadId: 's1',
+    );
+
+    expect(accepted, isFalse);
+    expect(gateway.methods, isNot(contains('clarify.respond')));
   });
 
   test('nothing is sent once the deadline has passed', () async {
@@ -104,30 +146,26 @@ void main() {
   });
 
   group('a request raised as an event frame', () {
-    test(
-      'an approval is answered with approval.respond on the resumed chat',
-      () async {
-        final accepted = await transport.answerOpenRequest(
-          'r1',
-          const ApprovalChoiceAnswer('once'),
-          threadId: 's1',
-          profile: 'work',
-          raisedAsEvent: true,
-        );
+    test('an approval is answered with approval.respond by its chat, without '
+        'resuming it', () async {
+      final accepted = await transport.answerOpenRequest(
+        'r1',
+        const ApprovalChoiceAnswer('once'),
+        threadId: 's1',
+        profile: 'work',
+        raisedAsEvent: true,
+      );
 
-        expect(accepted, isTrue);
-        expect(gateway.methods, isNot(contains('request.answer')));
-        expect(
-          gateway.requestOf('session.resume')['params'],
-          containsPair('session_id', 's1'),
-        );
-        expect(gateway.requestOf('approval.respond')['params'], {
-          'session_id': 'rt-2',
-          'request_id': 'r1',
-          'choice': 'once',
-        });
-      },
-    );
+      expect(accepted, isTrue);
+      expect(gateway.methods, isNot(contains('request.answer')));
+      expect(gateway.methods, isNot(contains('session.resume')));
+      expect(gateway.requestOf('approval.respond')['params'], {
+        'session_id': 's1',
+        'profile': 'work',
+        'request_id': 'r1',
+        'choice': 'once',
+      });
+    });
 
     test('so is one a server without request.answer raised', () async {
       gateway.unknownMethods.add('request.answer');
@@ -140,6 +178,7 @@ void main() {
 
       expect(accepted, isTrue);
       expect(gateway.methods, contains('approval.respond'));
+      expect(gateway.methods, isNot(contains('session.resume')));
     });
 
     test('a question is answered with clarify.respond', () async {

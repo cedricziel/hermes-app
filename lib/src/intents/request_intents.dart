@@ -1,20 +1,25 @@
 /// What the "Pending Requests" and "Answer Approval" App Intents ask of Dart:
 /// the open requests across profiles, one approval with its command, and the
-/// answer to it. They run in a background engine through the headless
-/// runtime, so nothing here needs the app to be open.
+/// answer to it. They run through the headless runtime, so nothing here needs
+/// the app to be open.
 library;
 
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    show NotificationResponse, NotificationResponseType;
 import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 
 import '../app_lock/app_lock_controller.dart';
 import '../background/background_refresh.dart';
 import '../background/entry_points.dart';
 import '../background/headless_hermes.dart';
-import '../chat/chat_transport.dart';
+import '../chat/chat_models.dart' show ApprovalRequest;
+import '../chat/gateway/gateway_rpc_client.dart';
 import '../notifications/attention_policy.dart' show AttentionNotification;
+import '../notifications/local_notification_service.dart'
+    show notificationPayload;
 import '../notifications/notification_service.dart';
 import '../notifications/request_answers.dart';
 import '../notifications/request_notifications.dart' as notifications;
@@ -26,6 +31,19 @@ const kRequestIntentsChannel = 'hermes_app/request_intents';
 
 /// The choices an approval can be answered with, as Hermes names them.
 const kApprovalChoices = {'once', 'session', 'always', 'deny'};
+
+/// The refusal Hermes answers `approval.pending` with while no provider is
+/// configured, since it cannot build the agent that holds the approvals.
+const kGatewayNoProvider = 5032;
+
+/// What a call gets to work in when the caller names no budget. The caller
+/// (the Runner) waits for this plus [kIntentOverhead] and a margin.
+const kIntentReadBudget = Duration(seconds: 12);
+const kIntentAnswerBudget = Duration(seconds: 15);
+
+/// What a run adds to its budget in the worst case: the headless runtime's
+/// wind-down (`HeadlessDeps.closeGrace`) and the telemetry flush.
+const kIntentOverhead = Duration(seconds: 5);
 
 /// How a request intent ended. [wire] is what crosses to Swift and what the
 /// telemetry records.
@@ -44,6 +62,9 @@ enum RequestIntentOutcome {
   deviceLocked('device_locked'),
   unreachable('unreachable'),
 
+  /// Hermes refuses to list approvals (no provider configured).
+  cannotList('cannot_list'),
+
   /// App Lock is on: the request's content stays inside the app.
   appLocked('app_locked');
 
@@ -52,17 +73,20 @@ enum RequestIntentOutcome {
   final String wire;
 }
 
-/// Serves the three calls of the request intents. Every method returns a map
-/// of plain values for the method channel; none of them throws.
+/// Serves the calls of the request intents. Every method returns a map of
+/// plain values for the method channel; none of them throws.
+///
+/// Each call may carry `budgetMs`, what the caller grants the work; the
+/// caller's own timeout is that plus [kIntentOverhead] and a margin, so the
+/// two never race.
 class RequestIntents {
   RequestIntents({
     this.headless,
     Future<bool> Function()? appLockOn,
     AppEventLogger Function()? events,
+    this._snapshotStore,
     this.engine = 'background',
-    this.pendingTimeout = const Duration(seconds: 15),
-    this.answerTimeout = const Duration(seconds: 20),
-    this.snapshotRefresh = const Duration(seconds: 6),
+    this.snapshotWait = const Duration(seconds: 1),
   }) : _appLockOn = appLockOn ?? AppLockController.savedEnabled,
        _events = events ?? (() => backgroundTelemetry(const {}).events);
 
@@ -70,44 +94,55 @@ class RequestIntents {
   final HeadlessDeps? headless;
   final Future<bool> Function() _appLockOn;
   final AppEventLogger Function() _events;
+  SurfaceSnapshotStore? _snapshotStore;
 
   /// Which engine runs the intent, for the run's span.
   final String engine;
-  final Duration pendingTimeout;
-  final Duration answerTimeout;
 
-  /// How long the snapshot refresh that follows a read or an answer may take.
-  /// It is a courtesy to the widgets; the intent's answer never waits longer.
-  final Duration snapshotRefresh;
+  /// How long the local snapshot update that follows a reply may take. It is
+  /// a courtesy to the widgets; it never changes what the intent says.
+  final Duration snapshotWait;
+
+  SurfaceSnapshotStore get _store =>
+      headless?.snapshotStore ??
+      (_snapshotStore ??= SurfaceSnapshotStore(
+        events: (name, [attributes = const {}]) => _events()(name, attributes),
+      ));
 
   /// The open requests of every profile (or of `profile`), oldest first.
   ///
   /// `{outcome, count, appLock, requests: [{profile, threadId, title, kind,
   /// requestId, createdAt}]}`. With App Lock on `requests` stays empty: titles
-  /// are the app's. When the server cannot be asked, only `outcome` says why
-  /// and the caller answers from the snapshot it has stored.
+  /// are the app's. When the server cannot be asked, `outcome` says why, with
+  /// `appLock`, and the caller answers from the snapshot it has stored.
   Future<Map<String, Object?>> pending(Map<String, Object?> args) async {
     final profile = _text(args['profile']);
     final lockOn = await _lockedNow();
     final outcome = await withHeadlessHermes<List<PendingRequest>>(
       _readPending,
       task: 'intent.pending',
-      timeout: pendingTimeout,
+      timeout: _budget(args, kIntentReadBudget),
       deps: headless,
     );
     switch (outcome) {
       case HeadlessDone(:final value):
+        final seen = await _firstSeen();
         final rows = [
           for (final request in value)
+            request.firstSeen(seen[request.requestId] ?? request.createdAt),
+        ];
+        await _storePending(rows);
+        final listed = [
+          for (final request in rows)
             if (profile == null || request.profile == profile) request,
         ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
         return {
-          'outcome': _listed(rows).wire,
-          'count': rows.length,
+          'outcome': _listed(listed).wire,
+          'count': listed.length,
           'appLock': lockOn,
           'requests': [
             if (!lockOn)
-              for (final request in rows)
+              for (final request in listed)
                 {
                   'profile': request.profile,
                   'threadId': request.threadId,
@@ -119,11 +154,11 @@ class RequestIntents {
           ],
         };
       case HeadlessSignedOut():
-        return _outcome(RequestIntentOutcome.signedOut);
+        return _unfinished(RequestIntentOutcome.signedOut, lockOn);
       case HeadlessLocked():
-        return _outcome(RequestIntentOutcome.deviceLocked);
+        return _unfinished(RequestIntentOutcome.deviceLocked, lockOn);
       case HeadlessUnreachable():
-        return _outcome(RequestIntentOutcome.unreachable);
+        return _unfinished(RequestIntentOutcome.unreachable, lockOn);
     }
   }
 
@@ -146,32 +181,49 @@ class RequestIntents {
     }
     final found = await step.found;
     if (found == null) throw StateError('The open requests were not read');
-    final rows = await _refreshed(hermes, found);
     hermes
       ..annotate('engine', engine)
-      ..annotate('result', _listed(rows).wire)
-      ..annotate('requests', rows.length);
-    return rows;
+      ..annotate('result', _listed(found).wire)
+      ..annotate('requests', found.length);
+    return found;
   }
 
   static RequestIntentOutcome _listed(List<PendingRequest> rows) =>
       rows.isEmpty ? RequestIntentOutcome.none : RequestIntentOutcome.answered;
 
-  /// Stores [found] as the snapshot's requests, so the widgets and the badge
-  /// agree with what the intent says, and returns the stored rows (which
-  /// remember when each request was first seen). Without a stored snapshot
-  /// (dropped, or the refresh too slow) [found] stands.
-  Future<List<PendingRequest>> _refreshed(
-    HeadlessHermes hermes,
-    List<PendingRequest> found,
+  /// When each stored request was first seen, by request id; none when the
+  /// stored snapshot cannot be read in time.
+  Future<Map<String, DateTime>> _firstSeen() async {
+    try {
+      final stored = await _store.read().timeout(snapshotWait);
+      return {
+        for (final request in stored?.pending ?? const <PendingRequest>[])
+          request.requestId: request.createdAt,
+      };
+    } on Object {
+      return const {};
+    }
+  }
+
+  /// Stores [rows] as the snapshot's open requests, so the widgets, the badge
+  /// and the entity picker agree with what was just said. Local storage only:
+  /// the other sections are the app's and the background refresh's to read
+  /// from the server. Without a stored, signed-in snapshot there is nothing to
+  /// amend.
+  Future<void> _storePending(List<PendingRequest> rows) =>
+      _amendSnapshot((stored) => stored.withPending(rows, DateTime.now()));
+
+  Future<void> _amendSnapshot(
+    SurfaceSnapshot Function(SurfaceSnapshot stored) amend,
   ) async {
     try {
-      final written = await hermes
-          .refreshSnapshot(pending: found)
-          .timeout(snapshotRefresh);
-      return written?.pending ?? found;
+      await (() async {
+        final stored = await _store.read();
+        if (stored == null || !stored.signedIn) return;
+        await _store.writeIfCurrent(amend(stored), appLockOn: _appLockOn);
+      })().timeout(snapshotWait);
     } on Object {
-      return found;
+      // The next refresh catches up.
     }
   }
 
@@ -179,7 +231,8 @@ class RequestIntents {
   ///
   /// `{outcome: 'found', command, description, choices}`, or `gone` when the
   /// session no longer waits on it. With App Lock on nothing is read: the
-  /// command would show past the lock.
+  /// command would show past the lock. `cannot_list` when Hermes refuses to
+  /// list approvals, `failed` for any other refusal.
   Future<Map<String, Object?>> approvalDetail(Map<String, Object?> args) async {
     final threadId = _text(args['threadId']);
     final requestId = _text(args['requestId']);
@@ -189,13 +242,27 @@ class RequestIntents {
     if (await _lockedNow()) return _outcome(RequestIntentOutcome.appLocked);
     final outcome = await withHeadlessHermes<Map<String, Object?>>(
       (hermes) async {
-        final approvals = await hermes.transport().pendingApprovals(
-          threadId: threadId,
-          profile: _text(args['profile']),
-        );
         hermes
           ..annotate('engine', engine)
           ..annotate('step', 'detail');
+        Map<String, Object?> done(RequestIntentOutcome result) {
+          hermes.annotate('result', result.wire);
+          return _outcome(result);
+        }
+
+        final List<ApprovalRequest> approvals;
+        try {
+          approvals = await hermes.transport().pendingApprovals(
+            threadId: threadId,
+            profile: _text(args['profile']),
+          );
+        } on GatewayRpcException catch (error) {
+          return done(
+            error.code == kGatewayNoProvider
+                ? RequestIntentOutcome.cannotList
+                : RequestIntentOutcome.failed,
+          );
+        }
         for (final approval in approvals) {
           if (approval.requestId != requestId) continue;
           hermes.annotate('result', 'found');
@@ -206,11 +273,10 @@ class RequestIntents {
             'choices': approval.choices,
           };
         }
-        hermes.annotate('result', RequestIntentOutcome.gone.wire);
-        return _outcome(RequestIntentOutcome.gone);
+        return done(RequestIntentOutcome.gone);
       },
       task: 'intent.answer_approval',
-      timeout: pendingTimeout,
+      timeout: _budget(args, kIntentReadBudget),
       deps: headless,
     );
     return switch (outcome) {
@@ -223,7 +289,8 @@ class RequestIntents {
 
   /// Answers the approval `requestId` of the chat `threadId` with `choice`,
   /// by the same path as a notification's button, and takes it off the
-  /// snapshot's pending list. `{outcome}`.
+  /// snapshot's pending list. `{outcome}`. When the app's own isolate is
+  /// alive it sends the answer, so the chat on screen follows.
   Future<Map<String, Object?>> answerApproval(Map<String, Object?> args) async {
     final choice = _text(args['choice']);
     final threadId = _text(args['threadId']);
@@ -243,8 +310,18 @@ class RequestIntents {
             requestId: requestId,
             profile: profile,
             choice: choice,
+            budget: _budget(args, kIntentAnswerBudget),
           );
     _log('intent.answer_approval', {'outcome': result.wire, 'choice': choice});
+    if (result == RequestIntentOutcome.answered ||
+        result == RequestIntentOutcome.gone) {
+      await _amendSnapshot(
+        (stored) => stored.withPending([
+          for (final request in stored.pending)
+            if (request.requestId != requestId) request,
+        ], DateTime.now()),
+      );
+    }
     return _outcome(result);
   }
 
@@ -253,33 +330,70 @@ class RequestIntents {
     required String requestId,
     required String? profile,
     required String choice,
+    required Duration budget,
   }) async {
+    final due = DateTime.now().add(budget);
+    final response = NotificationResponse(
+      notificationResponseType:
+          NotificationResponseType.selectedNotificationAction,
+      actionId: _actionFor(choice),
+      payload: notificationPayload(
+        AttentionNotification(
+          threadId: threadId,
+          profile: profile,
+          title: '',
+          body: '',
+          request: notifications.PendingRequest(
+            requestId: requestId,
+            kind: notifications.PendingRequestKind.approval,
+          ),
+        ),
+      ),
+    );
+    RequestIntentOutcome? direct;
+    final handed = await routeAnswer(
+      response,
+      // The app's isolate, when it runs, is polled for once: an engine the
+      // intent started has no app beside it, and waiting would only add time.
+      pollFor: Duration.zero,
+      deadline: due,
+      alone: (answer, deadline) async {
+        direct = await _answerAlone(answer, deadline);
+        return switch (direct) {
+          RequestIntentOutcome.answered => AnswerOutcome.ok,
+          RequestIntentOutcome.gone => AnswerOutcome.expired,
+          RequestIntentOutcome.signedOut => AnswerOutcome.signedOut,
+          RequestIntentOutcome.appLocked => AnswerOutcome.locked,
+          _ => AnswerOutcome.failed,
+        };
+      },
+      unanswered: (_) async {},
+    );
+    return direct ??
+        switch (handed) {
+          AnswerOutcome.ok => RequestIntentOutcome.answered,
+          AnswerOutcome.expired => RequestIntentOutcome.gone,
+          AnswerOutcome.signedOut => RequestIntentOutcome.signedOut,
+          AnswerOutcome.locked => RequestIntentOutcome.appLocked,
+          AnswerOutcome.failed => RequestIntentOutcome.failed,
+        };
+  }
+
+  /// Sends the answer on a connection of the headless runtime. Nothing is
+  /// posted for a failure: the intent says it.
+  Future<RequestIntentOutcome> _answerAlone(
+    NotificationAnswer answer,
+    DateTime due,
+  ) async {
+    final left = due.difference(DateTime.now());
     final outcome = await withHeadlessHermes<RequestIntentOutcome>(
       (hermes) async {
-        final sent =
-            await RequestAnswerSender(
-              transport: hermes.transport,
-              events: () => hermes.repositories.telemetry.events,
-              locked: _appLockOn,
-              timeout: answerTimeout - const Duration(seconds: 3),
-            ).send(
-              NotificationAnswer(
-                target: NotificationTarget(
-                  threadId: threadId,
-                  profile: profile,
-                ),
-                title: '',
-                request: notifications.PendingRequest(
-                  requestId: requestId,
-                  kind: notifications.PendingRequestKind.approval,
-                  // Found with approval.pending, which lists the approvals the
-                  // session raised as events.
-                  raisedAsEvent: true,
-                ),
-                answer: ApprovalChoiceAnswer(choice),
-              ),
-              route: 'intent',
-            );
+        final sent = await RequestAnswerSender(
+          transport: hermes.transport,
+          events: () => hermes.repositories.telemetry.events,
+          locked: _appLockOn,
+          timeout: left.isNegative ? Duration.zero : left,
+        ).send(answer, route: 'intent', deadline: due);
         final result = switch (sent) {
           AnswerOutcome.ok => RequestIntentOutcome.answered,
           AnswerOutcome.expired => RequestIntentOutcome.gone,
@@ -291,13 +405,10 @@ class RequestIntents {
           ..annotate('engine', engine)
           ..annotate('step', 'answer')
           ..annotate('result', result.wire);
-        if (sent == AnswerOutcome.ok || sent == AnswerOutcome.expired) {
-          await _dropFromSnapshot(hermes, requestId);
-        }
         return result;
       },
       task: 'intent.answer_approval',
-      timeout: answerTimeout,
+      timeout: left.isNegative ? Duration.zero : left,
       deps: headless,
     );
     return switch (outcome) {
@@ -308,33 +419,12 @@ class RequestIntents {
     };
   }
 
-  /// Saves the snapshot without [requestId], so the badge, the widgets and the
-  /// next "Pending Requests" stop listing it. The answer is already given;
-  /// whatever goes wrong here is left for the next refresh.
-  Future<void> _dropFromSnapshot(
-    HeadlessHermes hermes,
-    String requestId,
-  ) async {
-    try {
-      final stored =
-          await (headless?.snapshotStore ??
-                  SurfaceSnapshotStore(
-                    events: hermes.repositories.telemetry.events,
-                  ))
-              .read();
-      if (stored == null || !stored.signedIn) return;
-      await hermes
-          .refreshSnapshot(
-            pending: [
-              for (final request in stored.pending)
-                if (request.requestId != requestId) request,
-            ],
-          )
-          .timeout(snapshotRefresh);
-    } on Object {
-      // The next refresh drops it.
-    }
-  }
+  static String _actionFor(String choice) => switch (choice) {
+    'once' => notifications.kAllowOnceAction,
+    'session' => notifications.kAllowSessionAction,
+    'always' => notifications.kAllowAlwaysAction,
+    _ => notifications.kDenyAction,
+  };
 
   /// Records an outcome that only the intent's Swift side can see, such as
   /// the user cancelling the confirmation. Only the fixed words are taken.
@@ -368,9 +458,20 @@ class RequestIntents {
     }
   }
 
+  static Duration _budget(Map<String, Object?> args, Duration fallback) {
+    final ms = args['budgetMs'];
+    return ms is num && ms > 0 ? Duration(milliseconds: ms.toInt()) : fallback;
+  }
+
   static Map<String, Object?> _outcome(RequestIntentOutcome outcome) => {
     'outcome': outcome.wire,
   };
+
+  /// A reply for a run that never got to its body.
+  static Map<String, Object?> _unfinished(
+    RequestIntentOutcome outcome,
+    bool lockOn,
+  ) => {'outcome': outcome.wire, 'appLock': lockOn};
 
   static String? _text(Object? value) =>
       value is String && value.isNotEmpty ? value : null;

@@ -2643,7 +2643,7 @@ approvals:
 
     test(
       'an approval is found by its chat on another connection and answered '
-      'there by its id',
+      'there by its id, without resuming the chat',
       () async {
         final doomed = Directory('${scratch.path}/doomed')..createSync();
         final transport = connect();
@@ -2669,7 +2669,6 @@ approvals:
                     const ApprovalChoiceAnswer('once'),
                     threadId: threadId,
                     profile: profile,
-                    raisedAsEvent: true,
                   ),
                 );
               }

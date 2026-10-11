@@ -18,6 +18,8 @@ enum RequestOutcome: String, Equatable, Sendable {
   case deviceLocked = "device_locked"
   case unreachable
   case appLocked = "app_locked"
+  /// Hermes refuses to list approvals (no provider is configured).
+  case cannotList = "cannot_list"
   /// No Dart engine answered in time.
   case unavailable
 }
@@ -155,6 +157,28 @@ struct UnavailableBackend: RequestIntentsBackend {
   func recordCancelled(choice: ApprovalChoice) async {}
 }
 
+/// How long the Dart side may work on a call, and how long the Runner waits
+/// for it. Dart is told its budget with each call (`budgetMs`) and the Runner's
+/// own timer is derived from the same number, so the two cannot race.
+enum RequestTimeouts {
+  /// Reading the open requests, or one approval.
+  static let read: TimeInterval = 12
+  /// Sending an answer.
+  static let answer: TimeInterval = 15
+  /// What a Dart run adds to its budget at worst: the runtime's wind-down
+  /// grace and the telemetry flush (`kIntentOverhead`).
+  static let dartOverhead: TimeInterval = 5
+  /// Room for the channel's own round trip.
+  static let margin: TimeInterval = 3
+
+  /// How long to wait for a call that was given [budget].
+  static func wait(forBudget budget: TimeInterval) -> TimeInterval {
+    budget + dartOverhead + margin
+  }
+
+  static func milliseconds(_ budget: TimeInterval) -> Int { Int(budget * 1000) }
+}
+
 /// What Siri says. The first three and the unavailable one are the sentences
 /// "Ask Hermes" uses for the same situations.
 enum RequestSpeech {
@@ -167,6 +191,8 @@ enum RequestSpeech {
   static let cancelled = "Cancelled."
   static let appLocked = "Open Hermes to answer this request."
   static let failedToRead = "Couldn't read your requests."
+  static let failedToReadOne = "Couldn't read this request."
+  static let cannotList = "Hermes can't list approvals right now."
   static let failedToSend = "Couldn't send your answer."
   static let notAnApproval = "Only approvals can be answered here."
   static let noChoice = "Hermes doesn't offer an answer for this request. Open Hermes to answer it."
@@ -182,9 +208,16 @@ enum RequestSpeech {
     case .gone: return gone
     case .appLocked: return appLocked
     case .cancelled: return cancelled
+    case .cannotList: return cannotList
     case .failed: return failedToSend
     case .answered, .none: return nil
     }
+  }
+
+  /// The sentence for a lookup of one request that ended without it; a
+  /// failure there is one of reading, not of sending.
+  static func lookupSentence(for outcome: RequestOutcome) -> String {
+    outcome == .failed ? failedToReadOne : sentence(for: outcome) ?? failedToReadOne
   }
 
   static func kindPhrase(_ kind: PendingKind) -> String {
@@ -293,15 +326,16 @@ struct PendingRequestsFlow {
       if reply.appLock { return PendingAnswer(text: RequestSpeech.countOnly(reply.count), rows: []) }
       return PendingAnswer(
         text: RequestSpeech.list(reply.requests, count: reply.count), rows: reply.requests)
-    case .signedOut, .deviceLocked, .unreachable, .unavailable, .failed, .gone, .cancelled, .appLocked:
-      return fallback(reply.outcome, profile: profile)
+    case .signedOut, .deviceLocked, .unreachable, .unavailable, .failed, .gone, .cancelled,
+      .appLocked, .cannotList:
+      return fallback(reply, profile: profile)
     }
   }
 
   /// The last list the app shared, if a user is signed in; otherwise the
-  /// sentence for why there is none. A stored snapshot with titles missing
-  /// was written under App Lock.
-  private func fallback(_ outcome: RequestOutcome, profile: String?) -> PendingAnswer {
+  /// sentence for why there is none.
+  private func fallback(_ reply: PendingReply, profile: String?) -> PendingAnswer {
+    let outcome = reply.outcome
     guard let snapshot = stored(), snapshot.signedIn else {
       let text = outcome == .failed ? nil : RequestSpeech.sentence(for: outcome)
       return PendingAnswer(text: text ?? RequestSpeech.failedToRead, rows: [])
@@ -309,7 +343,10 @@ struct PendingRequestsFlow {
     let rows = snapshot.pending.filter { profile == nil || $0.profile == profile }
       .map(PendingRow.init)
       .sorted { ($0.createdAt ?? .distantPast) < ($1.createdAt ?? .distantPast) }
-    if rows.contains(where: { $0.title.isEmpty }) {
+    // Dart says whether App Lock is on. Titles written empty tell the same
+    // only when Dart said nothing at all.
+    let locked = outcome == .unavailable ? rows.contains { $0.title.isEmpty } : reply.appLock
+    if locked {
       return PendingAnswer(
         text: RequestSpeech.countOnly(
           rows.count, asOf: snapshot.updatedAt, locale: locale, timeZone: timeZone),
@@ -353,7 +390,7 @@ struct ApprovalAnswerFlow {
     let detail: ApprovalDetail
     switch await backend.approvalDetail(ref) {
     case .ended(let outcome):
-      return RequestSpeech.sentence(for: outcome) ?? RequestSpeech.failedToSend
+      return RequestSpeech.lookupSentence(for: outcome)
     case .found(let found):
       detail = found
     }

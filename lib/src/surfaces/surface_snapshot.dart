@@ -348,6 +348,20 @@ class SurfaceSnapshot {
     schedules: schedules?.redacted(),
   );
 
+  /// This with [pending] as its open requests, as of [at].
+  SurfaceSnapshot withPending(List<PendingRequest> pending, DateTime at) =>
+      SurfaceSnapshot(
+        updatedAt: at,
+        revision: revision,
+        signedIn: signedIn,
+        profile: profile,
+        profiles: profiles,
+        recentChats: recentChats,
+        pending: pending,
+        kanban: kanban,
+        schedules: schedules,
+      );
+
   /// This as the [revision]th write.
   SurfaceSnapshot atRevision(int revision) => SurfaceSnapshot(
     updatedAt: updatedAt,
