@@ -5,4 +5,7 @@ const kSurfaceWidgetKinds = <String>[
   'HermesRecentChats',
   'HermesNeedsYou',
   'HermesBoard',
+  'HermesNewChat',
+  'HermesDictate',
+  'HermesQuickLaunch',
 ];

@@ -31,6 +31,7 @@ void main() {
       {'kind': 'HermesRecentChats', 'family': 'systemMedium'},
       {'kind': 'HermesRecentChats', 'family': 'systemMedium'},
       {'kind': 'HermesBoard', 'family': 'systemSmall'},
+      {'kind': 'HermesNewChat', 'family': 'accessoryCircular'},
       {'kind': 'SomeoneElsesWidget', 'family': 'systemSmall'},
     ];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -52,9 +53,10 @@ void main() {
 
     expect(events.named('widgets.installed'), [
       {
-        'widgets.count': 3,
+        'widgets.count': 4,
         'widgets.kinds':
             'HermesBoard/systemSmall=1,'
+            'HermesNewChat/accessoryCircular=1,'
             'HermesRecentChats/systemMedium=2',
       },
     ]);

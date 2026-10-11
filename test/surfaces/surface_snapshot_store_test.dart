@@ -68,14 +68,21 @@ void main() {
       );
     });
 
-    test('reloads the three Home Screen widgets by default', () async {
+    test('reloads every widget kind by default', () async {
       await SurfaceSnapshotStore().write(snapshot());
 
       expect(
         calls
             .where((c) => c.method == 'updateWidget')
             .map((c) => (c.arguments as Map)['ios']),
-        ['HermesRecentChats', 'HermesNeedsYou', 'HermesBoard'],
+        [
+          'HermesRecentChats',
+          'HermesNeedsYou',
+          'HermesBoard',
+          'HermesNewChat',
+          'HermesDictate',
+          'HermesQuickLaunch',
+        ],
       );
     });
 
