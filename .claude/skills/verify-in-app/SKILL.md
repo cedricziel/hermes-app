@@ -1054,7 +1054,12 @@ the simulator, so run it from Shortcuts. Start the backend with
 - App Lock on: iOS asks to continue in the app, which opens on a new chat with
   the question in the composer, unsent, behind the lock screen.
 - Chat parameter: pick a chat; the prompt must land in that chat, in its own
-  profile.
+  profile. Ask the same chat again while its first answer still streams: the
+  second ask says "Added to the running chat."
+- A slow question whose app is then suspended: the chat is announced by the next
+  background run ("Reply ready") through `RunningReplies`; stop the server
+  right after "Still working" to see "Couldn't send your question", whose tap
+  opens a new chat with the question in the composer, unsent.
 - `swift test` in `ios/HermesSurfaceKit` covers the clock, the words and the
   Markdown stripping; `flutter test test/intents` the Dart side.
 

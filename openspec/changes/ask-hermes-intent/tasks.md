@@ -24,3 +24,9 @@ One PR, `feat(ios): answer "Ask Hermes" from Siri and Shortcuts in place`. Needs
 
 - [x] 5.1 (scoped tests here; the full suite runs in CI) Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze`, `flutter test` and `swift test` in `ios/HermesSurfaceKit`; all pass.
 - [ ] 5.2 In the iOS simulator against `scripts/dev-backend.sh` with `HERMES_DEV_MODEL_CALLS=1`: run "Ask Hermes" from Shortcuts with the app killed and with it in the background, check the spoken/output text and that the new chat appears in the app; ask something slow and check "Still working" and the later notification; trigger an approval and check the answer and notification; turn on App lock and check the hand-over. Restore the `ios/`/`macos/` Xcode files the build rewrites, staging files by name.
+
+## 6. Review fixes
+
+- [x] 6.1 Ready wait of 12 s that keeps a slow engine, `intent.unavailable` with a fixed reason.
+- [x] 6.2 Hand a reply that outlives its answer to `RunningReplies` (`fromAsk` entries survive the chat screen's pause); test with a background run announcing it.
+- [x] 6.3 "Couldn't send your question" notification that opens a new chat with the question; no false "Reply failed" after the hand-over; Dart decides 500 ms before Swift; the bridge's call timeout and engine reset; `folded`; the App Lock link through `DeepLinks.open`; `app_locked` spans; `finished` for malformed asks.

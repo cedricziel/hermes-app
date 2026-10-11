@@ -109,9 +109,19 @@ Nothing to migrate. Rollback removes the intent and the phrases; saved shortcuts
 ## Deviations from the first plan
 
 - `supportedModes` is `[.background, .foreground(.dynamic)]`, since `continueInForeground` needs the foreground mode to be offered.
-- The App Lock hand-over opens `hermes://new?prompt=` from the bridge (`UIApplication.open` after `continueInForeground`), not through an `OpenURLIntent` result: one `perform()` has one result type. It is the fallback `app-intents` named.
-- `withHeadlessHermes` gained an `attributes` parameter so `engine` and `continued` are on the span of a run that never reaches its body. The runtime sets `outcome` itself, so the intent's own outcome is `ask.outcome`. An App Lock or blank-question ask starts no run and has no span; its log event and breadcrumb are recorded.
+- The App Lock hand-over is opened by the bridge after `continueInForeground`, not through an `OpenURLIntent` result: one `perform()` has one result type. It is the fallback `app-intents` named.
+- `withHeadlessHermes` gained an `attributes` parameter so `engine` and `continued` are on the span of a run that never reaches its body. The runtime sets `outcome` itself, so the intent's own outcome is `ask.outcome`. An App Lock or blank-question ask starts no run, so it gets a span of its own with `ask.outcome`.
 - The bridge serializes asks only until the engine has answered the first, not until it has finished: a long reply must not keep the next ask from being sent.
 - `unavailable` is Swift's alone; Dart never reports it. `waited_s` is measured from when Dart starts the ask.
 - A run that cannot connect after "Still working" was already said sends nothing and posts nothing; the connect phases have their own short timeouts, so this needs a server that is reachable at first and then gone.
-- A reply that outlives iOS's background time is not announced: `background-refresh` (#620) announces chats the app remembered as still replying when it paused, and the ask does not add its chat to that list yet. Follow-up.
+- A reply that outlives iOS's background time is handed to `background-refresh` (#620): once "Still working" is said, the chat goes into `RunningReplies` as a `fromAsk` entry, which `replace` (the chat screen's pause) keeps and `clear` (the app returning) drops. The ask forgets the entry when it announces the reply itself.
+- The bridge's ready wait is 12 s (`AskHermes.readyWait`), after a cold start was measured at 5.4 s, and a slow engine is kept; `intent.unavailable` (`ready_timeout`, `engine_start_failed`) is logged by Dart once an engine is there to tell.
+- A question that never got to Hermes after "Still working" posts "Couldn't send your question"; its tap opens a new chat with the question unsent (`NotificationTarget.newChat`, payload key `q`).
+- A turn that ends without a reply after the hand-over posts no "Reply failed" (the 60 s send timeout and the 3-minute run timeout would otherwise report a turn that still runs).
+- Dart decides 500 ms before Swift's clock. A call that gets no reply by Swift's deadline gives up its place in the engine's line. A prompt Hermes folded into a running turn answers "Added to the running chat." (`AskOutcome.folded`).
+- The App Lock hand-over goes through Dart (`openLink` to `DeepLinks.open`), which holds a link that arrives before the shell; iOS opens the URL itself only when the app's engine never answers.
+- The Swift protocol is `AskTurnService` (macOS already has an `AskHermesService` class).
+
+## Bridge contract
+
+`IntentsBridge` is the single bridge between intents and Dart; its header comment lists the channel methods. Another intent adds a Swift call through `IntentsBridge.call` and a case in `IntentsChannel._onCall`; it reuses `engine()` (engine choice, ready wait, idle teardown) and, for work that outlives its answer, the `asks` bookkeeping (background task, `finished`).
