@@ -52,6 +52,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     required this.session,
     Stream<void>? signedOut,
     this.appLock,
+    this.localOnly = false,
     this.debounce = kSurfaceDebounce,
     this.remoteInterval = kSurfaceRemoteInterval,
     this.pauseWindow = kSurfacePauseWindow,
@@ -71,6 +72,11 @@ class SurfaceSnapshots with WidgetsBindingObserver {
   /// any provider has passed it on.
   final SurfaceSession Function() session;
   final AppLockController? appLock;
+
+  /// Builds from what the chat screen reports and the last snapshot only,
+  /// never asking the server and recording no spans: for a platform whose
+  /// only reader is the open-request badge.
+  final bool localOnly;
   final Duration debounce;
   final Duration remoteInterval;
   final Duration pauseWindow;
@@ -181,6 +187,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
 
   void _request(_Job job) {
     if (_disposed) return;
+    if (localOnly) job = _Job(job.trigger, remote: false);
     _queued = _queued?.merge(job) ?? job;
     if (!_running) unawaited(_drain());
   }
@@ -205,9 +212,10 @@ class SurfaceSnapshots with WidgetsBindingObserver {
       await _adoptStored();
       if (generation != _generation) return;
       final stale =
-          _lastRemote == null ||
-          !_now().isBefore(_lastRemote!.add(remoteInterval));
-      if (job.trigger == SurfaceTrigger.pause) {
+          !localOnly &&
+          (_lastRemote == null ||
+              !_now().isBefore(_lastRemote!.add(remoteInterval)));
+      if (job.trigger == SurfaceTrigger.pause && !localOnly) {
         await _pause(repositories, generation);
       } else {
         final remote = job.remote || stale;
@@ -251,7 +259,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
       _builderOf = repositories;
       _builder = _builderFor(repositories);
     }
-    final span = _startSpan(repositories, trigger);
+    final span = localOnly ? null : _startSpan(repositories, trigger);
     try {
       final result = await _builder!.build(
         signedIn: _signedIn,

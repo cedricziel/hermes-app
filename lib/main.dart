@@ -242,7 +242,8 @@ Future<void> main([List<String> args = const []]) async {
         ),
         // Widgets, quick actions and shortcuts read what the app shares
         // through the App Group; only phones have them. The Mac has none of
-        // them but follows the open requests in its Dock badge.
+        // them but follows the open requests in its Dock badge, from local
+        // state and without telemetry.
         Provider<SurfaceSnapshotStore?>(
           create: (_) {
             final mac = defaultTargetPlatform == TargetPlatform.macOS;
@@ -251,10 +252,9 @@ Future<void> main([List<String> args = const []]) async {
                 defaultTargetPlatform != TargetPlatform.android) {
               return null;
             }
-            return SurfaceSnapshotStore(
-              storage: mac ? MemorySurfaceStorage() : null,
-              events: telemetry.events(),
-            );
+            return mac
+                ? SurfaceSnapshotStore(storage: MemorySurfaceStorage())
+                : SurfaceSnapshotStore(events: telemetry.events());
           },
           dispose: (_, store) => store?.dispose(),
         ),
@@ -292,6 +292,8 @@ Future<void> main([List<String> args = const []]) async {
                     },
                     signedOut: auth.signedOut,
                     appLock: context.read<AppLockController>(),
+                    // The Mac only has the Dock badge to feed.
+                    localOnly: defaultTargetPlatform == TargetPlatform.macOS,
                   ))
               ..repositories = repositories
               ..sessionChanged();

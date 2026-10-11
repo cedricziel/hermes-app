@@ -611,6 +611,78 @@ void main() {
     });
   });
 
+  group('local only', () {
+    late AppLockController lock;
+
+    setUp(() async {
+      lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+      addTearDown(lock.dispose);
+      await lock.load();
+      snapshots.dispose();
+      snapshots = SurfaceSnapshots(
+        store: store,
+        session: () => session,
+        appLock: lock,
+        localOnly: true,
+        debounce: debounce,
+        pauseWindow: const Duration(milliseconds: 100),
+        now: () => now,
+      )..repositories = newRepositories();
+    });
+
+    int serverCalls() => server.requests.length;
+
+    ChatHints withRequest() => ChatHints(
+      profile: 'default',
+      requests: [
+        RequestHint(
+          threadId: 'd1',
+          threadTitle: 'Trip plan',
+          kind: PendingKind.approval,
+          requestId: 'r1',
+          seenAt: now,
+        ),
+      ],
+    );
+
+    test('lists the open requests without asking the server', () async {
+      snapshots.chatChanged(SurfaceTrigger.request, withRequest());
+      await nextWrite();
+
+      expect(lastWrite().pending.map((p) => p.requestId), ['r1']);
+      expect(serverCalls(), 0);
+    });
+
+    test('going to the background asks the server for nothing', () async {
+      snapshots.chatChanged(SurfaceTrigger.request, withRequest());
+      await nextWrite();
+
+      snapshots.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+
+      expect(serverCalls(), 0);
+    });
+
+    test('turning App Lock off asks the server for nothing', () async {
+      snapshots.chatChanged(SurfaceTrigger.request, withRequest());
+      await nextWrite();
+
+      await lock.setEnabled(true);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await lock.setEnabled(false);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+
+      expect(serverCalls(), 0);
+    });
+
+    test('records no build span', () async {
+      snapshots.chatChanged(SurfaceTrigger.request, withRequest());
+      await nextWrite();
+
+      expect(tracer.spans, isEmpty);
+    });
+  });
+
   group('telemetry', () {
     test('records the build with its trigger and failed sources', () async {
       server.on('GET', '/api/profiles', {'detail': 'no'}, status: 500);
