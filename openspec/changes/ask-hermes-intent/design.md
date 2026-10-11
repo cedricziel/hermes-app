@@ -114,4 +114,4 @@ Nothing to migrate. Rollback removes the intent and the phrases; saved shortcuts
 - The bridge serializes asks only until the engine has answered the first, not until it has finished: a long reply must not keep the next ask from being sent.
 - `unavailable` is Swift's alone; Dart never reports it. `waited_s` is measured from when Dart starts the ask.
 - A run that cannot connect after "Still working" was already said sends nothing and posts nothing; the connect phases have their own short timeouts, so this needs a server that is reachable at first and then gone.
-- A reply that outlives iOS's background time is not announced: `background-refresh` (#614) has no finished-reply check to hand the chat to yet.
+- A reply that outlives iOS's background time is not announced: `background-refresh` (#620) announces chats the app remembered as still replying when it paused, and the ask does not add its chat to that list yet. Follow-up.
