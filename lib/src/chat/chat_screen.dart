@@ -40,6 +40,7 @@ import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
+import '../surfaces/surface_snapshot_store.dart';
 import '../surfaces/surface_snapshots.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/platform_chrome.dart';
@@ -260,6 +261,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       attention: _attention,
       liveActivities: liveActivities,
       onSurfaceChange: _maybeRead<SurfaceSnapshots?>()?.chatChanged,
+      readSnapshot: _maybeRead<SurfaceSnapshotStore?>()?.read,
       watchStatus: _maybeRead<WatchComplicationStatus?>(),
       report: _showMessage,
       onShowChat: () => widget.onShowChat?.call(),
@@ -678,7 +680,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// list: the drawer on a phone, the sidebar that is already there when wide.
   Future<void> _openOldestRequest() async {
     unawaited(_windows?.showMainWindow());
+    // What this profile shows is live; the snapshot only speaks for the
+    // others, and a chat it names is kept only if it has a request open.
     if (_chat.openOldestRequest()) return;
+    if (await _chat.openOldestStoredRequest() || !mounted) return;
     widget.onShowChat?.call();
     if (hasMacSidebar(context)) {
       final sidebar = MacSidebarScope.read(context);

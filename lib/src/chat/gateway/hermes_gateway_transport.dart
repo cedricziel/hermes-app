@@ -1991,12 +1991,14 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   @override
-  Future<Map<String, String>> activeStatuses() async {
+  Future<Map<String, String>> activeStatuses({String? profile}) async {
     final GatewayRpcClient client;
     final Map<String, Object?> result;
     try {
       client = await _client();
-      result = await _call(client, 'session.active_list', {});
+      result = await _call(client, 'session.active_list', {
+        'profile': ?profile,
+      });
     } on Object {
       return const {};
     }

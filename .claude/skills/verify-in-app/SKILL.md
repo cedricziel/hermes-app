@@ -371,6 +371,23 @@ opens the app once (a plugin registered in both engines would handle it twice),
 and that the app is still signed in. Remove the hook before committing. To
 see a refresh, start the dev backend with a short token lifetime and wait it out.
 
+### The periodic refresh
+
+Start the dev backend, sign in, put the app in the background and start a
+prompt that needs an approval (a scripted tool call, see below). Then, from the
+Xcode debugger attached to the simulator app, simulate the task:
+
+```
+e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.cedricziel.hermesApp.refresh"]
+```
+
+(the debug build's bundle id plus `.refresh`). One "Waiting for your approval"
+notification appears for the chat and `hermes.surface.v1` lists the request
+under `pending`; simulating the launch again posts nothing new. The task does
+not run on macOS, and a simulator run says nothing about when iOS would run it
+on a device (rarely, late, never after a force-quit or with Background App
+Refresh off).
+
 ## When the screenshot can't be taken
 
 To set up state the screen needs (a second profile, say), use the CLI against

@@ -36,6 +36,8 @@ const _mainEngineOnly = {
   'FPPPackageInfoPlusPlugin',
   'FlutterMultiWindowPlugin',
   'RecordMacOsPlugin',
+  // Background tasks belong to the main engine; a window schedules none.
+  'WorkmanagerPlugin',
 };
 
 Set<String> _registered(String source) => {

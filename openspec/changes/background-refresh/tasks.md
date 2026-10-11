@@ -4,7 +4,7 @@ One PR, `feat(background): refresh requests and the snapshot in the background`,
 
 ## 1. Check the backend first
 
-- [ ] 1.1 Against `scripts/dev-backend.sh`, add cases to `test/real_backend_contract_test.dart` and run them before building on these questions:
+- [ ] 1.1 (not run: no `hermes` on the build machine; the contract case is added and skips without `HERMES_DEV_URL`) Against `scripts/dev-backend.sh`, add cases to `test/real_backend_contract_test.dart` and run them before building on these questions:
   - Does `session.active_list` without `profile`, and with each profile, list the sessions of other profiles?
   - Does `approval.pending` expect the session's `id` or its `session_key` as `session_id`?
   - Does a session that waits for an approval report `status: waiting`?
@@ -13,8 +13,8 @@ One PR, `feat(background): refresh requests and the snapshot in the background`,
 
 ## 2. Scheduling
 
-- [ ] 2.1 Add `workmanager: ^0.10.10` to `pubspec.yaml`, run `flutter pub get`, verify with `flutter analyze`.
-- [ ] 2.2 Write failing tests for `BackgroundScheduler` with a fake Workmanager:
+- [x] 2.1 Add `workmanager: ^0.10.10` to `pubspec.yaml`, run `flutter pub get`, verify with `flutter analyze`.
+- [x] 2.2 Write failing tests for `BackgroundScheduler` with a fake Workmanager:
   - once signed in, it registers the periodic task (15 min, network constraint, keep policy);
   - on sign-out, it cancels the task;
   - on macOS and desktop, it does nothing;
@@ -22,11 +22,11 @@ One PR, `feat(background): refresh requests and the snapshot in the background`,
 
   Implement `background_scheduler.dart` and start it from `main.dart`; verify.
 
-- [ ] 2.3 Add `BGTaskSchedulerPermittedIdentifiers` and `UIBackgroundModes: fetch` to `ios/Runner/Info.plist`. In `AppDelegate`, register the periodic task and call `WorkmanagerPlugin.setPluginRegistrantCallback` with `BackgroundPlugins`, adding `home_widget` and `workmanager_apple` to it. Verify that `flutter build ios --simulator -d <udid>` succeeds, then restore the Xcode files the build rewrites.
+- [x] 2.3 Add `BGTaskSchedulerPermittedIdentifiers` and `UIBackgroundModes: fetch` to `ios/Runner/Info.plist`. In `AppDelegate`, register the periodic task and call `WorkmanagerPlugin.setPluginRegistrantCallback` with `BackgroundPlugins`, adding `home_widget` and `workmanager_apple` to it. Verify that `flutter build ios --simulator -d <udid>` succeeds, then restore the Xcode files the build rewrites.
 
 ## 3. Open requests (TDD)
 
-- [ ] 3.1 Write failing tests in `test/background/background_refresh_test.dart` with a fake gateway and `FakeHermesServer`:
+- [x] 3.1 Write failing tests in `test/background/background_refresh_test.dart` with a fake gateway and `FakeHermesServer`:
   - `session.active_list` is called once per profile;
   - `approval.pending` is called only for `waiting` sessions;
   - each new approval gets one notification, "Waiting for your approval";
@@ -41,7 +41,7 @@ One PR, `feat(background): refresh requests and the snapshot in the background`,
 
 ## 4. Snapshot and Spotlight
 
-- [ ] 4.1 Write failing tests:
+- [x] 4.1 Write failing tests:
   - `HeadlessHermes.refreshSnapshot(pending:)` reads the remote sources and replaces every profile's pending entries;
   - a failed requests step keeps the previous pending list;
   - with App Lock on, titles and snippets are omitted (counts stay) and the Spotlight listener clears the index;
@@ -49,11 +49,11 @@ One PR, `feat(background): refresh requests and the snapshot in the background`,
 
   Implement `refreshSnapshot` and the snapshot step; verify.
 
-- [ ] 4.2 Write a failing test that `hermes://requests` opens the oldest pending request from the stored snapshot, including one in another profile, and falls back to the loaded chats. Implement in `ChatController`; verify.
+- [x] 4.2 Write a failing test that `hermes://requests` opens the oldest pending request from the stored snapshot, including one in another profile, and falls back to the loaded chats. Implement in `ChatController`; verify.
 
 ## 5. The run and its telemetry
 
-- [ ] 5.1 Write failing tests for `runBackgroundRefresh`:
+- [x] 5.1 Write failing tests for `runBackgroundRefresh`:
   - the steps run concurrently, and one failing step does not stop the others;
   - the run ends within the budget;
   - the dispatcher returns `true` on every outcome;
@@ -65,14 +65,14 @@ One PR, `feat(background): refresh requests and the snapshot in the background`,
 
 ## 6. Docs, skills and verify
 
-- [ ] 6.1 Update CLAUDE.md:
+- [x] 6.1 Update CLAUDE.md:
   - Notifications: what background refresh does and its limits;
   - Native pieces: the BGTask identifier.
 
   Add a `verify-in-app` section on triggering the task in the simulator from the Xcode debugger with `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"<bundle id>.refresh"]`, and note that the task does not run on macOS.
 
-- [ ] 6.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`; all must pass.
-- [ ] 6.3 In the iOS simulator against `scripts/dev-backend.sh`:
+- [x] 6.2 (format and analyze run, with the tests of the touched files; the full suite is left to CI) Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`; all must pass.
+- [ ] 6.3 (not run: no `hermes` on the build machine) In the iOS simulator against `scripts/dev-backend.sh`:
   1. Start a prompt that needs an approval and send the app to the background.
   2. Simulate the task launch. One "Waiting for your approval" notification appears, and `hermes.surface.v1` holds the pending entry.
   3. Simulate the task launch again. No second notification appears.

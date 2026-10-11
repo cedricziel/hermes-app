@@ -53,6 +53,7 @@ void main() {
     expect(full().toJson(), {
       'version': 1,
       'updatedAt': '2026-10-10T12:00:00Z',
+      'revision': 0,
       'signedIn': true,
       'profile': 'default',
       'profiles': ['default', 'work'],

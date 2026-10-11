@@ -3,6 +3,7 @@ import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 import flutter_local_notifications
+import workmanager_apple
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -21,6 +22,18 @@ import flutter_local_notifications
     // Lets a notification show while the app is in the foreground and lets a tap reach Flutter.
     NotificationActions.shared.next = self as? UNUserNotificationCenterDelegate
     UNUserNotificationCenter.current().delegate = NotificationActions.shared
+    // The periodic background refresh. BGTaskScheduler only accepts a launch
+    // handler before launching ends, and the engine registers its plugins
+    // later, so the handler is set here; Dart schedules the task once someone
+    // is signed in. The background engine gets the same plugins as a
+    // notification button's.
+    WorkmanagerPlugin.setPluginRegistrantCallback { registry in
+      NotificationActions.registerPlugins(registry)
+    }
+    if let bundleId = Bundle.main.bundleIdentifier {
+      WorkmanagerPlugin.registerPeriodicTask(
+        withIdentifier: "\(bundleId).refresh", earliestBeginInSeconds: NSNumber(value: 15 * 60))
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -66,6 +79,7 @@ import flutter_local_notifications
     watchRelay = WatchRelay(messenger: engineBridge.applicationRegistrar.messenger())
     webAuth = WebAuthSession(messenger: engineBridge.applicationRegistrar.messenger())
     ClipboardFiles.install(messenger: engineBridge.applicationRegistrar.messenger())
+    BackgroundRefreshStatus.install(messenger: engineBridge.applicationRegistrar.messenger())
   }
 }
 
@@ -235,6 +249,23 @@ enum NotificationCategories {
       identifier: id, actions: actions, intentIdentifiers: [],
       hiddenPreviewsBodyPlaceholder: spec["placeholder"] as? String ?? "",
       options: [])
+  }
+}
+
+/// Whether the user lets the app refresh in the background, which the
+/// periodic refresh depends on and iOS gives no other way to notice.
+enum BackgroundRefreshStatus {
+  static func install(messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "hermes_app/background_refresh", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in
+        guard call.method == "status" else { result(FlutterMethodNotImplemented); return }
+        switch UIApplication.shared.backgroundRefreshStatus {
+        case .available: result("available")
+        case .denied: result("denied")
+        case .restricted: result("restricted")
+        @unknown default: result("unknown")
+        }
+      }
   }
 }
 

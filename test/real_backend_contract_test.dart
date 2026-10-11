@@ -868,6 +868,53 @@ void main() {
               as String;
     });
 
+    const liveStatuses = {
+      'idle',
+      'starting',
+      'waiting',
+      'working',
+      'streaming',
+      'resuming',
+    };
+
+    for (final params in [
+      const <String, Object?>{},
+      const <String, Object?>{'profile': 'default'},
+    ]) {
+      test('live sessions list as background refresh reads them '
+          '(params: $params)', () async {
+        final listed = await rpc.request('session.active_list', params);
+        final rows = (listed['sessions'] as List).cast<Map<String, dynamic>>();
+        for (final row in rows) {
+          expect(row['id'], isA<String>());
+          expect(row['session_key'], isA<String>());
+          expect(row['title'], isA<String>());
+          expect(row['last_active'], isA<num>());
+          expect(liveStatuses, contains(row['status']));
+        }
+        expect(rows.map((row) => row['id']), contains(sessionId));
+      }, skip: skip);
+    }
+
+    test('approvals are asked by the runtime session id', () async {
+      final Map<String, Object?> pending;
+      try {
+        pending = await rpc.request('approval.pending', {
+          'session_id': sessionId,
+          'profile': 'default',
+        });
+      } on GatewayRpcException catch (error) {
+        // A backend with no provider cannot build the agent that holds them;
+        // background refresh then reads the session as waiting on something.
+        if (error.code == 5032) {
+          markTestSkipped('needs a provider configured in the backend');
+          return;
+        }
+        rethrow;
+      }
+      expect(pending['approvals'], isEmpty);
+    }, skip: skip);
+
     test('an image is queued on the session and can be taken off', () async {
       final attached = await rpc.request('image.attach_bytes', {
         'session_id': sessionId,

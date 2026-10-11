@@ -16,6 +16,11 @@ class FakeHermesServer implements HttpClientAdapter {
   /// Every request the client sent, in order.
   final List<RequestOptions> requests = [];
 
+  /// Fails a request with a receive timeout when its answer takes longer than
+  /// the request's `receiveTimeout`, as a real adapter does. Off by default:
+  /// widget tests that hold an answer back would be left with a pending timer.
+  bool honourReceiveTimeouts = false;
+
   /// Answers [method] [path] with [body]: a [String] is served as is (an HTML
   /// page), a [Uint8List] as a binary file, anything else as JSON. With [query], only requests carrying those
   /// parameters match, and they win over a route without.
@@ -80,9 +85,19 @@ class FakeHermesServer implements HttpClientAdapter {
   ) async {
     requests.add(options);
     final route = _match(options);
-    final (:status, :body) = route == null
-        ? (status: 404, body: {'detail': 'Not Found'})
-        : await route.respond(options);
+    final Future<FakeResponse> answer = route == null
+        ? Future.value((status: 404, body: {'detail': 'Not Found'}))
+        : Future.value(route.respond(options));
+    final limit = options.receiveTimeout;
+    final (:status, :body) = honourReceiveTimeouts && limit != null
+        ? await answer.timeout(
+            limit,
+            onTimeout: () => throw DioException.receiveTimeout(
+              timeout: limit,
+              requestOptions: options,
+            ),
+          )
+        : await answer;
     if (body is Uint8List) {
       return ResponseBody.fromBytes(
         body,

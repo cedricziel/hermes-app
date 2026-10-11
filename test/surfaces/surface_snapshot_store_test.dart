@@ -48,7 +48,7 @@ void main() {
       final save = calls.firstWhere((c) => c.method == 'saveWidgetData');
       expect(save.arguments, {
         'id': 'hermes.surface.v1',
-        'data': snapshot().encode(),
+        'data': snapshot().atRevision(1).encode(),
         'appGroupId': 'group.com.cedricziel.hermesApp',
       });
     });
@@ -383,6 +383,9 @@ void main() {
 /// A snapshot that cannot be compared, which makes a write throw.
 class _Unreadable extends SurfaceSnapshot {
   _Unreadable(DateTime updatedAt) : super(updatedAt: updatedAt);
+
+  @override
+  SurfaceSnapshot atRevision(int revision) => this;
 
   @override
   Map<String, Object?> toJson() => throw StateError('unreadable');

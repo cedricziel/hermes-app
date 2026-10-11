@@ -32,12 +32,12 @@ On iOS and Android, while someone is signed in, the app SHALL ask the system for
 
 ### Requirement: Open requests in the background
 
-Each run SHALL list every profile's live sessions on the gateway and read the pending approvals of each session that waits for the user.
+Each run SHALL list every profile's live sessions on the gateway and read the pending approvals of each session that waits for the user. While the app is in front (its lifecycle is `resumed`), the run SHALL leave announcing to the app, but still read the requests for the snapshot; an app that is only alive in the background SHALL NOT suppress announcements.
 
 - For each approval not announced before, it SHALL post a notification on that chat with the body "Waiting for your approval".
 - For a waiting session without a pending approval, it SHALL post "Waiting for you in Hermes", once per wait.
 
-The device SHALL remember announced requests, so a later run does not announce them again. An approval or question notification SHALL use the same notification category and actions as one posted in front. Notifications SHALL follow the lock-screen rules of the notifications spec, and SHALL NOT be posted while notifications are off.
+The device SHALL remember announced requests, so a later run does not announce them again, and SHALL remember them before posting. A wait SHALL be announced once however much Hermes could tell of it: not generically and then again by its approval, nor the other way round. A refused `approval.pending` SHALL be counted as `background.requests_unreadable`, with the error code only. An approval or question notification SHALL use the same notification category and actions as one posted in front. Notifications SHALL follow the lock-screen rules of the notifications spec, and SHALL NOT be posted while notifications are off.
 
 #### Scenario: Approval raised after the user left
 
@@ -62,7 +62,7 @@ Each run SHALL rebuild and store the surface snapshot with:
 - the open requests the run found across all profiles, replacing the previous list;
 - Kanban and schedules.
 
-The snapshot's privacy rules apply. With App Lock on, the stored snapshot SHALL omit chat titles and snippets (counts stay) and the Spotlight index SHALL be cleared instead of refreshed. When the run could not read the requests, the previous open requests SHALL be kept. The readers registered for snapshot writes, such as the Spotlight index, SHALL be run.
+Every write of the snapshot SHALL carry a revision one above the stored one. A background run SHALL save only if the stored revision is still the one it built from and the stored snapshot does not say signed out, and otherwise SHALL drop its build whole and log `surface.snapshot.write_skipped` with a fixed reason; the app in front SHALL take a newer stored snapshot as its base on resume. The snapshot's privacy rules apply; App Lock is read when the snapshot is saved. With App Lock on, the stored snapshot SHALL omit chat titles and snippets (counts stay) and the Spotlight index SHALL be cleared instead of refreshed. When the run could not read the requests, the previous open requests SHALL be kept. The readers registered for snapshot writes, such as the Spotlight index, SHALL be run.
 
 #### Scenario: Widget after a run
 
@@ -81,16 +81,21 @@ The snapshot's privacy rules apply. With App Lock on, the stored snapshot SHALL 
 
 ### Requirement: Opening the oldest request from the snapshot
 
-A `hermes://requests` link SHALL open the chat of the oldest open request in the stored snapshot, in any profile. When the snapshot lists none, it SHALL fall back to the chats the app has loaded.
+A `hermes://requests` link SHALL open the chat of the oldest open request of the open profile when the app has one loaded. Otherwise it SHALL open the chat of the oldest request the stored snapshot lists for another profile whose session the server still reports as waiting, checking before it switches profile. A request the snapshot lists for the open profile SHALL NOT be opened, since the app knows that profile live. When no chat qualifies, the chat list SHALL show.
 
 #### Scenario: Request in another profile
 
 - **WHEN** the snapshot's oldest open request is in profile `work` while the app shows `default`, and the user opens `hermes://requests`
 - **THEN** the app switches to `work` and opens that chat
 
+#### Scenario: Request already answered
+
+- **WHEN** the snapshot lists a request in the open profile or another one that is no longer open, and the user opens `hermes://requests`
+- **THEN** no answered chat stays open and the chat list shows
+
 ### Requirement: Budget and failure isolation
 
-A run SHALL finish within about 25 seconds, as iOS allows about 30. The run's checks SHALL be independent, so one failing or slow check does not stop the others. A run SHALL handle each outcome of headless work explicitly: when signed out, it SHALL post nothing and cancel further runs; when locked or unreachable, it SHALL do nothing and leave runs scheduled. It SHALL NOT sign the user out. A run SHALL report success to the system, whatever its outcome.
+The whole background task, from readying the isolate to sending telemetry, SHALL finish within about 25 seconds, as iOS allows about 30; the run gets what is left after the isolate is ready, less the time its wind-down and the telemetry may take. The run's checks SHALL be independent, so one failing or slow check does not stop the others. A run SHALL handle each outcome of headless work explicitly: when no server or session is stored, it SHALL post nothing and cancel further runs, and when the server rejected the refresh token it SHALL post nothing and keep the runs scheduled, since the app in front may have rotated the token; when locked or unreachable, it SHALL do nothing and leave runs scheduled. It SHALL NOT sign the user out. A run SHALL report success to the system, whatever its outcome.
 
 #### Scenario: Nobody signed in
 

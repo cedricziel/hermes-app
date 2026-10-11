@@ -132,6 +132,16 @@ class PendingRequest {
   String get url =>
       deepLinkUri(OpenChat(profile: profile, threadId: threadId)).toString();
 
+  /// The same request, first seen at [at].
+  PendingRequest firstSeen(DateTime at) => PendingRequest(
+    profile: profile,
+    threadId: threadId,
+    threadTitle: threadTitle,
+    kind: kind,
+    requestId: requestId,
+    createdAt: at,
+  );
+
   PendingRequest redacted() => PendingRequest(
     profile: profile,
     threadId: threadId,
@@ -283,6 +293,7 @@ class ScheduleSummary {
 class SurfaceSnapshot {
   SurfaceSnapshot({
     required this.updatedAt,
+    this.revision = 0,
     this.signedIn = true,
     this.profile,
     this.profiles = const [],
@@ -297,6 +308,11 @@ class SurfaceSnapshot {
     : this(updatedAt: updatedAt, signedIn: false);
 
   final DateTime updatedAt;
+
+  /// Counts the writes of the stored snapshot. Every writer saves one more
+  /// than the revision it replaces, and a background run saves only if the
+  /// revision is still the one it built from. Readers ignore it.
+  final int revision;
   final bool signedIn;
 
   /// The profile the app shows.
@@ -322,6 +338,7 @@ class SurfaceSnapshot {
   /// on: counts, kinds, times, ids and links stay.
   SurfaceSnapshot redacted() => SurfaceSnapshot(
     updatedAt: updatedAt,
+    revision: revision,
     signedIn: signedIn,
     profile: profile,
     profiles: profiles,
@@ -331,9 +348,23 @@ class SurfaceSnapshot {
     schedules: schedules?.redacted(),
   );
 
+  /// This as the [revision]th write.
+  SurfaceSnapshot atRevision(int revision) => SurfaceSnapshot(
+    updatedAt: updatedAt,
+    revision: revision,
+    signedIn: signedIn,
+    profile: profile,
+    profiles: profiles,
+    recentChats: recentChats,
+    pending: pending,
+    kanban: kanban,
+    schedules: schedules,
+  );
+
   Map<String, Object?> toJson() => {
     'version': kSurfaceSnapshotVersion,
     'updatedAt': _time(updatedAt),
+    'revision': revision,
     'signedIn': signedIn,
     'profile': profile,
     'profiles': profiles,
@@ -347,8 +378,12 @@ class SurfaceSnapshot {
 
   /// Whether [other] says the same, whenever it was written.
   bool sameContent(SurfaceSnapshot other) {
-    final mine = toJson()..remove('updatedAt');
-    final theirs = other.toJson()..remove('updatedAt');
+    final mine = toJson()
+      ..remove('updatedAt')
+      ..remove('revision');
+    final theirs = other.toJson()
+      ..remove('updatedAt')
+      ..remove('revision');
     return jsonEncode(mine) == jsonEncode(theirs);
   }
 
@@ -375,6 +410,7 @@ class SurfaceSnapshot {
     ];
     return SurfaceSnapshot(
       updatedAt: updatedAt,
+      revision: json['revision'] is int ? json['revision'] as int : 0,
       signedIn: json['signedIn'] as bool? ?? false,
       profile: json['profile'] as String?,
       profiles: [

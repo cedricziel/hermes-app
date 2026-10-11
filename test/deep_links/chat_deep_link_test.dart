@@ -14,6 +14,8 @@ import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
+import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
@@ -27,6 +29,7 @@ import '../support/fake_conversation_window_host.dart';
 import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_share_inbox.dart';
+import '../support/fake_surface_storage.dart';
 import '../support/fake_voice_recorder.dart';
 import '../support/pump_chat.dart';
 
@@ -48,6 +51,7 @@ void main() {
   FakeConversationWindowHost? host;
   ConversationWindows? windows;
   AppLockController? lock;
+  SurfaceSnapshotStore? snapshots;
 
   void seedProfile(String profile, List<Map<String, Object?>> sessions) =>
       server.on(
@@ -82,6 +86,7 @@ void main() {
     host = null;
     windows = null;
     lock = null;
+    snapshots = null;
     transport = FakeChatTransport();
     recorder = FakeVoiceRecorder();
     server = FakeHermesServer()
@@ -126,6 +131,7 @@ void main() {
           Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
           if (lock case final lock?)
             ChangeNotifierProvider<AppLockController>.value(value: lock),
+          Provider<SurfaceSnapshotStore?>.value(value: snapshots),
           if (windows case final windows?)
             ChangeNotifierProvider<ConversationWindows?>.value(value: windows),
         ],
@@ -356,6 +362,145 @@ void main() {
     testWidgets('opens the chat that has waited longest', (tester) async {
       await pumpChat(tester);
       // "older" is asked first, though "recent" is listed above it.
+      final first = await sendIn(tester, 'Older chat');
+      first.emit(const ApprovalRequested(_approval));
+      await tester.pump();
+      final second = await sendIn(tester, 'Recent chat');
+      second.emit(
+        const ApprovalRequested(
+          ApprovalRequest(
+            requestId: 'r2',
+            command: 'ls',
+            description: 'list',
+            choices: ['once', 'deny'],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(selectedId(tester), 'recent');
+
+      requests.requestOldestPending();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(selectedId(tester), 'older');
+    });
+
+    Future<void> storePending(List<(String, String, DateTime)> open) async {
+      final store = snapshots = SurfaceSnapshotStore(
+        storage: FakeSurfaceStorage(),
+      );
+      addTearDown(store.dispose);
+      await store.write(
+        SurfaceSnapshot(
+          updatedAt: DateTime.utc(2026, 10, 11),
+          profile: 'work',
+          pending: [
+            for (final (profile, thread, since) in open)
+              PendingRequest(
+                profile: profile,
+                threadId: thread,
+                threadTitle: 'Chat',
+                kind: PendingKind.approval,
+                requestId: 'req-$thread',
+                createdAt: since,
+              ),
+          ],
+        ),
+      );
+    }
+
+    testWidgets('opens the oldest one the snapshot lists for another profile', (
+      tester,
+    ) async {
+      seedProfile('home', [sessionRow(id: 'h1', title: 'Home chat')]);
+      seedMessages('h1', 'home', 'the home transcript');
+      transport.activeInProfile['home'] = {'h1': 'waiting'};
+      await storePending([
+        ('work', 'recent', DateTime.utc(2026, 10, 11, 7)),
+        ('home', 'h1', DateTime.utc(2026, 10, 11, 8)),
+      ]);
+      await pumpChat(tester);
+
+      requests.requestOldestPending();
+      await tester.pumpAndSettle();
+
+      // The work request is the open profile's: the live chats speak for it.
+      expect(selectedId(tester), 'h1');
+      expect(transport.activeAsked, contains('home'));
+    });
+
+    testWidgets('does not open a chat of the open profile the snapshot still '
+        'lists after its request was answered', (tester) async {
+      await storePending([('work', 'older', DateTime.utc(2026, 10, 11, 8))]);
+      await pumpChat(tester);
+      await openThread(tester, 'Recent chat');
+
+      requests.requestOldestPending();
+      await tester.pumpAndSettle();
+
+      expect(selectedId(tester), 'recent');
+    });
+
+    testWidgets('a request that is no longer open switches no profile', (
+      tester,
+    ) async {
+      seedProfile('home', [sessionRow(id: 'h1', title: 'Home chat')]);
+      seedMessages('h1', 'home', 'the home transcript');
+      // The server no longer lists h1 as waiting.
+      transport.activeInProfile['home'] = {'h1': 'idle'};
+      await storePending([('home', 'h1', DateTime.utc(2026, 10, 11, 8))]);
+      await pumpChat(tester, size: const Size(400, 800));
+      final before = server.requestsTo('GET', '/api/sessions').length;
+
+      requests.requestOldestPending();
+      await tester.pumpAndSettle();
+
+      expect(transport.activeAsked, contains('home'));
+      expect(server.requestsTo('GET', '/api/sessions'), hasLength(before));
+      expect(selectedId(tester), isNull);
+      expect(find.byType(ThreadSidebar), findsOneWidget);
+    });
+
+    testWidgets('tries the next request when the oldest is no longer open', (
+      tester,
+    ) async {
+      seedProfile('home', [sessionRow(id: 'h1', title: 'Home chat')]);
+      seedProfile('play', [sessionRow(id: 'p1', title: 'Play chat')]);
+      seedMessages('p1', 'play', 'the play transcript');
+      server.on(
+        'GET',
+        '/api/profiles',
+        profileListBody([
+          profileRow(name: 'work', isDefault: true),
+          profileRow(name: 'home'),
+          profileRow(name: 'play'),
+        ]),
+      );
+      transport.activeInProfile['home'] = {};
+      transport.activeInProfile['play'] = {'p1': 'waiting'};
+      await storePending([
+        ('home', 'h1', DateTime.utc(2026, 10, 11, 7)),
+        ('play', 'p1', DateTime.utc(2026, 10, 11, 8)),
+      ]);
+      await pumpChat(tester);
+
+      requests.requestOldestPending();
+      await tester.pumpAndSettle();
+
+      expect(selectedId(tester), 'p1');
+      expect(
+        server
+            .requestsTo('GET', '/api/sessions')
+            .map((r) => r.queryParameters['profile']),
+        isNot(contains('home')),
+      );
+    });
+
+    testWidgets('falls back to the loaded chats when the snapshot lists none', (
+      tester,
+    ) async {
+      await storePending([]);
+      await pumpChat(tester);
       final first = await sendIn(tester, 'Older chat');
       first.emit(const ApprovalRequested(_approval));
       await tester.pump();

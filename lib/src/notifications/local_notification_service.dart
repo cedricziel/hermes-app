@@ -148,7 +148,8 @@ Future<void> _categoryCall(String method, [Object? arguments]) {
 /// than macOS, iOS and Android it does nothing.
 ///
 /// A background service, as the iOS background isolate makes, registers no
-/// categories: that would drop the placeholders the main app set.
+/// categories at start, which would drop the placeholders the main app set;
+/// it adds the one category a notification is posted under.
 class LocalNotificationService implements NotificationService {
   LocalNotificationService({
     FlutterLocalNotificationsPlugin? plugin,
@@ -279,7 +280,11 @@ class LocalNotificationService implements NotificationService {
       await _initialize();
       // Android has no placeholder that hides the text on a locked screen.
       final category = _darwin ? notification.category : null;
-      if (category != null && category.isDynamic) await _register([category]);
+      // A background run may be the first thing to start the app since the
+      // system last forgot the categories, so it registers its own.
+      if (category != null && (category.isDynamic || _background)) {
+        await _register([category]);
+      }
       final darwin = DarwinNotificationDetails(
         categoryIdentifier: category?.id,
       );

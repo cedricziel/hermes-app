@@ -18,7 +18,13 @@ import '../notifications/notification_service.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../share/shared_item.dart';
 import '../surfaces/chat_hints.dart';
-import '../surfaces/surface_snapshot.dart' show PendingKind, kMaxRecentChats;
+import '../surfaces/surface_snapshot.dart'
+    show
+        PendingKind,
+        PendingRequest,
+        SurfaceSnapshot,
+        kDefaultProfile,
+        kMaxRecentChats;
 import '../telemetry/breadcrumbs.dart';
 import '../watch/watch_complication.dart';
 import 'chat_controller_sync.dart';
@@ -61,6 +67,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onOpened,
     this.onPrefill,
     this.onSurfaceChange,
+    this.readSnapshot,
     this.onDraft,
     this.breadcrumbs = Breadcrumbs.none,
   }) {
@@ -124,6 +131,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Told when the chat list loaded, a reply ended or an input request
   /// opened, closed or expired, with what the system surfaces show of it.
   final void Function(SurfaceTrigger trigger, ChatHints hints)? onSurfaceChange;
+
+  /// The snapshot the system surfaces show, which knows the open requests of
+  /// every profile, as far as the last look at the server.
+  final Future<SurfaceSnapshot?> Function()? readSnapshot;
 
   /// Adds text from a link to the composer, under what is typed there. It is
   /// never sent.
@@ -630,6 +641,46 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     breadcrumbs('deeplink.ignored', {'reason': 'unknown_profile'});
     return null;
+  }
+
+  /// Opens the chat of the open request in another profile that the snapshot
+  /// has had longest, for when the open profile has none of its own. The
+  /// snapshot can be out of date, so each request, oldest first, is checked
+  /// with the server before anything changes: the first whose session still
+  /// waits is opened (switching to its profile), and when none does nothing
+  /// moves and this is false, which leaves the chat list showing.
+  Future<bool> openOldestStoredRequest() async {
+    final read = readSnapshot;
+    final transport = this.transport;
+    if (read == null) return false;
+    final SurfaceSnapshot? snapshot;
+    try {
+      snapshot = await read();
+    } on Object {
+      return false;
+    }
+    final current = _profile ?? kDefaultProfile;
+    final waiting = [
+      for (final request in snapshot?.pending ?? const <PendingRequest>[])
+        if (request.profile != current) request,
+    ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    for (final request in waiting) {
+      if (transport != null) {
+        final statuses = await transport.activeStatuses(
+          profile: request.profile,
+        );
+        if (statuses[request.threadId] != 'waiting') continue;
+      }
+      final profile = await knownProfile(request.profile);
+      if (disposed) return true;
+      if (profile == null) continue;
+      open(
+        NotificationTarget(threadId: request.threadId, profile: profile),
+        fetchMissing: true,
+      );
+      return true;
+    }
+    return false;
   }
 
   /// Opens the chat whose open approval, question or input request was
