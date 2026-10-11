@@ -2474,8 +2474,31 @@ class HermesGatewayTransport implements ChatTransport {
       if (pending['approvals'] case final List<Object?> rows)
         for (final row in rows)
           if (row case {'request_id': final String id} when id.isNotEmpty)
-            toApproval(id, (row as Map).cast<String, Object?>()),
+            _replayedApproval(id, (row as Map).cast<String, Object?>()),
     ];
+  }
+
+  /// An approval from `approval.pending`, which replays the queue's entries
+  /// and may leave `choices` out; they are then worked out from the flags the
+  /// entry does carry, claiming only what the entry allows.
+  static ApprovalRequest _replayedApproval(
+    String requestId,
+    Map<String, Object?> fields,
+  ) {
+    final approval = toApproval(requestId, fields);
+    if (approval.choices.isNotEmpty) return approval;
+    return ApprovalRequest(
+      requestId: approval.requestId,
+      command: approval.command,
+      description: approval.description,
+      toolName: approval.toolName,
+      choices: [
+        'once',
+        if (fields['allow_session'] == true) 'session',
+        if (fields['allow_permanent'] == true) 'always',
+        'deny',
+      ],
+    );
   }
 
   /// `request.answer` resolves an open server-to-client request by its id,

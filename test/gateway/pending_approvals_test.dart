@@ -79,24 +79,61 @@ void main() {
     expect(gateway.methods, isNot(contains('approval.pending')));
   });
 
+  test('skips rows without a request id and reads missing text as empty and offers once and deny', () async {
+    live({'stored-1': 'rt-1'});
+    gateway.handlers['approval.pending'] = (_) => {
+      'approvals': [
+        {'command': 'no id'},
+        'junk',
+        {'request_id': '', 'command': 'empty id'},
+        {'request_id': 'r2'},
+      ],
+    };
+
+    final approvals = await transport.pendingApprovals(threadId: 'stored-1');
+
+    expect(approvals.map((a) => a.requestId), ['r2']);
+    expect(approvals.single.command, '');
+    expect(approvals.single.choices, ['once', 'deny']);
+  });
+
   test(
-    'skips rows without a request id and reads missing text as empty',
+    'works out the choices of a row that lists none from its flags',
     () async {
       live({'stored-1': 'rt-1'});
       gateway.handlers['approval.pending'] = (_) => {
         'approvals': [
-          {'command': 'no id'},
-          'junk',
-          {'request_id': '', 'command': 'empty id'},
-          {'request_id': 'r2'},
+          {'request_id': 'a', 'command': 'ls', 'choices': null},
+          {
+            'request_id': 'b',
+            'command': 'ls',
+            'allow_session': true,
+            'allow_permanent': true,
+          },
+          {
+            'request_id': 'c',
+            'command': 'ls',
+            'choices': <String>[],
+            'allow_session': false,
+            'allow_permanent': true,
+          },
+          {
+            'request_id': 'd',
+            'command': 'ls',
+            'choices': ['once', 'deny'],
+            'allow_session': true,
+          },
         ],
       };
 
       final approvals = await transport.pendingApprovals(threadId: 'stored-1');
 
-      expect(approvals.map((a) => a.requestId), ['r2']);
-      expect(approvals.single.command, '');
-      expect(approvals.single.choices, isEmpty);
+      expect(approvals.map((a) => a.choices), [
+        ['once', 'deny'],
+        ['once', 'session', 'always', 'deny'],
+        ['once', 'always', 'deny'],
+        ['once', 'deny'],
+      ]);
     },
   );
 
