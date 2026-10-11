@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
@@ -603,6 +604,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Orchestration…'));
     await tester.pumpAndSettle();
+    expect(find.byType(GroupedDialog), findsOneWidget);
     await tester.tap(find.text('Auto-decompose triage tasks'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();

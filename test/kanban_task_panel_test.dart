@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 
 import 'package:hermes_app/src/kanban/kanban_files.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -69,6 +70,30 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('grouped task editing preserves trimmed title and body', (
+    tester,
+  ) async {
+    await pumpPanel(tester);
+    await tester.tap(find.byTooltip('Edit'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GroupedDialog), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Title'),
+      ' Updated task ',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Description'),
+      ' Updated description ',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final body = jsonBody(
+      server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t1').single,
+    ) as Map;
+    expect(body['title'], 'Updated task');
+    expect(body['body'], 'Updated description');
+  });
 
   testWidgets('a panel that is not a route hands closing back on delete', (
     tester,

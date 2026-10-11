@@ -707,10 +707,17 @@ void main() {
       await openMoreMenu(tester, 'Orchestration…');
       await shots.capture(tester, 'loaded');
 
-      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.tap(find.text('Default assignee'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'profile-menu');
-      await tester.tap(find.text('reviewer').last);
+      final option = find.text('reviewer').last;
+      final entry = find.ancestor(
+        of: option,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is CheckedPopupMenuItem,
+        ),
+      );
+      await tester.tap(entry.evaluate().isEmpty ? option : entry.first);
       await tester.pumpAndSettle();
       await shots.capture(tester, 'profile-picked');
 
@@ -719,6 +726,12 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'save-refused');
+      expect(
+        (jsonBody(
+          server.requestsTo('PUT', '/api/plugins/kanban/orchestration').single,
+        ) as Map)['default_assignee'],
+        'reviewer',
+      );
     });
   }
 
@@ -851,7 +864,7 @@ void main() {
       await tester.pumpAndSettle();
       await shots.capture(tester, 'import');
       await tester.enterText(
-        find.widgetWithText(TextField, 'Archive path on the server'),
+        find.widgetWithText(TextField, 'Archive path'),
         '/srv/hermes/exports/missing.tar.gz',
       );
       await tester.pump();

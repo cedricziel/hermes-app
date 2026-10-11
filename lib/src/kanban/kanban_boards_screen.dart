@@ -8,6 +8,8 @@ import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'widgets/kanban_list_rows.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/grouped_dialog.dart';
+import '../widgets/grouped_form.dart';
 import '../widgets/settings_scaffold.dart';
 
 /// Lists the plugin's boards; opens, creates, renames, archives or deletes them.
@@ -245,37 +247,8 @@ class _ExportDialogState extends State<_ExportDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text('Export ${widget.name}'),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'The archive is written on the server, not on this device.',
-          ),
-          TextField(
-            controller: _output,
-            decoration: const InputDecoration(
-              labelText: 'Server path (optional)',
-              helperText: 'Empty uses the server’s export folder',
-            ),
-          ),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Include attachments'),
-            value: _attachments,
-            onChanged: (v) => setState(() => _attachments = v),
-          ),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Include worker logs'),
-            value: _logs,
-            onChanged: (v) => setState(() => _logs = v),
-          ),
-        ],
-      ),
-    ),
+  Widget build(BuildContext context) => GroupedDialog(
+    title: 'Export ${widget.name}',
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
@@ -288,6 +261,34 @@ class _ExportDialogState extends State<_ExportDialog> {
           logs: _logs,
         )),
         child: const Text('Export'),
+      ),
+    ],
+    children: [
+      GroupedSection(
+        footer: 'The archive is written on the server, not on this device. Empty uses the server’s export folder.',
+        children: [
+          GroupedTextFieldRow(
+            label: 'Server path',
+            hint: 'Use export folder',
+            controller: _output,
+          ),
+        ],
+      ),
+      GroupedSection(
+        children: [
+          GroupedSwitchRow(
+            title: 'Include attachments',
+            value: _attachments,
+            onTap: () => setState(() => _attachments = !_attachments),
+            onChanged: (value) => setState(() => _attachments = value),
+          ),
+          GroupedSwitchRow(
+            title: 'Include worker logs',
+            value: _logs,
+            onTap: () => setState(() => _logs = !_logs),
+            onChanged: (value) => setState(() => _logs = value),
+          ),
+        ],
       ),
     ],
   );
@@ -315,36 +316,8 @@ class _ImportDialogState extends State<_ImportDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Import a board'),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('The archive must already be on the server.'),
-          TextField(
-            controller: _archive,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Archive path on the server',
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-          TextField(
-            controller: _slug,
-            decoration: const InputDecoration(
-              labelText: 'New board slug (optional)',
-            ),
-          ),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Open it afterwards'),
-            value: _open,
-            onChanged: (v) => setState(() => _open = v),
-          ),
-        ],
-      ),
-    ),
+  Widget build(BuildContext context) => GroupedDialog(
+    title: 'Import a board',
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
@@ -359,6 +332,34 @@ class _ImportDialogState extends State<_ImportDialog> {
                 open: _open,
               )),
         child: const Text('Import'),
+      ),
+    ],
+    children: [
+      GroupedSection(
+        footer: 'The archive must already be on the server.',
+        children: [
+          GroupedTextFieldRow(
+            label: 'Archive path',
+            controller: _archive,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
+          ),
+          GroupedTextFieldRow(
+            label: 'New board slug',
+            hint: 'Optional',
+            controller: _slug,
+          ),
+        ],
+      ),
+      GroupedSection(
+        children: [
+          GroupedSwitchRow(
+            title: 'Open it afterwards',
+            value: _open,
+            onTap: () => setState(() => _open = !_open),
+            onChanged: (value) => setState(() => _open = value),
+          ),
+        ],
       ),
     ],
   );

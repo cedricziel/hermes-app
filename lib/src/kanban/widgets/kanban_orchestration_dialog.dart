@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/grouped_dialog.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
+import 'kanban_orchestration_fields.dart';
 
 /// Edits how the plugin fans out and picks up tasks (`kanban.*` in the
 /// server's config).
@@ -80,75 +82,11 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
     if (ok && mounted) Navigator.pop(context);
   }
 
-  Widget _profilePicker(
-    String label,
-    String value,
-    ValueChanged<String> onChanged,
-  ) {
-    final names = {..._profiles, if (value.isNotEmpty) value}.toList();
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: label),
-      items: [
-        DropdownMenuItem(
-          value: '',
-          child: Text('Active profile (${_settings!.activeProfile})'),
-        ),
-        for (final n in names) DropdownMenuItem(value: n, child: Text(n)),
-      ],
-      onChanged: (v) => setState(() => onChanged(v ?? '')),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
-    return AlertDialog(
-      title: const Text('Orchestration'),
-      content: settings == null
-          ? SizedBox(
-              height: 80,
-              child: Center(
-                child: _failed
-                    ? const Text('Could not load the settings')
-                    : const CircularProgressIndicator.adaptive(),
-              ),
-            )
-          : ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Auto-decompose triage tasks'),
-                      subtitle: const Text('Off: decompose by hand'),
-                      value: _autoDecompose,
-                      onChanged: (v) => setState(() => _autoDecompose = v),
-                    ),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Promote children when ready'),
-                      value: _autoPromote,
-                      onChanged: (v) => setState(() => _autoPromote = v),
-                    ),
-                    _profilePicker(
-                      'Orchestrator profile',
-                      _orchestrator,
-                      (v) => _orchestrator = v,
-                    ),
-                    const SizedBox(height: 8),
-                    _profilePicker(
-                      'Default assignee',
-                      _defaultAssignee,
-                      (v) => _defaultAssignee = v,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    return GroupedDialog(
+      title: 'Orchestration',
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -157,6 +95,24 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
         FilledButton(
           onPressed: settings == null ? null : _save,
           child: const Text('Save'),
+        ),
+      ],
+      children: [
+        KanbanOrchestrationFields(
+          loading: settings == null && !_failed,
+          error: _failed ? 'Could not load the settings' : null,
+          autoDecompose: settings == null ? false : _autoDecompose,
+          autoPromote: settings == null ? false : _autoPromote,
+          orchestrator: settings == null ? '' : _orchestrator,
+          defaultAssignee: settings == null ? '' : _defaultAssignee,
+          activeProfile: settings?.activeProfile ?? '',
+          profiles: _profiles,
+          onDecomposeChanged: (value) => setState(() => _autoDecompose = value),
+          onPromoteChanged: (value) => setState(() => _autoPromote = value),
+          onOrchestratorChanged: (value) =>
+              setState(() => _orchestrator = value),
+          onAssigneeChanged: (value) =>
+              setState(() => _defaultAssignee = value),
         ),
       ],
     );
