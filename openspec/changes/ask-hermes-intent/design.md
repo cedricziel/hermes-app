@@ -26,12 +26,12 @@ See proposal.md for motivation and specs/ask-hermes/spec.md for behavior.
 
 ### How `perform()` reaches Dart
 
-`AskHermesIntent` is compiled into the Runner only and declares `supportedModes = .background` and `authenticationPolicy = .alwaysAllowed`. iOS runs `perform()` in the app's process: in the running app if it is alive (also when suspended, which iOS resumes for the intent), or in a process it launches in the background, where no scene connects and so no Flutter view or implicit engine starts.
+`AskHermesIntent` is compiled into the Runner only and declares `supportedModes = [.background, .foreground(.dynamic)]` (the foreground mode is only there so App Lock can call `continueInForeground`) and `authenticationPolicy = .alwaysAllowed`. iOS runs `perform()` in the app's process: in the running app if it is alive (also when suspended, which iOS resumes for the intent), or in a process it launches in the background, where no scene connects and so no Flutter view or implicit engine starts.
 
 `IntentsBridge` (Runner, Swift) picks the engine:
 
 1. **The app's engine, when it exists.** `AppDelegate.didInitializeImplicitFlutterEngine` installs the `hermes_app/intents` channel on the implicit engine's messenger, and Dart calls `ready` on it once its handler is registered in `main`. The bridge uses this engine whenever it has said ready. This keeps the ask in the same isolate as `AuthController`, so the headless runtime can coordinate token refresh with it in one isolate instead of racing it from a second.
-2. **Otherwise a background engine.** The bridge asks `headless-runtime`'s background-engine hook for an engine running the `intentsMain` entry point (`lib/src/background/entry_points.dart`), with the plugins that hook registers. `intentsMain` registers the same handler and calls `ready`. The bridge waits up to 5 seconds for it; if it is not ready by then the ask fails with "Hermes isn't available right now."
+2. **Otherwise a background engine.** The bridge starts a `FlutterEngine` on the `intentsMain` entry point (`lib/src/background/entry_points.dart`) and registers `NotificationActions.registerPlugins` (`BackgroundPlugins` and the Runner's background channels), the plugin set a notification button's engine gets. `intentsMain` registers the same handler and calls `ready`. The bridge waits up to 5 seconds for it; if it is not ready by then the ask fails with "Hermes isn't available right now."
 
 Lifetime: the background engine is created on first use, reused by an ask that comes while it lives, and destroyed 10 seconds after its last call finished, or when the background task (below) expires. Calls to it are serialized; a second ask while one runs waits for it (Siri does not run two asks at once in practice; Shortcuts automations can). When a scene connects while a background engine still serves an ask, that ask finishes there and new asks go to the app's engine once it has said ready; the background engine is then destroyed at its idle timeout. Two engines exist side by side for at most that overlap.
 
@@ -82,7 +82,7 @@ When the ask has answered `still_working`, the bridge holds a `UIApplication` ba
 
 - Auth: the headless runtime never signs the user out and gives up on a refresh conflict (Contract 3). Preferring the app's engine keeps refreshes in one isolate when the app runs. A concurrent 401 in the app is unaffected.
 - Tokens: read from secure storage by the runtime only; never crossing the channel.
-- Telemetry: recorded in Dart (`ask_hermes.dart`): span `background.task` (`task: intent.ask`, `outcome`, `engine`, `continued`), log event `intent.ask` (`outcome`, `waited_s`), breadcrumbs `intent.ask.started` / `intent.ask.ended` (`outcome`) in the foreground engine only. None carries the question, the reply, a title, a profile name or an id. Failures to record are swallowed.
+- Telemetry: recorded in Dart (`ask_hermes.dart`): span `background.task` (`task: intent.ask`, `engine`, `continued`, and `ask.outcome` once the body ran; `outcome` stays the runtime's, which owns it), log event `intent.ask` (`outcome`, `waited_s`), breadcrumbs `intent.ask.started` / `intent.ask.ended` (`outcome`) in the foreground engine only. None carries the question, the reply, a title, a profile name or an id. Failures to record are swallowed.
 - API layering: no REST call added; the turn goes over the gateway transport as the chat sends one.
 - Tests: `askHermes` is tested with `FakeChatTransport` behind a fake `HeadlessHermes`, and the repository against `FakeHermesServer`.
 
@@ -105,3 +105,13 @@ When the ask has answered `still_working`, the bridge holds a `UIApplication` ba
 ## Migration Plan
 
 Nothing to migrate. Rollback removes the intent and the phrases; saved shortcuts that use it fail with iOS's own message.
+
+## Deviations from the first plan
+
+- `supportedModes` is `[.background, .foreground(.dynamic)]`, since `continueInForeground` needs the foreground mode to be offered.
+- The App Lock hand-over opens `hermes://new?prompt=` from the bridge (`UIApplication.open` after `continueInForeground`), not through an `OpenURLIntent` result: one `perform()` has one result type. It is the fallback `app-intents` named.
+- `withHeadlessHermes` gained an `attributes` parameter so `engine` and `continued` are on the span of a run that never reaches its body. The runtime sets `outcome` itself, so the intent's own outcome is `ask.outcome`. An App Lock or blank-question ask starts no run and has no span; its log event and breadcrumb are recorded.
+- The bridge serializes asks only until the engine has answered the first, not until it has finished: a long reply must not keep the next ask from being sent.
+- `unavailable` is Swift's alone; Dart never reports it. `waited_s` is measured from when Dart starts the ask.
+- A run that cannot connect after "Still working" was already said sends nothing and posts nothing; the connect phases have their own short timeouts, so this needs a server that is reachable at first and then gone.
+- A reply that outlives iOS's background time is not announced: `background-refresh` (#614) has no finished-reply check to hand the chat to yet.

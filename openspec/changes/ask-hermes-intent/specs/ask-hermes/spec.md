@@ -84,7 +84,7 @@ The intent SHALL run on a locked device without asking to unlock, once the devic
 
 ### Requirement: Telemetry for asks
 
-The system SHALL record each ask as a `background.task` span with `task` = `intent.ask`, `outcome` (`answered`, `still_working`, `needs_you`, `failed`, `signed_out`, `device_locked`, `unreachable`, `unavailable`, `app_locked`), `engine` (`foreground` or `headless`) and `continued` (true when a Chat was given); a log event `intent.ask` with `outcome` and `waited_s` (`<5`, `<15`, `<25` or `late`); and, when the app's own engine ran it, the breadcrumbs `intent.ask.started` and `intent.ask.ended` with `outcome`. None of them SHALL carry the question, the reply, a chat title, a profile name, a server address or an id. All of it SHALL be off when telemetry is off.
+The system SHALL record each ask as a `background.task` span with `task` = `intent.ask`, `ask.outcome` (the first answer given; `answered`, `still_working`, `needs_you`, `failed`, `signed_out`, `device_locked`, `unreachable`, `unavailable`, `app_locked`), `engine` (`foreground` or `headless`) and `continued` (true when a Chat was given); a log event `intent.ask` with `outcome` (the same values) and `waited_s` (`<5`, `<15`, `<25` or `late`); and, when the app's own engine ran it, the breadcrumbs `intent.ask.started` and `intent.ask.ended` with `outcome`. None of them SHALL carry the question, the reply, a chat title, a profile name, a server address or an id. All of it SHALL be off when telemetry is off.
 
 #### Scenario: Nothing personal recorded
 

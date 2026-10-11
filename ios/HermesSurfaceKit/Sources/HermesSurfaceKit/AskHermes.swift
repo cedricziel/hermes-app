@@ -65,7 +65,7 @@ public struct AskAnswer: Equatable, Sendable {
 }
 
 /// Runs the turn for the intent. The Runner's bridge is the only one.
-public protocol AskHermesService: AnyObject {
+public protocol AskTurnService: AnyObject {
   /// Sends [question] and answers within [deadline]: the reply, why it could
   /// not be asked, or that the reply will come later. A chat is continued in
   /// its own profile; without one a new chat starts in [profile].
@@ -82,7 +82,7 @@ public enum AskHermes {
   public static let window: Duration = .seconds(25)
 
   /// The bridge the Runner installs at launch.
-  public static var service: AskHermesService?
+  public static var service: AskTurnService?
 
   /// The link that opens a new chat with [question] in the composer, unsent.
   public static func handOverLink(profile: String?, question: String) -> URL {
@@ -94,7 +94,7 @@ public enum AskHermes {
   /// hears, and the reply arrives as a notification.
   public static func answer(
     question: String, profile: String?, chatID: String?, deadline: ContinuousClock.Instant,
-    service: AskHermesService? = AskHermes.service, clock: ContinuousClock = ContinuousClock()
+    service: AskTurnService? = AskHermes.service, clock: ContinuousClock = ContinuousClock()
   ) async -> AskAnswer {
     guard let service else { return AskAnswer(.unavailable) }
     return await race(until: deadline, clock: clock) {

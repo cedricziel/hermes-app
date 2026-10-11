@@ -5,7 +5,7 @@ import XCTest
 
 /// A service the test drives: it answers when told, and records what it was
 /// asked.
-private final class FakeService: AskHermesService, @unchecked Sendable {
+private final class FakeService: AskTurnService, @unchecked Sendable {
   struct Call: Equatable {
     var question: String
     var profile: String?

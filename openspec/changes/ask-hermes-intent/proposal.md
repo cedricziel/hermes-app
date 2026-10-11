@@ -31,7 +31,7 @@ Security and privacy impact:
 
 Observability:
 
-- Span `background.task` (from `headless-runtime`) with `task: intent.ask` and `outcome` (`answered`, `still_working`, `needs_you`, `failed`, `signed_out`, `device_locked`, `unreachable`, `unavailable`, `app_locked`), plus `engine` (`foreground` or `headless`) and `continued` (whether a Chat was given). It crosses the native/Dart boundary and a socket, so it is a span; it carries no text, title, profile or id.
+- Span `background.task` (from `headless-runtime`) with `task: intent.ask` and `ask.outcome` (the runtime keeps `outcome` for how the run ended; `answered`, `still_working`, `needs_you`, `failed`, `signed_out`, `device_locked`, `unreachable`, `unavailable` (Swift only), `app_locked`), plus `engine` (`foreground` or `headless`) and `continued` (whether a Chat was given). It crosses the native/Dart boundary and a socket, so it is a span; it carries no text, title, profile or id.
 - Log event `intent.ask` through `AppEventLogger` with the same `outcome` and a `waited_s` bucket (`<5`, `<15`, `<25`, `late`), to count how often answers make the 25-second window.
 - Breadcrumbs `intent.ask.started` and `intent.ask.ended` (`outcome`) when the ask runs in the foreground engine, so a crash in the app right after an ask is explained.
 

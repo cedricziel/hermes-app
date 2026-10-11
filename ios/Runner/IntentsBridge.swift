@@ -11,7 +11,7 @@ import UIKit
 /// done or iOS runs out of time, so a reply that takes longer than Siri waits
 /// can still arrive as a notification.
 @MainActor
-final class IntentsBridge: AskHermesService {
+final class IntentsBridge: AskTurnService {
   static let shared = IntentsBridge()
 
   /// How long a background engine may take to say it is ready.
@@ -104,7 +104,7 @@ final class IntentsBridge: AskHermesService {
     return endpoint
   }
 
-  // MARK: AskHermesService
+  // MARK: AskTurnService
 
   func ask(
     question: String, profile: String?, chatID: String?, deadline: ContinuousClock.Instant
@@ -118,7 +118,7 @@ final class IntentsBridge: AskHermesService {
 
     await acquire()
     defer { release() }
-    guard let endpoint = await engine(deadline: deadline) else {
+    guard let endpoint = await engine() else {
       finish(id)
       return AskAnswer(.unavailable)
     }
@@ -144,7 +144,7 @@ final class IntentsBridge: AskHermesService {
 
   /// The engine for an ask: the app's when it is ready, else the background
   /// one, started if need be; nil when neither is up in time.
-  private func engine(deadline: ContinuousClock.Instant) async -> Endpoint? {
+  private func engine() async -> Endpoint? {
     if let app, app.ready { return app }
     idleTeardown?.cancel()
     if let background {

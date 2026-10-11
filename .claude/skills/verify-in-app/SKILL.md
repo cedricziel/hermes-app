@@ -1032,6 +1032,32 @@ run an intent nor tap, so use a simulator window (Simulator.app) or a device.
 - `swift test` in `ios/HermesSurfaceKit` runs the entity queries and the
   links without a simulator.
 
+### Ask Hermes (iOS)
+
+"Ask Hermes" is in the Shortcuts app's "Hermes" tile; Siri is not available in
+the simulator, so run it from Shortcuts. Start the backend with
+`HERMES_DEV_MODEL_CALLS=1` (`scripts/dev-backend.sh`) and sign in once.
+
+- App killed: the ask starts a background engine (`intentsMain`). Run it and
+  expect the reply text as the shortcut's output and in its dialog, and a new
+  chat in the app afterwards.
+- App running (in front or in the background): the same, in the app's own
+  engine; no second engine starts.
+- A slow question ("write a 1000 word essay"): at 25 s the dialog says "Still
+  working — I'll notify you." and a "Reply ready" notification arrives when it
+  finishes, if the app is still alive. An answer given in place posts none.
+- An approval: ask something that needs a command and expect "Hermes needs your
+  answer. Open the chat in Hermes." plus the approval notification, never the
+  command in the dialog.
+- Signed out, no network or server down: "Sign in to Hermes first.", "Can't
+  reach your Hermes server." Nothing is sent in either.
+- App Lock on: iOS asks to continue in the app, which opens on a new chat with
+  the question in the composer, unsent, behind the lock screen.
+- Chat parameter: pick a chat; the prompt must land in that chat, in its own
+  profile.
+- `swift test` in `ios/HermesSurfaceKit` covers the clock, the words and the
+  Markdown stripping; `flutter test test/intents` the Dart side.
+
 ### Pending Requests and Answer Approval
 
 Raise an approval on the dev backend first (`scripts/dev-backend.sh start`,
