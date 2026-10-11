@@ -316,6 +316,118 @@ void main() {
       expect(target.profile, 'work');
     });
 
+    group('presentation', () {
+      const reply = AttentionNotification(
+        threadId: 's1',
+        profile: 'work',
+        title: 'Cleanup',
+        body: 'Done.',
+      );
+      const task = AttentionNotification.job(
+        jobId: 'j1',
+        profile: 'work',
+        title: 'Backup',
+        body: 'Done',
+      );
+      final needsInput = attentionFor(
+        event: const UnsupportedRequested(
+          UnsupportedRequest(requestId: 'r3', kind: UnsupportedKind.secret),
+        ),
+        thread: ChatThread(
+          id: 's1',
+          title: 'Cleanup',
+          updatedAt: DateTime(2026),
+        ),
+        appFocused: false,
+        selectedThreadId: null,
+        enabled: true,
+        profile: 'work',
+      )!;
+
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+        group('on $platform', () {
+          setUp(() => debugDefaultTargetPlatformOverride = platform);
+
+          DarwinNotificationDetails darwin() {
+            final details = plugin.posted.last.details!;
+            return platform == TargetPlatform.iOS
+                ? details.iOS!
+                : details.macOS!;
+          }
+
+          test('stacks a chat and a task under their own thread', () async {
+            await service.show(reply);
+            expect(darwin().threadIdentifier, 'chat:work/s1');
+            await service.show(task);
+            expect(darwin().threadIdentifier, 'job:work/j1');
+          });
+
+          test('leaves a reply and a task at the default level', () async {
+            await service.show(reply);
+            expect(darwin().interruptionLevel, isNull);
+            await service.show(task);
+            expect(darwin().interruptionLevel, isNull);
+          });
+
+          test('breaks through a Focus for every kind of request', () async {
+            final requests = [
+              _request(_approval),
+              _request(_question),
+              needsInput,
+              attentionFor(
+                event: const ApprovalRequested(_approval),
+                thread: ChatThread(
+                  id: 's1',
+                  title: 'Cleanup',
+                  updatedAt: DateTime(2026),
+                ),
+                appFocused: false,
+                selectedThreadId: null,
+                enabled: true,
+                appLock: true,
+              )!,
+            ];
+            for (final request in requests) {
+              await service.show(request);
+              expect(
+                darwin().interruptionLevel,
+                InterruptionLevel.timeSensitive,
+              );
+            }
+          });
+
+          test('keeps the category and the body', () async {
+            await service.show(_request(_approval));
+            expect(
+              darwin().categoryIdentifier,
+              'hermes.request.approval.once-deny',
+            );
+            expect(plugin.posted.last.body, 'rm -rf build');
+          });
+        });
+      }
+
+      test('leaves Android to bundle by itself', () async {
+        await service.show(reply);
+
+        expect(plugin.posted.single.details!.android!.groupKey, isNull);
+      });
+
+      test('a request replaces the chat\'s reply under the same id', () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+        await service.show(reply);
+        await service.show(_request(_approval));
+
+        final [first, second] = plugin.posted;
+        expect(second.id, first.id);
+        expect(
+          second.details!.iOS!.threadIdentifier,
+          first.details!.iOS!.threadIdentifier,
+        );
+      });
+    });
+
     group('a request', () {
       setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.iOS);
 

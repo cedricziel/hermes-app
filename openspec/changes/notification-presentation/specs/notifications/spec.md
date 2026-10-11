@@ -4,7 +4,7 @@
 
 ### Requirement: Grouping per chat
 
-On iOS, macOS and Android the system SHALL group notifications by chat, identified by its profile and thread id together, and notifications of a scheduled task by its profile and job id, so that notifications of one chat stack together and those of different chats, or of chats with the same id in different profiles, do not.
+On iOS and macOS the system SHALL group notifications by chat, identified by its profile and thread id together, and notifications of a scheduled task by its profile and job id, so that notifications of one chat stack together and those of different chats, or of chats with the same id in different profiles, do not.
 
 #### Scenario: Two chats
 

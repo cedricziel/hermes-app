@@ -143,6 +143,10 @@ lane :bootstrap_app do
     #{COMPLICATION_IDENTIFIER} and assign them to
     group.#{APP_IDENTIFIER}, then run
     `fastlane bootstrap_signing force:true` to regenerate the profiles.
+
+    Also enable "Time Sensitive Notifications" on #{APP_IDENTIFIER} (iOS and macOS):
+    approvals and questions are posted at that level, and the profiles must
+    carry the entitlement.
   MSG
 
   # The public API refuses to create app records, so that step stays manual.
@@ -373,18 +377,38 @@ def build_target(key, options)
   sh("cd #{FLUTTER_ROOT.shellescape} && flutter build #{t[:flutter_platform]} --release --config-only#{flutter_flags} " \
      "--build-name=#{version.shellescape} --build-number=#{build_number.shellescape}#{telemetry_flags}")
 
-  build_app(
-    workspace: t[:workspace],
-    scheme: "Runner",
-    configuration: "Release",
-    destination: t[:destination],
-    export_method: "app-store",
-    export_team_id: TEAM_ID,
-    output_directory: OUTPUT_DIR,
-    output_name: OUTPUT_NAME,
-    clean: true,
-    include_symbols: true
-  )
+  # Approvals and questions can break through a Focus. The entitlement is
+  # restricted, so only this lane, which signs with a distribution profile,
+  # adds it: a local ad-hoc `flutter build macos --release` would be killed
+  # at launch with it in the checked-in file. The file is put back after the
+  # build. (iOS keeps it in Runner.entitlements; its simulator and
+  # --no-codesign builds ignore it.)
+  entitlements = File.join(FLUTTER_ROOT, "macos/Runner/Release.entitlements")
+  original_entitlements = File.read(entitlements) if key == :mac
+  begin
+    if key == :mac
+      set_info_plist_value(
+        path: entitlements,
+        key: "com.apple.developer.usernotifications.time-sensitive",
+        value: true
+      )
+    end
+
+    build_app(
+      workspace: t[:workspace],
+      scheme: "Runner",
+      configuration: "Release",
+      destination: t[:destination],
+      export_method: "app-store",
+      export_team_id: TEAM_ID,
+      output_directory: OUTPUT_DIR,
+      output_name: OUTPUT_NAME,
+      clean: true,
+      include_symbols: true
+    )
+  ensure
+    File.write(entitlements, original_entitlements) if original_entitlements
+  end
 
   { version: version, build_number: build_number }
 end
