@@ -17,6 +17,8 @@
 		5D000000000000000000006A /* SurfaceSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000006 /* SurfaceSnapshot.swift */; };
 		5D000000000000000000006B /* WidgetModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000007 /* WidgetModels.swift */; };
 		5D000000000000000000006C /* SurfaceSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000008 /* SurfaceSample.swift */; };
+		5D000000000000000000006D /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000009 /* DeepLink.swift */; };
+		5D000000000000000000006E /* QuickLaunchWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D000000000000000000000A /* QuickLaunchWidgets.swift */; };
 		A3BD8ABC8308525ED56E1791 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA4EDC232D777BB6CBD97EF5 /* PrivacyInfo.xcprivacy */; };
 		0AA3809677393A117BD4526D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F884F744E1BE6D3436E17C0A /* Assets.xcassets */; };
 		12AB7B237264DC0886E10BDB /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9978D7CC9E15B585ACD0BBA0 /* Models.swift */; };
@@ -162,6 +164,8 @@
 		5D0000000000000000000006 /* SurfaceSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurfaceSnapshot.swift; sourceTree = "<group>"; };
 		5D0000000000000000000007 /* WidgetModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetModels.swift; sourceTree = "<group>"; };
 		5D0000000000000000000008 /* SurfaceSample.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurfaceSample.swift; sourceTree = "<group>"; };
+		5D0000000000000000000009 /* DeepLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLink.swift; sourceTree = "<group>"; };
+		5D000000000000000000000A /* QuickLaunchWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickLaunchWidgets.swift; sourceTree = "<group>"; };
 		9A5FB84CC1EADB59D802D85B /* HermesLiveActivity.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = HermesLiveActivity.entitlements; sourceTree = "<group>"; };
 		E3007A457C6A440E0F035EA9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B0F3B5974772D8DB0097E950 /* HermesLiveActivity.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = HermesLiveActivity.xcconfig; sourceTree = "<group>"; };
@@ -286,6 +290,7 @@
 				5D0000000000000000000006 /* SurfaceSnapshot.swift */,
 				5D0000000000000000000007 /* WidgetModels.swift */,
 				5D0000000000000000000008 /* SurfaceSample.swift */,
+				5D0000000000000000000009 /* DeepLink.swift */,
 			);
 			name = HermesSurfaceKit;
 			path = HermesSurfaceKit/Sources/HermesSurfaceKit;
@@ -300,6 +305,7 @@
 				5D0000000000000000000003 /* RecentChatsWidget.swift */,
 				5D0000000000000000000004 /* NeedsYouWidget.swift */,
 				5D0000000000000000000005 /* BoardWidget.swift */,
+				5D000000000000000000000A /* QuickLaunchWidgets.swift */,
 				E3007A457C6A440E0F035EA9 /* Info.plist */,
 				9A5FB84CC1EADB59D802D85B /* HermesLiveActivity.entitlements */,
 				B0F3B5974772D8DB0097E950 /* HermesLiveActivity.xcconfig */,
@@ -744,6 +750,8 @@
 				5D000000000000000000006A /* SurfaceSnapshot.swift in Sources */,
 				5D000000000000000000006B /* WidgetModels.swift in Sources */,
 				5D000000000000000000006C /* SurfaceSample.swift in Sources */,
+				5D000000000000000000006D /* DeepLink.swift in Sources */,
+				5D000000000000000000006E /* QuickLaunchWidgets.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

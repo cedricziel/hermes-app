@@ -8,7 +8,9 @@ struct HermesNeedsYou: Widget {
     }
     .configurationDisplayName("Needs you")
     .description("Approvals and questions waiting for you. Tap to open the oldest.")
-    .supportedFamilies([.systemSmall, .systemMedium])
+    .supportedFamilies([
+      .systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline,
+    ])
   }
 }
 
@@ -17,9 +19,18 @@ struct NeedsYouView: View {
   let entry: SurfaceEntry
 
   var body: some View {
+    switch widgetFamily {
+    case .accessoryCircular, .accessoryRectangular, .accessoryInline:
+      NeedsYouAccessoryView(entry: entry)
+    default:
+      homeScreen
+    }
+  }
+
+  private var homeScreen: some View {
     let family = SurfaceFamily(widgetFamily)
     let model = NeedsYouModel(snapshot: entry.snapshot, family: family, now: entry.date)
-    SurfaceFrame(title: "Needs you", symbol: "hand.raised", status: model.status, url: model.url) {
+    return SurfaceFrame(title: "Needs you", symbol: "hand.raised", status: model.status, url: model.url) {
       if family == .small || model.isEmpty {
         Count(model: model)
       } else {
@@ -33,6 +44,85 @@ struct NeedsYouView: View {
         }
       }
     }
+  }
+}
+
+/// The Lock Screen and StandBy forms. Only the chat title is private; the
+/// count and the words stay readable on a locked device. VoiceOver is not
+/// redacted, so the title is hidden from it and the spoken label holds none.
+private struct NeedsYouAccessoryView: View {
+  @Environment(\.widgetFamily) private var family
+  let entry: SurfaceEntry
+
+  var body: some View {
+    let model = NeedsYouAccessoryModel(snapshot: entry.snapshot, now: entry.date)
+    Group {
+      switch family {
+      case .accessoryCircular: circular(model)
+      case .accessoryRectangular: rectangular(model)
+      default: inline(model)
+      }
+    }
+    // The rectangular card holds three lines in 76 pt, so it cannot grow with
+    // the largest text sizes.
+    .dynamicTypeSize(...DynamicTypeSize.xLarge)
+    .widgetURL(model.url)
+    .containerBackground(.clear, for: .widget)
+  }
+
+  private func circular(_ model: NeedsYouAccessoryModel) -> some View {
+    ZStack {
+      AccessoryWidgetBackground()
+      VStack(spacing: 0) {
+        Image(systemName: "hand.raised.fill")
+          .font(.caption)
+          .widgetAccentable()
+        if model.status.isSignedOut {
+          Text("Sign in")
+            .font(.caption2.weight(.semibold))
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
+        } else {
+          Text("\(model.count)")
+            .font(.system(.title2, design: .rounded, weight: .bold))
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
+        }
+      }
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(model.accessibilityLabel)
+  }
+
+  private func rectangular(_ model: NeedsYouAccessoryModel) -> some View {
+    VStack(alignment: .leading, spacing: 1) {
+      VStack(alignment: .leading, spacing: 1) {
+        Label(headline(model), systemImage: "hand.raised.fill")
+          .font(.headline)
+          .widgetAccentable()
+          .lineLimit(1)
+        Text(model.kindLabel ?? (model.status.isSignedOut ? "Open Hermes" : "Hermes"))
+          .font(.caption)
+          .lineLimit(1)
+      }
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(model.accessibilityLabel)
+      if !model.isEmpty && !model.status.isSignedOut {
+        TitleText(title: model.title, font: .caption2)
+          .accessibilityHidden(true)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  private func inline(_ model: NeedsYouAccessoryModel) -> some View {
+    Label(model.inlineText, systemImage: "hand.raised.fill")
+      .accessibilityLabel(model.accessibilityLabel)
+  }
+
+  private func headline(_ model: NeedsYouAccessoryModel) -> String {
+    if model.status.isSignedOut { return "Sign in" }
+    return model.isEmpty ? "Nothing waiting" : "\(model.count) waiting"
   }
 }
 

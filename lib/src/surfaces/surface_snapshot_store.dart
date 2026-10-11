@@ -54,11 +54,13 @@ class SurfaceSnapshotStore {
     SurfaceStorage? storage,
     this.events = noopAppEventLogger,
     this.widgetKinds = kSurfaceWidgetKinds,
+    this.signedInOnlyKinds = kSignedInOnlyWidgetKinds,
   }) : _storage = storage ?? HomeWidgetSurfaceStorage();
 
   final SurfaceStorage _storage;
   final AppEventLogger events;
   final List<String> widgetKinds;
+  final Set<String> signedInOnlyKinds;
 
   final _writes = StreamController<SurfaceSnapshot>.broadcast();
   SurfaceSnapshot? _written;
@@ -106,6 +108,8 @@ class SurfaceSnapshotStore {
     final written = _written;
     final unchanged = written != null && written.sameContent(snapshot);
     if (unchanged && !snapshot.updatedAt.isAfter(written.updatedAt)) return;
+    final signedInChanged =
+        written == null || written.signedIn != snapshot.signedIn;
     final reloadedFor = _reloadedFor;
     final reload =
         !unchanged ||
@@ -122,7 +126,11 @@ class SurfaceSnapshotStore {
     }
     if (_written != null && reload) {
       _reloadedFor = snapshot.updatedAt;
-      await Future.wait([for (final kind in widgetKinds) _reload(kind)]);
+      await Future.wait([
+        for (final kind in widgetKinds)
+          if (signedInChanged || !signedInOnlyKinds.contains(kind))
+            _reload(kind),
+      ]);
     }
     if (!unchanged && !_writes.isClosed) _writes.add(snapshot);
   }

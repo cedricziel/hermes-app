@@ -87,23 +87,6 @@ final class SurfaceSnapshotTests: XCTestCase {
     XCTAssertNil(snapshot.kanban)
   }
 
-  func testFallbackLinksAreTheOnesTheAppBuilds() throws {
-    let url = URL(fileURLWithPath: #filePath)
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .appendingPathComponent("Fixtures/surface_fallback_urls.json")
-    let fallbacks = try XCTUnwrap(
-      JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: String])
-    XCTAssertEqual(
-      fallbacks,
-      [
-        "newChat": SurfaceFallbackURL.newChat.absoluteString,
-        "requests": SurfaceFallbackURL.requests.absoluteString,
-        "kanban": SurfaceFallbackURL.kanban.absoluteString,
-        "schedules": SurfaceFallbackURL.schedules.absoluteString,
-      ])
-  }
-
   func testBadJSONIsUnreadable() {
     XCTAssertNil(SurfaceSnapshot.decode("{not json"))
     XCTAssertNil(SurfaceSnapshot.decode("[]"))

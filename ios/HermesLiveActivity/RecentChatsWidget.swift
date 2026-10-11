@@ -33,7 +33,7 @@ struct RecentChatsView: View {
             Link(destination: row.url) { ChatRow(row: row, family: family) }
           }
           if model.showsOpenRow {
-            Link(destination: SurfaceFallbackURL.newChat) {
+            Link(destination: DeepLink.newChat()) {
               Label("New chat", systemImage: "plus")
                 .font(.caption.weight(.medium))
             }

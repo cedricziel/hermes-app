@@ -68,14 +68,21 @@ void main() {
       );
     });
 
-    test('reloads the three Home Screen widgets by default', () async {
+    test('reloads every widget kind by default', () async {
       await SurfaceSnapshotStore().write(snapshot());
 
       expect(
         calls
             .where((c) => c.method == 'updateWidget')
             .map((c) => (c.arguments as Map)['ios']),
-        ['HermesRecentChats', 'HermesNeedsYou', 'HermesBoard'],
+        [
+          'HermesRecentChats',
+          'HermesNeedsYou',
+          'HermesBoard',
+          'HermesNewChat',
+          'HermesDictate',
+          'HermesQuickLaunch',
+        ],
       );
     });
 
@@ -157,6 +164,49 @@ void main() {
 
       await store.write(snapshot(hour: 13, minute: 59));
       expect(storage.reloaded, ['Recent', 'Recent']);
+    });
+
+    group('a widget that reads only whether anyone is signed in', () {
+      late SurfaceSnapshotStore both;
+
+      setUp(() {
+        both = SurfaceSnapshotStore(
+          storage: storage,
+          widgetKinds: const ['Recent', 'HermesNewChat'],
+        );
+        addTearDown(both.dispose);
+      });
+
+      test('reloads with the first sign-in, and with a sign-out', () async {
+        await both.write(snapshot());
+        expect(storage.reloaded, ['Recent', 'HermesNewChat']);
+
+        storage.reloaded.clear();
+        await both.write(
+          SurfaceSnapshot.signedOut(DateTime.utc(2026, 10, 10, 13)),
+        );
+        expect(storage.reloaded, ['Recent', 'HermesNewChat']);
+      });
+
+      test('is not reloaded by a change that leaves it signed in', () async {
+        await both.write(snapshot());
+        storage.reloaded.clear();
+
+        await both.write(snapshot(profile: 'work'));
+        await both.write(snapshot(hour: 17));
+
+        expect(storage.reloaded, ['Recent', 'Recent']);
+      });
+
+      test('is reloaded again when the first save failed', () async {
+        storage.failure = StateError('no group');
+        await both.write(snapshot());
+        storage.failure = null;
+
+        await both.write(snapshot(profile: 'work'));
+
+        expect(storage.reloaded, ['Recent', 'HermesNewChat']);
+      });
     });
 
     test('a failed refresh of the same content keeps what is stored', () async {
