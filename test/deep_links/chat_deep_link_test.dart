@@ -717,6 +717,35 @@ void main() {
     expect(composerText(tester), 'Hello');
   });
 
+  testWidgets('a screen gone while the open waited reads nothing after it', (
+    tester,
+  ) async {
+    final voiceConfig = Completer<FakeResponse>();
+    server.onRequest(
+      'GET',
+      '/api/audio/voice-config',
+      (_) => voiceConfig.future,
+    );
+    await pumpChat(tester, settle: false);
+    await tester.pump(const Duration(seconds: 1));
+
+    requests.requestNew(dictate: true);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpWidget(const SizedBox());
+    voiceConfig.complete((
+      status: 200,
+      body: {
+        'ok': true,
+        'stt': {'mode': 'relay', 'reason': 'local provider'},
+        'tts': {'mode': 'relay'},
+      },
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(recorder.starts, 0);
+  });
+
   group('on a Mac with conversation windows', () {
     Future<void> pumpWithWindows(WidgetTester tester) async {
       host = FakeConversationWindowHost();
