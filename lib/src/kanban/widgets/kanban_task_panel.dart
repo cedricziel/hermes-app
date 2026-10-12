@@ -229,7 +229,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     bool toggle = false,
   }) => _run(() => _task.preview(a, trigger: trigger, toggle: toggle));
 
-  void _showLog() => showDialog<void>(
+  void _showLog() => showAdaptiveDialog<void>(
     context: context,
     builder: (_) => KanbanTaskLogDialog(
       repository: widget.repository,

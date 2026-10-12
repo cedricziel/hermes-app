@@ -6,8 +6,9 @@ One PR at a time; confirm merge before starting the next.
 - [x] MCP configuration editor and sign-in surfaces, merged in #640
 - [x] Skill editor, merged in #642
 - [x] Skill details and background job status, merged in #643
-- [ ] In progress: Hub security-scan and preview status
-- [ ] Kanban task details and worker log
+- [x] Hub security-scan and preview status, merged in #647
+- [ ] In progress: Kanban worker log
+- [ ] Kanban task details
 - [ ] Connection setup and details
 - [ ] Chat teammate and slash-command autocomplete
 

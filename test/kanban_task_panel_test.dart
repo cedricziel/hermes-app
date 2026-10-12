@@ -388,6 +388,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('starting worker'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('starting worker'), findsNothing);
   });
 
   testWidgets('removes an attachment after confirming', (tester) async {
