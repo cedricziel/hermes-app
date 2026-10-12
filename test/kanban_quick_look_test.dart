@@ -81,6 +81,23 @@ void main() {
     }
   }
 
+  Future<void> awaitPreview(WidgetTester tester) async {
+    await tester.runAsync(() => quickLook.previewCompleted);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<IconButton>(
+            find.descendant(
+              of: find.byTooltip('Save attachment'),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  }
+
   Future<void> pumpPanel(
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.macOS,
@@ -313,7 +330,7 @@ void main() {
       isNull,
     );
     gate.complete();
-    await settle(tester);
+    await awaitPreview(tester);
 
     expect(fetches(), 1);
     expect(quickLook.previewed, hasLength(1));
@@ -338,7 +355,7 @@ void main() {
     await tester.runAsync(() => tester.sendKeyEvent(LogicalKeyboardKey.enter));
     await tester.pump();
     gate.complete();
-    await settle(tester);
+    await awaitPreview(tester);
 
     expect(unhandledKeys, isEmpty);
     expect(fetches(), 1);
@@ -353,7 +370,7 @@ void main() {
     await click(tester, row, buttons: kSecondaryMouseButton);
     await tester.pumpAndSettle();
     await tester.runAsync(() => tester.tap(find.text('Quick Look')));
-    await settle(tester);
+    await awaitPreview(tester);
 
     expect(
       [for (final c in trail.recent) '${c.name} ${c.attributes}'],
