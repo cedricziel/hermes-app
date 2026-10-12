@@ -5,6 +5,7 @@ import 'package:hermes_app/src/bot_mode/bot_chat_context.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
+import 'package:hermes_app/src/chat/widgets/chat_suggestions.dart';
 
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
@@ -45,6 +46,12 @@ void main() {
               slashCommands: const [
                 SlashCommand('/help', 'Show command help'),
                 SlashCommand('/model', 'Change the model'),
+                SlashCommand('/new', 'Start a chat'),
+                SlashCommand('/reset', 'Reset the conversation'),
+                SlashCommand('/status', 'Show status'),
+                SlashCommand('/skills', 'Show skills'),
+                SlashCommand('/config', 'Show configuration'),
+                SlashCommand('/version', 'Show version'),
               ],
               botContext: const BotChatContext(
                 bot: bot,
@@ -83,6 +90,19 @@ void main() {
       expect(focus.hasFocus, isTrue);
       expect(sent, isEmpty);
       await shots.capture(tester, 'completed');
+      await tester.enterText(find.byType(EditableText), '/');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      final panel = tester.getRect(find.byType(ChatSuggestions));
+      final last = tester.getRect(find.text('/version'));
+      expect(last.top, greaterThanOrEqualTo(panel.top));
+      expect(last.bottom, lessThanOrEqualTo(panel.bottom));
+      expect(focus.hasFocus, isTrue);
+      await shots.capture(tester, 'last-command-visible');
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      expect(controller.text, '/version ');
+      expect(sent, isEmpty);
     });
   }
 }
