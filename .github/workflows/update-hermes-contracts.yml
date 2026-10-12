@@ -1,7 +1,7 @@
 name: Update Hermes contracts
 
 # Refreshes both descriptions of the Hermes backend from one hermes-agent
-# main commit, and opens (or refreshes) one PR when either changed:
+# main commit. Provenance-only changes also open an update PR.
 #
 # - openrpc/: the gateway contract (the /api/ws protocol). A frame it gained
 #   fails test/gateway/gateway_contract_test.dart on that PR until it is
@@ -69,9 +69,10 @@ jobs:
         run: |
           body="$RUNNER_TEMP/body.md"
           : >"$body"
-          changed=false
+          python3 -I scripts/hermes_contracts.py changes >>"$GITHUB_OUTPUT"
+          { echo "## Source revision"; echo
+            python3 -I scripts/hermes_contracts.py resolve; echo; } >>"$body"
           if ! git diff --quiet -- openrpc/hermes-gateway.openrpc.json; then
-            changed=true
             git show HEAD:openrpc/hermes-gateway.openrpc.json >"$RUNNER_TEMP/old-openrpc.json"
             { echo "## Gateway contract"; echo
               python3 -I scripts/diff_gateway_contract.py \
@@ -79,20 +80,15 @@ jobs:
               echo; } >>"$body"
           fi
           if ! git diff --quiet -- openapi/hermes-agent.openapi.json; then
-            changed=true
             git show HEAD:openapi/hermes-agent.openapi.json >"$RUNNER_TEMP/old-openapi.json"
             { echo "## REST API"; echo
               python3 -I scripts/diff_openapi_spec.py \
                 "$RUNNER_TEMP/old-openapi.json" openapi/hermes-agent.openapi.json; } >>"$body"
           fi
-          echo "changed=$changed" >>"$GITHUB_OUTPUT"
 
       - name: Regenerate packages/hermes_api
-        if: steps.diff.outputs.changed == 'true'
-        run: |
-          if ! git diff --quiet -- openapi/hermes-agent.openapi.json; then
-            ./scripts/generate_hermes_api_client.sh
-          fi
+        if: steps.diff.outputs.openapi_changed == 'true'
+        run: ./scripts/generate_hermes_api_client.sh
 
       - name: Open or update the PR
         if: steps.diff.outputs.changed == 'true'
