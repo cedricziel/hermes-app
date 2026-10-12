@@ -236,7 +236,7 @@ void main() {
     server.on('DELETE', '/api/plugins/kanban/links', {'ok': true});
     await pumpPanel(tester);
 
-    await tester.tap(find.byTooltip('Delete'));
+    await tester.tap(find.byTooltip('Remove dependency t0'));
     await tester.pumpAndSettle();
 
     expect(
@@ -860,7 +860,7 @@ void main() {
       });
       await pumpPanel(tester);
       expect(find.text('claude-opus-4'), findsOneWidget);
-      expect(find.text(' · Off'), findsOneWidget);
+      expect(find.text('Off'), findsOneWidget);
 
       await openModel(tester);
       await tester.tap(find.byKey(const Key('model-default')));

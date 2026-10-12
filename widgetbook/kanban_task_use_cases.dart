@@ -191,7 +191,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
   ),
   WidgetbookComponent(
     name: 'KanbanTaskFields',
-    useCases: [
+    useCases: _platformCases([
       _use(
         'Bare',
         KanbanTaskFields(
@@ -245,7 +245,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           onEditModel: () {},
         ),
       ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskComments',
@@ -273,7 +273,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
   ),
   WidgetbookComponent(
     name: 'KanbanTaskChannels',
-    useCases: [
+    useCases: _platformCases([
       for (final (name, switching) in [
         ('Channels', const <String>{}),
         ('Switching', const {'telegram'}),
@@ -293,7 +293,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
             onToggle: (_, _) {},
           ),
         ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskAttachments',
@@ -388,4 +388,8 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
       ),
     ],
   ),
+];
+
+List<WidgetbookUseCase> _platformCases(List<WidgetbookUseCase> cases) => [
+  for (final example in cases) ...onEachPlatform(example.name, example.builder),
 ];

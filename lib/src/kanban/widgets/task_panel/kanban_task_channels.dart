@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../kanban_models.dart';
-import 'kanban_task_heading.dart';
+import '../../../widgets/grouped_list.dart';
 
 /// The home channels a task can post its updates to; nothing when there
 /// are none.
@@ -22,16 +22,13 @@ class KanbanTaskChannels extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (channels.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return GroupedSection(
+      header: 'Notify',
       children: [
-        const KanbanTaskHeading('Notify'),
         for (final c in channels)
-          SwitchListTile.adaptive(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text('Post updates to ${c.name}'),
-            subtitle: Text(c.platform),
+          GroupedSwitchRow(
+            title: 'Post updates to ${c.name}',
+            subtitle: c.platform,
             value: c.subscribed,
             onChanged: switching.contains(c.platform)
                 ? null
