@@ -8,4 +8,4 @@
 ## 2. Verification and delivery
 
 - [x] 2.1 Run formatting, flutter analyze, relevant notification/navigation/editor suites, OpenSpec validation, and the isolated app verification loop where applicable. Update stale skills only if needed.
-- [ ] 2.2 Obtain current-head review, address findings, pass required CI/builds, merge, sync/archive this change, and update the backlog.
+- [x] 2.2 Obtain current-head review, address findings, pass required CI/builds, merge, sync/archive this change, and update the backlog.

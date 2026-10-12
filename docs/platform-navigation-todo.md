@@ -10,8 +10,8 @@ Created 2026-10-12. Scope: the gesture, navigation-stack, and macOS transition i
 | Thread actions | iOS uses swipe and long-press; macOS has a dedicated row; other platforms offer an inline menu with long-press and secondary tap. | `lib/src/chat/widgets/thread_sidebar.dart` |
 | Kanban dragging | Wide-layout cards distinguish mouse/trackpad from touch/stylus. The generic narrow-layout path uses long-press selection and a drag handle. macOS has its own column layout. | `lib/src/kanban/widgets/kanban_card_drag.dart`, `lib/src/kanban/kanban_screen.dart`, `openspec/specs/kanban/spec.md` |
 | Main destinations | An `IndexedStack` preserves mounted section state. Selection does not push a route or record section history. | `lib/src/shell/app_shell.dart` |
-| External navigation | Notification/share and other direct handoffs still clear pushed routes with `popUntil(route.isFirst)`, bypassing dismissal guards. Deep links now use a guarded queue and wait for route completion, as merged in #646. | `lib/src/shell/app_shell.dart` |
-| Page transitions | The app uses `MaterialPageRoute`. The macOS theme now specifies a short stationary fade; mobile builders retain the installed SDK defaults. Dialogs and sheets still need their own policy. | `lib/src/app.dart`, `lib/src/theme/hermes_theme.dart` |
+| External navigation | Deep links and notification taps use a guarded queue before payload delivery (#646, #653). Sharing and other direct handoffs still need guarded dispatch. | `lib/src/shell/app_shell.dart` |
+| Page transitions | The app uses `MaterialPageRoute`. The macOS theme specifies a short stationary fade; mobile builders retain the installed SDK defaults. Dialogs and sheets still need their own policy. | `lib/src/app.dart`, `lib/src/theme/hermes_theme.dart` |
 | Dialogs and sheets | Plugin and MCP detail views use Material bottom sheets. Several Kanban and settings surfaces use `showDialog`. `showAdaptiveSheet` selects by width and uses Material presentation APIs. | `lib/src/plugins/catalog_tab.dart`, `lib/src/plugins/installed_tab.dart`, `lib/src/mcp/mcp_catalog_screen.dart`, `lib/src/widgets/adaptive_sheet.dart` |
 
 Device behavior and the exact transitions in the reported build still need verification. Missing section history or a nested navigator is a design choice, not automatically a defect. Existing specs deliberately preserve section state and specify sidebar/drawer navigation.
@@ -38,7 +38,7 @@ Acceptance: every inventoried interaction has an expected result; unresolved dec
 
 Priority: first behavior fix. Sources: `lib/src/shell/app_shell.dart`, `lib/src/widgets/route_dismissal.dart`, and existing `PopScope` users.
 
-- [ ] Add a failing regression test: a notification arriving over a dirty editor must not silently discard the draft.
+- [x] Add a failing regression test: a notification arriving over a dirty editor must not silently discard the draft.
 - [ ] Define whether an external request waits, prompts, or opens elsewhere while navigation is blocked. Preserve the request until it is handled or explicitly cancelled.
 - [ ] Replace unconditional stack resets for ordinary external navigation with a flow that respects dismissal guards.
 - [ ] Cover notification taps, shared text/files/quotes, chat/new-chat/request deep links, Kanban links, schedule links, scheduled-run chat handoffs, and Show in Main Window.
@@ -73,9 +73,9 @@ Acceptance: every entry path has a defined Back result, and section/window chang
 
 ## 4. Apply platform-appropriate page transitions
 
-- [ ] Add an explicit transition policy to the shared theme or route construction path, following the decision in section 1.
+- [x] Add an explicit transition policy to the shared theme or route construction path, following the decision in section 1.
 - [ ] Preserve iOS interactive edge-swipe Back and verify Android system/predictive Back against the SDK and app configuration actually shipped.
-- [ ] Apply the macOS policy to both light and dark themes and all app entry points, including auxiliary windows.
+- [x] Apply the macOS policy to both light and dark themes and all app entry points, including auxiliary windows.
 - [ ] Audit route pushes in Chat, Skills, Plugins, MCP, Kanban, Schedules, Profiles, Messaging, account/connection settings, attachment viewers, and group chat.
 - [ ] Check full-screen attachment/media views separately; select presentation according to the task rather than applying one animation blindly.
 - [ ] Respect reduced motion; avoid unexpected animation on destination switching and inspector opening.
@@ -139,12 +139,14 @@ Completion: all agreed matrix entries are implemented and verified, existing beh
 
 ## Delivery progress
 
-- Merged: [PR #646](https://github.com/cedricziel/hermes-app/pull/646), `guard-external-navigation`. Protects dirty/busy routes during deep-link navigation, delays payload delivery, retains the latest link, rechecks App Lock and availability, and cancels on shell disposal. Skill and schedule editors also retain drafts and errors when an in-flight save fails. All CI test shards and Android/iOS/macOS/Linux builds passed. Notifications, sharing, and window handoffs remain open.
+- Merged: [PR #646](https://github.com/cedricziel/hermes-app/pull/646), `guard-external-navigation`. Protects dirty/busy routes during deep-link navigation, delays payload delivery, retains the latest link, rechecks App Lock and availability, and cancels on shell disposal. Skill and schedule editors also retain drafts and errors when an in-flight save fails. All CI test shards and Android/iOS/macOS/Linux builds passed. Later entry-point delivery is recorded below.
+- Merged: [PR #653](https://github.com/cedricziel/hermes-app/pull/653), `guard-notification-navigation`. Warm/launch notifications wait behind dirty/busy routes and App Lock; newer navigation wins over late launch lookup. Confirmed-unavailable jobs are discarded. All CI test shards and Android/iOS/macOS/Linux builds passed. Main requirements are synced and the change is archived.
+- In progress: guarded sharing (`guard-sharing-navigation`); retained payloads will survive newer navigation for the next explicit Chat entry.
+- Merged: [PR #654](https://github.com/cedricziel/hermes-app/pull/654), `restrained-macos-page-transitions`. macOS pages, including Material full-screen image viewers, use a 150 ms stationary fade and show content immediately under reduced motion. All CI test shards and Android/iOS/macOS/Linux builds passed. Main requirements are synced and the change is archived.
 - Authentication audit: pushed routes can remain above the replacement Login/Setup home screen. Cover old-session UI immediately during teardown. User confirmed draft recovery after expiry only for the same verified account; explicit sign-out and server changes clear old screens.
 - Adaptive Skill details/status: PR #643 merged independently; reconcile its implementation after updating from main.
 - Native verification: isolated macOS Skills/editor pushes and toolbar Back completed. The automated keyboard `⌘[` action had no effect; keyboard Back parity remains open. Widget tests cover light/dark page motion, reduced motion, full-screen page routes, interrupted Back, metadata, and results.
 - Source inventory complete: route pushes, modal APIs, platform branches, and pointer gestures. Device verification remains open.
-- Confirmed sharing policy: a newer notification or link wins navigation; retain waiting shared content for the next Chat entry.
-- In progress: explicit macOS page-motion policy (`restrained-macos-page-transitions`). Notification safety is implemented in PR #653 and awaiting required builds.
+- Confirmed sharing policy: newer notification/link navigation wins; waiting share content stays pending until the next explicit Chat entry.
 - Confirmed decisions: keep main sections as peers without Back history and retain the shared detail stack; use restrained macOS page motion and desktop dialogs/popovers. Preserve current iOS behavior and the macOS Kanban inspector. Update and validate the specs with each implementation slice.
 - Delivery order: deep-link safety; other external navigation entry points; explicit transition policy; shared modal presentation; feature migrations; gesture/input consistency; device verification and final reconciliation.
