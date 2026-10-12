@@ -1,10 +1,12 @@
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
-import { SegmentedButton } from "../SegmentedButton/SegmentedButton";
-import { Spinner } from "../Spinner/Spinner";
+import { GroupedSegmentedRow } from "../GroupedSegmentedRow/GroupedSegmentedRow";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
+import { GroupedTextFieldRow } from "../GroupedTextFieldRow/GroupedTextFieldRow";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { TextField } from "../TextField/TextField";
 import { SkillMarkdown } from "../../skillMarkdown";
-import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
+import { type ScreenLayout } from "../../screenFrame";
 import type { AppleDevice, Platform } from "../../platform";
 import "./SkillEditorScreen.css";
 
@@ -58,8 +60,7 @@ export interface SkillEditorScreenProps {
   layout?: ScreenLayout;
   /**
    * `apple`: the 44px bar (52px Mac toolbar on `desktop`) and Apple
-   * spinners. Edit and Preview are a Material `SegmentedButton` everywhere,
-   * as in the app. Inherits the provider's platform.
+   * spinners. Edit and Preview use an adaptive grouped segmented control. Inherits the provider's platform.
    */
   platform?: Platform;
   /** Under `apple` + `desktop`: `mac` (default) or `touch` for a full-screen iPad. */
@@ -74,12 +75,12 @@ const snippets: { id: SkillSnippet; label: string; name: string }[] = [
 ];
 
 /**
- * Writes a new skill or edits one's `SKILL.md`, full screen: a close (X)
- * button and Save in the bar, Name and Category when creating, an Edit and
+ * Writes a new skill or edits one's `SKILL.md`, full screen: platform
+ * cancellation and Save in the bar, Name and Category when creating, an Edit and
  * Preview switch, a monospace editor that fills the screen and a format
  * toolbar (heading, bold, bullet, code block, undo, redo) under it. Leaving
  * with unsaved changes asks first in the app (not drawn). Built from
- * `ListDetailLayout` (`onClose`), `TextField` and `SegmentedButton`.
+ * `SettingsScaffold`, grouped metadata fields and an adaptive view switch.
  */
 export function SkillEditorScreen({
   mode,
@@ -108,73 +109,39 @@ export function SkillEditorScreen({
 }: SkillEditorScreenProps) {
   const editing = view === "edit";
   return (
-    <ScreenFrame
+    <SettingsScaffold
       title={mode === "create" ? "New skill" : `Edit ${name ?? ""}`}
-      onClose={onClose}
-      actions={
-        <Button
-          variant="text"
-          disabled={!canSave || saving}
-          onClick={onSave}
-          aria-label="Save"
-        >
-          {saving ? <Spinner size={18} label="Saving" /> : "Save"}
-        </Button>
-      }
-      layout={layout}
+      onBack={onClose}
+      onCancel={onClose}
+      backLabel="Skills"
+      formAction={{
+        label: "Save",
+        onClick: onSave,
+        busy: saving,
+        disabled: !canSave || saving,
+      }}
       platform={platform}
-      device={device}
-      maxWidth={null}
-      footer={
-        editing ? (
-          <div className="h-skill-editor__toolbar">
-            {snippets.map((s) => (
-              <span key={s.id} className="h-skill-editor__snippet">
-                <Button
-                  variant="text"
-                  fullWidth
-                  aria-label={s.name}
-                  onClick={() => onInsert?.(s.id)}
-                >
-                  {s.label}
-                </Button>
-              </span>
-            ))}
-            <IconButton
-              icon="undo"
-              label="Undo"
-              disabled={!canUndo}
-              onClick={onUndo}
-            />
-            <IconButton
-              icon="redo"
-              label="Redo"
-              disabled={!canRedo}
-              onClick={onRedo}
-            />
-          </div>
-        ) : undefined
-      }
+      device={layout === "phone" ? "touch" : (device ?? "mac")}
     >
       <div className="h-skill-editor">
         {mode === "create" ? (
           <div className="h-skill-editor__fields">
-            <TextField
-              label="Name"
-              value={nameValue}
-              placeholder="web-research"
-              onChange={(e) => onNameChange?.(e.target.value)}
-            />
-            <TextField
-              label="Category (optional)"
-              value={category}
-              placeholder="research"
-              onChange={(e) => onCategoryChange?.(e.target.value)}
-            />
+            <GroupedSection>
+              <GroupedTextFieldRow
+                label="Name"
+                value={nameValue}
+                onChange={onNameChange}
+              />
+              <GroupedTextFieldRow
+                label="Category (optional)"
+                value={category}
+                onChange={onCategoryChange}
+              />
+            </GroupedSection>
           </div>
         ) : null}
         <div className="h-skill-editor__switch">
-          <SegmentedButton
+          <GroupedSegmentedRow
             labels={["Edit", "Preview"]}
             value={editing ? 0 : 1}
             onChange={(i) => onViewChange?.(i === 0 ? "edit" : "preview")}
@@ -201,7 +168,35 @@ export function SkillEditorScreen({
             <SkillMarkdown text={text} />
           </div>
         )}
+        {editing ? (
+          <div className="h-skill-editor__toolbar">
+            {snippets.map((s) => (
+              <span key={s.id} className="h-skill-editor__snippet">
+                <Button
+                  variant="text"
+                  fullWidth
+                  aria-label={s.name}
+                  onClick={() => onInsert?.(s.id)}
+                >
+                  {s.label}
+                </Button>
+              </span>
+            ))}
+            <IconButton
+              icon="undo"
+              label="Undo"
+              disabled={!canUndo}
+              onClick={onUndo}
+            />
+            <IconButton
+              icon="redo"
+              label="Redo"
+              disabled={!canRedo}
+              onClick={onRedo}
+            />
+          </div>
+        ) : undefined}
       </div>
-    </ScreenFrame>
+    </SettingsScaffold>
   );
 }

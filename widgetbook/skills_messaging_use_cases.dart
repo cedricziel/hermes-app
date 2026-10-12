@@ -270,18 +270,25 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'SkillEditorScreen',
       useCases: [
-        WidgetbookUseCase(
-          name: 'Create',
-          builder: (_) =>
-              SkillEditorScreen.create(onSave: (_, _, _) async => null),
+        ...onEachPlatform(
+          'Create',
+          (_) => SkillEditorScreen.create(onSave: (_, _, _) async => null),
         ),
-        WidgetbookUseCase(
-          name: 'Edit',
-          builder: (_) => SkillEditorScreen.edit(
+        ...onEachPlatform(
+          'Edit',
+          (_) => SkillEditorScreen.edit(
             name: 'pr-review',
             initialText:
                 '---\nname: pr-review\n---\n\n# Review PRs\n\nBe kind.',
             onSave: (_, _, _) async => null,
+          ),
+        ),
+        ...onEachPlatform(
+          'Save returns an error',
+          (_) => SkillEditorScreen.edit(
+            name: 'pr-review',
+            initialText: '# Review PRs\n\nBe kind.',
+            onSave: (_, _, _) async => 'Could not save this skill. Try again.',
           ),
         ),
       ],

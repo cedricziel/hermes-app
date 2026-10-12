@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -601,11 +602,21 @@ void main() {
       await shots.capture(tester, 'template');
 
       await tester.enterText(
-        find.widgetWithText(TextField, 'Name'),
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) => w is GroupedTextFieldRow && w.label == 'Name',
+          ),
+          matching: find.byType(TextField),
+        ),
         'a-skill-name-that-is-far-too-long-for-the-half-width-field',
       );
       await tester.enterText(
-        find.widgetWithText(TextField, 'Category (optional)'),
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) => w is GroupedTextFieldRow && w.label == 'Category (optional)',
+          ),
+          matching: find.byType(TextField),
+        ),
         'devops',
       );
       await tester.pumpAndSettle();
@@ -616,7 +627,12 @@ void main() {
       await shots.capture(tester, 'after-heading-button');
 
       await tester.enterText(
-        find.widgetWithText(TextField, 'Name'),
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) => w is GroupedTextFieldRow && w.label == 'Name',
+          ),
+          matching: find.byType(TextField),
+        ),
         'ship-a-release',
       );
       await tester.enterText(
@@ -646,7 +662,11 @@ void main() {
       await tester.pumpAndSettle();
       await shots.capture(tester, 'save-unreachable');
 
-      await tester.tap(find.byType(CloseButton));
+      await tester.tap(switch (workflowPlatform) {
+        TargetPlatform.iOS => find.text('Cancel'),
+        TargetPlatform.macOS => find.byKey(const Key('settings-back')),
+        _ => find.byType(CloseButton),
+      });
       await tester.pumpAndSettle();
       await shots.capture(tester, 'discard-confirm');
       await tester.tap(find.text('Keep editing'));

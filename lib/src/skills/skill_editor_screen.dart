@@ -4,6 +4,9 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../theme/app_icons.dart';
 import '../widgets/markdown_links.dart';
+import '../widgets/grouped_form.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
 import '../widgets/named_icon_button.dart';
 import 'skill_detail_screen.dart' show skillMarkdownBody;
 import '../widgets/route_dismissal.dart';
@@ -128,61 +131,43 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
           dismissRoute(context);
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          leading: const CloseButton(),
-          title: Text(widget.creating ? 'New skill' : 'Edit ${widget.name}'),
-          actions: [
-            TextButton(
-              onPressed: _canSave ? _save : null,
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
-                  : const Text('Save'),
-            ),
-          ],
+      child: SettingsScaffold(
+        title: widget.creating ? 'New skill' : 'Edit ${widget.name}',
+        previousTitle: 'Skills',
+        cancel: true,
+        formAction: SettingsFormAction(
+          label: 'Save',
+          busy: _saving,
+          onPressed: _canSave ? _save : null,
         ),
         body: Column(
           children: [
             if (widget.creating)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _name,
-                        decoration: const InputDecoration(
-                          labelText: 'Name',
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: GroupedMetrics.of(context).maxWidth,
+                  ),
+                  child: GroupedSection(
+                    children: [
+                      GroupedTextFieldRow(label: 'Name', controller: _name),
+                      GroupedTextFieldRow(
+                        label: 'Category (optional)',
                         controller: _category,
-                        decoration: const InputDecoration(
-                          labelText: 'Category (optional)',
-                          isDense: true,
-                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Edit')),
-                  ButtonSegment(value: true, label: Text('Preview')),
-                ],
-                selected: {_preview},
-                onSelectionChanged: (s) => setState(() => _preview = s.first),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: GroupedMetrics.of(context).maxWidth,
+              ),
+              child: GroupedSegmentedRow<bool>(
+                value: _preview,
+                segments: const {false: 'Edit', true: 'Preview'},
+                onChanged: (preview) => setState(() => _preview = preview),
               ),
             ),
             if (_error != null)
