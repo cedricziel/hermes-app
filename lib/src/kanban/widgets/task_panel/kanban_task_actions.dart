@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../theme/hermes_theme.dart';
+import '../../../widgets/grouped_list.dart';
 import '../../../theme/app_icons.dart';
 import '../../kanban_models.dart';
 
@@ -32,91 +32,49 @@ class KanbanTaskActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final subtle = theme.colorScheme.onSurface.withValues(
-      alpha: kHermesMutedAlpha,
-    );
     final estimate = this.estimate;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (task.status == 'triage')
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Wrap(
-              spacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: onDecompose,
-                  child: const Text('Decompose'),
-                ),
-                OutlinedButton(
-                  onPressed: onSpecify,
-                  child: const Text('Specify'),
-                ),
-              ],
-            ),
-          ),
-        if (task.status == 'running')
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Wrap(
-              children: [
-                OutlinedButton(
-                  onPressed: onReclaim,
-                  child: const Text('Reclaim'),
-                ),
-              ],
-            ),
-          ),
         if (task.status != 'done')
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Wrap(
-              spacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: onComplete,
-                  child: const Text('Complete'),
-                ),
-                if (task.status != 'blocked')
-                  OutlinedButton(
-                    onPressed: onBlock,
-                    child: const Text('Block'),
-                  ),
-              ],
-            ),
-          ),
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Wrap(
-            spacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          GroupedSection(
+            header: 'Actions',
             children: [
-              OutlinedButton.icon(
-                onPressed: estimating ? null : onEstimate,
-                icon: const AppIcon(AppIcons.speed, size: 18),
-                label: const Text('Estimate'),
-              ),
-              if (estimating)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
-              else if (estimate != null)
-                Text(estimate.summary),
+              if (task.status == 'triage') ...[
+                GroupedRow(
+                  title: 'Decompose',
+                  chevron: false,
+                  onTap: onDecompose,
+                ),
+                GroupedRow(title: 'Specify', chevron: false, onTap: onSpecify),
+              ],
+              if (task.status == 'running')
+                GroupedRow(title: 'Reclaim', chevron: false, onTap: onReclaim),
+              GroupedRow(title: 'Complete', chevron: false, onTap: onComplete),
+              if (task.status != 'blocked')
+                GroupedRow(title: 'Block', chevron: false, onTap: onBlock),
             ],
           ),
-        ),
-        if (estimate?.rationale != null && estimate!.ok)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              estimate.rationale!,
-              style: theme.textTheme.bodySmall?.copyWith(color: subtle),
+        GroupedSection(
+          footer: estimate?.ok == true ? estimate?.rationale : null,
+          children: [
+            GroupedRow(
+              title: 'Estimate',
+              chevron: false,
+              leading: const AppIcon(AppIcons.speed),
+              subtitle: estimating ? null : estimate?.summary,
+              subtitleMaxLines: null,
+              enabled: !estimating,
+              onTap: onEstimate,
+              trailing: estimating
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    )
+                  : null,
             ),
-          ),
+          ],
+        ),
       ],
     );
   }
@@ -135,18 +93,23 @@ class KanbanTaskFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final error = Theme.of(context).colorScheme.error;
-    return Row(
+    return GroupedSection(
       children: [
-        TextButton.icon(
-          onPressed: onArchive,
-          icon: const AppIcon(AppIcons.archive),
-          label: const Text('Archive'),
+        GroupedRow(
+          title: 'Archive',
+          leading: const AppIcon(AppIcons.archive),
+          chevron: false,
+          onTap: onArchive,
         ),
-        TextButton.icon(
-          onPressed: onDelete,
-          icon: AppIcon(AppIcons.delete, color: error),
-          label: Text('Delete', style: TextStyle(color: error)),
+        GroupedRow(
+          title: 'Delete',
+          leading: AppIcon(
+            AppIcons.delete,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          destructive: true,
+          chevron: false,
+          onTap: onDelete,
         ),
       ],
     );

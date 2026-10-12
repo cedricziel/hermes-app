@@ -11,6 +11,8 @@ import "./GroupedChoiceRow.css";
 export interface GroupedChoiceRowProps {
   /** The option's name: "Built-in", "holographic", "compressor", "System". */
   title: string;
+  /** Wrap long option names. */
+  wrapTitle?: boolean;
   /** One muted line under it: "Remembers things with holographic." */
   subtitle?: string;
   /** Muted text right after the title: "Ready", "Default". */
@@ -41,6 +43,7 @@ export interface GroupedChoiceRowProps {
  */
 export function GroupedChoiceRow({
   title,
+  wrapTitle = false,
   subtitle,
   meta,
   warning,
@@ -72,6 +75,7 @@ export function GroupedChoiceRow({
     <div className="h-choice-row">
       <GroupedRow
         title={title}
+      wrapTitle={wrapTitle}
         subtitle={subtitle}
         meta={meta}
         warning={warning}

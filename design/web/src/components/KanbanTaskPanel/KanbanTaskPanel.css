@@ -76,29 +76,6 @@
   overflow-wrap: anywhere;
 }
 
-.h-kanban-task-panel__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 4px 0;
-}
-
-.h-kanban-task-panel__chips--tight {
-  gap: 8px 6px;
-}
-
-.h-kanban-task-panel__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.h-kanban-task-panel__rationale {
-  margin-top: 4px;
-}
-
 .h-kanban-task-panel__heading {
   padding: 16px 0 6px;
   font-size: 11px;
@@ -292,16 +269,7 @@
   min-width: 0;
 }
 
-.h-kanban-task-panel__footer {
-  display: flex;
-  gap: 4px;
-  padding-top: 4px;
-}
 
-.h-kanban-task-panel__delete,
-.h-kanban-task-panel__delete:hover:not(:disabled) {
-  color: var(--h-error);
-}
 
 /* Apple: detent sheet (iPhone) and form sheet (iPad, Mac). */
 .h-kanban-task-panel--apple.h-kanban-task-panel--sheet {
