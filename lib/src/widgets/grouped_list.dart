@@ -291,6 +291,7 @@ class GroupedRow extends StatelessWidget {
     this.leading,
     this.value,
     this.trailing,
+    this.separateTrailing = false,
     this.onTap,
     this.enabled = true,
     this.checked,
@@ -333,6 +334,9 @@ class GroupedRow extends StatelessWidget {
 
   /// Takes the place of the chevron, such as a switch.
   final Widget? trailing;
+
+  /// Keeps trailing actions separate from a static row in accessibility.
+  final bool separateTrailing;
   final VoidCallback? onTap;
 
   /// False ignores [onTap] while the row still reads as a button, a
@@ -378,7 +382,10 @@ class GroupedRow extends StatelessWidget {
     final showChevron = chevron ?? (onTap != null && trailing == null);
     // A control beside a row that opens something stays its own node, so a
     // screen reader can both open the row and flip the switch.
-    final trailingApart = trailing != null && onTap != null && checked == null;
+    final trailingApart =
+        trailing != null &&
+        (onTap != null || separateTrailing) &&
+        checked == null;
     final titleStyle = TextStyle(
       fontSize: metrics.titleSize,
       color: destructive ? scheme.error : scheme.onSurface,

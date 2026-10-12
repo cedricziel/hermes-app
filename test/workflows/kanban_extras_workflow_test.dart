@@ -1024,7 +1024,10 @@ void main() {
       await tester.tap(find.textContaining('Migrate every outgoing'));
       await tester.pumpAndSettle();
 
-      await tapText(tester, find.text('Attachments'.toUpperCase()));
+      await tapText(
+        tester,
+        find.textContaining(RegExp(r'^attachments$', caseSensitive: false)),
+      );
       await shots.capture(tester, 'attachments');
 
       await tapText(tester, find.byTooltip('Save attachment').at(1));
@@ -1035,10 +1038,10 @@ void main() {
       await shots.capture(tester, 'remove-confirm');
       await popRoute(tester);
 
-      await tapText(tester, find.text('Archive').last);
+      await tapText(tester, find.text('Archive'));
       await shots.capture(tester, 'archive-confirm');
       await popRoute(tester);
-      await tapText(tester, find.text('Delete').last);
+      await tapText(tester, find.text('Delete'));
       await shots.capture(tester, 'delete-confirm');
     });
 

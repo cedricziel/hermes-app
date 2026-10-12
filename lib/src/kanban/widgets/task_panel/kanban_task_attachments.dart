@@ -7,7 +7,7 @@ import '../../../theme/app_icons.dart';
 import '../../../widgets/named_icon_button.dart';
 import '../../kanban_models.dart';
 import 'draggable_kanban_attachment.dart';
-import 'kanban_task_heading.dart';
+import '../../../widgets/grouped_list.dart';
 
 /// The task's attachments, each to save or remove, and a button to attach
 /// another. Nothing can start while a transfer runs. When [onRead] is given,
@@ -52,10 +52,9 @@ class KanbanTaskAttachments extends StatelessWidget {
   final ValueChanged<KanbanAttachment>? onToggleQuickLook;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => GroupedSection(
+    header: 'Attachments',
     children: [
-      const KanbanTaskHeading('Attachments'),
       if (transferring) const BusyBar(),
       for (final a in attachments)
         DraggableKanbanAttachment(
@@ -75,13 +74,12 @@ class KanbanTaskAttachments extends StatelessWidget {
             ),
           ),
         ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: transferring ? null : onAttach,
-          icon: const AppIcon(AppIcons.attach),
-          label: const Text('Attach file'),
-        ),
+      GroupedRow(
+        title: 'Attach file',
+        chevron: false,
+        leading: const AppIcon(AppIcons.attach),
+        enabled: !transferring,
+        onTap: onAttach,
       ),
     ],
   );
@@ -104,15 +102,12 @@ class KanbanAttachmentRow extends StatelessWidget {
   final ValueChanged<KanbanAttachment> onRemove;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    dense: true,
-    // Room for the outline of a selected row on macOS.
-    contentPadding: quickLookTargetsAt(context)
-        ? const EdgeInsets.symmetric(horizontal: 8)
-        : EdgeInsets.zero,
+  Widget build(BuildContext context) => GroupedRow(
     leading: const AppIcon(AppIcons.attach),
-    title: Text(attachment.filename),
-    subtitle: Text(kanbanFileSize(attachment.size)),
+    title: attachment.filename,
+    titleMaxLines: null,
+    subtitle: kanbanFileSize(attachment.size),
+    separateTrailing: true,
     trailing: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
