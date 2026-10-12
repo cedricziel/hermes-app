@@ -35,6 +35,7 @@ The app stores:
 
 - the server address you entered and your sign-in preferences, in app preferences
 - your session tokens, in the system keychain (iOS and macOS) or keystore (Android)
+- on macOS, conversation-window targets (server, chat, profile, and title) and a hash of the verified session identity, in app preferences, so windows reopen only for the matching account
 - whether notifications are on, and whether the system allowed them, in app preferences
 - when you last saw an update prompt and which version you chose to ignore, in app preferences
 
