@@ -13,9 +13,9 @@
 # HERMES_DEV_DART_DEFINES adds build flags to start, space-separated, e.g.
 # HERMES_DEV_DART_DEFINES="OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318".
 #
-# Safe alongside other checkouts/worktrees: state lives in this checkout's
-# .dart_tool/hermes-dev/, the app is told its server with a build flag (never
-# the shared saved address), and screenshots target this app's own window.
+# Backend connection, runner bookkeeping, logs, screenshots checkout-scoped.
+# Native Debug preferences/cache/keychain shared across worktrees; establish
+# client isolation using verify-in-app skill before launch.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
