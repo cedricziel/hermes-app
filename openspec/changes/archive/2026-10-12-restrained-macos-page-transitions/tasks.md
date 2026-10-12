@@ -6,4 +6,4 @@
 ## 2. Verification and delivery
 
 - [x] 2.1 Run formatting, analysis, theme/navigation tests, strict OpenSpec validation, and the isolated macOS app loop. Update project skills only if made stale.
-- [ ] 2.2 Obtain current-head review, address findings, pass CI/builds, merge, sync/archive the change, and update the backlog.
+- [x] 2.2 Obtain current-head review, address findings, pass CI/builds, merge, sync/archive the change, and update the backlog.
