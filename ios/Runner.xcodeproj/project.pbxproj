@@ -80,6 +80,7 @@
 		5D00000000000000000052B1 /* RequestIntentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D00000000000000000052A1 /* RequestIntentModels.swift */; };
 		5D00000000000000000052B2 /* RequestIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D00000000000000000052A2 /* RequestIntents.swift */; };
 		5D00000000000000000052B3 /* RequestIntentsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D00000000000000000052A3 /* RequestIntentsBridge.swift */; };
+		C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844350FAF88988291CB013FB /* PendingSendStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -256,6 +257,7 @@
 		5D00000000000000000052A1 /* RequestIntentModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestIntentModels.swift; sourceTree = "<group>"; };
 		5D00000000000000000052A2 /* RequestIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestIntents.swift; sourceTree = "<group>"; };
 		5D00000000000000000052A3 /* RequestIntentsBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestIntentsBridge.swift; sourceTree = "<group>"; };
+		844350FAF88988291CB013FB /* PendingSendStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PendingSendStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -404,6 +406,7 @@
 				A03C428A6CC06D8682F0F623 /* ConversationModel.swift */,
 				2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */,
 				9978D7CC9E15B585ACD0BBA0 /* Models.swift */,
+				844350FAF88988291CB013FB /* PendingSendStore.swift */,
 				3DF22DC249C3DAEEF3763874 /* RelayClient.swift */,
 				73F6E0EB55361B8174EFAF2C /* ThreadListModel.swift */,
 				8908571C5C02E62FE16C822C /* ReportingTransport.swift */,
@@ -807,6 +810,7 @@
 				2B8C3A3939A1E17233580438 /* ConversationModel.swift in Sources */,
 				C0DC256A998B03F622796497 /* HermesClient.swift in Sources */,
 				12AB7B237264DC0886E10BDB /* Models.swift in Sources */,
+				C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */,
 				3EC1A4A5266F115E826C5E0F /* RelayClient.swift in Sources */,
 				BA159963514DA903AA879B46 /* ThreadListModel.swift in Sources */,
 				1E0043EFD5473B28A64732A9 /* ReportingTransport.swift in Sources */,
