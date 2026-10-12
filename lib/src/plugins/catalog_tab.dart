@@ -3,6 +3,7 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/platform_chrome.dart';
+import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_search_field.dart';
 
@@ -57,16 +58,21 @@ class _CatalogTabState extends State<CatalogTab>
   Future<void> _open(CatalogEntry entry, {required bool wide}) async {
     _controller.select(entry.name);
     if (wide) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => SheetHost(
-        listenable: _controller,
-        isGone: () => _controller.selected == null,
-        builder: (_) => _detail(_controller.selected!),
-      ),
+    Widget detail(BuildContext _) => SheetHost(
+      listenable: _controller,
+      isGone: () => _controller.selected == null,
+      builder: (_) => _detail(_controller.selected!),
     );
+    if (platformChromeOf(context) == PlatformChrome.macos) {
+      await showAdaptiveSheet<void>(context, builder: detail);
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: detail,
+      );
+    }
     if (mounted) _controller.select(null);
   }
 
