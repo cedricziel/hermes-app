@@ -9,11 +9,22 @@ import OSLog
 final class WatchRelay: NSObject, WCSessionDelegate {
   static let channelName = "app.hermes/watch"
 
-  private let channel: FlutterMethodChannel
+  private let channel: FlutterMethodChannel?
+  private let invokeRequest: ([String: Any], @escaping (Any?) -> Void) -> Void
+  private let beginTask: (@escaping () -> Void) -> UIBackgroundTaskIdentifier
+  private let endTask: (UIBackgroundTaskIdentifier) -> Void
   private let logger = Logger(subsystem: "app.hermes", category: "watch-relay")
 
   init(messenger: FlutterBinaryMessenger) {
-    channel = FlutterMethodChannel(name: Self.channelName, binaryMessenger: messenger)
+    let channel = FlutterMethodChannel(name: Self.channelName, binaryMessenger: messenger)
+    self.channel = channel
+    invokeRequest = { message, completion in
+      channel.invokeMethod("request", arguments: message, result: completion)
+    }
+    beginTask = { expiry in
+      UIApplication.shared.beginBackgroundTask(withName: "watch-relay", expirationHandler: expiry)
+    }
+    endTask = { UIApplication.shared.endBackgroundTask($0) }
     super.init()
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self, call.method == "complication",
@@ -28,6 +39,18 @@ final class WatchRelay: NSObject, WCSessionDelegate {
     guard WCSession.isSupported() else { return }
     WCSession.default.delegate = self
     WCSession.default.activate()
+  }
+
+  init(
+    invokeRequest: @escaping ([String: Any], @escaping (Any?) -> Void) -> Void,
+    beginTask: @escaping (@escaping () -> Void) -> UIBackgroundTaskIdentifier,
+    endTask: @escaping (UIBackgroundTaskIdentifier) -> Void
+  ) {
+    channel = nil
+    self.invokeRequest = invokeRequest
+    self.beginTask = beginTask
+    self.endTask = endTask
+    super.init()
   }
 
   /// Hands the watch's complications the latest turn's status. Only an
@@ -71,15 +94,15 @@ final class WatchRelay: NSObject, WCSessionDelegate {
         replied = true
         replyHandler(answer)
         if task != .invalid {
-          UIApplication.shared.endBackgroundTask(task)
+          self.endTask(task)
           task = .invalid
         }
       }
-      task = UIApplication.shared.beginBackgroundTask(withName: "watch-relay") {
+      task = self.beginTask {
         self.logger.error("Background task expired")
         reply(["ok": false, "error": "unavailable"])
       }
-      self.channel.invokeMethod("request", arguments: message) { result in
+      self.invokeRequest(message) { result in
         switch result {
         case let answer as [String: Any]:
           reply(answer)

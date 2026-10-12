@@ -1,5 +1,16 @@
 import Foundation
 
+func waitForRelayActivation(
+  activated: () -> Bool,
+  sleep: () async throws -> Void
+) async throws {
+  for _ in 0..<15 {
+    if activated() { return }
+    try await sleep()
+  }
+  throw RelayFailure.notActivated
+}
+
 /// Why a request never reached the phone.
 enum RelayFailure: Error, Equatable {
   /// The watch's WatchConnectivity session never activated.
