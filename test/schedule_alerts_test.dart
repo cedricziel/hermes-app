@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
@@ -262,6 +266,197 @@ void main() {
     tearDown(() => watcher.dispose());
 
     Future<void> look() => watcher.check();
+
+    testWidgets('pause fences held jobs before mute and baseline writes', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        await settings.setMuted('work/other', true);
+        jobs([
+          ran('2026-09-20T08:00:00+00:00'),
+          ran('2026-09-20T08:00:00+00:00', id: 'other'),
+        ]);
+        watcher.available = true;
+        await look();
+        final held = Completer<FakeResponse>();
+        final started = Completer<void>();
+        server.onRequest('GET', '/api/cron/jobs', (_) {
+          started.complete();
+          return held.future;
+        });
+        final pending = look();
+        await started.future;
+
+        watcher.paused = true;
+        held.complete((status: 200, body: [ran('2026-09-21T08:00:00+00:00')]));
+        await pending;
+
+        expect(settings.isMuted('work/other'), isTrue);
+        expect(
+          (await ScheduleBaseline().read('acct'))!['work/job1'],
+          DateTime.utc(2026, 9, 20, 8),
+        );
+        expect(service.shown, isEmpty);
+      });
+    });
+
+    testWidgets('resume checks fresh while old jobs cannot clear newer work', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        jobs([ran('2026-09-20T08:00:00+00:00')]);
+        watcher.available = true;
+        await look();
+        final old = Completer<FakeResponse>();
+        final oldStarted = Completer<void>();
+        server.onRequest('GET', '/api/cron/jobs', (_) {
+          oldStarted.complete();
+          return old.future;
+        });
+        final pendingOld = look();
+        await oldStarted.future;
+        watcher.paused = true;
+        jobs([ran('2026-09-22T08:00:00+00:00')]);
+
+        watcher.paused = false;
+        final resumed = look();
+        await pumpEventQueue();
+        expect(jobRequests(), 3);
+        await resumed;
+        expect(service.shown, hasLength(1));
+        final fresh = Completer<FakeResponse>();
+        final freshStarted = Completer<void>();
+        server.onRequest('GET', '/api/cron/jobs', (_) {
+          if (!freshStarted.isCompleted) freshStarted.complete();
+          return fresh.future;
+        });
+        final pendingFresh = look();
+        await freshStarted.future;
+        old.complete((status: 200, body: [ran('2026-09-21T08:00:00+00:00')]));
+        await pendingOld;
+        final joined = look();
+        await pumpEventQueue();
+        expect(jobRequests(), 4);
+        expect(
+          (await ScheduleBaseline().read('acct'))!['work/job1'],
+          DateTime.utc(2026, 9, 22, 8),
+        );
+        fresh.complete((status: 200, body: [ran('2026-09-22T08:00:00+00:00')]));
+        await Future.wait([pendingFresh, joined]);
+
+        expect(service.shown, hasLength(1));
+      });
+    });
+
+    testWidgets('pause fences a held baseline read', (tester) async {
+      await tester.runAsync(() async {
+        watcher.dispose();
+        final baseline = _HeldBaseline();
+        await baseline.write('acct', {
+          'work/job1': DateTime.utc(2026, 9, 20, 8),
+        });
+        watcher = ScheduleWatcher(
+          repository: HermesCronRepository(server.client().raw),
+          service: service,
+          settings: settings,
+          baseline: baseline,
+          account: () => 'acct',
+        );
+        jobs([ran('2026-09-21T08:00:00+00:00')]);
+        watcher.available = true;
+        final pending = look();
+        await baseline.started.future;
+
+        watcher.paused = true;
+        baseline.release.complete();
+        await pending;
+
+        expect(
+          (await ScheduleBaseline().read('acct'))!['work/job1'],
+          DateTime.utc(2026, 9, 20, 8),
+        );
+        expect(service.shown, isEmpty);
+      });
+    });
+
+    testWidgets(
+      'pause fences a held profile lookup before committing the run',
+      (tester) async {
+        await tester.runAsync(() async {
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+          final held = Completer<FakeResponse>();
+          final started = Completer<void>();
+          server.onRequest('GET', '/api/profiles/active', (_) {
+            started.complete();
+            return held.future;
+          });
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          final pending = look();
+          await started.future;
+
+          watcher.paused = true;
+          held.complete((
+            status: 200,
+            body: {'active': 'work', 'current': 'work'},
+          ));
+          await pending;
+
+          expect(
+            (await ScheduleBaseline().read('acct'))!['work/job1'],
+            DateTime.utc(2026, 9, 20, 8),
+          );
+          expect(service.shown, isEmpty);
+        });
+      },
+    );
+
+    testWidgets('paused timers and explicit checks start no lookups', (
+      tester,
+    ) async {
+      jobs([ran('2026-09-20T08:00:00+00:00')]);
+      watcher.available = true;
+      await tester.pumpAndSettle();
+
+      watcher.paused = true;
+      await look();
+      await tester.pump(const Duration(minutes: 3));
+      await tester.pumpAndSettle();
+
+      expect(jobRequests(), 1);
+      watcher.dispose();
+      await look();
+      expect(jobRequests(), 1);
+    });
+
+    testWidgets(
+      'pause prevents delivery after guarded notification preparation',
+      (tester) async {
+        await tester.runAsync(() async {
+          watcher.dispose();
+          final guarded = _HeldNotificationService();
+          watcher = ScheduleWatcher(
+            repository: HermesCronRepository(server.client().raw),
+            service: guarded,
+            settings: settings,
+            account: () => 'acct',
+          );
+          jobs([ran('2026-09-20T08:00:00+00:00')]);
+          watcher.available = true;
+          await look();
+          jobs([ran('2026-09-21T08:00:00+00:00')]);
+          final pending = look();
+          await guarded.started.future;
+
+          watcher.paused = true;
+          guarded.release.complete();
+          await pending;
+
+          expect(guarded.shown, isEmpty);
+        });
+      },
+    );
 
     testWidgets('announces a run after the first look, not before', (
       tester,
@@ -671,6 +866,44 @@ base class _FailingWritePrefs extends InMemorySharedPreferencesAsync {
     String value,
     SharedPreferencesOptions options,
   ) async => throw StateError('disk full');
+}
+
+class _HeldBaseline extends ScheduleBaseline {
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<Map<String, DateTime>?> read(String account) async {
+    started.complete();
+    await release.future;
+    return super.read(account);
+  }
+}
+
+class _HeldNotificationService extends FakeNotificationService
+    implements GuardedNotificationService {
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  Future<void> _prepare() async {
+    started.complete();
+    await release.future;
+  }
+
+  @override
+  Future<void> show(AttentionNotification notification) async {
+    await _prepare();
+    await super.show(notification);
+  }
+
+  @override
+  Future<void> showWhile(
+    AttentionNotification notification,
+    bool Function() canDeliver,
+  ) async {
+    await _prepare();
+    if (canDeliver()) await super.show(notification);
+  }
 }
 
 base class _SlowClearPrefs extends InMemorySharedPreferencesAsync {

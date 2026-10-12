@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -26,6 +27,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   final posted = <_Posted>[];
   var initializeCalls = 0;
   Exception? initializeError;
+  Completer<void>? initializeHeld;
   Exception? showError;
   NotificationAppLaunchDetails? launchDetails;
   Exception? launchDetailsError;
@@ -41,6 +43,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     onDidReceiveBackgroundNotificationResponse,
   }) async {
     initializeCalls++;
+    await initializeHeld?.future;
     if (initializeError case final error?) throw error;
     onResponse = onDidReceiveNotificationResponse;
     onBackgroundResponse = onDidReceiveBackgroundNotificationResponse;
@@ -277,6 +280,68 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
       await service.dispose();
     });
+
+    test('a refused caller does not initialize or post', () async {
+      await service.showWhile(
+        const AttentionNotification(
+          threadId: 's1',
+          title: 'Update',
+          body: 'Done',
+        ),
+        () => false,
+      );
+
+      expect(plugin.initializeCalls, 0);
+      expect(plugin.posted, isEmpty);
+    });
+
+    test(
+      'revoked authorization during initialization prevents posting',
+      () async {
+        plugin.initializeHeld = Completer<void>();
+        var allowed = true;
+        final pending = service.showWhile(
+          const AttentionNotification(
+            threadId: 's1',
+            title: 'Update',
+            body: 'Done',
+          ),
+          () => allowed,
+        );
+        expect(plugin.initializeCalls, 1);
+        allowed = false;
+        plugin.initializeHeld!.complete();
+        await pending;
+
+        expect(plugin.posted, isEmpty);
+      },
+    );
+
+    test(
+      'revoked authorization during category registration prevents posting',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        final held = Completer<void>();
+        final started = Completer<void>();
+        final guarded = LocalNotificationService(
+          plugin: plugin,
+          registerCategories: (categories) async {
+            if (categories.any((category) => category.isDynamic)) {
+              started.complete();
+              await held.future;
+            }
+          },
+        );
+        addTearDown(guarded.dispose);
+        var allowed = true;
+        final pending = guarded.showWhile(_request(_question), () => allowed);
+        await started.future;
+        allowed = false;
+        held.complete();
+        await pending;
+        expect(plugin.posted, isEmpty);
+      },
+    );
 
     test('posts a chat under its thread and profile', () async {
       await service.show(

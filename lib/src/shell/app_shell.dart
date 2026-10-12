@@ -141,6 +141,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   ConversationWindows? _windows;
   AuthController? _auth;
   int? _ownerGeneration;
+  bool _sessionAuthorized = true;
+
+  bool get _authorizedOwner =>
+      mounted &&
+      (_auth == null ||
+          (_auth!.state == HermesConnectionState.ready &&
+              _auth!.protectedRequestsAllowed &&
+              _auth!.ownerGeneration == _ownerGeneration));
 
   @override
   void initState() {
@@ -155,6 +163,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     final auth = _auth = _maybeRead<AuthController>();
     _ownerGeneration = auth?.ownerGeneration;
+    _sessionAuthorized = _authorizedOwner;
     auth?.addListener(_resumeExternalNavigation);
     if (repositories != null && auth?.baseUrl != null) {
       final telemetry = repositories.telemetry.gateway();
@@ -190,7 +199,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         settings: settings,
         profiles: _profiles,
         account: () => accounts?.accountKey ?? '',
-      );
+      )..paused = !_sessionAuthorized;
     }
     WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
@@ -301,6 +310,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   Future<void> _detect() async {
+    if (!_authorizedOwner) return;
     final detection = ++_detection;
     final bool? kanban;
     final bool? schedules;
@@ -313,7 +323,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       // Neither answered; links for a tab keep waiting for the next check.
       return;
     }
-    if (!mounted || detection != _detection) return;
+    if (!_authorizedOwner || detection != _detection) return;
     _kanbanKnown = kanban != null;
     _schedulesKnown = schedules != null;
     _applyDetection(kanban ?? false, schedules ?? false);
@@ -417,16 +427,19 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _navigationQueue ??= RootNavigationQueue(
         navigator: Navigator.of(context),
         root: ModalRoute.of(context)!,
-        canNavigate: () =>
-            mounted &&
-            !(_appLock?.covered ?? false) &&
-            (_auth == null ||
-                (_auth!.state == HermesConnectionState.ready &&
-                    _auth!.protectedRequestsAllowed &&
-                    _auth!.ownerGeneration == _ownerGeneration)),
+        canNavigate: () => _authorizedOwner && !(_appLock?.covered ?? false),
       );
 
-  void _resumeExternalNavigation() => _navigationQueue?.resume();
+  void _resumeExternalNavigation() {
+    final authorized = _authorizedOwner;
+    if (authorized != _sessionAuthorized) {
+      _sessionAuthorized = authorized;
+      _detection++;
+      _watcher?.paused = !authorized;
+      if (authorized) unawaited(_detect());
+    }
+    _navigationQueue?.resume();
+  }
 
   void _queueExternalNavigation(VoidCallback action, [bool isLaunch = false]) {
     if (!mounted || (isLaunch && !_externalNavigation.canAcceptLaunch)) return;

@@ -158,7 +158,8 @@ Future<void> _categoryCall(String method, [Object? arguments]) {
 /// A background service, as the iOS background isolate makes, registers no
 /// categories at start, which would drop the placeholders the main app set;
 /// it adds the one category a notification is posted under.
-class LocalNotificationService implements NotificationService {
+class LocalNotificationService
+    implements NotificationService, GuardedNotificationService {
   LocalNotificationService({
     FlutterLocalNotificationsPlugin? plugin,
     CategoryRegistrar registerCategories = registerCategoriesNatively,
@@ -282,16 +283,23 @@ class LocalNotificationService implements NotificationService {
   }
 
   @override
-  Future<void> show(AttentionNotification notification) async {
+  Future<void> showWhile(
+    AttentionNotification notification,
+    bool Function() canDeliver,
+  ) async {
     if (!_supported) return;
     try {
+      if (!canDeliver()) return;
       await _initialize();
+      if (!canDeliver()) return;
+
       // Android has no placeholder that hides the text on a locked screen.
       final category = _darwin ? notification.category : null;
       // A background run may be the first thing to start the app since the
       // system last forgot the categories, so it registers its own.
       if (category != null && (category.isDynamic || _background)) {
         await _register([category]);
+        if (!canDeliver()) return;
       }
       final darwin = DarwinNotificationDetails(
         categoryIdentifier: category?.id,
@@ -303,6 +311,7 @@ class LocalNotificationService implements NotificationService {
       final body = _darwin
           ? notification.body
           : notification.category?.placeholder ?? notification.body;
+      if (!canDeliver()) return;
       await _plugin.show(
         id: notificationIdFor(
           notification.threadId,
@@ -327,6 +336,10 @@ class LocalNotificationService implements NotificationService {
       return;
     }
   }
+
+  @override
+  Future<void> show(AttentionNotification notification) =>
+      showWhile(notification, () => true);
 
   @override
   Future<void> withdrawAnswerable() async {
