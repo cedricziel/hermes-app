@@ -61,6 +61,14 @@ class NotificationAnswer {
   final OpenRequestAnswer answer;
 }
 
+/// Rechecks caller authorization after asynchronous notification preparation.
+abstract interface class GuardedNotificationService {
+  Future<void> showWhile(
+    AttentionNotification notification,
+    bool Function() canDeliver,
+  );
+}
+
 /// Posts local notifications and reports when the user taps one.
 abstract interface class NotificationService {
   /// Asks the system for permission to post. [NotificationPermission.denied]
