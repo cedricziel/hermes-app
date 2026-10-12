@@ -67,6 +67,21 @@ class _GatedTokenStore extends MemoryTokenStore {
   }
 }
 
+class _FirstWriteHeldStore extends MemoryTokenStore {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  int writes = 0;
+
+  @override
+  Future<void> write(HermesSession next) async {
+    if (++writes == 1) {
+      started.complete();
+      await release.future;
+    }
+    await super.write(next);
+  }
+}
+
 void main() {
   late HttpServer dashboard;
   late RecordedEvents events;
@@ -91,6 +106,38 @@ void main() {
     expect(controller.state, HermesConnectionState.needsLogin);
     return controller;
   }
+
+  test('an abandoned credential write cannot erase a newer sign-in', () async {
+    final store = _FirstWriteHeldStore();
+    dashboard = await _startDashboard(me: {'user_id': 'u1'});
+    var attempt = 0;
+    final controller = AuthController(
+      tokenStore: store,
+      devServerUrl: 'http://127.0.0.1:${dashboard.port}',
+      login: (url, {provider, httpClient, cancelled}) async => HermesSession(
+        accessToken: 'attempt-${++attempt}',
+        refreshToken: 'refresh-$attempt',
+        expiresAt: 4102444800,
+        provider: 'oidc',
+        userId: 'u1',
+      ),
+    );
+    addTearDown(controller.dispose);
+    await controller.bootstrap();
+    final first = controller.signInWithProvider(controller.providers.single);
+    await store.started.future;
+    controller.cancelSignIn();
+    final second = controller.signInWithProvider(controller.providers.single);
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(store.writes, 1);
+    } finally {
+      store.release.complete();
+      await Future.wait([first, second]);
+    }
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.accessToken, 'attempt-2');
+  });
 
   test('cancelling returns to the login screen and is recorded', () async {
     final controller = await controllerWith((
