@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/breakpoints.dart';
+import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/settings_search_field.dart';
@@ -57,10 +58,8 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
   }
 
   Future<void> _openSheet(HermesMcpCatalogEntry entry) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    return showAdaptiveSheet<void>(
+      context,
       builder: (sheet) => McpInstallPanel(
         servers: widget.servers,
         catalog: _catalog,
