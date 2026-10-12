@@ -1880,6 +1880,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _followingIds.clear();
   }
 
+  /// A turn another client submitted carries no user message on the wire: the
+  /// gateway streams only what the agent produced, and the prompt lives in the
+  /// stored history alone. When such a turn ends here, the thread is read
+  /// again so the prompt the other side sent appears in the transcript.
+  void _refetchForeignTurn(ChatThread thread) {
+    if (_sending.containsKey(thread)) return;
+    _refetch.add(thread);
+    _refetchIfIdle(thread);
+  }
+
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
@@ -1921,6 +1931,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
                 halted: event.failed || event.stopped,
               );
               if (drain) _awaitSettle(thread);
+              _refetchForeignTurn(thread);
               unawaited(refreshActive());
             } else if (event is SessionInfo && event.running == false) {
               // The session reports the turn over without a completion. It is
@@ -1933,6 +1944,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
                 idleOnly: true,
               );
               if (drain) sendQueued(thread);
+              _refetchForeignTurn(thread);
               unawaited(refreshActive());
             }
           },
