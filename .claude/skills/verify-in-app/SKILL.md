@@ -11,9 +11,38 @@ check that a screen actually looks and behaves right. For UI work this comes
 after the widget is right in the Widgetbook catalog (`component-catalog`
 skill), not instead of it.
 
-Safe with many agents at once: every command keeps its state in this
-checkout's `.dart_tool/hermes-dev/`, the backend gets an OS-assigned port and
-its own `HERMES_HOME`, and the app is told its server by a build flag.
+Backend state, runner bookkeeping, logs, and screenshots are checkout-scoped.
+Native macOS Debug storage is shared by worktrees using the same bundle ID.
+`HERMES_HOME` and `HERMES_SERVER_URL` isolate the backend connection, not app
+preferences, cached files, window restoration, or keychain entries.
+
+Before launching, establish client isolation. Use a disposable macOS graphical
+user session or VM containing no personal Hermes state, or a verified temporary
+client namespace. Launching can sweep cached files; Change server and Sign out
+clear credentials and trigger other cleanup. A separate worktree, build path,
+or process is insufficient. A unique bundle ID alone does not isolate the
+storage plugin's fixed keychain service.
+
+For a temporary macOS UI fixture, review all client storage and routing first:
+replace asynchronous preferences with an in-memory implementation before the
+auxiliary-engine launch branch, inject an in-memory TokenStore, and use a
+NoopShareInbox. Give the Debug app and its Debug extension unique bundle IDs,
+remove ordinary URL schemes and Services from the temporary app plist, and
+use a unique Handoff activity type with a disabled HandoffBridge. Confirm the
+built plist and signing entitlements before launch; Debug must lack App Groups.
+Use only synthetic backend data and credentials. Keep exact source/config
+backups, stop the fixture before restoring them, and never hot restart after
+restoration. These substitutions are verification-only and must not ship.
+They do not establish isolation for mobile background entry points. On
+2026-10-12 the temporary macOS fixture built successfully, and its built app
+and extension identifiers, routing keys, and entitlements passed inspection.
+The backend reported its fresh throwaway home. Native controls could not bind
+the new bundle reliably and later stalled; no window-lifecycle result was
+established. Memory storage excludes persistent preferences and keychain
+integration from that check.
+
+Existing checks recorded before this prerequisite verified an isolated backend;
+native client-storage isolation was not verified. No user-data loss was observed.
 
 ## The loop
 
