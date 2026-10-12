@@ -56,6 +56,11 @@ void main() {
       )
       ..on(
         'GET',
+        '/api/sessions/s1',
+        sessionRow(id: 's1', title: 'Run failure', lastActive: 1780000600),
+      )
+      ..on(
+        'GET',
         '/api/sessions/s1/messages',
         messageListBody('s1', [
           messageRow(id: 1, role: 'user', content: 'Why did the run fail?'),
