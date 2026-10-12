@@ -121,3 +121,5 @@ export * from "./components/NotificationsDialog/NotificationsDialog";
 export * from "./components/SettingsDialog/SettingsDialog";
 
 export * from "./components/KanbanTaskChoiceDialog/KanbanTaskChoiceDialog";
+
+export * from "./components/ChatSuggestions/ChatSuggestions";

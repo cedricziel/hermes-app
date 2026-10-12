@@ -1,3 +1,4 @@
+import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
 
@@ -62,6 +63,7 @@ final List<WidgetbookNode> directories = [
   adaptiveNode(),
   dialogsNode(),
   chatNode(),
+  chatSuggestionsNode(),
   chatThreadNode(),
   quickLookNode(),
   voiceNode(),

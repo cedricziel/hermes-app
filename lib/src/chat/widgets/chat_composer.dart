@@ -9,6 +9,7 @@ import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
 import 'queued_prompts.dart';
+import 'chat_suggestions.dart';
 import '../../widgets/named_icon_button.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/dictation_view.dart';
@@ -237,68 +238,24 @@ class _ChatComposerState extends State<ChatComposer> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_mentions.isNotEmpty)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 180),
-            child: Material(
-              color: scheme.surfaceContainerHigh,
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: scheme.outlineVariant),
-              ),
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-                    child: Text(
-                      'Mention a teammate',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ),
-                  for (final mention in _mentions)
-                    Material(
-                      color: Colors.transparent,
-                      child: ListTile(
-                        dense: true,
-                        title: Text('@${mention.handle}'),
-                        subtitle: Text(
-                          mention.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onTap: () => _chooseMention(mention),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          ChatSuggestions(
+            header: 'Mention a teammate',
+            maxHeight: 180,
+            items: [
+              for (final mention in _mentions)
+                ChatSuggestion('@${mention.handle}', mention.title),
+            ],
+            onChoose: (index) => _chooseMention(_mentions[index]),
           ),
         if (_mentions.isNotEmpty) const SizedBox(height: 8),
         if (_suggestions.isNotEmpty)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 280),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _suggestions.length,
-              itemBuilder: (context, index) {
-                final command = _suggestions[index];
-                return Material(
-                  color: Colors.transparent,
-                  child: ListTile(
-                    dense: true,
-                    selected: index == _selectedSlash % _suggestions.length,
-                    title: Text(command.name),
-                    subtitle: Text(
-                      command.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => _chooseSlash(command),
-                  ),
-                );
-              },
-            ),
+          ChatSuggestions(
+            selectedIndex: _selectedSlash % _suggestions.length,
+            items: [
+              for (final command in _suggestions)
+                ChatSuggestion(command.name, command.description),
+            ],
+            onChoose: (index) => _chooseSlash(_suggestions[index]),
           ),
         if (onStop != null) _StopBar(onStop: onStop),
         if (widget.queued.isNotEmpty && onRemoveQueued != null)

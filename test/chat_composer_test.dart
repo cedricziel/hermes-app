@@ -217,4 +217,30 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     expect(sent, ['/help']);
   });
+  testWidgets('slash arrows wrap and Escape dismisses without sending', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      slashCommands: const [
+        SlashCommand('/help', 'Show help'),
+        SlashCommand('/model', 'Choose model'),
+      ],
+    );
+    await tester.tap(find.byType(EditableText));
+    await tester.enterText(find.byType(EditableText), '/');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    expect(controller.text, '/model ');
+    expect(sent, isEmpty);
+    await tester.enterText(find.byType(EditableText), '/');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.text('/help'), findsNothing);
+    expect(controller.text, '/');
+    expect(sent, isEmpty);
+  });
 }
