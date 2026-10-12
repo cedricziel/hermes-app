@@ -101,7 +101,11 @@ export function SkillDetailScreen({
               subtitle="The agent may load this skill"
               checked={skill.enabled}
               onChange={onEnabledChange}
-              onClick={() => onEnabledChange?.(!skill.enabled)}
+              onClick={
+                onEnabledChange
+                  ? () => onEnabledChange(!skill.enabled)
+                  : undefined
+              }
             />
             {skill.source === "agent" ? (
               <GroupedRow
