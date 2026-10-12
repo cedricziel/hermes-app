@@ -1,7 +1,7 @@
 name: Update Hermes contracts
 
 # Refreshes both descriptions of the Hermes backend from one hermes-agent
-# main commit, and opens (or refreshes) one PR when either changed:
+# stable release commit, and opens (or refreshes) one PR when either changed:
 #
 # - openrpc/: the gateway contract (the /api/ws protocol). A frame it gained
 #   fails test/gateway/gateway_contract_test.dart on that PR until it is
@@ -17,6 +17,11 @@ on:
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Hermes branch, tag, or SHA (empty selects the latest stable release)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -48,11 +53,26 @@ jobs:
 
       - uses: dart-lang/setup-dart@v1
 
-      - name: Resolve hermes-agent main
+      - name: Test contract revision selection
+        run: python3 -I scripts/test_contract_revision.py
+
+      - name: Resolve hermes-agent revision
         id: ref
         env:
           GH_TOKEN: ${{ github.token }}
-        run: echo "sha=$(gh api repos/NousResearch/hermes-agent/commits/main --jq .sha)" >>"$GITHUB_OUTPUT"
+          HERMES_REF_OVERRIDE: ${{ inputs.ref }}
+        run: |
+          ref="$HERMES_REF_OVERRIDE"
+          if [ -z "$ref" ]; then
+            ref=$(gh api repos/NousResearch/hermes-agent/releases/latest --jq .tag_name)
+          fi
+          test -n "$ref"
+          sha=$(gh api "repos/NousResearch/hermes-agent/commits/$ref" --jq .sha)
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid Hermes commit SHA" >&2
+            exit 1
+          fi
+          echo "sha=$sha" >>"$GITHUB_OUTPUT"
 
       - name: Fetch the gateway contract
         env:
