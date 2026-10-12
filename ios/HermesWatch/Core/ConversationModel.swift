@@ -76,6 +76,7 @@ final class ConversationModel {
     var waited = resuming
     do {
       var result = try await client.send(threadId: threadId, text: text, sendId: sendId, retry: resuming)
+      guard currentSend == attempt else { return }
       // The phone answers early while the turn waits on the user, and the
       // same send id asked again picks up where it was. A phone that has
       // forgotten the send reads the bound chat instead of sending it again.
@@ -88,6 +89,7 @@ final class ConversationModel {
         handoff = result.handoff ?? handoff
         phase = waiting == .working ? .sending : .waiting(waiting)
         result = try await client.send(threadId: threadId, text: text, sendId: sendId, retry: true)
+        guard currentSend == attempt else { return }
       }
       threadId = result.threadId ?? threadId
       handoff = result.handoff ?? handoff
