@@ -280,6 +280,7 @@ class GroupedRow extends StatelessWidget {
   const GroupedRow({
     super.key,
     required this.title,
+    this.titleMaxLines = 1,
     this.meta,
     this.subtitle,
     this.subtitleMaxLines = 1,
@@ -300,6 +301,9 @@ class GroupedRow extends StatelessWidget {
   });
 
   final String title;
+
+  /// Null lets titles wrap when the row has nowhere else to show them.
+  final int? titleMaxLines;
 
   /// Muted text right after the title, such as "v1.2.0".
   final String? meta;
@@ -409,8 +413,10 @@ class GroupedRow extends StatelessWidget {
                         ),
                     ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: titleMaxLines,
+                  overflow: titleMaxLines == null
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                   style: titleStyle,
                 ),
                 if (subtitle != null)
@@ -538,6 +544,7 @@ class GroupedSwitchRow extends StatelessWidget {
   const GroupedSwitchRow({
     super.key,
     required this.title,
+    this.titleMaxLines = 1,
     required this.value,
     required this.onChanged,
     this.subtitle,
@@ -553,6 +560,9 @@ class GroupedSwitchRow extends StatelessWidget {
   });
 
   final String title;
+
+  /// Null lets titles wrap when the row has nowhere else to show them.
+  final int? titleMaxLines;
   final bool value;
 
   /// Null disables the switch.
@@ -588,6 +598,7 @@ class GroupedSwitchRow extends StatelessWidget {
     }
     return GroupedRow(
       title: title,
+      titleMaxLines: titleMaxLines,
       subtitle: subtitle,
       subtitleMaxLines: subtitleMaxLines,
       monospaceSubtitle: monospaceSubtitle,

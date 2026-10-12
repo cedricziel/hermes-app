@@ -119,50 +119,16 @@
   user-select: text;
 }
 
-.h-kanban-task-panel__diagnostic {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 6px;
-  padding: 8px 16px;
-  border: 1px solid var(--h-border);
-  border-radius: var(--h-radius);
+.h-kanban-task-panel__group-text {
+  padding: var(--hg-row-pad);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 
-.h-kanban-task-panel__diagnostic--warning {
-  background: color-mix(in srgb, var(--h-warning) 15%, var(--h-surface));
-}
-
-.h-kanban-task-panel__diagnostic--error {
-  background: color-mix(in srgb, var(--h-error) 12%, var(--h-surface));
-}
-
-.h-kanban-task-panel__model {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 6px 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--h-fg);
-  font: inherit;
-  cursor: pointer;
-}
-
-.h-kanban-task-panel__model-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.h-kanban-task-panel__model .h-icon {
-  margin-left: 4px;
-}
-
-.h-kanban-task-panel__quiet {
-  color: var(--h-muted);
+.h-kanban-task-panel__metadata .h-grouped-row__subtitle {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .h-kanban-task-panel__tile {

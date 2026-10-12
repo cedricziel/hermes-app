@@ -5,11 +5,13 @@ import { Chip } from "../Chip/Chip";
 import { Icon } from "../Icon/Icon";
 import { Menu, MenuAnchor } from "../Menu/Menu";
 import { Spinner } from "../Spinner/Spinner";
-import { Switch } from "../Switch/Switch";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
 import { IconButton } from "../IconButton/IconButton";
 import type { KanbanTaskItem } from "../KanbanCard/KanbanCard";
 import { kanbanStatusLabel } from "../KanbanStatusChips/KanbanStatusChips";
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
+import { cx, DeviceScope, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./KanbanTaskPanel.css";
 
 /** The task shown in the panel: a board task plus what only the detail view shows. */
@@ -405,89 +407,46 @@ export function KanbanTaskPanel({
             </div>
           ) : null}
 
-          {diagnostics.length ? (
-            <>
-              <Heading>Needs attention</Heading>
-              {diagnostics.map((d) => (
-                <div
-                  key={d.title}
-                  className={`h-kanban-task-panel__diagnostic h-kanban-task-panel__diagnostic--${d.severity}`}
-                >
-                  <Icon name="warning" size={24} />
-                  <div>
-                    <div>{d.title}</div>
-                    {d.detail ? (
-                      <div className="h-kanban-task-panel__subtle">
-                        {d.detail}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : null}
-          {task.body ? (
-            <>
-              <Heading>Description</Heading>
-              <div className="h-kanban-task-panel__text">{task.body}</div>
-            </>
-          ) : null}
-          {task.result ? (
-            <>
-              <Heading>Result</Heading>
-              <div className="h-kanban-task-panel__text">{task.result}</div>
-            </>
-          ) : null}
-          <Heading>Model</Heading>
-          <button
-            type="button"
-            className="h-kanban-task-panel__model"
-            onClick={onEditModel}
-          >
-            <span
-              className={
-                task.modelOverride
-                  ? "h-kanban-task-panel__model-name"
-                  : "h-kanban-task-panel__model-name h-kanban-task-panel__quiet"
-              }
-            >
-              {task.modelOverride ?? "Profile default"}
-            </span>
-            {task.reasoningEffort ? (
-              <span className="h-kanban-task-panel__quiet">{`\u00a0· ${task.reasoningEffort}`}</span>
-            ) : null}
-            <Icon
-              name="expand_more"
-              size={18}
-              className="h-kanban-task-panel__quiet"
-            />
-          </button>
-          <Heading>Depends on</Heading>
-          <div className="h-kanban-task-panel__chips h-kanban-task-panel__chips--tight">
-            {parents.map((id) => (
-              <Chip key={id} label={id} onRemove={() => onRemoveParent?.(id)} />
-            ))}
-            <Chip icon="add" label="Add" onClick={onAddParent} />
-          </div>
-          {subtasks.length ? (
-            <>
-              <Heading>Subtasks</Heading>
-              {subtasks.map((c) => (
-                <div key={c.id} className="h-kanban-task-panel__tile">
-                  <div>{c.title}</div>
-                  <div className="h-kanban-task-panel__subtle">
-                    {`${c.id} · ${kanbanStatusLabel(c.status)}`}
-                    {c.summary ? (
-                      <>
-                        <br />
-                        {c.summary}
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : null}
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <div className="h-kanban-task-panel__metadata">
+              {diagnostics.length ? (
+                <GroupedSection header="Needs attention">
+                  {diagnostics.map((d) => (
+                    <GroupedRow key={d.title} title={d.title} wrapTitle subtitle={d.detail || undefined}
+                      chevron={false} leading={<Icon name="warning" size={20}
+                        style={{ color: d.severity === "warning" ? "var(--h-warning)" : "var(--h-error)" }} />} />
+                  ))}
+                </GroupedSection>
+              ) : null}
+              {task.body != null ? (
+                <GroupedSection header="Description"><div className="h-kanban-task-panel__group-text">{task.body}</div></GroupedSection>
+              ) : null}
+              {task.result != null ? (
+                <GroupedSection header="Result"><div className="h-kanban-task-panel__group-text">{task.result}</div></GroupedSection>
+              ) : null}
+              <GroupedSection header="Model">
+                <GroupedRow title={task.modelOverride ?? "Profile default"}
+                  subtitle={task.reasoningEffort} onClick={onEditModel} />
+              </GroupedSection>
+              <GroupedSection header="Depends on">
+                {parents.map((id) => (
+                  <GroupedRow key={id} title={id} wrapTitle chevron={false}
+                    trailing={<IconButton icon="close" label={`Remove dependency ${id}`}
+                      disabled={!onRemoveParent}
+                      onClick={onRemoveParent ? () => onRemoveParent(id) : undefined} />} />
+                ))}
+                <GroupedRow title="Add" icon="add" chevron={false} onClick={onAddParent} />
+              </GroupedSection>
+              {subtasks.length ? (
+                <GroupedSection header="Subtasks">
+                  {subtasks.map((c) => (
+                    <GroupedRow key={c.id} title={c.title} wrapTitle chevron={false}
+                      subtitle={`${c.id} · ${kanbanStatusLabel(c.status)}${c.summary == null ? "" : `\n${c.summary}`}`} />
+                  ))}
+                </GroupedSection>
+              ) : null}
+            </div>
+          </DeviceScope>
 
           <Heading>{`Comments (${comments.length})`}</Heading>
           {comments.map((c, i) => (
@@ -512,30 +471,15 @@ export function KanbanTaskPanel({
           </div>
 
           {channels.length ? (
-            <>
-              <Heading>Notify</Heading>
-              {channels.map((c) => (
-                <label
-                  key={c.platform}
-                  className="h-kanban-task-panel__switch-row"
-                >
-                  <span>
-                    <span className="h-kanban-task-panel__tile-title">
-                      {`Post updates to ${c.name}`}
-                    </span>
-                    <span className="h-kanban-task-panel__tile-sub">
-                      {c.platform}
-                    </span>
-                  </span>
-                  <Switch
-                    checked={c.subscribed}
-                    label={`Post updates to ${c.name}`}
-                    disabled={c.switching}
-                    onChange={(on) => onToggleChannel?.(c, on)}
-                  />
-                </label>
-              ))}
-            </>
+            <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+              <GroupedSection header="Notify">
+                {channels.map((c) => (
+                  <GroupedSwitchRow key={c.platform} title={`Post updates to ${c.name}`} wrapTitle
+                    subtitle={c.platform} checked={c.subscribed} disabled={c.switching}
+                    onChange={onToggleChannel ? (on) => onToggleChannel(c, on) : undefined} />
+                ))}
+              </GroupedSection>
+            </DeviceScope>
           ) : null}
 
           <Heading>Attachments</Heading>

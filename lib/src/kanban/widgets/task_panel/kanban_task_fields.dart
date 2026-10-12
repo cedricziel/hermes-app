@@ -4,7 +4,8 @@ import '../../../models/model_provider_option.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../kanban_models.dart';
-import 'kanban_task_heading.dart';
+import '../../../widgets/grouped_list.dart';
+import '../../../widgets/named_icon_button.dart';
 
 /// What the task says: diagnostics, description, result, model, dependencies
 /// and subtasks.
@@ -24,111 +25,95 @@ class KanbanTaskFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final task = detail.task;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final metrics = GroupedMetrics.of(context);
+    Widget textSection(String title, String text) => GroupedSection(
+      header: title,
       children: [
-        if (detail.diagnostics.isNotEmpty) ...[
-          const KanbanTaskHeading('Needs attention'),
-          for (final d in detail.diagnostics)
-            Card(
-              margin: const EdgeInsets.only(bottom: 6),
-              color: d.severity == 'warning'
-                  ? context.hermesColors.warning.withValues(alpha: 0.15)
-                  : theme.colorScheme.error.withValues(alpha: 0.12),
-              child: ListTile(
-                dense: true,
-                leading: const AppIcon(AppIcons.warningRounded),
-                title: Text(d.title),
-                subtitle: d.detail.isEmpty ? null : Text(d.detail),
-              ),
-            ),
-        ],
-        if (task.body != null) ...[
-          const KanbanTaskHeading('Description'),
-          SelectableText(task.body!),
-        ],
-        if (task.latestSummary != null || task.result != null) ...[
-          const KanbanTaskHeading('Result'),
-          SelectableText(task.latestSummary ?? task.result!),
-        ],
-        const KanbanTaskHeading('Model'),
-        _ModelRow(task: task, onTap: onEditModel),
-        const KanbanTaskHeading('Depends on'),
-        Wrap(
-          spacing: 6,
-          children: [
-            for (final id in detail.parents)
-              InputChip(label: Text(id), onDeleted: () => onRemoveParent(id)),
-            ActionChip(
-              avatar: const AppIcon(AppIcons.add, size: 16),
-              label: const Text('Add'),
-              onPressed: onAddParent,
-            ),
-          ],
+        Padding(
+          padding: EdgeInsets.all(metrics.rowPadding),
+          child: SelectableText(text),
         ),
-        if (detail.childResults.isNotEmpty) ...[
-          const KanbanTaskHeading('Subtasks'),
-          for (final c in detail.childResults)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(c.title),
-              subtitle: Text(
-                '${c.id} · ${kanbanStatusLabel(c.status)}'
-                '${c.summary == null ? '' : '\n${c.summary}'}',
-              ),
-            ),
-        ],
       ],
     );
-  }
-}
-
-/// The task's model and effort override, or "Profile default", as a quiet
-/// row that opens the picker.
-class _ModelRow extends StatelessWidget {
-  const _ModelRow({required this.task, required this.onTap});
-
-  final KanbanTask task;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final quiet = context.hermesColors.subtleText;
-    final model = task.modelOverride;
-    final effort = task.reasoningEffort;
-    return InkWell(
-      key: const Key('kanban-task-model'),
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            Flexible(
-              child: Text(
-                model ?? 'Profile default',
-                style: model == null ? TextStyle(color: quiet) : null,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-            if (effort != null)
-              Flexible(
-                child: Text(
-                  ' · ${effortLabel(effort)}',
-                  style: TextStyle(color: quiet),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (detail.diagnostics.isNotEmpty)
+          GroupedSection(
+            header: 'Needs attention',
+            children: [
+              for (final d in detail.diagnostics)
+                GroupedRow(
+                  title: d.title,
+                  titleMaxLines: null,
+                  subtitle: d.detail.isEmpty ? null : d.detail,
+                  subtitleMaxLines: null,
+                  chevron: false,
+                  leading: AppIcon(
+                    AppIcons.warningRounded,
+                    color: d.severity == 'warning'
+                        ? context.hermesColors.warning
+                        : Theme.of(context).colorScheme.error,
+                  ),
                 ),
-              ),
-            const SizedBox(width: 4),
-            AppIcon(AppIcons.expandMore, size: 18, color: quiet),
+            ],
+          ),
+        if (task.body != null) textSection('Description', task.body!),
+        if (task.latestSummary != null || task.result != null)
+          textSection('Result', task.latestSummary ?? task.result!),
+        GroupedSection(
+          header: 'Model',
+          children: [
+            GroupedRow(
+              key: const Key('kanban-task-model'),
+              title: task.modelOverride ?? 'Profile default',
+              subtitle: task.reasoningEffort == null
+                  ? null
+                  : effortLabel(task.reasoningEffort!),
+              onTap: onEditModel,
+            ),
           ],
         ),
-      ),
+        GroupedSection(
+          header: 'Depends on',
+          children: [
+            for (final id in detail.parents)
+              GroupedRow(
+                title: id,
+                titleMaxLines: null,
+                chevron: false,
+                trailing: NamedIconButton(
+                  label: 'Remove dependency $id',
+                  icon: AppIcons.close,
+                  onPressed: () => onRemoveParent(id),
+                ),
+              ),
+            GroupedRow(
+              title: 'Add',
+              leading: const AppIcon(AppIcons.add),
+              chevron: false,
+              onTap: onAddParent,
+            ),
+          ],
+        ),
+        if (detail.childResults.isNotEmpty)
+          GroupedSection(
+            header: 'Subtasks',
+            children: [
+              for (final c in detail.childResults)
+                GroupedRow(
+                  title: c.title,
+                  titleMaxLines: null,
+                  subtitle:
+                      '${c.id} · ${kanbanStatusLabel(c.status)}'
+                      '${c.summary == null ? '' : '\n${c.summary}'}',
+                  subtitleMaxLines: null,
+                  chevron: false,
+                ),
+            ],
+          ),
+      ],
     );
   }
 }

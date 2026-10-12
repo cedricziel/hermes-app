@@ -7,8 +7,10 @@ One PR at a time; confirm merge before starting the next.
 - [x] Skill editor, merged in #642
 - [x] Skill details and background job status, merged in #643
 - [x] Hub security-scan and preview status, merged in #647
-- [ ] In progress: Kanban worker log
-- [ ] Kanban task details
+- [x] Kanban worker log, merged in #649
+- [ ] In progress: Kanban task metadata and notification settings
+- [ ] Kanban task header and action controls
+- [ ] Kanban attachments, comments and activity
 - [ ] Connection setup and details
 - [ ] Chat teammate and slash-command autocomplete
 
