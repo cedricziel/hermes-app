@@ -33,7 +33,13 @@ class KanbanBoardController extends ChangeNotifier {
     this.prefs,
     this.prefsKey = 'hermes.kanban.board',
     this.log = noopAppEventLogger,
-  });
+    this.activity,
+  }) {
+    activity?.addListener(_activityChanged);
+  }
+
+  /// Whether protected board work may run; omission allows activity.
+  final ValueListenable<bool>? activity;
 
   /// Where the chosen board is remembered between launches; null forgets it.
   final SharedPreferencesAsync? prefs;
@@ -60,6 +66,38 @@ class KanbanBoardController extends ChangeNotifier {
   bool _live = false;
   bool _active = true;
   bool _disposed = false;
+
+  bool get _canWork => !_disposed && (activity?.value ?? true);
+
+  bool _current(int generation) => _canWork && generation == _generation;
+
+  void _activityChanged() {
+    if (_disposed) return;
+    // Nested delivery can hide the false value; every notification retires work.
+    final generation = ++_generation;
+    _loading = false;
+    _live = false;
+    _cursor = 0;
+    unawaited(_stopStream());
+    notifyListeners();
+    if (_current(generation)) unawaited(start());
+  }
+
+  void _requireCurrent(int generation) {
+    if (!_current(generation)) throw StateError('Kanban activity suspended');
+  }
+
+  Future<T> _mutate<T>(int generation, Future<T> Function() run) async {
+    _requireCurrent(generation);
+    try {
+      final result = await run();
+      _requireCurrent(generation);
+      return result;
+    } on Object {
+      _requireCurrent(generation);
+      rethrow;
+    }
+  }
 
   String? _boardSlug;
   String? _tenant;
@@ -156,15 +194,22 @@ class KanbanBoardController extends ChangeNotifier {
 
   /// Moves [task] to [status], showing it there before the server answers.
   /// Throws what the server refused; the caller refreshes either way.
+  /// Rejects with [StateError] if authenticated activity is suspended.
   Future<void> moveTask(KanbanTask task, String status) async {
+    final generation = _generation;
+    _requireCurrent(generation);
     if (task.status == status) return;
     previewMove(task.id, status);
-    await repository.updateTask(task.id, status: status, board: _boardSlug);
+    await _mutate(
+      generation,
+      () => repository.updateTask(task.id, status: status, board: _boardSlug),
+    );
   }
 
   /// Applies one change to every selected task and returns the ones it could
   /// not apply to. Selection ends when all went through; otherwise only the
   /// refused tasks stay selected, so the change can be retried on them.
+  /// Rejects with [StateError] if authenticated activity is suspended.
   Future<List<KanbanBulkFailure>> bulkUpdate({
     String? status,
     String? assignee,
@@ -173,19 +218,23 @@ class KanbanBoardController extends ChangeNotifier {
     bool clearEffort = false,
     bool archive = false,
   }) async {
+    final generation = _generation;
+    _requireCurrent(generation);
     final ids = _selected.toList();
     if (ids.isEmpty) return const [];
-    final failures = await repository.bulkUpdate(
-      ids,
-      status: status,
-      assignee: assignee,
-      priority: priority,
-      effort: effort,
-      clearEffort: clearEffort,
-      archive: archive,
-      board: _boardSlug,
+    final failures = await _mutate(
+      generation,
+      () => repository.bulkUpdate(
+        ids,
+        status: status,
+        assignee: assignee,
+        priority: priority,
+        effort: effort,
+        clearEffort: clearEffort,
+        archive: archive,
+        board: _boardSlug,
+      ),
     );
-    if (_disposed) return failures;
     if (failures.isEmpty) {
       stopSelecting();
     } else {
@@ -193,12 +242,15 @@ class KanbanBoardController extends ChangeNotifier {
       final failed = failures.map((f) => f.id).where((id) => id.isNotEmpty);
       if (failed.isNotEmpty) keepSelected(failed);
     }
+    _requireCurrent(generation);
     unawaited(refresh());
     return failures;
   }
 
   /// Runs the dispatcher now instead of waiting for its next tick.
-  Future<void> dispatch() => repository.dispatch(board: _boardSlug);
+  /// Rejects with [StateError] if authenticated activity is suspended.
+  Future<void> dispatch() =>
+      _mutate(_generation, () => repository.dispatch(board: _boardSlug));
 
   /// Whether the last refetch moved [id] here from another column, or added
   /// it.
@@ -236,22 +288,26 @@ class KanbanBoardController extends ChangeNotifier {
   }
 
   Future<void> start() async {
+    final generation = _generation;
+    if (!_current(generation)) return;
     await loadBoards();
-    if (_disposed) return;
+    if (!_current(generation)) return;
     await refresh();
   }
 
   /// Reads the board list; on the first read, opens the board chosen last
   /// time, else the one the server has current.
   Future<void> loadBoards() async {
+    final generation = _generation;
+    if (!_current(generation)) return;
     try {
       final boards = await repository.listBoards();
-      if (_disposed) return;
+      if (!_current(generation)) return;
       _boards = boards;
       if (_boardSlug == null) {
         final saved = await prefs?.getString(prefsKey);
         // A board picked while the preference was loading wins over it.
-        if (_disposed || _boardSlug != null) return;
+        if (!_current(generation) || _boardSlug != null) return;
         _boardSlug =
             boards.where((b) => b.slug == saved).firstOrNull?.slug ??
             boards.where((b) => b.isCurrent).firstOrNull?.slug;
@@ -264,7 +320,7 @@ class KanbanBoardController extends ChangeNotifier {
         _assignee = null;
         await _restart();
       }
-      notifyListeners();
+      if (_current(generation)) notifyListeners();
     } on Object catch (_) {
       // The switcher is optional; the board still loads without it.
     }
@@ -272,17 +328,18 @@ class KanbanBoardController extends ChangeNotifier {
 
   /// Fetches the board now and (re)starts the event stream from it.
   Future<void> refresh() async {
-    if (_disposed) return;
+    if (!_canWork) return;
     var generation = _generation;
     _loading = _board == null;
     notifyListeners();
+    if (!_current(generation)) return;
     try {
       final board = await repository.loadBoard(
         board: _boardSlug,
         tenant: _tenant,
         includeArchived: _includeArchived,
       );
-      if (_disposed || generation != _generation) return;
+      if (!_current(generation)) return;
       _arrived = _movedSince(_board, board);
       _board = board;
       _error = null;
@@ -294,7 +351,7 @@ class KanbanBoardController extends ChangeNotifier {
       _cursor = math.max(_cursor, board.latestEventId);
       if (_active && _events == null) unawaited(_listen());
     } on Object catch (e) {
-      if (_disposed || generation != _generation) return;
+      if (!_current(generation)) return;
       _error = e;
       if (unavailable) {
         _dropBoard();
@@ -303,7 +360,7 @@ class KanbanBoardController extends ChangeNotifier {
         generation = _generation;
       }
     } finally {
-      if (!_disposed && generation == _generation) {
+      if (_current(generation)) {
         _loading = false;
         notifyListeners();
       }
@@ -327,6 +384,7 @@ class KanbanBoardController extends ChangeNotifier {
   /// so a dropped card does not snap back while the request runs. The refetch
   /// that follows every move puts back whatever the server decided.
   void previewMove(String id, String status) {
+    if (!_canWork) return;
     final board = _board;
     if (board == null || !board.columns.any((c) => c.name == status)) return;
     final task = board.columns
@@ -367,60 +425,91 @@ class KanbanBoardController extends ChangeNotifier {
   /// before the first await, so callers need not wait for it. [keepRefetch]
   /// lets a refetch already due run, since the cursor is past its events.
   Future<void> _stopStream({bool keepRefetch = false}) async {
-    if (!keepRefetch) _refreshTimer?.cancel();
+    if (!keepRefetch) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    }
     _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     final events = _events;
     _events = null;
     _closeChannel();
     await events?.cancel();
   }
 
-  void _scheduleRefresh() {
+  void _scheduleRefresh(int generation) {
+    if (!_current(generation)) return;
     _refreshTimer?.cancel();
-    _refreshTimer = Timer(debounce, refresh);
+    _refreshTimer = Timer(debounce, () {
+      if (_current(generation)) unawaited(refresh());
+    });
   }
 
   Future<void> _listen({int attempt = 0}) async {
     final generation = _generation;
+    if (!_current(generation) || !_active) return;
     _reconnectTimer?.cancel();
+    StreamChannel<String>? listeningChannel;
     void retry() {
-      if (_disposed || generation != _generation || !_active) return;
+      if (!_current(generation) ||
+          !_active ||
+          !identical(_channel, listeningChannel)) {
+        return;
+      }
       _events = null;
       _closeChannel();
       _setLive(false);
+      if (!_current(generation) || !_active) return;
       final delay = reconnectDelay(attempt);
       log('kanban.events.reconnect', {
         'attempt': attempt + 1,
         'delay_ms': delay.inMilliseconds,
       });
+      if (!_current(generation) || !_active) return;
       _reconnectTimer = Timer(delay, () {
-        if (!_disposed && generation == _generation) {
-          _listen(attempt: attempt + 1);
+        if (_current(generation) && _active) {
+          unawaited(_listen(attempt: attempt + 1));
         }
       });
     }
 
     try {
       final channel = await connect(since: _cursor, board: _boardSlug);
+      listeningChannel = channel;
       // Superseded, or another listener won the race for the stream.
-      if (_disposed ||
-          generation != _generation ||
-          !_active ||
-          _events != null) {
+      if (!_current(generation) || !_active || _events != null) {
         unawaited(channel.sink.close());
         return;
       }
-      _setLive(true);
       _channel = channel;
-      _events = channel.stream.listen(
+      _setLive(true);
+      if (!_current(generation) || !_active || !identical(_channel, channel)) {
+        unawaited(channel.sink.close());
+        return;
+      }
+      final events = channel.stream.listen(
         (frame) {
+          if (!_current(generation) ||
+              !_active ||
+              !identical(_channel, channel)) {
+            return;
+          }
           attempt = 0;
-          if (_absorb(frame)) _scheduleRefresh();
+          if (_absorb(frame)) _scheduleRefresh(generation);
         },
         onError: (_) => retry(),
         onDone: retry,
         cancelOnError: true,
       );
+      if (!_current(generation) ||
+          !_active ||
+          !identical(_channel, channel) ||
+          _events != null) {
+        unawaited(events.cancel());
+        unawaited(channel.sink.close());
+        return;
+      }
+      _events = events;
     } on Object catch (_) {
       retry();
     }
@@ -455,10 +544,11 @@ class KanbanBoardController extends ChangeNotifier {
   }
 
   Future<void> _restart() async {
+    if (!_canWork) return;
     final generation = ++_generation;
     await _stopStream();
     // A newer restart began while this one waited; it owns the rest.
-    if (_disposed || generation != _generation) return;
+    if (!_current(generation)) return;
     _live = false;
     _cursor = 0;
     _selected.clear();
@@ -470,6 +560,7 @@ class KanbanBoardController extends ChangeNotifier {
   }
 
   Future<void> selectBoard(String slug) async {
+    if (!_canWork) return;
     _boardSlug = slug;
     // Filters belong to the board they were set on; a tenant the new board
     // lacks would hide its tasks with no way to clear it.
@@ -487,11 +578,13 @@ class KanbanBoardController extends ChangeNotifier {
   }
 
   Future<void> setTenant(String? tenant) {
+    if (!_canWork) return Future<void>.value();
     _tenant = tenant;
     return _restart();
   }
 
   Future<void> setIncludeArchived(bool value) {
+    if (!_canWork) return Future<void>.value();
     _includeArchived = value;
     return _restart();
   }
@@ -508,6 +601,7 @@ class KanbanBoardController extends ChangeNotifier {
 
   @override
   void dispose() {
+    activity?.removeListener(_activityChanged);
     _disposed = true;
     unawaited(_stopStream());
     super.dispose();
