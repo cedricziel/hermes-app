@@ -31,6 +31,12 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      - name: Install screenshot test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/script-tests"
+          "$RUNNER_TEMP/script-tests/bin/pip" install Pillow
+          echo "$RUNNER_TEMP/script-tests/bin" >> "$GITHUB_PATH"
+
       - name: Test scripts
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 

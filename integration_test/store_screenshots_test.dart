@@ -7,6 +7,7 @@ import 'package:hermes_app/main.dart' as app;
 import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_status_chips.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
+import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_header.dart';
 import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
 import 'package:hermes_app/src/settings/theme_controller.dart';
 import 'package:integration_test/integration_test.dart';
@@ -196,6 +197,8 @@ void main() {
           tester.view.physicalSize.height / tester.view.devicePixelRatio * 0.8,
         ),
       );
+      await tester.ensureVisible(find.byType(KanbanTaskHeader));
+      await settle(tester);
     }
     await shot('kanban-task');
   });
