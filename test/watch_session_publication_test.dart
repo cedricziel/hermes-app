@@ -91,6 +91,45 @@ void main() {
     expect(attempts.length, greaterThan(1));
   });
 
+  test(
+    'failed logout must be published before relogin can enable content',
+    () async {
+      var nativeUsable = true;
+      var nativeRevision = 1;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            final usable = (call.arguments as Map)['usable'] as bool;
+            attempts.add(usable);
+            if (!usable && publicationFails) {
+              throw PlatformException(code: 'publication_failed');
+            }
+            if (nativeUsable != usable) {
+              nativeRevision++;
+              nativeUsable = usable;
+            }
+            return {'revision': nativeRevision, 'usable': usable};
+          });
+      bridge.start();
+      await pumpEventQueue();
+      publicationFails = true;
+      await auth.changeServer();
+      await pumpEventQueue();
+      await auth.connect('http://127.0.0.1:${server.port}');
+      await pumpEventQueue();
+
+      expect(await request(), {'ok': false, 'error': 'unavailable'});
+      expect(handler.calls, 0);
+      expect(attempts.where((usable) => usable), [true]);
+      expect(nativeRevision, 1);
+      publicationFails = false;
+
+      expect(await request(), {'ok': true, 'threads': []});
+      expect(attempts.sublist(attempts.length - 2), [false, true]);
+      expect(nativeRevision, 3);
+      expect(nativeUsable, isTrue);
+    },
+  );
+
   test('failed departure publication is retained and retried without leaking content', () async {
     bridge.start();
     await pumpEventQueue();

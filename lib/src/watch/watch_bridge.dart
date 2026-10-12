@@ -47,9 +47,12 @@ class WatchBridge {
   bool? _queuedUsable;
   int _pendingPublications = 0;
   bool _publicationFailed = false;
+  bool _departurePending = false;
+  String _departureReason = 'signed_out';
 
   bool get _publicationSecured =>
       !_publicationFailed &&
+      !_departurePending &&
       _pendingPublications == 0 &&
       _desiredUsable == _publishedUsable;
   int _generation = 0;
@@ -65,6 +68,8 @@ class WatchBridge {
       _desiredUsable = usable;
       if (!usable) {
         _generation++;
+        _departurePending = true;
+        _departureReason = auth.sessionExpired ? 'expired' : 'signed_out';
         _handler.invalidateSession();
       }
     }
@@ -74,34 +79,49 @@ class WatchBridge {
     _pendingPublications++;
     _publication = _publication.then((_) async {
       try {
-        final response = await _channel.invokeMethod<Object?>(
-          'publishSessionState',
-          {'usable': usable},
-        );
-        if (response is! Map ||
-            response['revision'] is! int ||
-            response['usable'] != usable) {
-          throw StateError('Invalid session publication acknowledgement');
+        if (usable && _departurePending) {
+          if (!await _publishSession(false, _departureReason)) return;
         }
-        _publishedUsable = usable;
-        _publicationFailed = false;
-        if (!usable)
-          _record('watch.session.invalidated', {
-            'reason': reason,
-            'result': true,
-          });
-      } on Object {
-        _publicationFailed = true;
-        if (!usable)
-          _record('watch.session.invalidated', {
-            'reason': reason,
-            'result': false,
-          });
+        await _publishSession(usable, reason);
       } finally {
         _pendingPublications--;
         if (_pendingPublications == 0) _queuedUsable = null;
       }
     });
+  }
+
+  Future<bool> _publishSession(bool usable, String reason) async {
+    try {
+      final response = await _channel.invokeMethod<Object?>(
+        'publishSessionState',
+        {'usable': usable},
+      );
+      if (response is! Map ||
+          response['revision'] is! int ||
+          response['usable'] != usable) {
+        throw StateError('Invalid session publication acknowledgement');
+      }
+      _publishedUsable = usable;
+      _publicationFailed = false;
+      if (!usable) {
+        _departurePending = false;
+        _record('watch.session.invalidated', {
+          'reason': reason,
+          'result': true,
+        });
+      }
+      return true;
+    } on Object {
+      _publicationFailed = true;
+      if (!usable) {
+        _departurePending = true;
+        _record('watch.session.invalidated', {
+          'reason': reason,
+          'result': false,
+        });
+      }
+      return false;
+    }
   }
 
   /// A bridge that serves the watch from whoever is signed in right now, or
