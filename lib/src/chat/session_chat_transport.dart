@@ -17,14 +17,18 @@ final class SessionTransportUnavailable extends StateError {
 /// The activity owner must verify recovery policy before calling [resume].
 final class SessionChatTransport
     implements ChatTransport, PromptAcknowledgement, GatewayRequester {
-  SessionChatTransport(this._create) : _delegate = _create();
+  SessionChatTransport(this._create) : _delegate = _create() {
+    final delegate = _delegate;
+    _acknowledgement = delegate is PromptAcknowledgement
+        ? delegate as PromptAcknowledgement
+        : null;
+  }
 
   final ChatTransport Function() _create;
   ChatTransport? _delegate;
   var _epoch = 0;
   var _retired = false;
-  var _accepted = false;
-  var _readDelegateAcknowledgement = true;
+  PromptAcknowledgement? _acknowledgement;
   final _subscriptions = <Future<void> Function()>{};
   Future<void> _closing = Future<void>.value();
 
@@ -129,8 +133,6 @@ final class SessionChatTransport
   Future<void> suspend() {
     if (_delegate == null) return _closing;
     final delegate = _delegate!;
-    _accepted = promptAccepted;
-    _readDelegateAcknowledgement = false;
     _delegate = null;
     _epoch++;
     final cancellations = _subscriptions
@@ -163,12 +165,7 @@ final class SessionChatTransport
   }
 
   @override
-  bool get promptAccepted {
-    final delegate = _delegate;
-    return _readDelegateAcknowledgement && delegate is PromptAcknowledgement
-        ? (delegate as PromptAcknowledgement).promptAccepted
-        : _accepted;
-  }
+  bool get promptAccepted => _acknowledgement?.promptAccepted ?? false;
 
   @override
   Future<Map<String, Object?>> request(
@@ -209,8 +206,9 @@ final class SessionChatTransport
     ModelChoice? model,
     bool queued = false,
   }) => _stream((d) {
-    _accepted = false;
-    _readDelegateAcknowledgement = true;
+    _acknowledgement = d is PromptAcknowledgement
+        ? d as PromptAcknowledgement
+        : null;
     return d.send(
       threadId: threadId,
       profile: profile,

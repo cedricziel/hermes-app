@@ -1,6 +1,6 @@
 ## 1. Contract and regression coverage
 
-- [x] 1.1 Add failing tests for stale requests, late stream listens, active stream cancellation, overlapping cleanup, and permanent retirement.
+- [x] 1.1 Add failing tests for stale requests, late stream listens, active stream cancellation, overlapping cleanup, permanent retirement, and late prompt acknowledgement.
 - [x] 1.2 Implement the renewable proxy and minimal gateway capability without application wiring.
 
 ## 2. Verification and delivery

@@ -179,6 +179,25 @@ void main() {
     },
   );
 
+  test('acknowledges a prompt accepted during cancellation', () async {
+    final delegate = _Delegate()..holdCancellation = Completer<void>();
+    final transport = SessionChatTransport(() => delegate);
+    final rejected = expectLater(
+      transport.send(text: 'hello').toList(),
+      throwsA(unavailable),
+    );
+
+    final suspension = transport.suspend();
+    expect(transport.promptAccepted, isFalse);
+    delegate.promptAccepted = true;
+    delegate.holdCancellation!.complete();
+    await suspension;
+    await rejected;
+
+    expect(transport.promptAccepted, isTrue);
+    await transport.close();
+  });
+
   test('retirement prevents resume and all future transport work', () async {
     final delegate = _Delegate()..promptAccepted = true;
     final transport = SessionChatTransport(() => delegate);

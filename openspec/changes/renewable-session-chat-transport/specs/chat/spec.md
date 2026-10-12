@@ -2,7 +2,7 @@
 
 ### Requirement: Renewable session transport boundary
 
-A renewable chat transport SHALL preserve its public identity while replacing a closed delegate. Suspension SHALL synchronously reject new protected operations, invalidate pending operation results, and cancel active stream subscriptions before closing the old delegate. Only explicit renewal SHALL create a fresh delegate. Permanent retirement SHALL prevent renewal. This boundary SHALL NOT independently authorize account recovery or undo already dispatched server effects.
+A renewable chat transport SHALL preserve its public identity while replacing a closed delegate. Suspension SHALL synchronously reject new protected operations, invalidate pending operation results, and cancel active stream subscriptions before closing the old delegate. Only explicit renewal SHALL create a fresh delegate. Permanent retirement SHALL prevent renewal. The proxy SHALL preserve acknowledgement of its latest submitted prompt through suspension and renewal, including acceptance learned during cancellation, until a new send begins. This boundary SHALL NOT independently authorize account recovery or undo already dispatched server effects.
 
 #### Scenario: A request finishes after suspension
 - **WHEN** a delegate request completes after its operation epoch has been suspended
@@ -23,3 +23,7 @@ A renewable chat transport SHALL preserve its public identity while replacing a 
 #### Scenario: Permanently retired transport
 - **WHEN** a retired proxy is asked to renew or perform an operation
 - **THEN** it rejects the operation without creating a delegate or dispatching protected work
+
+#### Scenario: Submit is accepted during cancellation
+- **WHEN** an already dispatched prompt is accepted while suspension cancels its stream
+- **THEN** the proxy continues to report that acknowledgement after suspension and renewal until another send begins
