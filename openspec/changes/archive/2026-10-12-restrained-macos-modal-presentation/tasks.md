@@ -7,4 +7,4 @@
 ## 2. Verification and delivery
 
 - [x] 2.1 Run format, analysis, relevant widget/caller/catalog tests, strict spec validation, and isolated catalog/app verification where possible; record native-control limits and check project guidance for stale claims.
-- [ ] 2.2 Obtain isolated current-head review when CodeRabbit is limited, fix findings, pass CI/builds, merge, sync/archive, and update the backlog.
+- [x] 2.2 Obtain isolated current-head review when CodeRabbit is limited, fix findings, pass CI/builds, merge, sync/archive, and update the backlog.

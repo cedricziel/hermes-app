@@ -3,9 +3,7 @@
 ## Purpose
 
 Describes how the app surfaces the Hermes dashboard's optional Kanban plugin: when the Kanban tab is offered, how the Chat and Kanban destinations are laid out on narrow and wide screens, how the board is displayed and filtered, how it stays current, and how tasks are opened, created, changed, commented on, triaged and dispatched, how several are changed at once, how boards, runs, logs and attachments are handled, and which backend routes it relies on.
-
 ## Requirements
-
 ### Requirement: Plugin detection gates the Kanban tab
 
 The system SHALL offer the Kanban destination only while the server reports the Kanban plugin as on. It SHALL ask `GET /api/dashboard/plugins` and treat the plugin as on when the returned list contains an entry named `kanban`. Any failure to get a usable answer (network error, an error status, a body that is not a list, a server too old to have the route) SHALL count as off. While the plugin is off and no other destination is offered, the signed-in home screen SHALL be the chat alone, without any navigation bar or rail.
@@ -499,3 +497,17 @@ The create form SHALL load the models it offers from `GET /api/plugins/kanban/mo
 
 - **WHEN** the plugin answers `{"providers": []}` and the user types `gpt-5` into the model field
 - **THEN** the request carries `model_override: "gpt-5"` and no provider or effort
+
+### Requirement: Kanban action errors belong to a live caller
+
+When a Kanban action fails while the screen that started it remains available, the system SHALL show the existing error message. If that screen has been disposed before the action fails, the system SHALL not try to show an error message from that screen.
+
+The existing Kanban backend routes and response shapes SHALL remain unchanged. This UI lifetime change SHALL require no new route, RPC method, or minimum Hermes Agent version.
+
+#### Scenario: Action fails while its caller remains available
+- **WHEN** a Kanban action fails while its calling screen is mounted
+- **THEN** the system shows the existing error message in a snackbar
+
+#### Scenario: Action fails after its caller closes
+- **WHEN** a Kanban action fails after its calling screen has been disposed
+- **THEN** the system does not show a snackbar from that screen and does not raise a UI lifecycle error

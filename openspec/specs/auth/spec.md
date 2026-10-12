@@ -3,9 +3,7 @@
 ## Purpose
 
 Describes how the app finds a Hermes dashboard, decides whether sign-in is needed, signs the user in with the RFC 8252 native flow, keeps the session alive and signs the user out. This is a baseline of current behaviour, derived from the code and its tests.
-
 ## Requirements
-
 ### Requirement: Connection states drive the visible screen
 
 The system SHALL expose exactly one connection state at a time: initializing, needs server URL, connecting, connection error, needs login, signing in, or ready. The screen shown SHALL follow from that state alone: a splash while initializing, the server setup screen for needs server URL, connecting and connection error, the login screen for needs login and signing in, and the main app shell for ready.
@@ -576,3 +574,21 @@ Credential writes and clears SHALL be ordered so obsolete work cannot restore a 
 #### Scenario: Explicit departure cleanup fails
 - **WHEN** token deletion or saved-server preference removal fails during explicit sign-out or server departure
 - **THEN** old clients remain retired, account cleanup is announced, the login/setup state remains reachable with a truthful cleanup error, and credentials left by failed deletion cannot be restored through reconnect
+
+### Requirement: Auxiliary windows stop at the session boundary
+
+On macOS, loss of protected session access SHALL invalidate auxiliary-window requests and start closing conversation/quick-panel processes before asynchronous credential cleanup completes. Suspended or retired windows SHALL NOT receive credentials, expose the current profile, select main-window targets, or complete native creation into a newer session. New windows SHALL wait until preceding native teardown completes.
+
+No backend route, response shape, RPC method, minimum Hermes Agent version, or native entitlement change SHALL be required. The main process SHALL remain the sole native-window credential/refresh owner.
+
+#### Scenario: Credential cleanup is slow
+- **WHEN** protected access is suspended while stored-token deletion is held
+- **THEN** native windows begin closing immediately and old native requests/actions are rejected
+
+#### Scenario: A late native operation completes
+- **WHEN** a creation, header lookup, or saved-state write completes after suspension/departure
+- **THEN** it cannot open or authenticate old-owner content, overwrite newer-owner restoration state, or close a newly restored window
+
+#### Scenario: An owner returns after expiry
+- **WHEN** a usable verified owner returns after expiry
+- **THEN** matching saved conversation targets can restore after old native teardown, without persisting native-window drafts

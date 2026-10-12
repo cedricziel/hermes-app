@@ -3,9 +3,7 @@
 ## Purpose
 
 The chat screen is the app's main destination once the user is connected and signed in. It lists the conversations ("threads") the Hermes dashboard holds, shows their messages, sends new messages to the agent over the dashboard's `/api/ws` JSON-RPC socket, streams the reply, and lets the user answer the agent when it stops to ask for approval or clarification. This spec describes the behaviour of the code as it is today.
-
 ## Requirements
-
 ### Requirement: Thread list loading
 
 The system SHALL load the first page of the thread list from the dashboard when the chat screen opens, showing a progress indicator while it loads, and SHALL list threads with the most recently active first. Archived sessions SHALL be left out of the list.
@@ -1194,7 +1192,7 @@ On macOS the sidebar SHALL stay beside the content down to a window width of 760
 
 ### Requirement: Conversation windows (macOS)
 
-On macOS the system SHALL let the user open a chat the dashboard holds in a window of its own, from the thread's "Open in New Window" action (⌥⌘O) or by double-clicking the thread in the sidebar. The window SHALL show only that chat: a toolbar with the chat's title and "<profile> · <model>" below it, the messages and the composer, without the sidebar. Its toolbar SHALL offer Show in Main Window, Pin or Unpin (⇧⌘P), Share and a menu with Rename, Copy Transcript, Archive and Delete. The window SHALL stay on the profile the chat was opened from, whatever profile the main window switches to. Opening a chat that already has a window SHALL bring that window to the front. The Window menu SHALL list the open conversation windows; while one is key, the menu bar's window and chat commands SHALL act on it, ⌘0 SHALL bring back the main window and ⌘W SHALL close the conversation window. A chat that has a window SHALL be followed there only: selecting it or sending in it from the main window SHALL bring its window up instead. The open conversation windows SHALL be opened again, in their last frames, the next time the app connects to the same server. Signing out or changing server SHALL close them and forget them; a session that expires SHALL close them and open them again after the next sign-in. On other platforms none of this is offered.
+On macOS the system SHALL let the user open a chat the dashboard holds in a window of its own, from the thread's "Open in New Window" action (⌥⌘O) or by double-clicking the thread in the sidebar. The window SHALL show only that chat: a toolbar with the chat's title and "<profile> · <model>" below it, the messages and the composer, without the sidebar. Its toolbar SHALL offer Show in Main Window, Pin or Unpin (⇧⌘P), Share and a menu with Rename, Copy Transcript, Archive and Delete. The window SHALL stay on the profile the chat was opened from, whatever profile the main window switches to. Opening a chat that already has a window SHALL bring that window to the front. The Window menu SHALL list the open conversation windows; while one is key, the menu bar's window and chat commands SHALL act on it, ⌘0 SHALL bring back the main window and ⌘W SHALL close the conversation window. A chat that has a window SHALL be followed there only: selecting it or sending in it from the main window SHALL bring its window up instead. The open conversation windows SHALL be opened again, in their last frames, the next time the app connects to the same verified server/account owner. Legacy gated records without ownership proof SHALL NOT restore. Signing out or changing server SHALL close them and forget them; a session that expires SHALL close them immediately and reopen matching targets only after the same verified owner signs in. Another owner or missing proof SHALL discard old targets. On other platforms none of this is offered.
 
 A conversation window SHALL NOT read stored tokens or refresh the session itself: it SHALL get the headers for each request from the main window, which stays the only part of the app that refreshes the session.
 
@@ -1232,7 +1230,7 @@ The system SHALL rely on the same routes as the main window: `GET /api/sessions`
 
 #### Scenario: Windows come back after a relaunch
 
-- **WHEN** the user quits the app with two conversation windows open and launches it again on the same server
+- **WHEN** the user quits the app with two conversation windows open and launches it again for the same verified owner
 - **THEN** both windows open again where they were, each on its own chat and profile
 
 #### Scenario: Sign-out closes the windows
@@ -1257,8 +1255,8 @@ The system SHALL rely on the same routes as the main window: `GET /api/sessions`
 
 #### Scenario: Windows come back after the session expires
 
-- **WHEN** the session expires while conversation windows are open and the user signs in again
-- **THEN** the windows close, and open again once the user is signed in
+- **WHEN** the session expires while conversation windows are open and the same verified owner signs in again
+- **THEN** the windows close, and open again once that owner is verified and preceding native teardown completes
 
 #### Scenario: Only the current server's windows get credentials
 
@@ -1269,6 +1267,18 @@ The system SHALL rely on the same routes as the main window: `GET /api/sessions`
 
 - **WHEN** a request from a conversation window gets a 401
 - **THEN** the window asks the main window for new headers, naming the ones that failed, retries once with them, and the main window refreshes the session only if those were its current token
+
+#### Scenario: Another account uses the same server
+- **WHEN** another verified user, organization, or provider signs in at the same normalized server
+- **THEN** previous-owner windows and saved targets do not restore or receive credentials
+
+#### Scenario: Ownership cannot be proved
+- **WHEN** a gated session lacks a nonempty verified user ID or a saved gated window lacks owner metadata
+- **THEN** it cannot restore that window or provide its credentials
+
+#### Scenario: Old saves finish during departure
+- **WHEN** old window metadata is being written as the user explicitly signs out or changes server
+- **THEN** forgetting is ordered after that write and old targets cannot return on the next sign-in
 
 ### Requirement: Turn settling
 

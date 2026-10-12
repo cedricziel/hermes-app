@@ -7,4 +7,4 @@
 ## 2. Verification and delivery
 
 - [x] 2.1 Run format, analysis, relevant tests, catalog verification, and strict spec validation. Check project skills for stale instructions, use isolated verification where possible, and record native-control limits.
-- [ ] 2.2 Obtain isolated current-head review when CodeRabbit is limited, fix findings, pass CI/builds, merge after the shared policy, sync/archive, and update the backlog.
+- [x] 2.2 Obtain isolated current-head review when CodeRabbit is limited, fix findings, pass CI/builds, merge after the shared policy, sync/archive, and update the backlog.

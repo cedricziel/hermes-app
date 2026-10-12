@@ -8,4 +8,4 @@
 ## 2. Verification and delivery
 
 - [x] 2.1 Run format, analysis, relevant window/auth/workflow suites, strict spec validation, and attempt isolated macOS lifecycle verification. Record any native-control limitation and update project verification guidance.
-- [ ] 2.2 Obtain current-head isolated review, fix findings, pass CI/builds, merge, sync/archive, and update the navigation backlog. Main activity/navigator draft recovery remains open.
+- [x] 2.2 Obtain current-head isolated review, fix findings, pass CI/builds, merge, sync/archive, and update the navigation backlog. Main activity/navigator draft recovery remains open.
