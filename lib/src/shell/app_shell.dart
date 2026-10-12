@@ -203,10 +203,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (windows != null) {
       windows.currentProfile = () => _chatProfiles?.current;
       _showInMain = windows.showInMainRequests.listen((chat) {
-        _openRequests.request(
-          NotificationTarget(threadId: chat.threadId, profile: chat.profile),
-        );
-        _showChat();
+        _queueExternalNavigation(() {
+          _openRequests.request(
+            NotificationTarget(threadId: chat.threadId, profile: chat.profile),
+          );
+          _showChat();
+        });
       });
       unawaited(windows.restore());
     }
@@ -559,13 +561,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   void _openRun(CronRun run, CronJob job) {
-    _openRequests.request(
-      NotificationTarget(
-        threadId: run.sessionId,
-        profile: run.profile ?? job.profile,
-      ),
-    );
-    _showChat();
+    _queueExternalNavigation(() {
+      _openRequests.request(
+        NotificationTarget(
+          threadId: run.sessionId,
+          profile: run.profile ?? job.profile,
+        ),
+      );
+      _showChat();
+    });
   }
 
   void _openMenu() => _scaffoldKey.currentState?.openDrawer();

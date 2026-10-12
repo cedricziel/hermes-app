@@ -54,6 +54,10 @@ Main, conversation, and quick-panel apps have separate MaterialApp instances. Au
 | Bot/group confirmations | `lib/src/bot_mode/bot_mode_roster_screen.dart`, `lib/src/bot_mode/groups/group_chat_screen.dart`: direct dialogs. | Preserve destructive confirmation and busy guards. |
 | Thread and row menus | `lib/src/chat/widgets/thread_actions_menu.dart`: adaptive rename dialog. `lib/src/widgets/row_actions.dart`, `lib/src/chat/widgets/swipeable_thread_row.dart`: Cupertino action sheets; shared adaptive popup menus elsewhere. | Review context menus separately from page and dialog transitions. |
 
+## Guarded external destinations
+
+Deep links, notification taps, shared payloads, Show in Main Window, and scheduled-run chat handoffs use the main root dismissal queue before publishing their destination. Widget tests cover retained editors, Save/Discard, latest-request ordering, and App Lock. Bot opening and menu/intent entry points still need audit; native window launch and focus remain unverified.
+
 ## Authentication boundary finding
 
 `lib/src/app.dart` keeps a stable Navigator while `_RootRouter` replaces the home content for authentication state changes. A pushed detail/editor route can remain above the new Login/Setup screen. `lib/src/settings/account_actions.dart` confirms sign-out but does not reset the stack. App Lock hides mounted content; the Handoff gate blocks input, and neither performs authentication teardown.
