@@ -11,4 +11,4 @@
 
 - [x] 3.1 Run formatting, analysis, the focused Kanban error and Quick Look tests, and strict OpenSpec validation.
 
-- [ ] 3.2 Obtain isolated current-head review, pass CI/builds, merge, sync/archive, and update the navigation backlog. Native interaction remains unverified; the UI lifecycle regression uses widget tests.
+- [x] 3.2 Obtain isolated current-head review, pass CI/builds, merge, sync/archive, and update the navigation backlog. Native interaction remains unverified; the UI lifecycle regression uses widget tests.
