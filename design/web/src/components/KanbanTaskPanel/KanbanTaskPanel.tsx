@@ -412,7 +412,7 @@ export function KanbanTaskPanel({
               {diagnostics.length ? (
                 <GroupedSection header="Needs attention">
                   {diagnostics.map((d) => (
-                    <GroupedRow key={d.title} title={d.title} subtitle={d.detail || undefined}
+                    <GroupedRow key={d.title} title={d.title} wrapTitle subtitle={d.detail || undefined}
                       chevron={false} leading={<Icon name="warning" size={20}
                         style={{ color: d.severity === "warning" ? "var(--h-warning)" : "var(--h-error)" }} />} />
                   ))}
@@ -430,7 +430,7 @@ export function KanbanTaskPanel({
               </GroupedSection>
               <GroupedSection header="Depends on">
                 {parents.map((id) => (
-                  <GroupedRow key={id} title={id} chevron={false}
+                  <GroupedRow key={id} title={id} wrapTitle chevron={false}
                     trailing={<IconButton icon="close" label={`Remove dependency ${id}`}
                       disabled={!onRemoveParent}
                       onClick={onRemoveParent ? () => onRemoveParent(id) : undefined} />} />
@@ -440,7 +440,7 @@ export function KanbanTaskPanel({
               {subtasks.length ? (
                 <GroupedSection header="Subtasks">
                   {subtasks.map((c) => (
-                    <GroupedRow key={c.id} title={c.title} chevron={false}
+                    <GroupedRow key={c.id} title={c.title} wrapTitle chevron={false}
                       subtitle={`${c.id} · ${kanbanStatusLabel(c.status)}${c.summary == null ? "" : `\n${c.summary}`}`} />
                   ))}
                 </GroupedSection>
@@ -474,7 +474,7 @@ export function KanbanTaskPanel({
             <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
               <GroupedSection header="Notify">
                 {channels.map((c) => (
-                  <GroupedSwitchRow key={c.platform} title={`Post updates to ${c.name}`}
+                  <GroupedSwitchRow key={c.platform} title={`Post updates to ${c.name}`} wrapTitle
                     subtitle={c.platform} checked={c.subscribed} disabled={c.switching}
                     onChange={onToggleChannel ? (on) => onToggleChannel(c, on) : undefined} />
                 ))}

@@ -46,6 +46,7 @@ class KanbanTaskFields extends StatelessWidget {
               for (final d in detail.diagnostics)
                 GroupedRow(
                   title: d.title,
+                  titleMaxLines: null,
                   subtitle: d.detail.isEmpty ? null : d.detail,
                   subtitleMaxLines: null,
                   chevron: false,
@@ -80,6 +81,7 @@ class KanbanTaskFields extends StatelessWidget {
             for (final id in detail.parents)
               GroupedRow(
                 title: id,
+                titleMaxLines: null,
                 chevron: false,
                 trailing: NamedIconButton(
                   label: 'Remove dependency $id',
@@ -102,6 +104,7 @@ class KanbanTaskFields extends StatelessWidget {
               for (final c in detail.childResults)
                 GroupedRow(
                   title: c.title,
+                  titleMaxLines: null,
                   subtitle:
                       '${c.id} · ${kanbanStatusLabel(c.status)}'
                       '${c.summary == null ? '' : '\n${c.summary}'}',

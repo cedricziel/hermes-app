@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
@@ -9,6 +10,10 @@ import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
 void main() {
+  const diagnosticTitle =
+      'Configuration requires an example destination, an approved migration guide and a verified connection before processing can begin';
+  const childTitle =
+      'Write the migration guide with every environment and destination the example release needs to cover';
   for (final (name, platform, size, brightness) in [
     ('ios', TargetPlatform.iOS, phoneSize, Brightness.light),
     ('ios-dark', TargetPlatform.iOS, phoneSize, Brightness.dark),
@@ -36,14 +41,14 @@ void main() {
             ..['child_results'] = [
               {
                 'id': 'child-example',
-                'title': 'Write the guide',
+                'title': childTitle,
                 'status': 'done',
                 'summary': 'Guide prepared and checked.',
               },
             ];
       (detail['task'] as Map<String, Object?>)['diagnostics'] = [
         {
-          'title': 'Needs configuration',
+          'title': diagnosticTitle,
           'severity': 'warning',
           'detail':
               'The example environment needs a destination before processing.',
@@ -87,11 +92,18 @@ void main() {
         platform: platform,
         brightness: brightness,
       );
-      expect(find.text('Needs configuration'), findsOneWidget);
+      expect(find.text(diagnosticTitle), findsOneWidget);
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text(diagnosticTitle))
+            .didExceedMaxLines,
+        isFalse,
+      );
       await shots.capture(tester, 'metadata');
       await tester.ensureVisible(
         find.byTooltip('Remove dependency parent-example'),
       );
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Remove dependency parent-example'));
       await tester.pumpAndSettle();
       expect(
@@ -101,8 +113,17 @@ void main() {
             .queryParameters,
         {'parent_id': 'parent-example', 'child_id': 'example', 'board': 'ops'},
       );
+      await tester.ensureVisible(find.text(childTitle));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text(childTitle))
+            .didExceedMaxLines,
+        isFalse,
+      );
       await shots.capture(tester, 'dependencies');
       await tester.ensureVisible(find.text('Post updates to Example team'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
       expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);

@@ -28,6 +28,7 @@ class KanbanTaskChannels extends StatelessWidget {
         for (final c in channels)
           GroupedSwitchRow(
             title: 'Post updates to ${c.name}',
+            titleMaxLines: null,
             subtitle: c.platform,
             value: c.subscribed,
             onChanged: switching.contains(c.platform)
