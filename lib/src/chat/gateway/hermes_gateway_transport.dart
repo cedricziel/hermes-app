@@ -931,6 +931,9 @@ class HermesGatewayTransport
       // What the session sent before it answered. A turn of Hermes' own in it
       // ends before the prompt's reply starts.
       final earlier = watch.stopRecording();
+      if (submit['user_row_id'] case final int userRowId) {
+        yield PromptAcknowledged(userRowId);
+      }
       if (const {'redirected', 'steered'}.contains(submit['status'])) {
         // The server folded the prompt into the turn already running, whose
         // reply streams on in its own send. This one has nothing to wait for,
