@@ -13,7 +13,7 @@ export interface KanbanTaskChoiceDialogProps extends Omit<GroupedDialogProps, "c
 
 export function KanbanTaskChoiceDialog({ options, selected, onPick, ...dialog }: KanbanTaskChoiceDialogProps) {
   return <GroupedDialog {...dialog}>
-    <GroupedSection dividerIndent="choice">
+    <GroupedSection dividerIndent="choice" label={dialog.title}>
       {options.map((option, index) => <GroupedChoiceRow key={index} title={option} wrapTitle
         checked={index === selected} disabled={!onPick} onSelect={() => onPick?.(index)} />)}
     </GroupedSection>
