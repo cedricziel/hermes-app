@@ -5,7 +5,10 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/auth/native_login_flow.dart';
+import 'package:hermes_app/src/models/auth_provider_info.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -26,6 +29,19 @@ class _GatedDashboard {
   final HttpServer _server;
   String validAccess = 'access-1';
   String validRefresh = 'refresh-1';
+  String userId = 'u1';
+  String organization = '';
+  String identityProvider = 'oidc';
+  bool gated = true;
+  Completer<void>? statusGate;
+  Completer<void>? statusStarted;
+  Completer<void>? pageGate;
+  Completer<void>? pageStarted;
+  int authRequests = 0;
+  final authResponseGates = <Future<void>>[];
+  final forcedAuthStatuses = <int>[];
+  Completer<void>? refreshGate;
+  Completer<void>? refreshStarted;
   int rotations = 0;
 
   /// Every call to the refresh route, rotated or not.
@@ -66,18 +82,31 @@ class _GatedDashboard {
 
   Future<void> _handle(HttpRequest request) async {
     switch (request.uri.path) {
+      case '/':
+        if (!(pageStarted?.isCompleted ?? true)) pageStarted!.complete();
+        if (pageGate != null) await pageGate!.future;
+        request.response.write(
+          'window.__HERMES_SESSION_TOKEN__ = "test-token";',
+        );
+        await request.response.close();
+        return;
       case '/api/status':
+        if (!(statusStarted?.isCompleted ?? true)) statusStarted!.complete();
+        if (statusGate != null) await statusGate!.future;
         return _json(request, 200, {
-          'auth_required': true,
+          'auth_required': gated,
           'auth_flows': ['native_pkce'],
         });
       case '/api/auth/providers':
         return _json(request, 200, {'providers': []});
       case '/auth/native/refresh':
         refreshCalls++;
+        if (!(refreshStarted?.isCompleted ?? true)) refreshStarted!.complete();
         final body = jsonDecode(
           await utf8.decoder.bind(request).join(),
         ) as Map<String, dynamic>;
+        final gate = refreshGate;
+        if (gate != null) await gate.future;
         await Future<void>.delayed(refreshDelay);
         final failure = refreshFailure;
         if (failure != null) {
@@ -115,15 +144,28 @@ class _GatedDashboard {
   }
 
   Future<void> _authed(HttpRequest request) async {
+    authRequests++;
     final bearer = request.headers.value('Authorization');
-    if (bearer != 'Bearer $validAccess') {
+    final user = userId;
+    final org = organization;
+    final provider = identityProvider;
+    final authorized = forcedAuthStatuses.isEmpty
+        ? !gated || bearer == 'Bearer $validAccess'
+        : forcedAuthStatuses.removeAt(0) == 200;
+    if (authResponseGates.isNotEmpty) await authResponseGates.removeAt(0);
+    if (!authorized) {
       if (unauthorizedDelays.isNotEmpty) {
         await Future<void>.delayed(unauthorizedDelays.removeAt(0));
       }
       _json(request, 401, {'detail': 'Unauthorized'});
       return;
     }
-    _json(request, 200, {'user_id': 'u1', 'ok': true});
+    _json(request, 200, {
+      'user_id': user,
+      'org_id': org,
+      'provider': provider,
+      'ok': true,
+    });
   }
 
   void _json(HttpRequest request, int status, Object body) {
@@ -155,13 +197,39 @@ class _SlowClearTokenStore extends MemoryTokenStore {
   _SlowClearTokenStore(super.session);
 
   final _released = Completer<void>();
+  final clearStarted = Completer<void>();
 
   void releaseClear() => _released.complete();
 
   @override
   Future<void> clear() async {
     session = null;
+    if (!clearStarted.isCompleted) clearStarted.complete();
     await _released.future;
+  }
+}
+
+class _FailingForgetPreferences extends SharedPreferencesAsync {
+  @override
+  Future<void> remove(String key) async =>
+      throw StateError('test preference deletion failed');
+}
+
+class _FailingClearTokenStore extends MemoryTokenStore {
+  _FailingClearTokenStore(super.session);
+  @override
+  Future<void> clear() async => throw StateError('test deletion failed');
+}
+
+class _DeferredDeleteTokenStore extends MemoryTokenStore {
+  _DeferredDeleteTokenStore(super.session);
+  final started = Completer<void>();
+  final release = Completer<void>();
+  @override
+  Future<void> clear() async {
+    if (!started.isCompleted) started.complete();
+    await release.future;
+    session = null;
   }
 }
 
@@ -193,11 +261,21 @@ void main() {
   late RecordedEvents events;
   late List<String> requestedPaths;
 
-  Future<void> bootstrapWith(HermesSession session) async {
+  Future<void> bootstrapWith(
+    HermesSession session, {
+    bool nativeSignIn = false,
+  }) async {
     store = MemoryTokenStore(session);
     controller = AuthController(
       tokenStore: store,
       devServerUrl: dashboard.url,
+      login: nativeSignIn
+          ? (url, {provider, httpClient, cancelled}) async => _session(
+              access: dashboard.validAccess,
+              refresh: dashboard.validRefresh,
+              userId: dashboard.userId,
+            )
+          : runNativeLogin,
       interceptors: [
         InterceptorsWrapper(
           onRequest: (options, handler) {
@@ -688,6 +766,391 @@ void main() {
       expect(slowStore.session, isNull);
       expect(controller.state, HermesConnectionState.needsServerUrl);
     });
+  });
+
+  group('protected client boundaries', () {
+    final cancelled = throwsA(
+      isA<DioException>().having(
+        (error) => error.type,
+        'type',
+        DioExceptionType.cancel,
+      ),
+    );
+    const provider = AuthProviderInfo(
+      name: 'oidc',
+      displayName: 'SSO',
+      supportsPassword: false,
+    );
+
+    test(
+      'anonymous clients retire when the same server enables auth',
+      () async {
+        dashboard.gated = false;
+        await bootstrapWith(_session(), nativeSignIn: true);
+        final old = controller.api!;
+        dashboard.gated = true;
+        await controller.connect(dashboard.url, remember: false);
+        await controller.signInWithProvider(provider);
+        final before = dashboard.authRequests;
+        await expectLater(old.fetchMe(), cancelled);
+        expect(dashboard.authRequests, before);
+        expect((await controller.api!.fetchMe()).userId, 'u1');
+      },
+    );
+
+    test(
+      'departure during page token lookup prevents protected dispatch',
+      () async {
+        dashboard
+          ..gated = false
+          ..pageGate = Completer<void>()
+          ..pageStarted = Completer<void>();
+        await bootstrapWith(_session());
+        final old = controller.api!;
+        final pending = expectLater(old.fetchMe(), cancelled);
+        await dashboard.pageStarted!.future;
+        await controller.changeServer();
+        dashboard.pageGate!.complete();
+        await pending;
+        expect(dashboard.authRequests, 0);
+      },
+    );
+
+    test(
+      'late browser cancellation cannot replace the server picker',
+      () async {
+        final result = Completer<HermesSession>();
+        controller = AuthController(
+          tokenStore: MemoryTokenStore(null),
+          devServerUrl: dashboard.url,
+          login: (url, {provider, httpClient, cancelled}) => result.future,
+        );
+        await controller.bootstrap();
+        final login = controller.signInWithProvider(provider);
+        await Future<void>.delayed(Duration.zero);
+        await controller.changeServer();
+        result.completeError(const NativeLoginCancelled());
+        await login;
+        expect(controller.state, HermesConnectionState.needsServerUrl);
+      },
+    );
+
+    test('sign-out invalidates a connect waiting for server status', () async {
+      final deferred = _DeferredDeleteTokenStore(_session());
+      controller = AuthController(
+        tokenStore: deferred,
+        devServerUrl: dashboard.url,
+      );
+      await controller.bootstrap();
+      dashboard
+        ..statusGate = Completer<void>()
+        ..statusStarted = Completer<void>();
+      final connecting = controller.connect(dashboard.url, remember: false);
+      await dashboard.statusStarted!.future;
+      final leaving = controller.signOut();
+      await deferred.started.future;
+      final before = dashboard.authRequests;
+      try {
+        dashboard.statusGate!.complete();
+        await connecting;
+        expect(controller.protectedRequestsAllowed, isFalse);
+        expect(dashboard.authRequests, before);
+      } finally {
+        deferred.release.complete();
+        await leaving;
+      }
+      expect(controller.state, HermesConnectionState.needsLogin);
+    });
+
+    test('expiry remains recoverable when credential deletion fails', () async {
+      final failing = _FailingClearTokenStore(_session(refresh: ''));
+      controller = AuthController(
+        tokenStore: failing,
+        devServerUrl: dashboard.url,
+        login: (url, {provider, httpClient, cancelled}) async => _session(),
+      );
+      await controller.bootstrap();
+      var cleanupNotifications = 0;
+      final subscription = controller.signedOut.listen(
+        (_) => cleanupNotifications++,
+      );
+      addTearDown(subscription.cancel);
+      final old = controller.api!;
+      dashboard.validAccess = 'revoked';
+      await expectLater(
+        old.fetchMe().timeout(const Duration(seconds: 1)),
+        throwsA(isA<DioException>()),
+      );
+      expect(controller.protectedRequestsAllowed, isFalse);
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(controller.errorMessage, contains('could not remove'));
+      expect(cleanupNotifications, 1);
+      final before = dashboard.authRequests;
+      await expectLater(old.fetchMe(), cancelled);
+      expect(dashboard.authRequests, before);
+      dashboard.validAccess = 'access-1';
+      await controller.signInWithProvider(provider);
+      expect(controller.state, HermesConnectionState.ready);
+      expect(failing.session?.accessToken, 'access-1');
+    });
+
+    for (final removeServer in [false, true]) {
+      test(
+        'departure recovers after deletion failure (remove server: $removeServer)',
+        () async {
+          controller = AuthController(
+            tokenStore: _FailingClearTokenStore(_session()),
+            devServerUrl: dashboard.url,
+          );
+          await controller.bootstrap();
+          final old = controller.api!;
+          var cleanupNotifications = 0;
+          final subscription = controller.signedOut.listen(
+            (_) => cleanupNotifications++,
+          );
+          addTearDown(subscription.cancel);
+          if (removeServer) {
+            await controller.changeServer();
+          } else {
+            await controller.signOut();
+          }
+          expect(
+            controller.state,
+            removeServer
+                ? HermesConnectionState.needsServerUrl
+                : HermesConnectionState.needsLogin,
+          );
+          expect(controller.errorMessage, contains('could not remove'));
+          expect(cleanupNotifications, 1);
+          final before = dashboard.authRequests;
+          await expectLater(old.fetchMe(), cancelled);
+          expect(dashboard.authRequests, before);
+          await controller.connect(dashboard.url, remember: false);
+          expect(controller.state, HermesConnectionState.needsLogin);
+          expect(dashboard.authRequests, before);
+        },
+      );
+    }
+
+    test('failed preference deletion still leaves the old server', () async {
+      controller = AuthController(
+        tokenStore: MemoryTokenStore(_session()),
+        prefs: _FailingForgetPreferences(),
+        devServerUrl: dashboard.url,
+      );
+      await controller.bootstrap();
+      final old = controller.api!;
+      var cleanups = 0;
+      final subscription = controller.signedOut.listen((_) => cleanups++);
+      addTearDown(subscription.cancel);
+      await controller.changeServer();
+      expect(controller.state, HermesConnectionState.needsServerUrl);
+      expect(controller.baseUrl, isNull);
+      expect(controller.api, isNull);
+      expect(controller.errorMessage, contains('could not forget'));
+      expect(cleanups, 1);
+      final before = dashboard.authRequests;
+      await expectLater(old.fetchMe(), cancelled);
+      expect(dashboard.authRequests, before);
+    });
+
+    test('old requests stay local while sign-out cleanup is pending', () async {
+      final slow = _SlowClearTokenStore(_session());
+      controller = AuthController(
+        tokenStore: slow,
+        devServerUrl: dashboard.url,
+      );
+      await controller.bootstrap();
+      final old = controller.api!;
+      final before = dashboard.authRequests;
+      final leaving = controller.signOut();
+      try {
+        await expectLater(old.fetchMe(), cancelled);
+        expect(dashboard.authRequests, before);
+      } finally {
+        slow.releaseClear();
+        await leaving;
+      }
+    });
+
+    test('sign-in waits for expired-session cleanup to finish', () async {
+      final slow = _SlowClearTokenStore(_session());
+      var loginStarted = false;
+      controller = AuthController(
+        tokenStore: slow,
+        devServerUrl: dashboard.url,
+        rejectionRecheck: const Duration(milliseconds: 20),
+        login: (url, {provider, httpClient, cancelled}) async {
+          loginStarted = true;
+          return _session(access: 'fresh-access');
+        },
+      );
+      await controller.bootstrap();
+      dashboard
+        ..validAccess = 'revoked'
+        ..refreshFailure = 401;
+      final expired = expectLater(
+        controller.api!.fetchMe(),
+        throwsA(isA<DioException>()),
+      );
+      await slow.clearStarted.future;
+      dashboard.validAccess = 'fresh-access';
+      final login = controller.signInWithProvider(provider);
+      try {
+        await Future<void>.delayed(Duration.zero);
+        expect(loginStarted, isFalse);
+      } finally {
+        slow.releaseClear();
+        await expired;
+        await login;
+      }
+      expect(controller.state, HermesConnectionState.ready);
+      expect(slow.session?.accessToken, 'fresh-access');
+    });
+
+    test(
+      'an old client cannot use another server even with identical tokens',
+      () async {
+        await bootstrapWith(_session());
+        final old = controller.api!;
+        final before = dashboard.authRequests;
+        final other = await _GatedDashboard.start();
+        addTearDown(other.close);
+        await controller.changeServer();
+        store.session = _session(serverUrl: other.url);
+        await controller.connect(other.url, remember: false);
+        expect(controller.state, HermesConnectionState.ready);
+        await expectLater(old.fetchMe(), cancelled);
+        expect(dashboard.authRequests, before);
+        expect(controller.state, HermesConnectionState.ready);
+      },
+    );
+
+    Future<void> expireAndSignIn(String user) async {
+      dashboard
+        ..validAccess = 'revoked'
+        ..refreshFailure = 401;
+      await expectLater(
+        controller.api!.fetchMe(),
+        throwsA(isA<DioException>()),
+      );
+      expect(controller.state, HermesConnectionState.needsLogin);
+      dashboard
+        ..validAccess = 'fresh-access'
+        ..validRefresh = 'fresh-refresh'
+        ..refreshFailure = null
+        ..userId = user;
+      await controller.signInWithProvider(provider);
+      expect(controller.state, HermesConnectionState.ready);
+    }
+
+    for (final scope in ['organization', 'provider', 'missing user']) {
+      test('retained clients reject changed $scope proof', () async {
+        await bootstrapWith(_session(), nativeSignIn: true);
+        final old = controller.api!;
+        final owner = controller.verifiedOwner;
+        if (scope == 'organization') dashboard.organization = 'another-org';
+        if (scope == 'provider') {
+          dashboard.identityProvider = 'another-provider';
+        }
+        await expireAndSignIn(scope == 'missing user' ? ' ' : 'u1');
+        expect(controller.expiredOwner, owner);
+        expect(controller.verifiedOwner, isNot(owner));
+        if (scope == 'missing user') expect(controller.verifiedOwner, isNull);
+        final before = dashboard.authRequests;
+        await expectLater(old.fetchMe(), cancelled);
+        expect(dashboard.authRequests, before);
+        expect(events.named('auth.client.retired'), [
+          {'reason': 'owner_changed'},
+        ]);
+      });
+    }
+
+    test('departure telemetry contains only a fixed reason', () async {
+      await bootstrapWith(_session());
+      await controller.signOut();
+      expect(events.named('auth.client.retired'), [
+        {'reason': 'sign_out'},
+      ]);
+    });
+
+    Future<void> waitForAuth(int count) async {
+      while (dashboard.authRequests < count) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+    }
+
+    test(
+      'a pre-expiry response stays cancelled after same-owner sign-in',
+      () async {
+        await bootstrapWith(_session(), nativeSignIn: true);
+        final old = controller.api!;
+        final held = Completer<void>();
+        dashboard.authResponseGates.add(held.future);
+        final before = dashboard.authRequests;
+        final pending = expectLater(old.fetchMe(), cancelled);
+        await waitForAuth(before + 1).timeout(const Duration(seconds: 5));
+        await expireAndSignIn('u1');
+        held.complete();
+        await pending;
+        expect((await old.fetchMe()).userId, 'u1');
+      },
+    );
+
+    test('a delayed retried 401 cannot expire the new account', () async {
+      await bootstrapWith(_session(), nativeSignIn: true);
+      final old = controller.api!;
+      final held = Completer<void>();
+      dashboard.authResponseGates.addAll([Future.value(), held.future]);
+      dashboard.forcedAuthStatuses.addAll([401, 401]);
+      final before = dashboard.authRequests;
+      final pending = expectLater(old.fetchMe(), cancelled);
+      await waitForAuth(before + 2).timeout(const Duration(seconds: 5));
+      await expireAndSignIn('u2');
+      held.complete();
+      await pending;
+      expect(controller.state, HermesConnectionState.ready);
+      expect(controller.identity!.userId, 'u2');
+    });
+
+    test(
+      'a proactive refresh finishing after departure cannot dispatch',
+      () async {
+        final started = dashboard.refreshStarted = Completer<void>();
+        final release = dashboard.refreshGate = Completer<void>();
+        final boot = bootstrapWith(_session(expiresAt: 1));
+        await started.future;
+        await controller.signOut();
+        release.complete();
+        await boot;
+        expect(dashboard.authRequests, 0);
+        expect(store.session, isNull);
+        expect(controller.state, HermesConnectionState.needsLogin);
+      },
+    );
+
+    test(
+      'a retained client resumes only for the same verified owner',
+      () async {
+        await bootstrapWith(_session(), nativeSignIn: true);
+        final old = controller.api!;
+        await expireAndSignIn('u1');
+        expect((await old.fetchMe()).userId, 'u1');
+      },
+    );
+
+    test(
+      'a retained client cannot attach a different account credential',
+      () async {
+        await bootstrapWith(_session(), nativeSignIn: true);
+        final old = controller.api!;
+        await expireAndSignIn('u2');
+        final before = dashboard.authRequests;
+        await expectLater(old.fetchMe(), cancelled);
+        expect(dashboard.authRequests, before);
+        expect(controller.identity!.userId, 'u2');
+      },
+    );
   });
 
   group('signedOut', () {

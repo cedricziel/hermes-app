@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show ErrorCallback;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,6 +47,7 @@ class _Dashboard {
   final HttpServer _server;
   Map<String, Object> status;
   Completer<void>? meGate;
+  Completer<void>? meStarted;
 
   String get url => 'http://127.0.0.1:${_server.port}';
 
@@ -68,7 +70,10 @@ class _Dashboard {
       },
       _ => {'user_id': 'u1'},
     };
-    if (request.uri.path == '/api/auth/me') await meGate?.future;
+    if (request.uri.path == '/api/auth/me') {
+      if (!(meStarted?.isCompleted ?? true)) meStarted!.complete();
+      await meGate?.future;
+    }
     request.response
       ..headers.contentType = ContentType.json
       ..write(jsonEncode(body));
@@ -270,7 +275,18 @@ void main() {
     await controller.connect(a.url);
     await signIn();
     final gate = a.meGate = Completer<void>();
-    final pending = controller.api!.fetchMe();
+    final started = a.meStarted = Completer<void>();
+    final pending = expectLater(
+      controller.api!.fetchMe(),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.type,
+          'type',
+          DioExceptionType.cancel,
+        ),
+      ),
+    );
+    await started.future;
 
     await controller.connect(b.url);
     gate.complete();
