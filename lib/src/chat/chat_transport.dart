@@ -403,6 +403,14 @@ abstract interface class PromptAcknowledgement {
   bool get promptAccepted;
 }
 
+/// Authenticated gateway RPC used by profile and group repositories.
+abstract interface class GatewayRequester {
+  Future<Map<String, Object?>> request(
+    String method, [
+    Map<String, Object?> params = const {},
+  ]);
+}
+
 abstract interface class ChatTransport {
   /// Commands available in the current session or new-chat profile.
   Future<List<SlashCommand>> slashCommands({String? threadId, String? profile});
