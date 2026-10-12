@@ -1002,7 +1002,7 @@ void main() {
         expect(announced.single.threadId, 'new-1');
         expect(announced.single.profile, 'work');
         expect(announced.single.title, 'Hermes');
-        expect(announced.single.body, 'Done. Two files changed.');
+        expect(announced.single.body, 'Done.\n\nTwo files changed.');
         expect(announced.single.groupKey, 'chat:work/new-1');
         expect(announced.single.timeSensitive, isFalse);
       },

@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.60](https://github.com/cedricziel/hermes-app/compare/v0.1.59...v0.1.60) (2026-10-11)
+
+
+### Features
+
+* **bots:** simplify adaptive bot creation ([#627](https://github.com/cedricziel/hermes-app/issues/627)) ([b7c93e5](https://github.com/cedricziel/hermes-app/commit/b7c93e5351e228c4f5c96573a13f9477e0ae5cbe))
+* **spotlight:** enable recent chat indexing on Apple platforms ([#634](https://github.com/cedricziel/hermes-app/issues/634)) ([e46f6e7](https://github.com/cedricziel/hermes-app/commit/e46f6e79c433555a4a2ac2b5de991c40a2af07a5))
+
+
+### Bug Fixes
+
+* **bots:** align management forms with grouped settings ([#629](https://github.com/cedricziel/hermes-app/issues/629)) ([3f8df15](https://github.com/cedricziel/hermes-app/commit/3f8df156f5f50459b74eeb440fa9049104c6922f))
+* **kanban:** align forms with grouped settings ([#632](https://github.com/cedricziel/hermes-app/issues/632)) ([96ca04c](https://github.com/cedricziel/hermes-app/commit/96ca04ceb05f8342d503289bbc141c939b0c0416))
+* **mcp:** keep the catalog after install sheet dismissal ([#639](https://github.com/cedricziel/hermes-app/issues/639)) ([0e9af39](https://github.com/cedricziel/hermes-app/commit/0e9af3954d1f9fe161d42d412a9b49b01caded3e))
+* **navigation:** dismiss only the originating route on completion ([#641](https://github.com/cedricziel/hermes-app/issues/641)) ([526164d](https://github.com/cedricziel/hermes-app/commit/526164ddbdf7eab7890f931c439a3bfbede9adc7))
+* **notifications:** strip Markdown from notification previews ([#638](https://github.com/cedricziel/hermes-app/issues/638)) ([4507640](https://github.com/cedricziel/hermes-app/commit/4507640e334d14e0da337b207abb1d33e3079621))
+* **plugins:** keep the list after dismissing details ([#635](https://github.com/cedricziel/hermes-app/issues/635)) ([b21688f](https://github.com/cedricziel/hermes-app/commit/b21688f1a0606c2af3f3a0b597fa7d078dc26027))
+* **plugins:** use grouped Git installation form ([#631](https://github.com/cedricziel/hermes-app/issues/631)) ([b21d1b5](https://github.com/cedricziel/hermes-app/commit/b21d1b509745ca44bf0f90dd76e78f62ea6fe199))
+* **profiles:** use grouped creation form ([#630](https://github.com/cedricziel/hermes-app/issues/630)) ([7f6f3a5](https://github.com/cedricziel/hermes-app/commit/7f6f3a5e69326d8801875e81e2c7da0dabbe9e78))
+* **schedules:** avoid closing the list during detail dismissal ([#637](https://github.com/cedricziel/hermes-app/issues/637)) ([de4598c](https://github.com/cedricziel/hermes-app/commit/de4598c1cb268be62ad11cd08d8d6a77cb41cc21))
+
+
+### Documentation
+
+* **forms:** finalize grouped form verification ([#633](https://github.com/cedricziel/hermes-app/issues/633)) ([57363c8](https://github.com/cedricziel/hermes-app/commit/57363c8a4686b1ff42c5c7be791f95d4e64e10b4))
+
 ## [0.1.59](https://github.com/cedricziel/hermes-app/compare/v0.1.58...v0.1.59) (2026-10-11)
 
 

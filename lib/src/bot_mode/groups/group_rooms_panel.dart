@@ -8,6 +8,7 @@ import '../bot_mode_roster_repository.dart';
 import '../group_protocol/hermes_groups_repository.dart';
 import 'group_room_controller.dart';
 import 'widgets/group_widgets.dart';
+import '../../widgets/route_dismissal.dart';
 
 /// Hosted rooms only. Legacy Desktop metadata rooms have no migration contract.
 class GroupRoomsPanel extends StatefulWidget {
@@ -170,7 +171,7 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
                                 .toList(),
                             operationId: operation,
                           );
-                          if (dialog.mounted) Navigator.pop(dialog);
+                          if (dialog.mounted) dismissRoute(dialog);
                         } on Object catch (failure) {
                           if (dialog.mounted) {
                             update(() {

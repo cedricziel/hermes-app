@@ -21,6 +21,7 @@ import 'skill_job_sheet.dart';
 import 'skills_controller.dart';
 import 'skills_hub_controller.dart';
 import 'widgets/installed_skills_list.dart';
+import '../widgets/route_dismissal.dart';
 
 /// The skills installed on a profile: switch them on and off, read and edit
 /// them, and create new ones. With a hub it has a second tab to find and
@@ -126,7 +127,7 @@ class _SkillsScreenState extends State<SkillsScreen>
         ),
       ),
     );
-    if (draft != null && mounted) Navigator.of(context).pop(draft);
+    if (draft != null && mounted) dismissRoute(context, draft);
   }
 
   Future<void> _openHub(HubSkill skill) async {

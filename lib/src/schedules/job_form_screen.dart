@@ -12,6 +12,7 @@ import 'job_draft.dart';
 import 'job_form_controller.dart';
 import 'schedule_picker.dart';
 import 'widgets/job_model_field.dart';
+import '../widgets/route_dismissal.dart';
 
 /// Asks whether to throw away what was entered. True to discard.
 Future<bool> confirmDiscard(BuildContext context) => showConfirmDialog(
@@ -110,7 +111,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
     final job = await _form.save();
     if (!mounted) return;
     if (job != null) {
-      Navigator.of(context).pop(job);
+      dismissRoute(context, job);
     } else {
       revealFormError(context);
     }
@@ -119,7 +120,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
   Future<void> _close(bool didPop) async {
     if (didPop) return;
     if (await confirmDiscard(context) && mounted) {
-      Navigator.of(context).pop();
+      dismissRoute(context);
     }
   }
 

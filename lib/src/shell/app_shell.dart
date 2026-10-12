@@ -50,6 +50,7 @@ import '../theme/platform_chrome.dart';
 import '../windows/conversation_windows.dart';
 import 'app_presence.dart';
 import 'shell_navigation.dart';
+import '../widgets/route_dismissal.dart';
 
 enum _Destination { chat, bots, kanban, schedules, profiles }
 
@@ -529,11 +530,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (groups == null) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => GroupChatScreen(
+        builder: (routeContext) => GroupChatScreen(
           repository: groups,
           room: room,
           onDisbanded: () {
-            if (mounted) Navigator.of(context).pop();
+            dismissRoute(routeContext);
           },
         ),
       ),

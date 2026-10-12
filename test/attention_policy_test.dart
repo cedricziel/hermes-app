@@ -63,8 +63,15 @@ void main() {
       expect(replyPreview('Done.'), 'Done.');
     });
 
-    test('collapses whitespace and newlines', () {
-      expect(replyPreview('  a\n\n  b\tc '), 'a b c');
+    test('preserves paragraphs', () {
+      expect(replyPreview('  a\n\n  b\tc '), 'a\n\nb\tc');
+    });
+
+    test('strips formatting before cutting a reply', () {
+      expect(
+        replyPreview('[Read](https://example.com/${'x' * 200}) **done**'),
+        'Read done',
+      );
     });
 
     test('cuts a long reply at 120 characters with an ellipsis', () {

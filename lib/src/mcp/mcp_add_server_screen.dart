@@ -9,6 +9,8 @@ import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_servers_controller.dart';
 
+import '../widgets/route_dismissal.dart';
+
 final _envName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
 
 class _EnvRow {
@@ -184,7 +186,7 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
     if (!mounted) return;
     switch (outcome) {
       case McpAdded(:final name):
-        Navigator.of(context).pop(name);
+        dismissRoute(context, name);
       case McpAddDuplicate():
         setState(() => _nameTaken = true);
       case McpAddRefused(:final reason) when reason.isNotEmpty:

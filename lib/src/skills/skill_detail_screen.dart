@@ -14,6 +14,7 @@ import 'skill_job_sheet.dart';
 import 'skills_controller.dart';
 import 'skills_hub_controller.dart';
 import 'widgets/skill_badges.dart';
+import '../widgets/route_dismissal.dart';
 
 /// What the chat composer is given when the user asks the agent to delete a
 /// skill. The server has no delete route, so the agent does it.
@@ -97,7 +98,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
       confirmLabel: 'Draft message',
     );
     if (confirmed && mounted) {
-      Navigator.of(context).pop(deleteRequestFor(widget.name));
+      dismissRoute(context, deleteRequestFor(widget.name));
     }
   }
 

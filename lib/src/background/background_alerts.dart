@@ -167,6 +167,7 @@ class RunningRepliesStep extends BackgroundStep {
         profile: reply.profile,
         title: thread?.title ?? kUnnamedChatLabel,
         body: preview,
+        bodyIsPlainText: true,
       ),
     );
     return _Verdict.announced;

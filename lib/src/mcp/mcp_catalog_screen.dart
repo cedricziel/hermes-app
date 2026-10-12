@@ -66,10 +66,15 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
         catalog: _catalog,
         entry: entry,
         onInstalled: () {
+          if (!sheet.mounted || ModalRoute.of(sheet)?.isCurrent != true) return;
           Navigator.of(sheet).pop();
           _announceInstalled(entry.name, wide: false);
         },
-        onGone: () => Navigator.of(sheet).pop(),
+        onGone: () {
+          if (sheet.mounted && ModalRoute.of(sheet)?.isCurrent == true) {
+            Navigator.of(sheet).pop();
+          }
+        },
       ),
     );
   }

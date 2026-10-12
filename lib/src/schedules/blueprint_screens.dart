@@ -12,6 +12,7 @@ import 'job_draft.dart';
 import 'job_form_controller.dart';
 import 'job_form_screen.dart';
 import 'schedule_models.dart';
+import '../widgets/route_dismissal.dart';
 
 /// "New task": a custom task, then the blueprints the server offers grouped
 /// by category, which the search field and its category filter narrow. Pops
@@ -61,7 +62,7 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
   Future<void> _open(Widget screen) async {
     final job = await Navigator.of(context)
         .push<CronJob>(MaterialPageRoute(builder: (_) => screen));
-    if (job != null && mounted) Navigator.of(context).pop(job);
+    if (job != null && mounted) dismissRoute(context, job);
   }
 
   void _custom() => _open(
@@ -191,7 +192,7 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
     final job = await _form.save();
     if (!mounted) return;
     if (job != null) {
-      Navigator.of(context).pop(job);
+      dismissRoute(context, job);
     } else {
       revealFormError(context);
     }

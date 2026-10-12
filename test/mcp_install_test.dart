@@ -577,6 +577,27 @@ void main() {
       expect(installed.value, isFalse);
     });
 
+    testWidgets(
+      'an install finishing during sheet dismissal keeps the catalog',
+      (tester) async {
+        final answer = Completer<FakeResponse>();
+        server.onRequest('POST', installPath, (_) => answer.future);
+        await openEntry(tester, 'context7');
+        await tapInstall(tester);
+        final context = tester.element(find.byType(McpInstallPanel));
+
+        Navigator.of(context).pop();
+        answer.complete((status: 200, body: mcpInstallBody(name: 'context7')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(
+          find.byKey(const ValueKey('mcp-catalog-row-context7')),
+          findsOneWidget,
+        );
+      },
+    );
+
     testWidgets('shows progress while it runs', (tester) async {
       final answer = Completer<FakeResponse>();
       server.onRequest('POST', installPath, (_) => answer.future);
