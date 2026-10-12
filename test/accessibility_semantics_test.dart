@@ -194,7 +194,7 @@ void main() {
     expect(
       tester.getSemantics(find.text('Move to…')),
       isSemantics(
-        label: 'Move to…',
+        label: 'Move to…\nTodo',
         tooltip: '',
         isButton: true,
         hasTapAction: true,
