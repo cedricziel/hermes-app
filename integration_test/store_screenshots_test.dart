@@ -197,7 +197,16 @@ void main() {
           tester.view.physicalSize.height / tester.view.devicePixelRatio * 0.8,
         ),
       );
-      await tester.ensureVisible(find.byType(KanbanTaskHeader));
+      await tester.scrollUntilVisible(
+        find.byType(KanbanTaskHeader),
+        -100,
+        scrollable: find
+            .descendant(
+              of: find.byType(KanbanTaskPanel),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await settle(tester);
     }
     await shot('kanban-task');

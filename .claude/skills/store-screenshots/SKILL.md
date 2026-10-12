@@ -68,6 +68,9 @@ version>`. Check the editable version on App Store Connect first and pass
   The screenshot driver handles this prompt without changing backend profiles.
 - Unfocus the composer before each capture. New Chat opens the keyboard on
   iOS, which otherwise hides the welcome screen's starter prompts.
+- The phone sheet's grabber ignores pointer events. Drag from its position,
+  then scroll until `KanbanTaskHeader` is visible; a longer task panel can
+  leave that header outside the lazily built portion of its list.
 - `SHOT_KANBAN_ONLY=true scripts/store-screenshots.sh ios` or `mac` retakes
   only the light Kanban board and task details, preserving other raw captures.
 - The seed script uses `DEMO_SERVER_URL` to create Kanban tasks through the
@@ -83,6 +86,9 @@ version>`. Check the editable version on App Store Connect first and pass
   bundled Python and load their dependencies through `hermes_bootstrap`, so
   `store-screenshots.sh` asks `hermes --print-runtime-command`; set
   `HERMES_PYTHON` to override. A seed failure stops the run.
+- Newer Hermes attaches to the machine's existing dashboard unless started
+  with `--isolated`. `scripts/dev-backend.sh` passes this flag so captures use
+  their own backend without stopping a dashboard another worktree owns.
 - The welcome shot's starter prompts come from the backend: a failed cron job,
   a blocked Kanban task, the latest chat and the most-used skill. The seeded
   backend has only chats, so it shows "Pick up '<latest seeded chat>'" and
