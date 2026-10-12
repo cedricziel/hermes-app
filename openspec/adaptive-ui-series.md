@@ -10,8 +10,8 @@ One PR at a time; confirm merge before starting the next.
 - [x] Kanban worker log, merged in #649
 - [x] Kanban task metadata and notification settings, merged in #652
 - [x] Kanban task header and action controls, merged in #655
-- [ ] In progress: Kanban attachments, comments and activity
-- [ ] Connection setup and details
+- [x] Kanban attachments, comments and activity, merged in #660
+- [ ] In progress: Connection setup and details
 - [ ] Chat teammate and slash-command autocomplete
 
 Preserve behavior and security safeguards. Validate standalone catalog states and native layouts for each change. Previous grouped form series is complete in PRs #627, #629, #630, #631, #632 and #633.

@@ -1,3 +1,4 @@
+import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
 
 import 'package:widgetbook/widgetbook.dart';
@@ -44,6 +45,7 @@ import 'schedules_use_cases.dart';
 import 'voice_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
+  connectionNode(),
   handoffNode(),
   paletteNode(),
   stateMessageNode(),
