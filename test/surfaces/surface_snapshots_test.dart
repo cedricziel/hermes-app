@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_otel/flutter_otel.dart' show StatusCode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -262,32 +263,46 @@ void main() {
       expect(lastWrite().recentChats.map((c) => c.id), contains('w1'));
     });
 
-    test('writes what is known first when the server is slow', () async {
-      snapshots.chatChanged(SurfaceTrigger.threads, hints());
-      await nextWrite();
-      final gate = Completer<FakeResponse>();
-      server.onRequest('GET', '/api/profiles', (_) => gate.future);
-      snapshots.chatChanged(SurfaceTrigger.reply, hints(title: 'Renamed'));
+    test(
+      'publishes partial data and releases the pause build when sources hang',
+      () async {
+        snapshots.chatChanged(SurfaceTrigger.threads, hints());
+        await nextWrite();
+        final gate = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/profiles', (_) => gate.future);
+        snapshots.chatChanged(SurfaceTrigger.reply, hints(title: 'Renamed'));
 
-      snapshots.didChangeAppLifecycleState(AppLifecycleState.paused);
-      await settle();
-      expect(storage.saved, hasLength(2));
-      expect(lastWrite().recentChats.single.title, 'Renamed');
+        snapshots.didChangeAppLifecycleState(AppLifecycleState.paused);
+        await settle();
+        expect(storage.saved, hasLength(2));
+        expect(lastWrite().recentChats.single.title, 'Renamed');
+        expect(tracer.spans.last.ended, isTrue);
+        expect(tracer.spans.last.status, StatusCode.error);
 
-      workChat();
-      gate.complete((
-        status: 200,
-        body: {
-          'profiles': [
-            {'name': 'default'},
-            {'name': 'work'},
-          ],
-        },
-      ));
-      await settle();
+        workChat();
+        gate.complete((
+          status: 200,
+          body: {
+            'profiles': [
+              {'name': 'default'},
+              {'name': 'work'},
+            ],
+          },
+        ));
+        await settle();
 
-      expect(storage.saved, hasLength(3));
-    });
+        expect(storage.saved, hasLength(2));
+        expect(tracer.spans.every((span) => span.ended), isTrue);
+
+        snapshots.didChangeAppLifecycleState(AppLifecycleState.resumed);
+        snapshots.chatChanged(
+          SurfaceTrigger.reply,
+          hints(title: 'After resume'),
+        );
+        await nextWrite();
+        expect(lastWrite().recentChats.single.title, 'After resume');
+      },
+    );
   });
 
   test('coming back to the front writes nothing', () async {
@@ -698,6 +713,13 @@ void main() {
         'sources_failed': 1,
       });
       expect(span.ended, isTrue);
+      expect(span.status, StatusCode.error);
+    });
+
+    test('successful builds do not record an error', () async {
+      snapshots.chatChanged(SurfaceTrigger.threads, hints());
+      await nextWrite();
+      expect(tracer.spans.single.status, isNot(StatusCode.error));
     });
   });
 }
