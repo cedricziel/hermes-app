@@ -1450,6 +1450,14 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await _settle(tester);
 }
 
+class _ReadyAuth extends AuthController {
+  @override
+  HermesConnectionState get state => HermesConnectionState.ready;
+
+  @override
+  bool get protectedRequestsAllowed => true;
+}
+
 /// [pumpScreen] without its final `pumpAndSettle`, which the spinner of a run
 /// in progress would keep from ever returning.
 Future<void> _mount(
@@ -1467,9 +1475,7 @@ Future<void> _mount(
     shots.frame(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<AuthController>(
-            create: (_) => AuthController(),
-          ),
+          ChangeNotifierProvider<AuthController>(create: (_) => _ReadyAuth()),
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(FakeShareInbox()),
           ),
