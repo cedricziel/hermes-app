@@ -8,8 +8,8 @@
 #   scripts/store-screenshots.sh finish    # flatten, tidy and size what was taken
 #
 # Raw captures land in build/screenshots/<device>-<light|dark>/, the finished
-# store images in fastlane/screenshots/ios/en-US/ (not committed; regenerate
-# them) and the README-sized ones in docs/screenshots/.
+# finished store images in fastlane/screenshots/<ios|mac>/en-US/ and
+# README-sized ones in docs/screenshots/.
 #
 # The Mac run opens the app and takes over the screen for a few minutes (the
 # window has to be in front to be captured), so leave the machine alone.
@@ -56,9 +56,10 @@ start_backend() {
   local home="$ROOT_DIR/.dart_tool/hermes-dev/home"
   "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
   rm -f "$home"/state.db*
-  "$ROOT_DIR/scripts/dev-backend.sh" start >&2
+  "$ROOT_DIR/scripts/dev-backend.sh" start >&2 || exit 1
   # Runs inside $(...), where a failure would not stop the script.
-  HERMES_HOME="$home" "$(hermes_python)" "$ROOT_DIR/scripts/seed_demo_sessions.py" >&2 || exit 1
+  DEMO_SERVER_URL="$("$ROOT_DIR/scripts/dev-backend.sh" url)" \
+    HERMES_HOME="$home" "$(hermes_python)" "$ROOT_DIR/scripts/seed_demo_sessions.py" >&2 || exit 1
   "$ROOT_DIR/scripts/dev-backend.sh" url
 }
 
@@ -86,17 +87,21 @@ capture() { # device-name label appearance server-url
   xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged \
     --batteryLevel 100 --cellularMode active --cellularBars 4 --wifiBars 3 --operatorName ""
   xcrun simctl ui "$udid" appearance "$appearance"
-  rm -rf "$RAW_DIR/$label-$appearance"
+  if [[ "${SHOT_KANBAN_ONLY:-false}" != true ]]; then
+    rm -rf "$RAW_DIR/$label-$appearance"
+  fi
   SHOT_PORT="$PORT" SHOT_UDID="$udid" SHOT_DIR="$RAW_DIR/$label-$appearance" \
     flutter drive --driver=test_driver/integration_test.dart \
     --target=integration_test/store_screenshots_test.dart -d "$udid" \
-    --dart-define=HERMES_SERVER_URL="$url" --dart-define=SHOT_PORT="$PORT"
+    --dart-define=HERMES_SERVER_URL="$url" --dart-define=SHOT_PORT="$PORT" \
+    --dart-define=SHOT_KANBAN_ONLY="${SHOT_KANBAN_ONLY:-false}"
 }
 
 cmd_ios() { # [iphone|ipad]
   local only="${1:-}" url
   url="$(start_backend)"
   for appearance in light dark; do
+    if [[ "${SHOT_KANBAN_ONLY:-false}" == true && "$appearance" == dark ]]; then continue; fi
     if [[ -z "$only" || "$only" == iphone ]]; then capture "$IPHONE" iphone "$appearance" "$url"; fi
     if [[ -z "$only" || "$only" == ipad ]]; then capture "$IPAD" ipad "$appearance" "$url"; fi
   done
@@ -113,13 +118,17 @@ cmd_mac() { # [compact]
   process="$(sed -n 's/^PRODUCT_NAME *= *//p' "$ROOT_DIR/macos/Runner/Configs/AppInfo.xcconfig")"
   url="$(start_backend)"
   for appearance in dark light; do
+    if [[ "${SHOT_KANBAN_ONLY:-false}" == true && "$appearance" == dark ]]; then continue; fi
     echo "== $label ($appearance)"
-    rm -rf "$RAW_DIR/$label-$appearance"
+    if [[ "${SHOT_KANBAN_ONLY:-false}" != true ]]; then
+      rm -rf "$RAW_DIR/$label-$appearance"
+    fi
     SHOT_PORT="$PORT" SHOT_MAC_PROCESS="$process" SHOT_DIR="$RAW_DIR/$label-$appearance" \
       flutter drive --driver=test_driver/integration_test.dart \
       --target=integration_test/store_screenshots_test.dart -d macos \
       --dart-define=HERMES_SERVER_URL="$url" --dart-define=SHOT_PORT="$PORT" \
-      --dart-define=SHOT_THEME="$appearance" --dart-define=SHOT_WINDOW="$size"
+      --dart-define=SHOT_THEME="$appearance" --dart-define=SHOT_WINDOW="$size" \
+      --dart-define=SHOT_KANBAN_ONLY="${SHOT_KANBAN_ONLY:-false}"
   done
   "$ROOT_DIR/scripts/dev-backend.sh" stop || true
 }

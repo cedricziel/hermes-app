@@ -23,7 +23,8 @@ boxes has no font in the test: load one for its family in `_loadFonts`
 ## App Store steps
 
 1. Change what the shots say in `scripts/demo_sessions.json` (the render test
-   reads it too). Invented chats only.
+   reads it too). The store Kanban views use `scripts/demo_kanban.json`.
+   Invented data only. Tasks stay unassigned so no agent work starts.
 2. `scripts/store-screenshots.sh ios` takes the iPhone 17 Pro Max and iPad Pro
    13-inch simulators, light and dark (about 10 minutes cold). `ios iphone` or
    `ios ipad` takes one.
@@ -38,8 +39,10 @@ boxes has no font in the test: load one for its family in `_loadFonts`
 version>`. Check the editable version on App Store Connect first and pass
    it, or fastlane renames it to the `pubspec.yaml` version. Read the sets back
    from Apple before saying it worked; the lane's log is not proof.
-6. The store images are git-ignored. Don't commit `docs/screenshots/` from this
-   run; the README copies come from the render test.
+6. Commit the reviewed images in `fastlane/screenshots/` with the listing
+   changes, so a release records exactly what was uploaded. Raw captures stay
+   under the ignored `build/screenshots/`. Don't commit `docs/screenshots/`
+   from this run; the README copies come from the render test.
 
 ## Rules
 
@@ -61,6 +64,14 @@ version>`. Check the editable version on App Store Connect first and pass
 - A missed tap must fail the test, so `hitTestWarningShouldBeFatal` is set. Tap
   the icon, not its tooltip wrapper, and never open a drawer that is already
   open.
+- Dismiss `PlatformHintPrompt` with "Not now" before opening the drawer.
+  The screenshot driver handles this prompt without changing backend profiles.
+- Unfocus the composer before each capture. New Chat opens the keyboard on
+  iOS, which otherwise hides the welcome screen's starter prompts.
+- `SHOT_KANBAN_ONLY=true scripts/store-screenshots.sh ios` or `mac` retakes
+  only the light Kanban board and task details, preserving other raw captures.
+- The seed script uses `DEMO_SERVER_URL` to create Kanban tasks through the
+  backend API after checking that `/api/status` reports the throwaway home.
 - The Mac window opens at 800 x 600, under the 900 point wide breakpoint. A
   size in the xib or in `MainFlutterWindow.swift` never reached the built app;
   the test resizes it through the `setContentSize` call on the

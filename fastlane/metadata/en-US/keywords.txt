@@ -1,1 +1,1 @@
-ai,llm,self-hosted,dashboard,assistant,chat,server,client,kanban,tools
+ai,llm,self-hosted,dashboard,assistant,chat,server,kanban,bots,schedules,widgets,shortcuts,tools

@@ -11,16 +11,17 @@ Release builds send diagnostic logs and traces to a server run by the developer.
 - the app version and whether it is a release build
 - the operating system (iOS, macOS, Android, Windows or Linux) and its version, and whether the device is a phone, a tablet or a desktop; the form factor is left out when it is not known
 - the hardware model, such as `iPhone17,1`, `Mac14,2` or `Pixel 9`, its manufacturer, the processor architecture on a Mac, the Android API level, and whether it is a simulator or an iOS app running on a Mac. These are shared by every unit of a model. The device name, hardware IDs, locale, memory and disk sizes are never sent
-- an installation ID, used to count how many devices use the app: on iOS the vendor ID Apple gives this developer's apps, which changes once all of them are removed; on Android the ID Android gives apps signed by this developer; elsewhere a random ID the app creates and keeps. It is not linked to your server, your account or any other app's data
+- an installation ID, used to count how many devices use the app: on iOS the vendor ID Apple gives this developer's apps, which changes once all of them are removed; on Android the ID Android gives apps signed by this developer; elsewhere a random ID the app creates and keeps
 - a random ID that changes on every launch
 - for each request the app makes: the HTTP method, the first two segments of the API path (for example `/api/status`, or `/api/sessions` for a request about one conversation; IDs and names further along the path are never sent), the status code and how long it took
 - the type of error when a request fails
 - for the chat connection to your server: the name of each request and event the app sends or receives (for example `session.create` or `tool.start`), its number, the error code when one fails and how long it took, but never what it carries
 - for the Kanban board's live updates from your server: when the connection opens, how long that took and the type of error when it fails, each time it reconnects, which attempt that is and how long it waited first, and the kind of each change it hears about (for example `created` or `blocked`), but never which board or task changed or what the change was
 - sign-in steps: the app's connection state (for example "needs sign-in" or "ready"), whether a sign-in started, succeeded, was cancelled or failed and how long it took, whether it used a password, a short fixed reason such as "timeout", and when a session was refreshed or ended, with the status code the server answered
-- the type of an error the app did not handle, such as `StateError`, without its message or stack trace
+- server information reported by `/api/status`: the Hermes version, release date, configuration version, server installation ID, authentication providers, profile count and connection state, when available
+- crash reports for errors the app did not handle: the error type, error message, stack trace and recent app actions. Repeated errors are grouped and counted. Error messages and stack traces are limited in size, but their text is not redacted and can contain context from the operation that failed
 
-They never contain your server address, your session tokens, your messages or the responses from your server. The app does not add tracing headers to the requests it sends to your server.
+The app does not collect your server address, session tokens, chat messages or server response bodies as diagnostic fields. Crash reports include error text, which can contain values from the operation that failed. The app does not add tracing headers to the requests it sends to your server.
 
 Builds made from source without the diagnostics settings send nothing.
 
