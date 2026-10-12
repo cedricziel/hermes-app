@@ -7,11 +7,13 @@ import 'plugin_detail.dart';
 import 'widgets/plugin_row.dart';
 import 'plugins_controller.dart';
 import 'sheet_host.dart';
+import '../theme/platform_chrome.dart';
+import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/row_actions.dart';
 
-/// The installed plugins, with a details view for each: a bottom sheet on a
-/// narrow screen, a pane beside the list on a wide one.
+/// The installed plugins, with a pane on wide layouts and a modal on compact
+/// layouts: a macOS dialog or a bottom sheet elsewhere.
 class InstalledTab extends StatefulWidget {
   const InstalledTab({super.key, required this.controller});
 
@@ -40,19 +42,22 @@ class _InstalledTabState extends State<InstalledTab>
   Future<void> _open(InstalledPlugin plugin, {required bool wide}) async {
     _controller.select(plugin.name);
     if (wide) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => SheetHost(
-        listenable: _controller,
-        isGone: () => _controller.selected == null,
-        builder: (_) => PluginDetail(
-          plugin: _controller.selected!,
-          controller: _controller,
-        ),
-      ),
+    Widget detail(BuildContext _) => SheetHost(
+      listenable: _controller,
+      isGone: () => _controller.selected == null,
+      builder: (_) =>
+          PluginDetail(plugin: _controller.selected!, controller: _controller),
     );
+    if (platformChromeOf(context) == PlatformChrome.macos) {
+      await showAdaptiveSheet<void>(context, builder: detail);
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: detail,
+      );
+    }
     if (mounted) _controller.select(null);
   }
 
