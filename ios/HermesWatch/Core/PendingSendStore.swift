@@ -86,7 +86,10 @@ final class FilePendingSendStore: PendingSendStore {
       else { throw PendingSendStoreError.capacity }
       records.append(record)
     }
-    if terminal { try persist(identities.union([key]), to: terminalFile) }
+    if terminal {
+      try persist(identities.union([key]), to: terminalFile)
+      records.removeAll { identity($0) == key }
+    }
     try persist(records, to: recordsFile)
   }
 

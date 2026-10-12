@@ -97,4 +97,19 @@ final class PendingSendStoreTests: XCTestCase {
     try store.save(record("next"))
     XCTAssertEqual(try store.records(contextId: "owner", revision: 4), [record("next")])
   }
+  func testCompletedSendsRemovePrivatePayloadAndReleaseCapacity() throws {
+    let store = FilePendingSendStore(directory: directory, capacity: 1)
+    for index in 0..<25 {
+      var completed = record("completed-\(index)")
+      try store.save(completed)
+      completed.recoveryState = .completed
+      try store.save(completed)
+    }
+    let data = try Data(contentsOf: directory.appendingPathComponent("pending.json"))
+    XCTAssertEqual(try JSONDecoder().decode([PendingSendRecord].self, from: data), [])
+    try store.save(record("next"))
+    XCTAssertEqual(try store.records(contextId: "owner", revision: 4), [record("next")])
+    XCTAssertThrowsError(try store.save(record("completed-0")))
+  }
+
 }
