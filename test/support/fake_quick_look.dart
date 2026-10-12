@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hermes_app/src/chat/media/quick_look.dart';
 
 /// Stands in for the Quick Look panel: remembers what it was asked to show.
@@ -13,6 +15,11 @@ class FakeQuickLook implements QuickLook {
   /// Every path handed to [preview] or opened by [toggle], in order.
   final previewed = <String>[];
 
+  /// Completes when this fake finishes handling a preview request.
+  final _previewCompleted = Completer<void>();
+
+  Future<void> get previewCompleted => _previewCompleted.future;
+
   var closes = 0;
 
   /// What the system says a double-click interval is; null when it cannot.
@@ -23,10 +30,12 @@ class FakeQuickLook implements QuickLook {
 
   @override
   Future<bool> preview(String path) async {
-    if (!shows) return false;
-    previewed.add(path);
-    shown = path;
-    return true;
+    if (shows) {
+      previewed.add(path);
+      shown = path;
+    }
+    if (!_previewCompleted.isCompleted) _previewCompleted.complete();
+    return shows;
   }
 
   @override
