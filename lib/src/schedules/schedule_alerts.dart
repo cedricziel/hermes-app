@@ -131,15 +131,26 @@ class ScheduleWatcher with WidgetsBindingObserver {
   bool _wasEnabled = false;
   Future<void>? _inflight;
   bool _disposed = false;
+  bool _paused = false;
+  int _epoch = 0;
   Timer? _timer;
 
   bool get _enabled =>
       settings.loaded && settings.enabled && settings.scheduleAlerts;
 
+  /// Suspends checks without forgetting the last-run comparison baseline.
+  set paused(bool value) {
+    if (_paused == value) return;
+    _paused = value;
+    _invalidate();
+    _sync();
+  }
+
   /// Whether the server has the cron routes. Nothing is checked without.
   set available(bool value) {
     if (_available == value) return;
     _available = value;
+    _invalidate();
     if (!value) _forgetBaseline();
     _sync();
   }
@@ -155,6 +166,7 @@ class ScheduleWatcher with WidgetsBindingObserver {
     // inactive, hidden) must not restart the timer and look again.
     if (foreground == _foreground) return;
     _foreground = foreground;
+    _invalidate();
     _sync();
   }
 
@@ -162,7 +174,10 @@ class ScheduleWatcher with WidgetsBindingObserver {
     final enabled = _enabled;
     // Turning it on starts from a new baseline, so runs from the time it was
     // off are not announced.
-    if (enabled != _wasEnabled) _forgetBaseline();
+    if (enabled != _wasEnabled) {
+      _invalidate();
+      _forgetBaseline();
+    }
     _wasEnabled = enabled;
     _sync();
   }
@@ -170,37 +185,70 @@ class ScheduleWatcher with WidgetsBindingObserver {
   void _sync() {
     _timer?.cancel();
     _timer = null;
-    if (_disposed || !_available || !_foreground || !_enabled) return;
+    if (_disposed || _paused || !_available || !_foreground || !_enabled) {
+      return;
+    }
     _timer = Timer.periodic(interval, (_) => check());
     check();
   }
 
   /// One look at the jobs of every profile. A look asked for while another
   /// runs joins it.
-  Future<void> check() =>
-      _inflight ??= _look().whenComplete(() => _inflight = null);
+  Future<void> check() {
+    if (!_current(_epoch)) return Future.value();
+    if (_inflight case final pending?) {
+      return pending;
+    }
+    late final Future<void> pending;
+    pending = _look(_epoch).whenComplete(() {
+      if (identical(_inflight, pending)) _inflight = null;
+    });
+    return _inflight = pending;
+  }
 
-  Future<void> _look() async {
-    if (_disposed || !_available || !_enabled) return;
+  bool _current(int epoch) =>
+      !_disposed && !_paused && _available && _enabled && epoch == _epoch;
+
+  void _invalidate() {
+    _epoch++;
+    _inflight = null;
+  }
+
+  Future<void> _look(int epoch) async {
     try {
       final jobs = await repository.listJobs(profile: 'all');
-      if (_disposed || !_enabled) return;
-      unawaited(settings.forgetMutes({for (final j in jobs) j.key}));
+      if (!_current(epoch)) return;
       await _forgetting;
+      if (!_current(epoch)) return;
       final account = _account();
-      final pass = runsSince(await _baseline.read(account), jobs);
-      // Before the alerts, so that a baseline that cannot be saved announces
-      // nothing now rather than once more at every look.
-      await _baseline.write(account, pass.baseline);
-      if (_inFront) return;
+      final baseline = await _baseline.read(account);
+      if (!_current(epoch)) return;
+      final pass = runsSince(baseline, jobs);
       final unmuted = [
         for (final job in pass.ran)
           if (!settings.isMuted(job.key)) job,
       ];
-      if (unmuted.isEmpty) return;
-      final alerts = alertsFor(unmuted, activeProfile: await _activeProfile());
+      final activeProfile = !_inFront && unmuted.isNotEmpty
+          ? await _activeProfile()
+          : null;
+      if (!_current(epoch)) return;
+      unawaited(settings.forgetMutes({for (final j in jobs) j.key}));
+      if (!_current(epoch)) return;
+      // Before the alerts, so that a baseline that cannot be saved announces
+      // nothing now rather than once more at every look.
+      await _baseline.write(account, pass.baseline);
+      if (!_current(epoch) || _inFront) return;
+      final alerts = alertsFor(unmuted, activeProfile: activeProfile);
       for (final alert in alerts) {
-        unawaited(service.show(alert));
+        if (!_current(epoch)) return;
+        if (service is GuardedNotificationService) {
+          await (service as GuardedNotificationService).showWhile(
+            alert,
+            () => _current(epoch),
+          );
+        } else {
+          await service.show(alert);
+        }
       }
     } on Object {
       // A look that failed is tried again on the next tick.
@@ -227,6 +275,7 @@ class ScheduleWatcher with WidgetsBindingObserver {
 
   void dispose() {
     _disposed = true;
+    _invalidate();
     _timer?.cancel();
     settings.removeListener(_settingsChanged);
     WidgetsBinding.instance.removeObserver(this);

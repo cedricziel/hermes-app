@@ -1745,6 +1745,146 @@ void main() {
     });
   });
 
+  group('schedule authorization', () {
+    Future<void> pumpWatcher(WidgetTester tester, _ShellAuth auth) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      server.on('GET', '/api/cron/jobs', [
+        cronJobRow(lastRunAt: '2026-09-20T08:00:00+00:00', lastStatus: 'ok'),
+      ]);
+      final settings = NotificationSettings();
+      addTearDown(settings.dispose);
+      await tester.runAsync(settings.load);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        settings: settings,
+        auth: auth,
+      );
+    }
+
+    Future<String?> baseline(WidgetTester tester) async =>
+        tester.runAsync<String?>(() async {
+          await pumpEventQueue();
+          return SharedPreferencesAsync().getString(
+            'hermes.schedules.baseline.v1',
+          );
+        });
+
+    testWidgets(
+      'initially closed authorization starts no discovery or watcher work',
+      (tester) async {
+        final auth = _ShellAuth()..allow(false);
+        addTearDown(auth.dispose);
+
+        await pumpWatcher(tester, auth);
+        await tester.pump(const Duration(minutes: 2));
+        await tester.pumpAndSettle();
+
+        expect(server.requests, isEmpty);
+        expect(notifications.shown, isEmpty);
+        expect(await baseline(tester), isNull);
+      },
+    );
+
+    testWidgets(
+      'permission pause stops polling and same-owner recovery retains the baseline',
+      (tester) async {
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        await pumpWatcher(tester, auth);
+        final before = await baseline(tester);
+        expect(before, isNotNull);
+        final requests = server.requestsTo('GET', '/api/cron/jobs').length;
+
+        auth.allow(false);
+        server.on('GET', '/api/cron/jobs', [
+          cronJobRow(lastRunAt: '2026-09-21T08:00:00+00:00', lastStatus: 'ok'),
+        ]);
+        await tester.pump(const Duration(minutes: 2));
+        await tester.pumpAndSettle();
+
+        expect(server.requestsTo('GET', '/api/cron/jobs'), hasLength(requests));
+        expect(notifications.shown, isEmpty);
+        expect(await baseline(tester), before);
+        auth.allow(true);
+        await tester.pumpAndSettle();
+
+        expect(notifications.shown.map((notification) => notification.body), [
+          'Finished',
+        ]);
+        expect(await baseline(tester), isNot(before));
+      },
+    );
+
+    testWidgets(
+      'stale availability loss cannot clear the baseline during authorization pause',
+      (tester) async {
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        await pumpWatcher(tester, auth);
+        final before = await baseline(tester);
+        expect(before, isNotNull);
+        final availability = Completer<FakeResponse>();
+        server.onRequest(
+          'GET',
+          '/api/cron/delivery-targets',
+          (_) => availability.future,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        auth.allow(false);
+        availability.complete((status: 404, body: {}));
+        await tester.pumpAndSettle();
+
+        expect(await baseline(tester), before);
+        expect(await navigationLabels(tester), contains('Schedules'));
+        expect(notifications.shown, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'a retired mounted owner cannot resume watcher work while ready',
+      (tester) async {
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        await pumpWatcher(tester, auth);
+        final before = await baseline(tester);
+        expect(before, isNotNull);
+        final jobs = server.requestsTo('GET', '/api/cron/jobs').length;
+        final discovery = server
+            .requestsTo('GET', '/api/cron/delivery-targets')
+            .length;
+        auth.retire();
+        auth.allow(true);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        server.on('GET', '/api/cron/jobs', [
+          cronJobRow(lastRunAt: '2026-09-21T08:00:00+00:00', lastStatus: 'ok'),
+        ]);
+        await tester.pump(const Duration(minutes: 2));
+        await tester.pumpAndSettle();
+
+        expect(server.requestsTo('GET', '/api/cron/jobs'), hasLength(jobs));
+        expect(
+          server.requestsTo('GET', '/api/cron/delivery-targets'),
+          hasLength(discovery),
+        );
+        expect(notifications.shown, isEmpty);
+        expect(await baseline(tester), before);
+      },
+    );
+  });
+
   group('scheduled task notifications', () {
     void twoJobs() => server
       ..on('GET', '/api/cron/jobs', [cronJobRow()])
