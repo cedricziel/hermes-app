@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import '../theme/app_icons.dart';
+import '../widgets/grouped_list.dart';
+import 'widgets/mcp_sign_in_status.dart';
 import '../widgets/settings_scaffold.dart';
 
 import 'package:flutter/material.dart';
@@ -202,119 +203,56 @@ class _McpSignInScreenState extends State<McpSignInScreen>
         title: 'Sign in to $name',
         subtitle: widget.controller.profile,
         previousTitle: 'MCP servers',
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: switch (_phase) {
-                _Phase.waiting => _waiting(context),
-                _Phase.failed => _ended(
-                  context,
-                  title: 'Could not sign in',
-                  detail: _failure,
-                ),
-                _Phase.expired => _ended(
-                  context,
-                  title: 'The sign-in expired',
-                  detail:
-                      'Hermes dropped it. Start it again to get a new link.',
-                ),
-                _Phase.done => const SizedBox.shrink(),
-              },
-            ),
-          ),
+        body: GroupedListView(
+          children: [
+            switch (_phase) {
+              _Phase.waiting => _waiting(),
+              _Phase.failed => _ended(
+                title: 'Could not sign in',
+                detail: _failure,
+              ),
+              _Phase.expired => _ended(
+                title: 'The sign-in expired',
+                detail: 'Hermes dropped it. Start it again to get a new link.',
+              ),
+              _Phase.done => const SizedBox.shrink(),
+            },
+          ],
         ),
       ),
     );
   }
 
-  Widget _waiting(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget _waiting() {
     final url = _flow.authorizationUrl;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const CircularProgressIndicator.adaptive(),
-        const SizedBox(height: 20),
-        Text('Waiting for you to approve', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text(
+    return McpSignInStatus(
+      title: 'Waiting for you to approve',
+      detail:
           'Approve the sign-in in your browser. It finishes on your Hermes '
           'server, so this screen closes by itself.',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium,
-        ),
-        if (_addressRefused) ...[
-          const SizedBox(height: 16),
-          Text(
-            'Hermes sent an address this app will not open, because it is '
-            'not a web address. Cancel and try again, or check the server.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall,
-          ),
-        ] else if (_browserFailed && url != null) ...[
-          const SizedBox(height: 16),
-          Text(
-            'Could not open the browser. Open this address yourself:',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 8),
-          SelectableText(
-            url,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-          TextButton.icon(
-            onPressed: () => Clipboard.setData(ClipboardData(text: url)),
-            icon: const AppIcon(AppIcons.copy, size: 16),
-            label: const Text('Copy address'),
-          ),
-        ],
-        const SizedBox(height: 20),
-        OutlinedButton(
-          onPressed: url == null || _addressRefused
-              ? null
-              : () {
-                  _launchedUrl = null;
-                  _openBrowser();
-                },
-          child: const Text('Open the browser again'),
-        ),
-        TextButton(onPressed: _cancel, child: const Text('Cancel')),
-      ],
+      waiting: true,
+      addressRefused: _addressRefused,
+      address: !_addressRefused && _browserFailed ? url : null,
+      onCopyAddress: url == null
+          ? null
+          : () => Clipboard.setData(ClipboardData(text: url)),
+      onOpenBrowser: url == null || _addressRefused
+          ? null
+          : () {
+              _launchedUrl = null;
+              _openBrowser();
+            },
+      onClose: _cancel,
     );
   }
 
-  Widget _ended(
-    BuildContext context, {
-    required String title,
-    required String detail,
-  }) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppIcon(AppIcons.error, size: 40, color: theme.colorScheme.error),
-        const SizedBox(height: 12),
-        Text(title, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text(detail, textAlign: TextAlign.center),
-        const SizedBox(height: 20),
-        FilledButton(
-          onPressed: _starting ? null : _tryAgain,
-          child: _starting
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
-              : const Text('Try again'),
-        ),
-        TextButton(
-          onPressed: _starting ? null : () => dismissRoute(context, false),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
+  Widget _ended({required String title, required String detail}) =>
+      McpSignInStatus(
+        title: title,
+        detail: detail,
+        waiting: false,
+        starting: _starting,
+        onRetry: _tryAgain,
+        onClose: () => dismissRoute(context, false),
+      );
 }

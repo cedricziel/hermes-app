@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../theme/app_icons.dart';
 import '../widgets/settings_scaffold.dart';
+import '../widgets/grouped_list.dart';
 
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
@@ -11,6 +12,7 @@ import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_json_check.dart';
 import 'mcp_servers_controller.dart';
+import 'widgets/mcp_json_field.dart';
 import '../widgets/route_dismissal.dart';
 
 /// Edits the profile's whole `mcp_servers` map as JSON and replaces it on
@@ -208,15 +210,18 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (_loadFailed) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Could not load the configuration'),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: _load, child: const Text('Retry')),
-          ],
-        ),
+      return GroupedListView(
+        children: [
+          GroupedSection(
+            children: [
+              const GroupedRow(
+                title: 'Could not load the configuration',
+                chevron: false,
+              ),
+              GroupedRow(title: 'Retry', onTap: _load, chevron: false),
+            ],
+          ),
+        ],
       );
     }
     final check = _check;
@@ -237,26 +242,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: TextField(
-              key: const ValueKey('mcp-json-text'),
-              controller: _text,
-              readOnly: _busy,
-              expands: true,
-              maxLines: null,
-              minLines: null,
-              textAlignVertical: TextAlignVertical.top,
-              keyboardType: TextInputType.multiline,
-              autocorrect: false,
-              enableSuggestions: false,
-              enableIMEPersonalizedLearning: false,
-              smartQuotesType: SmartQuotesType.disabled,
-              smartDashesType: SmartDashesType.disabled,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-            ),
+            child: McpJsonField(controller: _text, readOnly: _busy),
           ),
           if (check is McpJsonInvalid) ...[
             const SizedBox(height: 8),

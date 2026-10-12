@@ -2,8 +2,8 @@
 
 One PR at a time; confirm merge before starting the next.
 
-- [ ] In progress: MCP setup and installation
-- [ ] MCP configuration editor and sign-in surfaces
+- [x] MCP setup and installation, merged in #636
+- [ ] In progress: MCP configuration editor and sign-in surfaces
 - [ ] Skill editor and status surfaces
 - [ ] Kanban task details and worker log
 - [ ] Connection setup and details

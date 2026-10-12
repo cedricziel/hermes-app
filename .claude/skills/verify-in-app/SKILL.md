@@ -178,6 +178,10 @@ instead of changing system permissions. For hot reload after an attached
 runner loses stdin, use `flutter attach -d macos --debug-url=<VM service URL>`
 in a persistent terminal with the same `HERMES_SERVER_URL` build flag.
 
+If native clicks move the pointer but leave the UI unchanged, raise the targeted
+verification window with `performSecondaryAction(windowIndex, "Raise")` when
+its accessibility tree exposes that action, then retry and inspect the state.
+
 Try the accessibility tree first: it presses buttons, tabs, list rows and
 dialog actions by name, without moving the pointer or taking focus, so it
 works while the user keeps using the machine. Fall back to the mouse and
