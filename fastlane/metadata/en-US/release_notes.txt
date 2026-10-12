@@ -1,1 +1,6 @@
-Initial release.
+• Find recent chats through Spotlight on Apple devices.
+• Ask Hermes through Siri and Shortcuts on iPhone and iPad, without opening the app.
+• Use Home Screen and Lock Screen widgets to open chats and check pending requests.
+• Simpler forms for creating bots and managing profiles, plugins, Kanban tasks and schedules.
+• Notification previews show readable text without Markdown formatting.
+• Fixes keep the current list open when you dismiss task, plugin or MCP details.
