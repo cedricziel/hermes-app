@@ -1,12 +1,13 @@
 import { Badge } from "../Badge/Badge";
-import { Button } from "../Button/Button";
-import { Card } from "../Card/Card";
-import { Chip } from "../Chip/Chip";
 import { skillSourceLabels, type Skill } from "../SkillRow/SkillRow";
 import { Spinner } from "../Spinner/Spinner";
-import { SwitchRow } from "../SwitchRow/SwitchRow";
+import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
+import { GroupedListView } from "../GroupedListView/GroupedListView";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { SkillMarkdown } from "../../skillMarkdown";
-import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
+import { type ScreenLayout } from "../../screenFrame";
 import type { AppleDevice, Platform } from "../../platform";
 import "./SkillDetailScreen.css";
 
@@ -34,7 +35,7 @@ export interface SkillDetailScreenProps {
   /** Hub skills: Uninstall (confirmed, then a `SkillJobSheet`). */
   onUninstall?: () => void;
   onRetry?: () => void;
-  /** `phone` or `desktop`; the content stays in a 720px column. */
+  /** `phone` or `desktop`; the content uses the grouped platform column. */
   layout?: ScreenLayout;
   /** `apple`: chevron back with "Skills", the Apple toggle and spinner. Inherits the provider's platform. */
   platform?: Platform;
@@ -44,9 +45,9 @@ export interface SkillDetailScreenProps {
 
 /**
  * One installed skill, pushed from the Skills screen: its category, source
- * and usage, an Enabled `SwitchRow`, the actions its source allows (Edit and
+ * and usage, an Enabled grouped switch, the actions its source allows (Edit and
  * "Ask agent to delete" for an agent skill, Uninstall for a hub skill, a
- * note for a bundled one), and its rendered `SKILL.md` in a `Card`.
+ * note for a bundled one), and its rendered `SKILL.md` in a grouped surface.
  */
 export function SkillDetailScreen({
   skill,
@@ -66,79 +67,88 @@ export function SkillDetailScreen({
   device,
 }: SkillDetailScreenProps) {
   return (
-    <ScreenFrame
+    <SettingsScaffold
       title={skill?.name ?? name ?? ""}
       onBack={onBack}
       backLabel="Skills"
-      layout={layout}
       platform={platform}
-      device={device}
-      maxWidth={720}
-      centered={!skill}
+      device={layout === "phone" ? "touch" : (device ?? "mac")}
     >
       {!skill ? (
-        <div className="h-body-md">This skill no longer exists.</div>
+        <div className="h-skill-detail__state h-body-md">
+          This skill no longer exists.
+        </div>
       ) : (
-        <div className="h-skill-detail">
+        <GroupedListView>
           <div className="h-skill-detail__facts">
-            {skill.category ? <Chip label={skill.category} /> : null}
+            {skill.category ? (
+              <span className="h-body-sm">{skill.category}</span>
+            ) : null}
             <Badge>{skillSourceLabels[skill.source]}</Badge>
             {skill.usage ? (
               <span className="h-body-md">used {skill.usage}×</span>
             ) : null}
           </div>
-          <SwitchRow
-            title="Enabled"
-            subtitle="The agent may load this skill"
-            checked={skill.enabled}
-            onChange={onEnabledChange}
-          />
-          {skill.source === "agent" ? (
-            <div className="h-skill-detail__actions">
-              <Button
-                icon="edit"
+          <GroupedSection
+            footer={
+              skill.source !== "agent" && !(skill.source === "hub" && hub)
+                ? "Bundled and hub skills can only be switched on or off here."
+                : undefined
+            }
+          >
+            <GroupedSwitchRow
+              title="Enabled"
+              subtitle="The agent may load this skill"
+              checked={skill.enabled}
+              onChange={onEnabledChange}
+              onClick={() => onEnabledChange?.(!skill.enabled)}
+            />
+            {skill.source === "agent" ? (
+              <GroupedRow
+                title="Edit"
                 disabled={contentState !== "loaded"}
                 onClick={onEdit}
-              >
-                Edit
-              </Button>
-              <Button variant="danger-outlined" onClick={onAskDelete}>
-                Ask agent to delete
-              </Button>
-            </div>
-          ) : skill.source === "hub" && hub ? (
-            <div className="h-skill-detail__actions">
-              <Button
-                variant="danger-outlined"
+              />
+            ) : null}
+            {skill.source === "agent" ? (
+              <GroupedRow
+                title="Ask agent to delete"
+                destructive
+                chevron={false}
+                onClick={onAskDelete}
+              />
+            ) : skill.source === "hub" && hub ? (
+              <GroupedRow
+                title="Uninstall"
+                destructive
+                chevron={false}
                 disabled={hubBusy}
                 onClick={onUninstall}
-              >
-                Uninstall
-              </Button>
-            </div>
+              />
+            ) : null}
+          </GroupedSection>
+          {contentState === "failed" ? (
+            <GroupedSection>
+              <GroupedRow title="Could not load this skill" chevron={false} />
+              <GroupedRow title="Retry" chevron={false} onClick={onRetry} />
+            </GroupedSection>
+          ) : contentState === "loading" ? (
+            <GroupedSection>
+              <GroupedRow
+                title="Loading skill contents…"
+                chevron={false}
+                trailing={<Spinner size={18} label="Loading the skill" />}
+              />
+            </GroupedSection>
           ) : (
-            <div className="h-body-sm h-muted">
-              Bundled and hub skills can only be switched on or off here.
-            </div>
-          )}
-          <div className="h-skill-detail__content">
-            {contentState === "failed" ? (
-              <div className="h-skill-detail__state">
-                <div className="h-body-md">Could not load this skill</div>
-                <Button onClick={onRetry}>Retry</Button>
-              </div>
-            ) : contentState === "loading" ? (
-              <div className="h-skill-detail__state">
-                <Spinner size={36} label="Loading the skill" />
-              </div>
-            ) : (
-              <Card>
+            <GroupedSection>
+              <div className="h-skill-detail__markdown">
                 <SkillMarkdown text={content} />
-              </Card>
-            )}
-          </div>
-        </div>
+              </div>
+            </GroupedSection>
+          )}
+        </GroupedListView>
       )}
-    </ScreenFrame>
+    </SettingsScaffold>
   );
 }

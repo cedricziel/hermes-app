@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import { BusyBar } from "../BusyBar/BusyBar";
+import type { ReactNode } from "react";
 import { Button } from "../Button/Button";
 import { GroupedListView } from "../GroupedListView/GroupedListView";
 import { GroupedRow } from "../GroupedRow/GroupedRow";
@@ -106,7 +106,7 @@ export interface SkillsScreenProps {
   canCheckUpdates?: boolean;
   /** A skills hub is connected: the Installed and Discover tabs. */
   hub?: SkillsHubView;
-  /** A hub job runs in the background: a tinted strip under the bar with its title and a busy bar. Pressing it reopens the job sheet. */
+  /** A hub job runs in the background: a grouped row under the bar with its title and a progress bar. Pressing it reopens the job sheet. */
   job?: { title: string };
   onBack?: () => void;
   onTabChange?: (tab: "installed" | "discover") => void;
@@ -194,7 +194,7 @@ function Note({ text, action }: { text: string; action?: ReactNode }) {
  * category, searched and filtered from the bar's search field, a "Check
  * for updates" group, and with a hub a Discover tab of `HubSkillRow`s
  * (Featured, Official, or search Results). The profile under the title
- * switches profiles; a background hub job shows as a `BusyBar` strip.
+ * switches profiles; a background hub job shows as a grouped status row.
  */
 export function SkillsScreen({
   tab = "installed",
@@ -441,20 +441,11 @@ export function SkillsScreen({
         search={discover ? hubSearch : ready ? skillsSearch : undefined}
       >
         {hub && job ? (
-          <div
-            className="h-skills__job"
-            role="button"
-            tabIndex={0}
-            onClick={onOpenJob}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onOpenJob?.();
-              }
-            }}
-          >
-            <div className="h-skills__job-title">{job.title}…</div>
-            <BusyBar label={job.title} />
+          <div className="h-skills__job">
+            <GroupedSection>
+              <GroupedRow title={`${job.title}…`} onClick={onOpenJob}
+                trailing={<div className="h-skills__job-progress"><BusyBar label={job.title} /></div>} />
+            </GroupedSection>
           </div>
         ) : null}
         {discover ? discoverBody(hub) : installedBody()}
