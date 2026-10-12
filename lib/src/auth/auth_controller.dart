@@ -179,6 +179,8 @@ class AuthController extends ChangeNotifier {
   VerifiedSessionOwner? get verifiedOwner => _verifiedOwner;
   VerifiedSessionOwner? get expiredOwner => _expiredOwner;
   int get ownerGeneration => _ownerEpoch;
+  int get sessionExpiryGeneration => _sessionExpiryGeneration;
+  int _sessionExpiryGeneration = 0;
   String? get errorMessage => _errorMessage;
 
   /// Why the last connect failed, when it failed reaching the server.
@@ -993,6 +995,7 @@ class AuthController extends ChangeNotifier {
 
   Future<void> _handleSessionExpired(String cause) {
     if (_session == null) return Future.value();
+    _sessionExpiryGeneration++;
     _events('auth.session.expired', {'cause': cause});
     _expiredOwner = _verifiedOwner;
     _protectedRequestsAllowed = false;
@@ -1066,6 +1069,7 @@ class AuthController extends ChangeNotifier {
     _requestEpoch++;
     _networkChanges?.cancel();
     _signedOut.close();
+    notifyListeners();
     super.dispose();
   }
 
