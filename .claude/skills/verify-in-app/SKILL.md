@@ -1126,3 +1126,8 @@ killed and again running:
 - With App Lock on: "Open Hermes to answer this request.", nothing is sent.
 - The Dart side logs `intent.answer_approval` (`outcome`, `choice`) when
   telemetry is on; the command must not appear in any attribute.
+
+## Watch companion verification
+
+For watch changes, follow [the isolated watch procedure](../../../.agents/skills/verify-watch/SKILL.md).
+Core tests do not establish native delivery or device lifecycle behavior.

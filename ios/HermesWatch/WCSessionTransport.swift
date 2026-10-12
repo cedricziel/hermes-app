@@ -45,11 +45,10 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
   /// Activation finishes shortly after launch, and a request made straight
   /// away would otherwise be refused.
   private func waitUntilActivated() async throws {
-    for _ in 0..<15 {
-      if session.activationState == .activated { return }
-      try await Task.sleep(nanoseconds: 200_000_000)
-    }
-    throw RelayFailure.notActivated
+    try await waitForRelayActivation(
+      activated: { self.session.activationState == .activated },
+      sleep: { try await Task.sleep(nanoseconds: 200_000_000) }
+    )
   }
 
   /// The session reports the phone unreachable for a moment after it
