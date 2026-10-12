@@ -182,10 +182,8 @@ class DictationController extends ChangeNotifier {
     if (!_active) {
       _support = VoiceSupport.none;
       _model = OnDeviceModel.unsupported;
-      unawaited(cancel());
-    } else {
-      unawaited(_flushLeaseCleanup());
     }
+    unawaited(cancel());
     notifyListeners();
   }
 

@@ -716,6 +716,24 @@ void main() {
     });
   });
 
+  test('an earlier listener cannot hide suspension from a recording', () async {
+    final activity = ValueNotifier(true);
+    addTearDown(activity.dispose);
+    activity.addListener(() {
+      if (!activity.value) activity.value = true;
+    });
+    final dictation = controller(support: _uploadOnly, activity: activity);
+    addTearDown(dictation.dispose);
+    await dictation.start();
+    recorder.speak([5]);
+    await pumpEventQueue();
+    activity.value = false;
+    await pumpEventQueue();
+    expect(recorder.recording, isFalse);
+    expect(dictation.lastOutcome, 'cancelled');
+    expect(inserted, isEmpty);
+  });
+
   group('ending', () {
     test(
       'suspending during settlement prevents transcript insertion',

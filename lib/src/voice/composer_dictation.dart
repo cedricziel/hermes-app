@@ -72,12 +72,9 @@ class ComposerDictation {
   void _activityChanged() {
     _refreshEpoch++;
     _asked = null;
-    if (_active) {
-      unawaited(refresh());
-    } else {
-      _cancelledBusyRun = controller.busy;
-      _restoreDraft();
-    }
+    _cancelledBusyRun = controller.busy;
+    _restoreDraft();
+    if (_active) unawaited(refresh());
   }
 
   /// The draft as the running dictation found it; null when none runs.

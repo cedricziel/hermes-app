@@ -4,6 +4,11 @@
 
 When a composer's session becomes inactive, the app SHALL immediately reject new capability checks, model download starts, recordings, and transcription retries. It SHALL discard in-progress voice work and restore the original typed draft including selection before asynchronous microphone shutdown finishes. Late capability, partial, and transcript results SHALL NOT change the composer. A recording acquisition that completes after suspension SHALL be closed and SHALL NOT overlap a newer recording.
 
+#### Scenario: An earlier listener resumes during suspension
+- **WHEN** an earlier activity listener synchronously resumes activity before dictation listeners observe the inactive value
+- **THEN** the delivered notifications still cancel the old recording and restore its original draft before held microphone cleanup completes
+- **AND** text typed after that recovery is not overwritten by old cleanup
+
 #### Scenario: Support lookup completes after suspension
 
 - **WHEN** the session becomes inactive while a voice capability check is pending

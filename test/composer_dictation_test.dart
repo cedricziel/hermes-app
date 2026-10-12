@@ -185,6 +185,62 @@ void main() {
     expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
   });
 
+  test('nested resume cannot retain a provisional dictation draft', () async {
+    final activity = ValueNotifier(true);
+    activity.addListener(() {
+      if (!activity.value) activity.value = true;
+    });
+    final recorder = _HeldRecorder()..stopGate = Completer();
+    final socket = StreamChannelController<Object?>();
+    server.on('GET', '/api/audio/voice-config', {
+      'stt': {'streaming': true},
+    });
+    final dictation = build(
+      activity: activity,
+      recorder: recorder,
+      socket: socket,
+    );
+    const original = TextEditingValue(
+      text: 'typed draft',
+      selection: TextSelection(baseOffset: 2, extentOffset: 5),
+    );
+    field.value = original;
+    await dictation.refresh();
+    await dictation.controller.start();
+    socket.foreign.sink.add(
+      jsonEncode({'type': 'partial', 'text': 'provisional'}),
+    );
+    await pumpEventQueue();
+    expect(field.text, contains('provisional'));
+
+    activity.value = false;
+
+    expect(field.value, original);
+    expect(recorder.stopCalls, 1);
+    expect(recorder.recording, isTrue);
+    final elapsed = dictation.controller.elapsed;
+    socket.foreign.sink.add(
+      jsonEncode({'type': 'partial', 'text': 'late partial'}),
+    );
+    socket.foreign.sink.add(
+      jsonEncode({'type': 'final', 'transcript': 'late final'}),
+    );
+    await pumpEventQueue();
+    expect(field.value, original);
+    expect(dictation.controller.liveTranscript, isEmpty);
+    activity.value = true;
+    await pumpEventQueue();
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    expect(dictation.controller.elapsed, elapsed);
+    expect(field.value, original);
+    field.text = 'typed after resume';
+    recorder.stopGate!.complete();
+    await pumpEventQueue();
+    expect(recorder.recording, isFalse);
+    expect(field.text, 'typed after resume');
+    expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+  });
+
   test('pause ignores an already dispatched transcript upload', () async {
     final upload = Completer<FakeResponse>();
     server.onRequest('POST', '/api/audio/transcribe', (_) => upload.future);
