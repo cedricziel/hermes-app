@@ -18,6 +18,7 @@ import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
 import 'package:hermes_app/src/skills/widgets/skill_detail_actions.dart';
 import 'package:hermes_app/src/skills/widgets/skill_markdown_panel.dart';
 import 'package:hermes_app/src/skills/widgets/skill_job_bar.dart';
+import 'package:hermes_app/src/skills/widgets/skill_security_scan.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -356,6 +357,55 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
             onSave: (_, _, _) async => 'Could not save this skill. Try again.',
           ),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SkillSecurityScan',
+      useCases: [
+        for (final state in [
+          'Loading',
+          'Failed',
+          'Passed',
+          'Caution',
+          'Blocked',
+        ])
+          ...onEachPlatform(
+            state,
+            (_) => frame(
+              SkillSecurityScan(
+                failed: state == 'Failed',
+                onRetry: () {},
+                scan: state == 'Loading' || state == 'Failed'
+                    ? null
+                    : HubScan(
+                        identifier: 'example/skill',
+                        policy: state == 'Passed'
+                            ? InstallPolicy.allow
+                            : state == 'Caution'
+                            ? InstallPolicy.ask
+                            : InstallPolicy.block,
+                        summary: state == 'Passed'
+                            ? 'No issues found.'
+                            : 'The scan found operations that need attention.',
+                        policyReason: 'Blocked by server policy.',
+                        severityCounts: state == 'Passed'
+                            ? const {}
+                            : const {'high': 1},
+                        findings: state == 'Passed'
+                            ? const []
+                            : const [
+                                ScanFinding(
+                                  severity: 'high',
+                                  description:
+                                      'Downloads and runs remote code.',
+                                  file: 'scripts/setup.sh',
+                                  line: 12,
+                                ),
+                              ],
+                      ),
+              ),
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(
