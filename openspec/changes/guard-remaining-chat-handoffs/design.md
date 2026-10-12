@@ -8,7 +8,7 @@ Defer the entire handoff, including chat-request mutation, until guarded departu
 
 ## Decisions
 
-Send Show in Main Window and scheduled-run callbacks through _queueExternalNavigation. Construct the NotificationTarget and request/select Chat only inside the authorized action. Existing queue ordering, App Lock gating, disposal, and chat target validation apply unchanged.
+Send Show in Main Window and scheduled-run callbacks through _queueExternalNavigation. Construct the NotificationTarget and request/select Chat only inside the authorized action. Existing queue ordering, App Lock gating, disposal, and chat target validation remain. The shared queue also checks current protected authorization, ready state, and the shell's captured owner generation at delivery. Listen for auth changes so a still-mounted same-generation shell can resume; explicit departure can never authorize its old queue. This closes the interval where auth has revoked access but delayed keychain deletion leaves its state ready.
 
 ## Risks / Trade-offs
 

@@ -3,6 +3,8 @@
 - [x] 1.1 Reproduce each direct handoff bypass with failing widget tests.
 - [x] 1.2 Defer complete handoff actions through RootNavigationQueue and cover Stay, successful close, latest-intent replacement, and App Lock.
 
+- [x] 1.3 Reproduce authorization retirement during delayed cleanup, gate queued delivery by ready/protected state and captured owner generation, and cover blocked arrivals plus same-generation resume.
+
 ## 2. Verification and delivery
 
 - [x] 2.1 Run formatting, analysis, relevant shell/queue/window tests, and strict spec validation.

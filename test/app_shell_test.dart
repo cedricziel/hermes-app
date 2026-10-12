@@ -77,6 +77,7 @@ void main() {
     AppLockController? lock,
     DeepLinks? links,
     ConversationWindows? windows,
+    AuthController? auth,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -85,9 +86,10 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<AuthController>(
-            create: (_) => AuthController(),
-          ),
+          if (auth == null)
+            ChangeNotifierProvider<AuthController>(create: (_) => _ShellAuth())
+          else
+            ChangeNotifierProvider<AuthController>.value(value: auth),
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(inbox)..start(),
           ),
@@ -462,18 +464,23 @@ void main() {
       .thread
       ?.id;
 
-  ({FakeConversationWindowHost host, ConversationWindows windows})
-  windowHost() {
+  ({FakeConversationWindowHost host, ConversationWindows windows}) windowHost({
+    AuthController? auth,
+  }) {
     final host = FakeConversationWindowHost();
     final windows = ConversationWindows(
       host: host,
       store: ConversationWindowStore(SharedPreferencesAsync()),
-      connection: () => (baseUrl: 'https://hermes.test', authRequired: false),
-      ownerKey: () => 'test-owner',
+      connection: () => auth == null || auth.protectedRequestsAllowed
+          ? (baseUrl: 'https://hermes.test', authRequired: false)
+          : null,
+      ownerKey: () =>
+          auth == null || auth.protectedRequestsAllowed ? 'test-owner' : null,
       headers: ({rejected}) async => {},
     );
     addTearDown(host.dispose);
     addTearDown(windows.dispose);
+    if (auth != null) windows.bindSession(auth);
     return (host: host, windows: windows);
   }
 
@@ -1385,6 +1392,151 @@ void main() {
     });
   });
 
+  group('handoff authorization', () {
+    testWidgets(
+      'queued Show in Main cannot survive owner retirement while ready',
+      (tester) async {
+        kanbanPlugin(on: false);
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        final fixture = windowHost(auth: auth);
+        await fixture.windows.open('t2', profile: null, title: 'Window chat');
+        final trail = BreadcrumbTrail();
+        await pumpShell(
+          tester,
+          size: const Size(1400, 900),
+          windows: fixture.windows,
+          auth: auth,
+          trail: trail,
+        );
+        await editSkill(tester);
+        await fixture.host.call('showInMain', {
+          'window_id': 'w0',
+          'thread_id': 't2',
+        });
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+
+        auth.retire();
+        expect(auth.state, HermesConnectionState.ready);
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SkillEditorScreen), findsNothing);
+        expect(selectedChat(tester), 't1');
+        expect(
+          trail.recent.where((crumb) => crumb.name == 'chat.open.requested'),
+          isEmpty,
+        );
+        auth.allow(true);
+        await tester.pumpAndSettle();
+        expect(selectedChat(tester), 't1');
+      },
+    );
+
+    testWidgets(
+      'queued scheduled-run handoff cannot survive owner retirement while ready',
+      (tester) async {
+        kanbanPlugin(on: false);
+        cronRoutes(on: true);
+        jobRoutes();
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+        await openInSidebar(tester, 'Schedules');
+        final onOpenRun = tester
+            .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+            .onOpenRun;
+        await editSkill(tester);
+        onOpenRun(
+          CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+          const CronJob(id: 'job1', name: 'Morning brief'),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+
+        auth.retire();
+        expect(auth.state, HermesConnectionState.ready);
+        onOpenRun(
+          CronRun(sessionId: 't3', startedAt: DateTime(2026)),
+          const CronJob(id: 'job1', name: 'Morning brief'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Discard changes?'), findsNothing);
+        expect(selectedChat(tester), 't1');
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SkillEditorScreen), findsNothing);
+        expect(selectedTab(tester), 1);
+        expect(selectedChat(tester), 't1');
+        auth.allow(true);
+        await tester.pumpAndSettle();
+        expect(selectedChat(tester), 't1');
+      },
+    );
+
+    testWidgets('same-generation permission recovery resumes a held handoff', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      final auth = _ShellAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+      await openInSidebar(tester, 'Schedules');
+      final onOpenRun = tester
+          .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+          .onOpenRun;
+      await editSkill(tester);
+
+      auth.allow(false);
+      onOpenRun(
+        CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+        const CronJob(id: 'job1', name: 'Morning brief'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      expect(selectedChat(tester), 't1');
+      auth.transition(HermesConnectionState.needsLogin);
+      auth.allow(true);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(selectedChat(tester), 't1');
+      auth.transition(HermesConnectionState.ready);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+    });
+
+    testWidgets('permission recovery cannot resume a disposed shell', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      final auth = _ShellAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+      auth.allow(false);
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(auth.observed, isFalse);
+
+      auth.allow(true);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('a route pushed over the shell after Kanban and Schedules '
       'were both opened animates without a hero clash', (tester) async {
     kanbanPlugin(on: true);
@@ -1788,6 +1940,39 @@ void main() {
       },
     );
   });
+}
+
+class _ShellAuth extends AuthController {
+  bool get observed => hasListeners;
+
+  var _allowed = true;
+  var _generation = 0;
+  var _connectionState = HermesConnectionState.ready;
+
+  @override
+  HermesConnectionState get state => _connectionState;
+
+  @override
+  bool get protectedRequestsAllowed => _allowed;
+
+  @override
+  int get ownerGeneration => _generation;
+
+  void allow(bool value) {
+    _allowed = value;
+    notifyListeners();
+  }
+
+  void retire() {
+    _allowed = false;
+    _generation++;
+    notifyListeners();
+  }
+
+  void transition(HermesConnectionState state) {
+    _connectionState = state;
+    notifyListeners();
+  }
 }
 
 /// A stand-in for the Kanban page that records when it starts and stops.

@@ -56,7 +56,7 @@ Main, conversation, and quick-panel apps have separate MaterialApp instances. Au
 
 ## Guarded external destinations
 
-Deep links, notification taps, shared payloads, Show in Main Window, and scheduled-run chat handoffs use the main root dismissal queue before publishing their destination. Widget tests cover retained editors, Save/Discard, latest-request ordering, and App Lock. Bot opening and menu/intent entry points still need audit; native window launch and focus remain unverified.
+Deep links, notification taps, shared payloads, Show in Main Window, and scheduled-run chat handoffs use the main root dismissal queue before publishing their destination. Widget tests cover retained editors, Save/Discard, latest-request ordering, App Lock, and authorization retirement during delayed credential cleanup. The queue checks the shell's captured owner generation before delivery. Bot opening and menu/intent entry points still need audit; native window launch and focus remain unverified.
 
 ## Authentication boundary finding
 

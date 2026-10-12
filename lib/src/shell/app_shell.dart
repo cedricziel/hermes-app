@@ -139,6 +139,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   var _lockHeld = false;
   StreamSubscription<void>? _showInMain;
   ConversationWindows? _windows;
+  AuthController? _auth;
+  int? _ownerGeneration;
 
   @override
   void initState() {
@@ -151,7 +153,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (_profiles case final profiles?) {
       _chatProfiles = ChatProfiles(profiles);
     }
-    final auth = _maybeRead<AuthController>();
+    final auth = _auth = _maybeRead<AuthController>();
+    _ownerGeneration = auth?.ownerGeneration;
+    auth?.addListener(_resumeExternalNavigation);
     if (repositories != null && auth?.baseUrl != null) {
       final telemetry = repositories.telemetry.gateway();
       _gateway = HermesGatewayTransport(
@@ -226,6 +230,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _navigationQueue?.dispose();
+    _auth?.removeListener(_resumeExternalNavigation);
     _deepLinks?.removeListener(_takeDeepLink);
     _appLock?.removeListener(_takeDeepLink);
     _showInMain?.cancel();
@@ -412,8 +417,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _navigationQueue ??= RootNavigationQueue(
         navigator: Navigator.of(context),
         root: ModalRoute.of(context)!,
-        canNavigate: () => mounted && !(_appLock?.covered ?? false),
+        canNavigate: () =>
+            mounted &&
+            !(_appLock?.covered ?? false) &&
+            (_auth == null ||
+                (_auth!.state == HermesConnectionState.ready &&
+                    _auth!.protectedRequestsAllowed &&
+                    _auth!.ownerGeneration == _ownerGeneration)),
       );
+
+  void _resumeExternalNavigation() => _navigationQueue?.resume();
 
   void _queueExternalNavigation(VoidCallback action, [bool isLaunch = false]) {
     if (!mounted || (isLaunch && !_externalNavigation.canAcceptLaunch)) return;

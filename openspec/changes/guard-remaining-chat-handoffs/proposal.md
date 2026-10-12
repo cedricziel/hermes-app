@@ -6,6 +6,7 @@ Show in Main Window and scheduled-run chat handoffs currently mutate the chat re
 
 - Queue the complete target request and Chat selection behind the existing root dismissal guard.
 - Preserve the newest handoff while the editor stays open and while App Lock covers the app.
+- Revalidate protected authorization and owner generation before any queued external action is delivered.
 
 ## Capabilities
 
