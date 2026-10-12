@@ -11,13 +11,59 @@ way it serves real ones. Refuses to run without HERMES_HOME or against the real
 
 import json
 import os
+import re
 import sys
 import time
+from urllib.request import Request, urlopen
 from pathlib import Path
 
 AGENT_DIR = Path(os.environ.get("HERMES_AGENT_DIR", Path.home() / ".hermes" / "hermes-agent"))
 MINUTE = 60
 DEMO_SESSIONS = Path(__file__).with_name("demo_sessions.json")
+DEMO_KANBAN = Path(__file__).with_name("demo_kanban.json")
+
+
+def seed_kanban(home: str, url: str) -> None:
+    headers = {"Content-Type": "application/json"}
+
+    def request(path: str, body: dict | None = None, method: str = "GET") -> dict:
+        data = json.dumps(body).encode() if body is not None else None
+        call = Request(url + path, data=data, method=method, headers=headers)
+        with urlopen(call, timeout=15) as response:
+            return json.load(response)
+
+    status = request("/api/status")
+    if Path(status.get("hermes_home", "")).resolve() != Path(home).resolve():
+        sys.exit("Refusing to seed Kanban outside the throwaway Hermes home.")
+    with urlopen(url + "/", timeout=15) as response:
+        page = response.read().decode()
+    token = re.search(r'__HERMES_SESSION_TOKEN__\s*=\s*"([^"]+)"', page)
+    if not token:
+        sys.exit("The demo dashboard page has no session token.")
+    headers["X-Hermes-Session-Token"] = token.group(1)
+    tasks = json.loads(DEMO_KANBAN.read_text())["tasks"]
+    for index, task in enumerate(tasks):
+        created = request(
+            "/api/plugins/kanban/tasks",
+            {
+                "title": task["title"],
+                "body": task["body"],
+                "priority": task["priority"],
+                "idempotency_key": f"store-screenshot-task-{index}",
+            },
+            "POST",
+        )
+        task_id = created.get("id") or created.get("task", {}).get("id")
+        if not task_id:
+            sys.exit("Kanban task creation returned no task ID.")
+        if created.get("task", {}).get("status") == task["status"]:
+            continue
+        request(
+            f"/api/plugins/kanban/tasks/{task_id}",
+            {"status": task["status"], "summary": task.get("summary")},
+            "PATCH",
+        )
+    print(f"seeded {len(tasks)} demo Kanban tasks into {home}")
 
 
 def tool(name: str, arguments: dict) -> dict:
@@ -88,6 +134,9 @@ def main() -> None:
             (first, last, 1 if pinned else 0, session_id),
         )
     print(f"seeded {len(sessions)} demo chats into {home}")
+    demo_url = os.environ.get("DEMO_SERVER_URL", "").strip()
+    if demo_url:
+        seed_kanban(home, demo_url)
 
 
 if __name__ == "__main__":

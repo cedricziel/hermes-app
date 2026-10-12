@@ -70,7 +70,8 @@ What happens:
    from `scripts/demo_sessions.json`. Edit that file to change what the
    screenshots say.
 2. `integration_test/store_screenshots_test.dart` opens the app on each device
-   and walks to the chat, the thread list and a new chat. It asks the driver
+   and walks to the chat, the thread list, a new chat, the Kanban board and
+   task details. It asks the driver
    in `test_driver/integration_test.dart` for a screenshot at each stop. The
    simulators are set to English with a 9:41 status bar.
 3. `scripts/finish_screenshots.py` flattens the captures (the store rejects
@@ -82,6 +83,12 @@ What happens:
 
 Raw captures go to `build/screenshots/`. The store images go to
 `fastlane/screenshots/<ios|mac>/en-US/`, which is not committed.
+
+The Kanban board and task-detail captures use invented tasks from
+`scripts/demo_kanban.json`, created through the isolated backend's API.
+The tasks are unassigned, so they do not start agent work. To retake only
+these views in light mode, run `SHOT_KANBAN_ONLY=true scripts/store-screenshots.sh ios`
+or `SHOT_KANBAN_ONLY=true scripts/store-screenshots.sh mac`.
 
 | Device            | Size        | Store display |
 | ----------------- | ----------- | ------------- |

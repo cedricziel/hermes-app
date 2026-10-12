@@ -1,0 +1,12 @@
+{
+  "tasks": [
+    {"title": "Check backup retention", "status": "triage", "priority": 1, "body": "Review how many daily and weekly snapshots we keep on the NAS."},
+    {"title": "Verify the nightly backup", "status": "ready", "priority": 3, "body": "Confirm the backup starts after the disk scrub.\n\n- Check the 04:00 timer\n- Restore a sample file\n- Record the snapshot ID\n\nKeep the existing retention policy."},
+    {"title": "Rotate the staging certificate", "status": "ready", "priority": 2, "body": "Renew the staging TLS certificate and confirm the chain before deployment."},
+    {"title": "Draft the release checklist", "status": "ready", "priority": 1, "body": "List the smoke tests, rollback steps and release notes for the next version."},
+    {"title": "Audit unused containers", "status": "ready", "priority": 2, "body": "Compare running containers with the service inventory and report anything unused."},
+    {"title": "Update the runbook", "status": "ready", "priority": 1, "body": "Document the new backup schedule and recovery steps."},
+    {"title": "Review the alert thresholds", "status": "review", "priority": 2, "body": "Check the proposed disk and memory thresholds against last week's traffic.", "summary": "Thresholds are ready for a final review."},
+    {"title": "Confirm the restore test", "status": "done", "priority": 1, "body": "Restore a sample document from the latest snapshot.", "summary": "The restored file matches its original checksum."}
+  ]
+}

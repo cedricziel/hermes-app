@@ -29,10 +29,10 @@ DOCS = ROOT / "docs" / "screenshots"
 
 # (appearance, screen), in the order they appear on the listing.
 LISTING = {
-    "iphone": [("light", "chat"), ("light", "threads"), ("light", "welcome"), ("dark", "chat")],
-    "ipad": [("light", "chat"), ("light", "welcome"), ("dark", "chat")],
+    "iphone": [("light", "chat"), ("light", "threads"), ("light", "welcome"), ("light", "kanban"), ("light", "kanban-task"), ("dark", "chat")],
+    "ipad": [("light", "chat"), ("light", "welcome"), ("light", "kanban"), ("light", "kanban-task"), ("dark", "chat")],
     "watch": [("light", "threads")],
-    "mac": [("light", "chat"), ("light", "welcome"), ("dark", "chat")],
+    "mac": [("light", "chat"), ("light", "welcome"), ("light", "kanban"), ("light", "kanban-task"), ("dark", "chat")],
 }
 PLATFORM = {"iphone": "ios", "ipad": "ios", "watch": "ios", "mac": "mac"}
 README_WIDTH = {"iphone": 540, "ipad": 1000, "watch": 422, "mac": 1600}
@@ -44,12 +44,19 @@ MAC_MAX_WINDOW = (2720, 1700)
 # iPadOS draws in a corner. Where the app shows the dev address, the test says
 # itself, in <screen>.erase next to the capture.
 ERASE = {
-    "ipad": {None: [((1985, 2668, 2064, 2752), (1977, 2710))]},
+    "ipad": {None: [((2004, 2690, 2064, 2752), (1977, 2710))]},
 }
 
 
-def erase(image: Image.Image, box: tuple[int, int, int, int], sample: tuple[int, int]) -> None:
-    ImageDraw.Draw(image).rectangle(box, fill=image.getpixel(sample))
+def erase(image: Image.Image, box: tuple[int, int, int, int], sample: tuple[int, int], *, lighter_only: bool = False) -> None:
+    fill = image.getpixel(sample)
+    if lighter_only:
+        # Task-sheet dimming makes handle lighter than backdrop; preserve button shadow.
+        level = sum(fill[:3]) / 3
+        mask = image.crop(box).convert("L").point(lambda value: 255 if value > level else 0)
+        image.paste(fill, box, mask)
+    else:
+        ImageDraw.Draw(image).rectangle(box, fill=fill)
 
 
 def reported(source: Path) -> list[tuple[tuple[int, int, int, int], tuple[int, int]]]:
@@ -67,7 +74,9 @@ def reported(source: Path) -> list[tuple[tuple[int, int, int, int], tuple[int, i
 def tidy(device: str, screen: str, source: Path) -> Image.Image:
     image = Image.open(source)
     areas = [area for key in (None, screen) for area in ERASE.get(device, {}).get(key, [])]
-    for box, sample in areas + reported(source):
+    for box, sample in areas:
+        erase(image, box, sample, lighter_only=device == "ipad" and screen == "kanban-task")
+    for box, sample in reported(source):
         erase(image, box, sample)
     return image
 
