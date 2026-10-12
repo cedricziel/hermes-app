@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
@@ -973,7 +974,7 @@ void main() {
       await shots.capture(tester, 'reclaim-confirm');
       await popRoute(tester);
 
-      await tapText(tester, find.widgetWithText(ActionChip, 'Add'));
+      await tapText(tester, find.widgetWithText(GroupedRow, 'Add'));
       await shots.capture(tester, 'depends-on-dialog');
       await popRoute(tester);
 
