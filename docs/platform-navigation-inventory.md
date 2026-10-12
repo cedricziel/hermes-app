@@ -45,8 +45,8 @@ Main, conversation, and quick-panel apps have separate MaterialApp instances. Au
 | Shared adaptive sheet | `lib/src/widgets/adaptive_sheet.dart` chooses Material dialog or bottom sheet by width. Called by `lib/src/platform_hint/show_platform_hint_prompt.dart` and `lib/src/mcp/mcp_command_review.dart`. | Add platform-aware route presentation while retaining guard, result, and focus behavior. |
 | Plugin details | `lib/src/plugins/catalog_tab.dart`, `lib/src/plugins/installed_tab.dart`: panes on wide layouts, bottom sheets on compact layouts. `lib/src/plugins/plugins_screen.dart` uses a dialog for installation; `lib/src/plugins/install_report.dart` uses an adaptive dialog. | Review compact desktop details and installation presentation. |
 | MCP details | `lib/src/mcp/mcp_catalog_screen.dart`: pane or bottom sheet. Setup/editor/sign-in route pushes live in the files listed above. | Preserve already migrated setup/editor work; fix remaining presentation only. |
-| Skill jobs | `lib/src/skills/skill_job_sheet.dart`: bottom sheet. | Reconcile with adaptive Skill details/status work merged in PR #643 before changing presentation. |
-| Kanban details and logs | `lib/src/kanban/widgets/kanban_task_panel.dart`: Apple detent/form sheets for the task-detail helper; direct dialogs for log/edit/assignee/priority. `lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart` implements detent/form helpers. Normal macOS board picks use the inspector. | Preserve inspector and iOS detents; review secondary dialogs and helper routes. |
+| Skill jobs | Skills detail actions and in-list background status use adaptive grouped components from PR #643. `lib/src/skills/skill_job_sheet.dart` still opens a Material bottom sheet. | Migrate the macOS job route while preserving background execution and completion behavior. |
+| Kanban details and logs | `lib/src/kanban/widgets/kanban_task_panel.dart`: Apple detent/form sheets for the task-detail helper; adaptive dialogs for log/assignee/priority and a direct dialog for editing. `lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart` implements detent/form helpers. Normal macOS board picks use the inspector. | Preserve the inspector, iOS detents, and the adaptive log/metadata/activity components. Review secondary dialog routes and helper routes. |
 | Kanban administration | `lib/src/kanban/kanban_boards_screen.dart`, `lib/src/kanban/widgets/kanban_bulk_bar.dart`, `lib/src/kanban/kanban_screen.dart`: direct dialogs. `lib/src/kanban/kanban_workers_screen.dart`, `lib/src/kanban/kanban_errors.dart`: adaptive dialogs. | Split board import/export and bulk actions into small changes. |
 | Pickers | `lib/src/models/widgets/model_picker.dart`: dialog or bottom sheet. `lib/src/chat/attachments/attachment_surface.dart`: origin bottom sheet. `lib/src/widgets/adaptive_pickers.dart`: Cupertino modal popup. | Review platform, input, and keyboard behavior together. |
 | Settings and profile creation | `lib/src/settings/settings_dialog.dart`, `lib/src/settings/appearance_dialog.dart`, `lib/src/settings/about_dialog.dart`, `lib/src/profiles/widgets/new_profile_dialog.dart`: direct dialogs. | Adapt presentation without changing preferences or profile logic. |
@@ -58,7 +58,7 @@ Main, conversation, and quick-panel apps have separate MaterialApp instances. Au
 
 `lib/src/app.dart` keeps a stable Navigator while `_RootRouter` replaces the home content for authentication state changes. A pushed detail/editor route can remain above the new Login/Setup screen. `lib/src/settings/account_actions.dart` confirms sign-out but does not reset the stack. App Lock hides mounted content; the Handoff gate blocks input, and neither performs authentication teardown.
 
-Cover old-session content immediately when the session is invalidated. Explicit sign-out and server change must clear old screens. Session-expiry draft recovery needs an explicit policy and same-account checks before anything is restored. Add app-level navigation tests, including delayed token cleanup, rather than relying only on AuthController tests.
+Cover old-session content immediately when the session is invalidated. Explicit sign-out and server change must clear old screens. The confirmed expiry policy preserves drafts behind sign-in and restores them only for the same verified account. Navigator covering and draft recovery remain implementation work. Add app-level navigation tests, including delayed token cleanup, rather than relying only on AuthController tests.
 
 ## Regenerate the inventory
 
@@ -66,8 +66,8 @@ Run these searches from the repository root, then inspect platform/layout guards
 
 ```sh
 rg -n 'Navigator\.|MaterialPageRoute|CupertinoPageRoute|PageRouteBuilder' lib/src
-rg -n 'showDialog|showAdaptiveDialog|showModalBottomSheet|showAdaptiveSheet|showCupertinoModalPopup|showGeneralDialog' lib/src
+rg -n 'showDialog|showAdaptiveDialog|showAppDialog|RawDialogRoute|showModalBottomSheet|showAdaptiveSheet|showCupertinoModalPopup|showGeneralDialog' lib/src
 rg -n 'PopScope|onLongPress|onSecondaryTap|RawGestureDetector|supportedDevices|onHorizontalDrag|Shortcuts|MacCommand.back' lib/src
 ```
 
-Follow [the adaptive UI series](../openspec/adaptive-ui-series.md) before assigning overlapping feature migrations. Its Skills work and the remaining Kanban/connection/autocomplete work must be reconciled with this backlog.
+The component migrations listed in [the adaptive UI series](../openspec/adaptive-ui-series.md) are complete. Preserve those components while completing modal route policy, keyboard and pointer behavior, and device verification. Do not repeat the Skills, Kanban, connection, or autocomplete content migrations.

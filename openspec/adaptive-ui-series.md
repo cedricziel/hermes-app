@@ -15,3 +15,5 @@ All listed UI changes are merged. Each change shipped in a separate PR.
 - [x] Chat teammate and slash-command autocomplete, merged in [#662](https://github.com/cedricziel/hermes-app/pull/662)
 
 Preserve behavior and security safeguards. Validate standalone catalog states and native layouts for each change. Previous grouped form series is complete in PRs #627, #629, #630, #631, #632 and #633.
+
+The [platform navigation backlog](../docs/platform-navigation-todo.md) tracks remaining modal route presentation, keyboard and pointer behavior, and device verification. Completed component content does not by itself verify route motion or authentication teardown. Preserve these components when changing their presentation.

@@ -29,7 +29,7 @@ Device behavior and the exact transitions in the reported build still need verif
 - [x] Decide whether each destination needs an independent detail stack. Keep the current shared detail stack; the confirmed peer-section behavior does not require nested navigators.
 - [ ] Decide whether desktop mouse Back/Forward buttons and trackpad navigation are supported; define scope and prevent conflicts with scrolling.
 - [ ] Confirm drawer edge gestures and iOS route-back gestures can coexist without ambiguous actions.
-- [ ] Reconcile this backlog with [the adaptive UI series](../openspec/adaptive-ui-series.md), so existing work is not duplicated.
+- [x] Reconcile this backlog with [the adaptive UI series](../openspec/adaptive-ui-series.md), so existing work is not duplicated. Its component migrations are complete; modal routes, input behavior, and device verification remain open.
 - [ ] Before implementation, create bounded OpenSpec changes for the agreed behavior. Update affected requirements and validate each change.
 
 Acceptance: every inventoried interaction has an expected result; unresolved decisions are explicit rather than silently becoming implementation requirements.
@@ -147,7 +147,7 @@ Completion: all agreed matrix entries are implemented and verified, existing beh
 - Merged: [PR #654](https://github.com/cedricziel/hermes-app/pull/654), `restrained-macos-page-transitions`. macOS pages, including Material full-screen image viewers, use a 150 ms stationary fade and show content immediately under reduced motion. All CI test shards and Android/iOS/macOS/Linux builds passed. Main requirements are synced and the change is archived.
 - Native auth foundation verification: macOS connection/departure/reconnection against an isolated backend completed. Native client-storage isolation was not verified. Connection Details remained above setup after Change server until toolbar Back; this reproduces the open navigator teardown issue. Native gated login/expiry remains unverified; HTTP/controller journeys cover it.
 - Authentication audit: pushed routes can remain above the replacement Login/Setup home screen. Cover old-session UI immediately during teardown. User confirmed draft recovery after expiry only for the same verified account; explicit sign-out and server changes clear old screens.
-- Adaptive Skill details/status: PR #643 merged independently; reconcile its implementation after updating from main.
+- Adaptive component reconciliation complete: Skills details/status, Kanban components, connection screens, and chat autocomplete are already migrated in the adaptive UI series. Preserve their components and safeguards. Skill jobs and other feature modal routes still need the agreed macOS presentation; source and widget coverage do not establish native device behavior.
 - Native verification: macOS Skills/editor pushes and toolbar Back against an isolated backend completed. Native client-storage isolation was not verified. The automated keyboard `⌘[` action had no effect; keyboard Back parity remains open. Widget tests cover light/dark page motion, reduced motion, full-screen page routes, interrupted Back, metadata, and results.
 - Source inventory complete: route pushes, modal APIs, platform branches, and pointer gestures. Device verification remains open.
 - Confirmed sharing policy: newer notification/link navigation wins; waiting share content stays pending until the next explicit Chat entry.
