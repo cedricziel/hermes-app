@@ -76,6 +76,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onShowChat,
     this.onOpenJob,
     this.onOpenNewChat,
+    this.onLaunchNotification,
     this.onOpened,
     this.onPrefill,
     this.onSurfaceChange,
@@ -163,6 +164,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Asks the host to bring the chat to the front.
   final VoidCallback? onShowChat;
+
+  /// Delegates launch delivery before the controller applies its target.
+  final ValueChanged<NotificationTarget>? onLaunchNotification;
 
   /// Called for a notification about a scheduled task.
   final void Function(NotificationTarget target)? onOpenJob;
@@ -307,6 +311,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       profile ??= await _activeProfile();
       final first = await repository!.loadThreadPage(profile: profile);
       var launched = await _attention.takeLaunchTarget();
+      if (disposed || generation != _loadGeneration) return;
+      if (launched != null && onLaunchNotification != null) {
+        onLaunchNotification!(launched);
+        launched = null;
+      }
       if (launched != null && launched.isJob) {
         onOpenJob?.call(launched);
         launched = null;

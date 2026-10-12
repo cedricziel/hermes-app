@@ -324,11 +324,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       // the watcher forgets what it saw when they are gone.
       if (_schedulesKnown) _watcher?.available = schedules;
       _syncSchedules();
-      final pending = _pendingJob;
-      if (schedules && pending != null) {
-        _pendingJob = null;
-        _openJob(pending);
-      }
+    }
+    final pending = _pendingJob;
+    if (_schedulesKnown && pending != null) {
+      _pendingJob = null;
+      _openJob(pending);
     }
     _releaseWaitingLink();
   }
@@ -390,14 +390,37 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _watcher?.schedulesInFront = inFront;
   }
 
-  /// Shows a scheduled task a notification was about. Chat cannot, so it hands
-  /// the tap over. Before the cron check has answered the tap waits for it.
-  void _openJob(NotificationTarget target) {
-    if (!_schedules) {
+  RootNavigationQueue get _externalNavigation =>
+      _navigationQueue ??= RootNavigationQueue(
+        navigator: Navigator.of(context),
+        root: ModalRoute.of(context)!,
+        canNavigate: () => mounted && !(_appLock?.covered ?? false),
+      );
+
+  void _queueExternalNavigation(VoidCallback action, [bool isLaunch = false]) {
+    if (!mounted || (isLaunch && !_externalNavigation.canAcceptLaunch)) return;
+    _waitingLink = null;
+    _pendingJob = null;
+    _externalNavigation.request((_) {
+      if (mounted) action();
+    }, isLaunch: isLaunch);
+  }
+
+  void _openJob(NotificationTarget target) =>
+      _queueExternalNavigation(() => _openJobAtRoot(target));
+
+  void _openJobAtRoot(NotificationTarget target) {
+    if (!_schedulesKnown) {
       _pendingJob = target;
       return;
     }
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (!_schedules) {
+      _breadcrumbs('nav.notification.ignored', {
+        'kind': 'job',
+        'reason': 'unavailable',
+      });
+      return;
+    }
     _select(_Destination.schedules);
     _schedulesController?.requestOpen(
       target.jobId ?? '',
@@ -410,7 +433,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// chat, the microphone) before the user is back.
   void _takeDeepLink({bool held = false}) {
     final deepLinks = _deepLinks;
-    if (deepLinks == null) return;
+    if (deepLinks == null) {
+      if (!(_appLock?.covered ?? false)) _navigationQueue?.resume();
+      return;
+    }
     if (_appLock?.covered ?? false) {
       _lockHeld = _lockHeld || deepLinks.pending != null;
       return;
@@ -429,6 +455,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// concerns them, and are ignored by a server that answered it lacks the
   /// tab. The breadcrumbs hold the kind and flags only, never the link.
   void _openDeepLink(PendingDeepLink link, {required bool waited}) {
+    _pendingJob = null;
     final known = switch (link.target) {
       OpenKanban() => _kanbanKnown,
       OpenSchedules() => _schedulesKnown,
@@ -440,17 +467,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _ => true,
     };
     if (!known || !offered) {
-      _navigationQueue?.cancel();
+      _externalNavigation.cancel();
       _applyDeepLink(link, waited: waited);
       return;
     }
     _waitingLink = null;
-    final queue = _navigationQueue ??= RootNavigationQueue(
-      navigator: Navigator.of(context),
-      root: ModalRoute.of(context)!,
-      canNavigate: () => mounted && !(_appLock?.covered ?? false),
-    );
-    queue.request((guarded) {
+    _externalNavigation.request((guarded) {
       if (!mounted) return;
       if (_appLock?.covered ?? false) {
         _waitingLink = link;
@@ -675,6 +697,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         visible: _current == _Destination.chat,
         transport: _gateway,
         onShowChat: _showChat,
+        onExternalNavigation: _queueExternalNavigation,
         openRequests: _openRequests,
         onOpenJob: _openJob,
         navigation: navigation,

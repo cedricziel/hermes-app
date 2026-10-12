@@ -67,6 +67,7 @@ void main() {
     bool withProfiles = false,
     bool settle = true,
     VoidCallback? onShowChat,
+    void Function(VoidCallback, bool)? onExternalNavigation,
   }) async {
     if (load) await tester.runAsync(settings.load);
     await pumpChatScreen(
@@ -76,6 +77,7 @@ void main() {
       withProfiles: withProfiles,
       settle: settle,
       onShowChat: onShowChat,
+      onExternalNavigation: onExternalNavigation,
       providers: [
         ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         Provider<NotificationService>.value(value: service),
@@ -536,6 +538,55 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(Drawer), findsNothing);
+  });
+
+  testWidgets('a launch target waits for the host before selecting a chat', (
+    tester,
+  ) async {
+    service.launchThread = 's2';
+    VoidCallback? pending;
+    var launchOrigin = false;
+    await pump(
+      tester,
+      onExternalNavigation: (action, isLaunch) {
+        pending = action;
+        launchOrigin = isLaunch;
+      },
+    );
+
+    expect(selected(tester), isNull);
+    expect(pending, isNotNull);
+    expect(launchOrigin, isTrue);
+    expect(server.requestsTo('GET', '/api/sessions/s2/messages'), isEmpty);
+    pending!();
+    await tester.pumpAndSettle();
+
+    expect(selected(tester), 's2');
+  });
+
+  testWidgets('a delayed launch target does not supersede a newer tap', (
+    tester,
+  ) async {
+    final launch = Completer<NotificationTarget?>();
+    service.launchGate = launch;
+    final pending = <VoidCallback>[];
+    await pump(
+      tester,
+      settle: false,
+      onExternalNavigation: (action, _) => pending.add(action),
+    );
+    service.tap('s1');
+    await tester.pump();
+    launch.complete(const NotificationTarget(threadId: 's2'));
+    await tester.pumpAndSettle();
+
+    expect(pending, hasLength(1));
+    expect(selected(tester), isNull);
+    pending.single();
+    await tester.pumpAndSettle();
+
+    expect(selected(tester), 's1');
+    expect(server.requestsTo('GET', '/api/sessions/s2/messages'), isEmpty);
   });
 
   testWidgets('a notification that started the app opens its thread', (
