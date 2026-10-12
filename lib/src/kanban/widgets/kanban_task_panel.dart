@@ -17,6 +17,7 @@ import '../kanban_models.dart';
 import '../kanban_repository.dart';
 import '../kanban_task_controller.dart';
 import 'kanban_task_log_dialog.dart';
+import 'kanban_task_choice_dialog.dart';
 import 'kanban_task_edit_fields.dart';
 import 'task_panel/kanban_task_actions.dart';
 import 'task_panel/kanban_task_attachments.dart';
@@ -229,7 +230,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     bool toggle = false,
   }) => _run(() => _task.preview(a, trigger: trigger, toggle: toggle));
 
-  void _showLog() => showDialog<void>(
+  void _showLog() => showAdaptiveDialog<void>(
     context: context,
     builder: (_) => KanbanTaskLogDialog(
       repository: widget.repository,
@@ -250,21 +251,14 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   Future<void> _assign(KanbanTask task) async {
     final names = await _task.loadAssignees();
     if (!mounted) return;
-    final picked = await showDialog<String>(
+    final picked = await showAdaptiveDialog<String>(
       context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Assign to'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, ''),
-            child: const Text('Nobody'),
-          ),
-          for (final n in names)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, n),
-              child: Text(n),
-            ),
-        ],
+      builder: (context) => KanbanTaskChoiceDialog<String>(
+        title: 'Assign to',
+        options: ['', ...names],
+        selected: task.assignee ?? '',
+        labelOf: (name) => name.isEmpty ? 'Nobody' : name,
+        onPicked: (value) => Navigator.pop(context, value),
       ),
     );
     if (picked == null || picked == (task.assignee ?? '') || !mounted) return;
@@ -272,17 +266,14 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   Future<void> _prioritise(KanbanTask task) async {
-    final picked = await showDialog<int>(
+    final picked = await showAdaptiveDialog<int>(
       context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Priority'),
-        children: [
-          for (final p in [0, 1, 2, 3])
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, p),
-              child: Text(p == 0 ? 'Normal' : 'P$p'),
-            ),
-        ],
+      builder: (context) => KanbanTaskChoiceDialog<int>(
+        title: 'Priority',
+        options: const [0, 1, 2, 3],
+        selected: task.priority,
+        labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
+        onPicked: (value) => Navigator.pop(context, value),
       ),
     );
     if (picked == null || picked == task.priority || !mounted) return;

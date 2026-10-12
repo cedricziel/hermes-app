@@ -12,6 +12,7 @@ class ConversationWindowArgs {
     required this.title,
     required this.baseUrl,
     required this.authRequired,
+    this.ownerKey,
   });
 
   final String threadId;
@@ -21,6 +22,7 @@ class ConversationWindowArgs {
   final String title;
   final String baseUrl;
   final bool authRequired;
+  final String? ownerKey;
 
   /// The name the window's frame is saved under, so it reopens where it was.
   String get frameName => 'conversation:$baseUrl:${profile ?? ''}:$threadId';
@@ -35,6 +37,7 @@ class ConversationWindowArgs {
     title: title,
     baseUrl: baseUrl,
     authRequired: authRequired,
+    ownerKey: ownerKey,
   );
 
   Map<String, Object?> toJson() => {
@@ -43,6 +46,7 @@ class ConversationWindowArgs {
     'title': title,
     'base_url': baseUrl,
     'auth_required': authRequired,
+    'owner_key': ?ownerKey,
   };
 
   /// Null for anything that is not a window's arguments.
@@ -61,6 +65,9 @@ class ConversationWindowArgs {
       title: title is String ? title : '',
       baseUrl: baseUrl,
       authRequired: json['auth_required'] != false,
+      ownerKey: json['owner_key'] is String
+          ? json['owner_key'] as String
+          : null,
     );
   }
 }

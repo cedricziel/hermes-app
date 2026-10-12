@@ -62,7 +62,7 @@ cmd_start() {
   mkdir -p "$HOME_DIR"
   rm -f "$PID_FILE" "$PORT_FILE"
   : >"$LOG_FILE"
-  HERMES_HOME="$HOME_DIR" nohup hermes dashboard --no-open \
+  HERMES_HOME="$HOME_DIR" nohup hermes dashboard --isolated --no-open \
     --port "${HERMES_DEV_PORT:-0}" >>"$LOG_FILE" 2>&1 &
   local launcher=$!
 

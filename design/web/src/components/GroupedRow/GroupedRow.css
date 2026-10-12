@@ -202,3 +202,8 @@
     transition: none;
   }
 }
+
+.h-grouped-row__title--wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

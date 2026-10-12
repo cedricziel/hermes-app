@@ -17,6 +17,7 @@ class GroupedChoiceRow<T> extends StatelessWidget {
     super.key,
     required this.value,
     required this.title,
+    this.titleMaxLines = 1,
     this.subtitle,
     this.meta,
     this.warning,
@@ -25,6 +26,7 @@ class GroupedChoiceRow<T> extends StatelessWidget {
 
   final T value;
   final String title;
+  final int? titleMaxLines;
   final String? subtitle;
   final String? meta;
   final String? warning;
@@ -50,6 +52,7 @@ class GroupedChoiceRow<T> extends StatelessWidget {
     );
     return GroupedRow(
       title: title,
+      titleMaxLines: titleMaxLines,
       subtitle: subtitle,
       meta: meta,
       warning: warning,

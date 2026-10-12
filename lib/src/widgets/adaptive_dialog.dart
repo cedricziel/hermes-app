@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 
+import 'dialog_presentation.dart';
+
 /// An alert that is a [CupertinoAlertDialog] on iOS and macOS and a Material
 /// [AlertDialog] elsewhere. Build [actions] from [AppDialogAction].
 class AppAlertDialog extends StatelessWidget {
@@ -51,6 +53,17 @@ class AppDialogAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (platformChromeOf(context) == PlatformChrome.macos) {
+      return _MacDialogAction(
+        onPressed: onPressed,
+        builder: (activate) => CupertinoDialogAction(
+          onPressed: activate,
+          isDefaultAction: isDefault,
+          isDestructiveAction: isDestructive,
+          child: child,
+        ),
+      );
+    }
     if (platformChromeOf(context).isApple) {
       return CupertinoDialogAction(
         onPressed: onPressed,
@@ -63,6 +76,49 @@ class AppDialogAction extends StatelessWidget {
         ? FilledButton(onPressed: onPressed, child: child)
         : TextButton(onPressed: onPressed, child: child);
   }
+}
+
+class _MacDialogAction extends StatefulWidget {
+  const _MacDialogAction({required this.onPressed, required this.builder});
+  final VoidCallback? onPressed;
+  final Widget Function(VoidCallback? activate) builder;
+
+  @override
+  State<_MacDialogAction> createState() => _MacDialogActionState();
+}
+
+class _MacDialogActionState extends State<_MacDialogAction> {
+  bool _highlight = false;
+
+  Object? _activate(Intent intent) {
+    if (!mounted || ModalRoute.of(context)?.isCurrent == false) return null;
+    widget.onPressed?.call();
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) => FocusableActionDetector(
+    enabled: widget.onPressed != null,
+    onShowFocusHighlight: (value) => setState(() => _highlight = value),
+    actions: {
+      ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: _activate),
+      ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+        onInvoke: _activate,
+      ),
+    },
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        border: _highlight
+            ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
+            : null,
+      ),
+      child: widget.builder(
+        widget.onPressed == null
+            ? null
+            : () => _activate(const ActivateIntent()),
+      ),
+    ),
+  );
 }
 
 /// A text field for a dialog: [CupertinoTextField] on Apple platforms.
@@ -122,7 +178,7 @@ Future<bool> showConfirmDialog(
   bool destructive = false,
   bool filled = true,
 }) async =>
-    await showAdaptiveDialog<bool>(
+    await showAppDialog<bool>(
       context: context,
       builder: (dialog) => AppAlertDialog(
         title: Text(title),

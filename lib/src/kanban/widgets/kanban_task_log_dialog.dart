@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/grouped_dialog.dart';
+import 'kanban_worker_log.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
 
@@ -39,33 +41,15 @@ class _KanbanTaskLogDialogState extends State<KanbanTaskLogDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final log = _log;
-    final String text;
-    if (log == null) {
-      text = _failed ? 'Could not load the log.' : 'Loading…';
-    } else if (!log.exists) {
-      text = 'No worker has run this task yet.';
-    } else {
-      text = log.content.isEmpty ? '(empty)' : log.content;
-    }
-    return AlertDialog(
-      title: Text('Log · ${widget.taskId}'),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          reverse: true,
-          child: SelectableText(
-            log?.truncated == true ? '… (earlier output cut)\n$text' : text,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-        ),
-      ),
+    return GroupedDialog(
+      title: 'Log · ${widget.taskId}',
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
         ),
       ],
+      children: [KanbanWorkerLog(log: _log, failed: _failed)],
     );
   }
 }

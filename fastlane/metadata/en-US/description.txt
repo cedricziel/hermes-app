@@ -7,13 +7,21 @@ WHAT YOU GET
 • Chat with your agent: your history, streaming replies and the tool calls it runs
 • Answer your agent when it asks for an approval or has a question
 • A thread list with pinning, archive and delete, plus your profiles and bots
+• Bot Mode specialists with their own chats, and group rooms on compatible Hermes dashboards
 • A Kanban board, when your server has the Kanban plugin turned on
+• Create and manage scheduled tasks, check run history and open their chats, when your server supports schedules
+• Browse your server's skills, manage plugins and configure MCP servers, when those features are available
 • Notifications when a reply finishes or your agent needs you
 • Share content to your agent from other apps
+• Continue a saved chat between iPhone, iPad and Mac with Apple Handoff
+• Find recent chats with Spotlight on iPhone, iPad and Mac
+• Ask Hermes through Siri and Shortcuts on iPhone and iPad
+• Home Screen and Lock Screen widgets on iPhone and iPad for chats, requests and quick actions
+• App Lock to require device authentication before opening your chats
 • An Apple Watch app to read replies and dictate an answer
 • Sign in with OpenID Connect or a username and password. Sign-in happens in a secure system sign-in sheet, so your password manager works
 • Your session tokens are kept in the system keychain and refreshed automatically
 
 PRIVACY
 
-No account with us and no advertising. The app talks to the server address you enter. Release builds also send diagnostics to a server run by the developer: the app version, your device model and system version, an installation ID, and request timings and error types. They never contain your messages, your session tokens or your server address. The full list is in the privacy policy.
+No account with us and no advertising. The app talks to the server address you enter. Release builds also send diagnostics to a server run by the developer: app and device information, installation IDs, request timings, error details and crash reports. Crash reports include error messages, stack traces and recent app actions. Chat messages, session tokens and your server address are not collected as diagnostic fields, but error text can contain context from the operation that failed. The full list is in the privacy policy.

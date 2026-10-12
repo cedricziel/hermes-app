@@ -5,6 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
+import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/deep_links/deep_link_listener.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_create_screen.dart';
@@ -15,13 +19,18 @@ import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_detail.dart';
+import 'package:hermes_app/src/schedules/schedule_models.dart';
+import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
+import 'package:hermes_app/src/skills/skill_editor_screen.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -30,10 +39,13 @@ import 'package:stream_channel/stream_channel.dart';
 
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/fake_device_authenticator.dart';
+import 'support/fake_conversation_window_host.dart';
 import 'support/fake_notification_service.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/mac_commands_builder.dart';
+import 'support/pump_chat.dart' show composerField;
 
 /// The Kanban tab exists only while the server has the plugin on.
 void main() {
@@ -62,6 +74,10 @@ void main() {
     TargetPlatform? platform,
     MacCommandRegistry? commands,
     BreadcrumbTrail? trail,
+    AppLockController? lock,
+    DeepLinks? links,
+    ConversationWindows? windows,
+    AuthController? auth,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -70,13 +86,20 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<AuthController>(
-            create: (_) => AuthController(),
-          ),
+          if (auth == null)
+            ChangeNotifierProvider<AuthController>(create: (_) => _ShellAuth())
+          else
+            ChangeNotifierProvider<AuthController>.value(value: auth),
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(inbox)..start(),
           ),
           Provider<NotificationService>.value(value: notifications),
+          if (lock != null)
+            ChangeNotifierProvider<AppLockController>.value(value: lock),
+          if (links != null)
+            ChangeNotifierProvider<DeepLinks?>.value(value: links),
+          if (windows != null)
+            ChangeNotifierProvider<ConversationWindows?>.value(value: windows),
           if (trail != null)
             Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
           if (settings != null)
@@ -84,7 +107,11 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme().copyWith(platform: platform),
-          builder: macCommandsBuilder(commands),
+          builder: (context, child) {
+            final content =
+                macCommandsBuilder(commands)?.call(context, child) ?? child!;
+            return lock == null ? content : AppLockGate(child: content);
+          },
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),
@@ -414,6 +441,295 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> editSkill(
+    WidgetTester tester, {
+    Future<String?> Function(String, String, String)? onSave,
+  }) async {
+    Navigator.of(tester.element(find.byType(AppShell))).push<void>(
+      MaterialPageRoute(
+        builder: (_) => SkillEditorScreen.edit(
+          name: 'example',
+          initialText: 'Original skill',
+          onSave: onSave ?? (_, _, _) async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Unsaved skill');
+    await tester.pump();
+  }
+
+  String? selectedChat(WidgetTester tester) => tester
+      .widget<ChatThreadView>(find.byType(ChatThreadView, skipOffstage: false))
+      .thread
+      ?.id;
+
+  ({FakeConversationWindowHost host, ConversationWindows windows}) windowHost({
+    AuthController? auth,
+  }) {
+    final host = FakeConversationWindowHost();
+    final windows = ConversationWindows(
+      host: host,
+      store: ConversationWindowStore(SharedPreferencesAsync()),
+      connection: () => auth == null || auth.protectedRequestsAllowed
+          ? (baseUrl: 'https://hermes.test', authRequired: false)
+          : null,
+      ownerKey: () =>
+          auth == null || auth.protectedRequestsAllowed ? 'test-owner' : null,
+      headers: ({rejected}) async => {},
+    );
+    addTearDown(host.dispose);
+    addTearDown(windows.dispose);
+    if (auth != null) windows.bindSession(auth);
+    return (host: host, windows: windows);
+  }
+
+  group('guarded notification navigation', () {
+    testWidgets('retains the editor and delivers only the latest tap', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      await pumpShell(tester, size: const Size(400, 800));
+      await openKanban(tester);
+      await editSkill(tester);
+
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(selectedTab(tester), 1);
+      expect(selectedChat(tester), 't1');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      notifications.tap('t3');
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't3');
+    });
+
+    testWidgets('retains the draft and error when saving fails', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      await pumpShell(tester, size: const Size(1400, 900));
+      final saved = Completer<String?>();
+      await editSkill(tester, onSave: (_, _, _) => saved.future);
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+      notifications.tap('t2');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(selectedChat(tester), 't1');
+      saved.complete('The test save failed');
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      expect(find.text('The test save failed'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(selectedChat(tester), 't2');
+    });
+
+    testWidgets('defers an unsent-question draft until the editor closes', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      await pumpShell(tester, size: const Size(1400, 900));
+      await editSkill(tester);
+      notifications.tapTarget(
+        const NotificationTarget.newChat(prompt: 'Pending question'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(selectedChat(tester), 't1');
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<EditableText>(composerField).controller.text,
+        'Pending question',
+      );
+    });
+
+    testWidgets('resumes a locked tap without a deep-link provider', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: FakeDeviceAuthenticator(),
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), lock: lock);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      expect(selectedChat(tester), 't1');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(selectedChat(tester), 't2');
+    });
+
+    testWidgets('ignores a host callback after shell disposal', (tester) async {
+      kanbanPlugin(on: false);
+      await pumpShell(tester, size: const Size(1400, 900));
+      final dispatch = tester
+          .widget<ChatScreen>(find.byType(ChatScreen))
+          .onExternalNavigation!;
+      await tester.pumpWidget(const SizedBox.shrink());
+      var delivered = false;
+
+      dispatch(() => delivered = true, false);
+
+      expect(delivered, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a rejected launch preserves a discovery-held link', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      final availability = Completer<FakeResponse>();
+      server
+        ..onRequest(
+          'GET',
+          '/api/cron/delivery-targets',
+          (_) => availability.future,
+        )
+        ..on('GET', '/api/cron/jobs', [cronJobRow()])
+        ..on('GET', '/api/cron/jobs/job1', cronJobRow())
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      final urls = StreamController<Uri>.broadcast(sync: true);
+      final links = DeepLinks(
+        links: urls.stream,
+        signedOut: const Stream.empty(),
+        firstFrame: Future.value(),
+      );
+      addTearDown(links.dispose);
+      addTearDown(urls.close);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        links: links,
+        settle: false,
+      );
+      urls.add(Uri.parse('hermes://schedules?profile=work&job=job1'));
+      await tester.pumpAndSettle();
+      final dispatch = tester
+          .widget<ChatScreen>(find.byType(ChatScreen))
+          .onExternalNavigation!;
+      var launched = false;
+      dispatch(() => launched = true, true);
+      availability.complete((status: 200, body: cronDeliveryTargets));
+      await tester.pumpAndSettle();
+
+      expect(launched, isFalse);
+      expect(find.text('Say good morning'), findsOneWidget);
+    });
+
+    testWidgets('an unavailable job never opens after later discovery', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      server.on('GET', '/api/cron/delivery-targets', {}, status: 404);
+      final trail = BreadcrumbTrail(capacity: 50);
+      await pumpShell(tester, size: const Size(400, 800), trail: trail);
+      notifications.tapJob('job1', profile: 'work');
+      await tester.pumpAndSettle();
+      final ignored = trail.recent.singleWhere(
+        (crumb) => crumb.name == 'nav.notification.ignored',
+      );
+      expect(ignored.attributes, {'kind': 'job', 'reason': 'unavailable'});
+      server
+        ..on('GET', '/api/cron/delivery-targets', cronDeliveryTargets)
+        ..on('GET', '/api/cron/jobs', [cronJobRow()])
+        ..on('GET', '/api/cron/jobs/job1', cronJobRow())
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(server.requestsTo('GET', '/api/cron/jobs/job1'), isEmpty);
+    });
+
+    testWidgets('a held job is discarded when discovery confirms unavailable', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final availability = Completer<FakeResponse>();
+      server.onRequest(
+        'GET',
+        '/api/cron/delivery-targets',
+        (_) => availability.future,
+      );
+      final trail = BreadcrumbTrail(capacity: 50);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        trail: trail,
+        settle: false,
+      );
+      notifications.tapJob('job1', profile: 'work');
+      await tester.pumpAndSettle();
+      availability.complete((status: 404, body: {}));
+      await tester.pumpAndSettle();
+      final ignored = trail.recent.singleWhere(
+        (crumb) => crumb.name == 'nav.notification.ignored',
+      );
+      expect(ignored.attributes, {'kind': 'job', 'reason': 'unavailable'});
+      server
+        ..on('GET', '/api/cron/delivery-targets', cronDeliveryTargets)
+        ..on('GET', '/api/cron/jobs', [cronJobRow()])
+        ..on('GET', '/api/cron/jobs/job1', cronJobRow())
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(server.requestsTo('GET', '/api/cron/jobs/job1'), isEmpty);
+    });
+
+    testWidgets('defers a scheduled-job tap until the editor closes', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      server.on('GET', '/api/cron/delivery-targets', cronDeliveryTargets);
+      server
+        ..on('GET', '/api/cron/jobs', [cronJobRow()])
+        ..on('GET', '/api/cron/jobs/job1', cronJobRow())
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      await pumpShell(tester, size: const Size(400, 800));
+      await editSkill(tester);
+      notifications.tapJob('job1', profile: 'work');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(selectedTab(tester), 0);
+      expect(server.requestsTo('GET', '/api/cron/jobs/job1'), isEmpty);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 1);
+      expect(find.text('Say good morning'), findsOneWidget);
+    });
+  });
+
   testWidgets('a notification tap switches from Kanban to Chat', (
     tester,
   ) async {
@@ -426,6 +742,257 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selectedTab(tester), 0);
+  });
+
+  group('guarded shared content', () {
+    testWidgets(
+      'retains all text/files and only the latest quote behind an editor',
+      (tester) async {
+        kanbanPlugin(on: true);
+        await pumpShell(tester, size: const Size(400, 800));
+        final composer = tester.widget<EditableText>(composerField).controller;
+        await editSkill(tester);
+        final share = tester
+            .element(find.byType(ChatScreen, skipOffstage: false))
+            .read<ShareController>();
+        inbox.emit([
+          const SharedText('first'),
+          const SharedFile(path: '/tmp/report.pdf', name: 'report.pdf'),
+          const SharedQuote('old quote'),
+        ]);
+        await tester.pumpAndSettle();
+        expect(find.text('Discard changes?'), findsOneWidget);
+        expect(composer.text, isEmpty);
+        expect(selectedChat(tester), 't1');
+        expect(share.hasPending, isTrue);
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+        inbox.emit([
+          const SharedText('second'),
+          const SharedQuote('latest quote'),
+        ]);
+        await tester.pumpAndSettle();
+        expect(find.text('Discard changes?'), findsNothing);
+        expect(find.text('Unsaved skill'), findsOneWidget);
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+        expect(composer.text, 'first\nsecond\n\n> latest quote\n\n');
+        expect(find.text('report.pdf'), findsOneWidget);
+        expect(selectedChat(tester), isNot('t1'));
+        expect(share.hasPending, isFalse);
+        await openTab(tester, 'Chat');
+        expect(composer.text, 'first\nsecond\n\n> latest quote\n\n');
+      },
+    );
+
+    testWidgets('failed save keeps both the editor and pending share', (
+      tester,
+    ) async {
+      await pumpShell(tester, size: const Size(400, 800));
+      final composer = tester.widget<EditableText>(composerField).controller;
+      final saved = Completer<String?>();
+      await editSkill(tester, onSave: (_, _, _) => saved.future);
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+      inbox.emit([const SharedText('retained share')]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(composer.text, isEmpty);
+      saved.complete('Save failed');
+      await tester.pumpAndSettle();
+      expect(find.text('Save failed'), findsOneWidget);
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      final routeContext = tester.element(find.byType(SkillEditorScreen));
+      Navigator.of(routeContext).maybePop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(composer.text, 'retained share');
+    });
+
+    testWidgets(
+      'newer notification wins and repeated Chat entry recovers the share',
+      (tester) async {
+        kanbanPlugin(on: true);
+        await pumpShell(tester, size: const Size(400, 800));
+        final composer = tester.widget<EditableText>(composerField).controller;
+        await editSkill(tester);
+        final share = tester
+            .element(find.byType(ChatScreen, skipOffstage: false))
+            .read<ShareController>();
+        inbox.emit([const SharedText('retained share')]);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+        notifications.tap('t2');
+        await tester.pumpAndSettle();
+        expect(composer.text, isEmpty);
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+        expect(selectedChat(tester), 't2');
+        expect(composer.text, isEmpty);
+        expect(share.hasPending, isTrue);
+        await openTab(tester, 'Chat');
+        expect(selectedChat(tester), 't2');
+        expect(composer.text, 'retained share');
+        expect(share.hasPending, isFalse);
+        await openTab(tester, 'Chat');
+        expect(composer.text, 'retained share');
+      },
+    );
+
+    testWidgets('App Lock holds shared content until unlock', (tester) async {
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: FakeDeviceAuthenticator(),
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), lock: lock);
+      final composer = tester.widget<EditableText>(composerField).controller;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+      inbox.emit([const SharedText('locked share')]);
+      await tester.pumpAndSettle();
+      expect(composer.text, isEmpty);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(composer.text, 'locked share');
+    });
+
+    testWidgets('held launch content stays pending behind App Lock', (
+      tester,
+    ) async {
+      inbox = FakeShareInbox([const SharedText('held share')]);
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: FakeDeviceAuthenticator(),
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      lock.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      await pumpShell(tester, size: const Size(1400, 900), lock: lock);
+      final share = tester
+          .element(find.byType(ChatScreen, skipOffstage: false))
+          .read<ShareController>();
+      expect(share.hasPending, isTrue);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(composerField).controller.text,
+        'held share',
+      );
+      expect(share.hasPending, isFalse);
+    });
+
+    testWidgets('newer Kanban link retains shares until a later Chat entry', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final urls = StreamController<Uri>.broadcast(sync: true);
+      final links = DeepLinks(
+        links: urls.stream,
+        signedOut: const Stream.empty(),
+        firstFrame: Future.value(),
+      );
+      addTearDown(links.dispose);
+      addTearDown(urls.close);
+      await pumpShell(tester, size: const Size(400, 800), links: links);
+      final composer = tester.widget<EditableText>(composerField).controller;
+      await editSkill(tester);
+      inbox.emit([const SharedText('retained link share')]);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      urls.add(Uri.parse('hermes://kanban'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(selectedTab(tester), 1);
+      expect(composer.text, isEmpty);
+      await openTab(tester, 'Chat');
+      expect(composer.text, 'retained link share');
+    });
+
+    testWidgets('a newer link invalidates deferred Chat-entry recovery', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final urls = StreamController<Uri>.broadcast(sync: true);
+      final links = DeepLinks(
+        links: urls.stream,
+        signedOut: const Stream.empty(),
+        firstFrame: Future.value(),
+      );
+      addTearDown(links.dispose);
+      addTearDown(urls.close);
+      await pumpShell(tester, size: const Size(400, 800), links: links);
+      final composer = tester.widget<EditableText>(composerField).controller;
+      await editSkill(tester);
+      inbox.emit([const SharedText('still pending')]);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await openMenu(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ShellNavigation),
+          matching: find.text('Chat'),
+        ),
+      );
+      urls.add(Uri.parse('hermes://kanban'));
+      await tester.pumpAndSettle();
+      expect(selectedTab(tester), 1);
+      expect(composer.text, isEmpty);
+      await openTab(tester, 'Chat');
+      expect(composer.text, 'still pending');
+    });
+
+    testWidgets('delayed launch sharing yields to a newer notification', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final initial = Completer<List<SharedItem>>();
+      inbox.initialGate = initial;
+      await pumpShell(tester, size: const Size(400, 800));
+      final composer = tester.widget<EditableText>(composerField).controller;
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      initial.complete([const SharedQuote('older launch quote')]);
+      await tester.pumpAndSettle();
+      expect(selectedChat(tester), 't2');
+      expect(composer.text, isEmpty);
+      await openTab(tester, 'Chat');
+      expect(composer.text, '> older launch quote\n\n');
+      expect(selectedChat(tester), isNot('t2'));
+    });
+
+    testWidgets('disposal leaves untaken content pending', (tester) async {
+      await pumpShell(tester, size: const Size(400, 800));
+      await editSkill(tester);
+      final share = tester
+          .element(find.byType(ChatScreen, skipOffstage: false))
+          .read<ShareController>();
+      inbox.emit([const SharedText('pending share')]);
+      await tester.pumpAndSettle();
+      expect(share.hasPending, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(share.hasPending, isTrue);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   testWidgets('shared content switches from Kanban to Chat', (tester) async {
@@ -660,6 +1227,315 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  group('guarded main-window handoffs', () {
+    testWidgets('Show in Main keeps the editor and composer until Save', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final fixture = windowHost();
+      await fixture.windows.open('t2', profile: null, title: 'Window chat');
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        windows: fixture.windows,
+      );
+      final composer = tester.widget<EditableText>(composerField).controller;
+      await tester.enterText(composerField, 'Original draft');
+      await openInSidebar(tester, 'Kanban');
+      await editSkill(tester);
+
+      await fixture.host.call('showInMain', {
+        'window_id': 'w0',
+        'thread_id': 't2',
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(selectedTab(tester), 1);
+      expect(selectedChat(tester), 't1');
+      expect(composer.text, 'Original draft');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      expect(selectedChat(tester), 't1');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillEditorScreen), findsNothing);
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+      expect(fixture.host.mainShown, 1);
+    });
+
+    testWidgets('a newer notification replaces Show in Main while editing', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      final fixture = windowHost();
+      await fixture.windows.open('t2', profile: null, title: 'Window chat');
+      final trail = BreadcrumbTrail();
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        windows: fixture.windows,
+        trail: trail,
+      );
+      await editSkill(tester);
+
+      await fixture.host.call('showInMain', {
+        'window_id': 'w0',
+        'thread_id': 't2',
+      });
+      await tester.pumpAndSettle();
+      expect(selectedChat(tester), 't1');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      notifications.tap('t3');
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(selectedChat(tester), 't1');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillEditorScreen), findsNothing);
+      expect(selectedChat(tester), 't3');
+      expect(
+        trail.recent
+            .where((crumb) => crumb.name == 'chat.open.requested')
+            .length,
+        1,
+      );
+    });
+
+    testWidgets('scheduled-run handoff waits for Keep editing then Save', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      await pumpShell(tester, size: const Size(1400, 900));
+      final composer = tester.widget<EditableText>(composerField).controller;
+      await tester.enterText(composerField, 'Original draft');
+      await openInSidebar(tester, 'Schedules');
+      final onOpenRun = tester
+          .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+          .onOpenRun;
+      await editSkill(tester);
+
+      onOpenRun(
+        CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+        const CronJob(id: 'job1', name: 'Morning brief'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(selectedTab(tester), 1);
+      expect(selectedChat(tester), 't1');
+      expect(composer.text, 'Original draft');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillEditorScreen), findsNothing);
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+    });
+
+    testWidgets('App Lock holds a scheduled-run handoff before Discard', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: FakeDeviceAuthenticator(),
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), lock: lock);
+      await openInSidebar(tester, 'Schedules');
+      final onOpenRun = tester
+          .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+          .onOpenRun;
+      await editSkill(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+
+      onOpenRun(
+        CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+        const CronJob(id: 'job1', name: 'Morning brief'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(selectedChat(tester), 't1');
+      expect(selectedTab(tester), 1);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillEditorScreen), findsNothing);
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+    });
+  });
+
+  group('handoff authorization', () {
+    testWidgets(
+      'queued Show in Main cannot survive owner retirement while ready',
+      (tester) async {
+        kanbanPlugin(on: false);
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        final fixture = windowHost(auth: auth);
+        await fixture.windows.open('t2', profile: null, title: 'Window chat');
+        final trail = BreadcrumbTrail();
+        await pumpShell(
+          tester,
+          size: const Size(1400, 900),
+          windows: fixture.windows,
+          auth: auth,
+          trail: trail,
+        );
+        await editSkill(tester);
+        await fixture.host.call('showInMain', {
+          'window_id': 'w0',
+          'thread_id': 't2',
+        });
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+
+        auth.retire();
+        expect(auth.state, HermesConnectionState.ready);
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SkillEditorScreen), findsNothing);
+        expect(selectedChat(tester), 't1');
+        expect(
+          trail.recent.where((crumb) => crumb.name == 'chat.open.requested'),
+          isEmpty,
+        );
+        auth.allow(true);
+        await tester.pumpAndSettle();
+        expect(selectedChat(tester), 't1');
+      },
+    );
+
+    testWidgets(
+      'queued scheduled-run handoff cannot survive owner retirement while ready',
+      (tester) async {
+        kanbanPlugin(on: false);
+        cronRoutes(on: true);
+        jobRoutes();
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+        await openInSidebar(tester, 'Schedules');
+        final onOpenRun = tester
+            .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+            .onOpenRun;
+        await editSkill(tester);
+        onOpenRun(
+          CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+          const CronJob(id: 'job1', name: 'Morning brief'),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+
+        auth.retire();
+        expect(auth.state, HermesConnectionState.ready);
+        onOpenRun(
+          CronRun(sessionId: 't3', startedAt: DateTime(2026)),
+          const CronJob(id: 'job1', name: 'Morning brief'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Discard changes?'), findsNothing);
+        expect(selectedChat(tester), 't1');
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SkillEditorScreen), findsNothing);
+        expect(selectedTab(tester), 1);
+        expect(selectedChat(tester), 't1');
+        auth.allow(true);
+        await tester.pumpAndSettle();
+        expect(selectedChat(tester), 't1');
+      },
+    );
+
+    testWidgets('same-generation permission recovery resumes a held handoff', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      final auth = _ShellAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+      await openInSidebar(tester, 'Schedules');
+      final onOpenRun = tester
+          .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+          .onOpenRun;
+      await editSkill(tester);
+
+      auth.allow(false);
+      onOpenRun(
+        CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+        const CronJob(id: 'job1', name: 'Morning brief'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      expect(selectedChat(tester), 't1');
+      auth.transition(HermesConnectionState.needsLogin);
+      auth.allow(true);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(selectedChat(tester), 't1');
+      auth.transition(HermesConnectionState.ready);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+    });
+
+    testWidgets('permission recovery cannot resume a disposed shell', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      final auth = _ShellAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+      auth.allow(false);
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(auth.observed, isFalse);
+
+      auth.allow(true);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
 
   testWidgets('a route pushed over the shell after Kanban and Schedules '
       'were both opened animates without a hero clash', (tester) async {
@@ -1064,6 +1940,39 @@ void main() {
       },
     );
   });
+}
+
+class _ShellAuth extends AuthController {
+  bool get observed => hasListeners;
+
+  var _allowed = true;
+  var _generation = 0;
+  var _connectionState = HermesConnectionState.ready;
+
+  @override
+  HermesConnectionState get state => _connectionState;
+
+  @override
+  bool get protectedRequestsAllowed => _allowed;
+
+  @override
+  int get ownerGeneration => _generation;
+
+  void allow(bool value) {
+    _allowed = value;
+    notifyListeners();
+  }
+
+  void retire() {
+    _allowed = false;
+    _generation++;
+    notifyListeners();
+  }
+
+  void transition(HermesConnectionState state) {
+    _connectionState = state;
+    notifyListeners();
+  }
 }
 
 /// A stand-in for the Kanban page that records when it starts and stops.

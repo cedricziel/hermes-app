@@ -17,6 +17,7 @@ import 'connect_failure.dart';
 import 'native_login_flow.dart';
 import 'page_token.dart';
 import 'token_store.dart';
+import 'verified_session_owner.dart';
 
 enum HermesConnectionState {
   /// Restoring a previously-saved server URL / session.
@@ -127,6 +128,18 @@ class AuthController extends ChangeNotifier {
   PageToken? _pageToken;
   HermesApiClient? _api;
   Future<HermesSession>? _refreshInFlight;
+  int _ownerEpoch = 0;
+  int _requestEpoch = 0;
+  int _apiOwnerEpoch = -1;
+  bool _protectedRequestsAllowed = false;
+  bool _identitySeen = false;
+  bool _ignoreStoredSession = false;
+  bool _disposed = false;
+  VerifiedSessionOwner? _verifiedOwner;
+  VerifiedSessionOwner? _expiredOwner;
+  Dio? _bootstrapClient;
+  Future<void> _tokenMutations = Future.value();
+  Future<void>? _departureInFlight;
   Completer<void>? _signInCancel;
   final _signedOut = StreamController<void>.broadcast(sync: true);
 
@@ -136,8 +149,7 @@ class AuthController extends ChangeNotifier {
   /// delete it here. A request that races to refresh the token does not fire.
   Stream<void> get signedOut => _signedOut.stream;
 
-  /// Whether the last [signedOut] was the session expiring, as opposed to
-  /// the user signing out or removing the server.
+  /// Whether current suspension or the last [signedOut] came from expiry.
   bool get sessionExpired => _sessionExpired;
   bool _sessionExpired = false;
 
@@ -161,6 +173,12 @@ class AuthController extends ChangeNotifier {
   HermesStatus? get status => _status;
   List<AuthProviderInfo> get providers => _providers;
   HermesIdentity? get identity => _identity;
+
+  /// Protected access closes synchronously when cleanup starts.
+  bool get protectedRequestsAllowed => _protectedRequestsAllowed;
+  VerifiedSessionOwner? get verifiedOwner => _verifiedOwner;
+  VerifiedSessionOwner? get expiredOwner => _expiredOwner;
+  int get ownerGeneration => _ownerEpoch;
   String? get errorMessage => _errorMessage;
 
   /// Why the last connect failed, when it failed reaching the server.
@@ -196,9 +214,12 @@ class AuthController extends ChangeNotifier {
     bool restoring = false,
     bool automatic = false,
   }) async {
+    final departure = _departureInFlight;
+    if (departure != null) await departure;
     final generation = ++_connectGeneration;
-    bool stale() => generation != _connectGeneration;
+    bool stale() => _disposed || generation != _connectGeneration;
     final typed = normalizeServerUrl(rawUrl);
+    if (typed != _baseUrl) _protectedRequestsAllowed = false;
     if (typed == null) {
       _errorMessage =
           'Enter a valid http(s) URL, e.g. http://192.168.1.20:9119';
@@ -241,6 +262,14 @@ class AuthController extends ChangeNotifier {
     }
     if (stale()) return;
 
+    if (_baseUrl != null && _baseUrl != normalized) {
+      _retireClients('server_change');
+    }
+    if (_status != null && _status!.authRequired != status.authRequired) {
+      _retireClients('auth_mode_changed');
+      _identitySeen = false;
+      _verifiedOwner = null;
+    }
     _baseUrl = normalized;
     _status = status;
     _connection = _telemetry(status.serverAttributes);
@@ -256,19 +285,21 @@ class AuthController extends ChangeNotifier {
       if (stale()) return;
     }
 
-    _dio = _buildAuthenticatedDio(normalized, gated: status.authRequired);
+    _replaceApiClient();
     _tokenDio = _plainDio(normalized);
-    _api = HermesApiClient(_dio!);
 
     if (!status.authRequired) {
       _session = null;
       _identity = null;
+      _verifiedOwner = null;
+      _identitySeen = true;
+      _protectedRequestsAllowed = true;
       _setState(HermesConnectionState.ready);
       return;
     }
 
     try {
-      _providers = await _api!.fetchAuthProviders();
+      _providers = await HermesApiClient(_tokenDio!).fetchAuthProviders();
       if (stale()) return;
     } on DioException catch (e) {
       if (stale()) return;
@@ -286,7 +317,9 @@ class AuthController extends ChangeNotifier {
       return;
     }
 
-    final storedSession = await _tokenStore.read();
+    final storedSession = _ignoreStoredSession
+        ? null
+        : await _tokenStore.read();
     if (stale()) return;
     // A session another dashboard minted is no use here. The address the
     // connect started from counts as well as the one it was redirected to:
@@ -294,15 +327,21 @@ class AuthController extends ChangeNotifier {
     final minter = storedSession?.serverUrl;
     if (storedSession == null ||
         (minter != null && minter != normalized && minter != typed)) {
+      _protectedRequestsAllowed = false;
       _setState(HermesConnectionState.needsLogin);
       return;
     }
 
+    if (storedSession.accessToken != _session?.accessToken ||
+        storedSession.refreshToken != _session?.refreshToken) {
+      _protectedRequestsAllowed = false;
+    }
     _session = storedSession.boundTo(normalized);
+    final verifying = _bootstrapClient = _dio;
     try {
       final identity = await _api!.fetchMe();
       if (stale()) return;
-      _identity = identity;
+      _acceptIdentity(identity);
       _setState(HermesConnectionState.ready);
     } on DioException catch (e) {
       // When the interceptor confirmed the credential is dead it has already
@@ -319,6 +358,8 @@ class AuthController extends ChangeNotifier {
       if (stale()) return;
       _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
+    } finally {
+      if (identical(_bootstrapClient, verifying)) _bootstrapClient = null;
     }
   }
 
@@ -357,7 +398,10 @@ class AuthController extends ChangeNotifier {
   /// loads the identity with the new token and only then stores the token set.
   Future<void> signInWithProvider(AuthProviderInfo provider) async {
     final url = _baseUrl;
-    if (url == null) return;
+    final ownerEpoch = _ownerEpoch;
+    final departure = _departureInFlight;
+    if (departure != null) await departure;
+    if (url == null || url != _baseUrl || ownerEpoch != _ownerEpoch) return;
     _errorMessage = null;
     _setState(HermesConnectionState.signingIn);
     final cancel = _signInCancel = Completer<void>();
@@ -374,11 +418,16 @@ class AuthController extends ChangeNotifier {
     // Signing out or switching server while the browser flow or the identity
     // request was finishing must not bring the result back.
     bool abandoned() {
-      if (!cancel.isCompleted && _state == HermesConnectionState.signingIn) {
+      if (!cancel.isCompleted &&
+          identical(_signInCancel, cancel) &&
+          ownerEpoch == _ownerEpoch &&
+          url == _baseUrl &&
+          _state == HermesConnectionState.signingIn) {
         return false;
       }
       report('cancelled');
-      if (_state == HermesConnectionState.signingIn) {
+      if (identical(_signInCancel, cancel) &&
+          _state == HermesConnectionState.signingIn) {
         _setState(HermesConnectionState.needsLogin);
       }
       return true;
@@ -394,10 +443,19 @@ class AuthController extends ChangeNotifier {
       if (abandoned()) return;
       // The session is neither in use nor stored until the server has
       // accepted its token, so a failure leaves nothing behind.
-      final identity = await _api!.fetchMe(accessToken: session.accessToken);
+      final identity = await HermesApiClient(_tokenDio!)
+          .fetchMe(accessToken: session.accessToken);
       if (abandoned()) return;
       try {
-        await _tokenStore.write(session);
+        await _writeTokens(
+          session,
+          () =>
+              !cancel.isCompleted &&
+              identical(_signInCancel, cancel) &&
+              ownerEpoch == _ownerEpoch &&
+              url == _baseUrl &&
+              _state == HermesConnectionState.signingIn,
+        );
       } on Object catch (e) {
         if (abandoned()) return;
         report('failed', {
@@ -409,18 +467,17 @@ class AuthController extends ChangeNotifier {
         _setState(HermesConnectionState.needsLogin);
         return;
       }
-      if (abandoned()) {
-        await _tokenStore.clear();
-        return;
-      }
+      if (abandoned()) return;
       _session = session;
-      _identity = identity;
+      _acceptIdentity(identity);
       report('succeeded');
       _setState(HermesConnectionState.ready);
     } on NativeLoginCancelled {
+      if (abandoned()) return;
       report('cancelled');
       _setState(HermesConnectionState.needsLogin);
     } on NativeLoginException catch (e) {
+      if (abandoned()) return;
       report('failed', {
         'reason': e.reason.name,
         'http.response.status_code': ?e.statusCode,
@@ -428,6 +485,7 @@ class AuthController extends ChangeNotifier {
       _errorMessage = e.message;
       _setState(HermesConnectionState.needsLogin);
     } on DioException catch (e) {
+      if (abandoned()) return;
       report('failed', {
         'reason': 'profile_load',
         'http.response.status_code': ?e.response?.statusCode,
@@ -438,10 +496,12 @@ class AuthController extends ChangeNotifier {
       );
       _setState(HermesConnectionState.needsLogin);
     } on FormatException {
+      if (abandoned()) return;
       report('failed', {'reason': 'profile_load'});
       _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.needsLogin);
     } on Object catch (e) {
+      if (abandoned()) return;
       report('failed', {
         'reason': 'unexpected',
         'exception.type': e.runtimeType.toString(),
@@ -449,7 +509,7 @@ class AuthController extends ChangeNotifier {
       _errorMessage = 'Sign-in failed. Please try again.';
       _setState(HermesConnectionState.needsLogin);
     } finally {
-      _signInCancel = null;
+      if (identical(_signInCancel, cancel)) _signInCancel = null;
     }
   }
 
@@ -459,15 +519,66 @@ class AuthController extends ChangeNotifier {
     if (cancel != null && !cancel.isCompleted) cancel.complete();
   }
 
-  Future<void> signOut() async {
-    _userGeneration++;
-    notifyListeners();
+  Future<void> signOut() => _depart(removeServer: false);
+
+  Future<void> _depart({required bool removeServer}) {
+    final generation = ++_userGeneration;
+    ++_connectGeneration;
+    if (removeServer) _connection = _telemetry(const {});
+    _retireClients(removeServer ? 'server_change' : 'sign_out');
+    cancelSignIn();
     _session = null;
-    await _tokenStore.clear();
     _identity = null;
+    _verifiedOwner = null;
+    _expiredOwner = null;
+    _identitySeen = false;
+    _sessionExpired = false;
+    _ignoreStoredSession = true;
+    if (removeServer) {
+      _savedServerUrl = null;
+    }
+    final departure = _finishDeparture(removeServer, generation);
+    _departureInFlight = departure;
+    notifyListeners();
+    return departure.whenComplete(() {
+      if (identical(_departureInFlight, departure)) _departureInFlight = null;
+    });
+  }
+
+  Future<void> _finishDeparture(bool removeServer, int generation) async {
+    final deletionFailed = !await _clearTokens();
+    if (_disposed || generation != _userGeneration) return;
+    _ignoreStoredSession = deletionFailed;
+    var forgetFailed = false;
+    if (removeServer) {
+      try {
+        await _writeSavedServer(() => _prefs.remove(kSavedServerUrlKey));
+      } on Object {
+        forgetFailed = true;
+      }
+      if (_disposed || generation != _userGeneration) return;
+      _baseUrl = null;
+      _status = null;
+      _connection = _telemetry(const {});
+      _providers = const [];
+      _dio = null;
+      _tokenDio = null;
+      _pageToken = null;
+      _api = null;
+    } else if (!(_status?.authRequired ?? true)) {
+      _replaceApiClient();
+      _protectedRequestsAllowed = true;
+    }
+    _errorMessage = [
+      if (deletionFailed) 'This device could not remove the saved sign-in.',
+      if (forgetFailed) 'This device could not forget the saved server.',
+    ].join(' ');
+    if (_errorMessage!.isEmpty) _errorMessage = null;
     _announceSignedOut();
     _setState(
-      (_status?.authRequired ?? true)
+      removeServer
+          ? HermesConnectionState.needsServerUrl
+          : (_status?.authRequired ?? true)
           ? HermesConnectionState.needsLogin
           : HermesConnectionState.ready,
     );
@@ -483,49 +594,105 @@ class AuthController extends ChangeNotifier {
   }
 
   /// Forgets the configured server entirely and returns to setup.
-  Future<void> changeServer() async {
-    _userGeneration++;
-    notifyListeners();
-    ++_connectGeneration;
-    cancelSignIn();
-    _savedServerUrl = null;
-    _session = null;
-    await _tokenStore.clear();
-    await _writeSavedServer(() => _prefs.remove(kSavedServerUrlKey));
-    _baseUrl = null;
-    _status = null;
-    _connection = _telemetry(const {});
-    _providers = const [];
-    _identity = null;
-    _dio = null;
-    _tokenDio = null;
-    _pageToken = null;
-    _api = null;
-    _announceSignedOut();
-    _setState(HermesConnectionState.needsServerUrl);
+  Future<void> changeServer() => _depart(removeServer: true);
+
+  void _retireClients(String reason) {
+    _protectedRequestsAllowed = false;
+    _ownerEpoch++;
+    _requestEpoch++;
+    _refreshInFlight = null;
+    _events('auth.client.retired', {'reason': reason});
   }
+
+  void _replaceApiClient() {
+    final url = _baseUrl!;
+    _dio = _buildAuthenticatedDio(url, gated: _status?.authRequired ?? true);
+    _apiOwnerEpoch = _ownerEpoch;
+    _api = HermesApiClient(_dio!);
+  }
+
+  void _acceptIdentity(HermesIdentity identity) {
+    final owner = VerifiedSessionOwner.fromIdentity(_baseUrl!, identity);
+    if (_identitySeen && (owner == null || owner != _verifiedOwner)) {
+      _retireClients('owner_changed');
+    }
+    _ignoreStoredSession = false;
+    _identity = identity;
+    _verifiedOwner = owner;
+    _identitySeen = true;
+    if (_apiOwnerEpoch != _ownerEpoch) _replaceApiClient();
+    _protectedRequestsAllowed = true;
+  }
+
+  Future<T> _mutateTokens<T>(Future<T> Function() mutation) {
+    final result = _tokenMutations.then((_) => mutation());
+    _tokenMutations = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  Future<void> _writeTokens(HermesSession session, bool Function() valid) =>
+      _mutateTokens<void>(() async {
+        if (!valid()) return;
+        await _tokenStore.write(session);
+        if (!valid()) await _tokenStore.clear();
+      });
 
   Dio _buildAuthenticatedDio(String baseUrl, {required bool gated}) {
     _pageToken = null;
     final dio = _plainDio(baseUrl);
+    final ownerEpoch = _ownerEpoch;
+    bool allowed(RequestOptions options) =>
+        !_disposed &&
+        ownerEpoch == _ownerEpoch &&
+        baseUrl == _baseUrl &&
+        options.extra['hermes_request_epoch'] == _requestEpoch &&
+        (options.path == '/api/auth/providers' ||
+            ((!gated || _session != null) &&
+                (_protectedRequestsAllowed ||
+                    (identical(_bootstrapClient, dio) &&
+                        options.path == '/api/auth/me'))));
+    DioException cancelled(RequestOptions options) => DioException(
+      requestOptions: options,
+      type: DioExceptionType.cancel,
+      message: 'Session access changed',
+    );
     if (!gated) {
       final page = _pageToken = PageToken(HermesApiClient(_plainDio(baseUrl)));
       dio.interceptors.add(pageTokenInterceptor(dio, page));
     }
-    dio.interceptors.add(
+    dio.interceptors.insert(
+      0,
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          options.extra.putIfAbsent(
+            'hermes_request_epoch',
+            () => _requestEpoch,
+          );
+          if (!allowed(options)) return handler.reject(cancelled(options));
           final session = _session;
-          if (session != null) {
+          if (gated &&
+              session != null &&
+              options.path != '/api/auth/providers') {
             final token = await _ensureFreshAccessToken();
+            if (!allowed(options)) return handler.reject(cancelled(options));
             if (token != null) {
               options.headers['Authorization'] = 'Bearer $token';
             }
           }
           handler.next(options);
         },
+        onResponse: (response, handler) {
+          if (!allowed(response.requestOptions)) {
+            return handler.reject(cancelled(response.requestOptions));
+          }
+          handler.next(response);
+        },
         onError: (error, handler) async {
           final options = error.requestOptions;
+          if (!allowed(options)) return handler.next(cancelled(options));
           final session = _session;
           if (error.response?.statusCode != 401 || session == null) {
             return handler.next(error);
@@ -550,11 +717,19 @@ class AuthController extends ChangeNotifier {
             try {
               current = await _refreshSession(session, trigger: 'after_401');
             } on NativeLoginException catch (e) {
-              current = e.rejected ? await _refreshRejected(session) : null;
+              current = e.rejected
+                  ? await _refreshRejected(
+                      session,
+                      ownerEpoch: ownerEpoch,
+                      requestEpoch:
+                          options.extra['hermes_request_epoch'] as int,
+                    )
+                  : null;
             } on Object {
               current = null;
             }
           }
+          if (!allowed(options)) return handler.next(cancelled(options));
           if (current == null) return handler.next(error);
 
           options
@@ -565,6 +740,14 @@ class AuthController extends ChangeNotifier {
           } on DioException catch (e) {
             handler.next(e);
           }
+        },
+      ),
+    );
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (!allowed(options)) return handler.reject(cancelled(options));
+          handler.next(options);
         },
       ),
     );
@@ -579,14 +762,23 @@ class AuthController extends ChangeNotifier {
   Future<Map<String, String>> windowAuthHeaders({
     Map<String, String>? rejected,
   }) async {
+    final ownerEpoch = _ownerEpoch;
+    final requestEpoch = _requestEpoch;
+    bool valid() =>
+        !_disposed &&
+        _protectedRequestsAllowed &&
+        ownerEpoch == _ownerEpoch &&
+        requestEpoch == _requestEpoch;
+    if (!valid()) return const {};
     final page = _pageToken;
     if (page != null) {
       final current = await page.get();
+      if (!valid()) return const {};
       if (current != null && rejected?[kSessionTokenHeader] == current) {
         page.forget();
       }
       final token = await page.get();
-      return {kSessionTokenHeader: ?token};
+      return valid() ? {kSessionTokenHeader: ?token} : const {};
     }
     final session = _session;
     if (session == null) return const {};
@@ -594,7 +786,9 @@ class AuthController extends ChangeNotifier {
         rejected?['Authorization'] == 'Bearer ${session.accessToken}';
     if (!sentCurrent) {
       final token = await _ensureFreshAccessToken();
-      return {'Authorization': ?(token == null ? null : 'Bearer $token')};
+      return valid()
+          ? {'Authorization': ?(token == null ? null : 'Bearer $token')}
+          : const {};
     }
     if (session.refreshToken.isEmpty) {
       await _handleSessionExpired('no_refresh_token');
@@ -602,19 +796,29 @@ class AuthController extends ChangeNotifier {
     }
     try {
       final refreshed = await _refreshSession(session, trigger: 'window_401');
-      return {'Authorization': 'Bearer ${refreshed.accessToken}'};
+      return valid()
+          ? {'Authorization': 'Bearer ${refreshed.accessToken}'}
+          : const {};
     } on NativeLoginException catch (e) {
-      if (e.rejected) await _refreshRejected(session);
+      if (e.rejected) {
+        await _refreshRejected(
+          session,
+          ownerEpoch: ownerEpoch,
+          requestEpoch: requestEpoch,
+        );
+      }
     } on Object {
       // Kept signed in; the window's request fails with its 401.
     }
     final now = _session;
-    return now == null
+    return !valid() || now == null
         ? const {}
         : {'Authorization': 'Bearer ${now.accessToken}'};
   }
 
   Future<String?> _ensureFreshAccessToken() async {
+    final ownerEpoch = _ownerEpoch;
+    final requestEpoch = _requestEpoch;
     final session = _session;
     if (session == null) return null;
     if (!session.needsRefresh()) return session.accessToken;
@@ -628,7 +832,11 @@ class AuthController extends ChangeNotifier {
       // it. Otherwise the (possibly stale) token goes out; the server will
       // 401 and the response interceptor drives re-login.
       if (!e.rejected) return session.accessToken;
-      return (await _refreshRejected(session))?.accessToken;
+      return (await _refreshRejected(
+        session,
+        ownerEpoch: ownerEpoch,
+        requestEpoch: requestEpoch,
+      ))?.accessToken;
     } on FormatException {
       // The server answered the refresh with a token set that does not parse.
       return session.accessToken;
@@ -654,20 +862,32 @@ class AuthController extends ChangeNotifier {
 
     // Another isolate may already have rotated the pair; its refresh token
     // would be spent, so the stored pair is taken over without a request.
-    final future = _adoptStored(current)
-        .then(
-          (adopted) async =>
-              adopted ??
+    final ownerEpoch = _ownerEpoch;
+    final requestEpoch = _requestEpoch;
+    bool valid() =>
+        !_disposed &&
+        ownerEpoch == _ownerEpoch &&
+        requestEpoch == _requestEpoch &&
+        url == _baseUrl;
+    late final Future<HermesSession> future;
+    future = _adoptStored(current)
+        .then((adopted) async {
+          if (!valid()) throw StateError('The session changed during refresh');
+          return adopted ??
               (await refreshNativeSession(
                 url,
                 current,
                 httpClient: _tokenDio,
-                onRetry: () => _events('auth.session.refresh_retried', {
-                  'trigger': trigger,
-                }),
-              )).rotatedFrom(current),
-        )
+                onRetry: () {
+                  if (!valid()) {
+                    throw StateError('The session changed during refresh');
+                  }
+                  _events('auth.session.refresh_retried', {'trigger': trigger});
+                },
+              )).rotatedFrom(current);
+        })
         .then((refreshed) async {
+          if (!valid()) throw StateError('The session changed during refresh');
           if (identical(refreshed, _session)) return refreshed;
           // Signing out or switching server must not bring the old session
           // back; the same session read again keeps the rotated tokens, as
@@ -677,16 +897,23 @@ class AuthController extends ChangeNotifier {
           }
           _session = refreshed;
           try {
-            await _tokenStore.write(refreshed);
+            await _writeTokens(refreshed, valid);
           } on Object catch (error) {
             _events('auth.session.store_failed', {
               'error.type': error.runtimeType.toString(),
             });
           }
+          if (!valid()) throw StateError('The session changed during refresh');
           _events('auth.session.refreshed', {'trigger': trigger});
           return refreshed;
         })
         .onError<NativeLoginException>((e, stack) {
+          if (!valid()) {
+            Error.throwWithStackTrace(
+              StateError('The session changed during refresh'),
+              stack,
+            );
+          }
           _events('auth.session.refresh_failed', {
             'trigger': trigger,
             'rejected': e.rejected,
@@ -695,7 +922,7 @@ class AuthController extends ChangeNotifier {
           Error.throwWithStackTrace(e, stack);
         })
         .whenComplete(() {
-          _refreshInFlight = null;
+          if (identical(_refreshInFlight, future)) _refreshInFlight = null;
         });
     _refreshInFlight = future;
     return future;
@@ -707,17 +934,28 @@ class AuthController extends ChangeNotifier {
   /// in the store is taken over instead of signing the user out. Its write
   /// may still be under way, so the store is read again a moment later.
   /// Returns the session to go on with, or null once it is gone.
-  Future<HermesSession?> _refreshRejected(HermesSession sent) async {
+  Future<HermesSession?> _refreshRejected(
+    HermesSession sent, {
+    required int ownerEpoch,
+    required int requestEpoch,
+  }) async {
+    bool valid() =>
+        !_disposed &&
+        ownerEpoch == _ownerEpoch &&
+        requestEpoch == _requestEpoch;
     for (final wait in [Duration.zero, _rejectionRecheck]) {
       if (wait > Duration.zero) await Future<void>.delayed(wait);
+      if (!valid()) return null;
       final current = _session;
       // Signed out, or now someone else's session: not this refresh's to end.
       if (current == null || !current.sameOwner(sent)) return null;
       // A caller rejected with the same token already took over a pair.
       if (current.refreshToken != sent.refreshToken) return current;
       final adopted = await _adoptStored(sent);
+      if (!valid()) return null;
       if (adopted != null) return adopted;
     }
+    if (!valid()) return null;
     final current = _session;
     if (current == null || !current.sameOwner(sent)) return null;
     if (current.refreshToken != sent.refreshToken) return current;
@@ -729,13 +967,18 @@ class AuthController extends ChangeNotifier {
   /// same dashboard as this controller, received after [sent], while this
   /// controller still holds [sent]. Null otherwise.
   Future<HermesSession?> _adoptStored(HermesSession sent) async {
+    final ownerEpoch = _ownerEpoch;
+    final requestEpoch = _requestEpoch;
     final HermesSession? stored;
     try {
       stored = await _tokenStore.read();
     } on Object {
       return null;
     }
-    if (stored == null ||
+    if (_disposed ||
+        ownerEpoch != _ownerEpoch ||
+        requestEpoch != _requestEpoch ||
+        stored == null ||
         !stored.sameOwner(sent) ||
         stored.serverUrl != _baseUrl ||
         // An older pair is no replacement: it is what a failed write left.
@@ -748,13 +991,42 @@ class AuthController extends ChangeNotifier {
     return stored;
   }
 
-  Future<void> _handleSessionExpired(String cause) async {
-    if (_session == null) return;
+  Future<void> _handleSessionExpired(String cause) {
+    if (_session == null) return Future.value();
     _events('auth.session.expired', {'cause': cause});
+    _expiredOwner = _verifiedOwner;
+    _protectedRequestsAllowed = false;
+    _sessionExpired = true;
+    _ignoreStoredSession = true;
+    final requestEpoch = ++_requestEpoch;
+    _refreshInFlight = null;
     _session = null;
-    await _tokenStore.clear();
     _identity = null;
-    _errorMessage = 'Your session expired. Please sign in again.';
+    final expiry = _finishExpiry(requestEpoch);
+    _departureInFlight = expiry;
+    notifyListeners();
+    return expiry.whenComplete(() {
+      if (identical(_departureInFlight, expiry)) _departureInFlight = null;
+    });
+  }
+
+  Future<bool> _clearTokens() async {
+    try {
+      await _mutateTokens<void>(_tokenStore.clear);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<void> _finishExpiry(int requestEpoch) async {
+    final deletionFailed = !await _clearTokens();
+    if (_disposed || requestEpoch != _requestEpoch) return;
+    _ignoreStoredSession = deletionFailed;
+    _errorMessage = deletionFailed
+        ? 'Your session expired. This device could not remove the saved sign-in. '
+              'Sign in again to replace it.'
+        : 'Your session expired. Please sign in again.';
     _announceSignedOut(expired: true);
     _setState(HermesConnectionState.needsLogin);
   }
@@ -788,12 +1060,17 @@ class AuthController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _protectedRequestsAllowed = false;
+    _ownerEpoch++;
+    _requestEpoch++;
     _networkChanges?.cancel();
     _signedOut.close();
     super.dispose();
   }
 
   void _setState(HermesConnectionState next) {
+    if (_disposed) return;
     _state = next;
     _events('auth.state', {'state': next.name});
     notifyListeners();

@@ -1,15 +1,18 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "../Button/Button";
-import { Chip } from "../Chip/Chip";
+import { GroupedTextFieldRow } from "../GroupedTextFieldRow/GroupedTextFieldRow";
+import { GroupedValueRow } from "../GroupedValueRow/GroupedValueRow";
+import { GroupedMenuRow } from "../GroupedMenuRow/GroupedMenuRow";
 import { Icon } from "../Icon/Icon";
-import { Menu, MenuAnchor } from "../Menu/Menu";
 import { Spinner } from "../Spinner/Spinner";
-import { Switch } from "../Switch/Switch";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
 import { IconButton } from "../IconButton/IconButton";
 import type { KanbanTaskItem } from "../KanbanCard/KanbanCard";
 import { kanbanStatusLabel } from "../KanbanStatusChips/KanbanStatusChips";
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
+import { cx, DeviceScope, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./KanbanTaskPanel.css";
 
 /** The task shown in the panel: a board task plus what only the detail view shows. */
@@ -151,9 +154,9 @@ export interface KanbanTaskPanelProps {
   defaultMoveMenuOpen?: boolean;
   /** Pencil pressed (the app opens the title and description editor). */
   onEdit?: () => void;
-  /** Assignee chip pressed. */
+  /** Assignee row pressed. */
   onAssign?: () => void;
-  /** Priority chip pressed. */
+  /** Priority row pressed. */
   onPrioritise?: () => void;
   /** A status was picked in "Move to…". */
   onMove?: (status: string) => void;
@@ -258,7 +261,6 @@ export function KanbanTaskPanel({
   onDelete,
   onRetry,
 }: KanbanTaskPanelProps) {
-  const [moveOpen, setMoveOpen] = useState(defaultMoveMenuOpen);
   const [runsOpen, setRunsOpen] = useState(defaultRunsOpen);
   const [historyOpen, setHistoryOpen] = useState(defaultHistoryOpen);
   const [comment, setComment] = useState("");
@@ -310,6 +312,7 @@ export function KanbanTaskPanel({
     setComment("");
   };
   const priority = task.priority ?? 0;
+  const moveStatuses = settableStatuses.filter((status) => status !== task.status);
 
   return (
     <PlatformScope platform={resolvedPlatform}>
@@ -323,262 +326,125 @@ export function KanbanTaskPanel({
             <h2 className="h-kanban-task-panel__title">{task.title}</h2>
             <IconButton icon="edit" label="Edit" onClick={onEdit} />
           </div>
-          <div className="h-kanban-task-panel__chips">
-            <Chip
-              icon="person"
-              label={task.assignee ?? "Unassigned"}
-              onClick={onAssign}
-            />
-            <Chip
-              icon="flag"
-              label={priority === 0 ? "Normal" : `P${priority}`}
-              onClick={onPrioritise}
-            />
-            {task.tenant ? <Chip label={task.tenant} /> : null}
-            <MenuAnchor>
-              <Chip
-                icon="swap_horiz"
-                label="Move to…"
-                onClick={() => setMoveOpen(!moveOpen)}
-              />
-              {moveOpen ? (
-                <Menu
-                  align={apple ? "end" : "start"}
-                  label="Move to"
-                  style={apple ? undefined : { minWidth: 160 }}
-                  device={frame === "sheet" ? "touch" : undefined}
-                  items={settableStatuses
-                    .filter((s) => s !== task.status)
-                    .map((s) => ({ label: kanbanStatusLabel(s), value: s }))}
-                  onSelect={(item) => {
-                    setMoveOpen(false);
-                    if (item.value) onMove?.(item.value);
-                  }}
-                />
-              ) : null}
-            </MenuAnchor>
-          </div>
-
-          {task.status === "triage" ? (
-            <div className="h-kanban-task-panel__actions">
-              <Button onClick={onDecompose}>Decompose</Button>
-              <Button variant="outlined" onClick={onSpecify}>
-                Specify
-              </Button>
-            </div>
-          ) : null}
-          {task.status === "running" ? (
-            <div className="h-kanban-task-panel__actions">
-              <Button variant="outlined" onClick={onReclaim}>
-                Reclaim
-              </Button>
-            </div>
-          ) : null}
-          {task.status !== "done" ? (
-            <div className="h-kanban-task-panel__actions">
-              <Button onClick={onComplete}>Complete</Button>
-              {task.status !== "blocked" ? (
-                <Button variant="outlined" onClick={onBlock}>
-                  Block
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="h-kanban-task-panel__actions">
-            <Button
-              variant="outlined"
-              icon="speed"
-              disabled={estimating}
-              onClick={onEstimate}
-            >
-              Estimate
-            </Button>
-            {estimating ? (
-              <Spinner size={16} label="Estimating" />
-            ) : estimate ? (
-              <span>{estimate.summary}</span>
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <GroupedSection>
+              <GroupedValueRow title="Assignee" value={task.assignee ?? "Unassigned"} onClick={onAssign} />
+              <GroupedValueRow title="Priority" value={priority === 0 ? "Normal" : `P${priority}`} onClick={onPrioritise} />
+              {task.tenant ? <GroupedValueRow title="Tenant" value={task.tenant} /> : null}
+              <GroupedMenuRow title="Move to…" open={defaultMoveMenuOpen} placeholder={kanbanStatusLabel(task.status ?? "")}
+                options={moveStatuses.map(kanbanStatusLabel)}
+                onSelect={(index) => onMove?.(moveStatuses[index])} />
+            </GroupedSection>
+            {task.status !== "done" ? (
+              <GroupedSection header="Actions">
+                {task.status === "triage" ? <>
+                  <GroupedRow title="Decompose" chevron={false} onClick={onDecompose} />
+                  <GroupedRow title="Specify" chevron={false} onClick={onSpecify} />
+                </> : null}
+                {task.status === "running" ? <GroupedRow title="Reclaim" chevron={false} onClick={onReclaim} /> : null}
+                <GroupedRow title="Complete" chevron={false} onClick={onComplete} />
+                {task.status !== "blocked" ? <GroupedRow title="Block" chevron={false} onClick={onBlock} /> : null}
+              </GroupedSection>
             ) : null}
-          </div>
-          {estimate?.rationale && !estimating ? (
-            <div className="h-kanban-task-panel__subtle h-kanban-task-panel__rationale">
-              {estimate.rationale}
-            </div>
-          ) : null}
+            <GroupedSection className="h-kanban-task-panel__metadata" footer={estimate?.rationale}>
+              <GroupedRow title="Estimate" icon="speed" chevron={false}
+                disabled={estimating} onClick={onEstimate}
+                subtitle={estimating ? undefined : estimate?.summary}
+                trailing={estimating ? <Spinner size={16} label="Estimating" /> : undefined} />
+            </GroupedSection>
+          </DeviceScope>
 
-          {diagnostics.length ? (
-            <>
-              <Heading>Needs attention</Heading>
-              {diagnostics.map((d) => (
-                <div
-                  key={d.title}
-                  className={`h-kanban-task-panel__diagnostic h-kanban-task-panel__diagnostic--${d.severity}`}
-                >
-                  <Icon name="warning" size={24} />
-                  <div>
-                    <div>{d.title}</div>
-                    {d.detail ? (
-                      <div className="h-kanban-task-panel__subtle">
-                        {d.detail}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : null}
-          {task.body ? (
-            <>
-              <Heading>Description</Heading>
-              <div className="h-kanban-task-panel__text">{task.body}</div>
-            </>
-          ) : null}
-          {task.result ? (
-            <>
-              <Heading>Result</Heading>
-              <div className="h-kanban-task-panel__text">{task.result}</div>
-            </>
-          ) : null}
-          <Heading>Model</Heading>
-          <button
-            type="button"
-            className="h-kanban-task-panel__model"
-            onClick={onEditModel}
-          >
-            <span
-              className={
-                task.modelOverride
-                  ? "h-kanban-task-panel__model-name"
-                  : "h-kanban-task-panel__model-name h-kanban-task-panel__quiet"
-              }
-            >
-              {task.modelOverride ?? "Profile default"}
-            </span>
-            {task.reasoningEffort ? (
-              <span className="h-kanban-task-panel__quiet">{`\u00a0· ${task.reasoningEffort}`}</span>
-            ) : null}
-            <Icon
-              name="expand_more"
-              size={18}
-              className="h-kanban-task-panel__quiet"
-            />
-          </button>
-          <Heading>Depends on</Heading>
-          <div className="h-kanban-task-panel__chips h-kanban-task-panel__chips--tight">
-            {parents.map((id) => (
-              <Chip key={id} label={id} onRemove={() => onRemoveParent?.(id)} />
-            ))}
-            <Chip icon="add" label="Add" onClick={onAddParent} />
-          </div>
-          {subtasks.length ? (
-            <>
-              <Heading>Subtasks</Heading>
-              {subtasks.map((c) => (
-                <div key={c.id} className="h-kanban-task-panel__tile">
-                  <div>{c.title}</div>
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <div className="h-kanban-task-panel__metadata">
+              {diagnostics.length ? (
+                <GroupedSection header="Needs attention">
+                  {diagnostics.map((d) => (
+                    <GroupedRow key={d.title} title={d.title} wrapTitle subtitle={d.detail || undefined}
+                      chevron={false} leading={<Icon name="warning" size={20}
+                        style={{ color: d.severity === "warning" ? "var(--h-warning)" : "var(--h-error)" }} />} />
+                  ))}
+                </GroupedSection>
+              ) : null}
+              {task.body != null ? (
+                <GroupedSection header="Description"><div className="h-kanban-task-panel__group-text">{task.body}</div></GroupedSection>
+              ) : null}
+              {task.result != null ? (
+                <GroupedSection header="Result"><div className="h-kanban-task-panel__group-text">{task.result}</div></GroupedSection>
+              ) : null}
+              <GroupedSection header="Model">
+                <GroupedRow title={task.modelOverride ?? "Profile default"}
+                  subtitle={task.reasoningEffort} onClick={onEditModel} />
+              </GroupedSection>
+              <GroupedSection header="Depends on">
+                {parents.map((id) => (
+                  <GroupedRow key={id} title={id} wrapTitle chevron={false}
+                    trailing={<IconButton icon="close" label={`Remove dependency ${id}`}
+                      disabled={!onRemoveParent}
+                      onClick={onRemoveParent ? () => onRemoveParent(id) : undefined} />} />
+                ))}
+                <GroupedRow title="Add" icon="add" chevron={false} onClick={onAddParent} />
+              </GroupedSection>
+              {subtasks.length ? (
+                <GroupedSection header="Subtasks">
+                  {subtasks.map((c) => (
+                    <GroupedRow key={c.id} title={c.title} wrapTitle chevron={false}
+                      subtitle={`${c.id} · ${kanbanStatusLabel(c.status)}${c.summary == null ? "" : `\n${c.summary}`}`} />
+                  ))}
+                </GroupedSection>
+              ) : null}
+            </div>
+          </DeviceScope>
+
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <GroupedSection header={`Comments (${comments.length})`}>
+              {comments.map((c, i) => (
+                <div key={i} className="h-kanban-task-panel__comment">
                   <div className="h-kanban-task-panel__subtle">
-                    {`${c.id} · ${kanbanStatusLabel(c.status)}`}
-                    {c.summary ? (
-                      <>
-                        <br />
-                        {c.summary}
-                      </>
-                    ) : null}
+                    {c.when ? `${c.author} · ${c.when}` : c.author}
                   </div>
+                  <div className="h-kanban-task-panel__text">{c.body}</div>
                 </div>
               ))}
-            </>
-          ) : null}
-
-          <Heading>{`Comments (${comments.length})`}</Heading>
-          {comments.map((c, i) => (
-            <div key={i} className="h-kanban-task-panel__comment">
-              <div className="h-kanban-task-panel__subtle">
-                {c.when ? `${c.author} · ${c.when}` : c.author}
+              <div onKeyDown={(e) => { if (e.key === "Enter") send(); }}>
+                <GroupedTextFieldRow label="Comment" hint="Add a comment…"
+                  value={comment} onChange={setComment} />
               </div>
-              <div className="h-kanban-task-panel__text">{c.body}</div>
-            </div>
-          ))}
-          <div className="h-kanban-task-panel__comment-row">
-            <input
-              className="h-kanban-task-panel__comment-field"
-              placeholder="Add a comment…"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") send();
-              }}
-            />
-            <IconButton icon="send" label="Send" onClick={send} />
-          </div>
+              <GroupedRow title="Send" icon="send" chevron={false} onClick={send} />
+            </GroupedSection>
+          </DeviceScope>
 
           {channels.length ? (
-            <>
-              <Heading>Notify</Heading>
-              {channels.map((c) => (
-                <label
-                  key={c.platform}
-                  className="h-kanban-task-panel__switch-row"
-                >
-                  <span>
-                    <span className="h-kanban-task-panel__tile-title">
-                      {`Post updates to ${c.name}`}
-                    </span>
-                    <span className="h-kanban-task-panel__tile-sub">
-                      {c.platform}
-                    </span>
-                  </span>
-                  <Switch
-                    checked={c.subscribed}
-                    label={`Post updates to ${c.name}`}
-                    disabled={c.switching}
-                    onChange={(on) => onToggleChannel?.(c, on)}
-                  />
-                </label>
-              ))}
-            </>
+            <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+              <GroupedSection header="Notify">
+                {channels.map((c) => (
+                  <GroupedSwitchRow key={c.platform} title={`Post updates to ${c.name}`} wrapTitle
+                    subtitle={c.platform} checked={c.subscribed} disabled={c.switching}
+                    onChange={onToggleChannel ? (on) => onToggleChannel(c, on) : undefined} />
+                ))}
+              </GroupedSection>
+            </DeviceScope>
           ) : null}
 
-          <Heading>Attachments</Heading>
-          {transferring ? (
-            <div className="h-kanban-task-panel__progress" role="progressbar">
-              <div className="h-kanban-task-panel__progress-value" />
-            </div>
-          ) : null}
-          {attachments.map((a) => (
-            <div key={a.filename} className="h-kanban-task-panel__attachment">
-              <Icon name="attach_file" size={24} />
-              <span className="h-kanban-task-panel__attachment-text">
-                <span className="h-kanban-task-panel__tile-title">
-                  {a.filename}
-                </span>
-                <span className="h-kanban-task-panel__tile-sub">
-                  {kanbanFileSize(a.size)}
-                </span>
-              </span>
-              <IconButton
-                icon="download"
-                label="Save attachment"
-                disabled={transferring}
-                onClick={() => onDownload?.(a)}
-              />
-              <IconButton
-                icon="close"
-                label="Remove attachment"
-                disabled={transferring}
-                onClick={() => onRemoveAttachment?.(a)}
-              />
-            </div>
-          ))}
-          <div>
-            <Button
-              variant="text"
-              icon="attach_file"
-              disabled={transferring}
-              onClick={onAttach}
-            >
-              Attach file
-            </Button>
-          </div>
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <GroupedSection header="Attachments">
+              {transferring ? (
+                <div className="h-kanban-task-panel__progress" role="progressbar">
+                  <div className="h-kanban-task-panel__progress-value" />
+                </div>
+              ) : null}
+              {attachments.map((a) => (
+                <GroupedRow key={a.filename} title={a.filename} wrapTitle
+                  icon="attach_file" subtitle={kanbanFileSize(a.size)} trailing={<>
+                    <IconButton icon="download" label={`Save ${a.filename}`}
+                      disabled={transferring} onClick={() => onDownload?.(a)} />
+                    <IconButton icon="close" label={`Remove ${a.filename}`}
+                      disabled={transferring} onClick={() => onRemoveAttachment?.(a)} />
+                  </>} />
+              ))}
+              <GroupedRow title="Attach file" icon="attach_file" chevron={false}
+                disabled={transferring} onClick={onAttach} />
+            </GroupedSection>
+          </DeviceScope>
 
           {runs.length ? (
             <Expander
@@ -586,34 +452,20 @@ export function KanbanTaskPanel({
               open={runsOpen}
               onToggle={() => setRunsOpen(!runsOpen)}
             >
-              {[...runs].reverse().map((r) => (
-                <div key={r.id} className="h-kanban-task-panel__run">
-                  <span className="h-kanban-task-panel__run-text">
-                    <span className="h-kanban-task-panel__tile-title">
-                      {`#${r.id} · ${r.profile ?? "worker"} · ${r.active ? "running" : (r.outcome ?? "")}`}
-                    </span>
-                    {r.detail ? (
-                      <span className="h-kanban-task-panel__tile-sub">
-                        {r.detail}
-                      </span>
-                    ) : null}
-                  </span>
-                  {r.active && task.status === "running" ? (
-                    <Button
-                      variant="text"
-                      compact
-                      onClick={() => onTerminateRun?.(r)}
-                    >
-                      Terminate
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
-              <div>
-                <Button variant="text" icon="terminal" onClick={onShowLog}>
-                  Worker log
-                </Button>
-              </div>
+              <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+                <GroupedSection>
+                  {[...runs].reverse().map((r) => (
+                    <div key={r.id} className="h-kanban-task-panel__activity-row"><GroupedRow wrapTitle
+                      title={`#${r.id} · ${r.profile ?? "worker"} · ${r.active ? "running" : (r.outcome ?? "")}`}
+                      subtitle={r.detail} trailing={r.active && task.status === "running" ? (
+                        <Button variant="text" compact onClick={() => onTerminateRun?.(r)}>
+                          Terminate
+                        </Button>
+                      ) : undefined} /></div>
+                  ))}
+                  <GroupedRow title="Worker log" icon="terminal" chevron={false} onClick={onShowLog} />
+                </GroupedSection>
+              </DeviceScope>
             </Expander>
           ) : null}
           {events.length ? (
@@ -622,43 +474,26 @@ export function KanbanTaskPanel({
               open={historyOpen}
               onToggle={() => setHistoryOpen(!historyOpen)}
             >
-              {[...events].reverse().map((e, i) => (
-                <div key={i} className="h-kanban-task-panel__run">
-                  <span className="h-kanban-task-panel__tile-title">
-                    {e.kind}
-                  </span>
-                  {e.when ? (
-                    <span className="h-kanban-task-panel__tile-sub">
-                      {e.when}
-                    </span>
-                  ) : null}
-                </div>
-              ))}
+              <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+                <GroupedSection>
+                  {[...events].reverse().map((e, i) => (
+                    <GroupedRow key={i} title={e.kind} wrapTitle value={e.when} />
+                  ))}
+                </GroupedSection>
+              </DeviceScope>
             </Expander>
           ) : null}
 
-          <hr className="h-divider" />
-          <div className="h-kanban-task-panel__footer">
-            <Button variant="text" icon="archive" onClick={onArchive}>
-              Archive
-            </Button>
-            <Button
-              variant="text"
-              icon="delete"
-              className="h-kanban-task-panel__delete"
-              onClick={onDelete}
-            >
-              Delete
-            </Button>
-          </div>
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <GroupedSection>
+              <GroupedRow title="Archive" icon="archive" chevron={false} onClick={onArchive} />
+              <GroupedRow title="Delete" leading={<Icon name="delete" style={{ color: "var(--h-error)" }} />} destructive chevron={false} onClick={onDelete} />
+            </GroupedSection>
+          </DeviceScope>
         </div>
       </div>
     </PlatformScope>
   );
-}
-
-function Heading({ children }: { children: ReactNode }) {
-  return <div className="h-kanban-task-panel__heading">{children}</div>;
 }
 
 function SheetHandle() {

@@ -14,11 +14,15 @@ Future<bool> runKanbanAction(
     await action();
     return true;
   } on KanbanException catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    if (context.mounted) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
   } on Object catch (_) {
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Something went wrong. Try again.')),
-    );
+    if (context.mounted) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Something went wrong. Try again.')),
+      );
+    }
   }
   return false;
 }

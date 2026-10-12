@@ -1,12 +1,7 @@
 name: Real backend contract
 
-# Runs test/real_backend_contract_test.dart against a throwaway Hermes Agent
-# dashboard, to catch response shapes that drift from what the repositories
-# parse. It needs no secrets and makes no model calls: the backend runs in an
-# empty HERMES_HOME with no provider configured, and the tests that need a
-# model stay skipped because HERMES_DEV_MODEL_CALLS is not set.
-#
-# Not a required check. To move to a newer Hermes, bump HERMES_REF below.
+# Advisory coverage uses isolated state and free scripted loopback model turns.
+# Paid-provider and external pairing scenarios stay disabled.
 
 on:
   push:
@@ -17,6 +12,10 @@ on:
       - "pubspec.yaml"
       - "pubspec.lock"
       - "scripts/dev-backend.sh"
+      - "scripts/hermes_contracts.py"
+      - "scripts/test_hermes_contracts.py"
+      - "openapi/HERMES_REF"
+      - "openrpc/HERMES_REF"
       - ".github/workflows/real-backend-contract.yml"
   pull_request:
     paths:
@@ -25,6 +24,10 @@ on:
       - "pubspec.yaml"
       - "pubspec.lock"
       - "scripts/dev-backend.sh"
+      - "scripts/hermes_contracts.py"
+      - "scripts/test_hermes_contracts.py"
+      - "openapi/HERMES_REF"
+      - "openrpc/HERMES_REF"
       - ".github/workflows/real-backend-contract.yml"
   workflow_dispatch:
 
@@ -36,14 +39,6 @@ permissions:
   contents: read
 
 env:
-  # Hermes Agent main at 52d203d, a commit after v2026.9.14. Pinned to the
-  # commit so a Hermes release, or a moved tag, cannot change this job. The
-  # gateway sends approvals, clarify questions, sudo and secret prompts as
-  # server-to-client requests, and only sends them to a client that announced
-  # `client.capabilities`; v2026.9.14 itself does not know that call yet, so
-  # the handshake test needs a later commit. Move to the next release that has
-  # it when there is one.
-  HERMES_REF: 7b3c7aef31da73aabab0aa7fd15fdfe7c838834e
   UV_NO_CONFIG: "1"
 
 jobs:
@@ -54,6 +49,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Test contract tooling
+        run: python3 -I scripts/test_hermes_contracts.py
+
+      - name: Resolve contract provenance
+        id: ref
+        run: |
+          sha=$(python3 -I scripts/hermes_contracts.py resolve)
+          echo "sha=$sha" >>"$GITHUB_OUTPUT"
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -63,6 +67,9 @@ jobs:
         run: flutter pub get
 
       - name: Download Hermes Agent
+        id: download
+        env:
+          HERMES_REF: ${{ steps.ref.outputs.sha }}
         run: |
           mkdir -p "$HOME/hermes-agent"
           curl -fsSL --retry 3 --retry-all-errors \
@@ -76,7 +83,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/hermes-agent/hermes_cli/web_dist
-          key: hermes-web-${{ env.HERMES_REF }}
+          key: hermes-web-${{ steps.ref.outputs.sha }}
 
       - uses: actions/setup-node@v7
         if: steps.web.outputs.cache-hit != 'true'
@@ -98,25 +105,43 @@ jobs:
 
       # The mcp extra carries the HTTP client the MCP server tests probe with.
       - name: Install Hermes Agent
+        id: install
         run: |
-          uv venv --python 3.11 "$HOME/hermes-agent/.venv"
+          uv venv --python 3.14 "$HOME/hermes-agent/.venv"
           uv pip install --python "$HOME/hermes-agent/.venv/bin/python" -e "$HOME/hermes-agent[mcp]"
           echo "$HOME/hermes-agent/.venv/bin" >> "$GITHUB_PATH"
           echo "HERMES_WEB_DIST=$HOME/hermes-agent/hermes_cli/web_dist" >> "$GITHUB_ENV"
 
       # dev-backend.sh uses lsof to find the port the dashboard picked.
       - name: Start the dev backend
+        id: start
         run: |
           command -v lsof >/dev/null || sudo apt-get install -y --no-install-recommends lsof
+          unset HERMES_DEV_MODEL_CALLS HERMES_DEV_TELEGRAM_PAIRING
           scripts/dev-backend.sh start
 
       - name: Run the contract test
-        run: HERMES_DEV_URL="$(scripts/dev-backend.sh url)" flutter test test/real_backend_contract_test.dart
+        id: tests
+        run: |
+          unset HERMES_DEV_MODEL_CALLS HERMES_DEV_TELEGRAM_PAIRING
+          HERMES_DEV_URL="$(scripts/dev-backend.sh url)" flutter test test/real_backend_contract_test.dart
 
       - name: Show the backend log
         if: failure()
         run: cat .dart_tool/hermes-dev/dashboard.log
 
       - name: Stop the dev backend
+        id: stop
         if: always()
         run: scripts/dev-backend.sh stop
+
+      - name: Summarize advisory evidence
+        if: always()
+        run: |
+          python3 -I scripts/hermes_contracts.py summary \
+            --provenance "${{ steps.ref.outcome }}" \
+            --download "${{ steps.download.outcome }}" \
+            --install "${{ steps.install.outcome }}" \
+            --start "${{ steps.start.outcome }}" \
+            --tests "${{ steps.tests.outcome }}" \
+            --cleanup "${{ steps.stop.outcome }}" >>"$GITHUB_STEP_SUMMARY"

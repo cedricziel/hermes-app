@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 
@@ -102,7 +104,12 @@ void main() {
     var closed = 0;
     await pumpPanel(tester, onClose: () => closed++);
 
-    await tester.ensureVisible(find.text('Delete'));
+    await tester.scrollUntilVisible(
+      find.text('Delete'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
@@ -156,7 +163,9 @@ void main() {
 
     await tester.tap(find.text('Move to…'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ready'));
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<String>, 'Ready'),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Cannot move to ready: parent open'), findsOneWidget);
@@ -181,7 +190,7 @@ void main() {
         find.widgetWithText(TextField, 'Add a comment…').first,
         text,
       );
-      await tester.tap(find.byTooltip('Send'));
+      await tester.tap(find.text('Send'));
       await tester.pumpAndSettle();
     }
     gate.complete((
@@ -202,7 +211,7 @@ void main() {
       find.widgetWithText(TextField, 'Add a comment…').first,
       'Ship it',
     );
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.text('Send'));
     await tester.pumpAndSettle();
 
     expect(
@@ -219,7 +228,7 @@ void main() {
   testWidgets('reassigns from the picker', (tester) async {
     await pumpPanel(tester);
 
-    await tester.tap(find.widgetWithText(ActionChip, 'coder'));
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Assignee'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('writer'));
     await tester.pumpAndSettle();
@@ -232,11 +241,48 @@ void main() {
     );
   });
 
+  testWidgets(
+    'priority picker ignores the current value and sends a typed change',
+    (tester) async {
+      await pumpPanel(tester);
+      Future<void> pick(String label) async {
+        await tester.tap(find.widgetWithText(GroupedValueRow, 'Priority'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(KanbanTaskChoiceDialog<int>),
+            matching: find.text(label),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pick('P2');
+      expect(
+        server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t1'),
+        isEmpty,
+      );
+      await pick('P3');
+      final body = jsonBody(
+        server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t1').single,
+      );
+      expect(body, containsPair('priority', 3));
+      expect(
+        server
+            .requestsTo('PATCH', '/api/plugins/kanban/tasks/t1')
+            .single
+            .queryParameters,
+        containsPair('board', 'ops'),
+      );
+      expect(changes, 1);
+    },
+  );
+
   testWidgets('unlinks a dependency', (tester) async {
     server.on('DELETE', '/api/plugins/kanban/links', {'ok': true});
     await pumpPanel(tester);
 
-    await tester.tap(find.byTooltip('Delete'));
+    await tester.tap(find.byTooltip('Remove dependency t0'));
     await tester.pumpAndSettle();
 
     expect(
@@ -363,6 +409,7 @@ void main() {
     await pumpPanel(tester);
 
     await tester.ensureVisible(find.textContaining('Runs ('));
+    await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Runs ('));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Terminate'));
@@ -382,12 +429,16 @@ void main() {
     await pumpPanel(tester);
 
     await tester.ensureVisible(find.textContaining('Runs ('));
+    await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Runs ('));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Worker log'));
     await tester.pumpAndSettle();
 
     expect(find.text('starting worker'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('starting worker'), findsNothing);
   });
 
   testWidgets('removes an attachment after confirming', (tester) async {
@@ -413,7 +464,12 @@ void main() {
         .requestsTo('GET', '/api/plugins/kanban/tasks/t1')
         .length;
 
-    await tester.ensureVisible(find.text('Delete'));
+    await tester.scrollUntilVisible(
+      find.text('Delete'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
@@ -450,6 +506,8 @@ void main() {
       await pumpPanel(tester);
 
       await tester.ensureVisible(find.textContaining('Runs ('));
+      await tester.ensureVisible(find.textContaining('Runs ('));
+      await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Runs ('));
       await tester.pumpAndSettle();
 
@@ -684,6 +742,8 @@ void main() {
       await pumpPanel(tester);
 
       await tester.ensureVisible(find.text('Post updates to Ops chat'));
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
       expect(
@@ -695,6 +755,8 @@ void main() {
       );
       expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
 
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
       expect(
@@ -722,6 +784,8 @@ void main() {
       await pumpPanel(tester);
 
       await tester.ensureVisible(find.byType(Switch));
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
@@ -750,7 +814,7 @@ void main() {
         find.widgetWithText(TextField, 'Add a comment…').first,
         'hi',
       );
-      await tester.tap(find.byTooltip('Send'));
+      await tester.tap(find.text('Send'));
       await tester.pumpAndSettle();
       // A comment is not an edit of the task, but any change made here
       // clears the estimate rather than guessing which ones matter.
@@ -778,6 +842,8 @@ void main() {
       await pumpPanel(tester);
 
       await tester.ensureVisible(find.byType(Switch));
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pump();
       expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);
@@ -857,7 +923,7 @@ void main() {
       });
       await pumpPanel(tester);
       expect(find.text('claude-opus-4'), findsOneWidget);
-      expect(find.text(' · Off'), findsOneWidget);
+      expect(find.text('Off'), findsOneWidget);
 
       await openModel(tester);
       await tester.tap(find.byKey(const Key('model-default')));

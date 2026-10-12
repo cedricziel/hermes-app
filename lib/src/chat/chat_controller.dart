@@ -76,6 +76,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onShowChat,
     this.onOpenJob,
     this.onOpenNewChat,
+    this.onLaunchNotification,
     this.onOpened,
     this.onPrefill,
     this.onSurfaceChange,
@@ -163,6 +164,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Asks the host to bring the chat to the front.
   final VoidCallback? onShowChat;
+
+  /// Delegates launch delivery before the controller applies its target.
+  final ValueChanged<NotificationTarget>? onLaunchNotification;
 
   /// Called for a notification about a scheduled task.
   final void Function(NotificationTarget target)? onOpenJob;
@@ -307,6 +311,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       profile ??= await _activeProfile();
       final first = await repository!.loadThreadPage(profile: profile);
       var launched = await _attention.takeLaunchTarget();
+      if (disposed || generation != _loadGeneration) return;
+      if (launched != null && onLaunchNotification != null) {
+        onLaunchNotification!(launched);
+        launched = null;
+      }
       if (launched != null && launched.isJob) {
         onOpenJob?.call(launched);
         launched = null;
@@ -1871,6 +1880,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _followingIds.clear();
   }
 
+  /// A turn another client submitted carries no user message on the wire: the
+  /// gateway streams only what the agent produced, and the prompt lives in the
+  /// stored history alone. When such a turn ends here, the thread is read
+  /// again so the prompt the other side sent appears in the transcript.
+  void _refetchForeignTurn(ChatThread thread) {
+    if (_sending.containsKey(thread)) return;
+    _refetch.add(thread);
+    _refetchIfIdle(thread);
+  }
+
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
@@ -1912,6 +1931,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
                 halted: event.failed || event.stopped,
               );
               if (drain) _awaitSettle(thread);
+              _refetchForeignTurn(thread);
               unawaited(refreshActive());
             } else if (event is SessionInfo && event.running == false) {
               // The session reports the turn over without a completion. It is
@@ -1924,6 +1944,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
                 idleOnly: true,
               );
               if (drain) sendQueued(thread);
+              _refetchForeignTurn(thread);
               unawaited(refreshActive());
             }
           },

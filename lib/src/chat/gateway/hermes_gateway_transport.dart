@@ -477,7 +477,8 @@ class _Unsolicited {
 
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
-class HermesGatewayTransport implements ChatTransport, PromptAcknowledgement {
+class HermesGatewayTransport
+    implements ChatTransport, PromptAcknowledgement, GatewayRequester {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
@@ -552,6 +553,7 @@ class HermesGatewayTransport implements ChatTransport, PromptAcknowledgement {
   final _modelOf = <_ThreadOwner, ModelChoice>{};
 
   /// Shared authenticated RPC for profile and Bot Mode repositories.
+  @override
   Future<Map<String, Object?>> request(
     String method, [
     Map<String, Object?> params = const {},

@@ -2,16 +2,36 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:clock/clock.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/auth_controller.dart';
 import '../chat/widgets/thread_actions_menu.dart';
 import '../telemetry/breadcrumbs.dart';
 
 import 'conversation_window_args.dart';
 import 'window_auth_interceptor.dart';
+
+String? windowSessionOwnerKey(AuthController auth) {
+  final server = auth.baseUrl;
+  if (!auth.protectedRequestsAllowed || server == null) return null;
+  final gated = auth.status?.authRequired ?? true;
+  final owner = auth.verifiedOwner;
+  if (gated && owner == null) return null;
+  final scope = gated
+      ? [
+          'authenticated',
+          owner!.server,
+          owner.user,
+          owner.organization,
+          owner.provider,
+        ]
+      : ['anonymous', server];
+  return sha256.convert(utf8.encode(jsonEncode(scope))).toString();
+}
 
 /// A chat on a profile; a session id is only unique within one.
 typedef ConversationRef = ({String threadId, String? profile});
@@ -84,9 +104,11 @@ class ConversationWindowStore {
 
   final SharedPreferencesAsync _prefs;
   static const _key = 'conversation_windows';
+  Future<void> _writes = Future.value();
 
   Future<List<ConversationWindowArgs>> load() async {
     try {
+      await _writes;
       final saved = await _prefs.getString(_key);
       if (saved == null) return const [];
       final rows = jsonDecode(saved);
@@ -97,15 +119,17 @@ class ConversationWindowStore {
     }
   }
 
-  Future<void> save(Iterable<ConversationWindowArgs> windows) async {
-    try {
-      await _prefs.setString(
-        _key,
-        jsonEncode([for (final w in windows) w.toJson()]),
-      );
-    } on Object catch (error) {
-      debugPrint('Could not save the conversation windows: $error');
-    }
+  Future<void> save(Iterable<ConversationWindowArgs> windows) {
+    final encoded = jsonEncode([for (final window in windows) window.toJson()]);
+    final saved = _writes.then((_) async {
+      try {
+        await _prefs.setString(_key, encoded);
+      } on Object catch (error) {
+        debugPrint('Could not save conversation windows: ${error.runtimeType}');
+      }
+    });
+    _writes = saved;
+    return saved;
   }
 }
 
@@ -117,6 +141,7 @@ class ConversationWindows extends ChangeNotifier {
     required this._host,
     required this._store,
     required this._connection,
+    required this._ownerKey,
     required this._headers,
     this._breadcrumbs = Breadcrumbs.none,
     this._events = noopAppEventLogger,
@@ -126,21 +151,86 @@ class ConversationWindows extends ChangeNotifier {
       ..add(_host.liveWindows.listen(_retain))
       ..add(
         _host.mainFocused.listen((_) {
-          _setKey(null);
-          _mainFocused.add(null);
+          if (!_disposed && _connection() != null && _ownerKey() != null) {
+            _setKey(null);
+            _mainFocused.add(null);
+          }
         }),
       );
+  }
+
+  AuthController? _auth;
+  VoidCallback? _authChanged;
+  bool? _sessionUsable;
+  bool _missingOwner = false;
+  int? _ownerGeneration;
+  bool _disposed = false;
+
+  void bindSession(AuthController auth) {
+    if (_disposed || (identical(_auth, auth) && _authChanged != null)) return;
+    if (_authChanged case final listener?) _auth?.removeListener(listener);
+    _auth = auth;
+    _sessionUsable = null;
+    _ownerGeneration = null;
+    void changed() {
+      final usable =
+          auth.protectedRequestsAllowed &&
+          auth.state == HermesConnectionState.ready &&
+          _ownerKey() != null;
+      final missingOwner =
+          auth.protectedRequestsAllowed &&
+          auth.state == HermesConnectionState.ready &&
+          _ownerKey() == null;
+      final wasMissing = _missingOwner;
+      _missingOwner = missingOwner;
+      final retired =
+          _ownerGeneration != null && _ownerGeneration != auth.ownerGeneration;
+      final wasUsable = _sessionUsable;
+      _sessionUsable = usable;
+      _ownerGeneration = auth.ownerGeneration;
+      if (wasUsable == null ||
+          retired ||
+          (wasUsable == true && !usable) ||
+          (missingOwner && !wasMissing)) {
+        final restore = wasUsable == null
+            ? !missingOwner
+            : !retired && auth.sessionExpired && auth.expiredOwner != null;
+        _breadcrumbs(
+          wasUsable == null
+              ? 'window.session.initialized'
+              : 'window.session.suspended',
+          {'restore': restore},
+        );
+        unawaited(
+          closeAll(forget: !restore).catchError((Object _) {
+            _breadcrumbs('window.session.close_failed');
+          }),
+        );
+      }
+      if (usable && (wasUsable != true || retired)) {
+        _breadcrumbs('window.session.resumed');
+        unawaited(restore());
+      }
+    }
+
+    _authChanged = changed;
+    auth.addListener(changed);
+    changed();
   }
 
   final ConversationWindowHost _host;
   final ConversationWindowStore _store;
   final ({String baseUrl, bool authRequired})? Function() _connection;
   final WindowAuthHeaders _headers;
+  final String? Function() _ownerKey;
   final Breadcrumbs _breadcrumbs;
   final AppEventLogger _events;
   final _subscriptions = <StreamSubscription<void>>[];
   final _mainFocused = StreamController<void>.broadcast();
-  final _showInMain = StreamController<ConversationRef>.broadcast();
+  final _showInMain =
+      StreamController<
+        ({int generation, String? owner, ConversationRef ref})
+      >.broadcast();
   final _panelTookVoice = StreamController<void>.broadcast();
 
   /// Fires when the quick panel starts recording, so the main window stops
@@ -183,7 +273,14 @@ class ConversationWindows extends ChangeNotifier {
 
   /// The chats a window asked the main window to select ("Show in Main
   /// Window").
-  Stream<ConversationRef> get showInMainRequests => _showInMain.stream;
+  Stream<ConversationRef> get showInMainRequests => _showInMain.stream
+      .where(
+        (request) =>
+            !_disposed &&
+            request.generation == _generation &&
+            request.owner == _ownerKey(),
+      )
+      .map((request) => request.ref);
 
   /// The main window's current profile, which the quick panel sends to;
   /// set by the shell that owns the profiles.
@@ -207,6 +304,29 @@ class ConversationWindows extends ChangeNotifier {
   /// Bumped by [closeAll], so windows a restore is still opening for the old
   /// session are closed again.
   int _generation = 0;
+  Future<void>? _closing;
+  bool _nativeSafe = true;
+  int _closeFailures = 0;
+
+  Future<bool> _nativeReady() async {
+    final closing = _closing;
+    try {
+      if (closing != null) await closing;
+    } on Object {
+      return false;
+    }
+    return !_disposed && _nativeSafe;
+  }
+
+  Future<void> _closeRetired(String windowId) async {
+    try {
+      await _host.close(windowId);
+    } on Object {
+      _closeFailures++;
+      _nativeSafe = false;
+      _breadcrumbs('window.session.close_failed');
+    }
+  }
 
   /// Opens [threadId] of [profile] in a window of its own, starting with
   /// [draft] in its composer, or brings its window to the front when it
@@ -217,11 +337,27 @@ class ConversationWindows extends ChangeNotifier {
     required String title,
     ConversationDraft? draft,
   }) async {
+    final connection = _connection();
+    final owner = _ownerKey();
+    if (_disposed || connection == null || owner == null) return false;
+    final generation = _generation;
+    if (!await _nativeReady() ||
+        generation != _generation ||
+        _ownerKey() != owner ||
+        _connection()?.baseUrl != connection.baseUrl) {
+      return false;
+    }
     if (windowFor(threadId, profile) case final window?) {
+      if (!_isCurrent(window.args)) return false;
       if (await focus(window.windowId)) return true;
     }
-    final connection = _connection();
-    if (connection == null) return false;
+    if (_disposed ||
+        !_nativeSafe ||
+        generation != _generation ||
+        _ownerKey() != owner ||
+        _connection()?.baseUrl != connection.baseUrl) {
+      return false;
+    }
     return _create(
       ConversationWindowArgs(
         threadId: threadId,
@@ -229,29 +365,73 @@ class ConversationWindows extends ChangeNotifier {
         title: title,
         baseUrl: connection.baseUrl,
         authRequired: connection.authRequired,
+        ownerKey: owner,
       ),
       draft: draft,
     );
   }
 
-  /// Opens the windows saved for the current server, once per launch.
-  Future<void> restore() async {
-    if (_restored) return;
-    _restored = true;
+  Future<void>? _restoring;
+
+  Future<void> restore() {
+    final pending = _restoring;
+    if (pending != null) return pending;
+    if (_restored || _disposed) return Future.value();
+    final restoring = _restore();
+    _restoring = restoring;
+    return restoring.whenComplete(() {
+      if (identical(_restoring, restoring)) _restoring = null;
+    });
+  }
+
+  Future<void> _restore() async {
+    final owner = _ownerKey();
+    if (!_nativeSafe && _closing == null) {
+      try {
+        await closeAll(forget: false);
+      } on Object {
+        return;
+      }
+    }
     final generation = _generation;
-    final baseUrl = _connection()?.baseUrl;
-    if (baseUrl == null) return;
-    for (final args in await _store.load()) {
-      if (args.baseUrl != baseUrl) continue;
-      if (generation != _generation || !_isCurrent(args)) return;
+    if (!await _nativeReady() ||
+        generation != _generation ||
+        owner != _ownerKey()) {
+      return;
+    }
+    final connection = _connection();
+    if (connection == null) return;
+    if (_ownerKey() == null) {
+      await _store.save(const []);
+      return;
+    }
+    _restored = true;
+    final saved = await _store.load();
+    if (_disposed || generation != _generation) return;
+    final matching = saved.where(_isCurrent).toList();
+    if (matching.length != saved.length) {
+      final retained = <ConversationRef, ConversationWindowArgs>{
+        for (final args in matching)
+          (threadId: args.threadId, profile: args.profile): args,
+        for (final entry in _windows)
+          if (_isCurrent(entry.args))
+            (threadId: entry.args.threadId, profile: entry.args.profile):
+                entry.args,
+      };
+      await _store.save(retained.values);
+    }
+    for (final args in matching) {
+      if (_disposed || generation != _generation || !_isCurrent(args)) return;
       if (windowFor(args.threadId, args.profile) != null) continue;
       await _create(args);
     }
   }
 
-  /// Whether [args] belong to the server the main window is signed in to.
   bool _isCurrent(ConversationWindowArgs args) =>
-      _connection()?.baseUrl == args.baseUrl;
+      !_disposed &&
+      _connection()?.baseUrl == args.baseUrl &&
+      args.ownerKey != null &&
+      args.ownerKey == _ownerKey();
 
   Future<bool> _create(
     ConversationWindowArgs args, {
@@ -276,11 +456,11 @@ class ConversationWindows extends ChangeNotifier {
     try {
       windowId = await _host.create(args, draft: draft);
     } on Object catch (error) {
-      debugPrint('Could not open a conversation window: $error');
+      debugPrint('Could not open a conversation window: ${error.runtimeType}');
       return false;
     }
     if (generation != _generation || !_isCurrent(args)) {
-      await _host.close(windowId);
+      await _closeRetired(windowId);
       return false;
     }
     _windows.add(ConversationWindowEntry(windowId, args));
@@ -293,6 +473,15 @@ class ConversationWindows extends ChangeNotifier {
   /// Shows the quick panel, creating it on first use, or hides it while it
   /// is key. False without a connection.
   Future<bool> togglePanel() async {
+    final generation = _generation;
+    final owner = _ownerKey();
+    final connection = _connection();
+    if (_disposed || connection == null || owner == null) return false;
+    if (!await _nativeReady() ||
+        generation != _generation ||
+        owner != _ownerKey()) {
+      return false;
+    }
     final creating = _creatingPanel;
     if (creating != null) return creating;
     if (_panel case final panel?) {
@@ -303,13 +492,21 @@ class ConversationWindows extends ChangeNotifier {
           return true;
         }
         _panel = null;
-        await _host.close(panel.id);
+        await _closeRetired(panel.id);
       } else if (await _host.togglePanel()) {
-        return true;
+        return !_disposed &&
+            generation == _generation &&
+            owner == _ownerKey() &&
+            identical(_panel, panel);
       }
     }
-    final connection = _connection();
-    if (connection == null) return false;
+    if (_disposed ||
+        !_nativeSafe ||
+        generation != _generation ||
+        owner != _ownerKey() ||
+        connection.baseUrl != _connection()?.baseUrl) {
+      return false;
+    }
     final created = _createPanel(
       QuickPanelLaunch(
         baseUrl: connection.baseUrl,
@@ -320,36 +517,46 @@ class ConversationWindows extends ChangeNotifier {
     try {
       return await created;
     } finally {
-      _creatingPanel = null;
+      if (identical(_creatingPanel, created)) _creatingPanel = null;
     }
   }
 
   Future<bool> _createPanel(QuickPanelLaunch launch) async {
     final generation = _generation;
+    final owner = _ownerKey();
     final String windowId;
     try {
       windowId = await _host.createPanel(launch);
     } on Object catch (error) {
-      debugPrint('Could not open the quick panel: $error');
+      debugPrint('Could not open the quick panel: ${error.runtimeType}');
       return false;
     }
-    if (generation != _generation || _connection()?.baseUrl != launch.baseUrl) {
-      await _host.close(windowId);
+    if (_disposed ||
+        generation != _generation ||
+        _connection()?.baseUrl != launch.baseUrl ||
+        owner != _ownerKey()) {
+      await _closeRetired(windowId);
       return false;
     }
-    _panel = _QuickPanel(windowId, launch.baseUrl, clock.now());
+    _panel = _QuickPanel(windowId, launch.baseUrl, owner!, clock.now());
     return true;
   }
 
   /// Brings [windowId] to the front. A window that went away without the
   /// main window hearing of it is dropped, and false is returned.
   Future<bool> focus(String windowId) async {
+    final generation = _generation;
+    final entry = _entry(windowId);
+    if (!_nativeSafe || entry == null || !_isCurrent(entry.args)) return false;
     try {
       await _host.focus(windowId);
-      return true;
-    } on Object catch (error) {
-      debugPrint('Conversation window $windowId is gone: $error');
-      await _drop(windowId);
+      return generation == _generation &&
+          identical(_entry(windowId), entry) &&
+          _isCurrent(entry.args);
+    } on Object {
+      if (generation == _generation && identical(_entry(windowId), entry)) {
+        await _drop(windowId);
+      }
       return false;
     }
   }
@@ -397,20 +604,49 @@ class ConversationWindows extends ChangeNotifier {
   /// Closes every window. A sign-out or another server also forgets them;
   /// with [forget] off (the session expired) they open again once the user
   /// is signed in.
-  Future<void> closeAll({bool forget = true}) async {
-    _generation++;
+  Future<void> closeAll({bool forget = true}) {
+    final generation = ++_generation;
+    final pending = [..._creating, ?_creatingPanel];
+    final previous = _closing;
+    _nativeSafe = false;
     if (_windows.isNotEmpty) _breadcrumbs('window.closed', {'open': 0});
     _windows.clear();
     _panel = null;
+    _creatingPanel = null;
     _touched.clear();
     _setKey(null);
+    _restored = false;
+    _restoring = null;
     if (forget) {
       unawaited(_changed());
     } else {
-      _restored = false;
       notifyListeners();
     }
-    await _host.closeAll();
+    final failures = _closeFailures;
+    final nativeClose = previous == null
+        ? _host.closeAll()
+        : previous.catchError((Object _) {}).then((_) => _host.closeAll());
+    final closing = Future.wait<Object?>([nativeClose, ...pending])
+        .then<void>((_) {
+          if (!_disposed &&
+              generation == _generation &&
+              failures == _closeFailures) {
+            _nativeSafe = true;
+          }
+        });
+    _closing = closing;
+    unawaited(
+      closing.then<void>(
+        (_) {
+          if (identical(_closing, closing)) _closing = null;
+        },
+        onError: (Object _, StackTrace _) {
+          _closeFailures++;
+          if (identical(_closing, closing)) _closing = null;
+        },
+      ),
+    );
+    return closing;
   }
 
   void _retain(Set<String> live) {
@@ -420,6 +656,24 @@ class ConversationWindows extends ChangeNotifier {
 
   Future<Object?> _handle(String method, Map<String, Object?> args) async {
     final windowId = args['window_id'];
+    if (_disposed) {
+      return method == 'auth.headers' ? const <String, String>{} : null;
+    }
+    final generation = _generation;
+    bool current() {
+      if (_disposed || generation != _generation) return false;
+      final entry = _entry(windowId);
+      if (entry != null) return _isCurrent(entry.args);
+      final panel = _panel;
+      return panel != null &&
+          windowId == panel.id &&
+          panel.baseUrl == _connection()?.baseUrl &&
+          panel.ownerKey == _ownerKey();
+    }
+
+    if (method != 'auth.headers' && method != 'closed' && !current()) {
+      return method == 'panel.showInWindow' ? WindowMove.failed.name : null;
+    }
     switch (method) {
       case 'auth.headers':
         // Only a window of the server signed in to gets its credentials.
@@ -429,17 +683,18 @@ class ConversationWindows extends ChangeNotifier {
         final baseUrl = windowId == _panel?.id
             ? _panel?.baseUrl
             : _entry(windowId)?.args.baseUrl;
-        if (baseUrl == null || _connection()?.baseUrl != baseUrl) {
+        if (baseUrl == null || !current()) {
           if (windowId is String) {
             unawaited(_drop(windowId));
-            unawaited(_host.close(windowId));
+            unawaited(_closeRetired(windowId));
           }
           return const <String, String>{};
         }
         final rejected = args['rejected'];
-        return _headers(
+        final headers = await _headers(
           rejected: rejected is Map ? rejected.cast<String, String>() : null,
         );
+        return current() ? headers : const <String, String>{};
       case 'focused':
         if (args['focused'] == true) {
           _setKey(windowId as String?);
@@ -467,8 +722,9 @@ class ConversationWindows extends ChangeNotifier {
         final threadId = args['thread_id'];
         if (threadId is String) {
           _showInMain.add((
-            threadId: threadId,
-            profile: args['profile'] as String?,
+            generation: generation,
+            owner: _ownerKey(),
+            ref: (threadId: threadId, profile: args['profile'] as String?),
           ));
         }
         await _host.showMain();
@@ -547,6 +803,9 @@ class ConversationWindows extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _generation++;
+    if (_authChanged case final listener?) _auth?.removeListener(listener);
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -559,11 +818,12 @@ class ConversationWindows extends ChangeNotifier {
 
 /// The quick panel's window and the server it was started for.
 class _QuickPanel {
-  _QuickPanel(this.id, this.baseUrl, this.createdAt);
+  _QuickPanel(this.id, this.baseUrl, this.ownerKey, this.createdAt);
 
   final String id;
   final String baseUrl;
   final DateTime createdAt;
+  final String ownerKey;
 
   /// Whether its engine has started and shown the panel.
   bool presented = false;

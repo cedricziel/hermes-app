@@ -51,6 +51,7 @@ import '../windows/conversation_windows.dart';
 import 'app_presence.dart';
 import 'shell_navigation.dart';
 import '../widgets/route_dismissal.dart';
+import '../widgets/root_navigation_queue.dart';
 
 enum _Destination { chat, bots, kanban, schedules, profiles }
 
@@ -130,6 +131,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   /// A link to Kanban or Schedules that came before that answer.
   PendingDeepLink? _waitingLink;
+  RootNavigationQueue? _navigationQueue;
   DeepLinks? _deepLinks;
   AppLockController? _appLock;
 
@@ -137,6 +139,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   var _lockHeld = false;
   StreamSubscription<void>? _showInMain;
   ConversationWindows? _windows;
+  AuthController? _auth;
+  int? _ownerGeneration;
 
   @override
   void initState() {
@@ -149,7 +153,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (_profiles case final profiles?) {
       _chatProfiles = ChatProfiles(profiles);
     }
-    final auth = _maybeRead<AuthController>();
+    final auth = _auth = _maybeRead<AuthController>();
+    _ownerGeneration = auth?.ownerGeneration;
+    auth?.addListener(_resumeExternalNavigation);
     if (repositories != null && auth?.baseUrl != null) {
       final telemetry = repositories.telemetry.gateway();
       _gateway = HermesGatewayTransport(
@@ -201,10 +207,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (windows != null) {
       windows.currentProfile = () => _chatProfiles?.current;
       _showInMain = windows.showInMainRequests.listen((chat) {
-        _openRequests.request(
-          NotificationTarget(threadId: chat.threadId, profile: chat.profile),
-        );
-        _showChat();
+        _queueExternalNavigation(() {
+          _openRequests.request(
+            NotificationTarget(threadId: chat.threadId, profile: chat.profile),
+          );
+          _showChat();
+        });
       });
       unawaited(windows.restore());
     }
@@ -221,6 +229,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _navigationQueue?.dispose();
+    _auth?.removeListener(_resumeExternalNavigation);
     _deepLinks?.removeListener(_takeDeepLink);
     _appLock?.removeListener(_takeDeepLink);
     _showInMain?.cancel();
@@ -321,11 +331,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       // the watcher forgets what it saw when they are gone.
       if (_schedulesKnown) _watcher?.available = schedules;
       _syncSchedules();
-      final pending = _pendingJob;
-      if (schedules && pending != null) {
-        _pendingJob = null;
-        _openJob(pending);
-      }
+    }
+    final pending = _pendingJob;
+    if (_schedulesKnown && pending != null) {
+      _pendingJob = null;
+      _openJob(pending);
     }
     _releaseWaitingLink();
   }
@@ -358,6 +368,22 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
+  var _shareEntry = 0;
+  var _shareEntryValid = false;
+
+  void _selectByUser(_Destination destination) {
+    _shareEntryValid = destination == _Destination.chat;
+    if (destination == _Destination.chat) {
+      setState(() => _shareEntry++);
+    }
+    _select(destination);
+  }
+
+  void _recoverShared(VoidCallback action, int entry) {
+    if (!mounted || !_shareEntryValid || entry != _shareEntry) return;
+    _queueExternalNavigation(action);
+  }
+
   void _select(_Destination destination, {bool cancelHandoff = true}) {
     if (cancelHandoff) _maybeRead<HandoffController>()?.cancel();
     _sidebar.closeOverlay();
@@ -387,14 +413,46 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _watcher?.schedulesInFront = inFront;
   }
 
-  /// Shows a scheduled task a notification was about. Chat cannot, so it hands
-  /// the tap over. Before the cron check has answered the tap waits for it.
-  void _openJob(NotificationTarget target) {
-    if (!_schedules) {
+  RootNavigationQueue get _externalNavigation =>
+      _navigationQueue ??= RootNavigationQueue(
+        navigator: Navigator.of(context),
+        root: ModalRoute.of(context)!,
+        canNavigate: () =>
+            mounted &&
+            !(_appLock?.covered ?? false) &&
+            (_auth == null ||
+                (_auth!.state == HermesConnectionState.ready &&
+                    _auth!.protectedRequestsAllowed &&
+                    _auth!.ownerGeneration == _ownerGeneration)),
+      );
+
+  void _resumeExternalNavigation() => _navigationQueue?.resume();
+
+  void _queueExternalNavigation(VoidCallback action, [bool isLaunch = false]) {
+    if (!mounted || (isLaunch && !_externalNavigation.canAcceptLaunch)) return;
+    _shareEntryValid = false;
+    _waitingLink = null;
+    _pendingJob = null;
+    _externalNavigation.request((_) {
+      if (mounted) action();
+    }, isLaunch: isLaunch);
+  }
+
+  void _openJob(NotificationTarget target) =>
+      _queueExternalNavigation(() => _openJobAtRoot(target));
+
+  void _openJobAtRoot(NotificationTarget target) {
+    if (!_schedulesKnown) {
       _pendingJob = target;
       return;
     }
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (!_schedules) {
+      _breadcrumbs('nav.notification.ignored', {
+        'kind': 'job',
+        'reason': 'unavailable',
+      });
+      return;
+    }
     _select(_Destination.schedules);
     _schedulesController?.requestOpen(
       target.jobId ?? '',
@@ -407,7 +465,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// chat, the microphone) before the user is back.
   void _takeDeepLink({bool held = false}) {
     final deepLinks = _deepLinks;
-    if (deepLinks == null) return;
+    if (deepLinks == null) {
+      if (!(_appLock?.covered ?? false)) _navigationQueue?.resume();
+      return;
+    }
     if (_appLock?.covered ?? false) {
       _lockHeld = _lockHeld || deepLinks.pending != null;
       return;
@@ -418,6 +479,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _openDeepLink(link, waited: waited);
     }
     _releaseWaitingLink();
+    _navigationQueue?.resume();
   }
 
   /// Shows what a `hermes://` link names. Screens pushed over the page are
@@ -425,6 +487,35 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// concerns them, and are ignored by a server that answered it lacks the
   /// tab. The breadcrumbs hold the kind and flags only, never the link.
   void _openDeepLink(PendingDeepLink link, {required bool waited}) {
+    _shareEntryValid = false;
+    _pendingJob = null;
+    final known = switch (link.target) {
+      OpenKanban() => _kanbanKnown,
+      OpenSchedules() => _schedulesKnown,
+      _ => true,
+    };
+    final offered = switch (link.target) {
+      OpenKanban() => _kanban,
+      OpenSchedules() => _schedules,
+      _ => true,
+    };
+    if (!known || !offered) {
+      _externalNavigation.cancel();
+      _applyDeepLink(link, waited: waited);
+      return;
+    }
+    _waitingLink = null;
+    _externalNavigation.request((guarded) {
+      if (!mounted) return;
+      if (_appLock?.covered ?? false) {
+        _waitingLink = link;
+        return;
+      }
+      _applyDeepLink(link, waited: waited || guarded);
+    });
+  }
+
+  void _applyDeepLink(PendingDeepLink link, {required bool waited}) {
     _waitingLink = null;
     final target = link.target;
     void opened() => _breadcrumbs('deeplink.opened', {
@@ -483,13 +574,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   void _openRun(CronRun run, CronJob job) {
-    _openRequests.request(
-      NotificationTarget(
-        threadId: run.sessionId,
-        profile: run.profile ?? job.profile,
-      ),
-    );
-    _showChat();
+    _queueExternalNavigation(() {
+      _openRequests.request(
+        NotificationTarget(
+          threadId: run.sessionId,
+          profile: run.profile ?? job.profile,
+        ),
+      );
+      _showChat();
+    });
   }
 
   void _openMenu() => _scaffoldKey.currentState?.openDrawer();
@@ -637,8 +730,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       key: _chatKey,
       child: ChatScreen(
         visible: _current == _Destination.chat,
+        shareEntry: _shareEntry,
         transport: _gateway,
         onShowChat: _showChat,
+        onExternalNavigation: _queueExternalNavigation,
+        onShareEntry: _recoverShared,
         openRequests: _openRequests,
         onOpenJob: _openJob,
         navigation: navigation,
@@ -662,7 +758,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             hasMacSidebar(context) ||
             isWideLayout(context, width: constraints.maxWidth);
         final index = destinations.indexOf(_current);
-        void select(int i) => _select(destinations[i]);
+        void select(int i) => _selectByUser(destinations[i]);
         final switcher = mac ? _profileSwitcher() : null;
         final shellNavigation = ShellNavigation(
           destinations: [for (final d in destinations) _labels[d]!],

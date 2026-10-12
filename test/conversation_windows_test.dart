@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:clock/clock.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -19,10 +22,12 @@ void main() {
   late List<(String, String?)> shownInMain;
   late List<String> events;
   ({String baseUrl, bool authRequired})? connection;
+  String? owner;
 
   ConversationWindows build() => ConversationWindows(
     host: host,
     store: ConversationWindowStore(SharedPreferencesAsync()),
+    ownerKey: () => owner,
     connection: () => connection,
     headers: ({rejected}) async => {'Authorization': 'Bearer t'},
     breadcrumbs: Breadcrumbs.of(trail),
@@ -37,10 +42,177 @@ void main() {
     shownInMain = [];
     events = [];
     connection = _server;
+    owner = 'owner-A';
     windows = build();
   });
 
   tearDown(() => windows.dispose());
+
+  test(
+    'saved targets do not restore for another owner at the same server',
+    () async {
+      await windows.open('private-A', profile: 'work', title: 'Private');
+      await pumpEventQueue();
+      await windows.closeAll(forget: false);
+      owner = 'owner-B';
+      await windows.restore();
+      expect(host.created, isEmpty);
+      expect(
+        await ConversationWindowStore(SharedPreferencesAsync()).load(),
+        isEmpty,
+      );
+    },
+  );
+
+  test('missing owner proof cannot open a gated window or panel', () async {
+    owner = null;
+    expect(
+      await windows.open('private', profile: null, title: 'Private'),
+      isFalse,
+    );
+    expect(await windows.togglePanel(), isFalse);
+    expect(host.created, isEmpty);
+    expect(host.panels, isEmpty);
+  });
+
+  test('legacy gated records cannot restore without owner metadata', () async {
+    await SharedPreferencesAsync().setString(
+      'conversation_windows',
+      jsonEncode([
+        {
+          'thread_id': 'legacy',
+          'base_url': _server.baseUrl,
+          'auth_required': true,
+        },
+      ]),
+    );
+    await windows.restore();
+    expect(host.created, isEmpty);
+  });
+
+  test('a header lookup cannot complete after its window is retired', () async {
+    windows.dispose();
+    final headers = Completer<Map<String, String>>();
+    final started = Completer<void>();
+    windows = ConversationWindows(
+      host: host,
+      store: ConversationWindowStore(SharedPreferencesAsync()),
+      connection: () => connection,
+      ownerKey: () => owner,
+      headers: ({rejected}) {
+        started.complete();
+        return headers.future;
+      },
+    );
+    await windows.open('private-A', profile: null, title: 'Private');
+    final pending = host.call('auth.headers', {'window_id': 'w0'});
+    await started.future;
+    await windows.closeAll(forget: false);
+    owner = 'owner-B';
+    headers.complete({'Authorization': 'Bearer old-A'});
+    expect(await pending, isEmpty);
+  });
+
+  test('restoration waits for native teardown to finish', () async {
+    await windows.open('private-A', profile: null, title: 'Private');
+    await pumpEventQueue();
+    final release = Completer<void>();
+    host.onCloseAll = () => release.future;
+    final closing = windows.closeAll(forget: false);
+    final restoring = windows.restore();
+    try {
+      await pumpEventQueue();
+      expect(host.created.keys, ['w0']);
+    } finally {
+      release.complete();
+      await Future.wait([closing, restoring]);
+    }
+    expect(host.created.values.single.threadId, 'private-A');
+    expect(windows.windows.single.windowId, host.created.keys.single);
+  });
+
+  test('late old creation is closed before fresh creation begins', () async {
+    final started = Completer<void>();
+    final release = Completer<void>();
+    host.onCreate = (args) async {
+      if (args.threadId == 'old') {
+        started.complete();
+        await release.future;
+      }
+    };
+    final old = windows.open('old', profile: null, title: 'Old');
+    await started.future;
+    final closing = windows.closeAll();
+    owner = 'owner-B';
+    final fresh = windows.open('new', profile: null, title: 'New');
+    try {
+      await pumpEventQueue();
+      expect(host.created, isEmpty);
+    } finally {
+      release.complete();
+      await Future.wait([old, closing, fresh]);
+    }
+    expect(await old, isFalse);
+    expect(await fresh, isTrue);
+    expect(host.created.values.single.threadId, 'new');
+  });
+
+  test('retired focus cannot start a replacement window', () async {
+    await windows.open('private-A', profile: null, title: 'Private');
+    final started = Completer<void>();
+    final release = Completer<void>();
+    host.onFocus = () async {
+      started.complete();
+      await release.future;
+    };
+    final opening = windows.open('private-A', profile: null, title: 'Private');
+    await started.future;
+    await windows.closeAll();
+    owner = 'owner-B';
+    release.complete();
+    expect(await opening, isFalse);
+    expect(host.created, isEmpty);
+    expect(host.closedNatively, ['*']);
+  });
+
+  test('retired panel toggle cannot start a replacement panel', () async {
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    final started = Completer<void>();
+    final release = Completer<bool>();
+    host.onTogglePanel = () {
+      started.complete();
+      return release.future;
+    };
+    final toggling = windows.togglePanel();
+    await started.future;
+    await windows.closeAll();
+    owner = 'owner-B';
+    release.complete(false);
+    expect(await toggling, isFalse);
+    expect(host.panels, isEmpty);
+  });
+
+  test('queued show in main is dropped when its session retires', () async {
+    await windows.open('private-A', profile: null, title: 'Private');
+    final showing = host.call('showInMain', {
+      'window_id': 'w0',
+      'thread_id': 'private-A',
+    });
+    final closing = windows.closeAll();
+    await Future.wait([showing, closing]);
+    await pumpEventQueue();
+    expect(shownInMain, isEmpty);
+  });
+
+  test('failed native teardown blocks fresh windows', () async {
+    await windows.open('old', profile: null, title: 'Old');
+    host.onCloseAll = () async => throw StateError('native close failed');
+    await expectLater(windows.closeAll(), throwsStateError);
+    expect(await windows.open('new', profile: null, title: 'New'), isFalse);
+    expect(await windows.togglePanel(), isFalse);
+    expect(windows.windows, isEmpty);
+  });
 
   test('opening and closing windows leave crumbs without the chat', () async {
     await windows.open(
@@ -213,12 +385,14 @@ void main() {
     windows.dispose();
     host = FakeConversationWindowHost();
     windows = build();
+    Future<void>? closing;
     host.onCreate = (_) async {
       connection = null;
-      await windows.closeAll();
+      closing = windows.closeAll();
     };
 
     await windows.restore();
+    await closing;
 
     expect(host.created, isEmpty);
     expect(windows.windows, isEmpty);
@@ -227,7 +401,12 @@ void main() {
   test(
     'show in main window selects the chat and brings the window back',
     () async {
-      await host.call('showInMain', {'thread_id': 's1', 'profile': 'work'});
+      await windows.open('s1', profile: 'work', title: 'Plan');
+      await host.call('showInMain', {
+        'window_id': 'w0',
+        'thread_id': 's1',
+        'profile': 'work',
+      });
       await pumpEventQueue();
 
       expect(shownInMain, [('s1', 'work')]);

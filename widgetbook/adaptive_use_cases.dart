@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/adaptive_sheet.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -46,6 +47,30 @@ WidgetbookNode adaptiveNode() => WidgetbookFolder(
                 'for good.',
             confirmLabel: 'Delete',
             destructive: true,
+          ),
+        ),
+      ),
+    ),
+    WidgetbookComponent(
+      name: 'showAdaptiveSheet',
+      useCases: _everywhere(
+        (_) => openOnShow(
+          (context) => showAdaptiveSheet<void>(
+            context,
+            builder: (dialog) => Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Review proposed changes'),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialog),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

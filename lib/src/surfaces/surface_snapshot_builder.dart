@@ -23,12 +23,12 @@ class _Read<T> {
 }
 
 /// Reads what the [SurfaceSnapshot] holds. Each source on its own: one that
-/// fails or takes longer than [timeout] keeps its section from the previous
+/// fails or exhausts the shared [timeout] keeps its section from the previous
 /// snapshot, like the welcome view's starter prompts do.
 class SurfaceSnapshotBuilder {
   SurfaceSnapshotBuilder(
     this._repositories, {
-    this.timeout = const Duration(seconds: 5),
+    this.timeout = const Duration(milliseconds: 1500),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -44,7 +44,7 @@ class SurfaceSnapshotBuilder {
   /// profile as someone just read them: it replaces whatever [previous] held,
   /// so a request another profile has since answered is dropped, and the
   /// hints then only name the chats. With [redact] chat titles, snippets and
-  /// job names are left out.
+  /// job names are left out. [budget] overrides the shared remote-read timeout.
   Future<SnapshotBuild> build({
     required bool signedIn,
     SurfaceSnapshot? previous,
@@ -52,6 +52,7 @@ class SurfaceSnapshotBuilder {
     List<PendingRequest>? pending,
     bool refreshRemote = false,
     bool redact = false,
+    Duration? budget,
   }) async {
     final openProfile = hints?.profile ?? previous?.profile ?? kDefaultProfile;
     final now = _now();
@@ -63,40 +64,63 @@ class SurfaceSnapshotBuilder {
     var failed = 0;
 
     if (refreshRemote) {
-      final (names, kanbanRead, schedulesRead) = await (
-        _read(_profileNames),
-        _read(_kanban),
-        _read(() => _schedules(now, openProfile)),
-      ).wait;
-      if (names.ok) {
-        profiles = names.value!;
-        // The hints stand in for a request for the open profile's chats.
-        final toRead = [
-          for (final name in profiles)
-            if (hints == null || name != openProfile) name,
-        ];
-        final reads = await Future.wait([
-          for (final name in toRead) _read(() => _chats(name)),
+      final deadline = Completer<void>();
+      var expired = false;
+      final timer = Timer(budget ?? timeout, () {
+        expired = true;
+        deadline.complete();
+      });
+      Future<_Read<T>> read<T>(Future<T> Function() source) {
+        if (expired) return Future.value(const _Read.failed());
+        return Future.any([
+          _read(source),
+          deadline.future.then((_) => _Read<T>.failed()),
         ]);
-        chats = [
-          for (final (index, read) in reads.indexed)
-            ...read.ok
-                ? read.value!
-                : [...kept.where((c) => c.profile == toRead[index])],
-        ];
-        failed += reads.where((read) => !read.ok).length;
-      } else {
-        failed++;
       }
-      if (kanbanRead.ok) {
-        kanban = kanbanRead.value;
-      } else {
-        failed++;
-      }
-      if (schedulesRead.ok) {
-        schedules = schedulesRead.value;
-      } else {
-        failed++;
+
+      try {
+        Future<void> readChats() async {
+          final names = await read(_profileNames);
+          if (names.ok) {
+            profiles = names.value!;
+            // The hints stand in for a request for the open profile's chats.
+            final toRead = [
+              for (final name in profiles)
+                if (hints == null || name != openProfile) name,
+            ];
+            final reads = await Future.wait([
+              for (final name in toRead) read(() => _chats(name)),
+            ]);
+            chats = [
+              for (final (index, read) in reads.indexed)
+                ...read.ok
+                    ? read.value!
+                    : [...kept.where((c) => c.profile == toRead[index])],
+            ];
+            failed += reads.where((read) => !read.ok).length;
+          } else {
+            failed++;
+          }
+        }
+
+        final (_, kanbanRead, schedulesRead) = await (
+          readChats(),
+          read(_kanban),
+          read(() => _schedules(now, openProfile)),
+        ).wait;
+        if (kanbanRead.ok) {
+          kanban = kanbanRead.value;
+        } else {
+          failed++;
+        }
+        if (schedulesRead.ok) {
+          schedules = schedulesRead.value;
+        } else {
+          failed++;
+        }
+      } finally {
+        timer.cancel();
+        if (!deadline.isCompleted) deadline.complete();
       }
     }
 
@@ -157,7 +181,7 @@ class SurfaceSnapshotBuilder {
 
   Future<_Read<T>> _read<T>(Future<T> Function() source) async {
     try {
-      return _Read.ok(await source().timeout(timeout));
+      return _Read.ok(await source());
     } on Object {
       return const _Read.failed();
     }

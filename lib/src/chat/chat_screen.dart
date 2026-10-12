@@ -93,12 +93,15 @@ class ChatScreen extends StatefulWidget {
     this.plugins,
     this.mcp,
     this.onShowChat,
+    this.onExternalNavigation,
+    this.onShareEntry,
     this.attachmentSource,
     this.openRequests,
     this.onOpenJob,
     this.navigation,
     this.starterContext,
     this.visible = true,
+    this.shareEntry = 0,
     this.chatProfiles,
     this.voiceRecorder,
   });
@@ -120,6 +123,12 @@ class ChatScreen extends StatefulWidget {
   /// shared content that arrives while something else is shown.
   final VoidCallback? onShowChat;
 
+  /// Lets the host defer notification and share work until it can safely return to its root.
+  final void Function(VoidCallback action, bool isLaunch)? onExternalNavigation;
+
+  /// Recovers pending shares only if this explicit Chat entry is still current.
+  final void Function(VoidCallback action, int entry)? onShareEntry;
+
   /// Where the attach control, drops and paste get their files; the platform's
   /// plugins unless a test supplies its own.
   final AttachmentSource? attachmentSource;
@@ -137,6 +146,9 @@ class ChatScreen extends StatefulWidget {
 
   /// Whether the shell currently shows this chat destination.
   final bool visible;
+
+  /// Changes when the user explicitly enters Chat, including reselecting it.
+  final int shareEntry;
 
   /// The profiles the window's sidebar switches between. The chat reports
   /// the profile it shows and follows a switch made there.
@@ -269,6 +281,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),
       onOpenNewChat: _openNewChatFromNotification,
+      onLaunchNotification: _openLaunchNotification,
       onOpened: () => _scaffoldKey.currentState?.closeDrawer(),
       breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
       onPrefill: (draft) => _composerController.value = TextEditingValue(
@@ -318,7 +331,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     _share = context.read<ShareController>()..addListener(_onShared);
-    _absorbShared(held: true);
+    if (widget.onExternalNavigation == null) {
+      _absorbShared(held: true);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _queueShared(held: true, isLaunch: true);
+      });
+    }
     _windows = _maybeRead<ConversationWindows?>()?..addListener(_advertise);
     _menuBar = _maybeRead<MenuBarExtraLink?>()
       ?..connect(
@@ -504,6 +523,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(ChatScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.shareEntry != oldWidget.shareEntry) {
+      final entry = widget.shareEntry;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _queueShared(held: true, entry: entry);
+      });
+    }
     if (widget.visible != oldWidget.visible) {
       _updateActivePolling();
       WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
@@ -570,7 +595,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  var _notificationTapReceived = false;
+
   void _openFromNotification(NotificationTarget target) {
+    _notificationTapReceived = true;
+    _queueNotification(target);
+  }
+
+  void _openLaunchNotification(NotificationTarget target) {
+    if (!_notificationTapReceived &&
+        _linkSeq == 0 &&
+        _chat.openGeneration == 0) {
+      _queueNotification(target, isLaunch: true);
+    }
+  }
+
+  void _queueNotification(NotificationTarget target, {bool isLaunch = false}) {
+    final navigate = widget.onExternalNavigation;
+    if (navigate == null) {
+      _applyNotification(target);
+    } else {
+      navigate(() {
+        if (mounted) _applyNotification(target);
+      }, isLaunch);
+    }
+  }
+
+  void _applyNotification(NotificationTarget target) {
     _handoff?.cancel();
     if (target.isJob) return widget.onOpenJob?.call(target);
     if (target.prompt != null) return _openNewChatFromNotification(target);
@@ -736,10 +787,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _onShared() {
+  void _onShared() => _queueShared(
+    held: _share.deliveringInitial,
+    isLaunch: _share.deliveringInitial,
+  );
+
+  void _queueShared({bool held = false, bool isLaunch = false, int? entry}) {
     if (!_share.hasPending) return;
-    widget.onShowChat?.call();
-    setState(_absorbShared);
+    void deliver() {
+      if (!mounted || !_share.hasPending) return;
+      widget.onShowChat?.call();
+      setState(() => _absorbShared(held: held));
+    }
+
+    final navigate = widget.onExternalNavigation;
+    if (entry != null && widget.onShareEntry != null) {
+      widget.onShareEntry!(deliver, entry);
+    } else if (navigate == null) {
+      deliver();
+    } else {
+      navigate(deliver, isLaunch);
+    }
   }
 
   /// Takes what was shared. [held] says it was waiting before this screen

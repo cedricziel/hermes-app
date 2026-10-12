@@ -280,6 +280,7 @@ class GroupedRow extends StatelessWidget {
   const GroupedRow({
     super.key,
     required this.title,
+    this.titleMaxLines = 1,
     this.meta,
     this.subtitle,
     this.subtitleMaxLines = 1,
@@ -290,6 +291,7 @@ class GroupedRow extends StatelessWidget {
     this.leading,
     this.value,
     this.trailing,
+    this.separateTrailing = false,
     this.onTap,
     this.enabled = true,
     this.checked,
@@ -300,6 +302,9 @@ class GroupedRow extends StatelessWidget {
   });
 
   final String title;
+
+  /// Null lets titles wrap when the row has nowhere else to show them.
+  final int? titleMaxLines;
 
   /// Muted text right after the title, such as "v1.2.0".
   final String? meta;
@@ -329,6 +334,9 @@ class GroupedRow extends StatelessWidget {
 
   /// Takes the place of the chevron, such as a switch.
   final Widget? trailing;
+
+  /// Keeps trailing actions separate from a static row in accessibility.
+  final bool separateTrailing;
   final VoidCallback? onTap;
 
   /// False ignores [onTap] while the row still reads as a button, a
@@ -374,7 +382,10 @@ class GroupedRow extends StatelessWidget {
     final showChevron = chevron ?? (onTap != null && trailing == null);
     // A control beside a row that opens something stays its own node, so a
     // screen reader can both open the row and flip the switch.
-    final trailingApart = trailing != null && onTap != null && checked == null;
+    final trailingApart =
+        trailing != null &&
+        (onTap != null || separateTrailing) &&
+        checked == null;
     final titleStyle = TextStyle(
       fontSize: metrics.titleSize,
       color: destructive ? scheme.error : scheme.onSurface,
@@ -409,8 +420,10 @@ class GroupedRow extends StatelessWidget {
                         ),
                     ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: titleMaxLines,
+                  overflow: titleMaxLines == null
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                   style: titleStyle,
                 ),
                 if (subtitle != null)
@@ -538,6 +551,7 @@ class GroupedSwitchRow extends StatelessWidget {
   const GroupedSwitchRow({
     super.key,
     required this.title,
+    this.titleMaxLines = 1,
     required this.value,
     required this.onChanged,
     this.subtitle,
@@ -553,6 +567,9 @@ class GroupedSwitchRow extends StatelessWidget {
   });
 
   final String title;
+
+  /// Null lets titles wrap when the row has nowhere else to show them.
+  final int? titleMaxLines;
   final bool value;
 
   /// Null disables the switch.
@@ -588,6 +605,7 @@ class GroupedSwitchRow extends StatelessWidget {
     }
     return GroupedRow(
       title: title,
+      titleMaxLines: titleMaxLines,
       subtitle: subtitle,
       subtitleMaxLines: subtitleMaxLines,
       monospaceSubtitle: monospaceSubtitle,

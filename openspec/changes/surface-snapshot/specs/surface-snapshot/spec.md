@@ -78,16 +78,23 @@ While the app is in front and signed in, it SHALL write the snapshot after the c
 #### Scenario: Going to the background
 
 - **WHEN** the user leaves the app
-- **THEN** the app reads chats of every profile, Kanban and schedules and writes the snapshot
+- **THEN** the app gives remote reads a shared 800-millisecond budget and writes one partial snapshot
+- **AND** the build finishes without waiting for late remote responses, which cannot replace that snapshot
 
 ### Requirement: Failing sources
 
-Each source (profiles and their chats, Kanban, schedules) SHALL be read independently and SHALL count as failed when it errors or takes more than five seconds. A failed source SHALL keep its section from the previous snapshot, or leave it empty or null when there is none. A source the server reports as unavailable SHALL set its section to null. Open requests of profiles the app is not showing SHALL be kept from the previous snapshot.
+Each source (profiles and their chats, Kanban, schedules) SHALL be read independently and SHALL count as failed when it errors or exhausts the shared build budget. Remote reads SHALL share a 1.5-second budget, including dependent profile chat reads. On pause, that budget SHALL be shortened to 800 milliseconds. These budgets apply while the app can execute; operating-system suspension can delay timer callbacks. A failed source SHALL keep its section from the previous snapshot, or leave it empty or null when there is none. A source the server reports as unavailable SHALL set its section to null. Open requests of profiles the app is not showing SHALL be kept from the previous snapshot.
 
 #### Scenario: Kanban times out
 
-- **WHEN** the Kanban board takes longer than five seconds to answer
+- **WHEN** the Kanban board does not answer within the shared build budget
 - **THEN** the written snapshot keeps the previous Kanban counts and the other sections are updated
+
+#### Scenario: Profile reads exhaust the budget
+
+- **WHEN** profiles arrive after 1.2 seconds and their chats do not answer before the shared budget expires
+- **THEN** the build finishes within two seconds while the app can execute
+- **AND** the snapshot contains the profiles and retains the previous chats for failed sources
 
 ### Requirement: Signed-out snapshot
 
@@ -100,7 +107,12 @@ When the user signs out, the session expires, or the user changes the server, th
 
 ### Requirement: Telemetry without content
 
-Building the snapshot SHALL record a span `surface.snapshot.build` with the trigger, the number of failed sources and the connection's server attributes. A failed write to shared storage SHALL be logged as `surface.snapshot.write_failed` with the error type, and a failed reload of one widget kind after a successful write as `widgets.reload_failed` with the kind and the error type. Neither SHALL contain titles, snippets, ids or profile names, and a failed write SHALL NOT affect the app.
+Building the snapshot SHALL record a span `surface.snapshot.build` with the trigger, the number of failed sources and the connection's server attributes. The span SHALL have ERROR status when any source fails or the build throws. A failed write to shared storage SHALL be logged as `surface.snapshot.write_failed` with the error type, and a failed reload of one widget kind after a successful write as `widgets.reload_failed` with the kind and the error type. Neither SHALL contain titles, snippets, ids or profile names, and a failed write SHALL NOT affect the app.
+
+#### Scenario: Partial source failure
+
+- **WHEN** a snapshot keeps previous data because a source fails or times out
+- **THEN** the build span records a positive failed-source count and ERROR status
 
 #### Scenario: Write fails
 

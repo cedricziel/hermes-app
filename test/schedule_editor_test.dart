@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -325,6 +326,27 @@ void main() {
         find.text('A task needs a prompt, a skill or a script'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('Back cannot discard a schedule while its save is running', (
+      tester,
+    ) async {
+      final saved = Completer<FakeResponse>();
+      server.onRequest('POST', '/api/cron/jobs', (_) => saved.future);
+      await openCustom(tester);
+      await type(tester, 'job-prompt', 'Keep this draft');
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.binding.handlePopRoute();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Discard changes?'), findsNothing);
+      saved.complete((status: 503, body: {'detail': 'Save refused'}));
+      await tester.pumpAndSettle();
+      expect(find.text('Keep this draft'), findsOneWidget);
+      expect(find.text('Save refused'), findsOneWidget);
     });
 
     testWidgets('creates a job from Every 6 hours', (tester) async {

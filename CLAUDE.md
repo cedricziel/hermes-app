@@ -31,7 +31,7 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 - `scripts/store-screenshots.sh ios|mac|finish` retakes the App Store and README screenshots; the `store-screenshots` skill (`.claude/skills/store-screenshots/SKILL.md`) has the procedure and the traps.
 - The `verify-in-app` skill (`.claude/skills/verify-in-app/SKILL.md`) has the full loop and its rules. Never point the app or `hermes` at the real `~/.hermes`, and never run `hermes dashboard --stop`.
 - Building the macOS app rewrites tracked `ios/` and `macos/` Xcode files. Stage files by name, never `git add -A`, and `git restore` those afterwards.
-- `test/real_backend_contract_test.dart` checks the response shapes the repositories parse against a live backend. It skips unless `HERMES_DEV_URL` is set. Tests that call a model also need `HERMES_DEV_MODEL_CALLS=1`, and the Telegram pairing test needs `HERMES_DEV_TELEGRAM_PAIRING=1`. It runs in CI as a non-required check (`real-backend-contract.yml`, Hermes pinned by `HERMES_REF`).
+- `test/real_backend_contract_test.dart` checks response shapes against a live backend and skips unless `HERMES_DEV_URL` is set. Free loopback scripted-model turns run without provider credentials. Paid-provider tests need `HERMES_DEV_MODEL_CALLS=1`; external Telegram pairing needs `HERMES_DEV_TELEGRAM_PAIRING=1`. CI leaves both flags unset. The standalone `real-backend-contract.yml` remains advisory and resolves its source revision from matching `openapi/HERMES_REF` and `openrpc/HERMES_REF` through `python3 -I scripts/hermes_contracts.py resolve`. Its summary distinguishes setup, tests, and cleanup outcomes. The pinned backend uses Python 3.14.
 
 ### Regenerating the API client
 
@@ -40,7 +40,7 @@ scripts/fetch_openapi_spec.sh [ref]       # rebuild openapi/ from hermes-agent m
 ./scripts/generate_hermes_api_client.sh   # needs a JDK (npx openapi-generator-cli) and dart on PATH
 ```
 
-`update-hermes-contracts.yml` runs both every Monday, refreshes `openrpc/` from the same Hermes commit, and opens one PR when either changed.
+`update-hermes-contracts.yml` runs both every Monday, refreshes `openrpc/` from the same Hermes commit, and opens one PR when contract JSON or either provenance file changes. It regenerates the Dart client only when OpenAPI JSON changes. Run `python3 -I scripts/test_hermes_contracts.py` to check revision resolution and update detection.
 
 `verify-hermes-api-client.yml` fails CI if `openapi/`, `scripts/` or `packages/hermes_api/` change without a matching regenerated client. Never hand-edit `packages/hermes_api`. Fix template bugs in `scripts/patch_openapi_for_dart.py` or `scripts/patch_generated_dart_client.py`. `packages/hermes_api/pubspec.lock` is committed on purpose.
 

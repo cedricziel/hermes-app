@@ -15,6 +15,10 @@ import 'package:hermes_app/src/skills/skill_job_sheet.dart';
 import 'package:hermes_app/src/skills/skills_controller.dart';
 import 'package:hermes_app/src/skills/skills_hub_controller.dart';
 import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
+import 'package:hermes_app/src/skills/widgets/skill_detail_actions.dart';
+import 'package:hermes_app/src/skills/widgets/skill_markdown_panel.dart';
+import 'package:hermes_app/src/skills/widgets/skill_job_bar.dart';
+import 'package:hermes_app/src/skills/widgets/skill_security_scan.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -255,6 +259,68 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
   name: 'Skills and profiles',
   children: [
     WidgetbookComponent(
+      name: 'SkillDetailActions',
+      useCases: [
+        for (final state in [
+          'Agent',
+          'Loading content',
+          'Bundled',
+          'Hub',
+          'Hub busy',
+        ])
+          ...onEachPlatform(
+            state,
+            (_) => frame(
+              SkillDetailActions(
+                enabled: true,
+                editable: state == 'Agent' || state == 'Loading content',
+                contentReady: state != 'Loading content',
+                canUninstall: state == 'Hub' || state == 'Hub busy',
+                busy: state == 'Hub busy',
+                onToggle: (_) {},
+                onEdit: () {},
+                onAskDelete: () {},
+                onUninstall: () {},
+              ),
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SkillMarkdownPanel',
+      useCases: onEachPlatform(
+        'Contents',
+        (_) => frame(
+          const SkillMarkdownPanel(
+            text: '# Review PRs\n\nBe kind and check the behavior.\n\n- Read the changes\n- Run relevant checks',
+          ),
+        ),
+      ),
+    ),
+    WidgetbookComponent(
+      name: 'SkillJobBar',
+      useCases: [
+        ...onEachPlatform(
+          'Background install',
+          (_) => frame(
+            SkillJobBar(
+              title: 'Installing an example skill with a long descriptive name',
+              onTap: () {},
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Reduced motion',
+          (context) => frame(
+            MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: SkillJobBar(title: 'Installing example', onTap: () {}),
+            ),
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'SkillDetailScreen',
       useCases: [
         skillsUseCase(
@@ -291,6 +357,55 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
             onSave: (_, _, _) async => 'Could not save this skill. Try again.',
           ),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SkillSecurityScan',
+      useCases: [
+        for (final state in [
+          'Loading',
+          'Failed',
+          'Passed',
+          'Caution',
+          'Blocked',
+        ])
+          ...onEachPlatform(
+            state,
+            (_) => frame(
+              SkillSecurityScan(
+                failed: state == 'Failed',
+                onRetry: () {},
+                scan: state == 'Loading' || state == 'Failed'
+                    ? null
+                    : HubScan(
+                        identifier: 'example/skill',
+                        policy: state == 'Passed'
+                            ? InstallPolicy.allow
+                            : state == 'Caution'
+                            ? InstallPolicy.ask
+                            : InstallPolicy.block,
+                        summary: state == 'Passed'
+                            ? 'No issues found.'
+                            : 'The scan found operations that need attention.',
+                        policyReason: 'Blocked by server policy.',
+                        severityCounts: state == 'Passed'
+                            ? const {}
+                            : const {'high': 1},
+                        findings: state == 'Passed'
+                            ? const []
+                            : const [
+                                ScanFinding(
+                                  severity: 'high',
+                                  description:
+                                      'Downloads and runs remote code.',
+                                  file: 'scripts/setup.sh',
+                                  line: 12,
+                                ),
+                              ],
+                      ),
+              ),
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(

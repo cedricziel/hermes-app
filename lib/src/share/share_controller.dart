@@ -23,11 +23,15 @@ class ShareController extends ChangeNotifier {
 
   bool get hasPending => _pending.isNotEmpty;
 
+  /// Identifies the initial-inbox notification while listeners run.
+  bool get deliveringInitial => _deliveringInitial;
+  bool _deliveringInitial = false;
+
   Future<void> start() async {
     _subscription = _inbox.items.listen(_add);
     final initial = await _inbox.initialItems();
     if (initial.isNotEmpty) {
-      _add(initial);
+      _add(initial, initial: true);
       await _inbox.reset();
     }
   }
@@ -43,12 +47,21 @@ class ShareController extends ChangeNotifier {
   /// Forgets the quotes still waiting.
   void discardQuotes() => _pending.removeWhere((i) => i is SharedQuote);
 
-  void _add(List<SharedItem> items) {
+  void _add(List<SharedItem> items, {bool initial = false}) {
     if (items.isEmpty) return;
-    _pending.addAll(items);
+    if (initial) {
+      _pending.insertAll(0, items);
+    } else {
+      _pending.addAll(items);
+    }
     final latest = _pending.whereType<SharedQuote>().lastOrNull;
     _pending.removeWhere((i) => i is SharedQuote && !identical(i, latest));
-    notifyListeners();
+    _deliveringInitial = initial;
+    try {
+      notifyListeners();
+    } finally {
+      _deliveringInitial = false;
+    }
   }
 
   @override

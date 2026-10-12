@@ -41,6 +41,29 @@ void main() {
       expect(controller.take(), const [SharedText('a'), SharedText('b')]);
     });
 
+    test(
+      'a delayed launch quote does not replace a newer waiting quote',
+      () async {
+        final initial = Completer<List<SharedItem>>();
+        final inbox = FakeShareInbox()..initialGate = initial;
+        final controller = ShareController(inbox);
+        addTearDown(controller.dispose);
+        final started = controller.start();
+        inbox.emit([const SharedText('warm'), const SharedQuote('new quote')]);
+        await Future<void>.delayed(Duration.zero);
+        initial.complete([
+          const SharedText('launch'),
+          const SharedQuote('old quote'),
+        ]);
+        await started;
+        expect(controller.take(), const [
+          SharedText('launch'),
+          SharedText('warm'),
+          SharedQuote('new quote'),
+        ]);
+      },
+    );
+
     test('take hands items over once and clears them', () async {
       final controller = ShareController(
         FakeShareInbox([const SharedText('once')]),

@@ -7,9 +7,9 @@ import 'platform_hint_offer.dart';
 import 'widgets/platform_hint_prompt.dart';
 import '../widgets/route_dismissal.dart';
 
-/// Asks about [offer] in a dialog on a wide layout and a bottom sheet on a
-/// compact one. It stays open while the hint is saved and after a failed
-/// save; closing it any other way counts as "not now".
+/// Asks about [offer] in a dialog on macOS and wide layouts, or a bottom sheet
+/// on other compact layouts. It stays open while the hint is saved and after
+/// a failed save; closing it any other way counts as "not now".
 Future<void> showPlatformHintPrompt(
   BuildContext context,
   PlatformHintOffer offer,

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_actions.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_attachments.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_channels.dart';
@@ -137,8 +138,37 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
     ],
   ),
   WidgetbookComponent(
-    name: 'KanbanTaskHeader',
+    name: 'KanbanTaskChoiceDialog',
     useCases: [
+      ...onEachPlatform(
+        'Assignee',
+        (_) => KanbanTaskChoiceDialog<String>(
+          title: 'Assign to',
+          options: const [
+            '',
+            'coder',
+            'writer-with-a-long-name-and-many-projects',
+          ],
+          selected: 'coder',
+          labelOf: (name) => name.isEmpty ? 'Nobody' : name,
+          onPicked: (_) {},
+        ),
+      ),
+      ...onEachPlatform(
+        'Priority',
+        (_) => KanbanTaskChoiceDialog<int>(
+          title: 'Priority',
+          options: const [0, 1, 2, 3],
+          selected: 2,
+          labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
+          onPicked: (_) {},
+        ),
+      ),
+    ],
+  ),
+  WidgetbookComponent(
+    name: 'KanbanTaskHeader',
+    useCases: _platformCases([
       for (final (name, task) in [('Plain', plainTask), ('Busy', busyTask)])
         _use(
           name,
@@ -150,11 +180,11 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
             onMove: (_) {},
           ),
         ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskActions',
-    useCases: [
+    useCases: _platformCases([
       _use('Triage', _actions(_triageTask)),
       _use('Running', _actions(busyTask)),
       _use('Done', _actions(_doneTask)),
@@ -181,17 +211,17 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           ),
         ),
       ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskFooter',
-    useCases: [
+    useCases: _platformCases([
       _use('Default', KanbanTaskFooter(onArchive: () {}, onDelete: () {})),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskFields',
-    useCases: [
+    useCases: _platformCases([
       _use(
         'Bare',
         KanbanTaskFields(
@@ -245,11 +275,11 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           onEditModel: () {},
         ),
       ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskComments',
-    useCases: [
+    useCases: _platformCases([
       _use(
         'None',
         KanbanTaskComments(comments: const [], onSend: (_) async => true),
@@ -269,11 +299,11 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
               Future.delayed(const Duration(milliseconds: 400), () => true),
         ),
       ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskChannels',
-    useCases: [
+    useCases: _platformCases([
       for (final (name, switching) in [
         ('Channels', const <String>{}),
         ('Switching', const {'telegram'}),
@@ -293,11 +323,11 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
             onToggle: (_, _) {},
           ),
         ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskAttachments',
-    useCases: [
+    useCases: _platformCases([
       for (final (name, attachments, transferring) in [
         ('None', const <KanbanAttachment>[], false),
         (
@@ -354,11 +384,11 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           ),
         ),
       ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskRuns',
-    useCases: [
+    useCases: _platformCases([
       _use('Nothing yet', _runs(const [], const [])),
       _use(
         'Runs and history',
@@ -386,6 +416,10 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           ],
         ),
       ),
-    ],
+    ]),
   ),
+];
+
+List<WidgetbookUseCase> _platformCases(List<WidgetbookUseCase> cases) => [
+  for (final example in cases) ...onEachPlatform(example.name, example.builder),
 ];

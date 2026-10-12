@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/session_chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 
 import '../support/fake_gateway.dart';
@@ -65,6 +66,24 @@ void main() {
     );
 
     expect(transport.promptAccepted, isFalse);
+  });
+
+  test('session retains a submit accepted during suspension', () async {
+    final session = SessionChatTransport(() => transport);
+    Future<void>? suspension;
+    gateway.beforeSubmitAnswer = (_) => suspension = session.suspend();
+    gateway.turn = (g, sid) =>
+        g.event('message.complete', sid, {'text': 'Hi', 'status': 'complete'});
+
+    await expectLater(
+      session.send(text: 'hi').toList().timeout(const Duration(seconds: 5)),
+      throwsA(isA<SessionTransportUnavailable>()),
+    );
+    await suspension!;
+
+    expect(transport.promptAccepted, isTrue);
+    expect(session.promptAccepted, isTrue);
+    await session.close();
   });
 
   test('starts again from false with the next send', () async {

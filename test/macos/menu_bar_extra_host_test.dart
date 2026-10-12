@@ -93,6 +93,7 @@ void main() {
       final windows = ConversationWindows(
         host: windowHost,
         store: ConversationWindowStore(SharedPreferencesAsync()),
+        ownerKey: () => 'test-owner',
         connection: () => null,
         headers: ({rejected}) async => const {},
       );

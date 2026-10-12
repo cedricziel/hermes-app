@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/adaptive_back_button.dart';
+import '../widgets/settings_scaffold.dart';
+import '../widgets/grouped_list.dart';
+import 'widgets/skill_security_scan.dart';
+import 'widgets/skill_markdown_panel.dart';
 
-import 'package:hermes_app/src/theme/hermes_theme.dart';
-import 'package:hermes_app/src/theme/breakpoints.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
-import '../widgets/markdown_links.dart';
 import 'widgets/skill_badges.dart';
 import 'hermes_skills_hub_repository.dart';
 import 'skill_detail_screen.dart' show skillMarkdownBody;
@@ -102,7 +101,7 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
                     : 'The security scan asks for your confirmation.',
               ),
               const SizedBox(height: 12),
-              for (final f in scan.findings) _FindingRow(f),
+              for (final f in scan.findings) SkillScanFinding(f),
             ],
           ),
         ),
@@ -126,24 +125,13 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.hub,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          leading: const AdaptiveBackButton(previousTitle: 'Skills'),
-          leadingWidth: adaptiveBackLeadingWidth(context),
-          title: Text(widget.skill.name),
-        ),
-        bottomNavigationBar: _bottom(context),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
+      builder: (context, _) => SettingsScaffold(
+        title: widget.skill.name,
+        previousTitle: 'Skills',
+        body: Column(
           children: [
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: kDetailContentMaxWidth,
-                ),
-                child: _body(context),
-              ),
-            ),
+            Expanded(child: GroupedListView(children: [_body(context)])),
+            _bottom(context),
           ],
         ),
       ),
@@ -151,10 +139,9 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
   }
 
   Widget _body(BuildContext context) {
-    final theme = Theme.of(context);
     final skill = widget.skill;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (skill.description.isNotEmpty) Text(skill.description),
         const SizedBox(height: 8),
@@ -164,133 +151,44 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             TrustBadge(skill.trustLevel),
-            if (skill.source.isNotEmpty) Chip(label: Text(skill.source)),
-            if (_preview != null)
-              Chip(label: Text('${_preview!.files.length} files')),
+            if (skill.source.isNotEmpty) Text(skill.source),
+            if (_preview != null) Text('${_preview!.files.length} files'),
           ],
         ),
         const SizedBox(height: 16),
-        _scanCard(theme),
+        SkillSecurityScan(scan: _scan, failed: _scanFailed, onRetry: _load),
         if (_previewFailed)
           const Padding(
             padding: EdgeInsets.only(top: 12),
             child: Text('Could not load the skill\'s contents.'),
           ),
         if (_preview != null) ...[
-          if (_preview!.files.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text('FILES', style: theme.textTheme.labelSmall),
-            const SizedBox(height: 4),
-            for (final f in _preview!.files)
-              Text(
-                f,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-          ],
-          const SizedBox(height: 16),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: GptMarkdown(
-                skillMarkdownBody(_preview!.skillMd),
-                onLinkTap: markdownLinkHandler(),
-              ),
+          if (_preview!.files.isNotEmpty)
+            GroupedSection(
+              header: 'Files',
+              children: [
+                for (final file in _preview!.files)
+                  Padding(
+                    padding: EdgeInsets.all(
+                      GroupedMetrics.of(context).rowPadding,
+                    ),
+                    child: Text(
+                      file,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: GroupedMetrics.of(context).footerSize,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
+          SkillMarkdownPanel(text: skillMarkdownBody(_preview!.skillMd)),
         ],
       ],
     );
   }
 
-  Widget _scanCard(ThemeData theme) {
-    if (_scanFailed) {
-      return Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Could not run the security scan.'),
-              const SizedBox(height: 8),
-              FilledButton(onPressed: _load, child: const Text('Retry')),
-            ],
-          ),
-        ),
-      );
-    }
-    final scan = _scan;
-    if (scan == null) {
-      return const Card(
-        margin: EdgeInsets.zero,
-        child: ListTile(
-          leading: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-          ),
-          title: Text('Running the security scan…'),
-        ),
-      );
-    }
-    final color = switch (scan.policy) {
-      InstallPolicy.allow => theme.colorScheme.primary,
-      InstallPolicy.ask => context.hermesColors.warning,
-      InstallPolicy.block => theme.colorScheme.error,
-    };
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('SECURITY SCAN', style: theme.textTheme.labelSmall),
-            const SizedBox(height: 4),
-            Text(
-              switch (scan.policy) {
-                InstallPolicy.allow => 'Passed',
-                InstallPolicy.ask => 'Caution: confirmation required',
-                InstallPolicy.block => 'Blocked',
-              },
-              key: const ValueKey('scan-verdict'),
-              style: theme.textTheme.titleMedium?.copyWith(color: color),
-            ),
-            if (scan.summary.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(scan.summary),
-            ],
-            if (scan.severityCounts.values.any((n) => n > 0)) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                children: [
-                  for (final e in scan.severityCounts.entries)
-                    if (e.value > 0) Chip(label: Text('${e.value} ${e.key}')),
-                ],
-              ),
-            ],
-            if (scan.policy == InstallPolicy.block &&
-                scan.policyReason.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(scan.policyReason, style: TextStyle(color: color)),
-            ],
-            for (final f in scan.findings) ...[
-              const Divider(height: 20),
-              _FindingRow(f),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget? _bottom(BuildContext context) {
+  Widget _bottom(BuildContext context) {
     final hub = widget.hub;
     final scan = _scan;
     Widget button;
@@ -318,47 +216,27 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
           caption = 'Blocked by the server\'s policy.';
       }
     }
+    final metrics = GroupedMetrics.of(context);
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(width: double.infinity, child: button),
-            if (caption != null) ...[
-              const SizedBox(height: 4),
-              Text(caption, style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FindingRow extends StatelessWidget {
-  const _FindingRow(this.finding);
-
-  final ScanFinding finding;
-
-  @override
-  Widget build(BuildContext context) {
-    final where = [
-      if (finding.file.isNotEmpty) finding.file,
-      if (finding.line != null) '${finding.line}',
-    ].join(':');
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('${finding.severity.toUpperCase()}  ${finding.description}'),
-          if (where.isNotEmpty)
-            Text(
-              where,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+        padding: EdgeInsets.fromLTRB(metrics.gutter, 8, metrics.gutter, 12),
+        child: Align(
+          alignment: Alignment.topCenter,
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: metrics.maxWidth),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(width: double.infinity, child: button),
+                if (caption != null) ...[
+                  const SizedBox(height: 4),
+                  Text(caption, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

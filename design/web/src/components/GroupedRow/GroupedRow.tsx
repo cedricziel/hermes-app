@@ -12,6 +12,8 @@ import "./GroupedRow.css";
 export interface GroupedRowProps {
   /** The row's name: "netbox", "Vision", "Remove plugin". iOS 17px, Mac 13px, Material 16px. */
   title: string;
+  /** Wrap long titles when the row has nowhere else to show them. */
+  wrapTitle?: boolean;
   /** Muted text right after the title, in the subtitle size: a version ("v1.2.0"), "Official", "Ready". */
   meta?: string;
   /** One muted line under the title, cut with an ellipsis: "Bundled · Run shell commands." iOS 15px, Mac 11px, Material 14px. */
@@ -67,6 +69,7 @@ export interface GroupedRowProps {
  */
 export function GroupedRow({
   title,
+  wrapTitle = false,
   meta,
   subtitle,
   monospaceSubtitle = false,
@@ -101,6 +104,7 @@ export function GroupedRow({
         <span
           className={cx(
             "h-grouped-row__title",
+            wrapTitle && "h-grouped-row__title--wrap",
             destructive && "h-grouped-row__title--destructive",
           )}
         >

@@ -121,6 +121,87 @@ void main() {
     );
   });
 
+  testWidgets('three stalled sources settle within two seconds', (
+    tester,
+  ) async {
+    server
+      ..onRequest(
+        'GET',
+        '/api/profiles',
+        (_) => Completer<FakeResponse>().future,
+      )
+      ..onRequest(
+        'GET',
+        '/api/dashboard/plugins',
+        (_) => Completer<FakeResponse>().future,
+      )
+      ..onRequest(
+        'GET',
+        '/api/cron/delivery-targets',
+        (_) => Completer<FakeResponse>().future,
+      );
+    final previous = SurfaceSnapshot(
+      updatedAt: now,
+      profiles: const ['default'],
+      kanban: const KanbanSummary(blocked: 4, review: 3),
+    );
+    SnapshotBuild? result;
+    unawaited(
+      SurfaceSnapshotBuilder(HermesRepositories(server.client()))
+          .build(signedIn: true, previous: previous, refreshRemote: true)
+          .then((value) {
+            result = value;
+          }),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1900));
+
+    expect(result, isNotNull);
+    expect(result!.sourcesFailed, 3);
+    expect(result!.snapshot.profiles, ['default']);
+    expect(result!.snapshot.kanban, previous.kanban);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('profile and chat reads share one build budget', (tester) async {
+    server
+      ..onRequest('GET', '/api/profiles', (_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 1200));
+        return (
+          status: 200,
+          body: {
+            'profiles': [
+              {'name': 'work'},
+            ],
+          },
+        );
+      })
+      ..onRequest(
+        'GET',
+        '/api/sessions',
+        (_) => Completer<FakeResponse>().future,
+        query: {'profile': 'work'},
+      );
+    SnapshotBuild? result;
+    unawaited(
+      SurfaceSnapshotBuilder(HermesRepositories(server.client()))
+          .build(signedIn: true, refreshRemote: true)
+          .then((value) {
+            result = value;
+          }),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(result, isNotNull);
+    expect(result!.sourcesFailed, 1);
+    expect(result!.snapshot.profiles, ['work']);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
   group('Kanban', () {
     test('counts the blocked and in-review tasks', () async {
       server

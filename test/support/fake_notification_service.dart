@@ -21,6 +21,8 @@ class FakeNotificationService implements NotificationService {
   /// The thread whose notification started the app, if any.
   String? launchThread;
 
+  Completer<NotificationTarget?>? launchGate;
+
   /// The profile of the notification that started the app, if any.
   String? launchProfile;
 
@@ -77,6 +79,7 @@ class FakeNotificationService implements NotificationService {
 
   @override
   Future<NotificationTarget?> launchTarget() async {
+    if (launchGate case final gate?) return gate.future;
     if (launchPrompt != null) {
       return NotificationTarget.newChat(
         prompt: launchPrompt!,

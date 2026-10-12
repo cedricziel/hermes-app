@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
+import 'widgets/skill_detail_actions.dart';
+import 'widgets/skill_markdown_panel.dart';
 
-import 'package:hermes_app/src/theme/breakpoints.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
-import '../widgets/markdown_links.dart';
 import 'hermes_skills_repository.dart';
 import 'skill_editor_screen.dart';
 import 'skill_job_sheet.dart';
@@ -123,27 +122,12 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
       listenable: Listenable.merge([widget.controller, ?widget.hub]),
       builder: (context, _) {
         final skill = widget.controller.skill(widget.name);
-        return Scaffold(
-          appBar: AppBar(
-            leading: const AdaptiveBackButton(previousTitle: 'Skills'),
-            leadingWidth: adaptiveBackLeadingWidth(context),
-            title: Text(widget.name),
-          ),
+        return SettingsScaffold(
+          title: widget.name,
+          previousTitle: 'Skills',
           body: skill == null
               ? const Center(child: Text('This skill no longer exists.'))
-              : ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: kDetailContentMaxWidth,
-                        ),
-                        child: _details(skill),
-                      ),
-                    ),
-                  ],
-                ),
+              : GroupedListView(children: [_details(skill)]),
         );
       },
     );
@@ -159,84 +143,58 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            if (skill.category.isNotEmpty) Chip(label: Text(skill.category)),
+            if (skill.category.isNotEmpty)
+              Text(skill.category, style: theme.textTheme.bodySmall),
             SourceBadge(skill.source),
             if (skill.usage > 0) Text('used ${skill.usage}×'),
           ],
         ),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Enabled'),
-          subtitle: const Text('The agent may load this skill'),
-          value: skill.enabled,
-          onChanged: (v) async {
-            final ok = await widget.controller.toggle(skill.name, v);
-            if (!ok && mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Could not change ${skill.name}')),
-              );
-            }
-          },
+        SkillDetailActions(
+          enabled: skill.enabled,
+          editable: skill.editable,
+          contentReady: _content != null,
+          canUninstall: skill.source == SkillSource.hub && widget.hub != null,
+          busy: widget.hub?.busy ?? false,
+          onToggle: (value) => _toggle(skill, value),
+          onEdit: _edit,
+          onAskDelete: _askDelete,
+          onUninstall: _uninstall,
         ),
-        if (skill.editable)
-          Wrap(
-            spacing: 8,
-            children: [
-              FilledButton.icon(
-                onPressed: _content == null ? null : _edit,
-                icon: const AppIcon(AppIcons.edit),
-                label: const Text('Edit'),
-              ),
-              OutlinedButton(
-                onPressed: _askDelete,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                ),
-                child: const Text('Ask agent to delete'),
-              ),
-            ],
-          )
-        else if (skill.source == SkillSource.hub && widget.hub != null)
-          Wrap(
-            spacing: 8,
-            children: [
-              OutlinedButton(
-                onPressed: widget.hub!.busy ? null : _uninstall,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                ),
-                child: const Text('Uninstall'),
-              ),
-            ],
-          )
-        else
-          Text(
-            'Bundled and hub skills can only be switched on or off here.',
-            style: theme.textTheme.bodySmall,
-          ),
-        const SizedBox(height: 16),
         if (_failed)
-          Column(
+          GroupedSection(
             children: [
-              const Text('Could not load this skill'),
-              const SizedBox(height: 8),
-              FilledButton(onPressed: _load, child: const Text('Retry')),
+              const GroupedRow(
+                title: 'Could not load this skill',
+                chevron: false,
+              ),
+              GroupedRow(title: 'Retry', chevron: false, onTap: _load),
             ],
           )
         else if (_content == null)
-          const Center(child: CircularProgressIndicator.adaptive())
-        else
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: GptMarkdown(
-                skillMarkdownBody(_content!),
-                onLinkTap: markdownLinkHandler(),
+          const GroupedSection(
+            children: [
+              GroupedRow(
+                title: 'Loading skill contents…',
+                chevron: false,
+                trailing: SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                ),
               ),
-            ),
-          ),
+            ],
+          )
+        else
+          SkillMarkdownPanel(text: skillMarkdownBody(_content!)),
       ],
     );
+  }
+
+  Future<void> _toggle(HermesSkill skill, bool enabled) async {
+    final ok = await widget.controller.toggle(skill.name, enabled);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not change ${skill.name}')));
+    }
   }
 }

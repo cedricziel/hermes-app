@@ -1,20 +1,15 @@
-/* A background hub job: a dense ListTile on the tinted strip, the busy bar as its subtitle. */
 .h-skills__job {
   flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 16px 10px;
-  background: var(--h-surface-high);
-  cursor: pointer;
+  width: calc(100% - 32px);
+  max-width: 640px;
+  margin: 0 auto;
 }
 
-.h-skills__job-title {
-  font-size: 14px;
-  line-height: 20px;
+.h-settings--mac .h-skills__job {
+  width: calc(100% - 40px);
+  max-width: 600px;
 }
 
-.h-skills__job:focus-visible {
-  outline: 2px solid var(--h-fg);
-  outline-offset: -2px;
+.h-skills__job-progress {
+  width: 44px;
 }

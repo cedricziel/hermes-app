@@ -6,7 +6,7 @@ import '../api/hermes_repositories.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
-import '../widgets/busy_bar.dart';
+import 'widgets/skill_job_bar.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/settings_search_field.dart';
 import '../widgets/state_message.dart';
@@ -344,15 +344,10 @@ class _JobBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final job = hub.job;
     if (job == null) return const SizedBox.shrink();
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: ListTile(
-        dense: true,
-        key: const ValueKey('job-bar'),
-        title: Text('${job.title}…'),
-        subtitle: const BusyBar(),
-        onTap: () => showSkillJobSheet(context, hub),
-      ),
+    return SkillJobBar(
+      key: const ValueKey('job-bar'),
+      title: job.title,
+      onTap: () => showSkillJobSheet(context, hub),
     );
   }
 }
