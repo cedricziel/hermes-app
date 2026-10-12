@@ -181,6 +181,8 @@ in a persistent terminal with the same `HERMES_SERVER_URL` build flag.
 If native clicks move the pointer but leave the UI unchanged, raise the targeted
 verification window with `performSecondaryAction(windowIndex, "Raise")` when
 its accessibility tree exposes that action, then retry and inspect the state.
+After a window moves or resizes, rebind it with `cua.getApp` before continuing
+if accessible controls stop responding; do not reuse the old window binding.
 
 Try the accessibility tree first: it presses buttons, tabs, list rows and
 dialog actions by name, without moving the pointer or taking focus, so it

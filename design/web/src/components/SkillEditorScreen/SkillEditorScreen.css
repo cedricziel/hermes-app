@@ -1,18 +1,25 @@
 .h-skill-editor {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .h-skill-editor__fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 8px 16px 0;
+  width: calc(100% - 32px);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.h-settings--mac .h-skill-editor__fields,
+.h-settings--mac .h-skill-editor__switch {
+  max-width: 600px;
 }
 
 .h-skill-editor__switch {
-  padding: 12px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .h-skill-editor__error {
