@@ -50,6 +50,8 @@ export interface ChatComposerProps {
   modelPill?: ReactNode;
   /** Overrides the hint text ("Message Hermes…", or "Queue a message…" while replying). */
   placeholder?: string;
+  /** Teammate or slash-command results, normally a ChatSuggestions panel. */
+  suggestions?: ReactNode;
 }
 
 /**
@@ -74,6 +76,7 @@ export function ChatComposer({
   onRemoveQueued,
   modelPill,
   placeholder,
+  suggestions,
 }: ChatComposerProps) {
   const [local, setLocal] = useState(value ?? "");
   const text = value !== undefined && onChange ? value : local;
@@ -95,6 +98,7 @@ export function ChatComposer({
 
   return (
     <div className="h-chat-composer">
+      {suggestions}
       {replying ? (
         <div className="h-chat-composer__bar">
           <span className="h-chat-composer__bar-text">Hermes is replying…</span>

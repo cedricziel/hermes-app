@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
+import 'package:hermes_app/src/chat/widgets/chat_suggestions.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -216,5 +217,69 @@ void main() {
     expect(controller.text, '/help ');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     expect(sent, ['/help']);
+  });
+  testWidgets('slash arrows wrap and Escape dismisses without sending', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      slashCommands: const [
+        SlashCommand('/help', 'Show help'),
+        SlashCommand('/model', 'Choose model'),
+      ],
+    );
+    await tester.tap(find.byType(EditableText));
+    await tester.enterText(find.byType(EditableText), '/');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    expect(controller.text, '/model ');
+    expect(sent, isEmpty);
+    await tester.enterText(find.byType(EditableText), '/');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.text('/help'), findsNothing);
+    expect(controller.text, '/');
+    expect(sent, isEmpty);
+  });
+  testWidgets('keyboard selection stays visible when suggestions overflow', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      slashCommands: const [
+        SlashCommand('/one', 'First command'),
+        SlashCommand('/two', 'Second command'),
+        SlashCommand('/three', 'Third command'),
+        SlashCommand('/four', 'Fourth command'),
+        SlashCommand('/five', 'Fifth command'),
+        SlashCommand('/six', 'Sixth command'),
+        SlashCommand('/seven', 'Seventh command'),
+        SlashCommand('/eight', 'Eighth command'),
+      ],
+    );
+    await tester.tap(find.byType(EditableText));
+    await tester.enterText(find.byType(EditableText), '/');
+    await tester.pumpAndSettle();
+    final panel = tester.getRect(find.byType(ChatSuggestions));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    final last = tester.getRect(find.text('/eight'));
+    expect(last.top, greaterThanOrEqualTo(panel.top));
+    expect(last.bottom, lessThanOrEqualTo(panel.bottom));
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isTrue,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    final first = tester.getRect(find.text('/one'));
+    expect(first.top, greaterThanOrEqualTo(panel.top));
+    expect(first.bottom, lessThanOrEqualTo(panel.bottom));
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    expect(controller.text, '/one ');
+    expect(sent, isEmpty);
   });
 }
