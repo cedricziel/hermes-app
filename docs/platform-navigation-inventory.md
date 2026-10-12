@@ -11,7 +11,7 @@ Source inspection on 2026-10-12. This inventory supports [the implementation che
 | Card dragging | Wide cards use touch/stylus delayed drag or immediate mouse/trackpad drag; compact cards use selection and handle | Columns at every width; immediate mouse/trackpad dragging, delayed touch/stylus dragging | Wide cards distinguish pointer devices; compact cards use selection and handle | `lib/src/kanban/kanban_screen.dart`, `lib/src/kanban/widgets/kanban_card_drag.dart` |
 | Main destinations | Sidebar or drawer according to layout | Mac sidebar/source-list rows | Sidebar or drawer according to layout | `lib/src/shell/app_shell.dart`, `lib/src/shell/shell_navigation.dart` |
 | Detail Back | Route Back with dirty/busy guards | Toolbar and `⌘[` on settings screens, with route guards | Route/system Back with guards | `lib/src/widgets/settings_scaffold.dart`, `lib/src/widgets/adaptive_back_button.dart` |
-| Page motion | Framework default | Framework default, without an explicit app transition policy | Framework default | `lib/src/theme/hermes_theme.dart` |
+| Page motion | Framework default | Explicit 150 ms stationary fade; reduced motion shows page content immediately | Framework default | `lib/src/theme/hermes_theme.dart` |
 | Tabs | Cupertino sliding segmented control plus TabBarView | Cupertino sliding segmented control plus TabBarView | Material pill control plus TabBarView | `lib/src/widgets/adaptive_tab_bar.dart` |
 
 An iPad with a mouse currently retains the iOS row-action branch. Audit pointer menus before changing that behavior. Kanban distinguishes input devices directly, while general layout width controls its compact non-Mac interaction.

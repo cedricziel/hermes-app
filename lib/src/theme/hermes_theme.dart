@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'macos_page_transitions.dart';
 import 'platform_chrome.dart';
 import 'type_scale.dart';
 
@@ -124,6 +125,12 @@ ThemeData _buildTheme({
     borderSide: BorderSide.none,
   );
   return base.copyWith(
+    pageTransitionsTheme: PageTransitionsTheme(
+      builders: {
+        ...base.pageTransitionsTheme.builders,
+        TargetPlatform.macOS: const MacosPageTransitionsBuilder(),
+      },
+    ),
     textTheme: isIos ? iosTextTheme(base.textTheme) : null,
     scaffoldBackgroundColor: scaffoldBackground,
     splashFactory: apple ? NoSplash.splashFactory : null,
