@@ -27,6 +27,7 @@ void main() {
     windows = ConversationWindows(
       host: host,
       store: ConversationWindowStore(SharedPreferencesAsync()),
+      ownerKey: () => 'test-owner',
       connection: () => (baseUrl: 'https://hermes.test', authRequired: true),
       headers: ({rejected}) async => const {},
     );

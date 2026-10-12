@@ -31,6 +31,9 @@ class FakeConversationWindowHost implements ConversationWindowHost {
 
   /// Runs while a window is being created, before its id comes back.
   Future<void> Function(ConversationWindowArgs args)? onCreate;
+  Future<void> Function()? onCloseAll;
+  Future<void> Function()? onFocus;
+  Future<bool> Function()? onTogglePanel;
 
   @override
   Future<String> create(
@@ -55,6 +58,7 @@ class FakeConversationWindowHost implements ConversationWindowHost {
   /// presented it.
   @override
   Future<bool> togglePanel() async {
+    if (onTogglePanel case final callback?) return callback();
     if (!panels.keys.any(presentedPanels.contains)) return false;
     panelToggles++;
     return true;
@@ -63,6 +67,7 @@ class FakeConversationWindowHost implements ConversationWindowHost {
   /// Like the plugin, fails for a window it no longer knows.
   @override
   Future<void> focus(String windowId) async {
+    if (onFocus case final callback?) await callback();
     if (!created.containsKey(windowId)) {
       throw StateError('failed to find target window. $windowId');
     }
@@ -83,6 +88,7 @@ class FakeConversationWindowHost implements ConversationWindowHost {
   @override
   Future<void> closeAll() async {
     closedNatively.add('*');
+    await onCloseAll?.call();
     created.clear();
     panels.clear();
   }

@@ -169,9 +169,11 @@ Future<void> main([List<String> args = const []]) async {
             final windows = ConversationWindows(
               host: DesktopConversationWindowHost(),
               store: ConversationWindowStore(SharedPreferencesAsync()),
+              ownerKey: () => windowSessionOwnerKey(auth),
               connection: () {
                 final baseUrl = auth.baseUrl;
-                if (auth.state != HermesConnectionState.ready ||
+                if (!auth.protectedRequestsAllowed ||
+                    auth.state != HermesConnectionState.ready ||
                     baseUrl == null) {
                   return null;
                 }
@@ -184,10 +186,7 @@ Future<void> main([List<String> args = const []]) async {
               breadcrumbs: context.read<Breadcrumbs>(),
               events: telemetry.events(),
             );
-            // An expired session keeps the windows for after the sign-in.
-            auth.signedOut.listen(
-              (_) => windows.closeAll(forget: !auth.sessionExpired),
-            );
+            windows.bindSession(auth);
             if (context.read<GlobalShortcut?>() case final shortcut?) {
               QuickPanelShortcut(
                 shortcut: shortcut,
