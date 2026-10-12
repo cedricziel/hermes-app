@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
 import '../models/hermes_status.dart';
 import '../theme/app_icons.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
+import 'widgets/connection_summary.dart';
 
-/// Landing screen once connected (and, if required, signed in). A minimal
-/// status view — the jumping-off point for the real Hermes chat/session UI.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -24,109 +24,59 @@ class _HomeScreenState extends State<HomeScreen> {
     _statusFuture = _loadStatus();
   }
 
-  Future<HermesStatus> _loadStatus() {
-    final auth = context.read<AuthController>();
-    return auth.api!.fetchStatus();
+  Future<HermesStatus> _loadStatus() =>
+      context.read<AuthController>().api!.fetchStatus();
+
+  Future<void> _refresh() async {
+    final future = _loadStatus();
+    setState(() {
+      _statusFuture = future;
+    });
+    await future.then<void>((_) {}, onError: (Object _) {});
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final identity = auth.identity;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Hermes'),
-        actions: [
-          AdaptivePopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'sign-out') auth.signOut();
-              if (value == 'change-server') auth.changeServer();
-            },
-            itemBuilder: (context) => [
-              if (auth.status?.authRequired ?? false)
-                const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
-              const PopupMenuItem(
-                value: 'change-server',
-                child: Text('Change server'),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return SettingsScaffold(
+      title: 'Connection',
+      actions: [
+        SettingsBarAction(
+          key: const Key('connection-refresh'),
+          label: 'Refresh',
+          icon: AppIcons.refresh,
+          onPressed: _refresh,
+        ),
+      ],
       body: RefreshIndicator(
-        onRefresh: () async {
-          final future = _loadStatus();
-          setState(() => _statusFuture = future);
-          await future;
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        onRefresh: _refresh,
+        child: GroupedListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Card(
-              child: ListTile(
-                leading: const AppIcon(AppIcons.server),
-                title: const Text('Server'),
-                subtitle: Text(auth.baseUrl ?? ''),
-              ),
-            ),
-            if (identity != null)
-              Card(
-                child: ListTile(
-                  leading: const AppIcon(AppIcons.person),
-                  title: Text(
-                    identity.displayName.isNotEmpty
-                        ? identity.displayName
-                        : identity.email.isNotEmpty
-                        ? identity.email
-                        : identity.userId,
-                  ),
-                  subtitle: Text('via ${identity.provider}'),
-                ),
-              ),
             FutureBuilder<HermesStatus>(
               future: _statusFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(child: CircularProgressIndicator.adaptive()),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Card(
-                    child: ListTile(
-                      leading: AppIcon(
-                        AppIcons.error,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      title: const Text('Could not load status'),
-                      subtitle: Text('${snapshot.error}'),
-                    ),
-                  );
-                }
-                final status = snapshot.data!;
-                return Card(
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: const AppIcon(AppIcons.checkCircle),
-                        title: const Text('Agent version'),
-                        subtitle: Text(status.version ?? 'unknown'),
-                      ),
-                      ListTile(
-                        leading: const AppIcon(AppIcons.shield),
-                        title: const Text('Auth gate'),
-                        subtitle: Text(
-                          status.authRequired
-                              ? 'Enabled (${status.authProviders.join(', ')})'
-                              : 'Disabled (loopback)',
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+              builder: (context, snapshot) => ConnectionSummary(
+                serverUrl: auth.baseUrl ?? '',
+                identityName: identity == null
+                    ? null
+                    : identity.displayName.isNotEmpty
+                    ? identity.displayName
+                    : identity.email.isNotEmpty
+                    ? identity.email
+                    : identity.userId,
+                provider: identity?.provider,
+                loading: snapshot.connectionState != ConnectionState.done,
+                error: snapshot.hasError ? '${snapshot.error}' : null,
+                status: snapshot.data,
+              ),
+            ),
+            GroupedSection(
+              children: [
+                if (auth.status?.authRequired ?? false)
+                  GroupedRow(title: 'Sign out', onTap: auth.signOut),
+                GroupedRow(title: 'Change server', onTap: auth.changeServer),
+              ],
             ),
           ],
         ),
