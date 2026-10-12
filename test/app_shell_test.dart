@@ -19,6 +19,8 @@ import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_detail.dart';
+import 'package:hermes_app/src/schedules/schedule_models.dart';
+import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
@@ -28,6 +30,7 @@ import 'package:hermes_app/src/skills/skill_editor_screen.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -37,6 +40,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_device_authenticator.dart';
+import 'support/fake_conversation_window_host.dart';
 import 'support/fake_notification_service.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/kanban_fixtures.dart';
@@ -72,6 +76,8 @@ void main() {
     BreadcrumbTrail? trail,
     AppLockController? lock,
     DeepLinks? links,
+    ConversationWindows? windows,
+    AuthController? auth,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -80,9 +86,10 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<AuthController>(
-            create: (_) => AuthController(),
-          ),
+          if (auth == null)
+            ChangeNotifierProvider<AuthController>(create: (_) => _ShellAuth())
+          else
+            ChangeNotifierProvider<AuthController>.value(value: auth),
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(inbox)..start(),
           ),
@@ -91,6 +98,8 @@ void main() {
             ChangeNotifierProvider<AppLockController>.value(value: lock),
           if (links != null)
             ChangeNotifierProvider<DeepLinks?>.value(value: links),
+          if (windows != null)
+            ChangeNotifierProvider<ConversationWindows?>.value(value: windows),
           if (trail != null)
             Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
           if (settings != null)
@@ -454,6 +463,26 @@ void main() {
       .widget<ChatThreadView>(find.byType(ChatThreadView, skipOffstage: false))
       .thread
       ?.id;
+
+  ({FakeConversationWindowHost host, ConversationWindows windows}) windowHost({
+    AuthController? auth,
+  }) {
+    final host = FakeConversationWindowHost();
+    final windows = ConversationWindows(
+      host: host,
+      store: ConversationWindowStore(SharedPreferencesAsync()),
+      connection: () => auth == null || auth.protectedRequestsAllowed
+          ? (baseUrl: 'https://hermes.test', authRequired: false)
+          : null,
+      ownerKey: () =>
+          auth == null || auth.protectedRequestsAllowed ? 'test-owner' : null,
+      headers: ({rejected}) async => {},
+    );
+    addTearDown(host.dispose);
+    addTearDown(windows.dispose);
+    if (auth != null) windows.bindSession(auth);
+    return (host: host, windows: windows);
+  }
 
   group('guarded notification navigation', () {
     testWidgets('retains the editor and delivers only the latest tap', (
@@ -1199,6 +1228,315 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  group('guarded main-window handoffs', () {
+    testWidgets('Show in Main keeps the editor and composer until Save', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final fixture = windowHost();
+      await fixture.windows.open('t2', profile: null, title: 'Window chat');
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        windows: fixture.windows,
+      );
+      final composer = tester.widget<EditableText>(composerField).controller;
+      await tester.enterText(composerField, 'Original draft');
+      await openInSidebar(tester, 'Kanban');
+      await editSkill(tester);
+
+      await fixture.host.call('showInMain', {
+        'window_id': 'w0',
+        'thread_id': 't2',
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(selectedTab(tester), 1);
+      expect(selectedChat(tester), 't1');
+      expect(composer.text, 'Original draft');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      expect(selectedChat(tester), 't1');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillEditorScreen), findsNothing);
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+      expect(fixture.host.mainShown, 1);
+    });
+
+    testWidgets('a newer notification replaces Show in Main while editing', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      final fixture = windowHost();
+      await fixture.windows.open('t2', profile: null, title: 'Window chat');
+      final trail = BreadcrumbTrail();
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        windows: fixture.windows,
+        trail: trail,
+      );
+      await editSkill(tester);
+
+      await fixture.host.call('showInMain', {
+        'window_id': 'w0',
+        'thread_id': 't2',
+      });
+      await tester.pumpAndSettle();
+      expect(selectedChat(tester), 't1');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      notifications.tap('t3');
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(selectedChat(tester), 't1');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillEditorScreen), findsNothing);
+      expect(selectedChat(tester), 't3');
+      expect(
+        trail.recent
+            .where((crumb) => crumb.name == 'chat.open.requested')
+            .length,
+        1,
+      );
+    });
+
+    testWidgets('scheduled-run handoff waits for Keep editing then Save', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      await pumpShell(tester, size: const Size(1400, 900));
+      final composer = tester.widget<EditableText>(composerField).controller;
+      await tester.enterText(composerField, 'Original draft');
+      await openInSidebar(tester, 'Schedules');
+      final onOpenRun = tester
+          .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+          .onOpenRun;
+      await editSkill(tester);
+
+      onOpenRun(
+        CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+        const CronJob(id: 'job1', name: 'Morning brief'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(selectedTab(tester), 1);
+      expect(selectedChat(tester), 't1');
+      expect(composer.text, 'Original draft');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillEditorScreen), findsNothing);
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+    });
+
+    testWidgets('App Lock holds a scheduled-run handoff before Discard', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: FakeDeviceAuthenticator(),
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), lock: lock);
+      await openInSidebar(tester, 'Schedules');
+      final onOpenRun = tester
+          .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+          .onOpenRun;
+      await editSkill(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+
+      onOpenRun(
+        CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+        const CronJob(id: 'job1', name: 'Morning brief'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(selectedChat(tester), 't1');
+      expect(selectedTab(tester), 1);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillEditorScreen), findsNothing);
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+    });
+  });
+
+  group('handoff authorization', () {
+    testWidgets(
+      'queued Show in Main cannot survive owner retirement while ready',
+      (tester) async {
+        kanbanPlugin(on: false);
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        final fixture = windowHost(auth: auth);
+        await fixture.windows.open('t2', profile: null, title: 'Window chat');
+        final trail = BreadcrumbTrail();
+        await pumpShell(
+          tester,
+          size: const Size(1400, 900),
+          windows: fixture.windows,
+          auth: auth,
+          trail: trail,
+        );
+        await editSkill(tester);
+        await fixture.host.call('showInMain', {
+          'window_id': 'w0',
+          'thread_id': 't2',
+        });
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+
+        auth.retire();
+        expect(auth.state, HermesConnectionState.ready);
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SkillEditorScreen), findsNothing);
+        expect(selectedChat(tester), 't1');
+        expect(
+          trail.recent.where((crumb) => crumb.name == 'chat.open.requested'),
+          isEmpty,
+        );
+        auth.allow(true);
+        await tester.pumpAndSettle();
+        expect(selectedChat(tester), 't1');
+      },
+    );
+
+    testWidgets(
+      'queued scheduled-run handoff cannot survive owner retirement while ready',
+      (tester) async {
+        kanbanPlugin(on: false);
+        cronRoutes(on: true);
+        jobRoutes();
+        final auth = _ShellAuth();
+        addTearDown(auth.dispose);
+        await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+        await openInSidebar(tester, 'Schedules');
+        final onOpenRun = tester
+            .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+            .onOpenRun;
+        await editSkill(tester);
+        onOpenRun(
+          CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+          const CronJob(id: 'job1', name: 'Morning brief'),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+
+        auth.retire();
+        expect(auth.state, HermesConnectionState.ready);
+        onOpenRun(
+          CronRun(sessionId: 't3', startedAt: DateTime(2026)),
+          const CronJob(id: 'job1', name: 'Morning brief'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Discard changes?'), findsNothing);
+        expect(selectedChat(tester), 't1');
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SkillEditorScreen), findsNothing);
+        expect(selectedTab(tester), 1);
+        expect(selectedChat(tester), 't1');
+        auth.allow(true);
+        await tester.pumpAndSettle();
+        expect(selectedChat(tester), 't1');
+      },
+    );
+
+    testWidgets('same-generation permission recovery resumes a held handoff', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      final auth = _ShellAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+      await openInSidebar(tester, 'Schedules');
+      final onOpenRun = tester
+          .widget<SchedulesScreen>(find.byType(SchedulesScreen))
+          .onOpenRun;
+      await editSkill(tester);
+
+      auth.allow(false);
+      onOpenRun(
+        CronRun(sessionId: 't2', startedAt: DateTime(2026)),
+        const CronJob(id: 'job1', name: 'Morning brief'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      expect(selectedChat(tester), 't1');
+      auth.transition(HermesConnectionState.needsLogin);
+      auth.allow(true);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(selectedChat(tester), 't1');
+      auth.transition(HermesConnectionState.ready);
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(selectedChat(tester), 't2');
+    });
+
+    testWidgets('permission recovery cannot resume a disposed shell', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      final auth = _ShellAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), auth: auth);
+      auth.allow(false);
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(auth.observed, isFalse);
+
+      auth.allow(true);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('a route pushed over the shell after Kanban and Schedules '
       'were both opened animates without a hero clash', (tester) async {
     kanbanPlugin(on: true);
@@ -1602,6 +1940,39 @@ void main() {
       },
     );
   });
+}
+
+class _ShellAuth extends AuthController {
+  bool get observed => hasListeners;
+
+  var _allowed = true;
+  var _generation = 0;
+  var _connectionState = HermesConnectionState.ready;
+
+  @override
+  HermesConnectionState get state => _connectionState;
+
+  @override
+  bool get protectedRequestsAllowed => _allowed;
+
+  @override
+  int get ownerGeneration => _generation;
+
+  void allow(bool value) {
+    _allowed = value;
+    notifyListeners();
+  }
+
+  void retire() {
+    _allowed = false;
+    _generation++;
+    notifyListeners();
+  }
+
+  void transition(HermesConnectionState state) {
+    _connectionState = state;
+    notifyListeners();
+  }
 }
 
 /// A stand-in for the Kanban page that records when it starts and stops.

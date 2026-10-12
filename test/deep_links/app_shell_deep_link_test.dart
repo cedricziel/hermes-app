@@ -95,9 +95,7 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<AuthController>(
-            create: (_) => AuthController(),
-          ),
+          ChangeNotifierProvider<AuthController>(create: (_) => _ReadyAuth()),
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(FakeShareInbox()),
           ),
@@ -749,4 +747,12 @@ void main() {
       expect(crumbs(), ['deeplink.ignored {reason: unavailable}']);
     });
   });
+}
+
+class _ReadyAuth extends AuthController {
+  @override
+  HermesConnectionState get state => HermesConnectionState.ready;
+
+  @override
+  bool get protectedRequestsAllowed => true;
 }
