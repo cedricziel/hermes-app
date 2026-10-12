@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/native_login_flow.dart';
+import 'package:hermes_app/src/auth/session_activity.dart';
 import 'package:hermes_app/src/models/auth_provider_info.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1065,6 +1066,38 @@ void main() {
         ]);
       });
     }
+
+    test(
+      'expiry generation advances before recovery and stays monotonic',
+      () async {
+        await bootstrapWith(_session(), nativeSignIn: true);
+        final initial = controller.sessionExpiryGeneration;
+        final observed = <int>[];
+        controller.addListener(() {
+          if (!controller.protectedRequestsAllowed) {
+            observed.add(controller.sessionExpiryGeneration);
+          }
+        });
+        await expireAndSignIn('u1');
+        expect(observed, isNotEmpty);
+        expect(observed.first, initial + 1);
+        expect(controller.sessionExpiryGeneration, initial + 1);
+        await expireAndSignIn('u1');
+        expect(controller.sessionExpiryGeneration, initial + 2);
+        await controller.signOut();
+        expect(controller.sessionExpiryGeneration, initial + 2);
+      },
+    );
+
+    test('disposing authentication closes attached owner activity', () async {
+      await bootstrapWith(_session());
+      final activity = SessionActivity(controller);
+      addTearDown(activity.dispose);
+      expect(activity.value, isTrue);
+      controller.dispose();
+      expect(activity.value, isFalse);
+      expect(activity.retired, isTrue);
+    });
 
     test('departure telemetry contains only a fixed reason', () async {
       await bootstrapWith(_session());
