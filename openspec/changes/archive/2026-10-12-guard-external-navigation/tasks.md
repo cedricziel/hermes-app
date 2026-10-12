@@ -8,5 +8,5 @@
 
 ## 2. Verify and deliver
 
-- [ ] 2.1 Run dart format, flutter analyze, focused tests, the full relevant suite, OpenSpec validation, and the isolated verify-in-app loop. Update stale project skill guidance only if this change reveals a reusable gap.
-- [ ] 2.2 Obtain an isolated review when CodeRabbit is limited, address findings, open a fix(navigation) PR, pass required checks, and merge. Sync and archive the completed spec, then update the backlog.
+- [x] 2.1 Run dart format, flutter analyze, focused tests, the full relevant suite, OpenSpec validation, and the isolated verify-in-app loop. Update stale project skill guidance only if this change reveals a reusable gap.
+- [x] 2.2 Obtain an isolated review when CodeRabbit is limited, address findings, open a fix(navigation) PR, pass required checks, and merge. Sync and archive the completed spec, then update the backlog.
