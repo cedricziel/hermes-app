@@ -93,6 +93,7 @@ class ChatScreen extends StatefulWidget {
     this.plugins,
     this.mcp,
     this.onShowChat,
+    this.onExternalNavigation,
     this.attachmentSource,
     this.openRequests,
     this.onOpenJob,
@@ -119,6 +120,9 @@ class ChatScreen extends StatefulWidget {
   /// Asks the host to bring the chat to the front, for a notification tap or
   /// shared content that arrives while something else is shown.
   final VoidCallback? onShowChat;
+
+  /// Lets the host defer notification work until it can safely return to its root.
+  final void Function(VoidCallback action, bool isLaunch)? onExternalNavigation;
 
   /// Where the attach control, drops and paste get their files; the platform's
   /// plugins unless a test supplies its own.
@@ -269,6 +273,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),
       onOpenNewChat: _openNewChatFromNotification,
+      onLaunchNotification: _openLaunchNotification,
       onOpened: () => _scaffoldKey.currentState?.closeDrawer(),
       breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
       onPrefill: (draft) => _composerController.value = TextEditingValue(
@@ -570,7 +575,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  var _notificationTapReceived = false;
+
   void _openFromNotification(NotificationTarget target) {
+    _notificationTapReceived = true;
+    _queueNotification(target);
+  }
+
+  void _openLaunchNotification(NotificationTarget target) {
+    if (!_notificationTapReceived &&
+        _linkSeq == 0 &&
+        _chat.openGeneration == 0) {
+      _queueNotification(target, isLaunch: true);
+    }
+  }
+
+  void _queueNotification(NotificationTarget target, {bool isLaunch = false}) {
+    final navigate = widget.onExternalNavigation;
+    if (navigate == null) {
+      _applyNotification(target);
+    } else {
+      navigate(() {
+        if (mounted) _applyNotification(target);
+      }, isLaunch);
+    }
+  }
+
+  void _applyNotification(NotificationTarget target) {
     _handoff?.cancel();
     if (target.isJob) return widget.onOpenJob?.call(target);
     if (target.prompt != null) return _openNewChatFromNotification(target);

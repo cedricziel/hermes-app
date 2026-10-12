@@ -16,10 +16,15 @@ class RootNavigationQueue {
   final _disposed = Completer<void>();
   void Function(bool waited)? _pending;
   bool _running = false;
+  bool _receivedRequest = false;
   bool _waited = false;
 
-  void request(void Function(bool waited) action) {
-    if (_disposed.isCompleted) return;
+  /// False after any request, cancellation, or disposal.
+  bool get canAcceptLaunch => !_disposed.isCompleted && !_receivedRequest;
+
+  void request(void Function(bool waited) action, {bool isLaunch = false}) {
+    if (_disposed.isCompleted || (isLaunch && _receivedRequest)) return;
+    _receivedRequest = true;
     _pending = action;
     resume();
   }
@@ -29,6 +34,7 @@ class RootNavigationQueue {
   }
 
   void cancel() {
+    _receivedRequest = true;
     _pending = null;
     if (!_running) _waited = false;
   }
