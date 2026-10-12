@@ -279,7 +279,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
   ),
   WidgetbookComponent(
     name: 'KanbanTaskComments',
-    useCases: [
+    useCases: _platformCases([
       _use(
         'None',
         KanbanTaskComments(comments: const [], onSend: (_) async => true),
@@ -299,7 +299,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
               Future.delayed(const Duration(milliseconds: 400), () => true),
         ),
       ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskChannels',
@@ -327,7 +327,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
   ),
   WidgetbookComponent(
     name: 'KanbanTaskAttachments',
-    useCases: [
+    useCases: _platformCases([
       for (final (name, attachments, transferring) in [
         ('None', const <KanbanAttachment>[], false),
         (
@@ -384,11 +384,11 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           ),
         ),
       ),
-    ],
+    ]),
   ),
   WidgetbookComponent(
     name: 'KanbanTaskRuns',
-    useCases: [
+    useCases: _platformCases([
       _use('Nothing yet', _runs(const [], const [])),
       _use(
         'Runs and history',
@@ -416,7 +416,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           ],
         ),
       ),
-    ],
+    ]),
   ),
 ];
 

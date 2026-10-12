@@ -9,8 +9,8 @@ One PR at a time; confirm merge before starting the next.
 - [x] Hub security-scan and preview status, merged in #647
 - [x] Kanban worker log, merged in #649
 - [x] Kanban task metadata and notification settings, merged in #652
-- [ ] In progress: Kanban task header and action controls
-- [ ] Kanban attachments, comments and activity
+- [x] Kanban task header and action controls, merged in #655
+- [ ] In progress: Kanban attachments, comments and activity
 - [ ] Connection setup and details
 - [ ] Chat teammate and slash-command autocomplete
 

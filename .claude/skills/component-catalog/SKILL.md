@@ -119,6 +119,10 @@ real fonts, so the PNGs read like the app. Don't commit the test.
 
 ## Accessible names and roles
 
+A static `GroupedRow` with trailing buttons must set `separateTrailing: true`,
+so Save, Remove or Terminate remain separate accessible controls. Verify their
+names and taps on the native platform; merging the whole row combines actions.
+
 The macOS accessibility bridge names a control from its semantics `label`
 only; a `tooltip` or `hint` never reaches VoiceOver there, and iOS reads a
 label and a tooltip one after the other. So:

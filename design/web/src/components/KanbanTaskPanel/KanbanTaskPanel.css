@@ -126,42 +126,10 @@
 }
 
 .h-kanban-task-panel__comment {
-  width: fit-content;
-  max-width: 100%;
-  margin-bottom: 6px;
-  padding: 10px;
-  border-radius: 12px;
-  background: var(--h-surface-high);
+  padding: var(--h-row-padding, 16px);
 }
 
-.h-kanban-task-panel__comment-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
 
-.h-kanban-task-panel__comment-field {
-  flex: 1;
-  min-width: 0;
-  height: 48px;
-  padding: 0 12px;
-  border: 1px solid var(--h-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--h-fg);
-  font: inherit;
-  font-size: 16px;
-  outline: 0;
-}
-
-.h-kanban-task-panel__comment-field::placeholder {
-  color: var(--h-muted);
-}
-
-.h-kanban-task-panel__comment-field:focus {
-  border-color: var(--h-fg);
-  box-shadow: inset 0 0 0 1px var(--h-fg);
-}
 
 .h-kanban-task-panel__switch-row {
   display: flex;
@@ -288,4 +256,8 @@
   max-width: 560px;
   padding-top: 12px;
   border-radius: 12px;
+}
+
+.h-kanban-task-panel__activity-row .h-grouped-row__subtitle {
+  white-space: normal;
 }

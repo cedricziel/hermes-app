@@ -104,7 +104,11 @@ void main() {
     var closed = 0;
     await pumpPanel(tester, onClose: () => closed++);
 
-    await tester.ensureVisible(find.text('Delete'));
+    await tester.scrollUntilVisible(
+      find.text('Delete'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
@@ -186,7 +190,7 @@ void main() {
         find.widgetWithText(TextField, 'Add a comment…').first,
         text,
       );
-      await tester.tap(find.byTooltip('Send'));
+      await tester.tap(find.text('Send'));
       await tester.pumpAndSettle();
     }
     gate.complete((
@@ -207,7 +211,7 @@ void main() {
       find.widgetWithText(TextField, 'Add a comment…').first,
       'Ship it',
     );
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.text('Send'));
     await tester.pumpAndSettle();
 
     expect(
@@ -405,6 +409,7 @@ void main() {
     await pumpPanel(tester);
 
     await tester.ensureVisible(find.textContaining('Runs ('));
+    await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Runs ('));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Terminate'));
@@ -424,6 +429,7 @@ void main() {
     await pumpPanel(tester);
 
     await tester.ensureVisible(find.textContaining('Runs ('));
+    await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Runs ('));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Worker log'));
@@ -458,7 +464,11 @@ void main() {
         .requestsTo('GET', '/api/plugins/kanban/tasks/t1')
         .length;
 
-    await tester.ensureVisible(find.text('Delete'));
+    await tester.scrollUntilVisible(
+      find.text('Delete'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
@@ -496,6 +506,8 @@ void main() {
       await pumpPanel(tester);
 
       await tester.ensureVisible(find.textContaining('Runs ('));
+      await tester.ensureVisible(find.textContaining('Runs ('));
+      await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Runs ('));
       await tester.pumpAndSettle();
 
@@ -730,6 +742,8 @@ void main() {
       await pumpPanel(tester);
 
       await tester.ensureVisible(find.text('Post updates to Ops chat'));
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
       expect(
@@ -741,6 +755,8 @@ void main() {
       );
       expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
 
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
       expect(
@@ -768,6 +784,8 @@ void main() {
       await pumpPanel(tester);
 
       await tester.ensureVisible(find.byType(Switch));
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
@@ -796,7 +814,7 @@ void main() {
         find.widgetWithText(TextField, 'Add a comment…').first,
         'hi',
       );
-      await tester.tap(find.byTooltip('Send'));
+      await tester.tap(find.text('Send'));
       await tester.pumpAndSettle();
       // A comment is not an edit of the task, but any change made here
       // clears the estimate rather than guessing which ones matter.
@@ -824,6 +842,8 @@ void main() {
       await pumpPanel(tester);
 
       await tester.ensureVisible(find.byType(Switch));
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(Switch));
       await tester.pump();
       expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);

@@ -5,8 +5,8 @@ import '../../../theme/hermes_theme.dart';
 import '../../../chat/widgets/relative_time.dart';
 import '../../../theme/app_icons.dart';
 import '../../kanban_models.dart';
-import 'kanban_task_heading.dart';
-import '../../../widgets/named_icon_button.dart';
+import '../../../widgets/grouped_list.dart';
+import '../../../widgets/grouped_form.dart';
 
 /// The task's comments and a field to add one. The field is cleared once
 /// [onSend] reports the comment went through.
@@ -45,18 +45,12 @@ class _KanbanTaskCommentsState extends State<KanbanTaskComments> {
     final subtle = theme.colorScheme.onSurface.withValues(
       alpha: kHermesMutedAlpha,
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return GroupedSection(
+      header: 'Comments (${widget.comments.length})',
       children: [
-        KanbanTaskHeading('Comments (${widget.comments.length})'),
         for (final c in widget.comments)
-          Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-            ),
+          Padding(
+            padding: EdgeInsets.all(GroupedMetrics.of(context).rowPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -68,25 +62,17 @@ class _KanbanTaskCommentsState extends State<KanbanTaskComments> {
               ],
             ),
           ),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _comment,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  hintText: 'Add a comment…',
-                  border: OutlineInputBorder(),
-                ),
-                onSubmitted: (_) => _send(),
-              ),
-            ),
-            NamedIconButton(
-              label: 'Send',
-              icon: AppIcons.send,
-              onPressed: _send,
-            ),
-          ],
+        GroupedTextFieldRow(
+          label: 'Comment',
+          controller: _comment,
+          hint: 'Add a comment…',
+          onSubmitted: (_) => _send(),
+        ),
+        GroupedRow(
+          title: 'Send',
+          chevron: false,
+          leading: const AppIcon(AppIcons.send),
+          onTap: _send,
         ),
       ],
     );

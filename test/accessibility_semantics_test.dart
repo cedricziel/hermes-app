@@ -251,10 +251,10 @@ void main() {
     );
 
     expect(
-      tester.getSemantics(find.text('COMMENTS (0)')),
+      tester.getSemantics(find.text('Comments (0)')),
       isSemantics(label: 'Comments (0)', isHeader: true),
     );
-    expect(tester.getSemantics(find.byIcon(Icons.send)), namedButton('Send'));
+    expect(tester.getSemantics(find.text('Send')), namedButton('Send'));
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     handle.dispose();
   });

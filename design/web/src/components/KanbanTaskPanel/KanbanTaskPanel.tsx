@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "../Button/Button";
+import { GroupedTextFieldRow } from "../GroupedTextFieldRow/GroupedTextFieldRow";
 import { GroupedValueRow } from "../GroupedValueRow/GroupedValueRow";
 import { GroupedMenuRow } from "../GroupedMenuRow/GroupedMenuRow";
 import { Icon } from "../Icon/Icon";
@@ -394,27 +395,23 @@ export function KanbanTaskPanel({
             </div>
           </DeviceScope>
 
-          <Heading>{`Comments (${comments.length})`}</Heading>
-          {comments.map((c, i) => (
-            <div key={i} className="h-kanban-task-panel__comment">
-              <div className="h-kanban-task-panel__subtle">
-                {c.when ? `${c.author} · ${c.when}` : c.author}
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <GroupedSection header={`Comments (${comments.length})`}>
+              {comments.map((c, i) => (
+                <div key={i} className="h-kanban-task-panel__comment">
+                  <div className="h-kanban-task-panel__subtle">
+                    {c.when ? `${c.author} · ${c.when}` : c.author}
+                  </div>
+                  <div className="h-kanban-task-panel__text">{c.body}</div>
+                </div>
+              ))}
+              <div onKeyDown={(e) => { if (e.key === "Enter") send(); }}>
+                <GroupedTextFieldRow label="Comment" hint="Add a comment…"
+                  value={comment} onChange={setComment} />
               </div>
-              <div className="h-kanban-task-panel__text">{c.body}</div>
-            </div>
-          ))}
-          <div className="h-kanban-task-panel__comment-row">
-            <input
-              className="h-kanban-task-panel__comment-field"
-              placeholder="Add a comment…"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") send();
-              }}
-            />
-            <IconButton icon="send" label="Send" onClick={send} />
-          </div>
+              <GroupedRow title="Send" icon="send" chevron={false} onClick={send} />
+            </GroupedSection>
+          </DeviceScope>
 
           {channels.length ? (
             <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
@@ -428,47 +425,26 @@ export function KanbanTaskPanel({
             </DeviceScope>
           ) : null}
 
-          <Heading>Attachments</Heading>
-          {transferring ? (
-            <div className="h-kanban-task-panel__progress" role="progressbar">
-              <div className="h-kanban-task-panel__progress-value" />
-            </div>
-          ) : null}
-          {attachments.map((a) => (
-            <div key={a.filename} className="h-kanban-task-panel__attachment">
-              <Icon name="attach_file" size={24} />
-              <span className="h-kanban-task-panel__attachment-text">
-                <span className="h-kanban-task-panel__tile-title">
-                  {a.filename}
-                </span>
-                <span className="h-kanban-task-panel__tile-sub">
-                  {kanbanFileSize(a.size)}
-                </span>
-              </span>
-              <IconButton
-                icon="download"
-                label="Save attachment"
-                disabled={transferring}
-                onClick={() => onDownload?.(a)}
-              />
-              <IconButton
-                icon="close"
-                label="Remove attachment"
-                disabled={transferring}
-                onClick={() => onRemoveAttachment?.(a)}
-              />
-            </div>
-          ))}
-          <div>
-            <Button
-              variant="text"
-              icon="attach_file"
-              disabled={transferring}
-              onClick={onAttach}
-            >
-              Attach file
-            </Button>
-          </div>
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <GroupedSection header="Attachments">
+              {transferring ? (
+                <div className="h-kanban-task-panel__progress" role="progressbar">
+                  <div className="h-kanban-task-panel__progress-value" />
+                </div>
+              ) : null}
+              {attachments.map((a) => (
+                <GroupedRow key={a.filename} title={a.filename} wrapTitle
+                  icon="attach_file" subtitle={kanbanFileSize(a.size)} trailing={<>
+                    <IconButton icon="download" label={`Save ${a.filename}`}
+                      disabled={transferring} onClick={() => onDownload?.(a)} />
+                    <IconButton icon="close" label={`Remove ${a.filename}`}
+                      disabled={transferring} onClick={() => onRemoveAttachment?.(a)} />
+                  </>} />
+              ))}
+              <GroupedRow title="Attach file" icon="attach_file" chevron={false}
+                disabled={transferring} onClick={onAttach} />
+            </GroupedSection>
+          </DeviceScope>
 
           {runs.length ? (
             <Expander
@@ -476,34 +452,20 @@ export function KanbanTaskPanel({
               open={runsOpen}
               onToggle={() => setRunsOpen(!runsOpen)}
             >
-              {[...runs].reverse().map((r) => (
-                <div key={r.id} className="h-kanban-task-panel__run">
-                  <span className="h-kanban-task-panel__run-text">
-                    <span className="h-kanban-task-panel__tile-title">
-                      {`#${r.id} · ${r.profile ?? "worker"} · ${r.active ? "running" : (r.outcome ?? "")}`}
-                    </span>
-                    {r.detail ? (
-                      <span className="h-kanban-task-panel__tile-sub">
-                        {r.detail}
-                      </span>
-                    ) : null}
-                  </span>
-                  {r.active && task.status === "running" ? (
-                    <Button
-                      variant="text"
-                      compact
-                      onClick={() => onTerminateRun?.(r)}
-                    >
-                      Terminate
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
-              <div>
-                <Button variant="text" icon="terminal" onClick={onShowLog}>
-                  Worker log
-                </Button>
-              </div>
+              <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+                <GroupedSection>
+                  {[...runs].reverse().map((r) => (
+                    <div key={r.id} className="h-kanban-task-panel__activity-row"><GroupedRow wrapTitle
+                      title={`#${r.id} · ${r.profile ?? "worker"} · ${r.active ? "running" : (r.outcome ?? "")}`}
+                      subtitle={r.detail} trailing={r.active && task.status === "running" ? (
+                        <Button variant="text" compact onClick={() => onTerminateRun?.(r)}>
+                          Terminate
+                        </Button>
+                      ) : undefined} /></div>
+                  ))}
+                  <GroupedRow title="Worker log" icon="terminal" chevron={false} onClick={onShowLog} />
+                </GroupedSection>
+              </DeviceScope>
             </Expander>
           ) : null}
           {events.length ? (
@@ -512,18 +474,13 @@ export function KanbanTaskPanel({
               open={historyOpen}
               onToggle={() => setHistoryOpen(!historyOpen)}
             >
-              {[...events].reverse().map((e, i) => (
-                <div key={i} className="h-kanban-task-panel__run">
-                  <span className="h-kanban-task-panel__tile-title">
-                    {e.kind}
-                  </span>
-                  {e.when ? (
-                    <span className="h-kanban-task-panel__tile-sub">
-                      {e.when}
-                    </span>
-                  ) : null}
-                </div>
-              ))}
+              <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+                <GroupedSection>
+                  {[...events].reverse().map((e, i) => (
+                    <GroupedRow key={i} title={e.kind} wrapTitle value={e.when} />
+                  ))}
+                </GroupedSection>
+              </DeviceScope>
             </Expander>
           ) : null}
 
@@ -537,10 +494,6 @@ export function KanbanTaskPanel({
       </div>
     </PlatformScope>
   );
-}
-
-function Heading({ children }: { children: ReactNode }) {
-  return <div className="h-kanban-task-panel__heading">{children}</div>;
 }
 
 function SheetHandle() {
