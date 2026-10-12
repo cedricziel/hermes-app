@@ -12,6 +12,7 @@ import 'package:hermes_app/src/deep_links/deep_link_listener.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/skills/skill_editor_screen.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -160,6 +161,274 @@ void main() {
     for (final c in trail.recent)
       if (c.name.startsWith('deeplink.')) '${c.name} ${c.attributes}',
   ];
+
+  Future<void> editSkill(
+    WidgetTester tester, {
+    Future<String?> Function(String, String, String)? onSave,
+  }) async {
+    Navigator.of(tester.element(find.byType(AppShell))).push<void>(
+      MaterialPageRoute(
+        builder: (_) => SkillEditorScreen.edit(
+          name: 'example',
+          initialText: 'Original skill',
+          onSave: onSave ?? (_, _, _) async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Unsaved skill');
+    await tester.pump();
+  }
+
+  group('guarded navigation', () {
+    testWidgets('keeps the draft and chat unchanged until Discard', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      await editSkill(tester);
+
+      await open(tester, 'hermes://chat?id=t2&prompt=Pending');
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(crumbs(), isEmpty);
+      final sidebar = find.byType(ThreadSidebar, skipOffstage: false);
+      expect(tester.widget<ThreadSidebar>(sidebar).selectedId, 't1');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved skill'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(selectedChat(tester), 't2');
+      expect(composerText(tester), 'Pending');
+      expect(crumbs(), [
+        'deeplink.opened {kind: chat, cold: false, waited: true}',
+      ]);
+    });
+
+    testWidgets('delivers only the latest link after saving', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      await editSkill(tester);
+      await open(tester, 'hermes://chat?id=t2&prompt=First');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+
+      await open(tester, 'hermes://chat?id=t3&prompt=Latest');
+      expect(find.text('Discard changes?'), findsNothing);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(selectedChat(tester), 't3');
+      expect(composerText(tester), 'Latest');
+      expect(crumbs(), hasLength(1));
+    });
+
+    testWidgets('keeps the draft when a save fails after a link arrives', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      final saved = Completer<String?>();
+      await editSkill(tester, onSave: (_, _, _) => saved.future);
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+
+      links.add(Uri.parse('hermes://chat?id=t2'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(SkillEditorScreen), findsOneWidget);
+      expect(crumbs(), isEmpty);
+      saved.complete('The test save failed');
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      expect(find.text('The test save failed'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(selectedChat(tester), 't2');
+    });
+
+    testWidgets('keeps a link pending while a busy route blocks Back', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      final navigator = Navigator.of(tester.element(find.byType(AppShell)));
+      navigator.push<void>(
+        MaterialPageRoute(
+          builder: (_) => const PopScope(
+            canPop: false,
+            child: Scaffold(body: Text('an operation is running')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await open(tester, 'hermes://kanban');
+      expect(find.text('an operation is running'), findsOneWidget);
+      expect(selectedTab(tester), 0);
+      expect(crumbs(), isEmpty);
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(selectedTab(tester), 1);
+    });
+
+    testWidgets('ignores a destination removed while the editor waits', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      await editSkill(tester);
+      await open(tester, 'hermes://kanban');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      kanbanPlugin(on: false);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(crumbs(), ['deeplink.ignored {reason: unavailable}']);
+    });
+
+    testWidgets('an unavailable newer link supersedes a queued chat link', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      await editSkill(tester);
+      await open(tester, 'hermes://chat?id=t2');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+
+      await open(tester, 'hermes://kanban');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(selectedChat(tester), 't1');
+      expect(crumbs(), ['deeplink.ignored {reason: unavailable}']);
+    });
+
+    testWidgets('a link replacing a cancelled request still records its wait', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      await editSkill(tester);
+      await open(tester, 'hermes://chat?id=t2');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      await open(tester, 'hermes://kanban');
+      await open(tester, 'hermes://chat?id=t3');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(selectedChat(tester), 't3');
+      expect(crumbs(), [
+        'deeplink.ignored {reason: unavailable}',
+        'deeplink.opened {kind: chat, cold: false, waited: true}',
+      ]);
+    });
+
+    testWidgets('does not deliver a queued link after shell disposal', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      await editSkill(tester);
+      await open(tester, 'hermes://chat?id=t2');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+
+      expect(crumbs(), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('holds a queued link when App Lock covers the app', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      cronRoutes(on: false);
+      final device = FakeDeviceAuthenticator();
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: device,
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      await pumpShell(tester, lock: lock);
+      await editSkill(tester);
+      await open(tester, 'hermes://kanban');
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      final navigator = Navigator.of(
+        tester.element(find.byType(SkillEditorScreen)),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(lock.covered, isTrue);
+      expect(selectedTab(tester), 0);
+      expect(crumbs(), isEmpty);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 1);
+      expect(crumbs(), [
+        'deeplink.opened {kind: kanban, cold: false, waited: true}',
+      ]);
+    });
+
+    testWidgets('respects a guarded editor beneath a clean route', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      await editSkill(tester);
+      Navigator.of(tester.element(find.byType(SkillEditorScreen))).push<void>(
+        MaterialPageRoute(
+          builder: (_) => const Scaffold(body: Text('a clean detail')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await open(tester, 'hermes://kanban');
+
+      expect(find.text('a clean detail'), findsNothing);
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(selectedTab(tester), 0);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(selectedTab(tester), 1);
+    });
+  });
 
   group('chat', () {
     testWidgets('opens the chat with its prompt, leaving the other tab', (

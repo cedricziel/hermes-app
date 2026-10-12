@@ -51,6 +51,7 @@ import '../windows/conversation_windows.dart';
 import 'app_presence.dart';
 import 'shell_navigation.dart';
 import '../widgets/route_dismissal.dart';
+import '../widgets/root_navigation_queue.dart';
 
 enum _Destination { chat, bots, kanban, schedules, profiles }
 
@@ -130,6 +131,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   /// A link to Kanban or Schedules that came before that answer.
   PendingDeepLink? _waitingLink;
+  RootNavigationQueue? _navigationQueue;
   DeepLinks? _deepLinks;
   AppLockController? _appLock;
 
@@ -221,6 +223,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _navigationQueue?.dispose();
     _deepLinks?.removeListener(_takeDeepLink);
     _appLock?.removeListener(_takeDeepLink);
     _showInMain?.cancel();
@@ -418,6 +421,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _openDeepLink(link, waited: waited);
     }
     _releaseWaitingLink();
+    _navigationQueue?.resume();
   }
 
   /// Shows what a `hermes://` link names. Screens pushed over the page are
@@ -425,6 +429,38 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// concerns them, and are ignored by a server that answered it lacks the
   /// tab. The breadcrumbs hold the kind and flags only, never the link.
   void _openDeepLink(PendingDeepLink link, {required bool waited}) {
+    final known = switch (link.target) {
+      OpenKanban() => _kanbanKnown,
+      OpenSchedules() => _schedulesKnown,
+      _ => true,
+    };
+    final offered = switch (link.target) {
+      OpenKanban() => _kanban,
+      OpenSchedules() => _schedules,
+      _ => true,
+    };
+    if (!known || !offered) {
+      _navigationQueue?.cancel();
+      _applyDeepLink(link, waited: waited);
+      return;
+    }
+    _waitingLink = null;
+    final queue = _navigationQueue ??= RootNavigationQueue(
+      navigator: Navigator.of(context),
+      root: ModalRoute.of(context)!,
+      canNavigate: () => mounted && !(_appLock?.covered ?? false),
+    );
+    queue.request((guarded) {
+      if (!mounted) return;
+      if (_appLock?.covered ?? false) {
+        _waitingLink = link;
+        return;
+      }
+      _applyDeepLink(link, waited: waited || guarded);
+    });
+  }
+
+  void _applyDeepLink(PendingDeepLink link, {required bool waited}) {
     _waitingLink = null;
     final target = link.target;
     void opened() => _breadcrumbs('deeplink.opened', {
