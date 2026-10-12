@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 
@@ -103,6 +105,7 @@ void main() {
     await pumpPanel(tester, onClose: () => closed++);
 
     await tester.ensureVisible(find.text('Delete'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
@@ -156,7 +159,9 @@ void main() {
 
     await tester.tap(find.text('Move to…'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ready'));
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<String>, 'Ready'),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Cannot move to ready: parent open'), findsOneWidget);
@@ -219,7 +224,7 @@ void main() {
   testWidgets('reassigns from the picker', (tester) async {
     await pumpPanel(tester);
 
-    await tester.tap(find.widgetWithText(ActionChip, 'coder'));
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Assignee'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('writer'));
     await tester.pumpAndSettle();
@@ -231,6 +236,43 @@ void main() {
       containsPair('assignee', 'writer'),
     );
   });
+
+  testWidgets(
+    'priority picker ignores the current value and sends a typed change',
+    (tester) async {
+      await pumpPanel(tester);
+      Future<void> pick(String label) async {
+        await tester.tap(find.widgetWithText(GroupedValueRow, 'Priority'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(KanbanTaskChoiceDialog<int>),
+            matching: find.text(label),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pick('P2');
+      expect(
+        server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t1'),
+        isEmpty,
+      );
+      await pick('P3');
+      final body = jsonBody(
+        server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t1').single,
+      );
+      expect(body, containsPair('priority', 3));
+      expect(
+        server
+            .requestsTo('PATCH', '/api/plugins/kanban/tasks/t1')
+            .single
+            .queryParameters,
+        containsPair('board', 'ops'),
+      );
+      expect(changes, 1);
+    },
+  );
 
   testWidgets('unlinks a dependency', (tester) async {
     server.on('DELETE', '/api/plugins/kanban/links', {'ok': true});
@@ -417,6 +459,7 @@ void main() {
         .length;
 
     await tester.ensureVisible(find.text('Delete'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));

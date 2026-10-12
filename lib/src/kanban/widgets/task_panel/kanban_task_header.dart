@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
+
+import '../../../widgets/grouped_form.dart';
+import '../../../widgets/grouped_list.dart';
 
 import '../../../theme/hermes_theme.dart';
 import '../../../theme/app_icons.dart';
@@ -32,7 +34,7 @@ class KanbanTaskHeader extends StatelessWidget {
       alpha: kHermesMutedAlpha,
     );
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           '${task.id} · ${kanbanStatusLabel(task.status)}',
@@ -52,41 +54,30 @@ class KanbanTaskHeader extends StatelessWidget {
             ),
           ],
         ),
-        Wrap(
-          spacing: 8,
+        GroupedSection(
           children: [
-            ActionChip(
-              avatar: const AppIcon(AppIcons.person, size: 16),
-              label: Text(task.assignee ?? 'Unassigned'),
-              onPressed: onAssign,
+            GroupedValueRow(
+              title: 'Assignee',
+              value: task.assignee ?? 'Unassigned',
+              onTap: onAssign,
             ),
-            ActionChip(
-              avatar: const AppIcon(AppIcons.flag, size: 16),
-              label: Text(task.priority == 0 ? 'Normal' : 'P${task.priority}'),
-              onPressed: onPrioritise,
+            GroupedValueRow(
+              title: 'Priority',
+              value: task.priority == 0 ? 'Normal' : 'P${task.priority}',
+              onTap: onPrioritise,
             ),
-            if (task.tenant != null) Chip(label: Text(task.tenant!)),
-            MergeSemantics(
-              child: Semantics(
-                button: true,
-                child: AdaptivePopupMenuButton<String>(
-                  // The chip already says it; a tooltip would be read twice.
-                  tooltip: '',
-                  onSelected: onMove,
-                  itemBuilder: (_) => [
-                    for (final s in kanbanSettableStatuses)
-                      if (s != task.status)
-                        PopupMenuItem(
-                          value: s,
-                          child: Text(kanbanStatusLabel(s)),
-                        ),
-                  ],
-                  child: const Chip(
-                    avatar: AppIcon(AppIcons.swap, size: 16),
-                    label: Text('Move to…'),
-                  ),
-                ),
-              ),
+            if (task.tenant != null)
+              GroupedValueRow(title: 'Tenant', value: task.tenant!),
+            GroupedMenuRow<String>(
+              title: 'Move to…',
+              options: [
+                for (final s in kanbanSettableStatuses)
+                  if (s != task.status) s,
+              ],
+              labelOf: kanbanStatusLabel,
+              selected: null,
+              placeholder: kanbanStatusLabel(task.status),
+              onSelected: onMove,
             ),
           ],
         ),

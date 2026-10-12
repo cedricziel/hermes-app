@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -930,11 +932,17 @@ void main() {
       await tester.pumpAndSettle();
       await shots.capture(tester, 'edit-dialog');
       await tester.enterText(
-        find.widgetWithText(TextField, 'Title'),
+        find.descendant(
+          of: find.widgetWithText(GroupedTextFieldRow, 'Title'),
+          matching: find.byType(EditableText),
+        ),
         'A much longer replacement title that keeps going for two lines',
       );
       await tester.enterText(
-        find.widgetWithText(TextField, 'Description'),
+        find.descendant(
+          of: find.widgetWithText(GroupedTextFieldRow, 'Description'),
+          matching: find.byType(EditableText),
+        ),
         List.generate(
           10,
           (i) => 'Line ${i + 1} of the description, which is fairly long.',
@@ -944,12 +952,12 @@ void main() {
       await shots.capture(tester, 'edit-dialog-filled');
       await popRoute(tester);
 
-      await tester.tap(find.widgetWithText(ActionChip, 'coder'));
+      await tester.tap(find.widgetWithText(GroupedValueRow, 'Assignee'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'assign-dialog');
       await popRoute(tester);
 
-      await tester.tap(find.widgetWithText(ActionChip, 'P2'));
+      await tester.tap(find.widgetWithText(GroupedValueRow, 'Priority'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'priority-dialog');
       await popRoute(tester);
@@ -957,7 +965,12 @@ void main() {
       await tester.tap(find.text('Move to…'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'move-menu');
-      await popRoute(tester);
+      if (workflowPlatform == TargetPlatform.iOS) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      } else {
+        await popRoute(tester);
+      }
 
       await tester.tap(find.text('Complete'));
       await tester.pumpAndSettle();
@@ -984,7 +997,11 @@ void main() {
       await panelToTop(tester);
       await tester.tap(find.text('Move to…'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Ready'));
+      await tester.tap(
+        workflowPlatform == TargetPlatform.iOS
+            ? find.text('Ready').last
+            : find.widgetWithText(CheckedPopupMenuItem<String>, 'Ready'),
+      );
       await tester.pumpAndSettle();
       await shots.capture(tester, 'move-refused');
     });

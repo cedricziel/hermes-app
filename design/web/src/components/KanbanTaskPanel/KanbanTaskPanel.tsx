@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "../Button/Button";
-import { Chip } from "../Chip/Chip";
+import { GroupedValueRow } from "../GroupedValueRow/GroupedValueRow";
+import { GroupedMenuRow } from "../GroupedMenuRow/GroupedMenuRow";
 import { Icon } from "../Icon/Icon";
-import { Menu, MenuAnchor } from "../Menu/Menu";
 import { Spinner } from "../Spinner/Spinner";
 import { GroupedSection } from "../GroupedSection/GroupedSection";
 import { GroupedRow } from "../GroupedRow/GroupedRow";
@@ -153,9 +153,9 @@ export interface KanbanTaskPanelProps {
   defaultMoveMenuOpen?: boolean;
   /** Pencil pressed (the app opens the title and description editor). */
   onEdit?: () => void;
-  /** Assignee chip pressed. */
+  /** Assignee row pressed. */
   onAssign?: () => void;
-  /** Priority chip pressed. */
+  /** Priority row pressed. */
   onPrioritise?: () => void;
   /** A status was picked in "Move to…". */
   onMove?: (status: string) => void;
@@ -260,7 +260,6 @@ export function KanbanTaskPanel({
   onDelete,
   onRetry,
 }: KanbanTaskPanelProps) {
-  const [moveOpen, setMoveOpen] = useState(defaultMoveMenuOpen);
   const [runsOpen, setRunsOpen] = useState(defaultRunsOpen);
   const [historyOpen, setHistoryOpen] = useState(defaultHistoryOpen);
   const [comment, setComment] = useState("");
@@ -312,6 +311,7 @@ export function KanbanTaskPanel({
     setComment("");
   };
   const priority = task.priority ?? 0;
+  const moveStatuses = settableStatuses.filter((status) => status !== task.status);
 
   return (
     <PlatformScope platform={resolvedPlatform}>
@@ -325,87 +325,33 @@ export function KanbanTaskPanel({
             <h2 className="h-kanban-task-panel__title">{task.title}</h2>
             <IconButton icon="edit" label="Edit" onClick={onEdit} />
           </div>
-          <div className="h-kanban-task-panel__chips">
-            <Chip
-              icon="person"
-              label={task.assignee ?? "Unassigned"}
-              onClick={onAssign}
-            />
-            <Chip
-              icon="flag"
-              label={priority === 0 ? "Normal" : `P${priority}`}
-              onClick={onPrioritise}
-            />
-            {task.tenant ? <Chip label={task.tenant} /> : null}
-            <MenuAnchor>
-              <Chip
-                icon="swap_horiz"
-                label="Move to…"
-                onClick={() => setMoveOpen(!moveOpen)}
-              />
-              {moveOpen ? (
-                <Menu
-                  align={apple ? "end" : "start"}
-                  label="Move to"
-                  style={apple ? undefined : { minWidth: 160 }}
-                  device={frame === "sheet" ? "touch" : undefined}
-                  items={settableStatuses
-                    .filter((s) => s !== task.status)
-                    .map((s) => ({ label: kanbanStatusLabel(s), value: s }))}
-                  onSelect={(item) => {
-                    setMoveOpen(false);
-                    if (item.value) onMove?.(item.value);
-                  }}
-                />
-              ) : null}
-            </MenuAnchor>
-          </div>
-
-          {task.status === "triage" ? (
-            <div className="h-kanban-task-panel__actions">
-              <Button onClick={onDecompose}>Decompose</Button>
-              <Button variant="outlined" onClick={onSpecify}>
-                Specify
-              </Button>
-            </div>
-          ) : null}
-          {task.status === "running" ? (
-            <div className="h-kanban-task-panel__actions">
-              <Button variant="outlined" onClick={onReclaim}>
-                Reclaim
-              </Button>
-            </div>
-          ) : null}
-          {task.status !== "done" ? (
-            <div className="h-kanban-task-panel__actions">
-              <Button onClick={onComplete}>Complete</Button>
-              {task.status !== "blocked" ? (
-                <Button variant="outlined" onClick={onBlock}>
-                  Block
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="h-kanban-task-panel__actions">
-            <Button
-              variant="outlined"
-              icon="speed"
-              disabled={estimating}
-              onClick={onEstimate}
-            >
-              Estimate
-            </Button>
-            {estimating ? (
-              <Spinner size={16} label="Estimating" />
-            ) : estimate ? (
-              <span>{estimate.summary}</span>
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <GroupedSection>
+              <GroupedValueRow title="Assignee" value={task.assignee ?? "Unassigned"} onClick={onAssign} />
+              <GroupedValueRow title="Priority" value={priority === 0 ? "Normal" : `P${priority}`} onClick={onPrioritise} />
+              {task.tenant ? <GroupedValueRow title="Tenant" value={task.tenant} /> : null}
+              <GroupedMenuRow title="Move to…" open={defaultMoveMenuOpen} placeholder={kanbanStatusLabel(task.status ?? "")}
+                options={moveStatuses.map(kanbanStatusLabel)}
+                onSelect={(index) => onMove?.(moveStatuses[index])} />
+            </GroupedSection>
+            {task.status !== "done" ? (
+              <GroupedSection header="Actions">
+                {task.status === "triage" ? <>
+                  <GroupedRow title="Decompose" chevron={false} onClick={onDecompose} />
+                  <GroupedRow title="Specify" chevron={false} onClick={onSpecify} />
+                </> : null}
+                {task.status === "running" ? <GroupedRow title="Reclaim" chevron={false} onClick={onReclaim} /> : null}
+                <GroupedRow title="Complete" chevron={false} onClick={onComplete} />
+                {task.status !== "blocked" ? <GroupedRow title="Block" chevron={false} onClick={onBlock} /> : null}
+              </GroupedSection>
             ) : null}
-          </div>
-          {estimate?.rationale && !estimating ? (
-            <div className="h-kanban-task-panel__subtle h-kanban-task-panel__rationale">
-              {estimate.rationale}
-            </div>
-          ) : null}
+            <GroupedSection className="h-kanban-task-panel__metadata" footer={estimate?.rationale}>
+              <GroupedRow title="Estimate" icon="speed" chevron={false}
+                disabled={estimating} onClick={onEstimate}
+                subtitle={estimating ? undefined : estimate?.summary}
+                trailing={estimating ? <Spinner size={16} label="Estimating" /> : undefined} />
+            </GroupedSection>
+          </DeviceScope>
 
           <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
             <div className="h-kanban-task-panel__metadata">
@@ -581,20 +527,12 @@ export function KanbanTaskPanel({
             </Expander>
           ) : null}
 
-          <hr className="h-divider" />
-          <div className="h-kanban-task-panel__footer">
-            <Button variant="text" icon="archive" onClick={onArchive}>
-              Archive
-            </Button>
-            <Button
-              variant="text"
-              icon="delete"
-              className="h-kanban-task-panel__delete"
-              onClick={onDelete}
-            >
-              Delete
-            </Button>
-          </div>
+          <DeviceScope device={frame === "sheet" ? "touch" : "mac"}>
+            <GroupedSection>
+              <GroupedRow title="Archive" icon="archive" chevron={false} onClick={onArchive} />
+              <GroupedRow title="Delete" leading={<Icon name="delete" style={{ color: "var(--h-error)" }} />} destructive chevron={false} onClick={onDelete} />
+            </GroupedSection>
+          </DeviceScope>
         </div>
       </div>
     </PlatformScope>

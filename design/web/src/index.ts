@@ -119,3 +119,5 @@ export * from "./components/AppearanceDialog/AppearanceDialog";
 export * from "./components/AppLockDialog/AppLockDialog";
 export * from "./components/NotificationsDialog/NotificationsDialog";
 export * from "./components/SettingsDialog/SettingsDialog";
+
+export * from "./components/KanbanTaskChoiceDialog/KanbanTaskChoiceDialog";
