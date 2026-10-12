@@ -27,7 +27,7 @@ Device behavior and the exact transitions in the reported build still need verif
 - [x] Agree on macOS page motion and modal direction. User confirmed restrained desktop presentation with dialogs/popovers and no mobile bottom sheets. Inspector and reduced-motion verification remain open below.
 - [x] Decide whether main destinations are peers without Back history or participate in history. User confirmed peer sections without Back history. Root Back and repeated selection remain to be verified below.
 - [x] Decide whether each destination needs an independent detail stack. Keep the current shared detail stack; the confirmed peer-section behavior does not require nested navigators.
-- [ ] Decide whether desktop mouse Back/Forward buttons and trackpad navigation are supported; define scope and prevent conflicts with scrolling.
+- [x] Decide whether desktop mouse Back/Forward buttons are supported. User requested desktop Forward history alongside guarded Back. Keep peer sections without history; detail-history design and implementation remain open. Trackpad navigation and scrolling conflicts still require matrix review.
 - [ ] Confirm drawer edge gestures and iOS route-back gestures can coexist without ambiguous actions.
 - [x] Reconcile this backlog with [the adaptive UI series](../openspec/adaptive-ui-series.md), so existing work is not duplicated. Its component migrations are complete; modal routes, input behavior, and device verification remain open.
 - [ ] Before implementation, create bounded OpenSpec changes for the agreed behavior. Update affected requirements and validate each change.
@@ -60,6 +60,7 @@ Acceptance: guarded work cannot disappear silently because of an external naviga
 - [ ] If independent stacks are required, retain each stack on section switches and target the correct navigator for pushes, results, and modal dismissal.
 - [ ] Define Back precedence for a modal, detail route, transient search/selection mode, sidebar overlay, drawer, and root destination.
 - [ ] Use the same guarded Back behavior for toolbar buttons, macOS `⌘[`, Android system Back, and supported navigation gestures.
+- [ ] Add desktop Forward history for eligible detail destinations, with dismissal guards, target revalidation, and history reset on explicit session departure. Keep peer-section selection outside history.
 - [ ] Define which root interactions consume Back and which allow the platform to leave or close the view.
 - [ ] Ensure only the visible route/window enables Back and other navigation commands; offstage sections must not capture them.
 - [ ] Define repeated selection of the current destination, including whether it retains details or returns to the section root.
