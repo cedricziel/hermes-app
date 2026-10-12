@@ -5,8 +5,8 @@ import '../widgets/adaptive_sheet.dart';
 import 'mcp_banner.dart';
 import 'mcp_command_review_items.dart';
 
-/// Shows [McpCommandReview] as a bottom sheet on a compact
-/// layout and as a dialog on a wide one ([showAdaptiveSheet]). True only
+/// Shows [McpCommandReview] as a dialog on macOS and wide layouts, or a
+/// bottom sheet on other compact layouts ([showAdaptiveSheet]). True only
 /// when the user confirms; going back, tapping outside or the system back
 /// gesture all answer false.
 Future<bool> showMcpCommandReview(
