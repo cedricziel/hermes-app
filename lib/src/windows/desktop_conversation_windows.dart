@@ -67,20 +67,32 @@ class DesktopConversationWindowHost implements ConversationWindowHost {
     ConversationWindowArgs args, {
     ConversationDraft? draft,
   }) async {
-    final controller = await WindowController.create(
-      WindowConfiguration(
-        arguments: ConversationWindowLaunch(args, draft: draft).encode(),
-      ),
-    );
-    return controller.windowId;
+    _inventoryEpoch++;
+    try {
+      final controller = await WindowController.create(
+        WindowConfiguration(
+          arguments: ConversationWindowLaunch(args, draft: draft).encode(),
+        ),
+      );
+      return controller.windowId;
+    } finally {
+      _inventoryEpoch++;
+      _refreshInventory();
+    }
   }
 
   @override
   Future<String> createPanel(QuickPanelLaunch launch) async {
-    final controller = await WindowController.create(
-      WindowConfiguration(arguments: launch.encode()),
-    );
-    return controller.windowId;
+    _inventoryEpoch++;
+    try {
+      final controller = await WindowController.create(
+        WindowConfiguration(arguments: launch.encode()),
+      );
+      return controller.windowId;
+    } finally {
+      _inventoryEpoch++;
+      _refreshInventory();
+    }
   }
 
   @override
@@ -102,31 +114,64 @@ class DesktopConversationWindowHost implements ConversationWindowHost {
 
   @override
   Future<void> close(String windowId) async {
+    _inventoryEpoch++;
     try {
       await _nativeWindow.invokeMethod<void>('closeConversation', windowId);
-    } on Object catch (error) {
-      debugPrint('Could not close conversation window $windowId: $error');
+    } finally {
+      _inventoryEpoch++;
+      _refreshInventory();
     }
   }
 
   @override
   Future<void> closeAll() async {
+    _inventoryEpoch++;
     try {
       await _nativeWindow.invokeMethod<void>('closeConversations');
-    } on Object catch (error) {
-      debugPrint('Could not close the conversation windows: $error');
+    } finally {
+      _inventoryEpoch++;
+      _refreshInventory();
     }
   }
 
   @override
   Future<void> showMain() => _nativeWindow.invokeMethod<void>('show');
 
-  @override
-  Stream<Set<String>> get liveWindows => onWindowsChanged.asyncMap(
-    (_) async => {
-      for (final window in await WindowController.getAll()) window.windowId,
+  int _inventoryEpoch = 0;
+  int _inventoryQuery = 0;
+  StreamSubscription<void>? _windowChanges;
+  late final _live = StreamController<Set<String>>.broadcast(
+    onListen: () {
+      _windowChanges = onWindowsChanged.listen((_) => _refreshInventory());
+    },
+    onCancel: () {
+      _inventoryQuery++;
+      _windowChanges?.cancel();
+      _windowChanges = null;
     },
   );
+
+  void _refreshInventory() {
+    if (_live.hasListener) unawaited(_readInventory());
+  }
+
+  Future<void> _readInventory() async {
+    final epoch = _inventoryEpoch;
+    final query = ++_inventoryQuery;
+    try {
+      final windows = await WindowController.getAll();
+      if (_live.hasListener &&
+          epoch == _inventoryEpoch &&
+          query == _inventoryQuery) {
+        _live.add({for (final window in windows) window.windowId});
+      }
+    } on Object catch (error) {
+      debugPrint('Could not read conversation windows: ${error.runtimeType}');
+    }
+  }
+
+  @override
+  Stream<Set<String>> get liveWindows => _live.stream;
 
   @override
   Stream<void> get mainFocused => _keyChanges.where((key) => key);
