@@ -12,6 +12,7 @@ import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/request_notifications.dart';
 import 'package:hermes_app/src/notifications/local_notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
+import 'package:hermes_app/src/notifications/notification_posting.dart';
 
 class _Posted {
   _Posted(this.id, this.title, this.body, this.payload, this.details);
@@ -29,6 +30,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   Exception? initializeError;
   Completer<void>? initializeHeld;
   Exception? showError;
+  bool? notificationsEnabled;
   NotificationAppLaunchDetails? launchDetails;
   Exception? launchDetailsError;
   DidReceiveNotificationResponseCallback? onResponse;
@@ -81,6 +83,40 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
       cancelled.add(id);
 
   @override
+  T? resolvePlatformSpecificImplementation<
+    T extends FlutterLocalNotificationsPlatform
+  >() {
+    if (T == AndroidFlutterLocalNotificationsPlugin) {
+      return _AndroidPermission(notificationsEnabled) as T;
+    }
+    return null;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _AndroidPermission extends AndroidFlutterLocalNotificationsPlugin {
+  _AndroidPermission(this.enabled);
+
+  final bool? enabled;
+
+  @override
+  Future<bool?> areNotificationsEnabled() async => enabled;
+}
+
+class _LegacyNotifications implements NotificationService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ThrowingPoster implements NotificationService, NotificationPoster {
+  @override
+  Future<NotificationPostResult> post(
+    AttentionNotification notification,
+  ) async => throw StateError('private command');
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -129,6 +165,25 @@ const _question = ClarifyRequest(
 );
 
 void main() {
+  group('posting compatibility', () {
+    test('legacy services cannot establish OS acceptance', () async {
+      final NotificationService service = _LegacyNotifications();
+
+      final result = await service.post(_request(_approval));
+
+      expect(result.status, NotificationPostStatus.unsupported);
+    });
+
+    test('a throwing poster reports only its error type', () async {
+      final NotificationService service = _ThrowingPoster();
+
+      final result = await service.post(_request(_approval));
+
+      expect(result.status, NotificationPostStatus.failed);
+      expect(result.errorType, 'StateError');
+    });
+  });
+
   group('targetFromResponse', () {
     NotificationTarget? roundTrip(NotificationTarget target) =>
         targetFromResponse(_response(encodeTarget(target)));
@@ -732,6 +787,43 @@ void main() {
         ),
         completes,
       );
+    });
+
+    test('reports OS acceptance without claiming presentation', () async {
+      final result = await service.post(_request(_approval));
+
+      expect(result.status, NotificationPostStatus.accepted);
+      expect(plugin.posted, hasLength(1));
+    });
+
+    test('reports native posting failure without error contents', () async {
+      plugin.showError = PlatformException(code: 'private-command');
+
+      final result = await service.post(_request(_approval));
+
+      expect(result.status, NotificationPostStatus.failed);
+      expect(result.errorType, 'PlatformException');
+      expect(plugin.posted, isEmpty);
+    });
+
+    test('reports unavailable platform without attempting a post', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+      final result = await service.post(_request(_approval));
+
+      expect(result.status, NotificationPostStatus.unsupported);
+      expect(plugin.initializeCalls, 0);
+      expect(plugin.posted, isEmpty);
+    });
+
+    test('reports denied permission without requesting it', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      plugin.notificationsEnabled = false;
+
+      final result = await service.post(_request(_approval));
+
+      expect(result.status, NotificationPostStatus.denied);
+      expect(plugin.posted, isEmpty);
     });
 
     test('initializes the plugin once for several notifications', () async {

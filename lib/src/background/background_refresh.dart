@@ -18,6 +18,7 @@ import '../chat/gateway/hermes_gateway_transport.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/local_notification_service.dart';
 import '../notifications/notification_service.dart';
+import '../notifications/notification_posting.dart';
 import '../notifications/notification_settings.dart';
 import '../notifications/request_notifications.dart'
     show pendingRequestFor, requestCategoryFor;
@@ -155,27 +156,20 @@ class AnnouncedRequests {
 
   final SharedPreferencesAsync _prefs;
 
-  /// Kept apart from the preferences so that a write that fails is not
-  /// forgotten for the rest of the run.
   final _remembered = <String>{};
 
   Future<Set<String>> read() async => {...await _read(), ..._remembered};
 
-  /// Remembers [ids]. A preferences write that fails is not thrown: the ids
-  /// stay known to this object.
+  /// Remembers [ids] after persistence succeeds; storage failures propagate.
   Future<void> add(Iterable<String> ids) async {
     final added = ids.toSet();
     if (added.isEmpty) return;
+    await persist(added);
     _remembered
       ..removeAll(added)
       ..addAll(added);
     while (_remembered.length > kMaxAnnouncedRequests) {
       _remembered.remove(_remembered.first);
-    }
-    try {
-      await persist(added);
-    } on Object {
-      // Announced once more by a later run at worst.
     }
   }
 
@@ -391,13 +385,31 @@ class OpenRequestsStep extends BackgroundStep {
     ];
   }
 
-  /// Posts one notification per chat that has a request not announced
-  /// before, and remembers them first. Returns how many requests were new.
+  /// Marks requests announced only after their posting attempt is accepted.
   /// While the app is in front it announces nothing: the app does.
   Future<int> _announce(
     BackgroundContext context,
     List<_Waiting> waiting,
   ) async {
+    var accepted = 0;
+    var failed = 0;
+    var marksFailed = 0;
+    void report() {
+      context.hermes
+        ..annotate('requests.post_accepted', accepted)
+        ..annotate('requests.post_failed', failed)
+        ..annotate('requests.mark_failed', marksFailed);
+    }
+
+    void recordFailure(String event, {String? reason, String? errorType}) {
+      try {
+        context.events(event, {'reason': ?reason, 'error.type': ?errorType});
+      } on Object {
+        // Telemetry failure cannot prevent other chat alerts.
+      }
+    }
+
+    report();
     if (!context.notificationsOn || waiting.isEmpty) return 0;
     if (await context.isAppInFront()) return 0;
     final known = await context.announced.read();
@@ -406,15 +418,43 @@ class OpenRequestsStep extends BackgroundStep {
         if (_isNew(w, known)) w,
     ];
     if (fresh.isEmpty) return 0;
-    // Before the notification, so a failure after it cannot announce twice.
-    await context.announced.add([for (final w in fresh) ..._marks(w)]);
     final lockOn = await context.appLockOn();
-    final posted = <(String?, String)>{};
+    final chats = <(String?, String), List<_Waiting>>{};
     for (final w in fresh) {
-      if (!posted.add((w.profile, w.key))) continue;
-      await context.notifications.show(_notification(w, lockOn));
+      (chats[(w.profile, w.key)] ??= []).add(w);
     }
-    return fresh.length;
+    var announced = 0;
+    for (final requests in chats.values) {
+      final result = await context.notifications.post(
+        _notification(requests.first, lockOn),
+      );
+      if (result.status == NotificationPostStatus.accepted) {
+        accepted++;
+        report();
+        try {
+          await context.announced.add([
+            for (final request in requests) ..._marks(request),
+          ]);
+        } on Object catch (error) {
+          marksFailed++;
+          report();
+          recordFailure(
+            'background.request_alert.mark_failed',
+            errorType: error.runtimeType.toString(),
+          );
+        }
+        announced += requests.length;
+      } else {
+        failed++;
+        report();
+        recordFailure(
+          'background.request_alert.post_failed',
+          reason: result.status.name,
+          errorType: result.errorType,
+        );
+      }
+    }
+    return announced;
   }
 
   /// A request is new unless it, or the wait it belongs to, was announced:
