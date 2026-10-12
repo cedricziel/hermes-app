@@ -10,11 +10,25 @@ struct PendingSendRecord: Codable, Equatable {
   let revision: Int
   let profile: String?
   var threadId: String?
-  var originalThreadId: String? = nil
+  let originalThreadId: String?
   let text: String
   let localMessageId: String
   let createdAt: Date
   var recoveryState: SendRecoveryState
+
+  init(sendId: String, contextId: String, revision: Int, profile: String?, threadId: String?,
+    text: String, localMessageId: String, createdAt: Date, recoveryState: SendRecoveryState) {
+    self.sendId = sendId
+    self.contextId = contextId
+    self.revision = revision
+    self.profile = profile
+    self.threadId = threadId
+    self.originalThreadId = threadId
+    self.text = text
+    self.localMessageId = localMessageId
+    self.createdAt = createdAt
+    self.recoveryState = recoveryState
+  }
 }
 
 protocol PendingSendStore {
@@ -75,7 +89,8 @@ final class FilePendingSendStore: PendingSendStore {
       let old = records[index]
       guard old.contextId == record.contextId, old.revision == record.revision, old.createdAt == record.createdAt,
         old.text == record.text, old.profile == record.profile, old.localMessageId == record.localMessageId,
-        old.originalThreadId == record.originalThreadId
+        old.originalThreadId == record.originalThreadId,
+        old.threadId == nil || old.threadId == record.threadId
       else { throw PendingSendStoreError.identityChanged }
       guard old.recoveryState != .completed && old.recoveryState != .discarded || old.recoveryState == record.recoveryState
       else { throw PendingSendStoreError.invalidated }

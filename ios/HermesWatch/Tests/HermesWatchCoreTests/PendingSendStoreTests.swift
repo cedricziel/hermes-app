@@ -112,4 +112,26 @@ final class PendingSendStoreTests: XCTestCase {
     XCTAssertThrowsError(try store.save(record("completed-0")))
   }
 
+  func testExistingThreadCannotChangeUnderSameIdentity() throws {
+    let store = FilePendingSendStore(directory: directory)
+    var original = PendingSendRecord(sendId: "existing", contextId: "owner", revision: 4,
+      profile: "default", threadId: "thread-a", text: "hello", localMessageId: "local",
+      createdAt: Date(timeIntervalSince1970: 100), recoveryState: .pending)
+    XCTAssertEqual(original.originalThreadId, "thread-a")
+    try store.save(original)
+    original.threadId = "thread-b"
+    XCTAssertThrowsError(try store.save(original))
+  }
+
+  func testNewChatCanBindOnceWithoutChangingOriginalTarget() throws {
+    let store = FilePendingSendStore(directory: directory)
+    var pending = record()
+    try store.save(pending)
+    pending.threadId = "bound-thread"
+    try store.save(pending)
+    XCTAssertNil(pending.originalThreadId)
+    pending.threadId = "another-thread"
+    XCTAssertThrowsError(try store.save(pending))
+  }
+
 }
