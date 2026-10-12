@@ -715,6 +715,257 @@ void main() {
     expect(selectedTab(tester), 0);
   });
 
+  group('guarded shared content', () {
+    testWidgets(
+      'retains all text/files and only the latest quote behind an editor',
+      (tester) async {
+        kanbanPlugin(on: true);
+        await pumpShell(tester, size: const Size(400, 800));
+        final composer = tester.widget<EditableText>(composerField).controller;
+        await editSkill(tester);
+        final share = tester
+            .element(find.byType(ChatScreen, skipOffstage: false))
+            .read<ShareController>();
+        inbox.emit([
+          const SharedText('first'),
+          const SharedFile(path: '/tmp/report.pdf', name: 'report.pdf'),
+          const SharedQuote('old quote'),
+        ]);
+        await tester.pumpAndSettle();
+        expect(find.text('Discard changes?'), findsOneWidget);
+        expect(composer.text, isEmpty);
+        expect(selectedChat(tester), 't1');
+        expect(share.hasPending, isTrue);
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+        inbox.emit([
+          const SharedText('second'),
+          const SharedQuote('latest quote'),
+        ]);
+        await tester.pumpAndSettle();
+        expect(find.text('Discard changes?'), findsNothing);
+        expect(find.text('Unsaved skill'), findsOneWidget);
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+        expect(composer.text, 'first\nsecond\n\n> latest quote\n\n');
+        expect(find.text('report.pdf'), findsOneWidget);
+        expect(selectedChat(tester), isNot('t1'));
+        expect(share.hasPending, isFalse);
+        await openTab(tester, 'Chat');
+        expect(composer.text, 'first\nsecond\n\n> latest quote\n\n');
+      },
+    );
+
+    testWidgets('failed save keeps both the editor and pending share', (
+      tester,
+    ) async {
+      await pumpShell(tester, size: const Size(400, 800));
+      final composer = tester.widget<EditableText>(composerField).controller;
+      final saved = Completer<String?>();
+      await editSkill(tester, onSave: (_, _, _) => saved.future);
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+      inbox.emit([const SharedText('retained share')]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(composer.text, isEmpty);
+      saved.complete('Save failed');
+      await tester.pumpAndSettle();
+      expect(find.text('Save failed'), findsOneWidget);
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      final routeContext = tester.element(find.byType(SkillEditorScreen));
+      Navigator.of(routeContext).maybePop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(composer.text, 'retained share');
+    });
+
+    testWidgets(
+      'newer notification wins and repeated Chat entry recovers the share',
+      (tester) async {
+        kanbanPlugin(on: true);
+        await pumpShell(tester, size: const Size(400, 800));
+        final composer = tester.widget<EditableText>(composerField).controller;
+        await editSkill(tester);
+        final share = tester
+            .element(find.byType(ChatScreen, skipOffstage: false))
+            .read<ShareController>();
+        inbox.emit([const SharedText('retained share')]);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+        notifications.tap('t2');
+        await tester.pumpAndSettle();
+        expect(composer.text, isEmpty);
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+        expect(selectedChat(tester), 't2');
+        expect(composer.text, isEmpty);
+        expect(share.hasPending, isTrue);
+        await openTab(tester, 'Chat');
+        expect(selectedChat(tester), 't2');
+        expect(composer.text, 'retained share');
+        expect(share.hasPending, isFalse);
+        await openTab(tester, 'Chat');
+        expect(composer.text, 'retained share');
+      },
+    );
+
+    testWidgets('App Lock holds shared content until unlock', (tester) async {
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: FakeDeviceAuthenticator(),
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      await pumpShell(tester, size: const Size(1400, 900), lock: lock);
+      final composer = tester.widget<EditableText>(composerField).controller;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+      inbox.emit([const SharedText('locked share')]);
+      await tester.pumpAndSettle();
+      expect(composer.text, isEmpty);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(composer.text, 'locked share');
+    });
+
+    testWidgets('held launch content stays pending behind App Lock', (
+      tester,
+    ) async {
+      inbox = FakeShareInbox([const SharedText('held share')]);
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(
+          authenticator: FakeDeviceAuthenticator(),
+          coverWhenInactive: true,
+        );
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      lock.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      await pumpShell(tester, size: const Size(1400, 900), lock: lock);
+      final share = tester
+          .element(find.byType(ChatScreen, skipOffstage: false))
+          .read<ShareController>();
+      expect(share.hasPending, isTrue);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(composerField).controller.text,
+        'held share',
+      );
+      expect(share.hasPending, isFalse);
+    });
+
+    testWidgets('newer Kanban link retains shares until a later Chat entry', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final urls = StreamController<Uri>.broadcast(sync: true);
+      final links = DeepLinks(
+        links: urls.stream,
+        signedOut: const Stream.empty(),
+        firstFrame: Future.value(),
+      );
+      addTearDown(links.dispose);
+      addTearDown(urls.close);
+      await pumpShell(tester, size: const Size(400, 800), links: links);
+      final composer = tester.widget<EditableText>(composerField).controller;
+      await editSkill(tester);
+      inbox.emit([const SharedText('retained link share')]);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      urls.add(Uri.parse('hermes://kanban'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(selectedTab(tester), 1);
+      expect(composer.text, isEmpty);
+      await openTab(tester, 'Chat');
+      expect(composer.text, 'retained link share');
+    });
+
+    testWidgets('a newer link invalidates deferred Chat-entry recovery', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final urls = StreamController<Uri>.broadcast(sync: true);
+      final links = DeepLinks(
+        links: urls.stream,
+        signedOut: const Stream.empty(),
+        firstFrame: Future.value(),
+      );
+      addTearDown(links.dispose);
+      addTearDown(urls.close);
+      await pumpShell(tester, size: const Size(400, 800), links: links);
+      final composer = tester.widget<EditableText>(composerField).controller;
+      await editSkill(tester);
+      inbox.emit([const SharedText('still pending')]);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await openMenu(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ShellNavigation),
+          matching: find.text('Chat'),
+        ),
+      );
+      urls.add(Uri.parse('hermes://kanban'));
+      await tester.pumpAndSettle();
+      expect(selectedTab(tester), 1);
+      expect(composer.text, isEmpty);
+      await openTab(tester, 'Chat');
+      expect(composer.text, 'still pending');
+    });
+
+    testWidgets('delayed launch sharing yields to a newer notification', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final initial = Completer<List<SharedItem>>();
+      inbox.initialGate = initial;
+      await pumpShell(tester, size: const Size(400, 800));
+      final composer = tester.widget<EditableText>(composerField).controller;
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+      initial.complete([const SharedQuote('older launch quote')]);
+      await tester.pumpAndSettle();
+      expect(selectedChat(tester), 't2');
+      expect(composer.text, isEmpty);
+      await openTab(tester, 'Chat');
+      expect(composer.text, '> older launch quote\n\n');
+      expect(selectedChat(tester), isNot('t2'));
+    });
+
+    testWidgets('disposal leaves untaken content pending', (tester) async {
+      await pumpShell(tester, size: const Size(400, 800));
+      await editSkill(tester);
+      final share = tester
+          .element(find.byType(ChatScreen, skipOffstage: false))
+          .read<ShareController>();
+      inbox.emit([const SharedText('pending share')]);
+      await tester.pumpAndSettle();
+      expect(share.hasPending, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(share.hasPending, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('shared content switches from Kanban to Chat', (tester) async {
     kanbanPlugin(on: true);
     await pumpShell(tester, size: const Size(400, 800));

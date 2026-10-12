@@ -361,6 +361,22 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
+  var _shareEntry = 0;
+  var _shareEntryValid = false;
+
+  void _selectByUser(_Destination destination) {
+    _shareEntryValid = destination == _Destination.chat;
+    if (destination == _Destination.chat) {
+      setState(() => _shareEntry++);
+    }
+    _select(destination);
+  }
+
+  void _recoverShared(VoidCallback action, int entry) {
+    if (!mounted || !_shareEntryValid || entry != _shareEntry) return;
+    _queueExternalNavigation(action);
+  }
+
   void _select(_Destination destination, {bool cancelHandoff = true}) {
     if (cancelHandoff) _maybeRead<HandoffController>()?.cancel();
     _sidebar.closeOverlay();
@@ -399,6 +415,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _queueExternalNavigation(VoidCallback action, [bool isLaunch = false]) {
     if (!mounted || (isLaunch && !_externalNavigation.canAcceptLaunch)) return;
+    _shareEntryValid = false;
     _waitingLink = null;
     _pendingJob = null;
     _externalNavigation.request((_) {
@@ -455,6 +472,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// concerns them, and are ignored by a server that answered it lacks the
   /// tab. The breadcrumbs hold the kind and flags only, never the link.
   void _openDeepLink(PendingDeepLink link, {required bool waited}) {
+    _shareEntryValid = false;
     _pendingJob = null;
     final known = switch (link.target) {
       OpenKanban() => _kanbanKnown,
@@ -695,9 +713,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       key: _chatKey,
       child: ChatScreen(
         visible: _current == _Destination.chat,
+        shareEntry: _shareEntry,
         transport: _gateway,
         onShowChat: _showChat,
         onExternalNavigation: _queueExternalNavigation,
+        onShareEntry: _recoverShared,
         openRequests: _openRequests,
         onOpenJob: _openJob,
         navigation: navigation,
@@ -721,7 +741,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             hasMacSidebar(context) ||
             isWideLayout(context, width: constraints.maxWidth);
         final index = destinations.indexOf(_current);
-        void select(int i) => _select(destinations[i]);
+        void select(int i) => _selectByUser(destinations[i]);
         final switcher = mac ? _profileSwitcher() : null;
         final shellNavigation = ShellNavigation(
           destinations: [for (final d in destinations) _labels[d]!],
