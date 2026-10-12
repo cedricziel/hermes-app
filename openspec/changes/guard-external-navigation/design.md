@@ -4,7 +4,7 @@ See proposal.md for scope. AppShell publishes deep-link chat requests synchronou
 
 ## Goals / Non-Goals
 
-Unwind routes serially and publish the latest link only after reaching the shell. Keep existing editor confirmations and completion behavior. This first slice does not migrate other external entry points.
+Unwind routes serially and publish the latest link only after reaching the shell. Keep existing editor confirmations and completion behavior. Skill and schedule editors must block Back while saving, so a failed save can still report its error and retain its draft. Successful save explicitly closes its own route. This first slice does not migrate other external entry points.
 
 ## Decisions
 

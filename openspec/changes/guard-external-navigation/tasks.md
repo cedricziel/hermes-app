@@ -4,6 +4,8 @@
 - [x] 1.2 Add a reusable serial navigation queue with disposal cancellation and migrate deep-link delivery to it. Keep existing breadcrumbs; no new observability signals or catalog widgets are introduced.
 - [x] 1.3 Add regressions for busy routes, App Lock during waiting, disappearing destinations, and shell disposal.
 
+- [x] 1.4 Add failing save-race regressions and block Skill/schedule editor dismissal until save completion, retaining failed-save drafts and errors.
+
 ## 2. Verify and deliver
 
 - [ ] 2.1 Run dart format, flutter analyze, focused tests, the full relevant suite, OpenSpec validation, and the isolated verify-in-app loop. Update stale project skill guidance only if this change reveals a reusable gap.

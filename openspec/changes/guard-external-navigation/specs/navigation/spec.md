@@ -21,6 +21,10 @@ The system SHALL dismiss routes above the signed-in shell using their existing B
 - **WHEN** the user saves the editor successfully after choosing Keep editing
 - **THEN** the editor closes and the latest pending link is applied
 
+#### Scenario: Save fails while a link waits
+- **WHEN** a deep link arrives while an editor save is running and that save fails
+- **THEN** the editor retains the draft and error, and the link stays pending until the editor closes
+
 #### Scenario: Busy operation
 - **WHEN** a route blocks Back while an operation runs
 - **THEN** the link remains pending without forcing the route closed

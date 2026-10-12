@@ -124,9 +124,9 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_dirty || _saving,
+      canPop: !_dirty && !_saving,
       onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
+        if (didPop || _saving) return;
         if (await _confirmDiscard() && context.mounted) {
           dismissRoute(context);
         }

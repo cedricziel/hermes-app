@@ -5,6 +5,7 @@ Deep links currently dismiss pushed routes with `popUntil`, bypassing unsaved-ch
 ## What Changes
 
 - Hold the latest deep link until guarded routes have actually closed.
+- Keep Skill and schedule editors open while saving, including when the save fails.
 - Use existing Back confirmations when unwinding routes; keep the request pending if the user continues editing or an operation blocks dismissal.
 - Deliver the request only after reaching the shell, and recheck App Lock and destination availability.
 

@@ -118,7 +118,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
   }
 
   Future<void> _close(bool didPop) async {
-    if (didPop) return;
+    if (didPop || _form.saving) return;
     if (await confirmDiscard(context) && mounted) {
       dismissRoute(context);
     }
@@ -141,7 +141,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
         final targetNames = {for (final t in _form.targets) t.id: t.name};
         final profile = _draft.profile;
         return PopScope(
-          canPop: !_form.isDirty,
+          canPop: !_form.isDirty && !_form.saving,
           onPopInvokedWithResult: (didPop, _) => _close(didPop),
           child: SettingsScaffold(
             title: _form.isEditing ? 'Edit task' : 'New task',

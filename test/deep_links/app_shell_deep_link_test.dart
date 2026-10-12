@@ -162,13 +162,16 @@ void main() {
       if (c.name.startsWith('deeplink.')) '${c.name} ${c.attributes}',
   ];
 
-  Future<void> editSkill(WidgetTester tester) async {
+  Future<void> editSkill(
+    WidgetTester tester, {
+    Future<String?> Function(String, String, String)? onSave,
+  }) async {
     Navigator.of(tester.element(find.byType(AppShell))).push<void>(
       MaterialPageRoute(
         builder: (_) => SkillEditorScreen.edit(
           name: 'example',
           initialText: 'Original skill',
-          onSave: (_, _, _) async => null,
+          onSave: onSave ?? (_, _, _) async => null,
         ),
       ),
     );
@@ -225,6 +228,33 @@ void main() {
       expect(selectedChat(tester), 't3');
       expect(composerText(tester), 'Latest');
       expect(crumbs(), hasLength(1));
+    });
+
+    testWidgets('keeps the draft when a save fails after a link arrives', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      final saved = Completer<String?>();
+      await editSkill(tester, onSave: (_, _, _) => saved.future);
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+
+      links.add(Uri.parse('hermes://chat?id=t2'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(SkillEditorScreen), findsOneWidget);
+      expect(crumbs(), isEmpty);
+      saved.complete('The test save failed');
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved skill'), findsOneWidget);
+      expect(find.text('The test save failed'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(selectedChat(tester), 't2');
     });
 
     testWidgets('keeps a link pending while a busy route blocks Back', (
