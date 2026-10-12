@@ -53,16 +53,19 @@ def seed_kanban(home: str, url: str) -> None:
             },
             "POST",
         )
-        task_id = created.get("id") or created.get("task", {}).get("id")
+        current = created.get("task") or {}
+        task_id = created.get("id") or current.get("id")
         if not task_id:
             sys.exit("Kanban task creation returned no task ID.")
-        if created.get("task", {}).get("status") == task["status"]:
-            continue
-        request(
-            f"/api/plugins/kanban/tasks/{task_id}",
-            {"status": task["status"], "summary": task.get("summary")},
-            "PATCH",
-        )
+        changes = {
+            field: task[field]
+            for field in ("title", "body", "priority")
+            if current.get(field) != task[field]
+        }
+        if current.get("status") != task["status"]:
+            changes.update(status=task["status"], summary=task.get("summary"))
+        if changes:
+            request(f"/api/plugins/kanban/tasks/{task_id}", changes, "PATCH")
     print(f"seeded {len(tasks)} demo Kanban tasks into {home}")
 
 
