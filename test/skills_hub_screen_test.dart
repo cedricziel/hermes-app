@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/hub_skill_screen.dart';
@@ -459,9 +461,9 @@ void main() {
       await tester.tap(find.text('compose'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Uninstall'));
+      await tester.tap(find.widgetWithText(GroupedRow, 'Uninstall'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Uninstall'));
+      await tester.tap(find.widgetWithText(AppDialogAction, 'Uninstall'));
       await tester.pumpAndSettle();
 
       expect(
