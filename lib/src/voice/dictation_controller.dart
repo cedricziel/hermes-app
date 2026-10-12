@@ -39,6 +39,47 @@ enum DictationPhase {
   modelMissing,
 }
 
+/// A lease release retained for the session owner after controller disposal.
+/// The owner must prove the original session is authorized before releasing.
+class DictationLeaseCleanup {
+  DictationLeaseCleanup._(
+    this._repository,
+    this.lease,
+    this.profile,
+    this._acquired,
+  );
+
+  final HermesChatRepository _repository;
+  final String lease;
+  final String? profile;
+  final Future<void> _acquired;
+  Future<bool>? _releasing;
+  var _released = false;
+
+  /// Waits for acquisition, then checks [authorized] before sending cleanup.
+  /// False retains the cleanup for a later authorized attempt or retry.
+  Future<bool> release({required bool Function() authorized}) {
+    if (_released) return Future.value(true);
+    return _releasing ??= _release(authorized)
+        .whenComplete(() => _releasing = null);
+  }
+
+  Future<bool> _release(bool Function() authorized) async {
+    await _acquired;
+    if (!authorized()) return false;
+    try {
+      await _repository.holdSpeechToText(
+        lease,
+        active: false,
+        profile: profile,
+      );
+      return _released = true;
+    } on Object {
+      return false;
+    }
+  }
+}
+
 /// Records one dictation at a time and turns it into text.
 ///
 /// With [DictationEngine.hermes] that happens through the profile's server:
@@ -47,6 +88,8 @@ enum DictationPhase {
 /// With [DictationEngine.device] the operating system's recognizer does it,
 /// and nothing goes to the server. The transcript goes to [onTranscript]; the
 /// composer sends it only when the user asks.
+/// An optional activity signal cancels voice work while false; becoming
+/// active never starts a recording.
 class DictationController extends ChangeNotifier {
   DictationController({
     required this._repository,
@@ -57,9 +100,12 @@ class DictationController extends ChangeNotifier {
     this.maxDuration = const Duration(minutes: 5),
     OnDeviceSpeech? onDevice,
     String Function()? locale,
+    this._activity,
   }) : _onDevice = onDevice ?? OnDeviceSpeech(),
        _locale = locale ?? OnDeviceSpeech.deviceLocale,
-       _lease = 'app:voice-input:${_randomId()}';
+       _lease = 'app:voice-input:${_randomId()}' {
+    _activity?.addListener(_activityChanged);
+  }
 
   static const sampleRate = 16000;
   static const _tick = Duration(milliseconds: 100);
@@ -74,6 +120,7 @@ class DictationController extends ChangeNotifier {
   final OnDeviceSpeech _onDevice;
   final String Function() _locale;
   final String _lease;
+  final ValueListenable<bool>? _activity;
   final ValueChanged<String> onTranscript;
 
   /// A recording stops by itself after this long.
@@ -89,10 +136,15 @@ class DictationController extends ChangeNotifier {
   var _elapsed = Duration.zero;
   var _liveTranscript = '';
   var _run = 0;
-  var _leased = false;
+  DictationLeaseCleanup? _leased;
+  final _pendingLeaseCleanup = <DictationLeaseCleanup>[];
+  Future<void>? _releasingLeases;
   LiveTranscriber? _stream;
   StreamSubscription<Uint8List>? _pcm;
   Completer<void>? _pcmDone;
+  StreamSubscription<String>? _partials;
+  Future<void>? _closing;
+  Future<void>? _starting;
   Timer? _ticker;
   BytesBuilder? _clip;
   Uint8List? _keptClip;
@@ -115,7 +167,27 @@ class DictationController extends ChangeNotifier {
 
   /// Whether dictation is offered for the current profile and engine.
   bool get available =>
-      _onTheDevice ? _model == OnDeviceModel.installed : _support.speechToText;
+      _active &&
+      (_onTheDevice
+          ? _model == OnDeviceModel.installed
+          : _support.speechToText);
+
+  bool get _active => !_disposed && (_activity?.value ?? true);
+
+  bool get _credentialsActive => _activity?.value ?? true;
+
+  bool _current(int run) => _active && run == _run;
+
+  void _activityChanged() {
+    if (!_active) {
+      _support = VoiceSupport.none;
+      _model = OnDeviceModel.unsupported;
+      unawaited(cancel());
+    } else {
+      unawaited(_flushLeaseCleanup());
+    }
+    notifyListeners();
+  }
 
   bool get _onTheDevice => _engine == DictationEngine.device;
 
@@ -130,6 +202,7 @@ class DictationController extends ChangeNotifier {
     DictationEngine engine = DictationEngine.hermes,
     OnDeviceModel model = OnDeviceModel.unsupported,
   }) {
+    if (!_active) return;
     if (profile != _profile || engine != _engine) unawaited(cancel());
     _profile = profile;
     _support = support;
@@ -141,20 +214,28 @@ class DictationController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> start() async {
-    if (busy) return;
+  Future<void> start() {
+    if (!_active || busy || _starting != null || _closing != null) {
+      return Future.value();
+    }
+    return _starting = _start().whenComplete(() => _starting = null);
+  }
+
+  Future<void> _start() async {
     final run = ++_run;
     _keptClip = null;
     if (!await _recorder.requestPermission()) {
-      if (run == _run) _end(DictationPhase.denied, 'denied');
+      if (_current(run)) _end(DictationPhase.denied, 'denied');
       return;
     }
-    if (run != _run) return;
+    if (!_current(run)) return;
     final LiveTranscriber? stream;
     if (_onTheDevice) {
       stream = await _startOnDevice(run);
       if (stream == null) return;
     } else {
+      await _flushLeaseCleanup();
+      if (!_current(run)) return;
       _acquireLease();
       stream = _support.liveTranscription
           ? TranscribeStream.start(
@@ -164,8 +245,13 @@ class DictationController extends ChangeNotifier {
             )
           : null;
     }
+    if (!_current(run)) {
+      stream?.cancel();
+      return;
+    }
     _stream = stream;
-    stream?.partials.listen((text) {
+    _partials = stream?.partials.listen((text) {
+      if (!_current(run)) return;
       _liveTranscript = text;
       notifyListeners();
     });
@@ -173,9 +259,24 @@ class DictationController extends ChangeNotifier {
     try {
       pcm = await _recorder.start(sampleRate: sampleRate);
     } on Object {
+      if (!_current(run)) return;
       _stream?.cancel();
       _stream = null;
       _end(DictationPhase.failed, 'failed');
+      return;
+    }
+    final done = _pcmDone = Completer<void>();
+    _pcm = pcm.listen(
+      (chunk) {
+        if (_current(run)) _onPcm(chunk);
+      },
+      onDone: () {
+        if (!done.isCompleted) done.complete();
+      },
+    );
+    if (!_current(run)) {
+      _discardPcm();
+      await _closeMicrophone();
       return;
     }
     // The on-device engine has no retry, so it keeps no recording.
@@ -184,9 +285,8 @@ class DictationController extends ChangeNotifier {
     _level = 0;
     _levels.clear();
     _liveTranscript = '';
-    final done = _pcmDone = Completer();
-    _pcm = pcm.listen(_onPcm, onDone: done.complete);
     _ticker = Timer.periodic(_tick, (_) {
+      if (!_current(run)) return;
       _elapsed += _tick;
       _levels.add(_level);
       if (_levels.length > levelHistory) _levels.removeAt(0);
@@ -208,7 +308,6 @@ class DictationController extends ChangeNotifier {
     _level = _levelOf(chunk);
   }
 
-  /// Completes once no recording or transcription is in progress.
   /// Completes once no recording or transcription is in progress, or the
   /// controller is disposed; [lastOutcome] then says how it ended.
   Future<void> whenSettled() {
@@ -235,16 +334,16 @@ class DictationController extends ChangeNotifier {
 
   /// Ends the recording and inserts its transcript.
   Future<void> stop() async {
-    if (_phase != DictationPhase.recording) return;
+    if (!_active || _phase != DictationPhase.recording) return;
     final run = _run;
     _setPhase(DictationPhase.settling);
     await _closeMicrophone();
-    if (run != _run) return;
+    if (!_current(run)) return;
     final clip = _clip?.takeBytes() ?? Uint8List(0);
     _clip = null;
     final live = await _stream?.finish();
+    if (!_current(run)) return;
     _stream = null;
-    if (run != _run) return;
     if (_onTheDevice) {
       _settleOnDevice(live);
     } else if (live != null && live.isNotEmpty) {
@@ -262,10 +361,10 @@ class DictationController extends ChangeNotifier {
         locale: _locale(),
         sampleRate: sampleRate,
       );
-      if (run == _run) return session;
+      if (_current(run)) return session;
       session.cancel();
     } on OnDeviceSpeechException catch (e) {
-      if (run != _run) return null;
+      if (!_current(run)) return null;
       if (e.code == 'modelMissing') {
         _end(DictationPhase.modelMissing, 'model_missing');
       } else {
@@ -283,15 +382,16 @@ class DictationController extends ChangeNotifier {
 
   /// Tries the recording of a failed transcription again.
   Future<void> retry() async {
-    if (!canRetry) return;
+    if (!_active || !canRetry || _starting != null || _closing != null) return;
     final run = ++_run;
     _setPhase(DictationPhase.settling);
     await _transcribeClip(_keptClip!, run);
   }
 
   Future<void> _transcribeClip(Uint8List clip, int run) async {
+    if (!_current(run)) return;
     final text = clip.isEmpty ? '' : await _upload(clip);
-    if (run != _run) return;
+    if (!_current(run)) return;
     if (text == null) {
       _keptClip = clip;
       _end(DictationPhase.failed, 'failed', path: 'upload');
@@ -301,14 +401,19 @@ class DictationController extends ChangeNotifier {
   }
 
   void _settle(String text, {required String path}) {
+    final run = _run;
     _keptClip = null;
     _liveTranscript = '';
-    if (text.isEmpty) {
-      _end(DictationPhase.noSpeech, 'empty', path: path);
+    _end(
+      text.isEmpty ? DictationPhase.noSpeech : DictationPhase.idle,
+      text.isEmpty ? 'empty' : 'inserted',
+      path: path,
+    );
+    if (!_current(run)) {
+      _lastOutcome = 'cancelled';
       return;
     }
-    _end(DictationPhase.idle, 'inserted', path: path);
-    onTranscript(text);
+    if (text.isNotEmpty) onTranscript(text);
   }
 
   /// Uploads [clip] as WAV; the transcript, or null when that failed.
@@ -328,13 +433,18 @@ class DictationController extends ChangeNotifier {
   /// Drops the recording, or the transcript on its way.
   Future<void> cancel() async {
     final wasBusy = busy;
-    _run++;
+    final run = ++_run;
+    unawaited(_partials?.cancel());
+    _partials = null;
     _stream?.cancel();
     _stream = null;
     _clip = null;
     _keptClip = null;
     _liveTranscript = '';
+    _releaseLease();
+    if (!_active) _discardPcm();
     await _closeMicrophone();
+    if (run != _run) return;
     if (wasBusy) {
       _end(DictationPhase.idle, 'cancelled');
     } else {
@@ -355,6 +465,8 @@ class DictationController extends ChangeNotifier {
     _lastOutcome = outcome;
     // A partial from a dictation that ended must not show again on retry.
     _liveTranscript = '';
+    unawaited(_partials?.cancel());
+    _partials = null;
     _releaseLease();
     _breadcrumbs('voice.dictation.ended', {
       'engine': _engine.name,
@@ -364,37 +476,86 @@ class DictationController extends ChangeNotifier {
     _setPhase(phase);
   }
 
-  Future<void> _closeMicrophone() async {
+  Future<void> _closeMicrophone() {
+    if (_closing case final closing?) return closing;
     _ticker?.cancel();
     _ticker = null;
     _level = 0;
-    if (_pcm == null) return;
-    await _recorder.stop();
-    await _pcmDone?.future;
+    final pcm = _pcm;
+    final done = _pcmDone;
+    if (pcm == null) return Future.value();
+    return _closing = () async {
+      try {
+        await _recorder.stop();
+        await done?.future;
+        unawaited(pcm.cancel());
+      } finally {
+        _pcm = null;
+        _pcmDone = null;
+        _closing = null;
+      }
+    }();
+  }
+
+  void _discardPcm() {
     unawaited(_pcm?.cancel());
-    _pcm = null;
-    _pcmDone = null;
+    final done = _pcmDone;
+    if (done != null && !done.isCompleted) done.complete();
   }
 
   void _acquireLease() {
-    _leased = true;
-    unawaited(_holdLease(active: true));
+    if (!_active || _pendingLeaseCleanup.isNotEmpty) return;
+    final profile = _profile;
+    _leased = DictationLeaseCleanup._(
+      _repository,
+      _lease,
+      profile,
+      _holdLease(profile),
+    );
   }
 
   void _releaseLease() {
-    if (!_leased) return;
-    _leased = false;
-    unawaited(_holdLease(active: false));
+    final lease = _leased;
+    if (lease != null) {
+      _leased = null;
+      _pendingLeaseCleanup.add(lease);
+    }
+    unawaited(_flushLeaseCleanup());
   }
 
-  /// Warms (or releases) the profile's speech-to-text model; a failure only
+  Future<void> _flushLeaseCleanup() {
+    if (!_credentialsActive || _pendingLeaseCleanup.isEmpty) {
+      return Future.value();
+    }
+    return _releasingLeases ??= () async {
+      while (_credentialsActive && _pendingLeaseCleanup.isNotEmpty) {
+        final cleanup = _pendingLeaseCleanup.first;
+        if (!await cleanup.release(authorized: () => _credentialsActive)) {
+          return;
+        }
+        _pendingLeaseCleanup.remove(cleanup);
+      }
+    }().whenComplete(() => _releasingLeases = null);
+  }
+
+  /// Transfers cleanup queued by cancellation or disposal to the session owner.
+  /// Call after disposal; the owner retains failed or unauthorized
+  /// releases and never retries using another session's credentials.
+  List<DictationLeaseCleanup> takePendingLeaseCleanup() {
+    final cleanup = List<DictationLeaseCleanup>.of(_pendingLeaseCleanup);
+    _pendingLeaseCleanup.clear();
+    return cleanup;
+  }
+
+  /// Warms the profile's speech-to-text model; a failure only
   /// means the first transcript may be slower.
-  Future<void> _holdLease({required bool active}) async {
+  Future<void> _holdLease(String? profile) async {
+    if (!_active) return;
     try {
       await _repository.holdSpeechToText(
         _lease,
-        active: active,
-        profile: _profile,
+        active: true,
+        profile: profile,
       );
     } on Object {
       // Recording goes on without the warm-up.
@@ -417,9 +578,14 @@ class DictationController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _activity?.removeListener(_activityChanged);
     _lastOutcome = 'cancelled';
     _completeSettledWaiters();
-    unawaited(cancel().whenComplete(_recorder.dispose));
+    unawaited(() async {
+      await cancel();
+      await _starting;
+      await _recorder.dispose();
+    }());
     super.dispose();
   }
 

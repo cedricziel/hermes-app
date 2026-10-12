@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -46,6 +47,8 @@ void main() {
     String? profile = 'work',
     DictationEngine engine = DictationEngine.hermes,
     OnDeviceModel model = OnDeviceModel.unsupported,
+    ValueListenable<bool>? activity,
+    OnDeviceSpeech? speech,
   }) =>
       DictationController(
         repository: HermesChatRepository(server.client().raw),
@@ -57,8 +60,9 @@ void main() {
         recorder: recorder,
         onTranscript: inserted.add,
         breadcrumbs: Breadcrumbs.of(trail),
-        onDevice: OnDeviceSpeech(),
+        onDevice: speech ?? OnDeviceSpeech(),
         locale: () => 'de-DE',
+        activity: activity,
       )..configure(
         profile: profile,
         support: support,
@@ -275,6 +279,158 @@ void main() {
     expect(inserted, ['from the upload']);
   });
 
+  group('lease cleanup', () {
+    test('active disposal releases the captured lease', () async {
+      final activity = ValueNotifier(true);
+      addTearDown(activity.dispose);
+      final dictation = controller(support: _uploadOnly, activity: activity);
+      await dictation.start();
+      await pumpEventQueue();
+
+      dictation.dispose();
+      await pumpEventQueue();
+
+      expect(leases().map((lease) => lease['active']), [true, false]);
+      expect(recorder.recording, isFalse);
+    });
+
+    test('resume releases a paused lease without recording again', () async {
+      final activity = ValueNotifier(true);
+      addTearDown(activity.dispose);
+      final dictation = controller(support: _uploadOnly, activity: activity);
+      addTearDown(dictation.dispose);
+      await dictation.start();
+      await pumpEventQueue();
+      activity.value = false;
+      await pumpEventQueue();
+      expect(leases().map((lease) => lease['active']), [true]);
+
+      activity.value = true;
+      await pumpEventQueue();
+
+      expect(leases().map((lease) => lease['active']), [true, false]);
+      expect(recorder.starts, 1);
+      expect(recorder.recording, isFalse);
+      expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+    });
+
+    test(
+      'held acquisition is released before a new profile acquires',
+      () async {
+        final acquired = Completer<FakeResponse>();
+        server.onRequest(
+          'POST',
+          '/api/audio/stt-lease',
+          (_) => acquired.future,
+        );
+        final activity = ValueNotifier(true);
+        addTearDown(activity.dispose);
+        final dictation = controller(support: _uploadOnly, activity: activity);
+        addTearDown(dictation.dispose);
+        await dictation.start();
+        await pumpEventQueue();
+        activity.value = false;
+        await pumpEventQueue();
+        server.on('POST', '/api/audio/stt-lease', {'ok': true});
+        activity.value = true;
+        dictation.configure(profile: 'home', support: _uploadOnly);
+        await pumpEventQueue();
+        final starting = dictation.start();
+        await pumpEventQueue();
+        expect(leases().map((lease) => lease['active']), [true]);
+
+        acquired.complete((status: 200, body: {'ok': true}));
+        await starting;
+        await pumpEventQueue();
+
+        final requests = server.requestsTo('POST', '/api/audio/stt-lease');
+        expect(leases().map((lease) => lease['active']), [true, false, true]);
+        expect(requests.map((request) => request.queryParameters['profile']), [
+          'work',
+          'work',
+          'home',
+        ]);
+        expect(recorder.starts, 2);
+        await dictation.cancel();
+      },
+    );
+
+    test('pending acquisition cannot release during a second pause', () async {
+      final acquired = Completer<FakeResponse>();
+      server.onRequest('POST', '/api/audio/stt-lease', (_) => acquired.future);
+      final activity = ValueNotifier(true);
+      addTearDown(activity.dispose);
+      final dictation = controller(support: _uploadOnly, activity: activity);
+      addTearDown(dictation.dispose);
+      await dictation.start();
+      await pumpEventQueue();
+      activity.value = false;
+      await pumpEventQueue();
+      activity.value = true;
+      await pumpEventQueue();
+      activity.value = false;
+      server.on('POST', '/api/audio/stt-lease', {'ok': true});
+
+      acquired.complete((status: 200, body: {'ok': true}));
+      await pumpEventQueue();
+
+      expect(leases().map((lease) => lease['active']), [true]);
+      activity.value = true;
+      await pumpEventQueue();
+      expect(leases().map((lease) => lease['active']), [true, false]);
+      expect(recorder.starts, 1);
+    });
+
+    test('inactive disposal hands cleanup to its authorized owner', () async {
+      final activity = ValueNotifier(true);
+      addTearDown(activity.dispose);
+      final dictation = controller(support: _uploadOnly, activity: activity);
+      await dictation.start();
+      await pumpEventQueue();
+      activity.value = false;
+      dictation.dispose();
+      final cleanup = dictation.takePendingLeaseCleanup().single;
+      expect(cleanup.profile, 'work');
+      expect(dictation.takePendingLeaseCleanup(), isEmpty);
+
+      expect(await cleanup.release(authorized: () => activity.value), isFalse);
+      activity.value = true;
+      await pumpEventQueue();
+      expect(leases().map((lease) => lease['active']), [true]);
+      expect(await cleanup.release(authorized: () => false), isFalse);
+
+      expect(await cleanup.release(authorized: () => activity.value), isTrue);
+      expect(await cleanup.release(authorized: () => activity.value), isTrue);
+      expect(leases().map((lease) => lease['active']), [true, false]);
+      expect(recorder.recording, isFalse);
+      expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+    });
+
+    test('failed cleanup permits recording without another lease', () async {
+      final activity = ValueNotifier(true);
+      addTearDown(activity.dispose);
+      final dictation = controller(support: _uploadOnly, activity: activity);
+      addTearDown(dictation.dispose);
+      await dictation.start();
+      await pumpEventQueue();
+      activity.value = false;
+      await pumpEventQueue();
+      server.on('POST', '/api/audio/stt-lease', {'detail': 'x'}, status: 500);
+      activity.value = true;
+      await pumpEventQueue();
+      dictation.configure(profile: 'work', support: _uploadOnly);
+
+      await dictation.start();
+      await pumpEventQueue();
+
+      expect(leases().map((lease) => lease['active']), [true, false, false]);
+      expect(recorder.recording, isTrue);
+      expect(recorder.starts, 2);
+      server.on('POST', '/api/audio/stt-lease', {'ok': true});
+      await dictation.cancel();
+    });
+  });
+
   test('the level follows the input volume', () async {
     final dictation = controller(support: _uploadOnly);
     await dictation.start();
@@ -326,6 +482,45 @@ void main() {
     test('says which engine it dictates with', () {
       expect(onDevice().engine, DictationEngine.device);
       expect(controller().engine, DictationEngine.hermes);
+    });
+
+    test('held recognizer acquisition cannot overlap a resumed run', () async {
+      final activity = ValueNotifier(true);
+      addTearDown(activity.dispose);
+      final recognizer = _HeldSpeech();
+      addTearDown(recognizer.dispose);
+      final dictation = controller(
+        engine: DictationEngine.device,
+        model: OnDeviceModel.installed,
+        support: VoiceSupport.none,
+        activity: activity,
+        speech: recognizer,
+      );
+      addTearDown(dictation.dispose);
+      final starting = dictation.start();
+      await pumpEventQueue();
+      activity.value = false;
+      activity.value = true;
+      dictation.configure(
+        profile: 'work',
+        engine: DictationEngine.device,
+        model: OnDeviceModel.installed,
+        support: VoiceSupport.none,
+      );
+      await dictation.start();
+      expect(recognizer.starts, 1);
+
+      recognizer.gate.complete();
+      await starting;
+      await pumpEventQueue();
+
+      expect(speech.methods, ['start', 'cancel']);
+      expect(recorder.starts, 0);
+      expect(dictation.phase, DictationPhase.idle);
+      await dictation.start();
+      expect(recognizer.starts, 2);
+      expect(recorder.recording, isTrue);
+      await dictation.cancel();
     });
 
     test('shows what it hears and inserts the transcript', () async {
@@ -522,6 +717,33 @@ void main() {
   });
 
   group('ending', () {
+    test(
+      'suspending during settlement prevents transcript insertion',
+      () async {
+        final activity = ValueNotifier(true);
+        addTearDown(activity.dispose);
+        final dictation = controller(support: _uploadOnly, activity: activity);
+        addTearDown(dictation.dispose);
+        await dictation.start();
+        recorder.speak([5]);
+        await pumpEventQueue();
+        var suspended = false;
+        dictation.addListener(() {
+          if (!suspended && dictation.phase == DictationPhase.idle) {
+            suspended = true;
+            activity.value = false;
+            activity.value = true;
+          }
+        });
+
+        await dictation.stop();
+
+        expect(suspended, isTrue);
+        expect(inserted, isEmpty);
+        expect(recorder.recording, isFalse);
+      },
+    );
+
     test('says how the last dictation ended', () async {
       final dictation = controller(support: _uploadOnly);
       await dictation.start();
@@ -576,4 +798,19 @@ void main() {
       expect(recorder.recording, isFalse);
     });
   });
+}
+
+class _HeldSpeech extends OnDeviceSpeech {
+  final gate = Completer<void>();
+  var starts = 0;
+
+  @override
+  Future<OnDeviceSession> start({
+    required String locale,
+    required int sampleRate,
+  }) async {
+    starts++;
+    await gate.future;
+    return super.start(locale: locale, sampleRate: sampleRate);
+  }
 }
