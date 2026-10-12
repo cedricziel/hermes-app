@@ -79,6 +79,10 @@ a stable action key rather than `FilledButton`. Find tab labels inside the
 adaptive tab control, not an `AppBar` or the entire page, where status text
 can repeat the same label.
 
+`AppDialogAction` belongs to `AppAlertDialog`: its Cupertino action relies on
+the alert action renderer for taps. In a `GroupedDialog` footer, use a themed
+`TextButton`, as its own header does, and verify dismissal on Apple platforms.
+
 Workflow screenshots must pass `platform` explicitly to `pumpScreen` when checking
 Apple chrome. `phoneSize` and `desktopSize` change only the viewport; they do not
 select iOS or macOS.

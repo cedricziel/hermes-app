@@ -7,10 +7,12 @@ import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_create_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_files.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_orchestration_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_log_dialog.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_worker_log.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
 import 'package:provider/provider.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -281,6 +283,40 @@ List<WidgetbookNode> kanbanScreenComponents() => [
           ),
         ),
       ),
+    ],
+  ),
+  WidgetbookComponent(
+    name: 'KanbanWorkerLog',
+    useCases: [
+      for (final state in [
+        'Loading',
+        'Failed',
+        'Not run',
+        'Empty',
+        'Output',
+        'Truncated',
+      ])
+        ...onEachPlatform(
+          state,
+          (_) => frame(
+            KanbanWorkerLog(
+              failed: state == 'Failed',
+              log: switch (state) {
+                'Loading' || 'Failed' => null,
+                'Not run' => const KanbanTaskLog(content: '', exists: false),
+                'Empty' => const KanbanTaskLog(content: '', exists: true),
+                _ => KanbanTaskLog(
+                  exists: true,
+                  truncated: state == 'Truncated',
+                  content: [
+                    for (var i = 1; i <= 60; i++)
+                      '[worker] step $i: processing example input',
+                  ].join('\n'),
+                ),
+              },
+            ),
+          ),
+        ),
     ],
   ),
   WidgetbookComponent(
