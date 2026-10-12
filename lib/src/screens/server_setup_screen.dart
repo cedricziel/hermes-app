@@ -6,6 +6,8 @@ import '../auth/auth_controller.dart';
 import '../auth/connect_failure.dart';
 import '../settings/report_bug_link.dart';
 import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
+import 'widgets/connection_setup_field.dart';
 
 final _vpnGuide = Uri.parse(
   'https://github.com/cedricziel/hermes-app#reaching-your-dashboard-over-a-vpn',
@@ -28,7 +30,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
         context.read<AuthController>().savedServerUrl ??
         'http://',
   );
-  final _formKey = GlobalKey<FormState>();
+  String? _validationError;
 
   @override
   void didUpdateWidget(ServerSetupScreen oldWidget) {
@@ -62,92 +64,76 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const AppIcon(AppIcons.hub, size: 56),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Connect to Hermes',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const AppIcon(AppIcons.hub, size: 56),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Connect to Hermes',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter the address of your hermes dashboard.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Behind Tailscale or WireGuard? Enter its VPN address, '
+                    'or run tailscale serve on the server for an https:// '
+                    'address.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  TextButton(
+                    onPressed: () => launchUrl(
+                      _vpnGuide,
+                      mode: LaunchMode.externalApplication,
                     ),
-                    const SizedBox(height: 8),
+                    child: const Text('Read the VPN setup guide'),
+                  ),
+                  const SizedBox(height: 24),
+                  ConnectionSetupField(
+                    controller: _controller,
+                    error: _validationError,
+                    onSubmitted: (_) => _submit(auth),
+                  ),
+                  if (auth.state == HermesConnectionState.connectionError &&
+                      auth.errorMessage != null) ...[
+                    const SizedBox(height: 12),
                     Text(
-                      'Enter the address of your hermes dashboard.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Behind Tailscale or WireGuard? Enter its VPN address, '
-                      'or run tailscale serve on the server for an https:// '
-                      'address.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                      textAlign: TextAlign.center,
-                    ),
-                    TextButton(
-                      onPressed: () => launchUrl(
-                        _vpnGuide,
-                        mode: LaunchMode.externalApplication,
+                      auth.errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
                       ),
-                      child: const Text('Read the VPN setup guide'),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _controller,
-                      autofocus: true,
-                      keyboardType: TextInputType.url,
-                      textInputAction: TextInputAction.go,
-                      decoration: const InputDecoration(
-                        labelText: 'Dashboard URL',
-                        hintText: 'http://192.168.1.20:9119',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                          ? 'Enter a URL'
-                          : null,
-                      onFieldSubmitted: (_) => _submit(auth),
-                    ),
-                    if (auth.state == HermesConnectionState.connectionError &&
-                        auth.errorMessage != null) ...[
-                      const SizedBox(height: 12),
+                    if (hint != null) ...[
+                      const SizedBox(height: 4),
                       Text(
-                        auth.errorMessage!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+                        hint,
+                        style: Theme.of(context).textTheme.bodySmall,
                         textAlign: TextAlign.center,
                       ),
-                      if (hint != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          hint,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
                     ],
-                    const SizedBox(height: 20),
+                  ],
+                  const SizedBox(height: 20),
+                  if (platformChromeOf(context).isApple)
+                    TextButton(
+                      onPressed: connecting ? null : () => _submit(auth),
+                      child: connecting ? _progress() : const Text('Connect'),
+                    )
+                  else
                     FilledButton(
                       onPressed: connecting ? null : () => _submit(auth),
-                      child: connecting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator.adaptive(
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text('Connect'),
+                      child: connecting ? _progress() : const Text('Connect'),
                     ),
-                    const ReportBugLink(),
-                  ],
-                ),
+                  const ReportBugLink(),
+                ],
               ),
             ),
           ),
@@ -156,9 +142,19 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     );
   }
 
+  Widget _progress() => const SizedBox.square(
+    dimension: 20,
+    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+  );
+
   void _submit(AuthController auth) {
     if (auth.state == HermesConnectionState.connecting) return;
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(
+      () => _validationError = _controller.text.trim().isEmpty
+          ? 'Enter a URL'
+          : null,
+    );
+    if (_validationError != null) return;
     FocusScope.of(context).unfocus();
     auth.connect(_controller.text);
   }
