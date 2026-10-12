@@ -7,4 +7,4 @@
 ## 2. Verification and delivery
 
 - [x] 2.1 Run formatting, analysis, share/chat/navigation suites, strict OpenSpec validation, and isolated app verification where applicable. Update stale skills only if needed.
-- [ ] 2.2 Obtain current-head review, address findings, pass CI/builds, merge, sync/archive, and update the backlog.
+- [x] 2.2 Obtain current-head review, address findings, pass CI/builds, merge, sync/archive, and update the backlog.
