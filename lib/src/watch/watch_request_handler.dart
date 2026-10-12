@@ -121,12 +121,29 @@ class WatchRequestHandler {
   /// Recent sends by the id the watch gave them, oldest first.
   final _sends = <String, _SendAttempt>{};
 
+  int _sessionGeneration = 0;
+  final _activeTransports = <ChatTransport>{};
+
+  void invalidateSession() {
+    _sessionGeneration++;
+    for (final attempt in _sends.values) {
+      attempt.invalidated = true;
+      attempt.wake();
+    }
+    _sends.clear();
+    for (final chat in _activeTransports.toList()) {
+      unawaited(chat.close().catchError((Object _) {}));
+    }
+  }
+
   Future<Map<String, Object?>> handle(Map<Object?, Object?> request) async {
     try {
       if (connecting()) {
         await ready();
       }
-      return switch (request['op']) {
+      if (repository() == null) return _noSession();
+      final generation = _sessionGeneration;
+      final reply = switch (request['op']) {
         'threads' => await _threads(),
         'messages' => await _messages(request['threadId']),
         'send' => await _sendOnce(
@@ -142,6 +159,9 @@ class WatchRequestHandler {
         ),
         _ => _error('bad_request'),
       };
+      if (generation != _sessionGeneration || repository() == null)
+        return _noSession();
+      return reply;
     } on Object {
       return _error('failed');
     }
@@ -229,12 +249,18 @@ class WatchRequestHandler {
     }
     final repo = repository();
     if (repo == null) return _noSession();
+    final generation = _sessionGeneration;
     final heard = await _heardOnDevice(audio);
+    if (generation != _sessionGeneration || repository() == null)
+      return _noSession();
     if (heard != null) return {'ok': true, 'text': heard, 'engine': 'device'};
+    final profile = await activeProfile();
+    if (generation != _sessionGeneration || repository() == null)
+      return _noSession();
     final text = await repo.transcribe(
       audio,
       mimeType: mimeType,
-      profile: await activeProfile(),
+      profile: profile,
       timeout: HermesChatRepository.transcribeTimeout(audio.length),
     );
     return {'ok': true, 'text': text, 'engine': 'hermes'};
@@ -316,6 +342,7 @@ class WatchRequestHandler {
         ? Future<void>.delayed(waitingHold).then((_) => held = true)
         : null;
     while (true) {
+      if (attempt.invalidated) return _error('signed_out');
       if (attempt.finished) return attempt.reply;
       if (attempt.waiting != shown || held) {
         attempt.reported = attempt.waiting;
@@ -364,6 +391,9 @@ class WatchRequestHandler {
     if (threadId != null && thread == null) return _error('bad_request');
     final chat = transport();
     if (chat == null) return _noSession();
+    final generation = _sessionGeneration;
+    bool current() => generation == _sessionGeneration && repository() != null;
+    _activeTransports.add(chat);
     String? profile;
     String? boundId;
     var title = untitledChat;
@@ -377,7 +407,7 @@ class WatchRequestHandler {
     /// buttons that answer a request.
     Future<bool> announce(ChatEvent event) async {
       final id = boundId;
-      if (id == null) return false;
+      if (!current() || id == null) return false;
       final notification = attentionFor(
         event: event,
         thread: ChatThread(id: id, title: title, updatedAt: DateTime.now()),
@@ -393,6 +423,7 @@ class WatchRequestHandler {
     }
 
     void track(ChatEvent event) {
+      if (!current()) return;
       // The turn Hermes ran ahead of the prompt ends before the prompt's own
       // turn does, so its completion says nothing about the chat.
       if (event is UnsolicitedEvent && event.event is ReplyCompleted) return;
@@ -415,6 +446,7 @@ class WatchRequestHandler {
     StreamIterator<ChatEvent>? events;
     try {
       profile = thread != null ? thread.profile : await activeProfile();
+      if (!current()) return _noSession();
       boundId = thread?.id;
       attempt
         ..profile = profile
@@ -431,6 +463,7 @@ class WatchRequestHandler {
       while (await turn.moveNext().timeout(
         attempt.waiting == null ? sendTimeout : waitingTimeout,
       )) {
+        if (!current()) return _noSession();
         final event = turn.current;
         attempt.reached = true;
         // The turn Hermes ran ahead of the prompt asks too.
@@ -496,6 +529,7 @@ class WatchRequestHandler {
       unawaited(announce(const ReplyCompleted('', failed: true)));
       rethrow;
     } finally {
+      _activeTransports.remove(chat);
       unawaited(events?.cancel());
       await chat.close();
     }
@@ -563,6 +597,14 @@ class WatchRequestHandler {
 class _SendAttempt {
   late final Future<Map<String, Object?>> reply;
   bool finished = false;
+  bool invalidated = false;
+
+  void wake() {
+    final changed = _changed;
+    _changed = Completer<void>();
+    if (!changed.isCompleted) changed.complete();
+  }
+
   String? profile;
   String? threadId;
 

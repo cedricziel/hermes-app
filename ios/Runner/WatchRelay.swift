@@ -27,7 +27,13 @@ final class WatchRelay: NSObject, WCSessionDelegate {
     endTask = { UIApplication.shared.endBackgroundTask($0) }
     super.init()
     channel.setMethodCallHandler { [weak self] call, result in
-      guard let self, call.method == "complication",
+      guard let self else { result(FlutterMethodNotImplemented); return }
+      if call.method == "publishSessionState", let arguments = call.arguments as? [String: Any],
+        let usable = arguments["usable"] as? Bool {
+        self.publishSessionState(usable: usable, result: result)
+        return
+      }
+      guard call.method == "complication",
         let arguments = call.arguments as? [String: Any],
         let payload = arguments["payload"] as? [String: Any]
       else {
@@ -53,6 +59,36 @@ final class WatchRelay: NSObject, WCSessionDelegate {
     super.init()
   }
 
+  private var publication: [String: Any]? {
+    UserDefaults.standard.dictionary(forKey: "watch.session.publication")
+  }
+
+  private func publishSessionState(usable: Bool, result: FlutterResult) {
+    if let current = publication, current["usable"] as? Bool == usable {
+      deliverSessionState()
+      result(current)
+      return
+    }
+    let previous = publication?["revision"] as? Int ?? 0
+    let state: [String: Any] = ["revision": previous + 1, "usable": usable]
+    UserDefaults.standard.set(state, forKey: "watch.session.publication")
+    deliverSessionState()
+    result(state)
+  }
+
+  private func deliverSessionState() {
+    guard WCSession.isSupported(), let publication else { return }
+    let session = WCSession.default
+    guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled else { return }
+    let payload = ["watchSession": publication]
+    do {
+      try session.updateApplicationContext(session.applicationContext.merging(payload) { _, new in new })
+      session.transferUserInfo(payload)
+    } catch {
+      logger.error("Session context failed code=\((error as NSError).code)")
+    }
+  }
+
   /// Hands the watch's complications the latest turn's status. Only an
   /// [urgent] one, a change of state, spends the budgeted transfer that wakes
   /// the watch app; anything else, and an urgent one once the budget is spent,
@@ -70,7 +106,7 @@ final class WatchRelay: NSObject, WCSessionDelegate {
       return result("complication")
     }
     do {
-      try session.updateApplicationContext(payload)
+      try session.updateApplicationContext(session.applicationContext.merging(payload) { _, new in new })
       result("context")
     } catch {
       logger.error("Complication context failed code=\((error as NSError).code)")
@@ -105,6 +141,8 @@ final class WatchRelay: NSObject, WCSessionDelegate {
       self.invokeRequest(message) { result in
         switch result {
         case let answer as [String: Any]:
+          var answer = answer
+          if let publication = self.publication { answer["watchSession"] = publication }
           reply(answer)
         case let missing as NSObject where missing === FlutterMethodNotImplemented:
           self.logger.error("Dart handler unavailable")
@@ -122,6 +160,7 @@ final class WatchRelay: NSObject, WCSessionDelegate {
     activationDidCompleteWith activationState: WCSessionActivationState,
     error: Error?
   ) {
+    DispatchQueue.main.async { self.deliverSessionState() }
     logger.notice("Activation completed state=\(activationState.rawValue) errorCode=\((error as NSError?)?.code ?? 0)")
   }
 

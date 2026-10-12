@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/watch/watch_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -38,6 +39,53 @@ void main() {
   });
 
   tearDown(() => dashboard.close(force: true));
+
+  test(
+    'retains ordered usable and departure publications across auth changes',
+    () async {
+      authRequired = false;
+      final auth = AuthController(
+        tokenStore: MemoryTokenStore(),
+        devServerUrl: 'http://127.0.0.1:${dashboard.port}',
+      );
+      final published = <bool>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel(WatchBridge.channelName),
+            (call) async {
+              if (call.method == 'publishSessionState')
+                published.add((call.arguments as Map)['usable'] as bool);
+              return {
+                'revision': published.length,
+                'usable': (call.arguments as Map)['usable'],
+              };
+            },
+          );
+      final bridge = WatchBridge(
+        handler: WatchBridge.handlerFor(auth),
+        auth: auth,
+      )..start();
+      addTearDown(() {
+        bridge.dispose();
+        auth.dispose();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel(WatchBridge.channelName),
+              null,
+            );
+      });
+      await pumpEventQueue();
+      expect(published, isEmpty);
+      await auth.bootstrap();
+      await pumpEventQueue();
+      expect(published, [true]);
+
+      await auth.changeServer();
+      await pumpEventQueue();
+
+      expect(published, [true, false]);
+    },
+  );
 
   test('answers signed_out while the dashboard still wants a login, without '
       'asking it anything', () async {
