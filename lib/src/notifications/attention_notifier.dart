@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../chat/chat_models.dart';
@@ -21,9 +22,11 @@ class AttentionNotifier with WidgetsBindingObserver {
     required this.service,
     required this.settings,
     required this.onOpen,
+    this.activity,
     this.activities,
     this.appLock = _off,
   }) {
+    activity?.addListener(_activityChanged);
     _focused = AppPresence.focused(WidgetsBinding.instance.lifecycleState);
     WidgetsBinding.instance.addObserver(this);
     _launch = service?.launchTarget();
@@ -34,6 +37,9 @@ class AttentionNotifier with WidgetsBindingObserver {
   final NotificationService? service;
   final NotificationSettings? settings;
   final LiveActivities? activities;
+
+  /// Whether the owning session may publish announcements. Absent means active.
+  final ValueListenable<bool>? activity;
 
   /// Whether App Lock is on: requests are then announced without their text
   /// or buttons.
@@ -50,6 +56,15 @@ class AttentionNotifier with WidgetsBindingObserver {
   var _focused = true;
   var _askingPermission = false;
   Future<void>? _permissionRequest;
+  var _disposed = false;
+  var _epoch = 0;
+
+  bool _current(int epoch) =>
+      !_disposed && (activity?.value ?? true) && epoch == _epoch;
+
+  void _activityChanged() {
+    _epoch++;
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -73,6 +88,8 @@ class AttentionNotifier with WidgetsBindingObserver {
     required String? selectedThreadId,
     required String? profile,
   }) {
+    final epoch = _epoch;
+    if (!_current(epoch)) return;
     final service = this.service;
     if (service == null) return;
     final settings = this.settings;
@@ -89,15 +106,28 @@ class AttentionNotifier with WidgetsBindingObserver {
     final pending = _permissionRequest;
     unawaited(
       pending == null
-          ? service.show(notification)
-          : pending.then((_) => service.show(notification)),
+          ? _show(notification, epoch)
+          : pending.then((_) => _show(notification, epoch)),
     );
+  }
+
+  Future<void> _show(AttentionNotification notification, int epoch) {
+    final service = this.service;
+    if (service == null || !_current(epoch)) return Future.value();
+    if (service is GuardedNotificationService) {
+      return (service as GuardedNotificationService).showWhile(
+        notification,
+        () => _current(epoch),
+      );
+    }
+    return service.show(notification);
   }
 
   /// Asks the system for permission once, when notifications are on and the
   /// user has not been asked. A notification posted meanwhile waits for the
   /// answer.
   Future<void> askForPermission() async {
+    if (!_current(_epoch)) return;
     final service = this.service;
     final settings = this.settings;
     if (service == null || settings == null) return;
@@ -125,6 +155,10 @@ class AttentionNotifier with WidgetsBindingObserver {
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _epoch++;
+    activity?.removeListener(_activityChanged);
     WidgetsBinding.instance.removeObserver(this);
     _taps?.cancel();
     _taps = null;
