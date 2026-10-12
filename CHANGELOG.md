@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.1.61](https://github.com/cedricziel/hermes-app/compare/v0.1.60...v0.1.61) (2026-10-12)
+
+
+### Features
+
+* **chat:** adapt teammate and command suggestions ([#662](https://github.com/cedricziel/hermes-app/issues/662)) ([8dbd966](https://github.com/cedricziel/hermes-app/commit/8dbd9669db127f2bf851dfb78bf7a5cad8d2a6c9))
+* **connection:** align setup and details screens ([#661](https://github.com/cedricziel/hermes-app/issues/661)) ([852dcb4](https://github.com/cedricziel/hermes-app/commit/852dcb4d188d0981e4b5820157d2844b987b4881))
+
+
+### Bug Fixes
+
+* **app-store:** refresh the listing for 0.1.61 ([#658](https://github.com/cedricziel/hermes-app/issues/658)) ([f7f9245](https://github.com/cedricziel/hermes-app/commit/f7f92457f17899941acb6e8926b00a534fac6e2c))
+* **auth:** bind protected clients to verified session lifetimes ([#659](https://github.com/cedricziel/hermes-app/issues/659)) ([9f50ea7](https://github.com/cedricziel/hermes-app/commit/9f50ea74e81a036b33742daa715f1760304600db))
+* **chat:** refetch a thread after a turn another client streamed ends ([#663](https://github.com/cedricziel/hermes-app/issues/663)) ([22fc12a](https://github.com/cedricziel/hermes-app/commit/22fc12afc88816560408fe7319b416612ac36a02))
+* **navigation:** guard warm and launch notification delivery ([#653](https://github.com/cedricziel/hermes-app/issues/653)) ([090151d](https://github.com/cedricziel/hermes-app/commit/090151d6099b0cf81fc44e62a465a298fd7b6f3b))
+* **navigation:** preserve guarded editors during deep links ([#646](https://github.com/cedricziel/hermes-app/issues/646)) ([ce5d604](https://github.com/cedricziel/hermes-app/commit/ce5d604307389a9ae40b186d64dda45dc4f51160))
+* **navigation:** retain guarded shares until safe Chat entry ([#657](https://github.com/cedricziel/hermes-app/issues/657)) ([fb8a301](https://github.com/cedricziel/hermes-app/commit/fb8a301c03d6bb046a231783709ebc230188d763))
+* **navigation:** use restrained macOS page transitions ([#654](https://github.com/cedricziel/hermes-app/issues/654)) ([aa5c1f8](https://github.com/cedricziel/hermes-app/commit/aa5c1f86bddee804c1b57c069db7e5e4cdd7eb8f))
+* **screenshots:** finalize the 0.1.61 task captures ([#666](https://github.com/cedricziel/hermes-app/issues/666)) ([7d191df](https://github.com/cedricziel/hermes-app/commit/7d191dfbc1b36113ef1d02e30603821de9b4d405))
+
+
+### Documentation
+
+* **navigation:** close merged notification and page policies ([#656](https://github.com/cedricziel/hermes-app/issues/656)) ([d28c30f](https://github.com/cedricziel/hermes-app/commit/d28c30f4aa955bb0442aecba2760da0a28b3ea73))
+* **navigation:** publish backlog and completed guard spec ([#651](https://github.com/cedricziel/hermes-app/issues/651)) ([c65b117](https://github.com/cedricziel/hermes-app/commit/c65b117e346af91eb57a4a05ea5cf8951ea75a71))
+* **ui:** complete adaptive UI series tracking ([#664](https://github.com/cedricziel/hermes-app/issues/664)) ([5605946](https://github.com/cedricziel/hermes-app/commit/5605946731f73e0a719e3b0f88acdb84a04e10a2))
+
 ## [0.1.60](https://github.com/cedricziel/hermes-app/compare/v0.1.59...v0.1.60) (2026-10-11)
 
 
