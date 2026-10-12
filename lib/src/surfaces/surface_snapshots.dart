@@ -17,8 +17,7 @@ const kSurfaceDebounce = Duration(seconds: 2);
 /// while the app is in front.
 const kSurfaceRemoteInterval = Duration(minutes: 5);
 
-/// How long a move to the background waits for the server before it writes
-/// what is known; an answer within it makes the one write.
+/// Shared remote-read budget before a pause publishes a partial snapshot.
 const kSurfacePauseWindow = Duration(milliseconds: 800);
 
 /// What the connection says about the account, read whenever it matters.
@@ -230,30 +229,22 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     }
   }
 
-  /// Leaving the app is the last chance to write what is known, so when the
-  /// server does not answer within [pauseWindow] that is written first.
+  // Timers cannot finish a remote build while iOS suspends the isolate.
   Future<void> _pause(HermesRepositories repositories, int generation) async {
-    const trigger = SurfaceTrigger.pause;
-    final remote = _compose(repositories, trigger, remote: true);
-    final answer = remote.then<SnapshotBuild?>((r) => r, onError: (_) => null);
-    final early = await Future.any([
-      answer,
-      Future<SnapshotBuild?>.delayed(pauseWindow),
-    ]);
-    if (early == null) {
-      await _publish(
-        await _compose(repositories, trigger, remote: false),
-        generation,
-      );
-    }
-    final built = early ?? await answer;
-    if (built != null) await _publish(built, generation, remote: true);
+    final built = await _compose(
+      repositories,
+      SurfaceTrigger.pause,
+      remote: true,
+      budget: pauseWindow,
+    );
+    await _publish(built, generation, remote: true);
   }
 
   Future<SnapshotBuild> _compose(
     HermesRepositories repositories,
     SurfaceTrigger trigger, {
     required bool remote,
+    Duration? budget,
   }) async {
     if (!identical(_builderOf, repositories)) {
       _builderOf = repositories;
@@ -267,6 +258,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
         hints: _hints,
         refreshRemote: remote,
         redact: _lockOn,
+        budget: budget,
       );
       _endSpan(span, sourcesFailed: result.sourcesFailed);
       return result;
@@ -314,7 +306,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     if (span == null) return;
     try {
       span.setAttribute('sources_failed', sourcesFailed);
-      if (failed) span.setStatus(StatusCode.error);
+      if (failed || sourcesFailed > 0) span.setStatus(StatusCode.error);
       span.end();
     } on Object {
       // Telemetry must not break the app.
