@@ -27,6 +27,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
     this.debounce = defaultDebounce,
     this._searchAll,
     this._recentStore,
+    this._canWork,
   });
 
   static const defaultDebounce = Duration(milliseconds: 300);
@@ -36,6 +37,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
   final Future<List<ThreadSearchHit>> Function(String query) _search;
   final Future<List<ThreadSearchHit>> Function(String query)? _searchAll;
   final SharedPreferencesAsync? _recentStore;
+  final bool Function()? _canWork;
 
   String _query = '';
   String get query => _query;
@@ -63,10 +65,23 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
   bool _recentTouched = false;
   bool _recentLoaded = false;
 
+  bool _enabled = true;
+  bool get _workAllowed => _enabled && !disposed && (_canWork?.call() ?? true);
+
+  /// Pauses protected work while retaining local state for recovery.
+  void setActivity(bool active) {
+    if (_enabled == active) return;
+    _enabled = active;
+    _timer?.cancel();
+    _generation++;
+    if (active && _query.trim().isNotEmpty) _start(Duration.zero);
+  }
+
   Timer? _timer;
   int _generation = 0;
 
   void update(String query) {
+    if (!_workAllowed) return;
     if (query == _query) return;
     final same = query.trim() == _query.trim();
     _query = query;
@@ -75,6 +90,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
   }
 
   void setScope(ThreadSearchScope scope) {
+    if (!_workAllowed) return;
     if (scope == _scope || !canSearchAllProfiles) return;
     _scope = scope;
     _start(Duration.zero);
@@ -97,6 +113,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
   void clear() => update('');
 
   void begin() {
+    if (!_workAllowed) return;
     if (_active) return;
     _active = true;
     if (!_recentLoaded) {
@@ -108,6 +125,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
 
   /// Closes the search and forgets what was typed.
   void end() {
+    if (!_workAllowed) return;
     _active = false;
     if (_query.isEmpty) return notifyListeners();
     clear();
@@ -115,6 +133,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
 
   /// Keeps [query] at the top of [recent].
   void remember(String query) {
+    if (!_workAllowed) return;
     final trimmed = query.trim();
     if (trimmed.isEmpty) return;
     _recentTouched = true;
@@ -131,7 +150,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
     if (store == null) return;
     try {
       final stored = await store.getStringList(_recentKey);
-      if (stored == null || _recentTouched || disposed) return;
+      if (!_workAllowed || stored == null || _recentTouched) return;
       _recent = stored.take(_recentLimit).toList();
       notifyListeners();
     } on Object {
@@ -140,16 +159,17 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
   }
 
   Future<void> _run(String query, int generation) async {
+    if (!_workAllowed || generation != _generation) return;
     try {
       final search = _scope == ThreadSearchScope.allProfiles
           ? _searchAll!
           : _search;
       final hits = await search(query);
-      if (generation != _generation) return;
+      if (!_workAllowed || generation != _generation) return;
       _hits = hits;
       _status = ThreadSearchStatus.done;
     } on Object {
-      if (generation != _generation) return;
+      if (!_workAllowed || generation != _generation) return;
       _hits = const [];
       _status = ThreadSearchStatus.failed;
     }
@@ -158,6 +178,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
 
   @override
   void dispose() {
+    _generation++;
     _timer?.cancel();
     super.dispose();
   }
