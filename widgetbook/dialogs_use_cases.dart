@@ -165,24 +165,33 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'showSkillJobSheet',
       useCases: [
-        _open(
-          'Running job',
-          (context) => showModalBottomSheet<void>(
-            context: context,
-            showDragHandle: true,
-            builder: (_) => SkillJobSheet(
-              job: SkillJob(
+        for (final entry in {
+          'Running': null,
+          'Succeeded': 0,
+          'Failed': 2,
+          'Unknown': -1,
+        }.entries)
+          ...onEachPlatform(
+            '${entry.key} job',
+            (_) => openOnShow((context) async {
+              final job = SkillJob(
                 title: 'Installing web-scraper',
                 start: () async => const StartedJob(name: 'install'),
-                status: (_) async => const JobStatus(
-                  running: true,
+                status: (_) async => JobStatus(
+                  running: entry.value == null,
+                  exitCode: entry.value == -1 ? null : entry.value,
                   lines: ['Fetching web-scraper', 'Installing'],
                 ),
                 wait: (_) => Completer<void>().future,
-              )..run(),
-            ),
+              );
+              unawaited(job.run());
+              try {
+                await showSkillJobStatus(context, job);
+              } finally {
+                job.dispose();
+              }
+            }),
           ),
-        ),
       ],
     ),
   ],
