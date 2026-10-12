@@ -8,8 +8,8 @@
 #   scripts/store-screenshots.sh finish    # flatten, tidy and size what was taken
 #
 # Raw captures land in build/screenshots/<device>-<light|dark>/, the finished
-# store images in fastlane/screenshots/ios/en-US/ (not committed; regenerate
-# them) and the README-sized ones in docs/screenshots/.
+# finished store images in fastlane/screenshots/<ios|mac>/en-US/ and
+# README-sized ones in docs/screenshots/.
 #
 # The Mac run opens the app and takes over the screen for a few minutes (the
 # window has to be in front to be captured), so leave the machine alone.

@@ -5,7 +5,7 @@
 Reads build/screenshots/<device>-<light|dark>/<screen>.png and writes
 
 - fastlane/screenshots/<ios|mac>/en-US/  the App Store sizes, flattened (the
-  store rejects transparency), in listing order. Not committed.
+  store rejects transparency), in listing order. Commit reviewed images.
 - docs/screenshots/                       smaller copies for the README.
 
 --readme-only writes docs/screenshots/ and nothing else, for captures that must

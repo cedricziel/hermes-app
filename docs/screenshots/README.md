@@ -82,7 +82,8 @@ What happens:
    capture), and the window handle iPadOS draws in a corner.
 
 Raw captures go to `build/screenshots/`. The store images go to
-`fastlane/screenshots/<ios|mac>/en-US/`, which is not committed.
+`fastlane/screenshots/<ios|mac>/en-US/`. Commit the reviewed store images with
+the listing changes. Raw captures stay ignored under `build/screenshots/`.
 
 The Kanban board and task-detail captures use invented tasks from
 `scripts/demo_kanban.json`, created through the isolated backend's API.

@@ -39,8 +39,10 @@ boxes has no font in the test: load one for its family in `_loadFonts`
 version>`. Check the editable version on App Store Connect first and pass
    it, or fastlane renames it to the `pubspec.yaml` version. Read the sets back
    from Apple before saying it worked; the lane's log is not proof.
-6. The store images are git-ignored. Don't commit `docs/screenshots/` from this
-   run; the README copies come from the render test.
+6. Commit the reviewed images in `fastlane/screenshots/` with the listing
+   changes, so a release records exactly what was uploaded. Raw captures stay
+   under the ignored `build/screenshots/`. Don't commit `docs/screenshots/`
+   from this run; the README copies come from the render test.
 
 ## Rules
 
