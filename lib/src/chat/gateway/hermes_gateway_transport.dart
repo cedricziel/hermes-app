@@ -519,7 +519,8 @@ class HermesGatewayTransport
         PromptAcknowledgement,
         GatewayRequester,
         OwnedSessionTransport,
-        GatewayConnectionTransport {
+        GatewayConnectionTransport,
+        QueueSubmissionTransport {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
@@ -852,6 +853,51 @@ class HermesGatewayTransport
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+  }) => _send(
+    threadId: threadId,
+    profile: profile,
+    text: text,
+    attachments: attachments,
+    model: model,
+    queued: queued,
+  );
+
+  @override
+  Stream<ChatEvent> sendQueued({
+    String? threadId,
+    String? profile,
+    required String text,
+    List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
+    required Future<void> Function() beforeSubmit,
+    Future<void> Function()? onNotSubmitted,
+  }) {
+    if (profile == null || profile.trim().isEmpty) {
+      return Stream.error(
+        QueueSubmissionNotStarted(StateError('Queued profile unresolved')),
+      );
+    }
+    return _send(
+      threadId: threadId,
+      profile: profile,
+      text: text,
+      attachments: attachments,
+      model: model,
+      queued: true,
+      beforeSubmit: beforeSubmit,
+      onNotSubmitted: onNotSubmitted,
+    );
+  }
+
+  Stream<ChatEvent> _send({
+    String? threadId,
+    String? profile,
+    required String text,
+    List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
+    bool queued = false,
+    Future<void> Function()? beforeSubmit,
+    Future<void> Function()? onNotSubmitted,
   }) {
     _promptAccepted = false;
     final stopped = CancelFlag();
@@ -866,6 +912,8 @@ class HermesGatewayTransport
         queued: queued,
         stopped: stopped,
         step: step,
+        beforeSubmit: beforeSubmit,
+        onNotSubmitted: onNotSubmitted,
       ).transform(
         StreamTransformer.fromHandlers(
           handleError: (error, stackTrace, sink) {
@@ -905,6 +953,8 @@ class HermesGatewayTransport
     bool queued = false,
     required CancelFlag stopped,
     required _SendStep step,
+    Future<void> Function()? beforeSubmit,
+    Future<void> Function()? onNotSubmitted,
   }) async* {
     final scope = <String, Object?>{
       'profile': ?profile,
@@ -1111,6 +1161,25 @@ class HermesGatewayTransport
           yield reclaim;
           return;
         }
+        if (beforeSubmit != null) {
+          step.name = 'commit';
+          try {
+            await beforeSubmit();
+            if (stopped.value) throw StateError('Queued submission canceled');
+            if (watch.reclaimed != null) {
+              throw StateError('Queued session reclaimed');
+            }
+          } on Object catch (error) {
+            try {
+              await onNotSubmitted?.call();
+            } on Object {
+              // Failed restoration cannot erase proof that no prompt RPC was sent.
+            }
+            throw error is QueueSubmissionNotStarted
+                ? error
+                : QueueSubmissionNotStarted(error);
+          }
+        }
         step.name = 'submit';
         submittedAt = clock.now();
         submit = await _call(client, 'prompt.submit', {
@@ -1118,12 +1187,13 @@ class HermesGatewayTransport
           'text': [text, ...references].where((s) => s.isNotEmpty).join('\n'),
           if (queued) 'queued': true,
         });
-      } on Object {
+      } on Object catch (error) {
         if (watch.reclaimed case final reclaim?) {
           yield reclaim;
           return;
         }
         await _detach(client, runtimeId, queuedImages);
+        if (stopped.value && error is QueueSubmissionNotStarted) return;
         rethrow;
       }
       step.name = 'reply';
@@ -1133,6 +1203,13 @@ class HermesGatewayTransport
       final earlier = watch.stopRecording();
       if (submit['user_row_id'] case final int userRowId) {
         yield PromptAcknowledged(userRowId);
+      }
+      if (beforeSubmit != null) {
+        final status = submit['status'];
+        if (status is String &&
+            PromptAccepted.allowedStatuses.contains(status)) {
+          yield PromptAccepted(status);
+        }
       }
       if (const {'redirected', 'steered'}.contains(submit['status'])) {
         // The server folded the prompt into the turn already running, whose

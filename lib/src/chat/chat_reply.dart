@@ -246,6 +246,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         ThreadTitled() ||
         PromptFolded() ||
         PromptAcknowledged() ||
+        PromptAccepted() ||
         UnsolicitedEvent() ||
         ThreadNeedsRefetch():
       break;

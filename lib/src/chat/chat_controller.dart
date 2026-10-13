@@ -3488,7 +3488,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadTitled(:final title):
         _titled(thread, title);
         notifyListeners();
-      case ReplyStarted() || UnsolicitedEvent() || PromptAcknowledged():
+      case ReplyStarted() ||
+          UnsolicitedEvent() ||
+          PromptAcknowledged() ||
+          PromptAccepted():
       case SideResultReceived() ||
           MoaUpdated() ||
           SessionUsageUpdated() ||
