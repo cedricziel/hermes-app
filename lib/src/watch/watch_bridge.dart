@@ -20,6 +20,7 @@ import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import 'watch_complication.dart';
 import 'watch_context.dart';
+import 'watch_send_journal.dart';
 import 'watch_request_handler.dart';
 
 /// The Dart end of the watch relay. The iOS runner receives what the watch
@@ -92,6 +93,7 @@ class WatchBridge {
         );
         _publication = _publication
             .then((_) async {
+              await _handler.settleJournalDeparture();
               await retirement;
             })
             .catchError((Object _) {
@@ -118,6 +120,7 @@ class WatchBridge {
 
   Future<bool> _publishSession(bool usable, String reason) async {
     try {
+      await _handler.settleJournalDeparture();
       final auth = _auth;
       final ownerGeneration = auth?.ownerGeneration;
       if (usable &&
@@ -195,6 +198,7 @@ class WatchBridge {
     required DictationSettings dictation,
     WatchComplicationStatus? complication,
     AppEventLogger events = noopAppEventLogger,
+    bool durableSendState = false,
   }) {
     if (!Platform.isIOS) return null;
     final contextStore = WatchContextStore();
@@ -207,6 +211,7 @@ class WatchBridge {
       handler: handlerFor(
         auth,
         contextStore: contextStore,
+        durableSendState: durableSendState,
         announce: announcer(notifications, settings),
         appLock: () => appLockHidesRequests(appLock),
         transcribeOnDevice: onDeviceTranscriber(speech, dictation),
@@ -266,6 +271,7 @@ class WatchBridge {
     AppEventLogger events = noopAppEventLogger,
     Duration readyTimeout = const Duration(seconds: 20),
     WatchContextStore? contextStore,
+    bool durableSendState = false,
   }) {
     // The client exists from the first connect, before anyone has signed in.
     HermesApiClient? readyApi() =>
@@ -276,6 +282,7 @@ class WatchBridge {
 
     final contexts = contextStore ?? WatchContextStore();
     return WatchRequestHandler(
+      journal: durableSendState ? WatchSendJournal(events: events) : null,
       context: () => contexts.current,
       prepareContext: () async {
         await contexts.resolve(
@@ -332,6 +339,7 @@ class WatchBridge {
     'threads' ||
     'messages' ||
     'send' ||
+    'forgetSend' ||
     'transcribe' => op as String,
     _ => 'unknown',
   };

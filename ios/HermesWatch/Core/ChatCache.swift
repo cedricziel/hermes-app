@@ -22,6 +22,7 @@ struct CachingClient: HermesClient {
   let cache: ChatCache
   var session: WatchSessionState = WatchSessionState()
   var sessionState: WatchSessionState? { session }
+  var recoveryStore: PendingSendStore { inner.recoveryStore }
 
   init(inner: HermesClient, cache: ChatCache, session: WatchSessionState? = nil) {
     self.inner = inner
@@ -29,6 +30,16 @@ struct CachingClient: HermesClient {
     let session = session ?? WatchSessionState()
     self.session = session
     _ = session.register { cache.clear() }
+  }
+
+  func prepareRecovery() async throws { try await forgettingOnSignOut { try await inner.prepareRecovery() } }
+  func forgetSend(sendId: String) async throws { try await forgettingOnSignOut { try await inner.forgetSend(sendId: sendId) } }
+  func send(threadId: String?, text: String, sendId: String, retry: Bool, createdAt: Date) async throws -> SendResult {
+    let result = try await forgettingOnSignOut {
+      try await inner.send(threadId: threadId, text: text, sendId: sendId, retry: retry, createdAt: createdAt)
+    }
+    cacheResult(result, threadId: threadId, text: text, sendId: sendId, createdAt: createdAt)
+    return result
   }
 
   func savedThreads() -> [ThreadSummary]? {
@@ -57,15 +68,19 @@ struct CachingClient: HermesClient {
     let result = try await forgettingOnSignOut {
       try await inner.send(threadId: threadId, text: text, sendId: sendId, retry: retry)
     }
-    // A waiting answer is no turn yet; the final one is saved once.
-    if !result.failed, result.waiting == nil, let boundId = result.threadId ?? threadId {
-      let turn = [
-        ChatMessage(id: "local-\(sendId)", role: .user, content: text, at: Date()),
-        ChatMessage(id: "local-\(sendId)-reply", role: .assistant, content: result.text, at: Date(), tools: result.tools),
-      ]
-      cache.save(messages: (cache.messages(threadId: boundId) ?? []) + turn, threadId: boundId)
-    }
+    cacheResult(result, threadId: threadId, text: text, sendId: sendId, createdAt: Date())
     return result
+  }
+
+  private func cacheResult(_ result: SendResult, threadId: String?, text: String, sendId: String, createdAt: Date) {
+    guard !result.failed, result.waiting == nil, result.recoveryState == nil, let boundId = result.threadId ?? threadId else { return }
+    var saved = cache.messages(threadId: boundId) ?? []
+    guard !saved.contains(where: { $0.id == "local-\(sendId)-reply" }) else { return }
+    if !saved.contains(where: { $0.id == "local-\(sendId)" }) {
+      saved.append(ChatMessage(id: "local-\(sendId)", role: .user, content: text, at: createdAt))
+    }
+    saved.append(ChatMessage(id: "local-\(sendId)-reply", role: .assistant, content: result.text, at: Date(), tools: result.tools))
+    cache.save(messages: saved, threadId: boundId)
   }
 
   func transcribe(audio: Data, mimeType: String) async throws -> String {

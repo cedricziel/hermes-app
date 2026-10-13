@@ -8,7 +8,7 @@ final class FakeTransport: RelayTransport {
 
   func request(_ message: [String: Any]) async throws -> [String: Any] {
     requests.append(message)
-    if message["op"] as? String == "session" { return ["ok": true, "protocolVersion": 2, "contextId": "test-context", "revision": 1] }
+    if message["op"] as? String == "session" { return ["ok": true, "protocolVersion": 2, "contextId": "test-context", "revision": 1, "sendState": true] }
     var result = try reply.get()
     if result["ok"] as? Bool == true { result["contextId"] = "test-context"; result["revision"] = 1 }
     return result
@@ -114,7 +114,7 @@ final class RelayClientTests: XCTestCase {
   func testARetryOfAWaitingSendSaysSo() async throws {
     transport.reply = .success(["ok": true, "threadId": watchFixtureId("s1"), "text": "Done", "failed": false])
 
-    _ = try await client.send(threadId: watchFixtureId("s1"), text: "Hello", sendId: "m1", retry: true)
+    _ = try await client.send(threadId: watchFixtureId("s1"), text: "Hello", sendId: "m1", retry: true, createdAt: Date(timeIntervalSince1970: 100))
 
     XCTAssertEqual(transport.requests.last?["retry"] as? Bool, true)
   }

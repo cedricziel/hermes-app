@@ -35,8 +35,17 @@ struct ConversationView: View {
           if model.phase == .failed(.contextChanged) {
             Text(HermesClientError.contextChanged.message)
             Button("Open chat list") { dismiss() }
-          } else if case .failed(let error) = model.phase {
+          } else if case .failed(let error) = model.phase, model.recovery == nil {
             ErrorView(error: error) { Task { await retry() } }
+          }
+          if let recovery = model.recovery {
+            if case .failed(let error) = model.phase { Text(error.message).fixedSize(horizontal: false, vertical: true) }
+            RecoveryControls(state: recovery.recoveryState, hasThread: recovery.threadId != nil,
+              checked: model.canSendAgain, disabled: model.busy,
+              check: { Task { await model.checkResult() } },
+              open: { Task { await model.openRecoveryChat() } },
+              resend: { Task { await model.requestSendAgain() } },
+              forget: { Task { await model.forgetRecovery() } })
           }
           if model.phase != .failed(.signedOut), model.phase != .failed(.contextChanged) { composer.id("composer") }
         }
@@ -44,6 +53,12 @@ struct ConversationView: View {
       .onChange(of: model.messages.count) {
         withAnimation { proxy.scrollTo("composer") }
       }
+    }
+    .alert("Send this request again?", isPresented: Binding(get: { model.resendConfirmation }, set: { _ in })) {
+      Button("Cancel", role: .cancel) { model.cancelSendAgain() }
+      Button("Send again") { Task { await model.confirmSendAgain() } }
+    } message: {
+      Text("The original message may already have reached Hermes. Sending again can run the request twice.")
     }
     .navigationTitle(model.permitsOriginalTitle ? (title ?? "New Chat") : "New Chat")
     .navigationBarTitleDisplayMode(.inline)
@@ -61,7 +76,7 @@ struct ConversationView: View {
     }
   }
 
-  private var busy: Bool { model.busy }
+  private var busy: Bool { !model.canCompose }
 
   @ViewBuilder
   private var composer: some View {

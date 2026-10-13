@@ -3,6 +3,11 @@ import XCTest
 @testable import HermesWatchCore
 
 private final class SuspendedSendClient: HermesClient {
+  let fixtureSession = recoveryFixtureSession()
+  var sessionState: WatchSessionState? { fixtureSession }
+  let recoveryStore: PendingSendStore = MemoryPendingSendStore()
+  func prepareRecovery() async throws {}
+  func forgetSend(sendId: String) async throws {}
   var replies: [CheckedContinuation<SendResult, Error>] = []
   var onRequest: (() -> Void)?
 

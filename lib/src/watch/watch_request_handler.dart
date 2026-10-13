@@ -7,6 +7,7 @@ import '../chat/hermes_chat_repository.dart';
 import '../notifications/attention_policy.dart';
 import 'watch_complication.dart';
 import 'watch_context.dart';
+import 'watch_send_journal.dart';
 
 /// Serves version 2 requests scoped to a verified phone context. Historical
 /// profile ownership remains encoded in each opaque thread ID.
@@ -27,6 +28,7 @@ class WatchRequestHandler {
     this.complication,
     this.context = _noContext,
     this.prepareContext = _alreadyReady,
+    this.journal,
   });
 
   /// What the watch is told when the agent asks for something only the phone's
@@ -103,6 +105,7 @@ class WatchRequestHandler {
 
   final WatchContext? Function() context;
   final Future<void> Function() prepareContext;
+  final WatchSendJournal? journal;
   static WatchContext? _noContext() => null;
 
   static Future<bool> _ignore(AttentionNotification _) async => false;
@@ -119,9 +122,17 @@ class WatchRequestHandler {
   final _sends = <String, _SendAttempt>{};
 
   int _sessionGeneration = 0;
+  WatchContext? _departedJournalContext;
+  Future<void> _journalDeparture = Future.value();
   final _activeTransports = <ChatTransport>{};
 
   void invalidateSession() {
+    final scope = context();
+    if (scope != null && journal != null) {
+      _departedJournalContext = scope;
+      _journalDeparture = journal!.invalidate(scope);
+      unawaited(_journalDeparture.catchError((Object _) {}));
+    }
     _sessionGeneration++;
     for (final attempt in _sends.values) {
       attempt.invalidated = true;
@@ -130,6 +141,21 @@ class WatchRequestHandler {
     _sends.clear();
     for (final chat in _activeTransports.toList()) {
       unawaited(chat.close().catchError((Object _) {}));
+    }
+  }
+
+  /// Blocks publication of a new owner until protected recovery data is purged.
+  Future<void> settleJournalDeparture() async {
+    final scope = _departedJournalContext;
+    if (scope == null) return;
+    try {
+      await _journalDeparture;
+    } on Object {
+      _journalDeparture = journal!.invalidate(scope);
+      await _journalDeparture;
+    }
+    if (identical(_departedJournalContext, scope)) {
+      _departedJournalContext = null;
     }
   }
 
@@ -147,16 +173,29 @@ class WatchRequestHandler {
         'messages',
         'send',
         'transcribe',
+        'forgetSend',
       ].contains(request['op'])) {
         return _error('bad_request');
       }
+      await settleJournalDeparture();
       await prepareContext();
       final scope = context();
       if (scope == null) {
         return _error('unavailable');
       }
       if (request['op'] == 'session') {
-        return {'ok': true, 'protocolVersion': 2, ...scope.fields};
+        final available = await journal?.available(scope) ?? false;
+        if (repository() == null ||
+            context()?.id != scope.id ||
+            context()?.revision != scope.revision) {
+          return _error('context_changed');
+        }
+        return {
+          'ok': true,
+          'protocolVersion': 2,
+          if (journal != null) 'sendState': available,
+          ...scope.fields,
+        };
       }
       if (request['contextId'] != scope.id ||
           request['revision'] != scope.revision) {
@@ -194,7 +233,9 @@ class WatchRequestHandler {
           request['text'],
           retry: request['retry'] == true,
           waits: request['waits'] == true,
+          createdAt: request['createdAt'],
         ),
+        'forgetSend' => await _forgetSend(request['sendId'], scope),
         'transcribe' => await _transcribe(
           request['audio'],
           request['mimeType'],
@@ -208,6 +249,8 @@ class WatchRequestHandler {
         return _error('context_changed');
       }
       return reply['ok'] == true ? {...reply, ...scope.fields} : reply;
+    } on WatchJournalException catch (error) {
+      return _error(error.code);
     } on Object {
       return _error('failed');
     }
@@ -367,7 +410,18 @@ class WatchRequestHandler {
     Object? text, {
     bool retry = false,
     bool waits = false,
+    Object? createdAt,
   }) async {
+    if (journal != null) {
+      return _durableSendOnce(
+        id,
+        threadId,
+        text,
+        createdAt,
+        retry: retry,
+        waits: waits,
+      );
+    }
     if (id is! String || id.isEmpty) {
       final attempt = _SendAttempt();
       return attempt.reply = _send(threadId, text, attempt);
@@ -405,6 +459,187 @@ class WatchRequestHandler {
       _sends.remove(_sends.keys.first);
     }
     return _poll(attempt, fresh: true);
+  }
+
+  bool _current(WatchContext scope, int generation) =>
+      generation == _sessionGeneration &&
+      repository() != null &&
+      context()?.id == scope.id &&
+      context()?.revision == scope.revision;
+
+  Map<String, Object?> _recovery(
+    String state, {
+    String? profile,
+    String? thread,
+  }) => {'ok': true, 'recoveryState': state, ..._threadEntry(profile, thread)};
+
+  Future<Map<String, Object?>> _forgetSend(
+    Object? id,
+    WatchContext scope,
+  ) async {
+    if (journal == null || id is! String || id.isEmpty) {
+      return _error('bad_request');
+    }
+    final generation = _sessionGeneration;
+    if (!_current(scope, generation)) return _error('context_changed');
+    await journal!.forget(scope, id);
+    return {'ok': true};
+  }
+
+  Future<Map<String, Object?>> _durableSendOnce(
+    Object? id,
+    Object? threadId,
+    Object? text,
+    Object? createdAt, {
+    required bool retry,
+    required bool waits,
+  }) async {
+    if (id is! String || id.isEmpty) return _error('bad_request');
+    final scope = context()!;
+    final generation = _sessionGeneration;
+    final key = '${scope.id}/${scope.revision}/$id';
+    final live = _sends[key];
+    if (live != null) {
+      if ((text != null && text != live.originalText) ||
+          (createdAt != null && createdAt != live.originalCreatedAt) ||
+          (threadId != null &&
+              threadId != live.originalThread &&
+              threadId !=
+                  (live.threadId == null
+                      ? null
+                      : _bind(live.profile, live.threadId!)))) {
+        return _error('bad_request');
+      }
+      if (retry && !live.finished && live.waiting == null && !live.waited) {
+        return _recovery(
+          'pending',
+          profile: live.profile,
+          thread: live.threadId,
+        );
+      }
+      return _poll(live, fresh: false);
+    }
+    if (retry) {
+      final record = await journal!.lookup(scope, id);
+      if (!_current(scope, generation)) return _error('context_changed');
+      if (record == null) return _recovery('uncertain');
+      final data = record.data;
+      final thread = threadId == null ? null : _unbind(threadId);
+      if ((createdAt != null && createdAt != data['createdAt']) ||
+          (thread != null &&
+              (thread.profile != data['profile'] ||
+                  (thread.id != data['target'] &&
+                      thread.id != record.boundThread)))) {
+        return _error('bad_request');
+      }
+      if (text != null &&
+          (text is! String ||
+              WatchSendIdentity(
+                    id,
+                    data['createdAt'] as int,
+                    data['profile'] as String?,
+                    data['target'] as String?,
+                    text,
+                  ).fingerprint !=
+                  data['fingerprint'])) {
+        return _error('bad_request');
+      }
+      return _recordReply(record);
+    }
+    if (createdAt is! int || text is! String || text.trim().isEmpty) {
+      return _error('bad_request');
+    }
+    final attempt = _SendAttempt()
+      ..waits = waits
+      ..scope = scope
+      ..sendId = id
+      ..originalText = text
+      ..originalCreatedAt = createdAt
+      ..originalThread = threadId;
+    _sends[key] = attempt;
+    attempt.reply = _runDurable(
+      scope,
+      generation,
+      id,
+      threadId,
+      text,
+      createdAt,
+      attempt,
+    );
+    unawaited(
+      attempt.reply.then((_) {
+        attempt.finished = true;
+        if (identical(_sends[key], attempt)) _sends.remove(key);
+      }),
+    );
+    return _poll(attempt, fresh: true);
+  }
+
+  Map<String, Object?> _recordReply(WatchSendRecord record) {
+    final profile = record.data['profile'] as String?;
+    final thread = record.boundThread ?? record.data['target'] as String?;
+    if (record.result case final result?) {
+      return {...result, ..._threadEntry(profile, thread)};
+    }
+    return _recovery(
+      record.state == 'not_sent' ? 'not_sent' : 'uncertain',
+      profile: profile,
+      thread: thread,
+    );
+  }
+
+  Future<Map<String, Object?>> _runDurable(
+    WatchContext scope,
+    int generation,
+    String id,
+    Object? threadId,
+    String text,
+    int createdAt,
+    _SendAttempt attempt,
+  ) async {
+    var dispatched = false;
+    try {
+      final thread = threadId == null ? null : _unbind(threadId);
+      attempt.profile = thread == null ? await activeProfile() : thread.profile;
+      attempt.threadId = thread?.id;
+      if (!_current(scope, generation)) return _error('context_changed');
+      final identity = WatchSendIdentity(
+        id,
+        createdAt,
+        attempt.profile,
+        thread?.id,
+        text,
+      );
+      final saved = await journal!.reserve(scope, identity);
+      if (!_current(scope, generation)) return _error('context_changed');
+      if (saved != null) return _recordReply(saved);
+      await journal!.markDispatched(scope, id);
+      dispatched = true;
+      if (!_current(scope, generation)) return _error('context_changed');
+      final result = await _send(threadId, text, attempt);
+      if (!_current(scope, generation)) return _error('context_changed');
+      if (attempt.ownsCompletion) {
+        await journal!.complete(scope, id, result);
+        if (!_current(scope, generation)) return _error('context_changed');
+        return result;
+      }
+      return _recovery(
+        'uncertain',
+        profile: attempt.profile,
+        thread: attempt.threadId,
+      );
+    } on WatchJournalException catch (error) {
+      return _error(error.code);
+    } on Object {
+      if (!dispatched) return _error('unavailable');
+      return _recovery(
+        'uncertain',
+        profile: attempt.profile,
+        thread: attempt.threadId,
+      );
+    } finally {
+      journal!.detach(scope, id);
+    }
   }
 
   /// The reply of [attempt] once it is over, or its waiting state as soon as
@@ -489,7 +724,8 @@ class WatchRequestHandler {
     bool current() =>
         generation == _sessionGeneration &&
         repository() != null &&
-        context()?.id == scope?.id;
+        context()?.id == scope?.id &&
+        context()?.revision == scope?.revision;
     _activeTransports.add(chat);
     String? profile;
     String? boundId;
@@ -546,7 +782,9 @@ class WatchRequestHandler {
 
     StreamIterator<ChatEvent>? events;
     try {
-      profile = thread != null ? thread.profile : await activeProfile();
+      profile = attempt.scope != null
+          ? attempt.profile
+          : (thread != null ? thread.profile : await activeProfile());
       if (!current()) {
         return _noSession();
       }
@@ -607,9 +845,28 @@ class WatchRequestHandler {
         }
         track(event);
         switch (event) {
+          case PromptAcknowledged(:final userRowId):
+            if (attempt.scope case final scope?) {
+              if (!current()) return _error('context_changed');
+              await journal!.evidence(
+                scope,
+                attempt.sendId!,
+                userRowId: userRowId,
+              );
+              if (!current()) return _error('context_changed');
+            }
           case ThreadBound(:final threadId):
             boundId = threadId;
             attempt.threadId = threadId;
+            if (attempt.scope case final scope?) {
+              if (!current()) return _error('context_changed');
+              await journal!.evidence(
+                scope,
+                attempt.sendId!,
+                boundThread: threadId,
+              );
+              if (!current()) return _error('context_changed');
+            }
             track(event);
           case ThreadTitled(title: final newTitle):
             title = named = newTitle;
@@ -619,6 +876,7 @@ class WatchRequestHandler {
           case ToolStarted(:final name):
             tools.add(name);
           case ReplyCompleted(:final text, :final failed):
+            attempt.ownsCompletion = true;
             unawaited(announce(event));
             return {
               'ok': true,
@@ -640,7 +898,15 @@ class WatchRequestHandler {
     } finally {
       _activeTransports.remove(chat);
       unawaited(events?.cancel());
+      await _closeTransport(chat);
+    }
+  }
+
+  Future<void> _closeTransport(ChatTransport chat) async {
+    try {
       await chat.close();
+    } on Object {
+      // Cleanup must preserve the owned completion or original stream error.
     }
   }
 
@@ -697,6 +963,12 @@ class WatchRequestHandler {
 }
 
 class _SendAttempt {
+  WatchContext? scope;
+  String? sendId;
+  Object? originalThread;
+  String? originalText;
+  int? originalCreatedAt;
+  bool ownsCompletion = false;
   late final Future<Map<String, Object?>> reply;
   bool finished = false;
   bool invalidated = false;

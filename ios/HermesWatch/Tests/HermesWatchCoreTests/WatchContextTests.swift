@@ -52,7 +52,7 @@ final class ContextRelayTests: XCTestCase {
   func testHandshakeScopesNewChatBeforeSubmission() async throws {
     let id = WatchThreadId(contextId: "owner-a", profile: nil, sessionId: "new").encode()
     let transport = ContextTransport([
-      ["ok": true, "protocolVersion": 2, "contextId": "owner-a", "revision": 7],
+      ["ok": true, "protocolVersion": 2, "contextId": "owner-a", "revision": 7, "sendState": true],
       ["ok": true, "contextId": "owner-a", "revision": 7, "threadId": id, "text": "Done"],
     ])
     _ = try await RelayClient(transport: transport).send(threadId: nil, text: "Hi", sendId: "x", retry: false)
@@ -85,7 +85,7 @@ final class ContextRelayTests: XCTestCase {
 
   func testSuccessFromDifferentContextCannotReplaceCurrentData() async {
     let transport = ContextTransport([
-      ["ok": true, "protocolVersion": 2, "contextId": "owner-a", "revision": 7],
+      ["ok": true, "protocolVersion": 2, "contextId": "owner-a", "revision": 7, "sendState": true],
       ["ok": true, "contextId": "owner-b", "revision": 8, "threads": []],
     ])
     do {

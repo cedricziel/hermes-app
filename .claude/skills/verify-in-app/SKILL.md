@@ -730,21 +730,22 @@ before the collector was up are lost, so start it first, or
 
 ## Hermes Agent setup
 
-`hermes` must be on PATH. The currently pinned backend requires Python 3.14
-for its runtime dependencies; use `python3.14` or `uv` with that version.
-The recipe below uses `venv` and `pip`. It builds the revision resolved from
-matching `openapi/HERMES_REF` and `openrpc/HERMES_REF` into a cache directory that
+`hermes` must be on PATH (tested with v0.21.3). Nothing installs it for you,
+and the machine's `python3` is usually 3.9, too old: use `python3.11` (Homebrew
+has it). `uv` is often missing too, so the recipe below uses `venv` and `pip`.
+It builds the version CI pins (`HERMES_REF` in
+`.github/workflows/real-backend-contract.yml`) into a cache directory that
 survives between sessions, and leaves your real `~/.hermes` alone. Needs Node
 and network access.
 
 ```bash
-REF=$(python3 -I scripts/hermes_contracts.py resolve)
+REF=$(grep 'HERMES_REF:' .github/workflows/real-backend-contract.yml | awk '{print $2}')
 DIR="$HOME/.cache/hermes-agent/${REF:0:7}"
 if [ ! -x "$DIR/.venv/bin/hermes" ]; then
   mkdir -p "$DIR" && curl -fsSL --retry 3 "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/$REF" \
     | tar xz -C "$DIR" --strip-components=1
   (cd "$DIR" && npm ci --workspace web --include=dev --no-audit --no-fund && npm run build --workspace web)
-  python3.14 -m venv "$DIR/.venv" && "$DIR/.venv/bin/pip" install -q -e "${DIR}[mcp]"
+  python3.11 -m venv "$DIR/.venv" && "$DIR/.venv/bin/pip" install -q -e "${DIR}[mcp]"
 fi
 export PATH="$DIR/.venv/bin:$PATH" HERMES_WEB_DIST="$DIR/hermes_cli/web_dist"
 scripts/dev-backend.sh start
@@ -759,12 +760,11 @@ Bash call. Once `$DIR` exists, only the `DIR=` and `export` lines are needed.
   `HERMES_WEB_DIST` the backend has no page.
 - `[mcp]` lets the dashboard test MCP servers. In zsh write `"${DIR}[mcp]"`;
   `"$DIR[mcp]"` is read as an array subscript and pip gets an empty path.
-- With `uv`, `uv venv --python 3.14` and `uv pip install -e` do the same as
+- With `uv`, `uv venv --python 3.11` and `uv pip install -e` do the same as
   the `venv` and `pip` lines. `openapi/README.md` has a from-source install
   too.
-- To verify a newer Hermes, refresh both bundled contracts and their matching
-  provenance files. The cache path follows their resolved revision. Keep
-  latest-upstream experiments separate from the pinned advisory result.
+- A newer Hermes: bump `HERMES_REF` in the workflow (the cache path follows
+  it), not a floating tag.
 - Its API contract is `openapi/hermes-agent.openapi.json`.
 
 
@@ -1131,3 +1131,38 @@ killed and again running:
 
 For watch changes, follow [the isolated watch procedure](../../../.agents/skills/verify-watch/SKILL.md).
 Core tests do not establish native delivery or device lifecycle behavior.
+
+## Watch send recovery
+
+Follow `.agents/skills/verify-watch/SKILL.md` for isolation and the user's simulator
+constraints. Run headless commands sequentially with at most two compiler jobs
+when simulators are excluded. Record native layout, accessibility, notification,
+and real sleep/wake cases as unavailable unless verified on an isolated pair.
+
+Exercise these recovery cases using invented requests:
+
+- Restart the watch before acknowledgement. Restore the same send ID and original
+  `createdAt`, then Check result only after a fresh v2 handshake with `sendState`.
+- Sleep/wake with pending and uncertain delivery. Keep the outgoing message;
+  working placeholders must never become completed assistant answers.
+- Attempt Check result before Send again. Confirm the duplicate-risk warning and
+  verify one fresh ID; cancel it and verify no submission. An edited replacement
+  requires the same confirmation and must not edit the uncertain original.
+- Return pending, uncertain with or without a bound thread, and terminal not_sent.
+  Open chat remains ordinary history and cannot prove the original completion.
+- Use an older phone without sendState and an unsupported protocol. Expect update
+  guidance without unsafe Try again or automatic replay.
+- Expire original first-dispatch validity or move device time ahead. Check the
+  watch and phone clocks; never refresh the original timestamp automatically.
+  A deliberate new request gets its own timestamp after recovery guidance.
+- Change context or revision during a status lookup. Purge private records and
+  reject late responses before visible state or disk writes can change.
+- Make protected-file deletion fail during logout, restart, and attempt a late
+  write. The persisted invalidation tombstone must prevent restoration and writes.
+- Fill recovery capacity. Refuse new sends without evicting unresolved records.
+  Forget recovery releases local and detached phone records, never server work.
+
+The native demo modes are `recovery_pending`, `recovery_uncertain`,
+`recovery_no_thread`, `recovery_not_sent`, `recovery_unsupported`,
+`recovery_capacity`, and `recovery_confirmation`. They complement SwiftUI previews;
+preview rendering and headless tests do not prove paired-device delivery.

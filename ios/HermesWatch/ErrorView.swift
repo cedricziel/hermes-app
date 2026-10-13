@@ -8,6 +8,10 @@ extension HermesClientError {
     case .signedOut: "Sign in to Hermes on your iPhone first."
     case .unavailable: "Open Hermes on your iPhone, then try again."
     case .phoneUnreachable: "Can't reach your iPhone."
+    case .recoveryCapacity: "Recovery is full. Forget an old pending request to free a slot, then try again."
+    case .recoveryStorage: "Could not save recovery securely. Free storage before another request."
+    case .sendExpired: "This request has expired or the device clocks disagree. Check the watch and iPhone time, then check its result before a new request."
+    case .clockSkew: "Check the date and time on your watch and iPhone. Check the original result before sending again."
     case .failed: "Something went wrong."
     case .replyFailed(let reason): reason
     case .noSpeech: "Didn't catch that."
@@ -25,7 +29,7 @@ struct ErrorView: View {
         Text(error.message)
           .multilineTextAlignment(.center)
           .fixedSize(horizontal: false, vertical: true)
-        Button("Try again", action: retry)
+        if error != .updateRequired && error != .recoveryCapacity { Button("Try again", action: retry) }
       }
     }
   }
@@ -38,3 +42,5 @@ struct ErrorView: View {
 #Preview("Changed session") {
   ErrorView(error: .contextChanged, retry: {})
 }
+
+#Preview("Recovery capacity") { ErrorView(error: .recoveryCapacity, retry: {}) }
