@@ -20,6 +20,8 @@ import 'chat_builders.dart';
 import '../../voice/dictation_controller.dart';
 import 'chat_composer_builder.dart';
 import 'message_actions.dart' show TurnActionStatus;
+import '../chat_warning_state.dart';
+import 'agent_notice_card.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -56,6 +58,9 @@ class ChatThreadView extends StatelessWidget {
     this.turnActionStatus,
     this.modelPill,
     this.header,
+    this.notices = const [],
+    this.onDismissNotice,
+    this.onNoticeDetails,
     this.onRetry,
     this.onEdit,
     this.onLoadOlder,
@@ -72,6 +77,9 @@ class ChatThreadView extends StatelessWidget {
   });
 
   final ChatThread? thread;
+  final List<AgentNotice> notices;
+  final ValueChanged<AgentNotice>? onDismissNotice;
+  final VoidCallback? onNoticeDetails;
   final BotChatContext? botContext;
   final InMemoryChatController chatController;
   final TextEditingController composerController;
@@ -182,6 +190,24 @@ class ChatThreadView extends StatelessWidget {
             const Divider(height: 1),
         ],
         if (botContext case final bot?) BotChatBanner(context: bot),
+        if (notices.isNotEmpty)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 160),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final notice in notices)
+                  AgentNoticeCard(
+                    key: ObjectKey(notice),
+                    notice: notice,
+                    onDismiss: onDismissNotice == null
+                        ? null
+                        : () => onDismissNotice!(notice),
+                    onDetails: onNoticeDetails,
+                  ),
+              ],
+            ),
+          ),
         Expanded(
           child: AttachmentSurface(
             source: attachmentSource,

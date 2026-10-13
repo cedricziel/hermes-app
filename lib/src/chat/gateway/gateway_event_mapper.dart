@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import '../tool_result.dart';
+import '../chat_warning_state.dart';
 import 'gateway_rpc_client.dart';
 
 /// The [ChatEvent] a gateway event frame means, or null for a frame the app
@@ -22,6 +23,7 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
     'reasoning.available' => ReasoningUpdated(text('text'), fallback: true),
     'tool.generating' => ToolPreparing(text('name')),
     'tool.start' => ToolStarted(
+      runtimeId: event.sessionId,
       id: text('tool_id'),
       name: text('name'),
       summary: text('context'),
@@ -40,6 +42,51 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
     ),
     'session.title' => ThreadTitled(text('title')),
     'review.summary' => _reviewSummary(text('text')),
+    'tool.output_risk' => switch (payload) {
+      {
+        'tool_id': final String id,
+        'risk': final String risk,
+        'findings': final List findings,
+        'redacted': final bool redacted,
+      }
+          when id.isNotEmpty =>
+        ToolRiskFlagged(
+          id,
+          ToolOutputRisk(
+            risk: risk,
+            findings: findings.whereType<String>().toList(),
+            redacted: redacted,
+          ),
+          runtimeId: event.sessionId,
+        ),
+      _ => null,
+    },
+    'notice' =>
+      payload['message'] is String && text('message').isNotEmpty
+          ? NoticeShown(
+              AgentNotice(text: text('message')),
+              runtimeId: event.sessionId,
+            )
+          : null,
+    'notification.show' =>
+      payload['text'] is String && text('text').isNotEmpty
+          ? NoticeShown(
+              AgentNotice(
+                text: text('text'),
+                level: text('level'),
+                kind: text('kind'),
+                key: payload['key'] is String ? text('key') : null,
+                ttlMs: payload['ttl_ms'] is int
+                    ? payload['ttl_ms'] as int
+                    : null,
+              ),
+              runtimeId: event.sessionId,
+            )
+          : null,
+    'notification.clear' =>
+      payload['key'] is String && text('key').isNotEmpty
+          ? NoticeCleared(text('key'), runtimeId: event.sessionId)
+          : null,
     'message.complete' => ReplyCompleted(
       text('text'),
       failed: payload['status'] == 'error',

@@ -8,6 +8,7 @@ import 'dart:typed_data';
 
 import '../models/model_provider_option.dart';
 import 'chat_models.dart';
+import 'chat_warning_state.dart';
 import 'slash_command.dart';
 
 sealed class ChatEvent {
@@ -93,6 +94,29 @@ final class ReplyStatus extends ChatEvent {
   final String text;
 }
 
+final class WarningScopeDiscarded extends ChatEvent {
+  const WarningScopeDiscarded();
+}
+
+final class ToolRiskFlagged extends ChatEvent {
+  const ToolRiskFlagged(this.toolId, this.risk, {this.runtimeId = ''});
+  final String toolId;
+  final ToolOutputRisk risk;
+  final String runtimeId;
+}
+
+final class NoticeShown extends ChatEvent {
+  const NoticeShown(this.notice, {this.runtimeId = ''});
+  final AgentNotice notice;
+  final String runtimeId;
+}
+
+final class NoticeCleared extends ChatEvent {
+  const NoticeCleared(this.key, {this.runtimeId = ''});
+  final String key;
+  final String runtimeId;
+}
+
 /// The server withdrew input requests before they were answered, e.g. an
 /// interrupt. An empty [requestIds] means every request of the reply.
 final class InputRequestsCancelled extends ChatEvent {
@@ -147,6 +171,7 @@ final class ToolStarted extends ChatEvent {
     this.summary = '',
     this.id = '',
     this.args,
+    this.runtimeId = '',
   });
 
   /// Hermes' id for the call; empty when it sent none.
@@ -154,6 +179,7 @@ final class ToolStarted extends ChatEvent {
   final String name;
   final String summary;
   final Map<String, Object?>? args;
+  final String runtimeId;
 }
 
 final class ToolFinished extends ChatEvent {

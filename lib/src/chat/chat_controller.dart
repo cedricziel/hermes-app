@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,6 +34,7 @@ import 'chat_message_mapper.dart';
 import 'chat_models.dart';
 import 'chat_reply.dart';
 import 'chat_transport.dart';
+import 'chat_warning_state.dart';
 import 'gateway/gateway_rpc_client.dart' show GatewayRpcException;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
@@ -97,6 +99,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.readSnapshot,
     this.onDraft,
     this.breadcrumbs = Breadcrumbs.none,
+    this.events = noopAppEventLogger,
     this.replayGrace = const Duration(seconds: 20),
     DateTime Function()? now,
   }) : _clock = now ?? DateTime.now,
@@ -298,6 +301,120 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
   final Breadcrumbs breadcrumbs;
+  final AppEventLogger events;
+  final _warnings = <ChatThread, ChatWarningState>{};
+  final _warningGenerations = <ChatThread, int>{};
+  int _nextWarningGeneration = 0;
+
+  int _warningGeneration(ChatThread thread) =>
+      _warningGenerations.putIfAbsent(thread, () => ++_nextWarningGeneration);
+
+  void _discardWarnings(ChatThread thread) {
+    _warnings.remove(thread)?.clear();
+    _warningGenerations[thread] = ++_nextWarningGeneration;
+  }
+
+  List<AgentNotice> noticesIn(ChatThread thread) =>
+      List.unmodifiable(_warnings[thread]?.notices ?? const <AgentNotice>[]);
+
+  void dismissNotice(ChatThread thread, AgentNotice notice) {
+    _warnings[thread]?.dismiss(notice);
+    _warningAction('dismiss');
+  }
+
+  void warningDetailsOpened() => _warningAction('details');
+
+  void _warningAction(String action) {
+    try {
+      breadcrumbs('chat.visibility_action', {
+        'feature': 'warnings',
+        'action': action,
+      });
+    } on Object catch (_) {}
+  }
+
+  ChatWarningState _warningState(ChatThread thread, String runtimeId) {
+    final state = _warnings.putIfAbsent(
+      thread,
+      () => ChatWarningState(changed: notifyListeners),
+    );
+    if (state.runtimeId != null && state.runtimeId != runtimeId) {
+      _warningGenerations[thread] = ++_nextWarningGeneration;
+    }
+    state.adopt(runtimeId);
+    return state;
+  }
+
+  bool _onWarning(ChatThread thread, ChatEvent event, String? profile) {
+    if (event is! NoticeShown &&
+        event is! NoticeCleared &&
+        event is! ToolRiskFlagged &&
+        event is! WarningScopeDiscarded) {
+      return false;
+    }
+    if (_profile != profile) return true;
+    switch (event) {
+      case WarningScopeDiscarded():
+        _discardWarnings(thread);
+        notifyListeners();
+      case NoticeShown(:final notice, :final runtimeId):
+        _warningState(thread, runtimeId).show(notice);
+      case NoticeCleared(:final key, :final runtimeId):
+        _warningState(thread, runtimeId).withdraw(key);
+      case ToolRiskFlagged(:final toolId, :final risk, :final runtimeId):
+        final state = _warningState(thread, runtimeId);
+        final generation = _warningGeneration(thread);
+        state.risks[toolId] = risk;
+        if (state.risks.length > 128) {
+          state.risks.remove(state.risks.keys.first);
+        }
+        for (final message in thread.messages) {
+          if (message.toolCalls.any(
+            (call) =>
+                call.id == toolId &&
+                call.runtimeId == runtimeId &&
+                call.warningGeneration == generation,
+          )) {
+            _attachRisk(thread, message, toolId, runtimeId);
+            break;
+          }
+        }
+      default:
+        break;
+    }
+    try {
+      events('gateway.visibility_outcome', {
+        'feature': 'warnings',
+        'outcome': event is WarningScopeDiscarded ? 'discarded' : 'applied',
+      });
+    } on Object catch (_) {}
+    return true;
+  }
+
+  void _attachRisk(
+    ChatThread thread,
+    ChatMessage message,
+    String toolId,
+    String runtimeId,
+  ) {
+    final state = _warnings[thread];
+    if (state == null || state.runtimeId != runtimeId) return;
+    final generation = _warningGeneration(thread);
+    final risk = state.risks[toolId];
+    if (risk == null) return;
+    _updateReply(
+      thread,
+      message,
+      () => message.toolCalls = [
+        for (final call in message.toolCalls)
+          call.id == toolId &&
+                  call.runtimeId == runtimeId &&
+                  call.warningGeneration == generation
+              ? call.copyWith(outputRisk: risk)
+              : call,
+      ],
+    );
+  }
 
   ThreadHousekeeping? housekeeping;
 
@@ -1241,6 +1358,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Moves on to the first remaining thread when the open one is archived or
   /// deleted.
   void _threadRemoved(ChatThread thread) {
+    _warnings.remove(thread)?.clear();
+    _warningGenerations.remove(thread);
     _queues.remove(thread);
     _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
@@ -2035,6 +2154,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
       _replies.remove(subscription);
+      if (error != null || (!folded && reply.isPending)) {
+        _discardWarnings(thread);
+      }
       _sending.update(thread, (n) => n - 1);
       if (_sending[thread] == 0) _sending.remove(thread);
       breadcrumbs('chat.reply.ended', {'outcome': outcome(error)});
@@ -2173,6 +2295,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatEvent event,
     String? profile,
   ) {
+    if (_onWarning(thread, event, profile)) return;
     // The transport takes an idle report for the turn's end only once the turn
     // has begun; so does this. An approval alone does not begin it.
     if (beginsTurn(event)) own.began = true;
@@ -2286,6 +2409,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _stopFollowing() {
+    for (final state in _warnings.values) {
+      state.clear();
+    }
+    _warnings.clear();
+    _warningGenerations.clear();
     // A turn nobody listens to any more can no longer say it ended.
     for (final thread in _threads) {
       if (_followingIds.contains(thread.id) && !_sending.containsKey(thread)) {
@@ -2322,6 +2450,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (!_currentActivity(epoch)) return;
       _following.remove(subscription);
       _followingIds.remove(thread.id);
+      if (error != null || !_sending.containsKey(thread)) {
+        _discardWarnings(thread);
+      }
+      if (!disposed) notifyListeners();
       final pending = reply;
       if (pending != null && pending.isPending) {
         _turnEnded(thread, halted: true);
@@ -2382,6 +2514,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// An event on the follow-ups while no reply is open. It is about the
   /// thread, or a completion for the reply a turn ended without.
   void _onIdleEvent(ChatThread thread, ChatEvent event, String? profile) {
+    if (_onWarning(thread, event, profile)) return;
     switch (event) {
       case SessionInfo(:final running):
         // The turn a stop in flight was aimed at ended with no reply open.
@@ -2499,6 +2632,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }) {
     final epoch = _activityEpoch;
     if (!_currentActivity(epoch)) return;
+    if (_onWarning(thread, event, profile)) return;
     var announced = event;
     switch (event) {
       case ThreadBound(:final threadId):
@@ -2507,6 +2641,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _titled(thread, title);
         notifyListeners();
       case ReplyStarted() || UnsolicitedEvent() || PromptAcknowledged():
+      case ToolRiskFlagged() ||
+          NoticeShown() ||
+          NoticeCleared() ||
+          WarningScopeDiscarded():
         break;
       case PromptFolded():
         _removeReply(thread, reply);
@@ -2552,6 +2690,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           UnsupportedRequested() ||
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
+        if (event case ToolStarted(:final id, :final runtimeId)) {
+          _warningState(thread, runtimeId);
+          final generation = _warningGeneration(thread);
+          final index = reply.toolCalls.lastIndexWhere(
+            (call) => call.id == id && call.runtimeId == runtimeId,
+          );
+          if (index >= 0) {
+            _updateReply(
+              thread,
+              reply,
+              () => reply.toolCalls = [...reply.toolCalls]
+                ..[index] = reply.toolCalls[index].copyWith(
+                  warningGeneration: generation,
+                ),
+            );
+          }
+          _attachRisk(thread, reply, id, runtimeId);
+        }
     }
     if (!_currentActivity(epoch)) return;
     _refetchIfIdle(thread);

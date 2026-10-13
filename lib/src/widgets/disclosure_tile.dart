@@ -23,6 +23,7 @@ class DisclosureTile extends StatefulWidget {
     this.iconColor,
     this.collapsedIconColor,
     this.trailing,
+    this.onExpansionChanged,
   });
 
   final Widget title;
@@ -40,6 +41,7 @@ class DisclosureTile extends StatefulWidget {
   final Color? iconColor;
   final Color? collapsedIconColor;
   final Widget? trailing;
+  final ValueChanged<bool>? onExpansionChanged;
 
   @override
   State<DisclosureTile> createState() => _DisclosureTileState();
@@ -57,6 +59,7 @@ class _DisclosureTileState extends State<DisclosureTile> {
 
   @override
   Widget build(BuildContext context) => ExpansionTile(
+    onExpansionChanged: widget.onExpansionChanged,
     controller: _controller,
     enabled: widget.enabled,
     initiallyExpanded: widget.initiallyExpanded,
