@@ -40,6 +40,7 @@ import 'chat_session_state.dart';
 import 'owned_session_transport.dart';
 import 'todo_plan/todo_plan_state.dart';
 import 'session_usage/session_usage_controller.dart';
+import 'side_results/side_result_state.dart';
 import 'gateway/gateway_rpc_client.dart' show GatewayRpcException;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
@@ -312,7 +313,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final AppEventLogger events;
   final ConnectionTelemetry usageTelemetry;
   final _usage = <ChatThread, SessionUsageController>{};
-  final _usageBindings = <ChatThread, OwnedSessionBinding>{};
+  final _ownedBindings = <ChatThread, OwnedSessionBinding>{};
   StreamSubscription<OwnedSessionChange>? _ownedSubscription;
 
   final _todoPlans = <(String?, String), TodoPlanState>{};
@@ -482,7 +483,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   SessionUsageController? usageIn(ChatThread thread) {
-    final controller = _usage[thread], binding = _usageBindings[thread];
+    final controller = _usage[thread], binding = _ownedBindings[thread];
     if (!active ||
         controller == null ||
         binding == null ||
@@ -508,6 +509,26 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         : null;
   }
 
+  final _sideResults = <ChatThread, SideResultState>{};
+  SideResultState? sideResultsIn(ChatThread thread) {
+    final state = _sideResults[thread], binding = _ownedBindings[thread];
+    final source = transport;
+    if (!active ||
+        !_threads.contains(thread) ||
+        state == null ||
+        binding == null ||
+        source is! OwnedSessionTransport) {
+      return null;
+    }
+    final actual = (source as OwnedSessionTransport).ownedSessionFor(
+      thread.id,
+      profile: _profile,
+    );
+    return actual == binding && state.hasScope(_sideScope(binding))
+        ? state
+        : null;
+  }
+
   void _listenOwnedSessions() {
     final source = transport;
     if (!active ||
@@ -526,10 +547,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           return;
         }
         if (!change.connected) {
-          for (final entry in _usageBindings.entries.toList()) {
+          for (final entry in _ownedBindings.entries.toList()) {
             if (entry.value != change.binding) continue;
+            _sideResults.remove(entry.key)?.dispose();
             if (change.retired) {
-              _usageBindings.remove(entry.key);
+              _ownedBindings.remove(entry.key);
               _usage.remove(entry.key)?.dispose();
               notifyListeners();
             } else {
@@ -541,33 +563,35 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         final thread = _threads
             .where((thread) => thread.id == change.threadId)
             .firstOrNull;
-        if (thread != null) _syncUsage(thread, _profile);
+        if (thread != null) _syncOwnedSession(thread, _profile);
       },
       onError: (Object _) {
-        if (_currentActivity(epoch)) {
-          _clearTodo();
-          _clearUsage();
-        }
+        if (_currentActivity(epoch)) _clearOwnedState();
       },
       onDone: () {
         if (!_currentActivity(epoch)) return;
         _ownedSubscription = null;
-        _clearTodo();
-        _clearUsage();
+        _clearOwnedState();
       },
     );
   }
 
-  void _clearUsage() {
+  void _clearOwnedState() {
+    _clearTodo();
     for (final controller in _usage.values) {
       controller.dispose();
     }
     _usage.clear();
-    _usageBindings.clear();
+    for (final state in _sideResults.values) {
+      state.dispose();
+    }
+    _sideResults.clear();
+    _ownedBindings.clear();
     if (!disposed) notifyListeners();
   }
 
-  SessionUsageController? _syncUsage(ChatThread thread, String? profile) {
+  OwnedSessionBinding? _syncOwnedSession(ChatThread thread, String? profile) {
+    final epoch = _activityEpoch;
     final source = transport;
     if (!active ||
         _profile != profile ||
@@ -580,7 +604,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       profile: profile,
     );
     if (binding == null) return null;
-    final previous = _usageBindings[thread];
+    final previous = _ownedBindings[thread];
     final controller = _usage.putIfAbsent(thread, () {
       final created = SessionUsageController(
         telemetry: usageTelemetry,
@@ -590,7 +614,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       return created;
     });
     if (previous != binding) {
-      _usageBindings[thread] = binding;
+      _ownedBindings[thread] = binding;
+      _sideResults[thread]?.adopt(_sideScope(binding));
       controller.bind(
         UsageScope(
           connection: binding.connection,
@@ -620,14 +645,50 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         unawaited(controller.reconnected());
       }
     }
-    return controller;
+    bool current() =>
+        _currentActivity(epoch) &&
+        _profile == profile &&
+        _threads.contains(thread) &&
+        _ownedBindings[thread] == binding &&
+        (source as OwnedSessionTransport).ownedSessionFor(
+              thread.id,
+              profile: profile,
+            ) ==
+            binding;
+    if (!current()) return null;
+    _sideResults[thread]?.adopt(_sideScope(binding));
+    return current() ? binding : null;
+  }
+
+  SideResultScope _sideScope(OwnedSessionBinding binding) => SideResultScope(
+    connection: binding.connection,
+    sessionId: binding.runtimeId,
+    profile: binding.profile,
+  );
+
+  bool _onSideResult(ChatThread thread, ChatEvent event, String? profile) {
+    if (event is! SideResultReceived) return false;
+    final binding = _syncOwnedSession(thread, profile);
+    if (binding == null ||
+        event.runtimeId != binding.runtimeId ||
+        !identical(event.connection, binding.connection)) {
+      return true;
+    }
+    final state = _sideResults.putIfAbsent(thread, () {
+      final created = SideResultState(events: events, breadcrumbs: breadcrumbs)
+        ..adopt(_sideScope(binding));
+      created.addListener(notifyListeners);
+      return created;
+    });
+    state.received(_sideScope(binding), event.result);
+    return true;
   }
 
   bool _onUsageEvent(ChatThread thread, ChatEvent event, String? profile) {
     final tick = event is SessionUsageUpdated;
     if (!tick && event is! ReplyCompleted) return false;
-    final controller = _syncUsage(thread, profile),
-        binding = _usageBindings[thread];
+    final binding = _syncOwnedSession(thread, profile);
+    final controller = _usage[thread];
     if (controller == null || binding == null) return tick;
     final runtime = tick
         ? event.runtimeId
@@ -1842,8 +1903,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _turnProblems.remove(thread);
     _sessionActionGenerations.remove(thread);
     _removeTodo((_profile, thread.id));
-    _usageBindings.remove(thread);
+    _ownedBindings.remove(thread);
     _usage.remove(thread)?.dispose();
+    _sideResults.remove(thread)?.dispose();
     _sessionStates.remove(thread);
     _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();
@@ -2844,6 +2906,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? profile,
   ) {
     if (_onTodoEvent(thread, event, profile) ||
+        _onSideResult(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
@@ -2969,7 +3032,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       controller.dispose();
     }
     _usage.clear();
-    _usageBindings.clear();
+    for (final state in _sideResults.values) {
+      state.dispose();
+    }
+    _sideResults.clear();
+    _ownedBindings.clear();
     _sessionActionGenerations.clear();
     _sessionStates.clear();
     _reclaimedQueueReview.clear();
@@ -3081,6 +3148,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// thread, or a completion for the reply a turn ended without.
   void _onIdleEvent(ChatThread thread, ChatEvent event, String? profile) {
     if (_onTodoEvent(thread, event, profile) ||
+        _onSideResult(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
@@ -3204,6 +3272,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final epoch = _activityEpoch;
     if (!_currentActivity(epoch)) return;
     if (_onTodoEvent(thread, event, profile) ||
+        _onSideResult(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
@@ -3214,12 +3283,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadBound(:final threadId):
         _bindThread(thread, threadId);
         _syncTodo(thread, profile);
-        _syncUsage(thread, profile);
+        _syncOwnedSession(thread, profile);
       case ThreadTitled(:final title):
         _titled(thread, title);
         notifyListeners();
       case ReplyStarted() || UnsolicitedEvent() || PromptAcknowledged():
-      case SessionUsageUpdated() ||
+      case SideResultReceived() ||
+          SessionUsageUpdated() ||
           ToolRiskFlagged() ||
           NoticeShown() ||
           NoticeCleared() ||

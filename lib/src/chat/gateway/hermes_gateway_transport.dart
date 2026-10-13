@@ -408,7 +408,8 @@ class _QueuedGate {
             ),
           const ThreadNeedsRefetch(),
         ];
-      case SessionUsageUpdated() ||
+      case SideResultReceived() ||
+          SessionUsageUpdated() ||
           ApprovalRequested() ||
           WarningScopeDiscarded() ||
           TodoUpdated() ||
@@ -487,7 +488,11 @@ class _Unsolicited {
   /// ask for approval before it says anything else, and a reconnect rebuilds
   /// the turn running now.
   bool claims(ChatEvent event) {
-    if (event is SessionUsageUpdated || event is TodoUpdated) return false;
+    if (event is SessionUsageUpdated ||
+        event is TodoUpdated ||
+        event is SideResultReceived) {
+      return false;
+    }
     if (_done) return false;
     if (_ended &&
         (opensTurn(event) || _raisesRequest(event) || event is ReplyRebuilt)) {

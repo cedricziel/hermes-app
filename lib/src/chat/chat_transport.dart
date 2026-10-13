@@ -13,6 +13,7 @@ import 'chat_session_state.dart';
 import 'slash_command.dart';
 import 'todo_plan/todo_plan_state.dart';
 import 'session_usage/usage_snapshot.dart';
+import 'side_results/side_result_state.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
@@ -72,6 +73,17 @@ final class SessionUsageUpdated extends ChatEvent {
   final String runtimeId;
   final Object? connection;
   final bool finalSnapshot, malformed;
+}
+
+final class SideResultReceived extends ChatEvent {
+  const SideResultReceived(
+    this.result, {
+    required this.runtimeId,
+    required this.connection,
+  });
+  final SideResult result;
+  final String runtimeId;
+  final Object? connection;
 }
 
 /// First event when [ChatTransport.send] starts a new thread: the id the

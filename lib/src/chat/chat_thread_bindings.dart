@@ -98,6 +98,12 @@ ChatThreadView boundChatThreadView({
     sessionState: t == null ? null : chat.sessionStateIn(t),
     sessionUsage: t == null ? null : chat.usageIn(t),
     todoPlan: t == null ? null : chat.todoPlanIn(t),
+    sideResults: t == null
+        ? const []
+        : chat.sideResultsIn(t)?.results ?? const [],
+    onSideResultDetails: t == null
+        ? null
+        : chat.sideResultsIn(t)?.detailsOpened,
     onSessionDetails: chat.sessionDetailsOpened,
     onReopenSession: t == null ? null : () => chat.reopenSession(t),
     chatController: chat.controllerFor(t),
