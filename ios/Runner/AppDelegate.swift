@@ -75,6 +75,7 @@ import workmanager_apple
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    QueueStorageDirectory.install(messenger: engineBridge.applicationRegistrar.messenger())
     NotificationCategories.install(messenger: engineBridge.applicationRegistrar.messenger())
     ChatHandoff.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     KeyCommandMenu.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
@@ -464,5 +465,33 @@ enum ClipboardFiles {
       !type.conforms(to: .rtfd), !type.conforms(to: .flatRTFD)
     else { return nil }
     return type
+  }
+}
+
+private enum QueueStorageDirectory {
+  static func install(messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "hermes_app/queue_storage", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in
+        guard call.method == "directory" else { return result(FlutterMethodNotImplemented) }
+        do {
+          let manager = FileManager.default
+          let support = try manager.url(for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true)
+          var folder = support.appendingPathComponent(Bundle.main.bundleIdentifier ?? "hermes-app")
+            .appendingPathComponent("DurableQueues", isDirectory: true)
+          try manager.createDirectory(at: folder, withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700, .protectionKey: FileProtectionType.complete])
+          var values = URLResourceValues()
+          values.isExcludedFromBackup = true
+          try folder.setResourceValues(values)
+          try manager.setAttributes([
+            .posixPermissions: 0o700, .protectionKey: FileProtectionType.complete,
+          ], ofItemAtPath: folder.path)
+          result(folder.path)
+        } catch {
+          result(FlutterError(code: "storage_unavailable",
+            message: "Protected queue directory unavailable", details: nil))
+        }
+      }
   }
 }

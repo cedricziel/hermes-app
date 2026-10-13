@@ -17,6 +17,21 @@ import java.util.concurrent.Executors
 class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hermes_app/queue_storage")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "directory") {
+                    result.notImplemented()
+                } else {
+                    try {
+                        val folder = File(applicationContext.noBackupFilesDir, "DurableQueues")
+                        if (!folder.isDirectory && !folder.mkdirs()) error("Directory unavailable")
+                        android.system.Os.chmod(folder.path, 448)
+                        result.success(folder.path)
+                    } catch (_: Exception) {
+                        result.error("storage_unavailable", "Protected queue directory unavailable", null)
+                    }
+                }
+            }
         ClipboardFiles(applicationContext)
             .install(MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hermes_app/clipboard"))
     }
