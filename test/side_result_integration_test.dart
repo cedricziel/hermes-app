@@ -87,6 +87,40 @@ void main() {
     'question': kind == 'btw.complete' ? 'Reported question' : null,
   });
 
+  test('actual SideResultState notification retirement clears details without notifier errors', () async {
+    chat.dispose();
+    final activity = ValueNotifier(true);
+    addTearDown(activity.dispose);
+    chat = ChatController(
+      repository: HermesChatRepository(server.client().raw),
+      transport: SessionChatTransport(() => transport),
+      activity: activity,
+      attention: attention,
+      report: (_) {},
+    );
+    await open();
+    final thread = chat.selectedThread!;
+    result('background.complete', 'First reported answer');
+    await pumpEventQueue();
+    final state = chat.sideResultsIn(thread)!;
+    final errors = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    try {
+      state.addListener(() {
+        if (activity.value) activity.value = false;
+      });
+      result('background.complete', 'Replacement reported answer');
+      await pumpEventQueue();
+      expect(activity.value, isFalse);
+      expect(errors, isEmpty);
+      expect(state.results, isEmpty);
+      expect(chat.sideResultsIn(thread), isNull);
+    } finally {
+      FlutterError.onError = previous;
+    }
+  });
+
   test(
     'side completions during a main turn never settle or alter its prose',
     () async {

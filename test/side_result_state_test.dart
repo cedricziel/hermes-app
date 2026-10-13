@@ -1,7 +1,47 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hermes_app/src/chat/side_results/side_result_state.dart';
 
 void main() {
+  test('nested notification retirement clears details and disposes once', () {
+    final scope = SideResultScope(
+      connection: Object(),
+      sessionId: 'runtime',
+      profile: 'work',
+    );
+    final state = SideResultState()..adopt(scope);
+    final errors = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    var nested = false;
+    state.addListener(() {
+      if (!nested) {
+        nested = true;
+        state.notifyListeners();
+      } else {
+        state.dispose();
+        state.dispose();
+        expect(state.results, isEmpty);
+        expect(state.hasScope(scope), isFalse);
+      }
+    });
+    try {
+      state.received(
+        scope,
+        SideResult.decode('background.complete', {
+          'task_id': 'one',
+          'text': 'Reported',
+        })!,
+      );
+      state.dispose();
+      state.notifyListeners();
+      expect(errors, isEmpty);
+    } finally {
+      FlutterError.onError = previous;
+      state.dispose();
+    }
+  });
+
   test(
     'side completions decode required identity and preserve empty answers',
     () {
