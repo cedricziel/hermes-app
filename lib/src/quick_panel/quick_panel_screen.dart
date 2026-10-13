@@ -7,6 +7,8 @@ import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/attachment_surface.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
+import '../chat/queue_storage/queue_broker.dart';
+import '../chat/queue_storage/queue_record.dart';
 import '../chat/chat_models.dart';
 import '../chat/chat_thread_bindings.dart';
 import '../chat/chat_transport.dart';
@@ -46,9 +48,13 @@ class QuickPanelScreen extends StatefulWidget {
     this.transcribeConnect,
     this.dictationSettings,
     this.onDevice,
+    this.queueServerKey,
+    this.queueOwnerKey,
   });
 
   final QuickPanelLink link;
+  final String? queueServerKey;
+  final String? queueOwnerKey;
   final HermesChatRepository chat;
 
   /// The sticky active profile, for when the main window names none.
@@ -75,6 +81,7 @@ class QuickPanelScreen extends StatefulWidget {
 class _QuickPanelScreenState extends State<QuickPanelScreen> {
   late final AttentionNotifier _attention;
   late final ChatController _chat;
+  BrokerQueueStore? _protectedQueue;
   late final AttachmentSource _attachmentSource;
   ComposerDictation? _dictation;
   final _session = QuickPanelSession();
@@ -82,6 +89,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
   final _composerFocus = FocusNode();
   final _attachments = <SharedFile>[];
   final _latestReply = LatestReply();
+  bool _queueSending = false;
   final _compactKey = GlobalKey();
   final _subscriptions = <StreamSubscription<void>>[];
 
@@ -110,7 +118,33 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
       settings: null,
       onOpen: (_) {},
     );
+    final link = widget.link;
+    if (link is QueueWindowLink &&
+        widget.queueOwnerKey != null &&
+        widget.queueServerKey != null) {
+      _protectedQueue = BrokerQueueStore(
+        (link as QueueWindowLink).queueOperation,
+        visibility: (link as QueueWindowLink).queueVisibility,
+      );
+    }
     _chat = ChatController(
+      queueStore: _protectedQueue == null ? null : () async => _protectedQueue!,
+      queueScope: _protectedQueue == null
+          ? null
+          : (thread, profile) =>
+                _protectedQueue!.visible &&
+                    identical(thread, _chat.selectedThread)
+                ? QueueScope(
+                    serverKey: widget.queueServerKey!,
+                    accountKey: widget.queueOwnerKey!,
+                    profile: profile,
+                    conversationId: thread.id,
+                  )
+                : null,
+      queueChanges: _protectedQueue,
+      canShowQueues: _protectedQueue == null
+          ? null
+          : () => _protectedQueue!.visible,
       repository: widget.chat,
       profiles: widget.profiles,
       models: widget.models,
@@ -185,7 +219,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
     unawaited(_dictation?.refresh());
     if (_sendWhenLoaded) {
       _sendWhenLoaded = false;
-      _send(_composerController.text);
+      unawaited(_send(_composerController.text));
     }
   }
 
@@ -240,7 +274,8 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _send(String text) {
+  Future<void> _send(String text) async {
+    if (_queueSending) return;
     if (_loading) {
       _sendWhenLoaded = true;
       return;
@@ -249,7 +284,27 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
     final typed = text.trim();
     final files = List.of(_attachments);
     if (typed.isEmpty && files.isEmpty) return;
-    if (!_chat.submit(typed, files)) return;
+    setState(() => _queueSending = true);
+    final target = _chat.selectedThread;
+    final profile = _chat.profile;
+    bool accepted;
+    try {
+      accepted = await _chat.submit(typed, files);
+    } on Object {
+      _showMessage('Could not send this prompt. Your draft was kept.');
+      return;
+    } finally {
+      if (mounted) setState(() => _queueSending = false);
+    }
+    if (!mounted) return;
+    if (!accepted ||
+        profile != _chat.profile ||
+        target != null && target != _chat.selectedThread ||
+        _composerController.text.trim() != typed ||
+        _attachments.length != files.length ||
+        !files.every(_attachments.contains)) {
+      return;
+    }
     _session.touch(_chat.profile);
     setState(() {
       _composerController.clear();
@@ -318,6 +373,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
 
   @override
   void dispose() {
+    _protectedQueue?.dispose();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -347,6 +403,11 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
             controller: _composerController,
             focusNode: _composerFocus,
             onSend: _send,
+            commandRunning:
+                _queueSending ||
+                (_chat.selectedThread != null &&
+                    _chat.queueBusy(_chat.selectedThread!)),
+            queueView: protectedQueueView(_chat, _chat.selectedThread),
             onAttach: openMenu,
             attachments: _attachments,
             onRemoveAttachment: (file) =>
@@ -384,6 +445,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
           onRemoveAttachment: (file) =>
               setState(() => _attachments.remove(file)),
           onSend: _send,
+          commandRunning: _queueSending,
           latestReply: _latestReply,
           welcome: false,
         ),

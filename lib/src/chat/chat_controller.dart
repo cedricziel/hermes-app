@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
@@ -47,6 +49,8 @@ import 'gateway/gateway_rpc_client.dart' show GatewayRpcException;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'queued_prompt.dart';
+import 'queue_storage/queue_record.dart';
+import 'queue_storage/durable_queue_store.dart';
 import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
@@ -92,6 +96,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.transport,
     this.activity,
     this.botChats,
+    this.queueStore,
+    this.queueScope,
+    this.queueChanges,
+    this.canShowQueues,
     required this._attention,
     this.liveActivities,
     this.watchStatus,
@@ -126,6 +134,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         changed: notifyListeners,
         report: report,
         removed: _threadRemoved,
+        prepareDelete: _prepareQueueDeletion,
         history: _history,
         canWork: () => active,
       );
@@ -136,6 +145,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         canWork: () => active,
       );
     }
+    queueChanges?.addListener(_queueIdentityChanged);
     _activeActivity = activity?.value ?? true;
     activity?.addListener(_activityChanged);
     _listenOwnedSessions();
@@ -193,6 +203,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     for (final thread in _generations.keys.toList()) {
       _generations[thread] = _generations[thread]! + 1;
     }
+    _queueEpoch++;
+    _queueRestoring.clear();
+    _cancelQueueBindings();
+    _loadedQueues.clear();
+    _restoredQueues.addAll(
+      _queues.keys.where(
+        (thread) => _queues[thread]!.any((prompt) => prompt.durable != null),
+      ),
+    );
     _suspendedQueues.addAll(_queues.keys);
     _undoing.clear();
     _interrupts.clear();
@@ -233,6 +252,125 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final HermesModelsRepository? models;
   final ChatTransport? transport;
   final BotModeChatRepository? botChats;
+  final Future<PromptQueueStore> Function()? queueStore;
+  final QueueScope? Function(ChatThread thread, String? profile)? queueScope;
+  final Listenable? queueChanges;
+  final bool Function()? canShowQueues;
+  bool get queuesVisible => canShowQueues?.call() ?? true;
+  var _queueEpoch = 0;
+  final _restoredQueues = <ChatThread>{};
+  final _loadedQueues = <ChatThread>{};
+  final _queuePreparing = <ChatThread>{};
+  final _queueRemoving = <ChatThread>{};
+  final _queueDispatching = <ChatThread>{};
+  final _queueErrors = <ChatThread, String>{};
+  final _queueUnavailable = <ChatThread>{};
+  final _queueRestoring = <ChatThread, Future<bool>>{};
+  final _hiddenQueueOrder = <ChatThread, List<(QueueScope, String)>>{};
+  final _knownQueueAcceptance = <(String, String)>{};
+  bool queueNeedsReview(ChatThread thread) => _restoredQueues.contains(thread);
+  bool queueBusy(ChatThread thread) =>
+      _queueRemoving.contains(thread) ||
+      _enqueueing.contains(thread) ||
+      _queuePreparing.contains(thread) ||
+      _queueDispatching.contains(thread) ||
+      _queueRestoring.containsKey(thread);
+  String? queueErrorIn(ChatThread thread) => _queueErrors[thread];
+  bool queueAvailable(ChatThread thread) =>
+      active &&
+      _profile != null &&
+      _profile!.trim().isNotEmpty &&
+      queuesVisible &&
+      !_queueUnavailable.contains(thread) &&
+      !(_queues[thread]?.any(
+            (prompt) =>
+                prompt.scope != null &&
+                prompt.scope!.conversationId != thread.id,
+          ) ??
+          false) &&
+      _sessionStates[thread]?.reclaimedReason == null &&
+      _bound.contains(thread);
+  void queueReviewed(QueuedPrompt prompt) => breadcrumbs(
+    'chat.queue.reviewed',
+    {'count': 1, 'state': prompt.uncertain ? 'uncertain' : 'unsent'},
+  );
+  void inspectQueued(ChatThread thread) {
+    if (!active || !_threads.contains(thread)) return;
+    select(thread.id);
+    if (repository != null) unawaited(refreshThread(thread.id));
+  }
+
+  final _queueBindings = <ChatThread, Completer<bool>>{};
+  final _bindingScopes = <ChatThread, QueueScope>{};
+  bool _sameQueueOwner(QueueScope? current, QueueScope expected) =>
+      current != null &&
+      current.serverKey == expected.serverKey &&
+      current.accountKey == expected.accountKey &&
+      current.profile == expected.profile;
+  void _finishQueueBinding(ChatThread thread, bool bound) {
+    _bindingScopes.remove(thread);
+    final wait = _queueBindings.remove(thread);
+    if (wait != null && !wait.isCompleted) wait.complete(bound);
+  }
+
+  void _cancelQueueBindings() {
+    for (final thread in _queueBindings.keys.toList()) {
+      _finishQueueBinding(thread, false);
+    }
+  }
+
+  void _queueIdentityChanged() {
+    _queueEpoch++;
+    _queueRestoring.clear();
+    for (final entry in _bindingScopes.entries.toList()) {
+      if (!_sameQueueOwner(
+        queueScope?.call(entry.key, _profile),
+        entry.value,
+      )) {
+        _finishQueueBinding(entry.key, false);
+      }
+    }
+    for (final entry in _queues.entries.toList()) {
+      final current = queueScope?.call(entry.key, _profile);
+      if (!queuesVisible ||
+          entry.value.any(
+            (prompt) =>
+                prompt.scope != null &&
+                !_sameQueueOwner(current, prompt.scope!),
+          )) {
+        _hiddenQueueOrder[entry.key] = [
+          for (final prompt in entry.value)
+            if (prompt.scope != null && prompt.durable != null)
+              (prompt.scope!, prompt.durable!.id),
+        ];
+        _queues.remove(entry.key);
+        _loadedQueues.remove(entry.key);
+        _settleTimers.remove(entry.key)?.cancel();
+      }
+    }
+    if (selectedThread case final thread? when active && queuesVisible) {
+      unawaited(_restoreQueue(thread));
+    }
+    notifyListeners();
+  }
+
+  Future<bool> _waitForQueueBinding(ChatThread thread, QueueScope scope) {
+    if (_bound.contains(thread)) return Future.value(true);
+    _bindingScopes[thread] = scope;
+    return (_queueBindings[thread] ??= Completer<bool>()).future;
+  }
+
+  Future<PromptQueueStore>? _openedQueueStore;
+  final _enqueueing = <ChatThread>{};
+  Future<PromptQueueStore> _protectedQueueStore() async {
+    try {
+      return await (_openedQueueStore ??= queueStore!());
+    } on Object {
+      _openedQueueStore = null;
+      rethrow;
+    }
+  }
+
   int _openGeneration = 0;
 
   /// Counts the chat opens so far; an open that was started earlier has been
@@ -1060,6 +1198,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _invalidateSessionActions(thread);
         state.reclaimedReason = reason;
         _removeMoa(thread);
+        _finishQueueBinding(thread, false);
         state.waits.clear();
         _settleTimers.remove(thread)?.cancel();
         if (_queues[thread]?.isNotEmpty ?? false) {
@@ -1266,6 +1405,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _following = <StreamSubscription<ChatEvent>>{};
 
   /// The prompts sent while a thread was replying, oldest first.
+  final _queueTurnReady = <ChatThread>{};
+  final _queueSettled = <ChatThread>{};
   final _queues = <ChatThread, List<QueuedPrompt>>{};
   final _suspendedQueues = <ChatThread>{};
 
@@ -1374,6 +1515,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             .where(
               (thread) =>
                   thread.remote &&
+                  !(profile != previousProfile &&
+                      (_queues[thread]?.any(
+                            (prompt) => prompt.durable != null,
+                          ) ??
+                          false)) &&
                   !recoveredSources.contains(thread) &&
                   (profile != previousProfile ||
                       !_sending.containsKey(thread) &&
@@ -1420,7 +1566,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           )
           .toList();
       final retainedQueues = preserveSelection
-          ? {for (final entry in _queues.entries) entry.key.id: entry.value}
+          ? {
+              for (final entry in _queues.entries)
+                if (profile == previousProfile ||
+                    !entry.value.any((prompt) => prompt.durable != null))
+                  entry.key.id: entry.value,
+            }
           : <String, List<QueuedPrompt>>{};
       if (preserveSelection) previousSelection = _selectedId;
       for (final (:source, :recovered) in currentRecoveries) {
@@ -1482,11 +1633,22 @@ class ChatController extends ChangeNotifier with SafeNotifier {
               .map((t) => t.id),
         );
       _olderRows.clear();
+      _loadedQueues.clear();
+      _restoredQueues.clear();
+      _queueEpoch++;
+      _queueRestoring.clear();
+      _queueTurnReady.clear();
+      _queueSettled.clear();
       _queues
         ..clear()
         ..addAll({
           for (final thread in _threads) thread: ?retainedQueues[thread.id],
         });
+      _restoredQueues.addAll(
+        _queues.keys.where(
+          (thread) => _queues[thread]!.any((prompt) => prompt.durable != null),
+        ),
+      );
       _suspendedQueues
         ..clear()
         ..addAll(_queues.keys);
@@ -1568,9 +1730,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ) async {
     try {
       final fresh = await repository!.loadThread(thread.id, profile: profile);
-      if (fresh != null) return fresh;
+      if (fresh != null) {
+        _queueUnavailable.remove(thread);
+        return fresh;
+      }
     } on Object {
       // An unreadable target cannot vouch for sending into its old session.
+    }
+    if (_queues[thread]?.any((prompt) => prompt.durable != null) ?? false) {
+      _queueUnavailable.add(thread);
+      _queueErrors[thread] = 'This conversation is unavailable. Its queued prompts were kept in their original scope.';
+      return thread;
     }
     return _queuedDraft(thread);
   }
@@ -2136,6 +2306,29 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
   }
 
+  Future<void> Function()? _prepareQueueDeletion(ChatThread thread) {
+    if (queueStore == null) return null;
+    final scopes = <String, QueueScope>{};
+    void remember(QueueScope scope) =>
+        scopes[jsonEncode(scope.toJson())] = scope;
+    final current = queueScope?.call(thread, _profile);
+    if (current != null) remember(current);
+    for (final prompt in _queues[thread] ?? const <QueuedPrompt>[]) {
+      if (prompt.scope case final scope?) remember(scope);
+    }
+    for (final (scope, _)
+        in _hiddenQueueOrder[thread] ?? const <(QueueScope, String)>[]) {
+      remember(scope);
+    }
+    if (scopes.isEmpty) return null;
+    return () async {
+      final store = await _protectedQueueStore();
+      for (final scope in scopes.values) {
+        await store.deleteConversation(scope);
+      }
+    };
+  }
+
   /// Moves on to the first remaining thread when the open one is archived or
   /// deleted.
   void _threadRemoved(ChatThread thread) {
@@ -2153,6 +2346,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _warnings.remove(thread)?.clear();
     _warningGenerations.remove(thread);
     _queues.remove(thread);
+    _loadedQueues.remove(thread);
+    _restoredQueues.remove(thread);
+    _hiddenQueueOrder.remove(thread);
+    _queueUnavailable.remove(thread);
+    _finishQueueBinding(thread, false);
     _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
     _refetch.remove(thread);
@@ -2180,6 +2378,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   @override
   void dispose() {
+    queueChanges?.removeListener(_queueIdentityChanged);
+    _cancelQueueBindings();
     activity?.removeListener(_activityChanged);
     _activityEpoch++;
     housekeeping?.setActivity(false);
@@ -2266,6 +2466,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final load = repository != null ? _loadMessages(id) : Future<void>.value();
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (thread != null) {
+      unawaited(_restoreQueue(thread));
       final profile = _profile;
       unawaited(
         load.then((_) {
@@ -2286,6 +2487,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// and shows its replying indicator. An idle thread closes the stream
   /// without events.
   void _pickUp(ChatThread thread) {
+    if (queueStore != null) unawaited(_restoreQueue(thread));
     final transport = this.transport;
     if (!active || transport == null || !thread.remote) return;
     if (thread.isReplying) return;
@@ -2464,7 +2666,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (result.prefill case final draft?) onPrefill?.call(draft);
       if (!_currentActivity(epoch)) return false;
       if (result.prompt case final prompt? when prompt.isNotEmpty) {
-        _submitTo(
+        await _submitTo(
           thread,
           prompt,
           const [],
@@ -2577,7 +2779,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         return;
       }
     }
-    _submitTo(thread, prompt, const []);
+    await _submitTo(thread, prompt, const []);
   }
 
   /// Takes the last prompt of [thread] back on the server and puts its text
@@ -2691,6 +2893,163 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     return true;
   }
 
+  Future<bool> _restoreQueue(ChatThread thread) {
+    if (!active) return Future.value(false);
+    if (queueStore == null || !thread.remote) {
+      return Future.value(true);
+    }
+    if (_loadedQueues.contains(thread)) return Future.value(true);
+    final held = _queueRestoring[thread];
+    if (held != null) return held;
+    late final Future<bool> restoring;
+    restoring = _readProtectedQueue(thread).whenComplete(() {
+      if (identical(_queueRestoring[thread], restoring)) {
+        _queueRestoring.remove(thread);
+      }
+      if (active) notifyListeners();
+    });
+    _queueRestoring[thread] = restoring;
+    return restoring;
+  }
+
+  Future<bool> _readProtectedQueue(ChatThread thread) async {
+    final profile = _profile;
+    final epoch = _queueEpoch;
+    final activityEpoch = _activityEpoch;
+    final generation = _loadGeneration;
+    final scope = queueScope?.call(thread, profile);
+    if (profile == null ||
+        profile.trim().isEmpty ||
+        scope == null ||
+        !queuesVisible) {
+      return false;
+    }
+    try {
+      final store = await _protectedQueueStore();
+      final order = _hiddenQueueOrder[thread] ?? const <(QueueScope, String)>[];
+      final scopes = <String, QueueScope>{jsonEncode(scope.toJson()): scope};
+      for (final (held, _) in order) {
+        if (_sameQueueOwner(held, scope)) {
+          scopes[jsonEncode(held.toJson())] = held;
+        }
+      }
+      final prompts = <QueuedPrompt>[];
+      var corrupt = 0;
+      for (final target in scopes.values) {
+        final loaded = await store.load(target);
+        corrupt += loaded.corruptRecords;
+        for (final record in loaded.records) {
+          if (_knownQueueAcceptance.contains((
+            jsonEncode(target.toJson()),
+            record.id,
+          ))) {
+            continue;
+          }
+          prompts.add(
+            QueuedPrompt(
+              record.text,
+              const [],
+              displayText: record.displayText,
+              durable: record,
+              scope: target,
+            ),
+          );
+        }
+      }
+      if (!active ||
+          !queuesVisible ||
+          epoch != _queueEpoch ||
+          !_currentActivity(activityEpoch) ||
+          generation != _loadGeneration ||
+          profile != _profile ||
+          !_threads.contains(thread) ||
+          !_sameQueueOwner(queueScope?.call(thread, profile), scope)) {
+        return false;
+      }
+      if (order.isNotEmpty) {
+        int position(QueuedPrompt prompt) => order.indexWhere(
+          (item) =>
+              item.$2 == prompt.durable?.id &&
+              jsonEncode(item.$1.toJson()) ==
+                  jsonEncode(prompt.scope!.toJson()),
+        );
+        prompts.sort((a, b) {
+          final left = position(a), right = position(b);
+          if (left >= 0 && right >= 0) return left.compareTo(right);
+          if (left >= 0) return -1;
+          if (right >= 0) return 1;
+          return a.durable!.sequence.compareTo(b.durable!.sequence);
+        });
+      }
+      _loadedQueues.add(thread);
+      _hiddenQueueOrder.remove(thread);
+      _settleTimers.remove(thread)?.cancel();
+      if (prompts.isNotEmpty) {
+        _queues[thread] = prompts;
+        _restoredQueues.add(thread);
+      }
+      if (corrupt > 0) _queueErrors[thread] = 'Some recovered prompts could not be read. Valid entries were kept.';
+      try {
+        events('chat.queue.recovery', {
+          'outcome': corrupt > 0
+              ? 'corrupt'
+              : prompts.isEmpty
+              ? 'empty'
+              : 'recovered',
+          'count': prompts.length,
+        });
+      } on Object {
+        // Telemetry must not alter the review barrier.
+      }
+      notifyListeners();
+      return true;
+    } on Object {
+      if (_currentActivity(activityEpoch) &&
+          epoch == _queueEpoch &&
+          generation == _loadGeneration) {
+        _queueErrors[thread] =
+            'Protected queue storage is unavailable. Your draft was kept.';
+        try {
+          events('chat.queue.recovery', {'outcome': 'unavailable', 'count': 0});
+        } on Object {
+          // Telemetry must not alter the review barrier.
+        }
+        notifyListeners();
+      }
+      return false;
+    }
+  }
+
+  Future<bool> _submitAfterQueueRestore(
+    ChatThread thread,
+    String text,
+    List<SharedFile> files,
+    String? displayText,
+  ) async {
+    if (!_queuePreparing.add(thread)) return false;
+    final profile = _profile;
+    final activityEpoch = _activityEpoch;
+    final generation = _loadGeneration;
+    final scope = queueScope?.call(thread, profile);
+    try {
+      if (scope == null ||
+          !await _restoreQueue(thread) ||
+          !_currentActivity(activityEpoch) ||
+          generation != _loadGeneration ||
+          profile != _profile ||
+          !_threads.contains(thread) ||
+          !_sameQueueOwner(queueScope?.call(thread, profile), scope)) {
+        return false;
+      }
+      _queuePreparing.remove(thread);
+      return await Future.sync(
+        () => _submitTo(thread, text, files, displayText: displayText),
+      );
+    } finally {
+      _queuePreparing.remove(thread);
+    }
+  }
+
   /// The prompts waiting in [thread] for its reply to end.
   List<QueuedPrompt> queuedIn(ChatThread thread) =>
       List.unmodifiable(_queues[thread] ?? const <QueuedPrompt>[]);
@@ -2700,37 +3059,108 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   bool queuePaused(ChatThread thread) =>
       !thread.isReplying && (_queues[thread]?.isNotEmpty ?? false);
 
-  void removeQueued(ChatThread thread, QueuedPrompt prompt) {
-    if (!active) return;
+  FutureOr<void> removeQueued(ChatThread thread, QueuedPrompt prompt) {
+    if (!active) return Future<void>.value();
+    if (prompt.submitting || _queueDispatching.contains(thread)) {
+      return Future<void>.value();
+    }
+    if (prompt.durable != null) return _removeProtectedQueue(thread, prompt);
     final queue = _queues[thread];
-    if (queue == null || !queue.remove(prompt)) return;
+    if (queue == null || !queue.remove(prompt)) return Future<void>.value();
     if (queue.isEmpty) _queues.remove(thread);
     notifyListeners();
+    return Future<void>.value();
   }
 
-  /// Sends the first queued prompt of [thread] when no reply is pending
-  /// there. One that cannot be sent stays first in the queue.
+  Future<void> _removeProtectedQueue(
+    ChatThread thread,
+    QueuedPrompt prompt,
+  ) async {
+    if (!_queueRemoving.add(thread)) return;
+    try {
+      final scope = prompt.scope;
+      if (scope == null) throw const QueueStorageException('unavailable');
+      await (await _protectedQueueStore()).discard(scope, prompt.durable!.id);
+      _queues[thread]?.removeWhere(
+        (entry) =>
+            entry.durable?.id == prompt.durable!.id &&
+            jsonEncode(entry.scope?.toJson()) == jsonEncode(scope.toJson()),
+      );
+      if (_queues[thread]?.isEmpty ?? false) {
+        _queues.remove(thread);
+        _restoredQueues.remove(thread);
+      }
+      breadcrumbs('chat.queue.removed', {
+        'count': 1,
+        'state': prompt.uncertain ? 'uncertain' : 'unsent',
+      });
+      _queueRemoving.remove(thread);
+      if (!_restoredQueues.contains(thread) &&
+          !thread.isReplying &&
+          _queueTurnReady.contains(thread) &&
+          _holdOf(thread) == _Hold.none) {
+        _queueSettled.contains(thread)
+            ? _drainQueue(thread)
+            : _awaitSettle(thread);
+      }
+    } on Object {
+      _queueErrors[thread] =
+          'Could not remove this queued prompt. Its protected record was kept.';
+    } finally {
+      _queueRemoving.remove(thread);
+      if (active) notifyListeners();
+    }
+  }
+
+  /// Explicitly resumes queued work after review; unsent prompts stay queued.
   void sendQueued(ChatThread thread) {
-    if (!active || _sessionStates[thread]?.reclaimedReason != null) return;
+    if (!active) return;
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     if (_reclaimedQueueReview.remove(thread)) {
       breadcrumbs('chat.visibility_action', {
         'feature': 'session_state',
         'action': 'review_queue',
       });
     }
-    _drainQueue(thread);
+    if (_restoredQueues.contains(thread)) {
+      final prompt = _queues[thread]?.firstOrNull;
+      if (prompt == null ||
+          prompt.uncertain ||
+          queueBusy(thread) ||
+          thread.isReplying) {
+        return;
+      }
+      breadcrumbs('chat.queue.send_requested', {'count': 1, 'state': 'unsent'});
+      queueReviewed(prompt);
+      unawaited(_dispatchProtected(thread, prompt));
+    } else {
+      _drainQueue(thread);
+    }
   }
 
   void _drainQueue(ChatThread thread) {
+    if (!active) return;
     if (_sessionStates[thread]?.reclaimedReason != null ||
         _reclaimedQueueReview.contains(thread)) {
       return;
     }
-    if (!active) return;
-    _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
     final queue = _queues[thread];
-    if (thread.isReplying || queue == null || queue.isEmpty) return;
+    if (thread.isReplying ||
+        queue == null ||
+        queue.isEmpty ||
+        _queueDispatching.contains(thread)) {
+      return;
+    }
+    if (_restoredQueues.contains(thread) || _queueRemoving.contains(thread)) {
+      return;
+    }
+    final first = queue.first;
+    if (first.durable != null) {
+      if (!first.uncertain) unawaited(_dispatchProtected(thread, first));
+      return;
+    }
+    _suspendedQueues.remove(thread);
     final next = queue.removeAt(0);
     if (queue.isEmpty) _queues.remove(thread);
     if (!_send(
@@ -2745,12 +3175,189 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  bool _queueContextCurrent(
+    ChatThread thread,
+    _ProtectedQueuedSend send,
+    String? profile,
+    int generation,
+  ) =>
+      _currentActivity(send.activityEpoch) &&
+      _sessionActionCurrent(thread, send.sessionGeneration) &&
+      queuesVisible &&
+      send.epoch == _queueEpoch &&
+      profile == _profile &&
+      generation == _loadGeneration &&
+      _threads.contains(thread) &&
+      _sameQueueOwner(queueScope?.call(thread, profile), send.scope) &&
+      send.scope.conversationId == thread.id &&
+      _sessionStates[thread]?.reclaimedReason == null;
+  QueuedPrompt? _entryFor(ChatThread thread, _ProtectedQueuedSend send) =>
+      _queues[thread]
+          ?.where(
+            (prompt) =>
+                prompt.durable?.id == send.id &&
+                jsonEncode(prompt.scope?.toJson()) ==
+                    jsonEncode(send.scope.toJson()),
+          )
+          .firstOrNull;
+  void _replaceQueueState(
+    ChatThread thread,
+    _ProtectedQueuedSend send,
+    QueueRecordState state, {
+    bool submitting = false,
+  }) {
+    final prompt = _entryFor(thread, send);
+    final queue = _queues[thread];
+    if (prompt == null || queue == null) return;
+    queue[queue.indexOf(prompt)] = QueuedPrompt(
+      prompt.text,
+      prompt.files,
+      displayText: prompt.displayText,
+      durable: prompt.durable!.withState(state),
+      scope: prompt.scope,
+      submitting: submitting,
+    );
+    if (active) notifyListeners();
+  }
+
+  Future<void> _restoreNotSubmitted(
+    ChatThread thread,
+    _ProtectedQueuedSend send,
+  ) async {
+    send.provenNotSubmitted = true;
+    try {
+      await send.store.restoreUnsentAfterPreSubmitFailure(
+        send.scope,
+        send.id,
+        claim: send.claim,
+      );
+      send.restored = true;
+      _replaceQueueState(thread, send, QueueRecordState.queued);
+    } on Object {
+      _replaceQueueState(thread, send, QueueRecordState.submissionStarted);
+      _restoredQueues.add(thread);
+      _queueErrors[thread] = 'Protected queue state could not be updated. Inspect the conversation before sending again.';
+    }
+  }
+
+  void _acceptedQueue(ChatThread thread, _ProtectedQueuedSend send) {
+    send.accepted = true;
+    _knownQueueAcceptance.add((jsonEncode(send.scope.toJson()), send.id));
+    final prompt = _entryFor(thread, send);
+    if (prompt != null) _queues[thread]?.remove(prompt);
+    if (_queues[thread]?.isEmpty ?? false) {
+      _queues.remove(thread);
+      _restoredQueues.remove(thread);
+    }
+    if (active) notifyListeners();
+    unawaited(() async {
+      try {
+        await send.store.setState(
+          send.scope,
+          send.id,
+          QueueRecordState.accepted,
+        );
+      } on Object {
+        if (active) {
+          report(
+            'Hermes accepted this prompt, but local cleanup could not finish. Do not send it again.',
+          );
+        }
+      }
+    }());
+  }
+
+  Future<void> _dispatchProtected(
+    ChatThread thread,
+    QueuedPrompt prompt,
+  ) async {
+    if (!_queueDispatching.add(thread)) return;
+    final scope = prompt.scope;
+    final profile = _profile;
+    final generation = _loadGeneration;
+    final epoch = _queueEpoch;
+    final activityEpoch = _activityEpoch;
+    final sessionGeneration = _sessionActionGeneration(thread);
+    try {
+      if (scope == null ||
+          prompt.uncertain ||
+          !queueAvailable(thread) ||
+          transport is! QueueSubmissionTransport) {
+        throw const QueueStorageException('unavailable');
+      }
+      final store = await _protectedQueueStore();
+      final send = _ProtectedQueuedSend(
+        prompt,
+        scope,
+        store,
+        epoch,
+        activityEpoch,
+        sessionGeneration,
+      );
+      final attachments = <ChatAttachment>[];
+      final outgoing = <OutgoingAttachment>[];
+      for (final file in prompt.durable!.attachments) {
+        final bytes = Uint8List.fromList(
+          await store.readAttachment(scope, send.id, file.blobId),
+        );
+        final kind = file.isImage ? AttachmentKind.image : AttachmentKind.file;
+        attachments.add(
+          ChatAttachment(
+            name: file.name,
+            kind: kind,
+            size: file.size,
+            bytes: bytes,
+          ),
+        );
+        outgoing.add(
+          OutgoingAttachment(
+            name: file.name,
+            kind: kind,
+            mimeType: file.mimeType,
+            read: () async => bytes,
+          ),
+        );
+      }
+      if (!_queueContextCurrent(thread, send, profile, generation) ||
+          _entryFor(thread, send) == null) {
+        return;
+      }
+      _queueErrors.remove(thread);
+      _replaceQueueState(
+        thread,
+        send,
+        QueueRecordState.queued,
+        submitting: true,
+      );
+      _send(
+        thread,
+        prompt.text,
+        const [],
+        displayText: prompt.displayText,
+        queued: true,
+        readyAttachments: attachments,
+        readyOutgoing: outgoing,
+        protectedSend: send,
+      );
+    } on Object {
+      _queueErrors[thread] =
+          'Could not send this queued prompt. Its protected record was kept.';
+      if (active) notifyListeners();
+    } finally {
+      _queueDispatching.remove(thread);
+    }
+  }
+
   /// After a reply ended normally, holds the queued prompts of [thread] until
   /// the session reports it settled. Two seconds without that report (an older
   /// Hermes, or a missed frame) send them anyway.
   void _awaitSettle(ChatThread thread) {
     if (!active || _suspendedQueues.contains(thread)) return;
-    if (thread.isReplying || (_queues[thread]?.isEmpty ?? true)) return;
+    if (_restoredQueues.contains(thread) ||
+        thread.isReplying ||
+        (_queues[thread]?.isEmpty ?? true)) {
+      return;
+    }
     if (_settleTimers.containsKey(thread)) return;
     _settleTimers[thread] = Timer(
       const Duration(seconds: 2),
@@ -2780,27 +3387,58 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// streams the reply into it. While the thread replies, or holds a paused
   /// queue, the prompt joins its queue instead. Returns false when it was
   /// neither sent nor queued, after telling the user why.
-  bool submit(String typed, List<SharedFile> files) {
-    return _submitTo(selectedThread, typed, files);
-  }
+  FutureOr<bool> submit(String typed, List<SharedFile> files) =>
+      active ? _submitTo(selectedThread, typed, files) : false;
 
-  bool _submitTo(
+  FutureOr<bool> _submitTo(
     ChatThread? selected,
     String typed,
     List<SharedFile> files, {
     String? displayText,
   }) {
+    if (!active) return false;
+    if (_queueUnavailable.contains(selected)) {
+      report(
+        'This conversation is unavailable. Its queued prompts were kept in their original scope.',
+      );
+      return false;
+    }
+    final scopedProfile = _profile != null && _profile!.trim().isNotEmpty;
+    if (selected != null &&
+        queueStore != null &&
+        !scopedProfile &&
+        (selected.isReplying || _queues.containsKey(selected))) {
+      report(
+        "This chat's profile could not be confirmed. Your draft was kept.",
+      );
+      return false;
+    }
+    if (selected != null &&
+        (_enqueueing.contains(selected) ||
+            _queuePreparing.contains(selected) ||
+            _queueRemoving.contains(selected))) {
+      return false;
+    }
+    if (selected != null &&
+        queueStore != null &&
+        scopedProfile &&
+        _bound.contains(selected) &&
+        !_loadedQueues.contains(selected)) {
+      return _submitAfterQueueRestore(selected, typed, files, displayText);
+    }
     if (_sessionStates[selected]?.reclaimedReason != null) {
       report('Reopen this session before sending another prompt.');
       return false;
     }
-    if (!active) return false;
     _turnProblems.remove(selected);
     if (selected == null ||
         !selected.isReplying && !_queues.containsKey(selected)) {
       return _send(selected, typed, files, displayText: displayText);
     }
     if (_sizesOrExplain(files) == null) return false;
+    if (queueStore != null) {
+      return _enqueueProtected(selected, typed, files, displayText);
+    }
     (_queues[selected] ??= []).add(
       QueuedPrompt(typed, files, displayText: displayText),
     );
@@ -2810,20 +3448,125 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     return true;
   }
 
+  Future<bool> _enqueueProtected(
+    ChatThread thread,
+    String text,
+    List<SharedFile> files,
+    String? displayText,
+  ) async {
+    if (!_enqueueing.add(thread)) return false;
+    final profile = _profile;
+    final epoch = _queueEpoch;
+    final activityEpoch = _activityEpoch;
+    final initialScope = queueScope?.call(thread, profile);
+    final wasReplying = thread.isReplying;
+    try {
+      if (profile == null ||
+          profile.trim().isEmpty ||
+          initialScope == null ||
+          !await _waitForQueueBinding(thread, initialScope)) {
+        throw const QueueStorageException('identity_unavailable');
+      }
+      final sessionGeneration = _sessionActionGeneration(thread);
+      final scope = queueScope?.call(thread, profile);
+      if (!active ||
+          epoch != _queueEpoch ||
+          !_currentActivity(activityEpoch) ||
+          !_sessionActionCurrent(thread, sessionGeneration) ||
+          _sessionStates[thread]?.reclaimedReason != null ||
+          profile != _profile ||
+          !_threads.contains(thread) ||
+          !_sameQueueOwner(scope, initialScope)) {
+        throw const QueueStorageException('identity_unavailable');
+      }
+      if (scope == null || !await _restoreQueue(thread)) {
+        throw const QueueStorageException('identity_unavailable');
+      }
+      final record = await (await _protectedQueueStore()).commit(
+        scope,
+        text,
+        displayText: displayText,
+        files: [
+          for (final file in files)
+            QueueAttachmentInput(
+              path: file.path,
+              name: file.name,
+              mimeType: file.mimeType,
+              isImage: file.isImage,
+            ),
+        ],
+      );
+      if (epoch != _queueEpoch ||
+          !_currentActivity(activityEpoch) ||
+          !_sessionActionCurrent(thread, sessionGeneration) ||
+          _sessionStates[thread]?.reclaimedReason != null ||
+          !_sameQueueOwner(queueScope?.call(thread, profile), initialScope)) {
+        try {
+          await (await _protectedQueueStore()).discard(scope, record.id);
+        } on Object {
+          // Revoked scopes remain protected until scoped cleanup succeeds.
+        }
+        throw const QueueStorageException('identity_unavailable');
+      }
+      _enqueueing.remove(thread);
+      if (active && profile == _profile && _threads.contains(thread)) {
+        (_queues[thread] ??= []).add(
+          QueuedPrompt(
+            text,
+            files,
+            displayText: displayText,
+            durable: record,
+            scope: scope,
+          ),
+        );
+        if (_restoredQueues.contains(thread) ||
+            thread.isReplying ||
+            _settleTimers.containsKey(thread)) {
+          notifyListeners();
+        } else if (wasReplying) {
+          if (_queueTurnReady.contains(thread) &&
+              _holdOf(thread) == _Hold.none) {
+            _queueSettled.contains(thread)
+                ? _drainQueue(thread)
+                : _awaitSettle(thread);
+          }
+          notifyListeners();
+        } else {
+          _drainQueue(thread);
+        }
+      }
+      return true;
+    } on Object {
+      if (active) {
+        report('Could not queue this prompt. Your draft was kept.');
+      }
+      return false;
+    } finally {
+      _enqueueing.remove(thread);
+    }
+  }
+
   bool _send(
     ChatThread? selected,
     String typed,
     List<SharedFile> files, {
     String? displayText,
     bool queued = false,
+    List<ChatAttachment>? readyAttachments,
+    List<OutgoingAttachment>? readyOutgoing,
+    _ProtectedQueuedSend? protectedSend,
   }) {
+    if (protectedSend != null &&
+        (selected == null || !_bound.contains(selected))) {
+      return false;
+    }
     if (_sessionStates[selected]?.reclaimedReason != null) return false;
     if (!active) return false;
     final epoch = _activityEpoch;
-    final sizes = _sizesOrExplain(files);
+    final sizes = readyAttachments == null ? _sizesOrExplain(files) : <int>[];
     if (sizes == null) return false;
-    final attachments = <ChatAttachment>[];
-    final outgoing = <OutgoingAttachment>[];
+    final attachments = <ChatAttachment>[...?readyAttachments];
+    final outgoing = <OutgoingAttachment>[...?readyOutgoing];
     for (final (i, file) in files.indexed) {
       final kind = file.isImage ? AttachmentKind.image : AttachmentKind.file;
       attachments.add(
@@ -2844,7 +3587,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     }
 
-    final label = typed.isEmpty ? files.first.name : displayText ?? typed;
+    final label = typed.isEmpty
+        ? (readyAttachments?.firstOrNull?.name ?? files.first.name)
+        : displayText ?? typed;
     final thread =
         selected ??
         ChatThread(
@@ -2860,7 +3605,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     // A chat that has a name keeps it, even when its messages are not loaded
     // or a retry or an edit emptied them; only a chat with none gets a title
     // made from the prompt, which is not a name.
-    if (thread.messages.isEmpty && !thread.named) {
+    if (protectedSend == null && thread.messages.isEmpty && !thread.named) {
       thread
         ..title = label.length > 48 ? '${label.substring(0, 48)}…' : label
         ..named = false;
@@ -2875,9 +3620,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       createdAt: DateTime.now(),
       attachments: attachments,
     );
-    thread.messages.add(userMessage);
-    for (final flyer in chatMessageToFlyer(userMessage)) {
-      controllerFor(thread).insertMessage(flyer);
+    if (protectedSend == null) {
+      thread.messages.add(userMessage);
+      for (final flyer in chatMessageToFlyer(userMessage)) {
+        controllerFor(thread).insertMessage(flyer);
+      }
     }
     // A reply of its own: no stop asked before it is about it, and the answer
     // to one is no longer about this thread's current reply.
@@ -2907,6 +3654,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         outgoing,
         threadId,
         queued: queued,
+        protectedSend: protectedSend,
+        deferredUser: protectedSend == null ? null : userMessage,
       );
       if (!_currentActivity(epoch)) return false;
       unawaited(_attention.askForPermission());
@@ -2916,6 +3665,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Appends the assistant message a reply that is about to stream fills in.
   ChatMessage _addPlaceholder(ChatThread thread) {
+    _queueTurnReady.remove(thread);
+    _queueSettled.remove(thread);
     // A new turn starts: a completion that comes now is its, not the settled
     // reply's before it.
     _settledReply(thread)?.settledWithoutCompletion = false;
@@ -2982,9 +3733,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     List<OutgoingAttachment> attachments,
     String? threadId, {
     bool queued = false,
+    _ProtectedQueuedSend? protectedSend,
+    ChatMessage? deferredUser,
   }) {
     _beginMoaTurn(thread, reply);
     final epoch = _activityEpoch;
+    final queueGeneration = _loadGeneration;
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
     // A new turn: what a run announced of an earlier one says nothing of it.
@@ -3007,6 +3761,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
       _finishMoaTurn(thread, reply);
+      if (!_bound.contains(thread)) _finishQueueBinding(thread, false);
+      if (protectedSend != null && !protectedSend.accepted) {
+        if (!protectedSend.restored && protectedSend.started) {
+          _replaceQueueState(
+            thread,
+            protectedSend,
+            QueueRecordState.submissionStarted,
+          );
+          _restoredQueues.add(thread);
+        } else if (!protectedSend.provenNotSubmitted) {
+          _replaceQueueState(thread, protectedSend, QueueRecordState.queued);
+        }
+      }
       _replies.remove(subscription);
       if (error != null || (!folded && reply.isPending)) {
         _discardWarnings(thread);
@@ -3095,34 +3862,109 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       'queued': queued,
       'attachments': attachments.length,
     });
-    subscription = transport
-        .send(
-          threadId: threadId,
-          profile: profile,
-          text: text,
-          attachments: attachments,
-          model: thread.modelChoice,
-          queued: queued,
-        )
-        .listen(
-          (event) {
-            if (!_currentActivity(epoch)) return;
-            if (event is ReplyCompleted) {
-              failed = event.failed;
-              stopped = event.stopped;
+    final Stream<ChatEvent> stream;
+    if (protectedSend == null) {
+      stream = transport.send(
+        threadId: threadId,
+        profile: profile,
+        text: text,
+        attachments: attachments,
+        model: thread.modelChoice,
+        queued: queued,
+      );
+    } else {
+      stream = (transport as QueueSubmissionTransport).sendQueued(
+        threadId: threadId,
+        profile: profile,
+        text: text,
+        attachments: attachments,
+        model: thread.modelChoice,
+        beforeSubmit: () async {
+          if (!_queueContextCurrent(
+                thread,
+                protectedSend,
+                profile,
+                queueGeneration,
+              ) ||
+              _entryFor(thread, protectedSend) == null) {
+            throw QueueSubmissionNotStarted(
+              StateError('Queue scope unavailable'),
+            );
+          }
+          await protectedSend.store.beginSubmission(
+            protectedSend.scope,
+            protectedSend.id,
+            protectedSend.claim,
+          );
+          protectedSend.started = true;
+          _replaceQueueState(
+            thread,
+            protectedSend,
+            QueueRecordState.submissionStarted,
+            submitting: true,
+          );
+          if (!_queueContextCurrent(
+            thread,
+            protectedSend,
+            profile,
+            queueGeneration,
+          )) {
+            throw QueueSubmissionNotStarted(
+              StateError('Queue scope unavailable'),
+            );
+          }
+        },
+        onNotSubmitted: () => _restoreNotSubmitted(thread, protectedSend),
+      );
+    }
+    subscription = stream.listen(
+      (event) {
+        if (!_currentActivity(epoch)) return;
+        if (event is PromptAccepted &&
+            protectedSend != null &&
+            PromptAccepted.allowedStatuses.contains(event.status)) {
+          if (deferredUser != null &&
+              _queueContextCurrent(
+                thread,
+                protectedSend,
+                profile,
+                queueGeneration,
+              )) {
+            final index = thread.messages.indexOf(reply);
+            thread.messages.insert(
+              index < 0 ? thread.messages.length : index,
+              deferredUser,
+            );
+            final controller = controllerFor(thread);
+            final flyerIndex = controller.messages.indexWhere(
+              (item) => item.id == chatMessageToFlyer(reply).firstOrNull?.id,
+            );
+            for (final flyer in chatMessageToFlyer(deferredUser)) {
+              controller.insertMessage(
+                flyer,
+                index: flyerIndex < 0 ? null : flyerIndex,
+              );
             }
-            if (event is PromptFolded) folded = true;
-            if (event is SessionInfo && event.running == false) settled = true;
-            if (event is UnsolicitedEvent) {
-              _onOwnTurnEvent(thread, reply, own, event.event, profile);
-              return;
-            }
-            _onReplyEvent(thread, reply, event, profile);
-          },
-          onError: end,
-          onDone: end,
-          cancelOnError: true,
-        );
+          }
+          _acceptedQueue(thread, protectedSend);
+          return;
+        }
+        if (event is ReplyCompleted) {
+          failed = event.failed;
+          stopped = event.stopped;
+        }
+        if (event is PromptFolded) folded = true;
+        if (event is SessionInfo && event.running == false) settled = true;
+        if (event is UnsolicitedEvent) {
+          _onOwnTurnEvent(thread, reply, own, event.event, profile);
+          return;
+        }
+        _onReplyEvent(thread, reply, event, profile);
+      },
+      onError: end,
+      onDone: end,
+      cancelOnError: true,
+    );
     _replies.add(subscription);
   }
 
@@ -3499,6 +4341,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _bindThread(thread, stored);
       }
     }
+    if (info.running == false) _queueSettled.add(thread);
+    if (info.running == true) _queueSettled.remove(thread);
     if (settle && info.running == false) _settle(thread);
   }
 
@@ -3849,6 +4693,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     thread.id = id;
     thread.remote = true;
     _bound.add(thread);
+    _finishQueueBinding(thread, true);
     notifyListeners();
     if (controller != null) _chatControllers[id] = controller;
   }
@@ -4047,6 +4892,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     bool halted = false,
     bool idleOnly = false,
   }) {
+    final ready = _finishTurnHold(thread, halted: halted, idleOnly: idleOnly);
+    ready ? _queueTurnReady.add(thread) : _queueTurnReady.remove(thread);
+    return ready;
+  }
+
+  bool _finishTurnHold(
+    ChatThread thread, {
+    bool halted = false,
+    bool idleOnly = false,
+  }) {
     if (_suspendedQueues.contains(thread)) return false;
     final afterwards = _interruptInFlight(thread) ? _Hold.paused : _Hold.none;
     if (halted) {
@@ -4086,6 +4941,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_sessionStates[thread]?.reclaimedReason != null) return;
     if (!active) return;
     final epoch = _activityEpoch;
+    _finishQueueBinding(thread, false);
     final pending = [
       for (final reply in thread.messages)
         if (reply.isPending) reply,
@@ -4316,4 +5172,30 @@ class _OwnTurn {
   /// Whether a frame that begins a turn has come: before that, an idle report
   /// is not the turn's end.
   var began = false;
+}
+
+class _ProtectedQueuedSend {
+  _ProtectedQueuedSend(
+    this.prompt,
+    this.scope,
+    this.store,
+    this.epoch,
+    this.activityEpoch,
+    this.sessionGeneration,
+  ) : claim = List.generate(
+        16,
+        (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
+      ).join();
+  final QueuedPrompt prompt;
+  final QueueScope scope;
+  final PromptQueueStore store;
+  final int epoch;
+  final int activityEpoch;
+  final int sessionGeneration;
+  final String claim;
+  String get id => prompt.durable!.id;
+  bool started = false;
+  bool accepted = false;
+  bool provenNotSubmitted = false;
+  bool restored = false;
 }

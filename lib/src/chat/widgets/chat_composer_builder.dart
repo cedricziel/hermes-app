@@ -28,6 +28,7 @@ WidgetBuilder buildChatComposer({
   Widget? modelPill,
   List<SlashCommand> slashCommands = const [],
   bool commandRunning = false,
+  Widget? queueView,
   BotChatContext? botContext,
   Object? Function()? sendTarget,
 }) {
@@ -51,6 +52,7 @@ WidgetBuilder buildChatComposer({
     modelPill: modelPill,
     slashCommands: slashCommands,
     commandRunning: commandRunning,
+    queueView: queueView,
     dictation: dictationView,
   );
   return (context) => _ComposerSlot(

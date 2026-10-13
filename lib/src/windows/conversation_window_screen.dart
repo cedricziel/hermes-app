@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
+import '../chat/queue_storage/queue_broker.dart';
+import '../chat/queue_storage/queue_record.dart';
 import '../chat/chat_models.dart';
 import '../chat/chat_thread_bindings.dart';
 import '../chat/chat_transport.dart';
@@ -54,6 +56,7 @@ class ConversationWindowScreen extends StatefulWidget {
 class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   late final AttentionNotifier _attention;
   late final ChatController _chat;
+  BrokerQueueStore? _protectedQueue;
   late final AttachmentSource _attachmentSource;
   late final _composerController = TextEditingController(
     text: widget.draft?.text,
@@ -61,6 +64,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   final _composerFocus = FocusNode();
   late final _attachments = <SharedFile>[...?widget.draft?.files];
   final _latestReply = LatestReply();
+  bool _queueSending = false;
   final _subscriptions = <StreamSubscription<Object?>>[];
 
   /// Whether the chat was shown; once it is, losing it (deleted or archived)
@@ -79,7 +83,30 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       settings: null,
       onOpen: (_) {},
     );
+    final link = widget.link;
+    if (link is QueueWindowLink && _args.ownerKey != null) {
+      _protectedQueue = BrokerQueueStore(
+        (link as QueueWindowLink).queueOperation,
+        visibility: (link as QueueWindowLink).queueVisibility,
+      );
+    }
     _chat = ChatController(
+      queueStore: _protectedQueue == null ? null : () async => _protectedQueue!,
+      queueScope: _protectedQueue == null
+          ? null
+          : (thread, profile) =>
+                _protectedQueue!.visible && thread.id == _args.threadId
+                ? QueueScope(
+                    serverKey: _args.baseUrl,
+                    accountKey: _args.ownerKey!,
+                    profile: profile,
+                    conversationId: thread.id,
+                  )
+                : null,
+      queueChanges: _protectedQueue,
+      canShowQueues: _protectedQueue == null
+          ? null
+          : () => _protectedQueue!.visible,
       repository: widget.chat,
       models: widget.models,
       transport: widget.transport,
@@ -156,11 +183,32 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _send(String text) {
+  Future<void> _send(String text) async {
+    if (_queueSending) return;
     final typed = text.trim();
     final files = List.of(_attachments);
     if (typed.isEmpty && files.isEmpty) return;
-    if (!_chat.submit(typed, files)) return;
+    setState(() => _queueSending = true);
+    final target = _chat.selectedThread;
+    final profile = _chat.profile;
+    bool accepted;
+    try {
+      accepted = await _chat.submit(typed, files);
+    } on Object {
+      _showMessage('Could not send this prompt. Your draft was kept.');
+      return;
+    } finally {
+      if (mounted) setState(() => _queueSending = false);
+    }
+    if (!mounted) return;
+    if (!accepted ||
+        profile != _chat.profile ||
+        target != null && target != _chat.selectedThread ||
+        _composerController.text.trim() != typed ||
+        _attachments.length != files.length ||
+        !files.every(_attachments.contains)) {
+      return;
+    }
     setState(() {
       _composerController.clear();
       _attachments.clear();
@@ -175,6 +223,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
 
   @override
   void dispose() {
+    _protectedQueue?.dispose();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -227,6 +276,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
         },
         onRemoveAttachment: (file) => setState(() => _attachments.remove(file)),
         onSend: _send,
+        commandRunning: _queueSending,
         latestReply: _latestReply,
       );
     } else if (_opened) {

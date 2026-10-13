@@ -68,7 +68,7 @@ void main() {
   });
 
   test('an earlier pause listener cannot start a protected send', () {
-    late bool submitted;
+    late FutureOr<bool> submitted;
     activity.addListener(() {
       if (!activity.value) submitted = chat.submit('blocked', const []);
     });
@@ -1330,4 +1330,16 @@ void main() {
       expect(chat.loadingThreads, isFalse);
     },
   );
+  test('memory-only queue does not require durable recovery review', () async {
+    chat = create();
+    chat.newThread();
+    final local = chat.selectedThread!;
+    chat.submit('original', const []);
+    chat.submit('queued', const []);
+    activity.value = false;
+    activity.value = true;
+    await pumpEventQueue();
+    expect(chat.queueNeedsReview(local), false);
+    expect(chat.queuedIn(local).single.text, 'queued');
+  });
 }

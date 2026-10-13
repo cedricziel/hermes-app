@@ -65,6 +65,7 @@ class ChatThreadView extends StatelessWidget {
     required this.onSend,
     this.slashCommands = const [],
     this.commandRunning = false,
+    this.queueView,
     this.sendTarget,
     this.starterPrompts,
     required this.onPickStarter,
@@ -130,6 +131,7 @@ class ChatThreadView extends StatelessWidget {
   final ValueChanged<String> onSend;
   final List<SlashCommand> slashCommands;
   final bool commandRunning;
+  final Widget? queueView;
 
   /// The chat a send goes to; a send held back for a dictation is dropped
   /// when this changed meanwhile.
@@ -207,6 +209,7 @@ class ChatThreadView extends StatelessWidget {
             modelPill: modelPill,
             slashCommands: slashCommands,
             commandRunning: commandRunning,
+            queueView: queueView,
             sendTarget: sendTarget,
           ),
         );
