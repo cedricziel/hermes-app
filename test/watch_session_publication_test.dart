@@ -129,7 +129,11 @@ void main() {
               nativeRevision++;
               nativeUsable = usable;
             }
-            return {...call.arguments as Map, 'revision': nativeRevision, 'usable': usable};
+            return {
+              ...call.arguments as Map,
+              'revision': nativeRevision,
+              'usable': usable,
+            };
           });
       bridge.start();
       await pumpEventQueue();

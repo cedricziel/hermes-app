@@ -155,7 +155,7 @@ final class RelayClientTests: XCTestCase {
       ("something_new", .failed),
     ]
     for (code, expected) in cases {
-      transport.reply = .success(["ok": false, "error": code])
+      transport.reply = .success(["ok": false, "error": code, "contextId": "test-context", "revision": 1])
       do {
         _ = try await client.threads()
         XCTFail("expected \(code) to throw")

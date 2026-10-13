@@ -20,6 +20,7 @@ import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../watch/watch_bridge.dart';
+import '../watch/watch_context.dart';
 import '../watch/watch_request_handler.dart';
 import 'tapped_transport.dart';
 
@@ -354,8 +355,16 @@ class _Ask {
   }
 
   Future<void> _turn(HeadlessHermes hermes) async {
+    final target = _unbind(_request.chatId);
+    if (_request.chatId != null && target == null) {
+      _answer(const AskResult(AskOutcome.failed));
+      return;
+    }
+    // This scope belongs only to the authorized headless intent, never to a watch session.
+    const localScope = WatchContext('phone-intent-local', 0);
     final post = _poster();
     final handler = WatchRequestHandler(
+      context: () => localScope,
       repository: () => hermes.repositories.chat,
       transport: () {
         final inner = _owner.transportFor?.call(hermes) ?? hermes.transport();
@@ -379,7 +388,10 @@ class _Ask {
     );
     final reply = handler.handle({
       'op': 'send',
-      'threadId': _request.chatId,
+      ...localScope.fields,
+      'threadId': target == null
+          ? null
+          : WatchThreadId(localScope.id, target.$1, target.$2).encode(),
       'text': _request.question,
     });
     final settled = await Future.any<Map<String, Object?>?>([

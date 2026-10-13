@@ -149,6 +149,35 @@ void main() {
       expect(send.profile, 'work');
     });
 
+    test(
+      'continues an encoded profile and a thread containing slashes',
+      () async {
+        final run = ask(
+          'Continue',
+          profile: 'default',
+          chatId: 'work%2Fteam/abc/def',
+        );
+        final send = await sent();
+        send.emit(const ReplyCompleted('Done.'));
+
+        expect((await run.answer).outcome, AskOutcome.answered);
+        expect(send.profile, 'work/team');
+        expect(send.threadId, 'abc/def');
+        await run.finished;
+      },
+    );
+
+    test(
+      'does not start a new chat for a malformed continuation target',
+      () async {
+        final run = ask('Continue', chatId: 'missing-separator');
+
+        expect((await run.answer).outcome, AskOutcome.failed);
+        await run.finished;
+        expect(transport.sends, isEmpty);
+      },
+    );
+
     test('sends nothing for a blank question', () async {
       final run = ask('   ');
 
