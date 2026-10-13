@@ -53,6 +53,50 @@ void main() {
     },
   );
 
+  test(
+    'mutation telemetry excludes drafts, identity and backend errors',
+    () async {
+      final server = FakeHermesServer()
+        ..on('PUT', '/api/learning/node', {
+          'ok': false,
+          'message': 'private server reason',
+        });
+      final tracer = RecordingTracer();
+      final events = <String>[];
+      final repository = MemoryRepository(
+        server.client().raw,
+        telemetry: ConnectionTelemetry(
+          tracer: tracer,
+          events: (name, [attributes = const {}]) =>
+              events.add('$name $attributes'),
+        ),
+      );
+      await expectLater(
+        repository.mutate(memoryId, 'private-profile', content: fullMemory),
+        throwsA(isA<MemoryWriteFailure>()),
+      );
+      final exported = [
+        ...tracer.spans.map((span) => '${span.name} ${span.attributes}'),
+        ...events,
+      ].join(' ');
+      expect(exported, contains('memory.mutation_outcome'));
+      expect(exported, contains('failed'));
+      expect(exported, isNot(contains('private-profile')));
+      expect(exported, isNot(contains(memoryId)));
+      expect(exported, isNot(contains('private server reason')));
+      expect(exported, isNot(contains('https://example.invalid')));
+      expect(tracer.spans.single.ended, isTrue);
+      server.on('PUT', '/api/learning/node', {'ok': true});
+      await MemoryRepository(
+        server.client().raw,
+        telemetry: ConnectionTelemetry(
+          tracer: ThrowingTracer(),
+          events: (_, [attributes = const {}]) => throw StateError('telemetry'),
+        ),
+      ).mutate(memoryId, 'private-profile', content: fullMemory);
+    },
+  );
+
   test('throwing telemetry cannot fail a memory read', () async {
     final server = FakeHermesServer()
       ..on('GET', '/api/learning/graph', memoryGraph);

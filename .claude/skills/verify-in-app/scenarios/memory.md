@@ -34,3 +34,30 @@ Use `test/memory/memory_fixtures.dart` for response subsets and opaque IDs.
 
 Record screenshots and the outcomes actually observed. Report unsupported or
 unverified native behavior separately from unit and widget test results.
+
+## Verify memory changes after inspection lands
+
+Use only throwaway memories. Editing and deletion are deliberately absent from
+inspection; apply the dependent mutation change before these checks.
+
+1. Open a full-content detail and choose Edit. Save changed, non-blank content.
+   Check matching opaque ID and profile in the PUT body and profile query.
+   A confirmed response closes stale detail and refreshes the list. Select the
+   refreshed entry again; do not infer a replacement ID from its list position.
+2. Enter whitespace. Save must stay unavailable. Choose Delete, then Cancel;
+   no DELETE request is sent. Confirm deletion of a throwaway entry and check
+   permanent-removal copy, exact scoped identity, and refreshed list contents.
+3. Change the same entry in the backend before save or delete preflight. The
+   app must preserve the draft, report conflict, and send no mutation. Refresh
+   and another explicit selection are required before trying again.
+4. Reject a write, then drop a response after a fixture write completes.
+   Confirmed rejection preserves the draft. A lost response remains uncertain
+   and performs read-only reconciliation. Absence of the old ID does not prove
+   which actor changed it. No PUT or DELETE repeats automatically.
+5. Leave a dirty editor or switch its profile while a request is pending.
+   Check explicit discard confirmation and the warning that the original
+   request may still finish. Sign-out clears the draft, and a late result
+   cannot populate another account's view.
+6. Inspect `memory.mutate`, `memory.mutation_outcome`, `memory.edit.open`, and
+   `memory.delete.confirm`. Content, opaque IDs, labels, profiles, and backend
+   error strings must be absent. A telemetry failure must not break the action.

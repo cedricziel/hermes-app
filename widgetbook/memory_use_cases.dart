@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
+import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_screen.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -8,6 +9,16 @@ import 'frame.dart';
 WidgetbookNode memoryNode() => WidgetbookComponent(
   name: 'Memory',
   useCases: [
+    for (final state in [
+      'Dirty editor',
+      'Blank content',
+      'Conflict',
+      'Server rejection',
+      'Pending save',
+      'Uncertain save',
+      'Permanent deletion',
+    ])
+      ...onEachPlatform(state, (_) => _editor(state)),
     ...onEachPlatform('Loading', (_) => _view(loading: true)),
     ...onEachPlatform('Empty', (_) => _view()),
     ...onEachPlatform(
@@ -56,3 +67,48 @@ Widget _view({
     onBack: () {},
   ),
 );
+
+Widget _editor(String state) {
+  final controller = MemoryController()
+    ..detail = const MemoryDetail(
+      MemoryEntry('memory', 'Example memory'),
+      'Original full content',
+    )
+    ..editing = true
+    ..draft = state == 'Blank content' ? ' ' : 'Edited full content'
+    ..mutation = switch (state) {
+      'Conflict' => MemoryMutation.conflict,
+      'Server rejection' => MemoryMutation.failed,
+      'Pending save' => MemoryMutation.pending,
+      'Uncertain save' => MemoryMutation.uncertain,
+      _ => MemoryMutation.idle,
+    }
+    ..mutationMessage = switch (state) {
+      'Conflict' =>
+        'This memory changed. Discard and refresh before trying again.',
+      'Server rejection' => 'The server rejected the change.',
+      'Uncertain save' =>
+        'The change may have completed. Check current memories.',
+      _ => null,
+    };
+  if (state == 'Permanent deletion') {
+    return const Scaffold(
+      body: AlertDialog(
+        title: Text('Permanently delete this memory?'),
+        content: Text(
+          'This removes the selected memory permanently. It cannot be restored from the app.',
+        ),
+      ),
+    );
+  }
+  return Scaffold(
+    body: Padding(
+      padding: const EdgeInsets.all(20),
+      child: MemoryEditor(
+        controller: controller,
+        onDelete: () {},
+        onCancel: () {},
+      ),
+    ),
+  );
+}

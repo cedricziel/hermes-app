@@ -33,6 +33,12 @@ class MemoryDetail {
   final String content;
 }
 
+class MemoryWriteFailure implements Exception {
+  const MemoryWriteFailure(this.uncertain, this.message);
+  final bool uncertain;
+  final String message;
+}
+
 class MemoryRepository {
   MemoryRepository(this._api, {this.telemetry = const ConnectionTelemetry()});
   final DefaultApi _api;
@@ -81,6 +87,79 @@ class MemoryRepository {
           data['content'] as String,
         );
       });
+
+  Future<void> mutate(String id, String profile, {String? content}) async {
+    final operation = content == null ? 'delete' : 'save';
+    Span? span;
+    _quiet(
+      () => span = telemetry.tracer?.startSpan(
+        'memory.mutate',
+        attributes: {...telemetry.serverAttributes, 'operation': operation},
+      ),
+    );
+    var outcome = 'confirmed';
+    try {
+      final response = content == null
+          ? await _api.deleteLearningNodeApiLearningNodeDelete(
+              learningNodeRef: LearningNodeRef(id: id, profile: profile),
+              profile: profile,
+            )
+          : await _api.updateLearningNodeApiLearningNodePut(
+              learningNodeEdit: LearningNodeEdit(
+                id: id,
+                content: content,
+                profile: profile,
+              ),
+              profile: profile,
+            );
+      final data = response.data;
+      if (data is! Map ||
+          data['ok'] is! bool ||
+          (data['message'] != null && data['message'] is! String)) {
+        throw const MemoryWriteFailure(
+          true,
+          'The server response could not confirm the change.',
+        );
+      }
+      if (data['ok'] != true) {
+        throw MemoryWriteFailure(
+          false,
+          data['message'] as String? ?? 'The server rejected the change.',
+        );
+      }
+    } on Object catch (error) {
+      final MemoryWriteFailure failure;
+      if (error is MemoryWriteFailure) {
+        failure = error;
+      } else if (error is DioException &&
+          error.response != null &&
+          (error.response!.statusCode ?? 500) < 500) {
+        final body = error.response!.data;
+        failure = MemoryWriteFailure(
+          false,
+          body is Map && body['detail'] is String
+              ? body['detail'] as String
+              : 'The server rejected the change.',
+        );
+      } else {
+        failure = const MemoryWriteFailure(
+          true,
+          'The change may have completed. Check the current memories before continuing.',
+        );
+      }
+      outcome = failure.uncertain ? 'uncertain' : 'failed';
+      throw failure;
+    } finally {
+      _quiet(() {
+        span?.setAttribute('outcome', outcome);
+        telemetry.events('memory.mutation_outcome', {
+          'operation': operation,
+          'category': outcome,
+        });
+      });
+      _quiet(() => span?.end());
+    }
+  }
 
   Future<T> _read<T>(String operation, Future<T> Function() read) async {
     Span? span;
