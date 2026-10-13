@@ -8,6 +8,7 @@ struct ThreadSummary: Identifiable, Equatable, Codable {
   let pinned: Bool
   /// Nil when the phone could not name the server or the profile.
   var handoff: HandoffTarget?
+  var status: ThreadStatus? = nil
 }
 
 /// Where a chat lives, so the iPhone or Mac can continue it through Handoff.
