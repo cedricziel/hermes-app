@@ -391,6 +391,10 @@ class _QueuedGate {
         _ended = true;
         return const [ThreadNeedsRefetch()];
       case ApprovalRequested() ||
+          WarningScopeDiscarded() ||
+          ToolRiskFlagged() ||
+          NoticeShown() ||
+          NoticeCleared() ||
           ClarifyRequested() ||
           VaultRequested() ||
           UnsupportedRequested() ||
@@ -1524,8 +1528,13 @@ class HermesGatewayTransport
     final snapshot = _inflightText(resumed['inflight']);
 
     final epoch = client.epoch;
+    final discardWarnings =
+        previous != null &&
+        (since == null || truncated || epochChanged || runtimeId != previous);
     if (resumed['running'] != true) {
-      final ended = <_Incoming>[];
+      final ended = <_Incoming>[
+        if (discardWarnings) (const WarningScopeDiscarded(), false),
+      ];
       // What the session said after the completion: a turn Hermes chained.
       final next = <_Incoming>[];
       var completed = false;
@@ -1600,7 +1609,9 @@ class HermesGatewayTransport
       );
     }
 
-    final injected = <_Incoming>[];
+    final injected = <_Incoming>[
+      if (discardWarnings) (const WarningScopeDiscarded(), false),
+    ];
     var replayedCount = 0;
     final decision = since == null
         ? const Refetch()

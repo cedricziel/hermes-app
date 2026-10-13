@@ -121,6 +121,15 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
                         ),
                       ),
                       const SizedBox(width: 2),
+                      if (calls.any((call) => call.outputRisk != null))
+                        Tooltip(
+                          message: 'Tool output warning',
+                          child: AppIcon(
+                            AppIcons.warning,
+                            size: 16,
+                            color: scheme.error,
+                          ),
+                        ),
                       AppIcon(
                         open ? AppIcons.expandLess : AppIcons.chevronRight,
                         size: 16,

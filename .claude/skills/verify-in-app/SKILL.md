@@ -1151,3 +1151,9 @@ The native demo modes are `recovery_pending`, `recovery_uncertain`,
 `recovery_no_thread`, `recovery_not_sent`, `recovery_unsupported`,
 `recovery_capacity`, and `recovery_confirmation`. They complement SwiftUI previews;
 preview rendering and headless tests do not prove paired-device delivery.
+
+## Agent warning cards
+
+Run `flutter test --concurrency=1 test/gateway/warning_mapper_test.dart test/gateway/warning_transport_test.dart test/chat_warning_state_test.dart test/chat_warnings_test.dart test/agent_notice_card_test.dart test/tool_call_group_test.dart test/gateway/gateway_contract_test.dart` before native inspection. These tests cover owning-session delivery, reconnect replay, notices between turns, keyed replacement and withdrawal, TTL timers, collapsed tool-risk markers, and failure cleanup.
+
+In the isolated client, inspect a sticky notice and its expanded text, dismiss it, and verify that a keyed replacement does not retain an earlier expiry timer. A tool-risk finding must match both runtime session and tool ID, and redacted output must remain redacted. Observe ordinary reply settlement independently of notice display. Synthetic event injection is verification-only; never patch or drive a personal backend to produce these states.

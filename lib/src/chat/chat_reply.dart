@@ -74,7 +74,13 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         ),
       ];
       reply.reasoning = '';
-    case ToolStarted(:final id, :final name, :final summary, :final args):
+    case ToolStarted(
+      :final id,
+      :final name,
+      :final summary,
+      :final args,
+      :final runtimeId,
+    ):
       reply.activity = null;
       _closeCheckpoint(reply);
       _seal(reply, reply.content);
@@ -91,6 +97,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         reply.toolCalls = [...reply.toolCalls]
           ..[prepared] = call.copyWith(
             id: id,
+            runtimeId: runtimeId,
             summary: summary,
             args: args,
             reasoning: call.reasoning + reply.reasoning,
@@ -103,6 +110,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
           ...reply.toolCalls,
           ToolCall(
             id: id,
+            runtimeId: runtimeId,
             name: name,
             summary: summary,
             args: args,
@@ -221,6 +229,10 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReviewSummarized(:final items):
       reply.reviewNotes = {...reply.reviewNotes, ...items}.toList();
     case ReplyStarted() ||
+        WarningScopeDiscarded() ||
+        ToolRiskFlagged() ||
+        NoticeShown() ||
+        NoticeCleared() ||
         ThreadBound() ||
         ThreadTitled() ||
         PromptFolded() ||

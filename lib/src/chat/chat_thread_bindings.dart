@@ -90,6 +90,11 @@ ChatThreadView boundChatThreadView({
   final t = thread;
   return ChatThreadView(
     thread: t,
+    notices: t == null ? const [] : chat.noticesIn(t),
+    onDismissNotice: t == null
+        ? null
+        : (notice) => chat.dismissNotice(t, notice),
+    onNoticeDetails: chat.warningDetailsOpened,
     chatController: chat.controllerFor(t),
     composerController: composerController,
     composerFocus: composerFocus,

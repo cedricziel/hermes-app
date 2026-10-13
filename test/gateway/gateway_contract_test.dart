@@ -53,11 +53,14 @@ const notifications = <String, (Use, String)>{
     Use.shown,
     'what the background review saved, under the reply',
   ),
-  'tool.output_risk': (Use.gap, 'tool output flagged for injection or secrets'),
+  'tool.output_risk': (
+    Use.shown,
+    'tool output flagged for injection or secrets',
+  ),
   'todo.updated': (Use.gap, 'todo snapshot; the todo tool card covers most'),
-  'notice': (Use.gap, 'session notice line'),
-  'notification.show': (Use.gap, 'credit and slow-start warnings'),
-  'notification.clear': (Use.gap, 'withdraws a notification.show'),
+  'notice': (Use.shown, 'session notice line'),
+  'notification.show': (Use.shown, 'credit and slow-start warnings'),
+  'notification.clear': (Use.shown, 'withdraws a notification.show'),
   'session.usage': (Use.gap, 'token use during a turn'),
   'session.control.update': (Use.gap, 'goal, loop or heartbeat state changed'),
   'session.reclaimed': (Use.gap, 'the backend took the live session away'),
@@ -134,6 +137,20 @@ const refusedRequests = <String, String>{
 
 /// A payload the mapper shows, for frames it drops when the payload is empty.
 const samples = <String, Map<String, Object?>>{
+  'tool.output_risk': {
+    'tool_id': 'tool',
+    'name': 'terminal',
+    'risk': 'secret',
+    'findings': ['Redacted'],
+    'redacted': true,
+  },
+  'notice': {'message': 'Session notice'},
+  'notification.show': {
+    'text': 'Credit notice',
+    'level': 'warn',
+    'kind': 'sticky',
+  },
+  'notification.clear': {'key': 'credit'},
   'review.summary': {'text': 'Memory updated'},
   'status.update': {'kind': 'compacting', 'text': 'compacting'},
   'subagent.spawn_requested': {'subagent_id': 'c1', 'goal': 'g'},

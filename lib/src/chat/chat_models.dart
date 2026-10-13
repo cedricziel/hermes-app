@@ -8,6 +8,7 @@ import 'dart:typed_data';
 
 import '../models/model_provider_option.dart';
 import '../bot_mode/bot_chat_context.dart';
+import 'chat_warning_state.dart';
 
 enum ChatRole { user, assistant }
 
@@ -33,6 +34,9 @@ class ToolCall {
     this.preparing = false,
     this.startedAt,
     this.duration,
+    this.outputRisk,
+    this.runtimeId = '',
+    this.warningGeneration,
   });
 
   /// Hermes' id for the call, which its result answers. Empty when the
@@ -74,6 +78,9 @@ class ToolCall {
 
   /// How long the call ran, once it finished.
   final Duration? duration;
+  final ToolOutputRisk? outputRisk;
+  final String runtimeId;
+  final int? warningGeneration;
 
   ToolCall copyWith({
     String? id,
@@ -87,6 +94,9 @@ class ToolCall {
     bool? preparing,
     DateTime? startedAt,
     Duration? duration,
+    ToolOutputRisk? outputRisk,
+    String? runtimeId,
+    int? warningGeneration,
   }) => ToolCall(
     id: id ?? this.id,
     name: name,
@@ -100,6 +110,9 @@ class ToolCall {
     preparing: preparing ?? this.preparing,
     startedAt: startedAt ?? this.startedAt,
     duration: duration ?? this.duration,
+    outputRisk: outputRisk ?? this.outputRisk,
+    runtimeId: runtimeId ?? this.runtimeId,
+    warningGeneration: warningGeneration ?? this.warningGeneration,
   );
 
   ToolCall withStatus(ToolCallStatus status, {String? result}) =>

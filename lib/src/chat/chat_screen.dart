@@ -264,6 +264,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     }
     _chat = ChatController(
+      events: repositories?.telemetry.events ?? noopAppEventLogger,
       repository: widget.repository ?? repositories?.chat,
       profiles: _profiles,
       models: _models,

@@ -787,7 +787,12 @@ void main() {
       g.event('session.usage', sid, {
         'usage': {'input': 1},
       });
-      g.event('notification.show', sid, {'text': 'credits low'});
+      g.event('notification.show', sid, {
+        'text': 'credits low',
+        'level': 'warn',
+        'kind': 'sticky',
+      });
+      g.event('unknown.event', sid);
       g.event('message.delta', sid, {'text': 'mine'});
       g.event('message.complete', 'someone-else', {'text': 'not mine'});
       g.event('message.complete', sid, {'text': 'mine', 'status': 'complete'});
@@ -797,10 +802,12 @@ void main() {
 
     expect(events.map((e) => e.runtimeType), [
       ThreadBound,
+      NoticeShown,
       ReplyDelta,
       ReplyCompleted,
     ]);
-    expect((events[1] as ReplyDelta).text, 'mine');
+    expect((events[1] as NoticeShown).notice.text, 'credits low');
+    expect((events[2] as ReplyDelta).text, 'mine');
   });
 
   test('session state and thinking notices reach the reply', () async {
@@ -2798,6 +2805,7 @@ void main() {
           ReplyStarted,
           ReplyDelta,
           // No seq to replay from, so the gap is read from the thread.
+          WarningScopeDiscarded,
           ThreadNeedsRefetch,
           ReplyDelta,
           ReplyCompleted,
@@ -2836,6 +2844,7 @@ void main() {
       expect((await follow).map((e) => e.runtimeType), [
         ReplyStarted,
         ReplyDelta,
+        WarningScopeDiscarded,
         ThreadNeedsRefetch,
         ReplyCompleted,
       ]);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/chat_warning_state.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
@@ -26,6 +27,21 @@ Future<void> _pump(
 );
 
 void main() {
+  testWidgets('collapsed groups expose tool-output warnings', (tester) async {
+    await _pump(tester, const [
+      ToolCall(
+        name: 'terminal',
+        summary: '',
+        outputRisk: ToolOutputRisk(
+          risk: 'secret',
+          findings: [],
+          redacted: true,
+        ),
+      ),
+      ToolCall(name: 'read_file', summary: ''),
+    ]);
+    expect(find.byTooltip('Tool output warning'), findsOneWidget);
+  });
   testWidgets('a single call renders as a bare ToolCallCard', (tester) async {
     await _pump(tester, const [ToolCall(name: 'terminal', summary: 'ls')]);
 

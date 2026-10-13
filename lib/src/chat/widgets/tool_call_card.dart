@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:provider/provider.dart';
+
+import '../../telemetry/breadcrumbs.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
 
@@ -56,6 +60,13 @@ class ToolCallCard extends StatelessWidget {
             child: ApprovalCard(request: approval, onAnswer: onAnswerApproval),
           );
     final details = [
+      if (call.outputRisk case final risk?)
+        _Section(
+          label: 'Output risk',
+          text: risk.findings.isEmpty
+              ? 'No further details'
+              : risk.findings.join('\n'),
+        ),
       ...switch (toolCallBody(call)) {
         final Widget body => [body],
         null => _genericSections(call),
@@ -81,6 +92,17 @@ class ToolCallCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DisclosureTile(
+            onExpansionChanged: (open) {
+              if (!open || call.outputRisk == null) return;
+              try {
+                context.read<Breadcrumbs>()('chat.visibility_action', {
+                  'feature': 'warnings',
+                  'action': 'details',
+                });
+              } on ProviderNotFoundException {
+                return;
+              }
+            },
             enabled: expandable,
             initiallyExpanded: initiallyOpen && expandable,
             dense: true,
@@ -134,6 +156,14 @@ class ToolCallCard extends StatelessWidget {
             children: details,
           ),
           if (approvalCard != null && _waiting) approvalCard,
+          if (call.outputRisk case final risk?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+              child: Text(
+                'Output risk: ${risk.risk}${risk.redacted ? ' · Redacted' : ''}',
+                style: TextStyle(fontSize: 12, color: scheme.error),
+              ),
+            ),
         ],
       ),
     );
