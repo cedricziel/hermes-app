@@ -40,7 +40,13 @@ class MemoryController extends ChangeNotifier {
   }
 
   void beginEdit() {
-    if (detail == null || mutation != MemoryMutation.idle) return;
+    if (detail == null ||
+        (mutation != MemoryMutation.idle &&
+            mutation != MemoryMutation.failed)) {
+      return;
+    }
+    mutation = MemoryMutation.idle;
+    mutationMessage = null;
     editing = true;
     draft = detail!.content;
     breadcrumbs('memory.edit.open');

@@ -122,6 +122,27 @@ void main() {
     },
   );
 
+  test(
+    'edit recovers after a rejected delete while the editor is closed',
+    () async {
+      final server = FakeHermesServer();
+      final controller = await opened(server);
+      controller.discardEdit();
+      server.on('DELETE', '/api/learning/node', {
+        'detail': 'Deletion rejected',
+      }, status: 400);
+      await controller.mutate(delete: true);
+      expect(controller.mutation, MemoryMutation.failed);
+      expect(controller.editing, false);
+      controller.beginEdit();
+      expect(controller.editing, true);
+      expect(controller.draft, fullMemory);
+      expect(controller.mutation, MemoryMutation.idle);
+      expect(controller.mutationMessage, isNull);
+      expect(server.requestsTo('DELETE', '/api/learning/node'), hasLength(1));
+    },
+  );
+
   test('conflict preserves draft without issuing writes', () async {
     final server = FakeHermesServer();
     final controller = await opened(server);
