@@ -6,6 +6,14 @@ struct HermesWatchApp: App {
   private let client: HermesClient = Self.makeClient()
 
   init() {
+    WatchSessionState.shared.receive(WCSession.default.receivedApplicationContext)
+    FileChatCache.standard.retryCleanup()
+    _ = WatchSessionState.shared.register {
+      FileChatCache.standard.clear()
+
+      LaunchRequests.shared.pending = nil
+      ComplicationUpdates.receive(["v": 1, "state": "none"])
+    }
     #if DEBUG
       DemoClient.seedComplication()
     #endif
@@ -40,7 +48,8 @@ struct HermesWatchApp: App {
       inner: RelayClient(
         transport: ReportingTransport(inner: WCSessionTransport(), reports: DeliveryReports(defaults: .standard))
       ),
-      cache: FileChatCache.standard
+      cache: FileChatCache.standard,
+      session: .shared
     )
   }
 }

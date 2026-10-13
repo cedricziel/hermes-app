@@ -24,6 +24,9 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
       logger.error("Request unavailable activation=\(self.session.activationState.rawValue) reachable=\(self.session.isReachable)")
       throw error
     }
+    await MainActor.run { WatchSessionState.shared.receive(session.receivedApplicationContext) }
+    var message = message
+    message["sessionRevision"] = await MainActor.run { WatchSessionState.shared.revision }
     return try await withCheckedThrowingContinuation { continuation in
       session.sendMessage(
         message,
@@ -32,7 +35,10 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
           let result = reply["ok"] as? Bool == true ? "ok"
             : (["signed_out", "unavailable", "bad_request", "failed"].contains(error) ? error : "failed")
           self.logger.notice("Request completed operation=\(operation, privacy: .public) result=\(result, privacy: .public)")
-          continuation.resume(returning: reply)
+          Task { @MainActor in
+            WatchSessionState.shared.receive(reply)
+            continuation.resume(returning: reply)
+          }
         },
         errorHandler: { error in
           self.logger.error("Delivery failed operation=\(operation, privacy: .public) code=\((error as NSError).code)")
@@ -72,11 +78,18 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
   // What the phone pushes for the complications. The system starts the app in
   // the background to deliver it.
   func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
-    ComplicationUpdates.receive(userInfo)
+    receive(userInfo)
   }
 
   func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-    ComplicationUpdates.receive(applicationContext)
+    receive(applicationContext)
+  }
+
+  private func receive(_ payload: [String: Any]) {
+    Task { @MainActor in
+      WatchSessionState.shared.receive(payload)
+      if WatchSessionState.shared.usable { ComplicationUpdates.receive(payload) }
+    }
   }
 
   func sessionReachabilityDidChange(_ session: WCSession) {

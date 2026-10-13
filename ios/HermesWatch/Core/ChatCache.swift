@@ -1,4 +1,6 @@
 import Foundation
+import Observation
+import OSLog
 
 /// What the watch saw last: the chat list and each listed chat's messages,
 /// shown at once on the next launch and kept on screen when the phone cannot
@@ -14,13 +16,24 @@ protocol ChatCache {
 
 /// A [HermesClient] that keeps in [cache] what [inner] answers, offers it
 /// back as what was saved, and forgets it all once the phone signed out.
+@MainActor
 struct CachingClient: HermesClient {
   let inner: HermesClient
   let cache: ChatCache
+  var session: WatchSessionState = WatchSessionState()
+  var sessionState: WatchSessionState? { session }
 
-  func savedThreads() -> [ThreadSummary]? { cache.threads() }
+  init(inner: HermesClient, cache: ChatCache, session: WatchSessionState? = nil) {
+    self.inner = inner
+    self.cache = cache
+    let session = session ?? WatchSessionState()
+    self.session = session
+    _ = session.register { cache.clear() }
+  }
 
-  func savedMessages(threadId: String) -> [ChatMessage]? { cache.messages(threadId: threadId) }
+  func savedThreads() -> [ThreadSummary]? { session.usable ? cache.threads() : nil }
+
+  func savedMessages(threadId: String) -> [ChatMessage]? { session.usable ? cache.messages(threadId: threadId) : nil }
 
   func threads() async throws -> [ThreadSummary] {
     let threads = try await forgettingOnSignOut { try await inner.threads() }
@@ -54,10 +67,14 @@ struct CachingClient: HermesClient {
   }
 
   private func forgettingOnSignOut<T>(_ call: () async throws -> T) async throws -> T {
+    let generation = session.generation
     do {
-      return try await call()
+      let result = try await call()
+      if !session.usable { throw HermesClientError.signedOut }
+      guard generation == session.generation else { throw HermesClientError.signedOut }
+      return result
     } catch HermesClientError.signedOut {
-      cache.clear()
+      if generation == session.generation { session.invalidate(); cache.clear() }
       throw HermesClientError.signedOut
     }
   }
@@ -68,6 +85,33 @@ struct CachingClient: HermesClient {
 /// small as what the phone sends.
 struct FileChatCache: ChatCache {
   let directory: URL
+  var remove: (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }
+  var persistTombstone: (URL) throws -> Void = { file in
+    try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+    #if os(watchOS)
+      try Data().write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    #else
+      try Data().write(to: file, options: .atomic)
+    #endif
+  }
+  var diagnostics: (Bool) throws -> Void = { success in
+    Logger(subsystem: "app.hermes.watch", category: "privacy").notice("Cache cleanup success=\(success, privacy: .public)")
+  }
+  var cleanupPending: Bool { CacheCleanupBarrier.contains(directory) || FileManager.default.fileExists(atPath: tombstone.path) }
+  private var tombstone: URL { directory.appendingPathExtension("cleanup-pending") }
+
+  func retryCleanup() {
+    guard cleanupPending else { return }
+    do {
+      if FileManager.default.fileExists(atPath: directory.path) { try remove(directory) }
+      if FileManager.default.fileExists(atPath: tombstone.path) { try FileManager.default.removeItem(at: tombstone) }
+      CacheCleanupBarrier.remove(directory)
+      try? diagnostics(true)
+    } catch {
+      CacheCleanupBarrier.insert(directory)
+      try? diagnostics(false)
+    }
+  }
 
   /// In the app's Caches directory, which watchOS may empty when it needs
   /// the space.
@@ -101,7 +145,13 @@ struct FileChatCache: ChatCache {
   }
 
   func clear() {
-    try? FileManager.default.removeItem(at: directory)
+    CacheCleanupBarrier.insert(directory)
+    do {
+      try persistTombstone(tombstone)
+    } catch {
+      try? diagnostics(false)
+    }
+    retryCleanup()
   }
 
   /// Thread ids hold a slash, so the file is named by their base64url form.
@@ -113,12 +163,14 @@ struct FileChatCache: ChatCache {
   }
 
   private func read<T: Decodable>(_ type: T.Type, from file: URL) -> T? {
-    guard let data = try? Data(contentsOf: file) else { return nil }
+    retryCleanup()
+    guard !cleanupPending, let data = try? Data(contentsOf: file) else { return nil }
     return try? JSONDecoder().decode(type, from: data)
   }
 
   private func write<T: Encodable>(_ value: T, to file: URL) {
-    guard let data = try? JSONEncoder().encode(value) else { return }
+    retryCleanup()
+    guard !cleanupPending, let data = try? JSONEncoder().encode(value) else { return }
     try? FileManager.default.createDirectory(
       at: file.deletingLastPathComponent(),
       withIntermediateDirectories: true
@@ -128,5 +180,83 @@ struct FileChatCache: ChatCache {
     #else
       try? data.write(to: file, options: .atomic)
     #endif
+  }
+}
+
+private enum CacheCleanupBarrier {
+  private static let lock = NSLock()
+  private static var blocked = Set<String>()
+
+  static func contains(_ directory: URL) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return blocked.contains(directory.standardizedFileURL.path)
+  }
+
+  static func insert(_ directory: URL) {
+    lock.lock()
+    defer { lock.unlock() }
+    blocked.insert(directory.standardizedFileURL.path)
+  }
+
+  static func remove(_ directory: URL) {
+    lock.lock()
+    defer { lock.unlock() }
+    blocked.remove(directory.standardizedFileURL.path)
+  }
+}
+
+@MainActor
+@Observable
+final class WatchSessionState {
+  static let shared = WatchSessionState(defaults: .standard)
+  private let defaults: UserDefaults
+  private(set) var revision: Int
+  private(set) var generation = 0
+  private(set) var usable: Bool
+  private var cleanup: [UUID: () -> Void] = [:]
+  private let diagnostics: (String, Bool, Int) throws -> Void
+
+  convenience init() { self.init(defaults: UserDefaults(suiteName: UUID().uuidString)!) }
+
+  init(defaults: UserDefaults, diagnostics: @escaping (String, Bool, Int) throws -> Void = { reason, success, count in
+    Logger(subsystem: "app.hermes.watch", category: "privacy").notice("Session cleanup reason=\(reason, privacy: .public) success=\(success, privacy: .public) count=\(count, privacy: .public)")
+  }) {
+    self.defaults = defaults
+    self.diagnostics = diagnostics
+    revision = defaults.integer(forKey: "watch.session.revision")
+    usable = !defaults.bool(forKey: "watch.session.signedOut")
+  }
+
+  func register(_ action: @escaping () -> Void) -> UUID {
+    let id = UUID()
+    cleanup[id] = action
+    if !usable { action() }
+    return id
+  }
+
+  func unregister(_ id: UUID) { cleanup.removeValue(forKey: id) }
+
+  func receive(_ payload: [String: Any]) {
+    guard let state = payload["watchSession"] as? [String: Any],
+      let next = state["revision"] as? Int, let usable = state["usable"] as? Bool,
+      next > revision else { return }
+    let replacesUsableSession = self.usable && revision > 0
+    revision = next
+    defaults.set(next, forKey: "watch.session.revision")
+    if !usable { invalidate() }
+    else {
+      if replacesUsableSession { invalidate() }
+      self.usable = true
+      defaults.set(false, forKey: "watch.session.signedOut")
+    }
+  }
+
+  func invalidate() {
+    generation += 1
+    usable = false
+    defaults.set(true, forKey: "watch.session.signedOut")
+    for action in cleanup.values { action() }
+    try? diagnostics("signed_out", true, cleanup.count)
   }
 }

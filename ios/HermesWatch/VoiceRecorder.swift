@@ -26,10 +26,19 @@ final class VoiceRecorder: NSObject, AVAudioRecorderDelegate {
   /// Bumped by every start and cancel, so a start still waiting for the
   /// microphone permission gives up once it is stale.
   private var attempt = 0
-  private let url = FileManager.default.temporaryDirectory.appendingPathComponent("voice.m4a")
+  private let url = FileChatCache.standard.directory.appendingPathComponent("voice.m4a")
+
+  private var cleanupId: UUID?
+
+  override init() {
+    super.init()
+    cleanupId = WatchSessionState.shared.register { [weak self] in self?.cancel() }
+  }
 
   func start() async {
-    guard recorder == nil else { return }
+    FileChatCache.standard.retryCleanup()
+    guard WatchSessionState.shared.usable, !FileChatCache.standard.cleanupPending, recorder == nil else { return }
+    try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     attempt += 1
     let current = attempt
     let allowed = await AVAudioApplication.requestRecordPermission()
@@ -51,6 +60,7 @@ final class VoiceRecorder: NSObject, AVAudioRecorderDelegate {
           AVEncoderBitRateKey: 12_000,
         ]
       )
+      try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: url.path)
       recorder.delegate = self
       guard recorder.record(forDuration: Self.maxDuration) else { throw CocoaError(.fileWriteUnknown) }
       self.recorder = recorder
@@ -87,6 +97,7 @@ final class VoiceRecorder: NSObject, AVAudioRecorderDelegate {
 
   func cancel() {
     _ = stop()
+    try? FileManager.default.removeItem(at: url)
   }
 
   nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {

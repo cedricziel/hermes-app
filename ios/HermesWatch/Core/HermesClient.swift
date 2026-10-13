@@ -17,7 +17,9 @@ enum HermesClientError: Error, Equatable {
 /// What the watch UI needs from Hermes. It has one implementation that relays
 /// through the phone; a later one can talk to the dashboard directly without
 /// the UI changing.
+@MainActor
 protocol HermesClient {
+  var sessionState: WatchSessionState? { get }
   func threads() async throws -> [ThreadSummary]
   func messages(threadId: String) async throws -> [ChatMessage]
   /// [sendId] names this message: a retry of a send whose outcome the watch
@@ -34,6 +36,7 @@ protocol HermesClient {
 }
 
 extension HermesClient {
+  var sessionState: WatchSessionState? { nil }
   func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
     try await send(threadId: threadId, text: text, sendId: sendId, retry: false)
   }
