@@ -155,6 +155,8 @@ final class RelayClientTests: XCTestCase {
       ("something_new", .failed),
     ]
     for (code, expected) in cases {
+      let transport = FakeTransport()
+      let client = RelayClient(transport: transport)
       transport.reply = .success(["ok": false, "error": code, "contextId": "test-context", "revision": 1])
       do {
         _ = try await client.threads()
