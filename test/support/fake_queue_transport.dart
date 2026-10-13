@@ -21,9 +21,16 @@ class FakeQueueTransport extends FakeChatTransport
     ModelChoice? model,
     required Future<void> Function() beforeSubmit,
     Future<void> Function()? onNotSubmitted,
+    bool Function()? queueDispatchAllowed,
   }) async* {
     try {
+      if (queueDispatchAllowed?.call() == false) {
+        throw QueueSubmissionNotStarted(StateError('Queue unavailable'));
+      }
       await beforeSubmit();
+      if (queueDispatchAllowed?.call() == false) {
+        throw QueueSubmissionNotStarted(StateError('Queue unavailable'));
+      }
     } on Object catch (error) {
       await onNotSubmitted?.call();
       throw QueueSubmissionNotStarted(error);

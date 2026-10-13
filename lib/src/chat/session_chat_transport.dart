@@ -343,6 +343,7 @@ final class SessionChatTransport
     ModelChoice? model,
     required Future<void> Function() beforeSubmit,
     Future<void> Function()? onNotSubmitted,
+    bool Function()? queueDispatchAllowed,
   }) => _stream((delegate) {
     if (profile == null || profile.trim().isEmpty) {
       throw QueueSubmissionNotStarted(StateError('Queued profile unresolved'));
@@ -361,6 +362,8 @@ final class SessionChatTransport
       attachments: attachments,
       model: model,
       onNotSubmitted: onNotSubmitted,
+      queueDispatchAllowed: () =>
+          _current(epoch) && (queueDispatchAllowed?.call() ?? true),
       beforeSubmit: () async {
         try {
           _check(epoch);

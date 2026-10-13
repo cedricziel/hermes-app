@@ -3,6 +3,12 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_otel/flutter_otel.dart';
+
+import '../auth/auth_controller.dart';
+import '../chat/gateway_connection_transport.dart';
+import '../chat/invalidation/change_invalidation_binding.dart';
+import '../chat/invalidation/change_signal.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_cron_repository.dart';
@@ -27,9 +33,56 @@ class SchedulesController extends ChangeNotifier {
     this.prefs,
     this.refreshEvery = const Duration(minutes: 1),
     this.activity,
+    GatewayConnectionTransport? changeSource,
+    AuthController? auth,
+    AppEventLogger events = noopAppEventLogger,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     activity?.addListener(_activityChanged);
+    if (changeSource != null && auth != null) {
+      final changes = _changes = ChangeInvalidationBinding(
+        source: changeSource,
+        auth: auth,
+        resource: InvalidationResource.schedules,
+        profile: () => invalidationProfile,
+        events: events,
+      );
+      var requestedGeneration = _generation;
+      String? requestedProfile;
+      changes.controller
+          .register<({int generation, String profile, List<CronJob> jobs})>(
+            InvalidationResource.schedules,
+            readSnapshot: (scope) async {
+              final generation = requestedGeneration = _generation;
+              final profile = requestedProfile = scope.profile!;
+              final jobs = await repository.listJobs(profile: profile);
+              return (generation: generation, profile: profile, jobs: jobs);
+            },
+            snapshotIsCurrent: (snapshot) =>
+                _canWork &&
+                snapshot.generation == _generation &&
+                snapshot.profile == invalidationProfile &&
+                !invalidationBlocked,
+            applySnapshot: (snapshot) => applyInvalidatedJobs(
+              snapshot.jobs,
+              profile: snapshot.profile,
+              generation: snapshot.generation,
+            ),
+            onFailure: (error) {
+              final profile = requestedProfile;
+              if (profile != null) {
+                invalidationFailed(
+                  error,
+                  profile: profile,
+                  generation: requestedGeneration,
+                );
+              }
+            },
+          );
+      changes.controller.addListener(_invalidationStateChanged);
+      addListener(_syncInvalidation);
+      _syncInvalidation();
+    }
   }
 
   /// Whether protected page work may run; omission allows activity.
@@ -62,9 +115,13 @@ class SchedulesController extends ChangeNotifier {
   int _generation = 0;
   bool _active = false;
   bool _foreground = true;
+  bool _invalidationVisible = true;
   Timer? _timer;
   bool _disposed = false;
   bool _started = false;
+  bool _refreshing = false;
+  int _mutations = 0;
+  ChangeInvalidationBinding? _changes;
   int _activityEpoch = 0;
 
   bool get _canWork => !_disposed && (activity?.value ?? true);
@@ -91,6 +148,8 @@ class SchedulesController extends ChangeNotifier {
     final epoch = ++_activityEpoch;
     _generation++;
     _loading = false;
+    _refreshing = false;
+    _mutations = 0;
     _pending.clear();
     _openRequest = null;
     _restored = null;
@@ -106,12 +165,77 @@ class SchedulesController extends ChangeNotifier {
     }
   }
 
+  int get invalidationGeneration => _generation;
+  String? get invalidationProfile =>
+      _allProfiles ? 'all' : (_activeKnown ? _activeProfile : null);
+  bool get invalidationActive =>
+      _active && _foreground && _invalidationVisible && _canWork;
+  set invalidationVisible(bool value) {
+    if (_invalidationVisible == value) return;
+    _invalidationVisible = value;
+    _syncInvalidation();
+  }
+
+  bool get invalidationBlocked =>
+      _refreshing || _pending.isNotEmpty || _mutations > 0;
+  void _syncInvalidation() =>
+      _changes?.sync(active: invalidationActive, blocked: invalidationBlocked);
+  void _invalidationStateChanged() => notifyListeners();
+
+  Future<T> _mutating<T>(Future<T> Function() body) async {
+    final epoch = captureActivity();
+    _mutations++;
+    _syncInvalidation();
+    try {
+      return await body();
+    } finally {
+      if (epoch == _activityEpoch) {
+        _mutations--;
+        _syncInvalidation();
+      }
+    }
+  }
+
+  bool applyInvalidatedJobs(
+    List<CronJob> jobs, {
+    required String profile,
+    required int generation,
+  }) {
+    if (!_canWork ||
+        generation != _generation ||
+        profile != invalidationProfile ||
+        invalidationBlocked) {
+      return false;
+    }
+    _jobs = [for (final job in jobs) _withPending(job)];
+    _loaded = true;
+    _error = null;
+    notifyListeners();
+    return true;
+  }
+
+  void invalidationFailed(
+    Object error, {
+    required String profile,
+    required int generation,
+  }) {
+    if (!_canWork ||
+        generation != _generation ||
+        profile != invalidationProfile) {
+      return;
+    }
+    _error = _describe(error);
+    notifyListeners();
+  }
+
   /// Jobs the user changed and whose answer is still awaited, so a refresh
   /// landing meanwhile does not undo the switch.
   final _pending = <String, CronJobState>{};
 
   DateTime get now => _now();
-  bool get loading => _loading;
+  bool get loading =>
+      _loading ||
+      (_changes?.controller.loading(InvalidationResource.schedules) ?? false);
   bool get loaded => _loaded;
   String? get error => _error;
   ScheduleFilter get filter => _filter;
@@ -220,10 +344,9 @@ class SchedulesController extends ChangeNotifier {
     _started = true;
     final epoch = _activityEpoch;
     final generation = ++_generation;
-    if (!_loaded) {
-      _loading = true;
-      notifyListeners();
-    }
+    _refreshing = true;
+    if (!_loaded) _loading = true;
+    notifyListeners();
     if (!_currentActivity(epoch)) return;
     try {
       final scope = await _scope(epoch);
@@ -239,6 +362,10 @@ class SchedulesController extends ChangeNotifier {
       if (!_currentActivity(epoch) || generation != _generation) return;
       _loading = false;
       _error = _describe(e);
+    } finally {
+      if (_currentActivity(epoch) && generation == _generation) {
+        _refreshing = false;
+      }
     }
     notifyListeners();
   }
@@ -258,7 +385,7 @@ class SchedulesController extends ChangeNotifier {
   /// Pauses or resumes [job]. The switch moves at once; the returned message
   /// is set when the server refused and it moved back.
   /// Rejects with [StateError] when activity is suspended or retired.
-  Future<String?> setPaused(CronJob job, bool paused) async {
+  Future<String?> setPaused(CronJob job, bool paused) => _mutating(() async {
     final epoch = _activityEpoch;
     _requireCurrent(epoch);
     final state = paused ? CronJobState.paused : CronJobState.scheduled;
@@ -292,11 +419,11 @@ class SchedulesController extends ChangeNotifier {
           ? 'Could not pause “${job.title}”'
           : 'Could not resume “${job.title}”';
     }
-  }
+  });
 
   /// Asks for one run of [job]. The run is not awaited. Null on success.
   /// Rejects with [StateError] when activity is suspended or retired.
-  Future<String?> runNow(CronJob job) async {
+  Future<String?> runNow(CronJob job) => _mutating(() async {
     final epoch = _activityEpoch;
     _requireCurrent(epoch);
     try {
@@ -312,11 +439,11 @@ class SchedulesController extends ChangeNotifier {
       }
       return 'Could not start “${job.title}”';
     }
-  }
+  });
 
   /// Deletes [job]. A job the server no longer has counts as deleted.
   /// Rejects with [StateError] when activity is suspended or retired.
-  Future<String?> delete(CronJob job) async {
+  Future<String?> delete(CronJob job) => _mutating(() async {
     final epoch = _activityEpoch;
     _requireCurrent(epoch);
     try {
@@ -331,7 +458,7 @@ class SchedulesController extends ChangeNotifier {
     _remove(job);
     _requireCurrent(epoch);
     return null;
-  }
+  });
 
   /// Reads [job] again. A job that is gone is dropped and null is returned.
   /// Rejects with [StateError] when activity is suspended or retired.
@@ -501,6 +628,9 @@ class SchedulesController extends ChangeNotifier {
 
   @override
   void dispose() {
+    removeListener(_syncInvalidation);
+    _changes?.controller.removeListener(_invalidationStateChanged);
+    _changes?.dispose();
     _disposed = true;
     _activityEpoch++;
     activity?.removeListener(_activityChanged);

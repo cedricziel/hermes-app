@@ -5,6 +5,13 @@ import '../widgets/adaptive_back_button.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../auth/auth_controller.dart';
+import '../chat/gateway_connection_transport.dart';
+import '../chat/invalidation/change_invalidation_binding.dart';
+import '../chat/invalidation/change_signal.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/content_column.dart';
@@ -26,11 +33,13 @@ class TelegramPairingScreen extends StatefulWidget {
   const TelegramPairingScreen({
     super.key,
     required this.repository,
+    this.changeSource,
     this.pollInterval = const Duration(seconds: 3),
     this.launchLink = _defaultLaunchLink,
   });
 
   final HermesMessagingRepository repository;
+  final GatewayConnectionTransport? changeSource;
   final Duration pollInterval;
   final LinkLauncher launchLink;
 
@@ -48,16 +57,61 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
   TelegramPairingStatus? _claim;
   Timer? _poll;
   bool _saving = false;
+  bool _checking = false;
+  int _generation = 0;
+  ChangeInvalidationBinding? _changes;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    AuthController? auth;
+    try {
+      auth = context.read<AuthController>();
+    } on ProviderNotFoundException {
+      /* Injected standalone screens need no auth provider. */
+    }
+    final source = widget.changeSource;
+    if (source != null && auth != null) {
+      final changes = _changes = ChangeInvalidationBinding(
+        source: source,
+        auth: auth,
+        resource: InvalidationResource.pairing,
+        profile: () => widget.repository.profile,
+      );
+      changes.controller.register<
+        ({
+          int generation,
+          TelegramPairing pairing,
+          TelegramPairingStatus status,
+        })
+      >(
+        InvalidationResource.pairing,
+        readSnapshot: (_) async {
+          final pairing = _pairing!;
+          final generation = _generation;
+          final status = await widget.repository.telegramPairingStatus(
+            pairing.id,
+          );
+          return (generation: generation, pairing: pairing, status: status);
+        },
+        snapshotIsCurrent: (snapshot) =>
+            mounted &&
+            _phase == _Phase.waiting &&
+            snapshot.generation == _generation &&
+            identical(snapshot.pairing, _pairing),
+        applySnapshot: (snapshot) => _applyStatus(snapshot.status),
+        onFailure: _fail,
+      );
+      changes.controller.addListener(_invalidationsChanged);
+    }
     _start();
   }
 
   @override
   void dispose() {
+    _changes?.controller.removeListener(_invalidationsChanged);
+    _changes?.dispose();
     _poll?.cancel();
     _cancelPairing();
     _users.dispose();
@@ -79,14 +133,21 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
   }
 
   Future<void> _start() async {
+    final generation = ++_generation;
+    final owner = _changes?.ownerPeriod;
+    _poll?.cancel();
+    _poll = null;
     _cancelPairing();
     setState(() {
       _phase = _Phase.starting;
       _error = null;
     });
+    _syncChanges();
     try {
       final pairing = await widget.repository.startTelegramPairing();
-      if (!mounted) {
+      if (!mounted ||
+          generation != _generation ||
+          (owner != null && !_changes!.ownsPeriod(owner))) {
         _discard(pairing);
         return;
       }
@@ -94,42 +155,109 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
         _pairing = pairing;
         _phase = _Phase.waiting;
       });
+      _syncChanges();
       _scheduleNextPoll();
     } on Object catch (e) {
-      _fail(e);
+      if (generation == _generation &&
+          (owner == null || _changes!.ownsPeriod(owner))) {
+        _fail(e);
+      }
     }
   }
 
+  void _syncChanges() => _changes?.sync(
+    active:
+        _pairing != null &&
+        _pairing!.id.trim().isNotEmpty &&
+        _phase == _Phase.waiting,
+    blocked: _saving || _checking,
+  );
+
+  void _invalidationsChanged() {
+    if (!mounted) return;
+    if (_changes!.foreground && _changes!.ownsPeriod(_changes!.ownerPeriod)) {
+      if (_pairing != null &&
+          _phase == _Phase.waiting &&
+          _poll == null &&
+          !_checking) {
+        _scheduleNextPoll();
+      }
+    } else {
+      _poll?.cancel();
+      _poll = null;
+    }
+  }
+
+  void _applyStatus(TelegramPairingStatus status) {
+    if (!mounted || _phase != _Phase.waiting || !status.ready) return;
+    _poll?.cancel();
+    _poll = null;
+    if (_users.text.isEmpty) _users.text = status.ownerUserId ?? '';
+    setState(() {
+      _claim = status;
+      _phase = _Phase.claimed;
+    });
+    _syncChanges();
+  }
+
   void _scheduleNextPoll() {
+    if (_pairing == null ||
+        _phase != _Phase.waiting ||
+        (_changes != null &&
+            (!_changes!.foreground ||
+                !_changes!.ownsPeriod(_changes!.ownerPeriod)))) {
+      return;
+    }
+    _poll?.cancel();
     _poll = Timer(widget.pollInterval, _pollOnce);
   }
 
   Future<void> _pollOnce() async {
-    final pairing = _pairing;
-    if (pairing == null) return;
+    _poll = null;
+    final pairing = _pairing,
+        generation = _generation,
+        owner = _changes?.ownerPeriod;
+    if (pairing == null ||
+        _phase != _Phase.waiting ||
+        (_changes != null &&
+            (!_changes!.foreground || !_changes!.ownsPeriod(owner!)))) {
+      return;
+    }
+    _checking = true;
+    _syncChanges();
     try {
       final status = await widget.repository.telegramPairingStatus(pairing.id);
-      if (!mounted) return;
-      if (!status.ready) {
-        _scheduleNextPoll();
+      if (!mounted ||
+          generation != _generation ||
+          !identical(pairing, _pairing) ||
+          (owner != null && !_changes!.ownsPeriod(owner))) {
         return;
       }
-      _users.text = status.ownerUserId ?? '';
-      setState(() {
-        _claim = status;
-        _phase = _Phase.claimed;
-      });
+      _applyStatus(status);
     } on Object catch (e) {
-      _fail(e);
+      if (mounted &&
+          generation == _generation &&
+          (owner == null || _changes!.ownsPeriod(owner))) {
+        _fail(e);
+      }
+    } finally {
+      _checking = false;
+      if (mounted) {
+        _syncChanges();
+        _scheduleNextPoll();
+      }
     }
   }
 
   void _fail(Object error) {
     if (!mounted) return;
+    _poll?.cancel();
+    _poll = null;
     setState(() {
       _phase = _Phase.failed;
       _error = explainSetupError(error, 'Could not reach the Telegram setup');
     });
+    _syncChanges();
   }
 
   List<String> get _userIds => [
@@ -152,6 +280,7 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
       _saving = true;
       _error = null;
     });
+    _syncChanges();
     try {
       await widget.repository.applyTelegramPairing(_pairing!.id, _userIds);
       _pairing = null;
@@ -162,6 +291,7 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
         _saving = false;
         _error = explainSetupError(e, 'Could not save the setup');
       });
+      _syncChanges();
     }
   }
 

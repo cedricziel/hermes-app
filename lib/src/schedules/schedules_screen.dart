@@ -54,6 +54,13 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.invalidationVisible =
+        ModalRoute.of(context)?.isCurrent != false;
+  }
+
+  @override
   void dispose() {
     _controller.removeListener(_openRequested);
     super.dispose();

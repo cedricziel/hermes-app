@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_otel/flutter_otel.dart';
+
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -418,6 +420,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       repository: cron,
       profiles: _profiles,
       prefs: SharedPreferencesAsync(),
+      changeSource: _gateway,
+      auth: _auth,
+      events:
+          HermesRepositories.maybeOf(context)?.telemetry.events ??
+          noopAppEventLogger,
     );
   }
 
@@ -832,7 +839,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                       controller: _schedulesController!,
                       onOpenRun: _openRun,
                     ),
-            _Destination.profiles => MacProfilesPage(profiles: _chatProfiles!),
+            _Destination.profiles => MacProfilesPage(
+              profiles: _chatProfiles!,
+              changeSource: _gateway,
+            ),
           };
           if (!wide ||
               destination == _Destination.chat ||

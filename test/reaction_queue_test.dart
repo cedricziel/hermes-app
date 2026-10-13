@@ -165,6 +165,74 @@ void main() {
     );
   });
   test(
+    'reaction queue fake rejects permission loss before its barrier',
+    () async {
+      final transport = _OwnedQueue();
+      addTearDown(transport.close);
+      await open(transport);
+      var barriers = 0;
+      var rollbacks = 0;
+      await expectLater(
+        transport
+            .sendQueued(
+              threadId: 'stored',
+              profile: 'work',
+              text: 'Denied',
+              beforeSubmit: () async {
+                barriers++;
+              },
+              onNotSubmitted: () async {
+                rollbacks++;
+              },
+              queueDispatchAllowed: () => false,
+            )
+            .toList(),
+        throwsA(isA<QueueSubmissionNotStarted>()),
+      );
+      expect(barriers, 0);
+      expect(rollbacks, 1);
+      expect(transport.sends, isEmpty);
+    },
+  );
+
+  test(
+    'reaction queue fake restores exact claim on pre-byte target loss',
+    () async {
+      final transport = _OwnedQueue();
+      addTearDown(transport.close);
+      await open(transport);
+      final thread = chat.selectedThread!;
+      final original = (await store.load(_scope)).records.single;
+      transport.beforeBytes = () =>
+          chat.setThreadListAvailability(thread, available: false);
+      chat.sendQueued(thread);
+      await transport.prepared.future.timeout(const Duration(seconds: 5));
+      await pumpEventQueue();
+      final records = await store.load(_scope);
+      expect(transport.sends, isEmpty);
+      expect(records.records.single.id, original.id);
+      expect(chat.queuedIn(thread).single.scope!.toJson(), _scope.toJson());
+      expect(records.records.single.state, QueueRecordState.queued);
+      expect(records.records.single.submissionClaimHash, isNull);
+      expect(chat.queuedIn(thread), hasLength(1));
+      expect(chat.queueBusy(thread), false);
+      expect(chat.queueNeedsReview(thread), true);
+      expect(
+        chat.queueErrorIn(thread),
+        'This conversation is unavailable. Its queued prompts were kept in their original scope.',
+      );
+      chat.setThreadListAvailability(thread, available: true);
+      expect(chat.queueErrorIn(thread), isNull);
+      expect(chat.queueNeedsReview(thread), true);
+      expect(transport.sends, isEmpty);
+      expect(
+        thread.messages.where((message) => message.canonicalRow?.rowId == 42),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
     'pending reaction and canonical receipt wait for distinct typed acceptance',
     () async {
       final transport = _OwnedQueue();
@@ -259,6 +327,7 @@ class _OwnedQueue extends FakeChatTransport
     profile: 'work',
   );
   final prepared = Completer<void>();
+  void Function()? beforeBytes;
   final changes = StreamController<OwnedSessionChange>.broadcast(sync: true);
   @override
   Stream<OwnedSessionChange> get ownedSessions => changes.stream;
@@ -279,8 +348,23 @@ class _OwnedQueue extends FakeChatTransport
     ModelChoice? model,
     required Future<void> Function() beforeSubmit,
     Future<void> Function()? onNotSubmitted,
+    bool Function()? queueDispatchAllowed,
   }) async* {
-    await beforeSubmit();
+    try {
+      if (queueDispatchAllowed?.call() == false) {
+        throw QueueSubmissionNotStarted(StateError('Queue unavailable'));
+      }
+      await beforeSubmit();
+      beforeBytes?.call();
+      if (queueDispatchAllowed?.call() == false) {
+        throw QueueSubmissionNotStarted(StateError('Queue unavailable'));
+      }
+    } on Object catch (error) {
+      await onNotSubmitted?.call();
+      throw QueueSubmissionNotStarted(error);
+    } finally {
+      if (!prepared.isCompleted) prepared.complete();
+    }
     final stream = send(
       threadId: threadId,
       profile: profile,
@@ -289,7 +373,6 @@ class _OwnedQueue extends FakeChatTransport
       model: model,
       queued: true,
     );
-    prepared.complete();
     yield* stream;
   }
 

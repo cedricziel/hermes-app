@@ -7,6 +7,7 @@ import '../widgets/disclosure_tile.dart';
 import '../widgets/named_icon_button.dart';
 import 'hermes_messaging_repository.dart';
 import 'telegram_pairing_screen.dart';
+import '../chat/gateway_connection_transport.dart';
 import '../widgets/route_dismissal.dart';
 
 /// A form for the credentials and settings a platform reads from its
@@ -19,10 +20,12 @@ class MessagingSetupScreen extends StatefulWidget {
     super.key,
     required this.platform,
     required this.repository,
+    this.changeSource,
   });
 
   final HermesMessagingPlatform platform;
   final HermesMessagingRepository repository;
+  final GatewayConnectionTransport? changeSource;
 
   @override
   State<MessagingSetupScreen> createState() => _MessagingSetupScreenState();
@@ -80,7 +83,10 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
     final paired = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => TelegramPairingScreen(repository: widget.repository),
+        builder: (_) => TelegramPairingScreen(
+          repository: widget.repository,
+          changeSource: widget.changeSource,
+        ),
       ),
     );
     if (paired == true && mounted) dismissRoute(context, true);

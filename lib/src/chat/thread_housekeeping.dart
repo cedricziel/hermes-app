@@ -66,6 +66,7 @@ class ThreadHousekeeping {
   bool _loadingMore = false;
   int _generation = 0;
 
+  bool get hasPendingChanges => _busy.isNotEmpty || _loadingMore;
   bool get hasMore => _hasMore;
   bool get loadingMore => _loadingMore;
 
@@ -250,7 +251,9 @@ class ThreadHousekeeping {
     final generation = _generation;
     bool current() => _workAllowed && generation == _generation;
     if (!_busy.add(thread.id)) return;
+    changed();
     try {
+      if (!current()) return;
       await action(profile(), current);
     } finally {
       if (generation == _generation) _busy.remove(thread.id);
