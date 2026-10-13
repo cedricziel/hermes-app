@@ -52,6 +52,32 @@ void main() {
     );
   });
 
+  test('never returns remembered private replies after sign out', () async {
+    final request = {'op': 'send', 'sendId': 'send1', 'text': 'Private'};
+    final pending = handler.handle(request);
+    await pumpEventQueue();
+    transport.sends.single.emit(const ReplyCompleted('Private answer'));
+    expect((await pending)['ok'], isTrue);
+    signedOut = true;
+
+    expect(await handler.handle(request), {'ok': false, 'error': 'signed_out'});
+  });
+
+  test('rejects late completion after session departure', () async {
+    final pending = handler.handle({
+      'op': 'send',
+      'sendId': 'send1',
+      'text': 'Private',
+    });
+    await pumpEventQueue();
+    signedOut = true;
+    handler.invalidateSession();
+    transport.sends.single.emit(const ReplyCompleted('Private answer'));
+
+    expect(await pending, {'ok': false, 'error': 'signed_out'});
+    expect(announced, isEmpty);
+  });
+
   test('answers a signed-out phone with signed_out', () async {
     signedOut = true;
 

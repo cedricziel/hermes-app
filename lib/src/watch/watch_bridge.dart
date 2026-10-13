@@ -30,6 +30,7 @@ class WatchBridge {
     this._channel = const MethodChannel(channelName),
     this._events = noopAppEventLogger,
     this._authState = _unknownAuthState,
+    this._auth,
   });
 
   static const channelName = 'app.hermes/watch';
@@ -38,6 +39,90 @@ class WatchBridge {
   final MethodChannel _channel;
   final AppEventLogger _events;
   final String Function() _authState;
+  final AuthController? _auth;
+  StreamSubscription<void>? _departure;
+  Future<void> _publication = Future.value();
+  bool? _publishedUsable;
+  bool? _desiredUsable;
+  bool? _queuedUsable;
+  int _pendingPublications = 0;
+  bool _publicationFailed = false;
+  bool _departurePending = false;
+  String _departureReason = 'signed_out';
+
+  bool get _publicationSecured =>
+      !_publicationFailed &&
+      !_departurePending &&
+      _pendingPublications == 0 &&
+      _desiredUsable == _publishedUsable;
+  int _generation = 0;
+
+  void _sessionChanged() {
+    final auth = _auth;
+    if (auth == null) return;
+    final usable =
+        auth.state == HermesConnectionState.ready &&
+        auth.protectedRequestsAllowed;
+    if (!usable && authConnecting(auth) && !auth.sessionExpired) return;
+    if (_desiredUsable != usable) {
+      _desiredUsable = usable;
+      if (!usable) {
+        _generation++;
+        _departurePending = true;
+        _departureReason = auth.sessionExpired ? 'expired' : 'signed_out';
+        _handler.invalidateSession();
+      }
+    }
+    if (_publicationSecured || _queuedUsable == usable) return;
+    final reason = auth.sessionExpired ? 'expired' : 'signed_out';
+    _queuedUsable = usable;
+    _pendingPublications++;
+    _publication = _publication.then((_) async {
+      try {
+        if (usable && _departurePending) {
+          if (!await _publishSession(false, _departureReason)) return;
+        }
+        await _publishSession(usable, reason);
+      } finally {
+        _pendingPublications--;
+        if (_pendingPublications == 0) _queuedUsable = null;
+      }
+    });
+  }
+
+  Future<bool> _publishSession(bool usable, String reason) async {
+    try {
+      final response = await _channel.invokeMethod<Object?>(
+        'publishSessionState',
+        {'usable': usable},
+      );
+      if (response is! Map ||
+          response['revision'] is! int ||
+          response['usable'] != usable) {
+        throw StateError('Invalid session publication acknowledgement');
+      }
+      _publishedUsable = usable;
+      _publicationFailed = false;
+      if (!usable) {
+        _departurePending = false;
+        _record('watch.session.invalidated', {
+          'reason': reason,
+          'result': true,
+        });
+      }
+      return true;
+    } on Object {
+      _publicationFailed = true;
+      if (!usable) {
+        _departurePending = true;
+        _record('watch.session.invalidated', {
+          'reason': reason,
+          'result': false,
+        });
+      }
+      return false;
+    }
+  }
 
   /// A bridge that serves the watch from whoever is signed in right now, or
   /// null off iOS, where there is no watch to relay for.
@@ -59,6 +144,7 @@ class WatchBridge {
     if (!Platform.isIOS) return null;
     return WatchBridge(
       events: events,
+      auth: auth,
       authState: () => auth.state.name,
       handler: handlerFor(
         auth,
@@ -123,7 +209,10 @@ class WatchBridge {
   }) {
     // The client exists from the first connect, before anyone has signed in.
     HermesApiClient? readyApi() =>
-        auth.state == HermesConnectionState.ready ? auth.api : null;
+        auth.state == HermesConnectionState.ready &&
+            auth.protectedRequestsAllowed
+        ? auth.api
+        : null;
 
     return WatchRequestHandler(
       announce: announce,
@@ -196,9 +285,18 @@ class WatchBridge {
     }
   }
 
-  void start() => _channel.setMethodCallHandler(_onCall);
+  void start() {
+    _channel.setMethodCallHandler(_onCall);
+    _auth?.addListener(_sessionChanged);
+    _departure = _auth?.signedOut.listen((_) => _sessionChanged());
+    _sessionChanged();
+  }
 
-  void dispose() => _channel.setMethodCallHandler(null);
+  void dispose() {
+    _auth?.removeListener(_sessionChanged);
+    unawaited(_departure?.cancel());
+    _channel.setMethodCallHandler(null);
+  }
 
   Future<Object?> _onCall(MethodCall call) async {
     if (call.method != 'request') throw MissingPluginException();
@@ -211,7 +309,18 @@ class WatchBridge {
       'watch.operation': operation,
       'auth.state': _authState(),
     });
-    final reply = await _handler.handle(request);
+    _sessionChanged();
+    await _publication;
+    final generation = _generation;
+    var reply = _auth != null && _desiredUsable == true && !_publicationSecured
+        ? <String, Object?>{'ok': false, 'error': 'unavailable'}
+        : await _handler.handle(request);
+    _sessionChanged();
+    await _publication;
+    if (generation != _generation) reply = {'ok': false, 'error': 'signed_out'};
+    if (_auth != null && reply['ok'] == true && !_publicationSecured) {
+      reply = {'ok': false, 'error': 'unavailable'};
+    }
     // Only telemetry reads it; the watch gets the text alone.
     final engine = reply['engine'];
     timer.stop();
