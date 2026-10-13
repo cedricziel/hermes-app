@@ -16,6 +16,8 @@ import '../chat_transport.dart';
 import '../chat_session_state.dart';
 import '../owned_session_transport.dart';
 import '../gateway_connection_transport.dart';
+import '../connector_operation_transport.dart';
+import '../connector_operation_state.dart';
 import '../slash_command.dart';
 import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
@@ -409,7 +411,8 @@ class _QueuedGate {
             ),
           const ThreadNeedsRefetch(),
         ];
-      case SideResultReceived() ||
+      case ConnectorOperationReceived() ||
+          SideResultReceived() ||
           ProcessOutputReceived() ||
           SessionUsageUpdated() ||
           ApprovalRequested() ||
@@ -492,6 +495,7 @@ class _Unsolicited {
   bool claims(ChatEvent event) {
     if (event is SessionUsageUpdated ||
         event is TodoUpdated ||
+        event is ConnectorOperationReceived ||
         event is SideResultReceived ||
         event is ProcessOutputReceived) {
       return false;
@@ -521,6 +525,7 @@ class HermesGatewayTransport
         PromptAcknowledgement,
         GatewayRequester,
         OwnedSessionTransport,
+        ConnectorOperationTransport,
         GatewayConnectionTransport,
         QueueSubmissionTransport {
   HermesGatewayTransport({
@@ -614,6 +619,64 @@ class HermesGatewayTransport
   @override
   bool ownsGatewayConnection(Object connection) =>
       !_closed && identical(_connected(), connection);
+
+  @override
+  Future<Map<String, Object?>> respondToConnectorOperation(
+    OwnedSessionBinding binding,
+    Map<String, Object?> params, {
+    required bool Function() authorize,
+  }) async {
+    if (!_ownsBinding(binding) ||
+        !authorize() ||
+        (binding.profile?.isEmpty ?? true)) {
+      throw const GatewayConnectionClosed();
+    }
+    final owner = params['owner'],
+        result = params['result'],
+        opId = params['op_id'];
+    if (owner is! Map ||
+        owner['type'] != 'session' ||
+        owner['session_id'] != binding.runtimeId ||
+        params['profile'] != binding.profile ||
+        opId is! String ||
+        opId.isEmpty ||
+        result is! Map ||
+        result.keys.any((key) => key != 'targets' && key != 'settled_by') ||
+        result['targets'] is! List ||
+        result.containsKey('settled_by') &&
+            result['settled_by'] != 'continue') {
+      throw ArgumentError('Unsupported connection response');
+    }
+    final rows = <Map<String, Object?>>[], names = <String>{};
+    for (final target in result['targets'] as List) {
+      if (target is! Map ||
+          target['name'] is! String ||
+          (target['name'] as String).isEmpty ||
+          target['status'] != 'skipped' ||
+          !names.add(target['name'] as String) ||
+          target.keys.any((key) => key != 'name' && key != 'status')) {
+        throw ArgumentError('Unsupported connection target response');
+      }
+      rows.add({'name': target['name'], 'status': 'skipped'});
+    }
+    if (rows.isEmpty && result['settled_by'] != 'continue') {
+      throw ArgumentError('Empty connection response');
+    }
+    final client = binding.connection as GatewayRpcClient;
+    final response = await client
+        .requestGuarded('connection.respond', {
+          'owner': {'type': 'session', 'session_id': binding.runtimeId},
+          'op_id': opId,
+          'profile': binding.profile,
+          'result': {
+            'targets': rows,
+            if (result['settled_by'] == 'continue') 'settled_by': 'continue',
+          },
+        }, authorize: () => _ownsBinding(binding) && authorize())
+        .timeout(requestTimeout);
+    if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
+    return response;
+  }
 
   bool _ownsBinding(OwnedSessionBinding binding) =>
       !_closed &&
@@ -728,10 +791,20 @@ class HermesGatewayTransport
     return token;
   }
 
-  Map<String, Object?>? _resumeSnapshot(Map<String, Object?> result) =>
-      result.containsKey('todo_state')
-      ? Map.unmodifiable({'todo_state': result['todo_state']})
-      : null;
+  Map<String, Object?>? _resumeSnapshot(
+    Map<String, Object?> result, {
+    required String runtimeId,
+  }) {
+    final snapshot = <String, Object?>{
+      if (result.containsKey('todo_state')) 'todo_state': result['todo_state'],
+      if (result.containsKey('pending_connection'))
+        'pending_connection': ConnectorOperationSnapshot.fromPending(
+          result['pending_connection'],
+          runtimeId: runtimeId,
+        ),
+    };
+    return snapshot.isEmpty ? null : Map.unmodifiable(snapshot);
+  }
 
   /// Shared authenticated RPC for profile and Bot Mode repositories.
   @override
@@ -1057,7 +1130,7 @@ class HermesGatewayTransport
         profile: profile,
         storedId: storedId,
         resumeToken: usageResumeToken,
-        resumeSnapshot: _resumeSnapshot(session),
+        resumeSnapshot: _resumeSnapshot(session, runtimeId: runtimeId),
         buffered: tap.release(),
         startAt: before.resumeFrom(runtimeId, client.epoch),
         record: autoContinue,
@@ -1937,7 +2010,7 @@ class HermesGatewayTransport
           profile: owner.$1,
           storedId: owner.$2,
           resumeToken: usageResumeToken,
-          resumeSnapshot: _resumeSnapshot(resumed),
+          resumeSnapshot: _resumeSnapshot(resumed, runtimeId: runtimeId),
           injected: next,
           shown: shown,
         ),
@@ -2001,7 +2074,7 @@ class HermesGatewayTransport
         profile: owner.$1,
         storedId: owner.$2,
         resumeToken: usageResumeToken,
-        resumeSnapshot: _resumeSnapshot(resumed),
+        resumeSnapshot: _resumeSnapshot(resumed, runtimeId: runtimeId),
         injected: injected,
         shown: shown,
       ),

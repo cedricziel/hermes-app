@@ -6,6 +6,7 @@ import 'chat_transport.dart';
 import 'slash_command.dart';
 import 'owned_session_transport.dart';
 import 'gateway_connection_transport.dart';
+import 'connector_operation_transport.dart';
 
 /// Work was blocked or its delegate was invalidated before it completed.
 final class SessionTransportUnavailable extends StateError {
@@ -23,6 +24,7 @@ final class SessionChatTransport
         PromptAcknowledgement,
         GatewayRequester,
         OwnedSessionTransport,
+        ConnectorOperationTransport,
         GatewayConnectionTransport,
         QueueSubmissionTransport {
   SessionChatTransport(this._create) : _delegate = _create() {
@@ -234,6 +236,24 @@ final class SessionChatTransport
         ) &&
         _current(epoch);
   }
+
+  @override
+  Future<Map<String, Object?>> respondToConnectorOperation(
+    OwnedSessionBinding binding,
+    Map<String, Object?> params, {
+    required bool Function() authorize,
+  }) => _call((delegate) {
+    final epoch = _epoch;
+    if (delegate is! ConnectorOperationTransport) {
+      throw UnsupportedError('No connector response');
+    }
+    return (delegate as ConnectorOperationTransport)
+        .respondToConnectorOperation(
+          binding,
+          params,
+          authorize: () => _current(epoch) && authorize(),
+        );
+  });
 
   @override
   Future<Map<String, Object?>> request(

@@ -75,8 +75,11 @@ const notifications = <String, (Use, String)>{
   'terminal.close': (Use.shown, 'process closed without exit inference'),
   'background.complete': (Use.shown, 'separate background result card'),
   'btw.complete': (Use.shown, 'separate side question answer card'),
-  'connection.request': (Use.gap, 'connector operation card'),
-  'connection.update': (Use.gap, 'connector operation progress'),
+  'connection.request': (Use.shown, 'scoped connector operation request'),
+  'connection.update': (
+    Use.shown,
+    'scoped or read-only account operation snapshot',
+  ),
   'billing.step_up.verification': (Use.gap, 'device-flow code to approve'),
   'sessions.changed': (Use.gap, 'could refresh the thread list'),
   'cron.changed': (Use.gap, 'could refresh Schedules'),
@@ -137,6 +140,22 @@ const refusedRequests = <String, String>{
 
 /// A payload the mapper shows, for frames it drops when the payload is empty.
 const samples = <String, Map<String, Object?>>{
+  'connection.request': {
+    'op_id': 'operation',
+    'seq': 1,
+    'deadline_at': 1893456060.0,
+    'timeout_seconds': 60.0,
+    'targets': [],
+  },
+  'connection.update': {
+    'op_id': 'operation',
+    'seq': 2,
+    'deadline_at': 1893456060.0,
+    'targets': [],
+    'settled': false,
+    'owner': {'type': 'session', 'session_id': 's'},
+  },
+
   'moa.reference': {
     'label': 'Advisor',
     'text': 'Reference',

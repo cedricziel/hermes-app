@@ -12,6 +12,10 @@ typedef ConnectorRespond = Future<Map<String, Object?>> Function(
   Map<String, Object?> params,
 );
 
+class ConnectorResponseCanceled implements Exception {
+  const ConnectorResponseCanceled();
+}
+
 class ConnectorOperationController extends ChangeNotifier {
   ConnectorOperationController({
     DateTime Function()? now,
@@ -30,6 +34,7 @@ class ConnectorOperationController extends ChangeNotifier {
   final _pending = <ConnectorOperationKey>{},
       _accountAuthority = <ConnectorOperationKey>{};
   final _errors = <ConnectorOperationKey, String>{};
+  final _responseChecks = <ConnectorOperationKey, bool Function()>{};
   final _timers = <ConnectorOperationKey, Timer>{};
   Object? _attachment;
   String? _profile;
@@ -45,6 +50,13 @@ class ConnectorOperationController extends ChangeNotifier {
   List<ConnectorOperationSnapshot> get operations => _state.operations;
   Object? get attachment => _disposed ? null : _attachment;
   bool pendingFor(ConnectorOperationKey key) => _pending.contains(key);
+  bool pendingResponseIsCurrent(
+    ConnectorOperationSnapshot operation, {
+    required Object attachment,
+  }) =>
+      _pending.contains(operation.key) &&
+      _current(operation, attachment) &&
+      (_responseChecks[operation.key]?.call() ?? false);
   String? errorFor(ConnectorOperationKey key) => _errors[key];
 
   void bind(
@@ -198,6 +210,13 @@ class ConnectorOperationController extends ChangeNotifier {
         attachment = _attachment!,
         profile = _profile;
     final key = operation.key;
+    _responseChecks[key] = () =>
+        !_disposed &&
+        generation == _generation &&
+        identical(respond, _respond) &&
+        _current(operation, attachment) &&
+        _eligible(operation) &&
+        !_unsupported;
     _pending.add(key);
     _errors.remove(key);
     try {
@@ -229,6 +248,10 @@ class ConnectorOperationController extends ChangeNotifier {
       }
     } on Object catch (error) {
       if (_disposed || generation != _generation) return;
+      if (error is ConnectorResponseCanceled) {
+        _log('stale');
+        return;
+      }
       _unsupported =
           error is GatewayRpcException && error.code == kGatewayMethodNotFound;
       _errors[key] = _unsupported
@@ -237,6 +260,7 @@ class ConnectorOperationController extends ChangeNotifier {
       _log(_unsupported ? 'unsupported' : 'refused');
     } finally {
       if (!_disposed && generation == _generation) {
+        _responseChecks.remove(key);
         _pending.remove(key);
         notifyListeners();
       }
@@ -303,6 +327,7 @@ class ConnectorOperationController extends ChangeNotifier {
     }
     _timers.clear();
     _pending.clear();
+    _responseChecks.clear();
     _errors.clear();
     _accountAuthority.clear();
     _state.clear();
