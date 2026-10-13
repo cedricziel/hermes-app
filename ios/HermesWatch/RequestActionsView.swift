@@ -16,7 +16,7 @@ struct RequestActionsView: View {
     if let current = draft, let details = current.details {
       VStack(alignment: .leading, spacing: 12) {
         if details.kind == .approval {
-          Text(details.command).textSelection(.enabled)
+          Text(details.command)
           if !details.description.isEmpty { Text(details.description) }
           if let choice = current.confirmationChoice {
             Text("Confirm \(label(choice))")
