@@ -711,8 +711,22 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   final _processOutputs = <ChatThread, ProcessOutputState>{};
-  ProcessOutputState? processOutputsIn(ChatThread thread) =>
-      active ? _processOutputs[thread] : null;
+  ProcessOutputState? processOutputsIn(ChatThread thread) {
+    final state = _processOutputs[thread], binding = _ownedBindings[thread];
+    final source = transport;
+    if (!active ||
+        !_threads.contains(thread) ||
+        state == null ||
+        binding == null ||
+        source is! OwnedSessionTransport) {
+      return null;
+    }
+    final actual = (source as OwnedSessionTransport).ownedSessionFor(
+      thread.id,
+      profile: _profile,
+    );
+    return actual == binding && state.hasScope(binding) ? state : null;
+  }
 
   void _listenOwnedSessions() {
     final source = transport;

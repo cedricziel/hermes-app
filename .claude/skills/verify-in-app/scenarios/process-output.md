@@ -1,6 +1,6 @@
 # Process output
 
-Follow the shared isolation procedure before launching. Use synthetic conversations and processes on pinned backend `167e9fdb84248cd0fff80762dc57b6a914b6e930`; record the exact app source.
+Follow the shared isolation procedure before launching. Use synthetic conversations and processes on the retained verification backend `167e9fdb84248cd0fff80762dc57b6a914b6e930`; record the exact app source. The current bundled contract is `71d34bad1045610252eda02ee79549436896e784`; the process notification and payload schemas match the retained baseline.
 
 1. Deliver interleaved `agent.terminal.output` chunks for two process IDs during a main turn. Confirm each process card contains only its ordered plain text and the main reply keeps its existing typing, prose, and settlement behavior.
 2. Deliver `terminal.close` before the first output chunk. Confirm a Closed placeholder appears, later output fills it, and no success, failure, or exit code is inferred. Repeat while no main turn is active and confirm no synthetic reply or queued dispatch starts.

@@ -39,6 +39,7 @@ class ProcessOutputState {
   Object? _attachment;
   bool omittedCards = false;
   List<ProcessOutput> get cards => List.unmodifiable(_cards.values);
+  bool hasScope(Object attachment) => _attachment == attachment;
 
   void adopt(Object attachment) {
     if (_attachment == attachment) return;

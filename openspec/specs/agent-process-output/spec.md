@@ -58,7 +58,7 @@ Expanded process output SHALL use a bounded scrolling text viewport. The process
 
 ### Requirement: Existing backend contract and compatibility
 
-The app SHALL use the existing dashboard `/api/ws` JSON-RPC contract for agent.terminal.output, terminal.close. The tested baseline SHALL be Hermes Agent commit `167e9fdb84248cd0fff80762dc57b6a914b6e930`, recorded in `openrpc/HERMES_REF`; a minimum semantic release containing every required field is not established. Older backends SHALL keep ordinary chat usable when these optional events or methods are absent. Unsupported actions SHALL be unavailable, and malformed optional payloads SHALL not break the event stream. No backend route, protocol extension, or token-storage change SHALL be required.
+The app SHALL use the existing dashboard `/api/ws` JSON-RPC contract for agent.terminal.output, terminal.close. The current pinned contract SHALL be Hermes Agent commit `71d34bad1045610252eda02ee79549436896e784`, recorded in `openrpc/HERMES_REF`. Commit `167e9fdb84248cd0fff80762dc57b6a914b6e930` SHALL remain the retained fixture baseline; these event schemas are unchanged. A minimum semantic release containing every required field is not established. Older backends SHALL keep ordinary chat usable when these optional events or methods are absent. Unsupported actions SHALL be unavailable, and malformed optional payloads SHALL not break the event stream. No backend route, protocol extension, or token-storage change SHALL be required.
 
 The event shapes are:
 

@@ -98,7 +98,7 @@ final class SideResultReceived extends ChatEvent {
   });
   final SideResult result;
   final String runtimeId;
-  final Object connection;
+  final Object? connection;
 }
 
 final class ProcessOutputReceived extends ChatEvent {

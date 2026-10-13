@@ -435,10 +435,9 @@ void main() {
       await tester.scrollUntilVisible(
         footer,
         180,
-        scrollable: find.ancestor(
-          of: footer,
-          matching: find.byType(Scrollable),
-        ),
+        scrollable: find
+            .ancestor(of: footer, matching: find.byType(Scrollable))
+            .first,
       );
       expect(footer.hitTestable(), findsOneWidget);
       expect(tester.getSize(find.byType(Chat)).height, greaterThan(200));
