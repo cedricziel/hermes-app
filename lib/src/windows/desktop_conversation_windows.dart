@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'conversation_window_args.dart';
+import '../chat/queue_storage/queue_broker.dart';
 import 'conversation_windows.dart';
 
 /// The channel conversation windows call the main window on.
@@ -226,17 +227,39 @@ abstract interface class ConversationWindowLink {
 }
 
 /// [ConversationWindowLink] for the conversation window [windowId].
-class DesktopConversationWindowLink implements ConversationWindowLink {
+class DesktopConversationWindowLink
+    implements ConversationWindowLink, QueueWindowLink {
   DesktopConversationWindowLink(this.windowId) {
     unawaited(
       _windowChannel(windowId).setMethodCallHandler((call) async {
-        _commands.add(call.method);
+        if (call.method == 'queue.locked') {
+          _queueVisibility.add(false);
+        } else if (call.method == 'queue.unlocked') {
+          _queueVisibility.add(true);
+        } else {
+          _commands.add(call.method);
+        }
       }),
     );
   }
 
   final String windowId;
   final _commands = StreamController<String>();
+  final _queueVisibility = StreamController<bool>.broadcast();
+  @override
+  Stream<bool> get queueVisibility => _queueVisibility.stream;
+  @override
+  Future<Map<String, Object?>> queueOperation(
+    String operation,
+    Map<String, Object?> arguments,
+  ) async {
+    final response = await _main<Map<Object?, Object?>>('queue.$operation', {
+      ...arguments,
+      'window_id': windowId,
+    });
+    return response?.cast<String, Object?>() ??
+        const {'ok': false, 'reason': 'unavailable'};
+  }
 
   Future<T?> _main<T>(String method, [Map<String, Object?> args = const {}]) =>
       _mainChannel.invokeMethod<T>(method, {'window_id': windowId, ...args});
@@ -355,11 +378,17 @@ abstract interface class QuickPanelLink {
 
 /// [QuickPanelLink] for the panel window [windowId]. Tells the main window
 /// each time the panel shows or hides, for its breadcrumbs.
-class DesktopQuickPanelLink implements QuickPanelLink {
+class DesktopQuickPanelLink implements QuickPanelLink, QueueWindowLink {
   DesktopQuickPanelLink(this.windowId) {
     unawaited(
       _windowChannel(windowId).setMethodCallHandler((call) async {
-        _commands.add(call.method);
+        if (call.method == 'queue.locked') {
+          _queueVisibility.add(false);
+        } else if (call.method == 'queue.unlocked') {
+          _queueVisibility.add(true);
+        } else {
+          _commands.add(call.method);
+        }
       }),
     );
     _nativeWindow.setMethodCallHandler((call) async {
@@ -378,6 +407,21 @@ class DesktopQuickPanelLink implements QuickPanelLink {
   final _shown = StreamController<void>.broadcast();
   final _hidden = StreamController<void>.broadcast();
   final _commands = StreamController<String>.broadcast();
+  final _queueVisibility = StreamController<bool>.broadcast();
+  @override
+  Stream<bool> get queueVisibility => _queueVisibility.stream;
+  @override
+  Future<Map<String, Object?>> queueOperation(
+    String operation,
+    Map<String, Object?> arguments,
+  ) async {
+    final response = await _main<Map<Object?, Object?>>('queue.$operation', {
+      ...arguments,
+      'window_id': windowId,
+    });
+    return response?.cast<String, Object?>() ??
+        const {'ok': false, 'reason': 'unavailable'};
+  }
 
   Future<T?> _main<T>(String method, [Map<String, Object?> args = const {}]) =>
       _mainChannel.invokeMethod<T>(method, {'window_id': windowId, ...args});

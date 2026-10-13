@@ -21,6 +21,8 @@ import 'src/background/background_scheduler.dart';
 import 'src/background/background_check_controller.dart';
 import 'src/background/running_replies.dart';
 import 'src/chat/media/media_source.dart';
+import 'src/chat/queue_storage/queue_persistence.dart';
+import 'src/chat/queue_storage/durable_queue_store.dart';
 import 'src/deep_links/deep_link_listener.dart';
 import 'src/chat/media/media_store.dart';
 import 'src/chat/media/quick_look.dart';
@@ -162,11 +164,24 @@ Future<void> main([List<String> args = const []]) async {
             if (source case final MacDragOutSource mac) mac.dispose();
           },
         ),
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (_) => AppLockController()..load(),
+        ),
+        ChangeNotifierProvider<QueuePersistence>(
+          lazy: false,
+          create: (context) => QueuePersistence(
+            auth: context.read<AuthController>(),
+            lock: context.read<AppLockController>(),
+            factory: () => DurableQueueStore.open(events: telemetry.events()),
+          )..start(),
+        ),
         ChangeNotifierProvider<ConversationWindows?>(
           lazy: false,
           create: (context) {
             if (!MacWindow.enabled) return null;
             final auth = context.read<AuthController>();
+            final queues = context.read<QueuePersistence>();
             final windows = ConversationWindows(
               host: DesktopConversationWindowHost(),
               store: ConversationWindowStore(SharedPreferencesAsync()),
@@ -184,10 +199,13 @@ Future<void> main([List<String> args = const []]) async {
                 );
               },
               headers: auth.windowAuthHeaders,
+              queueStore: queues.open,
+              queueAllowed: () => queues.allowed,
               breadcrumbs: context.read<Breadcrumbs>(),
               events: telemetry.events(),
             );
             windows.bindSession(auth);
+            windows.bindQueueAccess(queues);
             if (context.read<GlobalShortcut?>() case final shortcut?) {
               QuickPanelShortcut(
                 shortcut: shortcut,
@@ -213,10 +231,6 @@ Future<void> main([List<String> args = const []]) async {
         Provider<OnDeviceSpeech>(
           create: (_) => OnDeviceSpeech(),
           dispose: (_, speech) => speech.dispose(),
-        ),
-        ChangeNotifierProvider(
-          lazy: false,
-          create: (_) => AppLockController()..load(),
         ),
         ChangeNotifierProvider<DockMenuController?>(
           lazy: false,

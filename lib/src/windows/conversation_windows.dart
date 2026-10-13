@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:clock/clock.dart';
 import 'package:crypto/crypto.dart';
@@ -10,6 +11,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
 import '../chat/widgets/thread_actions_menu.dart';
+import '../chat/queue_storage/queue_broker.dart';
+import '../chat/queue_storage/durable_queue_store.dart';
+import '../chat/queue_storage/queue_record.dart';
 import '../telemetry/breadcrumbs.dart';
 
 import 'conversation_window_args.dart';
@@ -143,6 +147,8 @@ class ConversationWindows extends ChangeNotifier {
     required this._connection,
     required this._ownerKey,
     required this._headers,
+    this.queueStore,
+    this.queueAllowed,
     this._breadcrumbs = Breadcrumbs.none,
     this._events = noopAppEventLogger,
   }) {
@@ -223,6 +229,34 @@ class ConversationWindows extends ChangeNotifier {
   final ({String baseUrl, bool authRequired})? Function() _connection;
   final WindowAuthHeaders _headers;
   final String? Function() _ownerKey;
+  final Future<PromptQueueStore> Function()? queueStore;
+  final bool Function()? queueAllowed;
+  final _queueSalt = List.generate(
+    16,
+    (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
+  ).join();
+  var _queueEpoch = 0;
+  Listenable? _queueChanges;
+  void bindQueueAccess(Listenable changes) {
+    _queueChanges?.removeListener(queueAccessChanged);
+    _queueChanges = changes;
+    changes.addListener(queueAccessChanged);
+  }
+
+  void queueAccessChanged() {
+    if (_disposed) return;
+    _queueEpoch++;
+    final command = queueAllowed?.call() == true
+        ? 'queue.unlocked'
+        : 'queue.locked';
+    for (final id in [
+      ..._windows.map((window) => window.windowId),
+      if (_panel != null) _panel!.id,
+    ]) {
+      unawaited(_host.command(id, command).catchError((Object _) {}));
+    }
+  }
+
   final Breadcrumbs _breadcrumbs;
   final AppEventLogger _events;
   final _subscriptions = <StreamSubscription<void>>[];
@@ -511,6 +545,7 @@ class ConversationWindows extends ChangeNotifier {
       QuickPanelLaunch(
         baseUrl: connection.baseUrl,
         authRequired: connection.authRequired,
+        ownerKey: owner,
       ),
     );
     _creatingPanel = created;
@@ -674,6 +709,69 @@ class ConversationWindows extends ChangeNotifier {
     if (method != 'auth.headers' && method != 'closed' && !current()) {
       return method == 'panel.showInWindow' ? WindowMove.failed.name : null;
     }
+    if (method.startsWith('queue.')) {
+      final factory = queueStore;
+      if (factory == null || queueAllowed?.call() != true || !current()) {
+        return const {'ok': false, 'reason': 'unavailable'};
+      }
+      final operation = method.substring(6);
+      final window = _entry(windowId);
+      final panel = windowId == _panel?.id ? _panel : null;
+      QueueScope? scope;
+      if (window != null && window.args.ownerKey != null) {
+        scope = QueueScope(
+          serverKey: window.args.baseUrl,
+          accountKey: window.args.ownerKey!,
+          profile: window.args.profile,
+          conversationId: window.args.threadId,
+        );
+      } else if (panel != null) {
+        if (operation == 'lease') {
+          final requested = args['scope'];
+          if (requested is! Map ||
+              requested['server'] != panel.baseUrl ||
+              requested['account'] != panel.ownerKey ||
+              requested['profile'] != currentProfile?.call() ||
+              requested['conversation'] is! String ||
+              (requested['conversation'] as String).isEmpty) {
+            return const {'ok': false, 'reason': 'unavailable'};
+          }
+          final ref = (
+            threadId: requested['conversation'] as String,
+            profile: requested['profile'] as String?,
+          );
+          if (panel.queueRef != ref) {
+            panel.queueRef = ref;
+            panel.queueGeneration++;
+          }
+        }
+        if (panel.queueRef case final ref?) {
+          scope = QueueScope(
+            serverKey: panel.baseUrl,
+            accountKey: panel.ownerKey,
+            profile: ref.profile,
+            conversationId: ref.threadId,
+          );
+        }
+      }
+      if (scope == null) return const {'ok': false, 'reason': 'unavailable'};
+      final epoch = _queueEpoch;
+      final panelGeneration = panel?.queueGeneration;
+      final captured = scope;
+      return QueueOperationBroker(
+        scope: captured,
+        lease:
+            '$_queueSalt.$generation.$epoch.$windowId.${panelGeneration ?? 0}',
+        store: factory,
+        valid: () =>
+            current() &&
+            queueAllowed?.call() == true &&
+            epoch == _queueEpoch &&
+            (panel == null ||
+                panelGeneration == panel.queueGeneration &&
+                    panel.queueRef?.profile == currentProfile?.call()),
+      ).handle(operation, args);
+    }
     switch (method) {
       case 'auth.headers':
         // Only a window of the server signed in to gets its credentials.
@@ -803,6 +901,7 @@ class ConversationWindows extends ChangeNotifier {
 
   @override
   void dispose() {
+    _queueChanges?.removeListener(queueAccessChanged);
     _disposed = true;
     _generation++;
     if (_authChanged case final listener?) _auth?.removeListener(listener);
@@ -827,4 +926,6 @@ class _QuickPanel {
 
   /// Whether its engine has started and shown the panel.
   bool presented = false;
+  ConversationRef? queueRef;
+  var queueGeneration = 0;
 }
