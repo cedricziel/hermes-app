@@ -48,6 +48,7 @@ void main() {
           signedOut ? null : HermesChatRepository(server.client().raw),
       transport: () => signedOut ? null : transport,
       activeProfile: () async => profile,
+      now: () => DateTime.utc(2026),
       serverUrl: () => serverUrl,
       connecting: () => connecting,
       announce: announce,
@@ -188,6 +189,8 @@ void main() {
 
       expect(reply, {
         'ok': true,
+        'activeProfile': 'work',
+        'fetchedAt': DateTime.utc(2026).millisecondsSinceEpoch ~/ 1000,
         'threads': [
           {
             'id': watchId('work', 's1'),

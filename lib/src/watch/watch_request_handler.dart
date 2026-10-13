@@ -16,6 +16,9 @@ class WatchRequestHandler {
     required this.repository,
     required this.transport,
     required this.activeProfile,
+    this.statusTransport,
+    this.statusBudget = const Duration(seconds: 2),
+    DateTime Function()? now,
     this.serverUrl = _noServer,
     this.connecting = _never,
     this.ready = _alreadyReady,
@@ -36,7 +39,7 @@ class WatchRequestHandler {
     this.requestEligible,
     this.requestAction,
     this.requestEpoch,
-  });
+  }) : _now = now ?? DateTime.now;
 
   /// What the watch is told when the agent asks for something only the phone's
   /// own chat could answer. It names neither the command nor the question.
@@ -67,6 +70,9 @@ class WatchRequestHandler {
   final HermesChatRepository? Function() repository;
   final ChatTransport? Function() transport;
   final Future<String?> Function() activeProfile;
+  final ChatTransport? Function()? statusTransport;
+  final Duration statusBudget;
+  final DateTime Function() _now;
 
   /// The canonical address of the connected server, which the watch only
   /// passes on for Handoff. Null when there is none.
@@ -302,8 +308,47 @@ class WatchRequestHandler {
       limit: threadLimit,
       profile: profile,
     );
+    if (scope == null || !_current(scope, generation)) {
+      return _error('context_changed');
+    }
+    final statuses = <String, String>{
+      for (final attempt in _sends.values)
+        if (!attempt.finished &&
+            !attempt.invalidated &&
+            attempt.scope?.id == scope.id &&
+            attempt.scope?.revision == scope.revision &&
+            attempt.profile == profile &&
+            attempt.threadId != null &&
+            (attempt.waiting == 'approval' || attempt.waiting == 'question'))
+          attempt.threadId!: attempt.waiting!,
+    };
+    if (threads
+        .take(threadLimit)
+        .any((thread) => !statuses.containsKey(thread.id))) {
+      final status = statusTransport?.call();
+      if (status != null) {
+        try {
+          final active = await status
+              .activeStatuses(profile: profile)
+              .timeout(statusBudget);
+          if (!_current(scope, generation)) return _error('context_changed');
+          for (final thread in threads.take(threadLimit)) {
+            if (active[thread.id] == 'running') {
+              statuses.putIfAbsent(thread.id, () => 'running');
+            }
+          }
+        } on Object {
+          // Optional status failure must not hide the successful chat list.
+        } finally {
+          unawaited(status.close().catchError((Object _) {}));
+        }
+      }
+    }
+    if (!_current(scope, generation)) return _error('context_changed');
     return {
       'ok': true,
+      'activeProfile': ?profile,
+      'fetchedAt': _now().millisecondsSinceEpoch ~/ 1000,
       'threads': [
         for (final thread in threads.take(threadLimit))
           {
@@ -311,6 +356,7 @@ class WatchRequestHandler {
             'title': thread.title,
             'updatedAt': thread.updatedAt.millisecondsSinceEpoch ~/ 1000,
             'pinned': thread.pinned,
+            'status': ?statuses[thread.id],
             ..._handoff(profile, thread.id),
           },
       ],

@@ -32,6 +32,11 @@ struct ConversationView: View {
           if model.phase == .loading, model.messages.isEmpty {
             ProgressView().frame(maxWidth: .infinity)
           }
+          if model.showingSavedMessages {
+            Text(ThreadGlancePresentation.savedFreshness(model.messagesFetchedAt))
+              .font(.footnote)
+              .fixedSize(horizontal: false, vertical: true)
+          }
           ForEach(model.messages) { message in
             VStack(alignment: .leading, spacing: 4) {
               MessageBubble(message: message)
