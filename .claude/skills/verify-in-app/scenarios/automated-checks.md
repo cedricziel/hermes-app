@@ -60,3 +60,12 @@ If enough space is unavailable, preserve the fixture and report the blocked buil
 Record actual native window dimensions for each layout check and note any OS
 minimum size. Label fixture-forced dimensions separately and restore size overrides
 with the other fixture substitutions.
+
+For sandboxed macOS fixtures, validate the disposable bundle's container path
+before creating a fresh task directory. Runtime `HOME` may be normalized to the
+container's `Data` directory; accept only recorded task paths. Overriding `HOME`
+does not grant access outside the sandbox.
+
+If app binding stalls beyond the bounded attempt, stop and record unobserved
+checks. Do not change frameworks or app identities to work around an automation
+bridge failure.
