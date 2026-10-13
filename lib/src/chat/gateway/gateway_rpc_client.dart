@@ -188,11 +188,31 @@ class GatewayRpcClient {
   Future<Map<String, Object?>> request(
     String method, [
     Map<String, Object?> params = const {},
-  ]) {
-    if (_closed) return Future.error(const GatewayConnectionClosed());
+  ]) => _request(method, params);
+
+  /// Rechecks ownership after instrumentation, before sending the request frame.
+  Future<Map<String, Object?>> requestGuarded(
+    String method,
+    Map<String, Object?> params, {
+    required bool Function() authorize,
+  }) => _request(method, params, authorize: authorize);
+
+  Future<Map<String, Object?>> _request(
+    String method,
+    Map<String, Object?> params, {
+    bool Function()? authorize,
+  }) {
+    if (_closed || authorize?.call() == false) {
+      return Future.error(const GatewayConnectionClosed());
+    }
     final id = _nextId++;
+    final span = _telemetry?.startRequest(method, id);
+    if (_closed || authorize?.call() == false) {
+      _telemetry?.finishRequest(span, failure: const GatewayConnectionClosed());
+      return Future.error(const GatewayConnectionClosed());
+    }
     final completer = Completer<Map<String, Object?>>();
-    _pending[id] = _Pending(completer, _telemetry?.startRequest(method, id));
+    _pending[id] = _Pending(completer, span);
     _channel.sink.add(
       jsonEncode({
         'jsonrpc': '2.0',

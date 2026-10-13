@@ -15,6 +15,7 @@ import '../chat_models.dart';
 import '../chat_transport.dart';
 import '../chat_session_state.dart';
 import '../owned_session_transport.dart';
+import '../gateway_connection_transport.dart';
 import '../slash_command.dart';
 import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
@@ -517,7 +518,8 @@ class HermesGatewayTransport
         ChatTransport,
         PromptAcknowledgement,
         GatewayRequester,
-        OwnedSessionTransport {
+        OwnedSessionTransport,
+        GatewayConnectionTransport {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
@@ -597,6 +599,18 @@ class HermesGatewayTransport
   );
   @override
   Stream<OwnedSessionChange> get ownedSessions => _ownedSessions.stream;
+
+  final _connectionEvents = StreamController<GatewayConnectionEvent>.broadcast(
+    sync: true,
+  );
+  @override
+  Stream<GatewayConnectionEvent> get connectionEvents =>
+      _connectionEvents.stream;
+  @override
+  Object? get gatewayConnection => _closed ? null : _connected();
+  @override
+  bool ownsGatewayConnection(Object connection) =>
+      !_closed && identical(_connected(), connection);
 
   bool _ownsBinding(OwnedSessionBinding binding) =>
       !_closed &&
@@ -3123,6 +3137,7 @@ class HermesGatewayTransport
     _settledEarly.clear();
     _ownedBindings.clear();
     unawaited(_ownedSessions.close());
+    unawaited(_connectionEvents.close());
     for (final watch in idle) {
       await watch.close();
     }
@@ -3198,6 +3213,18 @@ class HermesGatewayTransport
             client.respondError(request.id, -32601, 'Method not found');
           }
         });
+    client.events.listen(
+      (event) {
+        if (!_connectionEvents.isClosed && ownsGatewayConnection(client)) {
+          _connectionEvents.add(GatewayConnectionEvent.received(client, event));
+        }
+      },
+      onDone: () {
+        if (!_connectionEvents.isClosed) {
+          _connectionEvents.add(GatewayConnectionEvent.lost(client));
+        }
+      },
+    );
     return _open = client;
   }
 
