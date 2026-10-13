@@ -25,7 +25,7 @@ enum HermesClientError: Error, Equatable {
 /// through the phone; a later one can talk to the dashboard directly without
 /// the UI changing.
 @MainActor
-protocol HermesClient {
+protocol HermesClient: WatchRequestServing {
   var sessionState: WatchSessionState? { get }
   var recoveryStore: PendingSendStore { get }
   func prepareRecovery() async throws
