@@ -206,7 +206,7 @@ struct ConversationView: View {
         Toggle("Send after manual stop", isOn: $voiceFastSend)
           .accessibilityHint("Off by default. Manually stopped recordings send after transcription. Interrupted or capped recordings always need review.")
           .disabled(busy)
-        QuickReplies(disabled: busy) { text in Task { await model.send(text) } }
+        ContextualActions(actions: contextualActions, select: selectAction)
         HStack {
           TextField("Reply", text: $draft)
             .focused($editingDraft)
@@ -232,6 +232,23 @@ struct ConversationView: View {
   private var voiceError: String? {
     if case .failed(let error) = model.phase { return error.message }
     return nil
+  }
+
+  private var contextualActions: [WatchContextualAction] {
+    WatchContextualActions.select(newChat: model.threadId == nil, empty: model.messages.isEmpty,
+      successfulReply: model.successfulReply && model.messages.last?.role == .assistant,
+      idle: model.phase == .idle && !busy, draft: draft,
+      voiceIdle: model.voice.state == .idle, recording: recorder.state == .recording || recorder.state == .finished,
+      pendingRequest: model.pendingRequestWaiting || model.requests.draft != nil || model.requests.loading,
+      unresolvedDelivery: model.recovery != nil || model.unsent != nil)
+  }
+
+  private func selectAction(_ action: WatchContextualAction) {
+    Task {
+      await WatchContextualActions.activate(action, available: { contextualActions },
+        fillDraft: { text in draft = text; editingDraft = true },
+        send: { text in await model.send(text) })
+    }
   }
 
   private func submitRecording() async {
@@ -260,23 +277,18 @@ struct ConversationView: View {
   }
 }
 
-/// One-tap answers to the usual follow-ups; a tap sends like the field does.
-private struct QuickReplies: View {
-  static let texts = ["Continue", "Yes", "No", "Summarize"]
-
-  let disabled: Bool
-  let send: (String) -> Void
+private struct ContextualActions: View {
+  let actions: [WatchContextualAction]
+  let select: (WatchContextualAction) -> Void
 
   var body: some View {
-    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-      ForEach(Self.texts, id: \.self) { text in
-        Button(text) { send(text) }
-          .font(.footnote)
-          .lineLimit(1)
-          .minimumScaleFactor(0.8)
+    VStack(alignment: .leading, spacing: 6) {
+      ForEach(actions) { action in
+        Button(action.label) { select(action) }
+          .accessibilityHint(action.accessibilityHint)
+          .fixedSize(horizontal: false, vertical: true)
       }
     }
-    .disabled(disabled)
   }
 }
 
