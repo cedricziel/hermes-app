@@ -20,5 +20,15 @@ Continue with portable tests, preflight tests, static analysis, and device SDK c
 Native host tests and visual, sleep/wake, notification, and microphone lifecycle checks remain
 unverified. Do not treat this override as evidence that those acceptance cases passed.
 The task-owned simulator pair was shut down, unpaired, and deleted. No fixture backend or
-Flutter build remained running after cleanup. Tasks 2.1 and 3.1 stay open for their unexecuted
-native portions and shipping until the coordinating agent records the final evidence.
+Flutter build remained running after cleanup. PR #682 merged after independent review and CI. Tasks 2.1 and 3.1 remain open
+for the native relay callback coverage and acceptance checks that have not run.
+
+## Implementation evidence
+
+PR #682 merged with fixture preflight tooling and native core seams. Native relay callback coverage and paired lifecycle acceptance are still incomplete.
+
+Checked implementation tasks describe source and authored regression coverage. They do not
+mean that an open PR has merged or that a native acceptance check has passed. Combined
+verification tasks remain open until their specified evidence is available. Native visual,
+VoiceOver, gesture, microphone, and paired lifecycle checks have not run. The user excluded
+watch simulators, and local native builds remain paused to limit host load.
