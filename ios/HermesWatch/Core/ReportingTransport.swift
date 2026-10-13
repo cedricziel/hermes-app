@@ -1,5 +1,12 @@
 import Foundation
 
+func relayOperation(_ raw: String?) -> String {
+  guard let operation = raw,
+    ["session", "threads", "messages", "send", "forgetSend", "request_details", "request_answer", "transcribe"].contains(operation)
+  else { return "unknown" }
+  return operation
+}
+
 func waitForRelayActivation(
   activated: () -> Bool,
   sleep: () async throws -> Void
@@ -48,11 +55,13 @@ struct DeliveryReports {
 
   var pending: [DeliveryReport] {
     guard let data = defaults.data(forKey: Self.key) else { return [] }
-    return (try? JSONDecoder().decode([DeliveryReport].self, from: data)) ?? []
+    let decoded = (try? JSONDecoder().decode([DeliveryReport].self, from: data)) ?? []
+    return decoded.map { DeliveryReport(op: relayOperation($0.op), reason: $0.reason, at: $0.at) }
   }
 
   func add(_ report: DeliveryReport) {
-    store(Array((pending + [report]).suffix(Self.limit)))
+    let sanitized = DeliveryReport(op: relayOperation(report.op), reason: report.reason, at: report.at)
+    store(Array((pending + [sanitized]).suffix(Self.limit)))
   }
 
   /// Drops the [count] oldest, which reached the phone.
@@ -84,7 +93,7 @@ struct ReportingTransport: RelayTransport {
     } catch let failure as RelayFailure {
       reports.add(
         DeliveryReport(
-          op: message["op"] as? String ?? "unknown",
+          op: relayOperation(message["op"] as? String),
           reason: failure.reason,
           at: Int(now().timeIntervalSince1970)
         )

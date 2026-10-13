@@ -27,6 +27,36 @@ final class ReportingTransportTests: XCTestCase {
     )
   }
 
+  func testLegacyPrivateOperationsAreSanitizedBeforeForwarding() async throws {
+    let legacy = [DeliveryReport(op: "private command text", reason: "not_reachable", at: 42)]
+    defaults.set(try JSONEncoder().encode(legacy), forKey: "watch.deliveryReports")
+    XCTAssertEqual(DeliveryReports(defaults: defaults).pending.first?.op, "unknown")
+    inner.replies = [.success(["ok": true])]
+    _ = try await transport.request(["op": "threads"])
+    let diagnostics = inner.requests.first?["diagnostics"] as? [[String: Any]]
+    XCTAssertEqual(diagnostics?.first?["op"] as? String, "unknown")
+    XCTAssertEqual(diagnostics?.first?["reason"] as? String, "not_reachable")
+    XCTAssertEqual(diagnostics?.first?["at"] as? Int, 42)
+    XCTAssertTrue(DeliveryReports(defaults: defaults).pending.isEmpty)
+  }
+
+  func testNewPrivateOperationsAreSanitizedBeforePersistence() async throws {
+    inner.replies = [.failure(RelayFailure.notReachable)]
+    _ = try? await transport.request(["op": "private command text"])
+    let stored = try XCTUnwrap(defaults.data(forKey: "watch.deliveryReports"))
+    let decoded = try JSONDecoder().decode([DeliveryReport].self, from: stored)
+    XCTAssertEqual(decoded.first?.op, "unknown")
+  }
+
+  func testKnownDiagnosticOperationsAreRetained() {
+    let reports = DeliveryReports(defaults: defaults)
+    for op in ["session", "threads", "messages", "send", "forgetSend", "request_details", "request_answer", "transcribe"] {
+      reports.add(DeliveryReport(op: op, reason: "not_reachable", at: 42))
+    }
+    XCTAssertEqual(reports.pending.map(\.op), ["session", "threads", "messages", "send", "forgetSend", "request_details", "request_answer", "transcribe"])
+    XCTAssertEqual(relayOperation(nil), "unknown")
+  }
+
   func testAFailureIsHandedOverWithTheNextRequestThatArrives() async throws {
     inner.replies = [.failure(RelayFailure.notReachable), .success(["ok": true]), .success(["ok": true])]
 
