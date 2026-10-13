@@ -23,7 +23,8 @@ final class SessionChatTransport
         PromptAcknowledgement,
         GatewayRequester,
         OwnedSessionTransport,
-        GatewayConnectionTransport {
+        GatewayConnectionTransport,
+        QueueSubmissionTransport {
   SessionChatTransport(this._create) : _delegate = _create() {
     final delegate = _delegate;
     _acknowledgement = delegate is PromptAcknowledgement
@@ -106,6 +107,9 @@ final class SessionChatTransport
             },
             onDone: () {
               _subscriptions.remove(cancel);
+              if (!_current(epoch) && !controller.isClosed) {
+                controller.addError(_unavailable);
+              }
               unawaited(controller.close());
             },
           );
@@ -280,6 +284,47 @@ final class SessionChatTransport
       attachments: attachments,
       model: model,
       queued: queued,
+    );
+  });
+
+  @override
+  Stream<ChatEvent> sendQueued({
+    String? threadId,
+    String? profile,
+    required String text,
+    List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
+    required Future<void> Function() beforeSubmit,
+    Future<void> Function()? onNotSubmitted,
+  }) => _stream((delegate) {
+    if (profile == null || profile.trim().isEmpty) {
+      throw QueueSubmissionNotStarted(StateError('Queued profile unresolved'));
+    }
+    if (delegate is! QueueSubmissionTransport) {
+      throw UnsupportedError('Transport cannot protect queued submissions');
+    }
+    final epoch = _epoch;
+    _acknowledgement = delegate is PromptAcknowledgement
+        ? delegate as PromptAcknowledgement
+        : null;
+    return (delegate as QueueSubmissionTransport).sendQueued(
+      threadId: threadId,
+      profile: profile,
+      text: text,
+      attachments: attachments,
+      model: model,
+      onNotSubmitted: onNotSubmitted,
+      beforeSubmit: () async {
+        try {
+          _check(epoch);
+          await beforeSubmit();
+          _check(epoch);
+        } on Object catch (error) {
+          throw error is QueueSubmissionNotStarted
+              ? error
+              : QueueSubmissionNotStarted(error);
+        }
+      },
     );
   });
 

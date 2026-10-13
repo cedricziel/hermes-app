@@ -126,6 +126,24 @@ final class PromptAcknowledged extends ChatEvent {
   final int userRowId;
 }
 
+final class PromptAccepted extends ChatEvent {
+  const PromptAccepted(this.status);
+  static const allowedStatuses = {
+    'streaming',
+    'queued',
+    'redirected',
+    'steered',
+  };
+  final String status;
+}
+
+final class QueueSubmissionNotStarted implements Exception {
+  const QueueSubmissionNotStarted(this.cause);
+  final Object cause;
+  @override
+  String toString() => 'Queued prompt was not submitted.';
+}
+
 final class ReplyStarted extends ChatEvent {
   const ReplyStarted();
 }
@@ -546,6 +564,20 @@ abstract interface class GatewayRequester {
     String method, [
     Map<String, Object?> params = const {},
   ]);
+}
+
+/// Awaits protected persistence immediately before the prompt RPC.
+/// [onNotSubmitted] runs only when preparation fails before that RPC starts.
+abstract interface class QueueSubmissionTransport {
+  Stream<ChatEvent> sendQueued({
+    String? threadId,
+    String? profile,
+    required String text,
+    List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
+    required Future<void> Function() beforeSubmit,
+    Future<void> Function()? onNotSubmitted,
+  });
 }
 
 abstract interface class ChatTransport {
