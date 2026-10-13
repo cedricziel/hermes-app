@@ -12,6 +12,7 @@ import '../side_results/side_result_state.dart';
 import '../connector_operation_state.dart';
 import '../billing_verification_controller.dart';
 import '../process_output_state.dart';
+import '../reactions/reaction_state.dart';
 import 'gateway_rpc_client.dart';
 
 /// The [ChatEvent] a gateway event frame means, or null for a frame the app
@@ -58,6 +59,24 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
         runtimeId: event.sessionId,
         connection: connection,
       ),
+      _ => null,
+    },
+    'message.reaction' => switch (MessageReactionSnapshot.decode(payload)) {
+      final snapshot? when event.sessionId.isNotEmpty =>
+        MessageReactionsUpdated(
+          snapshot,
+          runtimeId: event.sessionId,
+          connection: connection,
+        ),
+      _ => null,
+    },
+    'reaction' => switch (SessionAcknowledgement.decode(payload)) {
+      final acknowledgement? when event.sessionId.isNotEmpty =>
+        SessionAcknowledgementReported(
+          acknowledgement,
+          runtimeId: event.sessionId,
+          connection: connection,
+        ),
       _ => null,
     },
     'message.start' => const ReplyStarted(),

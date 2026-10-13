@@ -10,6 +10,8 @@ import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/hermes_theme.dart';
 import '../../widgets/markdown_links.dart';
 import '../chat_message_kinds.dart';
+import '../reactions/reaction_state.dart';
+import '../reactions/reaction_cards.dart';
 import '../chat_models.dart'
     show
         ApprovalRequest,
@@ -93,6 +95,8 @@ Builders buildChatBuilders({
     String code,
   })?
   onAnswerVault,
+  List<ReportedReaction>? Function(DurableReactionRow row)? reactionsFor,
+  VoidCallback? onReactionDetails,
   LinkOpener? openLink,
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
@@ -159,7 +163,12 @@ Builders buildChatBuilders({
           horizontalPadding: kChatGutter,
           verticalPadding: kChatTurnGap,
           verticalGroupedPadding: kChatItemGap,
-          child: child,
+          child: _withReactions(
+            child,
+            message.metadata,
+            reactionsFor,
+            onReactionDetails,
+          ),
         ),
     emptyChatListBuilder: (context) => WelcomeView(
       greetingName: greetingName,
@@ -172,6 +181,27 @@ Builders buildChatBuilders({
           context.watch<ComposerHeightNotifier>().height +
           MediaQuery.paddingOf(context).bottom,
     ),
+  );
+}
+
+Widget _withReactions(
+  Widget child,
+  Map<String, dynamic>? metadata,
+  List<ReportedReaction>? Function(DurableReactionRow row)? reactionsFor,
+  VoidCallback? onDetails,
+) {
+  final row = metadata?[kMetaCanonicalRow];
+  final reactions = row is DurableReactionRow ? reactionsFor?.call(row) : null;
+  if (reactions == null || reactions.isEmpty) return child;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      child,
+      Material(
+        type: MaterialType.transparency,
+        child: MessageReactionCard(reactions: reactions, onDetails: onDetails),
+      ),
+    ],
   );
 }
 

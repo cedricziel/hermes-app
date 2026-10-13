@@ -125,6 +125,11 @@ ChatThreadView boundChatThreadView({
     connectionOperations: chat.connectionOperations,
     billingVerification: t == null ? null : chat.billingVerificationIn(t),
     todoPlan: t == null ? null : chat.todoPlanIn(t),
+    acknowledgement: t == null ? null : chat.reactionsIn(t)?.acknowledgement,
+    reactionsFor: t == null ? null : (row) => chat.reactionsFor(t, row),
+    onReactionDetails: t == null
+        ? null
+        : () => chat.reactionsIn(t)?.detailsOpened(),
     sideResults: t == null
         ? const []
         : chat.sideResultsIn(t)?.results ?? const [],

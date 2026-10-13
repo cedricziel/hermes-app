@@ -1,0 +1,11 @@
+# Reported reactions
+
+Follow the shared isolation procedure before launching. Use only synthetic chats on pinned Hermes backend `167e9fdb84248cd0fff80762dc57b6a914b6e930` and record the exact app source. Reaction verification needs no real secure storage, notification posting, or OS permission changes.
+
+1. Submit a synthetic prompt normally and record its actual integer `prompt.submit.user_row_id` receipt. Emit an existing `message.reaction` snapshot on that owning runtime with the exact row_id, role=user, and supplied emoji/author. Confirm the badge appears on that submitted message and its disclosure exposes the supplied author. A repeated snapshot replaces the list; empty reactions remove it without settling the main reply.
+2. Emit a snapshot for an unmatched row, a mismatching role, and a foreign runtime. Confirm no nearest-message badge appears. When canonical history containing the matching row_id and role is actually available through existing reads, confirm the pending snapshot matches only that row. The pinned REST projection supplies id, not canonical row_id; do not count those rows as canonical proof or claim cold restoration from them.
+3. Emit existing `reaction` with fixture-verified kind=vibe. Confirm a neutral session acknowledgement in the bounded activity group, with no inferred emoji or individual message assignment. Unknown kinds stay absent.
+4. During normal socket reconnection, replay one reaction frame concurrently with live delivery. Confirm the existing sequence ledger avoids duplicates and old physical-client frames cannot reappear. On profile replacement, reclaim, or protected activity retirement, confirm badges and pending rows clear. Record these as separate native observations; automated tests do not prove native lifecycle behavior.
+5. If verified compression retargets the stored session while retaining the same runtime, confirm a previously matched inherited row retains its badge without a new reaction API or text/role guess. Missing optional capabilities leave ordinary chat usable.
+
+No reaction mutation or history route is added. Inspect only supplied reaction content; visibility telemetry must contain fixed feature/outcome/action/count values without emoji, authors, IDs, profile names, or timestamps. Keep unobserved native cases unchecked.

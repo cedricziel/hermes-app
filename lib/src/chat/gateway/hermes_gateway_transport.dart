@@ -414,6 +414,8 @@ class _QueuedGate {
         ];
       case ConnectorOperationReceived() ||
           BillingVerificationReceived() ||
+          MessageReactionsUpdated() ||
+          SessionAcknowledgementReported() ||
           SideResultReceived() ||
           ProcessOutputReceived() ||
           SessionUsageUpdated() ||
@@ -495,7 +497,9 @@ class _Unsolicited {
   /// ask for approval before it says anything else, and a reconnect rebuilds
   /// the turn running now.
   bool claims(ChatEvent event) {
-    if (event is SessionUsageUpdated ||
+    if (event is MessageReactionsUpdated ||
+        event is SessionAcknowledgementReported ||
+        event is SessionUsageUpdated ||
         event is TodoUpdated ||
         event is ConnectorOperationReceived ||
         event is SideResultReceived ||
@@ -1349,7 +1353,11 @@ class HermesGatewayTransport
       // ends before the prompt's reply starts.
       final earlier = watch.stopRecording();
       if (submit['user_row_id'] case final int userRowId) {
-        yield PromptAcknowledged(userRowId);
+        yield PromptAcknowledged(
+          userRowId,
+          runtimeId: runtimeId,
+          connection: client,
+        );
       }
       if (beforeSubmit != null) {
         final status = submit['status'];
