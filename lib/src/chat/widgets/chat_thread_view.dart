@@ -37,6 +37,8 @@ import '../connector_operation_controller.dart';
 import 'connector_operation_card.dart';
 import '../billing_verification_controller.dart';
 import 'billing_verification_card.dart';
+import '../reactions/reaction_cards.dart';
+import '../reactions/reaction_state.dart';
 import '../moa_progress_state.dart';
 import 'moa_progress_card.dart';
 import '../process_output_state.dart';
@@ -87,6 +89,9 @@ class ChatThreadView extends StatelessWidget {
     this.connectionOperations,
     this.billingVerification,
     this.todoPlan,
+    this.acknowledgement,
+    this.reactionsFor,
+    this.onReactionDetails,
     this.sideResults = const [],
     this.onSideResultDetails,
     this.moaProgress = const [],
@@ -119,6 +124,9 @@ class ChatThreadView extends StatelessWidget {
   final ConnectorOperationController? connectorOperations, connectionOperations;
   final BillingVerificationController? billingVerification;
   final TodoPlanState? todoPlan;
+  final SessionAcknowledgement? acknowledgement;
+  final List<ReportedReaction>? Function(DurableReactionRow row)? reactionsFor;
+  final VoidCallback? onReactionDetails;
   final List<SideResult> sideResults;
   final VoidCallback? onSideResultDetails;
   final List<MoaProgress> moaProgress;
@@ -262,6 +270,8 @@ class ChatThreadView extends StatelessWidget {
           onAnswerClarify: onAnswerClarify,
           onSkipUnsupported: onSkipUnsupported,
           onAnswerVault: onAnswerVault,
+          reactionsFor: reactionsFor,
+          onReactionDetails: onReactionDetails,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,
@@ -306,6 +316,11 @@ class ChatThreadView extends StatelessWidget {
               controller: billing,
             ),
           ),
+        ),
+      if (acknowledgement != null)
+        SessionAcknowledgementCard(
+          acknowledgement: acknowledgement,
+          onDetails: onReactionDetails,
         ),
       if (sessionState case final state? when state.visible)
         ConstrainedBox(

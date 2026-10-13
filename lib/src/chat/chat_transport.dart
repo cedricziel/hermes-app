@@ -18,6 +18,7 @@ import 'side_results/side_result_state.dart';
 import 'connector_operation_state.dart';
 import 'billing_verification_controller.dart';
 import 'process_output_state.dart';
+import 'reactions/reaction_state.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
@@ -136,6 +137,28 @@ final class ProcessOutputReceived extends ChatEvent {
   final Object? connection;
 }
 
+final class MessageReactionsUpdated extends ChatEvent {
+  const MessageReactionsUpdated(
+    this.snapshot, {
+    required this.runtimeId,
+    required this.connection,
+  });
+  final MessageReactionSnapshot snapshot;
+  final String runtimeId;
+  final Object? connection;
+}
+
+final class SessionAcknowledgementReported extends ChatEvent {
+  const SessionAcknowledgementReported(
+    this.acknowledgement, {
+    required this.runtimeId,
+    required this.connection,
+  });
+  final SessionAcknowledgement acknowledgement;
+  final String runtimeId;
+  final Object? connection;
+}
+
 /// First event when [ChatTransport.send] starts a new thread: the id the
 /// dashboard stored it under, the same id `GET /api/sessions` lists.
 final class ThreadBound extends ChatEvent {
@@ -146,8 +169,10 @@ final class ThreadBound extends ChatEvent {
 
 /// Acceptance of the submitted prompt, without proof of its final answer.
 final class PromptAcknowledged extends ChatEvent {
-  const PromptAcknowledged(this.userRowId);
+  const PromptAcknowledged(this.userRowId, {this.runtimeId, this.connection});
   final int userRowId;
+  final String? runtimeId;
+  final Object? connection;
 }
 
 final class PromptAccepted extends ChatEvent {

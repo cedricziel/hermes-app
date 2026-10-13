@@ -53,6 +53,7 @@ import 'billing_verification_controller.dart';
 import 'billing_verification_transport.dart';
 import '../app_lock/app_lock_controller.dart';
 import 'process_output_state.dart';
+import 'reactions/reaction_state.dart';
 import 'gateway/gateway_rpc_client.dart'
     show GatewayRpcException, GatewayConnectionClosed;
 import 'hermes_chat_repository.dart';
@@ -64,6 +65,8 @@ import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
 import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
+
+part 'chat_controller_reactions.dart';
 
 const couldNotOpenChat = 'Could not open that chat.';
 
@@ -1004,6 +1007,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         : null;
   }
 
+  final _reactions = <ChatThread, ReactionState>{};
+
   final _sideResults = <ChatThread, SideResultState>{};
   SideResultState? sideResultsIn(ChatThread thread) {
     final state = _sideResults[thread], binding = _ownedBindings[thread];
@@ -1379,6 +1384,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         if (!change.connected) {
           for (final entry in _ownedBindings.entries.toList()) {
             if (entry.value != change.binding) continue;
+            _reactions.remove(entry.key)?.dispose();
             _sideResults.remove(entry.key)?.dispose();
             _processOutputs.remove(entry.key)?.clear();
             if (change.retired) {
@@ -1409,6 +1415,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   void _clearOwnedState() {
     _clearBilling();
+    _clearReactions();
     _clearTodo();
     _clearConnectors();
     _clearMoa();
@@ -1497,6 +1504,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (!current()) return null;
     _sideResults[thread]?.adopt(_sideScope(binding));
     _processOutputs[thread]?.adopt(binding);
+    if (!current()) return null;
+    _syncReactions(thread, binding);
     return current() ? binding : null;
   }
 
@@ -2295,6 +2304,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return;
       thread.messages.addAll(page.messages);
+      _reactionHistory(thread);
       if (page.hasMore) _olderRows[id] = page.rows;
       notifyListeners();
       if (!active || generation != _loadGeneration) return;
@@ -2365,6 +2375,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           if (!held.contains(m.id)) m,
       ];
       thread.messages.insertAll(0, older);
+      _reactionHistory(thread);
       if (page.hasMore && page.rows > 0) {
         _olderRows[id] = offset + page.rows;
       } else {
@@ -2421,6 +2432,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..clear()
         ..addAll(page.messages)
         ..addAll(failed);
+      _reactionHistory(thread);
       if (page.hasMore) {
         _olderRows[id] = page.rows;
       } else {
@@ -2835,6 +2847,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _removeBilling((_profile, thread.id));
     _ownedBindings.remove(thread);
     _usage.remove(thread)?.dispose();
+    _reactions.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
     _processOutputs.remove(thread)?.clear();
     _sessionStates.remove(thread);
@@ -4151,6 +4164,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         outgoing,
         threadId,
         queued: queued,
+        submittedUser: userMessage,
         protectedSend: protectedSend,
         deferredUser: protectedSend == null ? null : userMessage,
       );
@@ -4230,6 +4244,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     List<OutgoingAttachment> attachments,
     String? threadId, {
     bool queued = false,
+    required ChatMessage submittedUser,
     _ProtectedQueuedSend? protectedSend,
     ChatMessage? deferredUser,
   }) {
@@ -4417,6 +4432,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     subscription = stream.listen(
       (event) {
         if (!_currentActivity(epoch)) return;
+        if (event is PromptAcknowledged) {
+          if (protectedSend == null ||
+              _queueContextCurrent(
+                thread,
+                protectedSend,
+                profile,
+                queueGeneration,
+              )) {
+            _assignPromptReceipt(
+              thread,
+              submittedUser,
+              event,
+              profile,
+              inserted: protectedSend == null,
+            );
+          }
+          return;
+        }
         if (event is PromptAccepted &&
             protectedSend != null &&
             PromptAccepted.allowedStatuses.contains(event.status)) {
@@ -4432,6 +4465,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
               index < 0 ? thread.messages.length : index,
               deferredUser,
             );
+            _reactionHistory(thread);
+            if (!_queueContextCurrent(
+              thread,
+              protectedSend,
+              profile,
+              queueGeneration,
+            )) {
+              _acceptedQueue(thread, protectedSend);
+              return;
+            }
             final controller = controllerFor(thread);
             final flyerIndex = controller.messages.indexWhere(
               (item) => item.id == chatMessageToFlyer(reply).firstOrNull?.id,
@@ -4491,6 +4534,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_onMoaEvent(thread, own.open, event, profile)) return;
     if (_onConnectorOperation(thread, event, profile) ||
         _onBillingEvent(thread, event, profile) ||
+        _onReactionEvent(thread, event, profile) ||
         _onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
@@ -4617,6 +4661,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     unawaited(_ownedSubscription?.cancel());
     _ownedSubscription = null;
     _clearBilling();
+    _clearReactions();
     _clearTodo();
     _clearConnectors();
     _clearMoa();
@@ -4747,6 +4792,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_onMoaEvent(thread, null, event, profile)) return;
     if (_onConnectorOperation(thread, event, profile) ||
         _onBillingEvent(thread, event, profile) ||
+        _onReactionEvent(thread, event, profile) ||
         _onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
@@ -4879,6 +4925,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_onMoaEvent(thread, reply, event, profile)) return;
     if (_onConnectorOperation(thread, event, profile) ||
         _onBillingEvent(thread, event, profile) ||
+        _onReactionEvent(thread, event, profile) ||
         _onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
@@ -4920,6 +4967,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           PromptAccepted():
       case ConnectorOperationReceived() ||
           BillingVerificationReceived() ||
+          MessageReactionsUpdated() ||
+          SessionAcknowledgementReported() ||
           SideResultReceived() ||
           MoaUpdated() ||
           ProcessOutputReceived() ||
