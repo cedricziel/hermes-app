@@ -11,6 +11,8 @@ import 'package:hermes_app/src/background/entry_points.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/notifications/notification_posting.dart';
+import 'package:hermes_app/src/notifications/local_notification_service.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
@@ -141,6 +143,7 @@ void main() {
   tearDown(() => store.dispose());
 
   HeadlessDeps headless({
+    bool failEvents = false,
     Duration closeGrace = const Duration(seconds: 3),
     Duration rejectionRecheck = const Duration(seconds: 1),
   }) => HeadlessDeps(
@@ -151,7 +154,9 @@ void main() {
     openSocket: (_) => gateway.connect(),
     telemetry: (attributes) => ConnectionTelemetry(
       tracer: tracer,
-      events: events.connection(attributes).events,
+      events: failEvents
+          ? (name, [attributes = const {}]) => throw StateError('private text')
+          : events.connection(attributes).events,
       serverAttributes: attributes,
     ),
     snapshotStore: store,
@@ -538,24 +543,28 @@ void main() {
       expect(notifications.shown, hasLength(1));
     });
 
-    test('remembers a request before it posts the notification', () async {
-      sessions = {
-        'work': [_session('chat-a')],
-      };
-      approvals = {
-        'rt-chat-a': [_approval('r1')],
-      };
-      final seenWhenShown = <Set<String>>[];
-      notifications = _SpyNotifications(
-        () async => seenWhenShown.add(await announced.read()),
-      );
+    test(
+      'remembers a request only after the notification is accepted',
+      () async {
+        sessions = {
+          'work': [_session('chat-a')],
+        };
+        approvals = {
+          'rt-chat-a': [_approval('r1')],
+        };
+        final seenWhenShown = <Set<String>>[];
+        notifications = _SpyNotifications(
+          () async => seenWhenShown.add(await announced.read()),
+        );
 
-      await refresh();
+        await refresh();
 
-      expect(seenWhenShown.single, contains('r1'));
-    });
+        expect(seenWhenShown.single, isNot(contains('r1')));
+        expect(await announced.read(), contains('r1'));
+      },
+    );
 
-    test('does not announce again when remembering failed', () async {
+    test('replaces an accepted alert when remembering failed', () async {
       announced = _UnwritableAnnounced();
       sessions = {
         'work': [_session('chat-a')],
@@ -567,7 +576,155 @@ void main() {
       await refresh();
       await refresh();
 
+      expect(notifications.shown, hasLength(2));
+      expect(await announced.read(), isEmpty);
+    });
+
+    test('a failed mark cannot suppress another chat notification', () async {
+      announced = _FailingFirstMark();
+      sessions = {
+        'work': [_session('chat-a'), _session('chat-b')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+        'rt-chat-b': [_approval('r2')],
+      };
+
+      await refresh();
+
+      expect(notifications.shown.map((note) => note.threadId), [
+        'chat-a',
+        'chat-b',
+      ]);
+      expect(await announced.read(), isNot(contains('r1')));
+      expect(await announced.read(), contains('r2'));
+      expect(taskSpan().attributes['requests.post_accepted'], 2);
+      expect(taskSpan().attributes['requests.post_failed'], 0);
+      expect(taskSpan().attributes['requests.mark_failed'], 1);
+      expect(taskSpan().attributes['requests.new'], 1);
+      expect(events.named('background.request_alert.mark_failed'), [
+        {'error.type': 'StateError'},
+      ]);
+    });
+
+    test('leaves a failed post eligible for the next live check', () async {
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+      notifications.postResult = const NotificationPostResult(
+        NotificationPostStatus.failed,
+        errorType: 'PlatformException',
+      );
+
+      await refresh();
+
+      expect(await announced.read(), isEmpty);
+      expect(notifications.shown, isEmpty);
+      expect(events.named('background.request_alert.post_failed'), [
+        {'reason': 'failed', 'error.type': 'PlatformException'},
+      ]);
+      expect(taskSpan().attributes['requests.post_failed'], 1);
+      expect(storedSnapshot()['pending'], hasLength(1));
+
+      notifications.postResult = const NotificationPostResult(
+        NotificationPostStatus.accepted,
+      );
+      await refresh();
+
       expect(notifications.shown, hasLength(1));
+      expect(await announced.read(), contains('r1'));
+    });
+
+    test('marks only chats whose notification was accepted', () async {
+      sessions = {
+        'work': [_session('chat-a'), _session('chat-b')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+        'rt-chat-b': [_approval('r2')],
+      };
+      notifications.postResults['chat-a'] = const NotificationPostResult(
+        NotificationPostStatus.denied,
+      );
+
+      await refresh();
+
+      expect(notifications.shown.single.threadId, 'chat-b');
+      expect(await announced.read(), contains('r2'));
+      expect(await announced.read(), isNot(contains('r1')));
+      expect(taskSpan().attributes['requests.post_accepted'], 1);
+      expect(taskSpan().attributes['requests.post_failed'], 1);
+    });
+
+    test('does not retry a failed alert after the request resolves', () async {
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+      notifications.postResult = const NotificationPostResult(
+        NotificationPostStatus.unsupported,
+      );
+      await refresh();
+
+      sessions = {
+        'work': [_session('chat-a', status: 'idle')],
+      };
+      notifications.postResult = const NotificationPostResult(
+        NotificationPostStatus.accepted,
+      );
+      await refresh();
+
+      expect(notifications.shown, isEmpty);
+      expect(await announced.read(), isEmpty);
+    });
+
+    test(
+      'replaces the same notification after an accepted mark is lost',
+      () async {
+        announced = _UnwritableAnnounced();
+        sessions = {
+          'work': [_session('chat-a')],
+        };
+        approvals = {
+          'rt-chat-a': [_approval('r1')],
+        };
+        await refresh();
+
+        announced = AnnouncedRequests();
+        await refresh();
+
+        expect(notifications.shown, hasLength(2));
+        final first = notifications.shown.first;
+        final retried = notifications.shown.last;
+        expect(
+          notificationIdFor(first.threadId, profile: first.profile),
+          notificationIdFor(retried.threadId, profile: retried.profile),
+        );
+        expect(await announced.read(), contains('r1'));
+      },
+    );
+
+    test('post failure telemetry cannot prevent later chat alerts', () async {
+      sessions = {
+        'work': [_session('chat-a'), _session('chat-b')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+        'rt-chat-b': [_approval('r2')],
+      };
+      notifications.postResults['chat-a'] = const NotificationPostResult(
+        NotificationPostStatus.failed,
+        errorType: 'PlatformException',
+      );
+      await refresh(with_: deps(wiring: headless(failEvents: true)));
+
+      expect(notifications.shown.single.threadId, 'chat-b');
+      expect(await announced.read(), contains('r2'));
     });
 
     test('keeps the other profiles when one profile errors out', () async {
@@ -1173,6 +1330,19 @@ class _UnwritableAnnounced extends AnnouncedRequests {
   @override
   Future<void> persist(Set<String> ids) async =>
       throw StateError('preferences are read-only');
+}
+
+class _FailingFirstMark extends AnnouncedRequests {
+  var _fail = true;
+
+  @override
+  Future<void> add(Iterable<String> ids) async {
+    if (_fail) {
+      _fail = false;
+      throw StateError('private storage failure');
+    }
+    await super.add(ids);
+  }
 }
 
 class _Step extends BackgroundStep {

@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
+import 'package:hermes_app/src/notifications/notification_posting.dart';
 
 /// A [NotificationService] the test drives by hand: every notification is
 /// recorded, and a tap is simulated with [tap].
-class FakeNotificationService implements NotificationService {
+class FakeNotificationService
+    implements NotificationService, NotificationPoster {
   FakeNotificationService({
     this.permission = NotificationPermission.granted,
     this.launchThread,
@@ -33,6 +35,21 @@ class FakeNotificationService implements NotificationService {
   String? launchPrompt;
 
   final shown = <AttentionNotification>[];
+  NotificationPostResult postResult = const NotificationPostResult(
+    NotificationPostStatus.accepted,
+  );
+  final postResults = <String, NotificationPostResult>{};
+
+  @override
+  Future<NotificationPostResult> post(
+    AttentionNotification notification,
+  ) async {
+    final result = postResults[notification.threadId] ?? postResult;
+    if (result.status == NotificationPostStatus.accepted) {
+      await show(notification);
+    }
+    return result;
+  }
 
   /// How many times [withdrawAnswerable] was called.
   var withdrawals = 0;

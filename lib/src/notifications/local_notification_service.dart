@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'attention_policy.dart';
 import 'notification_service.dart';
+import 'notification_posting.dart';
 import 'notification_preview.dart';
 import 'request_answers.dart';
 import 'request_notifications.dart';
@@ -159,7 +160,10 @@ Future<void> _categoryCall(String method, [Object? arguments]) {
 /// categories at start, which would drop the placeholders the main app set;
 /// it adds the one category a notification is posted under.
 class LocalNotificationService
-    implements NotificationService, GuardedNotificationService {
+    implements
+        NotificationService,
+        GuardedNotificationService,
+        NotificationPoster {
   LocalNotificationService({
     FlutterLocalNotificationsPlugin? plugin,
     CategoryRegistrar registerCategories = registerCategoriesNatively,
@@ -287,19 +291,44 @@ class LocalNotificationService
     AttentionNotification notification,
     bool Function() canDeliver,
   ) async {
-    if (!_supported) return;
-    try {
-      if (!canDeliver()) return;
-      await _initialize();
-      if (!canDeliver()) return;
+    await _postWhile(notification, canDeliver);
+  }
 
+  @override
+  Future<NotificationPostResult> post(AttentionNotification notification) =>
+      _postWhile(notification, () => true);
+
+  Future<NotificationPostResult> _postWhile(
+    AttentionNotification notification,
+    bool Function() canDeliver,
+  ) async {
+    if (!_supported) {
+      return const NotificationPostResult(NotificationPostStatus.unsupported);
+    }
+    try {
+      if (!canDeliver()) {
+        return const NotificationPostResult(NotificationPostStatus.failed);
+      }
+      await _initialize();
+      if (!canDeliver()) {
+        return const NotificationPostResult(NotificationPostStatus.failed);
+      }
+      final permission = await allowed();
+      if (!canDeliver()) {
+        return const NotificationPostResult(NotificationPostStatus.failed);
+      }
+      if (permission == false) {
+        return const NotificationPostResult(NotificationPostStatus.denied);
+      }
       // Android has no placeholder that hides the text on a locked screen.
       final category = _darwin ? notification.category : null;
       // A background run may be the first thing to start the app since the
       // system last forgot the categories, so it registers its own.
       if (category != null && (category.isDynamic || _background)) {
         await _register([category]);
-        if (!canDeliver()) return;
+        if (!canDeliver()) {
+          return const NotificationPostResult(NotificationPostStatus.failed);
+        }
       }
       final darwin = DarwinNotificationDetails(
         categoryIdentifier: category?.id,
@@ -311,7 +340,9 @@ class LocalNotificationService
       final body = _darwin
           ? notification.body
           : notification.category?.placeholder ?? notification.body;
-      if (!canDeliver()) return;
+      if (!canDeliver()) {
+        return const NotificationPostResult(NotificationPostStatus.failed);
+      }
       await _plugin.show(
         id: notificationIdFor(
           notification.threadId,
@@ -332,8 +363,12 @@ class LocalNotificationService
         ),
         payload: notificationPayload(notification),
       );
-    } on Object {
-      return;
+      return const NotificationPostResult(NotificationPostStatus.accepted);
+    } on Object catch (error) {
+      return NotificationPostResult(
+        NotificationPostStatus.failed,
+        errorType: error.runtimeType.toString(),
+      );
     }
   }
 
