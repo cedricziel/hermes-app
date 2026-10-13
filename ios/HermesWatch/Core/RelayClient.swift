@@ -94,7 +94,8 @@ struct RelayClient: HermesClient {
     if let waiting = reply["waiting"] as? String {
       return SendResult(
         threadId: boundId, text: "", failed: false,
-        waiting: SendResult.Waiting(rawValue: waiting) ?? .working, handoff: HandoffTarget(row: reply))
+        waiting: SendResult.Waiting(rawValue: waiting) ?? .working, handoff: HandoffTarget(row: reply),
+        requestId: reply["requestId"] as? String, inlineEligible: reply["inlineEligible"] as? Bool ?? false)
     }
     guard let text = reply["text"] as? String else { throw HermesClientError.failed }
     if threadId == nil, boundId == nil { throw HermesClientError.failed }
@@ -105,6 +106,31 @@ struct RelayClient: HermesClient {
       tools: reply["tools"] as? [String] ?? [],
       handoff: HandoffTarget(row: reply)
     )
+  }
+
+  func requestDetails(threadId: String, requestId: String) async throws -> WatchRequestDetails? {
+    let access = WatchRequestAccess.shared
+    guard access.allowed else { throw HermesClientError.unavailable }
+    let epoch = access.epoch
+    let reply = try await call(["op": "request_details", "threadId": threadId, "requestId": requestId, "requestEpoch": epoch])
+    guard access.allowed, access.epoch == epoch, reply["requestEpoch"] as? Int == epoch else { throw HermesClientError.unavailable }
+    if reply["status"] as? String == "expired" { return nil }
+    return try WatchRequestDetails(row: reply)
+  }
+
+  func answerRequest(threadId: String, requestId: String, fingerprint: String, answer: WatchRequestAnswer) async throws -> String {
+    let access = WatchRequestAccess.shared
+    guard access.allowed else { throw HermesClientError.unavailable }
+    let epoch = access.epoch
+    var message = answer.fields
+    message["op"] = "request_answer"
+    message["threadId"] = threadId
+    message["requestId"] = requestId
+    message["requestEpoch"] = epoch
+    message["fingerprint"] = fingerprint
+    let reply = try await call(message)
+    guard access.allowed, access.epoch == epoch else { throw HermesClientError.unavailable }
+    return reply["status"] as? String ?? "uncertain"
   }
 
   func transcribe(audio: Data, mimeType: String) async throws -> String {
@@ -139,6 +165,7 @@ struct RelayClient: HermesClient {
     message["revision"] = revision
     let reply = try await transport.request(message)
     guard generation == session.generation, session.contextId == context else { throw HermesClientError.contextChanged }
+    WatchRequestAccess.shared.receive(reply)
     try check(reply)
     guard reply["contextId"] as? String == context, reply["revision"] as? Int == revision else {
       session.invalidate(reason: .contextChanged)

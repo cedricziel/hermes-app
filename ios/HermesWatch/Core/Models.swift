@@ -67,6 +67,8 @@ struct SendResult: Equatable {
   /// Where the chat lives, so a chat started here can be handed off at once.
   var handoff: HandoffTarget?
   var recoveryState: SendRecoveryState?
+  var requestId: String?
+  var inlineEligible = false
 
   enum Waiting: String, Equatable {
     /// Hermes waits on the user's approval, which the notification asks for.

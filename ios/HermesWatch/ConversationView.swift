@@ -52,7 +52,15 @@ struct ConversationView: View {
           }
           if case .waiting(let waiting) = model.phase {
             WorkingRow(text: waiting == .question ? "Hermes has a question" : "Waiting for your approval")
-            Text(ConversationPresentation.requestGuidance).fixedSize(horizontal: false, vertical: true)
+            if model.requests.loading { ProgressView("Loading request…") }
+            if model.requests.draft != nil {
+              RequestActionsView(draft: Binding(get: { model.requests.draft }, set: { model.requests.draft = $0 }),
+                answer: { answer in Task { await model.requests.submit(answer) } },
+                checkStatus: { Task { await model.requests.checkStatus() } })
+            } else if !model.requests.loading {
+              Text(ConversationPresentation.requestGuidance)
+                .fixedSize(horizontal: false, vertical: true)
+            }
             Button(ConversationPresentation.leaveWaitingLabel) { model.stopWaiting() }
               .accessibilityHint(ConversationPresentation.leaveWaitingHint)
             Text(ConversationPresentation.leaveWaitingHint).font(.footnote).fixedSize(horizontal: false, vertical: true)

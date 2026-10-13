@@ -22,6 +22,7 @@ import 'watch_complication.dart';
 import 'watch_context.dart';
 import 'watch_send_journal.dart';
 import 'watch_request_handler.dart';
+import 'watch_request_actions.dart';
 
 /// The Dart end of the watch relay. The iOS runner receives what the watch
 /// sends over WatchConnectivity and forwards each request here as a `request`
@@ -33,6 +34,9 @@ class WatchBridge {
     this._events = noopAppEventLogger,
     this._authState = _unknownAuthState,
     this._auth,
+    this._appLock,
+    this._requestActions,
+    this._requestsEnabled = false,
     WatchContextStore? contextStore,
   }) : _contextStore = contextStore ?? WatchContextStore();
 
@@ -43,6 +47,75 @@ class WatchBridge {
   final AppEventLogger _events;
   final String Function() _authState;
   final AuthController? _auth;
+  final AppLockController? _appLock;
+  final WatchRequestActions? _requestActions;
+  final bool _requestsEnabled;
+  Future<void> _requestPublication = Future.value();
+  bool _requestPublicationSecured = false;
+  int _requestPublicationPending = 0;
+  int _requestAccessGeneration = 0;
+  int _requestEpoch = 0;
+  Object? _requestRequestedState;
+  int get requestEpoch => _requestEpoch;
+  bool get requestsAvailable => _requestPublicationSecured && _requestsWanted;
+  bool get _requestsWanted =>
+      _requestsEnabled &&
+      _appLock?.loaded == true &&
+      _appLock?.enabled == false &&
+      _publicationSecured &&
+      _contextStore.current != null &&
+      _auth?.state == HermesConnectionState.ready &&
+      _auth?.protectedRequestsAllowed == true;
+
+  void _requestAccessChanged({bool force = false}) {
+    if (!_requestsEnabled) return;
+    final scope = _contextStore.current;
+    final state = (
+      _requestsWanted,
+      scope?.id,
+      scope?.revision,
+      _auth?.ownerGeneration,
+      _appLock?.loaded,
+      _appLock?.enabled,
+    );
+    if (!force &&
+        state == _requestRequestedState &&
+        (_requestPublicationSecured || _requestPublicationPending > 0)) {
+      return;
+    }
+    _requestRequestedState = state;
+    final generation = ++_requestAccessGeneration;
+    _requestPublicationSecured = false;
+    if (!_requestsWanted) _requestActions?.clearDetails();
+    _requestPublicationPending++;
+    _requestPublication = _requestPublication.then((_) async {
+      try {
+        final wanted = _requestsWanted;
+        final owner = _contextStore.current;
+        final value = await _channel.invokeMethod<Object?>(
+          'publishRequestAccess',
+          {'allowed': wanted, if (owner != null) ...owner.fields},
+        );
+        if (value is! Map ||
+            value['epoch'] is! int ||
+            value['allowed'] != wanted ||
+            (wanted &&
+                (value['contextId'] != owner?.id ||
+                    value['revision'] != owner?.revision)) ||
+            (value['epoch'] as int) < _requestEpoch) {
+          return;
+        }
+        _requestEpoch = value['epoch'] as int;
+        _requestPublicationSecured =
+            generation == _requestAccessGeneration && wanted == _requestsWanted;
+      } on Object {
+        _requestPublicationSecured = false;
+      } finally {
+        _requestPublicationPending--;
+      }
+    });
+  }
+
   StreamSubscription<void>? _departure;
   Future<void> _publication = Future.value();
   final WatchContextStore _contextStore;
@@ -65,6 +138,7 @@ class WatchBridge {
   int _generation = 0;
 
   void _sessionChanged() {
+    _requestAccessChanged();
     final auth = _auth;
     if (auth == null) return;
     final usable =
@@ -114,6 +188,7 @@ class WatchBridge {
       } finally {
         _pendingPublications--;
         if (_pendingPublications == 0) _queuedUsable = null;
+        _requestAccessChanged();
       }
     });
   }
@@ -199,19 +274,37 @@ class WatchBridge {
     WatchComplicationStatus? complication,
     AppEventLogger events = noopAppEventLogger,
     bool durableSendState = false,
+    bool requestsEnabled = false,
   }) {
-    if (!Platform.isIOS) return null;
+    if (!Platform.isIOS) {
+      return null;
+    }
     final contextStore = WatchContextStore();
     complication?.context = () => contextStore.current;
-    return WatchBridge(
+    late WatchBridge bridge;
+    final actions = requestsEnabled
+        ? WatchRequestActions(
+            context: () => contextStore.current,
+            allowed: () => bridge.requestsAvailable,
+            epoch: () => bridge.requestEpoch,
+            transport: () => gatewayTransportFor(auth, events: events),
+          )
+        : null;
+    bridge = WatchBridge(
       contextStore: contextStore,
       events: events,
       auth: auth,
+      appLock: appLock,
+      requestActions: actions,
+      requestsEnabled: requestsEnabled,
       authState: () => auth.state.name,
       handler: handlerFor(
         auth,
         contextStore: contextStore,
         durableSendState: durableSendState,
+        requestActions: actions,
+        requestsAllowed: () => bridge.requestsAvailable,
+        requestEpoch: actions == null ? null : () => bridge.requestEpoch,
         announce: announcer(notifications, settings),
         appLock: () => appLockHidesRequests(appLock),
         transcribeOnDevice: onDeviceTranscriber(speech, dictation),
@@ -219,6 +312,7 @@ class WatchBridge {
         events: events,
       ),
     );
+    return bridge;
   }
 
   /// Transcribes a voice message with the phone's recognizer in its language
@@ -272,6 +366,9 @@ class WatchBridge {
     Duration readyTimeout = const Duration(seconds: 20),
     WatchContextStore? contextStore,
     bool durableSendState = false,
+    WatchRequestActions? requestActions,
+    bool Function()? requestsAllowed,
+    int Function()? requestEpoch,
   }) {
     // The client exists from the first connect, before anyone has signed in.
     HermesApiClient? readyApi() =>
@@ -283,6 +380,15 @@ class WatchBridge {
     final contexts = contextStore ?? WatchContextStore();
     return WatchRequestHandler(
       journal: durableSendState ? WatchSendJournal(events: events) : null,
+      onRequestEvent: requestActions?.observe,
+      onRequestsInvalidated: requestActions?.clear,
+      onRequestStreamClosed: requestActions == null
+          ? null
+          : (_, _, _, owner) => requestActions.closeOwner(owner),
+      requestsAllowed: requestsAllowed ?? _off,
+      requestEligible: requestActions?.eligible,
+      requestAction: requestActions?.handle,
+      requestEpoch: requestEpoch,
       context: () => contexts.current,
       prepareContext: () async {
         await contexts.resolve(
@@ -310,7 +416,9 @@ class WatchBridge {
       },
       activeProfile: () async {
         final api = readyApi();
-        if (api == null) return null;
+        if (api == null) {
+          return null;
+        }
         try {
           return (await HermesProfilesRepository(api.raw).loadActive()).active;
         } on Object {
@@ -340,6 +448,8 @@ class WatchBridge {
     'messages' ||
     'send' ||
     'forgetSend' ||
+    'request_details' ||
+    'request_answer' ||
     'transcribe' => op as String,
     _ => 'unknown',
   };
@@ -371,12 +481,15 @@ class WatchBridge {
   void start() {
     _channel.setMethodCallHandler(_onCall);
     _auth?.addListener(_sessionChanged);
+    _appLock?.addListener(_requestAccessChanged);
     _departure = _auth?.signedOut.listen((_) => _sessionChanged());
     _sessionChanged();
   }
 
   void dispose() {
     _auth?.removeListener(_sessionChanged);
+    _appLock?.removeListener(_requestAccessChanged);
+    _requestActions?.clear();
     unawaited(_departure?.cancel());
     _channel.setMethodCallHandler(null);
   }
@@ -394,6 +507,11 @@ class WatchBridge {
     });
     _sessionChanged();
     await _publication;
+    _requestAccessChanged(
+      force:
+          request['op'] == 'session' && request['requestAccessRefresh'] == true,
+    );
+    await _requestPublication;
     final generation = _generation;
     var reply = _auth != null && _desiredUsable == true && !_publicationSecured
         ? <String, Object?>{'ok': false, 'error': 'unavailable'}
@@ -401,6 +519,10 @@ class WatchBridge {
     _sessionChanged();
     await _publication;
     if (generation != _generation) reply = {'ok': false, 'error': 'signed_out'};
+    if ((operation == 'request_details' || operation == 'request_answer') &&
+        !requestsAvailable) {
+      reply = {'ok': false, 'error': 'locked'};
+    }
     if (_auth != null && reply['ok'] == true && !_publicationSecured) {
       reply = {'ok': false, 'error': 'unavailable'};
     }
