@@ -9,6 +9,18 @@ struct ConversationView: View {
   @State private var draft = ""
   @State private var recorder = VoiceRecorder()
   @AppStorage("voiceFastSend") private var voiceFastSend = false
+  @State private var reading = ConversationReadingPosition()
+  @FocusState private var editingDraft: Bool
+  @State private var restoringUnsentDraft = false
+  @State private var draftLifecycle = 0
+  @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+
+  init(model: ConversationModel, title: String? = nil, startRecording: Bool = false, draft: String = "") {
+    self.model = model
+    self.title = title
+    self.startRecording = startRecording
+    self._draft = State(initialValue: draft)
+  }
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -21,7 +33,16 @@ struct ConversationView: View {
             ProgressView().frame(maxWidth: .infinity)
           }
           ForEach(model.messages) { message in
-            MessageBubble(message: message).id(message.id)
+            VStack(alignment: .leading, spacing: 4) {
+              MessageBubble(message: message)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(ConversationPresentation.messageLabel(role: message.role, content: message.content))
+              if let state = model.deliveryStates[message.id], state != .completed {
+                Text(model.deliveryLabel(messageId: message.id) ?? ConversationPresentation.deliveryLabel(state))
+                  .font(.footnote)
+                  .fixedSize(horizontal: false, vertical: true)
+              }
+            }.id(message.id)
           }
           if model.phase == .transcribing {
             WorkingRow(text: "Transcribing…")
@@ -36,8 +57,17 @@ struct ConversationView: View {
           if model.phase == .failed(.contextChanged) {
             Text(HermesClientError.contextChanged.message)
             Button("Open chat list") { dismiss() }
-          } else if case .failed(let error) = model.phase, model.recovery == nil, model.voice.state == .idle {
+          } else if case .failed(let error) = model.phase, model.recovery == nil, model.unsent == nil, model.voice.state == .idle {
             ErrorView(error: error) { Task { await retry() } }
+          }
+          if let unsent = model.unsent, model.recovery == nil {
+            if case .failed(let error) = model.phase { Text(error.message).fixedSize(horizontal: false, vertical: true) }
+            RecoveryControls(state: .notSent, hasThread: false,
+              checked: model.phase != .failed(.updateRequired) && model.phase != .failed(.recoveryStorage) && model.phase != .failed(.recoveryCapacity),
+              disabled: model.busy, check: {}, open: {},
+              resend: { Task { await model.send(unsent) } }, forget: {},
+              edit: editUnsentAction,
+              discard: { Task { await model.discardUnsent() } })
           }
           if let recovery = model.recovery {
             if case .failed(let error) = model.phase { Text(error.message).fixedSize(horizontal: false, vertical: true) }
@@ -46,13 +76,38 @@ struct ConversationView: View {
               check: { Task { await model.checkResult() } },
               open: { Task { await model.openRecoveryChat() } },
               resend: { Task { await model.requestSendAgain() } },
-              forget: { Task { await model.forgetRecovery() } })
+              forget: { Task { await model.forgetRecovery() } },
+              edit: editUnsentAction,
+              discard: { Task { await model.discardUnsent() } })
           }
+          Color.clear.frame(height: 1)
+            .background(GeometryReader { geometry in
+              Color.clear.preference(key: CurrentTurnPosition.self,
+                value: geometry.frame(in: .named("conversationViewport")).minY)
+            })
           if model.phase != .failed(.signedOut), model.phase != .failed(.contextChanged) { composer.id("composer") }
         }
       }
-      .onChange(of: model.messages.count) {
-        if model.voice.state == .idle { withAnimation { proxy.scrollTo("composer") } }
+      .coordinateSpace(name: "conversationViewport")
+      .background(GeometryReader { geometry in
+        Color.clear.preference(key: ConversationViewportHeight.self, value: geometry.size.height)
+      })
+      .overlay(alignment: .bottom) {
+        if reading.newReplyId != nil {
+          Button("New reply") {
+            if let id = reading.revealReply() { withAnimation { proxy.scrollTo(id, anchor: .top) } }
+          }
+          .accessibilityHint("Moves to the beginning of the new Hermes answer")
+        }
+      }
+      .onPreferenceChange(CurrentTurnPosition.self) { position in
+        reading.setFollowing(position >= 0 && position <= viewportHeight)
+      }
+      .onPreferenceChange(ConversationViewportHeight.self) { viewportHeight = $0 }
+      .onChange(of: model.completedReplyId) { _, completion in
+        if let id = reading.completedReply(id: completion, preservingFocus: voiceOverEnabled || editingDraft || model.voice.state != .idle) {
+          withAnimation { proxy.scrollTo(id, anchor: .top) }
+        }
       }
     }
     .alert("Send this request again?", isPresented: Binding(get: { model.resendConfirmation }, set: { _ in })) {
@@ -66,10 +121,13 @@ struct ConversationView: View {
     .task {
       if startRecording { await recorder.start() }
       await model.load()
+      #if DEBUG
+        if DemoClient.enabled, let text = DemoClient.startupText { await model.send(text) }
+      #endif
     }
-    .onDisappear { recorder.cancel(); model.discardVoice(); draft = "" }
+    .onDisappear { draftLifecycle += 1; recorder.cancel(); model.discardVoice(); model.leaveConversation(); draft = "" }
     .onChange(of: model.phase) { _, phase in
-      if phase == .failed(.signedOut) || phase == .failed(.contextChanged) { draft = ""; recorder.cancel() }
+      if phase == .failed(.signedOut) || phase == .failed(.contextChanged) { draftLifecycle += 1; draft = ""; recorder.cancel() }
     }
     .advertisesHandoff(model.threadId.map { WatchSessionState.shared.owns($0) } == true ? model.handoff : nil)
     .onChange(of: recorder.state) { _, state in
@@ -77,7 +135,24 @@ struct ConversationView: View {
     }
   }
 
-  private var busy: Bool { !model.canCompose }
+  private var busy: Bool { !model.canCompose || restoringUnsentDraft }
+  private var editUnsentAction: (() -> Void)? {
+    guard ConversationPresentation.canRestoreUnsentDraft(composer: draft, handoffInProgress: restoringUnsentDraft) else { return nil }
+    return { Task { await restoreUnsentDraft() } }
+  }
+
+  private func restoreUnsentDraft() async {
+    guard ConversationPresentation.canRestoreUnsentDraft(composer: draft, handoffInProgress: restoringUnsentDraft) else { return }
+    restoringUnsentDraft = true
+    let lifecycle = draftLifecycle
+    defer { restoringUnsentDraft = false }
+    if let text = await model.editUnsent(), lifecycle == draftLifecycle,
+      model.phase != .failed(.signedOut), model.phase != .failed(.contextChanged) {
+      draft = text
+      editingDraft = true
+    }
+  }
+  @State private var viewportHeight: CGFloat = 0
 
   @ViewBuilder
   private var composer: some View {
@@ -118,6 +193,7 @@ struct ConversationView: View {
         QuickReplies(disabled: busy) { text in Task { await model.send(text) } }
         HStack {
           TextField("Reply", text: $draft)
+            .focused($editingDraft)
             .onSubmit { Task { await submit() } }
           Button {
             Task { await recorder.start() }
@@ -129,6 +205,10 @@ struct ConversationView: View {
           .handGestureShortcut(.primaryAction)
         }
         .disabled(busy)
+        if !draft.isEmpty {
+          Button("Discard draft") { draft = ""; editingDraft = false }
+            .accessibilityHint("Clears the editable draft without sending")
+        }
       }
     }
   }
@@ -145,6 +225,7 @@ struct ConversationView: View {
   }
 
   private func submit() async {
+    guard model.canCompose else { return }
     let text = draft
     draft = ""
     await model.send(text)
@@ -194,6 +275,7 @@ private struct MessageBubble: View {
       HStack {
         Spacer(minLength: 20)
         Text(message.content)
+          .fixedSize(horizontal: false, vertical: true)
           .padding(.horizontal, 10)
           .padding(.vertical, 6)
           .background(Color.accentColor.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
@@ -207,10 +289,21 @@ private struct MessageBubble: View {
             .lineLimit(2)
         }
         Text(WatchMarkdown.attributed(message.content))
+          .fixedSize(horizontal: false, vertical: true)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
+}
+
+private struct CurrentTurnPosition: PreferenceKey {
+  static var defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+private struct ConversationViewportHeight: PreferenceKey {
+  static var defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 private struct WorkingRow: View {
@@ -247,6 +340,19 @@ extension View {
 }
 
 #if DEBUG
+  #Preview("Empty new chat") {
+    NavigationStack { ConversationView(model: ConversationModel(client: DemoClient(), threadId: nil)) }
+  }
+  #Preview("Editable starter draft") {
+    NavigationStack {
+      ConversationView(model: ConversationModel(client: DemoClient(), threadId: nil), draft: "Review the backup plan")
+    }.environment(\.dynamicTypeSize, .accessibility5)
+  }
+  #Preview("Conversation at maximum text size") {
+    NavigationStack {
+      ConversationView(model: ConversationModel(client: DemoClient(), threadId: DemoClient.threads[0].id))
+    }.environment(\.dynamicTypeSize, .accessibility5)
+  }
   #Preview("Signed out") {
     let session = WatchSessionState()
     session.invalidate()

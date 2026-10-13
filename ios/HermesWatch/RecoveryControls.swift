@@ -9,20 +9,32 @@ struct RecoveryControls: View {
   let open: () -> Void
   let resend: () -> Void
   let forget: () -> Void
+  var edit: (() -> Void)? = nil
+  var discard: (() -> Void)? = nil
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(state == .pending ? "Hermes is still working. Check for the result." :
+      Text(state == .pending ? "Waiting for a result. Check the original request." :
         state == .notSent ? "This message was not sent. Retry sends a new request." :
         "Delivery or completion could not be confirmed. Another send may run the request twice.")
         .fixedSize(horizontal: false, vertical: true)
-      Button("Check result", action: check)
+      if state != .notSent {
+        Button("Check result", action: check)
+          .accessibilityHint("Checks the original request without sending another message")
+      }
       if hasThread { Button("Open chat", action: open) }
       if state != .pending {
         Button(state == .notSent ? "Retry as new request" : "Send again", action: resend)
           .disabled(disabled || !checked)
+          .accessibilityHint(state == .notSent ? "Retries this unsent message with a new request identity" : "Requires confirmation because the original request may already have run")
       }
-      Button("Forget recovery", action: forget)
+      if state == .notSent {
+        if let edit { Button("Edit", action: edit).accessibilityHint("Returns the unsent text to an editable draft without sending") }
+        if let discard { Button("Discard", action: discard).accessibilityHint("Removes only this local unsent draft") }
+      } else {
+        Button("Forget recovery", action: forget)
+          .accessibilityHint("Stops tracking this result locally. Hermes may keep working.")
+      }
     }
     .disabled(disabled)
   }

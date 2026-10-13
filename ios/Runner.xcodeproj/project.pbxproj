@@ -86,6 +86,7 @@
 		0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD0BA14475B91F85F07143 /* RecoveryControls.swift */; };
 		5FC3AC10F3E4BAA6C06C9E82 /* VoiceDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */; };
 		5ED8C25132F3885368DB5303 /* VoiceReviewControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 138739FA7EA0AF4E91B3989A /* VoiceReviewControls.swift */; };
+		5E9DBD7763C51B4997B0E17F /* ConversationPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E274B9657B71B5BCD21DAD37 /* ConversationPresentation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -268,6 +269,7 @@
 		49BD0BA14475B91F85F07143 /* RecoveryControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryControls.swift; sourceTree = "<group>"; };
 		A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceDraft.swift; sourceTree = "<group>"; };
 		138739FA7EA0AF4E91B3989A /* VoiceReviewControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceReviewControls.swift; sourceTree = "<group>"; };
+		E274B9657B71B5BCD21DAD37 /* ConversationPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationPresentation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -417,6 +419,7 @@
 			children = (
 				A03C428A6CC06D8682F0F623 /* ConversationModel.swift */,
 				2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */,
+				E274B9657B71B5BCD21DAD37 /* ConversationPresentation.swift */,
 				A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */,
 				9978D7CC9E15B585ACD0BBA0 /* Models.swift */,
 				6B312E52135948A1A1BC7401 /* WatchThreadId.swift */,
@@ -828,6 +831,7 @@
 				6B312E52135948A1A1BC7402 /* WatchThreadId.swift in Sources */,
 				5FC3AC10F3E4BAA6C06C9E82 /* VoiceDraft.swift in Sources */,
 				5ED8C25132F3885368DB5303 /* VoiceReviewControls.swift in Sources */,
+				5E9DBD7763C51B4997B0E17F /* ConversationPresentation.swift in Sources */,
 				0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */,
 				5D151F8B8819ECEB22F3EECF /* RecoveryActionLog.swift in Sources */,
 				C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */,

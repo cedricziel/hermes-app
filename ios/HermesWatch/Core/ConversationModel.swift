@@ -14,11 +14,22 @@ final class ConversationModel {
   private(set) var threadId: String?
   private(set) var handoff: HandoffTarget?
   private(set) var messages: [ChatMessage] = []
+  private(set) var deliveryStates: [String: SendRecoveryState] = [:]
+  private var deliveryEvidence: [String: ConversationPresentation.DeliveryEvidence] = [:]
+
+  func deliveryLabel(messageId: String) -> String? {
+    guard let state = deliveryStates[messageId] else { return nil }
+    return ConversationPresentation.deliveryLabel(state, evidence: deliveryEvidence[messageId] ?? .unknown)
+  }
+  private(set) var successfulReply = false
+  private(set) var completedReplyId: String?
+  private(set) var pendingRequestWaiting = false
   private(set) var phase = Phase.idle {
     didSet { voiceOwnsPhase = false }
   }
   private var voiceOwnsPhase = false
   private(set) var unsent: String?
+  private var unsentMessageId: String?
   private(set) var voice = VoiceDraft()
   var unsentVoice: Data? { voice.audio }
   var voiceText: String {
@@ -34,6 +45,7 @@ final class ConversationModel {
   private(set) var recoveryAvailable = false
   private var replacementText: String?
   private var detached = false
+  private var conversationGeneration = 0
   private var terminalCleanup: [String: PendingSendRecord] = [:]
   private var currentSend: UUID?
   private let session: WatchSessionState
@@ -58,6 +70,7 @@ final class ConversationModel {
 
   func load() async {
     guard session.usable else { return }
+    let conversation = conversationGeneration
     let generation = session.generation
     phase = .loading
     do {
@@ -65,36 +78,42 @@ final class ConversationModel {
       try restore()
       try await client.prepareRecovery()
       recoveryAvailable = true
-      guard generation == session.generation else { return }
+      guard conversation == conversationGeneration, generation == session.generation else { return }
       try restore()
       if let threadId {
         if messages.isEmpty, let saved = client.savedMessages(threadId: threadId) { messages = saved }
         let loaded = try await client.messages(threadId: threadId)
-        guard generation == session.generation else { return }
+        guard conversation == conversationGeneration, generation == session.generation else { return }
         messages = loaded
+        successfulReply = loaded.last?.role == .assistant
         appendRecoveryMessage()
       }
       phase = .idle
-    } catch { fail(error, generation: generation) }
+    } catch {
+      guard conversation == conversationGeneration else { return }
+      fail(error, generation: generation)
+    }
   }
 
   private func restore() throws {
     guard let context = session.contextId else { return }
     if recovery == nil {
       recovery = try store.records(contextId: context, revision: session.revision)
-        .first { terminalCleanup[$0.sendId] == nil && ($0.threadId == threadId || (threadId == nil && $0.originalThreadId == nil)) }
+        .first { terminalCleanup[$0.sendId] == nil && $0.threadId == threadId }
     }
     appendRecoveryMessage()
   }
 
   private func appendRecoveryMessage() {
-    guard let recovery, !messages.contains(where: { $0.id == recovery.localMessageId }) else { return }
+    guard let recovery else { return }
+    deliveryStates[recovery.localMessageId] = recovery.recoveryState
+    guard !messages.contains(where: { $0.id == recovery.localMessageId }) else { return }
     messages.append(ChatMessage(id: recovery.localMessageId, role: .user, content: recovery.text, at: recovery.createdAt))
   }
 
   func send(_ raw: String) async {
     let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard session.usable, !text.isEmpty, !busy else { return }
+    guard session.usable, !text.isEmpty, !busy, !pendingRequestWaiting else { return }
     if let recovery, (!detached || text == recovery.text), recovery.recoveryState != .notSent {
       guard canSendAgain else { return }
       replacementText = text
@@ -105,12 +124,14 @@ final class ConversationModel {
   }
 
   private func begin(_ text: String) async {
+    let conversation = conversationGeneration
     let generation = session.generation
+    var journaled = false
     phase = .sending
     do {
       try await client.prepareRecovery()
+      guard conversation == conversationGeneration, generation == session.generation, session.usable, let context = session.contextId else { return }
       recoveryAvailable = true
-      guard generation == session.generation, session.usable, let context = session.contextId else { return }
       retryTerminalCleanup()
       let old = detached ? nil : recovery
       let sendId = UUID().uuidString
@@ -120,32 +141,92 @@ final class ConversationModel {
       try store.save(record)
       if let old, old.recoveryState == .notSent {
         try store.discard(sendId: old.sendId, contextId: old.contextId, revision: old.revision)
+        messages.removeAll { $0.id == old.localMessageId }
+        deliveryStates.removeValue(forKey: old.localMessageId)
+        deliveryEvidence.removeValue(forKey: old.localMessageId)
       }
       recovery = record
+      journaled = true
       detached = false
       checkAttempted = false
       unsent = nil
+      if let unsentMessageId {
+        messages.removeAll { $0.id == unsentMessageId }
+        deliveryStates.removeValue(forKey: unsentMessageId)
+        deliveryEvidence.removeValue(forKey: unsentMessageId)
+        self.unsentMessageId = nil
+      }
       appendRecoveryMessage()
       await deliver(record, retry: false)
-    } catch { fail(error, generation: generation) }
+    } catch {
+      guard conversation == conversationGeneration else { return }
+      if !journaled, generation == session.generation, session.usable,
+        (error as? HermesClientError) != .signedOut, (error as? HermesClientError) != .contextChanged {
+        if let unsentMessageId { messages.removeAll { $0.id == unsentMessageId } }
+        let id = unsentMessageId ?? "unsent-\(UUID().uuidString)"
+        unsentMessageId = id
+        unsent = text
+        deliveryStates[id] = .notSent
+        messages.append(ChatMessage(id: id, role: .user, content: text, at: Date()))
+      }
+      fail(error, generation: generation)
+    }
   }
 
   func checkResult() async {
     guard !busy, let record = recovery, matches(record) else { return }
     checkAttempted = true
+    let conversation = conversationGeneration
     let generation = session.generation
     do {
       try await client.prepareRecovery()
-      guard generation == session.generation, matches(record) else { return }
+      guard conversation == conversationGeneration, generation == session.generation, matches(record) else { return }
       recoveryAvailable = true
       await deliver(record, retry: true, action: .checkResult)
     } catch {
+      guard conversation == conversationGeneration else { return }
       fail(error, generation: generation)
       log.record(.checkResult, (error as? HermesClientError) == .updateRequired ? .unsupported : .failed)
     }
   }
 
-  var canCompose: Bool { !busy && (recovery == nil || detached || canSendAgain) }
+  var canCompose: Bool { !busy && !pendingRequestWaiting && (recovery == nil || detached || recovery?.recoveryState == .notSent) }
+
+  var canEditUnsent: Bool { !busy && (recovery?.recoveryState == .notSent || (recovery == nil && unsent != nil)) }
+
+  func editUnsent() async -> String? {
+    let generation = session.generation
+    let conversation = conversationGeneration
+    guard session.usable else { return nil }
+    if !busy, recovery == nil, let unsent {
+      await discardUnsent()
+      guard session.usable, generation == session.generation, conversation == conversationGeneration else { return nil }
+      return unsent
+    }
+    guard canEditUnsent, let record = recovery else { return nil }
+    await discardUnsent()
+    guard session.usable, generation == session.generation, conversation == conversationGeneration,
+      recovery?.sendId != record.sendId else { return nil }
+    return record.text
+  }
+
+  func discardUnsent() async {
+    if !busy, recovery == nil, let unsentMessageId {
+      messages.removeAll { $0.id == unsentMessageId }
+      deliveryStates.removeValue(forKey: unsentMessageId)
+      deliveryEvidence.removeValue(forKey: unsentMessageId)
+      self.unsentMessageId = nil
+      unsent = nil
+      phase = .idle
+      return
+    }
+    guard canEditUnsent, let record = recovery else { return }
+    await forgetRecovery()
+    guard recovery?.sendId != record.sendId else { return }
+    messages.removeAll { $0.id == record.localMessageId }
+    deliveryStates.removeValue(forKey: record.localMessageId)
+    deliveryEvidence.removeValue(forKey: record.localMessageId)
+  }
 
   var canSendAgain: Bool { recoveryAvailable && (recovery?.recoveryState == .notSent || (recovery?.recoveryState == .uncertain && checkAttempted)) && !busy }
 
@@ -167,6 +248,7 @@ final class ConversationModel {
 
   func forgetRecovery() async {
     guard !busy, let record = recovery, matches(record) else { return }
+    let conversation = conversationGeneration
     do {
       try store.discard(sendId: record.sendId, contextId: record.contextId, revision: record.revision)
       recovery = nil
@@ -174,7 +256,7 @@ final class ConversationModel {
       cancelSendAgain()
       phase = .idle
       try? await client.forgetSend(sendId: record.sendId)
-      if matches(record) { try restore() }
+      if conversation == conversationGeneration, matches(record) { try restore() }
     } catch { phase = .failed(.recoveryStorage) }
   }
 
@@ -190,8 +272,9 @@ final class ConversationModel {
     currentSend = attempt
     phase = .sending
     var record = original
-    var accepted = false
+    var accepted = deliveryEvidence[record.localMessageId] == .accepted
     var notSent = false
+    deliveryEvidence[record.localMessageId] = accepted ? .accepted : retry ? .unknown : .submitting
     func owned() -> Bool { currentSend == attempt && matches(record) }
     do {
       var result = try await client.send(threadId: record.threadId, text: record.text, sendId: record.sendId, retry: retry, createdAt: record.createdAt)
@@ -200,6 +283,9 @@ final class ConversationModel {
       while let waiting = result.waiting, result.recoveryState == nil {
         accepted = true
         record.recoveryState = .pending
+        deliveryEvidence[record.localMessageId] = .accepted
+        pendingRequestWaiting = waiting != .working
+        deliveryStates[record.localMessageId] = .pending
         record.threadId = result.threadId ?? record.threadId
         try store.save(record)
         recovery = record
@@ -210,11 +296,13 @@ final class ConversationModel {
         result = try await client.send(threadId: record.threadId, text: record.text, sendId: record.sendId, retry: true, createdAt: record.createdAt)
         guard owned() else { return }
       }
-      record.threadId = result.threadId ?? record.threadId
+        record.threadId = result.threadId ?? record.threadId
       if let state = result.recoveryState {
+        record.recoveryState = state
         accepted = state == .pending
         notSent = state == .notSent
-        record.recoveryState = state
+        deliveryEvidence[record.localMessageId] = state == .pending ? .accepted : .unknown
+        deliveryStates[record.localMessageId] = state
         try store.save(record)
         recovery = record
         threadId = record.threadId ?? threadId
@@ -233,12 +321,14 @@ final class ConversationModel {
         return
       }
       if accepted { record.recoveryState = .pending }
-      else if notSent || (retry && original.recoveryState == .notSent) { record.recoveryState = .notSent }
+      else if notSent || (retry && original.recoveryState == .notSent) || (!retry && (error as? HermesClientError) == .notDelivered) { record.recoveryState = .notSent }
       else { record.recoveryState = .uncertain }
       do { try store.save(record) }
       catch PendingSendStoreError.invalidated { clearTerminalRecovery(record); return }
       catch { }
       recovery = record
+      deliveryStates[record.localMessageId] = record.recoveryState
+      deliveryEvidence[record.localMessageId] = accepted ? .accepted : .unknown
       fail(error, generation: session.generation)
       if let action { log.record(action, (error as? HermesClientError) == .updateRequired ? .unsupported : .failed) }
     }
@@ -261,15 +351,19 @@ final class ConversationModel {
     threadId = record.threadId ?? threadId
     handoff = result.handoff ?? handoff
     let replyId = "local-\(record.sendId)-reply"
-    if !result.failed, !messages.contains(where: { $0.id == replyId }) {
-      messages.append(ChatMessage(id: replyId, role: .assistant, content: result.text, at: Date(), tools: result.tools))
+    if !messages.contains(where: { $0.id == replyId }) {
+      let reply = result.failed && result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Hermes could not complete this request." : result.text
+      messages.append(ChatMessage(id: replyId, role: .assistant, content: reply, at: Date(), tools: result.tools))
+      completedReplyId = replyId
     }
+    deliveryStates[record.localMessageId] = .completed
+    successfulReply = !result.failed
     recovery = nil
+    pendingRequestWaiting = false
     checkAttempted = false
     cancelSendAgain()
     if result.failed {
-      messages.removeAll { $0.id == record.localMessageId }
-      unsent = record.text
+      unsent = nil
       let reason = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
       phase = .failed(reason.isEmpty ? .failed : .replyFailed(reason))
     } else { phase = .idle }
@@ -299,6 +393,13 @@ final class ConversationModel {
 
   private func matches(_ record: PendingSendRecord) -> Bool {
     session.usable && record.contextId == session.contextId && record.revision == session.revision
+  }
+
+  func leaveConversation() {
+    conversationGeneration += 1
+    currentSend = nil
+    detached = true
+    phase = .idle
   }
 
   func stopWaiting() {
@@ -381,13 +482,20 @@ final class ConversationModel {
 
   private func clearPrivateState() {
     permitsOriginalTitle = false
+    conversationGeneration += 1
     if let record = recovery { try? store.invalidate(contextId: record.contextId, revision: record.revision) }
     else if let context = session.contextId { try? store.invalidate(contextId: context, revision: session.revision) }
     currentSend = nil
     threadId = nil
     handoff = nil
     messages = []
+    deliveryStates = [:]
+    deliveryEvidence = [:]
+    successfulReply = false
+    completedReplyId = nil
+    pendingRequestWaiting = false
     unsent = nil
+    unsentMessageId = nil
     discardVoice()
     recovery = nil
     terminalCleanup.removeAll()
