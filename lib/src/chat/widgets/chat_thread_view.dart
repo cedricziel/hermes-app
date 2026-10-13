@@ -32,6 +32,8 @@ import '../todo_plan/todo_plan_card.dart';
 import '../todo_plan/todo_plan_state.dart';
 import '../side_results/side_result_card.dart';
 import '../side_results/side_result_state.dart';
+import '../moa_progress_state.dart';
+import 'moa_progress_card.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -76,6 +78,8 @@ class ChatThreadView extends StatelessWidget {
     this.todoPlan,
     this.sideResults = const [],
     this.onSideResultDetails,
+    this.moaProgress = const [],
+    this.onMoaDetails,
     this.onSessionDetails,
     this.onReopenSession,
     this.onRetry,
@@ -102,6 +106,8 @@ class ChatThreadView extends StatelessWidget {
   final TodoPlanState? todoPlan;
   final List<SideResult> sideResults;
   final VoidCallback? onSideResultDetails;
+  final List<MoaProgress> moaProgress;
+  final VoidCallback? onMoaDetails;
   final VoidCallback? onSessionDetails;
   final VoidCallback? onReopenSession;
   final BotChatContext? botContext;
@@ -230,6 +236,21 @@ class ChatThreadView extends StatelessWidget {
           constraints: const BoxConstraints(maxHeight: 180),
           child: SingleChildScrollView(
             child: TodoPlanCard(key: ObjectKey(plan), state: plan),
+          ),
+        ),
+      if (moaProgress.isNotEmpty)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 220),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final progress in moaProgress)
+                MoaProgressCard(
+                  key: ObjectKey(progress.turn),
+                  progress: progress,
+                  onDetails: onMoaDetails,
+                ),
+            ],
           ),
         ),
       if (sideResults.isNotEmpty)

@@ -12,11 +12,25 @@ import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
 import 'slash_command.dart';
 import 'todo_plan/todo_plan_state.dart';
+import 'moa_progress_state.dart';
 import 'session_usage/usage_snapshot.dart';
 import 'side_results/side_result_state.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
+}
+
+final class MoaUpdated extends ChatEvent {
+  const MoaUpdated(
+    this.update, {
+    required this.runtimeId,
+    required this.connection,
+    required this.identity,
+  });
+  final MoaUpdate update;
+  final String runtimeId;
+  final Object? connection;
+  final Object identity;
 }
 
 final class TodoUpdated extends ChatEvent {

@@ -39,6 +39,7 @@ import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
 import 'owned_session_transport.dart';
 import 'todo_plan/todo_plan_state.dart';
+import 'moa_progress_state.dart';
 import 'session_usage/session_usage_controller.dart';
 import 'side_results/side_result_state.dart';
 import 'gateway/gateway_rpc_client.dart' show GatewayRpcException;
@@ -316,6 +317,185 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _ownedBindings = <ChatThread, OwnedSessionBinding>{};
   StreamSubscription<OwnedSessionChange>? _ownedSubscription;
 
+  final _moaStates = <ChatThread, MoaProgressState>{};
+  final _moaBindings = <ChatThread, OwnedSessionBinding>{};
+  final _moaForeground = <ChatThread, ChatMessage>{};
+  final _moaUnavailable = <ChatThread>{};
+
+  List<MoaProgress> moaIn(ChatThread thread) {
+    final source = transport;
+    if (!active ||
+        !_threads.contains(thread) ||
+        source is! OwnedSessionTransport) {
+      return const [];
+    }
+    final binding = (source as OwnedSessionTransport).ownedSessionFor(
+      thread.id,
+      profile: _profile,
+    );
+    if (binding == null ||
+        binding.profile != _profile ||
+        _moaBindings[thread] != binding) {
+      return const [];
+    }
+    return List.unmodifiable(
+      (_moaStates[thread]?.cards ?? const <MoaProgress>[]).where(
+        (card) =>
+            card.turn is ChatMessage && thread.messages.contains(card.turn),
+      ),
+    );
+  }
+
+  void moaDetailsOpened() => breadcrumbs('chat.visibility_action', {
+    'feature': 'moa',
+    'action': 'details',
+  });
+
+  void _beginMoaTurn(ChatThread thread, ChatMessage reply) {
+    if (!reply.isPending ||
+        !_threads.contains(thread) ||
+        !thread.messages.contains(reply)) {
+      return;
+    }
+    final previous = _moaForeground[thread];
+    if (identical(previous, reply)) return;
+    if (previous != null) _moaStates[thread]?.finish(previous);
+    _moaForeground[thread] = reply;
+    _moaUnavailable.remove(thread);
+    _moaStates[thread]?.beginTurn(reply);
+  }
+
+  void _finishMoaTurn(ChatThread thread, ChatMessage reply) {
+    if (!identical(_moaForeground[thread], reply)) return;
+    _moaForeground.remove(thread);
+    _moaStates[thread]?.finish(reply);
+  }
+
+  void _removeMoa(ChatThread thread, {bool keepTurn = false}) {
+    _moaStates.remove(thread)?.clear();
+    _moaBindings.remove(thread);
+    if (!keepTurn) {
+      _moaForeground.remove(thread);
+      _moaUnavailable.remove(thread);
+    }
+  }
+
+  void _invalidateMoaReferences(ChatThread thread) {
+    _moaUnavailable.add(thread);
+    final state = _moaStates[thread];
+    state?.invalidateReferences();
+    if (state != null) notifyListeners();
+  }
+
+  void _clearMoa() {
+    for (final state in _moaStates.values) {
+      state.clear();
+    }
+    _moaStates.clear();
+    _moaBindings.clear();
+    _moaForeground.clear();
+    _moaUnavailable.clear();
+  }
+
+  void _onMoaOwnership(OwnedSessionChange change, int epoch) {
+    if (!_currentActivity(epoch) || change.binding.profile != _profile) return;
+    final source = transport;
+    if (change.connected &&
+        (source is! OwnedSessionTransport ||
+            (source as OwnedSessionTransport).ownedSessionFor(
+                  change.threadId,
+                  profile: _profile,
+                ) !=
+                change.binding)) {
+      return;
+    }
+    for (final thread
+        in _threads.where((thread) => thread.id == change.threadId).toList()) {
+      if (change.connected &&
+          _moaBindings[thread] != null &&
+          _moaBindings[thread] != change.binding) {
+        _removeMoa(thread, keepTurn: true);
+        _moaUnavailable.add(thread);
+        if (!_currentActivity(epoch)) return;
+        notifyListeners();
+        if (!_currentActivity(epoch)) return;
+      }
+      if (!change.connected && _moaBindings[thread] == change.binding) {
+        _removeMoa(thread, keepTurn: !change.retired);
+        if (!change.retired) _moaUnavailable.add(thread);
+        if (!_currentActivity(epoch)) return;
+        notifyListeners();
+      }
+    }
+  }
+
+  bool _onMoaEvent(
+    ChatThread thread,
+    ChatMessage? reply,
+    ChatEvent event,
+    String? profile,
+  ) {
+    if (event is! MoaUpdated) return false;
+    final epoch = _activityEpoch;
+    final source = transport;
+    final binding = source is OwnedSessionTransport
+        ? (source as OwnedSessionTransport).ownedSessionFor(
+            thread.id,
+            profile: profile,
+          )
+        : null;
+    if (!_currentActivity(epoch) ||
+        profile != _profile ||
+        !_threads.contains(thread) ||
+        reply == null ||
+        !reply.isPending ||
+        !thread.messages.contains(reply) ||
+        !identical(_moaForeground[thread], reply) ||
+        binding == null ||
+        binding.profile != profile ||
+        binding.runtimeId != event.runtimeId ||
+        !identical(binding.connection, event.connection)) {
+      _moaOutcome('stale', 0);
+      return true;
+    }
+    final state = _moaStates.putIfAbsent(thread, MoaProgressState.new);
+    if (_moaBindings[thread] != binding) {
+      if (_moaBindings[thread] != null) _moaUnavailable.add(thread);
+      _moaBindings[thread] = binding;
+      state.adopt(binding);
+      if (_moaUnavailable.contains(thread)) state.invalidateReferences();
+    }
+    final outcome = state.apply(
+      event.update,
+      attachment: binding,
+      turn: reply,
+      eventIdentity: event.identity,
+    );
+    _moaOutcome(outcome.name, state.cards.length);
+    if (_currentActivity(epoch) &&
+        _moaBindings[thread] == binding &&
+        (source as OwnedSessionTransport).ownedSessionFor(
+              thread.id,
+              profile: profile,
+            ) ==
+            binding) {
+      notifyListeners();
+    }
+    return true;
+  }
+
+  void _moaOutcome(String outcome, int count) {
+    try {
+      events('gateway.visibility_outcome', {
+        'feature': 'moa',
+        'outcome': outcome,
+        'count': count,
+      });
+    } on Object {
+      /* Telemetry cannot change reference ownership. */
+    }
+  }
+
   final _todoPlans = <(String?, String), TodoPlanState>{};
   final _todoBindings = <(String?, String), OwnedSessionBinding>{};
   final _todoLive = <(String?, String), int>{};
@@ -543,6 +723,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           return;
         }
         _onTodoOwnership(change, epoch);
+        _onMoaOwnership(change, epoch);
         if (!_currentActivity(epoch) || change.binding.profile != _profile) {
           return;
         }
@@ -578,6 +759,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   void _clearOwnedState() {
     _clearTodo();
+    _clearMoa();
     for (final controller in _usage.values) {
       controller.dispose();
     }
@@ -820,6 +1002,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case SessionReclaimed(:final reason):
         _invalidateSessionActions(thread);
         state.reclaimedReason = reason;
+        _removeMoa(thread);
         state.waits.clear();
         _settleTimers.remove(thread)?.cancel();
         if (_queues[thread]?.isNotEmpty ?? false) {
@@ -1899,6 +2082,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Moves on to the first remaining thread when the open one is archived or
   /// deleted.
   void _threadRemoved(ChatThread thread) {
+    _removeMoa(thread);
     _undoing.remove(thread);
     _turnProblems.remove(thread);
     _sessionActionGenerations.remove(thread);
@@ -2741,6 +2925,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? threadId, {
     bool queued = false,
   }) {
+    _beginMoaTurn(thread, reply);
     final epoch = _activityEpoch;
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
@@ -2763,6 +2948,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
+      _finishMoaTurn(thread, reply);
       _replies.remove(subscription);
       if (error != null || (!folded && reply.isPending)) {
         _discardWarnings(thread);
@@ -2905,6 +3091,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatEvent event,
     String? profile,
   ) {
+    if (_onMoaEvent(thread, own.open, event, profile)) return;
     if (_onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
@@ -2967,6 +3154,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           notifyListeners();
         case ThreadNeedsRefetch():
           _refetch.add(thread);
+          _invalidateMoaReferences(thread);
         default:
           break;
       }
@@ -3003,6 +3191,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final epoch = _activityEpoch;
     final open = own.open;
     own.open = null;
+    if (open != null) _finishMoaTurn(thread, open);
     if (open == null || !open.isPending) return;
     _updateReply(
       thread,
@@ -3028,6 +3217,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     unawaited(_ownedSubscription?.cancel());
     _ownedSubscription = null;
     _clearTodo();
+    _clearMoa();
     for (final controller in _usage.values) {
       controller.dispose();
     }
@@ -3088,6 +3278,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
       if (!disposed) notifyListeners();
       final pending = reply;
+      if (pending != null) _finishMoaTurn(thread, pending);
       if (pending != null && pending.isPending) {
         _turnEnded(thread, halted: true);
         _updateReply(thread, pending, () => failReply(pending, error));
@@ -3147,6 +3338,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// An event on the follow-ups while no reply is open. It is about the
   /// thread, or a completion for the reply a turn ended without.
   void _onIdleEvent(ChatThread thread, ChatEvent event, String? profile) {
+    if (_onMoaEvent(thread, null, event, profile)) return;
     if (_onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
@@ -3171,6 +3363,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadNeedsRefetch():
         _refetch.add(thread);
         _refetchIfIdle(thread);
+        _invalidateMoaReferences(thread);
       case ReplyErrored(:final message):
         // A failure with no reply open to show it, from a turn that never
         // began. It pauses the queue like any failure, and says so.
@@ -3271,12 +3464,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }) {
     final epoch = _activityEpoch;
     if (!_currentActivity(epoch)) return;
+    if (opensTurn(event)) _beginMoaTurn(thread, reply);
+    if (_onMoaEvent(thread, reply, event, profile)) return;
     if (_onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
       return;
+    }
+    if (event is ReplyCompleted ||
+        event is ReplyErrored ||
+        event is PromptFolded ||
+        event is SessionInfo && event.running == false) {
+      _finishMoaTurn(thread, reply);
     }
     var announced = event;
     switch (event) {
@@ -3289,6 +3490,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         notifyListeners();
       case ReplyStarted() || UnsolicitedEvent() || PromptAcknowledged():
       case SideResultReceived() ||
+          MoaUpdated() ||
           SessionUsageUpdated() ||
           ToolRiskFlagged() ||
           NoticeShown() ||
@@ -3322,6 +3524,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         }
       case ThreadNeedsRefetch():
         _refetch.add(thread);
+        _invalidateMoaReferences(thread);
       case ReviewSummarized():
         _onReviewSummary(thread, event, open: reply);
       case SubagentUpdated():

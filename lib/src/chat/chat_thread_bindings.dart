@@ -104,6 +104,8 @@ ChatThreadView boundChatThreadView({
     onSideResultDetails: t == null
         ? null
         : chat.sideResultsIn(t)?.detailsOpened,
+    moaProgress: t == null ? const [] : chat.moaIn(t),
+    onMoaDetails: chat.moaDetailsOpened,
     onSessionDetails: chat.sessionDetailsOpened,
     onReopenSession: t == null ? null : () => chat.reopenSession(t),
     chatController: chat.controllerFor(t),

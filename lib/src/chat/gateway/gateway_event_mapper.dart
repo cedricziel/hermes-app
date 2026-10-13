@@ -6,6 +6,7 @@ import '../tool_result.dart';
 import '../chat_warning_state.dart';
 import '../chat_session_state.dart';
 import '../todo_plan/todo_plan_state.dart';
+import '../moa_progress_state.dart';
 import '../session_usage/usage_snapshot.dart';
 import '../side_results/side_result_state.dart';
 import 'gateway_rpc_client.dart';
@@ -17,6 +18,26 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
   final payload = event.payload;
   String text(String key) => _plainText(payload[key]);
   return switch (event.type) {
+    'moa.reference' || 'moa.progress' || 'moa.phase' || 'moa.aggregating' =>
+      event.sessionId.isEmpty
+          ? null
+          : switch (MoaUpdate.decode(event.type, payload)) {
+              final update? => MoaUpdated(
+                update,
+                runtimeId: event.sessionId,
+                connection: connection,
+                identity: event.seq == null
+                    ? event
+                    : (
+                        connection is GatewayRpcClient
+                            ? connection.epoch ?? connection
+                            : connection,
+                        event.sessionId,
+                        event.seq,
+                      ),
+              ),
+              _ => null,
+            },
     'todo.updated' => switch (TodoSnapshot.decode(payload)) {
       final snapshot? => TodoUpdated(
         snapshot,
