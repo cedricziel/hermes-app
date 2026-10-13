@@ -10,9 +10,9 @@ Created 2026-10-12. Scope: the gesture, navigation-stack, and macOS transition i
 | Thread actions | iOS uses swipe and long-press; macOS has a dedicated row; other platforms offer an inline menu with long-press and secondary tap. | `lib/src/chat/widgets/thread_sidebar.dart` |
 | Kanban dragging | Wide-layout cards distinguish mouse/trackpad from touch/stylus. The generic narrow-layout path uses long-press selection and a drag handle. macOS has its own column layout. | `lib/src/kanban/widgets/kanban_card_drag.dart`, `lib/src/kanban/kanban_screen.dart`, `openspec/specs/kanban/spec.md` |
 | Main destinations | An `IndexedStack` preserves mounted section state. Selection does not push a route or record section history. | `lib/src/shell/app_shell.dart` |
-| External navigation | Deep links, notification taps, and sharing use a guarded queue before payload delivery (#646, #653, #657). Other direct handoffs still need guarded dispatch. | `lib/src/shell/app_shell.dart` |
+| External navigation | Deep links, notification taps, sharing, Show in Main Window, and scheduled-run chat handoffs use the guarded queue (#646, #653, #657, #680). Bot opening and menu/intent entry points still need audit. | `lib/src/shell/app_shell.dart` |
 | Page transitions | The app uses `MaterialPageRoute`. The macOS theme specifies a short stationary fade; mobile builders retain the installed SDK defaults. Feature-specific dialogs and sheets still need their own policy. | `lib/src/app.dart`, `lib/src/theme/hermes_theme.dart` |
-| Dialogs and sheets | Plugin and MCP detail views use Material bottom sheets. Several Kanban and settings surfaces use `showDialog`. `showAdaptiveSheet` now uses the shared macOS dialog policy; other feature modal APIs remain pending. | `lib/src/plugins/catalog_tab.dart`, `lib/src/plugins/installed_tab.dart`, `lib/src/mcp/mcp_catalog_screen.dart`, `lib/src/widgets/adaptive_sheet.dart` |
+| Dialogs and sheets | Compact macOS Plugin details and MCP catalog installation details use desktop dialogs (#687, #697). Compact non-macOS layouts retain sheets, and wide layouts retain panes. Several Kanban and settings surfaces use `showDialog`; other feature modal APIs remain pending. | `lib/src/plugins/catalog_tab.dart`, `lib/src/plugins/installed_tab.dart`, `lib/src/mcp/mcp_catalog_screen.dart`, `lib/src/widgets/adaptive_sheet.dart` |
 
 Device behavior and the exact transitions in the reported build still need verification. Missing section history or a nested navigator is a design choice, not automatically a defect. Existing specs deliberately preserve section state and specify sidebar/drawer navigation.
 
@@ -39,17 +39,20 @@ Acceptance: every inventoried interaction has an expected result; unresolved dec
 Priority: first behavior fix. Sources: `lib/src/shell/app_shell.dart`, `lib/src/widgets/route_dismissal.dart`, and existing `PopScope` users.
 
 - [x] Add a failing regression test: a notification arriving over a dirty editor must not silently discard the draft.
-- [ ] Define whether an external request waits, prompts, or opens elsewhere while navigation is blocked. Preserve the request until it is handled or explicitly cancelled.
+- [x] Define whether an external request waits, prompts, or opens elsewhere while navigation is blocked. Preserve the request until it is handled or explicitly cancelled.
 - [ ] Replace unconditional stack resets for ordinary external navigation with a flow that respects dismissal guards.
-- [ ] Cover notification taps, shared text/files/quotes, chat/new-chat/request deep links, Kanban links, schedule links, scheduled-run chat handoffs, and Show in Main Window.
+- [x] Cover notification taps, shared text/files/quotes, chat/new-chat/request deep links, Kanban links, schedule links, scheduled-run chat handoffs, and Show in Main Window.
 - [ ] Audit every `PopScope`: skill editor, schedule form, MCP JSON editor/sign-in, bot saving, plugin installation, and platform-hint prompt.
 - [ ] Preserve Save, Discard, and Stay behavior when several guarded routes are open. Stop unwinding when a route refuses dismissal.
 - [ ] Handle save failures, busy operations, and a save completing while navigation is pending without popping the next route.
 - [ ] Define ordering and deduplication when multiple requests arrive during confirmation or saving.
-- [ ] Keep external navigation pending while App Lock covers the app; revalidate targets after unlock.
+- [x] Keep external navigation pending while App Lock covers the app; revalidate targets after unlock.
 - [ ] Revalidate server/profile, destination availability, and target existence before applying a delayed request.
+
+PR #680 checks connection readiness, authorization, and owner generation. The full per-entry-point revalidation audit remains open.
 - [ ] Audit explicit `pop`, `removeRoute`, and `dismissRoute` calls. Keep deliberate completion/removal distinct from user Back and external navigation.
-- [ ] Define authentication expiry, sign-out, and server-change teardown separately; clear or retain drafts and pending requests according to an explicit policy.
+- [x] Define the authentication policy: recover drafts after expiry only for the same verified account; clear old screens and drafts on explicit sign-out or server departure.
+- [ ] Implement authentication teardown, same-account draft recovery, and pending-request handling under that policy.
 
 Acceptance: guarded work cannot disappear silently because of an external navigation request; allowed navigation reaches its target once and leaves a valid stack.
 
@@ -89,8 +92,9 @@ Acceptance: no inventoried page uses accidental framework fallback motion; suppo
 
 - [x] Extend or replace `showAdaptiveSheet` so platform conventions and input matter alongside width. macOS dialogs apply at every width; keyboard traversal and activation are covered by widget tests. Native input verification remains open.
 - [x] Separate adaptive dialog content from adaptive route animation through the shared dialog policy. Feature-specific callers still need migration and presentation review.
-- [ ] Migrate plugin catalog details and installed-plugin details to the agreed presentation.
-- [ ] Migrate MCP catalog details and audit configuration, sign-in, installation, and report dialogs.
+- [x] Migrate plugin catalog details and installed-plugin details to the agreed presentation.
+- [x] Present MCP catalog installation details as a desktop dialog on compact macOS layouts; preserve mobile sheets and wide panes.
+- [ ] Audit MCP configuration, sign-in, installed-server, and report dialogs for the agreed presentation.
 - [ ] Audit Kanban board import/export, bulk actions, worker logs, task editing/pickers, create flows, and error dialogs.
 - [ ] Preserve the existing macOS task inspector and iOS task detent/form-sheet behavior; do not replace them with generic dialogs.
 - [ ] Audit Skills detail/job/status surfaces and the editor against the existing adaptive UI series.
@@ -149,11 +153,17 @@ Completion: all agreed matrix entries are implemented and verified, existing beh
 - Merged: [PR #674](https://github.com/cedricziel/hermes-app/pull/674), `restrained-macos-modal-presentation`. Shared confirmations, MCP command reviews, and platform-hint prompts use stationary 150 ms Mac dialogs with reduced-motion bypass; common Mac alert actions support guarded keyboard and pointer/accessibility activation. All CI test shards and Android/iOS/macOS/Linux builds passed. Main requirements are synced and the change is archived. Feature migrations and native verification remain open.
 - Merged: [PR #676](https://github.com/cedricziel/hermes-app/pull/676), `restrained-macos-skill-job-presentation`. Mac job status uses content-sized dialogs with scrollable logs and a fixed dismissal control. Generated-client tests cover background execution and completed-job cleanup; other platforms retain sheets. All CI test shards and Android/iOS/macOS/Linux builds passed. Main requirements are synced and the change is archived. Native interaction and browser Phone-preview pointer dismissal remain unverified.
 - Merged: [PR #677](https://github.com/cedricziel/hermes-app/pull/677), `guard-kanban-action-lifetime`. Late typed/generic failures do not show snackbars from disposed callers. The affected Quick Look tests await preview/controller completion before teardown. All CI test shards and Android/iOS/macOS/Linux builds passed. Main requirements are synced and the change is archived.
+- Merged: [PR #679](https://github.com/cedricziel/hermes-app/pull/679), renewable chat transport. Suspension rejects new protected work, cancels streams, fences stale results, and supports explicit renewal. CI shards and Android, iOS, macOS, and Linux builds passed. Application wiring, route retention, editor drafts, auxiliary-window snapshots, and desktop history remain open.
+- Merged: [PR #680](https://github.com/cedricziel/hermes-app/pull/680), guarded Show in Main Window and scheduled-run chat handoffs. The root queue retains the latest destination behind guarded routes and App Lock, then checks connection readiness, authorization, and owner generation before delivery. CI shards and Android, iOS, macOS, and Linux builds passed.
+- Merged: [PR #683](https://github.com/cedricziel/hermes-app/pull/683), verified-owner activity lifetime; [PR #684](https://github.com/cedricziel/hermes-app/pull/684), scheduled-task alert suspension; [PR #685](https://github.com/cedricziel/hermes-app/pull/685), dictation suspension; [PR #690](https://github.com/cedricziel/hermes-app/pull/690), Kanban controller suspension; and [PR #692](https://github.com/cedricziel/hermes-app/pull/692), Chat controller suspension. These changes pause protected work in named consumers. CI shards and Android, iOS, macOS, and Linux builds passed. They do not retain authentication routes or restore main and auxiliary drafts.
+- Merged: [PR #695](https://github.com/cedricziel/hermes-app/pull/695), AttentionNotifier suspension. It invalidates delayed announcements while activity is paused and continues handing notification taps and launch targets to the routing owner. Shared activity wiring and the guarded platform notification service remain integration work; screen and draft retention are out of scope.
+- Merged: [PR #687](https://github.com/cedricziel/hermes-app/pull/687), compact macOS Plugin detail dialogs; and [PR #697](https://github.com/cedricziel/hermes-app/pull/697), compact macOS MCP catalog installation dialogs. Both preserve mobile sheets and wide panes. Native presentation, keyboard interaction, and accessibility remain unverified.
+- Open: [PR #699](https://github.com/cedricziel/hermes-app/pull/699) adds guarded desktop history with Workers as the only Forward-eligible detail route. It is not merged and does not complete the broader Forward-history checklist.
 - Native auth foundation verification: macOS connection/departure/reconnection against an isolated backend completed. Native client-storage isolation was not verified. Connection Details remained above setup after Change server until toolbar Back; this reproduces the open navigator teardown issue. Native gated login/expiry remains unverified; HTTP/controller journeys cover it.
 - Authentication audit: pushed routes can remain above the replacement Login/Setup home screen. Cover old-session UI immediately during teardown. User confirmed draft recovery after expiry only for the same verified account; explicit sign-out and server changes clear old screens.
-- Adaptive component reconciliation complete: Skills details/status, Kanban components, connection screens, and chat autocomplete are already migrated in the adaptive UI series. Preserve their components and safeguards. Other feature modal routes still need the agreed macOS presentation; source and widget coverage do not establish native device behavior.
+- Adaptive component reconciliation: Skills details/status, Kanban components, connection screens, and chat autocomplete are already migrated in the adaptive UI series. Compact macOS Plugin details (#687) and MCP catalog installation details (#697) now use desktop dialogs. Other feature modal routes remain open; source and widget coverage do not establish native device behavior.
 - Native verification: macOS Skills/editor pushes and toolbar Back against an isolated backend completed. Native client-storage isolation was not verified. The automated keyboard `⌘[` action had no effect; keyboard Back parity remains open. Widget tests cover light/dark page motion, reduced motion, full-screen page routes, interrupted Back, metadata, and results.
 - Source inventory complete: route pushes, modal APIs, platform branches, and pointer gestures. Device verification remains open.
 - Confirmed sharing policy: newer notification/link navigation wins; waiting share content stays pending until the next explicit Chat entry.
-- Confirmed decisions: keep main sections as peers without Back history and retain the shared detail stack; use restrained macOS page motion and desktop dialogs/popovers. Preserve current iOS behavior and the macOS Kanban inspector. Update and validate the specs with each implementation slice.
+- Confirmed decisions: keep Chat, Kanban, and Schedules as peer sections without Back history; retain the shared detail stack; use restrained macOS page motion and desktop dialogs/popovers. Preserve current iOS behavior and the macOS Kanban inspector. Update and validate the specs with each implementation slice.
 - Delivery order: deep-link safety; other external navigation entry points; explicit transition policy; shared modal presentation; feature migrations; gesture/input consistency; device verification and final reconciliation.
