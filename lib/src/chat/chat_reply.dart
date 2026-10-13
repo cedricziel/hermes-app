@@ -229,6 +229,11 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReviewSummarized(:final items):
       reply.reviewNotes = {...reply.reviewNotes, ...items}.toList();
     case ReplyStarted() ||
+        SessionControlUpdated() ||
+        SessionControlUnavailable() ||
+        SessionWaitUpdated() ||
+        SessionReclaimed() ||
+        SessionResumeProgress() ||
         WarningScopeDiscarded() ||
         ToolRiskFlagged() ||
         NoticeShown() ||

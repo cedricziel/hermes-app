@@ -1157,3 +1157,10 @@ preview rendering and headless tests do not prove paired-device delivery.
 Run `flutter test --concurrency=1 test/gateway/warning_mapper_test.dart test/gateway/warning_transport_test.dart test/chat_warning_state_test.dart test/chat_warnings_test.dart test/agent_notice_card_test.dart test/tool_call_group_test.dart test/gateway/gateway_contract_test.dart` before native inspection. These tests cover owning-session delivery, reconnect replay, notices between turns, keyed replacement and withdrawal, TTL timers, collapsed tool-risk markers, and failure cleanup.
 
 In the isolated client, inspect a sticky notice and its expanded text, dismiss it, and verify that a keyed replacement does not retain an earlier expiry timer. A tool-risk finding must match both runtime session and tool ID, and redacted output must remain redacted. Observe ordinary reply settlement independently of notice display. Synthetic event injection is verification-only; never patch or drive a personal backend to produce these states.
+
+
+## Session status and recovery cards
+
+Run `flutter test --concurrency=1 test/chat_session_state_test.dart test/gateway/session_state_mapper_test.dart test/gateway/session_state_transport_test.dart test/session_status_card_test.dart test/gateway/gateway_contract_test.dart` before native inspection. Control snapshots, transient waits, and hydration progress must leave ordinary reply settlement unchanged. A delayed read cannot overwrite a newer control event, and an optional read timeout cannot postpone the turn silence probe.
+
+In the isolated client, inspect compact and expanded goal, loop, and heartbeat details with reported counts. Clear a transient wait and check that persistent control remains visible. Show a hydration failure, reopen the session, and check that loaded history remains. Reclaim the owning runtime, check that pending requests expire and actions stop, then reopen and check that queued prompts stay paused until explicit review. Observe a session on an older gateway that refuses `session.control.read`; ordinary chat must remain usable. Synthetic event injection is verification-only and requires a disposable backend.

@@ -865,12 +865,11 @@ void main() {
       expect(sent.mine.whereType<ReplyDelta>(), isEmpty);
 
       reachable = true;
-      final later = await flaky
-          .followUps('stored-2')
-          .toList()
-          .timeout(const Duration(seconds: 5));
-
+      final later = <ChatEvent>[];
+      final subscription = flaky.followUps('stored-2').listen(later.add);
+      await pumpEventQueue();
       expect(later, isEmpty);
+      await subscription.cancel();
     });
 
     test('Auto-continue after resume: a send that gives up after a turn that '

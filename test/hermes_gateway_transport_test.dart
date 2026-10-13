@@ -220,11 +220,10 @@ void main() {
 
       await reply(text: 'hi');
 
-      expect(gateway.methods, [
-        'client.capabilities',
-        'session.create',
-        'prompt.submit',
-      ]);
+      expect(
+        gateway.methods.where((method) => method != 'session.control.read'),
+        ['client.capabilities', 'session.create', 'prompt.submit'],
+      );
       expect(gateway.requestOf('prompt.submit')['params'], {
         'session_id': 'rt-1',
         'text': 'hi',
@@ -239,11 +238,10 @@ void main() {
 
       final events = await reply(threadId: 'stored-2', text: 'again');
 
-      expect(gateway.methods, [
-        'client.capabilities',
-        'session.resume',
-        'prompt.submit',
-      ]);
+      expect(
+        gateway.methods.where((method) => method != 'session.control.read'),
+        ['client.capabilities', 'session.resume', 'prompt.submit'],
+      );
       expect(gateway.requestOf('session.resume')['params'], {
         'session_id': 'stored-2',
         'source': 'hermes_app',
@@ -436,13 +434,16 @@ void main() {
 
         await reply(threadId: 'stored-2', model: opus);
 
-        expect(gateway.methods, [
-          'client.capabilities',
-          'session.resume',
-          'config.set',
-          'config.set',
-          'prompt.submit',
-        ]);
+        expect(
+          gateway.methods.where((method) => method != 'session.control.read'),
+          [
+            'client.capabilities',
+            'session.resume',
+            'config.set',
+            'config.set',
+            'prompt.submit',
+          ],
+        );
         expect(configSets(), [
           {
             'session_id': 'rt-2',
@@ -848,13 +849,16 @@ void main() {
     await reply(text: 'two');
 
     expect(connects, 1);
-    expect(gateway.methods, [
-      'client.capabilities',
-      'session.create',
-      'prompt.submit',
-      'session.create',
-      'prompt.submit',
-    ]);
+    expect(
+      gateway.methods.where((method) => method != 'session.control.read'),
+      [
+        'client.capabilities',
+        'session.create',
+        'prompt.submit',
+        'session.create',
+        'prompt.submit',
+      ],
+    );
   });
 
   test('a send after the socket dropped opens a new connection', () async {
@@ -871,7 +875,7 @@ void main() {
     await reply();
 
     expect(connects, 2);
-    expect(second.methods, [
+    expect(second.methods.where((method) => method != 'session.control.read'), [
       'client.capabilities',
       'session.create',
       'prompt.submit',
@@ -1237,11 +1241,10 @@ void main() {
 
       await reply();
 
-      expect(gateway.methods, [
-        'client.capabilities',
-        'session.create',
-        'prompt.submit',
-      ]);
+      expect(
+        gateway.methods.where((method) => method != 'session.control.read'),
+        ['client.capabilities', 'session.create', 'prompt.submit'],
+      );
     });
 
     test('secret and sudo expire events end the request', () async {
@@ -2055,12 +2058,15 @@ void main() {
 
       await reply(text: 'what is this?', attachments: [photo]);
 
-      expect(gateway.methods, [
-        'client.capabilities',
-        'session.create',
-        'image.attach_bytes',
-        'prompt.submit',
-      ]);
+      expect(
+        gateway.methods.where((method) => method != 'session.control.read'),
+        [
+          'client.capabilities',
+          'session.create',
+          'image.attach_bytes',
+          'prompt.submit',
+        ],
+      );
       expect(gateway.requestOf('image.attach_bytes')['params'], {
         'session_id': 'rt-1',
         'content_base64': base64Encode([1, 2, 3]),
@@ -2088,12 +2094,15 @@ void main() {
 
       await reply(text: '', attachments: [report]);
 
-      expect(gateway.methods, [
-        'client.capabilities',
-        'session.create',
-        'file.attach',
-        'prompt.submit',
-      ]);
+      expect(
+        gateway.methods.where((method) => method != 'session.control.read'),
+        [
+          'client.capabilities',
+          'session.create',
+          'file.attach',
+          'prompt.submit',
+        ],
+      );
       expect(gateway.requestOf('file.attach')['params'], {
         'session_id': 'rt-1',
         'name': 'report.pdf',
@@ -2161,13 +2170,16 @@ void main() {
 
         await reply(text: 'see', attachments: [heic]);
 
-        expect(gateway.methods, [
-          'client.capabilities',
-          'session.create',
-          'image.attach_bytes',
-          'file.attach',
-          'prompt.submit',
-        ]);
+        expect(
+          gateway.methods.where((method) => method != 'session.control.read'),
+          [
+            'client.capabilities',
+            'session.create',
+            'image.attach_bytes',
+            'file.attach',
+            'prompt.submit',
+          ],
+        );
         expect(gateway.requestOf('prompt.submit')['params'], {
           'session_id': 'rt-1',
           'text': 'see\n@file:attachments/photo.heic',
@@ -2306,11 +2318,10 @@ void main() {
 
       await reply();
 
-      expect(gateway.methods, [
-        'client.capabilities',
-        'session.create',
-        'prompt.submit',
-      ]);
+      expect(
+        gateway.methods.where((method) => method != 'session.control.read'),
+        ['client.capabilities', 'session.create', 'prompt.submit'],
+      );
     });
   });
 
@@ -2638,8 +2649,20 @@ void main() {
       expect(await followed, isEmpty);
     });
 
-    test('there is nothing to follow for a thread with no reply', () async {
-      expect(await transport.followUps('stored-1').toList(), isEmpty);
+    test('an idle thread observes controls without opening a reply', () async {
+      final seen = <ChatEvent>[];
+      final subscription = transport.followUps('stored-1').listen(seen.add);
+      await pumpEventQueue();
+      gateway.event('session.control.update', 'rt-2', {
+        'control': {
+          'revision': 'idle',
+          'goal': {'status': 'paused'},
+        },
+      });
+      await pumpEventQueue();
+      expect(seen.whereType<SessionControlUpdated>(), hasLength(1));
+      expect(seen.whereType<ReplyStarted>(), isEmpty);
+      await subscription.cancel();
     });
 
     test('the next send takes over from the follow-up listener', () async {

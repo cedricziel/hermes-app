@@ -9,10 +9,42 @@ import 'dart:typed_data';
 import '../models/model_provider_option.dart';
 import 'chat_models.dart';
 import 'chat_warning_state.dart';
+import 'chat_session_state.dart';
 import 'slash_command.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
+}
+
+final class SessionControlUpdated extends ChatEvent {
+  const SessionControlUpdated(this.control, {required this.runtimeId});
+  final SessionControlSnapshot control;
+  final String runtimeId;
+}
+
+final class SessionControlUnavailable extends ChatEvent {
+  const SessionControlUnavailable(this.runtimeId);
+  final String runtimeId;
+}
+
+final class SessionWaitUpdated extends ChatEvent {
+  const SessionWaitUpdated(this.kind, this.text, {required this.runtimeId});
+  final String kind;
+  final String text;
+  final String runtimeId;
+}
+
+final class SessionReclaimed extends ChatEvent {
+  const SessionReclaimed(this.runtimeId, this.storedSessionId, this.reason);
+  final String runtimeId;
+  final String storedSessionId;
+  final String reason;
+}
+
+final class SessionResumeProgress extends ChatEvent {
+  const SessionResumeProgress(this.progress, {required this.runtimeId});
+  final ResumeProgress progress;
+  final String runtimeId;
 }
 
 /// First event when [ChatTransport.send] starts a new thread: the id the

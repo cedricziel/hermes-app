@@ -167,8 +167,13 @@ void main() {
       expect(event.text, 'Compacting the conversation…');
     });
 
-    test('other status.update kinds map to nothing', () {
-      expect(map('status.update', {'kind': 'other', 'text': 'x'}), isNull);
+    test('unknown status.update kinds use neutral session waits', () {
+      final event = map('status.update', {
+        'kind': 'other',
+        'text': 'x',
+      }) as SessionWaitUpdated;
+      expect(event.kind, 'other');
+      expect(event.text, 'x');
     });
 
     test('an explained provider wait becomes the status text, trimmed', () {

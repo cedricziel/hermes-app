@@ -4,6 +4,7 @@ import '../chat_models.dart';
 import '../chat_transport.dart';
 import '../tool_result.dart';
 import '../chat_warning_state.dart';
+import '../chat_session_state.dart';
 import 'gateway_rpc_client.dart';
 
 /// The [ChatEvent] a gateway event frame means, or null for a frame the app
@@ -105,10 +106,44 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
       },
       storedSessionId: _nonEmpty(text('stored_session_id')),
     ),
-    'status.update' =>
-      payload['kind'] == 'compacting'
-          ? const ReplyStatus('Compacting the conversation…')
-          : null,
+    'status.update' => switch (payload) {
+      {'kind': final String kind, 'text': final String value} =>
+        kind == 'compacting'
+            ? ReplyStatus(value.isEmpty ? '' : 'Compacting the conversation…')
+            : SessionWaitUpdated(kind, value, runtimeId: event.sessionId),
+      _ => null,
+    },
+    'session.control.update' => switch (SessionControlSnapshot.decode(
+      payload['control'],
+    )) {
+      final control? => SessionControlUpdated(
+        control,
+        runtimeId: event.sessionId,
+      ),
+      _ => null,
+    },
+    'session.reclaimed' => switch (payload) {
+      {
+        'session_id': final String runtime,
+        'stored_session_id': final String stored,
+        'reason': final String reason,
+      }
+          when runtime.isNotEmpty && stored.isNotEmpty =>
+        SessionReclaimed(runtime, stored, reason),
+      _ => null,
+    },
+    'session.resume_progress' => switch (payload) {
+      {'phase': final String phase, 'status': final String status} =>
+        SessionResumeProgress(
+          ResumeProgress(
+            phase,
+            status,
+            message: payload['message'] is String ? text('message') : null,
+          ),
+          runtimeId: event.sessionId,
+        ),
+      _ => null,
+    },
     'thinking.delta' => ReplyStatus(_providerWait(text('text'))),
     'approval.cancelled' => InputRequestsCancelled(
       _strings(payload['request_ids']),
