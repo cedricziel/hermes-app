@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hermes_app/src/chat/connector_operation_controller.dart';
 import 'package:hermes_app/src/chat/connector_operation_state.dart';
 
@@ -31,6 +32,56 @@ void main() {
     controller.dispose();
     await server.close();
   });
+  for (final delivery in ['pending', 'update']) {
+    test(
+      'nested connector $delivery retirement clears details and blocks action bytes',
+      () async {
+        final errors = <FlutterErrorDetails>[];
+        final previous = FlutterError.onError;
+        FlutterError.onError = errors.add;
+        var nested = false;
+        controller.addListener(() {
+          if (!nested) {
+            nested = true;
+            controller.notifyListeners();
+          } else {
+            controller.dispose();
+            controller.dispose();
+            expect(controller.operations, isEmpty);
+            expect(controller.hasScope(attachment), isFalse);
+          }
+        });
+        try {
+          if (delivery == 'pending') {
+            final operation = controller.operations.single;
+            await controller.skip(
+              operation,
+              operation.targets.single.name,
+              attachment: attachment,
+            );
+          } else {
+            controller.accept(
+              ConnectorOperationSnapshot.fromUpdate({
+                ...connectionUpdateFixture,
+                'seq': 5,
+              })!,
+              attachment: attachment,
+            );
+          }
+          await pumpEventQueue();
+          expect(errors, isEmpty);
+          expect(server.requests, isEmpty);
+          expect(controller.operations, isEmpty);
+          expect(controller.attachment, isNull);
+          controller.dispose();
+          controller.notifyListeners();
+        } finally {
+          FlutterError.onError = previous;
+        }
+      },
+    );
+  }
+
   test('late request metadata updates listeners without rolling back visible progress', () {
     var changed = 0;
     controller.addListener(() => changed++);
