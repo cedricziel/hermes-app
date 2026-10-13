@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/chat/billing_verification_controller.dart';
@@ -35,6 +36,47 @@ void main() {
     controller.dispose();
     await server.close();
   });
+  for (final notification in ['pending', 'details']) {
+    test(
+      'nested $notification notification retirement clears details and disposes once',
+      () async {
+        final errors = <FlutterErrorDetails>[];
+        final previous = FlutterError.onError;
+        FlutterError.onError = errors.add;
+        var nested = false;
+        controller.addListener(() {
+          if (!nested) {
+            nested = true;
+            controller.notifyListeners();
+          } else {
+            controller.dispose();
+            controller.dispose();
+            expect(controller.verification, isNull);
+            expect(controller.canStart, isFalse);
+          }
+        });
+        try {
+          if (notification == 'pending') {
+            await controller.start();
+          } else {
+            controller.acceptVerification(
+              billingVerificationFixture,
+              attachment: scope.attachment,
+            );
+          }
+          controller.dispose();
+          controller.notifyListeners();
+          await pumpEventQueue();
+          expect(errors, isEmpty);
+          expect(server.requests, isEmpty);
+          expect(controller.verification, isNull);
+        } finally {
+          FlutterError.onError = previous;
+        }
+      },
+    );
+  }
+
   test(
     'billing starts only explicitly and blocks duplicate pending requests',
     () async {
