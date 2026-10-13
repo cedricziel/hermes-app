@@ -48,6 +48,15 @@ native client-storage isolation was not verified. No user-data loss was observed
 
 ## The loop
 
+Serialize Flutter checks across worktrees that share an SDK. Run one test,
+analysis, or native build process at a time and use `--concurrency=1` for
+scoped test batches. Stop only the recorded process owned by an interrupted
+verification run before handing the SDK to another worker.
+
+Follow [automated checks](scenarios/automated-checks.md) before native
+verification or publication when a change affects asynchronous ownership,
+queued dispatch, or notifier retirement.
+
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
    Analyze and test print a long dependency-update block; read the last lines.
 2. `scripts/dev-backend.sh start`. Prints `ready: <url>`; needs `hermes` on
