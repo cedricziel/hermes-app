@@ -415,6 +415,73 @@ void main() {
     expect(chat.reactionsIn(thread), isNull);
   });
 
+  for (final delivery in ['live', 'history']) {
+    test(
+      'actual reaction state $delivery notification can retire activity without notifier errors',
+      () async {
+        chat.dispose();
+        final activity = ValueNotifier(true);
+        addTearDown(activity.dispose);
+        chat = ChatController(
+          repository: HermesChatRepository(server.client().raw),
+          transport: SessionChatTransport(() => transport),
+          activity: activity,
+          attention: attention,
+          report: (_) {},
+        );
+        await open();
+        final thread = chat.selectedThread!;
+        final state = chat.reactionsIn(thread)!;
+        final errors = <FlutterErrorDetails>[];
+        final previous = FlutterError.onError;
+        FlutterError.onError = errors.add;
+        try {
+          state.addListener(() {
+            if (activity.value) activity.value = false;
+          });
+          if (delivery == 'live') {
+            reaction(21, 'user', 'Protected');
+            await pumpEventQueue();
+          } else {
+            server.on(
+              'GET',
+              '/api/sessions/stored-1',
+              sessionRow(id: 'stored-1', lastActive: 1780000100),
+            );
+            server.on(
+              'GET',
+              '/api/sessions/stored-1/messages',
+              messageListBody('stored-1', [
+                {
+                  ...messageRow(
+                    id: 1,
+                    role: 'user',
+                    content: 'Canonical history',
+                  ),
+                  'row_id': 21,
+                  'display_metadata': {
+                    'reactions': [
+                      {'emoji': 'Protected', 'author': 'agent'},
+                    ],
+                  },
+                },
+              ]),
+            );
+            await chat.refreshThread(thread.id);
+            await pumpEventQueue();
+          }
+          expect(activity.value, isFalse);
+          expect(errors, isEmpty);
+          expect(chat.reactionsIn(thread), isNull);
+          expect(state.acknowledgement, isNull);
+          expect(state.pendingCount, 0);
+        } finally {
+          FlutterError.onError = previous;
+        }
+      },
+    );
+  }
+
   testWidgets(
     'actual bound chat shows supplied row badge and separate identity-free acknowledgement',
     (tester) async {
