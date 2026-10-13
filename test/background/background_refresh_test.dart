@@ -601,6 +601,7 @@ void main() {
       expect(taskSpan().attributes['requests.post_accepted'], 2);
       expect(taskSpan().attributes['requests.post_failed'], 0);
       expect(taskSpan().attributes['requests.mark_failed'], 1);
+      expect(taskSpan().attributes['requests.new'], 1);
       expect(events.named('background.request_alert.mark_failed'), [
         {'error.type': 'StateError'},
       ]);

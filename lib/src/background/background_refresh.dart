@@ -435,6 +435,7 @@ class OpenRequestsStep extends BackgroundStep {
           await context.announced.add([
             for (final request in requests) ..._marks(request),
           ]);
+          announced += requests.length;
         } on Object catch (error) {
           marksFailed++;
           report();
@@ -443,7 +444,6 @@ class OpenRequestsStep extends BackgroundStep {
             errorType: error.runtimeType.toString(),
           );
         }
-        announced += requests.length;
       } else {
         failed++;
         report();
