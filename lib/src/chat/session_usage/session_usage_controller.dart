@@ -208,13 +208,28 @@ class SessionUsageController extends ChangeNotifier {
     }
   }
 
+  int _notificationDepth = 0;
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    _notificationDepth++;
+    try {
+      super.notifyListeners();
+    } finally {
+      _notificationDepth--;
+      if (_disposed && _notificationDepth == 0) super.dispose();
+    }
+  }
+
   @override
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
     _generation++;
     _scope = null;
     _request = null;
     snapshot = null;
-    super.dispose();
+    if (_notificationDepth == 0) super.dispose();
   }
 }

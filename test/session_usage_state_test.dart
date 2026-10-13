@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:hermes_app/src/chat/session_usage/session_usage_controller.dart';
 import 'package:hermes_app/src/chat/session_usage/usage_snapshot.dart';
@@ -11,6 +12,87 @@ import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'support/recording_tracer.dart';
 
 void main() {
+  test(
+    'nested usage loading retirement sends no request and clears binding',
+    () async {
+      final owner = UsageScope(
+        connection: Object(),
+        sessionId: 'runtime',
+        profile: 'work',
+      );
+      var calls = 0;
+      final controller = SessionUsageController()
+        ..bind(owner, (_, _) async {
+          calls++;
+          return {'total': 1};
+        });
+      final errors = <FlutterErrorDetails>[];
+      final previous = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      var nested = false;
+      controller.addListener(() {
+        if (!nested) {
+          nested = true;
+          controller.notifyListeners();
+        } else {
+          controller.dispose();
+          controller.dispose();
+          expect(controller.snapshot, isNull);
+          expect(controller.bound, isFalse);
+        }
+      });
+      try {
+        await controller.refresh();
+        expect(errors, isEmpty);
+        expect(calls, 0);
+        expect(controller.canRefresh, isFalse);
+        controller.dispose();
+        controller.notifyListeners();
+      } finally {
+        FlutterError.onError = previous;
+        controller.dispose();
+      }
+    },
+  );
+
+  test('live usage retirement clears counters and rejects a held late fetch result', () async {
+    final owner = UsageScope(
+      connection: Object(),
+      sessionId: 'runtime',
+      profile: 'work',
+    );
+    final pending = Completer<Map<String, Object?>>();
+    var calls = 0, retire = false;
+    final controller = SessionUsageController()
+      ..bind(owner, (_, _) {
+        calls++;
+        return pending.future;
+      });
+    final errors = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    controller.addListener(() {
+      if (retire) controller.dispose();
+    });
+    try {
+      final refresh = controller.refresh();
+      expect(calls, 1);
+      retire = true;
+      controller.tick(owner, {'total': 7});
+      pending.complete({'total': 1});
+      await refresh;
+      expect(errors, isEmpty);
+      expect(controller.snapshot, isNull);
+      expect(controller.bound, isFalse);
+      expect(controller.canRefresh, isFalse);
+      controller.dispose();
+      controller.notifyListeners();
+    } finally {
+      FlutterError.onError = previous;
+      controller.dispose();
+    }
+  });
+
   test('usage snapshots preserve absence and reject malformed metrics', () {
     final usage = UsageSnapshot.decode({
       'model': 'scripted',
