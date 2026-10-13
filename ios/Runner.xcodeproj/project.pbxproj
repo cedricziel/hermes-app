@@ -84,6 +84,8 @@
 		C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844350FAF88988291CB013FB /* PendingSendStore.swift */; };
 		5D151F8B8819ECEB22F3EECF /* RecoveryActionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0F552EBBCBC70005D500F4 /* RecoveryActionLog.swift */; };
 		0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD0BA14475B91F85F07143 /* RecoveryControls.swift */; };
+		5FC3AC10F3E4BAA6C06C9E82 /* VoiceDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */; };
+		5ED8C25132F3885368DB5303 /* VoiceReviewControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 138739FA7EA0AF4E91B3989A /* VoiceReviewControls.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -264,6 +266,8 @@
 		844350FAF88988291CB013FB /* PendingSendStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PendingSendStore.swift; sourceTree = "<group>"; };
 		0B0F552EBBCBC70005D500F4 /* RecoveryActionLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryActionLog.swift; sourceTree = "<group>"; };
 		49BD0BA14475B91F85F07143 /* RecoveryControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryControls.swift; sourceTree = "<group>"; };
+		A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceDraft.swift; sourceTree = "<group>"; };
+		138739FA7EA0AF4E91B3989A /* VoiceReviewControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceReviewControls.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -396,6 +400,7 @@
 				5B286A77E08A3B2AA9CA86B6 /* DemoClient.swift */,
 				5DE2754C6FBF29FC3568C927 /* ThreadListView.swift */,
 				51DEB56C491EC2EB383EE443 /* ConversationView.swift */,
+				138739FA7EA0AF4E91B3989A /* VoiceReviewControls.swift */,
 				49BD0BA14475B91F85F07143 /* RecoveryControls.swift */,
 				A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */,
 				A7C1D2E3F4051627384950A2 /* VoiceRecorder.swift */,
@@ -412,6 +417,7 @@
 			children = (
 				A03C428A6CC06D8682F0F623 /* ConversationModel.swift */,
 				2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */,
+				A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */,
 				9978D7CC9E15B585ACD0BBA0 /* Models.swift */,
 				6B312E52135948A1A1BC7401 /* WatchThreadId.swift */,
 				0B0F552EBBCBC70005D500F4 /* RecoveryActionLog.swift */,
@@ -820,6 +826,8 @@
 				C0DC256A998B03F622796497 /* HermesClient.swift in Sources */,
 				12AB7B237264DC0886E10BDB /* Models.swift in Sources */,
 				6B312E52135948A1A1BC7402 /* WatchThreadId.swift in Sources */,
+				5FC3AC10F3E4BAA6C06C9E82 /* VoiceDraft.swift in Sources */,
+				5ED8C25132F3885368DB5303 /* VoiceReviewControls.swift in Sources */,
 				0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */,
 				5D151F8B8819ECEB22F3EECF /* RecoveryActionLog.swift in Sources */,
 				C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */,

@@ -16,6 +16,8 @@ final class FakeClient: HermesClient {
   /// Called with each send before it is answered.
   var onSend: () -> Void = {}
   var transcribeResult: Result<String, Error> = .success("")
+  var transcribeHandler: (() async throws -> String)?
+  var sendHandler: (() async throws -> SendResult)?
   private(set) var sends: [(threadId: String?, text: String, sendId: String, retry: Bool)] = []
   private(set) var transcribed: [(audio: Data, mimeType: String)] = []
 
@@ -24,10 +26,12 @@ final class FakeClient: HermesClient {
   func send(threadId: String?, text: String, sendId: String, retry: Bool) async throws -> SendResult {
     sends.append((threadId, text, sendId, retry))
     onSend()
+    if sendResults.isEmpty, let sendHandler { return try await sendHandler() }
     return try (sendResults.isEmpty ? sendResult : sendResults.removeFirst()).get()
   }
   func transcribe(audio: Data, mimeType: String) async throws -> String {
     transcribed.append((audio, mimeType))
+    if let transcribeHandler { return try await transcribeHandler() }
     return try transcribeResult.get()
   }
 }
@@ -275,7 +279,7 @@ final class ConversationModelTests: XCTestCase {
     XCTAssertEqual(model.messages.map(\.content), ["Hello", "Hi"])
   }
 
-  func testAVoiceMessageIsTranscribedAndSent() async {
+  func testAVoiceMessageWaitsForReviewBeforeSending() async {
     let client = FakeClient()
     client.transcribeResult = .success("Remind me to call Sam")
     client.sendResult = .success(SendResult(threadId: "t1", text: "Will do.", failed: false))
@@ -285,8 +289,12 @@ final class ConversationModelTests: XCTestCase {
 
     XCTAssertEqual(client.transcribed.first?.audio, Data([1, 2, 3]))
     XCTAssertEqual(client.transcribed.first?.mimeType, "audio/mp4")
-    XCTAssertEqual(client.sends.first?.text, "Remind me to call Sam")
-    XCTAssertEqual(model.messages.map(\.content), ["Remind me to call Sam", "Will do."])
+    XCTAssertTrue(client.sends.isEmpty)
+    XCTAssertEqual(model.voice.state, .review)
+    model.voiceText = "  Call Sam tomorrow  "
+    await model.sendVoiceDraft()
+    XCTAssertEqual(client.sends.first?.text, "Call Sam tomorrow")
+    XCTAssertEqual(model.messages.map(\.content), ["Call Sam tomorrow", "Will do."])
     XCTAssertEqual(model.phase, .idle)
   }
 
@@ -298,7 +306,7 @@ final class ConversationModelTests: XCTestCase {
     await model.sendVoice(Data([1]), mimeType: "audio/mp4")
 
     XCTAssertTrue(client.sends.isEmpty)
-    XCTAssertEqual(model.phase, .failed(.noSpeech))
+    XCTAssertEqual(model.voice.state, .noSpeech)
   }
 
   func testAFailedTranscriptionIsReported() async {
@@ -312,4 +320,55 @@ final class ConversationModelTests: XCTestCase {
     XCTAssertEqual(model.phase, .failed(.phoneUnreachable))
     XCTAssertEqual(model.unsentVoice, Data([1]))
   }
+  func testManualFastSendUsesExistingProtectedSendPath() async {
+    let client = FakeClient()
+    client.transcribeResult = .success("  Continue  ")
+    let model = ConversationModel(client: client, threadId: nil)
+    await model.sendVoice(Data([1]), mimeType: "audio/mp4", reason: .manual, fastSend: true)
+    XCTAssertEqual(client.sends.map(\.text), ["Continue"])
+    XCTAssertEqual(model.voice.state, .idle)
+  }
+
+  func testDurationCapNeverFastSends() async {
+    let client = FakeClient()
+    client.transcribeResult = .success("Continue")
+    let model = ConversationModel(client: client, threadId: nil)
+    await model.sendVoice(Data([1]), mimeType: "audio/mp4", reason: .durationLimit, fastSend: true)
+    XCTAssertTrue(client.sends.isEmpty)
+    XCTAssertEqual(model.voice.state, .review)
+  }
+
+  func testSignOutClearsReviewedTranscript() async {
+    let client = FakeClient()
+    client.transcribeResult = .success("private transcript")
+    let model = ConversationModel(client: client, threadId: nil)
+    await model.sendVoice(Data([1]), mimeType: "audio/mp4")
+    client.fixtureSession.invalidate()
+    XCTAssertEqual(model.voice.state, .idle)
+    XCTAssertEqual(model.voiceText, "")
+    XCTAssertNil(model.unsentVoice)
+    XCTAssertTrue(client.sends.isEmpty)
+  }
+
+  func testLeavingDuringTranscriptionIgnoresLateFastSend() async {
+    let client = FakeClient()
+    let started = expectation(description: "transcription started")
+    var reply: CheckedContinuation<String, Never>?
+    client.transcribeHandler = {
+      await withCheckedContinuation { continuation in
+        reply = continuation
+        started.fulfill()
+      }
+    }
+    let model = ConversationModel(client: client, threadId: nil)
+    let work = Task { await model.sendVoice(Data([1]), mimeType: "audio/mp4", reason: .manual, fastSend: true) }
+    await fulfillment(of: [started], timeout: 1)
+    model.discardVoice()
+    reply?.resume(returning: "private transcript")
+    await work.value
+    XCTAssertTrue(client.sends.isEmpty)
+    XCTAssertEqual(model.voice.state, .idle)
+    XCTAssertEqual(model.voiceText, "")
+  }
+
 }

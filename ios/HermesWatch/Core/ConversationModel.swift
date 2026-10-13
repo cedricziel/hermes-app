@@ -14,9 +14,20 @@ final class ConversationModel {
   private(set) var threadId: String?
   private(set) var handoff: HandoffTarget?
   private(set) var messages: [ChatMessage] = []
-  private(set) var phase = Phase.idle
+  private(set) var phase = Phase.idle {
+    didSet { voiceOwnsPhase = false }
+  }
+  private var voiceOwnsPhase = false
   private(set) var unsent: String?
-  private(set) var unsentVoice: Data?
+  private(set) var voice = VoiceDraft()
+  var unsentVoice: Data? { voice.audio }
+  var voiceText: String {
+    get { voice.text }
+    set { voice.text = newValue }
+  }
+  private var voiceTask: Task<Void, Never>?
+  private var voiceTaskId: UUID?
+  private var voiceGeneration = 0
   private(set) var recovery: PendingSendRecord?
   private(set) var checkAttempted = false
   private(set) var resendConfirmation = false
@@ -304,22 +315,61 @@ final class ConversationModel {
     }
   }
 
-  func sendVoice(_ audio: Data, mimeType: String) async {
-    guard session.usable, !busy else { return }
+  func sendVoice(_ audio: Data, mimeType: String,
+    reason: VoiceTerminationReason = .manual, fastSend: Bool = false) async {
+    guard session.usable, !busy, voice.state == .idle else { return }
+    let token = voice.start(audio: audio, mimeType: mimeType, reason: reason, fastSend: fastSend)
+    await transcribeVoice(token)
+  }
+
+  func retryVoice() async {
+    guard session.usable, !busy, let token = voice.retry() else { return }
+    await transcribeVoice(token)
+  }
+
+  private func transcribeVoice(_ token: UUID) async {
+    guard let audio = voice.audio else { return }
     let generation = session.generation
-    unsentVoice = nil
+    let localGeneration = voiceGeneration
+    let mimeType = voice.mimeType
     phase = .transcribing
-    do {
-      let text = try await client.transcribe(audio: audio, mimeType: mimeType)
-      guard generation == session.generation else { return }
-      guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { phase = .failed(.noSpeech); return }
-      phase = .idle
-      await send(text)
-    } catch {
-      guard generation == session.generation else { return }
-      unsentVoice = audio
-      fail(error, generation: generation)
+    voiceOwnsPhase = true
+    let task = Task { @MainActor [weak self] in
+      guard let self else { return }
+      do {
+        let text = try await client.transcribe(audio: audio, mimeType: mimeType)
+        guard !Task.isCancelled, generation == session.generation,
+          localGeneration == voiceGeneration, session.usable else { return }
+        phase = .idle
+        let automaticText = voice.complete(text, attempt: token, allowSend: canCompose)
+        if let automaticText { await send(automaticText) }
+      } catch {
+        guard !Task.isCancelled, generation == session.generation,
+          localGeneration == voiceGeneration else { return }
+        voice.fail(attempt: token)
+        fail(error, generation: generation)
+        if voice.state == .failed, session.usable { voiceOwnsPhase = true }
+      }
     }
+    voiceTask = task
+    voiceTaskId = token
+    await task.value
+    if voiceTaskId == token { voiceTask = nil; voiceTaskId = nil }
+  }
+
+  func sendVoiceDraft() async {
+    guard session.usable, canCompose, let text = voice.takeText() else { return }
+    await send(text)
+  }
+
+  func discardVoice() {
+    voiceGeneration += 1
+    voiceTask?.cancel()
+    voiceTask = nil
+    voiceTaskId = nil
+    let resetPhase = voiceOwnsPhase && currentSend == nil
+    voice.discard()
+    if resetPhase { phase = .idle }
   }
 
   private func fail(_ error: Error, generation: Int) {
@@ -338,7 +388,7 @@ final class ConversationModel {
     handoff = nil
     messages = []
     unsent = nil
-    unsentVoice = nil
+    discardVoice()
     recovery = nil
     terminalCleanup.removeAll()
     checkAttempted = false
