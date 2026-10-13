@@ -10,6 +10,7 @@ import '../moa_progress_state.dart';
 import '../session_usage/usage_snapshot.dart';
 import '../side_results/side_result_state.dart';
 import '../connector_operation_state.dart';
+import '../billing_verification_controller.dart';
 import '../process_output_state.dart';
 import 'gateway_rpc_client.dart';
 
@@ -20,6 +21,17 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
   final payload = event.payload;
   String text(String key) => _plainText(payload[key]);
   return switch (event.type) {
+    'billing.step_up.verification' => switch (BillingVerificationDetails.decode(
+      payload,
+    )) {
+      final details? when event.sessionId.isNotEmpty =>
+        BillingVerificationReceived(
+          details,
+          runtimeId: event.sessionId,
+          connection: connection,
+        ),
+      _ => null,
+    },
     'moa.reference' || 'moa.progress' || 'moa.phase' || 'moa.aggregating' =>
       event.sessionId.isEmpty
           ? null

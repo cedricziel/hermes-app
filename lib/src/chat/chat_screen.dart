@@ -287,6 +287,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       profiles: _profiles,
       models: _models,
       transport: transport,
+      appLock: appLock,
       botChats: transport is HermesGatewayTransport
           ? BotModeChatRepository(transport.request)
           : null,

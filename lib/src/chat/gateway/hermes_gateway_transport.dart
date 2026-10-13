@@ -18,6 +18,7 @@ import '../owned_session_transport.dart';
 import '../gateway_connection_transport.dart';
 import '../connector_operation_transport.dart';
 import '../connector_operation_state.dart';
+import '../billing_verification_transport.dart';
 import '../slash_command.dart';
 import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
@@ -412,6 +413,7 @@ class _QueuedGate {
           const ThreadNeedsRefetch(),
         ];
       case ConnectorOperationReceived() ||
+          BillingVerificationReceived() ||
           SideResultReceived() ||
           ProcessOutputReceived() ||
           SessionUsageUpdated() ||
@@ -497,7 +499,8 @@ class _Unsolicited {
         event is TodoUpdated ||
         event is ConnectorOperationReceived ||
         event is SideResultReceived ||
-        event is ProcessOutputReceived) {
+        event is ProcessOutputReceived ||
+        event is BillingVerificationReceived) {
       return false;
     }
     if (_done) return false;
@@ -527,7 +530,8 @@ class HermesGatewayTransport
         OwnedSessionTransport,
         ConnectorOperationTransport,
         GatewayConnectionTransport,
-        QueueSubmissionTransport {
+        QueueSubmissionTransport,
+        BillingVerificationTransport {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
@@ -611,6 +615,49 @@ class HermesGatewayTransport
   final _connectionEvents = StreamController<GatewayConnectionEvent>.broadcast(
     sync: true,
   );
+  final _billingPending = <OwnedSessionBinding>{};
+  final _billingUnavailable = <Object>{};
+  @override
+  bool billingVerificationSupported(OwnedSessionBinding binding) =>
+      _ownsBinding(binding) &&
+      !_billingUnavailable.contains(binding.connection);
+  @override
+  Future<Map<String, Object?>> stepUpBilling(
+    OwnedSessionBinding binding, {
+    required bool Function() authorize,
+  }) async {
+    if (!_ownsBinding(binding) ||
+        !authorize() ||
+        (binding.profile?.isEmpty ?? true)) {
+      throw const GatewayConnectionClosed();
+    }
+    if (!billingVerificationSupported(binding)) {
+      throw const GatewayRpcException(
+        kGatewayMethodNotFound,
+        'Billing verification unavailable',
+      );
+    }
+    if (!_billingPending.add(binding)) {
+      throw StateError('Billing verification already pending');
+    }
+    try {
+      final client = binding.connection as GatewayRpcClient;
+      final result = await client.requestGuarded('billing.step_up', {
+        'session_id': binding.runtimeId,
+        'profile': binding.profile,
+      }, authorize: () => _ownsBinding(binding) && authorize());
+      if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
+      return result;
+    } on GatewayRpcException catch (error) {
+      if (error.code == kGatewayMethodNotFound) {
+        _billingUnavailable.add(binding.connection);
+      }
+      rethrow;
+    } finally {
+      _billingPending.remove(binding);
+    }
+  }
+
   @override
   Stream<GatewayConnectionEvent> get connectionEvents =>
       _connectionEvents.stream;
@@ -2114,6 +2161,11 @@ class HermesGatewayTransport
         live.add(event);
       } else if (seq != null && frameSeqs.contains(seq)) {
         replacing[seq] = event;
+      } else if (event.type == 'billing.step_up.verification') {
+        _record('gateway.visibility_outcome', {
+          'feature': 'billing_verification',
+          'outcome': 'discarded_replay',
+        });
       } else if (_incomingOf(event, sid, client: client) case final incoming?) {
         out.add(incoming);
       }
@@ -3406,6 +3458,7 @@ class HermesGatewayTransport
         }
       },
     );
+    _billingUnavailable.clear();
     return _open = client;
   }
 

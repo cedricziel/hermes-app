@@ -628,6 +628,7 @@ void main() {
     );
     expect(find.text('Background result'), findsOneWidget);
     expect(find.text('Side question answer'), findsOneWidget);
+    await tester.ensureVisible(find.text('Side question answer'));
     await tester.tap(find.text('Side question answer'));
     await tester.pumpAndSettle();
     expect(find.text('Side details'), findsOneWidget);

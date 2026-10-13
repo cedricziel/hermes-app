@@ -16,6 +16,7 @@ import 'moa_progress_state.dart';
 import 'session_usage/usage_snapshot.dart';
 import 'side_results/side_result_state.dart';
 import 'connector_operation_state.dart';
+import 'billing_verification_controller.dart';
 import 'process_output_state.dart';
 
 sealed class ChatEvent {
@@ -98,6 +99,17 @@ final class ConnectorOperationReceived extends ChatEvent {
     required this.connection,
   });
   final ConnectorOperationSnapshot operation;
+  final String runtimeId;
+  final Object? connection;
+}
+
+final class BillingVerificationReceived extends ChatEvent {
+  const BillingVerificationReceived(
+    this.details, {
+    required this.runtimeId,
+    required this.connection,
+  });
+  final BillingVerificationDetails details;
   final String runtimeId;
   final Object? connection;
 }
