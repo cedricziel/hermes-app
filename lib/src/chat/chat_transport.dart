@@ -617,6 +617,7 @@ abstract interface class GatewayRequester {
 
 /// Awaits protected persistence immediately before the prompt RPC.
 /// [onNotSubmitted] runs only when preparation fails before that RPC starts.
+/// [queueDispatchAllowed] rechecks local permission at the final pre-byte boundary.
 abstract interface class QueueSubmissionTransport {
   Stream<ChatEvent> sendQueued({
     String? threadId,
@@ -626,6 +627,7 @@ abstract interface class QueueSubmissionTransport {
     ModelChoice? model,
     required Future<void> Function() beforeSubmit,
     Future<void> Function()? onNotSubmitted,
+    bool Function()? queueDispatchAllowed,
   });
 }
 

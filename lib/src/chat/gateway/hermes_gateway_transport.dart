@@ -997,6 +997,7 @@ class HermesGatewayTransport
     ModelChoice? model,
     required Future<void> Function() beforeSubmit,
     Future<void> Function()? onNotSubmitted,
+    bool Function()? queueDispatchAllowed,
   }) {
     if (profile == null || profile.trim().isEmpty) {
       return Stream.error(
@@ -1012,6 +1013,7 @@ class HermesGatewayTransport
       queued: true,
       beforeSubmit: beforeSubmit,
       onNotSubmitted: onNotSubmitted,
+      queueDispatchAllowed: queueDispatchAllowed,
     );
   }
 
@@ -1024,6 +1026,7 @@ class HermesGatewayTransport
     bool queued = false,
     Future<void> Function()? beforeSubmit,
     Future<void> Function()? onNotSubmitted,
+    bool Function()? queueDispatchAllowed,
   }) {
     _promptAccepted = false;
     final stopped = CancelFlag();
@@ -1040,6 +1043,7 @@ class HermesGatewayTransport
         step: step,
         beforeSubmit: beforeSubmit,
         onNotSubmitted: onNotSubmitted,
+        queueDispatchAllowed: queueDispatchAllowed,
       ).transform(
         StreamTransformer.fromHandlers(
           handleError: (error, stackTrace, sink) {
@@ -1081,6 +1085,7 @@ class HermesGatewayTransport
     required _SendStep step,
     Future<void> Function()? beforeSubmit,
     Future<void> Function()? onNotSubmitted,
+    bool Function()? queueDispatchAllowed,
   }) async* {
     final scope = <String, Object?>{
       'profile': ?profile,
@@ -1303,13 +1308,20 @@ class HermesGatewayTransport
             : ownedSessionFor(owner.$2, profile: owner.$1);
         var dispatchDenied = false;
         bool authorizeSubmission() {
-          final allowed =
+          var allowed =
               !stopped.value &&
               watch.reclaimed == null &&
               submissionBinding != null &&
               identical(submissionBinding.connection, client) &&
               submissionBinding.runtimeId == runtimeId &&
               ownedSessionFor(owner.$2, profile: owner.$1) == submissionBinding;
+          if (allowed) {
+            try {
+              allowed = queueDispatchAllowed?.call() ?? true;
+            } on Object {
+              allowed = false;
+            }
+          }
           if (!allowed) dispatchDenied = true;
           return allowed;
         }

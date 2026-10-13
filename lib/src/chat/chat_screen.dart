@@ -29,6 +29,9 @@ import '../notifications/notification_settings.dart';
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
 import '../profiles/chat_profiles.dart';
+import 'gateway_connection_transport.dart';
+import 'invalidation/change_invalidation_binding.dart';
+import 'invalidation/change_signal.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
 import '../settings/helper_models_screen.dart';
@@ -198,6 +201,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   MenuBarExtraLink? _menuBar;
   bool _activeRefreshInFlight = false;
   bool _foreground = true;
+  bool _routeVisible = true;
+  ChangeInvalidationBinding? _listChanges;
 
   /// Whether the window is a Mac one, as of the last build.
   bool _mac = false;
@@ -310,6 +315,56 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
     )..addListener(_changed);
+    if (auth != null &&
+        transport is GatewayConnectionTransport &&
+        _chat.repository != null) {
+      final repository = _chat.repository!;
+      final changes = _listChanges = ChangeInvalidationBinding(
+        source: transport as GatewayConnectionTransport,
+        auth: auth,
+        resource: InvalidationResource.sessions,
+        profile: () => _chat.profile,
+        events: repositories?.telemetry.events ?? noopAppEventLogger,
+      );
+      var requestedGeneration = _chat.threadListGeneration;
+      String? requestedProfile;
+      changes.controller.register<
+        ({int generation, String profile, ThreadPage page})
+      >(
+        InvalidationResource.sessions,
+        readSnapshot: (scope) async {
+          final generation = requestedGeneration = _chat.threadListGeneration;
+          final profile = requestedProfile = scope.profile!;
+          final count = _chat.threads.where((thread) => thread.remote).length;
+          final page = await repository.loadThreadPage(
+            limit: count > 50 ? count : 50,
+            profile: profile,
+          );
+          return (generation: generation, profile: profile, page: page);
+        },
+        snapshotIsCurrent: (snapshot) =>
+            _chat.active &&
+            snapshot.generation == _chat.threadListGeneration &&
+            snapshot.profile == _chat.profile &&
+            !_chat.threadListInvalidationBlocked,
+        applySnapshot: (snapshot) => _chat.applyInvalidatedThreads(
+          snapshot.page,
+          profile: snapshot.profile,
+          generation: snapshot.generation,
+        ),
+        onFailure: (_) {
+          final profile = requestedProfile;
+          if (profile != null) {
+            _chat.threadListInvalidationFailed(
+              profile: profile,
+              generation: requestedGeneration,
+            );
+          }
+        },
+      );
+      changes.controller.addListener(_invalidationsChanged);
+      _syncListChanges();
+    }
     if (_chat.repository case final repository?) {
       final auth = _maybeRead<AuthController>();
       final baseUrl = auth?.baseUrl;
@@ -521,8 +576,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _invalidationsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _syncListChanges() => _listChanges?.sync(
+    active: _foreground && widget.visible && _routeVisible,
+    blocked: _chat.threadListInvalidationBlocked,
+  );
+
   void _changed() {
     if (!mounted) return;
+    _syncListChanges();
     _dictation?.followProfile();
     widget.chatProfiles?.showing(_chat.profile);
     _syncDock();
@@ -557,6 +622,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _updateActivePolling() {
+    _routeVisible = ModalRoute.of(context)?.isCurrent != false;
+    _syncListChanges();
     _activeRefreshTimer?.cancel();
     if (!_foreground ||
         !widget.visible ||
@@ -904,6 +971,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _listChanges?.controller.removeListener(_invalidationsChanged);
+    _listChanges?.dispose();
     _menuBar?.disconnect(_chat);
     _handoff?.bind(null);
     _handoff?.advertise(null);
@@ -1086,7 +1155,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MessagingScreen(repository: _messaging),
+        builder: (_) => MessagingScreen(
+          repository: _messaging?.forProfile(_chat.profile),
+          changeSource: _chat.transport is GatewayConnectionTransport
+              ? _chat.transport as GatewayConnectionTransport
+              : null,
+        ),
       ),
     );
   }

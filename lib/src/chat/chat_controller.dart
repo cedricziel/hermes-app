@@ -441,6 +441,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _queuePreparing = <ChatThread>{};
   final _queueRemoving = <ChatThread>{};
   final _queueDispatching = <ChatThread>{};
+  static const _queueMissingTarget =
+      'This conversation is unavailable. Its queued prompts were kept in their original scope.';
   final _queueErrors = <ChatThread, String>{};
   final _queueUnavailable = <ChatThread>{};
   final _queueRestoring = <ChatThread, Future<bool>>{};
@@ -1963,6 +1965,101 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Whether [id] has older messages on the server than those loaded.
   bool hasOlder(String id) => _olderRows.containsKey(id);
 
+  int get threadListGeneration => _loadGeneration;
+  bool get threadListInvalidationBlocked =>
+      _loadingThreads || (housekeeping?.hasPendingChanges ?? false);
+  bool threadListAvailable(ChatThread thread) =>
+      !_queueUnavailable.contains(thread);
+
+  /// Applies list availability without dispatching or deleting queued work.
+  void setThreadListAvailability(ChatThread thread, {required bool available}) {
+    if (available) {
+      _queueUnavailable.remove(thread);
+      if (_queueErrors[thread] == _queueMissingTarget) {
+        _queueErrors.remove(thread);
+      }
+    } else {
+      _queueUnavailable.add(thread);
+      if (queueStore != null && queueBusy(thread)) _restoredQueues.add(thread);
+      if (_queues[thread]?.isNotEmpty ?? false) {
+        _queueErrors.putIfAbsent(thread, () => _queueMissingTarget);
+        if (_queues[thread]!.any((prompt) => prompt.durable != null)) {
+          _restoredQueues.add(thread);
+        }
+      }
+    }
+  }
+
+  void threadListInvalidationFailed({
+    required String profile,
+    required int generation,
+  }) {
+    if (!active || _profile != profile || _loadGeneration != generation) return;
+    _threadsFailed = true;
+    notifyListeners();
+  }
+
+  bool applyInvalidatedThreads(
+    ThreadPage page, {
+    required String profile,
+    required int generation,
+  }) {
+    if (!active ||
+        _profile != profile ||
+        generation != _loadGeneration ||
+        threadListInvalidationBlocked) {
+      return false;
+    }
+    final known = {for (final thread in _threads) thread.id: thread};
+    final present = <String>{};
+    final next = <ChatThread>[];
+    for (final fresh in page.threads) {
+      if (!present.add(fresh.id)) continue;
+      final thread = known[fresh.id] ?? fresh;
+      if (!identical(thread, fresh) && thread.remote) {
+        thread
+          ..title = fresh.title
+          ..named = fresh.named
+          ..pinned = fresh.pinned
+          ..updatedAt = fresh.updatedAt;
+      }
+      if (thread.remote) {
+        _bound.add(thread);
+        if (!known.containsKey(thread.id)) _unloaded.add(thread.id);
+        setThreadListAvailability(thread, available: true);
+      }
+      next.add(thread);
+    }
+    for (final thread in _threads) {
+      if (present.contains(thread.id)) continue;
+      final retained =
+          !thread.remote ||
+          page.hasMore ||
+          thread.id == _selectedId ||
+          thread.isReplying ||
+          (_queues[thread]?.isNotEmpty ?? false) ||
+          queueBusy(thread) ||
+          _followingIds.contains(thread.id);
+      if (!retained) continue;
+      next.add(thread);
+      if (thread.remote && !page.hasMore) {
+        setThreadListAvailability(thread, available: false);
+      }
+    }
+    _threads =
+        housekeeping?.begin(
+          ThreadPage(
+            threads: next,
+            nextOffset: page.nextOffset,
+            hasMore: page.hasMore,
+          ),
+        ) ??
+        next;
+    _threadsFailed = false;
+    notifyListeners();
+    return true;
+  }
+
   /// Lists the threads of [profile], or of the sticky active profile when
   /// none is given. The dashboard does not scope sessions to that profile by
   /// itself, so it is passed on every read.
@@ -2235,18 +2332,22 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatThread thread,
     String? profile,
   ) async {
+    final generation = _loadGeneration, epoch = _activityEpoch;
+    bool current() =>
+        _currentActivity(epoch) &&
+        generation == _loadGeneration &&
+        _profile == profile;
     try {
       final fresh = await repository!.loadThread(thread.id, profile: profile);
       if (fresh != null) {
-        _queueUnavailable.remove(thread);
+        if (current()) setThreadListAvailability(thread, available: true);
         return fresh;
       }
     } on Object {
       // An unreadable target cannot vouch for sending into its old session.
     }
     if (_queues[thread]?.any((prompt) => prompt.durable != null) ?? false) {
-      _queueUnavailable.add(thread);
-      _queueErrors[thread] = 'This conversation is unavailable. Its queued prompts were kept in their original scope.';
+      if (current()) setThreadListAvailability(thread, available: false);
       return thread;
     }
     return _queuedDraft(thread);
@@ -3501,6 +3602,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (prompts.isNotEmpty) {
         _queues[thread] = prompts;
         _restoredQueues.add(thread);
+      } else if (!_enqueueing.contains(thread) &&
+          (_queues[thread]?.isEmpty ?? true)) {
+        _restoredQueues.remove(thread);
       }
       if (corrupt > 0) _queueErrors[thread] = 'Some recovered prompts could not be read. Valid entries were kept.';
       try {
@@ -3628,7 +3732,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Explicitly resumes queued work after review; unsent prompts stay queued.
   void sendQueued(ChatThread thread) {
-    if (!active) return;
+    if (!active || _queueUnavailable.contains(thread)) return;
     if (_sessionStates[thread]?.reclaimedReason != null) return;
     if (_reclaimedQueueReview.remove(thread)) {
       breadcrumbs('chat.visibility_action', {
@@ -3653,7 +3757,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _drainQueue(ChatThread thread) {
-    if (!active) return;
+    if (!active || _queueUnavailable.contains(thread)) return;
     if (_sessionStates[thread]?.reclaimedReason != null ||
         _reclaimedQueueReview.contains(thread)) {
       return;
@@ -3832,7 +3936,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ),
         );
       }
-      if (!_queueContextCurrent(thread, send, profile, generation) ||
+      if (!queueAvailable(thread) ||
+          !_queueContextCurrent(thread, send, profile, generation) ||
           _entryFor(thread, send) == null) {
         return;
       }
@@ -3859,6 +3964,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (active) notifyListeners();
     } finally {
       _queueDispatching.remove(thread);
+      if (active) notifyListeners();
     }
   }
 
@@ -3912,9 +4018,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }) {
     if (!active) return false;
     if (_queueUnavailable.contains(selected)) {
-      report(
-        'This conversation is unavailable. Its queued prompts were kept in their original scope.',
-      );
+      report(_queueMissingTarget);
       return false;
     }
     final scopedProfile = _profile != null && _profile!.trim().isNotEmpty;
@@ -4057,6 +4161,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       return false;
     } finally {
       _enqueueing.remove(thread);
+      if (_queues[thread]?.isEmpty ?? true) _restoredQueues.remove(thread);
     }
   }
 
@@ -4395,8 +4500,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         text: text,
         attachments: attachments,
         model: thread.modelChoice,
+        queueDispatchAllowed: () =>
+            queueAvailable(thread) &&
+            _queueContextCurrent(
+              thread,
+              protectedSend,
+              profile,
+              queueGeneration,
+            ) &&
+            _entryFor(thread, protectedSend) != null,
         beforeSubmit: () async {
-          if (!_queueContextCurrent(
+          if (!queueAvailable(thread) ||
+              !_queueContextCurrent(
                 thread,
                 protectedSend,
                 profile,
@@ -4419,12 +4534,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             QueueRecordState.submissionStarted,
             submitting: true,
           );
-          if (!_queueContextCurrent(
-            thread,
-            protectedSend,
-            profile,
-            queueGeneration,
-          )) {
+          if (!queueAvailable(thread) ||
+              !_queueContextCurrent(
+                thread,
+                protectedSend,
+                profile,
+                queueGeneration,
+              )) {
             throw QueueSubmissionNotStarted(
               StateError('Queue scope unavailable'),
             );

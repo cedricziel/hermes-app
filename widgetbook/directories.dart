@@ -1,5 +1,6 @@
 import 'reaction_use_cases.dart';
 import 'billing_verification_use_cases.dart';
+import 'change_invalidation_use_cases.dart';
 import 'memory_use_cases.dart';
 import 'session_usage_use_cases.dart';
 import 'connector_operation_use_cases.dart';
@@ -60,6 +61,7 @@ import 'voice_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
   reactionNode(),
+  changeInvalidationNode(),
   agentWarningNode(),
   sessionStateNode(),
   todoPlanNode(),

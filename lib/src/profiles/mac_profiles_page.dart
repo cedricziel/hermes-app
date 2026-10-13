@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../api/hermes_repositories.dart';
 import '../auth/auth_controller.dart';
 import '../messaging/messaging_screen.dart';
+import '../chat/gateway_connection_transport.dart';
 import '../macos/mac_toolbar.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../plugins/installed_plugin.dart';
@@ -23,9 +24,10 @@ import 'widgets/new_profile_dialog.dart';
 /// Counts are read when a profile is selected and left out when a read
 /// fails. Messaging platforms and plugins count the ones switched on.
 class MacProfilesPage extends StatefulWidget {
-  const MacProfilesPage({super.key, required this.profiles});
+  const MacProfilesPage({super.key, required this.profiles, this.changeSource});
 
   final ChatProfiles profiles;
+  final GatewayConnectionTransport? changeSource;
 
   @override
   State<MacProfilesPage> createState() => _MacProfilesPageState();
@@ -129,6 +131,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
       ),
       ProfileSection.messaging => MessagingScreen(
         repository: repositories.messaging.forProfile(name),
+        changeSource: widget.changeSource,
       ),
       ProfileSection.plugins => PluginsScreen(
         repository: repositories.pluginManager.forProfile(name),
