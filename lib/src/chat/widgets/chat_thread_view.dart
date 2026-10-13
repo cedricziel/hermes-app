@@ -22,6 +22,8 @@ import 'chat_composer_builder.dart';
 import 'message_actions.dart' show TurnActionStatus;
 import '../chat_warning_state.dart';
 import 'agent_notice_card.dart';
+import '../chat_session_state.dart';
+import 'session_status_card.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -61,6 +63,9 @@ class ChatThreadView extends StatelessWidget {
     this.notices = const [],
     this.onDismissNotice,
     this.onNoticeDetails,
+    this.sessionState,
+    this.onSessionDetails,
+    this.onReopenSession,
     this.onRetry,
     this.onEdit,
     this.onLoadOlder,
@@ -80,6 +85,9 @@ class ChatThreadView extends StatelessWidget {
   final List<AgentNotice> notices;
   final ValueChanged<AgentNotice>? onDismissNotice;
   final VoidCallback? onNoticeDetails;
+  final ChatSessionState? sessionState;
+  final VoidCallback? onSessionDetails;
+  final VoidCallback? onReopenSession;
   final BotChatContext? botContext;
   final InMemoryChatController chatController;
   final TextEditingController composerController;
@@ -190,6 +198,17 @@ class ChatThreadView extends StatelessWidget {
             const Divider(height: 1),
         ],
         if (botContext case final bot?) BotChatBanner(context: bot),
+        if (sessionState case final state? when state.visible)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: SingleChildScrollView(
+              child: SessionStatusCard(
+                state: state,
+                onDetails: onSessionDetails,
+                onReopen: onReopenSession,
+              ),
+            ),
+          ),
         if (notices.isNotEmpty)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 160),

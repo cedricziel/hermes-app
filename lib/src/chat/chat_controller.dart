@@ -35,6 +35,7 @@ import 'chat_models.dart';
 import 'chat_reply.dart';
 import 'chat_transport.dart';
 import 'chat_warning_state.dart';
+import 'chat_session_state.dart';
 import 'gateway/gateway_rpc_client.dart' show GatewayRpcException;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
@@ -312,6 +313,126 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void _discardWarnings(ChatThread thread) {
     _warnings.remove(thread)?.clear();
     _warningGenerations[thread] = ++_nextWarningGeneration;
+  }
+
+  final _sessionStates = <ChatThread, ChatSessionState>{};
+  final _sessionActionGenerations = <ChatThread, int>{};
+  int _nextSessionActionGeneration = 0;
+
+  int _sessionActionGeneration(ChatThread thread) => _sessionActionGenerations
+      .putIfAbsent(thread, () => ++_nextSessionActionGeneration);
+
+  bool _sessionActionCurrent(ChatThread thread, int generation) =>
+      _sessionActionGenerations[thread] == generation &&
+      _threads.contains(thread);
+
+  void _invalidateSessionActions(ChatThread thread) {
+    _sessionActionGenerations[thread] = ++_nextSessionActionGeneration;
+    _undoing.remove(thread);
+    _turnProblems.remove(thread);
+  }
+
+  final _reclaimedQueueReview = <ChatThread>{};
+
+  ChatSessionState? sessionStateIn(ChatThread thread) => _sessionStates[thread];
+
+  void sessionDetailsOpened() => breadcrumbs('chat.visibility_action', {
+    'feature': 'session_state',
+    'action': 'details',
+  });
+
+  void reopenSession(ChatThread thread) {
+    if (!active || !_threads.contains(thread)) return;
+    breadcrumbs('chat.visibility_action', {
+      'feature': 'session_state',
+      'action': 'reopen',
+    });
+    _invalidateSessionActions(thread);
+    _sessionStates.remove(thread);
+    select(thread.id);
+  }
+
+  bool _onSessionEvent(ChatThread thread, ChatEvent event, String? profile) {
+    final runtime = switch (event) {
+      SessionControlUpdated(:final runtimeId) => runtimeId,
+      SessionControlUnavailable(:final runtimeId) => runtimeId,
+      SessionWaitUpdated(:final runtimeId) => runtimeId,
+      SessionReclaimed(:final runtimeId) => runtimeId,
+      SessionResumeProgress(:final runtimeId) => runtimeId,
+      _ => null,
+    };
+    if (runtime == null) return false;
+    if (!active || _profile != profile || !_threads.contains(thread)) {
+      return true;
+    }
+    if (event is SessionReclaimed &&
+        thread.remote &&
+        thread.id != event.storedSessionId) {
+      return true;
+    }
+    final state = _sessionStates.putIfAbsent(thread, ChatSessionState.new);
+    if (state.reclaimedReason != null && state.runtimeId == runtime) {
+      return true;
+    }
+    if (state.runtimeId != null && state.runtimeId != runtime) {
+      _invalidateSessionActions(thread);
+    }
+    state.adopt(runtime);
+    var outcome = 'applied';
+    switch (event) {
+      case SessionControlUpdated(:final control):
+        state.control = control;
+        state.unavailable = false;
+      case SessionControlUnavailable():
+        state.unavailable = state.control == null;
+        outcome = 'unavailable';
+      case SessionWaitUpdated(:final kind, :final text):
+        if (text.isEmpty) {
+          state.waits.remove(kind);
+        } else {
+          state.waits[kind] = text;
+          if (state.waits.length > 16) {
+            state.waits.remove(state.waits.keys.first);
+          }
+        }
+      case SessionResumeProgress(:final progress):
+        state.resume = progress;
+      case SessionReclaimed(:final reason):
+        _invalidateSessionActions(thread);
+        state.reclaimedReason = reason;
+        state.waits.clear();
+        _settleTimers.remove(thread)?.cancel();
+        if (_queues[thread]?.isNotEmpty ?? false) {
+          _reclaimedQueueReview.add(thread);
+        }
+        _active.remove(thread.id);
+        _discardWarnings(thread);
+        for (final reply in thread.messages) {
+          if (reply.role != ChatRole.assistant) continue;
+          _updateReply(thread, reply, () {
+            expireInputRequests(reply);
+            if (reply.isPending) {
+              applyReplyEvent(
+                reply,
+                ReplyCompleted(reply.content, stopped: true),
+              );
+            }
+          });
+        }
+        outcome = 'reclaimed';
+      default:
+        break;
+    }
+    notifyListeners();
+    try {
+      events('gateway.visibility_outcome', {
+        'feature': 'session_state',
+        'outcome': outcome,
+      });
+    } on Object {
+      return true;
+    }
+    return true;
   }
 
   List<AgentNotice> noticesIn(ChatThread thread) =>
@@ -1358,6 +1479,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Moves on to the first remaining thread when the open one is archived or
   /// deleted.
   void _threadRemoved(ChatThread thread) {
+    _undoing.remove(thread);
+    _turnProblems.remove(thread);
+    _sessionActionGenerations.remove(thread);
+    _sessionStates.remove(thread);
+    _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();
     _warningGenerations.remove(thread);
     _queues.remove(thread);
@@ -1575,6 +1701,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Runs a gateway command without putting it through prompt.submit or the
   /// reply queue. Display-only command output stays in this visit's chat.
   Future<bool> runSlashCommand(String command) async {
+    if (_sessionStates[selectedThread]?.reclaimedReason != null) {
+      report('Reopen this session before running another command.');
+      return false;
+    }
     final epoch = _activityEpoch;
     if (!_currentActivity(epoch)) return false;
     final bot = selectedThread?.botContext;
@@ -1735,7 +1865,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Whether the last prompt of [thread] can be taken back on the server:
   /// edited, or sent again in place of its turn.
   bool canEditLastPrompt(ChatThread thread) {
-    if (!active) return false;
+    if (!active || _sessionStates[thread]?.reclaimedReason != null) {
+      return false;
+    }
     final prompt = lastPromptText(thread);
     return transport != null &&
         _bound.contains(thread) &&
@@ -1751,8 +1883,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// prompt that had files (they are not sent again) and a server that cannot
   /// undo get a new turn instead.
   Future<void> retry(ChatThread thread) async {
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     final epoch = _activityEpoch;
-    if (!_currentActivity(epoch)) return;
+    final generation = _sessionActionGeneration(thread);
+    if (!_currentActivity(epoch) ||
+        !_sessionActionCurrent(thread, generation)) {
+      return;
+    }
     final prompt = lastPromptText(thread);
     if (prompt == null || _undoing.containsKey(thread)) return;
     if (prompt.startsWith('/')) {
@@ -1763,12 +1900,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       try {
         await _undoLastTurn(thread, TurnAction.retry);
       } on Object catch (error) {
-        if (_currentActivity(epoch)) {
+        if (_currentActivity(epoch) &&
+            _sessionActionCurrent(thread, generation)) {
           _failTurnAction(thread, error, 'try again');
         }
         return;
       }
-      if (!_currentActivity(epoch)) return;
+      if (!_currentActivity(epoch) ||
+          !_sessionActionCurrent(thread, generation)) {
+        return;
+      }
     }
     _submitTo(thread, prompt, const []);
   }
@@ -1776,20 +1917,31 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Takes the last prompt of [thread] back on the server and puts its text
   /// in the composer. Its files are not put back.
   Future<void> editLastPrompt(ChatThread thread) async {
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     final epoch = _activityEpoch;
-    if (!_currentActivity(epoch)) return;
+    final generation = _sessionActionGeneration(thread);
+    if (!_currentActivity(epoch) ||
+        !_sessionActionCurrent(thread, generation) ||
+        _sessionStates[thread]?.reclaimedReason != null) {
+      return;
+    }
     final prompt = lastPromptText(thread);
     if (prompt == null || !canEditLastPrompt(thread)) return;
     final bool undone;
     try {
       undone = await _undoLastTurn(thread, TurnAction.edit);
     } on Object catch (error) {
-      if (_currentActivity(epoch)) {
+      if (_currentActivity(epoch) &&
+          _sessionActionCurrent(thread, generation)) {
         _failTurnAction(thread, error, 'edit the prompt');
       }
       return;
     }
-    if (!_currentActivity(epoch)) return;
+    if (!_currentActivity(epoch) ||
+        !_sessionActionCurrent(thread, generation) ||
+        _sessionStates[thread]?.reclaimedReason != null) {
+      return;
+    }
     if (!undone) {
       report("This Hermes server can't edit prompts. Update Hermes to edit.");
       return;
@@ -1829,10 +1981,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// the server cannot undo.
   Future<bool> _undoLastTurn(ChatThread thread, TurnAction action) async {
     final epoch = _activityEpoch;
+    final generation = _sessionActionGeneration(thread);
     _undoing[thread] = action;
     _turnProblems.remove(thread);
     notifyListeners();
-    if (!_currentActivity(epoch)) return true;
+    if (!_currentActivity(epoch) ||
+        !_sessionActionCurrent(thread, generation) ||
+        _sessionStates[thread]?.reclaimedReason != null) {
+      return true;
+    }
     final int? removed;
     try {
       removed = await transport!.undoLastTurn(
@@ -1841,12 +1998,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         retry: action == TurnAction.retry,
       );
     } finally {
-      if (_currentActivity(epoch)) {
+      if (_currentActivity(epoch) &&
+          _sessionActionCurrent(thread, generation)) {
         _undoing.remove(thread);
         notifyListeners();
       }
     }
-    if (!_currentActivity(epoch)) return true;
+    if (!_currentActivity(epoch) ||
+        !_sessionActionCurrent(thread, generation) ||
+        _sessionStates[thread]?.reclaimedReason != null) {
+      return true;
+    }
     if (removed == null) return false;
     final start = thread.messages.lastIndexWhere(
       (m) => m.role == ChatRole.user,
@@ -1854,7 +2016,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (start < 0) return true;
     thread.messages.removeRange(start, thread.messages.length);
     await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
-    if (!_currentActivity(epoch)) return true;
+    if (!_currentActivity(epoch) ||
+        !_sessionActionCurrent(thread, generation) ||
+        _sessionStates[thread]?.reclaimedReason != null) {
+      return true;
+    }
     notifyListeners();
     return true;
   }
@@ -1879,6 +2045,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Sends the first queued prompt of [thread] when no reply is pending
   /// there. One that cannot be sent stays first in the queue.
   void sendQueued(ChatThread thread) {
+    if (!active || _sessionStates[thread]?.reclaimedReason != null) return;
+    if (_reclaimedQueueReview.remove(thread)) {
+      breadcrumbs('chat.visibility_action', {
+        'feature': 'session_state',
+        'action': 'review_queue',
+      });
+    }
+    _drainQueue(thread);
+  }
+
+  void _drainQueue(ChatThread thread) {
+    if (_sessionStates[thread]?.reclaimedReason != null ||
+        _reclaimedQueueReview.contains(thread)) {
+      return;
+    }
     if (!active) return;
     _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
@@ -1918,7 +2099,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final timer = _settleTimers.remove(thread);
     if (timer == null) return;
     timer.cancel();
-    sendQueued(thread);
+    _drainQueue(thread);
   }
 
   void _cancelSettleWaits() {
@@ -1943,6 +2124,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     List<SharedFile> files, {
     String? displayText,
   }) {
+    if (_sessionStates[selected]?.reclaimedReason != null) {
+      report('Reopen this session before sending another prompt.');
+      return false;
+    }
     if (!active) return false;
     _turnProblems.remove(selected);
     if (selected == null ||
@@ -1955,7 +2140,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
     (selected.isReplying || _settleTimers.containsKey(selected))
         ? notifyListeners()
-        : sendQueued(selected);
+        : _drainQueue(selected);
     return true;
   }
 
@@ -1966,6 +2151,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? displayText,
     bool queued = false,
   }) {
+    if (_sessionStates[selected]?.reclaimedReason != null) return false;
     if (!active) return false;
     final epoch = _activityEpoch;
     final sizes = _sizesOrExplain(files);
@@ -2044,7 +2230,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           placeholder.status = MessageStatus.sent;
           placeholder.content = buildMockReply(label);
         });
-        sendQueued(thread);
+        _drainQueue(thread);
       });
     } else {
       _streamReply(
@@ -2213,7 +2399,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         if (!_currentActivity(epoch)) return;
         if (drain) {
           if (settled) {
-            sendQueued(thread);
+            _drainQueue(thread);
           } else {
             _awaitSettle(thread);
           }
@@ -2295,7 +2481,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatEvent event,
     String? profile,
   ) {
-    if (_onWarning(thread, event, profile)) return;
+    if (_onSessionEvent(thread, event, profile) ||
+        _onWarning(thread, event, profile)) {
+      return;
+    }
     // The transport takes an idle report for the turn's end only once the turn
     // has begun; so does this. An approval alone does not begin it.
     if (beginsTurn(event)) own.began = true;
@@ -2409,6 +2598,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _stopFollowing() {
+    _sessionActionGenerations.clear();
+    _sessionStates.clear();
+    _reclaimedQueueReview.clear();
     for (final state in _warnings.values) {
       state.clear();
     }
@@ -2440,6 +2632,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     if (!active || _profile != profile || !_threads.contains(thread)) return;
     final epoch = _activityEpoch;
     final threadId = thread.id;
@@ -2499,7 +2692,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
                 halted: current.status == MessageStatus.error,
                 idleOnly: true,
               );
-              if (drain) sendQueued(thread);
+              if (drain) _drainQueue(thread);
               _refetchForeignTurn(thread);
               unawaited(refreshActive());
             }
@@ -2514,7 +2707,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// An event on the follow-ups while no reply is open. It is about the
   /// thread, or a completion for the reply a turn ended without.
   void _onIdleEvent(ChatThread thread, ChatEvent event, String? profile) {
-    if (_onWarning(thread, event, profile)) return;
+    if (_onSessionEvent(thread, event, profile) ||
+        _onWarning(thread, event, profile)) {
+      return;
+    }
     switch (event) {
       case SessionInfo(:final running):
         // The turn a stop in flight was aimed at ended with no reply open.
@@ -2632,7 +2828,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }) {
     final epoch = _activityEpoch;
     if (!_currentActivity(epoch)) return;
-    if (_onWarning(thread, event, profile)) return;
+    if (_onSessionEvent(thread, event, profile) ||
+        _onWarning(thread, event, profile)) {
+      return;
+    }
     var announced = event;
     switch (event) {
       case ThreadBound(:final threadId):
@@ -2644,6 +2843,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ToolRiskFlagged() ||
           NoticeShown() ||
           NoticeCleared() ||
+          SessionControlUpdated() ||
+          SessionControlUnavailable() ||
+          SessionWaitUpdated() ||
+          SessionReclaimed() ||
+          SessionResumeProgress() ||
           WarningScopeDiscarded():
         break;
       case PromptFolded():
@@ -2914,6 +3118,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// stays one row and later sends continue that session.
   void _bindThread(ChatThread thread, String id) {
     if (_bound.contains(thread)) return;
+    if (thread.id != id || !thread.remote) {
+      _invalidateSessionActions(thread);
+    }
     final controller = _chatControllers.remove(thread.id);
     if (_selectedId == thread.id) _selectedId = id;
     thread.id = id;
@@ -2925,6 +3132,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   void _retargetBoundThread(ChatThread thread, String id) {
     if (thread.id == id) return;
+    _invalidateSessionActions(thread);
     final previousId = thread.id;
     final controller = _chatControllers.remove(previousId);
     if (_selectedId == previousId) _selectedId = id;
@@ -3059,13 +3267,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String requestId,
     String choice,
   ) async {
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     final transport = this.transport;
     final reply = _replyAwaiting(thread, requestId);
     if (!active || transport == null || reply == null) return;
     final accepted = await _answerWhileActive(
       () => transport.answerApproval(requestId, choice),
     );
-    if (accepted == null) return;
+    if (accepted == null || _sessionStates[thread]?.reclaimedReason != null) {
+      return;
+    }
     _updateReply(
       thread,
       reply,
@@ -3147,6 +3358,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   Future<void> stopReply(ChatThread thread) async {
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     if (!active) return;
     final epoch = _activityEpoch;
     final pending = [
@@ -3213,7 +3425,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       switch (hold) {
         case _Hold.asked || _Hold.askedEnded:
           _setHold(thread, _Hold.none);
-          sendQueued(thread);
+          _drainQueue(thread);
         case _Hold.paused:
           _setHold(thread, _Hold.none);
         default:
@@ -3233,7 +3445,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             _awaitSettle(thread);
           case _Hold.askedEnded:
             _setHold(thread, _Hold.none);
-            sendQueued(thread);
+            _drainQueue(thread);
           case _Hold.paused:
             _setHold(thread, _Hold.none);
           default:
@@ -3249,13 +3461,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String requestId,
     UnsupportedKind kind,
   ) async {
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     final transport = this.transport;
     final reply = _replyAwaiting(thread, requestId);
     if (!active || transport == null || reply == null) return;
     final accepted = await _answerWhileActive(
       () => transport.skipUnsupported(requestId, kind),
     );
-    if (accepted == null) return;
+    if (accepted == null || _sessionStates[thread]?.reclaimedReason != null) {
+      return;
+    }
     _updateReply(
       thread,
       reply,
@@ -3273,6 +3488,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String password = '',
     String code = '',
   }) async {
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     final transport = this.transport;
     final reply = _replyAwaiting(thread, requestId);
     if (!active || transport == null || reply == null) return;
@@ -3286,7 +3502,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         code: code,
       ),
     );
-    if (accepted == null) return;
+    if (accepted == null || _sessionStates[thread]?.reclaimedReason != null) {
+      return;
+    }
     _updateReply(
       thread,
       reply,
@@ -3303,6 +3521,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String requestId,
     Map<String, List<String>> answers,
   ) async {
+    if (_sessionStates[thread]?.reclaimedReason != null) return;
     final transport = this.transport;
     final reply = _replyAwaiting(thread, requestId);
     if (!active || transport == null || reply == null) return;
@@ -3319,7 +3538,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     } else {
       for (final q in request.questions) {
-        if (!_currentActivity(epoch)) return;
+        if (!_currentActivity(epoch) ||
+            _sessionStates[thread]?.reclaimedReason != null) {
+          return;
+        }
         accepted = await _answerWhileActive(
           () => transport.answerClarify(
             requestId,
