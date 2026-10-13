@@ -12,7 +12,11 @@ SPEC="$ROOT_DIR/openapi/hermes-agent.openapi.json"
 OUT_DIR="$ROOT_DIR/packages/hermes_api"
 CONFIG="$ROOT_DIR/scripts/dart-dio-config.yaml"
 PATCHED_SPEC="$(mktemp -t hermes-agent-openapi-dart.XXXXXX.json)"
-trap 'rm -f "$PATCHED_SPEC"' EXIT
+LOCKFILE_SNAPSHOT="$(mktemp -t hermes-api-lockfile.XXXXXX)"
+trap 'rm -f "$PATCHED_SPEC" "$LOCKFILE_SNAPSHOT"' EXIT
+if [[ -f "$OUT_DIR/pubspec.lock" ]]; then
+  cp "$OUT_DIR/pubspec.lock" "$LOCKFILE_SNAPSHOT"
+fi
 
 echo "==> Patching spec for dart-dio codegen quirks"
 python3 "$ROOT_DIR/scripts/patch_openapi_for_dart.py" "$SPEC" "$PATCHED_SPEC"
@@ -35,6 +39,10 @@ echo "==> Pinning generated package's Dart SDK constraint"
 # json_serializable emits. Match the app's own SDK constraint instead.
 sed -i.bak "s/sdk: '>=3.5.0 <4.0.0'/sdk: '>=3.13.0 <4.0.0'/" "$OUT_DIR/pubspec.yaml"
 rm -f "$OUT_DIR/pubspec.yaml.bak"
+
+if [[ -s "$LOCKFILE_SNAPSHOT" ]]; then
+  cp "$LOCKFILE_SNAPSHOT" "$OUT_DIR/pubspec.lock"
+fi
 
 echo "==> dart pub get"
 (cd "$OUT_DIR" && dart pub get)
