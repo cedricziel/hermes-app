@@ -11,11 +11,15 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/memory_token_store.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late HttpServer dashboard;
   late List<String> requestedPaths;
   var authRequired = true;
 
   setUp(() async {
+    final previousHttpOverride = HttpOverrides.current;
+    HttpOverrides.global = null;
+    addTearDown(() => HttpOverrides.global = previousHttpOverride);
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     requestedPaths = [];
@@ -53,8 +57,9 @@ void main() {
           .setMockMethodCallHandler(
             const MethodChannel(WatchBridge.channelName),
             (call) async {
-              if (call.method == 'publishSessionState')
+              if (call.method == 'publishSessionState') {
                 published.add((call.arguments as Map)['usable'] as bool);
+              }
               return {
                 'revision': published.length,
                 'usable': (call.arguments as Map)['usable'],

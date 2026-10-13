@@ -39,6 +39,9 @@ void main() {
   }
 
   setUp(() async {
+    final previousHttpOverride = HttpOverrides.current;
+    HttpOverrides.global = null;
+    addTearDown(() => HttpOverrides.global = previousHttpOverride);
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -53,6 +56,7 @@ void main() {
       devServerUrl: 'http://127.0.0.1:${server.port}',
     );
     await auth.bootstrap();
+    expect(auth.state, HermesConnectionState.ready);
     attempts = [];
     publicationFails = false;
     events = RecordedEvents();
@@ -115,6 +119,7 @@ void main() {
       await auth.changeServer();
       await pumpEventQueue();
       await auth.connect('http://127.0.0.1:${server.port}');
+      expect(auth.state, HermesConnectionState.ready);
       await pumpEventQueue();
 
       expect(await request(), {'ok': false, 'error': 'unavailable'});

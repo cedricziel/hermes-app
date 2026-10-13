@@ -159,8 +159,9 @@ class WatchRequestHandler {
         ),
         _ => _error('bad_request'),
       };
-      if (generation != _sessionGeneration || repository() == null)
+      if (generation != _sessionGeneration || repository() == null) {
         return _noSession();
+      }
       return reply;
     } on Object {
       return _error('failed');
@@ -251,12 +252,14 @@ class WatchRequestHandler {
     if (repo == null) return _noSession();
     final generation = _sessionGeneration;
     final heard = await _heardOnDevice(audio);
-    if (generation != _sessionGeneration || repository() == null)
+    if (generation != _sessionGeneration || repository() == null) {
       return _noSession();
+    }
     if (heard != null) return {'ok': true, 'text': heard, 'engine': 'device'};
     final profile = await activeProfile();
-    if (generation != _sessionGeneration || repository() == null)
+    if (generation != _sessionGeneration || repository() == null) {
       return _noSession();
+    }
     final text = await repo.transcribe(
       audio,
       mimeType: mimeType,
