@@ -54,7 +54,8 @@ struct ThreadListView: View {
     .task {
       #if DEBUG
         if DemoClient.opensChat, let thread = DemoClient.threads.first {
-          path = [.thread(id: thread.id, title: thread.title, handoff: thread.handoff)]
+          if ProcessInfo.processInfo.environment["HERMES_WATCH_DEMO"] == "recovery_no_thread" { path = [.newChat()] }
+          else { path = [.thread(id: thread.id, title: thread.title, handoff: thread.handoff)] }
         }
       #endif
       await model.load()

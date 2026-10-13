@@ -59,6 +59,11 @@ final class SessionPrivacyTests: XCTestCase {
 
 @MainActor
 private final class PrivacyDeferredClient: HermesClient {
+  let fixtureSession = recoveryFixtureSession()
+  var sessionState: WatchSessionState? { fixtureSession }
+  let recoveryStore: PendingSendStore = MemoryPendingSendStore()
+  func prepareRecovery() async throws {}
+  func forgetSend(sendId: String) async throws {}
   var messageReply: CheckedContinuation<[ChatMessage], Error>?
   var transcriptReply: CheckedContinuation<String, Error>?
   var sends = 0

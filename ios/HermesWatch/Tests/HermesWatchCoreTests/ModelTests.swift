@@ -3,6 +3,11 @@ import XCTest
 @testable import HermesWatchCore
 
 final class FakeClient: HermesClient {
+  let fixtureSession = recoveryFixtureSession()
+  var sessionState: WatchSessionState? { fixtureSession }
+  let recoveryStore: PendingSendStore = MemoryPendingSendStore()
+  func prepareRecovery() async throws {}
+  func forgetSend(sendId: String) async throws {}
   var threadsResult: Result<[ThreadSummary], Error> = .success([])
   var messagesResult: Result<[ChatMessage], Error> = .success([])
   var sendResult: Result<SendResult, Error> = .success(SendResult(threadId: nil, text: "ok", failed: false))
@@ -127,7 +132,7 @@ final class ConversationModelTests: XCTestCase {
     XCTAssertEqual(model.phase, .failed(.phoneUnreachable))
 
     client.sendResult = .success(SendResult(threadId: "new-1", text: "Done.", failed: false))
-    await model.send(model.unsent!)
+    await model.checkResult()
 
     XCTAssertEqual(client.sends.last?.retry, true)
     XCTAssertEqual(client.sends.last?.threadId, "new-1")
@@ -168,8 +173,8 @@ final class ConversationModelTests: XCTestCase {
 
     await model.send("Hello")
 
-    XCTAssertTrue(model.messages.isEmpty)
-    XCTAssertEqual(model.unsent, "Hello")
+    XCTAssertEqual(model.messages.map(\.content), ["Hello"])
+    XCTAssertEqual(model.recovery?.text, "Hello")
     XCTAssertEqual(model.phase, .failed(.phoneUnreachable))
   }
 
@@ -180,7 +185,7 @@ final class ConversationModelTests: XCTestCase {
     await model.send("Hello")
     client.sendResult = .success(SendResult(threadId: "new-1", text: "Hi", failed: false))
 
-    await model.send(model.unsent!)
+    await model.checkResult()
     await model.send("Hello")
 
     XCTAssertEqual(client.sends.count, 3)
@@ -207,8 +212,12 @@ final class ConversationModelTests: XCTestCase {
     await model.send("Hello")
 
     await model.send("Something else")
-
-    XCTAssertNotEqual(client.sends[1].sendId, client.sends[0].sendId)
+    XCTAssertEqual(client.sends.count, 1)
+    await model.checkResult()
+    await model.send("Something else")
+    XCTAssertTrue(model.resendConfirmation)
+    await model.confirmSendAgain()
+    XCTAssertNotEqual(client.sends.last?.sendId, client.sends.first?.sendId)
   }
 
   func testNothingIsSentWhileTheThreadIsStillLoading() async {
@@ -259,7 +268,7 @@ final class ConversationModelTests: XCTestCase {
     await model.send("Hello")
     client.sendResult = .success(SendResult(threadId: "s1", text: "Hi", failed: false))
 
-    await model.send("Hello")
+    await model.checkResult()
 
     XCTAssertNil(model.unsent)
     XCTAssertEqual(model.phase, .idle)

@@ -422,6 +422,7 @@ Future<void> main([List<String> args = const []]) async {
           lazy: false,
           create: (context) => WatchBridge.forAuth(
             context.read<AuthController>(),
+            durableSendState: true,
             events: telemetry.events(),
             notifications: context.read<NotificationService>(),
             settings: context.read<NotificationSettings>(),

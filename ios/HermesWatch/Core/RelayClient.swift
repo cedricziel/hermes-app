@@ -50,15 +50,47 @@ struct RelayClient: HermesClient {
     }
   }
 
+  func prepareRecovery() async throws {
+    let context = session.contextId
+    let generation = session.generation
+    let handshake = try await transport.request(["op": "session"])
+    guard generation == session.generation else { throw HermesClientError.contextChanged }
+    if handshake["error"] as? String == "bad_request" { throw HermesClientError.updateRequired }
+    try check(handshake)
+    guard handshake["protocolVersion"] as? Int == 2,
+      let nextContext = handshake["contextId"] as? String,
+      let revision = handshake["revision"] as? Int else { throw HermesClientError.updateRequired }
+    guard session.acceptContext(nextContext, revision: revision) else { throw HermesClientError.contextChanged }
+    guard context == nil || context == nextContext, generation == session.generation else { throw HermesClientError.contextChanged }
+    guard let supported = handshake["sendState"] as? Bool else { throw HermesClientError.updateRequired }
+    guard supported else { throw HermesClientError.unavailable }
+  }
+
+  func forgetSend(sendId: String) async throws {
+    try await prepareRecovery()
+    _ = try await call(["op": "forgetSend", "sendId": sendId])
+  }
+
   func send(threadId: String?, text: String, sendId: String, retry: Bool) async throws -> SendResult {
-    var message: [String: Any] = ["op": "send", "text": text, "sendId": sendId]
+    guard !retry else { throw HermesClientError.updateRequired }
+    return try await send(threadId: threadId, text: text, sendId: sendId, retry: false, createdAt: Date())
+  }
+
+  func send(threadId: String?, text: String, sendId: String, retry: Bool, createdAt: Date) async throws -> SendResult {
+    try await prepareRecovery()
+    var message: [String: Any] = ["op": "send", "text": text, "sendId": sendId, "createdAt": Int64(createdAt.timeIntervalSince1970 * 1000)]
     if let threadId { message["threadId"] = threadId }
     if retry { message["retry"] = true }
     // This watch understands a `waiting` answer; an older one ends the send.
     message["waits"] = true
     let reply = try await call(message)
+    if let answeredId = reply["sendId"] as? String, answeredId != sendId { throw HermesClientError.failed }
     let boundId = reply["threadId"] as? String
     if let boundId, !session.owns(boundId) { throw HermesClientError.contextChanged }
+    if let raw = reply["recoveryState"] as? String {
+      guard let state = SendRecoveryState(rawValue: raw), [.pending, .uncertain, .notSent].contains(state) else { throw HermesClientError.failed }
+      return SendResult(threadId: boundId, text: "", failed: false, handoff: HandoffTarget(row: reply), recoveryState: state)
+    }
     if let waiting = reply["waiting"] as? String {
       return SendResult(
         threadId: boundId, text: "", failed: false,
@@ -121,6 +153,10 @@ struct RelayClient: HermesClient {
       case "signed_out": session.invalidate(); throw HermesClientError.signedOut
       case "context_changed": session.invalidate(reason: .contextChanged); throw HermesClientError.contextChanged
       case "unavailable": throw HermesClientError.unavailable
+      case "capacity", "send_capacity", "journal_full": throw HermesClientError.recoveryCapacity
+      case "expired", "send_expired": throw HermesClientError.sendExpired
+      case "clock_skew": throw HermesClientError.clockSkew
+      case "send_state_unavailable": throw HermesClientError.updateRequired
       default: throw HermesClientError.failed
       }
     }

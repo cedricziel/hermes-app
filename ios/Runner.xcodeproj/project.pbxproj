@@ -82,6 +82,8 @@
 		5D00000000000000000052B2 /* RequestIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D00000000000000000052A2 /* RequestIntents.swift */; };
 		5D00000000000000000052B3 /* RequestIntentsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D00000000000000000052A3 /* RequestIntentsBridge.swift */; };
 		C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844350FAF88988291CB013FB /* PendingSendStore.swift */; };
+		5D151F8B8819ECEB22F3EECF /* RecoveryActionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0F552EBBCBC70005D500F4 /* RecoveryActionLog.swift */; };
+		0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD0BA14475B91F85F07143 /* RecoveryControls.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -260,6 +262,8 @@
 		5D00000000000000000052A2 /* RequestIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestIntents.swift; sourceTree = "<group>"; };
 		5D00000000000000000052A3 /* RequestIntentsBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestIntentsBridge.swift; sourceTree = "<group>"; };
 		844350FAF88988291CB013FB /* PendingSendStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PendingSendStore.swift; sourceTree = "<group>"; };
+		0B0F552EBBCBC70005D500F4 /* RecoveryActionLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryActionLog.swift; sourceTree = "<group>"; };
+		49BD0BA14475B91F85F07143 /* RecoveryControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryControls.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -392,6 +396,7 @@
 				5B286A77E08A3B2AA9CA86B6 /* DemoClient.swift */,
 				5DE2754C6FBF29FC3568C927 /* ThreadListView.swift */,
 				51DEB56C491EC2EB383EE443 /* ConversationView.swift */,
+				49BD0BA14475B91F85F07143 /* RecoveryControls.swift */,
 				A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */,
 				A7C1D2E3F4051627384950A2 /* VoiceRecorder.swift */,
 				49DE0E4F034826AB51478920 /* ComplicationUpdates.swift */,
@@ -409,6 +414,7 @@
 				2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */,
 				9978D7CC9E15B585ACD0BBA0 /* Models.swift */,
 				6B312E52135948A1A1BC7401 /* WatchThreadId.swift */,
+				0B0F552EBBCBC70005D500F4 /* RecoveryActionLog.swift */,
 				844350FAF88988291CB013FB /* PendingSendStore.swift */,
 				3DF22DC249C3DAEEF3763874 /* RelayClient.swift */,
 				73F6E0EB55361B8174EFAF2C /* ThreadListModel.swift */,
@@ -814,6 +820,8 @@
 				C0DC256A998B03F622796497 /* HermesClient.swift in Sources */,
 				12AB7B237264DC0886E10BDB /* Models.swift in Sources */,
 				6B312E52135948A1A1BC7402 /* WatchThreadId.swift in Sources */,
+				0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */,
+				5D151F8B8819ECEB22F3EECF /* RecoveryActionLog.swift in Sources */,
 				C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */,
 				3EC1A4A5266F115E826C5E0F /* RelayClient.swift in Sources */,
 				BA159963514DA903AA879B46 /* ThreadListModel.swift in Sources */,

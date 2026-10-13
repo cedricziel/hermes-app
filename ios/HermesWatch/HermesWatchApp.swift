@@ -8,6 +8,7 @@ struct HermesWatchApp: App {
   init() {
     _ = WatchSessionState.shared.start(receivedSession: WCSession.default.receivedApplicationContext) {
       FileChatCache.standard.clear()
+      try? FilePendingSendStore.standard.invalidateAll()
 
       LaunchRequests.shared.pending = nil
       ComplicationUpdates.clear()
