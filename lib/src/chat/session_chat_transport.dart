@@ -5,6 +5,7 @@ import 'chat_models.dart';
 import 'chat_transport.dart';
 import 'slash_command.dart';
 import 'owned_session_transport.dart';
+import 'gateway_connection_transport.dart';
 
 /// Work was blocked or its delegate was invalidated before it completed.
 final class SessionTransportUnavailable extends StateError {
@@ -21,7 +22,8 @@ final class SessionChatTransport
         ChatTransport,
         PromptAcknowledgement,
         GatewayRequester,
-        OwnedSessionTransport {
+        OwnedSessionTransport,
+        GatewayConnectionTransport {
   SessionChatTransport(this._create) : _delegate = _create() {
     final delegate = _delegate;
     _acknowledgement = delegate is PromptAcknowledgement
@@ -203,6 +205,31 @@ final class SessionChatTransport
       method,
     );
   });
+
+  @override
+  Stream<GatewayConnectionEvent> get connectionEvents => _stream(
+    (delegate) => delegate is GatewayConnectionTransport
+        ? (delegate as GatewayConnectionTransport).connectionEvents
+        : const Stream<GatewayConnectionEvent>.empty(),
+  );
+  @override
+  Object? get gatewayConnection {
+    final delegate = _delegate, epoch = _epoch;
+    if (delegate is! GatewayConnectionTransport) return null;
+    final connection =
+        (delegate as GatewayConnectionTransport).gatewayConnection;
+    return _current(epoch) ? connection : null;
+  }
+
+  @override
+  bool ownsGatewayConnection(Object connection) {
+    final delegate = _delegate, epoch = _epoch;
+    return delegate is GatewayConnectionTransport &&
+        (delegate as GatewayConnectionTransport).ownsGatewayConnection(
+          connection,
+        ) &&
+        _current(epoch);
+  }
 
   @override
   Future<Map<String, Object?>> request(
