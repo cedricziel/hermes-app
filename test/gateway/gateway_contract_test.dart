@@ -65,10 +65,10 @@ const notifications = <String, (Use, String)>{
   'session.control.update': (Use.shown, 'goal, loop and heartbeat snapshots'),
   'session.reclaimed': (Use.shown, 'runtime invalidation and explicit reopen'),
   'session.resume_progress': (Use.shown, 'hydration phase and status'),
-  'moa.reference': (Use.gap, 'mixture-of-agents reference output'),
-  'moa.aggregating': (Use.gap, 'mixture-of-agents progress'),
-  'moa.progress': (Use.gap, 'mixture-of-agents progress'),
-  'moa.phase': (Use.gap, 'mixture-of-agents progress'),
+  'moa.reference': (Use.shown, 'mixture-of-agents reference output'),
+  'moa.aggregating': (Use.shown, 'mixture-of-agents progress'),
+  'moa.progress': (Use.shown, 'mixture-of-agents progress'),
+  'moa.phase': (Use.shown, 'mixture-of-agents progress'),
   'message.reaction': (Use.gap, 'the agent reacted to a message'),
   'reaction': (Use.gap, "reaction to the user's message"),
   'agent.terminal.output': (Use.gap, 'background process output'),
@@ -137,6 +137,20 @@ const refusedRequests = <String, String>{
 
 /// A payload the mapper shows, for frames it drops when the payload is empty.
 const samples = <String, Map<String, Object?>>{
+  'moa.reference': {
+    'label': 'Advisor',
+    'text': 'Reference',
+    'index': 0,
+    'count': 2,
+  },
+  'moa.progress': {'label': 'Advisor', 'refs_done': 1, 'refs_total': 2},
+  'moa.phase': {
+    'phase': 'aggregator',
+    'refs_done': 2,
+    'refs_total': 2,
+    'aggregator': 'Reported',
+  },
+  'moa.aggregating': {'aggregator': 'Reported'},
   'todo.updated': {'revision': 1, 'todos': []},
   'background.complete': {'task_id': 'task', 'text': 'Reported answer'},
   'btw.complete': {

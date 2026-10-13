@@ -447,6 +447,12 @@ void main() {
         'total': 5,
       };
       await open();
+      chat.submit('Synthetic advisor prompt', const []);
+      await pumpEventQueue();
+      gateway.event('moa.reference', 'rt-1', {
+        'label': 'Synthetic advisor',
+        'text': List.filled(40, 'Synthetic advisor detail').join('\n'),
+      });
       gateway.event('session.usage', 'rt-1', {
         'usage': {'input': 3, 'output': 2, 'total': 5},
       });
@@ -465,6 +471,11 @@ void main() {
         List.filled(40, 'Synthetic background detail').join('\n'),
       );
       result('btw.complete', 'Synthetic side answer');
+      await pumpEventQueue();
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'Synthetic main answer',
+        'status': 'complete',
+      });
       await pumpEventQueue();
     });
     final composer = TextEditingController();
@@ -495,6 +506,7 @@ void main() {
       ),
     );
     for (final title in [
+      find.textContaining('Advisor progress ·'),
       find.textContaining('Plan ·'),
       find.text('Background result'),
       find.textContaining('Session usage ·'),
