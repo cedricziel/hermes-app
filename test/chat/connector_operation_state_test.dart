@@ -21,6 +21,8 @@ void main() {
         attachment: attachment,
       );
       expect(state.operations.single.seq, 4);
+      expect(state.operations.single.timeoutSeconds, 60);
+      expect(state.operations.single.toolCallId, 'synthetic-tool');
       expect(state.operations.single.targets.single.state, 'initiated');
       expect(state.operations.single.owner.sessionId, 'runtime-a');
       final account = ConnectorOperationSnapshot.fromUpdate({
@@ -31,6 +33,31 @@ void main() {
       expect(state.operations, hasLength(2));
     },
   );
+  test('late request fills missing metadata without replacing known values or progress', () {
+    final attachment = Object();
+    final state = ConnectorOperationsState()..adopt(attachment);
+    final known = ConnectorOperationSnapshot.fromRequest({
+      ...connectionRequestFixture,
+      'seq': 4,
+      'timeout_seconds': 50,
+      'tool_call_id': null,
+    }, runtimeId: 'runtime-a')!;
+    state.apply(known, attachment: attachment);
+    state.apply(
+      ConnectorOperationSnapshot.fromRequest(
+        connectionRequestFixture,
+        runtimeId: 'runtime-a',
+      )!,
+      attachment: attachment,
+    );
+    final current = state.operations.single;
+    expect(current.seq, 4);
+    expect(current.timeoutSeconds, 50);
+    expect(current.toolCallId, 'synthetic-tool');
+    expect(current.deadlineAt, known.deadlineAt);
+    expect(current.targets, same(known.targets));
+  });
+
   test('pending resume preserves owner deadline and tool identity without reordering targets', () {
     final operation = ConnectorOperationSnapshot.fromPending(
       connectionRequestFixture,
