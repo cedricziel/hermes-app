@@ -6,12 +6,17 @@ Defines side agent answers in the Hermes app so users can inspect backend-report
 
 ### Requirement: Side results remain separate from the main answer
 
-The app SHALL show background.complete and btw.complete using task_id and text, preserving optional question on a btw card. It SHALL identify the result type and expose answer details without appending the result to the main assistant answer. A side completion SHALL NOT finish, restart, or fail the main turn.
+The app SHALL show background.complete and btw.complete using task_id and text, preserving optional question on a btw card. It SHALL identify the result type and expose answer details without appending the result to the main assistant answer. A side completion SHALL NOT finish, restart, or fail the main turn. The combined activity header SHALL remain bounded and scrollable when several cards are expanded, leaving the conversation and composer usable.
 
 #### Scenario: A side question completes during the main turn
 
 - **WHEN** btw.complete arrives with answer text
 - **THEN** a separate answer card appears and the main turn keeps streaming
+
+#### Scenario: Expanded activity in a short chat window
+
+- **WHEN** usage, a todo plan, and a side answer are expanded together in a short window
+- **THEN** details remain reachable by scrolling without overflow and the chat and composer remain usable
 
 ### Requirement: Replay does not duplicate side results
 
