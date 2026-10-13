@@ -803,12 +803,14 @@ void main() {
 
     expect(events.map((e) => e.runtimeType), [
       ThreadBound,
+      SessionUsageUpdated,
       NoticeShown,
       ReplyDelta,
       ReplyCompleted,
     ]);
-    expect((events[1] as NoticeShown).notice.text, 'credits low');
-    expect((events[2] as ReplyDelta).text, 'mine');
+    expect(events.whereType<SessionUsageUpdated>().single.snapshot?.input, 1);
+    expect(events.whereType<NoticeShown>().single.notice.text, 'credits low');
+    expect(events.whereType<ReplyDelta>().single.text, 'mine');
   });
 
   test('session state and thinking notices reach the reply', () async {
