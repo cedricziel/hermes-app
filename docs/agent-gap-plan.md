@@ -6,9 +6,9 @@ Each linked change contains its own proposal, design, acceptance scenarios, and 
 
 ## Implementation progress
 
-Implementation has shipped through isolated feature checkouts and separate PRs. All feature PRs listed below are merged except resource refresh destinations (#746), which await final CI and merge. Live reaction receipts (#743) passed all checks and merged as `ef0050843ad9d641112eed654285d6849abeda61`. Queue recovery, auxiliary-window ownership, process output, connector operations, and device verification are merged.
+Implementation has shipped through isolated feature checkouts and separate PRs. All 18 app-only proposals have landed through the feature PRs listed below after independent review and CI. Native verification limits remain recorded separately. Queue recovery, auxiliary-window ownership, process output, connector operations, and device verification are merged.
 
-The final combined Reaction and resource refresh source is based on merged Billing main `d79a29f24e09d797fb872b576709241f7bef2ce8`. Reaction head `ac3efe54edb05afe85df77f87351da2903e12b12` and destination head `ecb87825f86061f9830c90b877089724e2bea8f1` produced combined tree `5634e358072cf3b81b983aa6cf967b2cdf6ec06e`. Rebasing refresh onto merged Reaction produced `f21e4e25081fc4da3f0dd0d49c62b6b86e5d2097` with the identical tree. Its affected regression suites passed 351 tests, its Billing/Reaction/list-refresh catalogs passed 128 cases, full analysis found no issues, and strict Reaction and invalidation specs passed. Formatting checked 35 Dart files without changes. These counts are shared combined evidence, not separate totals for each PR or reruns of every earlier suite.
+The final combined Reaction and resource refresh source is based on merged Billing main `d79a29f24e09d797fb872b576709241f7bef2ce8`. Reaction head `ac3efe54edb05afe85df77f87351da2903e12b12` and destination head `ecb87825f86061f9830c90b877089724e2bea8f1` produced combined tree `5634e358072cf3b81b983aa6cf967b2cdf6ec06e`. Rebasing refresh onto merged Reaction produced `f21e4e25081fc4da3f0dd0d49c62b6b86e5d2097` with the identical tree. Final feature main `2485c54a2806d1715e9bf084e0ebf402742bc8a7` retains that same tree. Its affected regression suites passed 351 tests, its Billing/Reaction/list-refresh catalogs passed 128 cases, full analysis found no issues, and strict Reaction and invalidation specs passed. Formatting checked 35 Dart files without changes. These counts are shared combined evidence, not separate totals for each PR or reruns of every earlier suite.
 
 Native verification of this exact combined source is blocked by insufficient disk space. The isolated fixture passed analysis and source isolation review; no final native build or launch occurred. Earlier isolated macOS checks cover bounded memory, queue recovery, usage, todo plans, and activity-card cases; they do not verify every native scenario or platform. Each change's unchecked tasks retain its extended verification limits. All changes remain limited to the app and its development tooling.
 
@@ -16,7 +16,8 @@ Native verification of this exact combined source is blocked by insufficient dis
 
 - [x] Publish, independently review, and merge advisory contract alignment.
 - [x] Review and ship warning cards from an isolated checkout.
-- [ ] **In progress:** Complete final CI and merge resource refresh destinations (#746).
+- [x] Independently review and merge all app-only feature changes in dependency order.
+- [x] Publish and independently review the final delivery index.
 - [ ] Verify the exact combined source natively and complete the remaining platform and extended native scenarios.
 
 ## Pull requests
@@ -46,7 +47,7 @@ Native verification of this exact combined source is blocked by insufficient dis
 | Queue window coordination | [#734](https://github.com/cedricziel/hermes-app/pull/734) | Merged after all CI and isolated review, 71 window/launch/host/profile regressions, and full analysis. |
 | Reviewed queue recovery | [#735](https://github.com/cedricziel/hermes-app/pull/735) | Merged after all CI and isolated review, 296 regressions, full analysis, 615 current-main regressions, and native macOS cold-restart, explicit review, attachment, and uncertain-delivery checks. Other platforms and extended native cases remain unobserved. |
 | Live billing verification | [#747](https://github.com/cedricziel/hermes-app/pull/747) | Merged after independent review, 310 combined tests, full analysis, strict specs, and all CI. Missing auxiliary App Lock coverage fails closed; native checks pending. |
-| Resource refresh destinations | [#746](https://github.com/cedricziel/hermes-app/pull/746) | Open; final CI, review, and merge pending. Prior 809 regressions and 180 catalog-union cases remain separate evidence. Final combined verification with merged Billing and Reaction passed the shared 351-regression and 128-catalog batches, full analysis, and strict specs. Exact combined native checks remain pending. |
+| Resource refresh destinations | [#746](https://github.com/cedricziel/hermes-app/pull/746) | Merged after all CI and independent review. Prior 809 regressions and 180 catalog-union cases remain separate evidence. Final combined verification with merged Billing and Reaction passed the shared 351-regression and 128-catalog batches, full analysis, and strict specs. Exact combined native checks remain pending. |
 | Verification guidance | [#748](https://github.com/cedricziel/hermes-app/pull/748) | Merged after all CI and delegated reflection, independent documentation review, final-newline checks, and full-analysis hooks. |
 | Background status | [#726](https://github.com/cedricziel/hermes-app/pull/726) | Merged after isolated review, 103 integrated tests, analysis, and all CI; native mobile checks pending. |
 | Encrypted queue store | [#723](https://github.com/cedricziel/hermes-app/pull/723) | Merged after isolated review, 27 storage tests, and all CI. Native macOS keychain persistence and backup protection verified in the isolated recovery fixture; other platforms remain unobserved. |
@@ -94,4 +95,4 @@ All 18 changes passed strict planning validation and report complete planning ar
 
 Run `openspec validate <change-name> --strict` for each linked change and `openspec status --change <change-name> --json` to check planning completeness. Validation checks artifact structure; implementation tasks still need their own tests and isolated app verification. Shared gateway routing, profile ownership, authentication, App Lock, and telemetry rules apply across the proposals.
 
-A broader validation of existing changes passed 142 of 143 items before the final two feature merges. The historical `mac-menu-bar-extra` proposal lacks a scenario for “A pick does what its row said, once”; this predates the gap work. All 41 current main specs and all 18 gap proposals passed their separate strict checks.
+A broader strict validation of existing changes and main specs passed 146 of 147 items against the final combined source. The historical `mac-menu-bar-extra` proposal lacks a scenario for “A pick does what its row said, once”; this predates the gap work. All 43 final main specs and all 18 gap proposals passed their separate strict checks.
