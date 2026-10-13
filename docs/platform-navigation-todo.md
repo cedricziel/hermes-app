@@ -46,7 +46,7 @@ Priority: first behavior fix. Sources: `lib/src/shell/app_shell.dart`, `lib/src/
 - [ ] Preserve Save, Discard, and Stay behavior when several guarded routes are open. Stop unwinding when a route refuses dismissal.
 - [ ] Handle save failures, busy operations, and a save completing while navigation is pending without popping the next route.
 - [ ] Define ordering and deduplication when multiple requests arrive during confirmation or saving.
-- [x] Keep external navigation pending while App Lock covers the app; revalidate targets after unlock.
+- [x] Keep external navigation pending while App Lock covers the app; recheck authorization and owner generation before delivery.
 - [ ] Revalidate server/profile, destination availability, and target existence before applying a delayed request.
 
 PR #680 checks connection readiness, authorization, and owner generation. The full per-entry-point revalidation audit remains open.
