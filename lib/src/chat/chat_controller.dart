@@ -1449,6 +1449,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       profile: profile,
     );
     if (binding == null) return null;
+    bool current() =>
+        _currentActivity(epoch) &&
+        _profile == profile &&
+        _threads.contains(thread) &&
+        _ownedBindings[thread] == binding &&
+        (source as OwnedSessionTransport).ownedSessionFor(
+              thread.id,
+              profile: profile,
+            ) ==
+            binding;
     final previous = _ownedBindings[thread];
     final controller = _usage.putIfAbsent(thread, () {
       final created = SessionUsageController(
@@ -1460,7 +1470,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     });
     if (previous != binding) {
       _ownedBindings[thread] = binding;
+      if (!current()) return null;
       _sideResults[thread]?.adopt(_sideScope(binding));
+      if (!current()) return null;
       _processOutputs[thread]?.adopt(binding);
       controller.bind(
         UsageScope(
@@ -1485,24 +1497,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           );
         },
       );
+      if (!current()) return null;
       if (previous != null &&
           !identical(previous.connection, binding.connection) &&
           identical(selectedThread, thread)) {
         unawaited(controller.reconnected());
       }
     }
-    bool current() =>
-        _currentActivity(epoch) &&
-        _profile == profile &&
-        _threads.contains(thread) &&
-        _ownedBindings[thread] == binding &&
-        (source as OwnedSessionTransport).ownedSessionFor(
-              thread.id,
-              profile: profile,
-            ) ==
-            binding;
     if (!current()) return null;
     _sideResults[thread]?.adopt(_sideScope(binding));
+    if (!current()) return null;
     _processOutputs[thread]?.adopt(binding);
     if (!current()) return null;
     _syncReactions(thread, binding);

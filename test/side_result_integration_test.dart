@@ -14,6 +14,8 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/owned_session_transport.dart';
 import 'package:hermes_app/src/chat/side_results/side_result_state.dart';
 import 'package:hermes_app/src/chat/session_usage/usage_snapshot.dart';
+import 'package:hermes_app/src/chat/session_usage/session_usage_controller.dart';
+import 'package:hermes_app/src/chat/process_output_state.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -388,6 +390,115 @@ void main() {
       owned.replace();
       await pumpEventQueue();
       expect(observed, isNot(contains(7)));
+    },
+  );
+
+  test(
+    'reentrant side adoption retains the latest usage and process binding',
+    () async {
+      chat.dispose();
+      final owned = _OwnedTransport();
+      addTearDown(owned.close);
+      chat = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        transport: owned,
+        attention: attention,
+        report: (_) {},
+      );
+      await open();
+      final thread = chat.selectedThread!, original = owned.binding!;
+      final follow = owned.followUpStreams['stored-1']!;
+      follow.emit(
+        SideResultReceived(
+          const SideResult(
+            kind: SideResultKind.background,
+            taskId: 'old',
+            text: 'Old side',
+          ),
+          runtimeId: original.runtimeId,
+          connection: original.connection,
+        ),
+      );
+      follow.emit(
+        ProcessOutputReceived(
+          const ProcessOutputUpdate('worker', chunk: 'Old output'),
+          runtimeId: original.runtimeId,
+          connection: original.connection,
+        ),
+      );
+      follow.emit(
+        SessionUsageUpdated(
+          const UsageSnapshot(total: 7),
+          runtimeId: original.runtimeId,
+          connection: original.connection,
+        ),
+      );
+      await pumpEventQueue();
+      final side = chat.sideResultsIn(thread)!;
+      final usage = chat.usageIn(thread)!;
+      final process = chat.processOutputsIn(thread)!;
+      var replaced = false;
+      void replaceAgain() {
+        if (replaced) return;
+        replaced = true;
+        owned.replace();
+      }
+
+      side.addListener(replaceAgain);
+      owned.binding = OwnedSessionBinding(
+        connection: Object(),
+        runtimeId: 'same-runtime',
+        profile: 'work',
+      );
+      final intermediate = owned.binding!;
+      follow.emit(
+        SideResultReceived(
+          const SideResult(
+            kind: SideResultKind.background,
+            taskId: 'intermediate',
+            text: 'Superseded side',
+          ),
+          runtimeId: intermediate.runtimeId,
+          connection: intermediate.connection,
+        ),
+      );
+      await pumpEventQueue();
+      side.removeListener(replaceAgain);
+      final latest = owned.binding!;
+      expect(replaced, true);
+      expect(identical(latest.connection, intermediate.connection), false);
+      expect(
+        [
+          usage.hasScope(
+            UsageScope(
+              connection: latest.connection,
+              sessionId: latest.runtimeId,
+              profile: latest.profile,
+            ),
+          ),
+          process.hasScope(latest),
+        ],
+        [true, true],
+      );
+      follow.emit(
+        ProcessOutputReceived(
+          const ProcessOutputUpdate('worker', chunk: 'Latest output'),
+          runtimeId: latest.runtimeId,
+          connection: latest.connection,
+        ),
+      );
+      follow.emit(
+        SessionUsageUpdated(
+          const UsageSnapshot(total: 9),
+          runtimeId: latest.runtimeId,
+          connection: latest.connection,
+        ),
+      );
+      await pumpEventQueue();
+      expect(chat.usageIn(thread)!.snapshot!.total, 9);
+      expect(chat.processOutputsIn(thread)!.cards.single.text, 'Latest output');
+      expect(chat.sideResultsIn(thread)!.results, isEmpty);
+      expect(owned.sends, isEmpty);
     },
   );
 
