@@ -118,11 +118,11 @@ The system SHALL show each installed plugin as a row with its name, its version 
 
 ### Requirement: Plugin details adapt to screen width
 
-The system SHALL open a plugin's details when its row is tapped: as a bottom sheet when the available width is below 900 logical pixels, and as a pane beside the list when it is 900 logical pixels or wider, where the selected row stays highlighted. The details SHALL show the plugin's name, version, description and source, and the actions this capability defines. When a reload no longer lists the selected plugin, the details SHALL close.
+The system SHALL open a plugin's details when its row is tapped: as a centered desktop dialog on compact macOS layouts, as a bottom sheet on other compact layouts, and as a pane beside the list on regular-width layouts, where the selected row stays highlighted. The details SHALL show the plugin's name, version, description and source, and the actions this capability defines. When a reload no longer lists the selected plugin, the details SHALL close.
 
 #### Scenario: Phone-width layout
 
-- **WHEN** the width is below 900 logical pixels and the user taps a row
+- **WHEN** an iOS or Android layout is compact and the user taps a row
 - **THEN** a bottom sheet with the plugin's details opens over the list
 
 #### Scenario: Wide layout
@@ -135,6 +135,15 @@ The system SHALL open a plugin's details when its row is tapped: as a bottom she
 - **WHEN** a reload no longer lists the plugin whose details are open
 - **THEN** the details close
 
+#### Scenario: Compact macOS layout
+
+- **WHEN** a macOS window is too narrow for a details pane and the user taps a plugin row
+- **THEN** its existing detail content opens in a centered desktop dialog without a mobile bottom sheet
+
+#### Scenario: Dismissed details
+
+- **WHEN** the user dismisses compact plugin details
+- **THEN** the plugin list remains open and the selected detail is cleared
 ### Requirement: Enabling and disabling a plugin
 
 The system SHALL let the user turn a plugin on or off from its details with a switch that reflects `runtime_status`: on for `enabled`, off otherwise. Turning it on SHALL call `POST /api/dashboard/agent-plugins/{name}/enable` and turning it off SHALL call `POST /api/dashboard/agent-plugins/{name}/disable`. The details SHALL say the change applies to new chats. While the call runs, the switch SHALL be disabled. When it succeeds, the list SHALL be reloaded and the switch SHALL show the state the server now reports. When the server refuses, the switch SHALL stay as it was and the user SHALL be told why: with the server's `detail` when it is a non-empty string, otherwise "Could not update this plugin".
@@ -344,7 +353,7 @@ The system SHALL show each catalog entry as a row with its name, its maintainer,
 
 ### Requirement: Catalog entry details
 
-The system SHALL open an entry's details when its row is tapped, as a bottom sheet below 900 logical pixels and as a pane beside the list at 900 or wider. The details SHALL show the entry's name, tier, maintainer, whole description, pinned commit, the Hermes version it requires (when it names one), its platforms (when it names any), the names of the tools, hooks and middleware it provides and of the environment variables it requires (each group only when non-empty), and a docs link when the entry has one. The docs link SHALL open in the system browser and SHALL only be offered for an `http` or `https` address.
+The system SHALL open an entry's details when its row is tapped, as a centered desktop dialog on compact macOS layouts, as a bottom sheet on other compact layouts, and as a pane beside the list on regular-width layouts. The details SHALL show the entry's name, tier, maintainer, whole description, pinned commit, the Hermes version it requires (when it names one), its platforms (when it names any), the names of the tools, hooks and middleware it provides and of the environment variables it requires (each group only when non-empty), and a docs link when the entry has one. The docs link SHALL open in the system browser and SHALL only be offered for an `http` or `https` address.
 
 #### Scenario: Declared capabilities
 
@@ -366,6 +375,15 @@ The system SHALL open an entry's details when its row is tapped, as a bottom she
 - **WHEN** an entry's docs URL is not `http` or `https`
 - **THEN** its details show no link
 
+#### Scenario: Compact macOS catalog details
+
+- **WHEN** the user opens a catalog entry in a compact macOS window
+- **THEN** its existing content and install controls appear in a centered desktop dialog without a mobile bottom sheet
+
+#### Scenario: Install finishes after dismissal
+
+- **WHEN** the user dismisses catalog details while an installation remains pending
+- **THEN** duplicate install controls stay disabled while pending and the completed result is still reported on the plugin screen
 ### Requirement: Installing a catalog entry
 
 The system SHALL let the user install a catalog entry from its row or its details. The details SHALL carry an "Enable after install" switch, on by default. Installing SHALL call `POST /api/dashboard/agent-plugins/install` with the entry's name as `catalog_name`, an empty `identifier`, `enable` as the switch says, and `force` false. While it runs, that entry's Install control SHALL show progress and be disabled. The system SHALL NOT send the entry's repository or commit: the server resolves both.
