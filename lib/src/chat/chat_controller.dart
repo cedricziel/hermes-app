@@ -49,6 +49,9 @@ import 'connector_operation_controller.dart';
 import 'connector_operation_state.dart';
 import 'connector_operation_transport.dart';
 import 'gateway_connection_transport.dart';
+import 'billing_verification_controller.dart';
+import 'billing_verification_transport.dart';
+import '../app_lock/app_lock_controller.dart';
 import 'process_output_state.dart';
 import 'gateway/gateway_rpc_client.dart'
     show GatewayRpcException, GatewayConnectionClosed;
@@ -101,6 +104,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.models,
     this.transport,
     this.activity,
+    this.appLock,
+    this.billingBrowser,
+    this.billingCopyCode,
     this.botChats,
     this.queueStore,
     this.queueScope,
@@ -155,6 +161,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     queueChanges?.addListener(_queueIdentityChanged);
     _activeActivity = activity?.value ?? true;
     activity?.addListener(_activityChanged);
+    appLock?.addListener(_billingLockChanged);
     _listenOwnedSessions();
     search?.setActivity(_activeActivity);
     housekeeping?.setActivity(_activeActivity);
@@ -258,6 +265,167 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final HermesProfilesRepository? profiles;
   final HermesModelsRepository? models;
   final ChatTransport? transport;
+  final AppLockController? appLock;
+  final Future<bool> Function(Uri)? billingBrowser;
+  final Future<void> Function(String)? billingCopyCode;
+  final _billing = <(String?, String), BillingVerificationController>{};
+  final _billingBindings = <(String?, String), OwnedSessionBinding>{};
+
+  BillingVerificationController? billingVerificationIn(ChatThread thread) {
+    final owner = (_profile, thread.id),
+        controller = _billing[(_profile, thread.id)],
+        binding = _billingBindings[(_profile, thread.id)];
+    return controller != null &&
+            binding != null &&
+            _threads.contains(thread) &&
+            _currentBilling(owner, controller, binding, _activityEpoch)
+        ? controller
+        : null;
+  }
+
+  bool _currentBilling(
+    (String?, String) owner,
+    BillingVerificationController controller,
+    OwnedSessionBinding binding,
+    int epoch,
+  ) {
+    final source = transport;
+    return appLock != null &&
+        _currentActivity(epoch) &&
+        _profile == owner.$1 &&
+        _billing[owner] == controller &&
+        _billingBindings[owner] == binding &&
+        source is OwnedSessionTransport &&
+        (source as OwnedSessionTransport).ownedSessionFor(
+              owner.$2,
+              profile: owner.$1,
+            ) ==
+            binding;
+  }
+
+  BillingVerificationController? _adoptBilling(
+    (String?, String) owner,
+    OwnedSessionBinding binding,
+  ) {
+    if (appLock == null) return null;
+    final existing = _billing[owner];
+    if (existing != null && _billingBindings[owner] == binding) return existing;
+    _removeBilling(owner);
+    final source = transport, epoch = _activityEpoch;
+    final controller = BillingVerificationController(
+      now: _clock,
+      openBrowser: billingBrowser,
+      copyCode: billingCopyCode,
+      events: events,
+      breadcrumbs: breadcrumbs,
+    );
+    _billing[owner] = controller;
+    _billingBindings[owner] = binding;
+    bool current() =>
+        _currentBilling(owner, controller, binding, epoch) &&
+        !(appLock?.covered ?? true);
+    controller.addListener(notifyListeners);
+    controller.setLocked(appLock?.covered ?? true);
+    controller.bind(
+      BillingVerificationScope(
+        connection: binding.connection,
+        attachment: binding,
+        sessionId: binding.runtimeId,
+        profile: binding.profile,
+      ),
+      authorize: current,
+      supported: source is BillingVerificationTransport
+          ? () => (source as BillingVerificationTransport)
+                .billingVerificationSupported(binding)
+          : () => false,
+      request: source is BillingVerificationTransport
+          ? (_) {
+              if (!current()) throw StateError('Billing attachment retired');
+              return (source as BillingVerificationTransport).stepUpBilling(
+                binding,
+                authorize: current,
+              );
+            }
+          : null,
+    );
+    return controller;
+  }
+
+  void _removeBilling((String?, String) owner) {
+    _billingBindings.remove(owner);
+    _billing.remove(owner)?.dispose();
+  }
+
+  void _clearBilling() {
+    for (final controller in _billing.values) {
+      controller.dispose();
+    }
+    _billing.clear();
+    _billingBindings.clear();
+  }
+
+  void _billingLockChanged() {
+    if (disposed) return;
+    for (final controller in _billing.values.toList()) {
+      controller.setLocked(appLock?.covered ?? true);
+    }
+  }
+
+  void _onBillingOwnership(OwnedSessionChange change) {
+    final owner = (change.binding.profile, change.threadId);
+    if (!change.connected) {
+      if (_billingBindings[owner] == change.binding) {
+        _removeBilling(owner);
+        notifyListeners();
+      }
+      return;
+    }
+    final source = transport;
+    if ((owner.$1?.isEmpty ?? true) ||
+        source is! OwnedSessionTransport ||
+        (source as OwnedSessionTransport).ownedSessionFor(
+              owner.$2,
+              profile: owner.$1,
+            ) !=
+            change.binding) {
+      return;
+    }
+    _adoptBilling(owner, change.binding);
+  }
+
+  bool _onBillingEvent(ChatThread thread, ChatEvent event, String? profile) {
+    if (event is! BillingVerificationReceived) return false;
+    final source = transport;
+    if (!active ||
+        profile != _profile ||
+        (profile?.isEmpty ?? true) ||
+        !_threads.contains(thread) ||
+        source is! OwnedSessionTransport) {
+      return true;
+    }
+    final binding = (source as OwnedSessionTransport).ownedSessionFor(
+      thread.id,
+      profile: profile,
+    );
+    if (binding == null ||
+        event.runtimeId != binding.runtimeId ||
+        !identical(event.connection, binding.connection)) {
+      return true;
+    }
+    final owner = (profile, thread.id),
+        epoch = _activityEpoch,
+        controller = _adoptBilling((profile, thread.id), binding);
+    if (controller == null ||
+        !_currentBilling(owner, controller, binding, epoch)) {
+      return true;
+    }
+    controller.acceptVerification({
+      'verification_url': event.details.verificationUrl,
+      'user_code': event.details.userCode,
+    }, attachment: binding);
+    return true;
+  }
+
   final BotModeChatRepository? botChats;
   final Future<PromptQueueStore> Function()? queueStore;
   final QueueScope? Function(ChatThread thread, String? profile)? queueScope;
@@ -1199,6 +1367,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         if (!_currentActivity(epoch) || change.binding.profile != _profile) {
           return;
         }
+        _onBillingOwnership(change);
+        if (!_currentActivity(epoch) || change.binding.profile != _profile) {
+          return;
+        }
         _onTodoOwnership(change, epoch);
         _onMoaOwnership(change, epoch);
         if (!_currentActivity(epoch) || change.binding.profile != _profile) {
@@ -1236,6 +1408,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _clearOwnedState() {
+    _clearBilling();
     _clearTodo();
     _clearConnectors();
     _clearMoa();
@@ -2659,6 +2832,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _sessionActionGenerations.remove(thread);
     _removeTodo((_profile, thread.id));
     _removeConnector((_profile, thread.id));
+    _removeBilling((_profile, thread.id));
     _ownedBindings.remove(thread);
     _usage.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
@@ -2703,6 +2877,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     queueChanges?.removeListener(_queueIdentityChanged);
     _cancelQueueBindings();
     activity?.removeListener(_activityChanged);
+    appLock?.removeListener(_billingLockChanged);
     _activityEpoch++;
     housekeeping?.setActivity(false);
     _replayEnds?.cancel();
@@ -4315,6 +4490,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ) {
     if (_onMoaEvent(thread, own.open, event, profile)) return;
     if (_onConnectorOperation(thread, event, profile) ||
+        _onBillingEvent(thread, event, profile) ||
         _onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
@@ -4440,6 +4616,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void _stopFollowing() {
     unawaited(_ownedSubscription?.cancel());
     _ownedSubscription = null;
+    _clearBilling();
     _clearTodo();
     _clearConnectors();
     _clearMoa();
@@ -4569,6 +4746,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void _onIdleEvent(ChatThread thread, ChatEvent event, String? profile) {
     if (_onMoaEvent(thread, null, event, profile)) return;
     if (_onConnectorOperation(thread, event, profile) ||
+        _onBillingEvent(thread, event, profile) ||
         _onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
@@ -4700,6 +4878,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (opensTurn(event)) _beginMoaTurn(thread, reply);
     if (_onMoaEvent(thread, reply, event, profile)) return;
     if (_onConnectorOperation(thread, event, profile) ||
+        _onBillingEvent(thread, event, profile) ||
         _onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
@@ -4721,6 +4900,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _syncTodo(thread, profile);
         _syncOwnedSession(thread, profile);
         _syncConnector(thread, profile);
+        if (!_currentActivity(epoch)) return;
+        final source = transport;
+        final binding = source is OwnedSessionTransport
+            ? (source as OwnedSessionTransport).ownedSessionFor(
+                thread.id,
+                profile: profile,
+              )
+            : null;
+        if (binding != null && (profile?.isNotEmpty ?? false)) {
+          _adoptBilling((profile, thread.id), binding);
+        }
       case ThreadTitled(:final title):
         _titled(thread, title);
         notifyListeners();
@@ -4729,6 +4919,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           PromptAcknowledged() ||
           PromptAccepted():
       case ConnectorOperationReceived() ||
+          BillingVerificationReceived() ||
           SideResultReceived() ||
           MoaUpdated() ||
           ProcessOutputReceived() ||
@@ -5032,6 +5223,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final previousId = thread.id;
     _removeTodo((_profile, previousId));
     _removeConnector((_profile, previousId));
+    _removeBilling((_profile, previousId));
     final controller = _chatControllers.remove(previousId);
     if (_selectedId == previousId) _selectedId = id;
     _unloaded.remove(previousId);

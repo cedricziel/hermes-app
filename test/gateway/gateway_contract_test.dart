@@ -80,7 +80,10 @@ const notifications = <String, (Use, String)>{
     Use.shown,
     'scoped or read-only account operation snapshot',
   ),
-  'billing.step_up.verification': (Use.gap, 'device-flow code to approve'),
+  'billing.step_up.verification': (
+    Use.shown,
+    'private scoped device-flow verification details',
+  ),
   'sessions.changed': (Use.gap, 'could refresh the thread list'),
   'cron.changed': (Use.gap, 'could refresh Schedules'),
   'platforms.changed': (Use.gap, 'could refresh Messaging'),
@@ -156,6 +159,10 @@ const samples = <String, Map<String, Object?>>{
     'owner': {'type': 'session', 'session_id': 's'},
   },
 
+  'billing.step_up.verification': {
+    'verification_url': 'https://billing.invalid/verify',
+    'user_code': 'CODE',
+  },
   'moa.reference': {
     'label': 'Advisor',
     'text': 'Reference',

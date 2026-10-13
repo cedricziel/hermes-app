@@ -35,6 +35,8 @@ import '../side_results/side_result_card.dart';
 import '../side_results/side_result_state.dart';
 import '../connector_operation_controller.dart';
 import 'connector_operation_card.dart';
+import '../billing_verification_controller.dart';
+import 'billing_verification_card.dart';
 import '../moa_progress_state.dart';
 import 'moa_progress_card.dart';
 import '../process_output_state.dart';
@@ -83,6 +85,7 @@ class ChatThreadView extends StatelessWidget {
     this.sessionUsage,
     this.connectorOperations,
     this.connectionOperations,
+    this.billingVerification,
     this.todoPlan,
     this.sideResults = const [],
     this.onSideResultDetails,
@@ -114,6 +117,7 @@ class ChatThreadView extends StatelessWidget {
   final ChatSessionState? sessionState;
   final SessionUsageController? sessionUsage;
   final ConnectorOperationController? connectorOperations, connectionOperations;
+  final BillingVerificationController? billingVerification;
   final TodoPlanState? todoPlan;
   final List<SideResult> sideResults;
   final VoidCallback? onSideResultDetails;
@@ -293,6 +297,16 @@ class ChatThreadView extends StatelessWidget {
       if (connectorOperations case final operations?
           when operations.operations.isNotEmpty)
         _connectorCards(operations),
+      if (billingVerification case final billing?)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 240),
+          child: SingleChildScrollView(
+            child: BillingVerificationCard(
+              key: ObjectKey(billing),
+              controller: billing,
+            ),
+          ),
+        ),
       if (sessionState case final state? when state.visible)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 180),

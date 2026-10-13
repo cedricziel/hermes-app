@@ -7,6 +7,7 @@ import 'slash_command.dart';
 import 'owned_session_transport.dart';
 import 'gateway_connection_transport.dart';
 import 'connector_operation_transport.dart';
+import 'billing_verification_transport.dart';
 
 /// Work was blocked or its delegate was invalidated before it completed.
 final class SessionTransportUnavailable extends StateError {
@@ -26,7 +27,8 @@ final class SessionChatTransport
         OwnedSessionTransport,
         ConnectorOperationTransport,
         GatewayConnectionTransport,
-        QueueSubmissionTransport {
+        QueueSubmissionTransport,
+        BillingVerificationTransport {
   SessionChatTransport(this._create) : _delegate = _create() {
     final delegate = _delegate;
     _acknowledgement = delegate is PromptAcknowledgement
@@ -209,6 +211,31 @@ final class SessionChatTransport
     return (delegate as OwnedSessionTransport).readOwnedSession(
       binding,
       method,
+    );
+  });
+
+  @override
+  bool billingVerificationSupported(OwnedSessionBinding binding) {
+    final delegate = _delegate, epoch = _epoch;
+    return delegate is BillingVerificationTransport &&
+        (delegate as BillingVerificationTransport).billingVerificationSupported(
+          binding,
+        ) &&
+        _current(epoch);
+  }
+
+  @override
+  Future<Map<String, Object?>> stepUpBilling(
+    OwnedSessionBinding binding, {
+    required bool Function() authorize,
+  }) => _call((delegate) {
+    final epoch = _epoch;
+    if (delegate is! BillingVerificationTransport) {
+      throw UnsupportedError('No billing verification');
+    }
+    return (delegate as BillingVerificationTransport).stepUpBilling(
+      binding,
+      authorize: () => _current(epoch) && authorize(),
     );
   });
 

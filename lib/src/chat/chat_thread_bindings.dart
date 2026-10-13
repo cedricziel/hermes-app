@@ -123,6 +123,7 @@ ChatThreadView boundChatThreadView({
     sessionUsage: t == null ? null : chat.usageIn(t),
     connectorOperations: t == null ? null : chat.connectorOperationsIn(t),
     connectionOperations: chat.connectionOperations,
+    billingVerification: t == null ? null : chat.billingVerificationIn(t),
     todoPlan: t == null ? null : chat.todoPlanIn(t),
     sideResults: t == null
         ? const []
