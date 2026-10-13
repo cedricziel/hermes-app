@@ -123,8 +123,9 @@ class WatchBridge {
       if (usable &&
           (auth == null ||
               auth.state != HermesConnectionState.ready ||
-              !auth.protectedRequestsAllowed))
+              !auth.protectedRequestsAllowed)) {
         return false;
+      }
       final context = usable
           ? await _contextStore.resolve(
               owner: auth?.verifiedOwner,
