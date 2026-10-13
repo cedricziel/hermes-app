@@ -73,8 +73,8 @@ const notifications = <String, (Use, String)>{
   'reaction': (Use.gap, "reaction to the user's message"),
   'agent.terminal.output': (Use.gap, 'background process output'),
   'terminal.close': (Use.gap, 'background process ended'),
-  'background.complete': (Use.gap, '/background side agent finished'),
-  'btw.complete': (Use.gap, '/btw answer'),
+  'background.complete': (Use.shown, 'separate background result card'),
+  'btw.complete': (Use.shown, 'separate side question answer card'),
   'connection.request': (Use.gap, 'connector operation card'),
   'connection.update': (Use.gap, 'connector operation progress'),
   'billing.step_up.verification': (Use.gap, 'device-flow code to approve'),
@@ -138,6 +138,12 @@ const refusedRequests = <String, String>{
 /// A payload the mapper shows, for frames it drops when the payload is empty.
 const samples = <String, Map<String, Object?>>{
   'todo.updated': {'revision': 1, 'todos': []},
+  'background.complete': {'task_id': 'task', 'text': 'Reported answer'},
+  'btw.complete': {
+    'task_id': 'task',
+    'text': 'Reported answer',
+    'question': 'Reported question',
+  },
   'tool.output_risk': {
     'tool_id': 'tool',
     'name': 'terminal',

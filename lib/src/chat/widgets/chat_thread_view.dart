@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
@@ -28,6 +30,8 @@ import '../session_usage/session_usage_controller.dart';
 import '../session_usage/session_usage_card.dart';
 import '../todo_plan/todo_plan_card.dart';
 import '../todo_plan/todo_plan_state.dart';
+import '../side_results/side_result_card.dart';
+import '../side_results/side_result_state.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -70,6 +74,8 @@ class ChatThreadView extends StatelessWidget {
     this.sessionState,
     this.sessionUsage,
     this.todoPlan,
+    this.sideResults = const [],
+    this.onSideResultDetails,
     this.onSessionDetails,
     this.onReopenSession,
     this.onRetry,
@@ -94,6 +100,8 @@ class ChatThreadView extends StatelessWidget {
   final ChatSessionState? sessionState;
   final SessionUsageController? sessionUsage;
   final TodoPlanState? todoPlan;
+  final List<SideResult> sideResults;
+  final VoidCallback? onSideResultDetails;
   final VoidCallback? onSessionDetails;
   final VoidCallback? onReopenSession;
   final BotChatContext? botContext;
@@ -198,87 +206,117 @@ class ChatThreadView extends StatelessWidget {
             emptyChatListBuilder: (_) => const SizedBox.shrink(),
           );
 
-    return Column(
-      children: [
-        if (header case final header?) ...[
-          header,
-          if (platformChromeOf(context) != PlatformChrome.macos)
-            const Divider(height: 1),
-        ],
-        if (botContext case final bot?) BotChatBanner(context: bot),
-        if (sessionState case final state? when state.visible)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 180),
-            child: SingleChildScrollView(
-              child: SessionStatusCard(
-                state: state,
-                onDetails: onSessionDetails,
-                onReopen: onReopenSession,
-              ),
+    final activity = <Widget>[
+      if (sessionState case final state? when state.visible)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 180),
+          child: SingleChildScrollView(
+            child: SessionStatusCard(
+              state: state,
+              onDetails: onSessionDetails,
+              onReopen: onReopenSession,
             ),
           ),
-        if (sessionUsage case final usage?)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 180),
-            child: SingleChildScrollView(
-              child: SessionUsageCard(key: ObjectKey(usage), controller: usage),
-            ),
+        ),
+      if (sessionUsage case final usage?)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 180),
+          child: SingleChildScrollView(
+            child: SessionUsageCard(key: ObjectKey(usage), controller: usage),
           ),
-        if (todoPlan case final plan?)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 180),
-            child: SingleChildScrollView(
-              child: TodoPlanCard(key: ObjectKey(plan), state: plan),
-            ),
+        ),
+      if (todoPlan case final plan?)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 180),
+          child: SingleChildScrollView(
+            child: TodoPlanCard(key: ObjectKey(plan), state: plan),
           ),
-        if (notices.isNotEmpty)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 160),
-            child: ListView(
-              shrinkWrap: true,
+        ),
+      if (sideResults.isNotEmpty)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 240),
+          child: SingleChildScrollView(
+            child: Column(
               children: [
-                for (final notice in notices)
-                  AgentNoticeCard(
-                    key: ObjectKey(notice),
-                    notice: notice,
-                    onDismiss: onDismissNotice == null
-                        ? null
-                        : () => onDismissNotice!(notice),
-                    onDetails: onNoticeDetails,
+                for (final result in sideResults)
+                  SideResultCard(
+                    key: ValueKey((result.kind, result.taskId)),
+                    result: result,
+                    onDetails: onSideResultDetails,
                   ),
               ],
             ),
           ),
-        Expanded(
-          child: AttachmentSurface(
-            source: attachmentSource,
-            onAdd: onAddAttachments,
-            builder: (context, openAttachMenu) => Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: kChatColumnMaxWidth,
+        ),
+      if (notices.isNotEmpty)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 160),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final notice in notices)
+                AgentNoticeCard(
+                  key: ObjectKey(notice),
+                  notice: notice,
+                  onDismiss: onDismissNotice == null
+                      ? null
+                      : () => onDismissNotice!(notice),
+                  onDetails: onNoticeDetails,
                 ),
-                child: SizedBox.expand(
-                  child: FlyerMaterialScope(
-                    child: Chat(
-                      // The controller too: after a profile switch the same
-                      // id names another thread.
-                      key: ValueKey((thread?.id, chatController)),
-                      chatController: chatController,
-                      currentUserId: kUserAuthorId,
-                      resolveUser: (id) async => User(id: id),
-                      onMessageSend: onSend,
-                      onAttachmentTap: openAttachMenu,
-                      theme: buildChatTheme(Theme.of(context)),
-                      builders: shown,
+            ],
+          ),
+        ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) => Column(
+        children: [
+          if (header case final header?) ...[
+            header,
+            if (platformChromeOf(context) != PlatformChrome.macos)
+              const Divider(height: 1),
+          ],
+          if (botContext case final bot?) BotChatBanner(context: bot),
+          if (activity.isNotEmpty)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.hasBoundedHeight
+                    ? math.min(280.0, constraints.maxHeight * 0.4)
+                    : 280,
+              ),
+              child: SingleChildScrollView(child: Column(children: activity)),
+            ),
+          Expanded(
+            child: AttachmentSurface(
+              source: attachmentSource,
+              onAdd: onAddAttachments,
+              builder: (context, openAttachMenu) => Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: kChatColumnMaxWidth,
+                  ),
+                  child: SizedBox.expand(
+                    child: FlyerMaterialScope(
+                      child: Chat(
+                        // The controller too: after a profile switch the same
+                        // id names another thread.
+                        key: ValueKey((thread?.id, chatController)),
+                        chatController: chatController,
+                        currentUserId: kUserAuthorId,
+                        resolveUser: (id) async => User(id: id),
+                        onMessageSend: onSend,
+                        onAttachmentTap: openAttachMenu,
+                        theme: buildChatTheme(Theme.of(context)),
+                        builders: shown,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

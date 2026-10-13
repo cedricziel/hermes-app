@@ -7,6 +7,7 @@ import '../chat_warning_state.dart';
 import '../chat_session_state.dart';
 import '../todo_plan/todo_plan_state.dart';
 import '../session_usage/usage_snapshot.dart';
+import '../side_results/side_result_state.dart';
 import 'gateway_rpc_client.dart';
 
 /// The [ChatEvent] a gateway event frame means, or null for a frame the app
@@ -51,6 +52,17 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
       diff: text('inline_diff'),
       duration: _seconds(payload['duration_s']),
     ),
+    'background.complete' || 'btw.complete' => switch (SideResult.decode(
+      event.type,
+      payload,
+    )) {
+      final result? when event.sessionId.isNotEmpty => SideResultReceived(
+        result,
+        runtimeId: event.sessionId,
+        connection: connection,
+      ),
+      _ => null,
+    },
     'session.usage' =>
       event.sessionId.isEmpty
           ? null
