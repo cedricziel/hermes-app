@@ -8,6 +8,7 @@ import 'package:hermes_api/hermes_api.dart';
 import '../api/request_timeout.dart';
 import '../voice/voice_support.dart';
 import 'chat_models.dart';
+import 'reactions/reaction_state.dart';
 import 'thread_sections.dart';
 import 'stored_content.dart';
 import 'tool_result.dart';
@@ -360,6 +361,7 @@ class HermesChatRepository {
       messages.add(
         ChatMessage(
           id: '$sessionId-${row['id']}',
+          canonicalRow: DurableReactionRow.decode(row),
           role: role,
           content: before ? '' : stored.text,
           displayText: before ? null : displayText,

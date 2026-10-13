@@ -97,7 +97,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
     ];
   }
 
-  return [
+  final messages = <Message>[
     for (final (i, attachment) in m.attachments.indexed)
       _attachmentMessage(
         '${m.id}-attachment-$i',
@@ -182,6 +182,13 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         },
       ),
   ];
+  if (m.canonicalRow case final row? when messages.isNotEmpty) {
+    final last = messages.last;
+    messages[messages.length - 1] = last.copyWith(
+      metadata: {...?last.metadata, kMetaCanonicalRow: row},
+    );
+  }
+  return messages;
 }
 
 List<Message> chatThreadToFlyer(ChatThread t) => [
