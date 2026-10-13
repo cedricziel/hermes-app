@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -76,11 +77,13 @@ void main() {
         prefs = SharedPreferencesAsync();
       });
 
-      SchedulesController remembering() => SchedulesController(
-        repository: HermesCronRepository(server.client().raw),
-        profiles: HermesProfilesRepository(server.client().raw),
-        prefs: prefs,
-      );
+      SchedulesController remembering({ValueListenable<bool>? activity}) =>
+          SchedulesController(
+            activity: activity,
+            repository: HermesCronRepository(server.client().raw),
+            profiles: HermesProfilesRepository(server.client().raw),
+            prefs: prefs,
+          );
 
       test('a choice of every profile is kept for the next launch', () async {
         server.on('GET', '/api/cron/jobs', [cronJobRow()]);
@@ -120,6 +123,25 @@ void main() {
 
         expect(first.allProfiles, isTrue);
         expect(await prefs.getBool('hermes.schedules_all_profiles'), isNull);
+      });
+
+      test('recovery retains scope widened for a saved job', () async {
+        server.on('GET', '/api/cron/jobs', [cronJobRow()]);
+        await prefs.setBool('hermes.schedules_all_profiles', false);
+        final activity = ValueNotifier(true);
+        final c = remembering(activity: activity);
+        addTearDown(activity.dispose);
+        addTearDown(c.dispose);
+        await c.refresh();
+        c.jobSaved(CronJob.fromJson(cronJobRow(id: 'x', profile: 'home'))!);
+        await pumpEventQueue();
+
+        activity.value = false;
+        activity.value = true;
+        await pumpEventQueue();
+
+        expect(c.allProfiles, isTrue);
+        expect(jobRequests().last, 'profile=all');
       });
     });
 
@@ -330,34 +352,42 @@ void main() {
       return c;
     }
 
-    test('a delete that answers late does not notify', () async {
-      final c = await loaded();
-      final answer = Completer<FakeResponse>();
-      server.onRequest('DELETE', '/api/cron/jobs/job1', (_) => answer.future);
+    test(
+      'a delete that answers after disposal rejects without notifying',
+      () async {
+        final c = await loaded();
+        final answer = Completer<FakeResponse>();
+        server.onRequest('DELETE', '/api/cron/jobs/job1', (_) => answer.future);
 
-      final result = c.delete(c.jobs.single);
-      await pumpEventQueue();
-      c.dispose();
-      answer.complete((status: 404, body: <String, Object?>{}));
+        final result = c.delete(c.jobs.single);
+        await pumpEventQueue();
+        c.dispose();
+        answer.complete((status: 404, body: <String, Object?>{}));
 
-      expect(await result, isNull);
-    });
+        await expectLater(result, throwsStateError);
+        expect(c.jobs, hasLength(1));
+      },
+    );
 
-    test('a run request that answers 404 late does not notify', () async {
-      final c = await loaded();
-      final answer = Completer<FakeResponse>();
-      server.onRequest(
-        'POST',
-        '/api/cron/jobs/job1/trigger',
-        (_) => answer.future,
-      );
+    test(
+      'a run request answering 404 after disposal rejects without removing',
+      () async {
+        final c = await loaded();
+        final answer = Completer<FakeResponse>();
+        server.onRequest(
+          'POST',
+          '/api/cron/jobs/job1/trigger',
+          (_) => answer.future,
+        );
 
-      final result = c.runNow(c.jobs.single);
-      await pumpEventQueue();
-      c.dispose();
-      answer.complete((status: 404, body: <String, Object?>{}));
+        final result = c.runNow(c.jobs.single);
+        await pumpEventQueue();
+        c.dispose();
+        answer.complete((status: 404, body: <String, Object?>{}));
 
-      expect(await result, contains('no longer exists'));
-    });
+        await expectLater(result, throwsStateError);
+        expect(c.jobs, hasLength(1));
+      },
+    );
   });
 }
