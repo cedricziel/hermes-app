@@ -26,6 +26,8 @@ import '../chat_session_state.dart';
 import 'session_status_card.dart';
 import '../session_usage/session_usage_controller.dart';
 import '../session_usage/session_usage_card.dart';
+import '../todo_plan/todo_plan_card.dart';
+import '../todo_plan/todo_plan_state.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -67,6 +69,7 @@ class ChatThreadView extends StatelessWidget {
     this.onNoticeDetails,
     this.sessionState,
     this.sessionUsage,
+    this.todoPlan,
     this.onSessionDetails,
     this.onReopenSession,
     this.onRetry,
@@ -90,6 +93,7 @@ class ChatThreadView extends StatelessWidget {
   final VoidCallback? onNoticeDetails;
   final ChatSessionState? sessionState;
   final SessionUsageController? sessionUsage;
+  final TodoPlanState? todoPlan;
   final VoidCallback? onSessionDetails;
   final VoidCallback? onReopenSession;
   final BotChatContext? botContext;
@@ -218,6 +222,13 @@ class ChatThreadView extends StatelessWidget {
             constraints: const BoxConstraints(maxHeight: 180),
             child: SingleChildScrollView(
               child: SessionUsageCard(key: ObjectKey(usage), controller: usage),
+            ),
+          ),
+        if (todoPlan case final plan?)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: SingleChildScrollView(
+              child: TodoPlanCard(key: ObjectKey(plan), state: plan),
             ),
           ),
         if (notices.isNotEmpty)

@@ -1,0 +1,31 @@
+{
+  "source_ref": "167e9fdb84248cd0fff80762dc57b6a914b6e930",
+  "source": "tools/todo_tool.py::TodoStore.snapshot",
+  "source_sha256": "d0d8e435b726b32a1477b3552c527727b47c8a81ca87e242c39dc99d502d06ee",
+  "state": {
+    "todos": [
+      {
+        "id": "plan",
+        "content": "Review the change",
+        "status": "pending"
+      },
+      {
+        "id": "implement",
+        "content": "Implement the change",
+        "status": "in_progress",
+        "parent": "plan"
+      },
+      {
+        "id": "verify",
+        "content": "Verify the change",
+        "status": "completed"
+      },
+      {
+        "id": "old",
+        "content": "Discard obsolete work",
+        "status": "cancelled"
+      }
+    ],
+    "revision": 1
+  }
+}

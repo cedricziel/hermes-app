@@ -57,7 +57,7 @@ const notifications = <String, (Use, String)>{
     Use.shown,
     'tool output flagged for injection or secrets',
   ),
-  'todo.updated': (Use.gap, 'todo snapshot; the todo tool card covers most'),
+  'todo.updated': (Use.shown, 'read-only authoritative plan snapshot'),
   'notice': (Use.shown, 'session notice line'),
   'notification.show': (Use.shown, 'credit and slow-start warnings'),
   'notification.clear': (Use.shown, 'withdraws a notification.show'),
@@ -137,6 +137,7 @@ const refusedRequests = <String, String>{
 
 /// A payload the mapper shows, for frames it drops when the payload is empty.
 const samples = <String, Map<String, Object?>>{
+  'todo.updated': {'revision': 1, 'todos': []},
   'tool.output_risk': {
     'tool_id': 'tool',
     'name': 'terminal',

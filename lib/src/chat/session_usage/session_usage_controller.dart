@@ -57,6 +57,7 @@ class SessionUsageController extends ChangeNotifier {
   int _generation = 0;
   bool _connected = true, _unsupported = false, _disposed = false;
   bool get bound => _scope != null && _request != null;
+  bool hasScope(UsageScope scope) => bound && _scope == scope;
   bool get canRefresh => bound && _connected && !_unsupported && !loading;
 
   /// Changes ownership and invalidates earlier reads without retaining their data.

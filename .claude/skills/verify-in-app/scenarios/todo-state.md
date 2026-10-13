@@ -1,0 +1,6 @@
+# Agent todo plan
+
+
+Run `flutter test --concurrency=1 test/todo_plan_state_test.dart test/gateway/todo_mapper_test.dart test/todo_plan_integration_test.dart test/todo_plan_ownership_test.dart test/todo_plan_card_test.dart test/gateway/gateway_contract_test.dart` before native inspection. Confirm that `todo.updated` and `session.resume.todo_state` replace snapshots using verified pinned-backend fields, and that todo metadata never settles an assistant reply or submits a command.
+
+In the isolated client, inspect compact and expanded task text and supported status labels. Deliver a newer replacement, replay an older or equal revision, then send an empty replacement. Check a supported task beside an unsupported item without invented completion counts. Keep a newer live plan when a delayed same-binding resume returns older or missing state. Replace the connection or runtime, restore a lower revision, and check that the old plan cannot return. Exercise idle delivery, profile replacement, reclaim, and the activity gate with synthetic backend events only. A fresh confirmed binding with missing `todo_state` shows unavailable; an unconfirmed stored session never invents a runtime binding. Observe ordinary reply completion separately. Record any native scenario that could not be observed as a remaining verification gap.
