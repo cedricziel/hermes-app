@@ -22,6 +22,12 @@ final class ThreadBound extends ChatEvent {
   final String threadId;
 }
 
+/// Acceptance of the submitted prompt, without proof of its final answer.
+final class PromptAcknowledged extends ChatEvent {
+  const PromptAcknowledged(this.userRowId);
+  final int userRowId;
+}
+
 final class ReplyStarted extends ChatEvent {
   const ReplyStarted();
 }

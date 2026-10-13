@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
 import 'package:hermes_app/src/schedules/job_form_controller.dart';
@@ -42,6 +43,198 @@ void main() {
       expect(form.error, 'A task needs a prompt, a skill or a script');
       expect(server.requests, isEmpty);
     });
+
+    test(
+      'does not start protected work while session activity is paused',
+      () async {
+        final activity = ValueNotifier(false);
+        final form = JobFormController(
+          repository: repository,
+          profile: 'work',
+          activity: activity,
+        )..draft.prompt = 'Keep this draft';
+
+        await form.loadTargets();
+        await expectLater(
+          form.save(),
+          throwsA(isA<JobFormActivityCancelled>()),
+        );
+
+        expect(form.active, isFalse);
+        expect(form.draft.prompt, 'Keep this draft');
+        expect(server.requests, isEmpty);
+        activity.dispose();
+        form.dispose();
+      },
+    );
+
+    test(
+      'drops pending metadata and reloads it after activity resumes',
+      () async {
+        final targetsGate = Completer<FakeResponse>();
+        final modelsGate = Completer<FakeResponse>();
+        var targetCalls = 0;
+        var modelCalls = 0;
+        final targetReloaded = Completer<void>();
+        final modelReloaded = Completer<void>();
+        final resumedMetadataLoaded = Completer<void>();
+        server
+          ..onRequest('GET', '/api/cron/delivery-targets', (_) {
+            if (++targetCalls == 1) return targetsGate.future;
+            targetReloaded.complete();
+            return (
+              status: 200,
+              body: {
+                'targets': [
+                  {'id': 'slack', 'name': 'Slack'},
+                ],
+              },
+            );
+          })
+          ..onRequest('GET', '/api/model/options', (_) {
+            if (++modelCalls == 1) return modelsGate.future;
+            modelReloaded.complete();
+            return (
+              status: 200,
+              body: {
+                'providers': [
+                  {
+                    'slug': 'anthropic',
+                    'authenticated': true,
+                    'models': ['claude-opus-4'],
+                  },
+                ],
+              },
+            );
+          });
+        final activity = ValueNotifier(true);
+        final form = JobFormController(
+          repository: repository,
+          profile: 'work',
+          activity: activity,
+        )..draft.prompt = 'Keep this draft';
+        form.addListener(() {
+          if (form.targets.any((target) => target.id == 'slack') &&
+              form.modelOptions != null &&
+              !resumedMetadataLoaded.isCompleted) {
+            resumedMetadataLoaded.complete();
+          }
+        });
+        final models = HermesModelsRepository(server.client().raw);
+
+        final targetsRead = form.loadTargets();
+        final modelsRead = form.loadModels(models);
+        await Future<void>.delayed(Duration.zero);
+        activity.value = false;
+        targetsGate.complete((
+          status: 200,
+          body: {
+            'targets': [
+              {'id': 'stale', 'name': 'Stale'},
+            ],
+          },
+        ));
+        modelsGate.complete((status: 200, body: {'providers': <Object?>[]}));
+        await Future.wait<void>([targetsRead, modelsRead]);
+
+        expect(form.targets.map((target) => target.id), ['local']);
+        expect(form.modelOptions, isNull);
+        expect(form.draft.prompt, 'Keep this draft');
+
+        activity.value = true;
+        await Future.wait([targetReloaded.future, modelReloaded.future]);
+        await resumedMetadataLoaded.future;
+
+        expect(
+          form.targets.map((target) => target.id),
+          containsAll(['local', 'slack']),
+        );
+        expect(form.modelOptions, isNotNull);
+        expect(form.draft.prompt, 'Keep this draft');
+        activity.dispose();
+        form.dispose();
+      },
+    );
+
+    test('rejects a save result from an earlier activity epoch', () async {
+      final gate = Completer<FakeResponse>();
+      server.onRequest('POST', '/api/cron/jobs', (_) => gate.future);
+      final activity = ValueNotifier(true);
+      final form =
+          JobFormController(
+              repository: repository,
+              profile: 'work',
+              activity: activity,
+            )
+            ..draft.prompt = 'Keep this draft'
+            ..draft.spec = const EverySpec(6, EveryUnit.hours);
+
+      final save = form.save();
+      activity.value = false;
+      gate.complete((status: 200, body: cronJobRow(id: 'created')));
+
+      await expectLater(save, throwsA(isA<JobFormActivityCancelled>()));
+      expect(form.draft.prompt, 'Keep this draft');
+      expect(form.error, isNull);
+      expect(server.requestsTo('POST', '/api/cron/jobs'), hasLength(1));
+
+      activity.value = true;
+      await Future<void>.delayed(Duration.zero);
+      expect(server.requestsTo('POST', '/api/cron/jobs'), hasLength(1));
+      activity.dispose();
+      form.dispose();
+    });
+
+    test(
+      'a stale save cancellation does not clear a newer save barrier',
+      () async {
+        final oldSaveGate = Completer<FakeResponse>();
+        final newSaveGate = Completer<FakeResponse>();
+        final newPostStarted = Completer<void>();
+        var postCount = 0;
+        server.onRequest('POST', '/api/cron/jobs', (_) {
+          postCount++;
+          if (postCount == 2) newPostStarted.complete();
+          return postCount == 1 ? oldSaveGate.future : newSaveGate.future;
+        });
+        final activity = ValueNotifier(true);
+        final form =
+            JobFormController(
+                repository: repository,
+                profile: 'work',
+                activity: activity,
+                now: () => DateTime(2026, 9, 20, 12),
+              )
+              ..draft.prompt = 'Keep this draft'
+              ..draft.spec = const EverySpec(6, EveryUnit.hours);
+        final newSaveStarted = Completer<void>();
+        late Future<CronJob?> newSave;
+        form.addListener(() {
+          if (!form.saving && form.active && !newSaveStarted.isCompleted) {
+            newSave = form.save();
+            newSaveStarted.complete();
+          }
+        });
+
+        final oldSave = form.save();
+        activity.value = false;
+        activity.value = true;
+        oldSaveGate.complete((status: 200, body: cronJobRow(id: 'old')));
+
+        await expectLater(oldSave, throwsA(isA<JobFormActivityCancelled>()));
+        await newSaveStarted.future;
+        await newPostStarted.future;
+        expect(form.saving, isTrue);
+        expect(await form.save(), isNull);
+        expect(postCount, 2);
+
+        newSaveGate.complete((status: 200, body: cronJobRow(id: 'new')));
+        expect((await newSave)?.id, 'new');
+        expect(form.saving, isFalse);
+        activity.dispose();
+        form.dispose();
+      },
+    );
 
     test('creates in the chosen profile', () async {
       server.on(
@@ -313,5 +506,83 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SizedBox()));
 
     expect(() => form.addListener(() {}), throwsFlutterError);
+  });
+
+  testWidgets('activity cancellation leaves the form open with its draft', (
+    tester,
+  ) async {
+    final gate = Completer<FakeResponse>();
+    server.onRequest('POST', '/api/cron/jobs', (_) => gate.future);
+    final activity = ValueNotifier(true);
+    final earlySaveCancelled = Completer<bool>();
+    var targetCalls = 0;
+    final resumedTargetsLoaded = Completer<void>();
+    server.onRequest('GET', '/api/cron/delivery-targets', (_) {
+      if (++targetCalls == 2) resumedTargetsLoaded.complete();
+      return (
+        status: 200,
+        body: {
+          'targets': [
+            {'id': 'local', 'name': 'Local (save only)'},
+          ],
+        },
+      );
+    });
+    late JobFormController form;
+    var nestedResume = false;
+    activity.addListener(() {
+      if (!nestedResume && !activity.value) {
+        nestedResume = true;
+        form.save().then<void>(
+          (_) => earlySaveCancelled.complete(false),
+          onError: (Object error) =>
+              earlySaveCancelled.complete(error is JobFormActivityCancelled),
+        );
+        activity.value = true;
+      }
+    });
+    form =
+        JobFormController(
+            repository: repository,
+            profile: 'work',
+            activity: activity,
+            now: () => DateTime(2026, 9, 20, 12),
+          )
+          ..draft.prompt = 'Keep this draft'
+          ..draft.spec = const EverySpec(6, EveryUnit.hours);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => JobFormScreen(controller: form),
+                ),
+              ),
+              child: const Text('Open form'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open form'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pump();
+
+    activity.value = false;
+    gate.complete((status: 200, body: cronJobRow(id: 'created')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New task'), findsOneWidget);
+    expect(find.text('Keep this draft'), findsOneWidget);
+    expect(find.byKey(const Key('job-error')), findsNothing);
+    expect(await earlySaveCancelled.future, isTrue);
+    await resumedTargetsLoaded.future;
+    expect(targetCalls, 2);
+    expect(server.requestsTo('POST', '/api/cron/jobs'), hasLength(1));
+    activity.dispose();
   });
 }

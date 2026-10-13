@@ -10,6 +10,11 @@ import 'schedule_models.dart';
 
 const _allProfilesKey = 'hermes.schedules_all_profiles';
 
+/// A protected page action belongs to a suspended or retired activity period.
+class SchedulesActivitySuspended extends StateError {
+  SchedulesActivitySuspended() : super('Schedules activity suspended');
+}
+
 /// Owns the job list behind the Schedules destination: which profile it
 /// shows, the filter, refreshing, and the changes a user can make.
 ///
@@ -21,8 +26,14 @@ class SchedulesController extends ChangeNotifier {
     this.profiles,
     this.prefs,
     this.refreshEvery = const Duration(minutes: 1),
+    this.activity,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+  }) : _now = now ?? DateTime.now {
+    activity?.addListener(_activityChanged);
+  }
+
+  /// Whether protected page work may run; omission allows activity.
+  final ValueListenable<bool>? activity;
 
   final HermesCronRepository repository;
   final HermesProfilesRepository? profiles;
@@ -33,6 +44,7 @@ class SchedulesController extends ChangeNotifier {
   /// for this run only.
   final SharedPreferencesAsync? prefs;
   Future<void>? _restored;
+  bool _scopeRestored = false;
 
   /// Whether the user picked a scope, which a late read of the kept one must
   /// not overwrite.
@@ -52,6 +64,47 @@ class SchedulesController extends ChangeNotifier {
   bool _foreground = true;
   Timer? _timer;
   bool _disposed = false;
+  bool _started = false;
+  int _activityEpoch = 0;
+
+  bool get _canWork => !_disposed && (activity?.value ?? true);
+  bool _currentActivity(int epoch) => _canWork && epoch == _activityEpoch;
+
+  void _requireCurrent(int epoch) {
+    if (!_currentActivity(epoch)) {
+      throw SchedulesActivitySuspended();
+    }
+  }
+
+  /// Captures the current activity period, rejecting while suspended.
+  int captureActivity() {
+    _requireCurrent(_activityEpoch);
+    return _activityEpoch;
+  }
+
+  /// Rejects with [SchedulesActivitySuspended] if [epoch] has retired.
+  void requireActivity(int epoch) => _requireCurrent(epoch);
+
+  void _activityChanged() {
+    if (_disposed) return;
+    // Nested delivery can hide the false value; every notification retires work.
+    final epoch = ++_activityEpoch;
+    _generation++;
+    _loading = false;
+    _pending.clear();
+    _openRequest = null;
+    _restored = null;
+    _activeKnown = false;
+    _syncTimer();
+    notifyListeners();
+    if (_started && _currentActivity(epoch)) {
+      unawaited(
+        Future<void>.microtask(() {
+          if (_currentActivity(epoch)) return refresh();
+        }),
+      );
+    }
+  }
 
   /// Jobs the user changed and whose answer is still awaited, so a refresh
   /// landing meanwhile does not undo the switch.
@@ -93,15 +146,19 @@ class SchedulesController extends ChangeNotifier {
 
   void _setScope(bool all) {
     if (_allProfiles == all) return;
+    final epoch = _activityEpoch;
     _allProfiles = all;
     notifyListeners();
-    refresh();
+    if (_currentActivity(epoch)) refresh();
   }
 
-  Future<void> _restore() async {
+  Future<void> _restore(int epoch) async {
+    if (_scopeRestored) return;
     try {
       final all = await prefs?.getBool(_allProfilesKey);
+      _requireCurrent(epoch);
       if (all != null && !_picked) _allProfiles = all;
+      _scopeRestored = true;
     } on Object {
       // An unreadable setting leaves the default scope.
     }
@@ -132,7 +189,7 @@ class SchedulesController extends ChangeNotifier {
   void _syncTimer() {
     _timer?.cancel();
     _timer = null;
-    if (_active && _foreground && !_disposed) {
+    if (_active && _foreground && _canWork) {
       _timer = Timer.periodic(refreshEvery, (_) => refresh());
     }
   }
@@ -140,13 +197,17 @@ class SchedulesController extends ChangeNotifier {
   /// The profile to ask for: every one, the sticky active one, or null when
   /// the server has no profiles to tell apart. A failure to read the active
   /// profile throws, so a list is never shown unscoped by accident.
-  Future<String?> _scope() async {
-    await (_restored ??= _restore());
+  Future<String?> _scope(int epoch) async {
+    await (_restored ??= _restore(epoch));
+    _requireCurrent(epoch);
     if (_allProfiles) return 'all';
     if (_activeKnown) return _activeProfile;
     try {
-      _activeProfile = (await profiles?.loadActive())?.active;
+      final active = (await profiles?.loadActive())?.active;
+      _requireCurrent(epoch);
+      _activeProfile = active;
     } on DioException catch (e) {
+      _requireCurrent(epoch);
       if (e.response?.statusCode != 404) rethrow;
       _activeProfile = null;
     }
@@ -155,22 +216,27 @@ class SchedulesController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    if (!_canWork) return;
+    _started = true;
+    final epoch = _activityEpoch;
     final generation = ++_generation;
     if (!_loaded) {
       _loading = true;
       notifyListeners();
     }
+    if (!_currentActivity(epoch)) return;
     try {
-      final scope = await _scope();
+      final scope = await _scope(epoch);
+      if (!_currentActivity(epoch) || generation != _generation) return;
       final jobs = await repository.listJobs(profile: scope);
-      if (_disposed || generation != _generation) return;
+      if (!_currentActivity(epoch) || generation != _generation) return;
       _jobs = [for (final job in jobs) _withPending(job)];
       _loaded = true;
       _loading = false;
       _error = null;
       if (_selectedKey != null && selected == null) _selectedKey = null;
     } on Object catch (e) {
-      if (_disposed || generation != _generation) return;
+      if (!_currentActivity(epoch) || generation != _generation) return;
       _loading = false;
       _error = _describe(e);
     }
@@ -191,27 +257,35 @@ class SchedulesController extends ChangeNotifier {
 
   /// Pauses or resumes [job]. The switch moves at once; the returned message
   /// is set when the server refused and it moved back.
+  /// Rejects with [StateError] when activity is suspended or retired.
   Future<String?> setPaused(CronJob job, bool paused) async {
+    final epoch = _activityEpoch;
+    _requireCurrent(epoch);
     final state = paused ? CronJobState.paused : CronJobState.scheduled;
     final before = _jobs;
     _pending[job.key] = state;
     _replace(job.copyWith(state: state));
     try {
+      _requireCurrent(epoch);
       if (paused) {
         await repository.pause(job.id, profile: job.profile);
       } else {
         await repository.resume(job.id, profile: job.profile);
       }
+      _requireCurrent(epoch);
       _pending.remove(job.key);
       await refresh();
+      _requireCurrent(epoch);
       return null;
     } on Object catch (e) {
+      _requireCurrent(epoch);
       _pending.remove(job.key);
-      if (_disposed) return null;
       _jobs = before;
       notifyListeners();
+      _requireCurrent(epoch);
       if (e is CronException && e.isNotFound) {
         _remove(job);
+        _requireCurrent(epoch);
         return 'This task no longer exists';
       }
       return paused
@@ -221,13 +295,19 @@ class SchedulesController extends ChangeNotifier {
   }
 
   /// Asks for one run of [job]. The run is not awaited. Null on success.
+  /// Rejects with [StateError] when activity is suspended or retired.
   Future<String?> runNow(CronJob job) async {
+    final epoch = _activityEpoch;
+    _requireCurrent(epoch);
     try {
       await repository.trigger(job.id, profile: job.profile);
+      _requireCurrent(epoch);
       return null;
     } on Object catch (e) {
+      _requireCurrent(epoch);
       if (e is CronException && e.isNotFound) {
         _remove(job);
+        _requireCurrent(epoch);
         return 'This task no longer exists';
       }
       return 'Could not start “${job.title}”';
@@ -235,45 +315,63 @@ class SchedulesController extends ChangeNotifier {
   }
 
   /// Deletes [job]. A job the server no longer has counts as deleted.
+  /// Rejects with [StateError] when activity is suspended or retired.
   Future<String?> delete(CronJob job) async {
+    final epoch = _activityEpoch;
+    _requireCurrent(epoch);
     try {
       await repository.delete(job.id, profile: job.profile);
     } on Object catch (e) {
+      _requireCurrent(epoch);
       if (!(e is CronException && e.isNotFound)) {
         return 'Could not delete “${job.title}”';
       }
     }
+    _requireCurrent(epoch);
     _remove(job);
+    _requireCurrent(epoch);
     return null;
   }
 
   /// Reads [job] again. A job that is gone is dropped and null is returned.
+  /// Rejects with [StateError] when activity is suspended or retired.
   Future<CronJob?> reload(CronJob job) async {
+    final epoch = _activityEpoch;
+    _requireCurrent(epoch);
     try {
       final fresh = await repository.getJob(job.id, profile: job.profile);
-      if (_disposed) return fresh;
+      _requireCurrent(epoch);
       _replace(_withPending(fresh));
+      _requireCurrent(epoch);
       return fresh;
     } on CronException catch (e) {
+      _requireCurrent(epoch);
       if (e.isNotFound) {
         _remove(job);
+        _requireCurrent(epoch);
         return null;
       }
       return job;
     } on Object {
+      _requireCurrent(epoch);
       return job;
     }
   }
 
   /// The names of the profiles a new job can go to. Empty when the server
   /// has none to tell apart or cannot say.
+  /// Rejects with [StateError] when activity is suspended or retired.
   Future<List<String>> profileNames() async {
+    final epoch = _activityEpoch;
+    _requireCurrent(epoch);
     try {
       final overview = await profiles?.load();
+      _requireCurrent(epoch);
       return [
         for (final p in overview?.profiles ?? const <HermesProfile>[]) p.name,
       ];
     } on Object {
+      _requireCurrent(epoch);
       return const [];
     }
   }
@@ -284,11 +382,13 @@ class SchedulesController extends ChangeNotifier {
   ({String id, String? profile})? _openRequest;
 
   void requestOpen(String id, {String? profile}) {
+    if (!_canWork) return;
     _openRequest = (id: id, profile: profile);
     notifyListeners();
   }
 
   ({String id, String? profile})? takeOpenRequest() {
+    if (!_canWork) return null;
     final request = _openRequest;
     _openRequest = null;
     return request;
@@ -296,15 +396,24 @@ class SchedulesController extends ChangeNotifier {
 
   /// The job [id] of [profile], from the list or, when it is not on it, from
   /// the server. Null when the server no longer has it.
+  /// Rejects with [StateError] when activity is suspended or retired.
   Future<CronJob?> findJob(String id, {String? profile}) async {
+    final epoch = _activityEpoch;
+    _requireCurrent(epoch);
     final known = _jobs
         .where((j) => j.id == id && (profile == null || j.profile == profile))
         .firstOrNull;
     if (known != null) return known;
     try {
-      return await repository.getJob(id, profile: profile);
+      final job = await repository.getJob(id, profile: profile);
+      _requireCurrent(epoch);
+      return job;
     } on CronException catch (e) {
+      _requireCurrent(epoch);
       if (e.isNotFound) return null;
+      rethrow;
+    } on Object {
+      _requireCurrent(epoch);
       rethrow;
     }
   }
@@ -313,6 +422,8 @@ class SchedulesController extends ChangeNotifier {
   /// A job in another profile than the one listed widens the list to every
   /// profile, or it would seem to have vanished.
   void jobSaved(CronJob job) {
+    final epoch = _activityEpoch;
+    if (!_currentActivity(epoch)) return;
     _selectedKey = job.key;
     if (_jobs.any((j) => j.key == job.key)) {
       _replace(job);
@@ -320,6 +431,7 @@ class SchedulesController extends ChangeNotifier {
       _jobs = [..._jobs, job];
       notifyListeners();
     }
+    if (!_currentActivity(epoch)) return;
     final elsewhere =
         !_allProfiles &&
         _activeProfile != null &&
@@ -332,8 +444,24 @@ class SchedulesController extends ChangeNotifier {
     }
   }
 
-  Future<List<CronRun>> loadRuns(CronJob job, {int limit = 20}) =>
-      repository.listRuns(job.id, profile: job.profile, limit: limit);
+  /// Reads [job]'s run history, rejecting with [StateError] while suspended
+  /// or when activity retires the result.
+  Future<List<CronRun>> loadRuns(CronJob job, {int limit = 20}) async {
+    final epoch = _activityEpoch;
+    _requireCurrent(epoch);
+    try {
+      final runs = await repository.listRuns(
+        job.id,
+        profile: job.profile,
+        limit: limit,
+      );
+      _requireCurrent(epoch);
+      return runs;
+    } on Object {
+      _requireCurrent(epoch);
+      rethrow;
+    }
+  }
 
   void _replace(CronJob job) {
     _jobs = [for (final j in _jobs) j.key == job.key ? job : j];
@@ -351,7 +479,9 @@ class SchedulesController extends ChangeNotifier {
 
   /// Forgets what was loaded, for when the destination goes away.
   void reset() {
+    _activityEpoch++;
     _generation++;
+    _started = false;
     _jobs = const [];
     _loaded = false;
     _loading = false;
@@ -372,6 +502,8 @@ class SchedulesController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _activityEpoch++;
+    activity?.removeListener(_activityChanged);
     _timer?.cancel();
     super.dispose();
   }

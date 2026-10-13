@@ -8,6 +8,7 @@ import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'adaptive_back_button.dart';
+import '../navigation/desktop_navigation_history.dart';
 import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'named_icon_button.dart';
@@ -219,7 +220,15 @@ class SettingsScaffold extends StatelessWidget {
     final tabs = this.tabs;
     final search = this.search;
     final canPop = Navigator.canPop(context);
-    void back() => Navigator.maybePop(context);
+    void back() {
+      final history = DesktopNavigationHistoryScope.maybeOf(context);
+      if (history == null) {
+        Navigator.maybePop(context);
+      } else {
+        history.back();
+      }
+    }
+
     // With a dialog or sheet over the page, ⌘[ would close that instead.
     final inFront = ModalRoute.of(context)?.isCurrent ?? true;
     return MacCommandScope(

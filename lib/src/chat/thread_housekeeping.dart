@@ -21,6 +21,7 @@ class ThreadHousekeeping {
     required this.report,
     required this.removed,
     required this.history,
+    this.canWork,
   });
 
   final HermesChatRepository repository;
@@ -31,6 +32,7 @@ class ThreadHousekeeping {
   final String? Function() profile;
   final VoidCallback changed;
   final ValueChanged<String> report;
+  final bool Function()? canWork;
 
   /// A thread left the list because it was archived or deleted.
   final ValueChanged<ChatThread> removed;
@@ -43,6 +45,18 @@ class ThreadHousekeeping {
     bool Function()? cancelled,
   })
   history;
+
+  bool _active = true;
+  bool get _workAllowed => _active && (canWork?.call() ?? true);
+
+  /// Pauses protected work while retaining local state for recovery.
+  void setActivity(bool active) {
+    if (_active == active) return;
+    _active = active;
+    _generation++;
+    _busy.clear();
+    _loadingMore = false;
+  }
 
   final _busy = <String>{};
   int _nextOffset = 0;
@@ -65,16 +79,17 @@ class ThreadHousekeeping {
   }
 
   Future<void> loadMore() async {
-    if (!_hasMore || _loadingMore) return;
+    if (!_workAllowed || !_hasMore || _loadingMore) return;
     final generation = _generation;
     _loadingMore = true;
     changed();
     try {
+      if (!_workAllowed || generation != _generation) return;
       final page = await repository.loadThreadPage(
         offset: _nextOffset,
         profile: profile(),
       );
-      if (generation != _generation) return;
+      if (!_workAllowed || generation != _generation) return;
       final list = threads();
       final known = {for (final thread in list) thread.id};
       _nextOffset = page.nextOffset;
@@ -89,7 +104,7 @@ class ThreadHousekeeping {
         ]),
       );
     } on Object catch (error) {
-      if (generation != _generation) return;
+      if (!_workAllowed || generation != _generation) return;
       report(_failure('Could not load more chats', error));
     }
     _loadingMore = false;
@@ -97,29 +112,33 @@ class ThreadHousekeeping {
   }
 
   Future<void> rename(ChatThread thread, String title) async {
+    if (!_workAllowed) return;
     if (thread.isCanonicalBotChat) {
       report(
         'Bot Chat keeps its canonical title. Edit the bot name in the roster.',
       );
       return;
     }
-    await _guarded(thread, (profile) async {
+    await _guarded(thread, (profile, current) async {
       final previous = (title: thread.title, named: thread.named);
       thread
         ..title = title
         ..named = title.trim().isNotEmpty;
       changed();
+      if (!current()) return;
       try {
         final stored = await repository.renameThread(
           thread.id,
           title,
           profile: profile,
         );
+        if (!current()) return;
         // An empty title clears the name; what shows then is not one.
         thread
           ..title = stored
           ..named = stored.trim().isNotEmpty;
       } on Object catch (error) {
+        if (!current()) return;
         thread
           ..title = previous.title
           ..named = previous.named;
@@ -129,13 +148,15 @@ class ThreadHousekeeping {
   }
 
   Future<void> setPinned(ChatThread thread, bool pinned) =>
-      _guarded(thread, (profile) async {
+      _guarded(thread, (profile, current) async {
         thread.pinned = pinned;
         _sort();
         changed();
+        if (!current()) return;
         try {
           await repository.setPinned(thread.id, pinned, profile: profile);
         } on Object catch (error) {
+          if (!current()) return;
           thread.pinned = !pinned;
           _sort();
           report(
@@ -151,6 +172,7 @@ class ThreadHousekeeping {
     ChatThread thread, {
     bool retireCanonical = false,
   }) async {
+    if (!_workAllowed) return;
     if (thread.isCanonicalBotChat && !retireCanonical) {
       report('Use Retire Bot Chat in chat actions to confirm retirement.');
       return;
@@ -172,14 +194,15 @@ class ThreadHousekeeping {
     ChatThread thread,
     Future<void> Function(String? profile) call,
     String failure,
-  ) => _guarded(thread, (profile) async {
+  ) => _guarded(thread, (profile, current) async {
     try {
       await call(profile);
     } on Object catch (error) {
+      if (!current()) return;
       report(_failure(failure, error));
       return;
     }
-    forget(thread);
+    if (current()) forget(thread);
   });
 
   /// Takes on what the dashboard now holds for [thread]: its title, pin and
@@ -205,16 +228,18 @@ class ThreadHousekeeping {
   /// starts, then tells the screen.
   Future<void> _guarded(
     ChatThread thread,
-    Future<void> Function(String? profile) action,
+    Future<void> Function(String? profile, bool Function() current) action,
   ) async {
+    if (!_workAllowed) return;
     final generation = _generation;
+    bool current() => _workAllowed && generation == _generation;
     if (!_busy.add(thread.id)) return;
     try {
-      await action(profile());
+      await action(profile(), current);
     } finally {
       if (generation == _generation) _busy.remove(thread.id);
     }
-    changed();
+    if (current()) changed();
   }
 
   void _sort() {

@@ -42,7 +42,14 @@ void main() {
         child: MacCommandScope.root(
           registry: registry,
           child: MacCommandScope(
+            priority: 1,
             commands: {
+              MacCommand.back: MacCommandHandler(
+                () => mainCommands.add('back'),
+              ),
+              MacCommand.forward: MacCommandHandler(
+                () => mainCommands.add('forward'),
+              ),
               MacCommand.closeWindow: MacCommandHandler(
                 () => mainCommands.add('close'),
               ),
@@ -145,5 +152,17 @@ void main() {
     await focus(tester, 'w0');
 
     expect(registry.handlerFor(MacCommand.openInNewWindow)?.enabled, isFalse);
+  });
+  testWidgets('key conversation disables root Back and Forward', (
+    tester,
+  ) async {
+    await pump(tester);
+    expect(registry.invoke(MacCommand.forward), isTrue);
+    mainCommands.clear();
+    await windows.open('s1', profile: null, title: 'A');
+    await focus(tester, 'w0');
+    expect(registry.invoke(MacCommand.back), isFalse);
+    expect(registry.invoke(MacCommand.forward), isFalse);
+    expect(mainCommands, isEmpty);
   });
 }
