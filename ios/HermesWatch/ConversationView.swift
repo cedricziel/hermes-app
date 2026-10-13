@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ConversationView: View {
+  @Environment(\.dismiss) private var dismiss
   @State var model: ConversationModel
   /// The chat's title; nil for a new chat.
   var title: String?
@@ -31,10 +32,13 @@ struct ConversationView: View {
             WorkingRow(text: waiting == .question ? "Hermes has a question" : "Waiting for your approval")
             Button("Stop waiting") { model.stopWaiting() }
           }
-          if case .failed(let error) = model.phase {
+          if model.phase == .failed(.contextChanged) {
+            Text(HermesClientError.contextChanged.message)
+            Button("Open chat list") { dismiss() }
+          } else if case .failed(let error) = model.phase {
             ErrorView(error: error) { Task { await retry() } }
           }
-          if model.phase != .failed(.signedOut) { composer.id("composer") }
+          if model.phase != .failed(.signedOut), model.phase != .failed(.contextChanged) { composer.id("composer") }
         }
       }
       .onChange(of: model.messages.count) {
@@ -49,9 +53,9 @@ struct ConversationView: View {
     }
     .onDisappear { recorder.cancel() }
     .onChange(of: model.phase) { _, phase in
-      if phase == .failed(.signedOut) { draft = ""; recorder.cancel() }
+      if phase == .failed(.signedOut) || phase == .failed(.contextChanged) { draft = ""; recorder.cancel() }
     }
-    .advertisesHandoff(WatchSessionState.shared.usable ? model.handoff : nil)
+    .advertisesHandoff(model.threadId.map { WatchSessionState.shared.owns($0) } == true ? model.handoff : nil)
     .onChange(of: recorder.state) { _, state in
       if state == .finished { Task { await submitRecording() } }
     }

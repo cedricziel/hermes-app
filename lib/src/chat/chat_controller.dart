@@ -99,7 +99,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.breadcrumbs = Breadcrumbs.none,
     this.replayGrace = const Duration(seconds: 20),
     DateTime Function()? now,
-  }) : _clock = now ?? DateTime.now {
+  }) : _clock = now ?? DateTime.now,
+       _watchSource = watchStatus?.source() {
     final repository = this.repository;
     if (repository == null) {
       _threads = buildMockThreads();
@@ -231,6 +232,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Tells the watch's complications what a reply sent here is doing; null
   /// where there is no watch.
   final WatchComplicationStatus? watchStatus;
+  final WatchComplicationSource? _watchSource;
 
   /// The chats whose reply was running when the app left, for a background
   /// run to announce; null where there are no background runs.
@@ -1244,7 +1246,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _settleTimers.remove(thread)?.cancel();
     _refetch.remove(thread);
     liveActivities?.endChat(thread.id, _profile);
-    watchStatus?.drop(thread);
+    _watchSource?.drop(thread);
     _announcedTurns.remove(thread);
     _carried.remove((_profile, thread.id));
     _rememberedSince.remove((_profile, thread.id));
@@ -2107,7 +2109,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _sending.update(thread, (n) => n + 1, ifAbsent: () => 1);
     liveActivities?.begin(thread, profile: profile);
     _announcedTurns.add(thread);
-    watchStatus?.begin(
+    _watchSource?.begin(
       thread,
       title: _watchTitle(thread),
       threadId: _watchThreadId(thread, profile),
@@ -2280,7 +2282,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Lock Screen and the watch show of it.
   void _abandon(ChatThread thread) {
     liveActivities?.abandon(thread);
-    watchStatus?.abandon(thread);
+    _watchSource?.abandon(thread);
   }
 
   void _stopFollowing() {
@@ -2575,7 +2577,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (event is ReplyCompleted) _replyEnded(thread, profile);
       _announcedTurns.add(thread);
       liveActivities?.onEvent(thread, event);
-      watchStatus?.onEvent(
+      _watchSource?.onEvent(
         thread,
         event,
         title: _watchTitle(thread),
@@ -3046,7 +3048,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           thread,
           const ReplyCompleted('', stopped: true),
         );
-        watchStatus?.drop(thread);
+        _watchSource?.drop(thread);
         return;
       }
       // Nothing was running: the turn ended on its own. Only the stop that

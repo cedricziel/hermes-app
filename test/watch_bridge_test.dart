@@ -9,6 +9,7 @@ import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/voice/on_device_speech.dart';
 import 'package:hermes_app/src/watch/watch_bridge.dart';
 import 'package:hermes_app/src/watch/watch_request_handler.dart';
+import 'package:hermes_app/src/watch/watch_context.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -32,12 +33,24 @@ void main() {
       TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
           .handlePlatformMessage(
             WatchBridge.channelName,
-            codec.encodeMethodCall(MethodCall(method, arguments)),
+            codec.encodeMethodCall(
+              MethodCall(
+                method,
+                arguments is Map
+                    ? {...arguments, "contextId": "test-context", "revision": 1}
+                    : arguments,
+              ),
+            ),
             reply.complete,
           ),
     );
     final data = await reply.future;
-    return data == null ? null : codec.decodeEnvelope(data);
+    final decoded = data == null ? null : codec.decodeEnvelope(data);
+    return decoded is Map
+        ? ({...decoded}
+            ..remove("contextId")
+            ..remove("revision"))
+        : decoded;
   }
 
   setUp(() {
@@ -47,6 +60,7 @@ void main() {
       events: events.call,
       authState: () => 'ready',
       handler: WatchRequestHandler(
+        context: () => const WatchContext("test-context", 1),
         repository: () => HermesChatRepository(server.client().raw),
         transport: () => FakeChatTransport(),
         activeProfile: () async => null,
@@ -71,7 +85,10 @@ void main() {
 
       expect(result['ok'], isTrue);
       final threads = result['threads'] as List<Object?>;
-      expect((threads.single as Map<Object?, Object?>)['id'], '/s1');
+      expect(
+        (threads.single as Map<Object?, Object?>)['id'],
+        WatchThreadId('test-context', null, 's1').encode(),
+      );
     },
   );
 
@@ -141,6 +158,7 @@ void main() {
       events: events.call,
       authState: () => 'needsLogin',
       handler: WatchRequestHandler(
+        context: () => const WatchContext("test-context", 1),
         repository: () => null,
         transport: () => null,
         activeProfile: () async => null,
@@ -183,6 +201,7 @@ void main() {
       events: (name, [attributes = const {}]) =>
           throw StateError('logger failed'),
       handler: WatchRequestHandler(
+        context: () => const WatchContext("test-context", 1),
         repository: () => null,
         transport: () => null,
         activeProfile: () async => null,

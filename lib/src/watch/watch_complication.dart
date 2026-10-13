@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../chat/chat_transport.dart';
 import '../live_activities/live_activity_state.dart';
 import '../telemetry/breadcrumbs.dart';
+import 'watch_context.dart';
 
 /// Hands [payload] to the watch and answers how it went: `complication` (a
 /// budgeted transfer that wakes the watch app), `context` (the latest-wins
@@ -63,6 +64,7 @@ class WatchComplicationStatus {
   );
 
   final ComplicationSender send;
+  WatchContext? Function()? context;
 
   /// Whether App Lock is on: the status then holds the state alone.
   final bool Function() appLock;
@@ -78,6 +80,18 @@ class WatchComplicationStatus {
   static const _version = 1;
 
   final _turns = <Object, _Turn>{};
+  var _sourceGeneration = 0;
+
+  /// Captures ownership for a producer that can deliver delayed events.
+  WatchComplicationSource source() =>
+      WatchComplicationSource._(this, _sourceGeneration, context?.call());
+
+  /// Retires existing producers before another owner can publish.
+  void invalidateOwner() => clear();
+
+  bool _owns(WatchContext? origin) => context == null
+      ? origin == null
+      : origin != null && context?.call()?.id == origin.id;
 
   /// What was last handed to [send], without its sequence number.
   Map<String, Object>? _last;
@@ -94,9 +108,11 @@ class WatchComplicationStatus {
     String? threadId,
     bool fromWatch = false,
   }) {
+    final origin = context?.call();
+    if (!_owns(origin)) return;
     final current = _turns[turn];
     if (current != null && !current.state.finished) return;
-    _turns[turn] = _Turn(ReplyActivityState.working, _now(), fromWatch)
+    _turns[turn] = _Turn(ReplyActivityState.working, _now(), fromWatch, origin)
       ..title = title
       ..threadId = threadId;
     _supersede(turn);
@@ -126,6 +142,8 @@ class WatchComplicationStatus {
     bool fromWatch = false,
   }) {
     var current = _turns[turn];
+    final origin = current?.origin ?? context?.call();
+    if (!_owns(origin)) return;
     var started = false;
     if (current == null || current.state.finished) {
       if (opensTurn(event) || _asks(event)) {
@@ -133,6 +151,7 @@ class WatchComplicationStatus {
           ReplyActivityState.working,
           _now(),
           fromWatch,
+          origin,
         );
         started = true;
       } else if (current == null) {
@@ -177,6 +196,7 @@ class WatchComplicationStatus {
   /// watch may still hold a status from an earlier run, so it is sent whether
   /// or not this run showed anything.
   void clear() {
+    _sourceGeneration++;
     _turns.clear();
     _publish(force: true);
   }
@@ -188,9 +208,37 @@ class WatchComplicationStatus {
   _Turn? _shown() {
     _Turn? best;
     for (final turn in _turns.values) {
+      if (!_owns(turn.origin)) continue;
       if (best == null || turn._outranks(best)) best = turn;
     }
     return best;
+  }
+
+  String? _scopedThread(String id, WatchContext? scope) {
+    if (context == null) {
+      return id;
+    }
+    if (scope == null) {
+      return null;
+    }
+    final existing = WatchThreadId.decode(id);
+    if (existing != null) {
+      return existing.contextId == scope.id ? id : null;
+    }
+    final slash = id.indexOf('/');
+    if (slash < 0 || slash == id.length - 1) {
+      return null;
+    }
+    try {
+      final profile = Uri.decodeComponent(id.substring(0, slash));
+      return WatchThreadId(
+        scope.id,
+        profile.isEmpty ? null : profile,
+        id.substring(slash + 1),
+      ).encode();
+    } on Object {
+      return null;
+    }
   }
 
   void _publish({bool force = false}) {
@@ -199,12 +247,15 @@ class WatchComplicationStatus {
     final shown = _shown();
     final payload = <String, Object>{
       'v': _version,
+      if (context?.call() case final scope?) ...scope.fields,
       'state': shown == null ? 'none' : shown.wireState,
       if (shown != null) ...{
         'updatedAt': shown.updatedAt.millisecondsSinceEpoch ~/ 1000,
-        if (!appLock()) ...{
+        if (!appLock() && (context == null || context?.call() != null)) ...{
           if (shown.title != null) 'title': shown.title!,
-          if (shown.threadId != null) 'threadId': shown.threadId!,
+          if (shown.threadId != null &&
+              _scopedThread(shown.threadId!, shown.origin) != null)
+            'threadId': _scopedThread(shown.threadId!, shown.origin)!,
         },
       },
     };
@@ -282,8 +333,61 @@ class WatchComplicationStatus {
   }
 }
 
+/// A producer whose callbacks stop when its original owner departs.
+class WatchComplicationSource {
+  WatchComplicationSource._(this._status, this._generation, this._origin);
+  final WatchComplicationStatus _status;
+  final int _generation;
+  WatchContext? _origin;
+
+  bool get _current {
+    if (_generation != _status._sourceGeneration) return false;
+    final current = _status.context?.call();
+    if (_status.context != null && current == null) return false;
+    _origin ??= current;
+    return _status._owns(_origin);
+  }
+
+  void begin(
+    Object turn, {
+    required String? title,
+    String? threadId,
+    bool fromWatch = false,
+  }) {
+    if (!_current) return;
+    _status.begin(turn, title: title, threadId: threadId, fromWatch: fromWatch);
+  }
+
+  void onEvent(
+    Object turn,
+    ChatEvent event, {
+    required String? title,
+    String? threadId,
+    bool fromWatch = false,
+  }) {
+    if (!_current) return;
+    _status.onEvent(
+      turn,
+      event,
+      title: title,
+      threadId: threadId,
+      fromWatch: fromWatch,
+    );
+  }
+
+  void drop(Object turn) {
+    if (_current) _status.drop(turn);
+  }
+
+  void abandon(Object turn) {
+    if (_current) _status.abandon(turn);
+  }
+}
+
 class _Turn {
-  _Turn(this.state, this.updatedAt, this.fromWatch);
+  _Turn(this.state, this.updatedAt, this.fromWatch, this.origin);
+
+  final WatchContext? origin;
 
   ReplyActivityState state;
   DateTime updatedAt;
@@ -309,7 +413,9 @@ class _Turn {
   };
 
   bool _outranks(_Turn other) {
-    if (waiting != other.waiting) return waiting;
+    if (waiting != other.waiting) {
+      return waiting;
+    }
     return !updatedAt.isBefore(other.updatedAt);
   }
 }

@@ -19,6 +19,7 @@ import '../profiles/hermes_profiles_repository.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import 'watch_complication.dart';
+import 'watch_context.dart';
 import 'watch_request_handler.dart';
 
 /// The Dart end of the watch relay. The iOS runner receives what the watch
@@ -31,7 +32,8 @@ class WatchBridge {
     this._events = noopAppEventLogger,
     this._authState = _unknownAuthState,
     this._auth,
-  });
+    WatchContextStore? contextStore,
+  }) : _contextStore = contextStore ?? WatchContextStore();
 
   static const channelName = 'app.hermes/watch';
 
@@ -42,6 +44,9 @@ class WatchBridge {
   final AuthController? _auth;
   StreamSubscription<void>? _departure;
   Future<void> _publication = Future.value();
+  final WatchContextStore _contextStore;
+  int? _observedOwnerGeneration;
+  int? _publishedOwnerGeneration;
   bool? _publishedUsable;
   bool? _desiredUsable;
   bool? _queuedUsable;
@@ -54,7 +59,8 @@ class WatchBridge {
       !_publicationFailed &&
       !_departurePending &&
       _pendingPublications == 0 &&
-      _desiredUsable == _publishedUsable;
+      _desiredUsable == _publishedUsable &&
+      _observedOwnerGeneration == _publishedOwnerGeneration;
   int _generation = 0;
 
   void _sessionChanged() {
@@ -63,14 +69,34 @@ class WatchBridge {
     final usable =
         auth.state == HermesConnectionState.ready &&
         auth.protectedRequestsAllowed;
-    if (!usable && authConnecting(auth) && !auth.sessionExpired) return;
-    if (_desiredUsable != usable) {
+    final departed =
+        _observedOwnerGeneration != null &&
+        _observedOwnerGeneration != auth.ownerGeneration;
+    if (!usable && authConnecting(auth) && !auth.sessionExpired && !departed) {
+      return;
+    }
+    _observedOwnerGeneration = auth.ownerGeneration;
+    if (_desiredUsable != usable || departed) {
       _desiredUsable = usable;
-      if (!usable) {
+      if (!usable || departed) {
         _generation++;
         _departurePending = true;
         _departureReason = auth.sessionExpired ? 'expired' : 'signed_out';
         _handler.invalidateSession();
+        _handler.complication?.invalidateOwner();
+        final retirement = _contextStore.resolve(
+          owner: null,
+          ungatedServer: null,
+          revision: _contextStore.revision,
+          departed: true,
+        );
+        _publication = _publication
+            .then((_) async {
+              await retirement;
+            })
+            .catchError((Object _) {
+              _publicationFailed = true;
+            });
       }
     }
     if (_publicationSecured || _queuedUsable == usable) return;
@@ -92,15 +118,43 @@ class WatchBridge {
 
   Future<bool> _publishSession(bool usable, String reason) async {
     try {
+      final auth = _auth;
+      final ownerGeneration = auth?.ownerGeneration;
+      if (usable &&
+          (auth == null ||
+              auth.state != HermesConnectionState.ready ||
+              !auth.protectedRequestsAllowed))
+        return false;
+      final context = usable
+          ? await _contextStore.resolve(
+              owner: auth?.verifiedOwner,
+              ungatedServer: auth?.status?.authRequired == false
+                  ? auth?.baseUrl
+                  : null,
+              revision: _contextStore.revision,
+            )
+          : null;
+      if (usable && context == null) {
+        throw StateError('Verified context unavailable');
+      }
       final response = await _channel.invokeMethod<Object?>(
         'publishSessionState',
-        {'usable': usable},
+        {
+          'usable': usable,
+          'revision': _contextStore.revision,
+          'protocolVersion': 2,
+          if (context != null) 'contextId': context.id,
+        },
       );
       if (response is! Map ||
           response['revision'] is! int ||
-          response['usable'] != usable) {
+          response['usable'] != usable ||
+          (response['revision'] as int) < _contextStore.revision ||
+          (usable && response['contextId'] != context?.id)) {
         throw StateError('Invalid session publication acknowledgement');
       }
+      await _contextStore.synchronizeRevision(response['revision'] as int);
+      _publishedOwnerGeneration = ownerGeneration;
       _publishedUsable = usable;
       _publicationFailed = false;
       if (!usable) {
@@ -142,12 +196,16 @@ class WatchBridge {
     AppEventLogger events = noopAppEventLogger,
   }) {
     if (!Platform.isIOS) return null;
+    final contextStore = WatchContextStore();
+    complication?.context = () => contextStore.current;
     return WatchBridge(
+      contextStore: contextStore,
       events: events,
       auth: auth,
       authState: () => auth.state.name,
       handler: handlerFor(
         auth,
+        contextStore: contextStore,
         announce: announcer(notifications, settings),
         appLock: () => appLockHidesRequests(appLock),
         transcribeOnDevice: onDeviceTranscriber(speech, dictation),
@@ -206,6 +264,7 @@ class WatchBridge {
     WatchComplicationStatus? complication,
     AppEventLogger events = noopAppEventLogger,
     Duration readyTimeout = const Duration(seconds: 20),
+    WatchContextStore? contextStore,
   }) {
     // The client exists from the first connect, before anyone has signed in.
     HermesApiClient? readyApi() =>
@@ -214,7 +273,18 @@ class WatchBridge {
         ? auth.api
         : null;
 
+    final contexts = contextStore ?? WatchContextStore();
     return WatchRequestHandler(
+      context: () => contexts.current,
+      prepareContext: () async {
+        await contexts.resolve(
+          owner: auth.verifiedOwner,
+          ungatedServer: auth.status?.authRequired == false
+              ? auth.baseUrl
+              : null,
+          revision: contexts.revision,
+        );
+      },
       announce: announce,
       appLock: appLock,
       transcribeOnDevice: transcribeOnDevice,
@@ -257,7 +327,11 @@ class WatchBridge {
   }
 
   static String _operation(Object? op) => switch (op) {
-    'threads' || 'messages' || 'send' || 'transcribe' => op as String,
+    'session' ||
+    'threads' ||
+    'messages' ||
+    'send' ||
+    'transcribe' => op as String,
     _ => 'unknown',
   };
 
@@ -322,6 +396,12 @@ class WatchBridge {
       reply = {'ok': false, 'error': 'unavailable'};
     }
     // Only telemetry reads it; the watch gets the text alone.
+    if (reply['error'] == 'context_changed') {
+      _record('watch.context.rejected', {
+        'operation': operation,
+        'reason': 'scope_mismatch',
+      });
+    }
     final engine = reply['engine'];
     timer.stop();
     final result = reply['ok'] == true
@@ -330,6 +410,7 @@ class WatchBridge {
             'signed_out' => 'signed_out',
             'unavailable' => 'unavailable',
             'bad_request' => 'bad_request',
+            'context_changed' => 'context_changed',
             _ => 'failed',
           };
     _record('watch.request.completed', {

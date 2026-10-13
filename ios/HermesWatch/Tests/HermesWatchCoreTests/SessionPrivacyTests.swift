@@ -28,7 +28,7 @@ final class SessionPrivacyTests: XCTestCase {
   func testSessionRevisionSurvivesRestartAndRejectsDelayedLogout() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let first = WatchSessionState(defaults: defaults)
-    first.receive(["watchSession": ["revision": 2, "usable": true]])
+    first.receive(["watchSession": ["revision": 2, "usable": true, "protocolVersion": 2, "contextId": "test-context"]])
     let restarted = WatchSessionState(defaults: defaults)
 
     restarted.receive(["watchSession": ["revision": 1, "usable": false]])
@@ -168,7 +168,7 @@ extension SessionPrivacyTests {
 extension SessionPrivacyTests {
   func testNewerUsableRevisionClearsPrivateStateWhenLogoutDeliveryWasMissed() async {
     let session = WatchSessionState()
-    session.receive(["watchSession": ["revision": 1, "usable": true]])
+    session.receive(["watchSession": ["revision": 1, "usable": true, "protocolVersion": 2, "contextId": "test-context"]])
     let cache = MemoryChatCache()
     let inner = FakeClient()
     inner.messagesResult = .success([ChatMessage(id: "m", role: .assistant, content: "Private", at: .distantPast)])
@@ -177,7 +177,7 @@ extension SessionPrivacyTests {
     await conversation.load()
     let generation = session.generation
 
-    session.receive(["watchSession": ["revision": 3, "usable": true]])
+    session.receive(["watchSession": ["revision": 3, "usable": true, "protocolVersion": 2, "contextId": "test-context"]])
     session.receive(["watchSession": ["revision": 2, "usable": false]])
 
     XCTAssertTrue(session.usable)
@@ -198,7 +198,7 @@ extension SessionPrivacyTests {
     let conversation = ConversationModel(client: inner, threadId: "p/s", session: session)
     XCTAssertTrue(conversation.permitsOriginalTitle)
     session.invalidate()
-    session.receive(["watchSession": ["revision": 1, "usable": true]])
+    session.receive(["watchSession": ["revision": 1, "usable": true, "protocolVersion": 2, "contextId": "test-context"]])
     inner.sendResult = .success(SendResult(threadId: "p/s", text: "New session", failed: false))
 
     await conversation.send("New message")

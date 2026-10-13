@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/watch/watch_complication.dart';
 import 'package:hermes_app/src/watch/watch_request_handler.dart';
+import 'package:hermes_app/src/watch/watch_context.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
@@ -42,6 +43,7 @@ void main() {
     posted = true;
     appLocked = false;
     handler = WatchRequestHandler(
+      context: () => const WatchContext("test-context", 1),
       repository: () =>
           signedOut ? null : HermesChatRepository(server.client().raw),
       transport: () => signedOut ? null : transport,
@@ -54,17 +56,20 @@ void main() {
 
   test('never returns remembered private replies after sign out', () async {
     final request = {'op': 'send', 'sendId': 'send1', 'text': 'Private'};
-    final pending = handler.handle(request);
+    final pending = scopedHandle(handler, request);
     await pumpEventQueue();
     transport.sends.single.emit(const ReplyCompleted('Private answer'));
     expect((await pending)['ok'], isTrue);
     signedOut = true;
 
-    expect(await handler.handle(request), {'ok': false, 'error': 'signed_out'});
+    expect(await scopedHandle(handler, request), {
+      'ok': false,
+      'error': 'signed_out',
+    });
   });
 
   test('rejects late completion after session departure', () async {
-    final pending = handler.handle({
+    final pending = scopedHandle(handler, {
       'op': 'send',
       'sendId': 'send1',
       'text': 'Private',
@@ -81,7 +86,7 @@ void main() {
   test('answers a signed-out phone with signed_out', () async {
     signedOut = true;
 
-    final reply = await handler.handle({'op': 'threads'});
+    final reply = await scopedHandle(handler, {'op': 'threads'});
 
     expect(reply, {'ok': false, 'error': 'signed_out'});
   });
@@ -92,10 +97,10 @@ void main() {
 
     for (final request in [
       {'op': 'threads'},
-      {'op': 'messages', 'threadId': '/s1'},
+      {'op': 'messages', 'threadId': watchId(null, 's1')},
       {'op': 'send', 'text': 'Hi'},
     ]) {
-      expect(await handler.handle(request), {
+      expect(await scopedHandle(handler, request), {
         'ok': false,
         'error': 'unavailable',
       });
@@ -103,7 +108,7 @@ void main() {
   });
 
   test('leaves threadId out of a reply that has no thread', () async {
-    final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+    final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
     await pumpEventQueue();
     transport.sends.single.emit(
       const UnsupportedRequested(
@@ -119,29 +124,33 @@ void main() {
   });
 
   test('rejects an unknown op and a malformed request', () async {
-    expect(await handler.handle({'op': 'nope'}), {
+    expect(await scopedHandle(handler, {'op': 'nope'}), {
       'ok': false,
       'error': 'bad_request',
     });
-    expect(await handler.handle({'op': 'messages'}), {
+    expect(await scopedHandle(handler, {'op': 'messages'}), {
       'ok': false,
       'error': 'bad_request',
     });
-    expect(await handler.handle({'op': 'send', 'text': '  '}), {
+    expect(await scopedHandle(handler, {'op': 'send', 'text': '  '}), {
       'ok': false,
       'error': 'bad_request',
     });
-    expect(await handler.handle({}), {'ok': false, 'error': 'bad_request'});
+    expect(await scopedHandle(handler, {}), {
+      'ok': false,
+      'error': 'bad_request',
+    });
   });
 
   test('rejects a thread id that carries no profile', () async {
-    for (final threadId in ['s1', '', '/', 'work/', '%zz/s1']) {
-      expect(await handler.handle({'op': 'messages', 'threadId': threadId}), {
-        'ok': false,
-        'error': 'bad_request',
-      }, reason: 'messages with "$threadId"');
+    for (final threadId in ['v2/garbage', '', 'v2/', 'v2/W10']) {
       expect(
-        await handler.handle({
+        await scopedHandle(handler, {'op': 'messages', 'threadId': threadId}),
+        {'ok': false, 'error': 'bad_request'},
+        reason: 'messages with "$threadId"',
+      );
+      expect(
+        await scopedHandle(handler, {
           'op': 'send',
           'threadId': threadId,
           'text': 'Hi',
@@ -175,19 +184,19 @@ void main() {
         ]),
       );
 
-      final reply = await handler.handle({'op': 'threads'});
+      final reply = await scopedHandle(handler, {'op': 'threads'});
 
       expect(reply, {
         'ok': true,
         'threads': [
           {
-            'id': 'work/s1',
+            'id': watchId('work', 's1'),
             'title': 'Groceries',
             'updatedAt': 1780000600,
             'pinned': true,
           },
           {
-            'id': 'work/s2',
+            'id': watchId('work', 's2'),
             'title': 'Plan the trip',
             'updatedAt': 1780000100,
             'pinned': false,
@@ -200,7 +209,7 @@ void main() {
       profile = 'work';
       server.on('GET', '/api/sessions', sessionListBody([]));
 
-      await handler.handle({'op': 'threads'});
+      await scopedHandle(handler, {'op': 'threads'});
 
       final request = server.requestsTo('GET', '/api/sessions').single;
       expect(request.queryParameters['limit'], 20);
@@ -217,7 +226,7 @@ void main() {
         ]),
       );
 
-      final reply = await handler.handle({'op': 'threads'});
+      final reply = await scopedHandle(handler, {'op': 'threads'});
 
       expect(reply['threads'], hasLength(WatchRequestHandler.threadLimit));
     });
@@ -230,24 +239,24 @@ void main() {
       );
 
       profile = 'a/b c';
-      final tied = await handler.handle({'op': 'threads'});
+      final tied = await scopedHandle(handler, {'op': 'threads'});
       profile = null;
-      final untied = await handler.handle({'op': 'threads'});
+      final untied = await scopedHandle(handler, {'op': 'threads'});
 
       expect(
         ((tied['threads'] as List).single as Map<String, Object?>)['id'],
-        'a%2Fb%20c/s1',
+        watchId('a/b c', 's1'),
       );
       expect(
         ((untied['threads'] as List).single as Map<String, Object?>)['id'],
-        '/s1',
+        watchId(null, 's1'),
       );
     });
 
     test('reports a failed request as failed', () async {
       server.on('GET', '/api/sessions', {'detail': 'boom'}, status: 500);
 
-      expect(await handler.handle({'op': 'threads'}), {
+      expect(await scopedHandle(handler, {'op': 'threads'}), {
         'ok': false,
         'error': 'failed',
       });
@@ -269,11 +278,11 @@ void main() {
         profile = 'work';
         serverUrl = 'https://hermes.test';
 
-        final reply = await handler.handle({'op': 'threads'});
+        final reply = await scopedHandle(handler, {'op': 'threads'});
 
         final thread =
             (reply['threads'] as List).single as Map<String, Object?>;
-        expect(thread['id'], 'work/s1');
+        expect(thread['id'], watchId('work', 's1'));
         expect(thread['serverUrl'], 'https://hermes.test');
         expect(thread['profile'], 'work');
         expect(thread['sessionId'], 's1');
@@ -288,7 +297,7 @@ void main() {
         profile = name;
         serverUrl = address;
 
-        final reply = await handler.handle({'op': 'threads'});
+        final reply = await scopedHandle(handler, {'op': 'threads'});
 
         final thread =
             (reply['threads'] as List).single as Map<String, Object?>;
@@ -316,9 +325,9 @@ void main() {
         ]),
       );
 
-      final reply = await handler.handle({
+      final reply = await scopedHandle(handler, {
         'op': 'messages',
-        'threadId': 'work/s1',
+        'threadId': watchId('work', 's1'),
       });
 
       expect(reply, {
@@ -368,7 +377,10 @@ void main() {
         ]),
       );
 
-      final reply = await handler.handle({'op': 'messages', 'threadId': '/s1'});
+      final reply = await scopedHandle(handler, {
+        'op': 'messages',
+        'threadId': watchId(null, 's1'),
+      });
 
       final messages = (reply['messages']! as List).cast<Map>();
       expect(
@@ -404,7 +416,10 @@ void main() {
         ]),
       );
 
-      final reply = await handler.handle({'op': 'messages', 'threadId': '/s1'});
+      final reply = await scopedHandle(handler, {
+        'op': 'messages',
+        'threadId': watchId(null, 's1'),
+      });
 
       final messages = (reply['messages']! as List).cast<Map>();
       expect(
@@ -433,7 +448,10 @@ void main() {
         ]),
       );
 
-      final reply = await handler.handle({'op': 'messages', 'threadId': '/s1'});
+      final reply = await scopedHandle(handler, {
+        'op': 'messages',
+        'threadId': watchId(null, 's1'),
+      });
 
       final messages = (reply['messages']! as List).cast<Map>();
       expect(messages, hasLength(20));
@@ -451,9 +469,9 @@ void main() {
         messageListBody('s1', [messageRow(id: 1, role: 'user', content: 'Hi')]),
       );
 
-      final reply = await handler.handle({
+      final reply = await scopedHandle(handler, {
         'op': 'messages',
-        'threadId': 'home/s1',
+        'threadId': watchId('home', 's1'),
       });
 
       expect(reply['ok'], isTrue);
@@ -471,7 +489,10 @@ void main() {
         messageListBody('s1', [messageRow(id: 1, role: 'user', content: 'Hi')]),
       );
 
-      await handler.handle({'op': 'messages', 'threadId': '/s1'});
+      await scopedHandle(handler, {
+        'op': 'messages',
+        'threadId': watchId(null, 's1'),
+      });
 
       final request = server
           .requestsTo('GET', '/api/sessions/s1/messages')
@@ -490,7 +511,7 @@ void main() {
         'transcript': 'Remind me to call Sam',
       });
 
-      final reply = await handler.handle({
+      final reply = await scopedHandle(handler, {
         'op': 'transcribe',
         'audio': audio,
         'mimeType': 'audio/mp4',
@@ -515,7 +536,7 @@ void main() {
         'transcript': 'Hi',
       });
 
-      await handler.handle({
+      await scopedHandle(handler, {
         'op': 'transcribe',
         'audio': audio,
         'mimeType': 'audio/mp4',
@@ -534,7 +555,7 @@ void main() {
         'transcript': '',
       });
 
-      final reply = await handler.handle({
+      final reply = await scopedHandle(handler, {
         'op': 'transcribe',
         'audio': audio,
         'mimeType': 'audio/mp4',
@@ -544,7 +565,7 @@ void main() {
     });
 
     test('refuses a request without audio', () async {
-      final reply = await handler.handle({'op': 'transcribe'});
+      final reply = await scopedHandle(handler, {'op': 'transcribe'});
 
       expect(reply, {'ok': false, 'error': 'bad_request'});
       expect(server.requests, isEmpty);
@@ -553,7 +574,7 @@ void main() {
     test('answers a signed-out phone with signed_out', () async {
       signedOut = true;
 
-      final reply = await handler.handle({
+      final reply = await scopedHandle(handler, {
         'op': 'transcribe',
         'audio': audio,
         'mimeType': 'audio/mp4',
@@ -567,7 +588,7 @@ void main() {
         'detail': 'No STT provider',
       }, status: 400);
 
-      final reply = await handler.handle({
+      final reply = await scopedHandle(handler, {
         'op': 'transcribe',
         'audio': audio,
         'mimeType': 'audio/mp4',
@@ -584,6 +605,7 @@ void main() {
         heard = [];
         answer = () async => 'Remind me to call Sam';
         handler = WatchRequestHandler(
+          context: () => const WatchContext("test-context", 1),
           repository: () =>
               signedOut ? null : HermesChatRepository(server.client().raw),
           transport: () => transport,
@@ -595,7 +617,7 @@ void main() {
         );
       });
 
-      Future<Map<String, Object?>> transcribe() => handler.handle({
+      Future<Map<String, Object?>> transcribe() => scopedHandle(handler, {
         'op': 'transcribe',
         'audio': audio,
         'mimeType': 'audio/mp4',
@@ -655,13 +677,13 @@ void main() {
 
   group('send retried with the same id', () {
     test('joins the send still running instead of sending again', () async {
-      final first = handler.handle({
+      final first = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
       });
       await pumpEventQueue();
-      final retry = handler.handle({
+      final retry = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -674,7 +696,7 @@ void main() {
 
       final expected = {
         'ok': true,
-        'threadId': '/new-1',
+        'threadId': watchId(null, 'new-1'),
         'text': 'Hi there',
         'failed': false,
       };
@@ -684,7 +706,7 @@ void main() {
     });
 
     test('answers again with a reply the watch never got', () async {
-      final first = handler.handle({
+      final first = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -696,7 +718,7 @@ void main() {
         ..finish();
       await first;
 
-      final retry = await handler.handle({
+      final retry = await scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -716,7 +738,7 @@ void main() {
           messageRow(id: 2, role: 'assistant', content: 'Hi there'),
         ]),
       );
-      final first = handler.handle({
+      final first = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -727,7 +749,7 @@ void main() {
         ..fail();
       expect(await first, {'ok': false, 'error': 'failed'});
 
-      final retry = await handler.handle({
+      final retry = await scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -735,7 +757,7 @@ void main() {
 
       expect(retry, {
         'ok': true,
-        'threadId': '/new-1',
+        'threadId': watchId(null, 'new-1'),
         'text': 'Hi there',
         'failed': false,
       });
@@ -751,7 +773,7 @@ void main() {
           messageRow(id: 1, role: 'user', content: 'Hello'),
         ]),
       );
-      final first = handler.handle({
+      final first = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -762,19 +784,19 @@ void main() {
         ..fail();
       await first;
 
-      final retry = await handler.handle({
+      final retry = await scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
       });
 
       expect(retry['text'], WatchRequestHandler.stillReplyingText);
-      expect(retry['threadId'], '/new-1');
+      expect(retry['threadId'], watchId(null, 'new-1'));
       expect(transport.sends, hasLength(1));
     });
 
     test('sends again when the first try never reached Hermes', () async {
-      final first = handler.handle({
+      final first = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -783,7 +805,7 @@ void main() {
       transport.sends.single.fail();
       expect(await first, {'ok': false, 'error': 'failed'});
 
-      final retry = handler.handle({
+      final retry = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -800,7 +822,7 @@ void main() {
 
     test('sends a message with another id again', () async {
       for (final id in ['a', 'b']) {
-        final pending = handler.handle({
+        final pending = scopedHandle(handler, {
           'op': 'send',
           'text': 'Hello',
           'sendId': id,
@@ -819,7 +841,7 @@ void main() {
 
   group('send', () {
     test('starts a thread and returns the final reply', () async {
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();
       final send = transport.sends.single;
       expect(send.threadId, isNull);
@@ -833,7 +855,7 @@ void main() {
 
       expect(await pending, {
         'ok': true,
-        'threadId': '/new-1',
+        'threadId': watchId(null, 'new-1'),
         'text': 'Hi there',
         'failed': false,
       });
@@ -843,7 +865,7 @@ void main() {
     test('names the new chat for Handoff', () async {
       profile = 'work';
       serverUrl = 'https://hermes.test';
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();
       transport.sends.single
         ..emit(const ThreadBound('new-1'))
@@ -852,14 +874,14 @@ void main() {
 
       final reply = await pending;
 
-      expect(reply['threadId'], 'work/new-1');
+      expect(reply['threadId'], watchId('work', 'new-1'));
       expect(reply['serverUrl'], 'https://hermes.test');
       expect(reply['profile'], 'work');
       expect(reply['sessionId'], 'new-1');
     });
 
     test('names the tools the reply used', () async {
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();
       transport.sends.single
         ..emit(const ThreadBound('new-1'))
@@ -873,7 +895,7 @@ void main() {
     });
 
     test('says so when a successful reply has no text', () async {
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();
       transport.sends.single
         ..emit(const ThreadBound('new-1'))
@@ -882,7 +904,7 @@ void main() {
 
       expect(await pending, {
         'ok': true,
-        'threadId': '/new-1',
+        'threadId': watchId(null, 'new-1'),
         'text': WatchRequestHandler.emptyReplyText,
         'failed': false,
       });
@@ -891,7 +913,7 @@ void main() {
     test(
       'falls back to the streamed text when the final text is empty',
       () async {
-        final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+        final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
         await pumpEventQueue();
         transport.sends.single
           ..emit(const ThreadBound('new-1'))
@@ -906,7 +928,7 @@ void main() {
 
     test('starts a thread in the active profile', () async {
       profile = 'work';
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();
       transport.sends.single
         ..emit(const ReplyCompleted('Hi'))
@@ -918,9 +940,9 @@ void main() {
 
     test('replies into an existing thread', () async {
       profile = 'work';
-      final pending = handler.handle({
+      final pending = scopedHandle(handler, {
         'op': 'send',
-        'threadId': 'work/s1',
+        'threadId': watchId('work', 's1'),
         'text': 'More',
       });
       await pumpEventQueue();
@@ -932,16 +954,16 @@ void main() {
 
       expect(transport.sends.single.threadId, 's1');
       expect(transport.sends.single.profile, 'work');
-      expect(reply['threadId'], 'work/s1');
+      expect(reply['threadId'], watchId('work', 's1'));
       expect(reply['text'], 'Done');
     });
 
     test('sends into a thread in the profile it was listed under', () async {
       profile = 'work';
 
-      final pending = handler.handle({
+      final pending = scopedHandle(handler, {
         'op': 'send',
-        'threadId': 'home/s1',
+        'threadId': watchId('home', 's1'),
         'text': 'More',
       });
       await pumpEventQueue();
@@ -951,25 +973,29 @@ void main() {
       final reply = await pending;
 
       expect(transport.sends.single.profile, 'home');
-      expect(reply['threadId'], 'home/s1');
+      expect(reply['threadId'], watchId('home', 's1'));
     });
 
     test('gives up on a reply that never comes', () async {
       handler = WatchRequestHandler(
+        context: () => const WatchContext("test-context", 1),
         repository: () => HermesChatRepository(server.client().raw),
         transport: () => transport,
         activeProfile: () async => profile,
         sendTimeout: const Duration(milliseconds: 20),
       );
 
-      final reply = await handler.handle({'op': 'send', 'text': 'Hello'});
+      final reply = await scopedHandle(handler, {
+        'op': 'send',
+        'text': 'Hello',
+      });
 
       expect(reply, {'ok': false, 'error': 'failed'});
       expect(transport.closed, isTrue);
     });
 
     test('passes a failed turn on with its message', () async {
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();
       transport.sends.single
         ..emit(const ReplyCompleted('Model unavailable', failed: true))
@@ -980,7 +1006,7 @@ void main() {
     });
 
     test('reports a dropped connection as failed', () async {
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();
       transport.sends.single.fail();
 
@@ -989,7 +1015,7 @@ void main() {
     });
 
     test('reports a stream that ends without a reply as failed', () async {
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      final pending = scopedHandle(handler, {'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();
       transport.sends.single.finish();
 
@@ -1002,7 +1028,7 @@ void main() {
       void Function(FakeSend send) play, {
       String? threadId,
     }) async {
-      final pending = handler.handle({
+      final pending = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'threadId': ?threadId,
@@ -1055,7 +1081,7 @@ void main() {
           (s) => s
             ..emit(const ReplyCompleted('Done'))
             ..finish(),
-          threadId: 'work/s1',
+          threadId: watchId('work', 's1'),
         );
 
         expect(announced.single.threadId, 's1');
@@ -1097,6 +1123,7 @@ void main() {
 
     test('announces a reply that never comes as failed', () async {
       handler = WatchRequestHandler(
+        context: () => const WatchContext("test-context", 1),
         repository: () => HermesChatRepository(server.client().raw),
         transport: () => transport,
         activeProfile: () async => profile,
@@ -1104,10 +1131,10 @@ void main() {
         announce: announce,
       );
 
-      final pending = handler.handle({
+      final pending = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
-        'threadId': '/s1',
+        'threadId': watchId(null, 's1'),
       });
       await pumpEventQueue();
       await pending;
@@ -1126,7 +1153,11 @@ void main() {
     );
 
     test('announces nothing for a turn that was refused', () async {
-      await handler.handle({'op': 'send', 'text': 'x', 'threadId': 'no-slash'});
+      await scopedHandle(handler, {
+        'op': 'send',
+        'text': 'x',
+        'threadId': 'no-slash',
+      });
 
       expect(announced, isEmpty);
     });
@@ -1147,7 +1178,7 @@ void main() {
 
     for (final MapEntry(:key, :value) in requests.entries) {
       test('ends the send at once on $key', () async {
-        final pending = handler.handle({
+        final pending = scopedHandle(handler, {
           'op': 'send',
           'text': 'Hello',
           'sendId': 'a',
@@ -1162,7 +1193,7 @@ void main() {
 
         expect(reply, {
           'ok': true,
-          'threadId': '/new-1',
+          'threadId': watchId(null, 'new-1'),
           'text':
               "Hermes asked for something the watch can't answer. "
               'Ask again on your iPhone.',
@@ -1191,7 +1222,7 @@ void main() {
       ),
     );
 
-    Future<Map<String, Object?>> send() => handler.handle({
+    Future<Map<String, Object?>> send() => scopedHandle(handler, {
       'op': 'send',
       'text': 'Hello',
       'sendId': 'a',
@@ -1222,6 +1253,7 @@ void main() {
       Duration hold = const Duration(seconds: 20),
     }) {
       handler = WatchRequestHandler(
+        context: () => const WatchContext("test-context", 1),
         repository: () => HermesChatRepository(server.client().raw),
         transport: () => transport,
         activeProfile: () async => profile,
@@ -1247,7 +1279,7 @@ void main() {
 
         expect(await pending, {
           'ok': true,
-          'threadId': '/new-1',
+          'threadId': watchId(null, 'new-1'),
           'waiting': kind,
         });
         expect(transport.closed, isFalse);
@@ -1285,7 +1317,7 @@ void main() {
 
       expect(await retry, {
         'ok': true,
-        'threadId': '/new-1',
+        'threadId': watchId(null, 'new-1'),
         'text': 'Done.',
         'failed': false,
       });
@@ -1303,7 +1335,7 @@ void main() {
 
       expect(await send(), {
         'ok': true,
-        'threadId': '/new-1',
+        'threadId': watchId(null, 'new-1'),
         'waiting': 'approval',
       });
     });
@@ -1355,17 +1387,17 @@ void main() {
           ]),
         );
 
-        final reply = await handler.handle({
+        final reply = await scopedHandle(handler, {
           'op': 'send',
           'text': 'Clean up',
           'sendId': 'gone',
-          'threadId': '/new-1',
+          'threadId': watchId(null, 'new-1'),
           'retry': true,
         });
 
         expect(reply, {
           'ok': true,
-          'threadId': '/new-1',
+          'threadId': watchId(null, 'new-1'),
           'text': 'Done.',
           'failed': false,
         });
@@ -1374,7 +1406,7 @@ void main() {
     );
 
     test('a forgotten retry without a chat is not sent again', () async {
-      final reply = await handler.handle({
+      final reply = await scopedHandle(handler, {
         'op': 'send',
         'text': 'Clean up',
         'sendId': 'gone',
@@ -1401,7 +1433,7 @@ void main() {
     }
 
     test('ends the send as before for a watch that cannot wait', () async {
-      final pending = handler.handle({
+      final pending = scopedHandle(handler, {
         'op': 'send',
         'text': 'Hello',
         'sendId': 'a',
@@ -1489,6 +1521,7 @@ void main() {
       statuses = [];
       urgents = [];
       handler = WatchRequestHandler(
+        context: () => const WatchContext("test-context", 1),
         repository: () => HermesChatRepository(server.client().raw),
         transport: () => transport,
         activeProfile: () async => profile,
@@ -1514,12 +1547,10 @@ void main() {
       ),
     );
 
-    Future<Map<String, Object?>> send({bool waits = false}) => handler.handle({
-      'op': 'send',
-      'text': 'Hello',
-      'sendId': 'a',
-      'waits': waits,
-    });
+    Future<Map<String, Object?>> send({bool waits = false}) => scopedHandle(
+      handler,
+      {'op': 'send', 'text': 'Hello', 'sendId': 'a', 'waits': waits},
+    );
 
     test('a turn sent from the watch works, then has a reply ready', () async {
       final pending = send();
@@ -1537,7 +1568,7 @@ void main() {
 
       expect(statuses.last, containsPair('state', 'ready'));
       expect(statuses.last, containsPair('title', 'Backup'));
-      expect(statuses.last, containsPair('threadId', '/new-1'));
+      expect(statuses.last, containsPair('threadId', watchId(null, 'new-1')));
     });
 
     test('a chat nobody has titled is left to the watch to name', () async {
@@ -1550,7 +1581,7 @@ void main() {
       await pending;
 
       expect(statuses.last.containsKey('title'), isFalse);
-      expect(statuses.last['threadId'], '/new-1');
+      expect(statuses.last['threadId'], watchId(null, 'new-1'));
     });
 
     test('a turn that waits for an approval says so, and goes on', () async {
@@ -1596,7 +1627,7 @@ void main() {
         await pending;
 
         expect(statuses.last['state'], 'waiting');
-        expect(statuses.last['threadId'], '/new-1');
+        expect(statuses.last['threadId'], watchId(null, 'new-1'));
       });
     }
 
@@ -1695,4 +1726,21 @@ void main() {
       }
     });
   });
+}
+
+String watchId(String? profile, String session) =>
+    WatchThreadId('test-context', profile, session).encode();
+
+Future<Map<String, Object?>> scopedHandle(
+  WatchRequestHandler handler,
+  Map<Object?, Object?> request,
+) async {
+  final reply = await handler.handle({
+    ...request,
+    'contextId': 'test-context',
+    'revision': 1,
+  });
+  return {...reply}
+    ..remove('contextId')
+    ..remove('revision');
 }

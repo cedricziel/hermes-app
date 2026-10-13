@@ -6,6 +6,7 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/watch/watch_complication.dart';
+import 'package:hermes_app/src/watch/watch_context.dart';
 
 void main() {
   late List<Map<String, Object>> sent;
@@ -242,6 +243,113 @@ void main() {
     await settle();
 
     expect(last()['state'], 'none');
+  });
+
+  test('owner switch cannot relabel retained title or legacy target', () async {
+    var context = const WatchContext('owner-a', 7);
+    status.context = () => context;
+    status.begin(Object(), title: 'Private A title', threadId: 'work/shared');
+    context = const WatchContext('owner-b', 8);
+    lock.notifyListeners();
+    await pumpEventQueue();
+    expect(last()['state'], 'none');
+    expect(last().containsKey('title'), isFalse);
+    expect(last().containsKey('threadId'), isFalse);
+  });
+
+  test(
+    'retired phone source cannot recreate owner A status with late events',
+    () async {
+      var context = const WatchContext('owner-a', 7);
+      status.context = () => context;
+      final oldController = status.source();
+      oldController.begin(
+        Object(),
+        title: 'Private A title',
+        threadId: 'work/shared',
+      );
+      status.clear();
+      context = const WatchContext('owner-b', 8);
+      oldController.onEvent(
+        Object(),
+        const ReplyDelta('late'),
+        title: 'Late private A title',
+        threadId: 'work/shared',
+      );
+      lock.notifyListeners();
+      await pumpEventQueue();
+      expect(last()['state'], 'none');
+      expect(last().containsKey('title'), isFalse);
+      expect(last().containsKey('threadId'), isFalse);
+      final currentController = status.source();
+      currentController.begin(
+        Object(),
+        title: 'B title',
+        threadId: 'work/shared',
+      );
+      await pumpEventQueue();
+      expect(last()['title'], 'B title');
+      expect(
+        last()['threadId'],
+        WatchThreadId('owner-b', 'work', 'shared').encode(),
+      );
+    },
+  );
+
+  test('same owner revision updates retain producer identity', () async {
+    var context = const WatchContext('owner-a', 7);
+    status.context = () => context;
+    final controller = status.source();
+    final turn = Object();
+    controller.begin(turn, title: 'A title', threadId: 'work/shared');
+    context = const WatchContext('owner-a', 8);
+    controller.onEvent(
+      turn,
+      const ReplyDelta('progress'),
+      title: 'A title',
+      threadId: 'work/shared',
+    );
+    await pumpEventQueue();
+    expect(last()['title'], 'A title');
+    expect(last()['contextId'], 'owner-a');
+    expect(last()['revision'], 8);
+    expect(
+      last()['threadId'],
+      WatchThreadId('owner-a', 'work', 'shared').encode(),
+    );
+  });
+
+  test('unverified context cannot publish private status', () async {
+    status.context = () => null;
+    status.begin(Object(), title: 'Private title', threadId: 'work/shared');
+    status.source().onEvent(
+      Object(),
+      const ReplyDelta('private'),
+      title: 'Private title',
+      threadId: 'work/shared',
+    );
+    lock.notifyListeners();
+    await pumpEventQueue();
+    expect(sent, isEmpty);
+  });
+
+  test('producer created before context cannot bind late callbacks after departure', () async {
+    WatchContext? context;
+    status.context = () => context;
+    final oldController = status.source();
+    status.invalidateOwner();
+    context = const WatchContext('owner-b', 8);
+    oldController.onEvent(
+      Object(),
+      const ReplyDelta('late A'),
+      title: 'Private A title',
+      threadId: 'work/shared',
+    );
+    lock.notifyListeners();
+    await pumpEventQueue();
+    expect(last()['state'], 'none');
+    expect(last().containsKey('title'), isFalse);
+    expect(last().containsKey('threadId'), isFalse);
   });
 
   test('clears on sign-out even when this run showed nothing', () async {

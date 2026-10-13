@@ -5,21 +5,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/watch/watch_bridge.dart';
+import 'package:hermes_app/src/watch/watch_context.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/memory_token_store.dart';
 
+WatchContextStore memoryContexts() {
+  String? value;
+  return WatchContextStore(
+    read: () async => value,
+    write: (v) async {
+      value = v;
+    },
+    randomId: () => 'test-context',
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = null;
   late HttpServer dashboard;
   late List<String> requestedPaths;
   var authRequired = true;
 
   setUp(() async {
-    final previousHttpOverride = HttpOverrides.current;
-    HttpOverrides.global = null;
-    addTearDown(() => HttpOverrides.global = previousHttpOverride);
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     requestedPaths = [];
@@ -60,14 +70,13 @@ void main() {
               if (call.method == 'publishSessionState') {
                 published.add((call.arguments as Map)['usable'] as bool);
               }
-              return {
-                'revision': published.length,
-                'usable': (call.arguments as Map)['usable'],
-              };
+              return call.arguments;
             },
           );
+      final contexts = memoryContexts();
       final bridge = WatchBridge(
-        handler: WatchBridge.handlerFor(auth),
+        contextStore: contexts,
+        handler: WatchBridge.handlerFor(auth, contextStore: contexts),
         auth: auth,
       )..start();
       addTearDown(() {
@@ -101,7 +110,10 @@ void main() {
     await auth.bootstrap();
     expect(auth.state, HermesConnectionState.needsLogin);
     requestedPaths.clear();
-    final handler = WatchBridge.handlerFor(auth);
+    final handler = WatchBridge.handlerFor(
+      auth,
+      contextStore: memoryContexts(),
+    );
 
     final threads = await handler.handle({'op': 'threads'});
     final send = await handler.handle({'op': 'send', 'text': 'Hi'});
@@ -118,12 +130,20 @@ void main() {
       devServerUrl: 'http://127.0.0.1:${dashboard.port}',
     );
     expect(auth.state, HermesConnectionState.initializing);
-    final handler = WatchBridge.handlerFor(auth);
+    final handler = WatchBridge.handlerFor(
+      auth,
+      contextStore: memoryContexts(),
+    );
 
-    final threads = handler.handle({'op': 'threads'});
+    final threads = handler.handle({'op': 'session'});
     await auth.bootstrap();
 
-    expect(await threads, {'ok': true, 'threads': <Object?>[]});
+    expect(await threads, {
+      'ok': true,
+      'protocolVersion': 2,
+      'contextId': 'test-context',
+      'revision': 0,
+    });
   });
 
   test(

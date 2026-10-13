@@ -31,9 +31,15 @@ struct CachingClient: HermesClient {
     _ = session.register { cache.clear() }
   }
 
-  func savedThreads() -> [ThreadSummary]? { session.usable ? cache.threads() : nil }
+  func savedThreads() -> [ThreadSummary]? {
+    guard session.usable, session.contextId != nil else { return nil }
+    return cache.threads()?.filter { session.owns($0.id) }
+  }
 
-  func savedMessages(threadId: String) -> [ChatMessage]? { session.usable ? cache.messages(threadId: threadId) : nil }
+  func savedMessages(threadId: String) -> [ChatMessage]? {
+    guard session.owns(threadId) else { return nil }
+    return cache.messages(threadId: threadId)
+  }
 
   func threads() async throws -> [ThreadSummary] {
     let threads = try await forgettingOnSignOut { try await inner.threads() }
@@ -214,6 +220,9 @@ final class WatchSessionState {
   private(set) var revision: Int
   private(set) var generation = 0
   private(set) var usable: Bool
+  private(set) var contextId: String?
+  private(set) var handshaken = false
+  private(set) var invalidationReason = HermesClientError.signedOut
   private var cleanup: [UUID: () -> Void] = [:]
   private let diagnostics: (String, Bool, Int) throws -> Void
 
@@ -226,6 +235,7 @@ final class WatchSessionState {
     self.diagnostics = diagnostics
     revision = defaults.integer(forKey: "watch.session.revision")
     usable = !defaults.bool(forKey: "watch.session.signedOut")
+    contextId = defaults.string(forKey: "watch.session.context")
   }
 
   func register(_ action: @escaping () -> Void) -> UUID {
@@ -235,28 +245,69 @@ final class WatchSessionState {
     return id
   }
 
+  /// Registers all private cleanup before accepting the startup publication.
+  @discardableResult
+  func start(receivedSession payload: [String: Any], cleanup action: @escaping () -> Void) -> UUID {
+    let removesLegacyData = contextId == nil && usable
+    let registration = register(action)
+    if removesLegacyData { action() }
+    receive(payload)
+    return registration
+  }
+
   func unregister(_ id: UUID) { cleanup.removeValue(forKey: id) }
 
   func receive(_ payload: [String: Any]) {
     guard let state = payload["watchSession"] as? [String: Any],
       let next = state["revision"] as? Int, let usable = state["usable"] as? Bool,
-      next > revision else { return }
-    let replacesUsableSession = self.usable && revision > 0
-    revision = next
-    defaults.set(next, forKey: "watch.session.revision")
-    if !usable { invalidate() }
-    else {
-      if replacesUsableSession { invalidate() }
-      self.usable = true
-      defaults.set(false, forKey: "watch.session.signedOut")
+      next >= revision else { return }
+    if !usable {
+      guard next > revision || self.usable else { return }
+      revision = next
+      defaults.set(next, forKey: "watch.session.revision")
+      invalidate()
+      return
     }
+    guard state["protocolVersion"] as? Int == 2,
+      let context = state["contextId"] as? String else { return }
+    _ = acceptContext(context, revision: next, confirmed: false)
   }
 
-  func invalidate() {
+  @discardableResult
+  func acceptContext(_ context: String, revision next: Int, confirmed: Bool = true) -> Bool {
+    guard !context.isEmpty, next >= revision,
+      next > revision || contextId == context || (contextId == nil && revision == 0 && usable) else { return false }
+    let replacesUsableSession = contextId != nil && (contextId != context || next > revision)
+    let alreadyVerified = contextId == context && next == revision && handshaken
+    if replacesUsableSession {
+      invalidationReason = .contextChanged
+      generation += 1
+      for action in cleanup.values { action() }
+      try? diagnostics("context_changed", true, cleanup.count)
+    }
+    contextId = context
+    revision = next
+    usable = true
+    handshaken = alreadyVerified || confirmed
+    defaults.set(context, forKey: "watch.session.context")
+    defaults.set(next, forKey: "watch.session.revision")
+    defaults.set(false, forKey: "watch.session.signedOut")
+    return true
+  }
+
+  func owns(_ threadId: String) -> Bool {
+    WatchThreadId.decode(threadId)?.contextId == contextId && contextId != nil && usable
+  }
+
+  func invalidate(reason: HermesClientError = .signedOut) {
+    invalidationReason = reason
     generation += 1
     usable = false
+    handshaken = false
+    contextId = nil
+    defaults.removeObject(forKey: "watch.session.context")
     defaults.set(true, forKey: "watch.session.signedOut")
     for action in cleanup.values { action() }
-    try? diagnostics("signed_out", true, cleanup.count)
+    try? diagnostics(reason == .contextChanged ? "context_changed" : "signed_out", true, cleanup.count)
   }
 }
