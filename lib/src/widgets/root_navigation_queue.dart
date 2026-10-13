@@ -20,6 +20,7 @@ class RootNavigationQueue {
   final _disposed = Completer<void>();
   var _cancelled = Completer<void>();
   void Function(bool waited)? _pending;
+  Route<dynamic>? _guardedRoute;
   bool _running = false;
   bool _receivedRequest = false;
   bool _waited = false;
@@ -58,6 +59,7 @@ class RootNavigationQueue {
           return true;
         });
         if (top == root) {
+          _guardedRoute = null;
           final action = _pending!;
           _pending = null;
           final waited = _waited;
@@ -70,19 +72,34 @@ class RootNavigationQueue {
         if (route == null) return;
         _waited = true;
         final cancellation = _cancelled;
-        // Cancellation retires this wait, not Navigator's outstanding guard.
+        final guarded = _guardedRoute;
+        if (guarded != null && guarded.isActive) {
+          // A replaced request must keep waiting for the guard it already
+          // started, including any confirmation route it put above this page.
+          await Future.any<void>([
+            guarded.popped.then<void>((_) {}),
+            _disposed.future,
+            cancellation.future,
+          ]);
+          if (_disposed.isCompleted || cancellation.isCompleted) continue;
+          _guardedRoute = null;
+          continue;
+        }
+        _guardedRoute = route;
+        // maybePop reports handled even while async discard confirmation stays open.
         await Future.any<void>([
           navigator.maybePop().then<void>((_) {}),
           _disposed.future,
           cancellation.future,
         ]);
         if (_disposed.isCompleted || cancellation.isCompleted) continue;
-        // maybePop reports handled even while async discard confirmation stays open.
         await Future.any<void>([
           route.popped.then<void>((_) {}),
           _disposed.future,
           cancellation.future,
         ]);
+        if (_disposed.isCompleted || cancellation.isCompleted) continue;
+        _guardedRoute = null;
       }
     } finally {
       release?.call();
@@ -93,6 +110,7 @@ class RootNavigationQueue {
 
   void dispose() {
     _pending = null;
+    _guardedRoute = null;
     if (!_disposed.isCompleted) _disposed.complete();
   }
 }
