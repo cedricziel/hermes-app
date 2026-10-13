@@ -685,9 +685,25 @@ void main() {
 
         expect(settings.memoryOptions, isNotEmpty);
         expect(settings.memoryOptions.every((o) => o.name.isNotEmpty), isTrue);
+        final hub =
+            (await client.raw.getPluginsHubApiDashboardPluginsHubGet()).data
+                as Map<String, dynamic>;
+        final providers = hub['providers'] as Map<String, dynamic>;
+        final options = (providers['memory_options'] as List<dynamic>)
+            .cast<Map<String, dynamic>>();
         expect(
-          settings.memoryOptions.any((o) => o.status == ProviderStatus.ready),
-          isTrue,
+          {
+            for (final option in settings.memoryOptions)
+              option.name: option.status,
+          },
+          {
+            for (final option in options)
+              option['name'] as String: switch (option['status']) {
+                'ready' => ProviderStatus.ready,
+                'needs_config' => ProviderStatus.needsSetup,
+                _ => ProviderStatus.unavailable,
+              },
+          },
         );
         expect(settings.contextEngine, isNotEmpty);
       },
