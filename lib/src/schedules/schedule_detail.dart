@@ -64,23 +64,33 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
   Future<void> _refresh() async {
     final job = widget.job;
     final load = ++_load;
-    final fresh = await _controller.reload(job);
-    if (!mounted || load != _load) return;
-    if (fresh == null) {
-      _say('This task no longer exists');
+    try {
+      final epoch = _controller.captureActivity();
+      final fresh = await _controller.reload(job);
+      _controller.requireActivity(epoch);
+      if (!mounted || load != _load) return;
+      if (fresh == null) {
+        _say('This task no longer exists');
+        return;
+      }
+      await _loadRuns(load);
+    } on SchedulesActivitySuspended {
       return;
     }
-    await _loadRuns(load);
   }
 
   Future<void> _loadRuns(int load) async {
     try {
+      final epoch = _controller.captureActivity();
       final runs = await _controller.loadRuns(widget.job, limit: _limit);
+      _controller.requireActivity(epoch);
       if (!mounted || load != _load) return;
       setState(() {
         _runs = runs;
         _runsFailed = false;
       });
+    } on SchedulesActivitySuspended {
+      return;
     } on Object {
       if (!mounted || load != _load) return;
       setState(() => _runsFailed = true);
@@ -95,34 +105,53 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
   }
 
   Future<void> _runNow() async {
-    final message = await _controller.runNow(widget.job);
-    _say(message ?? 'Run requested');
-    if (message == null) {
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (mounted) await _loadRuns(++_load);
+    try {
+      final epoch = _controller.captureActivity();
+      final message = await _controller.runNow(widget.job);
+      _controller.requireActivity(epoch);
+      _say(message ?? 'Run requested');
+      if (message == null) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        _controller.requireActivity(epoch);
+        if (mounted) await _loadRuns(++_load);
+      }
+    } on SchedulesActivitySuspended {
+      return;
     }
   }
 
   Future<void> _togglePaused() async {
-    final message = await _controller.setPaused(
-      widget.job,
-      !widget.job.isPaused,
-    );
-    if (message != null) _say(message);
+    try {
+      final epoch = _controller.captureActivity();
+      final message = await _controller.setPaused(
+        widget.job,
+        !widget.job.isPaused,
+      );
+      _controller.requireActivity(epoch);
+      if (message != null) _say(message);
+    } on SchedulesActivitySuspended {
+      return;
+    }
   }
 
   Future<void> _edit() async {
-    final saved = await Navigator.of(context).push<CronJob>(
-      MaterialPageRoute(
-        builder: (_) => JobFormScreen(
-          controller: JobFormController(
-            repository: _controller.repository,
-            editing: widget.job,
+    try {
+      final epoch = _controller.captureActivity();
+      final saved = await Navigator.of(context).push<CronJob>(
+        MaterialPageRoute(
+          builder: (_) => JobFormScreen(
+            controller: JobFormController(
+              repository: _controller.repository,
+              editing: widget.job,
+            ),
           ),
         ),
-      ),
-    );
-    if (saved != null && mounted) _controller.jobSaved(saved);
+      );
+      _controller.requireActivity(epoch);
+      if (saved != null && mounted) _controller.jobSaved(saved);
+    } on SchedulesActivitySuspended {
+      return;
+    }
   }
 
   Future<void> _delete() => deleteScheduleJob(context, _controller, widget.job);
