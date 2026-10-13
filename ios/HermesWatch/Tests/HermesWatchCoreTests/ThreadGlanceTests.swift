@@ -45,6 +45,29 @@ final class ThreadGlanceTests: XCTestCase {
 }
 
 @MainActor
+final class ThreadGlanceRelayTests: XCTestCase {
+  func testOptionalMetadataDecodesAndUnknownStatusStaysUnknown() async throws {
+    let transport = FakeTransport()
+    transport.reply = .success(["ok": true, "activeProfile": "work", "fetchedAt": 100,
+      "threads": [["id": watchFixtureId("s1"), "title": "Backup", "status": "running"],
+        ["id": watchFixtureId("s2"), "title": "Old", "status": "idle"]]])
+    let listing = try await RelayClient(transport: transport).threadListing()
+    XCTAssertEqual(listing.activeProfile, "work")
+    XCTAssertEqual(listing.fetchedAt, Date(timeIntervalSince1970: 100))
+    XCTAssertEqual(listing.threads.map(\.status), [.running, nil])
+  }
+
+  func testOldPeerMetadataIsUnknownAfterIdentityHandshake() async throws {
+    let transport = FakeTransport()
+    transport.reply = .success(["ok": true, "threads": [["id": watchFixtureId("s1"), "title": "Old"]]])
+    let listing = try await RelayClient(transport: transport).threadListing()
+    XCTAssertNil(listing.activeProfile)
+    XCTAssertNil(listing.fetchedAt)
+    XCTAssertNil(listing.threads.first?.status)
+  }
+}
+
+@MainActor
 final class ThreadGlanceCacheTests: XCTestCase {
   private var directory: URL!
   override func setUpWithError() throws {
@@ -74,6 +97,26 @@ final class ThreadGlanceCacheTests: XCTestCase {
     XCTAssertEqual(listing?.threads, [thread])
     XCTAssertNil(listing?.fetchedAt)
     XCTAssertNil(listing?.activeProfile)
+  }
+
+  func testFailedReadKeepsNewerUpdateAndContextResetClearsMetadata() async {
+    let cache = FileChatCache(directory: directory)
+    let inner = FakeClient()
+    let client = CachingClient(inner: inner, cache: cache, session: inner.sessionState)
+    let old = ThreadSummary(id: watchFixtureId("s1"), title: "Chat", updatedAt: Date(timeIntervalSince1970: 100), pinned: false)
+    inner.threadsResult = .success([old])
+    let model = ThreadListModel(client: client)
+    await model.load()
+    let fresh = ThreadSummary(id: old.id, title: old.title, updatedAt: Date(timeIntervalSince1970: 200), pinned: false)
+    inner.threadsResult = .success([fresh])
+    await model.load()
+    inner.messagesResult = .failure(HermesClientError.phoneUnreachable)
+    await ConversationModel(client: client, threadId: old.id).load()
+    XCTAssertTrue(model.isUpdated(fresh))
+    inner.fixtureSession.acceptContext("other-context", revision: 2)
+    XCTAssertFalse(model.isUpdated(fresh))
+    XCTAssertNil(cache.listing())
+    XCTAssertNil(model.activeProfile)
   }
 
   func testContextScopedThreadIdsDoNotShareSeenTime() {
@@ -150,5 +193,50 @@ final class ThreadGlanceCacheTests: XCTestCase {
     XCTAssertNil(cache.messagesFetchedAt(threadId: thread.id))
     let newer = ThreadSummary(id: thread.id, title: thread.title, updatedAt: Date(timeIntervalSince1970: 200), pinned: false)
     XCTAssertFalse(cache.seenMarkers().isUpdated(newer))
+  }
+}
+
+@MainActor
+final class ThreadGlanceReadTests: XCTestCase {
+  func testSuccessfulFreshReadMarksOnlyTheCapturedListingUpdate() async {
+    let client = FakeClient()
+    let old = ThreadSummary(id: watchFixtureId("s1"), title: "Chat", updatedAt: Date(timeIntervalSince1970: 100), pinned: false)
+    client.threadsResult = .success([old])
+    let list = ThreadListModel(client: client)
+    await list.load()
+    let updated = ThreadSummary(id: old.id, title: old.title, updatedAt: Date(timeIntervalSince1970: 200), pinned: false)
+    client.threadsResult = .success([updated])
+    await list.load()
+    let reading = ConversationModel(client: client, threadId: updated.id,
+      onFreshMessagesLoaded: { list.markSeen(threadId: updated.id, updatedAt: updated.updatedAt) })
+    await reading.load()
+    XCTAssertFalse(list.isUpdated(updated))
+  }
+
+  func testFailedFreshReadDoesNotCallReadCallback() async {
+    let client = FakeClient()
+    client.messagesResult = .failure(HermesClientError.phoneUnreachable)
+    var markedRead = false
+    let reading = ConversationModel(client: client, threadId: watchFixtureId("s1"),
+      onFreshMessagesLoaded: { markedRead = true })
+    await reading.load()
+    XCTAssertFalse(markedRead)
+  }
+
+  func testSavedMessagesKeepTheirFetchTimeWhenRefreshFails() async {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let cache = FileChatCache(directory: directory)
+    let client = FakeClient()
+    let id = watchFixtureId("s1")
+    let fetchedAt = Date(timeIntervalSince1970: 100)
+    cache.save(messages: [ChatMessage(id: "m1", role: .assistant, content: "Saved reply", at: fetchedAt)], threadId: id)
+    cache.saveMessagesFetchedAt(fetchedAt, threadId: id)
+    client.messagesResult = .failure(HermesClientError.phoneUnreachable)
+    let reading = ConversationModel(client: CachingClient(inner: client, cache: cache, session: client.sessionState), threadId: id)
+    await reading.load()
+    XCTAssertTrue(reading.showingSavedMessages)
+    XCTAssertEqual(reading.messagesFetchedAt, fetchedAt)
+    XCTAssertEqual(cache.messagesFetchedAt(threadId: id), fetchedAt)
   }
 }

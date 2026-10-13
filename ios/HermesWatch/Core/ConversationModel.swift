@@ -14,6 +14,8 @@ final class ConversationModel {
   private(set) var threadId: String?
   private(set) var handoff: HandoffTarget?
   private(set) var messages: [ChatMessage] = []
+  private(set) var showingSavedMessages = false
+  private(set) var messagesFetchedAt: Date?
   private(set) var deliveryStates: [String: SendRecoveryState] = [:]
   private var deliveryEvidence: [String: ConversationPresentation.DeliveryEvidence] = [:]
 
@@ -54,16 +56,18 @@ final class ConversationModel {
   private let client: HermesClient
   private let store: PendingSendStore
   private let log: RecoveryActionLog
+  private let onFreshMessagesLoaded: (() -> Void)?
   static let waitingLimit: TimeInterval = 20 * 60
 
   init(client: HermesClient, threadId: String?, handoff: HandoffTarget? = nil,
     session: WatchSessionState? = nil, store: PendingSendStore? = nil,
-    log: RecoveryActionLog = RecoveryActionLog()) {
+    log: RecoveryActionLog = RecoveryActionLog(), onFreshMessagesLoaded: (() -> Void)? = nil) {
     self.client = client
     self.threadId = threadId
     self.handoff = threadId == nil ? nil : handoff
     self.store = store ?? client.recoveryStore
     self.log = log
+    self.onFreshMessagesLoaded = onFreshMessagesLoaded
     if threadId != nil { phase = .loading }
     let requestSession = session ?? client.sessionState ?? WatchSessionState()
     self.session = requestSession
@@ -77,6 +81,11 @@ final class ConversationModel {
     let conversation = conversationGeneration
     let generation = session.generation
     phase = .loading
+    if let threadId, messages.isEmpty, let saved = client.savedMessages(threadId: threadId) {
+      messages = saved
+      messagesFetchedAt = client.savedMessagesFetchedAt(threadId: threadId)
+      showingSavedMessages = true
+    }
     do {
       retryTerminalCleanup()
       try restore()
@@ -85,16 +94,19 @@ final class ConversationModel {
       guard conversation == conversationGeneration, generation == session.generation else { return }
       try restore()
       if let threadId {
-        if messages.isEmpty, let saved = client.savedMessages(threadId: threadId) { messages = saved }
         let loaded = try await client.messages(threadId: threadId)
         guard conversation == conversationGeneration, generation == session.generation else { return }
         messages = loaded
+        messagesFetchedAt = client.savedMessagesFetchedAt(threadId: threadId)
+        showingSavedMessages = false
+        onFreshMessagesLoaded?()
         successfulReply = loaded.last?.role == .assistant
         appendRecoveryMessage()
       }
       phase = .idle
     } catch {
       guard conversation == conversationGeneration else { return }
+      if generation == session.generation, !messages.isEmpty { showingSavedMessages = true }
       fail(error, generation: generation)
     }
   }
@@ -494,6 +506,8 @@ final class ConversationModel {
   }
 
   private func clearPrivateState() {
+    showingSavedMessages = false
+    messagesFetchedAt = nil
     requests.clear()
     permitsOriginalTitle = false
     conversationGeneration += 1
