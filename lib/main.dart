@@ -18,6 +18,7 @@ import 'src/api/hermes_repositories.dart';
 import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/background/background_scheduler.dart';
+import 'src/background/background_check_controller.dart';
 import 'src/background/running_replies.dart';
 import 'src/chat/media/media_source.dart';
 import 'src/deep_links/deep_link_listener.dart';
@@ -449,6 +450,13 @@ Future<void> main([List<String> args = const []]) async {
             )..start();
           },
           dispose: (_, answers) => answers?.dispose(),
+        ),
+        ChangeNotifierProvider<BackgroundCheckController>(
+          lazy: false,
+          create: (context) => BackgroundCheckController.forAuth(
+            context.read<AuthController>(),
+            context.read<NotificationService>(),
+          )..start(),
         ),
         Provider<BackgroundScheduler>(
           lazy: false,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../live_activities/live_activities.dart';
+import '../background/background_check_controller.dart';
+import 'background_check_section.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
 import 'notification_settings.dart';
@@ -14,23 +16,43 @@ Future<void> showNotificationsDialog(BuildContext context) {
   } on ProviderNotFoundException {
     liveActivities = null;
   }
+  BackgroundCheckController? checks;
+  try {
+    checks = context.read<BackgroundCheckController>();
+  } on ProviderNotFoundException {
+    checks = null;
+  }
+  if (checks != null) {
+    checks.refresh();
+  }
   return showDialog<void>(
     context: context,
     builder: (_) => ChangeNotifierProvider.value(
       value: settings,
-      child: _NotificationsDialog(liveActivities: liveActivities),
+      child: _NotificationsDialog(
+        liveActivities: liveActivities,
+        checks: checks,
+      ),
     ),
   );
 }
 
 class _NotificationsDialog extends StatelessWidget {
-  const _NotificationsDialog({this.liveActivities});
+  const _NotificationsDialog({this.liveActivities, this.checks});
+  final BackgroundCheckController? checks;
 
   /// Null where there are no Live Activities, which hides their switch.
   final LiveActivities? liveActivities;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => checks == null
+      ? _build(context)
+      : ListenableBuilder(
+          listenable: checks!,
+          builder: (context, _) => _build(context),
+        );
+
+  Widget _build(BuildContext context) {
     final settings = context.watch<NotificationSettings>();
     return GroupedDialog(
       title: 'Notifications',
@@ -46,7 +68,11 @@ class _NotificationsDialog extends StatelessWidget {
             GroupedSwitchRow(
               key: const Key('notify-me'),
               title: 'Notify me',
-              warning: settings.enabled && settings.permissionDenied
+              warning:
+                  settings.enabled &&
+                      (checks?.permission == false ||
+                          (checks?.permission == null &&
+                              settings.permissionDenied))
                   ? 'Turn on notifications for Hermes in system settings.'
                   : null,
               value: settings.enabled,
@@ -90,6 +116,16 @@ class _NotificationsDialog extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        if (checks case final current?)
+          ListenableBuilder(
+            listenable: current,
+            builder: (context, _) => BackgroundCheckSection(
+              platform: current.platform,
+              permission: current.permission,
+              capability: current.capability,
+              status: current.status,
+            ),
           ),
         const GroupedDialogNote(
           'Alerts arrive while Hermes is running, including for a short '
