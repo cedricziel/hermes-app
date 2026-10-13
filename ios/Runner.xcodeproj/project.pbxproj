@@ -87,6 +87,10 @@
 		5FC3AC10F3E4BAA6C06C9E82 /* VoiceDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */; };
 		5ED8C25132F3885368DB5303 /* VoiceReviewControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 138739FA7EA0AF4E91B3989A /* VoiceReviewControls.swift */; };
 		5E9DBD7763C51B4997B0E17F /* ConversationPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E274B9657B71B5BCD21DAD37 /* ConversationPresentation.swift */; };
+		617B8E10AF8C48D12F13FFD2 /* WatchRequestDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE4E9586C0E82CC15AD4AF5 /* WatchRequestDetails.swift */; };
+		9B4251B8ACE006FDDAC8870A /* WatchRequestAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5D815E83156470AA39BCC9 /* WatchRequestAccess.swift */; };
+		302F39202DC2032E1C902C76 /* RequestActionsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0E60DF5DD23993437E43C5 /* RequestActionsModel.swift */; };
+		E3FF63DCDCCFE3417A576B5C /* RequestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ED4F1872C8F9DEC2A2CC311 /* RequestFixtures.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -270,6 +274,10 @@
 		A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceDraft.swift; sourceTree = "<group>"; };
 		138739FA7EA0AF4E91B3989A /* VoiceReviewControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceReviewControls.swift; sourceTree = "<group>"; };
 		E274B9657B71B5BCD21DAD37 /* ConversationPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationPresentation.swift; sourceTree = "<group>"; };
+		2EE4E9586C0E82CC15AD4AF5 /* WatchRequestDetails.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchRequestDetails.swift; sourceTree = "<group>"; };
+		AE5D815E83156470AA39BCC9 /* WatchRequestAccess.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchRequestAccess.swift; sourceTree = "<group>"; };
+		CE0E60DF5DD23993437E43C5 /* RequestActionsModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestActionsModel.swift; sourceTree = "<group>"; };
+		0ED4F1872C8F9DEC2A2CC311 /* RequestFixtures.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestFixtures.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -421,6 +429,10 @@
 				2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */,
 				E274B9657B71B5BCD21DAD37 /* ConversationPresentation.swift */,
 				A39CC2443AAEB874E04D51BD /* VoiceDraft.swift */,
+				2EE4E9586C0E82CC15AD4AF5 /* WatchRequestDetails.swift */,
+				AE5D815E83156470AA39BCC9 /* WatchRequestAccess.swift */,
+				CE0E60DF5DD23993437E43C5 /* RequestActionsModel.swift */,
+				0ED4F1872C8F9DEC2A2CC311 /* RequestFixtures.swift */,
 				9978D7CC9E15B585ACD0BBA0 /* Models.swift */,
 				6B312E52135948A1A1BC7401 /* WatchThreadId.swift */,
 				0B0F552EBBCBC70005D500F4 /* RecoveryActionLog.swift */,
@@ -832,6 +844,10 @@
 				5FC3AC10F3E4BAA6C06C9E82 /* VoiceDraft.swift in Sources */,
 				5ED8C25132F3885368DB5303 /* VoiceReviewControls.swift in Sources */,
 				5E9DBD7763C51B4997B0E17F /* ConversationPresentation.swift in Sources */,
+				617B8E10AF8C48D12F13FFD2 /* WatchRequestDetails.swift in Sources */,
+				9B4251B8ACE006FDDAC8870A /* WatchRequestAccess.swift in Sources */,
+				302F39202DC2032E1C902C76 /* RequestActionsModel.swift in Sources */,
+				E3FF63DCDCCFE3417A576B5C /* RequestFixtures.swift in Sources */,
 				0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */,
 				5D151F8B8819ECEB22F3EECF /* RecoveryActionLog.swift in Sources */,
 				C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */,
