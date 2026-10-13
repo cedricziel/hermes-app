@@ -8,6 +8,7 @@ struct ConversationView: View {
   var startRecording = false
   @State private var draft = ""
   @State private var recorder = VoiceRecorder()
+  @AppStorage("voiceFastSend") private var voiceFastSend = false
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -35,7 +36,7 @@ struct ConversationView: View {
           if model.phase == .failed(.contextChanged) {
             Text(HermesClientError.contextChanged.message)
             Button("Open chat list") { dismiss() }
-          } else if case .failed(let error) = model.phase, model.recovery == nil {
+          } else if case .failed(let error) = model.phase, model.recovery == nil, model.voice.state == .idle {
             ErrorView(error: error) { Task { await retry() } }
           }
           if let recovery = model.recovery {
@@ -51,7 +52,7 @@ struct ConversationView: View {
         }
       }
       .onChange(of: model.messages.count) {
-        withAnimation { proxy.scrollTo("composer") }
+        if model.voice.state == .idle { withAnimation { proxy.scrollTo("composer") } }
       }
     }
     .alert("Send this request again?", isPresented: Binding(get: { model.resendConfirmation }, set: { _ in })) {
@@ -66,7 +67,7 @@ struct ConversationView: View {
       if startRecording { await recorder.start() }
       await model.load()
     }
-    .onDisappear { recorder.cancel() }
+    .onDisappear { recorder.cancel(); model.discardVoice(); draft = "" }
     .onChange(of: model.phase) { _, phase in
       if phase == .failed(.signedOut) || phase == .failed(.contextChanged) { draft = ""; recorder.cancel() }
     }
@@ -80,43 +81,67 @@ struct ConversationView: View {
 
   @ViewBuilder
   private var composer: some View {
-    switch recorder.state {
-    case .recording:
-      Button {
-        Task { await submitRecording() }
-      } label: {
-        Label("Stop and send", systemImage: "stop.circle.fill")
-      }
-      .tint(.red)
-      .handGestureShortcut(.primaryAction)
-    case .finished:
-      ProgressView()
-    case .idle, .denied, .failed:
-      if recorder.state == .denied {
-        Text("Allow microphone access for Hermes in Settings.").foregroundStyle(.secondary)
-      } else if recorder.state == .failed {
-        Text("Couldn't start recording.").foregroundStyle(.secondary)
-      }
-      QuickReplies(disabled: busy) { text in Task { await model.send(text) } }
-      HStack {
-        TextField("Reply", text: $draft)
-          .onSubmit { Task { await submit() } }
-        Button {
-          Task { await recorder.start() }
-        } label: {
-          Image(systemName: "mic.fill")
+    if model.voice.state != .idle {
+      VoiceReviewControls(state: model.voice.state,
+        text: Binding(get: { model.voiceText }, set: { model.voiceText = $0 }),
+        error: voiceError, retryDisabled: model.busy, sendDisabled: !model.canCompose, send: { Task { await model.sendVoiceDraft() } },
+        retry: { Task { await model.retryVoice() } },
+        recordAgain: { model.discardVoice(); Task { await recorder.start() } },
+        discard: { model.discardVoice() })
+    } else {
+      switch recorder.state {
+      case .recording:
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+          Text("Recording \(Int(min(context.date.timeIntervalSince(recorder.startedAt ?? context.date), VoiceRecorder.maxDuration))) of 30 seconds")
+            .accessibilityLabel("Recording")
+            .accessibilityValue("\(Int(min(context.date.timeIntervalSince(recorder.startedAt ?? context.date), VoiceRecorder.maxDuration))) of 30 seconds")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Record a voice message")
+        Button {
+          Task { await submitRecording() }
+        } label: {
+          Label(voiceFastSend ? "Stop and send" : "Stop and review", systemImage: "stop.circle.fill")
+        }
+        .accessibilityHint(voiceFastSend ? "Stops recording and sends after transcription" : "Stops recording for transcript review")
+        .tint(.red)
         .handGestureShortcut(.primaryAction)
+      case .finished:
+        ProgressView()
+      case .idle, .denied, .failed:
+        if recorder.state == .denied {
+          Text("Allow microphone access for Hermes in Settings.").foregroundStyle(.secondary)
+        } else if recorder.state == .failed {
+          Text("Couldn't start recording.").foregroundStyle(.secondary)
+        }
+        Toggle("Send after manual stop", isOn: $voiceFastSend)
+          .accessibilityHint("Off by default. Manually stopped recordings send after transcription. Interrupted or capped recordings always need review.")
+          .disabled(busy)
+        QuickReplies(disabled: busy) { text in Task { await model.send(text) } }
+        HStack {
+          TextField("Reply", text: $draft)
+            .onSubmit { Task { await submit() } }
+          Button {
+            Task { await recorder.start() }
+          } label: {
+            Image(systemName: "mic.fill")
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel("Record a voice message")
+          .handGestureShortcut(.primaryAction)
+        }
+        .disabled(busy)
       }
-      .disabled(busy)
     }
   }
 
+  private var voiceError: String? {
+    if case .failed(let error) = model.phase { return error.message }
+    return nil
+  }
+
   private func submitRecording() async {
-    guard let audio = recorder.stop() else { return }
-    await model.sendVoice(audio, mimeType: VoiceRecorder.mimeType)
+    let fastSend = voiceFastSend
+    guard let recording = recorder.stop() else { return }
+    await model.sendVoice(recording.audio, mimeType: VoiceRecorder.mimeType, reason: recording.reason, fastSend: fastSend)
   }
 
   private func submit() async {
@@ -128,8 +153,8 @@ struct ConversationView: View {
   private func retry() async {
     if let unsent = model.unsent {
       await model.send(unsent)
-    } else if let audio = model.unsentVoice {
-      await model.sendVoice(audio, mimeType: VoiceRecorder.mimeType)
+    } else if model.unsentVoice != nil {
+      await model.retryVoice()
     } else if model.phase == .failed(.noSpeech) {
       await recorder.start()
     } else {

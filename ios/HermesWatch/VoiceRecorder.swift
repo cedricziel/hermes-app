@@ -26,7 +26,11 @@ final class VoiceRecorder: NSObject, AVAudioRecorderDelegate {
   /// Bumped by every start and cancel, so a start still waiting for the
   /// microphone permission gives up once it is stale.
   private var attempt = 0
-  private let url = FileChatCache.standard.directory.appendingPathComponent("voice.m4a")
+  private let url = FileChatCache.standard.directory.appendingPathComponent("voice-\(UUID().uuidString).m4a")
+  private(set) var terminationReason = VoiceTerminationReason.manual
+  private(set) var startedAt: Date?
+  private var startedDeviceTime: TimeInterval?
+  var elapsed: TimeInterval { min(recorder?.currentTime ?? 0, Self.maxDuration) }
 
   private var cleanupId: UUID?
 
@@ -64,13 +68,16 @@ final class VoiceRecorder: NSObject, AVAudioRecorderDelegate {
       recorder.delegate = self
       guard recorder.record(forDuration: Self.maxDuration) else { throw CocoaError(.fileWriteUnknown) }
       self.recorder = recorder
+      terminationReason = .manual
+      startedAt = Date()
+      startedDeviceTime = recorder.deviceCurrentTime
       state = .recording
       interruptions = NotificationCenter.default.addObserver(
         forName: AVAudioSession.interruptionNotification,
         object: session,
         queue: .main
       ) { [weak self] _ in
-        MainActor.assumeIsolated { self?.finish(recorder, successfully: true) }
+        MainActor.assumeIsolated { self?.finish(recorder, successfully: true, reason: .interruption) }
       }
     } catch {
       try? session.setActive(false)
@@ -80,19 +87,24 @@ final class VoiceRecorder: NSObject, AVAudioRecorderDelegate {
   }
 
   /// Stops and returns the recording, or nil when nothing was recorded.
-  func stop() -> Data? {
+  func stop() -> (audio: Data, reason: VoiceTerminationReason)? {
     attempt += 1
     if let interruptions { NotificationCenter.default.removeObserver(interruptions) }
     interruptions = nil
     guard let recorder else { return nil }
+    let elapsed = max(recorder.currentTime, recorder.deviceCurrentTime - (startedDeviceTime ?? recorder.deviceCurrentTime))
+    let reason = VoiceTerminationReason.classifyStop(reported: terminationReason,
+      isRecording: recorder.isRecording, elapsed: elapsed, durationLimit: Self.maxDuration)
     recorder.delegate = nil
     recorder.stop()
     self.recorder = nil
     state = .idle
+    startedAt = nil
+    startedDeviceTime = nil
     try? AVAudioSession.sharedInstance().setActive(false)
     defer { try? FileManager.default.removeItem(at: url) }
     guard let data = try? Data(contentsOf: url), !data.isEmpty else { return nil }
-    return data
+    return (data, reason)
   }
 
   func cancel() {
@@ -101,14 +113,15 @@ final class VoiceRecorder: NSObject, AVAudioRecorderDelegate {
   }
 
   nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-    Task { @MainActor in self.finish(recorder, successfully: flag) }
+    Task { @MainActor in self.finish(recorder, successfully: flag, reason: .durationLimit) }
   }
 
   /// Ends a recording that stopped on its own: kept for [stop] when it is
   /// usable, dropped as a failure when not.
-  private func finish(_ recorder: AVAudioRecorder, successfully: Bool) {
+  private func finish(_ recorder: AVAudioRecorder, successfully: Bool, reason: VoiceTerminationReason) {
     guard recorder === self.recorder, state == .recording else { return }
     if successfully {
+      terminationReason = reason
       recorder.pause()
       try? AVAudioSession.sharedInstance().setActive(false)
       state = .finished

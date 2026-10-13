@@ -80,6 +80,11 @@ import Foundation
       return SendResult(threadId: threadId ?? WatchThreadId(contextId: "demo-context", profile: "demo", sessionId: "d9").encode(), text: "Done. The next backup runs at **02:00**.", failed: false, tools: ["edit_file"])
     }
 
-    func transcribe(audio: Data, mimeType: String) async throws -> String { "Thanks" }
+    func transcribe(audio: Data, mimeType: String) async throws -> String {
+      if Self.mode == "voice_failed" { throw HermesClientError.phoneUnreachable }
+      if Self.mode == "voice_empty" { return " " }
+      if Self.mode == "voice_long" { return "Please review the backup schedule for each server and explain why the nightly backup copies all media again. Keep the existing backup and do not change any files." }
+      return "Thanks"
+    }
   }
 #endif

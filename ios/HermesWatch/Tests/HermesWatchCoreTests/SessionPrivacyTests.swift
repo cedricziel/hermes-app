@@ -66,31 +66,41 @@ private final class PrivacyDeferredClient: HermesClient {
   func forgetSend(sendId: String) async throws {}
   var messageReply: CheckedContinuation<[ChatMessage], Error>?
   var transcriptReply: CheckedContinuation<String, Error>?
+  let messagesRequested = XCTestExpectation(description: "messages continuation installed")
+  let transcriptionRequested = XCTestExpectation(description: "transcription continuation installed")
   var sends = 0
   func threads() async throws -> [ThreadSummary] { [] }
   func messages(threadId: String) async throws -> [ChatMessage] {
-    try await withCheckedThrowingContinuation { messageReply = $0 }
+    try await withCheckedThrowingContinuation {
+      messageReply = $0
+      messagesRequested.fulfill()
+    }
   }
   func send(threadId: String?, text: String, sendId: String, retry: Bool) async throws -> SendResult {
     sends += 1
     return SendResult(threadId: threadId, text: "Late", failed: false)
   }
   func transcribe(audio: Data, mimeType: String) async throws -> String {
-    try await withCheckedThrowingContinuation { transcriptReply = $0 }
+    try await withCheckedThrowingContinuation {
+      transcriptReply = $0
+      transcriptionRequested.fulfill()
+    }
   }
 }
 
 extension SessionPrivacyTests {
-  func testLateLoadedMessagesCannotRestoreClearedCacheOrConversation() async {
+  func testLateLoadedMessagesCannotRestoreClearedCacheOrConversation() async throws {
     let inner = PrivacyDeferredClient()
     let session = WatchSessionState()
     let cache = MemoryChatCache()
     let client = CachingClient(inner: inner, cache: cache, session: session)
     let model = ConversationModel(client: client, threadId: "p/s")
     let load = Task { await model.load() }
-    await Task.yield()
+    defer { load.cancel() }
+    await fulfillment(of: [inner.messagesRequested], timeout: 2)
+    let messageReply = try XCTUnwrap(inner.messageReply)
     session.invalidate()
-    inner.messageReply!.resume(returning: [ChatMessage(id: "m", role: .assistant, content: "Private", at: .distantPast)])
+    messageReply.resume(returning: [ChatMessage(id: "m", role: .assistant, content: "Private", at: .distantPast)])
     await load.value
 
     XCTAssertTrue(model.messages.isEmpty)
@@ -98,14 +108,16 @@ extension SessionPrivacyTests {
     XCTAssertEqual(model.phase, .failed(.signedOut))
   }
 
-  func testInvalidatedTranscriptionCannotSendOrRestoreRetryAudio() async {
+  func testInvalidatedTranscriptionCannotSendOrRestoreRetryAudio() async throws {
     let inner = PrivacyDeferredClient()
     let session = WatchSessionState()
     let model = ConversationModel(client: inner, threadId: nil, session: session)
     let recording = Task { await model.sendVoice(Data([1, 2]), mimeType: "audio/mp4") }
-    await Task.yield()
+    defer { recording.cancel() }
+    await fulfillment(of: [inner.transcriptionRequested], timeout: 2)
+    let transcriptReply = try XCTUnwrap(inner.transcriptReply)
     session.invalidate()
-    inner.transcriptReply!.resume(returning: "Private transcript")
+    transcriptReply.resume(returning: "Private transcript")
     await recording.value
 
     XCTAssertEqual(inner.sends, 0)
