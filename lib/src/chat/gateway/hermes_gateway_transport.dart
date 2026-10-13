@@ -411,6 +411,7 @@ class _QueuedGate {
       case SessionUsageUpdated() ||
           ApprovalRequested() ||
           WarningScopeDiscarded() ||
+          TodoUpdated() ||
           SessionControlUpdated() ||
           SessionControlUnavailable() ||
           SessionWaitUpdated() ||
@@ -486,7 +487,7 @@ class _Unsolicited {
   /// ask for approval before it says anything else, and a reconnect rebuilds
   /// the turn running now.
   bool claims(ChatEvent event) {
-    if (event is SessionUsageUpdated) return false;
+    if (event is SessionUsageUpdated || event is TodoUpdated) return false;
     if (_done) return false;
     if (_ended &&
         (opensTurn(event) || _raisesRequest(event) || event is ReplyRebuilt)) {

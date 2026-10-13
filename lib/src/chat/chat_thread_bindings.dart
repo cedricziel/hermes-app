@@ -97,6 +97,7 @@ ChatThreadView boundChatThreadView({
     onNoticeDetails: chat.warningDetailsOpened,
     sessionState: t == null ? null : chat.sessionStateIn(t),
     sessionUsage: t == null ? null : chat.usageIn(t),
+    todoPlan: t == null ? null : chat.todoPlanIn(t),
     onSessionDetails: chat.sessionDetailsOpened,
     onReopenSession: t == null ? null : () => chat.reopenSession(t),
     chatController: chat.controllerFor(t),

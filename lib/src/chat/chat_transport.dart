@@ -11,10 +11,22 @@ import 'chat_models.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
 import 'slash_command.dart';
+import 'todo_plan/todo_plan_state.dart';
 import 'session_usage/usage_snapshot.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
+}
+
+final class TodoUpdated extends ChatEvent {
+  const TodoUpdated(
+    this.snapshot, {
+    required this.runtimeId,
+    required this.connection,
+  });
+  final TodoSnapshot snapshot;
+  final String runtimeId;
+  final Object? connection;
 }
 
 final class SessionControlUpdated extends ChatEvent {
