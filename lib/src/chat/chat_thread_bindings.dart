@@ -5,6 +5,7 @@ import '../share/shared_item.dart';
 import '../voice/dictation_controller.dart';
 import 'attachments/attachment_source.dart';
 import 'chat_controller.dart';
+import 'widgets/queued_prompts.dart';
 import 'chat_models.dart';
 import 'slash_command.dart';
 import 'starter_prompts.dart';
@@ -60,6 +61,29 @@ class LatestReply {
     status.dispose();
   }
 }
+
+Widget? protectedQueueView(ChatController chat, ChatThread? t) =>
+    t == null ||
+        chat.queueStore == null ||
+        chat.queuedIn(t).isEmpty &&
+            chat.queueErrorIn(t) == null &&
+            !chat.queueBusy(t) &&
+            chat.queuesVisible
+    ? null
+    : QueuedPrompts(
+        prompts: chat.queuedIn(t),
+        busy: chat.queueBusy(t),
+        reviewRequired: chat.queueNeedsReview(t),
+        available: chat.queueAvailable(t),
+        locked: !chat.queuesVisible,
+        storageError: chat.queueErrorIn(t),
+        onRemove: (prompt) => chat.removeQueued(t, prompt),
+        onSendNow:
+            chat.queuePaused(t) && !chat.queueBusy(t) && chat.queueAvailable(t)
+            ? () => chat.sendQueued(t)
+            : null,
+        onInspect: () => chat.inspectQueued(t),
+      );
 
 /// [ChatThreadView] for [thread] of [chat], with the chat's answers,
 /// retries, paging and queue bound to [chat]. A null [thread] (a new chat)
@@ -120,7 +144,8 @@ ChatThreadView boundChatThreadView({
     onRemoveAttachment: onRemoveAttachment,
     onSend: onSend,
     slashCommands: slashCommands,
-    commandRunning: commandRunning,
+    commandRunning: commandRunning || t != null && chat.queueBusy(t),
+    queueView: protectedQueueView(chat, t),
     sendTarget: sendTarget,
     starterPrompts: starterPrompts,
     onPickStarter: onPickStarter ?? (_) {},

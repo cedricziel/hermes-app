@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../handoff/handoff_controller.dart';
 import '../handoff/handoff_activity.dart';
@@ -51,6 +52,7 @@ import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
 import 'chat_controller.dart';
+import 'queue_storage/queue_persistence.dart';
 import 'chat_models.dart';
 import 'chat_thread_bindings.dart';
 import 'chat_open_requests.dart';
@@ -174,12 +176,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesMcpRepository? _mcp;
   HermesModelsRepository? _models;
   HermesGatewayTransport? _ownedTransport;
+  SessionActivity? _sessionActivity;
   final _composerController = TextEditingController();
   ComposerDictation? _dictation;
   List<SlashCommand> _slashCommands = const [];
   String? _slashContext;
   int _slashFetchGeneration = 0;
   bool _slashSending = false;
+  bool _queueSending = false;
   final _composerFocus = FocusNode();
   final List<SharedFile> _attachments = [];
   late final AttachmentSource _attachmentSource;
@@ -264,7 +268,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         events: repositories?.telemetry.events ?? noopAppEventLogger,
       );
     }
+    final auth = _maybeRead<AuthController>();
+    if (auth?.verifiedOwner != null) {
+      _sessionActivity = SessionActivity(auth!);
+    }
+    final queues = _maybeRead<QueuePersistence>();
     _chat = ChatController(
+      activity: _sessionActivity,
+      queueStore: queues?.open,
+      queueScope: queues == null
+          ? null
+          : (thread, profile) => queues.scopeFor(thread.id, profile),
+      queueChanges: queues,
+      canShowQueues: queues == null ? null : () => queues.visible,
       events: repositories?.telemetry.events ?? noopAppEventLogger,
       usageTelemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
       repository: widget.repository ?? repositories?.chat,
@@ -309,6 +325,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
         recorder: widget.voiceRecorder ?? RecordVoiceRecorder(),
         field: _composerController,
+        activity: _sessionActivity,
         profile: () => _chat.profile,
         settings: _maybeRead<DictationSettings>(),
         onDevice: _maybeRead<OnDeviceSpeech>(),
@@ -906,6 +923,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..dispose();
     _ownedTransport?.close();
     _dictation?.dispose();
+    _sessionActivity?.dispose();
     _composerController.removeListener(_onComposerText);
     _composerController.dispose();
     _composerFocus.dispose();
@@ -1188,9 +1206,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// The package composer reports attachments-only sends as an empty [text].
-  void _send(String text) {
+  Future<void> _send(String text) async {
+    if (_queueSending) return;
     if (_slashSending) return;
-    if (_leaveToWindow(_chat.selectedThread?.id, () => _send(text))) return;
+    if (_leaveToWindow(
+      _chat.selectedThread?.id,
+      () => unawaited(_send(text)),
+    )) {
+      return;
+    }
     final typed = text.trim();
     final files = List.of(_attachments);
     if (typed.isEmpty && files.isEmpty) return;
@@ -1202,7 +1226,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       unawaited(_sendSlash(typed));
       return;
     }
-    if (!_chat.submit(typed, files)) return;
+    setState(() => _queueSending = true);
+    final target = _chat.selectedThread;
+    final profile = _chat.profile;
+    bool accepted;
+    try {
+      accepted = await _chat.submit(typed, files);
+    } on Object {
+      _showMessage('Could not send this prompt. Your draft was kept.');
+      return;
+    } finally {
+      if (mounted) setState(() => _queueSending = false);
+    }
+    if (!mounted) return;
+    if (!accepted ||
+        profile != _chat.profile ||
+        target != null && target != _chat.selectedThread ||
+        _composerController.text.trim() != typed ||
+        _attachments.length != files.length ||
+        !files.every(_attachments.contains)) {
+      return;
+    }
     setState(() {
       _composerController.clear();
       _attachments.clear();
@@ -1316,7 +1360,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               setState(() => _attachments.remove(file)),
           onSend: _send,
           slashCommands: _slashCommands,
-          commandRunning: _slashSending,
+          commandRunning: _slashSending || _queueSending,
           starterPrompts: _showsWelcome ? _starterPrompts() : null,
           onPickStarter: _pickStarter,
           latestReply: _latestReply,

@@ -60,6 +60,8 @@ Future<void> runQuickPanel(String windowId, QuickPanelLaunch launch) async {
           themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
           home: QuickPanelScreen(
             link: link,
+            queueServerKey: launch.baseUrl,
+            queueOwnerKey: launch.ownerKey,
             chat: repositories.chat,
             profiles: repositories.profiles,
             models: repositories.models,

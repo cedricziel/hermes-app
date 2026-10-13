@@ -47,6 +47,7 @@ class ChatComposer extends StatefulWidget {
     this.modelPill,
     this.slashCommands = const [],
     this.commandRunning = false,
+    this.queueView,
     this.botContext,
     this.dictation,
   });
@@ -65,6 +66,7 @@ class ChatComposer extends StatefulWidget {
   final Widget? modelPill;
   final List<SlashCommand> slashCommands;
   final bool commandRunning;
+  final Widget? queueView;
   final BotChatContext? botContext;
 
   /// Dictation into the draft; without it there is no microphone button.
@@ -258,7 +260,10 @@ class _ChatComposerState extends State<ChatComposer> {
             onChoose: (index) => _chooseSlash(_suggestions[index]),
           ),
         if (onStop != null) _StopBar(onStop: onStop),
-        if (widget.queued.isNotEmpty && onRemoveQueued != null)
+        if (widget.queueView != null) widget.queueView!,
+        if (widget.queueView == null &&
+            widget.queued.isNotEmpty &&
+            onRemoveQueued != null)
           QueuedPrompts(
             prompts: widget.queued,
             onRemove: onRemoveQueued,

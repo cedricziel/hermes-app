@@ -22,6 +22,7 @@ class ThreadHousekeeping {
     required this.removed,
     required this.history,
     this.canWork,
+    this.prepareDelete,
   });
 
   final HermesChatRepository repository;
@@ -33,6 +34,7 @@ class ThreadHousekeeping {
   final VoidCallback changed;
   final ValueChanged<String> report;
   final bool Function()? canWork;
+  final Future<void> Function()? Function(ChatThread)? prepareDelete;
 
   /// A thread left the list because it was archived or deleted.
   final ValueChanged<ChatThread> removed;
@@ -188,19 +190,33 @@ class ThreadHousekeeping {
     thread,
     (profile) => repository.deleteThread(thread.id, profile: profile),
     'Could not delete this chat',
+    deleted: true,
   );
 
   Future<void> _remove(
     ChatThread thread,
     Future<void> Function(String? profile) call,
-    String failure,
-  ) => _guarded(thread, (profile, current) async {
+    String failure, {
+    bool deleted = false,
+  }) => _guarded(thread, (profile, current) async {
+    final cleanup = deleted ? prepareDelete?.call(thread) : null;
     try {
       await call(profile);
     } on Object catch (error) {
       if (!current()) return;
       report(_failure(failure, error));
       return;
+    }
+    if (cleanup != null) {
+      try {
+        await cleanup();
+      } on Object {
+        if (current()) {
+          report(
+            'The chat was deleted, but its protected queue cleanup could not finish.',
+          );
+        }
+      }
     }
     if (current()) forget(thread);
   });
