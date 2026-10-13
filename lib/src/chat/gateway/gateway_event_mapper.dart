@@ -9,6 +9,7 @@ import '../todo_plan/todo_plan_state.dart';
 import '../moa_progress_state.dart';
 import '../session_usage/usage_snapshot.dart';
 import '../side_results/side_result_state.dart';
+import '../process_output_state.dart';
 import 'gateway_rpc_client.dart';
 
 /// The [ChatEvent] a gateway event frame means, or null for a frame the app
@@ -84,6 +85,15 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
       ),
       _ => null,
     },
+    'agent.terminal.output' || 'terminal.close' =>
+      switch (ProcessOutputUpdate.decode(event.type, payload)) {
+        final update? when event.sessionId.isNotEmpty => ProcessOutputReceived(
+          update,
+          runtimeId: event.sessionId,
+          connection: connection,
+        ),
+        _ => null,
+      },
     'session.usage' =>
       event.sessionId.isEmpty
           ? null

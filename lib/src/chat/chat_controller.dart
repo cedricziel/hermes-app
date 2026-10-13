@@ -42,6 +42,7 @@ import 'todo_plan/todo_plan_state.dart';
 import 'moa_progress_state.dart';
 import 'session_usage/session_usage_controller.dart';
 import 'side_results/side_result_state.dart';
+import 'process_output_state.dart';
 import 'gateway/gateway_rpc_client.dart' show GatewayRpcException;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
@@ -709,6 +710,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         : null;
   }
 
+  final _processOutputs = <ChatThread, ProcessOutputState>{};
+  ProcessOutputState? processOutputsIn(ChatThread thread) =>
+      active ? _processOutputs[thread] : null;
+
   void _listenOwnedSessions() {
     final source = transport;
     if (!active ||
@@ -731,6 +736,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           for (final entry in _ownedBindings.entries.toList()) {
             if (entry.value != change.binding) continue;
             _sideResults.remove(entry.key)?.dispose();
+            _processOutputs.remove(entry.key)?.clear();
             if (change.retired) {
               _ownedBindings.remove(entry.key);
               _usage.remove(entry.key)?.dispose();
@@ -768,6 +774,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       state.dispose();
     }
     _sideResults.clear();
+    for (final state in _processOutputs.values) {
+      state.clear();
+    }
+    _processOutputs.clear();
     _ownedBindings.clear();
     if (!disposed) notifyListeners();
   }
@@ -798,6 +808,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (previous != binding) {
       _ownedBindings[thread] = binding;
       _sideResults[thread]?.adopt(_sideScope(binding));
+      _processOutputs[thread]?.adopt(binding);
       controller.bind(
         UsageScope(
           connection: binding.connection,
@@ -839,6 +850,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             binding;
     if (!current()) return null;
     _sideResults[thread]?.adopt(_sideScope(binding));
+    _processOutputs[thread]?.adopt(binding);
     return current() ? binding : null;
   }
 
@@ -863,6 +875,37 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       return created;
     });
     state.received(_sideScope(binding), event.result);
+    return true;
+  }
+
+  void processOutputDetailsOpened() => breadcrumbs('chat.visibility_action', {
+    'feature': 'process_output',
+    'action': 'details',
+  });
+
+  bool _onProcessOutput(ChatThread thread, ChatEvent event, String? profile) {
+    if (event is! ProcessOutputReceived) return false;
+    final binding = _syncOwnedSession(thread, profile);
+    if (binding == null ||
+        event.runtimeId != binding.runtimeId ||
+        !identical(event.connection, binding.connection)) {
+      return true;
+    }
+    final state = _processOutputs.putIfAbsent(
+      thread,
+      () => ProcessOutputState()..adopt(binding),
+    );
+    final outcome = state.apply(event.update, attachment: binding);
+    notifyListeners();
+    try {
+      events('gateway.visibility_outcome', {
+        'feature': 'process_output',
+        'outcome': outcome.name,
+        'count': 1,
+      });
+    } on Object {
+      return true;
+    }
     return true;
   }
 
@@ -2090,6 +2133,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _ownedBindings.remove(thread);
     _usage.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
+    _processOutputs.remove(thread)?.clear();
     _sessionStates.remove(thread);
     _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();
@@ -3094,6 +3138,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_onMoaEvent(thread, own.open, event, profile)) return;
     if (_onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
+        _onProcessOutput(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
@@ -3226,6 +3271,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       state.dispose();
     }
     _sideResults.clear();
+    for (final state in _processOutputs.values) {
+      state.clear();
+    }
+    _processOutputs.clear();
     _ownedBindings.clear();
     _sessionActionGenerations.clear();
     _sessionStates.clear();
@@ -3341,6 +3390,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_onMoaEvent(thread, null, event, profile)) return;
     if (_onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
+        _onProcessOutput(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
@@ -3468,6 +3518,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_onMoaEvent(thread, reply, event, profile)) return;
     if (_onTodoEvent(thread, event, profile) ||
         _onSideResult(thread, event, profile) ||
+        _onProcessOutput(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
@@ -3491,6 +3542,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ReplyStarted() || UnsolicitedEvent() || PromptAcknowledged():
       case SideResultReceived() ||
           MoaUpdated() ||
+          ProcessOutputReceived() ||
           SessionUsageUpdated() ||
           ToolRiskFlagged() ||
           NoticeShown() ||

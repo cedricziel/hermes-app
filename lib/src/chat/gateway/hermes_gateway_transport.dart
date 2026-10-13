@@ -410,6 +410,7 @@ class _QueuedGate {
           const ThreadNeedsRefetch(),
         ];
       case SideResultReceived() ||
+          ProcessOutputReceived() ||
           SessionUsageUpdated() ||
           ApprovalRequested() ||
           WarningScopeDiscarded() ||
@@ -491,7 +492,8 @@ class _Unsolicited {
   bool claims(ChatEvent event) {
     if (event is SessionUsageUpdated ||
         event is TodoUpdated ||
-        event is SideResultReceived) {
+        event is SideResultReceived ||
+        event is ProcessOutputReceived) {
       return false;
     }
     if (_done) return false;
