@@ -106,6 +106,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   bool _schedules = false;
   int _detection = 0;
   int _botOpenVersion = 0;
+  int _externalIntentRevision = 0;
   _Destination _current = _Destination.chat;
   late final Breadcrumbs _breadcrumbs;
 
@@ -447,12 +448,17 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _queueExternalNavigation(VoidCallback action, [bool isLaunch = false]) {
     if (!mounted || (isLaunch && !_externalNavigation.canAcceptLaunch)) return;
-    _shareEntryValid = false;
-    _waitingLink = null;
-    _pendingJob = null;
+    _beginExternalNavigation();
     _externalNavigation.request((_) {
       if (mounted) action();
     }, isLaunch: isLaunch);
+  }
+
+  int _beginExternalNavigation() {
+    _shareEntryValid = false;
+    _waitingLink = null;
+    _pendingJob = null;
+    return ++_externalIntentRevision;
   }
 
   void _openJob(NotificationTarget target) =>
@@ -504,8 +510,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// concerns them, and are ignored by a server that answered it lacks the
   /// tab. The breadcrumbs hold the kind and flags only, never the link.
   void _openDeepLink(PendingDeepLink link, {required bool waited}) {
-    _shareEntryValid = false;
-    _pendingJob = null;
+    _beginExternalNavigation();
     final known = switch (link.target) {
       OpenKanban() => _kanbanKnown,
       OpenSchedules() => _schedulesKnown,
@@ -605,27 +610,40 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void _openMenu() => _scaffoldKey.currentState?.openDrawer();
 
   Future<void> _openBot(BotModeBot bot) async {
+    if (!_authorizedOwner) return;
     final version = ++_botOpenVersion;
+    final intent = _beginExternalNavigation();
+    final owner = _auth?.ownerGeneration;
+    _externalNavigation.cancel();
+    bool current() =>
+        _authorizedOwner &&
+        _auth?.ownerGeneration == owner &&
+        version == _botOpenVersion &&
+        intent == _externalIntentRevision;
     try {
       final roster = await _botsRepository!.load();
+      if (!current()) return;
       final currentBot = roster.bots.singleWhere(
         (candidate) => candidate.identity == bot.identity,
       );
       final chat = await _botChats!.open(currentBot);
-      if (!mounted || version != _botOpenVersion) return;
-      _openRequests.request(
-        NotificationTarget(threadId: chat.storedId, profile: chat.profile),
-        bot: BotChatContext(
-          bot: currentBot,
-          rootId: chat.rootId,
-          storedId: chat.storedId,
-          peers: roster.bots,
-          protocolEnabled: roster.supported,
-        ),
-      );
-      _showChat();
+      if (!current()) return;
+      _externalNavigation.request((_) {
+        if (!current()) return;
+        _openRequests.request(
+          NotificationTarget(threadId: chat.storedId, profile: chat.profile),
+          bot: BotChatContext(
+            bot: currentBot,
+            rootId: chat.rootId,
+            storedId: chat.storedId,
+            peers: roster.bots,
+            protocolEnabled: roster.supported,
+          ),
+        );
+        if (current()) _showChat();
+      });
     } on Object {
-      if (mounted && version == _botOpenVersion) {
+      if (mounted && current()) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Could not open the bot chat. Retry from Bots.'),
