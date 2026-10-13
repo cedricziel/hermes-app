@@ -52,7 +52,10 @@ struct ConversationView: View {
           }
           if case .waiting(let waiting) = model.phase {
             WorkingRow(text: waiting == .question ? "Hermes has a question" : "Waiting for your approval")
-            Button("Stop waiting") { model.stopWaiting() }
+            Text(ConversationPresentation.requestGuidance).fixedSize(horizontal: false, vertical: true)
+            Button(ConversationPresentation.leaveWaitingLabel) { model.stopWaiting() }
+              .accessibilityHint(ConversationPresentation.leaveWaitingHint)
+            Text(ConversationPresentation.leaveWaitingHint).font(.footnote).fixedSize(horizontal: false, vertical: true)
           }
           if model.phase == .failed(.contextChanged) {
             Text(HermesClientError.contextChanged.message)

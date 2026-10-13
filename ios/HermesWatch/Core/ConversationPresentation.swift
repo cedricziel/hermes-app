@@ -1,6 +1,9 @@
 import Foundation
 
 enum ConversationPresentation {
+  static let requestGuidance = "Answer in the Hermes notification, or open Hermes on your iPhone."
+  static let leaveWaitingLabel = "Leave waiting view"
+  static let leaveWaitingHint = "Hermes will keep waiting for your answer."
   enum DeliveryEvidence: Equatable { case unknown, submitting, accepted }
   static func canRestoreUnsentDraft(composer: String, handoffInProgress: Bool) -> Bool {
     composer.isEmpty && !handoffInProgress
