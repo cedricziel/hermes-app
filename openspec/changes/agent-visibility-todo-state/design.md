@@ -32,4 +32,3 @@ At the event reducer or connection invalidation consumer, log gateway.visibility
 ## Migration Plan
 
 No persisted-data migration or backend deployment is required. Add app behavior behind safe optional decoding. Rollback removes this capability's UI and mapping while keeping the existing contract inventory classification accurate. Target one feat(chat) commit and roughly 500 implementation lines or fewer; split presentation from follow-up enhancements if this bound is exceeded.
-

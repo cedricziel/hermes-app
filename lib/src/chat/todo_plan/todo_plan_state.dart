@@ -100,6 +100,7 @@ class TodoPlanState extends ChangeNotifier {
   TodoSnapshot? snapshot;
   bool _disposed = false;
   bool get attached => _scope != null;
+  bool hasScope(TodoScope scope) => attached && _scope == scope;
   bool get unavailable => attached && snapshot == null;
 
   /// A fresh runtime generation resets revision comparison, even when IDs repeat.

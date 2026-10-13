@@ -35,4 +35,3 @@ Use existing gateway receive and RPC spans with connection `hermes.*` attributes
 ## Delivery boundary
 
 One conventional `feat(chat)` PR targeting roughly 500 implementation lines or fewer. No backend changes. Cold-start restoration is limited to the existing todo_state snapshot.
-

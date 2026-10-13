@@ -321,10 +321,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _todoResumes =
       <(String?, String), (OwnedSessionBinding, Object, int)>{};
 
-  TodoPlanState? todoPlanIn(ChatThread thread) =>
-      active && _threads.contains(thread)
-      ? _todoPlans[(_profile, thread.id)]
-      : null;
+  TodoPlanState? todoPlanIn(ChatThread thread) {
+    final owner = (_profile, thread.id), source = transport;
+    final state = _todoPlans[owner], binding = _todoBindings[owner];
+    if (!active ||
+        !_threads.contains(thread) ||
+        state == null ||
+        binding == null ||
+        source is! OwnedSessionTransport) {
+      return null;
+    }
+    final actual = (source as OwnedSessionTransport).ownedSessionFor(
+      thread.id,
+      profile: _profile,
+    );
+    return actual == binding && state.hasScope(_todoScope(binding))
+        ? state
+        : null;
+  }
 
   TodoScope _todoScope(OwnedSessionBinding binding) => TodoScope(
     connection: binding.connection,
@@ -467,8 +481,32 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     return true;
   }
 
-  SessionUsageController? usageIn(ChatThread thread) =>
-      active ? _usage[thread] : null;
+  SessionUsageController? usageIn(ChatThread thread) {
+    final controller = _usage[thread], binding = _usageBindings[thread];
+    if (!active ||
+        controller == null ||
+        binding == null ||
+        binding.profile != _profile) {
+      return null;
+    }
+    final source = transport;
+    final actual = source is OwnedSessionTransport
+        ? (source as OwnedSessionTransport).ownedSessionFor(
+            thread.id,
+            profile: _profile,
+          )
+        : null;
+    if (actual != null && actual != binding) return null;
+    return controller.hasScope(
+          UsageScope(
+            connection: binding.connection,
+            sessionId: binding.runtimeId,
+            profile: binding.profile,
+          ),
+        )
+        ? controller
+        : null;
+  }
 
   void _listenOwnedSessions() {
     final source = transport;

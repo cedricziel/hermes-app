@@ -6,6 +6,8 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/owned_session_transport.dart';
 import 'package:hermes_app/src/chat/todo_plan/todo_plan_state.dart';
+import 'package:hermes_app/src/chat/session_usage/usage_snapshot.dart';
+import 'package:hermes_app/src/chat/session_usage/session_usage_controller.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -198,4 +200,96 @@ void main() {
       expect(chat.usageIn(thread), isNull);
     },
   );
+
+  test(
+    'new todo adoption never exposes old usage through a listener',
+    () async {
+      await pumpEventQueue();
+      source.sends.single.emit(const ThreadBound('stored'));
+      await pumpEventQueue();
+      final thread = chat.selectedThread!;
+      source.publish(binding, snapshot: plan(6, 'Old owner task'));
+      source.sends.single.emit(
+        SessionUsageUpdated(
+          UsageSnapshot.decode({'total': 7})!,
+          runtimeId: binding.runtimeId,
+          connection: binding.connection,
+        ),
+      );
+      await pumpEventQueue();
+      expect(chat.usageIn(thread)!.snapshot!.total, 7);
+      final observed = <int?>[];
+      chat.addListener(
+        () => observed.add(chat.usageIn(thread)?.snapshot?.total),
+      );
+      final next = OwnedSessionBinding(
+        connection: Object(),
+        runtimeId: 'new-runtime',
+        profile: null,
+      );
+
+      source.publish(next, snapshot: plan(1, 'New owner task'));
+      await pumpEventQueue();
+
+      expect(observed, isNot(contains(7)));
+      expect(chat.todoPlanIn(thread)!.snapshot!.revision, 1);
+    },
+  );
+
+  test(
+    'usage-first notification hides todo from an earlier confirmed binding',
+    () async {
+      await pumpEventQueue();
+      source.sends.single.emit(const ThreadBound('stored'));
+      await pumpEventQueue();
+      final thread = chat.selectedThread!;
+      source.publish(binding, snapshot: plan(6, 'Old owner task'));
+      final usage = chat.usageIn(thread)!;
+      final next = OwnedSessionBinding(
+        connection: Object(),
+        runtimeId: 'new-runtime',
+        profile: null,
+      );
+      final observed = <int?>[];
+      chat.addListener(
+        () => observed.add(chat.todoPlanIn(thread)?.snapshot?.revision),
+      );
+      source.bindings[(null, 'stored')] = next;
+
+      usage.bind(
+        UsageScope(
+          connection: next.connection,
+          sessionId: next.runtimeId,
+          profile: null,
+        ),
+        (_, _) async => {'total': 0},
+      );
+      source.publish(next, snapshot: plan(1, 'New owner task'));
+
+      expect(observed, isNot(contains(6)));
+      expect(chat.todoPlanIn(thread)!.snapshot!.revision, 1);
+    },
+  );
+
+  test('disconnected usage retains explicitly stale totals without restoring a plan', () async {
+    await pumpEventQueue();
+    source.sends.single.emit(const ThreadBound('stored'));
+    await pumpEventQueue();
+    final thread = chat.selectedThread!;
+    source.publish(binding, snapshot: plan(6, 'Old owner task'));
+    source.sends.single.emit(
+      SessionUsageUpdated(
+        UsageSnapshot.decode({'total': 7})!,
+        runtimeId: binding.runtimeId,
+        connection: binding.connection,
+      ),
+    );
+    await pumpEventQueue();
+
+    source.publish(binding, connected: false);
+
+    expect(chat.usageIn(thread)!.snapshot!.total, 7);
+    expect(chat.usageIn(thread)!.freshness, UsageFreshness.stale);
+    expect(chat.todoPlanIn(thread), isNull);
+  });
 }

@@ -50,4 +50,3 @@ The event shapes are:
 
 - **WHEN** an older backend omits this capability or refuses an optional method as unsupported
 - **THEN** ordinary chat remains usable and the app reports unavailable functionality without inventing state or submitting speculative requests
-
