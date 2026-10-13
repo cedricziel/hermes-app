@@ -14,6 +14,7 @@ import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import '../chat_session_state.dart';
+import '../owned_session_transport.dart';
 import '../slash_command.dart';
 import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
@@ -389,10 +390,26 @@ class _QueuedGate {
           if (storedSessionId != null)
             SessionInfo(storedSessionId: storedSessionId),
         ];
-      case ReplyCompleted():
+      case ReplyCompleted(
+        :final usage,
+        :final usageRuntimeId,
+        :final usageConnection,
+        :final usageMalformed,
+      ):
         _ended = true;
-        return const [ThreadNeedsRefetch()];
-      case ApprovalRequested() ||
+        return [
+          if (usage != null || usageMalformed)
+            SessionUsageUpdated(
+              usage,
+              runtimeId: usageRuntimeId,
+              connection: usageConnection,
+              finalSnapshot: true,
+              malformed: usageMalformed,
+            ),
+          const ThreadNeedsRefetch(),
+        ];
+      case SessionUsageUpdated() ||
+          ApprovalRequested() ||
           WarningScopeDiscarded() ||
           SessionControlUpdated() ||
           SessionControlUnavailable() ||
@@ -469,6 +486,7 @@ class _Unsolicited {
   /// ask for approval before it says anything else, and a reconnect rebuilds
   /// the turn running now.
   bool claims(ChatEvent event) {
+    if (event is SessionUsageUpdated) return false;
     if (_done) return false;
     if (_ended &&
         (opensTurn(event) || _raisesRequest(event) || event is ReplyRebuilt)) {
@@ -489,7 +507,11 @@ class _Unsolicited {
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
 class HermesGatewayTransport
-    implements ChatTransport, PromptAcknowledgement, GatewayRequester {
+    implements
+        ChatTransport,
+        PromptAcknowledgement,
+        GatewayRequester,
+        OwnedSessionTransport {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
@@ -562,6 +584,131 @@ class HermesGatewayTransport
 
   /// The model each thread was last set to from here, by thread.
   final _modelOf = <_ThreadOwner, ModelChoice>{};
+
+  final _ownedBindings = <_ThreadOwner, OwnedSessionBinding>{};
+  final _ownedSessions = StreamController<OwnedSessionChange>.broadcast(
+    sync: true,
+  );
+  @override
+  Stream<OwnedSessionChange> get ownedSessions => _ownedSessions.stream;
+
+  bool _ownsBinding(OwnedSessionBinding binding) =>
+      !_closed &&
+      identical(_connected(), binding.connection) &&
+      _ownedBindings.values.contains(binding);
+
+  @override
+  OwnedSessionBinding? ownedSessionFor(String threadId, {String? profile}) {
+    final binding = _ownedBindings[(profile, threadId)];
+    return binding != null && _ownsBinding(binding) ? binding : null;
+  }
+
+  void _establishOwned(
+    _ThreadOwner owner,
+    GatewayRpcClient client,
+    String runtimeId,
+  ) {
+    final candidate = OwnedSessionBinding(
+      connection: client,
+      runtimeId: runtimeId,
+      profile: owner.$1,
+    );
+    final current = _ownedBindings[owner];
+    _ownedBindings[owner] = current == candidate ? current! : candidate;
+  }
+
+  void _loseOwned(
+    GatewayRpcClient client,
+    String runtimeId, {
+    bool retired = false,
+  }) {
+    final lost = _ownedBindings.entries
+        .where(
+          (entry) =>
+              identical(entry.value.connection, client) &&
+              entry.value.runtimeId == runtimeId,
+        )
+        .toList();
+    for (final entry in lost) {
+      _ownedBindings.remove(entry.key);
+      if (!_ownedSessions.isClosed) {
+        _ownedSessions.add(
+          OwnedSessionChange(
+            entry.key.$2,
+            entry.value,
+            connected: false,
+            retired: retired,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Future<Map<String, Object?>> readOwnedSession(
+    OwnedSessionBinding binding,
+    String method,
+  ) async {
+    if (method != 'session.usage') {
+      throw UnsupportedError('Not an optional session read');
+    }
+    if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
+    final client = binding.connection as GatewayRpcClient;
+    final result = await client
+        .request(method, {
+          'session_id': binding.runtimeId,
+          'profile': binding.profile,
+        })
+        .timeout(requestTimeout);
+    if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
+    return result;
+  }
+
+  void _notifyOwned(
+    _ThreadOwner owner,
+    _Watch watch, {
+    bool connected = true,
+    bool retired = false,
+    Object? resumeToken,
+    Map<String, Object?>? resumeSnapshot,
+  }) {
+    if (_ownedSessions.isClosed) return;
+    final binding = OwnedSessionBinding(
+      connection: watch.client,
+      runtimeId: watch.runtimeId,
+      profile: owner.$1,
+    );
+    if (connected && !_ownsBinding(binding)) return;
+    _ownedSessions.add(
+      OwnedSessionChange(
+        owner.$2,
+        OwnedSessionBinding(
+          connection: watch.client,
+          runtimeId: watch.runtimeId,
+          profile: owner.$1,
+        ),
+        connected: connected,
+        retired: retired,
+        resumeToken: resumeToken,
+        resumeSnapshot: resumeSnapshot,
+      ),
+    );
+  }
+
+  Object? _beginResume(_ThreadOwner owner) {
+    final binding = ownedSessionFor(owner.$2, profile: owner.$1);
+    if (binding == null || _ownedSessions.isClosed) return null;
+    final token = Object();
+    _ownedSessions.add(
+      OwnedSessionChange(owner.$2, binding, resuming: true, resumeToken: token),
+    );
+    return token;
+  }
+
+  Map<String, Object?>? _resumeSnapshot(Map<String, Object?> result) =>
+      result.containsKey('todo_state')
+      ? Map.unmodifiable({'todo_state': result['todo_state']})
+      : null;
 
   /// Shared authenticated RPC for profile and Bot Mode repositories.
   @override
@@ -751,6 +898,7 @@ class HermesGatewayTransport
     late ReplayLedger before;
     late _Tap tap;
     late Map<String, Object?> session;
+    Object? usageResumeToken;
     for (var attempt = 0; ; attempt++) {
       if (attempt > 0) await _sleep(reconnectDelay(attempt, _random));
       if (stopped.value) return;
@@ -766,6 +914,9 @@ class HermesGatewayTransport
         before = _ledger.snapshot();
         tap = _Tap(client);
         try {
+          usageResumeToken = threadId == null
+              ? null
+              : _beginResume((profile, threadId));
           session = threadId == null
               ? await _call(client, 'session.create', {
                   ...scope,
@@ -810,6 +961,7 @@ class HermesGatewayTransport
       runtimeId = session['session_id'] as String;
       storedId = threadId ?? session['stored_session_id'] as String;
       owner = (profile, storedId);
+      _establishOwned(owner, client, runtimeId);
       _settledEarly.remove(owner);
       await _idle.remove(owner)?.close();
       // A relay may have re-keyed its watch after compression before the
@@ -831,6 +983,9 @@ class HermesGatewayTransport
         client,
         runtimeId,
         profile: profile,
+        storedId: storedId,
+        resumeToken: usageResumeToken,
+        resumeSnapshot: _resumeSnapshot(session),
         buffered: tap.release(),
         startAt: before.resumeFrom(runtimeId, client.epoch),
         record: autoContinue,
@@ -966,6 +1121,7 @@ class HermesGatewayTransport
         // for the follow-ups, which carry them.
         final displaced = _idle.remove(owner);
         _idle[owner] = watch;
+        _notifyOwned(owner, watch);
         watch.release();
         parked = true;
         await displaced?.close();
@@ -1103,6 +1259,7 @@ class HermesGatewayTransport
               // The session goes on listening: Hermes may chain another turn.
               final displaced = _idle.remove(owner);
               _idle[owner] = watch;
+              _notifyOwned(owner, watch);
               watch.release();
               parked = true;
               await displaced?.close();
@@ -1346,6 +1503,9 @@ class HermesGatewayTransport
   /// and the watch parked for its follow-ups.
   void _rekey(_ThreadOwner from, _ThreadOwner to) {
     if (from == to) return;
+    if (_ownedBindings.remove(from) case final binding?) {
+      _ownedBindings[to] = binding;
+    }
     if (_runtimeOf.remove(from) case final runtimeId?) {
       _runtimeOf[to] = runtimeId;
     }
@@ -1492,7 +1652,9 @@ class HermesGatewayTransport
     // pushes ahead of its answer are kept rather than dropped.
     final tap = _Tap(client);
     final Map<String, Object?> resumed;
+    Object? usageResumeToken;
     try {
+      usageResumeToken = _beginResume(owner);
       resumed = await _call(client, 'session.resume', {
         'session_id': owner.$2,
         'profile': ?owner.$1,
@@ -1593,7 +1755,7 @@ class HermesGatewayTransport
           merged = true;
           replayedCount = events.length;
           for (final event in events) {
-            final incoming = _incomingOf(event, runtimeId);
+            final incoming = _incomingOf(event, runtimeId, client: client);
             if (incoming == null) continue;
             (completed ? next : ended).add(incoming);
             completed = completed || incoming.$1 is ReplyCompleted;
@@ -1636,7 +1798,9 @@ class HermesGatewayTransport
         }
         // Frames the replay did not cover (the merge counts them itself).
         if (!merged) {
-          next.addAll(_parked(after, runtimeId, shown, epoch: epoch));
+          next.addAll(
+            _parked(after, runtimeId, shown, epoch: epoch, client: client),
+          );
         }
       }
       // The session goes on being listened to: Hermes may chain another turn.
@@ -1647,6 +1811,9 @@ class HermesGatewayTransport
           client,
           runtimeId,
           profile: owner.$1,
+          storedId: owner.$2,
+          resumeToken: usageResumeToken,
+          resumeSnapshot: _resumeSnapshot(resumed),
           injected: next,
           shown: shown,
         ),
@@ -1670,7 +1837,9 @@ class HermesGatewayTransport
           );
     if (decision case Deliver(:final events)) {
       replayedCount = events.length;
-      injected.addAll(_inArrivalOrder(events, frames, runtimeId, shown));
+      injected.addAll(
+        _inArrivalOrder(events, frames, runtimeId, shown, client),
+      );
       _openRequests(injected, openRows, runtimeId, shown);
     } else {
       // The replay cannot be trusted, so the snapshot replaces the text. Its
@@ -1686,9 +1855,18 @@ class HermesGatewayTransport
       }
       final dropped = snapshot == null ? 0 : _heldBySnapshot(before, snapshot);
       injected.addAll(
-        _parked(before, runtimeId, shown, epoch: epoch, dropped: dropped),
+        _parked(
+          before,
+          runtimeId,
+          shown,
+          epoch: epoch,
+          dropped: dropped,
+          client: client,
+        ),
       );
-      injected.addAll(_parked(after, runtimeId, shown, epoch: epoch));
+      injected.addAll(
+        _parked(after, runtimeId, shown, epoch: epoch, client: client),
+      );
       _openRequests(injected, openRows, runtimeId, shown);
     }
     return _Resumed(
@@ -1697,6 +1875,9 @@ class HermesGatewayTransport
         client,
         runtimeId,
         profile: owner.$1,
+        storedId: owner.$2,
+        resumeToken: usageResumeToken,
+        resumeSnapshot: _resumeSnapshot(resumed),
         injected: injected,
         shown: shown,
       ),
@@ -1717,6 +1898,7 @@ class HermesGatewayTransport
     List<Object> frames,
     String sid,
     Set<String> shown,
+    GatewayRpcClient client,
   ) {
     final parked = Set<Object>.identity()..addAll(frames);
     final frameSeqs = {
@@ -1735,7 +1917,7 @@ class HermesGatewayTransport
         live.add(event);
       } else if (seq != null && frameSeqs.contains(seq)) {
         replacing[seq] = event;
-      } else if (_incomingOf(event, sid) case final incoming?) {
+      } else if (_incomingOf(event, sid, client: client) case final incoming?) {
         out.add(incoming);
       }
     }
@@ -1747,7 +1929,9 @@ class HermesGatewayTransport
             : live.contains(frame)
             ? frame
             : replacing[frame.seq];
-        final incoming = event == null ? null : _incomingOf(event, sid);
+        final incoming = event == null
+            ? null
+            : _incomingOf(event, sid, client: client);
         if (incoming != null) out.add(incoming);
       } else if (frame is GatewayServerRequest && frame.sessionId == sid) {
         _addRequest(out, frame, shown);
@@ -1853,6 +2037,7 @@ class HermesGatewayTransport
     String sid,
     Set<String> shown, {
     required String? epoch,
+    required GatewayRpcClient client,
     int dropped = 0,
   }) {
     final out = <_Incoming>[];
@@ -1863,7 +2048,7 @@ class HermesGatewayTransport
             frame.sessionId != sid ||
             _ledger.observe(sid, frame.seq, epoch: epoch);
         if (!fresh || i < dropped) continue;
-        final incoming = _incomingOf(frame, sid);
+        final incoming = _incomingOf(frame, sid, client: client);
         if (incoming != null) out.add(incoming);
       } else if (frame is GatewayServerRequest) {
         _addRequest(out, frame, shown);
@@ -1874,10 +2059,14 @@ class HermesGatewayTransport
 
   /// The chat event a frame of [runtimeId] shows, or null when it shows
   /// nothing. Server requests are mapped as they arrive from the server.
-  _Incoming? _incomingOf(Object frame, String runtimeId) {
+  _Incoming? _incomingOf(
+    Object frame,
+    String runtimeId, {
+    required GatewayRpcClient client,
+  }) {
     switch (frame) {
       case GatewayEvent event when _eventRuntime(event) == runtimeId:
-        final shown = mapGatewayEvent(event);
+        final shown = mapGatewayEvent(event, connection: client);
         if (shown == null) _reportUnmapped(event.type);
         return shown == null ? null : (shown, false);
       case GatewayServerRequest request when request.sessionId == runtimeId:
@@ -2002,6 +2191,7 @@ class HermesGatewayTransport
   Future<void> _park(_ThreadOwner owner, _Watch watch) async {
     final displaced = _idle.remove(owner);
     _idle[owner] = watch;
+    _notifyOwned(owner, watch);
     watch.release();
     await displaced?.close();
   }
@@ -2074,6 +2264,7 @@ class HermesGatewayTransport
       return;
     }
     _idle[owner] = watch;
+    _notifyOwned(owner, watch);
     final follow = _Follow(watch);
     out.onCancel = () => _stopFollowing(follow);
     out.add(const ReplyStarted());
@@ -2274,6 +2465,9 @@ class HermesGatewayTransport
     GatewayRpcClient client,
     String runtimeId, {
     String? profile,
+    required String storedId,
+    Object? resumeToken,
+    Map<String, Object?>? resumeSnapshot,
     List<Object> buffered = const [],
     List<_Incoming> injected = const [],
     Set<String> shown = const {},
@@ -2281,6 +2475,8 @@ class HermesGatewayTransport
     bool record = false,
   }) {
     final inbox = StreamController<_Incoming?>();
+    final owner = (profile, storedId);
+    _establishOwned(owner, client, runtimeId);
     final watch = _Watch(runtimeId, client, inbox, record: record);
     var controlGeneration = 0;
     var reclaimed = false;
@@ -2289,6 +2485,7 @@ class HermesGatewayTransport
       if (event is SessionReclaimed) {
         watch.reclaimed = event;
         reclaimed = true;
+        _loseOwned(client, runtimeId, retired: true);
         _awaiting.removeWhere((_, request) => request.sessionId == runtimeId);
       }
     }
@@ -2333,14 +2530,20 @@ class HermesGatewayTransport
           seen = seq;
         }
       }
-      final incoming = _incomingOf(frame, runtimeId);
+      final incoming = _incomingOf(frame, runtimeId, client: client);
       if (incoming != null) note(incoming.$1);
       watch.push(incoming);
     }
 
     buffered.forEach(deliver);
     watch._sources = [
-      client.events.listen(deliver, onDone: inbox.close),
+      client.events.listen(
+        deliver,
+        onDone: () {
+          _loseOwned(client, runtimeId);
+          unawaited(inbox.close());
+        },
+      ),
       client.serverRequests.listen(deliver),
     ];
     if (reclaimed) return watch;
@@ -2388,6 +2591,12 @@ class HermesGatewayTransport
         return;
       }
     }());
+    _notifyOwned(
+      owner,
+      watch,
+      resumeToken: resumeToken,
+      resumeSnapshot: resumeSnapshot,
+    );
     return watch;
   }
 
@@ -2906,6 +3115,8 @@ class HermesGatewayTransport
     final idle = _idle.values.toList();
     _idle.clear();
     _settledEarly.clear();
+    _ownedBindings.clear();
+    unawaited(_ownedSessions.close());
     for (final watch in idle) {
       await watch.close();
     }

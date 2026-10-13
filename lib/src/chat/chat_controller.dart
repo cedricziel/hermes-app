@@ -28,6 +28,7 @@ import '../surfaces/surface_snapshot.dart'
         kDefaultProfile,
         kMaxRecentChats;
 import '../telemetry/breadcrumbs.dart';
+import '../telemetry/telemetry.dart';
 import '../watch/watch_complication.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
@@ -36,6 +37,8 @@ import 'chat_reply.dart';
 import 'chat_transport.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
+import 'owned_session_transport.dart';
+import 'session_usage/session_usage_controller.dart';
 import 'gateway/gateway_rpc_client.dart' show GatewayRpcException;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
@@ -101,6 +104,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onDraft,
     this.breadcrumbs = Breadcrumbs.none,
     this.events = noopAppEventLogger,
+    this.usageTelemetry = const ConnectionTelemetry(),
     this.replayGrace = const Duration(seconds: 20),
     DateTime Function()? now,
   }) : _clock = now ?? DateTime.now,
@@ -130,6 +134,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     _activeActivity = activity?.value ?? true;
     activity?.addListener(_activityChanged);
+    _listenOwnedSessions();
     search?.setActivity(_activeActivity);
     housekeeping?.setActivity(_activeActivity);
     if (!_activeActivity) return;
@@ -155,6 +160,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _suspendActivity();
     if (!next || disposed || epoch != _activityEpoch) return;
     _activeActivity = true;
+    _listenOwnedSessions();
     housekeeping?.setActivity(true);
     search?.setActivity(true);
     if (!_currentActivity(epoch)) return;
@@ -303,6 +309,160 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// titles, profile names or ids.
   final Breadcrumbs breadcrumbs;
   final AppEventLogger events;
+  final ConnectionTelemetry usageTelemetry;
+  final _usage = <ChatThread, SessionUsageController>{};
+  final _usageBindings = <ChatThread, OwnedSessionBinding>{};
+  StreamSubscription<OwnedSessionChange>? _ownedSubscription;
+
+  SessionUsageController? usageIn(ChatThread thread) =>
+      active ? _usage[thread] : null;
+
+  void _listenOwnedSessions() {
+    final source = transport;
+    if (!active ||
+        source is! OwnedSessionTransport ||
+        _ownedSubscription != null) {
+      return;
+    }
+    final epoch = _activityEpoch;
+    _ownedSubscription = (source as OwnedSessionTransport).ownedSessions.listen(
+      (change) {
+        if (!_currentActivity(epoch) || change.binding.profile != _profile) {
+          return;
+        }
+        if (!change.connected) {
+          for (final entry in _usageBindings.entries.toList()) {
+            if (entry.value != change.binding) continue;
+            if (change.retired) {
+              _usageBindings.remove(entry.key);
+              _usage.remove(entry.key)?.dispose();
+              notifyListeners();
+            } else {
+              _usage[entry.key]?.disconnected();
+            }
+          }
+          return;
+        }
+        final thread = _threads
+            .where((thread) => thread.id == change.threadId)
+            .firstOrNull;
+        if (thread != null) _syncUsage(thread, _profile);
+      },
+      onError: (Object _) {
+        if (_currentActivity(epoch)) _clearUsage();
+      },
+      onDone: () {
+        if (!_currentActivity(epoch)) return;
+        _ownedSubscription = null;
+        _clearUsage();
+      },
+    );
+  }
+
+  void _clearUsage() {
+    for (final controller in _usage.values) {
+      controller.dispose();
+    }
+    _usage.clear();
+    _usageBindings.clear();
+    if (!disposed) notifyListeners();
+  }
+
+  SessionUsageController? _syncUsage(ChatThread thread, String? profile) {
+    final source = transport;
+    if (!active ||
+        _profile != profile ||
+        !_threads.contains(thread) ||
+        source is! OwnedSessionTransport) {
+      return null;
+    }
+    final binding = (source as OwnedSessionTransport).ownedSessionFor(
+      thread.id,
+      profile: profile,
+    );
+    if (binding == null) return null;
+    final previous = _usageBindings[thread];
+    final controller = _usage.putIfAbsent(thread, () {
+      final created = SessionUsageController(
+        telemetry: usageTelemetry,
+        breadcrumbs: breadcrumbs,
+      );
+      created.addListener(notifyListeners);
+      return created;
+    });
+    if (previous != binding) {
+      _usageBindings[thread] = binding;
+      controller.bind(
+        UsageScope(
+          connection: binding.connection,
+          sessionId: binding.runtimeId,
+          profile: binding.profile,
+        ),
+        (_, _) {
+          if (!active ||
+              _profile != profile ||
+              !_threads.contains(thread) ||
+              (source as OwnedSessionTransport).ownedSessionFor(
+                    thread.id,
+                    profile: profile,
+                  ) !=
+                  binding) {
+            throw StateError('Usage attachment retired');
+          }
+          return (source as OwnedSessionTransport).readOwnedSession(
+            binding,
+            'session.usage',
+          );
+        },
+      );
+      if (previous != null &&
+          !identical(previous.connection, binding.connection) &&
+          identical(selectedThread, thread)) {
+        unawaited(controller.reconnected());
+      }
+    }
+    return controller;
+  }
+
+  bool _onUsageEvent(ChatThread thread, ChatEvent event, String? profile) {
+    final tick = event is SessionUsageUpdated;
+    if (!tick && event is! ReplyCompleted) return false;
+    final controller = _syncUsage(thread, profile),
+        binding = _usageBindings[thread];
+    if (controller == null || binding == null) return tick;
+    final runtime = tick
+        ? event.runtimeId
+        : (event as ReplyCompleted).usageRuntimeId;
+    final connection = tick
+        ? event.connection
+        : (event as ReplyCompleted).usageConnection;
+    if (runtime != binding.runtimeId ||
+        !identical(connection, binding.connection)) {
+      return tick;
+    }
+    final scope = UsageScope(
+      connection: binding.connection,
+      sessionId: binding.runtimeId,
+      profile: binding.profile,
+    );
+    if (event is SessionUsageUpdated) {
+      if (event.finalSnapshot) {
+        controller.complete(
+          scope,
+          event.malformed ? const <String, Object?>{} : event.snapshot,
+        );
+      } else {
+        controller.tick(scope, event.snapshot);
+      }
+    } else if (event is ReplyCompleted) {
+      controller.complete(
+        scope,
+        event.usageMalformed ? const <String, Object?>{} : event.usage,
+      );
+    }
+    return tick;
+  }
+
   final _warnings = <ChatThread, ChatWarningState>{};
   final _warningGenerations = <ChatThread, int>{};
   int _nextWarningGeneration = 0;
@@ -1482,6 +1642,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _undoing.remove(thread);
     _turnProblems.remove(thread);
     _sessionActionGenerations.remove(thread);
+    _usageBindings.remove(thread);
+    _usage.remove(thread)?.dispose();
     _sessionStates.remove(thread);
     _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();
@@ -2481,7 +2643,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatEvent event,
     String? profile,
   ) {
-    if (_onSessionEvent(thread, event, profile) ||
+    if (_onUsageEvent(thread, event, profile) ||
+        _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
       return;
     }
@@ -2598,6 +2761,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _stopFollowing() {
+    unawaited(_ownedSubscription?.cancel());
+    _ownedSubscription = null;
+    for (final controller in _usage.values) {
+      controller.dispose();
+    }
+    _usage.clear();
+    _usageBindings.clear();
     _sessionActionGenerations.clear();
     _sessionStates.clear();
     _reclaimedQueueReview.clear();
@@ -2632,6 +2802,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
+    _listenOwnedSessions();
     if (_sessionStates[thread]?.reclaimedReason != null) return;
     if (!active || _profile != profile || !_threads.contains(thread)) return;
     final epoch = _activityEpoch;
@@ -2707,7 +2878,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// An event on the follow-ups while no reply is open. It is about the
   /// thread, or a completion for the reply a turn ended without.
   void _onIdleEvent(ChatThread thread, ChatEvent event, String? profile) {
-    if (_onSessionEvent(thread, event, profile) ||
+    if (_onUsageEvent(thread, event, profile) ||
+        _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
       return;
     }
@@ -2828,7 +3000,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }) {
     final epoch = _activityEpoch;
     if (!_currentActivity(epoch)) return;
-    if (_onSessionEvent(thread, event, profile) ||
+    if (_onUsageEvent(thread, event, profile) ||
+        _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
       return;
     }
@@ -2836,11 +3009,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     switch (event) {
       case ThreadBound(:final threadId):
         _bindThread(thread, threadId);
+        _syncUsage(thread, profile);
       case ThreadTitled(:final title):
         _titled(thread, title);
         notifyListeners();
       case ReplyStarted() || UnsolicitedEvent() || PromptAcknowledged():
-      case ToolRiskFlagged() ||
+      case SessionUsageUpdated() ||
+          ToolRiskFlagged() ||
           NoticeShown() ||
           NoticeCleared() ||
           SessionControlUpdated() ||

@@ -4,6 +4,7 @@ import '../models/model_provider_option.dart';
 import 'chat_models.dart';
 import 'chat_transport.dart';
 import 'slash_command.dart';
+import 'owned_session_transport.dart';
 
 /// Work was blocked or its delegate was invalidated before it completed.
 final class SessionTransportUnavailable extends StateError {
@@ -16,7 +17,11 @@ final class SessionTransportUnavailable extends StateError {
 /// Stable transport identity with replaceable, terminally closed delegates.
 /// The activity owner must verify recovery policy before calling [resume].
 final class SessionChatTransport
-    implements ChatTransport, PromptAcknowledgement, GatewayRequester {
+    implements
+        ChatTransport,
+        PromptAcknowledgement,
+        GatewayRequester,
+        OwnedSessionTransport {
   SessionChatTransport(this._create) : _delegate = _create() {
     final delegate = _delegate;
     _acknowledgement = delegate is PromptAcknowledgement
@@ -56,14 +61,14 @@ final class SessionChatTransport
     }
   }
 
-  Stream<ChatEvent> _stream(Stream<ChatEvent> Function(ChatTransport) open) {
+  Stream<T> _stream<T>(Stream<T> Function(ChatTransport) open) {
     final delegate = _delegate;
     if (delegate == null) return Stream.error(_unavailable);
     final epoch = _epoch;
-    StreamSubscription<ChatEvent>? subscription;
-    final attached = Completer<StreamSubscription<ChatEvent>?>();
+    StreamSubscription<T>? subscription;
+    final attached = Completer<StreamSubscription<T>?>();
     Future<void>? cancellation;
-    late final StreamController<ChatEvent> controller;
+    late final StreamController<T> controller;
     Future<void> cancel() => cancellation ??= () async {
       try {
         final inner = subscription ?? await attached.future;
@@ -77,7 +82,7 @@ final class SessionChatTransport
       }
     }();
 
-    controller = StreamController<ChatEvent>(
+    controller = StreamController<T>(
       sync: true,
       onListen: () {
         if (!_current(epoch)) {
@@ -116,7 +121,7 @@ final class SessionChatTransport
     );
     // Paused listeners can hold frames already queued before suspension.
     return controller.stream.transform(
-      StreamTransformer<ChatEvent, ChatEvent>.fromHandlers(
+      StreamTransformer<T, T>.fromHandlers(
         handleData: (event, sink) {
           if (_current(epoch)) sink.add(event);
         },
@@ -166,6 +171,38 @@ final class SessionChatTransport
 
   @override
   bool get promptAccepted => _acknowledgement?.promptAccepted ?? false;
+
+  @override
+  Stream<OwnedSessionChange> get ownedSessions => _stream(
+    (delegate) => delegate is OwnedSessionTransport
+        ? (delegate as OwnedSessionTransport).ownedSessions
+        : const Stream<OwnedSessionChange>.empty(),
+  );
+
+  @override
+  OwnedSessionBinding? ownedSessionFor(String threadId, {String? profile}) {
+    final delegate = _delegate;
+    return delegate is OwnedSessionTransport
+        ? (delegate as OwnedSessionTransport).ownedSessionFor(
+            threadId,
+            profile: profile,
+          )
+        : null;
+  }
+
+  @override
+  Future<Map<String, Object?>> readOwnedSession(
+    OwnedSessionBinding binding,
+    String method,
+  ) => _call((delegate) {
+    if (delegate is! OwnedSessionTransport) {
+      throw UnsupportedError('No owned session read');
+    }
+    return (delegate as OwnedSessionTransport).readOwnedSession(
+      binding,
+      method,
+    );
+  });
 
   @override
   Future<Map<String, Object?>> request(

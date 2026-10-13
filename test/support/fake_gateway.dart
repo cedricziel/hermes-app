@@ -253,6 +253,9 @@ class FakeGateway {
     _wire.foreign.sink.close();
   }
 
+  void replyTo(Map<String, Object?> request, Map<String, Object?> result) =>
+      _send({'id': request['id'], 'result': result});
+
   void _send(Map<String, Object?> message) {
     if (!_socketOpen) return;
     _wire.foreign.sink.add(jsonEncode({'jsonrpc': '2.0', ...message}));

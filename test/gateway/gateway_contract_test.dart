@@ -61,7 +61,7 @@ const notifications = <String, (Use, String)>{
   'notice': (Use.shown, 'session notice line'),
   'notification.show': (Use.shown, 'credit and slow-start warnings'),
   'notification.clear': (Use.shown, 'withdraws a notification.show'),
-  'session.usage': (Use.gap, 'token use during a turn'),
+  'session.usage': (Use.shown, 'scoped session counters'),
   'session.control.update': (Use.shown, 'goal, loop and heartbeat snapshots'),
   'session.reclaimed': (Use.shown, 'runtime invalidation and explicit reopen'),
   'session.resume_progress': (Use.shown, 'hydration phase and status'),
