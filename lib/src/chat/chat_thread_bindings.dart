@@ -97,6 +97,8 @@ ChatThreadView boundChatThreadView({
     onNoticeDetails: chat.warningDetailsOpened,
     sessionState: t == null ? null : chat.sessionStateIn(t),
     sessionUsage: t == null ? null : chat.usageIn(t),
+    connectorOperations: t == null ? null : chat.connectorOperationsIn(t),
+    connectionOperations: chat.connectionOperations,
     todoPlan: t == null ? null : chat.todoPlanIn(t),
     sideResults: t == null
         ? const []

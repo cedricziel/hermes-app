@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -32,6 +33,8 @@ import '../todo_plan/todo_plan_card.dart';
 import '../todo_plan/todo_plan_state.dart';
 import '../side_results/side_result_card.dart';
 import '../side_results/side_result_state.dart';
+import '../connector_operation_controller.dart';
+import 'connector_operation_card.dart';
 import '../moa_progress_state.dart';
 import 'moa_progress_card.dart';
 import '../process_output_state.dart';
@@ -77,6 +80,8 @@ class ChatThreadView extends StatelessWidget {
     this.onNoticeDetails,
     this.sessionState,
     this.sessionUsage,
+    this.connectorOperations,
+    this.connectionOperations,
     this.todoPlan,
     this.sideResults = const [],
     this.onSideResultDetails,
@@ -107,6 +112,7 @@ class ChatThreadView extends StatelessWidget {
   final VoidCallback? onNoticeDetails;
   final ChatSessionState? sessionState;
   final SessionUsageController? sessionUsage;
+  final ConnectorOperationController? connectorOperations, connectionOperations;
   final TodoPlanState? todoPlan;
   final List<SideResult> sideResults;
   final VoidCallback? onSideResultDetails;
@@ -174,6 +180,65 @@ class ChatThreadView extends StatelessWidget {
   /// just the composer instead.
   final bool welcome;
 
+  Widget _connectorCards(
+    ConnectorOperationController controller, {
+    bool connectionWide = false,
+  }) {
+    final attachment = controller.attachment;
+    return ConstrainedBox(
+      key: ObjectKey(controller),
+      constraints: const BoxConstraints(maxHeight: 260),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            if (connectionWide) const Text('Connection activity'),
+            for (final operation in controller.operations)
+              ConnectorOperationCard(
+                key: ValueKey(operation.key),
+                operation: operation,
+                readOnly: !controller.authorityFor(operation),
+                pending: controller.pendingFor(operation.key),
+                awaitingFinalStatus: controller.awaitingFinalStatus(
+                  operation.key,
+                ),
+                error: controller.errorFor(operation.key),
+                onDetails: controller.detailsOpened,
+                canOpen: (name) => controller.canOpen(operation.key, name),
+                canSkip: (name) => controller.canSkip(operation.key, name),
+                onOpen: attachment == null
+                    ? null
+                    : (name) => unawaited(
+                        controller.openTarget(
+                          operation,
+                          name,
+                          attachment: attachment,
+                        ),
+                      ),
+                onSkip: attachment == null
+                    ? null
+                    : (name) => unawaited(
+                        controller.skip(
+                          operation,
+                          name,
+                          attachment: attachment,
+                        ),
+                      ),
+                onContinue:
+                    attachment == null || !controller.canRespond(operation.key)
+                    ? null
+                    : () => unawaited(
+                        controller.continueOperation(
+                          operation,
+                          attachment: attachment,
+                        ),
+                      ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -219,6 +284,12 @@ class ChatThreadView extends StatelessWidget {
           );
 
     final activity = <Widget>[
+      if (connectionOperations case final operations?
+          when operations.operations.isNotEmpty)
+        _connectorCards(operations, connectionWide: true),
+      if (connectorOperations case final operations?
+          when operations.operations.isNotEmpty)
+        _connectorCards(operations),
       if (sessionState case final state? when state.visible)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 180),
