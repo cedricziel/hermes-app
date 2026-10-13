@@ -7,6 +7,7 @@ enum HermesClientError: Error, Equatable {
   case unavailable
   /// The phone cannot be reached from the watch.
   case phoneUnreachable
+  case notDelivered
   case contextChanged
   case updateRequired
   case failed

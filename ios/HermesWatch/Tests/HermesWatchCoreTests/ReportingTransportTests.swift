@@ -34,7 +34,7 @@ final class ReportingTransportTests: XCTestCase {
       _ = try await transport.request(["op": "send", "text": "private"])
       XCTFail("expected a throw")
     } catch {
-      XCTAssertEqual(error as? HermesClientError, .phoneUnreachable)
+      XCTAssertEqual(error as? HermesClientError, .notDelivered)
     }
     _ = try await transport.request(["op": "threads"])
     _ = try await transport.request(["op": "threads"])
@@ -56,6 +56,22 @@ final class ReportingTransportTests: XCTestCase {
 
     let reasons = DeliveryReports(defaults: defaults).pending.map(\.reason)
     XCTAssertEqual(reasons, ["not_activated", "delivery:7012"])
+  }
+
+  func testDeliveryErrorDoesNotClaimNonacceptance() async {
+    inner.replies = [.failure(RelayFailure.delivery(code: 7012))]
+    do {
+      _ = try await transport.request(["op": "send"])
+      XCTFail("Expected delivery failure")
+    } catch { XCTAssertEqual(error as? HermesClientError, .phoneUnreachable) }
+  }
+
+  func testActivationFailureProvesNoMessageWasDelivered() async {
+    inner.replies = [.failure(RelayFailure.notActivated)]
+    do {
+      _ = try await transport.request(["op": "send"])
+      XCTFail("Expected activation failure")
+    } catch { XCTAssertEqual(error as? HermesClientError, .notDelivered) }
   }
 
   func testOnlyTheLatestFailuresAreKept() {

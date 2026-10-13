@@ -11,7 +11,7 @@ func waitForRelayActivation(
   throw RelayFailure.notActivated
 }
 
-/// Why a request never reached the phone.
+/// Failures before dispatch or while delivery was in progress.
 enum RelayFailure: Error, Equatable {
   /// The watch's WatchConnectivity session never activated.
   case notActivated
@@ -65,10 +65,7 @@ struct DeliveryReports {
   }
 }
 
-/// Reports to the phone, which logs them, the requests that never got there:
-/// it notes each [RelayFailure] and sends the notes along with the next
-/// request that arrives. The UI sees any such failure as
-/// [HermesClientError.phoneUnreachable].
+/// Delivery errors cannot prove that a dispatched request was never accepted.
 struct ReportingTransport: RelayTransport {
   let inner: RelayTransport
   let reports: DeliveryReports
@@ -92,7 +89,10 @@ struct ReportingTransport: RelayTransport {
           at: Int(now().timeIntervalSince1970)
         )
       )
-      throw HermesClientError.phoneUnreachable
+      switch failure {
+      case .notActivated, .notReachable: throw HermesClientError.notDelivered
+      case .delivery: throw HermesClientError.phoneUnreachable
+      }
     }
   }
 }

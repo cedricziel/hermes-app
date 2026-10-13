@@ -38,7 +38,8 @@ final class WatchSendRecoveryTests: XCTestCase {
     let model = ConversationModel(client: client, threadId: nil)
     await model.send("Do it")
     XCTAssertTrue(client.requests.isEmpty)
-    XCTAssertTrue(model.messages.isEmpty)
+    XCTAssertEqual(model.messages.map(\.content), ["Do it"])
+    XCTAssertEqual(model.unsent, "Do it")
     XCTAssertEqual(model.phase, .failed(.recoveryStorage))
   }
 

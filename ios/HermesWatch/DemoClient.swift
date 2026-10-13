@@ -8,7 +8,10 @@ import Foundation
   struct DemoClient: HermesClient {
     private static var mode: String? { ProcessInfo.processInfo.environment["HERMES_WATCH_DEMO"] }
     static var enabled: Bool { mode != nil }
-    static var opensChat: Bool { mode == "chat" || mode?.hasPrefix("recovery_") == true }
+    static var opensChat: Bool { mode == "chat" || mode?.hasPrefix("recovery_") == true || mode?.hasPrefix("conversation_") == true }
+    static var startupText: String? {
+      ["conversation_failed", "conversation_approval", "conversation_question"].contains(mode ?? "") ? "Review the backup plan" : nil
+    }
     private static let fixtureSession: WatchSessionState = {
       let session = WatchSessionState()
       session.acceptContext("demo-context", revision: 1)
@@ -51,7 +54,13 @@ import Foundation
     func threads() async throws -> [ThreadSummary] { Self.threads }
 
     func messages(threadId: String) async throws -> [ChatMessage] {
-      [
+      if Self.mode == "conversation_old_payload" { return [] }
+      if Self.mode == "conversation_long" {
+        return [ChatMessage(id: "long-user", role: .user, content: "Explain the backup schedule", at: .distantPast),
+          ChatMessage(id: "long-answer", role: .assistant,
+            content: Array(repeating: "The backup starts at 02:00. Review the excluded folders before changing the schedule.", count: 20).joined(separator: "\n\n"), at: .distantPast)]
+      }
+      return [
         ChatMessage(id: "m1", role: .user, content: "Why is the nightly backup slow?", at: .now),
         ChatMessage(
           id: "m2",
@@ -72,6 +81,14 @@ import Foundation
     }
 
     func send(threadId: String?, text: String, sendId: String, retry: Bool) async throws -> SendResult {
+      if Self.mode == "conversation_failed" {
+        return SendResult(threadId: threadId ?? Self.threads[0].id, text: "Model unavailable", failed: true)
+      }
+      if Self.mode == "conversation_approval" || Self.mode == "conversation_question" {
+        try await Task.sleep(for: .seconds(1))
+        return SendResult(threadId: threadId ?? Self.threads[0].id, text: "", failed: false,
+          waiting: Self.mode == "conversation_question" ? .question : .approval)
+      }
       if Self.mode?.hasPrefix("recovery_") == true {
         let state: SendRecoveryState = Self.mode == "recovery_pending" ? .pending : Self.mode == "recovery_not_sent" ? .notSent : .uncertain
         return SendResult(threadId: Self.mode == "recovery_no_thread" ? nil : threadId, text: "", failed: false, recoveryState: state)

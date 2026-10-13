@@ -203,7 +203,9 @@ final class ConversationModelTests: XCTestCase {
     let model = ConversationModel(client: client, threadId: nil)
     await model.send("Hello")
 
-    await model.send(model.unsent!)
+    XCTAssertNil(model.unsent)
+    XCTAssertEqual(model.messages.map(\.content), ["Hello", "Model unavailable"])
+    await model.send("Hello")
 
     XCTAssertNotEqual(client.sends[1].sendId, client.sends[0].sendId)
   }
@@ -253,8 +255,8 @@ final class ConversationModelTests: XCTestCase {
 
     await model.send("Hello")
 
-    XCTAssertTrue(model.messages.isEmpty)
-    XCTAssertEqual(model.unsent, "Hello")
+    XCTAssertEqual(model.messages.map(\.content), ["Hello", "Model unavailable"])
+    XCTAssertNil(model.unsent)
     XCTAssertEqual(model.phase, .failed(.replyFailed("Model unavailable")))
     XCTAssertEqual(model.threadId, "new-1")
 

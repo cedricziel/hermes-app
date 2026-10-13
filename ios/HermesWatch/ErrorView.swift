@@ -8,6 +8,7 @@ extension HermesClientError {
     case .signedOut: "Sign in to Hermes on your iPhone first."
     case .unavailable: "Open Hermes on your iPhone, then try again."
     case .phoneUnreachable: "Can't reach your iPhone."
+    case .notDelivered: "Your message did not reach your iPhone."
     case .recoveryCapacity: "Recovery is full. Forget an old pending request to free a slot, then try again."
     case .recoveryStorage: "Could not save recovery securely. Free storage before another request."
     case .sendExpired: "This request has expired or the device clocks disagree. Check the watch and iPhone time, then check its result before a new request."
