@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -22,6 +24,7 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
   JobFormController({
     required this.repository,
     this.editing,
+    this.activity,
     String? profile,
     DateTime Function()? now,
   }) : draft = editing != null
@@ -30,18 +33,27 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
        _baseline = editing != null
            ? JobDraft.fromJob(editing)
            : (JobDraft()..profile = profile),
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now {
+    _lastDeliveredActivity = activity?.value ?? true;
+    activity?.addListener(_activityChanged);
+  }
 
   final HermesCronRepository repository;
+
+  /// The authorization window for protected reads and saves, when supplied.
+  final ValueListenable<bool>? activity;
 
   /// The job being changed, or null for a new one.
   final CronJob? editing;
   final JobDraft draft;
   final DateTime Function() _now;
   final JobDraft _baseline;
+  HermesModelsRepository? _modelsRepository;
 
   bool _whenTouched = false;
   bool _saving = false;
+  bool _lastDeliveredActivity = true;
+  int _activityEpoch = 0;
   String? _error;
   List<DeliveryTarget> _targets = const [
     DeliveryTarget(id: 'local', name: 'Local (save only)'),
@@ -54,6 +66,9 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
   DateTime get now => _now();
   bool get isEditing => editing != null;
   bool get saving => _saving;
+
+  /// Whether protected form work may currently be started.
+  bool get active => !disposed && (activity?.value ?? true);
   String? get error => _error;
   bool get whenTouched => _whenTouched;
   bool get targetsFailed => _targetsFailed;
@@ -82,6 +97,41 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
       draft.profile != _baseline.profile ||
       draft.diff(_baseline, whenTouched: false).isNotEmpty;
 
+  bool _currentActivity(int epoch) => active && epoch == _activityEpoch;
+
+  bool _notifyFor(int epoch) {
+    if (!_currentActivity(epoch)) return false;
+    notifyListeners();
+    return _currentActivity(epoch);
+  }
+
+  void _notifyIfActive() {
+    final epoch = _activityEpoch;
+    _notifyFor(epoch);
+  }
+
+  void _activityChanged() {
+    if (disposed) return;
+    final next = activity?.value ?? true;
+    final changed = next != _lastDeliveredActivity;
+    _lastDeliveredActivity = next;
+    final epoch = ++_activityEpoch;
+    _targetsLoad++;
+    _modelsLoad++;
+    if (changed) {
+      notifyListeners();
+      if (!_currentActivity(epoch)) return;
+    }
+    if (next) {
+      scheduleMicrotask(() {
+        if (!_currentActivity(epoch)) return;
+        unawaited(loadTargets());
+        final models = _modelsRepository;
+        if (models != null) unawaited(loadModels(models));
+      });
+    }
+  }
+
   /// Tells the form that a field changed, so a save that failed can be
   /// tried again and the dirty state is recomputed.
   void changed({bool when = false}) {
@@ -93,46 +143,58 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
   /// Loads the delivery targets of the draft's profile. A load that a newer
   /// one overtook is dropped.
   Future<void> loadTargets() async {
+    if (!active) return;
+    final epoch = _activityEpoch;
     final load = ++_targetsLoad;
     try {
       final loaded = await repository.deliveryTargets(profile: draft.profile);
-      if (load != _targetsLoad) return;
+      if (!_currentActivity(epoch) || load != _targetsLoad) return;
       if (loaded.isNotEmpty) _targets = loaded;
       _targetsFailed = false;
     } on Object {
-      if (load != _targetsLoad) return;
+      if (!_currentActivity(epoch) || load != _targetsLoad) return;
       _targetsFailed = true;
     }
-    notifyListeners();
+    _notifyFor(epoch);
   }
 
   /// Loads the models of the draft's profile. A load that a newer one
   /// overtook is dropped.
   Future<void> loadModels(HermesModelsRepository models) async {
+    _modelsRepository = models;
+    if (!active) return;
+    final epoch = _activityEpoch;
     final load = ++_modelsLoad;
     _modelOptions = null;
-    notifyListeners();
+    if (!_notifyFor(epoch)) return;
     final options = await models
         .load(profile: draft.profile)
         .then<ModelOptions?>((o) => o, onError: (Object _) => null);
-    if (load != _modelsLoad) return;
+    if (!_currentActivity(epoch) || load != _modelsLoad) return;
     _modelOptions = options;
-    notifyListeners();
+    _notifyFor(epoch);
   }
 
   /// Saves the job. Null when it was refused or is not ready; [error] says
   /// why. A save already in progress is not repeated.
   Future<CronJob?> save() async {
+    if (!active) throw const JobFormActivityCancelled();
     if (_saving) return null;
+    final epoch = _activityEpoch;
     final problem = draft.validate(_now());
     if (problem != null) {
       _error = problem;
-      notifyListeners();
+      if (!_notifyFor(epoch)) throw const JobFormActivityCancelled();
       return null;
     }
     _saving = true;
     _error = null;
-    notifyListeners();
+    if (!_notifyFor(epoch)) {
+      _saving = false;
+      _notifyIfActive();
+      throw const JobFormActivityCancelled();
+    }
+    var released = false;
     try {
       final job = editing == null
           ? await repository.createJob(draft, profile: draft.profile)
@@ -141,16 +203,51 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
               draft.diff(_baseline, whenTouched: _whenTouched),
               profile: editing!.profile,
             );
+      if (!_currentActivity(epoch)) {
+        throw const JobFormActivityCancelled();
+      }
       _saving = false;
-      notifyListeners();
+      released = true;
+      if (!_notifyFor(epoch)) throw const JobFormActivityCancelled();
       return job;
+    } on JobFormActivityCancelled {
+      if (!released) {
+        _saving = false;
+        released = true;
+        _notifyIfActive();
+      }
+      rethrow;
     } on Object catch (e) {
+      if (!_currentActivity(epoch)) {
+        _saving = false;
+        released = true;
+        _notifyIfActive();
+        throw const JobFormActivityCancelled();
+      }
       _saving = false;
+      released = true;
       _error = describeSaveFailure(e);
-      notifyListeners();
+      if (!_notifyFor(epoch)) {
+        _error = null;
+        throw const JobFormActivityCancelled();
+      }
       return null;
     }
   }
+
+  @override
+  void dispose() {
+    activity?.removeListener(_activityChanged);
+    _activityEpoch++;
+    _targetsLoad++;
+    _modelsLoad++;
+    super.dispose();
+  }
+}
+
+/// A protected form operation could not commit in its starting activity epoch.
+class JobFormActivityCancelled implements Exception {
+  const JobFormActivityCancelled();
 }
 
 /// State of a blueprint's form: the values of its slots, the server's
