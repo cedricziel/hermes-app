@@ -50,6 +50,7 @@ final class ConversationModel {
   private var currentSend: UUID?
   private let session: WatchSessionState
   private var cleanupId: UUID?
+  let requests: RequestActionsModel
   private let client: HermesClient
   private let store: PendingSendStore
   private let log: RecoveryActionLog
@@ -64,11 +65,14 @@ final class ConversationModel {
     self.store = store ?? client.recoveryStore
     self.log = log
     if threadId != nil { phase = .loading }
-    self.session = session ?? client.sessionState ?? WatchSessionState()
+    let requestSession = session ?? client.sessionState ?? WatchSessionState()
+    self.session = requestSession
+    self.requests = RequestActionsModel(client: client, session: requestSession, access: .shared)
     cleanupId = self.session.register { [weak self] in self?.clearPrivateState() }
   }
 
   func load() async {
+    requests.attach()
     guard session.usable else { return }
     let conversation = conversationGeneration
     let generation = session.generation
@@ -292,11 +296,18 @@ final class ConversationModel {
         threadId = record.threadId
         handoff = result.handoff ?? handoff
         phase = waiting == .working ? .sending : .waiting(waiting)
+        if waiting != .working, result.inlineEligible, let requestId = result.requestId, let threadId = record.threadId {
+          if requests.draft?.details?.requestId != requestId {
+            await requests.load(threadId: threadId, requestId: requestId)
+            guard owned() else { return }
+          }
+        } else { requests.clear() }
         guard Date() < deadline else { throw HermesClientError.failed }
         result = try await client.send(threadId: record.threadId, text: record.text, sendId: record.sendId, retry: true, createdAt: record.createdAt)
         guard owned() else { return }
       }
-        record.threadId = result.threadId ?? record.threadId
+        requests.clear()
+      record.threadId = result.threadId ?? record.threadId
       if let state = result.recoveryState {
         record.recoveryState = state
         accepted = state == .pending
@@ -398,11 +409,13 @@ final class ConversationModel {
   func leaveConversation() {
     conversationGeneration += 1
     currentSend = nil
+    requests.detach()
     detached = true
     phase = .idle
   }
 
   func stopWaiting() {
+    requests.clear()
     guard case .waiting = phase else { return }
     currentSend = nil
     detached = true
@@ -481,6 +494,7 @@ final class ConversationModel {
   }
 
   private func clearPrivateState() {
+    requests.clear()
     permitsOriginalTitle = false
     conversationGeneration += 1
     if let record = recovery { try? store.invalidate(contextId: record.contextId, revision: record.revision) }

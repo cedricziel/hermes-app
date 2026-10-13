@@ -91,6 +91,7 @@
 		9B4251B8ACE006FDDAC8870A /* WatchRequestAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5D815E83156470AA39BCC9 /* WatchRequestAccess.swift */; };
 		302F39202DC2032E1C902C76 /* RequestActionsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0E60DF5DD23993437E43C5 /* RequestActionsModel.swift */; };
 		E3FF63DCDCCFE3417A576B5C /* RequestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ED4F1872C8F9DEC2A2CC311 /* RequestFixtures.swift */; };
+		DF55D274AEBE1AC85CF4FBB8 /* RequestActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3DACEE67AFBB2D25754741 /* RequestActionsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -278,6 +279,7 @@
 		AE5D815E83156470AA39BCC9 /* WatchRequestAccess.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchRequestAccess.swift; sourceTree = "<group>"; };
 		CE0E60DF5DD23993437E43C5 /* RequestActionsModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestActionsModel.swift; sourceTree = "<group>"; };
 		0ED4F1872C8F9DEC2A2CC311 /* RequestFixtures.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestFixtures.swift; sourceTree = "<group>"; };
+		CC3DACEE67AFBB2D25754741 /* RequestActionsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestActionsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -411,6 +413,7 @@
 				5DE2754C6FBF29FC3568C927 /* ThreadListView.swift */,
 				51DEB56C491EC2EB383EE443 /* ConversationView.swift */,
 				138739FA7EA0AF4E91B3989A /* VoiceReviewControls.swift */,
+				CC3DACEE67AFBB2D25754741 /* RequestActionsView.swift */,
 				49BD0BA14475B91F85F07143 /* RecoveryControls.swift */,
 				A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */,
 				A7C1D2E3F4051627384950A2 /* VoiceRecorder.swift */,
@@ -848,6 +851,7 @@
 				9B4251B8ACE006FDDAC8870A /* WatchRequestAccess.swift in Sources */,
 				302F39202DC2032E1C902C76 /* RequestActionsModel.swift in Sources */,
 				E3FF63DCDCCFE3417A576B5C /* RequestFixtures.swift in Sources */,
+				DF55D274AEBE1AC85CF4FBB8 /* RequestActionsView.swift in Sources */,
 				0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */,
 				5D151F8B8819ECEB22F3EECF /* RecoveryActionLog.swift in Sources */,
 				C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */,

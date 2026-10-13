@@ -22,7 +22,10 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
       logger.error("Request unavailable activation=\(self.session.activationState.rawValue) reachable=\(self.session.isReachable)")
       throw error
     }
-    await MainActor.run { WatchSessionState.shared.receive(session.receivedApplicationContext) }
+    await MainActor.run {
+      WatchSessionState.shared.receive(session.receivedApplicationContext)
+      WatchRequestAccess.shared.receive(session.receivedApplicationContext)
+    }
     var message = message
     message["sessionRevision"] = await MainActor.run { WatchSessionState.shared.revision }
     return try await withCheckedThrowingContinuation { continuation in
@@ -35,6 +38,7 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
           self.logger.notice("Request completed operation=\(operation, privacy: .public) result=\(result, privacy: .public)")
           Task { @MainActor in
             WatchSessionState.shared.receive(reply)
+            WatchRequestAccess.shared.receive(reply)
             continuation.resume(returning: reply)
           }
         },
@@ -86,6 +90,7 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
   private func receive(_ payload: [String: Any]) {
     Task { @MainActor in
       WatchSessionState.shared.receive(payload)
+      WatchRequestAccess.shared.receive(payload)
       if WatchSessionState.shared.usable { ComplicationUpdates.receive(payload) }
     }
   }

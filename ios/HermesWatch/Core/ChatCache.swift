@@ -32,6 +32,13 @@ struct CachingClient: HermesClient {
     _ = session.register { cache.clear() }
   }
 
+  func requestDetails(threadId: String, requestId: String) async throws -> WatchRequestDetails? {
+    try await forgettingOnSignOut { try await inner.requestDetails(threadId: threadId, requestId: requestId) }
+  }
+  func answerRequest(threadId: String, requestId: String, fingerprint: String, answer: WatchRequestAnswer) async throws -> String {
+    try await forgettingOnSignOut { try await inner.answerRequest(threadId: threadId, requestId: requestId, fingerprint: fingerprint, answer: answer) }
+  }
+
   func prepareRecovery() async throws { try await forgettingOnSignOut { try await inner.prepareRecovery() } }
   func forgetSend(sendId: String) async throws { try await forgettingOnSignOut { try await inner.forgetSend(sendId: sendId) } }
   func send(threadId: String?, text: String, sendId: String, retry: Bool, createdAt: Date) async throws -> SendResult {
@@ -300,6 +307,7 @@ final class WatchSessionState {
       for action in cleanup.values { action() }
       try? diagnostics("context_changed", true, cleanup.count)
     }
+    WatchRequestAccess.shared.acceptOwner(context, revision: next)
     contextId = context
     revision = next
     usable = true

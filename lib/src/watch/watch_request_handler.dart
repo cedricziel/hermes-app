@@ -29,6 +29,13 @@ class WatchRequestHandler {
     this.context = _noContext,
     this.prepareContext = _alreadyReady,
     this.journal,
+    this.onRequestEvent,
+    this.onRequestsInvalidated,
+    this.onRequestStreamClosed,
+    this.requestsAllowed = _off,
+    this.requestEligible,
+    this.requestAction,
+    this.requestEpoch,
   });
 
   /// What the watch is told when the agent asks for something only the phone's
@@ -106,6 +113,17 @@ class WatchRequestHandler {
   final WatchContext? Function() context;
   final Future<void> Function() prepareContext;
   final WatchSendJournal? journal;
+  final void Function(WatchContext, String?, String, ChatTransport, ChatEvent)?
+  onRequestEvent;
+  final void Function()? onRequestsInvalidated;
+  final void Function(WatchContext, String?, String, ChatTransport)?
+  onRequestStreamClosed;
+  final bool Function() requestsAllowed;
+  final Future<Map<String, Object?>> Function(Map<Object?, Object?>)?
+  requestAction;
+  final int Function()? requestEpoch;
+  final bool Function(WatchContext, String?, String, String, String)?
+  requestEligible;
   static WatchContext? _noContext() => null;
 
   static Future<bool> _ignore(AttentionNotification _) async => false;
@@ -134,6 +152,7 @@ class WatchRequestHandler {
       unawaited(_journalDeparture.catchError((Object _) {}));
     }
     _sessionGeneration++;
+    onRequestsInvalidated?.call();
     for (final attempt in _sends.values) {
       attempt.invalidated = true;
       attempt.wake();
@@ -174,6 +193,8 @@ class WatchRequestHandler {
         'send',
         'transcribe',
         'forgetSend',
+        'request_details',
+        'request_answer',
       ].contains(request['op'])) {
         return _error('bad_request');
       }
@@ -194,6 +215,12 @@ class WatchRequestHandler {
           'ok': true,
           'protocolVersion': 2,
           if (journal != null) 'sendState': available,
+          if (requestEpoch != null)
+            'watchRequests': {
+              'epoch': requestEpoch!(),
+              'allowed': requestsAllowed(),
+              ...scope.fields,
+            },
           ...scope.fields,
         };
       }
@@ -236,6 +263,8 @@ class WatchRequestHandler {
           createdAt: request['createdAt'],
         ),
         'forgetSend' => await _forgetSend(request['sendId'], scope),
+        'request_details' ||
+        'request_answer' => await _requestAction(request, scope),
         'transcribe' => await _transcribe(
           request['audio'],
           request['mimeType'],
@@ -473,6 +502,24 @@ class WatchRequestHandler {
     String? thread,
   }) => {'ok': true, 'recoveryState': state, ..._threadEntry(profile, thread)};
 
+  Future<Map<String, Object?>> _requestAction(
+    Map<Object?, Object?> input,
+    WatchContext scope,
+  ) async {
+    final epoch = requestEpoch?.call();
+    if (epoch == null ||
+        requestAction == null ||
+        !requestsAllowed() ||
+        input['requestEpoch'] != epoch) {
+      return {..._error('locked'), ...scope.fields, 'requestEpoch': ?epoch};
+    }
+    final result = await requestAction!(input);
+    if (!requestsAllowed() || requestEpoch?.call() != epoch) {
+      return {..._error('locked'), ...scope.fields, 'requestEpoch': epoch};
+    }
+    return {...result, ...scope.fields, 'requestEpoch': epoch};
+  }
+
   Future<Map<String, Object?>> _forgetSend(
     Object? id,
     WatchContext scope,
@@ -668,10 +715,32 @@ class WatchRequestHandler {
           'ok': true,
           ..._threadEntry(attempt.profile, attempt.threadId),
           'waiting': attempt.waiting ?? 'working',
+          ..._requestFields(attempt),
         };
       }
       await Future.any([attempt.changed, attempt.reply, ?hold]);
     }
+  }
+
+  Map<String, Object?> _requestFields(_SendAttempt attempt) {
+    final scope = context();
+    final id = attempt.requestId;
+    final kind = attempt.waiting;
+    final thread = attempt.threadId;
+    if (scope == null ||
+        id == null ||
+        kind == null ||
+        thread == null ||
+        !requestsAllowed() ||
+        requestEligible?.call(scope, attempt.profile, thread, id, kind) !=
+            true) {
+      return const {};
+    }
+    return {
+      'requestId': id,
+      'inlineEligible': true,
+      if (requestEpoch != null) 'requestEpoch': requestEpoch!(),
+    };
   }
 
   /// What the chat of a send that failed after reaching Hermes holds now:
@@ -780,6 +849,13 @@ class WatchRequestHandler {
       'failed': false,
     };
 
+    void observe(ChatEvent event) {
+      final id = boundId;
+      if (scope != null && id != null && current()) {
+        onRequestEvent?.call(scope, profile, id, chat, event);
+      }
+    }
+
     StreamIterator<ChatEvent>? events;
     try {
       profile = attempt.scope != null
@@ -811,6 +887,7 @@ class WatchRequestHandler {
         attempt.reached = true;
         // The turn Hermes ran ahead of the prompt asks too.
         final own = event is UnsolicitedEvent ? event.event : event;
+        observe(own);
         switch (own) {
           case ApprovalRequested(:final request):
             // Announced either way; only an answerable notification, for a
@@ -818,7 +895,20 @@ class WatchRequestHandler {
             final answerable = await announce(own);
             // Left unanswered here, it still waits for the user on the phone.
             track(own);
-            if (!attempt.waits || !answerable) {
+            final inline =
+                scope != null &&
+                boundId != null &&
+                current() &&
+                requestsAllowed() &&
+                requestEligible?.call(
+                      scope,
+                      profile,
+                      boundId,
+                      request.requestId,
+                      'approval',
+                    ) ==
+                    true;
+            if (!attempt.waits || (!answerable && !inline)) {
               return cannotAnswer();
             }
             attempt.open(request.requestId, 'approval');
@@ -826,7 +916,20 @@ class WatchRequestHandler {
           case ClarifyRequested(:final request):
             final answerable = await announce(own);
             track(own);
-            if (!attempt.waits || !answerable) {
+            final inline =
+                scope != null &&
+                boundId != null &&
+                current() &&
+                requestsAllowed() &&
+                requestEligible?.call(
+                      scope,
+                      profile,
+                      boundId,
+                      request.requestId,
+                      'question',
+                    ) ==
+                    true;
+            if (!attempt.waits || (!answerable && !inline)) {
               return cannotAnswer();
             }
             attempt.open(request.requestId, 'question');
@@ -858,6 +961,7 @@ class WatchRequestHandler {
           case ThreadBound(:final threadId):
             boundId = threadId;
             attempt.threadId = threadId;
+            observe(event);
             if (attempt.scope case final scope?) {
               if (!current()) return _error('context_changed');
               await journal!.evidence(
@@ -896,9 +1000,16 @@ class WatchRequestHandler {
       unawaited(announce(const ReplyCompleted('', failed: true)));
       rethrow;
     } finally {
-      _activeTransports.remove(chat);
-      unawaited(events?.cancel());
-      await _closeTransport(chat);
+      try {
+        final id = boundId;
+        if (scope != null && id != null) {
+          onRequestStreamClosed?.call(scope, profile, id, chat);
+        }
+      } finally {
+        _activeTransports.remove(chat);
+        unawaited(events?.cancel());
+        await _closeTransport(chat);
+      }
     }
   }
 
@@ -994,6 +1105,7 @@ class _SendAttempt {
   /// `approval` or `question` while the turn waits on the user: the kind of
   /// the newest open request.
   String? get waiting => _open.isEmpty ? null : _open.values.last;
+  String? get requestId => _open.isEmpty ? null : _open.keys.last;
 
   /// The state the watch was last told.
   String? reported;
