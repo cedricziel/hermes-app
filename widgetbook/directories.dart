@@ -1,3 +1,4 @@
+import 'memory_use_cases.dart';
 import 'agent_warning_use_cases.dart';
 import 'session_state_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
@@ -67,6 +68,7 @@ final List<WidgetbookNode> directories = [
   adaptiveNode(),
   dialogsNode(),
   chatNode(),
+  memoryNode(),
   chatSuggestionsNode(),
   chatThreadNode(),
   quickLookNode(),
