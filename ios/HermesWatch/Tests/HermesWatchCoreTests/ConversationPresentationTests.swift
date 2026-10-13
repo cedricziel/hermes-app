@@ -2,6 +2,13 @@ import XCTest
 @testable import HermesWatchCore
 
 final class ConversationPresentationTests: XCTestCase {
+  func testWaitingGuidanceDoesNotPromiseCancellation() {
+    XCTAssertEqual(ConversationPresentation.requestGuidance, "Answer in the Hermes notification, or open Hermes on your iPhone.")
+    XCTAssertEqual(ConversationPresentation.leaveWaitingLabel, "Leave waiting view")
+    XCTAssertEqual(ConversationPresentation.leaveWaitingHint, "Hermes will keep waiting for your answer.")
+  }
+
+
   func testUnsentEditNeverReplacesAnExistingComposerDraft() {
     XCTAssertFalse(ConversationPresentation.canRestoreUnsentDraft(composer: "New draft", handoffInProgress: false))
     XCTAssertFalse(ConversationPresentation.canRestoreUnsentDraft(composer: " ", handoffInProgress: false))
