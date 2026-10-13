@@ -13,9 +13,7 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
   }
 
   func request(_ message: [String: Any]) async throws -> [String: Any] {
-    let requestedOperation = message["op"] as? String ?? ""
-    let operation = ["session", "threads", "messages", "send", "transcribe"].contains(requestedOperation)
-      ? requestedOperation : "unknown"
+    let operation = relayOperation(message["op"] as? String)
     logger.notice("Request started operation=\(operation, privacy: .public)")
     do {
       try await waitUntilActivated()
