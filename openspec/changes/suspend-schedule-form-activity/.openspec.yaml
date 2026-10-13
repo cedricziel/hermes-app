@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-13
+goal: Retain the user's job-form draft through same-account recovery while
+  preventing stale protected work from committing.
