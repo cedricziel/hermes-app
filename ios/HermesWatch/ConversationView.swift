@@ -34,21 +34,24 @@ struct ConversationView: View {
           if case .failed(let error) = model.phase {
             ErrorView(error: error) { Task { await retry() } }
           }
-          composer.id("composer")
+          if model.phase != .failed(.signedOut) { composer.id("composer") }
         }
       }
       .onChange(of: model.messages.count) {
         withAnimation { proxy.scrollTo("composer") }
       }
     }
-    .navigationTitle(title ?? "New Chat")
+    .navigationTitle(model.permitsOriginalTitle ? (title ?? "New Chat") : "New Chat")
     .navigationBarTitleDisplayMode(.inline)
     .task {
       if startRecording { await recorder.start() }
       await model.load()
     }
     .onDisappear { recorder.cancel() }
-    .advertisesHandoff(model.handoff)
+    .onChange(of: model.phase) { _, phase in
+      if phase == .failed(.signedOut) { draft = ""; recorder.cancel() }
+    }
+    .advertisesHandoff(WatchSessionState.shared.usable ? model.handoff : nil)
     .onChange(of: recorder.state) { _, state in
       if state == .finished { Task { await submitRecording() } }
     }
@@ -198,3 +201,13 @@ extension View {
     }
   }
 }
+
+#if DEBUG
+  #Preview("Signed out") {
+    let session = WatchSessionState()
+    session.invalidate()
+    return NavigationStack {
+      ConversationView(model: ConversationModel(client: DemoClient(), threadId: nil, session: session))
+    }
+  }
+#endif

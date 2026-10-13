@@ -14,6 +14,7 @@ final class ConversationModel {
     case failed(HermesClientError)
   }
 
+  private(set) var permitsOriginalTitle = true
   private(set) var threadId: String?
   /// Where the open chat lives, if the phone said; nil for a new chat.
   private(set) var handoff: HandoffTarget?
@@ -32,35 +33,45 @@ final class ConversationModel {
   /// The send in progress; a send whose wait was stopped no longer is.
   private var currentSend: UUID?
 
+  private let session: WatchSessionState
+  private var cleanupId: UUID?
   private let client: HermesClient
 
   /// How long a send keeps asking while Hermes waits; the phone gives up
   /// after 15 minutes without an event.
   static let waitingLimit: TimeInterval = 20 * 60
 
-  init(client: HermesClient, threadId: String?, handoff: HandoffTarget? = nil) {
+  init(client: HermesClient, threadId: String?, handoff: HandoffTarget? = nil, session: WatchSessionState? = nil) {
     self.client = client
     self.threadId = threadId
     self.handoff = threadId == nil ? nil : handoff
     if threadId != nil { phase = .loading }
+    let session = session ?? client.sessionState ?? WatchSessionState()
+    self.session = session
+    cleanupId = session.register { [weak self] in self?.clearPrivateState() }
   }
 
   /// Shows the messages saved last time, if there are any, until the phone
   /// answers.
   func load() async {
-    guard let threadId else { return }
+    guard session.usable, let threadId else { return }
+    let generation = session.generation
     if messages.isEmpty, let saved = client.savedMessages(threadId: threadId) { messages = saved }
     do {
-      messages = try await client.messages(threadId: threadId)
+      let loaded = try await client.messages(threadId: threadId)
+      guard generation == session.generation else { return }
+      messages = loaded
       phase = .idle
     } catch {
+      guard generation == session.generation else { return }
+      if (error as? HermesClientError) == .signedOut { session.invalidate(); return }
       phase = .failed(error as? HermesClientError ?? .failed)
     }
   }
 
   func send(_ text: String) async {
     let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty, !busy else { return }
+    guard session.usable, !text.isEmpty, !busy else { return }
     let again = text == unsent
     // A send that waited reached Hermes: trying it again only asks after it.
     let resuming = again && keptMessage != nil
@@ -113,6 +124,7 @@ final class ConversationModel {
     } catch {
       guard currentSend == attempt else { return }
       let reason = error as? HermesClientError ?? .failed
+      if reason == .signedOut { session.invalidate(); return }
       if waited {
         keep(pending, error: reason, sendId: sendId)
       } else {
@@ -139,11 +151,13 @@ final class ConversationModel {
 
   /// Sends what the dashboard hears in a recording as the next message.
   func sendVoice(_ audio: Data, mimeType: String) async {
-    guard !busy else { return }
+    guard session.usable, !busy else { return }
+    let generation = session.generation
     unsentVoice = nil
     phase = .transcribing
     do {
       let text = try await client.transcribe(audio: audio, mimeType: mimeType)
+      guard generation == session.generation else { return }
       guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
         phase = .failed(.noSpeech)
         return
@@ -151,9 +165,24 @@ final class ConversationModel {
       phase = .idle
       await send(text)
     } catch {
+      guard generation == session.generation else { return }
+      if (error as? HermesClientError) == .signedOut { session.invalidate(); return }
       unsentVoice = audio
       phase = .failed(error as? HermesClientError ?? .failed)
     }
+  }
+
+  private func clearPrivateState() {
+    permitsOriginalTitle = false
+    currentSend = nil
+    threadId = nil
+    handoff = nil
+    messages = []
+    unsent = nil
+    unsentId = nil
+    unsentVoice = nil
+    keptMessage = nil
+    phase = .failed(.signedOut)
   }
 
   /// Keeps a message Hermes has but whose reply did not come back, to ask
