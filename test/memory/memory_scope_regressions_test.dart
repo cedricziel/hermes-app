@@ -207,4 +207,29 @@ void main() {
       });
     },
   );
+  test('a scope retired during mutation notification never issues preflight or write', () async {
+    final server = FakeHermesServer()
+      ..on('GET', '/api/learning/graph', memoryGraph)
+      ..on('GET', '/api/learning/node', memoryDetail);
+    final controller = MemoryController();
+    addTearDown(controller.dispose);
+    controller.bind(MemoryRepository(server.client().raw), 'work');
+    await pumpEventQueue();
+    await controller.open(controller.entries.first);
+    controller.beginEdit();
+    controller.setDraft('Updated content');
+    final readsBefore = server.requestsTo('GET', '/api/learning/node').length;
+    controller.addListener(() {
+      if (controller.mutation == MemoryMutation.pending) {
+        controller.bind(null, null);
+      }
+    });
+    await controller.mutate(delete: false);
+    expect(
+      server.requestsTo('GET', '/api/learning/node'),
+      hasLength(readsBefore),
+    );
+    expect(server.requestsTo('PUT', '/api/learning/node'), isEmpty);
+    expect(controller.draft, isNull);
+  });
 }
