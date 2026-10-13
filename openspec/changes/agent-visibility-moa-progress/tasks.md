@@ -18,3 +18,5 @@
 - [ ] 3.3 Verify dart format, flutter analyze, relevant flutter test suites, and an isolated verify-in-app run covering the spec scenarios. For REST reads, use FakeHermesServer with the real generated client. Validate this OpenSpec change strictly and review the diff as one feat(chat) PR targeting roughly 500 implementation lines or fewer.
 
 Automated evidence: 54 combined MoA, side-result, Todo ownership, and usage tests passed after integration. The unavailable-reference rendering regression failed before its fix. The combined short-window activity and current contract inventory batch also passed 15 tests. Native verification remains pending under task 3.3.
+
+Independent review reproduced two turn/binding ordering failures before their fixes. The final combined activity and contract batch passed 60 tests, including a pending user turn after unsolicited advisor work and fresh references after confirmed replacement.

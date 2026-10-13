@@ -362,7 +362,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (previous != null) _moaStates[thread]?.finish(previous);
     _moaForeground[thread] = reply;
     _moaUnavailable.remove(thread);
-    _moaStates[thread]?.beginTurn();
+    _moaStates[thread]?.beginTurn(reply);
   }
 
   void _finishMoaTurn(ChatThread thread, ChatMessage reply) {
@@ -399,8 +399,27 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   void _onMoaOwnership(OwnedSessionChange change, int epoch) {
     if (!_currentActivity(epoch) || change.binding.profile != _profile) return;
+    final source = transport;
+    if (change.connected &&
+        (source is! OwnedSessionTransport ||
+            (source as OwnedSessionTransport).ownedSessionFor(
+                  change.threadId,
+                  profile: _profile,
+                ) !=
+                change.binding)) {
+      return;
+    }
     for (final thread
         in _threads.where((thread) => thread.id == change.threadId).toList()) {
+      if (change.connected &&
+          _moaBindings[thread] != null &&
+          _moaBindings[thread] != change.binding) {
+        _removeMoa(thread, keepTurn: true);
+        _moaUnavailable.add(thread);
+        if (!_currentActivity(epoch)) return;
+        notifyListeners();
+        if (!_currentActivity(epoch)) return;
+      }
       if (!change.connected && _moaBindings[thread] == change.binding) {
         _removeMoa(thread, keepTurn: !change.retired);
         if (!change.retired) _moaUnavailable.add(thread);

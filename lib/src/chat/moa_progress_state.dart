@@ -179,7 +179,12 @@ class MoaProgressState {
     );
   }
 
-  void beginTurn() => _referencesAvailable = true;
+  void beginTurn(Object turn) {
+    _finished.remove(turn);
+    _turns.remove(turn);
+    _seen.remove(turn);
+    _referencesAvailable = true;
+  }
 
   void invalidateReferences() {
     _referencesAvailable = false;

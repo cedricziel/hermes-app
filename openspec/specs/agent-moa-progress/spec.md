@@ -71,3 +71,10 @@ The event shapes are:
 - **THEN** old advisor references are hidden
 - **AND** existing chat recovery can show new progress with missing reference details marked unavailable
 - **AND** advisor handling does not submit an extra prompt or resume request
+
+#### Scenario: A pending user turn follows unsolicited advisor work
+
+- **GIVEN** an earlier completed turn has retained advisor state
+- **WHEN** an unsolicited turn intervenes before a pending user turn actually starts
+- **THEN** the pending user turn starts with live advisor progress and fresh references
+- **AND** completed turns retain their own finished cards without marking the new user turn finished

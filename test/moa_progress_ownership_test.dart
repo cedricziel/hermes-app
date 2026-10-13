@@ -203,6 +203,82 @@ void main() {
       expect(chat.moaIn(thread).single.live, false);
     },
   );
+  test('pending own advisor turn starts live after an intervening unsolicited turn', () async {
+    progress();
+    source.sends.single.emit(const ReplyCompleted('Initial answer'));
+    source.sends.single.finish();
+    await pumpEventQueue();
+    final thread = chat.selectedThread!;
+    expect(chat.moaIn(thread).single.live, isFalse);
+    chat.submit('Next actual prompt', const []);
+    await pumpEventQueue();
+    final pending = thread.messages.last;
+    final second = source.sends.last;
+    second.emit(const UnsolicitedEvent(ReplyStarted()));
+    second.emit(
+      UnsolicitedEvent(
+        MoaUpdated(
+          const MoaUpdate(MoaKind.phase, phase: 'Intervening advisor'),
+          runtimeId: binding.runtimeId,
+          connection: binding.connection,
+          identity: 'intervening',
+        ),
+      ),
+    );
+    second.emit(const UnsolicitedEvent(ReplyCompleted('Intervening answer')));
+    second.emit(const ReplyStarted());
+    second.emit(
+      MoaUpdated(
+        const MoaUpdate(MoaKind.phase, phase: 'Actual own advisor'),
+        runtimeId: binding.runtimeId,
+        connection: binding.connection,
+        identity: 'actual-own',
+      ),
+    );
+    await pumpEventQueue();
+    final own = chat
+        .moaIn(thread)
+        .singleWhere((card) => identical(card.turn, pending));
+    expect(pending.isPending, isTrue);
+    expect(own.phase, 'Actual own advisor');
+    expect(own.live, isTrue);
+    expect(chat.moaIn(thread).first.live, isFalse);
+  });
+
+  test('fresh own turn keeps newly received references after confirmed binding replacement', () async {
+    progress();
+    source.sends.single.emit(const ReplyCompleted('Initial answer'));
+    source.sends.single.finish();
+    await pumpEventQueue();
+    final thread = chat.selectedThread!;
+    final replacement = OwnedSessionBinding(
+      connection: Object(),
+      runtimeId: 'replacement',
+      profile: null,
+    );
+    source.publish(replacement);
+    chat.submit('Fresh turn', const []);
+    await pumpEventQueue();
+    source.sends.last.emit(const ReplyStarted());
+    source.sends.last.emit(
+      MoaUpdated(
+        const MoaUpdate(
+          MoaKind.reference,
+          label: 'Current advisor',
+          text: 'Fresh reference',
+        ),
+        runtimeId: replacement.runtimeId,
+        connection: replacement.connection,
+        identity: 'fresh-reference',
+      ),
+    );
+    await pumpEventQueue();
+    final card = chat.moaIn(thread).single;
+    expect(card.live, isTrue);
+    expect(card.references.single.text, 'Fresh reference');
+    expect(card.referencesAvailable, isTrue);
+  });
+
   test('unconfirmed runtime cannot create advisor state', () async {
     progress(
       owner: OwnedSessionBinding(
