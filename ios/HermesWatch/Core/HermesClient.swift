@@ -31,6 +31,10 @@ protocol HermesClient: WatchRequestServing {
   func prepareRecovery() async throws
   func forgetSend(sendId: String) async throws
   func send(threadId: String?, text: String, sendId: String, retry: Bool, createdAt: Date) async throws -> SendResult
+  var glanceCache: ChatCache? { get }
+  func threadListing() async throws -> ThreadListing
+  func savedThreadListing() -> ThreadListing?
+  func savedMessagesFetchedAt(threadId: String) -> Date?
   func threads() async throws -> [ThreadSummary]
   func messages(threadId: String) async throws -> [ChatMessage]
   /// Recovery requests use the original identity and timestamp with retry true.
@@ -45,6 +49,14 @@ protocol HermesClient: WatchRequestServing {
 }
 
 extension HermesClient {
+  var glanceCache: ChatCache? { nil }
+  func threadListing() async throws -> ThreadListing {
+    ThreadListing(threads: try await threads())
+  }
+  func savedThreadListing() -> ThreadListing? {
+    savedThreads().map { ThreadListing(threads: $0) }
+  }
+  func savedMessagesFetchedAt(threadId: String) -> Date? { nil }
   var sessionState: WatchSessionState? { nil }
   var recoveryStore: PendingSendStore { FilePendingSendStore.standard }
   func prepareRecovery() async throws { throw HermesClientError.updateRequired }

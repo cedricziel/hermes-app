@@ -92,6 +92,7 @@
 		302F39202DC2032E1C902C76 /* RequestActionsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0E60DF5DD23993437E43C5 /* RequestActionsModel.swift */; };
 		E3FF63DCDCCFE3417A576B5C /* RequestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ED4F1872C8F9DEC2A2CC311 /* RequestFixtures.swift */; };
 		DF55D274AEBE1AC85CF4FBB8 /* RequestActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3DACEE67AFBB2D25754741 /* RequestActionsView.swift */; };
+		2BCCB936ED222A47BF255A43 /* ThreadGlanceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 398F4985AD8E66291CAECDC0 /* ThreadGlanceState.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -280,6 +281,7 @@
 		CE0E60DF5DD23993437E43C5 /* RequestActionsModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestActionsModel.swift; sourceTree = "<group>"; };
 		0ED4F1872C8F9DEC2A2CC311 /* RequestFixtures.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestFixtures.swift; sourceTree = "<group>"; };
 		CC3DACEE67AFBB2D25754741 /* RequestActionsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestActionsView.swift; sourceTree = "<group>"; };
+		398F4985AD8E66291CAECDC0 /* ThreadGlanceState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThreadGlanceState.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -436,6 +438,7 @@
 				AE5D815E83156470AA39BCC9 /* WatchRequestAccess.swift */,
 				CE0E60DF5DD23993437E43C5 /* RequestActionsModel.swift */,
 				0ED4F1872C8F9DEC2A2CC311 /* RequestFixtures.swift */,
+				398F4985AD8E66291CAECDC0 /* ThreadGlanceState.swift */,
 				9978D7CC9E15B585ACD0BBA0 /* Models.swift */,
 				6B312E52135948A1A1BC7401 /* WatchThreadId.swift */,
 				0B0F552EBBCBC70005D500F4 /* RecoveryActionLog.swift */,
@@ -852,6 +855,7 @@
 				302F39202DC2032E1C902C76 /* RequestActionsModel.swift in Sources */,
 				E3FF63DCDCCFE3417A576B5C /* RequestFixtures.swift in Sources */,
 				DF55D274AEBE1AC85CF4FBB8 /* RequestActionsView.swift in Sources */,
+				2BCCB936ED222A47BF255A43 /* ThreadGlanceState.swift in Sources */,
 				0C618ACD771FCE9ED23535BC /* RecoveryControls.swift in Sources */,
 				5D151F8B8819ECEB22F3EECF /* RecoveryActionLog.swift in Sources */,
 				C150ED706F26A08D13CF033A /* PendingSendStore.swift in Sources */,

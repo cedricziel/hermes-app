@@ -6,12 +6,32 @@ import OSLog
 /// shown at once on the next launch and kept on screen when the phone cannot
 /// be reached.
 protocol ChatCache {
+  func listing() -> ThreadListing?
+  func save(listing: ThreadListing)
+  func seenMarkers() -> ThreadSeenMarkers
+  func save(seenMarkers: ThreadSeenMarkers)
+  func messagesFetchedAt(threadId: String) -> Date?
+  func saveMessagesFetchedAt(_ fetchedAt: Date, threadId: String)
   func threads() -> [ThreadSummary]?
   func save(threads: [ThreadSummary])
   func messages(threadId: String) -> [ChatMessage]?
   func save(messages: [ChatMessage], threadId: String)
+  func save(messages: [ChatMessage], fetchedAt: Date, threadId: String)
   /// Forgets everything, for a phone that signed out.
   func clear()
+}
+
+extension ChatCache {
+  func listing() -> ThreadListing? { threads().map { ThreadListing(threads: $0) } }
+  func save(listing: ThreadListing) { save(threads: listing.threads) }
+  func seenMarkers() -> ThreadSeenMarkers { ThreadSeenMarkers() }
+  func save(seenMarkers: ThreadSeenMarkers) {}
+  func messagesFetchedAt(threadId: String) -> Date? { nil }
+  func saveMessagesFetchedAt(_ fetchedAt: Date, threadId: String) {}
+  func save(messages: [ChatMessage], fetchedAt: Date, threadId: String) {
+    save(messages: messages, threadId: threadId)
+    saveMessagesFetchedAt(fetchedAt, threadId: threadId)
+  }
 }
 
 /// A [HermesClient] that keeps in [cache] what [inner] answers, offers it
@@ -23,6 +43,7 @@ struct CachingClient: HermesClient {
   var session: WatchSessionState = WatchSessionState()
   var sessionState: WatchSessionState? { session }
   var recoveryStore: PendingSendStore { inner.recoveryStore }
+  var glanceCache: ChatCache? { cache }
 
   init(inner: HermesClient, cache: ChatCache, session: WatchSessionState? = nil) {
     self.inner = inner
@@ -49,9 +70,16 @@ struct CachingClient: HermesClient {
     return result
   }
 
-  func savedThreads() -> [ThreadSummary]? {
-    guard session.usable, session.contextId != nil else { return nil }
-    return cache.threads()?.filter { session.owns($0.id) }
+  func savedThreads() -> [ThreadSummary]? { savedThreadListing()?.threads }
+
+  func savedThreadListing() -> ThreadListing? {
+    guard session.usable, session.contextId != nil, let saved = cache.listing() else { return nil }
+    return ThreadListing(threads: saved.threads.filter { session.owns($0.id) }, activeProfile: saved.activeProfile, fetchedAt: saved.fetchedAt)
+  }
+
+  func savedMessagesFetchedAt(threadId: String) -> Date? {
+    guard session.owns(threadId) else { return nil }
+    return cache.messagesFetchedAt(threadId: threadId)
   }
 
   func savedMessages(threadId: String) -> [ChatMessage]? {
@@ -59,15 +87,17 @@ struct CachingClient: HermesClient {
     return cache.messages(threadId: threadId)
   }
 
-  func threads() async throws -> [ThreadSummary] {
-    let threads = try await forgettingOnSignOut { try await inner.threads() }
-    cache.save(threads: threads)
-    return threads
+  func threads() async throws -> [ThreadSummary] { try await threadListing().threads }
+
+  func threadListing() async throws -> ThreadListing {
+    let listing = try await forgettingOnSignOut { try await inner.threadListing() }
+    cache.save(listing: listing)
+    return listing
   }
 
   func messages(threadId: String) async throws -> [ChatMessage] {
     let messages = try await forgettingOnSignOut { try await inner.messages(threadId: threadId) }
-    cache.save(messages: messages, threadId: threadId)
+    cache.save(messages: messages, fetchedAt: Date(), threadId: threadId)
     return messages
   }
 
@@ -113,6 +143,13 @@ struct CachingClient: HermesClient {
 /// small as what the phone sends.
 struct FileChatCache: ChatCache {
   let directory: URL
+  var persist: (Data, URL) throws -> Void = { data, file in
+    #if os(watchOS)
+      try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    #else
+      try data.write(to: file, options: .atomic)
+    #endif
+  }
   var remove: (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }
   var persistTombstone: (URL) throws -> Void = { file in
     try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -153,10 +190,35 @@ struct FileChatCache: ChatCache {
   private var threadsFile: URL { directory.appendingPathComponent("threads.json") }
   private var messagesDirectory: URL { directory.appendingPathComponent("messages", isDirectory: true) }
 
-  func threads() -> [ThreadSummary]? { read([ThreadSummary].self, from: threadsFile) }
+  func threads() -> [ThreadSummary]? { listing()?.threads }
 
-  func save(threads: [ThreadSummary]) {
-    write(threads, to: threadsFile)
+  func listing() -> ThreadListing? {
+    read(ThreadListing.self, from: threadsFile)
+      ?? read([ThreadSummary].self, from: threadsFile).map { ThreadListing(threads: $0) }
+  }
+
+  func seenMarkers() -> ThreadSeenMarkers {
+    read(ThreadSeenMarkers.self, from: directory.appendingPathComponent("seen.json")) ?? ThreadSeenMarkers()
+  }
+
+  func save(seenMarkers: ThreadSeenMarkers) {
+    write(seenMarkers, to: directory.appendingPathComponent("seen.json"))
+  }
+
+  func messagesFetchedAt(threadId: String) -> Date? {
+    cachedHistory(threadId: threadId)?.fetchedAt
+  }
+
+  func saveMessagesFetchedAt(_ fetchedAt: Date, threadId: String) {
+    guard let messages = messages(threadId: threadId) else { return }
+    save(messages: messages, fetchedAt: fetchedAt, threadId: threadId)
+  }
+
+  func save(threads: [ThreadSummary]) { save(listing: ThreadListing(threads: threads)) }
+
+  func save(listing: ThreadListing) {
+    let threads = listing.threads
+    write(listing, to: threadsFile)
     let kept = Set(threads.map { fileName(for: $0.id) })
     let files = (try? FileManager.default.contentsOfDirectory(atPath: messagesDirectory.path)) ?? []
     for file in files where !kept.contains(file) {
@@ -164,12 +226,24 @@ struct FileChatCache: ChatCache {
     }
   }
 
+  private func cachedHistory(threadId: String) -> CachedMessageHistory? {
+    let file = messagesDirectory.appendingPathComponent(fileName(for: threadId))
+    return read(CachedMessageHistory.self, from: file)
+      ?? read([ChatMessage].self, from: file).map { CachedMessageHistory(messages: $0, fetchedAt: nil) }
+  }
+
   func messages(threadId: String) -> [ChatMessage]? {
-    read([ChatMessage].self, from: messagesDirectory.appendingPathComponent(fileName(for: threadId)))
+    cachedHistory(threadId: threadId)?.messages
   }
 
   func save(messages: [ChatMessage], threadId: String) {
-    write(messages, to: messagesDirectory.appendingPathComponent(fileName(for: threadId)))
+    let history = CachedMessageHistory(messages: messages, fetchedAt: messagesFetchedAt(threadId: threadId))
+    write(history, to: messagesDirectory.appendingPathComponent(fileName(for: threadId)))
+  }
+
+  func save(messages: [ChatMessage], fetchedAt: Date, threadId: String) {
+    let history = CachedMessageHistory(messages: messages, fetchedAt: fetchedAt)
+    write(history, to: messagesDirectory.appendingPathComponent(fileName(for: threadId)))
   }
 
   func clear() {
@@ -199,16 +273,16 @@ struct FileChatCache: ChatCache {
   private func write<T: Encodable>(_ value: T, to file: URL) {
     retryCleanup()
     guard !cleanupPending, let data = try? JSONEncoder().encode(value) else { return }
-    try? FileManager.default.createDirectory(
-      at: file.deletingLastPathComponent(),
-      withIntermediateDirectories: true
-    )
-    #if os(watchOS)
-      try? data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-    #else
-      try? data.write(to: file, options: .atomic)
-    #endif
+    do {
+      try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+      try persist(data, file)
+    } catch {}
   }
+}
+
+private struct CachedMessageHistory: Codable {
+  let messages: [ChatMessage]
+  let fetchedAt: Date?
 }
 
 private enum CacheCleanupBarrier {
