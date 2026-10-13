@@ -44,6 +44,7 @@ import '../skills/skills_screen.dart';
 import '../surfaces/surface_snapshot_store.dart';
 import '../surfaces/surface_snapshots.dart';
 import '../telemetry/breadcrumbs.dart';
+import '../telemetry/telemetry.dart';
 import '../theme/platform_chrome.dart';
 import '../windows/conversation_window_args.dart';
 import '../windows/conversation_windows.dart';
@@ -265,6 +266,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _chat = ChatController(
       events: repositories?.telemetry.events ?? noopAppEventLogger,
+      usageTelemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
       repository: widget.repository ?? repositories?.chat,
       profiles: _profiles,
       models: _models,

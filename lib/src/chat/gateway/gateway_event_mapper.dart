@@ -5,12 +5,13 @@ import '../chat_transport.dart';
 import '../tool_result.dart';
 import '../chat_warning_state.dart';
 import '../chat_session_state.dart';
+import '../session_usage/usage_snapshot.dart';
 import 'gateway_rpc_client.dart';
 
 /// The [ChatEvent] a gateway event frame means, or null for a frame the app
 /// does not show. An unknown frame is dropped rather than failing the stream,
 /// so a server that sends a new event type still works.
-ChatEvent? mapGatewayEvent(GatewayEvent event) {
+ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
   final payload = event.payload;
   String text(String key) => _plainText(payload[key]);
   return switch (event.type) {
@@ -41,6 +42,14 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
       diff: text('inline_diff'),
       duration: _seconds(payload['duration_s']),
     ),
+    'session.usage' =>
+      event.sessionId.isEmpty
+          ? null
+          : SessionUsageUpdated(
+              UsageSnapshot.decode(payload['usage']),
+              runtimeId: event.sessionId,
+              connection: connection,
+            ),
     'session.title' => ThreadTitled(text('title')),
     'review.summary' => _reviewSummary(text('text')),
     'tool.output_risk' => switch (payload) {
@@ -97,6 +106,12 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
       transformed: payload['response_transformed'] == true,
       partial: payload['partial'] == true,
       error: _nonEmpty(text('error')),
+      usage: UsageSnapshot.decode(payload['usage']),
+      usageMalformed:
+          payload['usage'] != null &&
+          UsageSnapshot.decode(payload['usage']) == null,
+      usageRuntimeId: event.sessionId,
+      usageConnection: connection,
     ),
     'error' => ReplyErrored(text('message')),
     'session.info' => SessionInfo(

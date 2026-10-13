@@ -11,6 +11,7 @@ import 'chat_models.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
 import 'slash_command.dart';
+import 'session_usage/usage_snapshot.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
@@ -45,6 +46,20 @@ final class SessionResumeProgress extends ChatEvent {
   const SessionResumeProgress(this.progress, {required this.runtimeId});
   final ResumeProgress progress;
   final String runtimeId;
+}
+
+final class SessionUsageUpdated extends ChatEvent {
+  const SessionUsageUpdated(
+    this.snapshot, {
+    required this.runtimeId,
+    this.connection,
+    this.finalSnapshot = false,
+    this.malformed = false,
+  });
+  final UsageSnapshot? snapshot;
+  final String runtimeId;
+  final Object? connection;
+  final bool finalSnapshot, malformed;
 }
 
 /// First event when [ChatTransport.send] starts a new thread: the id the
@@ -330,8 +345,16 @@ final class ReplyCompleted extends ChatEvent {
     this.transformed = false,
     this.partial = false,
     this.error,
+    this.usage,
+    this.usageMalformed = false,
+    this.usageRuntimeId = '',
+    this.usageConnection,
   });
 
+  final UsageSnapshot? usage;
+  final bool usageMalformed;
+  final String usageRuntimeId;
+  final Object? usageConnection;
   final String text;
   final bool failed;
 

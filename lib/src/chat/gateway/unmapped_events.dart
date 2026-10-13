@@ -35,7 +35,6 @@ class UnmappedEvents {
   /// Frames Hermes sends to every client, which the app has no use for.
   static bool _expected(String type) =>
       type == 'gateway.ready' ||
-      type == 'session.usage' ||
       type.endsWith('.changed') ||
       type.startsWith('notification.');
 }
