@@ -26,6 +26,7 @@ import '../deep_links/deep_link_target.dart';
 import '../kanban/hermes_plugins_repository.dart';
 import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/desktop_navigation_history.dart';
 import '../macos/mac_sidebar.dart';
 import '../settings/account_actions.dart';
 import '../settings/settings_dialog.dart';
@@ -282,6 +283,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// too, or the user would stay on them; so are pages pushed over Chat
   /// itself (Skills, Plugins), which would hide the new content.
   void _showChat() {
+    DesktopNavigationHistoryScope.maybeOf(context)?.clear();
     Navigator.of(context).popUntil((route) => route.isFirst);
     if (_current == _Destination.chat) return;
     _select(_Destination.chat, cancelHandoff: false);
@@ -398,6 +400,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (cancelHandoff) _maybeRead<HandoffController>()?.cancel();
     _sidebar.closeOverlay();
     if (_current == destination) return;
+    DesktopNavigationHistoryScope.maybeOf(context)?.clear();
     _breadcrumbs('nav.destination', {'destination': destination.name});
     setState(() {
       _current = destination;
@@ -427,6 +430,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _navigationQueue ??= RootNavigationQueue(
         navigator: Navigator.of(context),
         root: ModalRoute.of(context)!,
+        history: DesktopNavigationHistoryScope.maybeOf(context),
         canNavigate: () => _authorizedOwner && !(_appLock?.covered ?? false),
       );
 

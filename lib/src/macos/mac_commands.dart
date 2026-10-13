@@ -16,6 +16,7 @@ enum MacCommand {
   openInNewWindow,
   closeWindow,
   back,
+  forward,
   toggleSidebar,
   toggleInspector,
   find,

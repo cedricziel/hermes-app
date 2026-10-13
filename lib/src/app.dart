@@ -1,14 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:upgrader/upgrader.dart';
 
 import 'app_lock/app_lock_gate.dart';
+import 'app_lock/app_lock_controller.dart';
+import 'api/hermes_repositories.dart';
+import 'navigation/desktop_history_owner.dart';
+import 'navigation/desktop_navigation_history.dart';
+import 'navigation/desktop_navigation_commands.dart';
+import 'navigation/workers_navigation_resolver.dart';
+import 'telemetry/breadcrumbs.dart';
 import 'handoff/handoff_controller.dart';
 import 'handoff/handoff_gate.dart';
 import 'windows/conversation_windows_menu.dart';
 import 'auth/auth_controller.dart';
 import 'macos/dock/dock_menu_gate.dart';
 import 'macos/mac_menu_bar.dart';
+import 'macos/mac_app.dart';
+import 'windows/conversation_windows.dart';
 import 'macos/menu_bar_extra/menu_bar_extra_host.dart';
 import 'macos/mac_window.dart';
 import 'screens/login_screen.dart';
@@ -41,13 +52,117 @@ class HermesApp extends StatefulWidget {
 class _HermesAppState extends State<HermesApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _handoffObserver = HandoffNavigationObserver();
+  late final _history = DesktopNavigationHistory(
+    canNavigate: _canNavigate,
+    resolve: _resolve,
+  );
+  final _historyOwner = DesktopHistoryOwner();
+  bool? _available;
+  ConversationWindows? _windows;
+  String? _keyWindowId;
+  bool _windowless = false;
+  StreamSubscription<bool>? _windowlessChanges;
+
+  @override
+  void initState() {
+    super.initState();
+    _windowlessChanges = MacApp.windowlessChanges.listen((windowless) {
+      if (_windowless == windowless) return;
+      _windowless = windowless;
+      _history.gateChanged();
+    });
+  }
+
+  void _bindWindows(ConversationWindows? windows) {
+    if (identical(_windows, windows)) return;
+    _windows?.removeListener(_windowOwnershipChanged);
+    _windows = windows;
+    windows?.addListener(_windowOwnershipChanged);
+    _windowOwnershipChanged();
+  }
+
+  void _windowOwnershipChanged() {
+    final key = _windows?.keyWindow?.windowId;
+    if (_keyWindowId == key) return;
+    _keyWindowId = key;
+    _history.gateChanged();
+  }
+
+  T? _read<T>() {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  bool _canNavigate() {
+    if (!mounted) return false;
+    final auth = _read<AuthController>();
+    final lock = _read<AppLockController>();
+    final handoff = _read<HandoffController>();
+    return auth?.state == HermesConnectionState.ready &&
+        auth!.protectedRequestsAllowed &&
+        _historyOwner.matches(
+          userGeneration: auth.userGeneration,
+          server: auth.baseUrl,
+          owner: auth.verifiedOwner,
+        ) &&
+        !_windowless &&
+        _read<ConversationWindows>()?.keyWindow == null &&
+        lock?.covered != true &&
+        handoff?.needsConnection != true &&
+        handoff?.error == null;
+  }
+
+  Future<Route<void>?> _resolve(DesktopNavigationTarget target) async {
+    final repositories = HermesRepositories.maybeOf(context);
+    if (repositories == null || !_canNavigate()) return null;
+    return switch (target) {
+      WorkersNavigationTarget workers => resolveWorkersNavigation(
+        workers,
+        repositories,
+        _canNavigate,
+      ),
+    };
+  }
+
+  void _syncHistory(AuthController auth) {
+    if (_historyOwner.update(
+      ready: auth.state == HermesConnectionState.ready,
+      userGeneration: auth.userGeneration,
+      server: auth.baseUrl,
+      owner: auth.verifiedOwner,
+      expired: auth.sessionExpired,
+      expiredOwner: auth.expiredOwner,
+    )) {
+      _history.clear();
+    }
+    final available = _canNavigate();
+    if (_available != available) _history.gateChanged();
+    _available = available;
+    _history.breadcrumbs = _read<Breadcrumbs>() ?? Breadcrumbs.none;
+  }
+
+  @override
+  void dispose() {
+    _windows?.removeListener(_windowOwnershipChanged);
+    unawaited(_windowlessChanges?.cancel());
+    _history.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     _handoffObserver.handoff = context.read<HandoffController?>();
+    final auth = context.watch<AuthController>();
+    context.watch<AppLockController?>();
+    context.watch<HandoffController?>();
+    _bindWindows(context.watch<ConversationWindows?>());
+    _syncHistory(auth);
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      navigatorObservers: [_handoffObserver],
+      navigatorObservers: [_handoffObserver, _history],
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
       theme: widget.lightTheme ?? buildHermesLightTheme(),
@@ -58,9 +173,25 @@ class _HermesAppState extends State<HermesApp> {
         child: MacMenuBar(
           navigatorKey: _navigatorKey,
           child: ConversationWindowsMenu(
-            child: MacWindowChrome(
-              child: AppLockGate(
-                child: DockMenuGate(child: HandoffGate(child: child!)),
+            child: DesktopNavigationHistoryScope(
+              history: _history,
+              child: Builder(
+                builder: (context) {
+                  final content = MacWindowChrome(
+                    child: AppLockGate(
+                      child: DockMenuGate(child: HandoffGate(child: child!)),
+                    ),
+                  );
+                  return switch (Theme.of(context).platform) {
+                    TargetPlatform.macOS ||
+                    TargetPlatform.windows ||
+                    TargetPlatform.linux => DesktopNavigationCommands(
+                      history: _history,
+                      child: content,
+                    ),
+                    _ => content,
+                  };
+                },
               ),
             ),
           ),

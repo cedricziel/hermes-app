@@ -178,6 +178,24 @@ void main() {
     expect(created, 1);
   }, variant: mac);
 
+  testWidgets('View offers Forward with Command-right-bracket', (tester) async {
+    var forwards = 0;
+    final channel = await pump(
+      tester,
+      MacCommandScope(
+        commands: {MacCommand.forward: MacCommandHandler(() => forwards++)},
+        child: const Scaffold(),
+      ),
+    );
+    expect(channel.enabled('View', 'Forward'), isTrue);
+    expect(
+      channel.item('View', 'Forward')['shortcutTrigger'],
+      LogicalKeyboardKey.bracketRight.keyId,
+    );
+    await channel.select('View', 'Forward');
+    expect(forwards, 1);
+  }, variant: mac);
+
   testWidgets('View > Back leaves a settings page', (tester) async {
     final channel = await pump(
       tester,

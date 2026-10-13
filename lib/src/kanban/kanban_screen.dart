@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/desktop_navigation_history.dart';
 import '../macos/mac_toolbar.dart';
 import '../theme/platform_chrome.dart';
 import '../shell/shell_navigation.dart';
@@ -328,6 +329,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
       case 'workers':
         Navigator.of(context).push(
           MaterialPageRoute<void>(
+            settings: RouteSettings(
+              arguments: WorkersNavigationTarget(
+                boardSlug: _controller.boardSlug,
+              ),
+            ),
             builder: (_) => KanbanWorkersScreen(
               repository: _repository,
               board: _controller.boardSlug,

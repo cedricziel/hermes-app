@@ -113,6 +113,12 @@ final menuLayout = <MenuSection>[
         'Back',
         shortcut: metaActivator(LogicalKeyboardKey.bracketLeft),
       ),
+      MenuEntry(
+        MacCommand.forward,
+        'Forward',
+        shortcut: metaActivator(LogicalKeyboardKey.bracketRight),
+        platforms: _macOnly,
+      ),
     ],
     [
       MenuEntry(
