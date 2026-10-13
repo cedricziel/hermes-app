@@ -1,0 +1,35 @@
+{
+  "source_ref": "167e9fdb84248cd0fff80762dc57b6a914b6e930",
+  "source": "agent/reactions.py::detect_reaction",
+  "source_sha256": "a657655d4957e296b00fd68d077405bfada7508609f80055ad05beef42fc51b7",
+  "reaction": {
+    "kind": "vibe"
+  },
+  "message_reaction": {
+    "row_id": 21,
+    "role": "user",
+    "reactions": [
+      {
+        "emoji": "👍",
+        "author": "agent",
+        "at": 1791849600,
+        "seen": true
+      }
+    ]
+  },
+  "transcript_row": {
+    "row_id": 21,
+    "role": "user",
+    "text": "Fixture message",
+    "display_metadata": {
+      "reactions": [
+        {
+          "emoji": "👍",
+          "author": "agent",
+          "at": 1791849600,
+          "seen": true
+        }
+      ]
+    }
+  }
+}

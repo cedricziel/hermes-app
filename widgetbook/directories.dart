@@ -1,3 +1,4 @@
+import 'reaction_use_cases.dart';
 import 'memory_use_cases.dart';
 import 'session_usage_use_cases.dart';
 import 'side_result_use_cases.dart';
@@ -53,6 +54,7 @@ import 'schedules_use_cases.dart';
 import 'voice_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
+  reactionNode(),
   agentWarningNode(),
   sessionStateNode(),
   todoPlanNode(),

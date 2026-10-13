@@ -51,3 +51,5 @@ const String kMetaReviewItems = 'items';
 const String kMetaError = 'error';
 const String kMetaStreaming = 'streaming';
 const String kMetaStopped = 'stopped';
+
+const String kMetaCanonicalRow = 'canonical_reaction_row';

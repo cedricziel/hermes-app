@@ -6,6 +6,8 @@ library;
 
 import 'dart:typed_data';
 
+import 'reactions/reaction_state.dart';
+
 import '../models/model_provider_option.dart';
 import '../bot_mode/bot_chat_context.dart';
 import 'chat_warning_state.dart';
@@ -502,6 +504,7 @@ class ChatMessage {
     required this.id,
     required this.role,
     required this.content,
+    this.canonicalRow,
     this.submittedText,
     this.displayText,
     required this.createdAt,
@@ -518,6 +521,9 @@ class ChatMessage {
 
   final String id;
   final ChatRole role;
+
+  /// Backend row identity; live user rows require their verified submit receipt.
+  DurableReactionRow? canonicalRow;
 
   /// The text still being written: everything since the last [sealedProse]
   /// entry, or the whole reply when it never wrote text before a tool call.
