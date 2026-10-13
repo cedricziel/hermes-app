@@ -101,7 +101,8 @@ class ConnectorOperationController extends ChangeNotifier {
     if (!identical(_state.find(snapshot.key), accepted)) {
       return ConnectorSnapshotOutcome.older;
     }
-    if (outcome == ConnectorSnapshotOutcome.applied) {
+    if (outcome == ConnectorSnapshotOutcome.applied ||
+        outcome == ConnectorSnapshotOutcome.enriched) {
       if (accountProfileKnown && authorized) {
         _accountAuthority.add(snapshot.key);
       }

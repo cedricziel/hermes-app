@@ -31,6 +31,22 @@ void main() {
     controller.dispose();
     await server.close();
   });
+  test('late request metadata updates listeners without rolling back visible progress', () {
+    var changed = 0;
+    controller.addListener(() => changed++);
+    controller.accept(
+      ConnectorOperationSnapshot.fromRequest(
+        connectionRequestFixture,
+        runtimeId: 'runtime-a',
+      )!,
+      attachment: attachment,
+    );
+    expect(changed, 1);
+    expect(controller.operations.single.seq, 4);
+    expect(controller.operations.single.toolCallId, 'synthetic-tool');
+    expect(controller.operations.single.timeoutSeconds, 60);
+  });
+
   test('skip uses exact owner/profile and skipped-only result without optimistic state', () async {
     final operation = controller.operations.single;
     final request = controller.skip(

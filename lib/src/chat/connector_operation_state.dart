@@ -206,7 +206,7 @@ class ConnectorOperationSnapshot {
   }
 }
 
-enum ConnectorSnapshotOutcome { applied, older, stale }
+enum ConnectorSnapshotOutcome { applied, enriched, older, stale }
 
 class ConnectorOperationsState {
   final _operations = <ConnectorOperationKey, ConnectorOperationSnapshot>{};
@@ -228,7 +228,16 @@ class ConnectorOperationsState {
     if (_attachment != attachment) return ConnectorSnapshotOutcome.stale;
     final old = _operations[snapshot.key];
     if (old != null && snapshot.seq <= old.seq) {
-      return ConnectorSnapshotOutcome.older;
+      final timeout = old.timeoutSeconds ?? snapshot.timeoutSeconds;
+      final tool = old.toolCallId ?? snapshot.toolCallId;
+      if (timeout == old.timeoutSeconds && tool == old.toolCallId) {
+        return ConnectorSnapshotOutcome.older;
+      }
+      _operations[snapshot.key] = old.copyWith(
+        timeoutSeconds: timeout,
+        toolCallId: tool,
+      );
+      return ConnectorSnapshotOutcome.enriched;
     }
     _operations[snapshot.key] = old == null
         ? snapshot
