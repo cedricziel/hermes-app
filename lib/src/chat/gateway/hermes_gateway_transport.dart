@@ -1136,6 +1136,17 @@ class HermesGatewayTransport
       }
     }
 
+    Future<QueueSubmissionNotStarted> notSubmitted(Object error) async {
+      try {
+        await onNotSubmitted?.call();
+      } on Object {
+        // Failed restoration cannot erase proof that no prompt RPC was sent.
+      }
+      return error is QueueSubmissionNotStarted
+          ? error
+          : QueueSubmissionNotStarted(error);
+    }
+
     try {
       if (threadId == null) {
         yield ThreadBound(storedId);
@@ -1161,6 +1172,22 @@ class HermesGatewayTransport
           yield reclaim;
           return;
         }
+        final submissionBinding = beforeSubmit == null
+            ? null
+            : ownedSessionFor(owner.$2, profile: owner.$1);
+        var dispatchDenied = false;
+        bool authorizeSubmission() {
+          final allowed =
+              !stopped.value &&
+              watch.reclaimed == null &&
+              submissionBinding != null &&
+              identical(submissionBinding.connection, client) &&
+              submissionBinding.runtimeId == runtimeId &&
+              ownedSessionFor(owner.$2, profile: owner.$1) == submissionBinding;
+          if (!allowed) dispatchDenied = true;
+          return allowed;
+        }
+
         if (beforeSubmit != null) {
           step.name = 'commit';
           try {
@@ -1170,23 +1197,21 @@ class HermesGatewayTransport
               throw StateError('Queued session reclaimed');
             }
           } on Object catch (error) {
-            try {
-              await onNotSubmitted?.call();
-            } on Object {
-              // Failed restoration cannot erase proof that no prompt RPC was sent.
-            }
-            throw error is QueueSubmissionNotStarted
-                ? error
-                : QueueSubmissionNotStarted(error);
+            throw await notSubmitted(error);
           }
         }
         step.name = 'submit';
         submittedAt = clock.now();
-        submit = await _call(client, 'prompt.submit', {
-          'session_id': runtimeId,
-          'text': [text, ...references].where((s) => s.isNotEmpty).join('\n'),
-          if (queued) 'queued': true,
-        });
+        try {
+          submit = await _call(client, 'prompt.submit', {
+            'session_id': runtimeId,
+            'text': [text, ...references].where((s) => s.isNotEmpty).join('\n'),
+            if (queued) 'queued': true,
+          }, authorize: beforeSubmit == null ? null : authorizeSubmission);
+        } on Object catch (error) {
+          if (dispatchDenied) throw await notSubmitted(error);
+          rethrow;
+        }
       } on Object catch (error) {
         if (watch.reclaimed case final reclaim?) {
           yield reclaim;
@@ -2226,10 +2251,14 @@ class HermesGatewayTransport
   Future<Map<String, Object?>> _call(
     GatewayRpcClient client,
     String method,
-    Map<String, Object?> params,
-  ) async {
+    Map<String, Object?> params, {
+    bool Function()? authorize,
+  }) async {
     try {
-      return await client.request(method, params).timeout(requestTimeout);
+      final request = authorize == null
+          ? client.request(method, params)
+          : client.requestGuarded(method, params, authorize: authorize);
+      return await request.timeout(requestTimeout);
     } on TimeoutException {
       _drop(client);
       throw const GatewayConnectionClosed();

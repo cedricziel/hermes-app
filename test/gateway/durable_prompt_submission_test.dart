@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_otel/flutter_otel.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/session_chat_transport.dart';
 
 import '../support/fake_gateway.dart';
+import '../support/recording_tracer.dart';
 
 void main() {
   late FakeGateway gateway;
@@ -19,6 +23,74 @@ void main() {
     };
   });
   tearDown(() => transport.close());
+  test('cancellation during prompt instrumentation restores the committed claim without sending bytes', () async {
+    await transport.close();
+    final atDispatch = Completer<void>();
+    late StreamSubscription<ChatEvent> subscription;
+    late Future<void> canceled;
+    var committed = false;
+    var restored = 0;
+    final tracer = _SubmitTracer(() {
+      expect(committed, isTrue);
+      canceled = subscription.cancel();
+      atDispatch.complete();
+    });
+    transport = HermesGatewayTransport(
+      connect: gateway.connect,
+      telemetry: gatewayTracer(tracer),
+    );
+    subscription = transport
+        .sendQueued(
+          profile: 'work',
+          threadId: 'stored',
+          text: 'retained',
+          beforeSubmit: () async {
+            committed = true;
+          },
+          onNotSubmitted: () async {
+            restored++;
+          },
+        )
+        .listen((_) {});
+    await atDispatch.future.timeout(const Duration(seconds: 5));
+    await canceled.timeout(const Duration(seconds: 5));
+    await pumpEventQueue();
+    expect(gateway.methods, isNot(contains('prompt.submit')));
+    expect(restored, 1);
+    expect(
+      tracer.spans
+          .where((span) => span.name == 'prompt.submit send')
+          .single
+          .ended,
+      isTrue,
+    );
+  });
+
+  test('a prompt RPC failure after bytes are sent never restores its uncertain claim', () async {
+    gateway.handlers['prompt.submit'] = (_) => throw const FakeRpcError(5000);
+    var restored = 0;
+    await expectLater(
+      transport
+          .sendQueued(
+            profile: 'work',
+            threadId: 'stored',
+            text: 'uncertain',
+            beforeSubmit: () async {},
+            onNotSubmitted: () async {
+              restored++;
+            },
+          )
+          .toList()
+          .timeout(const Duration(seconds: 5)),
+      throwsA(isA<GatewayRpcException>()),
+    );
+    expect(
+      gateway.methods.where((method) => method == 'prompt.submit'),
+      hasLength(1),
+    );
+    expect(restored, 0);
+  });
+
   test('durable barrier finishes before prompt submission', () async {
     final entered = Completer<void>();
     final release = Completer<void>();
@@ -317,4 +389,26 @@ void main() {
       expect(gateway.methods, isNot(contains('prompt.submit')));
     },
   );
+}
+
+class _SubmitTracer extends RecordingTracer {
+  _SubmitTracer(this.onSubmit);
+  final void Function() onSubmit;
+  @override
+  Span startSpan(
+    String name, {
+    SpanKind kind = SpanKind.internal,
+    Map<String, Object?>? attributes,
+    SpanContext? parentContext,
+    List<SpanLink> links = const [],
+  }) {
+    if (name == 'prompt.submit send') onSubmit();
+    return super.startSpan(
+      name,
+      kind: kind,
+      attributes: attributes,
+      parentContext: parentContext,
+      links: links,
+    );
+  }
 }
