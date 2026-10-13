@@ -19,19 +19,25 @@ struct RelayClient: HermesClient {
   }
 
 
-  func threads() async throws -> [ThreadSummary] {
+  func threads() async throws -> [ThreadSummary] { try await threadListing().threads }
+
+  func threadListing() async throws -> ThreadListing {
     let reply = try await call(["op": "threads"])
     guard let rows = reply["threads"] as? [[String: Any]] else { throw HermesClientError.failed }
-    return rows.compactMap { row in
+    let threads = rows.compactMap { row -> ThreadSummary? in
       guard let id = row["id"] as? String, session.owns(id), let title = row["title"] as? String else { return nil }
       return ThreadSummary(
         id: id,
         title: title,
         updatedAt: (row["updatedAt"] as? NSNumber).flatMap { $0.doubleValue > 0 ? Date(timeIntervalSince1970: $0.doubleValue) : nil },
         pinned: row["pinned"] as? Bool ?? false,
-        handoff: HandoffTarget(row: row)
+        handoff: HandoffTarget(row: row),
+        status: (row["status"] as? String).flatMap(ThreadStatus.init(rawValue:))
       )
     }
+    let profile = (reply["activeProfile"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let fetchedAt = (reply["fetchedAt"] as? NSNumber).flatMap { $0.doubleValue > 0 && $0.doubleValue.isFinite ? Date(timeIntervalSince1970: $0.doubleValue) : nil }
+    return ThreadListing(threads: threads, activeProfile: profile?.isEmpty == false ? profile : nil, fetchedAt: fetchedAt)
   }
 
   func messages(threadId: String) async throws -> [ChatMessage] {
