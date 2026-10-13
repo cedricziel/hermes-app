@@ -6,6 +6,7 @@ import Foundation
   /// (`SIMCTL_CHILD_HERMES_WATCH_DEMO=chat xcrun simctl launch …`).
   /// `HERMES_WATCH_COMPLICATION` seeds the complications' status the same way.
   struct DemoClient: HermesClient {
+    var glanceMode: String? = nil
     private static var mode: String? { ProcessInfo.processInfo.environment["HERMES_WATCH_DEMO"] }
     static var enabled: Bool { mode != nil }
     static var opensChat: Bool { mode == "chat" || mode?.hasPrefix("recovery_") == true || mode?.hasPrefix("conversation_") == true }
@@ -51,7 +52,34 @@ import Foundation
       ])
     }
 
-    func threads() async throws -> [ThreadSummary] { Self.threads }
+    func threads() async throws -> [ThreadSummary] { try await threadListing().threads }
+
+    func threadListing() async throws -> ThreadListing {
+      if (glanceMode ?? Self.mode) == "glance_loading" { try await Task.sleep(for: .seconds(30)) }
+      if (glanceMode ?? Self.mode) == "glance_failed" { throw HermesClientError.phoneUnreachable }
+      return Self.glanceListing(mode: glanceMode ?? Self.mode)
+    }
+
+    func savedThreadListing() -> ThreadListing? {
+      (glanceMode ?? Self.mode) == "glance_failed" ? Self.glanceListing(mode: glanceMode ?? Self.mode) : nil
+    }
+
+    private static func glanceListing(mode: String?) -> ThreadListing {
+      guard mode?.hasPrefix("glance_") == true else { return ThreadListing(threads: threads) }
+      let fetchedAt = Date(timeIntervalSince1970: 1_780_000_000)
+      if mode == "glance_old_payload" {
+        return ThreadListing(threads: [ThreadSummary(id: threads[0].id, title: "Old phone payload", updatedAt: nil, pinned: false)])
+      }
+      let title = mode == "glance_long" || mode == "glance_accessibility"
+        ? "Review the nightly backup schedule for all servers and explain the folders excluded from each backup"
+        : "Nightly backup"
+      return ThreadListing(threads: [
+        ThreadSummary(id: threads[0].id, title: title, updatedAt: fetchedAt, pinned: true, status: .approval),
+        ThreadSummary(id: threads[1].id, title: "Follow-up question", updatedAt: fetchedAt, pinned: false, status: .question),
+        ThreadSummary(id: threads[2].id, title: "Running backup", updatedAt: fetchedAt, pinned: false, status: .running),
+        ThreadSummary(id: WatchThreadId(contextId: "demo-context", profile: "demo", sessionId: "unknown").encode(), title: "Status unavailable", updatedAt: nil, pinned: false),
+      ], activeProfile: "work", fetchedAt: fetchedAt)
+    }
 
     func messages(threadId: String) async throws -> [ChatMessage] {
       if Self.mode == "conversation_old_payload" { return [] }

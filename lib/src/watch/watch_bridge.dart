@@ -410,6 +410,7 @@ class WatchBridge {
         return api == null ? null : HermesChatRepository(api.raw);
       },
       transport: () => gatewayTransportFor(auth, events: events),
+      statusTransport: () => gatewayTransportFor(auth, events: events),
       serverUrl: () {
         final url = auth.baseUrl;
         return url == null ? null : HandoffActivity.server(url);
