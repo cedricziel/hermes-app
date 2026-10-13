@@ -14,7 +14,7 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
 
   func request(_ message: [String: Any]) async throws -> [String: Any] {
     let requestedOperation = message["op"] as? String ?? ""
-    let operation = ["threads", "messages", "send", "transcribe"].contains(requestedOperation)
+    let operation = ["session", "threads", "messages", "send", "transcribe"].contains(requestedOperation)
       ? requestedOperation : "unknown"
     logger.notice("Request started operation=\(operation, privacy: .public)")
     do {
@@ -33,7 +33,7 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
         replyHandler: { reply in
           let error = reply["error"] as? String ?? ""
           let result = reply["ok"] as? Bool == true ? "ok"
-            : (["signed_out", "unavailable", "bad_request", "failed"].contains(error) ? error : "failed")
+            : (["signed_out", "unavailable", "bad_request", "context_changed", "failed"].contains(error) ? error : "failed")
           self.logger.notice("Request completed operation=\(operation, privacy: .public) result=\(result, privacy: .public)")
           Task { @MainActor in
             WatchSessionState.shared.receive(reply)

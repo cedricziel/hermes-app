@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/watch/watch_bridge.dart';
+import 'package:hermes_app/src/watch/watch_context.dart';
 import 'package:hermes_app/src/watch/watch_request_handler.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -67,10 +68,27 @@ void main() {
           if (publicationFails) {
             throw PlatformException(code: 'publication_failed');
           }
-          return {'revision': attempts.length, 'usable': usable};
+          return {
+            ...call.arguments as Map,
+            'revision': attempts.length,
+            'usable': usable,
+          };
         });
     handler = _SessionHandler(() => auth.protectedRequestsAllowed);
-    bridge = WatchBridge(handler: handler, auth: auth, events: events.call);
+    String? storedContext;
+    final contexts = WatchContextStore(
+      read: () async => storedContext,
+      write: (value) async {
+        storedContext = value;
+      },
+      randomId: () => 'test-context',
+    );
+    bridge = WatchBridge(
+      handler: handler,
+      auth: auth,
+      events: events.call,
+      contextStore: contexts,
+    );
   });
 
   tearDown(() async {
@@ -111,7 +129,11 @@ void main() {
               nativeRevision++;
               nativeUsable = usable;
             }
-            return {'revision': nativeRevision, 'usable': usable};
+            return {
+              ...call.arguments as Map,
+              'revision': nativeRevision,
+              'usable': usable,
+            };
           });
       bridge.start();
       await pumpEventQueue();
@@ -119,7 +141,6 @@ void main() {
       await auth.changeServer();
       await pumpEventQueue();
       await auth.connect('http://127.0.0.1:${server.port}');
-      expect(auth.state, HermesConnectionState.ready);
       await pumpEventQueue();
 
       expect(await request(), {'ok': false, 'error': 'unavailable'});

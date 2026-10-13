@@ -24,7 +24,7 @@ final class ThreadListModel {
     let session = session ?? client.sessionState ?? WatchSessionState()
     self.session = session
     cleanupId = session.register { [weak self] in
-      self?.state = .failed(.signedOut)
+      self?.state = .failed(session.invalidationReason)
       self?.refreshFailure = nil
     }
   }
@@ -33,7 +33,6 @@ final class ThreadListModel {
   /// answers.
   func load() async {
     let generation = session.generation
-    guard session.usable else { state = .failed(.signedOut); return }
     if state == .loading, let saved = client.savedThreads() { state = .loaded(saved) }
     do {
       let threads = try await client.threads()

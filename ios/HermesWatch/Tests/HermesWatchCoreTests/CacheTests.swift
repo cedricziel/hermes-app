@@ -72,7 +72,7 @@ final class MemoryChatCache: ChatCache {
 
 @MainActor
 final class CachingClientTests: XCTestCase {
-  private let thread = ThreadSummary(id: "w/s1", title: "Trip", updatedAt: nil, pinned: false)
+  private let thread = ThreadSummary(id: watchFixtureId("s1"), title: "Trip", updatedAt: nil, pinned: false)
   private var cache: MemoryChatCache!
   private var inner: FakeClient!
   private var client: CachingClient!
@@ -80,20 +80,22 @@ final class CachingClientTests: XCTestCase {
   override func setUp() async throws {
     cache = MemoryChatCache()
     inner = FakeClient()
-    client = CachingClient(inner: inner, cache: cache)
+    let session = WatchSessionState()
+    session.acceptContext("test-context", revision: 1)
+    client = CachingClient(inner: inner, cache: cache, session: session)
   }
 
   func testAWaitingAnswerIsNotSavedAsATurn() async throws {
-    inner.sendResult = .success(SendResult(threadId: "w/s1", text: "", failed: false, waiting: .approval))
+    inner.sendResult = .success(SendResult(threadId: watchFixtureId("s1"), text: "", failed: false, waiting: .approval))
 
-    _ = try await client.send(threadId: "w/s1", text: "Clean up", sendId: "m1")
+    _ = try await client.send(threadId: watchFixtureId("s1"), text: "Clean up", sendId: "m1")
 
-    XCTAssertNil(cache.savedMessages["w/s1"])
+    XCTAssertNil(cache.savedMessages[watchFixtureId("s1")])
   }
 
   func testTheListIsSavedAndReplacedByThePhonesAnswer() async {
     cache.savedThreads = [thread]
-    let fresh = ThreadSummary(id: "w/s2", title: "New", updatedAt: nil, pinned: false)
+    let fresh = ThreadSummary(id: watchFixtureId("s2"), title: "New", updatedAt: nil, pinned: false)
     inner.threadsResult = .success([fresh])
     let model = ThreadListModel(client: client)
 
@@ -116,7 +118,7 @@ final class CachingClientTests: XCTestCase {
 
   func testSigningOutOnThePhoneForgetsTheSavedChats() async {
     cache.savedThreads = [thread]
-    cache.savedMessages = ["w/s1": [ChatMessage(id: "m1", role: .user, content: "Hi", at: .distantPast)]]
+    cache.savedMessages = [watchFixtureId("s1"): [ChatMessage(id: "m1", role: .user, content: "Hi", at: .distantPast)]]
     inner.threadsResult = .failure(HermesClientError.signedOut)
     let model = ThreadListModel(client: client)
 
@@ -129,9 +131,9 @@ final class CachingClientTests: XCTestCase {
 
   func testAChatKeepsSavedMessagesWhenThePhoneCannotBeReached() async {
     let saved = ChatMessage(id: "m1", role: .user, content: "Hi", at: .distantPast)
-    cache.savedMessages = ["w/s1": [saved]]
+    cache.savedMessages = [watchFixtureId("s1"): [saved]]
     inner.messagesResult = .failure(HermesClientError.phoneUnreachable)
-    let model = ConversationModel(client: client, threadId: "w/s1")
+    let model = ConversationModel(client: client, threadId: watchFixtureId("s1"))
 
     await model.load()
 
@@ -142,11 +144,11 @@ final class CachingClientTests: XCTestCase {
   func testLoadedMessagesAreSaved() async {
     let fresh = ChatMessage(id: "m2", role: .assistant, content: "Hello", at: .distantPast)
     inner.messagesResult = .success([fresh])
-    let model = ConversationModel(client: client, threadId: "w/s1")
+    let model = ConversationModel(client: client, threadId: watchFixtureId("s1"))
 
     await model.load()
 
-    XCTAssertEqual(cache.savedMessages["w/s1"], [fresh])
+    XCTAssertEqual(cache.savedMessages[watchFixtureId("s1")], [fresh])
   }
 
   func testASentMessageAndItsReplyAreSavedUnderTheNewThread() async {

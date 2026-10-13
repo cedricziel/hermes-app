@@ -6,19 +6,10 @@ import '../chat/chat_transport.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../notifications/attention_policy.dart';
 import 'watch_complication.dart';
+import 'watch_context.dart';
 
-/// Answers the requests the watch app relays through the phone. Requests and
-/// replies are plain maps of property-list types, the shape WatchConnectivity
-/// carries: `{'op': 'threads' | 'messages' | 'send' | 'transcribe', ...}` in, `{'ok': true,
-/// ...}` or `{'ok': false, 'error': 'signed_out' | 'bad_request' | 'failed'}`
-/// out.
-///
-/// The watch shows a glance, so lists are cut to what fits on it.
-///
-/// A thread id the watch sees is tied to the profile it was listed under
-/// (`<encoded profile>/<session id>`), because the same session id can exist in
-/// two profiles. The watch treats it as opaque and hands it back, and the
-/// thread is read and continued in that profile, even after a switch.
+/// Serves version 2 requests scoped to a verified phone context. Historical
+/// profile ownership remains encoded in each opaque thread ID.
 class WatchRequestHandler {
   WatchRequestHandler({
     required this.repository,
@@ -34,6 +25,8 @@ class WatchRequestHandler {
     this.appLock = _off,
     this.transcribeOnDevice,
     this.complication,
+    this.context = _noContext,
+    this.prepareContext = _alreadyReady,
   });
 
   /// What the watch is told when the agent asks for something only the phone's
@@ -108,6 +101,10 @@ class WatchRequestHandler {
   /// Tells the watch's complications what a turn sent from here is doing.
   final WatchComplicationStatus? complication;
 
+  final WatchContext? Function() context;
+  final Future<void> Function() prepareContext;
+  static WatchContext? _noContext() => null;
+
   static Future<bool> _ignore(AttentionNotification _) async => false;
 
   static bool _off() => false;
@@ -141,7 +138,52 @@ class WatchRequestHandler {
       if (connecting()) {
         await ready();
       }
-      if (repository() == null) return _noSession();
+      if (repository() == null) {
+        return _noSession();
+      }
+      if (!const [
+        'session',
+        'threads',
+        'messages',
+        'send',
+        'transcribe',
+      ].contains(request['op'])) {
+        return _error('bad_request');
+      }
+      await prepareContext();
+      final scope = context();
+      if (scope == null) {
+        return _error('unavailable');
+      }
+      if (request['op'] == 'session') {
+        return {'ok': true, 'protocolVersion': 2, ...scope.fields};
+      }
+      if (request['contextId'] != scope.id ||
+          request['revision'] != scope.revision) {
+        return _error('context_changed');
+      }
+      final rawThread = request['threadId'];
+      if (rawThread != null) {
+        if (rawThread is String && !rawThread.startsWith('v2/')) {
+          final slash = rawThread.indexOf('/');
+          if (slash < 0 || slash == rawThread.length - 1) {
+            return _error('bad_request');
+          }
+          try {
+            Uri.decodeComponent(rawThread.substring(0, slash));
+          } on Object {
+            return _error('bad_request');
+          }
+          return _error('context_changed');
+        }
+        final thread = WatchThreadId.decode(rawThread);
+        if (thread == null) {
+          return _error('bad_request');
+        }
+        if (thread.contextId != scope.id) {
+          return _error('context_changed');
+        }
+      }
       final generation = _sessionGeneration;
       final reply = switch (request['op']) {
         'threads' => await _threads(),
@@ -162,7 +204,10 @@ class WatchRequestHandler {
       if (generation != _sessionGeneration || repository() == null) {
         return _noSession();
       }
-      return reply;
+      if (context()?.id != scope.id || context()?.revision != scope.revision) {
+        return _error('context_changed');
+      }
+      return reply['ok'] == true ? {...reply, ...scope.fields} : reply;
     } on Object {
       return _error('failed');
     }
@@ -170,8 +215,17 @@ class WatchRequestHandler {
 
   Future<Map<String, Object?>> _threads() async {
     final repo = repository();
-    if (repo == null) return _noSession();
+    if (repo == null) {
+      return _noSession();
+    }
+    final generation = _sessionGeneration;
+    final scope = context();
     final profile = await activeProfile();
+    if (generation != _sessionGeneration ||
+        context()?.id != scope?.id ||
+        repository() == null) {
+      return _noSession();
+    }
     final threads = await repo.loadThreads(
       limit: threadLimit,
       profile: profile,
@@ -193,9 +247,13 @@ class WatchRequestHandler {
 
   Future<Map<String, Object?>> _messages(Object? threadId) async {
     final thread = _unbind(threadId);
-    if (thread == null) return _error('bad_request');
+    if (thread == null) {
+      return _error('bad_request');
+    }
     final repo = repository();
-    if (repo == null) return _noSession();
+    if (repo == null) {
+      return _noSession();
+    }
     final messages =
         <({ChatMessage message, String text, List<String> tools})>[];
     // Tools called since the last text, named on the text that follows them.
@@ -249,16 +307,27 @@ class WatchRequestHandler {
       return _error('bad_request');
     }
     final repo = repository();
-    if (repo == null) return _noSession();
+    if (repo == null) {
+      return _noSession();
+    }
     final generation = _sessionGeneration;
+    final contextId = context()?.id;
     final heard = await _heardOnDevice(audio);
     if (generation != _sessionGeneration || repository() == null) {
       return _noSession();
     }
-    if (heard != null) return {'ok': true, 'text': heard, 'engine': 'device'};
+    if (context()?.id != contextId) {
+      return _error("context_changed");
+    }
+    if (heard != null) {
+      return {'ok': true, 'text': heard, 'engine': 'device'};
+    }
     final profile = await activeProfile();
     if (generation != _sessionGeneration || repository() == null) {
       return _noSession();
+    }
+    if (context()?.id != contextId) {
+      return _error("context_changed");
     }
     final text = await repo.transcribe(
       audio,
@@ -303,14 +372,21 @@ class WatchRequestHandler {
       final attempt = _SendAttempt();
       return attempt.reply = _send(threadId, text, attempt);
     }
-    if (_sends[id] case final earlier?) {
+    final key = '${context()?.id}/$id';
+    if (_sends[key] case final earlier?) {
       final reply = await _poll(earlier, fresh: false);
-      if (!earlier.finished || reply['ok'] == true) return reply;
-      if (earlier.reached) return _afterLostReply(earlier);
-      _sends.remove(id);
+      if (!earlier.finished || reply['ok'] == true) {
+        return reply;
+      }
+      if (earlier.reached) {
+        return _afterLostReply(earlier);
+      }
+      _sends.remove(key);
     } else if (retry) {
       final thread = _unbind(threadId);
-      if (thread == null) return _error('failed');
+      if (thread == null) {
+        return _error('failed');
+      }
       return _afterLostReply(
         _SendAttempt()
           ..profile = thread.profile
@@ -324,7 +400,7 @@ class WatchRequestHandler {
       attempt,
     ).catchError((Object _) => _error('failed'));
     unawaited(attempt.reply.then((_) => attempt.finished = true));
-    _sends[id] = attempt;
+    _sends[key] = attempt;
     while (_sends.length > sendMemory) {
       _sends.remove(_sends.keys.first);
     }
@@ -345,8 +421,12 @@ class WatchRequestHandler {
         ? Future<void>.delayed(waitingHold).then((_) => held = true)
         : null;
     while (true) {
-      if (attempt.invalidated) return _error('signed_out');
-      if (attempt.finished) return attempt.reply;
+      if (attempt.invalidated) {
+        return _error('signed_out');
+      }
+      if (attempt.finished) {
+        return attempt.reply;
+      }
       if (attempt.waiting != shown || held) {
         attempt.reported = attempt.waiting;
         return {
@@ -364,8 +444,12 @@ class WatchRequestHandler {
   Future<Map<String, Object?>> _afterLostReply(_SendAttempt attempt) async {
     final threadId = attempt.threadId;
     final repo = repository();
-    if (repo == null) return _noSession();
-    if (threadId == null) return _error('failed');
+    if (repo == null) {
+      return _noSession();
+    }
+    if (threadId == null) {
+      return _error('failed');
+    }
     final messages = await repo.loadMessages(
       threadId,
       profile: attempt.profile,
@@ -389,13 +473,23 @@ class WatchRequestHandler {
     Object? text,
     _SendAttempt attempt,
   ) async {
-    if (text is! String || text.trim().isEmpty) return _error('bad_request');
+    if (text is! String || text.trim().isEmpty) {
+      return _error('bad_request');
+    }
     final thread = threadId == null ? null : _unbind(threadId);
-    if (threadId != null && thread == null) return _error('bad_request');
+    if (threadId != null && thread == null) {
+      return _error('bad_request');
+    }
     final chat = transport();
-    if (chat == null) return _noSession();
+    if (chat == null) {
+      return _noSession();
+    }
     final generation = _sessionGeneration;
-    bool current() => generation == _sessionGeneration && repository() != null;
+    final scope = context();
+    bool current() =>
+        generation == _sessionGeneration &&
+        repository() != null &&
+        context()?.id == scope?.id;
     _activeTransports.add(chat);
     String? profile;
     String? boundId;
@@ -410,7 +504,9 @@ class WatchRequestHandler {
     /// buttons that answer a request.
     Future<bool> announce(ChatEvent event) async {
       final id = boundId;
-      if (!current() || id == null) return false;
+      if (!current() || id == null) {
+        return false;
+      }
       final notification = attentionFor(
         event: event,
         thread: ChatThread(id: id, title: title, updatedAt: DateTime.now()),
@@ -420,7 +516,9 @@ class WatchRequestHandler {
         profile: profile,
         appLock: appLock(),
       );
-      if (notification == null) return false;
+      if (notification == null) {
+        return false;
+      }
       final posted = await this.announce(notification);
       return posted && notification.request != null;
     }
@@ -449,7 +547,9 @@ class WatchRequestHandler {
     StreamIterator<ChatEvent>? events;
     try {
       profile = thread != null ? thread.profile : await activeProfile();
-      if (!current()) return _noSession();
+      if (!current()) {
+        return _noSession();
+      }
       boundId = thread?.id;
       attempt
         ..profile = profile
@@ -466,7 +566,9 @@ class WatchRequestHandler {
       while (await turn.moveNext().timeout(
         attempt.waiting == null ? sendTimeout : waitingTimeout,
       )) {
-        if (!current()) return _noSession();
+        if (!current()) {
+          return _noSession();
+        }
         final event = turn.current;
         attempt.reached = true;
         // The turn Hermes ran ahead of the prompt asks too.
@@ -478,13 +580,17 @@ class WatchRequestHandler {
             final answerable = await announce(own);
             // Left unanswered here, it still waits for the user on the phone.
             track(own);
-            if (!attempt.waits || !answerable) return cannotAnswer();
+            if (!attempt.waits || !answerable) {
+              return cannotAnswer();
+            }
             attempt.open(request.requestId, 'approval');
             continue;
           case ClarifyRequested(:final request):
             final answerable = await announce(own);
             track(own);
-            if (!attempt.waits || !answerable) return cannotAnswer();
+            if (!attempt.waits || !answerable) {
+              return cannotAnswer();
+            }
             attempt.open(request.requestId, 'question');
             continue;
           case VaultRequested() || UnsupportedRequested():
@@ -557,30 +663,23 @@ class WatchRequestHandler {
     return {'serverUrl': server, 'profile': profile, 'sessionId': sessionId};
   }
 
-  static String _bind(String? profile, String sessionId) =>
-      boundThreadId(profile, sessionId);
+  String _bind(String? profile, String sessionId) =>
+      WatchThreadId(context()!.id, profile, sessionId).encode();
 
-  static _Thread? _unbind(Object? threadId) {
-    if (threadId is! String) return null;
-    final slash = threadId.indexOf('/');
-    if (slash < 0 || slash == threadId.length - 1) return null;
-    try {
-      final profile = Uri.decodeComponent(threadId.substring(0, slash));
-      return _Thread(
-        profile.isEmpty ? null : profile,
-        threadId.substring(slash + 1),
-      );
-    } on FormatException {
-      return null;
-    } on ArgumentError {
+  _Thread? _unbind(Object? threadId) {
+    final thread = WatchThreadId.decode(threadId);
+    if (thread == null || thread.contextId != context()?.id) {
       return null;
     }
+    return _Thread(thread.profile, thread.sessionId);
   }
 
   /// The final [text] of a successful reply, else what streamed, else a note
   /// that there was nothing, so the watch never shows an empty bubble.
   static String _shown(String text, String streamed) {
-    if (text.trim().isNotEmpty) return text;
+    if (text.trim().isNotEmpty) {
+      return text;
+    }
     return streamed.trim().isNotEmpty ? streamed : emptyReplyText;
   }
 

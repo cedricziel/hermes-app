@@ -30,7 +30,7 @@ final class WatchRelay: NSObject, WCSessionDelegate {
       guard let self else { result(FlutterMethodNotImplemented); return }
       if call.method == "publishSessionState", let arguments = call.arguments as? [String: Any],
         let usable = arguments["usable"] as? Bool {
-        self.publishSessionState(usable: usable, result: result)
+        self.publishSessionState(usable: usable, arguments: arguments, result: result)
         return
       }
       guard call.method == "complication",
@@ -63,14 +63,14 @@ final class WatchRelay: NSObject, WCSessionDelegate {
     UserDefaults.standard.dictionary(forKey: "watch.session.publication")
   }
 
-  private func publishSessionState(usable: Bool, result: FlutterResult) {
-    if let current = publication, current["usable"] as? Bool == usable {
-      deliverSessionState()
-      result(current)
-      return
-    }
+  private func publishSessionState(usable: Bool, arguments: [String: Any], result: FlutterResult) {
     let previous = publication?["revision"] as? Int ?? 0
-    let state: [String: Any] = ["revision": previous + 1, "usable": usable]
+    let requested = arguments["revision"] as? Int ?? previous + 1
+    let unchanged = publication?["usable"] as? Bool == usable && publication?["contextId"] as? String == arguments["contextId"] as? String
+    let revision = unchanged ? max(requested, previous) : max(requested, previous + 1)
+    var state: [String: Any] = ["revision": revision, "usable": usable]
+    if let context = arguments["contextId"] as? String { state["contextId"] = context }
+    if let version = arguments["protocolVersion"] as? Int { state["protocolVersion"] = version }
     UserDefaults.standard.set(state, forKey: "watch.session.publication")
     deliverSessionState()
     result(state)

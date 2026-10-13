@@ -8,15 +8,19 @@ final class FakeTransport: RelayTransport {
 
   func request(_ message: [String: Any]) async throws -> [String: Any] {
     requests.append(message)
-    return try reply.get()
+    if message["op"] as? String == "session" { return ["ok": true, "protocolVersion": 2, "contextId": "test-context", "revision": 1] }
+    var result = try reply.get()
+    if result["ok"] as? Bool == true { result["contextId"] = "test-context"; result["revision"] = 1 }
+    return result
   }
 }
 
+@MainActor
 final class RelayClientTests: XCTestCase {
   private var transport: FakeTransport!
   private var client: RelayClient!
 
-  override func setUp() {
+  override func setUp() async throws {
     transport = FakeTransport()
     client = RelayClient(transport: transport)
   }
@@ -25,15 +29,15 @@ final class RelayClientTests: XCTestCase {
     transport.reply = .success([
       "ok": true,
       "threads": [
-        ["id": "s1", "title": "Groceries", "updatedAt": 1_780_000_600, "pinned": true],
-        ["id": "s2", "title": "Trip", "updatedAt": 0, "pinned": false],
+        ["id": watchFixtureId("s1"), "title": "Groceries", "updatedAt": 1_780_000_600, "pinned": true],
+        ["id": watchFixtureId("s2"), "title": "Trip", "updatedAt": 0, "pinned": false],
       ],
     ])
 
     let threads = try await client.threads()
 
-    XCTAssertEqual(transport.requests.first?["op"] as? String, "threads")
-    XCTAssertEqual(threads.map(\.id), ["s1", "s2"])
+    XCTAssertEqual(transport.requests.last?["op"] as? String, "threads")
+    XCTAssertEqual(threads.map(\.id), [watchFixtureId("s1"), watchFixtureId("s2")])
     XCTAssertEqual(threads[0].title, "Groceries")
     XCTAssertTrue(threads[0].pinned)
     XCTAssertEqual(threads[0].updatedAt, Date(timeIntervalSince1970: 1_780_000_600))
@@ -43,12 +47,12 @@ final class RelayClientTests: XCTestCase {
   func testThreadRowsMissingAnIdAreSkipped() async throws {
     transport.reply = .success([
       "ok": true,
-      "threads": [["title": "No id"], ["id": "s1", "title": "Kept"]],
+      "threads": [["title": "No id"], ["id": watchFixtureId("s1"), "title": "Kept"]],
     ])
 
     let threads = try await client.threads()
 
-    XCTAssertEqual(threads.map(\.id), ["s1"])
+    XCTAssertEqual(threads.map(\.id), [watchFixtureId("s1")])
   }
 
   func testMessagesCarryRoleAndText() async throws {
@@ -60,9 +64,9 @@ final class RelayClientTests: XCTestCase {
       ],
     ])
 
-    let messages = try await client.messages(threadId: "s1")
+    let messages = try await client.messages(threadId: watchFixtureId("s1"))
 
-    XCTAssertEqual(transport.requests.first?["threadId"] as? String, "s1")
+    XCTAssertEqual(transport.requests.last?["threadId"] as? String, watchFixtureId("s1"))
     XCTAssertEqual(messages.map(\.role), [.user, .assistant])
     XCTAssertEqual(messages.map(\.content), ["Hi", "Hello"])
   }
@@ -75,50 +79,50 @@ final class RelayClientTests: XCTestCase {
         ["id": "s1-2", "role": "assistant", "content": "Hi", "at": 2],
       ],
     ])
-    let messages = try await client.messages(threadId: "s1")
+    let messages = try await client.messages(threadId: watchFixtureId("s1"))
     XCTAssertEqual(messages.map(\.tools), [["terminal", "read_file"], []])
 
-    transport.reply = .success(["ok": true, "threadId": "s1", "text": "Ok", "tools": ["web_search"]])
-    let result = try await client.send(threadId: "s1", text: "Go", sendId: "m1")
+    transport.reply = .success(["ok": true, "threadId": watchFixtureId("s1"), "text": "Ok", "tools": ["web_search"]])
+    let result = try await client.send(threadId: watchFixtureId("s1"), text: "Go", sendId: "m1")
     XCTAssertEqual(result.tools, ["web_search"])
   }
 
   func testSendToNewThreadOmitsThreadId() async throws {
-    transport.reply = .success(["ok": true, "threadId": "new-1", "text": "Hi there", "failed": false])
+    transport.reply = .success(["ok": true, "threadId": watchFixtureId("new-1"), "text": "Hi there", "failed": false])
 
     let result = try await client.send(threadId: nil, text: "Hello", sendId: "m1")
 
-    let request = try XCTUnwrap(transport.requests.first)
+    let request = try XCTUnwrap(transport.requests.last)
     XCTAssertEqual(request["op"] as? String, "send")
     XCTAssertEqual(request["text"] as? String, "Hello")
     XCTAssertEqual(request["sendId"] as? String, "m1")
     XCTAssertNil(request["threadId"])
-    XCTAssertEqual(result, SendResult(threadId: "new-1", text: "Hi there", failed: false))
+    XCTAssertEqual(result, SendResult(threadId: watchFixtureId("new-1"), text: "Hi there", failed: false))
   }
 
   func testAWaitingSendSaysWhatItWaitsOn() async throws {
-    transport.reply = .success(["ok": true, "threadId": "new-1", "waiting": "approval"])
+    transport.reply = .success(["ok": true, "threadId": watchFixtureId("new-1"), "waiting": "approval"])
 
     let result = try await client.send(threadId: nil, text: "Hello", sendId: "m1")
 
-    XCTAssertNil(transport.requests.first?["retry"], "a first send is no retry")
-    XCTAssertEqual(transport.requests.first?["waits"] as? Bool, true, "this watch can wait")
+    XCTAssertNil(transport.requests.last?["retry"], "a first send is no retry")
+    XCTAssertEqual(transport.requests.last?["waits"] as? Bool, true, "this watch can wait")
     XCTAssertEqual(result.waiting, .approval)
-    XCTAssertEqual(result.threadId, "new-1")
+    XCTAssertEqual(result.threadId, watchFixtureId("new-1"))
   }
 
   func testARetryOfAWaitingSendSaysSo() async throws {
-    transport.reply = .success(["ok": true, "threadId": "s1", "text": "Done", "failed": false])
+    transport.reply = .success(["ok": true, "threadId": watchFixtureId("s1"), "text": "Done", "failed": false])
 
-    _ = try await client.send(threadId: "s1", text: "Hello", sendId: "m1", retry: true)
+    _ = try await client.send(threadId: watchFixtureId("s1"), text: "Hello", sendId: "m1", retry: true)
 
-    XCTAssertEqual(transport.requests.first?["retry"] as? Bool, true)
+    XCTAssertEqual(transport.requests.last?["retry"] as? Bool, true)
   }
 
   func testAnUnknownWaitingStateCountsAsWorking() async throws {
-    transport.reply = .success(["ok": true, "threadId": "s1", "waiting": "something_new"])
+    transport.reply = .success(["ok": true, "threadId": watchFixtureId("s1"), "waiting": "something_new"])
 
-    let result = try await client.send(threadId: "s1", text: "Hello", sendId: "m1")
+    let result = try await client.send(threadId: watchFixtureId("s1"), text: "Hello", sendId: "m1")
 
     XCTAssertEqual(result.waiting, .working)
   }
@@ -135,11 +139,11 @@ final class RelayClientTests: XCTestCase {
   }
 
   func testSendIntoAThreadPassesItsId() async throws {
-    transport.reply = .success(["ok": true, "threadId": "s1", "text": "Done", "failed": true])
+    transport.reply = .success(["ok": true, "threadId": watchFixtureId("s1"), "text": "Done", "failed": true])
 
-    let result = try await client.send(threadId: "s1", text: "More", sendId: "m2")
+    let result = try await client.send(threadId: watchFixtureId("s1"), text: "More", sendId: "m2")
 
-    XCTAssertEqual(transport.requests.first?["threadId"] as? String, "s1")
+    XCTAssertEqual(transport.requests.last?["threadId"] as? String, watchFixtureId("s1"))
     XCTAssertTrue(result.failed)
   }
 
@@ -151,7 +155,9 @@ final class RelayClientTests: XCTestCase {
       ("something_new", .failed),
     ]
     for (code, expected) in cases {
-      transport.reply = .success(["ok": false, "error": code])
+      let transport = FakeTransport()
+      let client = RelayClient(transport: transport)
+      transport.reply = .success(["ok": false, "error": code, "contextId": "test-context", "revision": 1])
       do {
         _ = try await client.threads()
         XCTFail("expected \(code) to throw")
@@ -188,13 +194,14 @@ final class RelayClientTests: XCTestCase {
 
     let text = try await client.transcribe(audio: Data([1, 2]), mimeType: "audio/mp4")
 
-    XCTAssertEqual(transport.requests.first?["op"] as? String, "transcribe")
-    XCTAssertEqual(transport.requests.first?["audio"] as? Data, Data([1, 2]))
-    XCTAssertEqual(transport.requests.first?["mimeType"] as? String, "audio/mp4")
+    XCTAssertEqual(transport.requests.last?["op"] as? String, "transcribe")
+    XCTAssertEqual(transport.requests.last?["audio"] as? Data, Data([1, 2]))
+    XCTAssertEqual(transport.requests.last?["mimeType"] as? String, "audio/mp4")
     XCTAssertEqual(text, "Hello there")
   }
 }
 
+@MainActor
 final class HandoffTargetTests: XCTestCase {
   private let row: [String: Any] = [
     "serverUrl": "https://hermes.test", "profile": "work", "sessionId": "s1",
@@ -228,8 +235,8 @@ final class HandoffTargetTests: XCTestCase {
     transport.reply = .success([
       "ok": true,
       "threads": [
-        ["id": "work/s1", "title": "A"].merging(row) { $1 },
-        ["id": "/s2", "title": "B"],
+        ["id": watchFixtureId("s1"), "title": "A"].merging(row) { $1 },
+        ["id": watchFixtureId("s2"), "title": "B"],
       ],
     ])
 
@@ -261,7 +268,7 @@ final class NewChatHandoffTests: XCTestCase {
   func testRelayClientReadsTheTargetOfASend() async throws {
     let transport = FakeTransport()
     transport.reply = .success([
-      "ok": true, "threadId": "work/n1", "text": "Hi", "failed": false,
+      "ok": true, "threadId": watchFixtureId("n1"), "text": "Hi", "failed": false,
       "serverUrl": "https://hermes.test", "profile": "work", "sessionId": "n1",
     ])
 
@@ -281,4 +288,8 @@ final class NewChatHandoffTests: XCTestCase {
 
     XCTAssertEqual(model.handoff, target)
   }
+}
+
+func watchFixtureId(_ session: String) -> String {
+  WatchThreadId(contextId: "test-context", profile: nil, sessionId: session).encode()
 }

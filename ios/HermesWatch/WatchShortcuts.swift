@@ -21,7 +21,8 @@ final class LaunchRequests {
   func open(_ url: URL) {
     switch ComplicationLink(url: url) {
     case .voice: pending = .voiceChat
-    case .chat(let id, let title): pending = .thread(id: id, title: title ?? "Hermes")
+    case .chat(let id, let title):
+      if WatchSessionState.shared.owns(id) { pending = .thread(id: id, title: title ?? "Hermes") }
     case .open, nil: break
     }
   }

@@ -3,6 +3,8 @@ import SwiftUI
 extension HermesClientError {
   var message: String {
     switch self {
+    case .contextChanged: "Your Hermes session changed. Open the chat list again."
+    case .updateRequired: "Update Hermes on your iPhone and Apple Watch, then open the phone app."
     case .signedOut: "Sign in to Hermes on your iPhone first."
     case .unavailable: "Open Hermes on your iPhone, then try again."
     case .phoneUnreachable: "Can't reach your iPhone."
@@ -27,4 +29,12 @@ struct ErrorView: View {
       }
     }
   }
+}
+
+#Preview("Phone update required") {
+  ErrorView(error: .updateRequired, retry: {})
+}
+
+#Preview("Changed session") {
+  ErrorView(error: .contextChanged, retry: {})
 }

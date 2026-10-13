@@ -182,7 +182,7 @@ final class ConversationModel {
     unsentId = nil
     unsentVoice = nil
     keptMessage = nil
-    phase = .failed(.signedOut)
+    phase = .failed(session.invalidationReason)
   }
 
   /// Keeps a message Hermes has but whose reply did not come back, to ask

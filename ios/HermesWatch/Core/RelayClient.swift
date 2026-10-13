@@ -10,12 +10,20 @@ protocol RelayTransport {
 /// answers.
 struct RelayClient: HermesClient {
   let transport: RelayTransport
+  let session: WatchSessionState
+  var sessionState: WatchSessionState? { session }
+
+  init(transport: RelayTransport, session: WatchSessionState? = nil) {
+    self.transport = transport
+    self.session = session ?? WatchSessionState()
+  }
+
 
   func threads() async throws -> [ThreadSummary] {
     let reply = try await call(["op": "threads"])
     guard let rows = reply["threads"] as? [[String: Any]] else { throw HermesClientError.failed }
     return rows.compactMap { row in
-      guard let id = row["id"] as? String, let title = row["title"] as? String else { return nil }
+      guard let id = row["id"] as? String, session.owns(id), let title = row["title"] as? String else { return nil }
       return ThreadSummary(
         id: id,
         title: title,
@@ -50,6 +58,7 @@ struct RelayClient: HermesClient {
     message["waits"] = true
     let reply = try await call(message)
     let boundId = reply["threadId"] as? String
+    if let boundId, !session.owns(boundId) { throw HermesClientError.contextChanged }
     if let waiting = reply["waiting"] as? String {
       return SendResult(
         threadId: boundId, text: "", failed: false,
@@ -72,16 +81,49 @@ struct RelayClient: HermesClient {
     return text
   }
 
-  private func call(_ message: [String: Any]) async throws -> [String: Any] {
+  private func call(_ request: [String: Any]) async throws -> [String: Any] {
+    let preparedContext = session.contextId
+    let preparedGeneration = session.generation
+    if !session.handshaken {
+      let handshake = try await transport.request(["op": "session"])
+      guard handshake["ok"] as? Bool == true else {
+        if handshake["error"] as? String == "bad_request" { throw HermesClientError.updateRequired }
+        try check(handshake)
+        throw HermesClientError.failed
+      }
+      guard handshake["protocolVersion"] as? Int == 2,
+        let context = handshake["contextId"] as? String,
+        let revision = handshake["revision"] as? Int else { throw HermesClientError.updateRequired }
+      guard session.acceptContext(context, revision: revision) else { throw HermesClientError.contextChanged }
+    }
+    guard preparedGeneration == session.generation,
+      preparedContext == nil || preparedContext == session.contextId else { throw HermesClientError.contextChanged }
+    guard session.usable, let context = session.contextId else { throw HermesClientError.signedOut }
+    if let thread = request["threadId"] as? String, !session.owns(thread) { throw HermesClientError.contextChanged }
+    let generation = session.generation
+    let revision = session.revision
+    var message = request
+    message["contextId"] = context
+    message["revision"] = revision
     let reply = try await transport.request(message)
+    guard generation == session.generation, session.contextId == context else { throw HermesClientError.contextChanged }
+    try check(reply)
+    guard reply["contextId"] as? String == context, reply["revision"] as? Int == revision else {
+      session.invalidate(reason: .contextChanged)
+      throw HermesClientError.contextChanged
+    }
+    return reply
+  }
+
+  private func check(_ reply: [String: Any]) throws {
     guard reply["ok"] as? Bool == true else {
       switch reply["error"] as? String {
-      case "signed_out": throw HermesClientError.signedOut
+      case "signed_out": session.invalidate(); throw HermesClientError.signedOut
+      case "context_changed": session.invalidate(reason: .contextChanged); throw HermesClientError.contextChanged
       case "unavailable": throw HermesClientError.unavailable
       default: throw HermesClientError.failed
       }
     }
-    return reply
   }
 
   private static func date(_ epochSeconds: Any?) -> Date {
