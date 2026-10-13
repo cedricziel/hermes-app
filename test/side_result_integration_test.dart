@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
+import 'package:hermes_app/src/chat/widgets/message_actions.dart';
+import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/session_chat_transport.dart';
@@ -437,96 +439,122 @@ void main() {
     expect(applied, isEmpty);
   });
 
-  testWidgets('expanded activity leaves chat usable in a short window', (
-    tester,
-  ) async {
-    await tester.runAsync(() async {
-      gateway.handlers['session.usage'] = (_) => {
-        'input': 3,
-        'output': 2,
-        'total': 5,
-      };
-      await open();
-      chat.submit('Synthetic advisor prompt', const []);
-      await pumpEventQueue();
-      gateway.event('moa.reference', 'rt-1', {
-        'label': 'Synthetic advisor',
-        'text': List.filled(40, 'Synthetic advisor detail').join('\n'),
+  testWidgets(
+    'expanded MoA, process, side, plan and usage leave transcript and composer usable in a short window',
+    (tester) async {
+      await tester.runAsync(() async {
+        gateway.handlers['session.usage'] = (_) => {
+          'input': 3,
+          'output': 2,
+          'total': 5,
+        };
+        await open();
+        chat.submit('Synthetic advisor prompt', const []);
+        await pumpEventQueue();
+        gateway.event('message.start', 'rt-1');
+        gateway.event('agent.terminal.output', 'rt-1', {
+          'process_id': 'synthetic-worker',
+          'chunk': List.filled(40, 'Synthetic process detail').join('\n'),
+        });
+        gateway.event('moa.reference', 'rt-1', {
+          'label': 'Synthetic advisor',
+          'text': List.filled(40, 'Synthetic advisor detail').join('\n'),
+        });
+        gateway.event('session.usage', 'rt-1', {
+          'usage': {'input': 3, 'output': 2, 'total': 5},
+        });
+        gateway.event('todo.updated', 'rt-1', {
+          'revision': 1,
+          'todos': [
+            {
+              'id': 'task',
+              'content': List.filled(40, 'Synthetic task detail').join('\n'),
+              'status': 'pending',
+            },
+          ],
+        });
+        result(
+          'background.complete',
+          List.filled(40, 'Synthetic background detail').join('\n'),
+        );
+        result('btw.complete', 'Synthetic side answer');
+        await pumpEventQueue();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'Synthetic main answer',
+          'status': 'complete',
+        });
+        await pumpEventQueue();
+        final thread = chat.selectedThread!;
+        expect(chat.moaIn(thread), hasLength(1));
+        expect(chat.processOutputsIn(thread)!.cards, hasLength(1));
+        expect(chat.sideResultsIn(thread)!.results, hasLength(2));
+        expect(chat.todoPlanIn(thread), isNotNull);
+        expect(chat.usageIn(thread)!.snapshot!.total, 5);
       });
-      gateway.event('session.usage', 'rt-1', {
-        'usage': {'input': 3, 'output': 2, 'total': 5},
-      });
-      gateway.event('todo.updated', 'rt-1', {
-        'revision': 1,
-        'todos': [
-          {
-            'id': 'task',
-            'content': List.filled(40, 'Synthetic task detail').join('\n'),
-            'status': 'pending',
-          },
-        ],
-      });
-      result(
-        'background.complete',
-        List.filled(40, 'Synthetic background detail').join('\n'),
-      );
-      result('btw.complete', 'Synthetic side answer');
-      await pumpEventQueue();
-      gateway.event('message.complete', 'rt-1', {
-        'text': 'Synthetic main answer',
-        'status': 'complete',
-      });
-      await pumpEventQueue();
-    });
-    final composer = TextEditingController();
-    final focus = FocusNode();
-    final latest = LatestReply();
-    addTearDown(composer.dispose);
-    addTearDown(focus.dispose);
-    addTearDown(latest.dispose);
-    tester.view.physicalSize = const Size(520, 420);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: boundChatThreadView(
-            chat: chat,
-            thread: chat.selectedThread,
-            composerController: composer,
-            composerFocus: focus,
-            attachments: const [],
-            attachmentSource: FakeAttachmentSource(),
-            onAddAttachments: (_) {},
-            onRemoveAttachment: (_) {},
-            onSend: (_) {},
-            latestReply: latest,
+      final composer = TextEditingController(text: 'Retained synthetic draft');
+      final focus = FocusNode();
+      final latest = LatestReply();
+      addTearDown(composer.dispose);
+      addTearDown(focus.dispose);
+      addTearDown(latest.dispose);
+      tester.view.physicalSize = const Size(520, 420);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: boundChatThreadView(
+              chat: chat,
+              thread: chat.selectedThread,
+              composerController: composer,
+              composerFocus: focus,
+              attachments: const [],
+              attachmentSource: FakeAttachmentSource(),
+              onAddAttachments: (_) {},
+              onRemoveAttachment: (_) {},
+              onSend: (_) {},
+              latestReply: latest,
+            ),
           ),
         ),
-      ),
-    );
-    for (final title in [
-      find.textContaining('Advisor progress ·'),
-      find.textContaining('Plan ·'),
-      find.text('Background result'),
-      find.textContaining('Session usage ·'),
-    ]) {
-      await tester.ensureVisible(title);
-      await tester.tap(title);
-      await tester.runAsync(() => pumpEventQueue());
+      );
+      for (final title in [
+        find.textContaining('Advisor progress ·'),
+        find.text('Process synthetic-worker · Output received'),
+        find.textContaining('Plan ·'),
+        find.text('Background result'),
+        find.text('Side question answer'),
+        find.textContaining('Session usage ·'),
+      ]) {
+        await tester.ensureVisible(title);
+        await tester.tap(title);
+        await tester.runAsync(() => pumpEventQueue());
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(Chat)).height, greaterThan(180));
+      final field = find.byKey(chatComposerFieldKey);
+      expect(field, findsOneWidget);
+      expect(tester.getRect(field).bottom, lessThanOrEqualTo(420));
+      expect(composer.text, 'Retained synthetic draft');
+      await tester.ensureVisible(find.text('Synthetic main answer'));
       await tester.pumpAndSettle();
-    }
-    expect(tester.takeException(), isNull);
-    expect(find.byType(TextField), findsOneWidget);
-    expect(tester.getSize(find.byType(Chat)).height, greaterThan(180));
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
-    await tester.runAsync(() async {
-      await transport.close();
-      await pumpEventQueue();
-    });
-    await tester.pump();
-  });
+      expect(find.text('Synthetic main answer'), findsOneWidget);
+      expect(find.byType(MessageActions), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(MessageActions)).bottom,
+        lessThanOrEqualTo(tester.getRect(field).top),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await transport.close();
+        await pumpEventQueue();
+      });
+      await tester.pump();
+    },
+  );
 
   testWidgets('received results render as independent compact disclosures', (
     tester,

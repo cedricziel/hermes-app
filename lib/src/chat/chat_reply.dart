@@ -230,6 +230,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       reply.reviewNotes = {...reply.reviewNotes, ...items}.toList();
     case SideResultReceived() ||
         MoaUpdated() ||
+        ProcessOutputReceived() ||
         SessionUsageUpdated() ||
         ReplyStarted() ||
         TodoUpdated() ||

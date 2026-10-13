@@ -34,6 +34,8 @@ import '../side_results/side_result_card.dart';
 import '../side_results/side_result_state.dart';
 import '../moa_progress_state.dart';
 import 'moa_progress_card.dart';
+import '../process_output_state.dart';
+import 'process_output_card.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -80,6 +82,8 @@ class ChatThreadView extends StatelessWidget {
     this.onSideResultDetails,
     this.moaProgress = const [],
     this.onMoaDetails,
+    this.processOutputs,
+    this.onProcessOutputDetails,
     this.onSessionDetails,
     this.onReopenSession,
     this.onRetry,
@@ -108,6 +112,8 @@ class ChatThreadView extends StatelessWidget {
   final VoidCallback? onSideResultDetails;
   final List<MoaProgress> moaProgress;
   final VoidCallback? onMoaDetails;
+  final ProcessOutputState? processOutputs;
+  final VoidCallback? onProcessOutputDetails;
   final VoidCallback? onSessionDetails;
   final VoidCallback? onReopenSession;
   final BotChatContext? botContext;
@@ -229,6 +235,27 @@ class ChatThreadView extends StatelessWidget {
           constraints: const BoxConstraints(maxHeight: 180),
           child: SingleChildScrollView(
             child: SessionUsageCard(key: ObjectKey(usage), controller: usage),
+          ),
+        ),
+      if (processOutputs case final processes? when processes.cards.isNotEmpty)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 280),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                for (final process in processes.cards)
+                  ProcessOutputCard(
+                    key: ValueKey(process.processId),
+                    output: process,
+                    onDetails: onProcessOutputDetails,
+                  ),
+                if (processes.omittedCards)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('Earlier process cards omitted.'),
+                  ),
+              ],
+            ),
           ),
         ),
       if (todoPlan case final plan?)

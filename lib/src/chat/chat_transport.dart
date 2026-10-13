@@ -15,6 +15,7 @@ import 'todo_plan/todo_plan_state.dart';
 import 'moa_progress_state.dart';
 import 'session_usage/usage_snapshot.dart';
 import 'side_results/side_result_state.dart';
+import 'process_output_state.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
@@ -96,6 +97,17 @@ final class SideResultReceived extends ChatEvent {
     required this.connection,
   });
   final SideResult result;
+  final String runtimeId;
+  final Object? connection;
+}
+
+final class ProcessOutputReceived extends ChatEvent {
+  const ProcessOutputReceived(
+    this.update, {
+    required this.runtimeId,
+    required this.connection,
+  });
+  final ProcessOutputUpdate update;
   final String runtimeId;
   final Object? connection;
 }
