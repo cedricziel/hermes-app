@@ -1,3 +1,5 @@
+import 'package:hermes_app/src/auth/account_key.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -7,6 +9,7 @@ import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/background/app_presence.dart';
 import 'package:hermes_app/src/background/background_refresh.dart';
+import 'package:hermes_app/src/background/background_check_status.dart';
 import 'package:hermes_app/src/background/entry_points.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
@@ -168,6 +171,7 @@ void main() {
   BackgroundRefreshDeps deps({
     List<BackgroundStep> Function()? steps,
     HeadlessDeps? wiring,
+    BackgroundCheckStore? statusStore,
     Duration timeout = const Duration(seconds: 5),
     Duration stepTimeout = const Duration(seconds: 3),
     bool appOpen = false,
@@ -179,6 +183,7 @@ void main() {
     request,
   }) => BackgroundRefreshDeps(
     headless: wiring ?? headless(),
+    statusStore: statusStore,
     notifications: notifications,
     announced: announced,
     notificationsEnabled: () async => notificationsOn,
@@ -193,6 +198,132 @@ void main() {
 
   Future<HeadlessOutcome<void>> refresh({BackgroundRefreshDeps? with_}) =>
       runBackgroundRefresh(deps: with_ ?? deps());
+
+  test('stalled attempt bookkeeping cannot prevent the refresh work', () async {
+    var ran = false;
+    final outcome = await refresh(
+      with_: deps(
+        statusStore: BackgroundCheckStore(prefs: _StalledStatusBeginPrefs()),
+        steps: () => [
+          _Step((_) async {
+            ran = true;
+            return const StepCounts();
+          }),
+        ],
+      ),
+    ).timeout(const Duration(seconds: 5));
+
+    expect(outcome, isA<HeadlessDone<void>>());
+    expect(ran, isTrue);
+  });
+
+  test(
+    'stalled completion bookkeeping cannot prevent signed-out cancellation',
+    () async {
+      final prefs = _StalledStatusFinishPrefs();
+      final status = BackgroundCheckStore(prefs: prefs);
+      await status.activate(accountKeyFor(_url, null));
+      server.on('GET', '/api/status', {
+        'auth_required': true,
+        'version': '0.9.0',
+      });
+      final refreshing = refresh(with_: deps(statusStore: status));
+      await prefs.entered.future.timeout(const Duration(seconds: 5));
+      expect(cancelled, 1);
+      final outcome = await refreshing.timeout(const Duration(seconds: 5));
+
+      expect(outcome, isA<HeadlessSignedOut<void>>());
+    },
+  );
+
+  test('records completed status without additional backend calls', () async {
+    final status = BackgroundCheckStore();
+    final account = accountKeyFor(_url, null);
+    await refresh(with_: deps(steps: () => []));
+    final baselineCalls = server.requests
+        .map((request) => request.path)
+        .toList();
+    server.requests.clear();
+    await status.activate(account);
+    await refresh(with_: deps(steps: () => []));
+    expect(
+      server.requests.map((request) => request.path).toList(),
+      baselineCalls,
+    );
+    expect(
+      (await status.read(account))?.outcome,
+      BackgroundCheckOutcome.completed,
+    );
+  });
+  test('records partial status when an independent step fails', () async {
+    final status = BackgroundCheckStore();
+    final account = accountKeyFor(_url, null);
+    await status.activate(account);
+    await refresh(
+      with_: deps(
+        steps: () => [_Step((_) async => throw StateError('failed'))],
+      ),
+    );
+    expect(
+      (await status.read(account))?.outcome,
+      BackgroundCheckOutcome.partial,
+    );
+  });
+  test('records locked status without probing the backend', () async {
+    final status = BackgroundCheckStore();
+    final account = accountKeyFor(_url, null);
+    await status.activate(account);
+    tokens.unreadable = true;
+    await refresh();
+    expect(
+      (await status.read(account))?.outcome,
+      BackgroundCheckOutcome.locked,
+    );
+    expect(server.requests, isEmpty);
+  });
+  test(
+    'records unreachable status when the backend refuses its probe',
+    () async {
+      final status = BackgroundCheckStore();
+      final account = accountKeyFor(_url, null);
+      await status.activate(account);
+      server.on('GET', '/api/status', {'detail': 'down'}, status: 503);
+      await refresh();
+      expect(
+        (await status.read(account))?.outcome,
+        BackgroundCheckOutcome.unreachable,
+      );
+    },
+  );
+  test(
+    'records signed-out status without changing cancellation behavior',
+    () async {
+      final status = BackgroundCheckStore();
+      final account = accountKeyFor(_url, null);
+      await status.activate(account);
+      server.on('GET', '/api/status', {
+        'auth_required': true,
+        'version': '0.9.0',
+      });
+      await refresh();
+      expect(
+        (await status.read(account))?.outcome,
+        BackgroundCheckOutcome.signedOut,
+      );
+      expect(cancelled, 1);
+    },
+  );
+
+  test('status storage failure does not change refresh result', () async {
+    final outcome = await refresh(
+      with_: deps(
+        steps: () => [],
+        statusStore: BackgroundCheckStore(prefs: _UnavailableStatusPrefs()),
+      ),
+    );
+    expect(outcome, isA<HeadlessDone<void>>());
+    expect(cancelled, 0);
+  });
 
   List<Map<String, Object?>> rpcs(String method) => [
     for (final request in gateway.requests)
@@ -1352,4 +1483,29 @@ class _Step extends BackgroundStep {
 
   @override
   Future<StepCounts> run(BackgroundContext context) => _run(context);
+}
+
+class _UnavailableStatusPrefs extends SharedPreferencesAsync {
+  @override
+  Future<String?> getString(String key) async =>
+      throw StateError('status unavailable');
+}
+
+class _StalledStatusBeginPrefs extends SharedPreferencesAsync {
+  final _read = Completer<String?>();
+  @override
+  Future<String?> getString(String key) => _read.future;
+}
+
+class _StalledStatusFinishPrefs extends SharedPreferencesAsync {
+  final entered = Completer<void>();
+  final _write = Completer<void>();
+  @override
+  Future<void> setString(String key, String value) {
+    if (value.contains('"outcome":"signedOut"')) {
+      entered.complete();
+      return _write.future;
+    }
+    return super.setString(key, value);
+  }
 }

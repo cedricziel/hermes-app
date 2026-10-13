@@ -26,6 +26,7 @@ import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
 import '../surfaces/surface_snapshot.dart';
 import 'app_presence.dart';
 import 'background_alerts.dart';
+import 'background_check_status.dart';
 import 'background_scheduler.dart';
 import 'background_spotlight.dart';
 import 'background_surfaces.dart';
@@ -533,6 +534,7 @@ class SnapshotStep extends BackgroundStep {
 class BackgroundRefreshDeps {
   const BackgroundRefreshDeps({
     this.headless,
+    this.statusStore,
     this.notifications,
     this.announced,
     this.notificationsEnabled,
@@ -546,6 +548,7 @@ class BackgroundRefreshDeps {
   });
 
   final HeadlessDeps? headless;
+  final BackgroundCheckStore? statusStore;
   final NotificationService? notifications;
   final AnnouncedRequests? announced;
   final Future<bool> Function()? notificationsEnabled;
@@ -593,8 +596,13 @@ Future<bool> _notificationsEnabled() async {
 Future<HeadlessOutcome<void>> runBackgroundRefresh({
   BackgroundRefreshDeps deps = const BackgroundRefreshDeps(),
 }) async {
+  final statusStore = deps.statusStore ?? BackgroundCheckStore();
+  final attempt = await _checkStatusWithinBudget(statusStore.begin);
+  var partial = false;
+  var matchingAccount = true;
   final outcome = await withHeadlessHermes<void>(
     (hermes) async {
+      matchingAccount = attempt == null || attempt.account == hermes.accountKey;
       final context = BackgroundContext(
         hermes: hermes,
         notificationsOn:
@@ -625,6 +633,7 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
           _settle(step, context, deps.stepTimeout).then((counts) {
             if (counts == null) {
               failed++;
+              partial = true;
             } else {
               newRequests += counts.newRequests;
               repliesFinished += counts.repliesFinished;
@@ -643,7 +652,29 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
   if (outcome is HeadlessSignedOut<void> && outcome.nothingStored) {
     await (deps.cancelSchedule ?? cancelBackgroundRefresh)();
   }
+  if (matchingAccount) {
+    await _checkStatusWithinBudget(
+      () => statusStore.finish(attempt, switch (outcome) {
+        HeadlessDone<void>() =>
+          partial
+              ? BackgroundCheckOutcome.partial
+              : BackgroundCheckOutcome.completed,
+        HeadlessLocked<void>() => BackgroundCheckOutcome.locked,
+        HeadlessSignedOut<void>() => BackgroundCheckOutcome.signedOut,
+        HeadlessUnreachable<void>() => BackgroundCheckOutcome.unreachable,
+      }),
+    );
+  }
   return outcome;
+}
+
+Future<T?> _checkStatusWithinBudget<T>(Future<T> Function() operation) async {
+  try {
+    // Optional bookkeeping must leave time for the OS-limited refresh work.
+    return await operation().timeout(const Duration(milliseconds: 500));
+  } on Object {
+    return null;
+  }
 }
 
 /// The counts of [step], or null when it failed or took longer than [limit].

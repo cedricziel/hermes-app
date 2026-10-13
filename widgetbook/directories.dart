@@ -1,6 +1,7 @@
 import 'memory_use_cases.dart';
 import 'agent_warning_use_cases.dart';
 import 'session_state_use_cases.dart';
+import 'background_check_status_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
@@ -51,6 +52,7 @@ import 'voice_use_cases.dart';
 final List<WidgetbookNode> directories = [
   agentWarningNode(),
   sessionStateNode(),
+  backgroundCheckStatusNode(),
   connectionNode(),
   handoffNode(),
   paletteNode(),
