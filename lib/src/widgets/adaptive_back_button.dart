@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/platform_chrome.dart';
+import '../navigation/desktop_navigation_history.dart';
 
 /// The back button of a pushed screen: on iOS a chevron with the title of the
 /// screen underneath, elsewhere the stock [BackButton], which already draws a
@@ -20,7 +21,19 @@ class AdaptiveBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!Navigator.canPop(context)) return const SizedBox.shrink();
     if (platformChromeOf(context) != PlatformChrome.ios) {
-      return const BackButton();
+      final desktop = const {
+        TargetPlatform.macOS,
+        TargetPlatform.windows,
+        TargetPlatform.linux,
+      }.contains(Theme.of(context).platform);
+      final history = desktop
+          ? DesktopNavigationHistoryScope.maybeOf(context)
+          : null;
+      return BackButton(
+        onPressed: history == null || history.navigator != Navigator.of(context)
+            ? null
+            : () => history.back(),
+      );
     }
     return CupertinoNavigationBarBackButton(
       previousPageTitle: previousTitle,

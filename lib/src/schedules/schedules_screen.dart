@@ -64,54 +64,75 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     if (request == null || request.id.isEmpty || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final wide = _split;
-    CronJob? job;
     try {
-      job = await _controller.findJob(request.id, profile: request.profile);
+      final epoch = _controller.captureActivity();
+      final job = await _controller.findJob(
+        request.id,
+        profile: request.profile,
+      );
+      _controller.requireActivity(epoch);
+      if (!mounted) return;
+      if (job == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('This task no longer exists')),
+        );
+        return;
+      }
+      _controller.jobSaved(job);
+      _controller.requireActivity(epoch);
+      if (!wide) _openNarrow(job);
+    } on SchedulesActivitySuspended {
+      return;
     } on Object {
       messenger.showSnackBar(
         const SnackBar(content: Text('Could not open that task')),
       );
       return;
     }
-    if (!mounted) return;
-    if (job == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('This task no longer exists')),
-      );
-      return;
-    }
-    _controller.jobSaved(job);
-    if (!wide) _openNarrow(job);
   }
 
   void _openNarrow(CronJob job) {
-    _controller.select(job);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _PushedDetail(
-          controller: _controller,
-          jobKey: job.key,
-          onOpenRun: widget.onOpenRun,
+    try {
+      final epoch = _controller.captureActivity();
+      _controller.select(job);
+      _controller.requireActivity(epoch);
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _PushedDetail(
+            controller: _controller,
+            jobKey: job.key,
+            onOpenRun: widget.onOpenRun,
+          ),
         ),
-      ),
-    );
+      );
+    } on SchedulesActivitySuspended {
+      return;
+    }
   }
 
   Future<void> _new({required bool wide}) async {
-    final names = await _controller.profileNames();
-    if (!mounted) return;
-    final job = await Navigator.of(context).push<CronJob>(
-      MaterialPageRoute(
-        builder: (_) => BlueprintGalleryScreen(
-          repository: _controller.repository,
-          profile: _controller.activeProfile,
-          profileNames: names,
+    try {
+      final epoch = _controller.captureActivity();
+      final names = await _controller.profileNames();
+      _controller.requireActivity(epoch);
+      if (!mounted) return;
+      final job = await Navigator.of(context).push<CronJob>(
+        MaterialPageRoute(
+          builder: (_) => BlueprintGalleryScreen(
+            repository: _controller.repository,
+            profile: _controller.activeProfile,
+            profileNames: names,
+          ),
         ),
-      ),
-    );
-    if (job == null || !mounted) return;
-    _controller.jobSaved(job);
-    if (!wide) _openNarrow(job);
+      );
+      _controller.requireActivity(epoch);
+      if (job == null || !mounted) return;
+      _controller.jobSaved(job);
+      _controller.requireActivity(epoch);
+      if (!wide) _openNarrow(job);
+    } on SchedulesActivitySuspended {
+      return;
+    }
   }
 
   Widget _filterMenu() => ScheduleFilterMenu(

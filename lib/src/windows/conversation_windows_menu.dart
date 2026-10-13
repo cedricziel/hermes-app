@@ -35,7 +35,7 @@ class ConversationWindowsMenu extends StatelessWidget {
     MacCommandHandler run(ThreadAction action, {String? title}) =>
         MacCommandHandler(() => windows!.runInKeyWindow(action), title: title);
     return MacCommandScope(
-      priority: 1,
+      priority: 2,
       commands: key == null
           ? const {}
           : {
@@ -46,6 +46,7 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.openInNewWindow: const MacCommandHandler(null),
               // A settings page in the main window stays put.
               MacCommand.back: const MacCommandHandler(null),
+              MacCommand.forward: const MacCommandHandler(null),
               MacCommand.pinThread: run(
                 ThreadAction.pin,
                 title: key.pinned ? 'Unpin' : 'Pin',

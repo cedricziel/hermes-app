@@ -16,18 +16,26 @@ Future<void> deleteScheduleJob(
   SchedulesController controller,
   CronJob job,
 ) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final confirmed = await showConfirmDialog(
-    context,
-    title: 'Delete this task?',
-    message: '“${job.title}” will no longer run. Its past runs stay as chats.',
-    confirmLabel: 'Delete',
-    destructive: true,
-    filled: false,
-  );
-  if (!confirmed) return;
-  final message = await controller.delete(job);
-  if (message != null) _say(messenger, message);
+  try {
+    final epoch = controller.captureActivity();
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete this task?',
+      message:
+          '“${job.title}” will no longer run. Its past runs stay as chats.',
+      confirmLabel: 'Delete',
+      destructive: true,
+      filled: false,
+    );
+    if (!confirmed) return;
+    controller.requireActivity(epoch);
+    final message = await controller.delete(job);
+    controller.requireActivity(epoch);
+    if (message != null && context.mounted) _say(messenger, message);
+  } on SchedulesActivitySuspended {
+    return;
+  }
 }
 
 /// The row actions of [job] in the list: run it, pause or resume it, delete it.
@@ -42,8 +50,14 @@ List<RowAction> scheduleRowActions(
       label: 'Run now',
       icon: AppIcons.play,
       onPressed: () async {
-        final message = await controller.runNow(job);
-        _say(messenger, message ?? 'Run requested');
+        try {
+          final epoch = controller.captureActivity();
+          final message = await controller.runNow(job);
+          controller.requireActivity(epoch);
+          if (context.mounted) _say(messenger, message ?? 'Run requested');
+        } on SchedulesActivitySuspended {
+          return;
+        }
       },
     ),
     if (job.state != CronJobState.completed)
@@ -51,8 +65,14 @@ List<RowAction> scheduleRowActions(
         label: job.isPaused ? 'Resume' : 'Pause',
         icon: job.isPaused ? AppIcons.resume : AppIcons.pause,
         onPressed: () async {
-          final message = await controller.setPaused(job, !job.isPaused);
-          if (message != null) _say(messenger, message);
+          try {
+            final epoch = controller.captureActivity();
+            final message = await controller.setPaused(job, !job.isPaused);
+            controller.requireActivity(epoch);
+            if (message != null && context.mounted) _say(messenger, message);
+          } on SchedulesActivitySuspended {
+            return;
+          }
         },
       ),
     RowAction(

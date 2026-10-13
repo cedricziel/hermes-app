@@ -54,6 +54,19 @@ const _runningStatuses = {
 };
 const _couldNotStop = 'Could not stop the reply. Try again.';
 
+/// An external open interrupted by suspension, for owner-controlled recovery.
+class InterruptedChatOpening {
+  const InterruptedChatOpening({
+    required this.target,
+    required this.fetchMissing,
+    this.prompt,
+  });
+
+  final NotificationTarget target;
+  final bool fetchMissing;
+  final String? prompt;
+}
+
 /// The chat's state without its screen: the threads of the active profile,
 /// their messages, the replies streaming into them and the agent's input
 /// requests.
@@ -67,6 +80,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.profiles,
     this.models,
     this.transport,
+    this.activity,
     this.botChats,
     required this._attention,
     this.liveActivities,
@@ -100,16 +114,103 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         report: report,
         removed: _threadRemoved,
         history: _history,
+        canWork: () => active,
       );
       search = ThreadSearch(
         (query) => repository.searchThreads(query, profile: _profile),
         searchAll: profiles == null ? null : _searchAllProfiles,
         recentStore: SharedPreferencesAsync(),
+        canWork: () => active,
       );
     }
+    _activeActivity = activity?.value ?? true;
+    activity?.addListener(_activityChanged);
+    search?.setActivity(_activeActivity);
+    housekeeping?.setActivity(_activeActivity);
+    if (!_activeActivity) return;
     // Whatever an earlier run left is old news now that the app is in front.
     forgetRunningReplies();
     unawaited(runningReplies?.clearAnnounced());
+  }
+
+  /// The verified session owner closes this gate before transport suspension.
+  final ValueListenable<bool>? activity;
+  bool _activeActivity = true;
+  int _activityEpoch = 0;
+
+  /// Whether protected work can start or publish into this controller.
+  bool get active => !disposed && _activeActivity && (activity?.value ?? true);
+  bool _currentActivity(int epoch) => active && epoch == _activityEpoch;
+
+  void _activityChanged() {
+    if (disposed) return;
+    final epoch = ++_activityEpoch;
+    final next = activity!.value;
+    _activeActivity = false;
+    _suspendActivity();
+    if (!next || disposed || epoch != _activityEpoch) return;
+    _activeActivity = true;
+    housekeeping?.setActivity(true);
+    search?.setActivity(true);
+    if (!_currentActivity(epoch)) return;
+    unawaited(
+      Future<void>.microtask(() {
+        if (_currentActivity(epoch)) return _resumeActivity();
+      }),
+    );
+  }
+
+  void _suspendActivity() {
+    search?.setActivity(false);
+    housekeeping?.setActivity(false);
+    _loadGeneration++;
+    _openGeneration++;
+    _activeRefresh++;
+    _pauses++;
+    _loadingThreads = false;
+    _loadingMessages.clear();
+    _interruptedOpening = _requestedOpening ?? _interruptedOpening;
+    _requestedOpening = null;
+    _pendingTap = null;
+    _pendingFetch = false;
+    _pendingTapPrompt = null;
+    _opening = Future<void>.value();
+    for (final thread in _generations.keys.toList()) {
+      _generations[thread] = _generations[thread]! + 1;
+    }
+    _suspendedQueues.addAll(_queues.keys);
+    _undoing.clear();
+    _interrupts.clear();
+    _holds.clear();
+    for (final subscription in _replies) {
+      unawaited(subscription.cancel());
+    }
+    _replies.clear();
+    _stopFollowing();
+    _sending.clear();
+    _cancelSettleWaits();
+    _replayEnds?.cancel();
+    notifyListeners();
+  }
+
+  Future<void> _resumeActivity() async {
+    final epoch = _activityEpoch;
+    if (repository == null) return;
+    var profile = _profile;
+    if (profile != null && profiles != null) {
+      try {
+        final known = await profiles!.list();
+        if (!_currentActivity(epoch)) return;
+        if (!known.any((p) => p.name == profile)) profile = null;
+      } on Object {
+        if (!_currentActivity(epoch)) return;
+        _threadsFailed = true;
+        notifyListeners();
+        return;
+      }
+    }
+    if (!_currentActivity(epoch)) return;
+    await _loadThreads(profile, preserveSelection: true);
   }
 
   final HermesChatRepository? repository;
@@ -240,6 +341,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void chooseModel(ModelChoice choice) {
+    if (!active) return;
     final selected = selectedThread;
     if (selected == null) {
       _newChatModel = choice;
@@ -265,6 +367,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// The prompts sent while a thread was replying, oldest first.
   final _queues = <ChatThread, List<QueuedPrompt>>{};
+  final _suspendedQueues = <ChatThread>{};
 
   /// The threads whose queue waits for the session to settle, each with the
   /// fallback timer that sends it when no settle report comes.
@@ -286,6 +389,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// The text a link brought with the held tap, for its composer once the
   /// chat is open.
   String? _pendingTapPrompt;
+  InterruptedChatOpening? _requestedOpening;
+  InterruptedChatOpening? _interruptedOpening;
+
+  /// Takes the interrupted intent once activity is verified again. The owner
+  /// must arbitrate newer intents and dismissal before opening it or its draft.
+  InterruptedChatOpening? takeInterruptedOpening() {
+    if (!active) return null;
+    final opening = _interruptedOpening;
+    _interruptedOpening = null;
+    return opening;
+  }
+
+  void _finishOpening(InterruptedChatOpening? opening) {
+    if (identical(opening, _requestedOpening)) _requestedOpening = null;
+  }
 
   ChatThread? get selectedThread {
     for (final thread in _threads) {
@@ -302,16 +420,35 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// itself, so it is passed on every read.
   Future<void> loadThreads([String? profile]) => _loadThreads(profile);
 
-  Future<void> _loadThreads(String? profile, {bool Function()? valid}) async {
+  Future<void> _loadThreads(
+    String? profile, {
+    bool Function()? valid,
+    bool preserveSelection = false,
+  }) async {
+    if (!active) return;
+    var previousSelection = _selectedId;
+    final previousProfile = _profile;
+    final originalLocal = preserveSelection
+        ? _threads.where((thread) => !thread.remote).toList()
+        : const <ChatThread>[];
+    final interruptedLocalReplies = {
+      for (final thread in originalLocal)
+        if (!_sending.containsKey(thread))
+          thread: thread.messages.where((message) => message.isPending).toSet(),
+    };
     final generation = ++_loadGeneration;
     _loadingThreads = true;
     _threadsFailed = false;
     notifyListeners();
     try {
+      if (!active || generation != _loadGeneration) return;
       profile ??= await _activeProfile();
+      if (!active || generation != _loadGeneration) return;
       final first = await repository!.loadThreadPage(profile: profile);
+      if (!active || generation != _loadGeneration) return;
+      final firstIds = {for (final thread in first.threads) thread.id};
       var launched = await _attention.takeLaunchTarget();
-      if (disposed || generation != _loadGeneration) return;
+      if (!active || generation != _loadGeneration) return;
       if (launched != null && onLaunchNotification != null) {
         onLaunchNotification!(launched);
         launched = null;
@@ -324,20 +461,93 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         onOpenNewChat?.call(launched);
         launched = null;
       }
-      if (disposed || generation != _loadGeneration) return;
+      if (!active || generation != _loadGeneration) return;
       if (valid?.call() == false) {
         _loadingThreads = false;
         notifyListeners();
         return;
       }
+      final recoveredQueues = <({ChatThread source, ChatThread recovered})>[];
+      final recoveredSources = <ChatThread>{};
+      while (preserveSelection) {
+        final candidates = _queues.keys
+            .where(
+              (thread) =>
+                  thread.remote &&
+                  !recoveredSources.contains(thread) &&
+                  (profile != previousProfile ||
+                      !_sending.containsKey(thread) &&
+                          !firstIds.contains(thread.id)),
+            )
+            .toList();
+        if (candidates.isEmpty) break;
+        recoveredSources.addAll(candidates);
+        final recovered = await Future.wait([
+          for (final thread in candidates)
+            () async {
+              final recovered = profile == previousProfile
+                  ? await _recoverQueuedThread(thread, profile)
+                  : _queuedDraft(thread, newId: true);
+              return (source: thread, recovered: recovered);
+            }(),
+        ]);
+        if (!active || generation != _loadGeneration) return;
+        recoveredQueues.addAll(recovered);
+      }
+      if (!active || generation != _loadGeneration) return;
+      if (valid?.call() == false) {
+        _loadingThreads = false;
+        notifyListeners();
+        return;
+      }
+      final local = preserveSelection
+          ? _threads.where((thread) => !thread.remote).toList()
+          : const <ChatThread>[];
+      final live = preserveSelection && profile == previousProfile
+          ? _threads
+                .where(
+                  (thread) => thread.remote && _sending.containsKey(thread),
+                )
+                .toList()
+          : const <ChatThread>[];
+      final liveIds = {for (final thread in live) thread.id};
+      final currentRecoveries = recoveredQueues
+          .where(
+            (entry) =>
+                _queues.containsKey(entry.source) &&
+                (profile != previousProfile ||
+                    !_sending.containsKey(entry.source)),
+          )
+          .toList();
+      final retainedQueues = preserveSelection
+          ? {for (final entry in _queues.entries) entry.key.id: entry.value}
+          : <String, List<QueuedPrompt>>{};
+      if (preserveSelection) previousSelection = _selectedId;
+      for (final (:source, :recovered) in currentRecoveries) {
+        if (source.id == recovered.id) continue;
+        retainedQueues[recovered.id] = retainedQueues.remove(source.id)!;
+        if (previousSelection == source.id) previousSelection = recovered.id;
+      }
       final held = _pendingTap;
       final fetchHeld = held != null && _pendingFetch;
       final launch = held ?? launched;
       final heldPrompt = _pendingTapPrompt;
+      final requestedOpening = _requestedOpening;
       _pendingTap = null;
       _pendingFetch = false;
       _pendingTapPrompt = null;
-      final threads = housekeeping!.begin(first);
+      final threads = housekeeping!.begin(
+        ThreadPage(
+          threads: [
+            ...live,
+            for (final thread in first.threads)
+              if (!liveIds.contains(thread.id)) thread,
+            for (final entry in currentRecoveries) entry.recovered,
+          ],
+          nextOffset: first.nextOffset,
+          hasMore: first.hasMore,
+        ),
+      );
       // Another profile can hold a different session under the same id.
       _stopFollowing();
       _active.clear();
@@ -352,66 +562,131 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         search?.clear();
       }
       _carryReplies();
+      for (final entry in interruptedLocalReplies.entries) {
+        entry.key.messages.removeWhere(
+          (message) => message.isPending && entry.value.contains(message),
+        );
+      }
       _profile = profile;
       breadcrumbs('chat.threads.loaded', {
         'switched': switched,
         'count': threads.length,
       });
       unawaited(_loadModelOptions(profile, generation));
-      _threads = threads;
+      _threads = [...local, ...threads];
       _unloaded
         ..clear()
-        ..addAll(threads.map((t) => t.id));
+        ..addAll(
+          threads
+              .where((t) => t.remote && !liveIds.contains(t.id))
+              .map((t) => t.id),
+        );
       _olderRows.clear();
-      _queues.clear();
+      _queues
+        ..clear()
+        ..addAll({
+          for (final thread in _threads) thread: ?retainedQueues[thread.id],
+        });
+      _suspendedQueues
+        ..clear()
+        ..addAll(_queues.keys);
       _cancelSettleWaits();
       _bound
         ..clear()
-        ..addAll(threads);
+        ..addAll(threads.where((thread) => thread.remote));
       _loadingThreads = false;
       _touched.clear();
       _selectedId =
           _isOnProfile(launch, profile) &&
               threads.any((t) => t.id == launch!.threadId)
           ? launch!.threadId
+          : preserveSelection && _threads.any((t) => t.id == previousSelection)
+          ? previousSelection
           : null;
+      if (preserveSelection &&
+          previousSelection != null &&
+          _selectedId == null &&
+          profile == previousProfile) {
+        _opening = _openMissing(
+          NotificationTarget(threadId: previousSelection, profile: profile),
+        );
+      }
       notifyListeners();
+      if (!active || generation != _loadGeneration) return;
       _reportSurface(SurfaceTrigger.threads);
+      if (!active || generation != _loadGeneration) return;
       if (launch != null) {
         // A held tap already put Chat in front when it arrived.
         if (held == null) onShowChat?.call();
+        if (!active || generation != _loadGeneration) return;
         if (_selectedId != launch.threadId) {
           if (fetchHeld) {
-            _opening = _openMissing(launch, prompt: heldPrompt);
+            _opening = _openMissing(
+              launch,
+              prompt: heldPrompt,
+            ).whenComplete(() => _finishOpening(requestedOpening));
           } else {
             _failOpen();
+            _finishOpening(requestedOpening);
           }
         } else if (heldPrompt != null) {
           onDraft?.call(heldPrompt);
+          _finishOpening(requestedOpening);
+        } else {
+          _finishOpening(requestedOpening);
         }
       }
+      if (!active || generation != _loadGeneration) return;
       if (_selectedId != null) {
         final selected = _threads.firstWhere((t) => t.id == _selectedId);
         unawaited(
-          _loadMessages(selected.id).then((_) {
-            if (!disposed &&
-                _profile == profile &&
-                _selectedId == selected.id &&
-                _threads.contains(selected)) {
-              _pickUp(selected);
-            }
-          }),
+          (selected.remote ? _loadMessages(selected.id) : Future<void>.value())
+              .then((_) {
+                if (active &&
+                    generation == _loadGeneration &&
+                    _profile == profile &&
+                    _selectedId == selected.id &&
+                    _threads.contains(selected)) {
+                  _pickUp(selected);
+                }
+              }),
         );
       }
       unawaited(refreshActive());
     } on Object {
-      if (disposed || generation != _loadGeneration) return;
+      if (!active || generation != _loadGeneration) return;
       _loadingThreads = false;
       _threadsFailed = true;
       breadcrumbs('chat.threads.failed');
       notifyListeners();
     }
   }
+
+  Future<ChatThread> _recoverQueuedThread(
+    ChatThread thread,
+    String? profile,
+  ) async {
+    try {
+      final fresh = await repository!.loadThread(thread.id, profile: profile);
+      if (fresh != null) return fresh;
+    } on Object {
+      // An unreadable target cannot vouch for sending into its old session.
+    }
+    return _queuedDraft(thread);
+  }
+
+  ChatThread _queuedDraft(ChatThread thread, {bool newId = false}) =>
+      ChatThread(
+        id: newId ? '${thread.id}-draft-${_sentMessages++}' : thread.id,
+        title: thread.title,
+        named: thread.named,
+        updatedAt: thread.updatedAt,
+        modelChoice: thread.modelChoice,
+        messages: [
+          for (final message in thread.messages)
+            if (!message.isPending) message,
+        ],
+      );
 
   /// The sticky active profile, or null when the server has none to report:
   /// no repository, or a server without the profiles route (404). Any other
@@ -431,7 +706,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final options = await models
         .load(profile: profile)
         .then<ModelOptions?>((o) => o, onError: (Object _) => null);
-    if (disposed || generation != _loadGeneration) return;
+    if (!active || generation != _loadGeneration) return;
     _modelOptions = options;
     notifyListeners();
   }
@@ -440,7 +715,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _loadingMessages = <String, Future<void>>{};
 
   Future<void> _loadMessages(String id) {
-    if (!_unloaded.remove(id)) return Future.value();
+    if (!active || !_unloaded.remove(id)) return Future.value();
     final load = _readFirstPage(id);
     _loadingMessages[id] = load;
     return load.whenComplete(() {
@@ -452,17 +727,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final generation = _loadGeneration;
     try {
       final page = await repository!.loadMessagePage(id, profile: _profile);
-      if (disposed || generation != _loadGeneration) return;
+      if (!active || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return;
       thread.messages.addAll(page.messages);
       if (page.hasMore) _olderRows[id] = page.rows;
       notifyListeners();
+      if (!active || generation != _loadGeneration) return;
       await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
     } on Object {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
-      if (disposed) return;
+      if (!active) return;
       report('Could not load this chat');
     }
   }
@@ -474,9 +750,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatThread thread, {
     bool Function()? cancelled,
   }) async {
+    final epoch = _activityEpoch;
+    if (!active) throw StateError("Chat activity suspended");
     final repository = this.repository;
     if (repository == null || !_bound.contains(thread)) return thread.messages;
     await _loadingMessages[thread.id];
+    if (!_currentActivity(epoch)) throw StateError("Chat activity suspended");
     final loaded = !_unloaded.contains(thread.id);
     final newest = loaded ? thread.messages : const <ChatMessage>[];
     final held = {for (final m in newest) m.id};
@@ -484,12 +763,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final profile = _profile;
     int? offset = loaded ? _olderRows[thread.id] : 0;
     while (offset != null) {
-      if (cancelled?.call() ?? false) throw StateError('history cancelled');
+      if (!_currentActivity(epoch) || (cancelled?.call() ?? false)) {
+        throw StateError('history cancelled');
+      }
       final page = await repository.loadMessagePage(
         thread.id,
         profile: profile,
         offset: offset,
       );
+      if (!_currentActivity(epoch)) throw StateError("Chat activity suspended");
       pages.add([
         for (final m in page.messages)
           if (held.add(m.id)) m,
@@ -500,6 +782,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   Future<void> loadOlder(String id) async {
+    if (!active) return;
     final offset = _olderRows[id];
     if (offset == null) return;
     final generation = _loadGeneration;
@@ -509,7 +792,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         profile: _profile,
         offset: offset,
       );
-      if (disposed || generation != _loadGeneration) return;
+      if (!active || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return;
       final held = {for (final m in thread.messages) m.id};
@@ -524,6 +807,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _olderRows.remove(id);
       }
       notifyListeners();
+      if (!active || generation != _loadGeneration) return;
       if (older.isEmpty) return;
       await controllerFor(thread).insertAllMessages(
         [for (final m in older) ...chatMessageToFlyer(m)],
@@ -531,7 +815,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         animated: false,
       );
     } on Object {
-      if (!disposed && generation == _loadGeneration) {
+      if (active && generation == _loadGeneration) {
         report('Could not load earlier messages');
       }
     }
@@ -542,6 +826,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// chat that is gone leaves the list. Nothing is read while a reply streams
   /// into it, which would replace the reply in progress.
   Future<void> refreshThread(String id) async {
+    if (!active) return;
     final repository = this.repository;
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (repository == null ||
@@ -552,7 +837,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     final generation = _loadGeneration;
     bool stale() =>
-        disposed || generation != _loadGeneration || thread.isReplying;
+        !active || generation != _loadGeneration || thread.isReplying;
     try {
       final fresh = await repository.loadThread(id, profile: _profile);
       if (stale()) return;
@@ -563,6 +848,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final unchanged = fresh.updatedAt == thread.updatedAt;
       housekeeping?.adopt(thread, fresh);
       notifyListeners();
+      if (stale()) return;
       if (unchanged || _unloaded.contains(id)) return;
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return;
@@ -577,6 +863,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _olderRows.remove(id);
       }
       notifyListeners();
+      if (stale()) return;
       await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
     } on Object {
       // Keeps what it shows; the next refresh or open reads it again.
@@ -632,9 +919,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     required bool fetchMissing,
     String? prompt,
   }) {
+    if (!active) return;
+    final epoch = _activityEpoch;
+    final requested = _requestedOpening = InterruptedChatOpening(
+      target: target,
+      fetchMissing: fetchMissing,
+      prompt: prompt,
+    );
+    _interruptedOpening = null;
     final generation = ++_openGeneration;
     breadcrumbs('chat.open.requested', {'fetch_missing': fetchMissing});
     onShowChat?.call();
+    if (!_currentActivity(epoch)) return;
     if (_loadingThreads) {
       _pendingTap = target;
       _pendingFetch = fetchMissing;
@@ -642,12 +938,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     } else if (_isOnProfile(target, _profile) &&
         _threads.any((t) => t.id == target.threadId)) {
       select(target.threadId);
+      if (!_currentActivity(epoch)) return;
       onOpened?.call();
+      if (!_currentActivity(epoch)) return;
       if (prompt != null) onDraft?.call(prompt);
+      _finishOpening(requested);
     } else if (fetchMissing) {
-      _opening = _openMissing(target, generation: generation, prompt: prompt);
+      _opening = _openMissing(
+        target,
+        generation: generation,
+        prompt: prompt,
+      ).whenComplete(() => _finishOpening(requested));
     } else {
       _failOpen();
+      _finishOpening(requested);
     }
   }
 
@@ -658,13 +962,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     int? generation,
     String? prompt,
   }) async {
+    if (!active) return;
+    final epoch = _activityEpoch;
     generation ??= _openGeneration;
     final repository = this.repository;
     final profile = target.profile ?? _profile;
     if (repository == null) return _failOpen();
     try {
       if (profile != _profile) await loadThreads(profile);
-      if (disposed || generation != _openGeneration) return;
+      if (!active || generation != _openGeneration) return;
       // A failed switch leaves the old profile's threads on screen.
       if (profile != _profile) return _failOpen();
       if (!_threads.any((t) => t.id == target.threadId)) {
@@ -672,18 +978,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           target.threadId,
           profile: profile,
         );
-        if (disposed || generation != _openGeneration) return;
+        if (!active || generation != _openGeneration) return;
         if (thread == null) return _failOpen();
         _threads.insert(0, thread);
         _bound.add(thread);
         _unloaded.add(thread.id);
         notifyListeners();
       }
+      if (!_currentActivity(epoch) || generation != _openGeneration) return;
       select(target.threadId);
+      if (!_currentActivity(epoch)) return;
       onOpened?.call();
+      if (!_currentActivity(epoch)) return;
       if (prompt != null) onDraft?.call(prompt);
     } on Object {
-      if (!disposed) _failOpen();
+      if (active && generation == _openGeneration) _failOpen();
     }
   }
 
@@ -692,15 +1001,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// a chat with no profiles to ask are taken as they are; a profile list that
   /// cannot be read counts as not knowing the profile.
   Future<String?> knownProfile(String? profile) async {
+    final epoch = _activityEpoch;
+    if (!_currentActivity(epoch)) return null;
     final profiles = this.profiles;
     if (profile == null || profile == _profile || profiles == null) {
       return profile;
     }
     try {
-      if ((await profiles.list()).any((p) => p.name == profile)) return profile;
+      final known = await profiles.list();
+      if (!_currentActivity(epoch)) return null;
+      if (known.any((p) => p.name == profile)) return profile;
     } on Object {
       // Falls through: an unreadable list cannot vouch for the profile.
     }
+    if (!_currentActivity(epoch)) return null;
     breadcrumbs('deeplink.ignored', {'reason': 'unknown_profile'});
     return null;
   }
@@ -712,6 +1026,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// waits is opened (switching to its profile), and when none does nothing
   /// moves and this is false, which leaves the chat list showing.
   Future<bool> openOldestStoredRequest() async {
+    final epoch = _activityEpoch;
+    if (!_currentActivity(epoch)) return false;
     final read = readSnapshot;
     final transport = this.transport;
     if (read == null) return false;
@@ -721,6 +1037,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     } on Object {
       return false;
     }
+    if (!_currentActivity(epoch)) return false;
     final current = _profile ?? kDefaultProfile;
     final waiting = [
       for (final request in snapshot?.pending ?? const <PendingRequest>[])
@@ -728,13 +1045,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     for (final request in waiting) {
       if (transport != null) {
-        final statuses = await transport.activeStatuses(
-          profile: request.profile,
-        );
+        final Map<String, String> statuses;
+        try {
+          statuses = await transport.activeStatuses(profile: request.profile);
+        } on Object {
+          if (!_currentActivity(epoch)) return false;
+          rethrow;
+        }
+        if (!_currentActivity(epoch)) return false;
         if (statuses[request.threadId] != 'waiting') continue;
       }
       final profile = await knownProfile(request.profile);
-      if (disposed) return true;
+      if (!_currentActivity(epoch)) return true;
       if (profile == null) continue;
       open(
         NotificationTarget(threadId: request.threadId, profile: profile),
@@ -749,6 +1071,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// raised first, judged by when its reply began, among the loaded chats.
   /// False when no loaded chat holds one.
   bool openOldestRequest() {
+    if (!active) return false;
+    final epoch = _activityEpoch;
     ChatThread? oldest;
     DateTime? since;
     for (final thread in _threads) {
@@ -762,7 +1086,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     if (oldest == null) return false;
     onShowChat?.call();
+    if (!_currentActivity(epoch)) return false;
     select(oldest.id);
+    if (!_currentActivity(epoch)) return false;
     onOpened?.call();
     return true;
   }
@@ -773,62 +1099,75 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ) async {
     final repository = this.repository;
     final profile = target.profile;
-    if (repository == null || profile == null || !valid()) return false;
-    final generation = ++_openGeneration;
-    bool current() => !disposed && generation == _openGeneration && valid();
-    final active = _profile == profile
-        ? _threads.where((t) => t.id == target.threadId).firstOrNull
-        : null;
-    if (active?.isReplying == true) {
-      _selectedId = active!.id;
-      notifyListeners();
-      onOpened?.call();
-      return true;
-    }
-
-    if (profiles != null &&
-        !(await profiles!.list()).any((p) => p.name == profile)) {
+    if (!active || repository == null || profile == null || !valid()) {
       return false;
     }
-    if (!current()) return false;
-    final thread = await repository.loadThread(
-      target.threadId,
-      profile: profile,
-    );
-    if (thread == null || !current()) return false;
-    final page = await repository.loadMessagePage(
-      target.threadId,
-      profile: profile,
-    );
-    if (!current()) return false;
-    if (_profile != profile || _loadingThreads) {
-      await _loadThreads(profile, valid: current);
+    final generation = ++_openGeneration;
+    bool current() => active && generation == _openGeneration && valid();
+    try {
+      final runningThread = _profile == profile
+          ? _threads.where((t) => t.id == target.threadId).firstOrNull
+          : null;
+      if (runningThread?.isReplying == true) {
+        _selectedId = runningThread!.id;
+        notifyListeners();
+        if (!current()) return false;
+        onOpened?.call();
+        return true;
+      }
+
+      if (profiles != null &&
+          !(await profiles!.list()).any((p) => p.name == profile)) {
+        return false;
+      }
+      if (!current()) return false;
+      final thread = await repository.loadThread(
+        target.threadId,
+        profile: profile,
+      );
+      if (thread == null || !current()) return false;
+      final page = await repository.loadMessagePage(
+        target.threadId,
+        profile: profile,
+      );
+      if (!current()) return false;
+      if (_profile != profile || _loadingThreads) {
+        await _loadThreads(profile, valid: current);
+      }
+      if (current() && _threadsFailed) {
+        throw StateError('Could not load the profile');
+      }
+      if (!current() || _profile != profile || _threadsFailed) return false;
+      final existing = _threads
+          .where((t) => t.id == target.threadId)
+          .firstOrNull;
+      final selected = existing ?? thread;
+      if (existing == null) {
+        _threads.insert(0, selected);
+        _bound.add(selected);
+      }
+      selected.messages
+        ..clear()
+        ..addAll(page.messages);
+      _unloaded.remove(selected.id);
+      if (page.hasMore) _olderRows[selected.id] = page.rows;
+      _selectedId = selected.id;
+      await controllerFor(selected).setMessages(chatThreadToFlyer(selected));
+      if (!current()) return false;
+      notifyListeners();
+      if (!current()) return false;
+      _pickUp(selected);
+      if (!current()) return false;
+      onOpened?.call();
+      return true;
+    } on Object {
+      if (!current()) return false;
+      rethrow;
     }
-    if (current() && _threadsFailed) {
-      throw StateError('Could not load the profile');
-    }
-    if (!current() || _profile != profile || _threadsFailed) return false;
-    final existing = _threads.where((t) => t.id == target.threadId).firstOrNull;
-    final selected = existing ?? thread;
-    if (existing == null) {
-      _threads.insert(0, selected);
-      _bound.add(selected);
-    }
-    selected.messages
-      ..clear()
-      ..addAll(page.messages);
-    _unloaded.remove(selected.id);
-    if (page.hasMore) _olderRows[selected.id] = page.rows;
-    _selectedId = selected.id;
-    await controllerFor(selected).setMessages(chatThreadToFlyer(selected));
-    if (!current()) return false;
-    notifyListeners();
-    _pickUp(selected);
-    onOpened?.call();
-    return true;
   }
 
   Future<void> openBot(BotChatContext context) async {
+    if (!active) return;
     final generation = ++_openGeneration;
     onShowChat?.call();
     final repository = this.repository;
@@ -836,7 +1175,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final profile = context.bot.name;
     try {
       if (_loadingThreads || _profile != profile) await loadThreads(profile);
-      if (disposed || generation != _openGeneration) return;
+      if (!active || generation != _openGeneration) return;
       if (_profile != profile) return _failOpen();
       var thread = _threads.where((t) => t.id == context.storedId).firstOrNull;
       if (thread == null) {
@@ -844,7 +1183,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           context.storedId,
           profile: profile,
         );
-        if (disposed || generation != _openGeneration) return;
+        if (!active || generation != _openGeneration) return;
         if (thread == null) return _failOpen();
         _threads.insert(0, thread);
         _bound.add(thread);
@@ -857,7 +1196,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       select(thread.id);
       onOpened?.call();
     } on Object {
-      if (!disposed && generation == _openGeneration) _failOpen();
+      if (active && generation == _openGeneration) _failOpen();
     }
   }
 
@@ -865,9 +1204,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// profile is asked at once; one that fails is left out, and the search
   /// fails only when all of them do.
   Future<List<ThreadSearchHit>> _searchAllProfiles(String query) async {
+    if (!active) return const [];
+    final epoch = _activityEpoch;
     final repository = this.repository!;
+    final known = await profiles!.list();
+    if (!_currentActivity(epoch)) return const [];
     final answers = await Future.wait([
-      for (final profile in await profiles!.list())
+      for (final profile in known)
         repository
             .searchThreads(query, profile: profile.name)
             .then<List<ThreadSearchHit>?>(
@@ -875,6 +1218,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
               onError: (Object _) => null,
             ),
     ]);
+    if (!_currentActivity(epoch)) return const [];
     if (answers.isNotEmpty && answers.every((a) => a == null)) {
       throw StateError('No profile could be searched');
     }
@@ -884,6 +1228,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Opens a chat the search found, on the profile it was found in.
   void openSearchHit(ThreadSearchHit hit) {
+    if (!active) return;
     search?.remember(search!.query);
     open(
       NotificationTarget(threadId: hit.id, profile: hit.profile ?? _profile),
@@ -895,6 +1240,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// deleted.
   void _threadRemoved(ChatThread thread) {
     _queues.remove(thread);
+    _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
     _refetch.remove(thread);
     liveActivities?.endChat(thread.id, _profile);
@@ -911,13 +1257,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Asks the transport to drop a connection the OS killed during sleep, and
   /// re-checks which sessions are mid-turn afterwards.
-  void checkConnection() => transport?.checkConnection().then(
-    (_) => unawaited(refreshActive()),
-    onError: (Object _) {},
-  );
+  void checkConnection() {
+    if (!active) return;
+    final epoch = _activityEpoch;
+    transport?.checkConnection().then((_) {
+      if (_currentActivity(epoch)) unawaited(refreshActive());
+    }, onError: (Object _) {});
+  }
 
   @override
   void dispose() {
+    activity?.removeListener(_activityChanged);
+    _activityEpoch++;
+    housekeeping?.setActivity(false);
     _replayEnds?.cancel();
     for (final reply in _replies) {
       reply.cancel();
@@ -946,6 +1298,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Leaves no chat selected, as when the selected one moves to a window of
   /// its own.
   void clearSelection() {
+    if (!active) return;
     if (_selectedId == null) return;
     breadcrumbs('chat.thread.closed');
     _openGeneration++;
@@ -960,8 +1313,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// the new one stays in front. A new chat nothing was written in is reused
   /// instead of adding a second empty one.
   Future<void> newThreadWhenOpened() async {
+    final epoch = _activityEpoch;
+    if (!_currentActivity(epoch)) return;
     await _opening.catchError((Object _) {});
-    if (disposed) return;
+    if (!_currentActivity(epoch)) return;
     final selected = selectedThread;
     if (selected != null && !selected.remote && selected.messages.isEmpty) {
       return;
@@ -970,6 +1325,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void newThread() {
+    if (!active) return;
     breadcrumbs('chat.thread.new');
     _openGeneration++;
     final thread = ChatThread(
@@ -984,6 +1340,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void select(String id) {
+    if (!active) return;
+    final epoch = _activityEpoch;
     breadcrumbs('chat.thread.selected', {
       'remote': _threads.any((t) => t.id == id && t.remote),
     });
@@ -991,13 +1349,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _openFailed = false;
     _selectedId = id;
     notifyListeners();
+    if (!_currentActivity(epoch)) return;
     final load = repository != null ? _loadMessages(id) : Future<void>.value();
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (thread != null) {
       final profile = _profile;
       unawaited(
         load.then((_) {
-          if (!disposed &&
+          if (_currentActivity(epoch) &&
               _profile == profile &&
               _selectedId == id &&
               _threads.contains(thread)) {
@@ -1015,7 +1374,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// without events.
   void _pickUp(ChatThread thread) {
     final transport = this.transport;
-    if (transport == null || !thread.remote) return;
+    if (!active || transport == null || !thread.remote) return;
     if (thread.isReplying) return;
     _followUps(transport, thread, _profile);
   }
@@ -1038,18 +1397,22 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// dropping ones whose turn ended.
   Future<void> refreshActive() async {
     final transport = this.transport;
-    if (transport == null || disposed) return;
+    if (transport == null || !active) return;
     final generation = _loadGeneration;
     final refresh = ++_activeRefresh;
-    final active = await transport.activeStatuses();
-    if (disposed ||
-        generation != _loadGeneration ||
-        refresh != _activeRefresh) {
+    final Map<String, String> statuses;
+    try {
+      statuses = await transport.activeStatuses();
+    } on Object {
+      return;
+    }
+    if (!active || generation != _loadGeneration || refresh != _activeRefresh) {
       return;
     }
     final working = <String>{
       for (final thread in _threads)
-        if (active[thread.id] == 'working' || active[thread.id] == 'waiting')
+        if (statuses[thread.id] == 'working' ||
+            statuses[thread.id] == 'waiting')
           thread.id,
     };
     var changed = working.length != _active.length;
@@ -1073,16 +1436,26 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   String _newMessageId(ChatThread thread) =>
       '${thread.id}-local-${_sentMessages++}';
 
-  Future<List<SlashCommand>> slashCommands() =>
-      transport?.slashCommands(
+  Future<List<SlashCommand>> slashCommands() async {
+    if (!active) return const [];
+    final epoch = _activityEpoch;
+    try {
+      final commands = await transport?.slashCommands(
         threadId: selectedThread?.remote == true ? selectedThread!.id : null,
         profile: _profile,
-      ) ??
-      Future.value(const []);
+      );
+      return _currentActivity(epoch) ? commands ?? const [] : const [];
+    } on Object {
+      if (!_currentActivity(epoch)) return const [];
+      rethrow;
+    }
+  }
 
   /// Runs a gateway command without putting it through prompt.submit or the
   /// reply queue. Display-only command output stays in this visit's chat.
   Future<bool> runSlashCommand(String command) async {
+    final epoch = _activityEpoch;
+    if (!_currentActivity(epoch)) return false;
     final bot = selectedThread?.botContext;
     if (bot != null &&
         RegExp(r'^/(?:title|rename)(?:\s|$)').hasMatch(command.trim())) {
@@ -1113,7 +1486,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         profile: profile,
         command: command,
       );
-      if (disposed) return false;
+      if (!_currentActivity(epoch)) return false;
       if (_profile != profile) return true;
       final thread =
           selected ??
@@ -1136,12 +1509,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         try {
           canonical = await botChats!.open(bot.bot);
         } on Object {
-          if (!disposed) {
+          if (_currentActivity(epoch)) {
             report('Bot Chat was compacted. Reopen the bot to continue.');
           }
           return true;
         }
-        if (disposed || _profile != profile) return true;
+        if (!_currentActivity(epoch) || _profile != profile) return true;
         if (canonical.storedId != thread.id) {
           _retargetBoundThread(thread, canonical.storedId);
         }
@@ -1151,6 +1524,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (result.prefill != null && wasRemote) {
         await _refreshAfterSlash(thread, profile);
       }
+      if (!_currentActivity(epoch)) return false;
       void append(ChatRole role, String content) {
         if (content.isEmpty) return;
         final message = ChatMessage(
@@ -1169,7 +1543,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       append(ChatRole.assistant, result.output);
       thread.updatedAt = DateTime.now();
       notifyListeners();
+      if (!_currentActivity(epoch)) return false;
       if (result.prefill case final draft?) onPrefill?.call(draft);
+      if (!_currentActivity(epoch)) return false;
       if (result.prompt case final prompt? when prompt.isNotEmpty) {
         _submitTo(
           thread,
@@ -1180,21 +1556,28 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
       return true;
     } on Object catch (error) {
-      if (!disposed) report('Could not run $command: $error');
+      if (_currentActivity(epoch)) report('Could not run $command: $error');
       return false;
     }
   }
 
   Future<void> _refreshAfterSlash(ChatThread thread, String? profile) async {
+    final epoch = _activityEpoch;
     final repository = this.repository;
     if (repository == null) return;
+    if (!_currentActivity(epoch)) return;
     await _loadingMessages[thread.id];
+    if (!_currentActivity(epoch)) return;
     try {
       final page = await repository.loadMessagePage(
         thread.id,
         profile: profile,
       );
-      if (disposed || _profile != profile || !_threads.contains(thread)) return;
+      if (!_currentActivity(epoch) ||
+          _profile != profile ||
+          !_threads.contains(thread)) {
+        return;
+      }
       thread.messages
         ..clear()
         ..addAll(page.messages);
@@ -1205,9 +1588,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _olderRows.remove(thread.id);
       }
       await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+      if (!_currentActivity(epoch)) return;
       notifyListeners();
     } on Object {
-      if (!disposed) {
+      if (_currentActivity(epoch)) {
         report('Command ran, but this chat could not be refreshed.');
       }
     }
@@ -1230,6 +1614,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Whether the last prompt of [thread] can be taken back on the server:
   /// edited, or sent again in place of its turn.
   bool canEditLastPrompt(ChatThread thread) {
+    if (!active) return false;
     final prompt = lastPromptText(thread);
     return transport != null &&
         _bound.contains(thread) &&
@@ -1245,6 +1630,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// prompt that had files (they are not sent again) and a server that cannot
   /// undo get a new turn instead.
   Future<void> retry(ChatThread thread) async {
+    final epoch = _activityEpoch;
+    if (!_currentActivity(epoch)) return;
     final prompt = lastPromptText(thread);
     if (prompt == null || _undoing.containsKey(thread)) return;
     if (prompt.startsWith('/')) {
@@ -1255,10 +1642,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       try {
         await _undoLastTurn(thread, TurnAction.retry);
       } on Object catch (error) {
-        if (!disposed) _failTurnAction(thread, error, 'try again');
+        if (_currentActivity(epoch)) {
+          _failTurnAction(thread, error, 'try again');
+        }
         return;
       }
-      if (disposed) return;
+      if (!_currentActivity(epoch)) return;
     }
     _submitTo(thread, prompt, const []);
   }
@@ -1266,16 +1655,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Takes the last prompt of [thread] back on the server and puts its text
   /// in the composer. Its files are not put back.
   Future<void> editLastPrompt(ChatThread thread) async {
+    final epoch = _activityEpoch;
+    if (!_currentActivity(epoch)) return;
     final prompt = lastPromptText(thread);
     if (prompt == null || !canEditLastPrompt(thread)) return;
     final bool undone;
     try {
       undone = await _undoLastTurn(thread, TurnAction.edit);
     } on Object catch (error) {
-      if (!disposed) _failTurnAction(thread, error, 'edit the prompt');
+      if (_currentActivity(epoch)) {
+        _failTurnAction(thread, error, 'edit the prompt');
+      }
       return;
     }
-    if (disposed) return;
+    if (!_currentActivity(epoch)) return;
     if (!undone) {
       report("This Hermes server can't edit prompts. Update Hermes to edit.");
       return;
@@ -1314,9 +1707,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Drops the last turn of [thread] on the server and then here. False when
   /// the server cannot undo.
   Future<bool> _undoLastTurn(ChatThread thread, TurnAction action) async {
+    final epoch = _activityEpoch;
     _undoing[thread] = action;
     _turnProblems.remove(thread);
     notifyListeners();
+    if (!_currentActivity(epoch)) return true;
     final int? removed;
     try {
       removed = await transport!.undoLastTurn(
@@ -1325,17 +1720,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         retry: action == TurnAction.retry,
       );
     } finally {
-      _undoing.remove(thread);
-      if (!disposed) notifyListeners();
+      if (_currentActivity(epoch)) {
+        _undoing.remove(thread);
+        notifyListeners();
+      }
     }
+    if (!_currentActivity(epoch)) return true;
     if (removed == null) return false;
-    if (disposed) return true;
     final start = thread.messages.lastIndexWhere(
       (m) => m.role == ChatRole.user,
     );
     if (start < 0) return true;
     thread.messages.removeRange(start, thread.messages.length);
     await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+    if (!_currentActivity(epoch)) return true;
     notifyListeners();
     return true;
   }
@@ -1350,6 +1748,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       !thread.isReplying && (_queues[thread]?.isNotEmpty ?? false);
 
   void removeQueued(ChatThread thread, QueuedPrompt prompt) {
+    if (!active) return;
     final queue = _queues[thread];
     if (queue == null || !queue.remove(prompt)) return;
     if (queue.isEmpty) _queues.remove(thread);
@@ -1359,6 +1758,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Sends the first queued prompt of [thread] when no reply is pending
   /// there. One that cannot be sent stays first in the queue.
   void sendQueued(ChatThread thread) {
+    if (!active) return;
+    _suspendedQueues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
     final queue = _queues[thread];
     if (thread.isReplying || queue == null || queue.isEmpty) return;
@@ -1380,6 +1781,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// the session reports it settled. Two seconds without that report (an older
   /// Hermes, or a missed frame) send them anyway.
   void _awaitSettle(ChatThread thread) {
+    if (!active || _suspendedQueues.contains(thread)) return;
     if (thread.isReplying || (_queues[thread]?.isEmpty ?? true)) return;
     if (_settleTimers.containsKey(thread)) return;
     _settleTimers[thread] = Timer(
@@ -1420,6 +1822,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     List<SharedFile> files, {
     String? displayText,
   }) {
+    if (!active) return false;
     _turnProblems.remove(selected);
     if (selected == null ||
         !selected.isReplying && !_queues.containsKey(selected)) {
@@ -1442,6 +1845,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? displayText,
     bool queued = false,
   }) {
+    if (!active) return false;
+    final epoch = _activityEpoch;
     final sizes = _sizesOrExplain(files);
     if (sizes == null) return false;
     final attachments = <ChatAttachment>[];
@@ -1509,10 +1914,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final placeholder = _addPlaceholder(thread);
     thread.updatedAt = DateTime.now();
     notifyListeners();
+    if (!_currentActivity(epoch)) return false;
     final transport = this.transport;
     if (transport == null) {
       Future.delayed(const Duration(milliseconds: 900), () {
-        if (disposed) return;
+        if (!_currentActivity(epoch)) return;
         _updateReply(thread, placeholder, () {
           placeholder.status = MessageStatus.sent;
           placeholder.content = buildMockReply(label);
@@ -1529,6 +1935,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         threadId,
         queued: queued,
       );
+      if (!_currentActivity(epoch)) return false;
       unawaited(_attention.askForPermission());
     }
     return true;
@@ -1603,6 +2010,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? threadId, {
     bool queued = false,
   }) {
+    final epoch = _activityEpoch;
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
     // A new turn: what a run announced of an earlier one says nothing of it.
@@ -1623,6 +2031,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
 
     void end([Object? error]) {
+      if (!_currentActivity(epoch)) return;
       _replies.remove(subscription);
       _sending.update(thread, (n) => n - 1);
       if (_sending[thread] == 0) _sending.remove(thread);
@@ -1634,11 +2043,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         failed: error != null,
         announceFailure: !reply.isPending,
       );
+      if (!_currentActivity(epoch)) return;
       if (folded) {
         // The prompt went into the turn already running, whose events follow
         // on the thread's follow-ups.
         if (error == null) {
           _followUps(transport, thread, profile);
+          if (!_currentActivity(epoch)) return;
           // A stop of the running turn in flight decides when the queue goes
           // on: its answer, or the end of that turn.
           if (_holdOf(thread) == _Hold.none) _awaitSettle(thread);
@@ -1658,6 +2069,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       } else if (reply.isPending) {
         _turnEnded(thread, halted: true);
         _updateReply(thread, reply, () => failReply(reply, error));
+        if (!_currentActivity(epoch)) return;
         _announce(thread, const ReplyCompleted('', failed: true), profile);
         // A send that gave up asks for the thread to be read again: what
         // Hermes ran meanwhile is in its history. The read keeps this failed
@@ -1674,6 +2086,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           idleOnly: reply.settledWithoutCompletion,
         );
         _followUps(transport, thread, profile);
+        if (!_currentActivity(epoch)) return;
         if (drain) {
           if (settled) {
             sendQueued(thread);
@@ -1699,6 +2112,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       title: _watchTitle(thread),
       threadId: _watchThreadId(thread, profile),
     );
+    if (!_currentActivity(epoch)) return;
     breadcrumbs('chat.reply.started', {
       'queued': queued,
       'attachments': attachments.length,
@@ -1714,6 +2128,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         )
         .listen(
           (event) {
+            if (!_currentActivity(epoch)) return;
             if (event is ReplyCompleted) {
               failed = event.failed;
               stopped = event.stopped;
@@ -1844,6 +2259,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     required bool failed,
     required bool announceFailure,
   }) {
+    final epoch = _activityEpoch;
     final open = own.open;
     own.open = null;
     if (open == null || !open.isPending) return;
@@ -1854,6 +2270,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ? failReply(open, null)
           : applyReplyEvent(open, const SessionInfo(running: false)),
     );
+    if (!_currentActivity(epoch)) return;
     if (failed && announceFailure) {
       _announce(thread, const ReplyCompleted('', failed: true), profile);
     }
@@ -1893,18 +2310,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
-    if (_profile != profile || !_threads.contains(thread)) return;
+    if (!active || _profile != profile || !_threads.contains(thread)) return;
+    final epoch = _activityEpoch;
     final threadId = thread.id;
     if (!_followingIds.add(threadId)) return;
     ChatMessage? reply;
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
+      if (!_currentActivity(epoch)) return;
       _following.remove(subscription);
       _followingIds.remove(thread.id);
       final pending = reply;
       if (pending != null && pending.isPending) {
         _turnEnded(thread, halted: true);
         _updateReply(thread, pending, () => failReply(pending, error));
+        if (!_currentActivity(epoch)) return;
         _announce(thread, const ReplyCompleted('', failed: true), profile);
       }
     }
@@ -1913,6 +2333,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         .followUps(threadId, profile: profile)
         .listen(
           (event) {
+            if (!_currentActivity(epoch)) return;
             if (reply == null && opensTurn(event)) {
               // A stop in flight may be aimed at the turn this opens a reply
               // for (a folded prompt's), so the hold stays.
@@ -1924,6 +2345,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
               return;
             }
             _onReplyEvent(thread, current, event, profile);
+            if (!_currentActivity(epoch)) return;
             if (event is ReplyCompleted) {
               reply = null;
               final drain = _turnEnded(
@@ -2073,6 +2495,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     bool settles = true,
     bool ownTurn = false,
   }) {
+    final epoch = _activityEpoch;
+    if (!_currentActivity(epoch)) return;
     var announced = event;
     switch (event) {
       case ThreadBound(:final threadId):
@@ -2080,13 +2504,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadTitled(:final title):
         _titled(thread, title);
         notifyListeners();
-      case ReplyStarted() || UnsolicitedEvent():
+      case ReplyStarted() || UnsolicitedEvent() || PromptAcknowledged():
         break;
       case PromptFolded():
         _removeReply(thread, reply);
       case SessionInfo():
         final wasPending = reply.isPending;
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
+        if (!_currentActivity(epoch)) return;
         _onSessionInfo(thread, event, settle: settles);
         if (wasPending && !reply.isPending) {
           // The turn ended without a completion, which the notifications wait
@@ -2126,6 +2551,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
+    if (!_currentActivity(epoch)) return;
     _refetchIfIdle(thread);
     _announce(thread, announced, profile, notify: announce, ownTurn: ownTurn);
   }
@@ -2141,6 +2567,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     bool notify = true,
     bool ownTurn = false,
   }) {
+    if (!active) return;
+    final epoch = _activityEpoch;
     // The turn Hermes ran ahead of the prompt ends before the prompt's own
     // turn does, so its completion says nothing about the chat.
     if (!(ownTurn && event is ReplyCompleted)) {
@@ -2156,7 +2584,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     if (!notify) return;
     void announce() {
-      if (disposed) return;
+      if (!_currentActivity(epoch)) return;
       _attention.announce(
         thread,
         event,
@@ -2191,6 +2619,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// announces once they finish. What an earlier run announced is forgotten:
   /// it described the last time the app was away.
   void rememberRunningReplies() {
+    if (!active) return;
     final store = runningReplies;
     if (store == null) return;
     final now = _clock();
@@ -2231,15 +2660,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// announced stays on record only for the replay of its ending, which
   /// [replayGrace] allows for.
   void forgetRunningReplies() {
+    if (!active) return;
     final store = runningReplies;
     if (store == null) return;
     final written = _replyListWritten;
     _replyListWritten = false;
     if (written) {
       _replayEnds?.cancel();
-      _replayEnds = Timer(replayGrace, () => unawaited(store.clearAnnounced()));
+      _replayEnds = Timer(replayGrace, () {
+        if (active) unawaited(store.clearAnnounced());
+      });
     }
-    unawaited(_resumeRunningReplies(store, written, _pauses));
+    unawaited(
+      _resumeRunningReplies(store, written, _pauses).catchError((Object _) {}),
+    );
   }
 
   Future<void> _resumeRunningReplies(
@@ -2253,10 +2687,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final left = {
         for (final reply in await store.read()) (reply.profile, reply.threadId),
       };
-      if (pauses != _pauses) return;
+      if (!active || pauses != _pauses) return;
       _carried.retainAll(left);
       if (!await _dropEnded(pauses)) return;
     }
+    if (!active || pauses != _pauses) return;
     await store.clear();
   }
 
@@ -2265,10 +2700,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// does not list a session, decides nothing: the expiry does.
   Future<bool> _dropEnded(int pauses) async {
     final transport = this.transport;
+    if (!active) return false;
     if (transport == null) return true;
     for (final profile in {for (final (profile, _) in _carried) profile}) {
       final statuses = await transport.activeStatuses(profile: profile);
-      if (pauses != _pauses) return false;
+      if (!active || pauses != _pauses) return false;
       _carried.removeWhere((key) {
         if (key.$1 != profile) return false;
         final status = statuses[key.$2];
@@ -2277,7 +2713,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         return true;
       });
     }
-    return pauses == _pauses;
+    return active && pauses == _pauses;
   }
 
   void _replyEnded(ChatThread thread, String? profile) {
@@ -2348,11 +2784,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatMessage reply,
     void Function() edit,
   ) {
+    if (!active) return;
+    final epoch = _activityEpoch;
     final before = chatMessageToFlyer(reply);
     final wasPending = reply.isPending;
     final openBefore = _openRequestIds(reply);
     edit();
     notifyListeners();
+    if (!_currentActivity(epoch)) return;
     syncMessage(controllerFor(thread), before, chatMessageToFlyer(reply));
     if (onSurfaceChange == null) return;
     final trigger = wasPending && !reply.isPending
@@ -2379,8 +2818,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// When each open request was first seen; Hermes sends no creation time.
   final _requestSeen = <String, DateTime>{};
 
-  void _reportSurface(SurfaceTrigger trigger) =>
-      onSurfaceChange?.call(trigger, _surfaceHints());
+  void _reportSurface(SurfaceTrigger trigger) {
+    if (active) onSurfaceChange?.call(trigger, _surfaceHints());
+  }
 
   ChatHints _surfaceHints() {
     final now = DateTime.now();
@@ -2444,6 +2884,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     return null;
   }
 
+  Future<bool?> _answerWhileActive(Future<bool> Function() call) async {
+    if (!active) return null;
+    final epoch = _activityEpoch;
+    try {
+      final result = await call();
+      return _currentActivity(epoch) ? result : null;
+    } on Object {
+      if (!_currentActivity(epoch)) return null;
+      rethrow;
+    }
+  }
+
   Future<void> answerApproval(
     ChatThread thread,
     String requestId,
@@ -2451,9 +2903,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ) async {
     final transport = this.transport;
     final reply = _replyAwaiting(thread, requestId);
-    if (transport == null || reply == null) return;
-    final accepted = await transport.answerApproval(requestId, choice);
-    if (disposed) return;
+    if (!active || transport == null || reply == null) return;
+    final accepted = await _answerWhileActive(
+      () => transport.answerApproval(requestId, choice),
+    );
+    if (accepted == null) return;
     _updateReply(
       thread,
       reply,
@@ -2499,6 +2953,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     bool halted = false,
     bool idleOnly = false,
   }) {
+    if (_suspendedQueues.contains(thread)) return false;
     final afterwards = _interruptInFlight(thread) ? _Hold.paused : _Hold.none;
     if (halted) {
       _setHold(thread, afterwards);
@@ -2534,6 +2989,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   Future<void> stopReply(ChatThread thread) async {
+    if (!active) return;
+    final epoch = _activityEpoch;
     final pending = [
       for (final reply in thread.messages)
         if (reply.isPending) reply,
@@ -2545,7 +3002,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     try {
       final stopped = await transport?.stopReply(thread.id, profile: _profile);
-      if (disposed) return;
+      if (!_currentActivity(epoch)) return;
       if ((_generations[thread] ?? 0) != generation) return;
       final others = _endInterrupt(thread);
       final hold = _holdOf(thread);
@@ -2605,6 +3062,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           break;
       }
     } on Object {
+      if (!_currentActivity(epoch)) return;
       // The stop of an earlier reply failing is of no use to say.
       if ((_generations[thread] ?? 0) != generation) return;
       final others = _endInterrupt(thread);
@@ -2635,9 +3093,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ) async {
     final transport = this.transport;
     final reply = _replyAwaiting(thread, requestId);
-    if (transport == null || reply == null) return;
-    final accepted = await transport.skipUnsupported(requestId, kind);
-    if (disposed) return;
+    if (!active || transport == null || reply == null) return;
+    final accepted = await _answerWhileActive(
+      () => transport.skipUnsupported(requestId, kind),
+    );
+    if (accepted == null) return;
     _updateReply(
       thread,
       reply,
@@ -2657,16 +3117,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }) async {
     final transport = this.transport;
     final reply = _replyAwaiting(thread, requestId);
-    if (transport == null || reply == null) return;
+    if (!active || transport == null || reply == null) return;
     final declined = identifier.isEmpty && password.isEmpty && code.isEmpty;
-    final accepted = await transport.answerVault(
-      requestId,
-      kind,
-      identifier: identifier,
-      password: password,
-      code: code,
+    final accepted = await _answerWhileActive(
+      () => transport.answerVault(
+        requestId,
+        kind,
+        identifier: identifier,
+        password: password,
+        code: code,
+      ),
     );
-    if (disposed) return;
+    if (accepted == null) return;
     _updateReply(
       thread,
       reply,
@@ -2685,31 +3147,37 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ) async {
     final transport = this.transport;
     final reply = _replyAwaiting(thread, requestId);
-    if (transport == null || reply == null) return;
+    if (!active || transport == null || reply == null) return;
     final request = reply.inputRequests.firstWhere(
       (r) => r.requestId == requestId,
     );
     if (request is! ClarifyRequest) return;
 
-    var accepted = true;
+    final epoch = _activityEpoch;
+    bool? accepted = true;
     if (answers.isEmpty) {
-      accepted = await transport.answerClarify(requestId, const []);
+      accepted = await _answerWhileActive(
+        () => transport.answerClarify(requestId, const []),
+      );
     } else {
       for (final q in request.questions) {
-        accepted = await transport.answerClarify(
-          requestId,
-          answers[q.qid] ?? const [],
-          questionId: request.batch ? q.qid : null,
-          multiSelect: q.multiSelect,
+        if (!_currentActivity(epoch)) return;
+        accepted = await _answerWhileActive(
+          () => transport.answerClarify(
+            requestId,
+            answers[q.qid] ?? const [],
+            questionId: request.batch ? q.qid : null,
+            multiSelect: q.multiSelect,
+          ),
         );
-        if (!accepted) break;
+        if (accepted != true) break;
       }
     }
-    if (disposed) return;
+    if (accepted == null || !_currentActivity(epoch)) return;
     _updateReply(
       thread,
       reply,
-      () => accepted
+      () => accepted!
           ? recordClarifyAnswers(reply, requestId, answers)
           : expireInputRequests(reply, requestId: requestId),
     );

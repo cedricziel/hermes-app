@@ -108,12 +108,16 @@ class _JobFormScreenState extends State<JobFormScreen> {
   }
 
   Future<void> _save() async {
-    final job = await _form.save();
-    if (!mounted) return;
-    if (job != null) {
-      dismissRoute(context, job);
-    } else {
-      revealFormError(context);
+    try {
+      final job = await _form.save();
+      if (!mounted) return;
+      if (job != null) {
+        dismissRoute(context, job);
+      } else {
+        revealFormError(context);
+      }
+    } on JobFormActivityCancelled {
+      // The draft stays open; saving again requires another user action.
     }
   }
 
@@ -150,7 +154,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
             formAction: SettingsFormAction(
               label: 'Save',
               busy: _form.saving,
-              onPressed: _save,
+              onPressed: _form.active ? _save : null,
             ),
             body: GroupedListView(
               children: [

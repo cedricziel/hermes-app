@@ -27,12 +27,15 @@ void main() {
     updatedAt: DateTime(2026),
   );
 
-  AttentionNotifier build({NotificationSettings? withSettings}) =>
-      notifier = AttentionNotifier(
-        service: service,
-        settings: withSettings ?? settings,
-        onOpen: opened.add,
-      );
+  AttentionNotifier build({
+    NotificationSettings? withSettings,
+    ValueListenable<bool>? activity,
+  }) => notifier = AttentionNotifier(
+    service: service,
+    settings: withSettings ?? settings,
+    onOpen: opened.add,
+    activity: activity,
+  );
 
   void leaveTheApp() {
     binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
@@ -180,6 +183,195 @@ void main() {
 
       expect(service.shown.single.body, 'Nothing new.');
     });
+  });
+
+  group('session activity', () {
+    late ValueNotifier<bool> activity;
+
+    setUp(() => activity = ValueNotifier(true));
+    tearDown(() => activity.dispose());
+
+    void announce(String body) => notifier.announce(
+      thread,
+      ReplyCompleted(body),
+      selectedThreadId: null,
+      profile: 'work',
+    );
+
+    test('an earlier pause listener cannot start an announcement', () {
+      activity.addListener(() {
+        if (!activity.value) announce('Private reply');
+      });
+      build(activity: activity);
+
+      activity.value = false;
+
+      expect(service.shown, isEmpty);
+    });
+
+    test('an earlier pause listener cannot request permission', () async {
+      late Future<void> asking;
+      activity.addListener(() {
+        if (!activity.value) asking = notifier.askForPermission();
+      });
+      build(activity: activity);
+
+      activity.value = false;
+      await asking;
+
+      expect(service.permissionRequests, 0);
+    });
+
+    test('a reentrant resume invalidates held announcements', () async {
+      final gate = service.permissionGate = Completer<NotificationPermission>();
+      activity.addListener(() {
+        if (!activity.value) activity.value = true;
+      });
+      build(activity: activity);
+      final asking = notifier.askForPermission();
+      announce('Old private reply');
+
+      activity.value = false;
+      gate.complete(NotificationPermission.granted);
+      await asking;
+      await pumpEventQueue();
+
+      expect(activity.value, isTrue);
+      expect(service.shown, isEmpty);
+      announce('Fresh private reply');
+      expect(service.shown.single.body, 'Fresh private reply');
+    });
+
+    test(
+      'suspended activity starts no announcement or permission prompt',
+      () async {
+        activity.value = false;
+        build(activity: activity);
+
+        announce('Private reply');
+        await notifier.askForPermission();
+
+        expect(service.shown, isEmpty);
+        expect(service.permissionRequests, 0);
+      },
+    );
+
+    test(
+      'pause and resume drop old permission-delayed announcements',
+      () async {
+        final gate = service.permissionGate =
+            Completer<NotificationPermission>();
+        build(activity: activity);
+        final asking = notifier.askForPermission();
+        announce('Old private reply');
+
+        activity.value = false;
+        activity.value = true;
+        announce('Fresh private reply');
+        gate.complete(NotificationPermission.granted);
+        await asking;
+        await pumpEventQueue();
+
+        expect(service.shown.single.body, 'Fresh private reply');
+        expect(settings.permissionAsked, isTrue);
+        expect(settings.permissionDenied, isFalse);
+      },
+    );
+
+    test(
+      'dispose drops queued announcements and retains the permission answer',
+      () async {
+        final gate = service.permissionGate =
+            Completer<NotificationPermission>();
+        build(activity: activity);
+        final asking = notifier.askForPermission();
+        announce('Private reply');
+
+        notifier.dispose();
+        gate.complete(NotificationPermission.denied);
+        await asking;
+        await pumpEventQueue();
+
+        expect(service.shown, isEmpty);
+        expect(settings.permissionAsked, isTrue);
+        expect(settings.permissionDenied, isTrue);
+      },
+    );
+
+    test('dispose prevents new announcements and permission prompts', () async {
+      build(activity: activity);
+      notifier.dispose();
+
+      announce('Private reply');
+      await notifier.askForPermission();
+
+      expect(service.shown, isEmpty);
+      expect(service.permissionRequests, 0);
+    });
+
+    test(
+      'pause and resume invalidate guarded notification preparation',
+      () async {
+        final guarded = _HeldPreparationService();
+        service = guarded;
+        build(activity: activity);
+        announce('Old private reply');
+        await guarded.started.future;
+
+        activity.value = false;
+        activity.value = true;
+        announce('Fresh private reply');
+        guarded.release.complete();
+        await pumpEventQueue();
+
+        expect(service.shown.single.body, 'Fresh private reply');
+      },
+    );
+
+    test('dispose invalidates guarded notification preparation', () async {
+      final guarded = _HeldPreparationService();
+      service = guarded;
+      build(activity: activity);
+      announce('Private reply');
+      await guarded.started.future;
+
+      notifier.dispose();
+      guarded.release.complete();
+      await pumpEventQueue();
+
+      expect(service.shown, isEmpty);
+    });
+
+    test(
+      'suspended activity still forwards taps to the routing owner',
+      () async {
+        activity.value = false;
+        build(activity: activity);
+
+        service.tap('s2', profile: 'work');
+        await pumpEventQueue();
+
+        expect(opened.single.threadId, 's2');
+        expect(opened.single.profile, 'work');
+      },
+    );
+
+    test(
+      'suspended activity still hands over a held launch target once',
+      () async {
+        final launch = service.launchGate = Completer<NotificationTarget?>();
+        build(activity: activity);
+        final target = notifier.takeLaunchTarget();
+
+        activity.value = false;
+        launch.complete(
+          const NotificationTarget(threadId: 's2', profile: 'work'),
+        );
+
+        expect((await target)?.threadId, 's2');
+        expect(await notifier.takeLaunchTarget(), isNull);
+      },
+    );
   });
 
   group('askForPermission', () {
@@ -346,4 +538,31 @@ void main() {
       expect(service.shown, isEmpty);
     });
   });
+}
+
+class _HeldPreparationService extends FakeNotificationService
+    implements GuardedNotificationService {
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  Future<void> _prepare() async {
+    if (started.isCompleted) return;
+    started.complete();
+    await release.future;
+  }
+
+  @override
+  Future<void> show(AttentionNotification notification) async {
+    await _prepare();
+    await super.show(notification);
+  }
+
+  @override
+  Future<void> showWhile(
+    AttentionNotification notification,
+    bool Function() canDeliver,
+  ) async {
+    await _prepare();
+    if (canDeliver()) await super.show(notification);
+  }
 }

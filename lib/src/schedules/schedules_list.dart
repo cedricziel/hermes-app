@@ -77,11 +77,17 @@ class SchedulesList extends StatelessWidget {
       );
     }
     Future<void> pausedChanged(CronJob job, bool paused) async {
-      final message = await controller.setPaused(job, paused);
-      if (message != null && context.mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(message)));
+      try {
+        final epoch = controller.captureActivity();
+        final message = await controller.setPaused(job, paused);
+        controller.requireActivity(epoch);
+        if (message != null && context.mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(message)));
+        }
+      } on SchedulesActivitySuspended {
+        return;
       }
     }
 
