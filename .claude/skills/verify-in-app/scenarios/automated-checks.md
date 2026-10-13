@@ -49,3 +49,14 @@ missing final newline.
 Run normal commit hooks. Record passed commands, counts, source revisions, and any
 unobserved native cases. Source-identical rebases may reuse the matching evidence;
 conflict resolutions or new parent behavior need relevant integration checks.
+
+## Prepare the native run
+
+Check free disk space on the checkout and build volume before building or
+rebuilding. Remove only recorded disposable outputs from this verification task;
+retain source snapshots and evidence, and leave shared SDK and user caches alone.
+If enough space is unavailable, preserve the fixture and report the blocked build.
+
+Record actual native window dimensions for each layout check and note any OS
+minimum size. Label fixture-forced dimensions separately and restore size overrides
+with the other fixture substitutions.
