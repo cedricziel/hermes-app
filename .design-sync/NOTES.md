@@ -120,7 +120,7 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   Material puts a "Chats" heading over its flat list, each with the "Group by" menu on the first header
   (`SectionedThreadList` in `MacSourceList.tsx`). `ShellNavigation profiles` draws the profile switcher and
   `AccountFooter` becomes the Mac account footer (internal `MacAccount.tsx`); the Settings list `AppShell
-  settingsOpen` shows is the public `SettingsDialog` (`AppShell`/`ChatScreen` take `settingsValues`, and `ChatScreen`
+settingsOpen` shows is the public `SettingsDialog` (`AppShell`/`ChatScreen` take `settingsValues`, and `ChatScreen`
   forwards `onDismissSettings`); the Mac sidebar has no "More". `AppShell compact` + `sidebarOverlayOpen` is the
   compact window (sidebar over the page, `ShellChrome.closeOverlay`), and `ChatHeader` reads `compact` from it.
   `ShellDestination` gained `bots` and `profiles` (`MacProfilesPage` in the shell). `Menu` items gained `heading`
@@ -187,6 +187,9 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - Everything here is a hand copy of Flutter UI. Check `git log lib/src/theme lib/src/chat/widgets
 lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins lib/src/schedules` since the
   last sync and update the matching components before re-syncing, or Claude Design keeps the old look.
+- Last sync: 2026-10-14 at fc6265d9. The recreation was last ported at #662; the Flutter UI commits #680 to #759
+  (chat notices, todo plans, session usage, guarded connector/device controls, short-window navigation) have no
+  matching `design/web` change yet, so Claude Design shows the #662 look for those surfaces.
 - Preview content is static fixture data written for the previews, not loaded from `widgetbook/fixtures.dart`.
 - Only CupertinoIcons ships as a font file; the system font stack and Material Symbols Outlined come from the
   viewer's OS and Google Fonts. A new `cupertino_icons` version in `pubspec.lock` means copying its ttf again.
