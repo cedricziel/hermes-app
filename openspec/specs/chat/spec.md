@@ -3,7 +3,9 @@
 ## Purpose
 
 The chat screen is the app's main destination once the user is connected and signed in. It lists the conversations ("threads") the Hermes dashboard holds, shows their messages, sends new messages to the agent over the dashboard's `/api/ws` JSON-RPC socket, streams the reply, and lets the user answer the agent when it stops to ask for approval or clarification. This spec describes the behaviour of the code as it is today.
+
 ## Requirements
+
 ### Requirement: Thread list loading
 
 The system SHALL load the first page of the thread list from the dashboard when the chat screen opens, showing a progress indicator while it loads, and SHALL list threads with the most recently active first. Archived sessions SHALL be left out of the list.
@@ -1615,3 +1617,239 @@ Recovery SHALL use existing `session.resume` and `prompt.submit` over `/api/ws`,
 
 - **WHEN** the existing supported gateway provides its current session and submit contracts
 - **THEN** reviewed queue recovery works without an additional backend capability
+
+### Requirement: Model and effort pill in the composer
+
+The system SHALL show a pill in the composer with the open chat's model id and, when that model reasons and an effort is chosen, the effort's label after a separator in a dimmer colour. With no choice made in the chat, the pill SHALL show the profile's current model as reported by the server. A long model id SHALL be truncated with an ellipsis so the pill stays on one line. The pill SHALL be hidden while the model list has not loaded, when loading it failed, and when no provider is ready.
+
+#### Scenario: Default model shown
+
+- **WHEN** a chat is open, no model has been chosen in it, and the options report `"model": "claude-opus-4"`
+- **THEN** the pill reads "claude-opus-4"
+
+#### Scenario: Choice with effort shown
+
+- **WHEN** the user has chosen model `gpt-5` with effort `high` in the open chat
+- **THEN** the pill reads "gpt-5 · High", with "High" in a dimmer colour
+
+#### Scenario: Options unavailable
+
+- **WHEN** `GET /api/model/options` fails or lists no authenticated provider with models
+- **THEN** no pill is shown and the composer works as before
+
+### Requirement: Picking a model and effort
+
+The system SHALL open a picker when the pill is tapped, as a bottom sheet below 900 logical pixels and as a dialog at 900 or wider. The picker SHALL list the models of every authenticated provider that has models, grouped under the provider's name, with the chat's current model checked. When the selected model reasons, the picker SHALL offer the effort levels Minimal, Low, Medium, High, Extra High, Max and Ultra, and Off when the model can disable reasoning. When it does not reason, no effort SHALL be offered and none SHALL be sent. Picking a model or an effort SHALL update the pill at once. Switching to another profile SHALL reload the list and drop the choice.
+
+#### Scenario: Pick a model
+
+- **WHEN** the user taps the pill and picks `gpt-5` under OpenAI
+- **THEN** the pill shows "gpt-5" and the next message in that chat uses it
+
+#### Scenario: Model without reasoning
+
+- **WHEN** the selected model's capabilities report `"reasoning": false`
+- **THEN** the picker offers no effort levels and the pill shows only the model
+
+#### Scenario: Profile switch
+
+- **WHEN** the user switches the chat screen to another profile
+- **THEN** that profile's model list is loaded and the pill shows its current model
+
+### Requirement: Sending the chosen model
+
+The system SHALL send a chat's model choice to the gateway with the message. For a new chat, `session.create` SHALL carry `model`, `provider` and, when an effort is chosen, `reasoning_effort`. For an existing chat, after `session.resume` and before `prompt.submit`, the system SHALL call `config.set` with the runtime `session_id`, key `model` and value `<model> --provider <provider> --session` when the model differs from the one last applied to that chat, and with key `reasoning` and the effort as value when the effort differs. It SHALL NOT send `scope: "global"`. With no choice made, none of these fields or calls SHALL be sent. An error from `session.create` or `config.set` SHALL end the send as a failed reply, as any other gateway error does.
+
+#### Scenario: New chat with a choice
+
+- **WHEN** the user picks `gpt-5` from provider `openai` with effort `high` and sends the first message of a new chat
+- **THEN** `session.create` carries `"model": "gpt-5"`, `"provider": "openai"` and `"reasoning_effort": "high"`
+
+#### Scenario: Existing chat, model changed
+
+- **WHEN** the user picks a different model in an existing chat and sends a message
+- **THEN** `config.set` with key `model` goes out before `prompt.submit`
+
+#### Scenario: Existing chat, nothing changed
+
+- **WHEN** the user sends a second message in a chat without changing the choice
+- **THEN** no `config.set` is sent
+
+### Requirement: Model options contract
+
+The system SHALL load the model list with `GET /api/model/options`, with the `profile` query parameter when a profile is known. The answer is an object with `providers`, `model` (the current model id) and `provider` (the current provider slug). Each provider carries `slug`, `name`, `is_current`, `authenticated` (may be missing), `models` (a list of model id strings) and `capabilities` (a map from model id to an object with `reasoning` and optionally `can_disable_reasoning`). A missing `reasoning` SHALL be read as true. A provider SHALL be listed only when `authenticated` is not false and it has models. The body SHALL be parsed leniently: rows without a `slug` and model entries that are not strings are skipped, and a body that is not an object reads as no providers. The session overrides rely on `session.create` accepting `model`, `provider` and `reasoning_effort`, and on `config.set` accepting the session-scoped `model` and `reasoning` keys. The minimum Hermes version is 0.21.4.
+
+#### Scenario: Junk rows skipped
+
+- **WHEN** the options list a provider without a `slug` and a provider whose `models` holds a number
+- **THEN** the first is left out and the second lists only its string model ids
+
+#### Scenario: Unauthenticated provider hidden
+
+- **WHEN** a provider row has `"authenticated": false`
+- **THEN** its models are not offered
+
+### Requirement: Composer layout
+
+The system SHALL show the composer as one rounded card with the text field on top and a row below it holding, from left to right, an attach button, the model pill when it is shown, a flexible gap and a send button. The send button SHALL be a filled circle in the primary colour with an upward arrow, and SHALL look disabled and do nothing while the field is blank and there are no attachments. The text field SHALL grow with its text up to eight lines and then scroll. The stop bar, the queued messages and the attachment chips SHALL be shown above the card. The card SHALL stay above the bottom safe area and the on-screen keyboard. The layout uses no backend route or RPC method.
+
+#### Scenario: Empty composer
+
+- **WHEN** the chat is open with nothing typed and nothing attached
+- **THEN** the card shows the hint "Message Hermes…", and its bottom row shows the attach button, the pill and a disabled send button, in that order
+
+#### Scenario: Text makes the message sendable
+
+- **WHEN** the user types "hello"
+- **THEN** the send button turns primary and tapping it sends "hello"
+
+#### Scenario: Attachments alone are sendable
+
+- **WHEN** the field is blank and a file is attached
+- **THEN** the send button is enabled and the file's chip is shown above the card
+
+#### Scenario: Reply in flight
+
+- **WHEN** a reply is being written and a message is queued
+- **THEN** the stop bar and the queued message are shown above the card and the hint reads "Queue a message…"
+
+#### Scenario: No pill
+
+- **WHEN** the model list is not available
+- **THEN** the bottom row holds only the attach and send buttons
+
+#### Scenario: Attach
+
+- **WHEN** the user taps the attach button
+- **THEN** the same attachment menu opens as before
+
+### Requirement: Renewable session transport boundary
+
+A renewable chat transport SHALL preserve its public identity while replacing a closed delegate. Suspension SHALL synchronously reject new protected operations, invalidate pending operation results, and cancel active stream subscriptions before closing the old delegate. Only explicit renewal SHALL create a fresh delegate. Permanent retirement SHALL prevent renewal. The proxy SHALL preserve acknowledgement of its latest submitted prompt through suspension and renewal, including acceptance learned during cancellation, until a new send begins. This boundary SHALL NOT independently authorize account recovery or undo already dispatched server effects.
+
+#### Scenario: A request finishes after suspension
+- **WHEN** a delegate request completes after its operation epoch has been suspended
+- **THEN** the proxy rejects its result as suspended instead of publishing stale success or failure
+
+#### Scenario: A stream is subscribed after suspension
+- **WHEN** a stream created before suspension is first listened to afterward
+- **THEN** no delegate stream is subscribed and the listener receives a suspended result
+
+#### Scenario: Active streams are suspended
+- **WHEN** suspension occurs with active reply or follow-up subscriptions
+- **THEN** those subscriptions are cancelled before the old delegate closes and no later event is relayed
+
+#### Scenario: Renewal overlaps old cleanup
+- **WHEN** renewal creates a fresh delegate before old asynchronous cleanup finishes
+- **THEN** old cleanup cannot clear or close the fresh delegate
+
+#### Scenario: Permanently retired transport
+- **WHEN** a retired proxy is asked to renew or perform an operation
+- **THEN** it rejects the operation without creating a delegate or dispatching protected work
+
+#### Scenario: Submit is accepted during cancellation
+- **WHEN** an already dispatched prompt is accepted while suspension cancels its stream
+- **THEN** the proxy continues to report that acknowledgement after suspension and renewal until another send begins
+
+### Requirement: Suspended chat activity
+
+The system SHALL stop new protected chat loads, searches, commands, sends, retries, answers and sidebar mutations while main session activity is suspended. In-flight results and errors SHALL NOT alter retained chat state, restore a draft, start another request or post a notification after suspension, including after subsequent recovery. The current profile, selection and local chat state SHALL remain available for verified recovery.
+
+#### Scenario: In-flight work completes during sign-in
+
+- **WHEN** session activity suspends with a chat load, reply stream or command still pending
+- **THEN** the late result or error leaves retained state and notifications unchanged
+- **AND** streams and timers stop and attempts to send or navigate issue no protected request
+
+#### Scenario: An earlier listener invokes protected work during pause
+
+- **WHEN** an earlier activity listener invokes a send or sidebar mutation while the signal already contains false
+- **THEN** the controller and its sidebar helpers reject the action before their own activity listener runs
+
+#### Scenario: Activity resumes reentrantly during pause delivery
+
+- **WHEN** an earlier listener resumes activity before the controller observes the intermediate false value
+- **THEN** the delivered activity notifications still invalidate old commands, reply streams, timers, and queued continuations
+
+#### Scenario: A state notification or callback suspends activity
+
+- **WHEN** a state notification or external callback suspends activity during command publication, reply publication, sending, sidebar mutation, or an opening
+- **THEN** that operation cannot continue with a protected request, expanded prompt, prefill, private announcement, or automatic opening even if activity resumes before the callback returns
+
+#### Scenario: Undo publication suspends activity
+
+- **WHEN** a listener suspends and resumes activity while retry or edit publishes its undo state
+- **THEN** the retired operation does not dispatch an undo or restore a composer draft
+- **AND** the original transcript remains available
+
+### Requirement: Chat reconciliation after recovery
+
+After verified same-account activity resumes, the system SHALL reload server-owned chat state and preserve the selected profile and thread when they remain valid. It SHALL NOT automatically resend a submitted or queued prompt.
+
+#### Scenario: Recover the selected conversation
+
+- **WHEN** activity resumes and the previously selected profile and thread still exist
+- **THEN** the refreshed transcript is selected on that profile without another prompt submission
+
+#### Scenario: Recover queues outside the first page
+
+- **WHEN** activity resumes with queued prompts in conversations outside the first session page
+- **THEN** every queue is remapped to its recovered conversation without submitting a prompt
+- **AND** a missing or unreadable target retains its queued prompts in a paused, unbound local draft
+- **AND** an explicit send from that draft creates a new session instead of submitting to the unavailable stored session ID
+
+#### Scenario: The previous profile is no longer available
+
+- **WHEN** recovery switches away from a profile that no longer exists
+- **THEN** queued prompts from that profile remain in local drafts
+- **AND** a session with the same ID on the replacement profile does not inherit those prompts
+
+#### Scenario: A local reply lost its stream before a server binding
+
+- **WHEN** activity resumes with queued prompts in an unbound local conversation whose old reply stream was suspended
+- **THEN** the old pending reply no longer blocks explicit queue submission
+- **AND** its local thread, settled messages, and queued prompts remain available without automatic submission
+- **AND** explicit queue submission creates a new session
+
+#### Scenario: A fresh local send begins during reconciliation
+
+- **WHEN** an authorized explicit send begins after resume while reconciliation is still pending
+- **THEN** reconciliation preserves that fresh send and its pending reply
+
+#### Scenario: A local queue or conversation is created during reconciliation
+
+- **WHEN** an authorized user creates a local conversation or queues a prompt while resumed reconciliation waits
+- **THEN** publication preserves the latest local conversation, selection, and queued text
+- **AND** no prompt is submitted automatically and no queue is rebound to another profile's stored session
+
+### Requirement: Interrupted external opening recovery
+
+The system SHALL retain the target, prompt, and fetch permission of an external opening interrupted by suspension. Recovery SHALL NOT automatically apply that opening or mutate its composer. The active session owner MAY take the interrupted metadata once and requeue it after dismissal and arbitration with newer intents. A newer explicit opening SHALL supersede the retained opening.
+
+#### Scenario: Opening was held behind a session load
+
+- **WHEN** suspension interrupts an external opening held behind a session load
+- **THEN** recovery leaves its target and draft unapplied
+- **AND** the active owner can take its target, prompt, and `fetchMissing` flag once
+- **AND** an inactive attempt to take it leaves the metadata retained
+
+#### Scenario: The interrupted HTTP request remains pending
+
+- **WHEN** recovery completes before the HTTP request of an interrupted opening
+- **THEN** a fresh request to create a new chat does not wait for the retired HTTP request
+
+#### Scenario: Publishing a fetched target suspends activity
+
+- **WHEN** a listener suspends and resumes activity while an external opening publishes its fetched thread
+- **THEN** the retired opening does not select that target or fetch its messages
+- **AND** its target, prompt, and fetch permission remain available for explicit owner recovery
+
+### Requirement: Existing recovery backend contracts
+
+Recovery SHALL use existing profile and session REST routes and existing chat RPC methods without changing backend compatibility.
+
+#### Scenario: Backend compatibility
+
+- **WHEN** suspended activity resumes
+- **THEN** reconciliation uses existing profile and session REST routes with their existing `profiles`, `sessions` and `messages` response envelopes and existing chat RPC methods
+- **AND** no endpoint, RPC or minimum supported Hermes version changes

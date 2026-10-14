@@ -3,7 +3,9 @@
 ## Purpose
 
 Describes the local notifications the app posts when the agent has something for the user (a reply finished, a reply failed, or the agent is waiting for an approval or an answer), the policy that decides when one is shown, the user's on/off setting and the system permission flow, and how tapping a notification opens the matching chat. Notifications are local: they are posted by the running app when it sees the event on its own chat connection, or, for a turn sent from the watch, on the connection the phone opened for it. No push service is involved.
+
 ## Requirements
+
 ### Requirement: Notifiable events
 
 The system SHALL post a local notification for exactly these chat events: a reply that completed, a reply that completed with failure, a reply that broke (the stream ended or failed while the reply was still pending, for example because the socket dropped or the gateway answered with an error, so that no completion arrived), an approval request from the agent, a clarifying question from the agent, and a request from the agent for something the app cannot answer (a secret value or a sudo password). A broken reply SHALL be announced exactly like a failed one. A reply the user stopped SHALL NOT produce a notification. Streaming text, tool activity, title changes, thread binding and expiring input requests SHALL NOT produce a notification. The notification title SHALL be the chat's title.
@@ -315,7 +317,7 @@ The system SHALL post a notification when a scheduled task has run since the app
 
 ### Requirement: Watching for runs
 
-The system SHALL check the server's jobs for every profile with `GET /api/cron/jobs?profile=all` when the app comes to the foreground and every minute while it is in front, whatever destination is open, for as long as the cron routes answer, notifications are on and the scheduled task setting is on. It SHALL NOT check while the app is in the background. When the Schedules destination is in front and the app is in front, a run SHALL update the list instead of posting a notification.
+The system SHALL check the server's jobs for every profile with `GET /api/cron/jobs?profile=all` when the app comes to the foreground and every minute while it is in front, whatever destination is open, for as long as the cron routes answer, notifications are on and the scheduled task setting is on. While the app is in the background it SHALL NOT poll; on iOS and Android it SHALL make the same check, under the same conditions, during the background runs the system grants (see the background-refresh and background-refresh-alerts specs). The last run time seen for each job SHALL be kept on the device and shared by the foreground and background checks, so a run is announced at most once; the first check on a device, or after the scheduled task setting is turned on, SHALL only record the run times. When the Schedules destination is in front and the app is in front, a run SHALL update the list instead of posting a notification.
 
 #### Scenario: On another destination
 
@@ -329,8 +331,18 @@ The system SHALL check the server's jobs for every profile with `GET /api/cron/j
 
 #### Scenario: Background
 
-- **WHEN** the app is in the background
+- **WHEN** the app is in the background and the system grants no background run
 - **THEN** no jobs request is made
+
+#### Scenario: Background run
+
+- **WHEN** a job fails while the app is in the background and the system grants a background run
+- **THEN** the run posts the job's "Failed" notification
+
+#### Scenario: Announced once
+
+- **WHEN** a background run announced a job's run and the user then opens the app
+- **THEN** the check in front does not announce that run again
 
 ### Requirement: Mute a scheduled task
 
@@ -436,3 +448,119 @@ An answer SHALL be sent with the gateway's `request.answer` RPC (`{id, result, p
 
 - **WHEN** App Lock is on and the agent asks a question
 - **THEN** the notification says "Has a question for you" and carries no actions
+
+### Requirement: Grouping per chat
+
+On iOS and macOS the system SHALL group notifications by chat, identified by its profile and thread id together, and notifications of a scheduled task by its profile and job id, so that notifications of one chat stack together and those of different chats, or of chats with the same id in different profiles, do not.
+
+#### Scenario: Two chats
+
+- **WHEN** chat A and chat B each have a notification
+- **THEN** the notification centre shows them in two separate groups
+
+### Requirement: Time-sensitive requests
+
+On iOS and macOS, notifications posted under a request category (`hermes.request.approval.<choices>`, `hermes.request.approval`, `hermes.request.question`, `hermes.request.question.<hash>` or `hermes.request.questions`), and notifications for a secret or sudo request and any other input the agent waits for SHALL use the time-sensitive interruption level, so that they are delivered during a Focus that allows time-sensitive notifications. Reply and scheduled-task notifications SHALL use the default level.
+
+#### Scenario: Approval during a Focus
+
+- **WHEN** a Focus that allows time-sensitive notifications is on and the agent asks for approval
+- **THEN** the approval notification is delivered immediately
+
+#### Scenario: Reply during a Focus
+
+- **WHEN** the same Focus is on and a reply completes
+- **THEN** the "Reply ready" notification is held like any other app's notification
+
+### Requirement: Open-request badge
+
+On iOS, on macOS (the Dock icon) and on Android launchers that support badges, the app icon SHALL show the number of requests waiting for the user (approvals, questions and other input) across all profiles, as known from the latest list of pending requests the app built. The badge SHALL be removed when the number is zero, when nobody is signed in, after sign-out, and while Hermes notifications are turned off. The badge SHALL be updated whenever the pending list changes, including when it is rebuilt in the background, and SHALL NOT be changed when the number is unchanged. On launchers or platforms without badge support nothing SHALL happen and no error SHALL reach the user.
+
+#### Scenario: Two requests waiting
+
+- **WHEN** one approval in profile `default` and one question in profile `work` are waiting
+- **THEN** the app icon shows 2
+
+#### Scenario: Request answered
+
+- **WHEN** the user answers one of them in the app
+- **THEN** the app icon shows 1
+
+#### Scenario: Sign-out
+
+- **WHEN** the user signs out
+- **THEN** the badge is removed
+
+#### Scenario: Notifications off
+
+- **WHEN** the user turns Hermes notifications off while two requests wait
+- **THEN** the badge is removed
+
+### Requirement: Telemetry for notification presentation
+
+The system SHALL record a `notification.badge` breadcrumb with `count` (`0`, `1`, `2-5` or `6+`) when the badge's bucket changes. It SHALL NOT record request text, chat titles, profile names or ids.
+
+#### Scenario: Badge crumb
+
+- **WHEN** the badge goes from 0 to 3
+- **THEN** a `notification.badge` crumb with `count: 2-5` is added and nothing else about the requests
+
+### Requirement: Scheduled-task alerts suspend without losing their baseline
+
+While session activity is paused, the system SHALL stop scheduled-task polling and SHALL retain the last-run comparison baseline. It SHALL NOT start new checks, prune mutes, write a comparison baseline, or deliver a notification from work invalidated by that pause. A lookup or write already dispatched can still finish; suspension SHALL prevent its later client continuations from starting further work. Resuming authorized activity SHALL start a fresh check without waiting for invalidated lookups and SHALL announce a newly observed run once against the preserved baseline.
+
+Before submitting a local notification after asynchronous platform initialization or category registration, the system SHALL recheck the caller's current session activity permission and SHALL drop a delivery whose permission was invalidated during preparation.
+
+The backend contract SHALL remain `GET /api/cron/jobs?profile=all`, with job `id`, optional `profile`, `last_run_at`, and existing outcome fields parsed as before, and the existing active-profile lookup for alert titles. This change SHALL require no new backend route, response field, or minimum Hermes version beyond the existing cron routes.
+
+#### Scenario: Job lookup completes after pause
+- **WHEN** a job lookup completes after session activity pauses
+- **THEN** its result changes neither the baseline nor mutes and posts no notification
+
+#### Scenario: Fresh recovery outruns an invalidated lookup
+- **WHEN** activity resumes while a lookup from before the pause remains pending
+- **THEN** a fresh check starts and the old completion cannot replace the fresh check or publish its result
+
+#### Scenario: Newly completed run after recovery
+- **WHEN** an authorized resumed check sees a run newer than the preserved baseline
+- **THEN** the run is announced once and subsequent checks of the same run are silent
+
+#### Scenario: Local lookup or notification initialization completes after pause
+- **WHEN** activity pauses while a baseline read, active-profile lookup, or guarded notification preparation is pending
+- **THEN** completion cannot start a new state write or deliver that stale alert
+
+#### Scenario: Paused polling and explicit checks
+- **WHEN** polling time elapses or an explicit check is requested while paused or disposed
+- **THEN** no new job lookup starts
+
+### Requirement: Private chat announcements respect session suspension
+
+While session activity is paused or disposed, the system SHALL NOT start a private chat announcement or a new device notification permission request. An announcement delayed by device permission or platform preparation SHALL NOT be delivered if session activity paused or was disposed during that delay. Resuming activity SHALL permit fresh announcements without reviving invalidated announcements.
+
+A device permission result requested before suspension SHALL still be recorded. Notification taps and launch targets SHALL continue to be handed to the routing owner while session activity is paused.
+
+This change SHALL preserve existing chat event and notification payload contracts. It SHALL add no backend route, RPC method, response field, or minimum Hermes version requirement.
+
+#### Scenario: Session starts paused
+- **WHEN** an announcement or device permission request is attempted while session activity is paused
+- **THEN** no notification is posted and no permission prompt starts
+
+#### Scenario: Permission result arrives after pause and resume
+- **WHEN** an old announcement waits for permission and session activity pauses then resumes before the answer
+- **THEN** the old announcement is discarded, the device answer is recorded, and a fresh authorized announcement may be delivered
+
+#### Scenario: Native preparation crosses suspension
+- **WHEN** session activity pauses or is disposed while notification preparation is pending
+- **THEN** the final platform dispatch rejects the invalidated announcement even if session activity later resumes
+
+#### Scenario: Notification navigation arrives during pause
+- **WHEN** a notification tap or held launch target arrives while session activity is paused
+- **THEN** the target reaches the routing owner without being silently discarded
+
+#### Scenario: Earlier activity listener attempts notification work
+- **WHEN** an earlier listener attempts an announcement or permission request while the activity signal already contains false
+- **THEN** the notifier rejects the attempt even before its own activity listener runs
+
+#### Scenario: Earlier activity listener resumes reentrantly
+- **WHEN** an earlier listener resumes activity during the pause notification before the notifier observes the intermediate value
+- **THEN** old delayed announcements are invalidated and fresh authorized announcements remain available

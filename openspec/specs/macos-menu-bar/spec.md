@@ -3,7 +3,9 @@
 ## Purpose
 
 Describes the native menu bar of the macOS app: its menus, items and keyboard shortcuts, how items act on the screen in front, and how editing shortcuts keep working in text fields.
+
 ## Requirements
+
 ### Requirement: Mac menu bar
 
 On macOS the system SHALL set a native menu bar with these menus and items, in this order:
@@ -16,7 +18,7 @@ On macOS the system SHALL set a native menu bar with these menus and items, in t
 - Window: Minimize (⌘M), Zoom; Hermes (⌘0) followed by the open conversation windows; Bring All to Front.
 - Help: Hermes Help, which opens the project's README in the browser.
 
-An item SHALL be disabled while the screen in front offers no handler for it. Connection Details SHALL open the connection page, and Sign Out… SHALL ask "Sign out of the dashboard?" before signing out; it SHALL be disabled when the server needs no sign-in. On other platforms the system SHALL NOT set a menu bar. No backend route is involved.
+An item SHALL be disabled while the screen in front offers no handler for it. Connection Details SHALL open the connection page, and Sign Out… SHALL ask "Sign out of the dashboard?" before signing out; it SHALL be disabled when the server needs no sign-in. On iOS and iPadOS the system SHALL add the commands described by the iPad keyboard commands capability to the system's menus instead of setting this menu bar. On other platforms the system SHALL NOT set a menu bar. No backend route is involved.
 
 #### Scenario: Menus on macOS
 
@@ -25,8 +27,13 @@ An item SHALL be disabled while the screen in front offers no handler for it. Co
 
 #### Scenario: Not on other platforms
 
-- **WHEN** the app runs on Windows, Linux, Android, iOS or the web
+- **WHEN** the app runs on Windows, Linux, Android or the web
 - **THEN** no menu bar is set and the app looks as before
+
+#### Scenario: iPad
+
+- **WHEN** the app runs on iPadOS
+- **THEN** the Mac menu bar is not set and the iPad commands are added to the system menus
 
 #### Scenario: Unavailable command
 
@@ -79,4 +86,3 @@ Each menu shortcut SHALL run its command once. The sidebar SHALL NOT handle Cont
 
 - **WHEN** the user presses ⌃⌘S
 - **THEN** the sidebar hides or shows once, and the View menu item's label changes between Hide Sidebar and Show Sidebar
-

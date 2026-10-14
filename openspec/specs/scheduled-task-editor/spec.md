@@ -2,7 +2,9 @@
 
 ## Purpose
 Describes how the app creates and changes scheduled tasks: the gallery of blueprints, the blueprint form, the form for a custom task and for editing, how "when" is chosen and written, how delivery targets are offered, and which backend routes it relies on.
+
 ## Requirements
+
 ### Requirement: New task gallery
 
 The system SHALL offer a "New" action on the Schedules list that opens a gallery with a "Custom task" card and the blueprints of the profile new jobs go to, from `GET /api/cron/blueprints?profile=<profile>`. Each blueprint card SHALL show its title, description and its schedule in words (`scheduleHuman`). The gallery SHALL have a search field matching titles, descriptions and tags, and one chip per category the blueprints carry. A blueprint the app cannot render SHALL be skipped. When the blueprints cannot be loaded, the gallery SHALL still offer "Custom task" and say the templates are unavailable.
@@ -53,7 +55,7 @@ The system SHALL build a form from the slots of the chosen blueprint: a `time` s
 
 ### Requirement: Job form
 
-The system SHALL let the user create a job from "Custom task" with `POST /api/cron/jobs?profile=<profile>`, and change one from its detail with `PUT /api/cron/jobs/{id}?profile=<profile>`. The form SHALL have a name, a prompt, "when", "deliver to", a profile (creating only), "start paused" (creating only), and an Advanced section with skills, model, provider, a pre-run script, jobs to take context from, and a working directory. Skills and context-from entries are typed as names separated by commas or lines. On edit, the request SHALL carry only the fields the user changed, and SHALL leave every other field of the job as the server has it. A job SHALL NOT be saved without a schedule, nor without a prompt, a skill or a script. Empty optional text SHALL be sent as absent on create and as cleared on edit.
+The system SHALL let the user create a job from "Custom task" with `POST /api/cron/jobs?profile=<profile>`, and change one from its detail with `PUT /api/cron/jobs/{id}?profile=<profile>`. The form SHALL have a name, a prompt, "when", "deliver to", a profile (creating only), "start paused" (creating only), and an Advanced section with skills, model, a pre-run script, jobs to take context from, and a working directory. Skills and context-from entries are typed as names separated by commas or lines. On edit, the request SHALL carry only the fields the user changed, and SHALL leave every other field of the job as the server has it. A job SHALL NOT be saved without a schedule, nor without a prompt, a skill or a script. Empty optional text SHALL be sent as absent on create and as cleared on edit.
 
 #### Scenario: Create
 
@@ -72,8 +74,8 @@ The system SHALL let the user create a job from "Custom task" with `POST /api/cr
 
 #### Scenario: Clearing a field on edit
 
-- **WHEN** the user empties the model field of a job that had one
-- **THEN** the update request clears the model
+- **WHEN** the user empties the working directory of a job that had one
+- **THEN** the update request clears the working directory
 
 #### Scenario: Server refuses
 
@@ -166,3 +168,61 @@ The system SHALL ask before closing a form with changes that were not saved, and
 - **WHEN** the user taps Save twice quickly
 - **THEN** one request is sent
 
+### Requirement: Job model
+
+The system SHALL let the user choose a job's model from the models of the job's profile, loaded with `GET /api/model/options?profile=<profile>` (the same answer and lenient parsing as the chat's model list), grouped by provider, with a "Use the profile's default" entry first and no reasoning-effort choice. Picking a model SHALL set the job's `model` to its id and `provider` to its provider slug; the default entry SHALL leave both empty, which on create sends neither and on edit sends both as empty strings, which Hermes stores as cleared. The field SHALL show the job's model and provider, or that the profile's default is used. A saved model that the list does not offer, including one saved without a provider, SHALL stay shown, be marked as not in the server's list, and SHALL NOT be changed or cleared unless the user picks another entry. When the list cannot be loaded, the field SHALL still show the saved value and the picker SHALL offer only the default entry. The model list for a new job SHALL follow the profile chosen in the form. The minimum Hermes version is 0.21.4.
+
+#### Scenario: Pick a model on create
+
+- **WHEN** the user picks `claude-opus-4` from the provider `anthropic` and saves a new job
+- **THEN** the create request carries `model: claude-opus-4` and `provider: anthropic`
+
+#### Scenario: Profile default
+
+- **WHEN** the user creates a job without choosing a model
+- **THEN** the create request carries neither a model nor a provider
+
+#### Scenario: Back to the default on edit
+
+- **WHEN** the user picks "Use the profile's default" for a job that had a model and saves
+- **THEN** the update request carries `model` and `provider` as empty strings
+
+#### Scenario: Model not in the list
+
+- **WHEN** a job's saved model is not offered by the server and the user changes only its name
+- **THEN** the field shows the saved model as not in the server's list, and the update request carries the name and no model or provider
+
+#### Scenario: No effort for jobs
+
+- **WHEN** the user opens the picker from the job form and picks a model that reasons
+- **THEN** no reasoning-effort choice is shown
+
+#### Scenario: List unavailable
+
+- **WHEN** `GET /api/model/options` fails
+- **THEN** the field still shows the saved model, and the picker offers only "Use the profile's default"
+
+### Requirement: Scheduled-job forms respect session activity
+
+The custom and edit scheduled-job forms SHALL retain entered values while verified session activity is suspended. While suspended, the app SHALL NOT start reads for delivery targets or model options, or start a job save. A metadata read already in flight when activity is suspended SHALL NOT update the form. When the same verified session becomes active again, the app MAY reload metadata but SHALL NOT submit a save automatically.
+
+A save already sent before activity was suspended cannot be recalled. If its result arrives after the activity epoch has changed, the app SHALL keep the form open with its entered values and SHALL NOT treat that result as a saved job for navigation. The existing backend routes remain `GET /api/cron/delivery-targets?profile=<profile>`, `GET /api/model/options?profile=<profile>`, `POST /api/cron/jobs?profile=<profile>`, and `PUT /api/cron/jobs/{id}?profile=<profile>`; no response or minimum Hermes version change is required.
+
+#### Scenario: Metadata requests wait for active session
+- **WHEN** the job form is opened while verified session activity is suspended
+- **THEN** it retains its values and starts no delivery-target or model-option request
+- **WHEN** the same verified session becomes active
+- **THEN** the form may load delivery targets and model options
+
+#### Scenario: Stale metadata reply is discarded
+- **WHEN** a delivery-target or model-option request is in flight as session activity is suspended
+- **THEN** its reply does not update the form
+- **WHEN** the same verified session becomes active again
+- **THEN** the form may issue a fresh metadata read
+
+#### Scenario: Save is not replayed after recovery
+- **WHEN** a save is attempted while activity is suspended
+- **THEN** no job-save request is sent
+- **WHEN** a save sent during active activity returns after that activity epoch ended
+- **THEN** the form stays open with its values and does not navigate as though the job were saved
+- **THEN** recovery does not send another save without a new user action
