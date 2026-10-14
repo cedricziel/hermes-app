@@ -1149,6 +1149,12 @@ The system SHALL hold the messages queued on a thread, text and attachments, in 
 
 On macOS the sidebar SHALL list the threads under section headers: Pinned (every pinned thread), Today, Previous 7 days, Previous 30 days and Older (by the thread's last activity, by calendar day). Empty sections SHALL be left out, and each section SHALL keep the sidebar's order. A click on a header SHALL fold its section away or open it again, and which sections are folded SHALL be remembered across launches. Thread rows SHALL be 28 pt high; under the pointer a row SHALL show an Archive button (for a thread the dashboard holds) and a More button. More and a secondary click SHALL open the thread's menu: "Open in New Window" (only where the app can open one), "Rename…", "Pin" or "Unpin", "Copy Transcript", "Archive" and "Delete…", in that order, with the shortcuts ⌥⌘O, ⇧⌘P and ⌘⌫ shown beside their items. A thread the dashboard does not hold SHALL offer only "Copy Transcript". Other platforms SHALL keep the flat list.
 
+#### Scenario: Navigation and threads remain usable in a short Mac window
+
+- **WHEN** the profile switcher and destinations leave less than one thread row of space in the sidebar
+- **THEN** the destinations scroll independently of thread history so a thread row can still be selected
+- **AND** the account footer stays visible
+
 #### Scenario: Sections by recency
 
 - **WHEN** the sidebar holds a pinned thread, threads active today and a thread active three months ago

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
 import '../../macos/mac_sidebar.dart';
+import '../../macos/mac_source_list.dart' show kMacSourceListRowHeight;
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
@@ -228,25 +229,37 @@ class ThreadSidebar extends StatelessWidget {
   /// in the toolbar there.
   Widget _macBody(ThreadListPreferences preferences) {
     final navigation = this.navigation;
-    final body = Column(
-      children: [
-        if (navigation != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: navigation,
+    final body = LayoutBuilder(
+      builder: (context, constraints) => Column(
+        children: [
+          if (navigation != null)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight > kMacSourceListRowHeight
+                    ? constraints.maxHeight - kMacSourceListRowHeight
+                    : 0,
+              ),
+              child: SingleChildScrollView(
+                primary: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                  child: navigation,
+                ),
+              ),
+            ),
+          Expanded(
+            child: _SectionedThreadList(
+              preferences: preferences,
+              threads: threads,
+              selectedId: selectedId,
+              onSelect: onSelect,
+              busy: busy,
+              housekeeping: housekeeping,
+              onOpenInNewWindow: onOpenInNewWindow,
+            ),
           ),
-        Expanded(
-          child: _SectionedThreadList(
-            preferences: preferences,
-            threads: threads,
-            selectedId: selectedId,
-            onSelect: onSelect,
-            busy: busy,
-            housekeeping: housekeeping,
-            onOpenInNewWindow: onOpenInNewWindow,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
     final search = this.search;
     if (search == null) return body;
