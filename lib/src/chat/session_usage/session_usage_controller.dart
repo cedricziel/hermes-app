@@ -58,6 +58,9 @@ class SessionUsageController extends ChangeNotifier {
   bool _connected = true, _unsupported = false, _disposed = false;
   bool get bound => _scope != null && _request != null;
   bool hasScope(UsageScope scope) => bound && _scope == scope;
+
+  /// Whether there is anything to show: a server without usage has nothing.
+  bool get shown => bound && freshness != UsageFreshness.unsupported;
   bool get canRefresh => bound && _connected && !_unsupported && !loading;
 
   /// Changes ownership and invalidates earlier reads without retaining their data.

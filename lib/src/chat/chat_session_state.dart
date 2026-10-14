@@ -62,8 +62,7 @@ class ChatSessionState {
       control?.isEmpty == false ||
       waits.isNotEmpty ||
       resume != null ||
-      reclaimedReason != null ||
-      unavailable;
+      reclaimedReason != null;
 
   void clear() {
     runtimeId = null;

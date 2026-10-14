@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/billing_verification_controller.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/widgets/billing_verification_card.dart';
 
 import 'billing_fixtures.dart';
@@ -126,4 +127,28 @@ void main() {
       expect(controller.status, BillingVerificationStatus.idle);
     },
   );
+  testWidgets('billing a server does not offer draws nothing', (tester) async {
+    final controller = BillingVerificationController();
+    addTearDown(controller.dispose);
+    controller.bind(
+      BillingVerificationScope(
+        connection: Object(),
+        attachment: Object(),
+        sessionId: 'runtime-a',
+        profile: 'private-profile',
+      ),
+      request: (_) async =>
+          throw const GatewayRpcException(-32601, 'Unsupported'),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: BillingVerificationCard(controller: controller)),
+      ),
+    );
+    expect(find.text('Verify billing access'), findsOneWidget);
+    await controller.start();
+    await tester.pump();
+    expect(controller.supported, isFalse);
+    expect(find.byType(Text), findsNothing);
+  });
 }

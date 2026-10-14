@@ -300,14 +300,14 @@ class ChatThreadView extends StatelessWidget {
             emptyChatListBuilder: (_) => const SizedBox.shrink(),
           );
 
-    final activity = <Widget>[
+    List<Widget> activity() => [
       if (connectionOperations case final operations?
           when operations.operations.isNotEmpty)
         _connectorCards(operations, connectionWide: true),
       if (connectorOperations case final operations?
           when operations.operations.isNotEmpty)
         _connectorCards(operations),
-      if (billingVerification case final billing?)
+      if (billingVerification case final billing? when billing.supported)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 240),
           child: SingleChildScrollView(
@@ -333,7 +333,7 @@ class ChatThreadView extends StatelessWidget {
             ),
           ),
         ),
-      if (sessionUsage case final usage?)
+      if (sessionUsage case final usage? when usage.shown)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 180),
           child: SingleChildScrollView(
@@ -361,7 +361,7 @@ class ChatThreadView extends StatelessWidget {
             ),
           ),
         ),
-      if (todoPlan case final plan?)
+      if (todoPlan case final plan? when plan.hasPlan)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 180),
           child: SingleChildScrollView(
@@ -428,15 +428,27 @@ class ChatThreadView extends StatelessWidget {
               const Divider(height: 1),
           ],
           if (botContext case final bot?) BotChatBanner(context: bot),
-          if (activity.isNotEmpty)
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: constraints.hasBoundedHeight
-                    ? math.min(280.0, constraints.maxHeight * 0.4)
-                    : 280,
-              ),
-              child: SingleChildScrollView(child: Column(children: activity)),
-            ),
+          // Cards come and go with their controllers, not with this view.
+          ListenableBuilder(
+            listenable: Listenable.merge([
+              billingVerification,
+              sessionUsage,
+              todoPlan,
+            ]),
+            builder: (context, _) {
+              final cards = activity();
+              if (cards.isEmpty) return const SizedBox.shrink();
+              return ConstrainedBox(
+                key: const Key('chat-activity-strip'),
+                constraints: BoxConstraints(
+                  maxHeight: constraints.hasBoundedHeight
+                      ? math.min(280.0, constraints.maxHeight * 0.4)
+                      : 280,
+                ),
+                child: SingleChildScrollView(child: Column(children: cards)),
+              );
+            },
+          ),
           Expanded(
             child: AttachmentSurface(
               source: attachmentSource,

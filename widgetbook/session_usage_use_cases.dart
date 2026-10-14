@@ -95,7 +95,7 @@ WidgetbookNode sessionUsageNode() => WidgetbookComponent(
       },
     ),
     WidgetbookUseCase(
-      name: 'Unsupported backend',
+      name: 'Unsupported backend (draws nothing)',
       builder: (_) {
         final scope = UsageScope(
           connection: Object(),

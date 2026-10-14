@@ -9,18 +9,18 @@ One PR, `fix(chat): draw nothing for empty activity states`, under ~300 changed 
 
 ## 2. Catalog
 
-- [ ] 2.1 Add or update the Widgetbook use cases for `TodoPlanCard`, `SessionUsageCard` and `BillingVerificationCard` so the unknown/unsupported states render nothing, and verify `flutter test test/widgetbook_test.dart` passes in both themes.
+- [x] 2.1 Add or update the Widgetbook use cases for `TodoPlanCard`, `SessionUsageCard` and `BillingVerificationCard` so the unknown/unsupported states render nothing, and verify `flutter test test/widgetbook_test.dart` passes in both themes.
 
 ## 3. Quiet states
 
-- [ ] 3.1 Write failing widget tests: an attached plan with no snapshot draws no "Plan unavailable"; usage after method-not-found draws no row; billing after method-not-found draws no row; usage that went stale still shows its values with the stale label.
-- [ ] 3.2 Make the three cards and `ChatThreadView` skip empty entries, and leave out the strip container when no entry has content; verify 3.1 passes.
-- [ ] 3.3 Write a widget test that a chat with no activity content places the transcript directly below the header (no strip container), and verify it passes.
+- [x] 3.1 Write failing widget tests: an attached plan with no snapshot draws no "Plan unavailable"; usage after method-not-found draws no row; billing after method-not-found draws no row; usage that went stale still shows its values with the stale label.
+- [x] 3.2 Make the three cards and `ChatThreadView` skip empty entries, and leave out the strip container when no entry has content; verify 3.1 passes.
+- [x] 3.3 Write a widget test that a chat with no activity content places the transcript directly below the header (no strip container), and verify it passes.
 
 ## 4. Observability and docs
 
-- [ ] 4.1 No new spans, log events or breadcrumbs (see proposal); confirm the existing card event tests still pass.
-- [ ] 4.2 Update the Chat paragraph of `CLAUDE.md` only if it describes the removed placeholders; no `.claude/skills` entry goes stale.
+- [x] 4.1 No new spans, log events or breadcrumbs (see proposal); confirm the existing card event tests still pass.
+- [x] 4.2 Update the Chat paragraph of `CLAUDE.md` only if it describes the removed placeholders; no `.claude/skills` entry goes stale.
 
 ## 5. Verify
 

@@ -42,27 +42,24 @@ void main() {
     },
   );
 
-  testWidgets(
-    'empty plans disappear while missing resume state stays unavailable',
-    (tester) async {
-      final owner = TodoScope(
-        connection: Object(),
-        runtimeId: 'runtime',
-        profile: null,
-      );
-      final state = TodoPlanState()..adopt(owner);
-      addTearDown(state.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: TodoPlanCard(state: state)),
-        ),
-      );
-      expect(find.text('Plan unavailable'), findsOneWidget);
-      state.updated(owner, {'revision': 1, 'todos': []});
-      await tester.pumpAndSettle();
-      expect(find.byType(Text), findsNothing);
-    },
-  );
+  testWidgets('missing and empty plans draw nothing', (tester) async {
+    final owner = TodoScope(
+      connection: Object(),
+      runtimeId: 'runtime',
+      profile: null,
+    );
+    final state = TodoPlanState()..adopt(owner);
+    addTearDown(state.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: TodoPlanCard(state: state)),
+      ),
+    );
+    expect(find.byType(Text), findsNothing);
+    state.updated(owner, {'revision': 1, 'todos': []});
+    await tester.pumpAndSettle();
+    expect(find.byType(Text), findsNothing);
+  });
 
   testWidgets('plan disclosure remains accessible on narrow screens', (
     tester,

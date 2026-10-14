@@ -16,17 +16,8 @@ class TodoPlanCard extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: state,
     builder: (context, _) {
-      if (!state.attached) return const SizedBox.shrink();
       final snapshot = state.snapshot;
-      if (snapshot != null && snapshot.entries.isEmpty) {
-        return const SizedBox.shrink();
-      }
-      if (snapshot == null) {
-        return const Padding(
-          padding: EdgeInsets.all(12),
-          child: Text('Plan unavailable'),
-        );
-      }
+      if (!state.hasPlan || snapshot == null) return const SizedBox.shrink();
       final completed = snapshot.completedCount;
       final title = completed == null
           ? 'Plan · Some task details unavailable'

@@ -17,20 +17,18 @@ class BillingVerificationCard extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
+      if (!controller.supported) return const SizedBox.shrink();
       final details = controller.verification;
       final generation = controller.generation;
-      final summary = !controller.supported
-          ? 'Billing verification unavailable'
-          : switch (controller.status) {
-              BillingVerificationStatus.idle => 'Billing access',
-              BillingVerificationStatus.pending =>
-                'Awaiting billing verification',
-              BillingVerificationStatus.granted => 'Billing access granted',
-              BillingVerificationStatus.refused => 'Billing access refused',
-              BillingVerificationStatus.unavailable =>
-                'Billing verification unavailable',
-              BillingVerificationStatus.failed => 'Billing verification failed',
-            };
+      final summary = switch (controller.status) {
+        BillingVerificationStatus.idle => 'Billing access',
+        BillingVerificationStatus.pending => 'Awaiting billing verification',
+        BillingVerificationStatus.granted => 'Billing access granted',
+        BillingVerificationStatus.refused => 'Billing access refused',
+        BillingVerificationStatus.unavailable =>
+          'Billing verification unavailable',
+        BillingVerificationStatus.failed => 'Billing verification failed',
+      };
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

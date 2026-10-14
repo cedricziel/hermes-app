@@ -39,7 +39,7 @@ WidgetbookNode todoPlanNode() => WidgetbookComponent(
           frame(TodoPlanCard(state: _plan(const []), initiallyOpen: true)),
     ),
     WidgetbookUseCase(
-      name: 'Plan unavailable',
+      name: 'Plan not reported (draws nothing)',
       builder: (_) =>
           frame(TodoPlanCard(state: _plan(null), initiallyOpen: true)),
     ),

@@ -53,7 +53,7 @@ WidgetbookNode sessionStateNode() => WidgetbookComponent(
       ),
     ),
     WidgetbookUseCase(
-      name: 'Unavailable control',
+      name: 'Unavailable control (draws nothing)',
       builder: (_) => frame(
         SessionStatusCard(
           state: ChatSessionState()..unavailable = true,

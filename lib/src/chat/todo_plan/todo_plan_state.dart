@@ -102,6 +102,7 @@ class TodoPlanState extends ChangeNotifier {
   bool get attached => _scope != null;
   bool hasScope(TodoScope scope) => attached && _scope == scope;
   bool get unavailable => attached && snapshot == null;
+  bool get hasPlan => attached && snapshot?.entries.isNotEmpty == true;
 
   /// A fresh runtime generation resets revision comparison, even when IDs repeat.
   void adopt(TodoScope? scope) {
