@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.64](https://github.com/cedricziel/hermes-app/compare/v0.1.63...v0.1.64) (2026-10-14)
+
+
+### Features
+
+* **chat:** add the Activity panel ([#769](https://github.com/cedricziel/hermes-app/issues/769)) ([e6593d7](https://github.com/cedricziel/hermes-app/commit/e6593d75415e5c390c95ee45d53500721e629e4e))
+
+
+### Bug Fixes
+
+* **chat:** draw nothing for empty activity states ([#768](https://github.com/cedricziel/hermes-app/issues/768)) ([a729203](https://github.com/cedricziel/hermes-app/commit/a729203b90cb2c087e65befa1fea3c5bb8fa35ec))
+
+
+### Documentation
+
+* **design:** sync chat suggestions and task choice previews ([#764](https://github.com/cedricziel/hermes-app/issues/764)) ([cbf6296](https://github.com/cedricziel/hermes-app/commit/cbf6296f7953f8920de161cf450d071829baad99))
+* **openspec:** archive 23 completed changes ([#766](https://github.com/cedricziel/hermes-app/issues/766)) ([8bd94eb](https://github.com/cedricziel/hermes-app/commit/8bd94eb02995e3e2ce6a3f72eb5a1f9ab7b8b0a2))
+* **openspec:** archive 67 delivered changes ([#767](https://github.com/cedricziel/hermes-app/issues/767)) ([5c73852](https://github.com/cedricziel/hermes-app/commit/5c73852965e509541856831f05049ea171c2d076))
+
 ## [0.1.63](https://github.com/cedricziel/hermes-app/compare/v0.1.62...v0.1.63) (2026-10-14)
 
 
