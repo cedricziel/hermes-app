@@ -134,6 +134,90 @@ void main() {
   );
 
   testWidgets(
+    'a reconnected physical gateway delivers an empty-runtime hint to the visible generated-client list',
+    (tester) async {
+      late FakeGateway gateway;
+      late HermesGatewayTransport transport;
+      var connections = 0;
+      await tester.runAsync(() async {
+        gateway = FakeGateway()..activeSessions = {};
+        gateway.turn = (source, session) => source.event(
+          'message.complete',
+          session,
+          {'text': 'Main answer', 'status': 'complete'},
+        );
+        transport = HermesGatewayTransport(
+          connect: () {
+            connections++;
+            return gateway.connect();
+          },
+        );
+        await transport
+            .send(text: 'Initial turn', profile: 'work')
+            .toList()
+            .timeout(const Duration(seconds: 5));
+      });
+      addTearDown(() => tester.runAsync(transport.close));
+      await open(tester, transport);
+      expect(find.text('Discord'), findsOneWidget);
+      expect(getReads(), 1);
+      final before = transport.gatewayConnection!;
+      await tester.runAsync(() async {
+        gateway.drop();
+        await pumpEventQueue();
+      });
+      expect(transport.gatewayConnection, isNull);
+      expect(transport.ownsGatewayConnection(before), isFalse);
+      await tester.runAsync(() async {
+        await transport
+            .send(
+              text: 'Next turn after reconnect',
+              threadId: 'stored-1',
+              profile: 'work',
+            )
+            .toList()
+            .timeout(const Duration(seconds: 5));
+      });
+      final after = transport.gatewayConnection!;
+      expect(after, isNot(same(before)));
+      expect(transport.ownsGatewayConnection(after), isTrue);
+      expect(connections, 2);
+      await tester.pumpAndSettle();
+      expect(getReads(), 1);
+      server.on(
+        'GET',
+        '/api/messaging/platforms',
+        platformListBody([
+          platformRow(
+            id: 'discord',
+            name: 'Updated after reconnect',
+            configured: true,
+          ),
+        ]),
+        query: {'profile': 'work'},
+      );
+      final gatewayRequests = gateway.requests.length;
+      await tester.runAsync(() async {
+        gateway.event('platforms.changed', '', {});
+        await pumpEventQueue();
+      });
+      await tester.pumpAndSettle();
+      expect(getReads(), 2);
+      expect(find.text('Updated after reconnect'), findsOneWidget);
+      expect(
+        server
+            .requestsTo('GET', '/api/messaging/platforms')
+            .last
+            .queryParameters['profile'],
+        'work',
+      );
+      expect(gateway.requests, hasLength(gatewayRequests));
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(transport.close);
+    },
+  );
+
+  testWidgets(
     'a covered setup form retains its draft and consumes the dirty hint on return',
     (tester) async {
       await open(tester);
