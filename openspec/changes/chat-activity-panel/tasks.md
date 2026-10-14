@@ -8,8 +8,8 @@ One PR, `feat(chat): add the Activity panel`, aiming at ~500 changed lines (the 
 
 ## 2. Catalog first
 
-- [ ] 2.1 Build `ActivityPanel` (sections Now, Plan, This session; empty sections left out; "No activity for this chat") from plain models in `lib/src/chat/activity/widgets/`, with Widgetbook use cases for: all sections, plan only, session only, empty; phone and desktop width; Apple and Material; both themes. Verify `flutter test test/widgetbook_test.dart` passes.
-- [ ] 2.2 Add an `ActivityButton` use case (closed, open) for the chat header and the Mac toolbar; verify the catalog test passes.
+- [x] 2.1 Build `ActivityPanel` (sections Now, Plan, This session; empty sections left out; "No activity for this chat") from plain models in `lib/src/chat/activity/widgets/`, with Widgetbook use cases for: all sections, plan only, session only, empty; phone and desktop width; Apple and Material; both themes. Verify `flutter test test/widgetbook_test.dart` passes.
+- [x] 2.2 Add an `ActivityButton` use case (closed, open) for the chat header and the Mac toolbar; verify the catalog test passes.
 
 ## 3. Panel content
 
