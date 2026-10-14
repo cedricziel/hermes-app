@@ -31,7 +31,6 @@ class SessionStatusCard extends StatelessWidget {
       if (control?.heartbeat case final heartbeat?)
         'Heartbeat: ${heartbeat['status'] ?? 'Unavailable'}',
       ...state.waits.values,
-      if (state.unavailable) 'Session controls unavailable',
     ].join(' · ');
     return DisclosureTile(
       dense: true,
@@ -87,10 +86,6 @@ class SessionStatusCard extends StatelessWidget {
                   'interval_seconds': 'Interval in seconds',
                 }),
               for (final text in state.waits.values) SelectableText(text),
-              if (state.unavailable)
-                const Text(
-                  'This server could not provide session controls. Chat remains available.',
-                ),
               if (onReopen != null &&
                   (state.reclaimedReason != null ||
                       state.resume?.status == 'failed'))

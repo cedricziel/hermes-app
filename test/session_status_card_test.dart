@@ -39,29 +39,16 @@ void main() {
     },
   );
 
-  testWidgets(
-    'empty controls disappear and unsupported controls show no invented action',
-    (tester) async {
-      final state = ChatSessionState()
-        ..control = const SessionControlSnapshot(revision: 'empty');
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: SessionStatusCard(state: state)),
-        ),
-      );
-      expect(find.byType(Text), findsNothing);
-      state.unavailable = true;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SessionStatusCard(state: state, initiallyOpen: true),
-          ),
-        ),
-      );
-      expect(find.text('Session controls unavailable'), findsOneWidget);
-      expect(find.text('Reopen session'), findsNothing);
-    },
-  );
+  testWidgets('empty controls draw nothing', (tester) async {
+    final state = ChatSessionState()
+      ..control = const SessionControlSnapshot(revision: 'empty');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: SessionStatusCard(state: state)),
+      ),
+    );
+    expect(find.byType(Text), findsNothing);
+  });
 
   testWidgets(
     'reclaim offers an accessible explicit reopen action on narrow screens',

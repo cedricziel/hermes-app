@@ -26,6 +26,10 @@ WidgetbookNode billingVerificationNode() => WidgetbookComponent(
       ),
     ),
     ...onEachPlatform(
+      'Not offered by the server (draws nothing)',
+      (_) => const _Example(offered: false),
+    ),
+    ...onEachPlatform(
       'App Lock',
       (_) => const _Example(details: true, expanded: true, locked: true),
     ),
@@ -39,8 +43,9 @@ class _Example extends StatefulWidget {
     this.unsafe = false,
     this.locked = false,
     this.status = BillingVerificationStatus.idle,
+    this.offered = true,
   });
-  final bool details, expanded, unsafe, locked;
+  final bool details, expanded, unsafe, locked, offered;
   final BillingVerificationStatus status;
   @override
   State<_Example> createState() => _ExampleState();
@@ -66,6 +71,7 @@ class _ExampleState extends State<_Example> {
       request: widget.status == BillingVerificationStatus.unavailable
           ? null
           : (_) async => {'ok': false, 'granted': false},
+      supported: () => widget.offered,
     );
     if (widget.details) {
       controller.acceptVerification({

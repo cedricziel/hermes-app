@@ -83,34 +83,33 @@ void main() {
     },
   );
 
-  testWidgets(
-    'unsupported usage reports availability without speculative retry actions',
-    (tester) async {
-      final owner = UsageScope(
-        connection: Object(),
-        sessionId: 'runtime',
-        profile: null,
+  testWidgets('unsupported usage draws nothing, also after a disconnect', (
+    tester,
+  ) async {
+    final owner = UsageScope(
+      connection: Object(),
+      sessionId: 'runtime',
+      profile: null,
+    );
+    final controller = SessionUsageController()
+      ..bind(
+        owner,
+        (_, _) async => throw const GatewayRpcException(-32601, 'Unsupported'),
       );
-      final controller = SessionUsageController()
-        ..bind(
-          owner,
-          (_, _) async =>
-              throw const GatewayRpcException(-32601, 'Unsupported'),
-        );
-      addTearDown(controller.dispose);
-      await controller.opened();
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SessionUsageCard(controller: controller, initiallyOpen: true),
-          ),
+    addTearDown(controller.dispose);
+    await controller.opened();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SessionUsageCard(controller: controller, initiallyOpen: true),
         ),
-      );
-      expect(
-        find.text('Session usage is unavailable on this server.'),
-        findsOneWidget,
-      );
-      expect(find.text('Refresh usage'), findsNothing);
-    },
-  );
+      ),
+    );
+    expect(find.byType(Text), findsNothing);
+
+    controller.disconnected();
+    await tester.pump();
+    expect(controller.shown, isFalse);
+    expect(find.byType(Text), findsNothing);
+  });
 }

@@ -18,7 +18,7 @@ class SessionUsageCard extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
-      if (!controller.bound) return const SizedBox.shrink();
+      if (!controller.shown) return const SizedBox.shrink();
       final snapshot = controller.snapshot;
       final total = snapshot?.total;
       final title = total == null
@@ -40,8 +40,6 @@ class SessionUsageCard extends StatelessWidget {
                 if (controller.loading) const Text('Loading session usage…'),
                 if (controller.freshness == UsageFreshness.stale)
                   const Text('Stale session usage'),
-                if (controller.freshness == UsageFreshness.unsupported)
-                  const Text('Session usage is unavailable on this server.'),
                 if (!controller.loading &&
                     snapshot == null &&
                     controller.freshness == UsageFreshness.unavailable)

@@ -1688,9 +1688,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     switch (event) {
       case SessionControlUpdated(:final control):
         state.control = control;
-        state.unavailable = false;
       case SessionControlUnavailable():
-        state.unavailable = state.control == null;
         outcome = 'unavailable';
       case SessionWaitUpdated(:final kind, :final text):
         if (text.isEmpty) {
