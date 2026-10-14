@@ -16,6 +16,7 @@ import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../support/chat_with_activity.dart';
 import '../support/fake_gateway.dart';
 import '../support/fake_attachment_source.dart';
 import '../support/fake_hermes_server.dart';
@@ -442,7 +443,8 @@ void main() {
   testWidgets(
     'actual bounded chat exposes explicit billing action and private expandable details',
     (tester) async {
-      tester.view.physicalSize = const Size(320, 360);
+      // Wide enough for the Activity panel, which offers the action.
+      tester.view.physicalSize = const Size(900, 600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.runAsync(() async {
@@ -457,17 +459,20 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: boundChatThreadView(
-              chat: chat,
-              thread: chat.selectedThread,
-              composerController: composer,
-              composerFocus: focus,
-              attachments: const [],
-              attachmentSource: FakeAttachmentSource(),
-              onAddAttachments: (_) {},
-              onRemoveAttachment: (_) {},
-              onSend: (_) {},
-              latestReply: latest,
+            body: chatWithActivity(
+              chat,
+              boundChatThreadView(
+                chat: chat,
+                thread: chat.selectedThread,
+                composerController: composer,
+                composerFocus: focus,
+                attachments: const [],
+                attachmentSource: FakeAttachmentSource(),
+                onAddAttachments: (_) {},
+                onRemoveAttachment: (_) {},
+                onSend: (_) {},
+                latestReply: latest,
+              ),
             ),
           ),
         ),

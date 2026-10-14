@@ -34,3 +34,11 @@ Invariants touched: telemetry. `chat.activity.opened` is recorded in `ChatScreen
 - [Billing details and pending connector cards still sit in the strip until `chat-activity-needs-you`] → Accepted for one release step; they are Needs-you items and keep today's behaviour.
 - [The inspector takes 300 pt from the chat on a 1024 pt iPad] → The chat column is capped at 680 pt anyway; below the docking threshold it goes over the chat.
 - [Generalising the Kanban inspector touches Kanban] → Pure refactor with existing Kanban inspector tests as the guard; done as its own commit.
+
+## Implementation notes
+
+- The panel takes the existing cards as children instead of row models: `ActivityPanel` (plain widgets, in the catalog) and `BoundActivityPanel`, which reads one chat's controllers and filters by tier, play the roles of the panel and `ActivityPanelSource`.
+- The phone sheet reuses the Kanban detent sheet (`showKanbanDetentSheet`) on iOS and Android rather than two presenters.
+- The panel scrolls a `Column`, not a lazy list: it holds a handful of cards and every one must be reachable by keyboard and tests.
+- Conversation windows have no telemetry of their own, so their inspector records no breadcrumbs; the main window's does.
+

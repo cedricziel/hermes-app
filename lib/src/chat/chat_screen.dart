@@ -72,11 +72,15 @@ import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
+import 'activity/bound_activity_panel.dart';
+import 'activity/widgets/activity_panel.dart';
 import 'widgets/chat_app_bar.dart';
 import 'widgets/chat_header.dart';
 import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
+import '../kanban/widgets/task_panel/kanban_task_sheet.dart';
+import '../widgets/inspector_layout.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -206,6 +210,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Whether the window is a Mac one, as of the last build.
   bool _mac = false;
+
+  /// Whether the layout is wide (the inspector) or a phone (the sheet).
+  bool _wide = false;
+
+  /// Whether the Activity inspector is open; it stays open across chats.
+  bool _activityOpen = false;
 
   /// The reply of the open thread that can be asked again: its last message,
   /// once that is a finished reply.
@@ -1038,6 +1048,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// the chat.
   void _focusSidebarSearch() => _searchFocus.requestFocus();
 
+  /// Opens the Activity panel: the inspector beside or over a wide chat, a
+  /// sheet on a phone. A second call closes the inspector.
+  void _toggleActivity({String source = 'button'}) {
+    final crumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
+    if (_wide) {
+      setState(() => _activityOpen = !_activityOpen);
+      crumbs(_activityOpen ? 'chat.activity.opened' : 'chat.activity.closed', {
+        'surface': 'inspector',
+        if (_activityOpen) 'source': source,
+      });
+      return;
+    }
+    final thread = _chat.selectedThread;
+    if (thread == null) return;
+    crumbs('chat.activity.opened', {'surface': 'sheet', 'source': source});
+    final sheet = showKanbanDetentSheet(
+      context,
+      (controller) => BoundActivityPanel(
+        chat: _chat,
+        thread: thread,
+        scrollController: controller,
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
+    unawaited(
+      sheet.then((_) => crumbs('chat.activity.closed', {'surface': 'sheet'})),
+    );
+  }
+
   /// What the menu bar's File and Chat menus do here.
   Map<MacCommand, MacCommandHandler> _menuCommands({required bool ios}) {
     final thread = _chat.selectedThread;
@@ -1078,6 +1117,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       MacCommand.archiveThread: MacCommandHandler(
         on(ThreadAction.archive, when: managed),
+      ),
+      MacCommand.toggleInspector: MacCommandHandler(
+        thread == null ? null : () => _toggleActivity(source: 'menu'),
+        title: _activityOpen ? 'Hide Inspector' : 'Show Inspector',
       ),
       MacCommand.deleteThread: MacCommandHandler(
         on(ThreadAction.delete, when: managed),
@@ -1388,6 +1431,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       builder: (context, constraints) {
         final isWide =
             macSidebar || isWideLayout(context, width: constraints.maxWidth);
+        _wide = isWide;
         final selected = chat.selectedThread;
         final bot = selected?.botContext;
         _latestReply.follow(chat, selected);
@@ -1450,6 +1494,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     subtitle: _toolbarSubtitle(),
                     onNewChat: _newThread,
                     onShowConnection: _showConnection,
+                    activityOpen: _activityOpen,
+                    onToggleActivity: selected == null ? null : _toggleActivity,
                     onCopyTranscript: selected == null
                         ? null
                         : () => _copyTranscript(selected),
@@ -1468,8 +1514,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   housekeeping: chat.housekeeping,
                   onShowConnection: _showConnection,
                   onNewChat: _newThread,
+                  activityOpen: _activityOpen,
+                  onToggleActivity: selected == null ? null : _toggleActivity,
                 ),
         );
+
+        final content = isWide
+            ? InspectorLayout(
+                content: threadView,
+                shown: _activityOpen && selected != null,
+                inspector: BoundActivityPanel(chat: chat, thread: selected),
+                panelKey: const Key('activity-inspector'),
+                onDismissOverlay: _toggleActivity,
+              )
+            : threadView;
 
         final scaffold = Scaffold(
           key: _scaffoldKey,
@@ -1492,13 +1550,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         housekeeping: chat.housekeeping,
                         includeCopyTranscript: true,
                       ),
+                    if (selected != null)
+                      ActivityButton(open: false, onPressed: _toggleActivity),
                     NewChatButton(onPressed: _newThread),
                   ],
                 ),
           body: macSplit
               ? MacSplitView(
                   sidebar: buildSidebar(navigation: widget.navigation),
-                  content: threadView,
+                  content: content,
                 )
               : Row(
                   children: [
@@ -1508,7 +1568,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         child: buildSidebar(navigation: widget.navigation),
                       ),
                     if (isWide) const VerticalDivider(width: 1),
-                    Expanded(child: threadView),
+                    Expanded(child: content),
                   ],
                 ),
         );

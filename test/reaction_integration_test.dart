@@ -15,6 +15,7 @@ import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/chat_with_activity.dart';
 import 'support/fake_attachment_source.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_gateway.dart';
@@ -505,17 +506,20 @@ void main() {
           home: Scaffold(
             body: AnimatedBuilder(
               animation: chat,
-              builder: (context, _) => boundChatThreadView(
-                chat: chat,
-                thread: chat.selectedThread,
-                composerController: composer,
-                composerFocus: focus,
-                attachments: const [],
-                attachmentSource: FakeAttachmentSource(),
-                onAddAttachments: (_) {},
-                onRemoveAttachment: (_) {},
-                onSend: (_) {},
-                latestReply: latest,
+              builder: (context, _) => chatWithActivity(
+                chat,
+                boundChatThreadView(
+                  chat: chat,
+                  thread: chat.selectedThread,
+                  composerController: composer,
+                  composerFocus: focus,
+                  attachments: const [],
+                  attachmentSource: FakeAttachmentSource(),
+                  onAddAttachments: (_) {},
+                  onRemoveAttachment: (_) {},
+                  onSend: (_) {},
+                  latestReply: latest,
+                ),
               ),
             ),
           ),

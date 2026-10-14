@@ -19,6 +19,10 @@ import '../telemetry/breadcrumbs.dart';
 import 'conversation_window_args.dart';
 import 'window_auth_interceptor.dart';
 
+/// The window command that toggles a conversation window's Activity
+/// inspector, next to the [ThreadAction] names.
+const kInspectorWindowCommand = 'inspector';
+
 String? windowSessionOwnerKey(AuthController auth) {
   final server = auth.baseUrl;
   if (!auth.protectedRequestsAllowed || server == null) return null;
@@ -628,6 +632,11 @@ class ConversationWindows extends ChangeNotifier {
   /// key conversation window; false when the main window is key.
   Future<bool> runInKeyWindow(ThreadAction action) =>
       _commandKeyWindow(action.name);
+
+  /// Shows or hides the Activity inspector of the key conversation window;
+  /// false when the main window is key.
+  Future<bool> toggleKeyWindowInspector() =>
+      _commandKeyWindow(kInspectorWindowCommand);
 
   Future<bool> _commandKeyWindow(String command) async {
     final key = _keyWindowId;

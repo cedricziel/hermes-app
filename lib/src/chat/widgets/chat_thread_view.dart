@@ -23,21 +23,15 @@ import 'chat_builders.dart';
 import '../../voice/dictation_controller.dart';
 import 'chat_composer_builder.dart';
 import 'message_actions.dart' show TurnActionStatus;
-import '../chat_warning_state.dart';
-import 'agent_notice_card.dart';
 import '../chat_session_state.dart';
 import 'session_status_card.dart';
-import '../session_usage/session_usage_controller.dart';
-import '../session_usage/session_usage_card.dart';
 import '../todo_plan/todo_plan_card.dart';
 import '../todo_plan/todo_plan_state.dart';
-import '../side_results/side_result_card.dart';
-import '../side_results/side_result_state.dart';
 import '../connector_operation_controller.dart';
-import 'connector_operation_card.dart';
+import 'connector_operation_cards.dart';
+import '../activity/activity_tier.dart';
 import '../billing_verification_controller.dart';
 import 'billing_verification_card.dart';
-import '../reactions/reaction_cards.dart';
 import '../reactions/reaction_state.dart';
 import '../moa_progress_state.dart';
 import 'moa_progress_card.dart';
@@ -80,20 +74,12 @@ class ChatThreadView extends StatelessWidget {
     this.turnActionStatus,
     this.modelPill,
     this.header,
-    this.notices = const [],
-    this.onDismissNotice,
-    this.onNoticeDetails,
     this.sessionState,
-    this.sessionUsage,
     this.connectorOperations,
-    this.connectionOperations,
     this.billingVerification,
     this.todoPlan,
-    this.acknowledgement,
     this.reactionsFor,
     this.onReactionDetails,
-    this.sideResults = const [],
-    this.onSideResultDetails,
     this.moaProgress = const [],
     this.onMoaDetails,
     this.processOutputs,
@@ -116,19 +102,12 @@ class ChatThreadView extends StatelessWidget {
   });
 
   final ChatThread? thread;
-  final List<AgentNotice> notices;
-  final ValueChanged<AgentNotice>? onDismissNotice;
-  final VoidCallback? onNoticeDetails;
   final ChatSessionState? sessionState;
-  final SessionUsageController? sessionUsage;
-  final ConnectorOperationController? connectorOperations, connectionOperations;
+  final ConnectorOperationController? connectorOperations;
   final BillingVerificationController? billingVerification;
   final TodoPlanState? todoPlan;
-  final SessionAcknowledgement? acknowledgement;
   final List<ReportedReaction>? Function(DurableReactionRow row)? reactionsFor;
   final VoidCallback? onReactionDetails;
-  final List<SideResult> sideResults;
-  final VoidCallback? onSideResultDetails;
   final List<MoaProgress> moaProgress;
   final VoidCallback? onMoaDetails;
   final ProcessOutputState? processOutputs;
@@ -194,65 +173,6 @@ class ChatThreadView extends StatelessWidget {
   /// just the composer instead.
   final bool welcome;
 
-  Widget _connectorCards(
-    ConnectorOperationController controller, {
-    bool connectionWide = false,
-  }) {
-    final attachment = controller.attachment;
-    return ConstrainedBox(
-      key: ObjectKey(controller),
-      constraints: const BoxConstraints(maxHeight: 260),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            if (connectionWide) const Text('Connection activity'),
-            for (final operation in controller.operations)
-              ConnectorOperationCard(
-                key: ValueKey(operation.key),
-                operation: operation,
-                readOnly: !controller.authorityFor(operation),
-                pending: controller.pendingFor(operation.key),
-                awaitingFinalStatus: controller.awaitingFinalStatus(
-                  operation.key,
-                ),
-                error: controller.errorFor(operation.key),
-                onDetails: controller.detailsOpened,
-                canOpen: (name) => controller.canOpen(operation.key, name),
-                canSkip: (name) => controller.canSkip(operation.key, name),
-                onOpen: attachment == null
-                    ? null
-                    : (name) => unawaited(
-                        controller.openTarget(
-                          operation,
-                          name,
-                          attachment: attachment,
-                        ),
-                      ),
-                onSkip: attachment == null
-                    ? null
-                    : (name) => unawaited(
-                        controller.skip(
-                          operation,
-                          name,
-                          attachment: attachment,
-                        ),
-                      ),
-                onContinue:
-                    attachment == null || !controller.canRespond(operation.key)
-                    ? null
-                    : () => unawaited(
-                        controller.continueOperation(
-                          operation,
-                          attachment: attachment,
-                        ),
-                      ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -301,13 +221,17 @@ class ChatThreadView extends StatelessWidget {
           );
 
     List<Widget> activity() => [
-      if (connectionOperations case final operations?
-          when operations.operations.isNotEmpty)
-        _connectorCards(operations, connectionWide: true),
-      if (connectorOperations case final operations?
-          when operations.operations.isNotEmpty)
-        _connectorCards(operations),
-      if (billingVerification case final billing? when billing.supported)
+      if (connectorOperations case final operations?)
+        if (connectorOperationCards(operations, tier: ActivityTier.needsYou)
+            case final cards when cards.isNotEmpty)
+          ConstrainedBox(
+            key: ObjectKey(operations),
+            constraints: const BoxConstraints(maxHeight: 260),
+            child: SingleChildScrollView(child: Column(children: cards)),
+          ),
+      if (billingVerification case final billing?
+          when billing.supported &&
+              billingTier(billing) == ActivityTier.needsYou)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 240),
           child: SingleChildScrollView(
@@ -316,11 +240,6 @@ class ChatThreadView extends StatelessWidget {
               controller: billing,
             ),
           ),
-        ),
-      if (acknowledgement != null)
-        SessionAcknowledgementCard(
-          acknowledgement: acknowledgement,
-          onDetails: onReactionDetails,
         ),
       if (sessionState case final state? when state.visible)
         ConstrainedBox(
@@ -331,13 +250,6 @@ class ChatThreadView extends StatelessWidget {
               onDetails: onSessionDetails,
               onReopen: onReopenSession,
             ),
-          ),
-        ),
-      if (sessionUsage case final usage? when usage.shown)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 180),
-          child: SingleChildScrollView(
-            child: SessionUsageCard(key: ObjectKey(usage), controller: usage),
           ),
         ),
       if (processOutputs case final processes? when processes.cards.isNotEmpty)
@@ -383,40 +295,6 @@ class ChatThreadView extends StatelessWidget {
             ],
           ),
         ),
-      if (sideResults.isNotEmpty)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 240),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                for (final result in sideResults)
-                  SideResultCard(
-                    key: ValueKey((result.kind, result.taskId)),
-                    result: result,
-                    onDetails: onSideResultDetails,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      if (notices.isNotEmpty)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 160),
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              for (final notice in notices)
-                AgentNoticeCard(
-                  key: ObjectKey(notice),
-                  notice: notice,
-                  onDismiss: onDismissNotice == null
-                      ? null
-                      : () => onDismissNotice!(notice),
-                  onDetails: onNoticeDetails,
-                ),
-            ],
-          ),
-        ),
     ];
 
     return LayoutBuilder(
@@ -432,7 +310,7 @@ class ChatThreadView extends StatelessWidget {
           ListenableBuilder(
             listenable: Listenable.merge([
               billingVerification,
-              sessionUsage,
+              connectorOperations,
               todoPlan,
             ]),
             builder: (context, _) {

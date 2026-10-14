@@ -51,46 +51,49 @@ Future<void> pumpChatScreen(
   MacCommandRegistry? commands,
   VoiceRecorder? voiceRecorder,
   ChatProfiles? chatProfiles,
+  Widget Function(Widget app)? wrap,
+  ThemeData? theme,
+  Size size = const Size(1400, 900),
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
-  tester.view.physicalSize = const Size(1400, 900);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
-  await tester.pumpWidget(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<AuthController>(create: (_) => AuthController()),
-        ChangeNotifierProvider<ShareController>(
-          create: (_) => ShareController(FakeShareInbox()),
-        ),
-        ...providers,
-      ],
-      child: MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: platform),
-        builder: macCommandsBuilder(commands),
-        home: ChatScreen(
-          repository: server == null
-              ? null
-              : HermesChatRepository(server.client().raw),
-          profiles: withProfiles
-              ? HermesProfilesRepository(server!.client().raw)
-              : null,
-          skills: withSkills
-              ? HermesSkillsRepository(server!.client().raw)
-              : null,
-          transport: transport,
-          onShowChat: onShowChat,
-          onExternalNavigation: onExternalNavigation,
-          attachmentSource: attachmentSource,
-          starterContext: starterContext,
-          voiceRecorder: voiceRecorder,
-          chatProfiles: chatProfiles,
-        ),
+  final app = MultiProvider(
+    providers: [
+      ChangeNotifierProvider<AuthController>(create: (_) => AuthController()),
+      ChangeNotifierProvider<ShareController>(
+        create: (_) => ShareController(FakeShareInbox()),
+      ),
+      ...providers,
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: theme ?? buildHermesLightTheme().copyWith(platform: platform),
+      builder: macCommandsBuilder(commands),
+      home: ChatScreen(
+        repository: server == null
+            ? null
+            : HermesChatRepository(server.client().raw),
+        profiles: withProfiles
+            ? HermesProfilesRepository(server!.client().raw)
+            : null,
+        skills: withSkills
+            ? HermesSkillsRepository(server!.client().raw)
+            : null,
+        transport: transport,
+        onShowChat: onShowChat,
+        onExternalNavigation: onExternalNavigation,
+        attachmentSource: attachmentSource,
+        starterContext: starterContext,
+        voiceRecorder: voiceRecorder,
+        chatProfiles: chatProfiles,
       ),
     ),
   );
+  await tester.pumpWidget(wrap == null ? app : wrap(app));
   if (settle) await tester.pumpAndSettle();
 }
 
