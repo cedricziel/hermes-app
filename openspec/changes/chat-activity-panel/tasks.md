@@ -4,7 +4,7 @@ One PR, `feat(chat): add the Activity panel`, aiming at ~500 changed lines (the 
 
 ## 1. Shared inspector
 
-- [ ] 1.1 Move `KanbanInspectorLayout` to `lib/src/widgets/inspector_layout.dart` as `InspectorLayout` (same 760 pt rule, overlay below, Escape and tap-outside to close) and switch the Kanban board to it; verify the existing Kanban inspector tests pass unchanged.
+- [x] 1.1 Move `KanbanInspectorLayout` to `lib/src/widgets/inspector_layout.dart` as `InspectorLayout` (same 760 pt rule, overlay below, Escape and tap-outside to close) and switch the Kanban board to it; verify the existing Kanban inspector tests pass unchanged.
 
 ## 2. Catalog first
 
