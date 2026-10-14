@@ -3,7 +3,9 @@
 ## Purpose
 
 Keep navigation to linked app content safe while an editor or busy operation protects the current screen.
+
 ## Requirements
+
 ### Requirement: Deep links respect route dismissal guards
 
 The system SHALL dismiss routes above the signed-in shell using their existing Back behavior before applying a deep link. It SHALL NOT change the destination, selected chat, profile, composer, or dictation because of that link until those routes have closed. If a route refuses dismissal, the latest link SHALL remain pending until the route closes. A newer link SHALL replace an older pending link without opening another discard confirmation.
@@ -269,3 +271,49 @@ macOS SHALL offer View > Forward with Cmd+] alongside guarded Back. Desktop mous
 - **THEN** the stale target is dropped and the current route stays intact
 
 The backend contract remains GET /api/dashboard/plugins (enabled plugin list), GET /api/plugins/kanban/boards (`boards` rows with `slug`), and GET /api/plugins/kanban/workers/active (`workers` rows). No new routes, response shapes, RPC methods, or minimum Hermes version are required.
+
+### Requirement: Main chat handoffs respect protected screens
+
+Show in Main Window and scheduled-run chat handoffs SHALL wait for pushed routes to authorize dismissal before changing the main chat target, profile, composer, or selected section. The root navigation queue SHALL retain the latest pending destination while an editor stays open or App Lock covers the app. A newer external destination SHALL supersede the waiting handoff without bypassing that guard. Delivery SHALL also require a ready, authorized connection with the shell's captured owner generation unchanged; authentication notification timing or delayed credential cleanup SHALL NOT authorize a retired target.
+
+#### Scenario: Show in Main Window arrives over a dirty editor
+- **WHEN** an auxiliary window requests a main-window chat while a dirty editor is current
+- **THEN** dismissal is guarded and neither the editor nor the current chat target changes until departure is authorized
+
+#### Scenario: Scheduled run opens a chat over a dirty editor
+- **WHEN** a scheduled-run callback requests Chat while a pushed editor refuses dismissal
+- **THEN** the editor and current chat remain intact and the request stays pending until the editor closes
+
+#### Scenario: Newer intent wins behind the guard
+- **WHEN** a newer notification or link arrives while a handoff waits behind an editor
+- **THEN** closing the editor delivers only the newer destination through the normal validated opening flow
+
+#### Scenario: Authorization retires before credential cleanup finishes
+- **WHEN** sign-out or server departure revokes protected access and advances the owner generation while the shell is still mounted
+- **THEN** closing a guarded editor does not deliver the retired handoff or mutate the current chat
+
+#### Scenario: A mounted shell resumes after a transient authorization pause
+- **WHEN** protected access becomes available again for the unchanged owner generation while the shell remains mounted
+- **THEN** the queued latest destination can resume through the dismissal guard; a changed generation cannot resume it
+
+### Requirement: Bot chat handoffs respect root guards and current intent ownership
+
+Opening a bot from its roster or menu SHALL keep the canonical target and Chat selection unapplied until protected root routes allow dismissal and App Lock permits navigation. Keeping an editor open SHALL preserve its draft and current destination. Successful save or explicit dismissal SHALL release only the current handoff.
+
+A bot opening SHALL belong to its arrival order and captured session owner. A newer root notification, link, share, schedule handoff, Show in Main request, or bot opening SHALL supersede older unresolved bot work. A completed lookup SHALL NOT become a newer intent merely because it finished later. Loss of authorization or departure from the captured owner SHALL prevent later shell lookups, target publication, and stale failure feedback. Already dispatched canonical operations SHALL NOT be rolled back.
+
+Existing canonical bot context, profile identity, root ID, stored compression tip, roster peers, and protocol flag SHALL be preserved. The backend contract SHALL remain the authenticated gateway's profiles.list and session.list/create/title methods and existing session/profile REST reads. Existing response shapes, bot protocol capability detection, and Hermes 0.21.4 source-verified compatibility SHALL remain unchanged; no additional minimum version is required.
+
+#### Scenario: Bot opening arrives over a dirty editor
+- **WHEN** a bot opening resolves while an editor protects the main stack
+- **THEN** the editor and its draft remain, and Chat is unchanged until the guard allows dismissal
+- **AND** delivery preserves the canonical bot context
+
+#### Scenario: Owner departs during roster lookup
+- **WHEN** authorization or the captured owner retires before the roster lookup completes
+- **THEN** the shell starts no subsequent canonical lookup and publishes no target or stale failure
+
+#### Scenario: A newer root intent arrives during bot resolution
+- **WHEN** a notification or link arrives after a bot opening while its lookup remains pending
+- **THEN** only the newer intent is applied after the protected route closes
+- **AND** completing the older bot lookup cannot replace it

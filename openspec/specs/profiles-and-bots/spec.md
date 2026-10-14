@@ -3,7 +3,9 @@
 ## Purpose
 
 Hermes can run several profiles, each with its own sessions, and can run as a bot on messaging platforms such as Telegram. This spec covers the two screens the chat sidebar links to: Profiles, where the user picks the profile the chat shows, and Bots, where the user switches messaging platforms on or off, enters their credentials, and pairs a Telegram bot. It describes the behaviour of the code as it is today.
+
 ## Requirements
+
 ### Requirement: Profile list
 
 The system SHALL list the profiles of the connected dashboard, marking the active one, and SHALL offer a Retry when loading fails.
@@ -83,7 +85,7 @@ The system SHALL list the messaging platforms of the connected dashboard with a 
 
 #### Scenario: Platforms are listed
 
-- **WHEN** the Bots screen opens
+- **WHEN** the Messaging screen opens
 - **THEN** a progress indicator shows while loading, then each platform appears with its name, its description, and a switch reflecting whether it is enabled
 
 #### Scenario: Needs setup
@@ -103,25 +105,25 @@ The system SHALL list the messaging platforms of the connected dashboard with a 
 
 #### Scenario: Switching a bot
 
-- **WHEN** the user switches a bot on or off
+- **WHEN** the user switches a platform on or off
 - **THEN** the new enabled state is sent and the list is reloaded to show the state the dashboard now reports
 - **AND WHEN** the dashboard refuses
-- **THEN** the bot stays as it was and the user is told "Could not update this bot"
+- **THEN** the platform stays as it was and the user is told "Could not update this messaging platform"
 
 #### Scenario: Loading fails
 
 - **WHEN** loading the platforms fails
-- **THEN** the screen shows "Could not load bots" with a Retry button that loads them again
+- **THEN** the screen shows "Could not load messaging platforms" with a Retry button that loads them again
 
 #### Scenario: Rows that do not fit are skipped
 
 - **WHEN** a platform row lacks a string `id` or `name`, or the response is not the expected envelope
-- **THEN** that row is left out, and an unexpected body yields no bots
+- **THEN** that row is left out, and an unexpected body yields no platforms
 
 #### Scenario: Entry point
 
-- **WHEN** the chat sidebar has a bots repository
-- **THEN** it shows a Bots entry that opens this screen, and the entry is not shown otherwise
+- **WHEN** the chat sidebar has a messaging connection
+- **THEN** it shows a Messaging entry that opens this screen, and the entry is not shown otherwise
 
 ### Requirement: Bot setup form
 
@@ -163,7 +165,7 @@ The system SHALL let the user open a platform to enter the credentials and setti
 #### Scenario: Save succeeds
 
 - **WHEN** the dashboard accepts the setup
-- **THEN** the form closes and the bot list reloads, where the bot no longer says "Needs setup"
+- **THEN** the form closes and the platform list reloads, where the platform no longer says "Needs setup"
 
 #### Scenario: Save is refused
 
@@ -175,7 +177,7 @@ The system SHALL let the user open a platform to enter the credentials and setti
 #### Scenario: Nothing to set up
 
 - **WHEN** a platform has no settings
-- **THEN** the screen says "Nothing to set up for this bot."
+- **THEN** the screen says "Nothing to set up for this messaging platform."
 
 ### Requirement: Telegram pairing
 
@@ -257,7 +259,7 @@ The system SHALL use the following dashboard routes for profiles and bots, and S
 
 ### Requirement: Skills entry in the sidebar
 
-The system SHALL show a Skills entry in the chat sidebar beside Profiles and Bots when the chat has a dashboard connection, opening the Skills page (see the `skills` capability).
+The system SHALL show a Skills entry in the chat sidebar beside Profiles and Messaging when the chat has a dashboard connection, opening the Skills page (see the `skills` capability).
 
 #### Scenario: Entry is shown
 
@@ -307,3 +309,46 @@ On macOS the bottom of the sidebar SHALL show the signed-in user's initials and 
 - **WHEN** the user chooses Settings… in the account menu
 - **THEN** a Settings list opens, and Appearance… opens the appearance dialog
 
+### Requirement: Changing a profile's default model
+
+The system SHALL let the user change the default model of any listed profile from the Profiles screen, without switching to that profile. It SHALL offer the models of every authenticated provider that profile can use, grouped by provider, with the profile's current model checked, and SHALL say that the default applies to chats started afterwards while open chats keep their model. It SHALL NOT offer a reasoning effort. Saving SHALL send `PUT /api/profiles/{name}/model` with the body `{"provider": <provider slug>, "model": <model id>}`, with the profile name percent-encoded in the path. The server answers `{"ok": true, "provider", "model"}`, and 400 when the pair is not usable. The route and `GET /api/model/options?profile=` exist in the Hermes version pinned by `HERMES_REF`.
+
+#### Scenario: Opening the picker
+
+- **WHEN** the user taps "Change default model" on a profile row
+- **THEN** the models are loaded with `GET /api/model/options?profile=<name>` and a picker titled "Default model" opens with that profile's current model checked, a note that new chats use it, and no effort levels
+
+#### Scenario: Saving a new default
+
+- **WHEN** the user picks `gpt-5` under the provider `openrouter` for the profile `work`
+- **THEN** the picker closes, `PUT /api/profiles/work/model` is sent with `{"provider": "openrouter", "model": "gpt-5"}`, the profile list reloads, and a message says new chats in that profile use `gpt-5`
+
+#### Scenario: Picking the current model
+
+- **WHEN** the user picks the model that is already the profile's default
+- **THEN** nothing is sent
+
+#### Scenario: Save refused
+
+- **WHEN** the server refuses the change
+- **THEN** the user is told "Could not change the default model" and the row keeps its old model
+
+#### Scenario: Models unavailable
+
+- **WHEN** the model list cannot be loaded or offers no model
+- **THEN** no picker opens and the user is told "Could not load models"
+
+#### Scenario: Active profile and chat unchanged
+
+- **WHEN** the default model of a profile is changed
+- **THEN** the active profile and the profile shown in the chat stay as they were
+
+### Requirement: Messaging terminology
+
+The system SHALL label generic messaging-platform management as “Messaging” and reserve the unqualified destination “Bots” for Bot Mode agents. Platform-specific bot names and credential labels SHALL remain accurate.
+
+#### Scenario: Messaging entry explains its purpose
+
+- **WHEN** the user opens Messaging
+- **THEN** the screen explains “Connect Hermes to Telegram, Discord, and other messaging platforms.”
+- **AND** existing setup and Telegram pairing continue to use `/api/messaging/platforms` and `/api/messaging/telegram/onboarding/*`, with their existing response shapes and no increase in the minimum supported Hermes version
