@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -43,9 +44,10 @@ import 'support/fake_device_authenticator.dart';
 import 'support/fake_conversation_window_host.dart';
 import 'support/fake_notification_service.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/fake_session_auth.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/mac_commands_builder.dart';
-import 'support/pump_chat.dart' show composerField;
+import 'support/pump_chat.dart' show composerField, openThread;
 
 /// The Kanban tab exists only while the server has the plugin on.
 void main() {
@@ -78,6 +80,7 @@ void main() {
     DeepLinks? links,
     ConversationWindows? windows,
     AuthController? auth,
+    HermesRepositories? repositories,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -94,6 +97,8 @@ void main() {
             create: (_) => ShareController(inbox)..start(),
           ),
           Provider<NotificationService>.value(value: notifications),
+          if (repositories != null)
+            Provider<HermesRepositories>.value(value: repositories),
           if (lock != null)
             ChangeNotifierProvider<AppLockController>.value(value: lock),
           if (links != null)
@@ -1227,6 +1232,92 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'authenticated Chat retains text and attachment across Schedules navigation',
+    (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      server
+        ..on(
+          'GET',
+          '/api/profiles',
+          profileListBody([profileRow(name: 'work')]),
+        )
+        ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 's1', title: 'Draft conversation')]),
+        )
+        ..on('GET', '/api/sessions/s1/messages', messageListBody('s1', []))
+        // Keep the fixture offline if selecting a thread starts its feed.
+        ..on('POST', '/api/auth/ws-ticket', {'detail': 'offline'}, status: 503);
+      final auth = FakeSessionAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        platform: TargetPlatform.macOS,
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      await openThread(tester, 'Draft conversation');
+      const attachment = SharedFile(
+        path: '/tmp/synthetic-navigation-draft.pdf',
+        name: 'synthetic-navigation-draft.pdf',
+        mimeType: 'application/pdf',
+      );
+      inbox.emit([attachment]);
+      await tester.pumpAndSettle();
+      const text = 'Synthetic unsent navigation draft';
+      await tester.enterText(composerField, text);
+      final before = tester.widget<ChatThreadView>(find.byType(ChatThreadView));
+      final chatState = tester.state(find.byType(ChatScreen));
+      final owner = auth.verifiedOwner;
+      final generation = auth.ownerGeneration;
+      expect(before.thread?.id, 's1');
+      expect(before.attachments, [attachment]);
+      expect(
+        tester.widget<ThreadSidebar>(find.byType(ThreadSidebar)).searchProfile,
+        'work',
+      );
+      final postsBefore = server.requests
+          .where((r) => r.method == 'POST')
+          .length;
+
+      await openInSidebar(tester, 'Schedules');
+      expect(find.byType(SchedulesScreen), findsOneWidget);
+      expect(composerField, findsNothing);
+      expect(
+        tester.state(find.byType(ChatScreen, skipOffstage: false)),
+        same(chatState),
+      );
+      await openInSidebar(tester, 'Chat');
+
+      final after = tester.widget<ChatThreadView>(find.byType(ChatThreadView));
+      expect(tester.state(find.byType(ChatScreen)), same(chatState));
+      expect(after.composerController, same(before.composerController));
+      expect(after.chatController, same(before.chatController));
+      expect(after.thread, same(before.thread));
+      expect(after.composerController.text, text);
+      expect(after.attachments, [attachment]);
+      expect(find.text(attachment.name), findsOneWidget);
+      expect(
+        tester.widget<ThreadSidebar>(find.byType(ThreadSidebar)).searchProfile,
+        'work',
+      );
+      expect(auth.verifiedOwner, owner);
+      expect(auth.ownerGeneration, generation);
+      expect(
+        server.requests.where((r) => r.method == 'POST').length,
+        postsBefore,
+      );
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    },
+  );
 
   group('guarded main-window handoffs', () {
     testWidgets('Show in Main keeps the editor and composer until Save', (
