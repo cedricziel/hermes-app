@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.63](https://github.com/cedricziel/hermes-app/compare/v0.1.62...v0.1.63) (2026-10-14)
+
+
+### Bug Fixes
+
+* **app:** stop the white screen after unlock on iOS and Android ([#762](https://github.com/cedricziel/hermes-app/issues/762)) ([51c99bb](https://github.com/cedricziel/hermes-app/commit/51c99bb6abde5d2e5c38faead4c068844c7277ec))
+
 ## [0.1.62](https://github.com/cedricziel/hermes-app/compare/v0.1.61...v0.1.62) (2026-10-14)
 
 
