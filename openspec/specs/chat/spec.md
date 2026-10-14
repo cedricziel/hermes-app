@@ -1233,6 +1233,11 @@ On macOS the sidebar SHALL stay beside the content down to a window width of 760
 - **WHEN** the user opens the sidebar in a 700 point window and picks a thread
 - **THEN** the thread opens and the sidebar closes
 
+#### Scenario: Navigation in a short non-chat window
+
+- **WHEN** a short Mac window shows Schedules and its profile switcher and destinations do not fit between the sidebar header and account footer
+- **THEN** those controls scroll within the available space and the account footer remains visible
+
 ### Requirement: Conversation windows (macOS)
 
 On macOS the system SHALL let the user open a chat the dashboard holds in a window of its own, from the thread's "Open in New Window" action (⌥⌘O) or by double-clicking the thread in the sidebar. The window SHALL show only that chat: a toolbar with the chat's title and "<profile> · <model>" below it, the messages and the composer, without the sidebar. Its toolbar SHALL offer Show in Main Window, Pin or Unpin (⇧⌘P), Share and a menu with Rename, Copy Transcript, Archive and Delete. The window SHALL stay on the profile the chat was opened from, whatever profile the main window switches to. Opening a chat that already has a window SHALL bring that window to the front. The Window menu SHALL list the open conversation windows; while one is key, the menu bar's window and chat commands SHALL act on it, ⌘0 SHALL bring back the main window and ⌘W SHALL close the conversation window. A chat that has a window SHALL be followed there only: selecting it or sending in it from the main window SHALL bring its window up instead. The open conversation windows SHALL be opened again, in their last frames, the next time the app connects to the same verified server/account owner. Legacy gated records without ownership proof SHALL NOT restore. Signing out or changing server SHALL close them and forget them; a session that expires SHALL close them immediately and reopen matching targets only after the same verified owner signs in. Another owner or missing proof SHALL discard old targets. On other platforms none of this is offered.
