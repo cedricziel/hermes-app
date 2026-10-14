@@ -41,6 +41,15 @@ class BoundActivityPanel extends StatelessWidget {
         scrollController: scrollController,
       );
     }
+    // The chat replaces a thread's controllers when its session changes, so
+    // they are looked up again on every chat change, then listened to.
+    return ListenableBuilder(
+      listenable: chat,
+      builder: (context, _) => _sections(context, t),
+    );
+  }
+
+  Widget _sections(BuildContext context, ChatThread t) {
     final usage = chat.usageIn(t),
         billing = chat.billingVerificationIn(t),
         plan = chat.todoPlanIn(t),
@@ -50,7 +59,6 @@ class BoundActivityPanel extends StatelessWidget {
         reactions = chat.reactionsIn(t);
     return ListenableBuilder(
       listenable: Listenable.merge([
-        chat,
         usage,
         billing,
         plan,
