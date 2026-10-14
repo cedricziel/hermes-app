@@ -83,7 +83,9 @@ void main() {
     },
   );
 
-  testWidgets('unsupported usage draws nothing', (tester) async {
+  testWidgets('unsupported usage draws nothing, also after a disconnect', (
+    tester,
+  ) async {
     final owner = UsageScope(
       connection: Object(),
       sessionId: 'runtime',
@@ -103,6 +105,11 @@ void main() {
         ),
       ),
     );
+    expect(find.byType(Text), findsNothing);
+
+    controller.disconnected();
+    await tester.pump();
+    expect(controller.shown, isFalse);
     expect(find.byType(Text), findsNothing);
   });
 }

@@ -32,7 +32,7 @@ The app SHALL NOT draw a row, card or label for an activity kind whose state is 
 
 #### Scenario: A chat on an older server
 
-- **WHEN** a chat is opened on a server that offers neither `session.usage` nor `billing.step_up` and sends no plan
+- **WHEN** a chat's server has answered `session.usage` and `billing.step_up` with method-not-found and has sent no plan or other activity
 - **THEN** the transcript starts directly below the chat header
 
 #### Scenario: Known usage goes stale
@@ -42,9 +42,9 @@ The app SHALL NOT draw a row, card or label for an activity kind whose state is 
 
 ### Requirement: No new backend contract
 
-The tiers SHALL be derived only from the existing dashboard `/api/ws` JSON-RPC frames and methods the agent-visibility capabilities already consume (OpenRPC baseline Hermes Agent commit `71d34bad1045610252eda02ee79549436896e784`, recorded in `openrpc/HERMES_REF`). No backend route, protocol extension or minimum Hermes version SHALL be introduced. A server that sends none of these frames SHALL show no activity at all.
+The tiers SHALL be derived only from the existing dashboard `/api/ws` JSON-RPC frames and methods the agent-visibility capabilities already consume (OpenRPC baseline Hermes Agent commit `71d34bad1045610252eda02ee79549436896e784`, recorded in `openrpc/HERMES_REF`). No backend route, protocol extension or minimum Hermes version SHALL be introduced. A server that sends none of these frames SHALL show no activity other than the user-invoked entries whose support is still unknown: the idle Verify billing access action and the Session usage entry. These remain until the Activity panel offers them.
 
 #### Scenario: A server sends no activity frames
 
 - **WHEN** a turn completes with only message frames
-- **THEN** no activity tier draws anything and chat works as before
+- **THEN** no activity is drawn beyond the idle Verify billing access and Session usage entries, and chat works as before
