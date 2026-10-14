@@ -16,4 +16,4 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run script tests, `dart format --output=none --set-exit-if-changed .`, `flutter analyze`, and `flutter test`; run the aligned advisory workflow and inspect its summary and cleanup. No UI verification is needed because runtime UI and connection behavior are unchanged. Keep one reviewable `ci(api)` PR around 500 changed lines or fewer, and leave required checks unchanged.
+- [x] 4.1 Run script tests, `dart format --output=none --set-exit-if-changed .`, `flutter analyze`, and `flutter test`; run the aligned advisory workflow and inspect its summary and cleanup. No UI verification is needed because runtime UI and connection behavior are unchanged. Keep one reviewable `ci(api)` PR around 500 changed lines or fewer, and leave required checks unchanged.
