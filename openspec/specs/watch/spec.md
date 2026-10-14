@@ -8,7 +8,7 @@ Describes the watchOS companion app and what it asks of the phone: how the watch
 
 ### Requirement: Relay through the phone
 
-The system SHALL let the watch app read and send chats by asking the paired phone, which holds the signed-in session and the connection to the Hermes dashboard. The watch SHALL NOT hold tokens or the server address. The phone SHALL serve the watch from whoever is signed in on the phone at that moment. A request is a `threads`, `messages` or `send` operation, and the answer is either success or one of the error codes in "Watch errors". The relay SHALL exist on iOS only.
+The system SHALL let the watch app read and send chats by asking the paired phone, which holds the signed-in session and the connection to the Hermes dashboard. The watch SHALL NOT hold tokens, and SHALL hold the server address only to pass it on for Handoff, never to connect to it. The phone SHALL serve the watch from whoever is signed in on the phone at that moment. A request is a `threads`, `messages` or `send` operation, and the answer is either success or one of the error codes in "Watch errors". The relay SHALL exist on iOS only.
 
 #### Scenario: Signed out on the phone
 
@@ -126,17 +126,49 @@ The system SHALL send a message the user dictates or types on the watch into the
 
 ### Requirement: Requests the watch cannot answer
 
-The system SHALL end a send at once when the agent asks for an approval, a question's answer, or something the app cannot answer (a secret value or a sudo password) during a turn sent from the watch. It SHALL answer success with `failed` false and the text "Hermes asked for something the watch can't answer. Ask again on your iPhone." The text SHALL NOT include the command, the question or anything about a secret. The watch SHALL show it as Hermes's reply. The phone SHALL close the connection that raised the request, since nothing can answer it.
+The system SHALL keep a send going when the agent asks for an approval or a question's answer during a turn sent from the watch. The phone SHALL post the actionable notification of the notifications spec, which watchOS mirrors, so the user can answer on the watch or the phone. When the watch's request says it can be answered this way (`waits: true`) and an answerable notification was posted, the phone SHALL answer the send at once with success, the chat's thread id and `waiting` set to `approval` or `question`, without the command or the question. Otherwise (an older watch, notifications off or not allowed, App Lock on) the send SHALL end as for a request the watch cannot answer; the notification is posted for an older watch all the same. The watch SHALL then show "Waiting for your approval" or "Hermes has a question" in place of "Hermes is thinking…" and send the same request again with the same send id, the chat's thread id and `retry` set, for at most 20 minutes. A phone that no longer knows a send asked with `retry` (for example because iOS ended the app meanwhile) SHALL NOT send the prompt again: it SHALL answer with the chat's latest reply, or "Hermes is still replying. Open the chat again in a moment." when it has none, and `failed` when the retry names no chat. A retry of a waiting send SHALL be answered with the final reply once the turn completes, at once with the new state when it differs from the one the watch was told last (`working` once the turn goes on), and otherwise with the same waiting answer after 20 seconds. The send SHALL wait while any of the turn's requests is open: an expired or withdrawn request leaves the others, and the turn going on closes a request only when it is the only one open. When a retry fails, the watch SHALL keep the message and offer "Try again", which asks again with `retry` instead of sending the message again. While it waits the watch SHALL offer "Stop waiting", which ends the wait on the watch, keeps the message and lets the user send again. While the send waits the phone SHALL give up only after 15 minutes without an event, instead of 60 seconds. Any event that continues the turn SHALL end the waiting state.
+
+The system SHALL end a send at once when the agent asks for something the app cannot answer (a secret value, a sudo password or a vault prompt) during a turn sent from the watch. It SHALL answer success with `failed` false and the text "Hermes asked for something the watch can't answer. Ask again on your iPhone." The text SHALL NOT include anything about what is asked for. The watch SHALL show it as Hermes's reply. The phone SHALL close the connection that raised the request, since nothing can answer it.
 
 #### Scenario: Approval during a watch turn
 
 - **WHEN** the agent asks for approval to run `rm -rf build` during a turn sent from the watch
-- **THEN** the send ends at once, the watch shows the fixed text, and no command text reaches the watch
+- **THEN** the phone answers with `waiting` set to `approval`, the watch shows "Waiting for your approval", and no command text reaches the watch's reply
+
+#### Scenario: Approved from the notification
+
+- **WHEN** the user picks "Allow once" on the mirrored notification and the turn completes with "Done."
+- **THEN** the watch's next retry of the send gets "Done." as the reply
+
+#### Scenario: Still waiting
+
+- **WHEN** a waiting send is retried and nothing happens for 20 seconds
+- **THEN** the phone answers with the same waiting state and the watch keeps waiting
+
+#### Scenario: Phone app ended while waiting
+
+- **WHEN** iOS ends the phone app while a watch send waits, and the watch asks again with `retry`
+- **THEN** the phone reads the chat instead of sending the prompt again
+
+#### Scenario: Stop waiting
+
+- **WHEN** the user picks "Stop waiting" while the watch shows "Waiting for your approval"
+- **THEN** the message stays, the watch asks the phone no more, and the user can send another message
+
+#### Scenario: Older watch
+
+- **WHEN** a watch that does not send `waits` sends a message and the agent asks for approval
+- **THEN** the send ends with the fixed text, as before
 
 #### Scenario: Question during a watch turn
 
 - **WHEN** the agent asks a clarifying question during a turn sent from the watch
-- **THEN** the send ends at once with the same text
+- **THEN** the watch shows "Hermes has a question"
+
+#### Scenario: Sudo password during a watch turn
+
+- **WHEN** the agent asks for a sudo password during a turn sent from the watch
+- **THEN** the send ends at once with the fixed text and the connection is closed
 
 ### Requirement: Watch errors
 
@@ -151,3 +183,51 @@ The system SHALL report a failed request with one of these codes and the watch S
 
 - **WHEN** the phone's Hermes app has not registered its handler
 - **THEN** the phone answers `unavailable` and the watch asks the user to open Hermes on the iPhone
+
+### Requirement: Handoff from a watch chat
+
+The phone SHALL add `serverUrl` (the canonical server address), `profile` and `sessionId` (the raw session id, not the bound thread id) to each chat of a `threads` answer and to every `send` answer that names a thread, and SHALL leave all three out when it has no server address or no profile. While a chat that has them is open, the watch SHALL advertise an activity of the Handoff type the apps declare (`HERMES_HANDOFF_TYPE`) whose user info is the apps' version 1 payload (`version`, `serverUrl`, `profile`, `threadId` = the session id), and SHALL withdraw it when the chat closes. The activity SHALL carry no title text beyond the generic one, no message text and no credentials. A chat without the fields SHALL NOT be advertised.
+
+#### Scenario: Open a listed chat
+
+- **WHEN** the user opens a chat that the phone listed with its server address and profile
+- **THEN** the watch advertises a Handoff activity with that address, profile and the chat's raw session id, and an iPhone or Mac signed in to that server can continue it
+
+#### Scenario: Chat started on the watch
+
+- **WHEN** the user's first message starts a new chat and the phone answers it
+- **THEN** the answer carries the fields and the watch advertises the chat without reloading the list
+
+#### Scenario: Close the chat
+
+- **WHEN** the user leaves the chat
+- **THEN** the activity is withdrawn
+
+#### Scenario: Phone cannot name the server or profile
+
+- **WHEN** the phone's answer has no `serverUrl` or no `profile`
+- **THEN** the watch advertises nothing for that chat
+
+### Requirement: Quick replies and double tap
+
+The watch SHALL show the fixed quick replies "Continue", "Yes", "No" and "Summarize" above the reply field of a chat. Tapping one SHALL send its text as a message under the rules of "Sending from the watch", and the quick replies SHALL be disabled whenever the field is, in particular while a reply is pending. They SHALL NOT be shown while a voice message is being recorded. On watchOS 11 and later, the double-tap gesture SHALL start a voice message when the chat is idle, and stop and send the recording while one is being made; it SHALL do nothing while the voice button is disabled.
+
+#### Scenario: Tap a quick reply
+
+- **WHEN** the user taps "Yes" in an idle chat
+- **THEN** the watch sends "Yes" into that chat and shows "Hermes is thinking…"
+
+#### Scenario: Reply pending
+
+- **WHEN** a reply is pending
+- **THEN** the quick replies are disabled and a tap sends nothing
+
+#### Scenario: Double tap while idle
+
+- **WHEN** the user double taps in an idle chat
+- **THEN** a voice message starts recording
+
+#### Scenario: Double tap while recording
+
+- **WHEN** the user double taps while recording
+- **THEN** the recording stops and is sent as a voice message
