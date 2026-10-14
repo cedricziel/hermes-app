@@ -66,6 +66,10 @@ While the app is locked, the menu SHALL show only counts of running replies and 
 ### Requirement: A pick does what its row said, once
 A pick that no longer matches a row of the menu SHALL do nothing. An approval SHALL be answered at most once: its choices are not offered while an answer is on its way, and a request answered elsewhere while the "always" question was open SHALL NOT be answered again.
 
+#### Scenario: A stale menu row is picked
+- **WHEN** a picked row key no longer matches the current menu
+- **THEN** no menu action runs and no approval answer is sent
+
 ### Requirement: Setting hides the menu bar item
 Settings SHALL offer a macOS-only switch to hide the menu bar item, kept across launches. Hiding it SHALL NOT change the stay-alive behaviour.
 
