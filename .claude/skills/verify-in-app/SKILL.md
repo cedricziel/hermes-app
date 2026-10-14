@@ -117,8 +117,10 @@ lsof -tiTCP:"$HERMES_TEST_PORT" -sTCP:LISTEN | head -n1 > .dart_tool/hermes-dev/
 scripts/dev-backend.sh status
 ```
 
-Before launching the app, confirm `/api/status` reports this checkout's
-`.dart_tool/hermes-dev/home` as `hermes_home`. Finish with the usual
+For this no-auth loopback fallback, confirm `/api/status` reports this checkout's
+`.dart_tool/hermes-dev/home` as `hermes_home` before launching the app. Authenticated
+fixtures omit host paths; follow the process and namespace checks in
+[automated checks](scenarios/automated-checks.md#prepare-the-native-run). Finish with the usual
 `scripts/dev-app.sh stop` and `scripts/dev-backend.sh stop`; the latter kills
 only the PID listening on the registered port. The `--isolated` fallback was
 verified with Hermes on 2026-10-05. If Hermes's web UI assets are already
@@ -135,6 +137,10 @@ built, add `--skip-build` to the isolated command to avoid rebuilding them.
   app has no repository.
 - A fresh backend home has no model keys, so no real replies, and the
   loopback dashboard needs no sign-in, so login isn't exercised.
+  A no-auth connection can reach `ready` with `verifiedOwner == null`, so
+  it cannot verify features that require a verified session owner. For those
+  checks, use synthetic authenticated credentials and the real sign-in and
+  `/api/auth/me` flow. Never inject an owner or relax ownership guards.
 - Real replies without an API key: point the throwaway home at a local
   Ollama (see "A local model" below).
 

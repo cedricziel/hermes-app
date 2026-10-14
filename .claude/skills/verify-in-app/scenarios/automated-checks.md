@@ -57,6 +57,19 @@ rebuilding. Remove only recorded disposable outputs from this verification task;
 retain source snapshots and evidence, and leave shared SDK and user caches alone.
 If enough space is unavailable, preserve the fixture and report the blocked build.
 
+Before spawning the client, confirm the recorded backend PID and exact command
+own the approved loopback listener. Verify the canonical task home against the
+guarded launch environment and process record, and confirm `/api/status` reports
+the required auth mode. Compare its home path when exposed; gated status omits
+host paths, so do not require or add them. Abort before client launch if any
+check fails. An earlier readiness log or process record is insufficient.
+
+Before minting credentials for an authenticated fixture, prevent WebSocket tokens
+or tickets and native-auth query credentials from entering captured logs. Check
+`uvicorn.error` as well as access logging; disabling access logs alone is
+insufficient. Verify suppression with non-secret canaries. Retain fixed outcomes
+and counters, and leave production auditing unchanged.
+
 Record actual native window dimensions for each layout check and note any OS
 minimum size. Label fixture-forced dimensions separately and restore size overrides
 with the other fixture substitutions.
