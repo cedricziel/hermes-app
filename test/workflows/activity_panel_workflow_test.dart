@@ -12,6 +12,7 @@ import 'package:hermes_app/src/chat/widgets/session_status_card.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/inspector_layout.dart';
 
+import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
 
 TodoPlanState _plan() {
@@ -87,6 +88,40 @@ void main() {
           ? buildHermesDarkTheme(platform: platform)
           : buildHermesLightTheme(platform: platform),
     );
+
+    testWidgets('chat screen with the activity inspector ($mode)', (
+      tester,
+    ) async {
+      final shots = ScreenshotRecorder('activity-chat-desktop-$mode');
+      await shots.start(tester, desktopSize);
+      await pumpChatScreen(
+        tester,
+        size: desktopSize,
+        theme: theme(TargetPlatform.linux),
+        wrap: shots.frame,
+      );
+      await openThread(tester, "Summarize last night's run logs");
+      await tester.tap(find.byKey(const Key('header-activity')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('activity-inspector')), findsOneWidget);
+      await shots.capture(tester, 'inspector-open');
+    });
+
+    testWidgets('chat screen with the activity sheet ($mode)', (tester) async {
+      final shots = ScreenshotRecorder('activity-chat-phone-$mode');
+      await shots.start(tester, phoneSize);
+      await pumpChatScreen(
+        tester,
+        size: phoneSize,
+        platform: TargetPlatform.iOS,
+        theme: theme(TargetPlatform.iOS),
+        wrap: shots.frame,
+      );
+      await tester.tap(find.byKey(const Key('header-activity')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('activity-close')), findsOneWidget);
+      await shots.capture(tester, 'sheet-open');
+    });
 
     testWidgets('activity inspector on a desktop window ($mode)', (
       tester,

@@ -55,6 +55,10 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.copyTranscript: run(ThreadAction.copyTranscript),
               MacCommand.archiveThread: run(ThreadAction.archive),
               MacCommand.deleteThread: run(ThreadAction.delete),
+              MacCommand.toggleInspector: MacCommandHandler(
+                windows.toggleKeyWindowInspector,
+                title: 'Show Inspector',
+              ),
             },
       child: child,
     );

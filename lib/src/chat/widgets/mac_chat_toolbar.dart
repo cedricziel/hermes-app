@@ -27,6 +27,8 @@ class MacChatToolbar extends StatelessWidget {
     required this.onNewChat,
     required this.onShowConnection,
     this.onCopyTranscript,
+    this.activityOpen = false,
+    this.onToggleActivity,
     required this.searchQuery,
     required this.searchActive,
     required this.onSearchBegin,
@@ -43,6 +45,10 @@ class MacChatToolbar extends StatelessWidget {
 
   /// Copies the open chat as Markdown; null while no chat is open.
   final VoidCallback? onCopyTranscript;
+  final bool activityOpen;
+
+  /// Shows or hides the Activity inspector; null while no chat is open.
+  final VoidCallback? onToggleActivity;
   final String searchQuery;
   final bool searchActive;
   final VoidCallback onSearchBegin;
@@ -83,6 +89,14 @@ class MacChatToolbar extends StatelessWidget {
             onPressed: onShowConnection,
           ),
         ],
+        MacToolbarButton(
+          key: const Key('toolbar-activity'),
+          label: activityOpen ? 'Hide Inspector' : 'Show Inspector',
+          shortcut: '⌥⌘I',
+          icon: AppIcons.inspector,
+          selected: activityOpen,
+          onPressed: onToggleActivity,
+        ),
         if (showField)
           Padding(
             padding: const EdgeInsets.only(left: 4),

@@ -111,6 +111,7 @@ void main() {
       MacCommand.copyTranscript,
       MacCommand.archiveThread,
       MacCommand.deleteThread,
+      MacCommand.toggleInspector,
       MacCommand.closeWindow,
     ]) {
       expect(registry.invoke(command), isTrue, reason: '$command');
@@ -124,6 +125,7 @@ void main() {
       'copyTranscript',
       'archive',
       'delete',
+      'inspector',
     ]);
     expect(host.closedNatively, ['w0']);
     expect(host.mainShown, 1);

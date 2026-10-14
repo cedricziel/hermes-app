@@ -19,6 +19,8 @@ class ConversationWindowToolbar extends StatelessWidget {
     this.onTogglePin,
     this.onShare,
     this.onAction,
+    this.activityOpen = false,
+    this.onToggleActivity,
   });
 
   final String title;
@@ -33,6 +35,10 @@ class ConversationWindowToolbar extends StatelessWidget {
 
   /// Called for Rename, Copy Transcript, Archive and Delete in the … menu.
   final ValueChanged<ThreadAction>? onAction;
+  final bool activityOpen;
+
+  /// Shows or hides the Activity inspector; null while no chat is open.
+  final VoidCallback? onToggleActivity;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +64,15 @@ class ConversationWindowToolbar extends StatelessWidget {
               icon: pinned ? AppIcons.pin : AppIcons.pinOutline,
               selected: pinned,
               onPressed: onTogglePin,
+            ),
+            const SizedBox(width: 4),
+            MacToolbarButton(
+              key: const Key('window-activity'),
+              label: activityOpen ? 'Hide Inspector' : 'Show Inspector',
+              shortcut: '⌥⌘I',
+              icon: AppIcons.inspector,
+              selected: activityOpen,
+              onPressed: onToggleActivity,
             ),
             const SizedBox(width: 4),
             Builder(

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../chat/activity/bound_activity_panel.dart';
 import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
@@ -17,7 +18,9 @@ import '../models/hermes_models_repository.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../share/shared_item.dart';
+import '../widgets/inspector_layout.dart';
 import 'conversation_window_args.dart';
+import 'conversation_windows.dart' show kInspectorWindowCommand;
 import 'desktop_conversation_windows.dart';
 import 'widgets/conversation_window_toolbar.dart';
 
@@ -70,6 +73,11 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   /// Whether the chat was shown; once it is, losing it (deleted or archived)
   /// closes the window.
   bool _opened = false;
+
+  /// Whether the Activity inspector is open.
+  bool _activityOpen = false;
+
+  void _toggleActivity() => setState(() => _activityOpen = !_activityOpen);
   ({String title, bool pinned})? _reported;
 
   ConversationWindowArgs get _args => widget.args;
@@ -149,6 +157,10 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   /// A [ThreadAction], by name, from the main window's menu bar while this
   /// window is key. The main window closes windows natively.
   void _onCommand(String command) {
+    if (command == kInspectorWindowCommand) {
+      if (mounted && _thread != null) _toggleActivity();
+      return;
+    }
     final action = ThreadAction.values.asNameMap()[command];
     final thread = _thread;
     if (action == null || thread == null || !mounted) return;
@@ -251,6 +263,8 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       onShare: thread == null
           ? null
           : (anchor) => _link.share(threadTranscript(thread.messages), anchor),
+      activityOpen: _activityOpen,
+      onToggleActivity: thread == null ? null : _toggleActivity,
       onAction: thread == null
           ? null
           : (action) => runThreadAction(
@@ -311,7 +325,15 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
         body: Column(
           children: [
             toolbar,
-            Expanded(child: body),
+            Expanded(
+              child: InspectorLayout(
+                content: body,
+                shown: _activityOpen && thread != null,
+                inspector: BoundActivityPanel(chat: chat, thread: thread),
+                panelKey: const Key('activity-inspector'),
+                onDismissOverlay: _toggleActivity,
+              ),
+            ),
           ],
         ),
       ),

@@ -5,6 +5,7 @@ import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import 'thread_actions_menu.dart';
 import '../../widgets/named_icon_button.dart';
+import '../activity/widgets/activity_panel.dart';
 
 /// The bar above a wide chat: the open thread's title, its actions once the
 /// dashboard knows it, the connection details and New Chat. A Mac window has
@@ -17,6 +18,8 @@ class ChatHeader extends StatelessWidget {
     this.displayTitle,
     required this.onShowConnection,
     required this.onNewChat,
+    this.activityOpen = false,
+    this.onToggleActivity,
   });
 
   /// The open thread, or null before one is picked.
@@ -25,6 +28,10 @@ class ChatHeader extends StatelessWidget {
   final String? displayTitle;
   final VoidCallback onShowConnection;
   final VoidCallback onNewChat;
+  final bool activityOpen;
+
+  /// Opens or closes the Activity panel; null while no chat is open.
+  final VoidCallback? onToggleActivity;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +52,8 @@ class ChatHeader extends StatelessWidget {
           housekeeping: housekeeping,
           includeCopyTranscript: true,
         ),
+      if (onToggleActivity case final toggle?)
+        ActivityButton(open: activityOpen, onPressed: toggle),
       ConnectionInfoButton(onPressed: onShowConnection),
       NewChatButton(onPressed: onNewChat),
     ];
