@@ -39,21 +39,12 @@ void main() {
     },
   );
 
-  testWidgets('empty and unsupported controls draw nothing', (tester) async {
+  testWidgets('empty controls draw nothing', (tester) async {
     final state = ChatSessionState()
       ..control = const SessionControlSnapshot(revision: 'empty');
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(body: SessionStatusCard(state: state)),
-      ),
-    );
-    expect(find.byType(Text), findsNothing);
-    state.unavailable = true;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SessionStatusCard(state: state, initiallyOpen: true),
-        ),
       ),
     );
     expect(find.byType(Text), findsNothing);

@@ -24,5 +24,5 @@ One PR, `fix(chat): draw nothing for empty activity states`, under ~300 changed 
 
 ## 5. Verify
 
-- [ ] 5.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
+- [x] 5.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
 - [ ] 5.2 Run the `verify-in-app` loop on macOS against `scripts/dev-backend.sh`: open a new chat and confirm no activity rows appear above the transcript; screenshot it.

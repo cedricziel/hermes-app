@@ -50,7 +50,6 @@ class ChatSessionState {
   final waits = <String, String>{};
   ResumeProgress? resume;
   String? reclaimedReason;
-  bool unavailable = false;
 
   void adopt(String runtime) {
     if (runtimeId == runtime) return;
@@ -70,6 +69,5 @@ class ChatSessionState {
     waits.clear();
     resume = null;
     reclaimedReason = null;
-    unavailable = false;
   }
 }

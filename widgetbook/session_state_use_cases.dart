@@ -53,15 +53,6 @@ WidgetbookNode sessionStateNode() => WidgetbookComponent(
       ),
     ),
     WidgetbookUseCase(
-      name: 'Unavailable control (draws nothing)',
-      builder: (_) => frame(
-        SessionStatusCard(
-          state: ChatSessionState()..unavailable = true,
-          initiallyOpen: true,
-        ),
-      ),
-    ),
-    WidgetbookUseCase(
       name: 'Reclaimed session',
       builder: (_) => frame(
         SessionStatusCard(
