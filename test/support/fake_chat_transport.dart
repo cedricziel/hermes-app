@@ -329,6 +329,9 @@ class FakeSend {
 
   /// Ends the stream without an error.
   void finish() => _events.close();
+
+  /// Completes when the listener receives the stream's done event.
+  Future<void> get done => _events.done;
 }
 
 /// The turns Hermes chains on its own, fed by hand.
