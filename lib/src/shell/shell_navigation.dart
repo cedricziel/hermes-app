@@ -99,11 +99,15 @@ class ShellSidebar extends StatelessWidget {
                     ],
                   ),
                 ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: navigation,
+            Expanded(
+              child: SingleChildScrollView(
+                primary: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: navigation,
+                ),
+              ),
             ),
-            const Spacer(),
             const AccountFooter(),
           ],
         ),

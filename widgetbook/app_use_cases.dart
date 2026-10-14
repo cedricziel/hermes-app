@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
+import 'package:hermes_app/src/macos/mac_sidebar.dart';
+import 'package:hermes_app/src/profiles/widgets/mac_profile_switcher.dart';
 import 'package:hermes_app/src/app.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
@@ -376,6 +378,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ShellSidebar',
       useCases: [
+        _screen('Short Mac window', CatalogAuth.new, _shortShellSidebar),
         for (final (name, selected) in [('Kanban', 1), ('Schedules', 2)])
           _screen(
             name,
@@ -625,9 +628,10 @@ WidgetbookNode appNode() => WidgetbookFolder(
 Widget _destinations(int selected) => _Destinations(selected: selected);
 
 class _Destinations extends StatefulWidget {
-  const _Destinations({required this.selected});
+  const _Destinations({required this.selected, this.full = false});
 
   final int selected;
+  final bool full;
 
   @override
   State<_Destinations> createState() => _DestinationsState();
@@ -637,28 +641,84 @@ class _DestinationsState extends State<_Destinations> {
   late int _selected = widget.selected;
 
   @override
-  Widget build(BuildContext context) => ShellNavigation(
-    destinations: const [
-      (
-        icon: AppIcons.chat,
-        selected: AppIcons.chatFilled,
-        label: 'Chat',
-        caption: null,
-      ),
-      (
-        icon: AppIcons.kanban,
-        selected: AppIcons.kanbanFilled,
-        label: 'Kanban',
-        caption: 'All profiles',
-      ),
-      (
-        icon: AppIcons.scheduleOutlined,
-        selected: AppIcons.schedule,
-        label: 'Schedules',
-        caption: null,
-      ),
-    ],
-    selectedIndex: _selected,
-    onSelected: (i) => setState(() => _selected = i),
-  );
+  Widget build(BuildContext context) {
+    final navigation = ShellNavigation(
+      destinations: [
+        (
+          icon: AppIcons.chat,
+          selected: AppIcons.chatFilled,
+          label: 'Chat',
+          caption: null,
+        ),
+        if (widget.full)
+          (
+            icon: AppIcons.bot,
+            selected: AppIcons.bot,
+            label: 'Bots',
+            caption: null,
+          ),
+        (
+          icon: AppIcons.kanban,
+          selected: AppIcons.kanbanFilled,
+          label: 'Kanban',
+          caption: 'All profiles',
+        ),
+        (
+          icon: AppIcons.scheduleOutlined,
+          selected: AppIcons.schedule,
+          label: 'Schedules',
+          caption: null,
+        ),
+        if (widget.full)
+          (
+            icon: AppIcons.person,
+            selected: AppIcons.person,
+            label: 'Profiles',
+            caption: null,
+          ),
+      ],
+      selectedIndex: _selected,
+      onSelected: (i) => setState(() => _selected = i),
+    );
+    if (!widget.full) return navigation;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: MacProfileSwitcher(
+            profiles: macProfiles,
+            current: 'default',
+            onSwitch: (_) {},
+            onNewProfile: () {},
+            onManage: () {},
+          ),
+        ),
+        navigation,
+      ],
+    );
+  }
 }
+
+Widget _shortShellSidebar() => Builder(
+  builder: (context) => Theme(
+    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    child: MediaQuery(
+      data: MediaQuery.of(context).copyWith(size: const Size(800, 280)),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 300,
+          height: 280,
+          child: MacSidebarScope(
+            child: MacSplitView(
+              sidebar: const ShellSidebar(
+                navigation: _Destinations(selected: 3, full: true),
+              ),
+              content: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+);
