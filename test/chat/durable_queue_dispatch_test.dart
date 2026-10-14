@@ -600,6 +600,7 @@ void main() {
         ],
       );
       expect(outcomes.toString(), isNot(contains('private prompt')));
+      expect((await store.load(scope())).records, isEmpty);
     },
   );
 

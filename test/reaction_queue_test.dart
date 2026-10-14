@@ -32,15 +32,42 @@ const _row = DurableReactionRow(rowId: 42, role: 'user');
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory directory;
-  late DurableQueueStore store;
+  late _AcceptanceStore store;
   late AttentionNotifier attention;
   late ValueNotifier<bool> activity;
   late ChatController chat;
+  Future<void>? cleanup;
+  Completer<void>? acceptanceEntered;
+  Completer<void>? releaseAcceptance;
+  void Function()? beforeDirectoryDelete;
+
+  Future<void> disposeFixture() async {
+    chat.dispose();
+    attention.dispose();
+    activity.dispose();
+    await store.acceptedWrite;
+    beforeDirectoryDelete?.call();
+    await directory.delete(recursive: true);
+  }
+
   setUp(() async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     directory = await Directory.systemTemp.createTemp('reaction-queue-');
-    store = DurableQueueStore(directory: directory, keys: FakeQueueKeys());
+    cleanup = null;
+    acceptanceEntered = null;
+    releaseAcceptance = null;
+    beforeDirectoryDelete = null;
+    store = _AcceptanceStore(
+      directory: directory,
+      keys: FakeQueueKeys(),
+      beforeCommit: (operation) async {
+        if (operation == 'state' && store.acceptedWrite != null) {
+          acceptanceEntered?.complete();
+          await releaseAcceptance?.future;
+        }
+      },
+    );
     await store.commit(_scope, 'Repeated');
     attention = AttentionNotifier(
       service: null,
@@ -49,12 +76,7 @@ void main() {
     );
     activity = ValueNotifier(true);
   });
-  tearDown(() async {
-    chat.dispose();
-    attention.dispose();
-    activity.dispose();
-    await directory.delete(recursive: true);
-  });
+  tearDown(() => cleanup ??= disposeFixture());
   Future<void> open(ChatTransport transport) async {
     final server = FakeHermesServer()
       ..on('GET', '/api/sessions', sessionListBody([sessionRow(id: 'stored')]))
@@ -118,6 +140,12 @@ void main() {
         connection: binding.connection,
       );
   test('actual queue transport stamps receipt and reaction before submit answer binds only deferred user', () async {
+    acceptanceEntered = Completer<void>();
+    releaseAcceptance = Completer<void>();
+    addTearDown(() async {
+      if (!releaseAcceptance!.isCompleted) releaseAcceptance!.complete();
+      await store.acceptedWrite;
+    });
     final gateway = FakeGateway()..activeSessions = {};
     gateway.handlers['session.resume'] = (_) => {
       'session_id': 'runtime',
@@ -153,7 +181,7 @@ void main() {
     } finally {
       chat.removeListener(changed);
     }
-    await pumpEventQueue();
+    await acceptanceEntered!.future.timeout(const Duration(seconds: 5));
     final user = thread.messages.where((m) => m.role == ChatRole.user).last;
     expect(user.canonicalRow?.rowId, 42);
     expect(chat.reactionsFor(thread, user.canonicalRow!)?.single.emoji, '🎉');
@@ -163,6 +191,22 @@ void main() {
       gateway.methods.where((method) => method == 'prompt.submit'),
       hasLength(1),
     );
+    var deletionStarted = false;
+    beforeDirectoryDelete = () => deletionStarted = true;
+    cleanup = disposeFixture();
+    try {
+      expect(
+        deletionStarted,
+        false,
+        reason: 'UI acceptance must not delete a directory with an owned write pending',
+      );
+      expect(await directory.exists(), true);
+    } finally {
+      releaseAcceptance!.complete();
+      await store.acceptedWrite!.timeout(const Duration(seconds: 5));
+      await cleanup;
+    }
+    expect(await directory.exists(), false);
   });
   test(
     'reaction queue fake rejects permission loss before its barrier',
@@ -380,5 +424,22 @@ class _OwnedQueue extends FakeChatTransport
   Future<void> close() async {
     await changes.close();
     await super.close();
+  }
+}
+
+class _AcceptanceStore extends DurableQueueStore {
+  _AcceptanceStore({
+    required super.directory,
+    required super.keys,
+    super.beforeCommit,
+  });
+
+  Future<void>? acceptedWrite;
+
+  @override
+  Future<void> setState(QueueScope scope, String id, QueueRecordState state) {
+    final write = super.setState(scope, id, state);
+    if (state == QueueRecordState.accepted) acceptedWrite = write;
+    return write;
   }
 }
