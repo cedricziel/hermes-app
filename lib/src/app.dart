@@ -88,9 +88,9 @@ class _HermesAppState extends State<HermesApp> {
     _history.gateChanged();
   }
 
-  T? _read<T>() {
+  T? _read<T extends Object>() {
     try {
-      return context.read<T>();
+      return context.read<T?>();
     } on ProviderNotFoundException {
       return null;
     }
