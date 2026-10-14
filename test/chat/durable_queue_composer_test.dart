@@ -48,16 +48,65 @@ class _Queues extends QueuePersistence {
   }
 }
 
-Future<void> flushDiskWork(WidgetTester tester, bool Function() done) async {
-  for (var attempts = 0; !done() && attempts < 100; attempts++) {
-    await tester.runAsync(() => pumpEventQueue(times: 5));
-    await tester.pump();
+class _FixtureStore extends DurableQueueStore {
+  _FixtureStore({
+    required super.directory,
+    required super.keys,
+    super.beforeCommit,
+  });
+  Future<void>? settled;
+
+  @override
+  Future<QueueLoad> load(QueueScope scope) {
+    final operation = super.load(scope);
+    settled = operation.then<void>((_) {}, onError: (Object _) {});
+    return operation;
   }
-  expect(
-    done(),
-    true,
-    reason: 'The queued operation must reach its commit boundary.',
-  );
+
+  @override
+  Future<QueueRecord> commit(
+    QueueScope scope,
+    String text, {
+    String? displayText,
+    List<QueueAttachmentInput> files = const [],
+  }) {
+    final operation = super.commit(
+      scope,
+      text,
+      displayText: displayText,
+      files: files,
+    );
+    settled = operation.then<void>((_) {}, onError: (Object _) {});
+    return operation;
+  }
+}
+
+Future<void> _waitForDiskWork(
+  WidgetTester tester,
+  Future<void> operation,
+) async {
+  await tester.runAsync(() async {
+    var done = false;
+    Object? error;
+    StackTrace? trace;
+    final completed = operation
+        .timeout(const Duration(seconds: 5))
+        .then<void>(
+          (_) => done = true,
+          onError: (Object failure, StackTrace stack) {
+            error = failure;
+            trace = stack;
+            done = true;
+          },
+        );
+    // File completions can resume work in the widget test's fake zone.
+    while (!done) {
+      await tester.pump();
+      await pumpEventQueue(times: 1);
+    }
+    await completed;
+    if (error != null) Error.throwWithStackTrace(error!, trace!);
+  });
 }
 
 void main() {
@@ -70,9 +119,10 @@ void main() {
         final directory = (await tester.runAsync(
           () => Directory.systemTemp.createTemp('queue-composer-test-'),
         ))!;
-        final entered = Completer<void>();
-        final release = Completer<void>();
-        final store = DurableQueueStore(
+        final ioZone = (await tester.runAsync(() async => Zone.current))!;
+        final entered = ioZone.run(Completer<void>.new);
+        final release = ioZone.run(Completer<void>.new);
+        final store = _FixtureStore(
           directory: directory,
           keys: FakeQueueKeys(),
           beforeCommit: (operation) async {
@@ -92,7 +142,7 @@ void main() {
         addTearDown(() async {
           if (!release.isCompleted) release.complete();
           await tester.pumpWidget(const SizedBox());
-          await tester.pump(const Duration(seconds: 5));
+          await _waitForDiskWork(tester, store.settled ?? Future<void>.value());
           queues.dispose();
           share.dispose();
           await tester.runAsync(() => directory.delete(recursive: true));
@@ -124,7 +174,7 @@ void main() {
         await tester.pump();
         await tester.tap(find.byIcon(Icons.arrow_upward));
         await tester.pump();
-        await flushDiskWork(tester, () => entered.isCompleted);
+        await _waitForDiskWork(tester, entered.future);
         await tester.pump();
         expect(
           tester.widget<EditableText>(composerField).controller.text,
@@ -134,10 +184,7 @@ void main() {
         expect(transport.sends, hasLength(1));
         expect(find.text('Queueing…'), findsOneWidget);
         release.complete();
-        await flushDiskWork(
-          tester,
-          () => find.text('Queueing…').evaluate().isEmpty,
-        );
+        await _waitForDiskWork(tester, store.settled!);
         await tester.pump();
         expect(
           tester.widget<EditableText>(composerField).controller.text,
