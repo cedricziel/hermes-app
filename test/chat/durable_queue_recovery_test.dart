@@ -32,6 +32,23 @@ class _Keys implements QueueKeys {
   }
 }
 
+class _AcceptanceStore extends DurableQueueStore {
+  _AcceptanceStore({
+    required super.directory,
+    required super.keys,
+    super.beforeCommit,
+  });
+
+  Future<void>? acceptedWrite;
+
+  @override
+  Future<void> setState(QueueScope scope, String id, QueueRecordState state) {
+    final write = super.setState(scope, id, state);
+    if (state == QueueRecordState.accepted) acceptedWrite = write;
+    return write;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory directory;
@@ -264,18 +281,28 @@ void main() {
     () async {
       final entered = Completer<void>();
       final release = Completer<void>();
-      final store = DurableQueueStore(
+      final acceptanceEntered = Completer<void>();
+      final releaseAcceptance = Completer<void>();
+      late final _AcceptanceStore store;
+      store = _AcceptanceStore(
         directory: directory,
         keys: keys,
         beforeCommit: (operation) async {
           if (operation == 'record') {
             entered.complete();
             await release.future;
+          } else if (operation == 'state' && store.acceptedWrite != null) {
+            acceptanceEntered.complete();
+            await releaseAcceptance.future;
           }
         },
       );
       final chat = await controller(store);
       addTearDown(chat.dispose);
+      addTearDown(() async {
+        if (!releaseAcceptance.isCompleted) releaseAcceptance.complete();
+        await store.acceptedWrite;
+      });
       chat.newThread();
       await chat.submit('first', const []);
       transport.sends.single.emit(const ThreadBound('session'));
@@ -295,6 +322,22 @@ void main() {
       await transport.prepared.timeout(const Duration(seconds: 5));
       await pumpEventQueue();
       expect(transport.sends.map((send) => send.text), ['first', 'next']);
+      await acceptanceEntered.future.timeout(const Duration(seconds: 5));
+      releaseAcceptance.complete();
+      await store.acceptedWrite!.timeout(const Duration(seconds: 5));
+      const scope = QueueScope(
+        serverKey: 'server',
+        accountKey: 'account',
+        profile: 'work',
+        conversationId: 'session',
+      );
+      expect((await store.load(scope)).records, isEmpty);
+      transport.sends.last
+        ..emit(const ReplyCompleted('Next done'))
+        ..emit(const SessionInfo(running: false))
+        ..finish();
+      await transport.sends.last.done;
+      expect(chat.selectedThread!.isReplying, false);
     },
   );
 }
