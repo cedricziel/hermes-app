@@ -11,6 +11,8 @@ import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_source_list.dart';
+import 'package:hermes_app/src/macos/mac_sidebar.dart';
+import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profile_switcher.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
@@ -221,6 +223,83 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
                     onNewThread: () {},
                   ),
                   width: 280,
+                ),
+              ),
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Short window',
+          builder: (_) => Hosted<CatalogAuth>(
+            create: () => CatalogAuth(gated: true),
+            dispose: (auth) => auth.dispose(),
+            builder: (_, auth) => withAppProviders(
+              auth,
+              mac(
+                MacSidebarScope(
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: 280,
+                      height: 280,
+                      child: ThreadSidebar(
+                        threads: macThreads,
+                        selectedId: 'thread-2',
+                        onSelect: (_) {},
+                        onNewThread: () {},
+                        navigation: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: MacProfileSwitcher(
+                                profiles: macProfiles,
+                                current: 'work',
+                                onSwitch: (_) {},
+                                onNewProfile: () {},
+                                onManage: () {},
+                              ),
+                            ),
+                            ShellNavigation(
+                              destinations: const [
+                                (
+                                  icon: AppIcons.chat,
+                                  selected: AppIcons.chatFilled,
+                                  label: 'Chat',
+                                  caption: null,
+                                ),
+                                (
+                                  icon: AppIcons.bot,
+                                  selected: AppIcons.bot,
+                                  label: 'Bots',
+                                  caption: null,
+                                ),
+                                (
+                                  icon: AppIcons.kanban,
+                                  selected: AppIcons.kanbanFilled,
+                                  label: 'Kanban',
+                                  caption: 'All profiles',
+                                ),
+                                (
+                                  icon: AppIcons.scheduleOutlined,
+                                  selected: AppIcons.schedule,
+                                  label: 'Schedules',
+                                  caption: null,
+                                ),
+                                (
+                                  icon: AppIcons.person,
+                                  selected: AppIcons.person,
+                                  label: 'Profiles',
+                                  caption: null,
+                                ),
+                              ],
+                              selectedIndex: 0,
+                              onSelected: (_) {},
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
