@@ -62,34 +62,38 @@ class ActivityPanel extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: isEmpty
-              ? ListView(
-                  controller: scrollController,
-                  children: const [
-                    Padding(
-                      padding: EdgeInsets.only(top: 48),
-                      child: StateMessage(
-                        icon: AppIcons.inspector,
-                        title: 'No activity for this chat',
-                        detail:
-                            'Plans, running work and session details show up '
-                            'here.',
+          // A handful of cards: built at once, so none is missing offscreen.
+          child: SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: isEmpty
+                  ? const [
+                      Padding(
+                        padding: EdgeInsets.only(top: 48),
+                        child: StateMessage(
+                          icon: AppIcons.inspector,
+                          title: 'No activity for this chat',
+                          detail:
+                              'Plans, running work and session details show '
+                              'up here.',
+                        ),
                       ),
-                    ),
-                  ],
-                )
-              : ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.only(bottom: 24),
-                  children: [
-                    if (now.isNotEmpty) ...[const _SectionTitle('Now'), ...now],
-                    if (plan != null) ...[const _SectionTitle('Plan'), plan],
-                    if (session.isNotEmpty) ...[
-                      const _SectionTitle('This session'),
-                      ...session,
+                    ]
+                  : [
+                      if (now.isNotEmpty) ...[
+                        const _SectionTitle('Now'),
+                        ...now,
+                      ],
+                      if (plan != null) ...[const _SectionTitle('Plan'), plan],
+                      if (session.isNotEmpty) ...[
+                        const _SectionTitle('This session'),
+                        ...session,
+                      ],
                     ],
-                  ],
-                ),
+            ),
+          ),
         ),
       ],
     );

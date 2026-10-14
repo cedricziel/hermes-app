@@ -20,6 +20,7 @@ import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/chat_with_activity.dart';
 import 'support/fake_gateway.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_attachment_source.dart';
@@ -642,23 +643,27 @@ void main() {
       addTearDown(composer.dispose);
       addTearDown(focus.dispose);
       addTearDown(latest.dispose);
-      tester.view.physicalSize = const Size(520, 420);
+      // Short, and wide enough for the chat beside the Activity panel.
+      tester.view.physicalSize = const Size(1000, 420);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: boundChatThreadView(
-              chat: chat,
-              thread: chat.selectedThread,
-              composerController: composer,
-              composerFocus: focus,
-              attachments: const [],
-              attachmentSource: FakeAttachmentSource(),
-              onAddAttachments: (_) {},
-              onRemoveAttachment: (_) {},
-              onSend: (_) {},
-              latestReply: latest,
+            body: chatWithActivity(
+              chat,
+              boundChatThreadView(
+                chat: chat,
+                thread: chat.selectedThread,
+                composerController: composer,
+                composerFocus: focus,
+                attachments: const [],
+                attachmentSource: FakeAttachmentSource(),
+                onAddAttachments: (_) {},
+                onRemoveAttachment: (_) {},
+                onSend: (_) {},
+                latestReply: latest,
+              ),
             ),
           ),
         ),
@@ -671,8 +676,9 @@ void main() {
         find.text('Side question answer'),
         find.textContaining('Session usage ·'),
       ]) {
-        await tester.ensureVisible(title);
-        await tester.tap(title);
+        // Working items show in the strip and the Activity panel alike.
+        await tester.ensureVisible(title.first);
+        await tester.tap(title.first);
         await tester.runAsync(() => pumpEventQueue());
         await tester.pumpAndSettle();
       }
@@ -722,17 +728,20 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: boundChatThreadView(
-            chat: chat,
-            thread: chat.selectedThread,
-            composerController: composer,
-            composerFocus: focus,
-            attachments: const [],
-            attachmentSource: FakeAttachmentSource(),
-            onAddAttachments: (_) {},
-            onRemoveAttachment: (_) {},
-            onSend: (_) {},
-            latestReply: latest,
+          body: chatWithActivity(
+            chat,
+            boundChatThreadView(
+              chat: chat,
+              thread: chat.selectedThread,
+              composerController: composer,
+              composerFocus: focus,
+              attachments: const [],
+              attachmentSource: FakeAttachmentSource(),
+              onAddAttachments: (_) {},
+              onRemoveAttachment: (_) {},
+              onSend: (_) {},
+              latestReply: latest,
+            ),
           ),
         ),
       ),

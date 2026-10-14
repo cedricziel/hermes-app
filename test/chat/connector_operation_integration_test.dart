@@ -22,6 +22,7 @@ import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../support/chat_with_activity.dart';
 import '../support/fake_gateway.dart';
 import '../support/fake_attachment_source.dart';
 import '../support/fake_hermes_server.dart';
@@ -586,90 +587,90 @@ void main() {
     expect(observed, isNot(contains('Old side')));
     expect(observed, isNot(contains('Old process')));
   });
-  testWidgets(
-    'both connector groups share the bounded activity panel and leave the short chat usable',
-    (tester) async {
-      tester.view.physicalSize = const Size(320, 360);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.runAsync(() async {
-        await open();
-        gateway.event('connection.request', 'rt-1', {
-          ...connectionRequestFixture,
-          'targets': [
-            {
-              'name': 'synthetic-connector',
-              'kind': 'connector',
-              'action': 'authorize',
-              'state': 'initiated',
-              'instructions': List.filled(
-                200,
-                'Synthetic instructions',
-              ).join('\n'),
-            },
-          ],
-        });
-        gateway.event('connection.update', '', {
-          ...connectionUpdateFixture,
-          'owner': {'type': 'account'},
-        });
-        gateway.event('session.usage', 'rt-1', {
-          'usage': {'total': 7},
-        });
-        gateway.event('todo.updated', 'rt-1', {
-          'revision': 1,
-          'todos': [
-            {'id': 'task', 'content': 'Current todo', 'status': 'pending'},
-          ],
-        });
-        gateway.event('background.complete', 'rt-1', {
-          'task_id': 'side',
-          'text': 'Current side',
-        });
-        await pumpEventQueue();
+  testWidgets('the actionable connector card stays usable in a short chat', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 360);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.runAsync(() async {
+      await open();
+      gateway.event('connection.request', 'rt-1', {
+        ...connectionRequestFixture,
+        'targets': [
+          {
+            'name': 'synthetic-connector',
+            'kind': 'connector',
+            'action': 'authorize',
+            'state': 'initiated',
+            'instructions': List.filled(
+              200,
+              'Synthetic instructions',
+            ).join('\n'),
+          },
+        ],
       });
-      final composer = TextEditingController(),
-          focus = FocusNode(),
-          latest = LatestReply();
-      addTearDown(composer.dispose);
-      addTearDown(focus.dispose);
-      addTearDown(latest.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: boundChatThreadView(
-              chat: chat,
-              thread: chat.selectedThread,
-              composerController: composer,
-              composerFocus: focus,
-              attachments: const [],
-              attachmentSource: FakeAttachmentSource(),
-              onAddAttachments: (_) {},
-              onRemoveAttachment: (_) {},
-              onSend: (_) {},
-              latestReply: latest,
-            ),
+      gateway.event('connection.update', '', {
+        ...connectionUpdateFixture,
+        'owner': {'type': 'account'},
+      });
+      gateway.event('session.usage', 'rt-1', {
+        'usage': {'total': 7},
+      });
+      gateway.event('todo.updated', 'rt-1', {
+        'revision': 1,
+        'todos': [
+          {'id': 'task', 'content': 'Current todo', 'status': 'pending'},
+        ],
+      });
+      gateway.event('background.complete', 'rt-1', {
+        'task_id': 'side',
+        'text': 'Current side',
+      });
+      await pumpEventQueue();
+    });
+    final composer = TextEditingController(),
+        focus = FocusNode(),
+        latest = LatestReply();
+    addTearDown(composer.dispose);
+    addTearDown(focus.dispose);
+    addTearDown(latest.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: boundChatThreadView(
+            chat: chat,
+            thread: chat.selectedThread,
+            composerController: composer,
+            composerFocus: focus,
+            attachments: const [],
+            attachmentSource: FakeAttachmentSource(),
+            onAddAttachments: (_) {},
+            onRemoveAttachment: (_) {},
+            onSend: (_) {},
+            latestReply: latest,
           ),
         ),
-      );
-      expect(find.byType(ConnectorOperationCard), findsNWidgets(2));
-      final scoped = find.byType(ConnectorOperationCard).last;
-      final disclosure = find.descendant(
-        of: scoped,
-        matching: find.byType(ExpansionTile),
-      );
-      await tester.ensureVisible(disclosure);
-      await tester.tap(disclosure);
-      await tester.pumpAndSettle();
-      final continueAction = find.text('Continue');
-      await tester.ensureVisible(continueAction);
-      await tester.pumpAndSettle();
-      expect(continueAction.hitTestable(), findsOneWidget);
-      expect(tester.getSize(find.byType(Chat)).height, greaterThan(150));
-      expect(tester.takeException(), isNull);
-      expect(gateway.methods, isNot(contains('connection.respond')));
-    },
-  );
+      ),
+    );
+    // The account-wide operation is reference activity, in the panel.
+    expect(find.byType(ConnectorOperationCard), findsOneWidget);
+    final scoped = find.byType(ConnectorOperationCard);
+    final disclosure = find.descendant(
+      of: scoped,
+      matching: find.byType(ExpansionTile),
+    );
+    await tester.ensureVisible(disclosure);
+    await tester.tap(disclosure);
+    await tester.pumpAndSettle();
+    final continueAction = find.text('Continue');
+    await tester.ensureVisible(continueAction);
+    await tester.pumpAndSettle();
+    expect(continueAction.hitTestable(), findsOneWidget);
+    expect(tester.getSize(find.byType(Chat)).height, greaterThan(150));
+    expect(tester.takeException(), isNull);
+    expect(gateway.methods, isNot(contains('connection.respond')));
+  });
   testWidgets(
     'real chat labels account connection activity and renders no authority-guessing controls',
     (tester) async {
@@ -690,17 +691,20 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: boundChatThreadView(
-              chat: chat,
-              thread: chat.selectedThread,
-              composerController: composer,
-              composerFocus: focus,
-              attachments: const [],
-              attachmentSource: FakeAttachmentSource(),
-              onAddAttachments: (_) {},
-              onRemoveAttachment: (_) {},
-              onSend: (_) {},
-              latestReply: latest,
+            body: chatWithActivity(
+              chat,
+              boundChatThreadView(
+                chat: chat,
+                thread: chat.selectedThread,
+                composerController: composer,
+                composerFocus: focus,
+                attachments: const [],
+                attachmentSource: FakeAttachmentSource(),
+                onAddAttachments: (_) {},
+                onRemoveAttachment: (_) {},
+                onSend: (_) {},
+                latestReply: latest,
+              ),
             ),
           ),
         ),

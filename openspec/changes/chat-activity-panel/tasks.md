@@ -13,8 +13,8 @@ One PR, `feat(chat): add the Activity panel`, aiming at ~500 changed lines (the 
 
 ## 3. Panel content
 
-- [ ] 3.1 Write failing tests for `ActivityPanelSource`: it builds the three sections from the controllers by tier, lists Verify billing access under This session while offered, drops it after method-not-found, and never mixes chats after a switch.
-- [ ] 3.2 Implement `ActivityPanelSource` and verify 3.1 passes.
+- [x] 3.1 Write failing tests for `ActivityPanelSource`: it builds the three sections from the controllers by tier, lists Verify billing access under This session while offered, drops it after method-not-found, and never mixes chats after a switch.
+- [x] 3.2 Implement `ActivityPanelSource` and verify 3.1 passes.
 
 ## 4. Placement and wiring
 
@@ -24,8 +24,8 @@ One PR, `feat(chat): add the Activity panel`, aiming at ~500 changed lines (the 
 
 ## 5. Reference tier leaves the strip
 
-- [ ] 5.1 Write failing widget tests: usage, a side answer, a keyed notice, the session acknowledgement, a settled connector operation and the idle billing row draw nothing above the transcript and appear under This session; a ttl notice that expired is not listed.
-- [ ] 5.2 Filter reference-tier entries out of `ChatThreadView`'s strip and verify 5.1 and the existing side-result, notice and usage tests (updated for the new location) pass.
+- [x] 5.1 Write failing widget tests: usage, a side answer, a keyed notice, the session acknowledgement, a settled connector operation and the idle billing row draw nothing above the transcript and appear under This session; a ttl notice that expired is not listed.
+- [x] 5.2 Filter reference-tier entries out of `ChatThreadView`'s strip and verify 5.1 and the existing side-result, notice and usage tests (updated for the new location) pass.
 
 ## 6. Observability
 

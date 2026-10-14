@@ -71,7 +71,6 @@ void main() {
               onSend: (_) {},
               onPickStarter: (_) {},
               latestReplyId: latest,
-              sessionUsage: usage,
               billingVerification: billing,
               todoPlan: plan,
               welcome: false,

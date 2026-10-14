@@ -114,28 +114,14 @@ ChatThreadView boundChatThreadView({
   final t = thread;
   return ChatThreadView(
     thread: t,
-    notices: t == null ? const [] : chat.noticesIn(t),
-    onDismissNotice: t == null
-        ? null
-        : (notice) => chat.dismissNotice(t, notice),
-    onNoticeDetails: chat.warningDetailsOpened,
     sessionState: t == null ? null : chat.sessionStateIn(t),
-    sessionUsage: t == null ? null : chat.usageIn(t),
     connectorOperations: t == null ? null : chat.connectorOperationsIn(t),
-    connectionOperations: chat.connectionOperations,
     billingVerification: t == null ? null : chat.billingVerificationIn(t),
     todoPlan: t == null ? null : chat.todoPlanIn(t),
-    acknowledgement: t == null ? null : chat.reactionsIn(t)?.acknowledgement,
     reactionsFor: t == null ? null : (row) => chat.reactionsFor(t, row),
     onReactionDetails: t == null
         ? null
         : () => chat.reactionsIn(t)?.detailsOpened(),
-    sideResults: t == null
-        ? const []
-        : chat.sideResultsIn(t)?.results ?? const [],
-    onSideResultDetails: t == null
-        ? null
-        : chat.sideResultsIn(t)?.detailsOpened,
     moaProgress: t == null ? const [] : chat.moaIn(t),
     onMoaDetails: chat.moaDetailsOpened,
     processOutputs: t == null ? null : chat.processOutputsIn(t),
