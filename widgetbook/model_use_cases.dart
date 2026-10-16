@@ -53,7 +53,7 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
-          name: 'Loading or unavailable (hidden)',
+          name: 'Loading models',
           builder: (_) => frame(
             ComposerModelPill(options: null, choice: null, onChanged: (_) {}),
           ),

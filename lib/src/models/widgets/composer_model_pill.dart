@@ -1,88 +1,86 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
-import '../../theme/hermes_theme.dart';
+import '../../widgets/composer_selector_chip.dart';
+import '../model_options_state.dart';
 import '../model_provider_option.dart';
 import 'model_picker.dart';
 
-/// A quiet pill naming the model a chat runs on, then its reasoning effort,
-/// that opens [ModelPicker]. [choice] is the chat's own pick; without one the
-/// pill names the profile's default model from [options], or says "Profile
-/// default" when the caller can go back to it with [onUseDefault]. Shows
-/// nothing while [options] is null (loading, or not available) or offers no
-/// model.
+/// The current chat model and the state of its profile's model discovery.
 class ComposerModelPill extends StatelessWidget {
   const ComposerModelPill({
     super.key,
     required this.options,
     required this.choice,
     required this.onChanged,
+    this.state,
     this.onUseDefault,
+    this.onRetry,
+    this.onSetup,
   });
 
   final ModelOptions? options;
   final ModelChoice? choice;
+  final ModelOptionsState? state;
   final ValueChanged<ModelChoice> onChanged;
   final VoidCallback? onUseDefault;
+  final VoidCallback? onRetry;
+  final VoidCallback? onSetup;
 
   @override
   Widget build(BuildContext context) {
     final options = this.options;
-    if (options == null || options.providers.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final shown = choice ?? options.current;
+    final state =
+        this.state ??
+        (options == null
+            ? ModelOptionsState.loading
+            : options.providers.isEmpty
+            ? ModelOptionsState.incomplete
+            : ModelOptionsState.ready);
+    final candidate = choice ?? options?.current;
+    final shown = candidate != null && options?.model(candidate) != null
+        ? candidate
+        : null;
+    final model =
+        shown?.modelId ??
+        (onUseDefault == null ? 'Choose a model' : 'Profile default');
     final effort = shown?.effort;
-    final theme = Theme.of(context);
-    final quiet = context.hermesColors.subtleText;
-    final style = theme.textTheme.labelMedium;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 320),
-      // A tonal chip, like the round buttons beside it in the composer.
-      child: Material(
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: const Key('composer-model-pill'),
-          borderRadius: BorderRadius.circular(999),
-          onTap: () => showModelPicker(
-            context,
-            options: options,
-            selected: shown,
-            onChanged: onChanged,
-            onUseDefault: onUseDefault,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    shown?.modelId ??
-                        (onUseDefault == null
-                            ? 'Choose a model'
-                            : 'Profile default'),
-                    style: style?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                if (effort != null)
-                  Text(
-                    ' · ${effortLabel(effort)}',
-                    style: style?.copyWith(color: quiet),
-                    maxLines: 1,
-                  ),
-                AppIcon(AppIcons.expandMore, size: 16, color: quiet),
-              ],
-            ),
-          ),
+    final label = switch (state) {
+      ModelOptionsState.loading => 'Loading models',
+      ModelOptionsState.incomplete => 'Set up a model',
+      ModelOptionsState.failed => 'Could not load models',
+      ModelOptionsState.unsupported => choice?.modelId ?? 'Profile default',
+      ModelOptionsState.ready =>
+        '$model${effort == null ? '' : ' · ${effortLabel(effort)}'}',
+    };
+    return ComposerSelectorChip(
+      key: const Key('composer-model-pill'),
+      label: label,
+      semanticLabel: state == ModelOptionsState.unsupported
+          ? '$label. Model discovery is unavailable.'
+          : (state == ModelOptionsState.loading ||
+                    state == ModelOptionsState.failed) &&
+                candidate != null
+          ? '$label, selected model ${candidate.modelId}'
+          : label,
+      trailing: state == ModelOptionsState.ready
+          ? const AppIcon(AppIcons.expandMore, size: 16)
+          : null,
+      actionLabel: state == ModelOptionsState.failed ? 'Retry' : null,
+      actionSemanticLabel: 'Retry models',
+      onAction: state == ModelOptionsState.failed ? onRetry : null,
+      onPressed: switch (state) {
+        ModelOptionsState.ready when options != null => () => showModelPicker(
+          context,
+          options: options,
+          selected: shown,
+          onChanged: onChanged,
+          onUseDefault: onUseDefault,
         ),
-      ),
+        ModelOptionsState.incomplete ||
+        ModelOptionsState.unsupported => onSetup,
+        _ => null,
+      },
     );
   }
 }
