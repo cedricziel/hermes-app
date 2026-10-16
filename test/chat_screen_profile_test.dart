@@ -303,6 +303,7 @@ void main() {
   testWidgets('a message goes unscoped when the server has no profiles', (
     tester,
   ) async {
+    server.on('GET', '/api/profiles', {'detail': 'x'}, status: 404);
     server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404);
     server.on(
       'GET',
