@@ -60,6 +60,7 @@ void main() {
       await pump(tester, platform: platform);
       tester.view.physicalSize = const Size(390, 844);
       await tester.pumpAndSettle();
+      await openThread(tester, _thread);
       await tester.tap(find.byKey(const Key('header-activity')));
       await tester.pumpAndSettle();
       expect(_panel, findsOneWidget);

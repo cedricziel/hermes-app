@@ -117,6 +117,7 @@ void main() {
         theme: theme(TargetPlatform.iOS),
         wrap: shots.frame,
       );
+      await openThread(tester, "Summarize last night's run logs");
       await tester.tap(find.byKey(const Key('header-activity')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('activity-close')), findsOneWidget);

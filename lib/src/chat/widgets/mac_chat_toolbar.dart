@@ -22,6 +22,7 @@ enum _More { copyTranscript, connection }
 class MacChatToolbar extends StatelessWidget {
   const MacChatToolbar({
     super.key,
+    this.avatar,
     required this.title,
     this.subtitle,
     required this.onNewChat,
@@ -38,6 +39,7 @@ class MacChatToolbar extends StatelessWidget {
     this.searchFocus,
   });
 
+  final Widget? avatar;
   final String title;
   final String? subtitle;
   final VoidCallback onNewChat;
@@ -63,6 +65,7 @@ class MacChatToolbar extends StatelessWidget {
     final compact = isMacCompact(context);
     final showField = searchActive || width >= kMacToolbarSearchFieldWidth;
     return MacToolbar(
+      leading: avatar,
       title: title,
       subtitle: subtitle,
       actions: [

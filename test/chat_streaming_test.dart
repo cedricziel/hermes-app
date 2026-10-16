@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -26,6 +28,12 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+
+typedef _SharedFiles = ({
+  ShareController controller,
+  FakeShareInbox inbox,
+  List<SharedFile> files,
+});
 
 /// Sending through a [ChatTransport]: the streamed reply, from the composer
 /// through the real widget tree, against a fake dashboard for the session
@@ -77,7 +85,7 @@ void main() {
   /// the welcome view.
   Future<void> pumpChat(
     WidgetTester tester, {
-    ShareController? share,
+    _SharedFiles? share,
     String? open = 'Run failure',
   }) async {
     tester.view.physicalSize = const Size(1400, 900);
@@ -91,7 +99,8 @@ void main() {
             create: (_) => AuthController(),
           ),
           ChangeNotifierProvider<ShareController>(
-            create: (_) => share ?? ShareController(FakeShareInbox()),
+            create: (_) =>
+                share?.controller ?? ShareController(FakeShareInbox()),
           ),
         ],
         child: MaterialApp(
@@ -105,6 +114,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     if (open != null) await openThread(tester, open);
+    if (share != null) {
+      share.inbox.emit(share.files);
+      await tester.pumpAndSettle();
+    }
   }
 
   Future<void> send(WidgetTester tester, String text) async {
@@ -520,11 +533,79 @@ void main() {
 
     File fileOf(String name, List<int> bytes) => writeTemp(dir, name, bytes);
 
-    Future<ShareController> sharing(List<SharedFile> files) async {
-      final share = ShareController(FakeShareInbox(files));
-      await share.start();
-      return share;
+    Future<_SharedFiles> sharing(List<SharedFile> files) async {
+      final inbox = FakeShareInbox();
+      final controller = ShareController(inbox);
+      await controller.start();
+      return (controller: controller, inbox: inbox, files: files);
     }
+
+    chatTest(
+      'startup sharing waits for the owning profile and opens its draft',
+      (tester) async {
+        final active = Completer<FakeResponse>();
+        server
+          ..on(
+            'GET',
+            '/api/profiles',
+            profileListBody([profileRow(name: 'work')]),
+          )
+          ..onRequest('GET', '/api/profiles/active', (_) => active.future);
+        final share = ShareController(
+          FakeShareInbox([
+            const SharedText('Review the startup report'),
+            const SharedFile(
+              path: '/tmp/startup-report.pdf',
+              name: 'startup-report.pdf',
+            ),
+          ]),
+        );
+        await share.start();
+        tester.view.physicalSize = const Size(400, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AuthController>(
+                create: (_) => AuthController(),
+              ),
+              ChangeNotifierProvider<ShareController>(create: (_) => share),
+            ],
+            child: MaterialApp(
+              theme: buildHermesLightTheme(),
+              home: ChatScreen(
+                repository: HermesChatRepository(server.client().raw),
+                profiles: HermesProfilesRepository(server.client().raw),
+                transport: transport,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(share.hasPending, isTrue);
+        active.complete((status: 200, body: activeProfileBody(active: 'work')));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<EditableText>(composerField).controller.text,
+          'Review the startup report',
+        );
+        expect(find.byTooltip('Remove startup-report.pdf'), findsOneWidget);
+        expect(find.byType(BackButton), findsOneWidget);
+        expect(
+          tester
+              .widget<ThreadSidebar>(
+                find.byType(ThreadSidebar, skipOffstage: false),
+              )
+              .searchProfile,
+          'work',
+        );
+        expect(share.hasPending, isFalse);
+        expect(transport.sends, isEmpty);
+      },
+    );
 
     chatTest('an attachments-only send hands the file to the transport', (
       tester,
@@ -669,6 +750,25 @@ void main() {
       );
       expect(transport.sends, isEmpty);
       expect(find.byTooltip('Remove gone.txt'), findsOneWidget);
+    });
+
+    chatTest('a shared file stays with the conversation it was received in', (
+      tester,
+    ) async {
+      final report = fileOf('report.pdf', [1, 2, 3]);
+      await pumpChat(
+        tester,
+        share: await sharing([
+          SharedFile(path: report.path, name: 'report.pdf'),
+        ]),
+      );
+
+      await openThread(tester, 'Release notes');
+      expect(find.byTooltip('Remove report.pdf'), findsNothing);
+      await openThread(tester, 'Run failure');
+
+      expect(find.byTooltip('Remove report.pdf'), findsOneWidget);
+      expect(transport.sends, isEmpty);
     });
 
     chatTest('a rejected attachment is shown as the reply', (tester) async {

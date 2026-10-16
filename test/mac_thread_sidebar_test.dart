@@ -128,7 +128,7 @@ void main() {
     final data = tester
         .getSemantics(find.text('Release notes'))
         .getSemanticsData();
-    expect(data.label, 'Release notes');
+    expect(data.label, 'Hermes\nRelease notes');
     expect(data.flagsCollection.isButton, isTrue);
     handle.dispose();
   });

@@ -140,18 +140,31 @@ void main() {
       expect(searchFocus(tester).hasFocus, isTrue);
     });
 
-    testWidgets('Find is disabled while the sidebar is a drawer', (
-      tester,
-    ) async {
-      await pumpIpad(tester);
-      tester.view.physicalSize = const Size(600, 900);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('thread-search-field')), findsNothing);
-      expect(enabled(MacCommand.find), isFalse);
+    testWidgets(
+      'Find follows visible search across compact detail and resize',
+      (tester) async {
+        await pumpIpad(tester);
+        tester.view.physicalSize = const Size(600, 900);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('thread-search-field')), findsOneWidget);
+        expect(enabled(MacCommand.find), isTrue);
 
-      tester.view.physicalSize = const Size(1400, 900);
-      await tester.pumpAndSettle();
-      expect(enabled(MacCommand.find), isTrue);
-    });
+        await run(tester, MacCommand.find);
+        expect(searchFocus(tester).hasFocus, isTrue);
+        await openThread(tester, 'Release notes');
+        expect(find.byKey(const Key('thread-search-field')), findsNothing);
+        expect(enabled(MacCommand.find), isFalse);
+
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(enabled(MacCommand.find), isTrue);
+        await run(tester, MacCommand.find);
+        expect(searchFocus(tester).hasFocus, isTrue);
+
+        tester.view.physicalSize = const Size(1400, 900);
+        await tester.pumpAndSettle();
+        expect(enabled(MacCommand.find), isTrue);
+      },
+    );
   });
 }

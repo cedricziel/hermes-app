@@ -362,10 +362,14 @@ void main() {
     tester.view.physicalSize = const Size(400, 800);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.tap(find.byKey(const Key('shell-menu')));
     await tester.pumpAndSettle();
-    await openSidebarMore(tester);
-    await tester.tap(find.text('Messaging'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Messaging'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -415,10 +419,14 @@ void main() {
       tester.view.physicalSize = const Size(400, 800);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.tap(find.byKey(const Key('shell-menu')));
       await tester.pumpAndSettle();
-      await openSidebarMore(tester);
-      await tester.tap(find.text('MCP servers'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(Drawer),
+          matching: find.text('MCP servers'),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(McpServersScreen), findsOneWidget);
       await tester.pageBack();

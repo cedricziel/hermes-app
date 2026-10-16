@@ -50,6 +50,11 @@ import '../surfaces/surface_snapshots.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import '../theme/platform_chrome.dart';
+import '../theme/app_icons.dart';
+import '../widgets/named_icon_button.dart';
+import '../profiles/profile_avatar_repository.dart';
+import '../profiles/widgets/profile_avatar.dart';
+import '../profiles/widgets/recipient_picker.dart';
 import '../windows/conversation_window_args.dart';
 import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
@@ -177,6 +182,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HandoffController? _handoff;
   DockMenuController? _dock;
   HermesProfilesRepository? _profiles;
+  ProfileAvatarRepository? _avatars;
+  AuthController? _avatarAuth;
+  int? _avatarOwner;
+  List<HermesProfile> _recipients = const [];
+  bool _profilesUnsupported = false;
+  int _recipientIntent = 0;
+  (String?, String?) _composerOwner = (null, null);
+  ChatThread? _composerThread;
+  final _draftOwners = <ChatThread, (String?, String?)>{};
+  final _drafts = <(String?, String?), TextEditingValue>{};
+  final _draftFiles = <(String?, String?), List<SharedFile>>{};
   HermesMessagingRepository? _messaging;
   HermesSkillsRepository? _skills;
   HermesPluginManagerRepository? _plugins;
@@ -198,8 +214,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// A quote that waits for the threads to load.
   ({SharedQuote quote, bool held})? _pendingQuote;
+  ({bool held, int link, int? owner})? _pendingShare;
   late final AttentionNotifier _attention;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _chatsScaffoldKey = GlobalKey<ScaffoldState>();
   final _searchFocus = FocusNode();
   Timer? _activeRefreshTimer;
   MenuBarExtraLink? _menuBar;
@@ -216,6 +234,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Whether the Activity inspector is open; it stays open across chats.
   bool _activityOpen = false;
+  bool _detailOpen = false;
+  final _conversationNavigator = GlobalKey<NavigatorState>();
 
   /// The reply of the open thread that can be asked again: its last message,
   /// once that is a finished reply.
@@ -284,6 +304,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     }
     final auth = _maybeRead<AuthController>();
+    if (transport is HermesGatewayTransport && auth?.baseUrl != null) {
+      _avatars = ProfileAvatarRepository(
+        transport.request,
+        serverId: auth!.baseUrl!,
+        accountId: auth.identity?.userId ?? '',
+      );
+    }
+    _avatarAuth = auth;
+    _avatarOwner = auth?.ownerGeneration;
+    auth?.addListener(_checkAvatarOwner);
+    if (_profiles != null) unawaited(_loadRecipients());
     if (auth?.verifiedOwner != null) {
       _sessionActivity = SessionActivity(auth!);
     }
@@ -317,7 +348,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onOpenJob: (target) => widget.onOpenJob?.call(target),
       onOpenNewChat: _openNewChatFromNotification,
       onLaunchNotification: _openLaunchNotification,
-      onOpened: () => _scaffoldKey.currentState?.closeDrawer(),
+      onOpened: _showDetail,
       breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
       onPrefill: (draft) => _composerController.value = TextEditingValue(
         text: draft,
@@ -504,7 +535,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// New Chat from the Dock menu, which may have been picked on another page.
   void _newChatFromDock() {
-    _newThread();
+    _startThread();
     widget.onShowChat?.call();
   }
 
@@ -548,7 +579,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _attachments.removeWhere(draft.files.contains);
       });
     }
+    final remaining = _composerController.value;
+    final remainingFiles = List.of(_attachments);
     _chat.clearSelection();
+    _composerController.value = remaining;
+    _attachments
+      ..clear()
+      ..addAll(remainingFiles);
   }
 
   /// Offers the chat in front for Handoff: a key conversation window's, or
@@ -598,10 +635,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _changed() {
     if (!mounted) return;
     _syncListChanges();
+    final thread = _chat.selectedThread;
+    final owner = (_chat.profile, _chat.selectedId);
+    final savedOwner = _draftOwners[thread];
+    if (savedOwner != null &&
+        savedOwner != owner &&
+        savedOwner.$1 == owner.$1) {
+      final draft = _drafts.remove(savedOwner);
+      final files = _draftFiles.remove(savedOwner);
+      if (draft != null) _drafts[owner] = draft;
+      if (files != null) _draftFiles[owner] = files;
+    }
+    if (_composerOwner != owner) {
+      final adoptedSessionId =
+          thread != null &&
+          identical(_composerThread, thread) &&
+          _composerOwner.$1 == owner.$1;
+      if (adoptedSessionId) {
+        _drafts.remove(_composerOwner);
+        _draftFiles.remove(_composerOwner);
+      } else {
+        _drafts[_composerOwner] = _composerController.value;
+        _draftFiles[_composerOwner] = List.of(_attachments);
+        _composerController.value = _drafts[owner] ?? TextEditingValue.empty;
+        _attachments
+          ..clear()
+          ..addAll(_draftFiles[owner] ?? const []);
+      }
+      _composerOwner = owner;
+    }
+    _composerThread = thread;
+    if (thread != null) _draftOwners[thread] = owner;
     _dictation?.followProfile();
-    widget.chatProfiles?.showing(_chat.profile);
+    if (!_chat.loadingThreads) widget.chatProfiles?.showing(_chat.profile);
     _syncDock();
     setState(() {});
+    if (!_chat.loadingThreads && !_chat.threadsFailed) {
+      final pending = _pendingShare;
+      if (pending != null) {
+        _pendingShare = null;
+        if (pending.link == _linkSeq &&
+            pending.owner == _avatarAuth?.ownerGeneration) {
+          _absorbShared(held: pending.held);
+        }
+      }
+    }
     if (_pendingQuote != null && !_chat.loadingThreads) _deliverQuote();
     if (_whenLoaded != null && !_chat.loadingThreads) _runWhenLoaded();
     WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
@@ -821,8 +899,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         return;
       }
     }
-    await _chat.newThreadWhenOpened();
+    final draft = _composerController.value;
+    final files = List.of(_attachments);
+    await _chat.newThreadWhenOpened(valid: () => !overtaken());
     if (overtaken()) return;
+    _composerController.value = draft;
+    _attachments
+      ..clear()
+      ..addAll(files);
+    _showDetail();
     _closeDrawerIfNarrow();
     if (request.prompt case final prompt?) _appendToComposer(prompt);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -848,6 +933,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_chat.openOldestRequest()) return;
     if (await _chat.openOldestStoredRequest() || !mounted) return;
     widget.onShowChat?.call();
+    if (!_wide && !_mac) {
+      _showChats();
+      return;
+    }
     if (hasMacSidebar(context)) {
       final sidebar = MacSidebarScope.read(context);
       if (isMacCompact(context) && sidebar != null && !sidebar.overlayOpen) {
@@ -876,7 +965,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _newFromMenuBar() {
     widget.onShowChat?.call();
-    _newThread();
+    _startThread();
   }
 
   void _showMessage(String message) {
@@ -911,8 +1000,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Takes what was shared. [held] says it was waiting before this screen
   /// existed, i.e. through setup, sign-in or a reconnect.
   void _absorbShared({bool held = false}) {
+    if (_chat.loadingThreads || _chat.threadsFailed) {
+      _pendingShare = (
+        held: held || (_pendingShare?.held ?? false),
+        link: _linkSeq,
+        owner: _avatarAuth?.ownerGeneration,
+      );
+      return;
+    }
     final items = _share.take();
     if (items.isEmpty) return;
+    _detailOpen = true;
 
     final shared = items.whereType<SharedText>().map((i) => i.text).join('\n');
     if (shared.isNotEmpty) _appendToComposer(shared);
@@ -938,11 +1036,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'held': pending.held,
     });
     _appendToComposer(pending.quote.asBlockQuote, separator: '\n\n');
+    final draft = _composerController.value;
+    final files = List.of(_attachments);
+    final link = _linkSeq;
+    final owner = _avatarAuth?.ownerGeneration;
+    bool current() =>
+        mounted && link == _linkSeq && owner == _avatarAuth?.ownerGeneration;
     _handoff?.cancel();
     // After a frame: a chat opened from a launch or a tap is set up by then.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _chat.newThreadWhenOpened();
-      if (!mounted) return;
+      if (!current()) return;
+      await _chat.newThreadWhenOpened(valid: current);
+      if (!current()) return;
+      _showDetail();
+      _composerController.value = draft;
+      _attachments
+        ..clear()
+        ..addAll(files);
       _closeDrawerIfNarrow();
       _composerFocus.requestFocus();
     });
@@ -1001,6 +1111,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat
       ..removeListener(_changed)
       ..dispose();
+    _avatarAuth?.removeListener(_checkAvatarOwner);
+    _avatars?.dispose();
     _ownedTransport?.close();
     _dictation?.dispose();
     _sessionActivity?.dispose();
@@ -1012,7 +1124,163 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  void _newThread() {
+  void _showChats() {
+    _composerFocus.unfocus();
+    setState(() => _detailOpen = false);
+  }
+
+  void _showDetail() {
+    if (!mounted) return;
+    setState(() => _detailOpen = true);
+    _scaffoldKey.currentState?.closeDrawer();
+  }
+
+  void _checkAvatarOwner() {
+    final auth = _avatarAuth;
+    if (auth == null || auth.ownerGeneration == _avatarOwner) return;
+    _avatarOwner = auth.ownerGeneration;
+    _avatars?.dispose();
+    _avatars = null;
+    _recipients = const [];
+    _profilesUnsupported = false;
+    _recipientIntent++;
+    _composerController.clear();
+    _attachments.clear();
+    _drafts.clear();
+    _draftFiles.clear();
+    _composerThread = null;
+    _draftOwners.clear();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadRecipients() async {
+    final owner = _avatarAuth?.ownerGeneration;
+    try {
+      final profiles = await _profiles!.list();
+      if (mounted && owner == _avatarAuth?.ownerGeneration) {
+        setState(() => _recipients = profiles);
+      }
+    } on DioException catch (error) {
+      if (mounted &&
+          owner == _avatarAuth?.ownerGeneration &&
+          error.response?.statusCode == 404) {
+        setState(() => _profilesUnsupported = true);
+      }
+    } on Object {
+      // The picker offers a retry without blocking existing conversations.
+    }
+  }
+
+  HermesProfile get _recipient =>
+      _recipients
+          .where((profile) => profile.name == _chat.profile)
+          .firstOrNull ??
+      HermesProfile(
+        name: _chat.profile ?? '',
+        displayName: _chat.profile == null ? 'Hermes' : '',
+      );
+
+  Widget _avatar([double size = 32]) =>
+      ProfileAvatar(profile: _recipient, size: size, repository: _avatars);
+
+  Future<({List<HermesProfile> profiles, bool failed})>
+  _recipientOptions() async {
+    try {
+      return (profiles: await _profiles!.list(), failed: false);
+    } on Object {
+      return (profiles: const <HermesProfile>[], failed: true);
+    }
+  }
+
+  Future<HermesProfile?> _pickRecipient() async {
+    final repository = _profiles;
+    if (repository == null || _profilesUnsupported && _chat.profile == null) {
+      return _recipient;
+    }
+    final owner = _avatarAuth?.ownerGeneration;
+    var pending = _recipientOptions();
+    return showDialog<HermesProfile>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, update) => Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440, maxHeight: 560),
+            child: FutureBuilder<({List<HermesProfile> profiles, bool failed})>(
+              future: pending,
+              builder: (context, snapshot) => RecipientPicker(
+                profiles: snapshot.data?.profiles ?? const [],
+                selectedProfile: _chat.profile,
+                loading: snapshot.connectionState != ConnectionState.done,
+                failed: snapshot.data?.failed ?? false,
+                onRetry: () => update(() {
+                  pending = _recipientOptions();
+                }),
+                avatars: _avatars,
+                onSelected: (profile) {
+                  if (!mounted || owner != _avatarAuth?.ownerGeneration) {
+                    Navigator.of(dialogContext).pop();
+                    return;
+                  }
+                  _recipients = snapshot.data?.profiles ?? _recipients;
+                  Navigator.of(dialogContext).pop(profile);
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changeRecipient() async {
+    final draft = _composerController.value;
+    final files = List.of(_attachments);
+    final owner = _avatarAuth?.ownerGeneration;
+    final link = _linkSeq;
+    final target = await _newThread();
+    if (mounted &&
+        target != null &&
+        owner == _avatarAuth?.ownerGeneration &&
+        link == _linkSeq &&
+        target.$1 == _chat.profile &&
+        target.$2 == _chat.selectedThread &&
+        target.$2.messages.isEmpty) {
+      _composerController.value = draft;
+      setState(
+        () => _attachments
+          ..clear()
+          ..addAll(files),
+      );
+    }
+  }
+
+  Future<(String?, ChatThread)?> _newThread() async {
+    final intent = ++_recipientIntent;
+    final link = _linkSeq;
+    final owner = _avatarAuth?.ownerGeneration;
+    bool current() =>
+        mounted &&
+        intent == _recipientIntent &&
+        link == _linkSeq &&
+        owner == _avatarAuth?.ownerGeneration;
+    final profile = await _pickRecipient();
+    if (!current() || profile == null) return null;
+    if (_chat.repository != null &&
+        profile.name.isNotEmpty &&
+        (_chat.loadingThreads || _chat.profile != profile.name)) {
+      await _chat.loadThreads(profile.name);
+      if (!current() || _chat.threadsFailed || _chat.profile != profile.name) {
+        return null;
+      }
+    }
+    _startThread();
+    final thread = _chat.selectedThread;
+    return thread == null ? null : (_chat.profile, thread);
+  }
+
+  void _startThread() {
+    _recipientIntent++;
+    _showDetail();
     _handoff?.cancel();
     _chat.newThread();
     _closeDrawerIfNarrow();
@@ -1040,6 +1308,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _openHit(ThreadSearchHit hit) {
+    _showDetail();
     _chat.openSearchHit(hit);
     _closeDrawerIfNarrow();
   }
@@ -1091,7 +1360,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           )
         : null;
     return {
-      MacCommand.newChat: MacCommandHandler(_newThread),
+      MacCommand.newChat: MacCommandHandler(_startThread),
       MacCommand.openInNewWindow: MacCommandHandler(
         _windows != null && thread != null && thread.remote
             ? () => unawaited(_openInWindow(thread))
@@ -1143,6 +1412,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _selectThread(String id) {
+    _showDetail();
     if (_leaveToWindow(id, () => _selectThread(id))) return;
     _handoff?.cancel();
     _chat.select(id);
@@ -1262,6 +1532,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     MacSidebarScope.read(context)?.closeOverlay();
     if (!isWideLayout(context)) {
       _scaffoldKey.currentState?.closeDrawer();
+      _chatsScaffoldKey.currentState?.closeDrawer();
     }
   }
 
@@ -1395,12 +1666,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Widget _buildScreen(BuildContext context) {
     final chat = _chat;
-    // Without its own drawer, the chat keeps the shell's menu reachable on a
-    // narrow layout, or the other destinations would be too.
     final shellMenu = ShellMenu.button(context);
-    final shellBar = shellMenu == null
-        ? null
-        : buildChatAppBar(context, leading: shellMenu);
+    final shellBar = buildChatAppBar(
+      context,
+      leading: shellMenu,
+      title: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Chats'),
+          if (_chat.profile != null)
+            Text(
+              _recipient.label,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+        ],
+      ),
+      actions: [
+        NamedIconButton(
+          label: 'New message',
+          icon: AppIcons.compose,
+          onPressed: _newThread,
+        ),
+      ],
+    );
     if (chat.loadingThreads) {
       return Scaffold(
         appBar: shellBar,
@@ -1435,7 +1723,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final selected = chat.selectedThread;
         final bot = selected?.botContext;
         _latestReply.follow(chat, selected);
-        ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(
+        ThreadSidebar buildSidebar({
+          Widget? navigation,
+          bool fullPage = false,
+        }) => ThreadSidebar(
+          fullPage: fullPage,
+          avatarBuilder: (_) => _avatar(24),
           navigation: navigation,
           onOpenInNewWindow: _windows == null
               ? null
@@ -1460,10 +1753,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onOpenHelperModels: _models == null ? null : _openHelperModels,
         );
 
+        final compactMessenger = !isWide && !_mac;
         final macSplit = isWide && _mac;
         final search = chat.search;
         final threadView = boundChatThreadView(
           chat: chat,
+          recipientChip:
+              _profiles != null &&
+                  (selected == null ||
+                      !selected.remote && selected.messages.isEmpty)
+              ? ProfileRecipientChip(
+                  profile: _recipient,
+                  avatars: _avatars,
+                  onTap: _changeRecipient,
+                )
+              : null,
           thread: selected,
           greetingName: context.select<AuthController, String?>(
             (auth) => auth.identity?.displayName,
@@ -1490,6 +1794,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? ListenableBuilder(
                   listenable: search ?? const AlwaysStoppedAnimation(0),
                   builder: (context, _) => MacChatToolbar(
+                    avatar: _avatar(),
                     title: bot?.title ?? selected?.title ?? 'Hermes',
                     subtitle: _toolbarSubtitle(),
                     onNewChat: _newThread,
@@ -1510,6 +1815,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 )
               : ChatHeader(
                   thread: selected,
+                  avatar: _avatar(),
                   displayTitle: bot?.title,
                   housekeeping: chat.housekeeping,
                   onShowConnection: _showConnection,
@@ -1531,7 +1837,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         final scaffold = Scaffold(
           key: _scaffoldKey,
-          drawer: isWide
+          drawer: isWide || compactMessenger
               ? null
               : Drawer(
                   width: 280,
@@ -1541,7 +1847,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? null
               : buildChatAppBar(
                   context,
-                  title: Text(bot?.title ?? selected?.title ?? 'Hermes'),
+                  leading: compactMessenger
+                      ? BackButton(onPressed: _showChats)
+                      : null,
+                  title: Row(
+                    children: [
+                      _avatar(),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          bot?.title ?? selected?.title ?? 'New message',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                   actions: [
                     if (selected != null && selected.remote)
                       ThreadActionsButton(
@@ -1572,6 +1893,116 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ],
                 ),
         );
+        if (compactMessenger) {
+          final phone = NavigatorPopHandler<Object?>(
+            onPopWithResult: (_) => _showChats(),
+            child: Navigator(
+              key: _conversationNavigator,
+              pages: [
+                MaterialPage<void>(
+                  key: const ValueKey('chats-home'),
+                  child: Scaffold(
+                    key: _chatsScaffoldKey,
+                    drawer: Drawer(
+                      child: ShellSidebar(
+                        navigation: Column(
+                          children: [
+                            if (widget.navigation != null) widget.navigation!,
+                            if (_profiles != null)
+                              SidebarAction(
+                                icon: AppIcons.person,
+                                label: 'Profiles',
+                                onTap: _openProfiles,
+                              ),
+                            if (_skills != null)
+                              SidebarAction(
+                                icon: AppIcons.extension,
+                                label: 'Skills',
+                                onTap: _openSkills,
+                              ),
+                            if (_messaging != null)
+                              SidebarAction(
+                                icon: AppIcons.bot,
+                                label: 'Messaging',
+                                onTap: _openMessaging,
+                              ),
+                            if (_plugins != null)
+                              SidebarAction(
+                                icon: AppIcons.extension,
+                                label: 'Plugins',
+                                onTap: _openPlugins,
+                              ),
+                            if (_mcp != null)
+                              SidebarAction(
+                                icon: AppIcons.power,
+                                label: 'MCP servers',
+                                onTap: _openMcp,
+                              ),
+                            if (_models != null)
+                              SidebarAction(
+                                icon: AppIcons.tune,
+                                label: 'Helper models',
+                                onTap: _openHelperModels,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    appBar: buildChatAppBar(
+                      context,
+                      title: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Chats'),
+                          if (_chat.profile != null)
+                            Text(
+                              _recipient.label,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                        ],
+                      ),
+                      leading: NamedIconButton(
+                        key: const Key('shell-menu'),
+                        label: MaterialLocalizations.of(context)
+                            .openAppDrawerTooltip,
+                        icon: AppIcons.menu,
+                        onPressed: () =>
+                            _chatsScaffoldKey.currentState?.openDrawer(),
+                      ),
+                      actions: [
+                        NamedIconButton(
+                          label: 'New message',
+                          icon: AppIcons.compose,
+                          onPressed: _newThread,
+                        ),
+                      ],
+                    ),
+                    body: buildSidebar(fullPage: true),
+                  ),
+                ),
+                if (_detailOpen)
+                  MaterialPage<void>(
+                    key: const ValueKey('conversation-detail'),
+                    child: scaffold,
+                  ),
+              ],
+              onDidRemovePage: (page) {
+                if (page.key == const ValueKey('conversation-detail') &&
+                    mounted) {
+                  setState(() => _detailOpen = false);
+                }
+              },
+            ),
+          );
+          return MacCommandScope(
+            commands: {
+              MacCommand.find: MacCommandHandler(
+                !_detailOpen && search != null ? _focusSidebarSearch : null,
+              ),
+            },
+            child: phone,
+          );
+        }
         if (platformChromeOf(context) != PlatformChrome.ios) return scaffold;
         return MacCommandScope(
           commands: {

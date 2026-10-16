@@ -202,15 +202,21 @@ void main() {
     );
   }
 
-  Future<void> openFromSidebar(WidgetTester tester, String entry) async {
+  Future<Finder> openManagementMenu(WidgetTester tester) async {
+    final sidebar = tester.widget<ThreadSidebar>(find.byType(ThreadSidebar));
+    if (sidebar.fullPage) {
+      await tester.tap(find.byKey(const Key('shell-menu')));
+      await tester.pumpAndSettle();
+      return find.byType(Drawer);
+    }
     await openSidebar(tester);
     await openSidebarMore(tester);
-    await tester.tap(
-      find.descendant(
-        of: find.byType(ThreadSidebar),
-        matching: find.text(entry),
-      ),
-    );
+    return find.byType(ThreadSidebar);
+  }
+
+  Future<void> openFromSidebar(WidgetTester tester, String entry) async {
+    final menu = await openManagementMenu(tester);
+    await tester.tap(find.descendant(of: menu, matching: find.text(entry)));
     await tester.pumpAndSettle();
   }
 
@@ -246,7 +252,8 @@ void main() {
       await shots.capture(tester, 'default-model');
       await tester.tapAt(const Offset(4, 4));
       await tester.pumpAndSettle();
-      await popRoute(tester);
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pumpAndSettle();
 
       await openFromSidebar(tester, 'Messaging');
       await shots.capture(tester, 'list');
@@ -288,7 +295,7 @@ void main() {
     testWidgets('$name: account dialogs', (tester) async {
       final shots = ScreenshotRecorder('settings-$name');
       await pumpChat(tester, shots, size: size);
-      await openSidebar(tester);
+      await openManagementMenu(tester);
       Future<void> pick(String item) async {
         await tester.tap(find.byTooltip('Account'));
         await tester.pumpAndSettle();

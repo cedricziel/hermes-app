@@ -110,6 +110,7 @@ ChatThreadView boundChatThreadView({
   List<StarterPrompt>? starterPrompts,
   ValueChanged<StarterPrompt>? onPickStarter,
   Widget? header,
+  Widget? recipientChip,
 }) {
   final t = thread;
   return ChatThreadView(
@@ -148,7 +149,13 @@ ChatThreadView boundChatThreadView({
     latestReplyId: latestReply.id,
     turnActionStatus: latestReply.status,
     welcome: welcome,
-    modelPill: composerModelPill(chat),
+    modelPill: recipientChip == null
+        ? composerModelPill(chat)
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [recipientChip, ?composerModelPill(chat)],
+          ),
     botContext: t?.botContext,
     onRetry: t == null || chat.lastPromptText(t) == null
         ? null

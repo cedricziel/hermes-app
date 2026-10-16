@@ -41,6 +41,8 @@ void main() {
         'org_id': 'acme',
         'provider': 'oidc',
       },
+      '/api/profiles': profileListBody([profileRow(name: 'work')]),
+      '/api/profiles/active': activeProfileBody(active: 'work'),
       '/api/sessions': sessionListBody([
         sessionRow(id: 's1', title: 'Backup failure', lastActive: 1780000600),
         sessionRow(id: 's2', title: 'Release notes', lastActive: 1780000100),
@@ -98,6 +100,16 @@ void main() {
         userId: 'u1',
       ),
     );
+    await pumpUntilFound(tester, find.byTooltip('New message'));
+    await shots.capture(tester, 'chats-home');
+    await tester.tap(find.byTooltip('New message'));
+    final recipient = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.text('work'),
+    );
+    await pumpUntilFound(tester, recipient);
+    await shots.capture(tester, 'recipient-picker');
+    await tester.tap(recipient);
     await pumpUntilFound(tester, find.textContaining('Hermes Agent'));
     await shots.capture(tester, 'chat-welcome');
     expect(auth.state, HermesConnectionState.ready);

@@ -23,8 +23,10 @@ class MacThreadRow extends StatefulWidget {
     this.busy = false,
     this.onArchive,
     this.relativeTime,
+    this.avatar,
   });
 
+  final Widget? avatar;
   final String title;
   final bool selected;
   final VoidCallback onTap;
@@ -66,6 +68,10 @@ class _MacThreadRowState extends State<MacThreadRow> {
         onSecondaryTapUp: (details) => _menu.open(at: details.globalPosition),
         builder: (context, hovered) => Row(
           children: [
+            if (widget.avatar != null) ...[
+              widget.avatar!,
+              const SizedBox(width: 6),
+            ],
             Expanded(
               child: Text(
                 widget.title,
