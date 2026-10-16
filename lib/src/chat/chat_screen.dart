@@ -443,7 +443,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ?..bind(this, open: _openFromDock, newChat: _newChatFromDock)
       ..addListener(_syncDock);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _onOpenRequest();
+      if (mounted) _onOpenRequest(initial: true);
     });
     _composerController.addListener(_onComposerText);
     if (_chat.repository != null) {
@@ -820,12 +820,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Another destination asked for something. Unlike a notification tap, a
   /// session is fetched when the loaded threads do not hold it, on its own
   /// profile.
-  void _onOpenRequest() {
+  void _onOpenRequest({bool initial = false}) {
     final request = widget.openRequests?.takeRequest();
     if (request == null) return;
     _handoff?.cancel();
     // The latest request wins over any earlier one still waiting or running.
     final link = ++_linkSeq;
+    final pending = _pendingShare;
+    if (initial && link == 1 && pending?.link == 0) {
+      _pendingShare = (held: pending!.held, link: link, owner: pending.owner);
+    }
     _whenLoaded = null;
     switch (request) {
       case OpenSessionRequest(:final bot?):
@@ -1275,6 +1279,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _changeRecipient() async {
+    final previousOwner = _composerOwner;
     final draft = _composerController.value;
     final files = List.of(_attachments);
     final owner = _avatarAuth?.ownerGeneration;
@@ -1287,6 +1292,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         target.$1 == _chat.profile &&
         target.$2 == _chat.selectedThread &&
         target.$2.messages.isEmpty) {
+      _drafts.remove(previousOwner);
+      _draftFiles.remove(previousOwner);
       _composerController.value = draft;
       setState(
         () => _attachments
