@@ -246,21 +246,27 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   Future<void> _resumeActivity() async {
     final epoch = _activityEpoch;
+    final generation = _loadGeneration;
     if (repository == null) return;
     var profile = _profile;
     if (profile != null && profiles != null) {
       try {
         final known = await profiles!.list();
-        if (!_currentActivity(epoch)) return;
-        if (!known.any((p) => p.name == profile)) profile = null;
+        if (!_currentActivity(epoch) || generation != _loadGeneration) return;
+        if (!known.any((p) => p.name == profile)) {
+          _threadsFailed = true;
+          notifyListeners();
+          return;
+        }
       } on Object {
-        if (!_currentActivity(epoch)) return;
+        if (!_currentActivity(epoch) || generation != _loadGeneration) return;
         _threadsFailed = true;
         notifyListeners();
         return;
       }
     }
     if (!_currentActivity(epoch)) return;
+    if (generation != _loadGeneration) return;
     await _loadThreads(profile, preserveSelection: true);
   }
 
@@ -2058,10 +2064,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     return true;
   }
 
-  /// Lists the threads of [profile], or of the sticky active profile when
-  /// none is given. The dashboard does not scope sessions to that profile by
-  /// itself, so it is passed on every read.
-  Future<void> loadThreads([String? profile]) => _loadThreads(profile);
+  String? _failedListProfile;
+
+  /// Lists [profile], retrying the failed owner when omitted after a failure.
+  /// Initial loading discovers the server default without changing it.
+  Future<void> loadThreads([String? profile]) =>
+      _loadThreads(profile ?? (_threadsFailed ? _failedListProfile : null));
 
   Future<void> _loadThreads(
     String? profile, {
@@ -2087,6 +2095,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (!active || generation != _loadGeneration) return;
       profile ??= await _activeProfile();
       if (!active || generation != _loadGeneration) return;
+      _failedListProfile = profile;
       final first = await repository!.loadThreadPage(profile: profile);
       if (!active || generation != _loadGeneration) return;
       final firstIds = {for (final thread in first.threads) thread.id};
@@ -3038,11 +3047,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Starts a new chat once a chat that was being opened has been opened, so
   /// the new one stays in front. A new chat nothing was written in is reused
   /// instead of adding a second empty one.
-  Future<void> newThreadWhenOpened() async {
+  Future<void> newThreadWhenOpened({bool Function()? valid}) async {
     final epoch = _activityEpoch;
     if (!_currentActivity(epoch)) return;
     await _opening.catchError((Object _) {});
-    if (!_currentActivity(epoch)) return;
+    if (!_currentActivity(epoch) || valid?.call() == false) return;
     final selected = selectedThread;
     if (selected != null && !selected.remote && selected.messages.isEmpty) {
       return;
