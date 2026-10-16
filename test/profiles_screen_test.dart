@@ -28,8 +28,7 @@ void main() {
           ),
         ]),
       )
-      ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'))
-      ..on('POST', '/api/profiles/active', {'active': 'work'});
+      ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'));
   });
 
   Future<void> pumpProfiles(
@@ -114,40 +113,53 @@ void main() {
     );
   });
 
-  testWidgets('choosing a profile makes it the active one', (tester) async {
-    await pumpProfiles(tester);
+  testWidgets('choosing a profile leaves the CLI default unchanged', (
+    tester,
+  ) async {
+    final switched = <String>[];
+    await pumpProfiles(
+      tester,
+      chatProfile: 'default',
+      onSwitched: switched.add,
+    );
 
-    server.on('GET', '/api/profiles/active', activeProfileBody(active: 'work'));
     await tester.tap(find.text('Work assistant'));
     await tester.pumpAndSettle();
 
-    final request = server.requestsTo('POST', '/api/profiles/active').single;
-    expect(jsonBody(request), {'name': 'work'});
+    expect(switched, ['work']);
+    expect(server.requests.where((r) => r.method != 'GET'), isEmpty);
+    expect(
+      find.text('The chat shows work. The CLI default is default.'),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('profile-work')),
+        of: find.byKey(const ValueKey('profile-default')),
         matching: find.text('Active'),
       ),
       findsOneWidget,
     );
   });
 
-  testWidgets('choosing the already active profile sends nothing', (
+  testWidgets('choosing the current recipient leaves the chat untouched', (
     tester,
   ) async {
-    await pumpProfiles(tester);
+    final switched = <String>[];
+    await pumpProfiles(tester, chatProfile: 'work', onSwitched: switched.add);
+    final requests = server.requests.length;
 
-    await tester.tap(find.text('default'));
+    await tester.tap(find.text('Work assistant'));
     await tester.pumpAndSettle();
 
-    expect(server.requestsTo('POST', '/api/profiles/active'), isEmpty);
+    expect(switched, isEmpty);
+    expect(server.requests, hasLength(requests));
   });
 
-  testWidgets('a rejected switch keeps the old active profile and says so', (
+  testWidgets('a failed availability read keeps the recipient and says so', (
     tester,
   ) async {
     await pumpProfiles(tester);
-    server.on('POST', '/api/profiles/active', {'detail': 'x'}, status: 500);
+    server.on('GET', '/api/profiles', {'detail': 'x'}, status: 500);
 
     await tester.tap(find.text('Work assistant'));
     await tester.pumpAndSettle();
@@ -160,6 +172,30 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a removed recipient preserves the chat and shows an error', (
+    tester,
+  ) async {
+    final switched = <String>[];
+    await pumpProfiles(
+      tester,
+      chatProfile: 'default',
+      onSwitched: switched.add,
+    );
+    server.on(
+      'GET',
+      '/api/profiles',
+      profileListBody([profileRow(name: 'default')]),
+    );
+
+    await tester.tap(find.text('Work assistant'));
+    await tester.pumpAndSettle();
+
+    expect(switched, isEmpty);
+    expect(find.text('Could not switch profile'), findsOneWidget);
+    expect(find.textContaining('The chat shows work'), findsNothing);
+    expect(server.requests.where((r) => r.method != 'GET'), isEmpty);
   });
 
   group('the profile shown in the chat', () {
@@ -215,17 +251,12 @@ void main() {
         chatProfile: 'default',
         onSwitched: switched.add,
       );
-      server.on(
-        'GET',
-        '/api/profiles/active',
-        activeProfileBody(active: 'work'),
-      );
 
       await tester.tap(find.text('Work assistant'));
       await tester.pumpAndSettle();
 
       expect(switched, ['work']);
-      expect(notice, findsNothing);
+      expect(notice, findsOneWidget);
     });
 
     testWidgets('can be switched to the profile that is already active', (
@@ -257,7 +288,7 @@ void main() {
         chatProfile: 'default',
         onSwitched: switched.add,
       );
-      server.on('POST', '/api/profiles/active', {'detail': 'x'}, status: 500);
+      server.on('GET', '/api/profiles', {'detail': 'x'}, status: 500);
 
       await tester.tap(find.text('Work assistant'));
       await tester.pumpAndSettle();

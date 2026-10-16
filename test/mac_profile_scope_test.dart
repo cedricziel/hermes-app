@@ -142,7 +142,7 @@ void main() {
     expect(inSidebar(find.text('Profiles')), findsOneWidget);
   });
 
-  testWidgets('switching makes the profile active and lists its chats', (
+  testWidgets('switching selects a local recipient and lists its chats', (
     tester,
   ) async {
     await pump(tester);
@@ -153,9 +153,17 @@ void main() {
     await tester.tap(find.text('work').last);
     await tester.pumpAndSettle();
 
-    expect(jsonBody(server.requestsTo('POST', '/api/profiles/active').single), {
-      'name': 'work',
-    });
+    expect(server.requestsTo('POST', '/api/profiles/active'), isEmpty);
+    expect(
+      server.requests.where(
+        (r) =>
+            r.method != 'GET' &&
+            (r.path == '/api/profiles' ||
+                r.path.startsWith('/api/profiles/') ||
+                r.path.startsWith('/api/config')),
+      ),
+      isEmpty,
+    );
     expect(find.text('Office chat'), findsOneWidget);
     expect(find.text('Home chat'), findsNothing);
   });
