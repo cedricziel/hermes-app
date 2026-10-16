@@ -151,10 +151,15 @@ ChatThreadView boundChatThreadView({
     welcome: welcome,
     modelPill: recipientChip == null
         ? composerModelPill(chat)
-        : Column(
+        : Row(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [recipientChip, ?composerModelPill(chat)],
+            children: [
+              Flexible(child: recipientChip),
+              if (composerModelPill(chat) case final model?) ...[
+                const SizedBox(width: 8),
+                Flexible(child: model),
+              ],
+            ],
           ),
     botContext: t?.botContext,
     onRetry: t == null || chat.lastPromptText(t) == null

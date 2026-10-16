@@ -88,7 +88,10 @@ client isolation from a distinct app build path or bundle identifier alone.
    Do not send a prompt for this check. Reopen a seeded `default` conversation
    and confirm its history and recipient remain bound to `default`.
 5. Inspect profile identity in conversation rows, the New message picker and
-   selected recipient, and the chat header. Confirm the same deterministic
+   selected recipient, and the chat header. Confirm the recipient and model
+   controls sit side by side in the composer, including
+   on a narrow layout; long labels must truncate without overflowing. Confirm
+   the same deterministic
    monogram and color appear when no image is configured and the visible or
    accessible profile name distinguishes recipients. If the fixture has a
    configured image served by the existing authenticated asset contract,
