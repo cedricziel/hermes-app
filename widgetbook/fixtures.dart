@@ -723,3 +723,29 @@ const dictationLevels = [
 ];
 
 const dictationLiveTranscript = 'Book a table for two at the Italian place';
+
+const messengerRecipients = [
+  HermesProfile(name: 'writer', displayName: 'Writing partner'),
+  HermesProfile(name: 'research', displayName: 'Researcher'),
+  HermesProfile(
+    name: 'planning',
+    displayName: 'Planning partner for the next very ambitious project',
+  ),
+];
+
+const messengerAvatarPng =
+    'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAMElEQVR4nGNwylj7Hx9mwCc5+dhF3ApAkjgVwCSxKkCWxFCALomiAJskXAEuSRAGAMJVrJXCULtNAAAAAElFTkSuQmCC';
+
+final messengerLongThreads = [
+  ChatThread(
+    id: 'long-title',
+    title: 'Planning a careful release across mobile, desktop, and every client integration',
+    updatedAt: DateTime(2026, 10, 16),
+    remote: true,
+  ),
+  ChatThread(
+    id: 'draft',
+    title: 'An unsent draft with a very long title that should stay within its conversation row',
+    updatedAt: DateTime(2026, 10, 15),
+  ),
+];
