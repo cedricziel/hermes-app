@@ -52,6 +52,42 @@ Chats SHALL offer New message, which opens a new-chat composer with a profile re
 - **WHEN** the user opens an existing conversation after choosing a different recipient for new messages
 - **THEN** history, sending, pending answers, and reconnect use the existing conversation's profile and never retarget it
 
+### Requirement: Both composer selectors expose configuration state
+
+The recipient and model selectors SHALL remain visible side by side on compact and wide layouts across all Flutter platforms. Each SHALL distinguish loading, incomplete configuration or missing options, load failure with Retry, and ready states through visible and accessible text. Neither SHALL disappear solely because its options are loading, empty, or failed. Long labels SHALL truncate without overflowing or stacking the controls.
+
+Recipient setup and retry SHALL preserve local selection semantics. An unavailable recipient SHALL remain identified and SHALL NOT silently fall back to another profile. The model setup action SHALL address the selected recipient's model/provider configuration. Returning from setup SHALL refresh the affected options. Opening setup or retrying discovery SHALL NOT itself mutate configuration or send a message.
+
+The app SHALL preserve unsent text and attachments through these states and disable Send when it knows that no valid recipient or usable model is available. Each selector SHALL recover independently, and late responses SHALL NOT overwrite a newer recipient, account, or server's state. Servers with working profile-default chat but unsupported optional model discovery SHALL retain their existing supported send behavior.
+
+#### Scenario: Either selector is loading
+- **WHEN** recipient or model discovery is pending
+- **THEN** the affected control remains visible with Loading recipients or Loading models, while the other control remains visible and usable according to its own state
+
+#### Scenario: Recipient selection or configuration is incomplete
+- **WHEN** no valid recipient is selected or no profiles are available
+- **THEN** the recipient control offers Choose a recipient or No profiles available with an actionable profile setup path, and Send remains unavailable until a valid recipient is available
+
+#### Scenario: Model configuration is incomplete
+- **WHEN** the selected profile's model discovery succeeds but reports no usable configured model
+- **THEN** the model control shows Set up a model and opens model/provider setup or actionable setup guidance for that profile, while preserving the recipient and draft and preventing an unusable send
+
+#### Scenario: Either selector cannot load
+- **WHEN** recipient or model discovery fails
+- **THEN** the affected control shows Could not load recipients or Could not load models with Retry, distinguishes failure from missing configuration, and preserves the other selector's state and the unsent draft
+
+#### Scenario: Setup or retry succeeds
+- **WHEN** configuration is completed or a retry returns usable options
+- **THEN** the affected selector enters its ready state, displays the selected recipient or model, and permits sending once all existing send prerequisites are met
+
+#### Scenario: Selected recipient becomes unavailable
+- **WHEN** the selected profile is no longer available
+- **THEN** the recipient control identifies that unavailable profile and offers recovery without changing the server default or sending under a different profile
+
+#### Scenario: Stale discovery completes
+- **WHEN** an earlier discovery request completes after a recipient, account, or server change
+- **THEN** its result does not replace either current selector's options or configuration state
+
 ### Requirement: Preserve adaptive desktop and tablet behavior
 
 Wide layouts SHALL retain their existing conversation list beside detail and existing sidebar visibility controls. macOS SHALL retain its existing compact overlay rules. Resizing between compact phone-style and wide layouts SHALL preserve the selected conversation and unsent composer state without creating duplicate chat work.

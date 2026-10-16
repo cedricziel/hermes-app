@@ -7,6 +7,7 @@ The user chose a messenger direction for Hermes, with Chats as home. On a phone,
 - Open compact layouts on a full-page Chats list after ordinary sign-in or launch.
 - Open a selected conversation with a back action to Chats, preserving its draft and ongoing work.
 - Offer a local profile recipient picker through New message on every Flutter platform. Opening, sending, and resuming a chat use its owning profile explicitly and never change the server active profile, profile configuration, or terminal default.
+- Keep recipient and model selectors visible side by side, with explicit loading, incomplete-configuration, error/retry, and ready states on every Flutter platform. Offer configuration guidance when options are missing instead of hiding a selector.
 - Show profile avatars in conversation rows, the recipient picker, and chat headers, using configured images where supported and a deterministic monogram fallback. Define a distinct group avatar for group conversation surfaces when Groups integration ships.
 - Keep an existing chat bound to its original profile. Selecting a different recipient starts or resumes a separate conversation.
 - Keep a persistent conversation list beside the chat on wide layouts, including macOS.

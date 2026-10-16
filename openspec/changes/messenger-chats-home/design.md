@@ -26,6 +26,18 @@ Extract only the presentation needed to render existing list sections and contro
 
 An explicit New message action offers the available profiles as recipients and opens the new-chat composer under the selected profile. Creating that draft must not send a prompt. Returning preserves the draft using existing draft behavior. Before first send, changing the recipient updates profile-dependent models, starters, and microphone availability; an unsupported model selection is cleared. After sending, the conversation owner is fixed.
 
+### Keep both selectors visible through configuration states
+
+Keep the recipient and model controls side by side in the composer on every Flutter platform. Each selector exposes loading, incomplete configuration, load failure with Retry, and ready states. Loading or empty options must not remove the control. Distinguish a successful empty response from a failed request rather than representing both as null. Preserve the draft and selected identity while showing state, and reject stale responses after recipient, server, or account changes.
+
+The recipient control shows Loading recipients while discovering profiles, Choose a recipient when options exist without a valid selection, and No profiles available with a route to profile setup when none exist. An unavailable selected profile remains identified with a recovery action; never silently switch it. A failed read shows Could not load recipients with Retry.
+
+The model control shows Loading models during discovery, Set up a model when the selected profile has no usable model configuration, and Could not load models with Retry after a failed read. Set up a model opens the relevant model/provider configuration flow or actionable setup guidance for that profile. A ready control names the chosen model or usable profile default and opens the picker. Returning from setup refreshes the affected options. Merely opening setup must not write configuration; explicit setup changes retain their normal confirmation behavior.
+
+Keep Send unavailable when these states establish that the recipient or model cannot be used. Show the reason beside the affected control and preserve text and attachments. A ready selector remains usable while the other needs attention. Preserve existing compatibility for servers that support chat through a profile default but lack optional model discovery; distinguish unsupported discovery from an empty configuration or transient failure.
+
+This follow-up requirement is captured after the initial navigation implementation. Its tests, Widgetbook states, implementation, and isolated verification remain pending in task section 4.
+
 ### Reuse avatar identity across messenger surfaces
 
 Provide a reusable profile avatar with row, recipient-chip, and header sizes using existing theme tokens. Read configured avatar imagery through the connected server's existing supported profile-asset contract. Where image retrieval is unsupported, absent, invalid, or fails, render a deterministic monogram and color from profile identity. Reuse the roster presentation where available rather than introducing an image upload pipeline.
