@@ -541,22 +541,20 @@ void main() {
       tester,
     ) async {
       await pumpChat(tester, size: const Size(400, 800));
-      await tester.tap(find.byTooltip('Open navigation menu').first);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(
-          of: find.byType(ThreadSidebar),
-          matching: find.text('Recent chat'),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await openThread(tester, 'Recent chat');
       expect(find.byType(ThreadSidebar), findsNothing);
 
       requests.requestOldestPending();
       await tester.pumpAndSettle();
 
       expect(find.byType(ThreadSidebar), findsOneWidget);
-      expect(selectedId(tester), isNull);
+      expect(find.byType(Drawer), findsNothing);
+      expect(find.byType(BackButton), findsNothing);
+      expect(selectedId(tester), 'recent');
+
+      await openThread(tester, 'Recent chat');
+      expect(find.byType(ThreadSidebar), findsNothing);
+      expect(find.byType(BackButton), findsOneWidget);
     });
   });
 

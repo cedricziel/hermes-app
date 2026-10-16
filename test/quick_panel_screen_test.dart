@@ -22,6 +22,18 @@ import 'support/fake_hermes_server.dart';
 import 'support/fake_voice_recorder.dart';
 import 'support/pump_chat.dart' show composerField;
 
+const _readyModels = {
+  'provider': 'nous',
+  'model': 'hermes-4',
+  'providers': [
+    {
+      'slug': 'nous',
+      'authenticated': true,
+      'models': ['hermes-4'],
+    },
+  ],
+};
+
 class _FakePanelLink implements QuickPanelLink {
   String? profile = 'work';
   final calls = <String>[];
@@ -113,7 +125,7 @@ void main() {
         'stt': {'mode': 'relay', 'reason': 'local provider'},
         'tts': {'mode': 'relay'},
       })
-      ..on('GET', '/api/model/options', {'detail': 'boom'}, status: 500)
+      ..on('GET', '/api/model/options', _readyModels)
       ..on('GET', '/api/sessions/s9', sessionRow(id: 's9', title: 'Today'))
       ..on(
         'GET',
@@ -248,19 +260,49 @@ void main() {
     expect(link.calls, contains('hide:escape'));
   });
 
-  testWidgets('the model pill stays away when the options fail', (
+  testWidgets('failed model discovery keeps the draft and offers Retry', (
     tester,
   ) async {
+    server.on('GET', '/api/model/options', {'detail': 'boom'}, status: 500);
     await pump(tester);
     await show(tester);
+    await tester.enterText(composerField, 'Still here');
+    await tester.pump();
 
-    expect(find.byKey(const Key('composer-model-pill')), findsNothing);
-    expect(
-      link.heights.single,
-      lessThan(QuickPanelView.expandedHeight),
-      reason: 'before the first send the panel fits the composer',
-    );
-    expect((await ask(tester, 'Still sends')).text, 'Still sends');
+    expect(find.byKey(const Key('composer-model-pill')), findsOneWidget);
+    expect(find.text('Could not load models'), findsOneWidget);
+    expect(_sendEnabled(tester), isFalse);
+    expect(link.heights.last, lessThan(QuickPanelView.expandedHeight));
+    server.on('GET', '/api/model/options', _readyModels);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('hermes-4'), findsOneWidget);
+    expect(_draft(tester), 'Still here');
+    expect(transport.sends, isEmpty);
+    expect((await ask(tester, 'Still here')).text, 'Still here');
+  });
+
+  testWidgets('pending model discovery keeps Send disabled until ready', (
+    tester,
+  ) async {
+    final models = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/model/options', (_) => models.future);
+    await pump(tester);
+    await show(tester);
+    await tester.enterText(composerField, 'Wait for the model');
+    await tester.pump();
+
+    expect(find.text('Loading models'), findsOneWidget);
+    expect(_sendEnabled(tester), isFalse);
+    models.complete((status: 200, body: _readyModels));
+    await tester.pumpAndSettle();
+
+    expect(_draft(tester), 'Wait for the model');
+    expect(transport.sends, isEmpty);
+    expect(_sendEnabled(tester), isTrue);
+    expect((await ask(tester, 'Wait for the model')).profile, 'work');
   });
 
   testWidgets('Open in Hermes hides the panel, then moves the chat', (
@@ -303,8 +345,8 @@ void main() {
     expect(link.calls, isNot(contains('showInWindow')));
   });
 
-  testWidgets('typing and Return during the first load keep the draft and '
-      'send once the profile has loaded', (tester) async {
+  testWidgets('typing and Return during the first load keep the draft until '
+      'a configured model is ready', (tester) async {
     final loaded = Completer<void>();
     server.onRequest('GET', '/api/sessions', (_) async {
       await loaded.future;
@@ -324,6 +366,10 @@ void main() {
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
+    expect(transport.sends, isEmpty);
+    expect(_draft(tester), 'Quick one');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
     final send = transport.sends.single;
     expect((send.text, send.profile), ('Quick one', 'work'));
   });
@@ -460,3 +506,16 @@ void main() {
 
 String _draft(WidgetTester tester) =>
     tester.widget<EditableText>(composerField).controller.text;
+
+bool _sendEnabled(WidgetTester tester) =>
+    tester
+        .widget<IconButton>(
+          find
+              .descendant(
+                of: find.byTooltip('Send'),
+                matching: find.byType(IconButton),
+              )
+              .first,
+        )
+        .onPressed !=
+    null;

@@ -160,10 +160,6 @@ void main() {
           );
           await tester.runAsync(auth.bootstrap);
           final chat = find.byKey(const ValueKey('thread-$_openedChat'));
-          // Opening the drawer settles the fake clock far enough to time the
-          // pending requests out, so wait for the chats first.
-          await pumpUntilFound(tester, _starterPrompt);
-          if (!device.wide) await openSidebar(tester);
           await pumpUntilFound(tester, chat);
 
           Uint8List? previous;
@@ -216,17 +212,25 @@ void main() {
 
           if (light) {
             if (!device.wide) {
-              await openSidebar(tester);
+              await tester.tap(find.byType(BackButton));
+              await _settle(tester);
               await shot('threads');
+              await tester.tap(find.byTooltip('New message'));
+            } else {
+              final macNewChat = find.byKey(const Key('toolbar-new-chat'));
+              await tester.tap(
+                macNewChat.evaluate().isEmpty
+                    ? find.text('New chat')
+                    : macNewChat,
+              );
             }
-
-            final macNewChat = find.byKey(const Key('toolbar-new-chat'));
-            await tester.tap(
-              macNewChat.evaluate().isEmpty
-                  ? find.text('New chat')
-                  : macNewChat,
+            final recipient = find.descendant(
+              of: find.byType(Dialog),
+              matching: find.text('default'),
             );
-            await _settle(tester);
+            await pumpUntilFound(tester, recipient);
+            await tester.tap(recipient);
+            await pumpUntilFound(tester, _starterPrompt);
             expect(_starterPrompt, findsOneWidget);
             await shot('welcome');
           }

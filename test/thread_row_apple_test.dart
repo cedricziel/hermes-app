@@ -102,32 +102,33 @@ void main() {
       expect(server.requestsTo('DELETE', '/api/sessions/s2'), isEmpty);
     });
 
-    group('inside the phone drawer', () {
-      Future<void> openDrawer(WidgetTester tester) async {
+    group('on compact Chats', () {
+      Future<void> pumpPhone(WidgetTester tester) async {
         await pump(tester);
         tester.view.physicalSize = const Size(393, 852);
         await tester.pumpAndSettle();
-        await tester.tap(find.byIcon(Icons.menu).first);
-        await tester.pumpAndSettle();
       }
 
-      testWidgets('a left drag on a row reveals Delete, drawer stays', (
+      testWidgets('a left drag on a row reveals Delete and keeps Chats open', (
         tester,
       ) async {
-        await openDrawer(tester);
+        await pumpPhone(tester);
 
         await tester.drag(title, const Offset(-150, 0));
         await tester.pumpAndSettle();
 
         expect(find.text('Delete'), findsOneWidget);
         expect(title.hitTestable(), findsOneWidget);
-        expect(find.byType(Drawer), findsOneWidget);
+        expect(find.byType(Drawer), findsNothing);
       });
 
-      testWidgets('a left drag on empty drawer space closes it', (
+      testWidgets('a left drag on empty navigation drawer space closes it', (
         tester,
       ) async {
-        await openDrawer(tester);
+        await pumpPhone(tester);
+        await tester.tap(find.byKey(const Key('shell-menu')));
+        await tester.pumpAndSettle();
+        expect(find.byType(Drawer), findsOneWidget);
 
         await tester.flingFrom(
           const Offset(150, 600),

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../models/widgets/composer_model_pill.dart';
+import '../models/widgets/model_setup_dialog.dart';
 import '../share/shared_item.dart';
 import '../voice/dictation_controller.dart';
 import 'attachments/attachment_source.dart';
@@ -12,17 +13,41 @@ import 'starter_prompts.dart';
 import 'widgets/chat_thread_view.dart';
 import 'widgets/message_actions.dart' show TurnActionStatus;
 
-/// The model pill for [chat]'s composer; null while there are no options to
-/// pick from.
-Widget? composerModelPill(ChatController chat) {
-  final options = chat.modelOptions;
-  if (options == null || options.providers.isEmpty) return null;
-  return ComposerModelPill(
-    options: options,
-    choice: chat.modelChoice,
-    onChanged: chat.chooseModel,
-  );
-}
+/// The current chat model, its discovery state, and recovery actions.
+Widget composerModelPill(ChatController chat, {VoidCallback? onSetupModel}) =>
+    Builder(
+      builder: (context) {
+        final profile = chat.profile;
+        final thread = chat.selectedThread;
+        return ComposerModelPill(
+          options: chat.modelOptions,
+          state: chat.modelOptionsState,
+          choice: chat.modelChoice,
+          onChanged: (choice) {
+            if (chat.active &&
+                chat.profile == profile &&
+                identical(chat.selectedThread, thread)) {
+              chat.chooseModel(choice);
+            }
+          },
+          onRetry: chat.refreshModelOptions,
+          onSetup:
+              onSetupModel ??
+              () async {
+                final profile = chat.profile;
+                final generation = chat.threadListGeneration;
+                await showModelSetup(context, profile);
+                if (!context.mounted ||
+                    !chat.active ||
+                    chat.profile != profile ||
+                    chat.threadListGeneration != generation) {
+                  return;
+                }
+                await chat.refreshModelOptions();
+              },
+        );
+      },
+    );
 
 /// The files of [picked] that [attachments] does not hold yet.
 List<SharedFile> newAttachments(
@@ -110,6 +135,8 @@ ChatThreadView boundChatThreadView({
   List<StarterPrompt>? starterPrompts,
   ValueChanged<StarterPrompt>? onPickStarter,
   Widget? header,
+  Widget? recipientChip,
+  VoidCallback? onSetupModel,
 }) {
   final t = thread;
   return ChatThreadView(
@@ -138,7 +165,10 @@ ChatThreadView boundChatThreadView({
     onRemoveAttachment: onRemoveAttachment,
     onSend: onSend,
     slashCommands: slashCommands,
-    commandRunning: commandRunning || t != null && chat.queueBusy(t),
+    commandRunning:
+        commandRunning ||
+        !chat.modelSendAllowed ||
+        t != null && chat.queueBusy(t),
     queueView: protectedQueueView(chat, t),
     sendTarget: sendTarget,
     starterPrompts: starterPrompts,
@@ -148,7 +178,18 @@ ChatThreadView boundChatThreadView({
     latestReplyId: latestReply.id,
     turnActionStatus: latestReply.status,
     welcome: welcome,
-    modelPill: composerModelPill(chat),
+    modelPill: recipientChip == null
+        ? composerModelPill(chat, onSetupModel: onSetupModel)
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: recipientChip),
+              const SizedBox(width: 8),
+              Flexible(
+                child: composerModelPill(chat, onSetupModel: onSetupModel),
+              ),
+            ],
+          ),
     botContext: t?.botContext,
     onRetry: t == null || chat.lastPromptText(t) == null
         ? null

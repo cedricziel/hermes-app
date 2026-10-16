@@ -546,7 +546,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('header-connection')), findsNothing);
-      expect(find.byKey(const Key('header-new-chat')), findsOneWidget);
+      expect(find.byTooltip('New message'), findsOneWidget);
     });
 
     testWidgets('has no menu for a local draft or mock thread', (tester) async {

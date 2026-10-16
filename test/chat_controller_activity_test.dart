@@ -1215,6 +1215,104 @@ void main() {
     },
   );
 
+  test(
+    'a held resume profile check cannot replace a newer recipient',
+    () async {
+      final checked = Completer<void>();
+      final held = Completer<FakeResponse>();
+      final server = FakeHermesServer()
+        ..onRequest('GET', '/api/profiles', (_) {
+          checked.complete();
+          return held.future;
+        })
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 'shared', title: 'Work chat')]),
+          query: {'profile': 'work'},
+        )
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 'shared', title: 'Home chat')]),
+          query: {'profile': 'home'},
+        );
+      chat = create(server: server, profiles: true);
+      await chat.loadThreads('work');
+      activity.value = false;
+      activity.value = true;
+      await checked.future;
+
+      await chat.loadThreads('home');
+      held.complete((
+        status: 200,
+        body: profileListBody([
+          profileRow(name: 'work'),
+          profileRow(name: 'home'),
+        ]),
+      ));
+      await pumpEventQueue();
+
+      expect(chat.profile, 'home');
+      expect(chat.threads.single.title, 'Home chat');
+      expect(
+        server
+            .requestsTo('GET', '/api/sessions')
+            .where((request) => request.queryParameters['profile'] == 'work'),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'a stale default lookup cannot replace the failed recipient on retry',
+    () async {
+      final requested = Completer<void>();
+      final held = Completer<FakeResponse>();
+      final server = FakeHermesServer()
+        ..onRequest('GET', '/api/profiles/active', (_) {
+          requested.complete();
+          return held.future;
+        })
+        ..on(
+          'GET',
+          '/api/sessions',
+          {'detail': 'unavailable'},
+          status: 500,
+          query: {'profile': 'work'},
+        )
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 'shared', title: 'Home chat')]),
+          query: {'profile': 'home'},
+        );
+      chat = create(server: server, profiles: true);
+      final initial = chat.loadThreads();
+      await requested.future;
+      await chat.loadThreads('work');
+      held.complete((status: 200, body: activeProfileBody(active: 'home')));
+      await initial;
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 'shared', title: 'Work chat')]),
+        query: {'profile': 'work'},
+      );
+
+      await chat.loadThreads();
+
+      expect(chat.profile, 'work');
+      expect(chat.threads.single.title, 'Work chat');
+      expect(
+        server
+            .requestsTo('GET', '/api/sessions')
+            .where((request) => request.queryParameters['profile'] == 'home'),
+        isEmpty,
+      );
+    },
+  );
+
   test('a removed profile cannot attach its queue to a same-ID chat on another profile', () async {
     final server = FakeHermesServer()
       ..on('GET', '/api/profiles', profileListBody([profileRow(name: 'home')]))
@@ -1246,14 +1344,18 @@ void main() {
     activity.value = true;
     await pumpEventQueue();
 
-    final remote = chat.threads.singleWhere((thread) => thread.remote);
-    expect(chat.profile, 'home');
-    expect(remote.title, 'Home chat');
-    expect(chat.queuedIn(remote), isEmpty);
-    final draft = chat.threads.singleWhere((thread) => !thread.remote);
-    expect(draft.title, 'Work chat');
-    expect(chat.queuedIn(draft).single.text, 'queued work');
-    expect(chat.selectedThread, same(draft));
+    expect(chat.profile, 'work');
+    expect(chat.threadsFailed, isTrue);
+    expect(
+      chat.threads.singleWhere((thread) => thread.remote).title,
+      'Work chat',
+    );
+    expect(
+      server
+          .requestsTo('GET', '/api/sessions')
+          .where((request) => request.queryParameters['profile'] == 'home'),
+      isEmpty,
+    );
     expect(transport.sends, hasLength(1));
   });
 

@@ -74,6 +74,8 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenInNewWindow,
     this.searchProfile,
     this.searchFocus,
+    this.fullPage = false,
+    this.avatarBuilder,
   });
 
   final List<ChatThread> threads;
@@ -109,6 +111,8 @@ class ThreadSidebar extends StatelessWidget {
   /// Focus for the search field of the iOS and Material sidebar; the Mac
   /// searches from its toolbar.
   final FocusNode? searchFocus;
+  final bool fullPage;
+  final Widget Function(ChatThread)? avatarBuilder;
 
   @override
   Widget build(BuildContext context) => _ThreadListScope(
@@ -124,47 +128,49 @@ class ThreadSidebar extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            macSidebarHeader(context) ??
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  child: Row(
-                    children: [
-                      AppIcon(
-                        AppIcons.hub,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Hermes',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
+            if (!fullPage)
+              macSidebarHeader(context) ??
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                    child: Row(
+                      children: [
+                        AppIcon(
+                          AppIcons.hub,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Hermes',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
             if (mac)
               Expanded(child: _macBody(preferences))
             else ...[
-              if (navigation != null) ...[
+              if (!fullPage && navigation != null) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: navigation,
                 ),
                 const Divider(height: 17, indent: 16, endIndent: 16),
               ],
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: SidebarAction(
-                  icon: AppIcons.add,
-                  label: 'New chat',
-                  onTap: onNewThread,
+              if (!fullPage)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: SidebarAction(
+                    icon: AppIcons.add,
+                    label: 'New chat',
+                    onTap: onNewThread,
+                  ),
                 ),
-              ),
               const SizedBox(height: 4),
               if (search != null) ...[
                 Padding(
@@ -198,7 +204,7 @@ class ThreadSidebar extends StatelessWidget {
                       ),
               ),
             ],
-            if (!mac) ...[
+            if (!mac && !fullPage) ...[
               const Divider(height: 1),
               _MoreSection(
                 entries: [
@@ -217,7 +223,7 @@ class ThreadSidebar extends StatelessWidget {
                 ],
               ),
             ],
-            const AccountFooter(),
+            if (!fullPage) const AccountFooter(),
           ],
         ),
       ),
@@ -249,6 +255,7 @@ class ThreadSidebar extends StatelessWidget {
             ),
           Expanded(
             child: _SectionedThreadList(
+              avatarBuilder: avatarBuilder,
               preferences: preferences,
               threads: threads,
               selectedId: selectedId,
@@ -285,9 +292,13 @@ class ThreadSidebar extends StatelessWidget {
   }
 
   Widget _threadList(BuildContext context, ThreadListPreferences preferences) {
+    if (fullPage && threads.isEmpty) {
+      return const Center(child: Text('No chats yet. Start a new message.'));
+    }
     if (platformChromeOf(context).isApple ||
         preferences.grouping == ThreadGrouping.folder) {
       return _SectionedThreadList(
+        avatarBuilder: avatarBuilder,
         threads: threads,
         selectedId: selectedId,
         onSelect: onSelect,
@@ -317,6 +328,7 @@ class ThreadSidebar extends StatelessWidget {
               final thread = threads[index];
               return _ThreadRow(
                 key: ValueKey('thread-${thread.id}'),
+                avatar: avatarBuilder?.call(thread),
                 thread: thread,
                 selected: thread.id == selectedId,
                 busy: busy.contains(thread.id) || thread.isReplying,
@@ -436,8 +448,10 @@ class _ThreadRow extends StatefulWidget {
     required this.busy,
     required this.onTap,
     this.housekeeping,
+    this.avatar,
   });
 
+  final Widget? avatar;
   final ChatThread thread;
   final bool selected;
   final bool busy;
@@ -484,6 +498,10 @@ class _ThreadRowState extends State<_ThreadRow> {
           ),
           child: Row(
             children: [
+              if (widget.avatar != null) ...[
+                widget.avatar!,
+                const SizedBox(width: 8),
+              ],
               if (_thread.pinned) ...[
                 AppIcon(AppIcons.pin, size: 12, color: subtle),
                 const SizedBox(width: 4),
@@ -542,6 +560,7 @@ class _SectionedThreadList extends StatefulWidget {
     required this.busy,
     required this.housekeeping,
     required this.onOpenInNewWindow,
+    this.avatarBuilder,
   });
 
   final ThreadListPreferences preferences;
@@ -551,6 +570,7 @@ class _SectionedThreadList extends StatefulWidget {
   final Set<String> busy;
   final ThreadHousekeeping? housekeeping;
   final ValueChanged<ChatThread>? onOpenInNewWindow;
+  final Widget Function(ChatThread)? avatarBuilder;
 
   @override
   State<_SectionedThreadList> createState() => _SectionedThreadListState();
@@ -628,6 +648,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
     if (platformChromeOf(context) != PlatformChrome.macos) {
       return _ThreadRow(
         key: ValueKey('thread-${thread.id}'),
+        avatar: widget.avatarBuilder?.call(thread),
         thread: thread,
         selected: thread.id == widget.selectedId,
         busy: widget.busy.contains(thread.id) || thread.isReplying,
@@ -645,6 +666,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       onOpenInNewWindow: onOpenInNewWindow,
     );
     final row = MacThreadRow(
+      avatar: widget.avatarBuilder?.call(thread),
       title: thread.title,
       selected: thread.id == widget.selectedId,
       busy: widget.busy.contains(thread.id) || thread.isReplying,

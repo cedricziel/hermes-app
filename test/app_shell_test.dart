@@ -141,6 +141,14 @@ void main() {
   /// Opens the drawer of a narrow layout: Chat's own, or the shell's on
   /// another page.
   Future<void> openMenu(WidgetTester tester) async {
+    if (find
+        .byTooltip('Open navigation menu')
+        .hitTestable()
+        .evaluate()
+        .isEmpty) {
+      await tester.tap(find.byType(BackButton).hitTestable().first);
+      await tester.pumpAndSettle();
+    }
     await tester.tap(
       find.byTooltip('Open navigation menu').hitTestable().first,
     );
@@ -309,7 +317,7 @@ void main() {
     await openTab(tester, 'Chat');
 
     expect(find.text('the board'), findsNothing);
-    expect(find.byKey(const Key('shell-menu')), findsNothing);
+    expect(find.byKey(const Key('shell-menu')), findsOneWidget);
   });
 
   testWidgets('lists the destinations in the sidebar on a wide screen', (
@@ -464,10 +472,15 @@ void main() {
     await tester.pump();
   }
 
-  String? selectedChat(WidgetTester tester) => tester
-      .widget<ChatThreadView>(find.byType(ChatThreadView, skipOffstage: false))
-      .thread
-      ?.id;
+  String? selectedChat(WidgetTester tester) {
+    final detail = find.byType(ChatThreadView, skipOffstage: false);
+    if (detail.evaluate().isNotEmpty) {
+      return tester.widget<ChatThreadView>(detail).thread?.id;
+    }
+    return tester
+        .widget<ThreadSidebar>(find.byType(ThreadSidebar, skipOffstage: false))
+        .selectedId;
+  }
 
   ({FakeConversationWindowHost host, ConversationWindows windows}) windowHost({
     AuthController? auth,
@@ -495,6 +508,7 @@ void main() {
     ) async {
       kanbanPlugin(on: true);
       await pumpShell(tester, size: const Size(400, 800));
+      await openThread(tester, "Summarize last night's run logs");
       await openKanban(tester);
       await editSkill(tester);
 
@@ -755,6 +769,7 @@ void main() {
       (tester) async {
         kanbanPlugin(on: true);
         await pumpShell(tester, size: const Size(400, 800));
+        await openThread(tester, "Summarize last night's run logs");
         final composer = tester.widget<EditableText>(composerField).controller;
         await editSkill(tester);
         final share = tester
@@ -794,6 +809,7 @@ void main() {
       tester,
     ) async {
       await pumpShell(tester, size: const Size(400, 800));
+      await openThread(tester, "Summarize last night's run logs");
       final composer = tester.widget<EditableText>(composerField).controller;
       final saved = Completer<String?>();
       await editSkill(tester, onSave: (_, _, _) => saved.future);
@@ -821,6 +837,7 @@ void main() {
       (tester) async {
         kanbanPlugin(on: true);
         await pumpShell(tester, size: const Size(400, 800));
+        await openThread(tester, "Summarize last night's run logs");
         final composer = tester.widget<EditableText>(composerField).controller;
         await editSkill(tester);
         final share = tester
@@ -912,6 +929,7 @@ void main() {
       addTearDown(links.dispose);
       addTearDown(urls.close);
       await pumpShell(tester, size: const Size(400, 800), links: links);
+      await openThread(tester, "Summarize last night's run logs");
       final composer = tester.widget<EditableText>(composerField).controller;
       await editSkill(tester);
       inbox.emit([const SharedText('retained link share')]);
@@ -941,6 +959,7 @@ void main() {
       addTearDown(links.dispose);
       addTearDown(urls.close);
       await pumpShell(tester, size: const Size(400, 800), links: links);
+      await openThread(tester, "Summarize last night's run logs");
       final composer = tester.widget<EditableText>(composerField).controller;
       await editSkill(tester);
       inbox.emit([const SharedText('still pending')]);
@@ -973,6 +992,7 @@ void main() {
       final initial = Completer<List<SharedItem>>();
       inbox.initialGate = initial;
       await pumpShell(tester, size: const Size(400, 800));
+      await openThread(tester, "Summarize last night's run logs");
       final composer = tester.widget<EditableText>(composerField).controller;
       notifications.tap('t2');
       await tester.pumpAndSettle();

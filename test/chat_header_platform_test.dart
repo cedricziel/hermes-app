@@ -56,15 +56,13 @@ void main() {
     final bar = tester.getRect(find.byType(AppBar));
     expect(bar.top, 0);
     expect(bar.height, 44 + _statusBar);
-    // Centred as far as the controls allow: a long title between one
-    // leading and two trailing buttons sits off the screen's middle, as in
-    // a UIKit navigation bar.
     expect(tester.widget<AppBar>(find.byType(AppBar)).centerTitle, isTrue);
     final title = _barTitleCenter(tester);
     final menu = tester.getRect(find.byTooltip('Open navigation menu'));
-    final activity = tester.getRect(find.byKey(const Key('header-activity')));
+    final compose = tester.getRect(find.byTooltip('New message'));
+    expect(find.text('Chats'), findsOneWidget);
     expect(title.dx, greaterThan(menu.right));
-    expect(title.dx, lessThan(activity.left));
+    expect(title.dx, lessThan(compose.left));
     expect(title.dy, greaterThan(_statusBar));
   });
 

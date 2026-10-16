@@ -499,11 +499,14 @@ void main() {
     tester.view.physicalSize = const Size(500, 900);
     await tester.pump();
     unawaited(
-      Navigator.of(tester.element(find.byType(Scaffold).first)).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(body: Text('a screen above the chat')),
-        ),
-      ),
+      tester
+          .state<NavigatorState>(find.byType(Navigator).first)
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  const Scaffold(body: Text('a screen above the chat')),
+            ),
+          ),
     );
     await tester.pumpAndSettle();
 

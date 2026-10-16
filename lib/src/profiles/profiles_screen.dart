@@ -11,13 +11,11 @@ import 'hermes_profiles_repository.dart';
 import 'widgets/new_profile_dialog.dart';
 import 'widgets/profile_tile.dart';
 
-/// Lists the Hermes profiles on the connected dashboard and lets the user
-/// pick the active one (the sticky default `hermes profile use` sets).
+/// Lists Hermes profiles and lets the user select the local chat recipient.
 ///
-/// The chat lists the sessions of one profile, [chatProfile] (null: whichever
-/// the dashboard is scoped to). Picking a profile here moves the chat to it
-/// through [onSwitched]; the CLI default can change behind the chat's back
-/// (`hermes profile use`), so the screen says when the two differ.
+/// The chat lists sessions of [chatProfile], or the dashboard's own profile
+/// when it is null. Selection moves the chat through [onSwitched] and leaves
+/// the CLI default unchanged.
 ///
 /// Each profile's default model, the one chats started afterwards use, can be
 /// changed through [models] without switching to that profile.
@@ -46,6 +44,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   late String? _chatProfile = widget.chatProfile;
   bool _loading = true;
   bool _failed = false;
+  int _selectionGeneration = 0;
 
   @override
   void initState() {
@@ -122,24 +121,25 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   String? get _shownInChat => _chatProfile ?? _overview?.current;
 
   Future<void> _choose(HermesProfile profile) async {
+    final generation = ++_selectionGeneration;
     final name = profile.name;
-    final isActive = name == _overview?.active;
-    if (isActive && name == _shownInChat) return;
-    if (!isActive) {
-      try {
-        await _repository.setActive(name);
-      } on Object {
-        if (!mounted) return;
+    if (name == _shownInChat) return;
+    List<HermesProfile> available;
+    try {
+      available = await _repository.list();
+    } on Object {
+      if (mounted && generation == _selectionGeneration) {
         _say('Could not switch profile');
-        return;
       }
+      return;
     }
-    if (!mounted) return;
-    if (name != _shownInChat) {
-      _chatProfile = name;
-      widget.onSwitched?.call(name);
+    if (!mounted || generation != _selectionGeneration) return;
+    if (!available.any((profile) => profile.name == name)) {
+      _say('Could not switch profile');
+      return;
     }
-    await _load();
+    setState(() => _chatProfile = name);
+    widget.onSwitched?.call(name);
   }
 
   Future<void> _create() => createProfile(context, (name, {description}) async {

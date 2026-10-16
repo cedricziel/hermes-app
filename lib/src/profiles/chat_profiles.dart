@@ -27,6 +27,9 @@ class ChatProfiles extends ChangeNotifier with SafeNotifier {
   String? get current => _current;
 
   ValueChanged<String>? _onSwitch;
+  int _selectionGeneration = 0;
+  int? _pendingSelection;
+  String? _reportedProfile;
 
   /// Lets the chat follow a switch made here; null detaches it.
   void attach(ValueChanged<String>? onSwitch) => _onSwitch = onSwitch;
@@ -42,19 +45,34 @@ class ChatProfiles extends ChangeNotifier with SafeNotifier {
   }
 
   void showing(String? profile) {
-    if (profile == _current) return;
+    _reportedProfile = profile;
+    if (_pendingSelection != null || profile == _current) return;
     _current = profile;
     notifyListeners();
   }
 
-  /// Makes [name] the active profile and moves the chat to it. Returns false
-  /// when the dashboard refused.
+  /// Selects [name] for chatting without changing the server default. Returns
+  /// false if the profile list cannot be read or [name] is no longer available.
   Future<bool> switchTo(String name) async {
+    final generation = ++_selectionGeneration;
+    _pendingSelection = null;
+    if (name == _current) return true;
+    _pendingSelection = generation;
+    List<HermesProfile>? available;
     try {
-      await repository.setActive(name);
+      available = await repository.list();
     } on Object {
+      available = null;
+    }
+    if (disposed || generation != _selectionGeneration) return false;
+    _pendingSelection = null;
+    if (available == null ||
+        !available.any((profile) => profile.name == name)) {
+      showing(_reportedProfile);
       return false;
     }
+    _profiles = available;
+    _failed = false;
     _current = name;
     notifyListeners();
     _onSwitch?.call(name);

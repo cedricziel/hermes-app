@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
+import 'package:hermes_app/src/models/model_options_state.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -23,6 +24,9 @@ Future<List<ModelChoice>> _pumpPill(
   WidgetTester tester, {
   ModelOptions? options = _options,
   double width = 400,
+  ModelOptionsState? state,
+  VoidCallback? onRetry,
+  VoidCallback? onSetup,
 }) async {
   final picked = <ModelChoice>[];
   tester.view
@@ -37,6 +41,9 @@ Future<List<ModelChoice>> _pumpPill(
         body: StatefulBuilder(
           builder: (context, setState) => ComposerModelPill(
             options: options,
+            state: state,
+            onRetry: onRetry,
+            onSetup: onSetup,
             choice: choice,
             onChanged: (next) => setState(() {
               choice = next;
@@ -89,7 +96,7 @@ void main() {
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
 
-    expect(find.text(' · Off'), findsOneWidget);
+    expect(find.textContaining(' · Off'), findsOneWidget);
   });
 
   testWidgets('opens as a dialog on a wide window', (tester) async {
@@ -101,10 +108,77 @@ void main() {
     expect(find.byType(Dialog), findsOneWidget);
   });
 
-  testWidgets('shows nothing without options', (tester) async {
+  testWidgets('keeps a visible loading selector without options', (
+    tester,
+  ) async {
     await _pumpPill(tester, options: null);
 
-    expect(find.byKey(const Key('composer-model-pill')), findsNothing);
+    expect(find.byKey(const Key('composer-model-pill')), findsOneWidget);
+    expect(find.text('Loading models'), findsOneWidget);
+  });
+
+  testWidgets('empty configuration offers model setup', (tester) async {
+    var setups = 0;
+    await _pumpPill(
+      tester,
+      options: const ModelOptions(),
+      onSetup: () => setups++,
+    );
+
+    expect(find.text('Set up a model'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('composer-model-pill')));
+
+    expect(setups, 1);
+  });
+
+  testWidgets('failed discovery exposes a separately named Retry action', (
+    tester,
+  ) async {
+    var retries = 0;
+    await _pumpPill(
+      tester,
+      options: null,
+      state: ModelOptionsState.failed,
+      onRetry: () => retries++,
+    );
+
+    expect(find.text('Could not load models'), findsOneWidget);
+    await tester.tap(find.text('Retry'));
+
+    expect(retries, 1);
+  });
+
+  testWidgets('failed discovery retains the known model accessible identity', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await _pumpPill(tester, state: ModelOptionsState.failed, onRetry: () {});
+
+    expect(
+      find.bySemanticsLabel(
+        'Could not load models, selected model claude-opus-4',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byTooltip('Could not load models, selected model claude-opus-4'),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('unsupported discovery identifies the profile default', (
+    tester,
+  ) async {
+    await _pumpPill(
+      tester,
+      options: null,
+      state: ModelOptionsState.unsupported,
+    );
+
+    expect(find.text('Profile default'), findsOneWidget);
+    expect(find.text('Set up a model'), findsNothing);
+    expect(find.text('Retry'), findsNothing);
   });
 
   testWidgets('the picker marks the selected model as selected, and follows '

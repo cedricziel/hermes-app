@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profile_switcher.dart';
+import 'package:hermes_app/src/profiles/widgets/profile_avatar.dart';
 import 'package:hermes_app/src/app.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
@@ -291,6 +292,57 @@ WidgetbookNode appNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ThreadSidebar',
       useCases: [
+        for (final state in [
+          'Empty',
+          'Populated',
+          'Long titles',
+          'Large text',
+          'Search',
+        ])
+          _screen(
+            'Chats full page $state',
+            () => CatalogAuth(gated: true),
+            () => Hosted<ThreadSearch>(
+              create: () {
+                final search = ThreadSearch((_) async => searchHits);
+                if (state == 'Search') {
+                  search
+                    ..begin()
+                    ..update('backup');
+                }
+                return search;
+              },
+              dispose: (search) => search.dispose(),
+              builder: (context, search) {
+                final list = fill(
+                  ThreadSidebar(
+                    fullPage: true,
+                    threads: state == 'Empty'
+                        ? const []
+                        : state == 'Long titles'
+                        ? messengerLongThreads
+                        : threads,
+                    selectedId: null,
+                    onSelect: (_) {},
+                    onNewThread: () {},
+                    search: search,
+                    onOpenHit: (_) {},
+                    avatarBuilder: (_) => ProfileAvatar(
+                      profile: messengerRecipients.first,
+                      size: 32,
+                    ),
+                  ),
+                );
+                return state == 'Large text'
+                    ? MediaQuery(
+                        data: MediaQuery.of(context)
+                            .copyWith(textScaler: const TextScaler.linear(2)),
+                        child: list,
+                      )
+                    : list;
+              },
+            ),
+          ),
         _screen(
           'Threads',
           () => CatalogAuth(gated: true),

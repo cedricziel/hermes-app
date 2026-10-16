@@ -13,6 +13,7 @@ import '../activity/widgets/activity_panel.dart';
 class ChatHeader extends StatelessWidget {
   const ChatHeader({
     super.key,
+    this.avatar,
     required this.thread,
     this.housekeeping,
     this.displayTitle,
@@ -23,6 +24,7 @@ class ChatHeader extends StatelessWidget {
   });
 
   /// The open thread, or null before one is picked.
+  final Widget? avatar;
   final ChatThread? thread;
   final ThreadHousekeeping? housekeeping;
   final String? displayTitle;
@@ -62,7 +64,13 @@ class ChatHeader extends StatelessWidget {
       left: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-        child: Row(children: [title, ...actions]),
+        child: Row(
+          children: [
+            if (avatar != null) ...[avatar!, const SizedBox(width: 8)],
+            title,
+            ...actions,
+          ],
+        ),
       ),
     );
   }

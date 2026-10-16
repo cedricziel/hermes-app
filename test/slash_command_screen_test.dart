@@ -38,6 +38,10 @@ void main() {
 
     gate.complete(const SlashCommandResult(threadId: 'command-session'));
     await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(composerField).controller.text,
+      'Normal prompt',
+    );
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();
     expect(transport.sends.single.threadId, 'command-session');
@@ -132,9 +136,46 @@ void main() {
     await tester.tap(find.text('New chat').first);
     await tester.pump();
     expect(find.text('/old'), findsNothing);
+    expect(tester.widget<EditableText>(composerField).controller.text, isEmpty);
+    await tester.enterText(composerField, '/');
+    await tester.pump();
+    expect(find.text('/old'), findsNothing);
 
     next.complete(const [SlashCommand('/newer', 'New command')]);
     await tester.pumpAndSettle();
     expect(find.text('/newer'), findsOneWidget);
   });
+
+  testWidgets(
+    'a draft follows its session binding while another chat is selected',
+    (tester) async {
+      final transport = FakeChatTransport();
+      final gate = transport.slashGate = Completer<SlashCommandResult>();
+      await pumpChatScreen(tester, transport: transport);
+      await tester.tap(find.text('New chat').first);
+      await tester.pump();
+      await tester.enterText(composerField, '/help');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
+      await tester.enterText(composerField, 'Keep this bound draft');
+      await tester.tap(find.byKey(const ValueKey('thread-t1')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(composerField).controller.text,
+        isEmpty,
+      );
+
+      gate.complete(const SlashCommandResult(threadId: 'command-session'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('thread-command-session')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<EditableText>(composerField).controller.text,
+        'Keep this bound draft',
+      );
+      expect(transport.sends, isEmpty);
+    },
+  );
 }
