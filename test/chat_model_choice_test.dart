@@ -160,7 +160,7 @@ void main() {
     await pumpChat(tester);
 
     await pick(tester, ['effort-high']);
-    expect(find.text(' · High'), findsOneWidget);
+    expect(find.textContaining(' · High'), findsOneWidget);
     await send(tester, 'hi');
 
     expect(
@@ -217,11 +217,13 @@ void main() {
       server
           .requestsTo('GET', '/api/model/options')
           .map((r) => r.queryParameters['profile']),
-      ['default', 'work'],
+      ['default', 'work', 'work'],
     );
   });
 
-  testWidgets('no pill when the options cannot be read', (tester) async {
+  testWidgets('a failed model read preserves the draft until Retry succeeds', (
+    tester,
+  ) async {
     server.on(
       'GET',
       '/api/model/options',
@@ -231,7 +233,30 @@ void main() {
     );
     await pumpChat(tester);
 
-    expect(pill, findsNothing);
+    expect(pill, findsOneWidget);
+    expect(find.text('Could not load models'), findsOneWidget);
+    await tester.enterText(composerField, 'hi');
+    await tester.pump();
+    final sendButton = tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byIcon(Icons.arrow_upward),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(sendButton.onPressed, isNull);
+    server.on(
+      'GET',
+      '/api/model/options',
+      _options('claude-opus-4'),
+      query: {'profile': 'default'},
+    );
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('claude-opus-4'), findsOneWidget);
+    expect(tester.widget<EditableText>(composerField).controller.text, 'hi');
+    expect(transport.sends, isEmpty);
     await send(tester, 'hi');
     expect(transport.sends.single.model, isNull);
   });

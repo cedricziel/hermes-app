@@ -101,9 +101,6 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
   var _loading = false;
   var _loadFailed = false;
 
-  /// A send asked for while the profile was loading; it goes out once the
-  /// load is done.
-  var _sendWhenLoaded = false;
   var _dictating = false;
   double? _height;
 
@@ -217,10 +214,6 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
     });
     if (!loaded) return;
     unawaited(_dictation?.refresh());
-    if (_sendWhenLoaded) {
-      _sendWhenLoaded = false;
-      unawaited(_send(_composerController.text));
-    }
   }
 
   /// Keeps the panel up while a recording starts (the first one asks for
@@ -275,12 +268,9 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
   }
 
   Future<void> _send(String text) async {
-    if (_queueSending) return;
-    if (_loading) {
-      _sendWhenLoaded = true;
+    if (_queueSending || _loading || !_loaded || !_chat.modelSendAllowed) {
       return;
     }
-    if (!_loaded) return;
     final typed = text.trim();
     final files = List.of(_attachments);
     if (typed.isEmpty && files.isEmpty) return;
@@ -405,6 +395,9 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
             onSend: _send,
             commandRunning:
                 _queueSending ||
+                _loading ||
+                !_loaded ||
+                !_chat.modelSendAllowed ||
                 (_chat.selectedThread != null &&
                     _chat.queueBusy(_chat.selectedThread!)),
             queueView: protectedQueueView(_chat, _chat.selectedThread),
@@ -445,7 +438,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
           onRemoveAttachment: (file) =>
               setState(() => _attachments.remove(file)),
           onSend: _send,
-          commandRunning: _queueSending,
+          commandRunning: _queueSending || _loading || !_loaded,
           latestReply: _latestReply,
           welcome: false,
         ),

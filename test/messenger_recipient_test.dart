@@ -309,7 +309,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
-      expect(find.text(' · High'), findsOneWidget);
+      expect(find.textContaining(' · High'), findsOneWidget);
       await tester.enterText(composerField, 'Keep the release checklist');
 
       await tester.tap(find.byType(ProfileRecipientChip));
@@ -329,7 +329,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text(' · High'), findsNothing);
+      expect(find.textContaining(' · High'), findsNothing);
       expect(transport.sends, isEmpty);
       await send(tester);
 

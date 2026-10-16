@@ -21,6 +21,7 @@ import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../models/hermes_models_repository.dart';
+import '../models/widgets/model_setup_dialog.dart';
 import '../live_activities/live_activities.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../notifications/attention_notifier.dart';
@@ -187,6 +188,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int? _avatarOwner;
   List<HermesProfile> _recipients = const [];
   bool _profilesUnsupported = false;
+  bool _recipientsLoading = false;
+  bool _recipientsFailed = false;
+  int _recipientRead = 0;
   int _recipientIntent = 0;
   (String?, String?) _composerOwner = (null, null);
   ChatThread? _composerThread;
@@ -1143,6 +1147,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _avatars = null;
     _recipients = const [];
     _profilesUnsupported = false;
+    _recipientsLoading = false;
+    _recipientsFailed = false;
+    _recipientRead++;
     _recipientIntent++;
     _composerController.clear();
     _attachments.clear();
@@ -1154,22 +1161,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadRecipients() async {
-    final owner = _avatarAuth?.ownerGeneration;
-    try {
-      final profiles = await _profiles!.list();
-      if (mounted && owner == _avatarAuth?.ownerGeneration) {
-        setState(() => _recipients = profiles);
-      }
-    } on DioException catch (error) {
-      if (mounted &&
-          owner == _avatarAuth?.ownerGeneration &&
-          error.response?.statusCode == 404) {
-        setState(() => _profilesUnsupported = true);
-      }
-    } on Object {
-      // The picker offers a retry without blocking existing conversations.
-    }
+    await _recipientOptions();
   }
+
+  RecipientSelectorState get _recipientState {
+    if (_profiles == null || _profilesUnsupported) {
+      return RecipientSelectorState.ready;
+    }
+    if (_recipientsLoading) return RecipientSelectorState.loading;
+    if (_recipientsFailed) return RecipientSelectorState.failed;
+    if (_recipients.isEmpty) return RecipientSelectorState.empty;
+    if (_chat.profile == null) {
+      return _chat.loadingThreads
+          ? RecipientSelectorState.loading
+          : RecipientSelectorState.choose;
+    }
+    return _recipients.any((profile) => profile.name == _chat.profile)
+        ? RecipientSelectorState.ready
+        : RecipientSelectorState.unavailable;
+  }
+
+  bool get _recipientSendAllowed =>
+      _recipientState == RecipientSelectorState.ready;
 
   HermesProfile get _recipient =>
       _recipients
@@ -1185,9 +1198,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<({List<HermesProfile> profiles, bool failed})>
   _recipientOptions() async {
+    final generation = ++_recipientRead;
+    final owner = _avatarAuth?.ownerGeneration;
+    bool current() =>
+        mounted &&
+        generation == _recipientRead &&
+        owner == _avatarAuth?.ownerGeneration;
+    setState(() {
+      _recipientsLoading = true;
+      _recipientsFailed = false;
+    });
     try {
-      return (profiles: await _profiles!.list(), failed: false);
-    } on Object {
+      final profiles = await _profiles!.list();
+      if (!current()) return (profiles: const <HermesProfile>[], failed: true);
+      setState(() {
+        _recipients = profiles;
+        _recipientsLoading = false;
+        _profilesUnsupported = false;
+      });
+      return (profiles: profiles, failed: false);
+    } on Object catch (error) {
+      if (current()) {
+        final unsupported =
+            error is DioException && error.response?.statusCode == 404;
+        setState(() {
+          _recipientsLoading = false;
+          _profilesUnsupported = unsupported;
+          _recipientsFailed = !unsupported;
+        });
+      }
       return (profiles: const <HermesProfile>[], failed: true);
     }
   }
@@ -1215,13 +1254,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 onRetry: () => update(() {
                   pending = _recipientOptions();
                 }),
+                onSetup: () {
+                  Navigator.of(dialogContext).pop();
+                  unawaited(_openProfiles());
+                },
                 avatars: _avatars,
                 onSelected: (profile) {
                   if (!mounted || owner != _avatarAuth?.ownerGeneration) {
                     Navigator.of(dialogContext).pop();
                     return;
                   }
-                  _recipients = snapshot.data?.profiles ?? _recipients;
                   Navigator.of(dialogContext).pop(profile);
                 },
               ),
@@ -1450,9 +1492,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _selectThread(id);
   }
 
-  void _openProfiles() {
+  Future<void> _openProfiles() async {
+    final owner = _avatarAuth?.ownerGeneration;
     _closeDrawerIfNarrow();
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProfilesScreen(
           repository: _profiles,
@@ -1462,6 +1505,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       ),
     );
+    if (!mounted || owner != _avatarAuth?.ownerGeneration) return;
+    if (_profiles != null) await _loadRecipients();
+    if (!mounted || owner != _avatarAuth?.ownerGeneration) return;
+    await _chat.refreshModelOptions();
+  }
+
+  Future<void> _setupModel() async {
+    final profile = _chat.profile;
+    final owner = _avatarAuth?.ownerGeneration;
+    await showModelSetup(context, profile);
+    if (!mounted ||
+        owner != _avatarAuth?.ownerGeneration ||
+        profile != _chat.profile) {
+      return;
+    }
+    await _chat.refreshModelOptions();
   }
 
   void _openMessaging() {
@@ -1615,6 +1674,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       unawaited(_sendSlash(typed));
       return;
     }
+    if (!_recipientSendAllowed || !_chat.modelSendAllowed) return;
     setState(() => _queueSending = true);
     final target = _chat.selectedThread;
     final profile = _chat.profile;
@@ -1758,16 +1818,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final search = chat.search;
         final threadView = boundChatThreadView(
           chat: chat,
-          recipientChip:
-              _profiles != null &&
-                  (selected == null ||
-                      !selected.remote && selected.messages.isEmpty)
-              ? ProfileRecipientChip(
-                  profile: _recipient,
-                  avatars: _avatars,
-                  onTap: _changeRecipient,
-                )
-              : null,
+          recipientChip: ProfileRecipientChip(
+            profile: _recipient,
+            state: _recipientState,
+            avatars: _avatars,
+            onTap:
+                selected == null ||
+                    !selected.remote && selected.messages.isEmpty
+                ? _changeRecipient
+                : null,
+            onRetry: _loadRecipients,
+            onSetup: _openProfiles,
+          ),
+          onSetupModel: _setupModel,
           thread: selected,
           greetingName: context.select<AuthController, String?>(
             (auth) => auth.identity?.displayName,
@@ -1783,7 +1846,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               setState(() => _attachments.remove(file)),
           onSend: _send,
           slashCommands: _slashCommands,
-          commandRunning: _slashSending || _queueSending,
+          commandRunning:
+              _slashSending || _queueSending || !_recipientSendAllowed,
           starterPrompts: _showsWelcome ? _starterPrompts() : null,
           onPickStarter: _pickStarter,
           latestReply: _latestReply,

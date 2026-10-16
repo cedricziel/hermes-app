@@ -17,6 +17,7 @@ import '../bot_mode/bot_chat_context.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
+import '../models/model_options_state.dart';
 import '../live_activities/live_activities.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
@@ -1878,10 +1879,31 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   String? get profile => _profile;
   int _loadGeneration = 0;
 
-  /// The models the profile offers; null while loading or when they could
-  /// not be read.
   ModelOptions? _modelOptions;
   ModelOptions? get modelOptions => _modelOptions;
+  ModelOptionsState _modelOptionsState = ModelOptionsState.loading;
+  int _modelOptionsGeneration = 0;
+
+  ModelOptionsState get modelOptionsState =>
+      models == null ? ModelOptionsState.unsupported : _modelOptionsState;
+
+  /// Whether the current model can be used without guessing configuration.
+  bool get modelSendAllowed {
+    final state = modelOptionsState;
+    if (state == ModelOptionsState.unsupported) return true;
+    if (state == ModelOptionsState.incomplete) return false;
+    final choice = modelChoice ?? _modelOptions?.current;
+    if (choice == null) return false;
+    if (_modelOptions?.model(choice) != null) return true;
+    return state != ModelOptionsState.ready &&
+        selectedThread?.remote == true &&
+        choice.providerId.isNotEmpty &&
+        choice.modelId.isNotEmpty;
+  }
+
+  /// Refreshes only the current profile's model discovery, preserving drafts.
+  Future<void> refreshModelOptions() =>
+      _loadModelOptions(_profile, _loadGeneration);
 
   /// The model picked before there is a thread to hold it.
   ModelChoice? _newChatModel;
@@ -1893,7 +1915,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void chooseModel(ModelChoice choice) {
-    if (!active) return;
+    if (!active || (models != null && _modelOptions?.model(choice) == null)) {
+      return;
+    }
     final selected = selectedThread;
     if (selected == null) {
       _newChatModel = choice;
@@ -2234,7 +2258,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         'switched': switched,
         'count': threads.length,
       });
-      unawaited(_loadModelOptions(profile, generation));
+      unawaited(_loadModelOptions(profile, generation, notifyLoading: false));
       _threads = [...local, ...threads];
       _unloaded
         ..clear()
@@ -2385,14 +2409,45 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
   }
 
-  Future<void> _loadModelOptions(String? profile, int generation) async {
+  Future<void> _loadModelOptions(
+    String? profile,
+    int generation, {
+    bool notifyLoading = true,
+  }) async {
+    if (!active) return;
     final models = this.models;
     if (models == null) return;
-    final options = await models
-        .load(profile: profile)
-        .then<ModelOptions?>((o) => o, onError: (Object _) => null);
-    if (!active || generation != _loadGeneration) return;
-    _modelOptions = options;
+    final request = ++_modelOptionsGeneration;
+    _modelOptionsState = ModelOptionsState.loading;
+    if (notifyLoading) notifyListeners();
+    if (!active ||
+        generation != _loadGeneration ||
+        request != _modelOptionsGeneration ||
+        profile != _profile) {
+      return;
+    }
+    ModelOptions? options;
+    var state = ModelOptionsState.failed;
+    try {
+      options = await models.load(profile: profile);
+      state = options.providers.isEmpty
+          ? ModelOptionsState.incomplete
+          : ModelOptionsState.ready;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        state = ModelOptionsState.unsupported;
+      }
+    } on Object {
+      state = ModelOptionsState.failed;
+    }
+    if (!active ||
+        generation != _loadGeneration ||
+        request != _modelOptionsGeneration ||
+        profile != _profile) {
+      return;
+    }
+    if (options != null) _modelOptions = options;
+    _modelOptionsState = state;
     notifyListeners();
   }
 
@@ -4014,8 +4069,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// streams the reply into it. While the thread replies, or holds a paused
   /// queue, the prompt joins its queue instead. Returns false when it was
   /// neither sent nor queued, after telling the user why.
-  FutureOr<bool> submit(String typed, List<SharedFile> files) =>
-      active ? _submitTo(selectedThread, typed, files) : false;
+  FutureOr<bool> submit(String typed, List<SharedFile> files) {
+    if (!active) return false;
+    if (!modelSendAllowed) {
+      report('Choose a usable model before sending. Your draft was kept.');
+      return false;
+    }
+    return _submitTo(selectedThread, typed, files);
+  }
 
   FutureOr<bool> _submitTo(
     ChatThread? selected,
