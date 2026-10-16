@@ -133,3 +133,26 @@ and deleted simulator `3BC71216-2246-48DB-9DFF-393359CC83EE`, and removed the
 fixture root and task-owned temporary logs. Both fixture listeners were
 confirmed gone; the existing development backend on port 62207 and local
 Ollama service were left running.
+
+## Pull request evidence and remaining checks
+
+PR #770 compares six rendered screens at a 390 × 844 logical viewport on
+`main` (`504175f5`) and the feature branch (`8010fb1d`): launch, conversation,
+recipient selection, and loading, incomplete, and failed discovery. Both
+six-scene render runs passed with matching synthetic fixtures. These renders
+are separate from the native iPhone checks above. The baseline recipient image
+uses Profiles because the baseline has no New message recipient dialog.
+
+Task 3.4 remains open for the native desktop and account-replacement checks.
+Automated coverage does not establish those native results.
+
+The initial PR run failed two assertions: unsupported-profile discovery used
+an inconsistent fixture, and an initial startup target discarded a held quote.
+The fixture now marks profile discovery unsupported. Startup delivery adopts
+only the initial request and still lets later navigation supersede it. Review
+also found a moved draft retained under its old recipient key; the successful
+transfer now removes that cached text and attachment list. A retirement/remount
+regression preserves the closed account boundary and verifies fresh owner reads.
+The nine-file follow-up batch passed 104 tests; formatting and scoped analysis
+were clean. These flow corrections were checked in widget tests, not another
+native run.

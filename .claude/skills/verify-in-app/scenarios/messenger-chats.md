@@ -42,10 +42,12 @@ client isolation from a distinct app build path or bundle identifier alone.
    shared guide's wrapper-directory redirection rule so aliases cannot be
    written to the real home. A small synthetic avatar may be seeded directly
    into the fixture profile's assets before launch. Keep the backend active
-   profile set to `default` for the local recipient check. For reply continuity,
-   configure only a local model with a synthetic credential in each exercised
-   profile's own config before starting the backend. Profiles do not inherit
-   the default profile's model config. Never inherit personal provider keys.
+   profile set to `default` for the local recipient check. Start the selector
+   checks without model configuration so the real discovery response shows
+   `Set up a model`. Configure the local model only after observing this state,
+   then refresh discovery before checking sends or reply continuity. Use a
+   synthetic credential in each exercised profile's own config; profiles do not
+   inherit the default profile's model config. Never inherit personal keys.
    Start a fresh chat after correcting model configuration: an existing
    session can retain its earlier model selection across backend restarts.
    Confirm the composer shows the intended local model before sending.
