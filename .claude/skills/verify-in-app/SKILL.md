@@ -57,6 +57,10 @@ Follow [automated checks](scenarios/automated-checks.md) before native
 verification or publication when a change affects asynchronous ownership,
 queued dispatch, or notifier retirement.
 
+For Chats-first navigation, drafts and replies across Back, local profile
+recipients, and profile avatars, follow
+[the messenger Chats scenario](scenarios/messenger-chats.md).
+
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
    Analyze and test print a long dependency-update block; read the last lines.
 2. `scripts/dev-backend.sh start`. Prints `ready: <url>`; needs `hermes` on
@@ -641,19 +645,19 @@ Return`; screenshot with `import -window root -crop 1280x720+0+0 out.png`
 
 For replies, model switching or anything that needs a turn to run, give the
 backend a local Ollama model. `ollama list` shows what is pulled; `qwen3:0.6b`
-and `qwen3:1.7b` are small and give two models to switch between. Write
-`.dart_tool/hermes-dev/home/config.yaml` before `dev-backend.sh start`:
+and `qwen3:1.7b` are small and give two models to switch between. For a
+throwaway backend, write its external home `config.yaml` before starting
+the backend. In a multi-profile fixture, configure the profile that will own
+the reply in `<fixture-home>/profiles/<profile>/config.yaml` as well; secondary
+profiles do not inherit the launch profile's model configuration.
 
 ```yaml
 model:
   default: "qwen3:1.7b"
-  provider: "local-ollama"
+  provider: "custom"
+  base_url: "http://127.0.0.1:11434/v1"
+  api_key: "ollama"
   ollama_num_ctx: 65536
-providers:
-  local-ollama:
-    name: "Local Ollama"
-    base_url: "http://127.0.0.1:11434/v1"
-    api_key: "ollama"
 ```
 
 - Hermes refuses a model whose context is under 64K ("has a context window
