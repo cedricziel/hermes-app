@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../hermes_profiles_repository.dart';
 import '../profile_avatar_repository.dart';
 import 'profile_avatar.dart';
+import '../../widgets/composer_selector_chip.dart';
 
 /// Lists available local chat recipients without changing the server default.
 class RecipientPicker extends StatelessWidget {
@@ -14,6 +15,7 @@ class RecipientPicker extends StatelessWidget {
     this.loading = false,
     this.failed = false,
     this.onRetry,
+    this.onSetup,
     this.avatars,
   });
 
@@ -23,6 +25,7 @@ class RecipientPicker extends StatelessWidget {
   final bool loading;
   final bool failed;
   final VoidCallback? onRetry;
+  final VoidCallback? onSetup;
   final ProfileAvatarRepository? avatars;
 
   @override
@@ -40,7 +43,13 @@ class RecipientPicker extends StatelessWidget {
       if (loading)
         const Padding(
           padding: EdgeInsets.all(24),
-          child: Center(child: CircularProgressIndicator()),
+          child: Column(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text('Loading recipients'),
+            ],
+          ),
         )
       else if (failed) ...[
         const Padding(
@@ -52,12 +61,20 @@ class RecipientPicker extends StatelessWidget {
             alignment: Alignment.center,
             child: TextButton(onPressed: onRetry, child: const Text('Retry')),
           ),
-      ] else if (profiles.isEmpty)
+      ] else if (profiles.isEmpty) ...[
         const Padding(
           padding: EdgeInsets.all(16),
-          child: Text('No recipients available.'),
-        )
-      else
+          child: Text('No profiles available'),
+        ),
+        if (onSetup != null)
+          Align(
+            alignment: Alignment.center,
+            child: TextButton(
+              onPressed: onSetup,
+              child: const Text('Set up profiles'),
+            ),
+          ),
+      ] else
         for (final profile in profiles)
           ListTile(
             leading: ExcludeSemantics(
@@ -79,29 +96,84 @@ class RecipientPicker extends StatelessWidget {
   );
 }
 
-/// The selected unsent recipient, optionally tappable to choose another.
+enum RecipientSelectorState {
+  loading,
+  choose,
+  empty,
+  unavailable,
+  failed,
+  ready,
+}
+
+/// A recipient selector that keeps identity visible through discovery failures.
 class ProfileRecipientChip extends StatelessWidget {
   const ProfileRecipientChip({
     super.key,
     required this.profile,
+    this.state = RecipientSelectorState.ready,
     this.onTap,
+    this.onRetry,
+    this.onSetup,
     this.avatars,
   });
 
-  final HermesProfile profile;
+  final HermesProfile? profile;
+  final RecipientSelectorState state;
   final VoidCallback? onTap;
+  final VoidCallback? onRetry;
+  final VoidCallback? onSetup;
   final ProfileAvatarRepository? avatars;
 
   @override
-  Widget build(BuildContext context) => ActionChip(
-    avatar: ExcludeSemantics(
-      child: ProfileAvatar(profile: profile, repository: avatars, size: 24),
-    ),
-    label: Text(
-      'To: ${profile.label}',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    ),
-    onPressed: onTap,
-  );
+  Widget build(BuildContext context) {
+    final profile = this.profile;
+    final state = this.state == RecipientSelectorState.ready && profile == null
+        ? RecipientSelectorState.choose
+        : this.state;
+    final label = switch (state) {
+      RecipientSelectorState.loading => 'Loading recipients',
+      RecipientSelectorState.choose => 'Choose a recipient',
+      RecipientSelectorState.empty => 'No profiles available',
+      RecipientSelectorState.unavailable =>
+        '${profile?.label ?? 'Recipient'} unavailable',
+      RecipientSelectorState.failed => 'Could not load recipients',
+      RecipientSelectorState.ready => 'To: ${profile!.label}',
+    };
+    final retry =
+        state == RecipientSelectorState.failed ||
+        state == RecipientSelectorState.unavailable;
+    final empty = state == RecipientSelectorState.empty;
+    final interactive =
+        state == RecipientSelectorState.ready ||
+        state == RecipientSelectorState.choose ||
+        state == RecipientSelectorState.unavailable;
+    return ComposerSelectorChip(
+      label: label,
+      semanticLabel:
+          profile != null &&
+              (state == RecipientSelectorState.loading ||
+                  state == RecipientSelectorState.failed)
+          ? '$label, selected recipient ${profile.label}'
+          : label,
+      leading: profile == null
+          ? null
+          : ProfileAvatar(profile: profile, repository: avatars, size: 24),
+      onPressed: interactive ? onTap : null,
+      actionLabel: retry
+          ? 'Retry'
+          : empty
+          ? 'Set up profiles'
+          : null,
+      actionSemanticLabel: retry
+          ? 'Retry recipients'
+          : empty
+          ? 'Set up profiles'
+          : null,
+      onAction: retry
+          ? onRetry
+          : empty
+          ? onSetup
+          : null,
+    );
+  }
 }
