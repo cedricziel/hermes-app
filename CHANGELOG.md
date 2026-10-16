@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.65](https://github.com/cedricziel/hermes-app/compare/v0.1.64...v0.1.65) (2026-10-16)
+
+
+### Features
+
+* **chat:** add messenger navigation and selector recovery ([#770](https://github.com/cedricziel/hermes-app/issues/770)) ([da645ce](https://github.com/cedricziel/hermes-app/commit/da645ce63d8c41877f703f397762d2ba1e0e8beb))
+
 ## [0.1.64](https://github.com/cedricziel/hermes-app/compare/v0.1.63...v0.1.64) (2026-10-14)
 
 
