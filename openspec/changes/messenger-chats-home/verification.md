@@ -76,3 +76,60 @@ The fixture app was terminated, its simulator shut down and deleted, and only
 the recorded backend PID was stopped. The loopback listener was confirmed gone.
 The fixture root and task-owned temporary evidence were removed. The existing
 local Ollama service was left running.
+
+## Selector-state follow-up
+
+A separate native run used the disposable iPhone 17 Pro simulator
+`Hermes Selector Verification 20261016`, UDID
+`3BC71216-2246-48DB-9DFF-393359CC83EE`. Its fixture manifest, removed during
+teardown, recorded `/private/tmp/hermes-selector-verify-MXuo5e`. The app
+connected through the fixture-only loopback proxy at
+`http://127.0.0.1:57392`, forwarding to backend `127.0.0.1:57040`. The proxy
+controlled only `/api/profiles` and `/api/model/options`; it forwarded the
+remaining HTTP and WebSocket traffic to the isolated backend. Proxy logs store
+route paths without query strings.
+
+Observed in the native UI:
+
+- Model discovery showed Loading, then Failed with a separate Retry after the
+  held request timed out. Releasing the route to the real empty fixture response
+  changed the composer to Set up a model. The `Test` draft remained and Send was
+  disabled.
+- Setup guidance for work showed `hermes -p work model`. After configuring
+  only the fixture work profile with local Ollama, Check again showed
+  `gemma4:e4b`; Send became enabled and the existing draft remained. The model
+  picker displayed provider `custom` with `gemma4:e4b`.
+- A `/api/profiles` 503 showed Could not load recipients and its own Retry while
+  the model stayed ready. Retry against an empty profiles response showed No
+  profiles available and Set up profiles; opening setup reached Profiles.
+- Restoring the real profile response and returning from setup retained the
+  `T` draft and selected `To: work` recipient. Holding profile discovery showed
+  Loading recipients while retaining `T` and disabling Send. Temporarily moving
+  the work profile directory elsewhere within the disposable fixture made the
+  released real response show work unavailable; restoring the directory and
+  retrying returned the selected work recipient to ready.
+- The UI sent `T`. The local reply completed in the chat titled `Single letter
+  input session` with: “Could you please provide more context or let me know
+  what you would like assistance with?” The completed message showed Copy,
+  Try again, and Edit actions, with no remaining Thinking or Stop state.
+- The final simulator rebuild succeeded in 33.1 seconds and the rebuilt app
+  was reinstalled and launched on this disposable device. On the final New
+  message screen, `To: work` and `gemma4:e4b` were both visible. The final
+  `flutter analyze` run reported no issues in 11.2 seconds. The simulator's
+  Capture Keyboard setting was restored to off after the check.
+
+The proxy's authenticated profile-list request and a read-only
+`profiles.get_asset` WebSocket RPC also passed; the latter returned the seeded
+work avatar metadata. Automated verification reported 299 broader checks, 27
+focused checks, 64 integrated messenger cases, 104 catalog checks, and 20 pure
+checks. These groups overlap and must not be added together. The latest native
+build and reply completed. The native run verified model setup and Retry,
+recipient loading/empty/error/recovery, profile unavailability and recovery,
+draft retention, ready-state model/recipient labels, and a successful local
+send. Resize, desktop parity, account image replacement/cleanup, and protected
+navigation remain covered by automated regressions rather than this selector
+follow-up's native run. Teardown stopped fixture PIDs 25378 and 26655, shut down
+and deleted simulator `3BC71216-2246-48DB-9DFF-393359CC83EE`, and removed the
+fixture root and task-owned temporary logs. Both fixture listeners were
+confirmed gone; the existing development backend on port 62207 and local
+Ollama service were left running.

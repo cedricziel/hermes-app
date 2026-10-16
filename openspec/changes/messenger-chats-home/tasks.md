@@ -26,6 +26,6 @@
 
 ## 4. Selector configuration states follow-up
 
-- [ ] 4.1 Add regression tests and Widgetbook cases for both recipient and model selectors: loading, missing selection, empty/incomplete configuration, unavailable recipient, error/retry, and ready. Cover independent recovery, draft/attachment preservation, stale results, supported legacy profile defaults, compact/wide layouts, large text, and side-by-side placement.
-- [ ] 4.2 Implement visible, accessible states for both composer selectors, actionable profile/model setup and refresh on return, and send gating when configuration is known to be unusable. Keep loading, empty, unsupported discovery, and failed requests distinct. Preserve local recipient ownership and existing backend contracts.
-- [ ] 4.3 Extend the verify skill for these states and exercise both controls against an isolated backend with incomplete and complete configuration. Verify setup recovery, Retry, model selection, and a successful send before marking this follow-up complete.
+- [x] 4.1 Add regression tests and Widgetbook cases for both recipient and model selectors: loading, missing selection, empty/incomplete configuration, unavailable recipient, error/retry, and ready. Cover independent recovery, draft/attachment preservation, stale results, supported legacy profile defaults, compact/wide layouts, large text, and side-by-side placement.
+- [x] 4.2 Implement visible, accessible states for both composer selectors, actionable profile/model setup and refresh on return, and send gating when configuration is known to be unusable. Keep loading, empty, unsupported discovery, and failed requests distinct. Preserve local recipient ownership and existing backend contracts.
+- [x] 4.3 Extend the verify skill for these states and exercise both controls against an isolated backend with incomplete and complete configuration. Verify setup recovery, Retry, model selection, and a successful send before marking this follow-up complete.
