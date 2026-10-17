@@ -68,6 +68,29 @@ void main() {
     expect(transport.sends.last.threadId, 's1');
   });
 
+  test('retry uses the overridden last prompt source', () async {
+    final attention = AttentionNotifier(
+      service: null,
+      settings: null,
+      onOpen: (_) {},
+    );
+    final overridden = _PromptSourceChatController(
+      transport: transport,
+      attention: attention,
+      report: reports.add,
+    );
+    addTearDown(() {
+      overridden.dispose();
+      attention.dispose();
+    });
+    overridden.newThread();
+
+    await overridden.retry(overridden.selectedThread!);
+
+    expect(transport.sends.single.text, 'Custom prompt');
+    expect(reports, isEmpty);
+  });
+
   test('slash command output is shown without a normal prompt send', () async {
     chat.newThread();
     transport.slashResult = const SlashCommandResult(
@@ -210,4 +233,15 @@ void main() {
     expect(request.status, InputRequestStatus.answered);
     expect(request.provided, isFalse);
   });
+}
+
+class _PromptSourceChatController extends ChatController {
+  _PromptSourceChatController({
+    required super.transport,
+    required super.attention,
+    required super.report,
+  });
+
+  @override
+  String? lastPromptText(ChatThread thread) => 'Custom prompt';
 }
