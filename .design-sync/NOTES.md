@@ -288,4 +288,4 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
     screen width and has no 60% title rule, which is web CSS only); `SegmentedButton` gives a segment that
     needs more room for its label and check the extra width.
 
-- Messenger Chats home, local recipient picker/chip, and profile avatars need a design port from the Flutter implementation. The existing React ThreadSidebar and chat headers still show the earlier navigation.
+- Messenger Chats home, local recipient picker/chip, and profile avatars need a design port from the Flutter implementation. Include the compact iOS Chats list's New Chat floating button: theme primary/onPrimary colors, the shared 14-point corner radius, compose glyph, restrained elevation, and bottom scroll clearance for chat rows and search results. The existing React ThreadSidebar and chat headers still show the earlier navigation.

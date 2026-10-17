@@ -61,11 +61,16 @@ extension _ChatScreenLayout on _ChatScreenState {
         final selected = chat.selectedThread;
         final bot = selected?.botContext;
         _latestReply.follow(chat, selected);
+        final showNewChatFab =
+            !isWide && platformChromeOf(context) == PlatformChrome.ios;
         ThreadSidebar buildSidebar({
           Widget? navigation,
           bool fullPage = false,
         }) => ThreadSidebar(
           fullPage: fullPage,
+          contentBottomPadding: fullPage && showNewChatFab
+              ? NewChatFab.listBottomPadding
+              : 0,
           avatarBuilder: (_) => _avatar(24),
           navigation: navigation,
           onOpenInNewWindow: _windows == null
@@ -320,6 +325,9 @@ extension _ChatScreenLayout on _ChatScreenState {
                       ],
                     ),
                     body: buildSidebar(fullPage: true),
+                    floatingActionButton: showNewChatFab
+                        ? NewChatFab(onPressed: _newThread)
+                        : null,
                   ),
                 ),
                 if (_detailOpen)

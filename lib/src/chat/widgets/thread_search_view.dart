@@ -83,6 +83,7 @@ class ThreadSearchResults extends StatelessWidget {
     required this.hits,
     required this.onOpen,
     this.selectedId,
+    this.bottomPadding = 0,
   });
 
   final String query;
@@ -90,6 +91,7 @@ class ThreadSearchResults extends StatelessWidget {
   final List<ThreadSearchHit> hits;
   final ValueChanged<ThreadSearchHit> onOpen;
   final String? selectedId;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +111,7 @@ class ThreadSearchResults extends StatelessWidget {
       ),
       _ when hits.isEmpty => _Note('No chats match "${query.trim()}".'),
       _ => ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: EdgeInsets.fromLTRB(8, 0, 8, bottomPadding),
         itemCount: hits.length,
         itemBuilder: (context, index) {
           final hit = hits[index];

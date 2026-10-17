@@ -85,6 +85,7 @@ import 'widgets/chat_header.dart';
 import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
+import 'widgets/new_chat_fab.dart';
 import '../kanban/widgets/task_panel/kanban_task_sheet.dart';
 import '../widgets/inspector_layout.dart';
 

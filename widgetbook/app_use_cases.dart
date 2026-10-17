@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/chat/widgets/new_chat_fab.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profile_switcher.dart';
@@ -314,22 +315,32 @@ WidgetbookNode appNode() => WidgetbookFolder(
               },
               dispose: (search) => search.dispose(),
               builder: (context, search) {
+                final showFab =
+                    Theme.of(context).platform == TargetPlatform.iOS;
                 final list = fill(
-                  ThreadSidebar(
-                    fullPage: true,
-                    threads: state == 'Empty'
-                        ? const []
-                        : state == 'Long titles'
-                        ? messengerLongThreads
-                        : threads,
-                    selectedId: null,
-                    onSelect: (_) {},
-                    onNewThread: () {},
-                    search: search,
-                    onOpenHit: (_) {},
-                    avatarBuilder: (_) => ProfileAvatar(
-                      profile: messengerRecipients.first,
-                      size: 32,
+                  Scaffold(
+                    floatingActionButton: showFab
+                        ? NewChatFab(onPressed: () {})
+                        : null,
+                    body: ThreadSidebar(
+                      fullPage: true,
+                      contentBottomPadding: showFab
+                          ? NewChatFab.listBottomPadding
+                          : 0,
+                      threads: state == 'Empty'
+                          ? const []
+                          : state == 'Long titles'
+                          ? messengerLongThreads
+                          : threads,
+                      selectedId: null,
+                      onSelect: (_) {},
+                      onNewThread: () {},
+                      search: search,
+                      onOpenHit: (_) {},
+                      avatarBuilder: (_) => ProfileAvatar(
+                        profile: messengerRecipients.first,
+                        size: 32,
+                      ),
                     ),
                   ),
                 );
