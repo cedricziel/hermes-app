@@ -14,6 +14,7 @@
   color: var(--h-muted);
   font: inherit;
   cursor: pointer;
+  max-width: 100%;
 }
 
 .h-reasoning-block--apple .h-reasoning-block__header {
@@ -28,6 +29,34 @@
   margin-left: 6px;
   font-size: 13px;
   line-height: 18px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-reasoning-block__header > svg { flex-shrink: 0; }
+
+.h-reasoning-block--active .h-reasoning-block__label {
+  background: linear-gradient(100deg, var(--h-muted) 35%, var(--h-fg) 50%, var(--h-muted) 65%);
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: h-reasoning-sweep 1.6s linear infinite;
+}
+
+@keyframes h-reasoning-sweep {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-reasoning-block--active .h-reasoning-block__label {
+    animation: none;
+    background: none;
+    color: var(--h-muted);
+  }
 }
 
 .h-reasoning-block__body {

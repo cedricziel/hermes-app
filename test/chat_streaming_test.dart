@@ -12,7 +12,7 @@ import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
-import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
+import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -28,6 +28,10 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+
+Finder get waitingForReasoning => find.byWidgetPredicate(
+  (widget) => widget is ReasoningBlock && widget.active && widget.text.isEmpty,
+);
 
 typedef _SharedFiles = ({
   ShareController controller,
@@ -151,7 +155,7 @@ void main() {
     await send(tester, 'Any news?');
 
     expect(inTranscript('Any news?'), findsOneWidget);
-    expect(find.byType(ThinkingIndicator), findsOneWidget);
+    expect(waitingForReasoning, findsOneWidget);
     expect(transport.sends.single.text, 'Any news?');
   });
 
@@ -164,7 +168,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
 
     expect(inTranscript('placeholder reply'), findsNothing);
-    expect(find.byType(ThinkingIndicator), findsOneWidget);
+    expect(waitingForReasoning, findsOneWidget);
   });
 
   chatTest('the composer clears on send', (tester) async {
@@ -182,10 +186,10 @@ void main() {
     final reply = transport.sends.single;
 
     await emit(tester, reply, const ReplyStarted());
-    expect(find.byType(ThinkingIndicator), findsOneWidget);
+    expect(waitingForReasoning, findsOneWidget);
 
     await emit(tester, reply, const ReplyDelta('Nothing '));
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
     expect(inTranscript('Nothing'), findsOneWidget);
 
     await emit(tester, reply, const ReplyDelta('new.'));
@@ -193,7 +197,7 @@ void main() {
 
     await emit(tester, reply, const ReplyCompleted('Nothing new.'));
     expect(inTranscript('Nothing new.'), findsOneWidget);
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
   });
 
   chatTest('a MEDIA tag never shows as text and becomes a file after it', (
@@ -282,7 +286,7 @@ void main() {
     await tester.pump();
 
     expect(inTranscript(kReplyFailedMessage), findsOneWidget);
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
     final last = transcriptMessages(tester).last as TextMessage;
     expect(last.metadata, {kMetaError: kReplyFailedMessage});
   });
@@ -299,7 +303,7 @@ void main() {
     expect(inTranscript(kProfileUnavailableMessage), findsOneWidget);
     expect(inTranscript(kReplyFailedMessage), findsNothing);
     expect(inTranscript('Any news?'), findsOneWidget);
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
     final last = transcriptMessages(tester).last as TextMessage;
     expect(last.metadata, {kMetaError: kProfileUnavailableMessage});
     expect(transport.sends, hasLength(1));
@@ -477,7 +481,7 @@ void main() {
     await tester.tap(find.text('Run failure'));
     await tester.pumpAndSettle();
     expect(inTranscript('Streaming on'), findsOneWidget);
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
   });
 
   chatTest('a thread opened mid-stream shows the reply so far', (tester) async {
@@ -518,12 +522,12 @@ void main() {
     }
 
     expect(top('SECONDQ'), lessThan(top('SECONDA')));
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
 
     await tester.tap(find.text('Run failure'));
     await tester.pumpAndSettle();
     expect(top('FIRSTQ'), lessThan(top('FIRSTA')));
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
   });
 
   group('attachments', () {
@@ -791,7 +795,7 @@ void main() {
         findsOneWidget,
       );
       expect(inTranscript(kReplyFailedMessage), findsNothing);
-      expect(find.byType(ThinkingIndicator), findsNothing);
+      expect(waitingForReasoning, findsNothing);
     });
   });
 }

@@ -5,7 +5,7 @@ import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
 import 'package:hermes_app/src/chat/starter_prompts.dart';
-import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
+import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
@@ -29,6 +29,10 @@ Widget _wrap(Widget child, {ShareController? share}) {
     child: MaterialApp(theme: buildHermesLightTheme(), home: child),
   );
 }
+
+Finder get waitingForReasoning => find.byWidgetPredicate(
+  (widget) => widget is ReasoningBlock && widget.active && widget.text.isEmpty,
+);
 
 void main() {
   setUp(() {
@@ -198,7 +202,7 @@ void main() {
     // The user's turn appears immediately, with a thinking placeholder for
     // the reply, while the welcome view (and its starter prompts) is gone.
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(ThinkingIndicator), findsOneWidget);
+    expect(waitingForReasoning, findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(Chat),
@@ -214,11 +218,11 @@ void main() {
       findsNothing,
     );
 
-    // The canned reply replaces the placeholder once the simulated
-    // round-trip resolves.
+    // The canned reply follows the settled thinking disclosure once the
+    // simulated round-trip resolves.
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
     expect(
       find.textContaining('placeholder reply', findRichText: true),
       findsOneWidget,
@@ -248,7 +252,7 @@ void main() {
       find.textContaining('placeholder reply', findRichText: true),
       findsNothing,
     );
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
 
     await tester.tap(find.text(kStarterPrompts.first));
     await tester.pumpAndSettle();
@@ -256,7 +260,7 @@ void main() {
       find.textContaining('placeholder reply', findRichText: true),
       findsOneWidget,
     );
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
   });
 
   testWidgets('replies stay beside their prompt across consecutive sends', (
@@ -299,7 +303,7 @@ void main() {
       top(find.textContaining('standing in for "SECONDQ"', findRichText: true)),
     ];
     expect(ordered, orderedEquals([...ordered]..sort()));
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
   });
 
   testWidgets('typing enables the composer and sending clears it', (

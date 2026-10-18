@@ -7,7 +7,7 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
-import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
+import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -39,6 +39,10 @@ const _batch = ClarifyRequest(
     ClarifyQuestion(qid: 'a', question: 'Your name?'),
     ClarifyQuestion(qid: 'b', question: 'Pick', choices: ['x', 'y']),
   ],
+);
+
+Finder get waitingForReasoning => find.byWidgetPredicate(
+  (widget) => widget is ReasoningBlock && widget.active && widget.text.isEmpty,
 );
 
 void main() {
@@ -79,7 +83,7 @@ void main() {
 
     expect(find.byType(ApprovalCard), findsOneWidget);
     expect(find.text('rm -rf build'), findsOneWidget);
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
     await settle(tester);
   });
 
@@ -95,7 +99,7 @@ void main() {
 
     expect(find.byType(UnsupportedRequestCard), findsOneWidget);
     expect(find.text('Hermes needs something else'), findsOneWidget);
-    expect(find.byType(ThinkingIndicator), findsNothing);
+    expect(waitingForReasoning, findsNothing);
     await settle(tester);
   });
 

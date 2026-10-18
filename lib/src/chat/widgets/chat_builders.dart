@@ -36,7 +36,6 @@ import 'review_summary_note.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
 import 'subagent_card.dart';
-import 'thinking_indicator.dart';
 import 'tool_call_group.dart';
 import 'unsupported_request_card.dart';
 import 'vault_request_card.dart';
@@ -337,9 +336,12 @@ Widget _buildCustom(
       return ReasoningBlock(
         text: metadata![kMetaReasoningText] as String,
         active: metadata[kMetaReasoningActive] == true,
+        startedAt: metadata[kMetaThinkingStartedAt] as DateTime?,
       );
     case kKindThinking:
-      return ThinkingIndicator(
+      return ReasoningBlock(
+        text: '',
+        active: true,
         startedAt: metadata![kMetaThinkingStartedAt] as DateTime,
         activity: metadata[kMetaThinkingActivity] as String,
       );
