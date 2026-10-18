@@ -17,6 +17,7 @@ Android.
 
 - Chat with history, streaming replies, tool calls, and approval and question
   requests from the agent
+- Play voice messages from the agent inline, including OGG/Opus and MP3
 - A thread list with pinning, archive and delete, plus profiles and messaging connections
 - Bot Mode specialists with profile-backed identities, a canonical chat for each bot, and hosted group rooms on compatible Hermes dashboards
 - A Kanban board, when the server has the Kanban plugin on
@@ -79,6 +80,15 @@ To run the app from source:
 flutter pub get
 flutter run
 ```
+
+On Linux, install `libmpv2` (`libmpv1` on Ubuntu 22.04) for voice-message
+playback. The `.deb` declares the runtime dependency; tarball users need to
+install it separately.
+
+Ask the agent for a voice reply and tap Play on its audio attachment. A
+transcript button appears when Hermes includes a matching `text_to_speech`
+call: it reveals the text passed to that tool, collapsed by default. Clips
+without that source text remain playable without a transcript.
 
 The iOS app embeds a watchOS app (`ios/HermesWatch`), so Xcode needs the
 watchOS platform installed (Xcode > Settings > Components) even if you only run

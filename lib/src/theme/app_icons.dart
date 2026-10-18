@@ -108,6 +108,10 @@ abstract final class AppIcons {
     Icons.insert_drive_file_outlined,
     CupertinoIcons.doc,
   );
+  static const transcript = AppIconSet(
+    Icons.subject,
+    CupertinoIcons.text_alignleft,
+  );
   static const info = AppIconSet(
     Icons.info_outline,
     CupertinoIcons.info_circle,
@@ -408,6 +412,7 @@ abstract final class AppIcons {
     'scheduleOutlined': scheduleOutlined,
     'time': time,
     'file': file,
+    'transcript': transcript,
     'info': info,
     'hub': hub,
     'extension': extension,

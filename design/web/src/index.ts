@@ -23,6 +23,7 @@ export * from "./components/ModelPicker/ModelPicker";
 export * from "./components/UserMessage/UserMessage";
 export * from "./components/AssistantMessage/AssistantMessage";
 export * from "./components/ReasoningBlock/ReasoningBlock";
+export * from "./components/VoiceMessage/VoiceMessage";
 export * from "./components/ThinkingIndicator/ThinkingIndicator";
 export * from "./components/ThreadSidebar/ThreadSidebar";
 export * from "./components/ChatHeader/ChatHeader";

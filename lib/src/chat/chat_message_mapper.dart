@@ -6,6 +6,7 @@ import 'chat_models.dart';
 import 'chat_reply.dart' show kReplyFailedMessage;
 import 'markdown_entities.dart';
 import 'media/extract_media.dart';
+import '../voice/voice_transcript.dart';
 
 /// Attachments come first, then input requests, text and tool runs
 /// interleaved in the order they actually happened — an input request after
@@ -16,15 +17,29 @@ import 'media/extract_media.dart';
 /// sent (read from `MEDIA:` tags in the text), and the thinking indicator.
 ///
 /// Ids derive only from [ChatMessage.id] (`id`, `id-attachment-N`,
-/// `id-sealed-N`, `id-tool-N-reasoning`, `id-tool-N`,
+/// `id-sealed-N`, `id-sealed-N-media-I`, `id-tool-N-reasoning`, `id-tool-N`,
 /// `id-media-N`, `id-input-N`), where `N` is the index in
 /// [ChatMessage.sealedProse] or the index in [ChatMessage.toolCalls] of a
 /// run's first call, so a streaming reply that mutates content, status or
 /// appends another sealed entry or call maps to ids the controller can
 /// match with `updateMessage`.
-List<Message> chatMessageToFlyer(ChatMessage m) {
+List<Message> chatMessageToFlyer(
+  ChatMessage m, {
+  Iterable<ToolCall> voiceCalls = const [],
+}) {
   final authorId = m.role == ChatRole.user ? kUserAuthorId : kAssistantAuthorId;
   final createdAt = m.createdAt.toUtc();
+  final ttsCalls = [...voiceCalls, ...m.toolCalls];
+  Message attachmentMessage(String id, ChatAttachment attachment) =>
+      _attachmentMessage(
+        id,
+        authorId,
+        createdAt,
+        attachment,
+        transcript: m.role == ChatRole.assistant
+            ? voiceTranscript(attachment, ttsCalls)
+            : null,
+      );
   final thinking = m.status == MessageStatus.thinking;
   final showThinking =
       thinking &&
@@ -62,6 +77,24 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
     for (final (_, request) in standalone) slotOf(request).toolCalls,
   });
 
+  Iterable<Message> sealedProse(int place) sync* {
+    final text = m.sealedProse[place].text;
+    final media = m.role == ChatRole.assistant
+        ? extractMedia(decodeMarkdownEntities(text))
+        : ExtractedMedia(text, const []);
+    if (media.text.isNotEmpty) {
+      yield TextMessage(
+        id: '${m.id}-sealed-$place',
+        authorId: authorId,
+        createdAt: createdAt,
+        text: normalizeMarkdown(media.text),
+      );
+    }
+    for (final (i, attachment) in media.attachments.indexed) {
+      yield attachmentMessage('${m.id}-sealed-$place-media-$i', attachment);
+    }
+  }
+
   // The text sealed and the requests that arrived before tool call
   // [toolCallIndex] started, in the order they arrived: a request goes before
   // the first entry sealed after it.
@@ -86,25 +119,14 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
                 kMetaInputRequest: request,
               },
             ),
-        if (place >= 0)
-          TextMessage(
-            id: '${m.id}-sealed-$place',
-            authorId: authorId,
-            createdAt: createdAt,
-            text: normalizeMarkdown(m.sealedProse[place].text),
-          ),
+        if (place >= 0) ...sealedProse(place),
       ],
     ];
   }
 
   final messages = <Message>[
     for (final (i, attachment) in m.attachments.indexed)
-      _attachmentMessage(
-        '${m.id}-attachment-$i',
-        authorId,
-        createdAt,
-        attachment,
-      ),
+      attachmentMessage('${m.id}-attachment-$i', attachment),
     for (final run in runs) ...[
       ...before(run.start),
       if (run.calls.first.reasoning.isNotEmpty ||
@@ -166,7 +188,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         },
       ),
     for (final (i, attachment) in media.attachments.indexed)
-      _attachmentMessage('${m.id}-media-$i', authorId, createdAt, attachment),
+      attachmentMessage('${m.id}-media-$i', attachment),
     if (m.reviewNotes.isNotEmpty)
       CustomMessage(
         id: '${m.id}-review',
@@ -198,9 +220,21 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
   return messages;
 }
 
-List<Message> chatThreadToFlyer(ChatThread t) => [
-  for (final m in t.messages) ...chatMessageToFlyer(m),
-];
+List<Message> chatThreadToFlyer(ChatThread t) =>
+    chatMessagesToFlyer(t.messages);
+
+/// Stored tool calls and their final reply are separate assistant rows.
+/// Carry TTS results only within the same turn when restoring history.
+List<Message> chatMessagesToFlyer(Iterable<ChatMessage> messages) {
+  final result = <Message>[];
+  final calls = <ToolCall>[];
+  for (final message in messages) {
+    if (message.role == ChatRole.user) calls.clear();
+    result.addAll(chatMessageToFlyer(message, voiceCalls: calls));
+    calls.addAll(message.toolCalls);
+  }
+  return result;
+}
 
 /// Splits [calls] into runs: a new run starts at the first call, wherever a
 /// call carries its own reasoning (the model paused to think before it, so
@@ -254,9 +288,13 @@ Message _attachmentMessage(
   String id,
   String authorId,
   DateTime createdAt,
-  ChatAttachment attachment,
-) {
-  final metadata = {kMetaAttachment: attachment};
+  ChatAttachment attachment, {
+  String? transcript,
+}) {
+  final metadata = <String, dynamic>{
+    kMetaAttachment: attachment,
+    kMetaVoiceTranscript: ?transcript,
+  };
   if (attachment.kind == AttachmentKind.image &&
       (attachment.path != null ||
           attachment.bytes != null ||

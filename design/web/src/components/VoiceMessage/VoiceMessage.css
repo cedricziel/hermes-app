@@ -1,0 +1,36 @@
+.h-voice-message {
+  width: 100%;
+  max-width: 320px;
+  box-sizing: border-box;
+  padding: 4px;
+  border-radius: var(--h-radius, 14px);
+  background: var(--h-hover);
+  color: var(--h-fg);
+}
+.h-voice-message__row { display: flex; align-items: center; }
+.h-voice-message__button, .h-voice-message__loading {
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.h-voice-message__button:disabled { opacity: .4; cursor: default; }
+.h-voice-message__button:focus-visible, .h-voice-message input:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.h-voice-message__loading { font-size: 22px; animation: h-voice-spin 1.5s linear infinite; }
+@keyframes h-voice-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .h-voice-message__loading { animation: none; } }
+.h-voice-message__notice { flex: 1; min-width: 0; padding: 0 6px; font-size: 12px; color: var(--h-muted); }
+.h-voice-message input { flex: 1; min-width: 0; height: 44px; margin: 0 6px; accent-color: var(--h-fg); }
+.h-voice-message small { padding: 0 4px; font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--h-muted); }
+.h-voice-message__error { color: var(--h-error); }
+.h-voice-message__transcript { max-height: 240px; overflow: auto; padding: 4px 12px 12px; font-size: 13px; line-height: 1.5; color: var(--h-muted); white-space: pre-wrap; }

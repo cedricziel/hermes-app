@@ -40,6 +40,7 @@ import 'tool_call_group.dart';
 import 'unsupported_request_card.dart';
 import 'vault_request_card.dart';
 import 'welcome_view.dart';
+import 'voice_message_attachment.dart';
 
 /// The widest the messages and the composer grow; a wider window centers the
 /// column, since long lines of prose are harder to read.
@@ -122,14 +123,14 @@ Builders buildChatBuilders({
       index, {
       required isSentByMe,
       groupStatus,
-    }) => _buildAttachment(message.metadata, image: true),
+    }) => _buildAttachment(message.metadata, image: true, id: message.id),
     fileMessageBuilder: (
       context,
       message,
       index, {
       required isSentByMe,
       groupStatus,
-    }) => _buildAttachment(message.metadata, image: false),
+    }) => _buildAttachment(message.metadata, image: false, id: message.id),
     customMessageBuilder:
         (context, message, index, {required isSentByMe, groupStatus}) =>
             _buildCustom(
@@ -283,13 +284,23 @@ Widget _buildText(
   );
 }
 
-Widget _buildAttachment(Map<String, dynamic>? metadata, {required bool image}) {
+Widget _buildAttachment(
+  Map<String, dynamic>? metadata, {
+  required bool image,
+  required String id,
+}) {
   final attachment = metadata?[kMetaAttachment];
   if (attachment is! ChatAttachment) return const SizedBox.shrink();
   return DraggableAttachment(
     attachment: attachment,
     child: image
         ? AttachmentThumbnail(attachment: attachment)
+        : attachment.isAudio
+        ? VoiceMessageAttachment(
+            attachment: attachment,
+            messageId: id,
+            transcript: metadata?[kMetaVoiceTranscript] as String?,
+          )
         : AttachmentCard(attachment: attachment),
   );
 }

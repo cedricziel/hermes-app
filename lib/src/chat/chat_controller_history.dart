@@ -418,7 +418,7 @@ extension _ChatControllerHistory on ChatController {
       if (!active || generation != _loadGeneration) return;
       if (older.isEmpty) return;
       await controllerFor(thread).insertAllMessages(
-        [for (final m in older) ...chatMessageToFlyer(m)],
+        chatMessagesToFlyer(older),
         index: 0,
         animated: false,
       );

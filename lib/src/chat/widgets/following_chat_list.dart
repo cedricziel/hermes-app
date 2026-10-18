@@ -4,6 +4,7 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ChatAnimatedList, InitialScrollToEndMode;
 
 import 'blank_list_watchdog.dart';
+import '../../voice/voice_playback_scope.dart';
 
 /// A [ChatAnimatedList] that stays at the bottom while its content grows,
 /// until the reader scrolls up, and follows again once they are back.
@@ -136,20 +137,22 @@ class _FollowingChatListState extends State<FollowingChatList> {
 
   @override
   Widget build(BuildContext context) {
-    return NotificationListener<Notification>(
-      onNotification: _onNotification,
-      child: KeyedSubtree(
-        key: ValueKey(_generation),
-        child: ChatAnimatedList(
-          itemBuilder: _countingItemBuilder,
-          scrollController: _scroll,
-          // Short threads still need to accept a drag to dismiss the keyboard.
-          physics: const AlwaysScrollableScrollPhysics(),
-          onEndReached: widget.onEndReached,
-          initialScrollToEndMode: InitialScrollToEndMode.none,
-          shouldScrollToEndWhenAtBottom: false,
-          insertAnimationDuration: Duration.zero,
-          removeAnimationDuration: Duration.zero,
+    return VoicePlaybackScope(
+      child: NotificationListener<Notification>(
+        onNotification: _onNotification,
+        child: KeyedSubtree(
+          key: ValueKey(_generation),
+          child: ChatAnimatedList(
+            itemBuilder: _countingItemBuilder,
+            scrollController: _scroll,
+            // Short threads still need to accept a drag to dismiss the keyboard.
+            physics: const AlwaysScrollableScrollPhysics(),
+            onEndReached: widget.onEndReached,
+            initialScrollToEndMode: InitialScrollToEndMode.none,
+            shouldScrollToEndWhenAtBottom: false,
+            insertAnimationDuration: Duration.zero,
+            removeAnimationDuration: Duration.zero,
+          ),
         ),
       ),
     );

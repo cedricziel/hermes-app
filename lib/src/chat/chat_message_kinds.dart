@@ -35,6 +35,7 @@ const String kMetaThinkingActivity = 'activity';
 /// Carried by the `ImageMessage` or `FileMessage` of an attachment: the
 /// `ChatAttachment` it stands for.
 const String kMetaAttachment = 'attachment';
+const String kMetaVoiceTranscript = 'voiceTranscript';
 
 const String kMetaReasoningText = 'text';
 const String kMetaReasoningActive = 'active';

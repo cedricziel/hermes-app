@@ -7,6 +7,7 @@ import Foundation
 
 import app_badge_plus
 import app_links
+import audio_session
 import connectivity_plus
 import desktop_drop
 import desktop_multi_window
@@ -19,6 +20,7 @@ import flutter_secure_storage_darwin
 import hermes_speech
 import local_auth_darwin
 import macos_window_utils
+import media_kit_libs_macos_audio
 import open_file_mac
 import package_info_plus
 import pasteboard
@@ -30,6 +32,7 @@ import workmanager_apple
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   AppBadgePlusPlugin.register(with: registry.registrar(forPlugin: "AppBadgePlusPlugin"))
   AppLinksMacosPlugin.register(with: registry.registrar(forPlugin: "AppLinksMacosPlugin"))
+  AudioSessionPlugin.register(with: registry.registrar(forPlugin: "AudioSessionPlugin"))
   ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
   DesktopDropPlugin.register(with: registry.registrar(forPlugin: "DesktopDropPlugin"))
   FlutterMultiWindowPlugin.register(with: registry.registrar(forPlugin: "FlutterMultiWindowPlugin"))
@@ -42,6 +45,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   HermesSpeechPlugin.register(with: registry.registrar(forPlugin: "HermesSpeechPlugin"))
   LocalAuthPlugin.register(with: registry.registrar(forPlugin: "LocalAuthPlugin"))
   MacOSWindowUtilsPlugin.register(with: registry.registrar(forPlugin: "MacOSWindowUtilsPlugin"))
+  MediaKitLibsMacosAudioPlugin.register(with: registry.registrar(forPlugin: "MediaKitLibsMacosAudioPlugin"))
   OpenFilePlugin.register(with: registry.registrar(forPlugin: "OpenFilePlugin"))
   FPPPackageInfoPlusPlugin.register(with: registry.registrar(forPlugin: "FPPPackageInfoPlusPlugin"))
   PasteboardPlugin.register(with: registry.registrar(forPlugin: "PasteboardPlugin"))

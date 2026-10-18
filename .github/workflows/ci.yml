@@ -199,7 +199,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev libmpv-dev
 
       - uses: subosito/flutter-action@v2
         with:
@@ -208,6 +208,9 @@ jobs:
 
       - name: flutter pub get
         run: flutter pub get
+
+      - name: Test native voice codecs
+        run: flutter test test/voice/native_voice_player_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
 
       - name: Build release bundle
         run: flutter build linux --release

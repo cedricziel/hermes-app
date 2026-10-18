@@ -9,6 +9,8 @@ class ExtractedMedia {
 }
 
 const _marker = 'MEDIA:';
+const _voiceMarker = '[[audio_as_voice]]';
+final _voiceTag = RegExp(r'(?<!\S)\[\[audio_as_voice\]\](?!\S)');
 
 // A tag starts a word: `NOMEDIA:` is not one. The path is quoted, when it
 // holds spaces, or runs to the next whitespace.
@@ -33,7 +35,9 @@ ExtractedMedia extractMedia(String content, {bool complete = true}) {
   // A reply is scanned again for each piece that streams in, so a text
   // without a tag, the usual one, must cost no more than these two searches.
   final partialAt = complete ? -1 : _partialMarkerStart(content);
-  if (partialAt < 0 && !content.contains(_marker)) {
+  if (partialAt < 0 &&
+      !content.contains(_marker) &&
+      !content.contains(_voiceMarker)) {
     return ExtractedMedia(content, const []);
   }
   final protected = [
@@ -42,6 +46,9 @@ ExtractedMedia extractMedia(String content, {bool complete = true}) {
   bool isCode(int at) => protected.any((r) => r.$1 <= at && at < r.$2);
 
   final removals = <(int, int)>[];
+  for (final match in _voiceTag.allMatches(content)) {
+    if (!isCode(match.start)) removals.add((match.start, match.end));
+  }
   final attachments = <ChatAttachment>[];
   final seen = <String>{};
   for (final match in _tag.allMatches(content)) {
@@ -65,6 +72,7 @@ ExtractedMedia extractMedia(String content, {bool complete = true}) {
     }
   }
   if (removals.isEmpty) return ExtractedMedia(content, const []);
+  removals.sort((a, b) => a.$1.compareTo(b.$1));
 
   final out = StringBuffer();
   var from = 0;
@@ -89,7 +97,12 @@ ExtractedMedia extractMedia(String content, {bool complete = true}) {
 int _partialMarkerStart(String content) {
   final start = content.lastIndexOf(_whitespace) + 1;
   final tail = content.substring(start);
-  return tail.isNotEmpty && _marker.startsWith(tail) ? start : -1;
+  return tail.isNotEmpty &&
+          (_marker.startsWith(tail) ||
+              (tail.length < _voiceMarker.length &&
+                  _voiceMarker.startsWith(tail)))
+      ? start
+      : -1;
 }
 
 ChatAttachment _attachmentFor(String path) {
