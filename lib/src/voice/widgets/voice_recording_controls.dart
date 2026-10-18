@@ -114,7 +114,7 @@ class _HoldToRecordSendState extends State<HoldToRecordSend> {
                 ? null
                 : active
                 ? 'Release to attach'
-                : 'Send · Hold to record',
+                : 'Send',
             icon: active ? AppIcons.mic : AppIcons.sendArrow,
             filled: true,
             style: IconButton.styleFrom(
