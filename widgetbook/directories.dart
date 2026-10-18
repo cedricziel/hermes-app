@@ -17,6 +17,7 @@ import 'queue_recovery_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
+import 'new_chat_fab_use_cases.dart';
 
 import 'package:widgetbook/widgetbook.dart';
 
@@ -102,6 +103,7 @@ final List<WidgetbookNode> directories = [
   voiceNode(),
   macSidebarNode(),
   threadGroupingNode(),
+  newChatFabNode(),
   conversationWindowNode(),
   quickPanelNode(),
   modelNode(),

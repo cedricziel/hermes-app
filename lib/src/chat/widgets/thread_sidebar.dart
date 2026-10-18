@@ -76,6 +76,7 @@ class ThreadSidebar extends StatelessWidget {
     this.searchFocus,
     this.fullPage = false,
     this.avatarBuilder,
+    this.contentBottomPadding = 0,
   });
 
   final List<ChatThread> threads;
@@ -113,6 +114,9 @@ class ThreadSidebar extends StatelessWidget {
   final FocusNode? searchFocus;
   final bool fullPage;
   final Widget Function(ChatThread)? avatarBuilder;
+
+  /// Scroll clearance for a floating control over the list or search results.
+  final double contentBottomPadding;
 
   @override
   Widget build(BuildContext context) => _ThreadListScope(
@@ -200,6 +204,7 @@ class ThreadSidebar extends StatelessWidget {
                                 hits: search.hits,
                                 selectedId: selectedId,
                                 onOpen: onOpenHit ?? (_) {},
+                                bottomPadding: contentBottomPadding,
                               ),
                       ),
               ),
@@ -306,6 +311,7 @@ class ThreadSidebar extends StatelessWidget {
         housekeeping: this.housekeeping,
         onOpenInNewWindow: onOpenInNewWindow,
         preferences: preferences,
+        bottomPadding: contentBottomPadding,
       );
     }
     final housekeeping = this.housekeeping;
@@ -315,7 +321,7 @@ class ThreadSidebar extends StatelessWidget {
         _ThreadListHeading(preferences: preferences),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: EdgeInsets.fromLTRB(8, 0, 8, contentBottomPadding),
             itemCount: threads.length + (showMore ? 1 : 0),
             itemBuilder: (context, index) {
               if (index == threads.length) {
@@ -561,6 +567,7 @@ class _SectionedThreadList extends StatefulWidget {
     required this.housekeeping,
     required this.onOpenInNewWindow,
     this.avatarBuilder,
+    this.bottomPadding = 0,
   });
 
   final ThreadListPreferences preferences;
@@ -571,6 +578,7 @@ class _SectionedThreadList extends StatefulWidget {
   final ThreadHousekeeping? housekeeping;
   final ValueChanged<ChatThread>? onOpenInNewWindow;
   final Widget Function(ChatThread)? avatarBuilder;
+  final double bottomPadding;
 
   @override
   State<_SectionedThreadList> createState() => _SectionedThreadListState();
@@ -619,7 +627,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       if (housekeeping != null && housekeeping.hasMore) housekeeping,
     ];
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: EdgeInsets.fromLTRB(8, 0, 8, widget.bottomPadding),
       itemCount: items.length,
       itemBuilder: (context, index) => switch (items[index]) {
         final FolderThreadSection group => ThreadSectionHeading(
