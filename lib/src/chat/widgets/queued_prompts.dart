@@ -4,6 +4,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
 import '../../widgets/named_icon_button.dart';
+import '../../widgets/disclosure_tile.dart';
 
 /// Queued and uncertain prompts above the composer. [onSendNow] sends the
 /// first unsent entry; restored queues require one explicit send per entry.
@@ -20,6 +21,7 @@ class QueuedPrompts extends StatelessWidget {
     this.locked = false,
     this.storageError,
     this.busy = false,
+    this.initiallyExpanded = false,
   });
 
   final List<QueuedPrompt> prompts;
@@ -31,18 +33,79 @@ class QueuedPrompts extends StatelessWidget {
   final bool locked;
   final String? storageError;
   final bool busy;
+  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
     if (locked) {
       return const Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(12),
         child: Text('Unlock to review queued prompts.'),
       );
     }
+    if (prompts.isEmpty &&
+        !busy &&
+        storageError == null &&
+        available &&
+        !reviewRequired) {
+      return const SizedBox.shrink();
+    }
+    final attention =
+        onSendNow != null ||
+        reviewRequired ||
+        !available ||
+        storageError != null ||
+        prompts.any((p) => p.uncertain);
+    final label = busy
+        ? 'Queueing…'
+        : reviewRequired
+        ? 'Review queued messages'
+        : onSendNow != null
+        ? 'Queue paused · ${prompts.length}'
+        : attention
+        ? 'Queue needs attention'
+        : '${prompts.length} queued';
+    final preview = !attention && !busy && prompts.isNotEmpty
+        ? ' · ${_label(prompts.first)}'
+        : '';
+    return Material(
+      type: MaterialType.transparency,
+      child: DisclosureTile(
+        // A newly recovered/uncertain queue must reveal its explanation even
+        // if the ordinary queue was previously collapsed by the user.
+        key: ValueKey(attention),
+        dense: true,
+        minTileHeight: 44,
+        tilePadding: const EdgeInsets.only(left: 10, right: 4),
+        initiallyExpanded: attention || initiallyExpanded,
+        title: Text(
+          '$label$preview',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: context.hermesColors.subtleText),
+        ),
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight:
+                  ((MediaQuery.sizeOf(context).height -
+                              MediaQuery.viewInsetsOf(context).bottom) *
+                          0.25)
+                      .clamp(48.0, 200.0),
+            ),
+            child: SingleChildScrollView(child: _details(context)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _details(BuildContext context) {
     final subtle = context.hermesColors.subtleText;
     final uncertain = prompts.any((prompt) => prompt.uncertain);
-    final onSendNow = available && !(prompts.firstOrNull?.uncertain ?? false)
+    final onSendNow =
+        available && !busy && !(prompts.firstOrNull?.uncertain ?? false)
         ? this.onSendNow
         : null;
     return Padding(

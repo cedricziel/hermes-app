@@ -26,7 +26,6 @@ import 'chat_composer_builder.dart';
 import 'message_actions.dart' show TurnActionStatus;
 import '../chat_session_state.dart';
 import 'session_status_card.dart';
-import '../todo_plan/todo_plan_card.dart';
 import '../todo_plan/todo_plan_state.dart';
 import '../connector_operation_controller.dart';
 import 'connector_operation_cards.dart';
@@ -35,9 +34,7 @@ import '../billing_verification_controller.dart';
 import 'billing_verification_card.dart';
 import '../reactions/reaction_state.dart';
 import '../moa_progress_state.dart';
-import 'moa_progress_card.dart';
 import '../process_output_state.dart';
-import 'process_output_card.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -245,7 +242,9 @@ class ChatThreadView extends StatelessWidget {
             ),
           ),
         ),
-      if (sessionState case final state? when state.visible)
+      if (sessionState case final state?
+          when state.visible &&
+              sessionStateTier(state) == ActivityTier.needsYou)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 180),
           child: SingleChildScrollView(
@@ -254,49 +253,6 @@ class ChatThreadView extends StatelessWidget {
               onDetails: onSessionDetails,
               onReopen: onReopenSession,
             ),
-          ),
-        ),
-      if (processOutputs case final processes? when processes.cards.isNotEmpty)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 280),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                for (final process in processes.cards)
-                  ProcessOutputCard(
-                    key: ValueKey(process.processId),
-                    output: process,
-                    onDetails: onProcessOutputDetails,
-                  ),
-                if (processes.omittedCards)
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text('Earlier process cards omitted.'),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      if (todoPlan case final plan? when plan.hasPlan)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 180),
-          child: SingleChildScrollView(
-            child: TodoPlanCard(key: ObjectKey(plan), state: plan),
-          ),
-        ),
-      if (moaProgress.isNotEmpty)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 220),
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              for (final progress in moaProgress)
-                MoaProgressCard(
-                  key: ObjectKey(progress.turn),
-                  progress: progress,
-                  onDetails: onMoaDetails,
-                ),
-            ],
           ),
         ),
     ];

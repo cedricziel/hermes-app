@@ -21,9 +21,8 @@
 }
 
 .h-chat-composer__queue {
-  display: flex;
-  flex-direction: column;
-  padding: 4px 8px 0 16px;
+  display: block;
+  padding: 0;
 }
 
 .h-chat-composer__queue .h-chat-composer__bar--queue {
@@ -122,4 +121,42 @@
 
 .h-chat-composer__recording--active {
   color: var(--h-error);
+}
+
+.h-chat-composer__queue > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 4px 0 10px;
+  color: var(--h-muted);
+  font-size: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.h-chat-composer__queue > summary::-webkit-details-marker {
+  display: none;
+}
+.h-chat-composer__queue > summary > span {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.h-chat-composer__queue[open] > summary > .h-icon {
+  transform: rotate(180deg);
+}
+.h-chat-composer__queue-details {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+.h-chat-composer__field-row {
+  display: flex;
+  align-items: flex-start;
+}
+.h-chat-composer__field-row > .h-chat-composer__field {
+  flex: 1;
+  min-width: 0;
 }

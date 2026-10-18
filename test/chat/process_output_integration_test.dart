@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -382,7 +383,7 @@ void main() {
   );
 
   testWidgets(
-    'expanded long process output in chat keeps the transcript usable and footer visible',
+    'long process output lives in the inspector and keeps the transcript usable',
     (tester) async {
       await tester.runAsync(() async {
         await open();
@@ -406,17 +407,30 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: boundChatThreadView(
-              chat: chat,
-              thread: chat.selectedThread,
-              composerController: composer,
-              composerFocus: focus,
-              attachments: const [],
-              attachmentSource: FakeAttachmentSource(),
-              onAddAttachments: (_) {},
-              onRemoveAttachment: (_) {},
-              onSend: (_) {},
-              latestReply: latest,
+            body: Row(
+              children: [
+                Expanded(
+                  child: boundChatThreadView(
+                    chat: chat,
+                    thread: chat.selectedThread,
+                    composerController: composer,
+                    composerFocus: focus,
+                    attachments: const [],
+                    attachmentSource: FakeAttachmentSource(),
+                    onAddAttachments: (_) {},
+                    onRemoveAttachment: (_) {},
+                    onSend: (_) {},
+                    latestReply: latest,
+                  ),
+                ),
+                SizedBox(
+                  width: 380,
+                  child: BoundActivityPanel(
+                    chat: chat,
+                    thread: chat.selectedThread,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

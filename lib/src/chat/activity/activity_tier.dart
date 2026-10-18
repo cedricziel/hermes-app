@@ -54,7 +54,14 @@ ActivityTier billingTier(BillingVerificationController controller) =>
     ? ActivityTier.needsYou
     : ActivityTier.reference;
 
-ActivityTier sessionStateTier(ChatSessionState state) =>
-    state.reclaimedReason != null
-    ? ActivityTier.needsYou
-    : ActivityTier.working;
+ActivityTier sessionStateTier(ChatSessionState state) {
+  if (state.reclaimedReason != null || state.resume?.status == 'failed') {
+    return ActivityTier.needsYou;
+  }
+  if (state.control?.isEmpty == false ||
+      state.resume != null ||
+      state.waits.keys.any((kind) => kind != 'status' && kind != 'lifecycle')) {
+    return ActivityTier.working;
+  }
+  return ActivityTier.reference;
+}

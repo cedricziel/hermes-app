@@ -112,8 +112,10 @@ void main() {
     expect(billingTier(controller), ActivityTier.needsYou);
   });
 
-  test('a reclaimed session needs the user, other session state works', () {
+  test('generic status is reference; actionable recovery stays visible', () {
     final state = ChatSessionState()..waits['status'] = 'Recalled 5 memories';
+    expect(sessionStateTier(state), ActivityTier.reference);
+    state.waits['process'] = 'Waiting for output';
     expect(sessionStateTier(state), ActivityTier.working);
     state.reclaimedReason = 'Opened elsewhere';
     expect(sessionStateTier(state), ActivityTier.needsYou);
