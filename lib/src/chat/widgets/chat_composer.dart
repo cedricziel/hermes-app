@@ -9,6 +9,7 @@ import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
 import 'queued_prompts.dart';
+import 'composer_stop_button.dart';
 import 'chat_suggestions.dart';
 import '../../widgets/named_icon_button.dart';
 import '../../voice/dictation_controller.dart';
@@ -23,8 +24,8 @@ import '../../voice/dictation_settings.dart';
 const chatComposerFieldKey = Key('chat-composer-field');
 
 /// The chat composer: a card with the text field on top and, below it,
-/// attach, [modelPill], and send. The stop bar, the [queued] prompts and the
-/// [attachments] are listed above the card.
+/// attach, [modelPill], and send. Stop sits beside the field; the queue is
+/// collapsed inside the card. [attachments] are listed above it.
 ///
 /// [attachments] count as sendable content on their own, so a blank field
 /// then sends an empty text through [onSend], which the caller pairs with its
@@ -268,16 +269,6 @@ class _ChatComposerState extends State<ChatComposer> {
             ],
             onChoose: (index) => _chooseSlash(_suggestions[index]),
           ),
-        if (onStop != null) _StopBar(onStop: onStop),
-        if (widget.queueView != null) widget.queueView!,
-        if (widget.queueView == null &&
-            widget.queued.isNotEmpty &&
-            onRemoveQueued != null)
-          QueuedPrompts(
-            prompts: widget.queued,
-            onRemove: onRemoveQueued,
-            onSendNow: widget.onSendQueued,
-          ),
         if (widget.attachments.isNotEmpty)
           _AttachmentChips(
             attachments: widget.attachments,
@@ -303,30 +294,54 @@ class _ChatComposerState extends State<ChatComposer> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(
-                    key: chatComposerFieldKey,
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    // The recognized words go in while dictating.
-                    readOnly: dictating || recordingActive,
-                    minLines: 1,
-                    maxLines: 8,
-                    textCapitalization: TextCapitalization.sentences,
-                    textInputAction: TextInputAction.newline,
-                    contextMenuBuilder: paste?.contextMenu ?? _platformMenu,
-                    contentInsertionConfiguration: paste?.contentInsertion,
-                    decoration: InputDecoration(
-                      hintText: widget.replying
-                          ? 'Queue a message…'
-                          : widget.botContext == null
-                          ? 'Message Hermes…'
-                          : 'Message ${widget.botContext!.title}…',
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      filled: false,
-                      contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                  if (widget.queueView != null) widget.queueView!,
+                  if (widget.queueView == null &&
+                      widget.queued.isNotEmpty &&
+                      onRemoveQueued != null)
+                    QueuedPrompts(
+                      prompts: widget.queued,
+                      onRemove: onRemoveQueued,
+                      onSendNow: widget.onSendQueued,
                     ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: chatComposerFieldKey,
+                          controller: widget.controller,
+                          focusNode: _focusNode,
+                          // The recognized words go in while dictating.
+                          readOnly: dictating || recordingActive,
+                          minLines: 1,
+                          maxLines: 8,
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.newline,
+                          contextMenuBuilder:
+                              paste?.contextMenu ?? _platformMenu,
+                          contentInsertionConfiguration:
+                              paste?.contentInsertion,
+                          decoration: InputDecoration(
+                            hintText: widget.replying
+                                ? 'Queue a message…'
+                                : widget.botContext == null
+                                ? 'Message Hermes…'
+                                : 'Message ${widget.botContext!.title}…',
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            filled: false,
+                            contentPadding: const EdgeInsets.fromLTRB(
+                              10,
+                              8,
+                              10,
+                              4,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (onStop != null) ComposerStopButton(onStop: onStop),
+                    ],
                   ),
                   Row(
                     children: [
@@ -437,52 +452,6 @@ class _DictationButton extends StatelessWidget {
       onPressed: dictation.onStart,
     ),
   };
-}
-
-/// Shown while a reply is in flight, so it can be stopped.
-class _StopBar extends StatefulWidget {
-  const _StopBar({required this.onStop});
-
-  final Future<void> Function() onStop;
-
-  @override
-  State<_StopBar> createState() => _StopBarState();
-}
-
-class _StopBarState extends State<_StopBar> {
-  var _busy = false;
-
-  Future<void> _stop() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await widget.onStop();
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Hermes is replying…',
-              style: TextStyle(color: context.hermesColors.subtleText),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: _busy ? null : _stop,
-            icon: const AppIcon(AppIcons.stop),
-            label: const Text('Stop'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _AttachmentChips extends StatelessWidget {

@@ -13,7 +13,7 @@ import '../../support/fake_attachment_source.dart';
 void main() {
   testWidgets(
     'a chat with nothing to report starts its transcript below the header '
-    'and shows the strip once a plan arrives',
+    'and keeps plans out of the transcript strip',
     (tester) async {
       Future<Map<String, Object?>> unsupported(Object? _, Object? _) async =>
           throw const GatewayRpcException(-32601, 'Unsupported');
@@ -87,7 +87,7 @@ void main() {
         ],
       });
       await tester.pump();
-      expect(find.byKey(const Key('chat-activity-strip')), findsOneWidget);
+      expect(find.byKey(const Key('chat-activity-strip')), findsNothing);
     },
   );
 }

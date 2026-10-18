@@ -94,8 +94,8 @@ void main() {
 
     expect(transport.sends, hasLength(1));
     expect(composerText(tester), isEmpty);
-    expect(find.text('Queued, sent when Hermes is done'), findsOneWidget);
-    expect(find.text('Two'), findsOneWidget);
+    expect(find.text('1 queued · Two'), findsOneWidget);
+    expect(find.text('1 queued · Two'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -113,7 +113,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
 
     expect(transport.sends.map((s) => s.text), ['One', 'Two']);
-    expect(find.text('Queued, sent when Hermes is done'), findsNothing);
+    expect(find.text('1 queued · Two'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -122,11 +122,15 @@ void main() {
     await send(tester, 'One');
     await send(tester, 'Two');
 
+    await tester.tap(find.text('1 queued · Two'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
     await tester.tap(find.byTooltip('Remove from queue'));
     await tester.pump();
 
     expect(find.text('Two'), findsNothing);
-    expect(find.text('Queued, sent when Hermes is done'), findsNothing);
+    expect(find.text('1 queued · Two'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -221,7 +225,7 @@ void main() {
     await send(tester, 'Two');
 
     expect(transport.sends, hasLength(1));
-    expect(find.text('Queued, sent when Hermes is done'), findsOneWidget);
+    expect(find.text('1 queued · Two'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
 

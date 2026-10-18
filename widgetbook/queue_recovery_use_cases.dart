@@ -8,6 +8,32 @@ import 'frame.dart';
 WidgetbookNode queueRecoveryNode() => WidgetbookComponent(
   name: 'Queue recovery',
   useCases: [
+    for (final expanded in [false, true])
+      WidgetbookUseCase(
+        name: expanded ? 'Ordinary queue, expanded' : 'Ordinary queue, compact',
+        builder: (_) => frame(
+          QueuedPrompts(
+            prompts: const [
+              QueuedPrompt('Done!', []),
+              QueuedPrompt('Then summarize the results', []),
+            ],
+            initiallyExpanded: expanded,
+            onRemove: (_) {},
+          ),
+        ),
+      ),
+    WidgetbookUseCase(
+      name: 'Long ordinary queue',
+      builder: (_) => frame(
+        QueuedPrompts(
+          prompts: [
+            for (var i = 0; i < 30; i++)
+              QueuedPrompt('Follow-up message ${i + 1}', []),
+          ],
+          onRemove: (_) {},
+        ),
+      ),
+    ),
     WidgetbookUseCase(
       name: 'Recovered FIFO',
       builder: (_) => frame(

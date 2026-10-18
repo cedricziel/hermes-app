@@ -38,13 +38,13 @@ export interface ChatComposerProps {
   attachments?: ComposerAttachment[];
   /** Called with the attachment whose chip's close button was pressed. */
   onRemoveAttachment?: (attachment: ComposerAttachment) => void;
-  /** A reply is in flight: shows the "Hermes is replying… Stop" bar above the card and the hint becomes "Queue a message…". */
+  /** A reply is in flight: shows Stop beside the field and the hint becomes "Queue a message…". */
   replying?: boolean;
   /** Called by the Stop button. */
   onStop?: () => void;
   /** Stop was pressed and is being processed: the Stop button is disabled. */
   stopping?: boolean;
-  /** Prompts waiting for the current reply to end, listed above the card. */
+  /** Prompts waiting for the reply to end, collapsed inside the card. */
   queued?: QueuedPromptItem[];
   /** The queue is paused after a stopped or failed reply: the header reads "Queue paused" with a "Send now" button. */
   queuePaused?: boolean;
@@ -63,8 +63,8 @@ export interface ChatComposerProps {
 /**
  * The chat composer at the bottom of a conversation: a rounded card with the
  * text field on top and attach (+), the model pill and the round send arrow
- * below it. Above the card it lists the stop bar while Hermes replies, the
- * queued prompts and the attachment chips.
+ * below it. Stop sits beside the field; the queue expands inside the card.
+ * Attachment chips sit above it.
  */
 export function ChatComposer({
   value,
@@ -112,62 +112,6 @@ export function ChatComposer({
   return (
     <div className="h-chat-composer">
       {suggestions}
-      {replying ? (
-        <div className="h-chat-composer__bar">
-          <span className="h-chat-composer__bar-text">Hermes is replying…</span>
-          <Button
-            variant="text"
-            icon="stop_circle"
-            disabled={stopping}
-            onClick={onStop}
-          >
-            Stop
-          </Button>
-        </div>
-      ) : null}
-      {queued.length > 0 ? (
-        <div className="h-chat-composer__queue">
-          <div className="h-chat-composer__bar h-chat-composer__bar--queue">
-            <span className="h-chat-composer__bar-text">
-              {queuePaused
-                ? "Queue paused"
-                : "Queued, sent when Hermes is done"}
-            </span>
-            {queuePaused ? (
-              <Button variant="text" icon="send" onClick={onSendQueued}>
-                Send now
-              </Button>
-            ) : null}
-          </div>
-          {queued.map((prompt, i) => {
-            const files = prompt.files ?? [];
-            return (
-              <div className="h-chat-composer__queued" key={i}>
-                <Icon
-                  name="schedule"
-                  size={16}
-                  className="h-chat-composer__muted"
-                />
-                <span className="h-chat-composer__queued-text">
-                  {prompt.text || files.join(", ")}
-                </span>
-                {prompt.text && files.length > 0 ? (
-                  <span className="h-chat-composer__queued-files">
-                    <Icon name="attach_file" size={16} />
-                    {files.length}
-                  </span>
-                ) : null}
-                <IconButton
-                  icon="close"
-                  label="Remove from queue"
-                  size={32}
-                  onClick={() => onRemoveQueued?.(i)}
-                />
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
       {attachments.length > 0 ? (
         <div className="h-chat-composer__attachments">
           {attachments.map((file, i) => (
@@ -181,17 +125,84 @@ export function ChatComposer({
         </div>
       ) : null}
       <div className="h-chat-composer__card">
-        <textarea
-          className="h-chat-composer__field"
-          rows={1}
-          readOnly={!!voiceRecording}
-          value={text}
-          placeholder={
-            placeholder ?? (replying ? "Queue a message…" : "Message Hermes…")
-          }
-          onChange={(event) => update(event.target.value)}
-          onKeyDown={onKeyDown}
-        />
+        {queued.length > 0 ? (
+          <details
+            className="h-chat-composer__queue"
+            open={queuePaused || undefined}
+          >
+            <summary>
+              <span>
+                {queuePaused
+                  ? `Queue paused · ${queued.length}`
+                  : `${queued.length} queued · ${queued[0].text || queued[0].files?.join(", ") || "Attachments"}`}
+              </span>
+              <Icon name="expand_more" size={18} />
+            </summary>
+            <div className="h-chat-composer__queue-details">
+              <div className="h-chat-composer__bar h-chat-composer__bar--queue">
+                <span className="h-chat-composer__bar-text">
+                  {queuePaused
+                    ? "Queue paused"
+                    : "Queued, sent when Hermes is done"}
+                </span>
+                {queuePaused ? (
+                  <Button variant="text" icon="send" onClick={onSendQueued}>
+                    Send now
+                  </Button>
+                ) : null}
+              </div>
+              {queued.map((prompt, i) => {
+                const files = prompt.files ?? [];
+                return (
+                  <div className="h-chat-composer__queued" key={i}>
+                    <Icon
+                      name="schedule"
+                      size={16}
+                      className="h-chat-composer__muted"
+                    />
+                    <span className="h-chat-composer__queued-text">
+                      {prompt.text || files.join(", ")}
+                    </span>
+                    {prompt.text && files.length > 0 ? (
+                      <span className="h-chat-composer__queued-files">
+                        <Icon name="attach_file" size={16} />
+                        {files.length}
+                      </span>
+                    ) : null}
+                    <IconButton
+                      icon="close"
+                      label="Remove from queue"
+                      size={32}
+                      onClick={() => onRemoveQueued?.(i)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        ) : null}
+
+        <div className="h-chat-composer__field-row">
+          <textarea
+            className="h-chat-composer__field"
+            rows={1}
+            readOnly={!!voiceRecording}
+            value={text}
+            placeholder={
+              placeholder ?? (replying ? "Queue a message…" : "Message Hermes…")
+            }
+            onChange={(event) => update(event.target.value)}
+            onKeyDown={onKeyDown}
+          />
+          {replying && onStop ? (
+            <IconButton
+              icon="stop_circle"
+              label="Stop response"
+              disabled={stopping}
+              onClick={onStop}
+            />
+          ) : null}
+        </div>
         <div className="h-chat-composer__row">
           {voiceRecording ? (
             <IconButton icon="close" label="Cancel voice message" tone="muted" onClick={onCancelVoiceRecording} />

@@ -52,8 +52,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Still digging.', findRichText: true), findsOneWidget);
-    expect(find.text('Hermes is replying…'), findsOneWidget);
-    expect(find.text('Stop'), findsOneWidget);
+    expect(find.text('Hermes is replying…'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsOneWidget);
 
     follow.emit(const ReplyCompleted('It was the retry loop.'));
     await tester.pump();
@@ -62,7 +62,7 @@ void main() {
       find.text('It was the retry loop.', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('Stop'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 

@@ -128,6 +128,8 @@ void main() {
       ),
     );
 
+    await tester.tap(find.text('1 queued · Next one'));
+    await tester.pumpAndSettle();
     expect(
       tester.getSemantics(find.byIcon(Icons.close)),
       namedButton('Remove Next one from queue'),

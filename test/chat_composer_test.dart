@@ -170,23 +170,25 @@ void main() {
     expect(find.byTooltip('Add attachment'), findsNothing);
   });
 
-  testWidgets('while replying: stop bar, queue and a queueing hint', (
-    tester,
-  ) async {
-    await pump(
-      tester,
-      replying: true,
-      queued: const [QueuedPrompt('Then open a PR', [])],
-    );
+  testWidgets(
+    'while replying: inline Stop, compact queue and a queueing hint',
+    (tester) async {
+      await pump(
+        tester,
+        replying: true,
+        queued: const [QueuedPrompt('Then open a PR', [])],
+      );
 
-    expect(find.text('Queue a message…'), findsOneWidget);
-    expect(find.text('Stop'), findsOneWidget);
-    expect(find.text('Then open a PR'), findsOneWidget);
-    expect(
-      tester.getCenter(find.text('Then open a PR')).dy,
-      lessThan(tester.getRect(find.byType(TextField)).top),
-    );
-  });
+      expect(find.text('Queue a message…'), findsOneWidget);
+      expect(find.bySemanticsLabel('Stop response'), findsOneWidget);
+      expect(find.text('Hermes is replying…'), findsNothing);
+      expect(find.text('1 queued · Then open a PR'), findsOneWidget);
+      expect(
+        tester.getCenter(find.text('1 queued · Then open a PR')).dy,
+        lessThan(tester.getRect(find.byType(TextField)).top),
+      );
+    },
+  );
 
   testWidgets('the field grows to eight lines at most', (tester) async {
     await pump(tester);

@@ -9,6 +9,8 @@ import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/side_results/side_result_card.dart';
 import 'package:hermes_app/src/chat/widgets/billing_verification_card.dart';
+import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
+import 'package:hermes_app/src/chat/widgets/session_status_card.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -161,6 +163,30 @@ void main() {
       expect(find.byType(MemoryActivityCard), findsNothing);
     },
   );
+
+  testWidgets('finished status and process logs stay in the inspector', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      await open('stored-1');
+      gateway.event('status.update', 'rt-1', {
+        'kind': 'lifecycle',
+        'text': 'Background Process Finished: check status',
+      });
+      gateway.event('agent.terminal.output', 'rt-1', {
+        'process_id': 'worker',
+        'chunk': 'Received output',
+      });
+      gateway.event('terminal.close', 'rt-1', {'process_id': 'worker'});
+      await pumpEventQueue();
+    });
+    await pumpChat(tester);
+    expect(inStrip(find.byType(SessionStatusCard)), findsNothing);
+    expect(inStrip(find.byType(ProcessOutputCard)), findsNothing);
+    expect(inPanel(find.byType(SessionStatusCard)), findsOneWidget);
+    expect(inPanel(find.byType(ProcessOutputCard)), findsOneWidget);
+    expect(inPanel(find.text('NOW')), findsNothing);
+  });
 
   testWidgets('Verify billing access is offered only under This session', (
     tester,

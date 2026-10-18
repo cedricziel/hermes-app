@@ -92,6 +92,25 @@ class BoundActivityPanel extends StatelessWidget {
                 state: state,
                 onDetails: chat.sessionDetailsOpened,
               ),
+            for (final progress
+                in chat.moaIn(t).where((progress) => progress.live))
+              MoaProgressCard(
+                key: ObjectKey(progress.turn),
+                progress: progress,
+                onDetails: chat.moaDetailsOpened,
+              ),
+          ],
+          plan: plan != null && plan.hasPlan
+              ? TodoPlanCard(state: plan, initiallyOpen: true)
+              : null,
+          session: [
+            if (state != null &&
+                state.visible &&
+                sessionStateTier(state) == ActivityTier.reference)
+              SessionStatusCard(
+                state: state,
+                onDetails: chat.sessionDetailsOpened,
+              ),
             if (processes != null) ...[
               for (final process in processes.cards)
                 ProcessOutputCard(
@@ -105,17 +124,14 @@ class BoundActivityPanel extends StatelessWidget {
                   child: Text('Earlier process cards omitted.'),
                 ),
             ],
-            for (final progress in chat.moaIn(t))
+
+            for (final progress
+                in chat.moaIn(t).where((progress) => !progress.live))
               MoaProgressCard(
                 key: ObjectKey(progress.turn),
                 progress: progress,
                 onDetails: chat.moaDetailsOpened,
               ),
-          ],
-          plan: plan != null && plan.hasPlan
-              ? TodoPlanCard(state: plan, initiallyOpen: true)
-              : null,
-          session: [
             if (state?.memoryRecalls.isNotEmpty == true ||
                 reviewNotes.isNotEmpty)
               MemoryActivityCard(
