@@ -43,6 +43,22 @@ void main() {
       ? dir.listSync(recursive: true).whereType<File>().toList()
       : [];
 
+  test('a newer preview invalidates an older staging request', () {
+    final store = newStore();
+    final first = store.beginPreview();
+    final second = store.beginPreview();
+    expect(first(), isFalse);
+    expect(second(), isTrue);
+  });
+
+  test('clearing a session invalidates pending preview intents', () async {
+    final store = newStore();
+    final pending = store.beginPreview();
+    await store.clear();
+    expect(pending(), isFalse);
+    expect(store.beginPreview()(), isTrue);
+  });
+
   group('image', () {
     void serveImage(String path, {Uint8List? bytes}) => server.on(
       'GET',

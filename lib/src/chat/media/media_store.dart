@@ -51,6 +51,7 @@ class MediaStore {
 
   /// Bumped by [clear], so a fetch that finishes afterwards keeps nothing.
   var _generation = 0;
+  var _previewRequest = 0;
   StreamSubscription<void>? _signOut;
 
   /// The bytes of the image at [path] on the server, for showing.
@@ -195,6 +196,15 @@ class MediaStore {
 
   static String _folderOf(String key) =>
       sha256.convert(utf8.encode(key)).toString().substring(0, 16);
+
+  /// Captures a preview intent before staging starts. A newer preview or a
+  /// session clear invalidates it, so a late download cannot replace what the
+  /// user opened next or present media after signing out.
+  bool Function() beginPreview() {
+    final generation = _generation;
+    final request = ++_previewRequest;
+    return () => generation == _generation && request == _previewRequest;
+  }
 
   /// Shows [file] in the Quick Look panel. With [toggle] the panel closes
   /// instead when it already shows [file].

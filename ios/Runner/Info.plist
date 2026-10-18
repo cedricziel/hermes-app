@@ -92,6 +92,8 @@
 	<string>Hermes records your voice when you dictate a message and sends it to your Hermes server to turn into text.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Hermes can read the location stored in a photo you attach to a chat.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Hermes saves a photo to your library only when you choose Save Image from the share sheet.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Hermes reads photos you share to it so you can send them in a chat.</string>
 	<key>UIApplicationSceneManifest</key>

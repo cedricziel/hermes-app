@@ -9,6 +9,7 @@ import workmanager_apple
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var watchRelay: WatchRelay?
   private var webAuth: WebAuthSession?
+  private var photoPreview: PhotoPreview?
 
   override func application(
     _ application: UIApplication,
@@ -75,6 +76,9 @@ import workmanager_apple
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "HermesPhotoPreview") {
+      photoPreview = PhotoPreview(registrar: registrar)
+    }
     QueueStorageDirectory.install(messenger: engineBridge.applicationRegistrar.messenger())
     NotificationCategories.install(messenger: engineBridge.applicationRegistrar.messenger())
     ChatHandoff.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
