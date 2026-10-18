@@ -215,12 +215,23 @@ void main() {
         expect(chat.queuedIn(thread), isEmpty);
         expect(await chat.submit('fresh follow-up', const []), true);
         expect(chat.queueNeedsReview(thread), false);
+        final dispatched = Completer<void>();
+        void onDispatch() {
+          if (transport.sends.length == 2 && !dispatched.isCompleted) {
+            dispatched.complete();
+          }
+        }
+
+        chat.addListener(onDispatch);
+        addTearDown(() => chat.removeListener(onDispatch));
         final first = transport.sends.single;
         first
           ..emit(const ReplyCompleted('Done'))
           ..emit(const SessionInfo(running: false))
           ..finish();
-        await pumpEventQueue();
+        // Dispatch persists its submitting state before calling the transport.
+        // An idle queue or a drained microtask queue does not finish that I/O.
+        await dispatched.future.timeout(const Duration(seconds: 5));
         await queueIdle(chat);
         await pumpEventQueue();
         expect(transport.sends.map((send) => send.text), [
