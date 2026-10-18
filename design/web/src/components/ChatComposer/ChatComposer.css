@@ -111,3 +111,15 @@
   display: flex;
   align-items: center;
 }
+
+.h-chat-composer__recording {
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--h-muted);
+}
+
+.h-chat-composer__recording--active {
+  color: var(--h-error);
+}

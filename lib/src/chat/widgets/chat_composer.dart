@@ -13,6 +13,8 @@ import 'chat_suggestions.dart';
 import '../../widgets/named_icon_button.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/dictation_view.dart';
+import '../../voice/widgets/voice_recording_controls.dart';
+import '../../voice/voice_recording_view.dart';
 import '../../voice/widgets/dictation_notice.dart';
 import '../../voice/widgets/voice_waveform.dart';
 import '../../voice/dictation_settings.dart';
@@ -50,6 +52,7 @@ class ChatComposer extends StatefulWidget {
     this.queueView,
     this.botContext,
     this.dictation,
+    this.recording,
   });
 
   final TextEditingController controller;
@@ -71,6 +74,9 @@ class ChatComposer extends StatefulWidget {
 
   /// Dictation into the draft; without it there is no microphone button.
   final DictationView? dictation;
+
+  /// Hold Send to attach audio without transcribing or sending it.
+  final VoiceRecordingView? recording;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
@@ -214,6 +220,7 @@ class _ChatComposerState extends State<ChatComposer> {
   bool get _canSend =>
       !widget.commandRunning &&
       widget.dictation?.active != true &&
+      widget.recording?.active != true &&
       (widget.controller.text.trim().isNotEmpty ||
           widget.attachments.isNotEmpty);
 
@@ -230,6 +237,8 @@ class _ChatComposerState extends State<ChatComposer> {
     final modelPill = widget.modelPill;
     final dictation = widget.dictation;
     final dictating = dictation != null && dictation.active;
+    final recording = widget.recording;
+    final recordingActive = recording?.active == true;
     // The round buttons beside the field, as in the Claude app.
     final tonal = IconButton.styleFrom(
       backgroundColor: scheme.onSurface.withValues(alpha: 0.06),
@@ -299,7 +308,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     controller: widget.controller,
                     focusNode: _focusNode,
                     // The recognized words go in while dictating.
-                    readOnly: dictating,
+                    readOnly: dictating || recordingActive,
                     minLines: 1,
                     maxLines: 8,
                     textCapitalization: TextCapitalization.sentences,
@@ -321,7 +330,15 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                   Row(
                     children: [
-                      if (dictating)
+                      if (recordingActive)
+                        NamedIconButton(
+                          label: 'Cancel voice message',
+                          icon: AppIcons.close,
+                          color: subtle,
+                          style: tonal,
+                          onPressed: recording!.onCancel,
+                        )
+                      else if (dictating)
                         NamedIconButton(
                           label: 'Cancel voice input',
                           icon: AppIcons.close,
@@ -338,7 +355,9 @@ class _ChatComposerState extends State<ChatComposer> {
                           onPressed: onAttach,
                         ),
                       Expanded(
-                        child: dictating
+                        child: recordingActive
+                            ? VoiceRecordingStatus(recording: recording!)
+                            : dictating
                             ? VoiceWaveform(
                                 levels: dictation.levels,
                                 elapsed: dictation.elapsed,
@@ -353,35 +372,21 @@ class _ChatComposerState extends State<ChatComposer> {
                               ),
                       ),
                       if (dictating) const SizedBox(width: 8),
-                      if (dictation != null)
+                      if (dictation != null && !recordingActive)
                         _DictationButton(
                           dictation: dictation,
                           color: subtle,
                           style: tonal,
                         ),
-                      ListenableBuilder(
-                        listenable: widget.controller,
-                        builder: (context, _) => NamedIconButton(
-                          label: 'Send',
-                          icon: AppIcons.sendArrow,
-                          filled: true,
-                          // The app's icon button theme would paint the arrow
-                          // in onSurface, invisible on a dark primary.
-                          style: IconButton.styleFrom(
-                            backgroundColor: scheme.primary,
-                            foregroundColor: scheme.onPrimary,
-                            disabledBackgroundColor: scheme.onSurface
-                                .withValues(alpha: 0.08),
-                            disabledForegroundColor: subtle,
-                          ),
-                          onPressed: dictating
-                              ? (widget.commandRunning
-                                    ? null
-                                    : dictation.onSend)
-                              : _canSend
-                              ? _send
-                              : null,
-                        ),
+                      HoldToRecordSend(
+                        recording: !dictating && !widget.commandRunning
+                            ? recording
+                            : null,
+                        onSend: dictating
+                            ? (widget.commandRunning ? null : dictation.onSend)
+                            : _canSend
+                            ? _send
+                            : null,
                       ),
                     ],
                   ),
@@ -499,7 +504,11 @@ class _AttachmentChips extends StatelessWidget {
             for (final file in attachments)
               InputChip(
                 avatar: AppIcon(
-                  file.isImage ? AppIcons.image : AppIcons.file,
+                  file.isImage
+                      ? AppIcons.image
+                      : file.mimeType?.startsWith('audio/') == true
+                      ? AppIcons.mic
+                      : AppIcons.file,
                   size: 16,
                 ),
                 label: Text(file.name),

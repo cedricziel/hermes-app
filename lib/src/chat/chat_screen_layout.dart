@@ -122,6 +122,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           composerController: _composerController,
           composerFocus: _composerFocus,
           dictation: _voiceCall?.ended == false ? null : _dictation?.controller,
+          voiceRecording: _voiceCall?.ended == false ? null : _voiceRecording,
           attachments: _attachments,
           attachmentSource: _attachmentSource,
           onAddAttachments: _addAttachments,

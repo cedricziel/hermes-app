@@ -89,7 +89,7 @@
 	     location API. The app never calls it, but App Store validation
 	     (ITMS-90683) still wants a purpose string. -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Hermes records your voice when you dictate a message and sends it to your Hermes server to turn into text.</string>
+	<string>Hermes uses your microphone when you dictate, record a voice message, or start a voice call. Dictation may be processed on your device or Hermes server; voice messages and calls are sent to your Hermes server.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Hermes can read the location stored in a photo you attach to a chat.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

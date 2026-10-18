@@ -77,6 +77,8 @@ import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import '../voice/composer_dictation.dart';
+import '../voice/voice_message_recording.dart';
+import '../voice/voice_recording_view.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import '../voice/voice_recorder.dart';
@@ -137,6 +139,7 @@ class ChatScreen extends StatefulWidget {
     this.shareEntry = 0,
     this.chatProfiles,
     this.voiceRecorder,
+    this.voiceMessageRecorder,
   });
 
   final HermesChatRepository? repository;
@@ -191,6 +194,9 @@ class ChatScreen extends StatefulWidget {
   /// own.
   final VoiceRecorder? voiceRecorder;
 
+  /// Optional microphone override for draft audio attachments.
+  final VoiceRecorder? voiceMessageRecorder;
+
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
@@ -227,6 +233,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _callRouteOpen = false;
   bool _callHasEnded = true;
   ComposerDictation? _dictation;
+  VoiceMessageRecording? _voiceRecording;
+  (String?, String?)? _recordingOwner;
   List<SlashCommand> _slashCommands = const [];
   String? _slashContext;
   int _slashFetchGeneration = 0;
@@ -453,6 +461,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         onDevice: _maybeRead<OnDeviceSpeech>(),
         breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
       );
+      _voiceRecording = VoiceMessageRecording(
+        recorder: widget.voiceMessageRecorder ?? RecordVoiceRecorder(),
+        activity: _sessionActivity,
+        canRecord: () =>
+            mounted &&
+            _foreground &&
+            widget.visible &&
+            _routeVisible &&
+            _chat.active &&
+            _voiceCall?.ended != false &&
+            _dictation?.controller.busy != true &&
+            !_slashSending &&
+            !_queueSending,
+        onAttach: (file) {
+          if (mounted && _recordingOwner == (_chat.profile, _chat.selectedId)) {
+            _rebuild(() => _attachments.add(file));
+          }
+        },
+        onError: _showMessage,
+      );
+      _voiceRecording!.addListener(_recordingChanged);
       unawaited(_dictation!.refresh());
     }
     _handoff = _maybeRead<HandoffController>();
@@ -488,15 +517,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         newChat: _newFromMenuBar,
       );
     _mainFocused = _windows?.mainFocused.listen((_) => _refreshFromWindows());
-    _panelTookVoice = _windows?.panelTookVoice.listen(
-      (_) => _dictation?.controller.cancel(),
-    );
+    _panelTookVoice = _windows?.panelTookVoice.listen((_) {
+      _dictation?.controller.cancel();
+      unawaited(_voiceRecording?.cancel());
+    });
     _dictation?.controller.addListener(_takeVoice);
+  }
+
+  void _recordingChanged() {
+    if (_voiceRecording?.phase == VoiceRecordingPhase.preparing) {
+      _recordingOwner = (_chat.profile, _chat.selectedId);
+      unawaited(_windows?.stopPanelDictation());
+    }
   }
 
   void _takeVoice() {
     final recording = _dictation!.controller.busy;
-    if (recording && !_recording) unawaited(_windows?.stopPanelDictation());
+    if (recording && !_recording) {
+      unawaited(_voiceRecording?.cancel());
+      unawaited(_windows?.stopPanelDictation());
+    }
     _recording = recording;
   }
 
@@ -524,6 +564,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (files != null) _draftFiles[owner] = files;
     }
     if (_composerOwner != owner) {
+      unawaited(_voiceRecording?.cancel());
       final adoptedSessionId =
           thread != null &&
           identical(_composerThread, thread) &&
@@ -589,6 +630,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _updateActivePolling() {
     _routeVisible = ModalRoute.of(context)?.isCurrent != false;
     _syncListChanges();
+    if (!_foreground || !widget.visible || !_routeVisible) {
+      unawaited(_voiceRecording?.cancel());
+    }
     _activeRefreshTimer?.cancel();
     if (!_foreground ||
         !widget.visible ||
@@ -676,6 +720,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
     _ownedTransport?.close();
+    _voiceRecording?.dispose();
     _dictation?.dispose();
     _sessionActivity?.dispose();
     _composerController.removeListener(_onComposerText);

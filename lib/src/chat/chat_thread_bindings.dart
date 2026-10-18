@@ -4,6 +4,7 @@ import '../models/widgets/composer_model_pill.dart';
 import '../models/widgets/model_setup_dialog.dart';
 import '../share/shared_item.dart';
 import '../voice/dictation_controller.dart';
+import '../voice/voice_message_recording.dart';
 import 'attachments/attachment_source.dart';
 import 'chat_controller.dart';
 import 'widgets/queued_prompts.dart';
@@ -120,6 +121,7 @@ ChatThreadView boundChatThreadView({
   required TextEditingController composerController,
   required FocusNode composerFocus,
   DictationController? dictation,
+  VoiceMessageRecording? voiceRecording,
   required List<SharedFile> attachments,
   required AttachmentSource attachmentSource,
   required ValueChanged<List<SharedFile>> onAddAttachments,
@@ -159,6 +161,7 @@ ChatThreadView boundChatThreadView({
     composerController: composerController,
     composerFocus: composerFocus,
     dictation: dictation,
+    voiceRecording: voiceRecording,
     attachments: attachments,
     attachmentSource: attachmentSource,
     onAddAttachments: onAddAttachments,

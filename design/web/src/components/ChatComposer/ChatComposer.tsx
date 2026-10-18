@@ -10,6 +10,8 @@ export interface ComposerAttachment {
   name: string;
   /** Draws the chip with an image icon instead of a file icon. */
   image?: boolean;
+  /** Voice attachments use the microphone glyph. */
+  audio?: boolean;
 }
 
 export interface QueuedPromptItem {
@@ -20,6 +22,10 @@ export interface QueuedPromptItem {
 }
 
 export interface ChatComposerProps {
+  /** Preview of native hold-to-record state. Capture is owned by Flutter. */
+  voiceRecording?: { phase: "preparing" | "recording" | "attaching"; elapsedSeconds?: number };
+  onCancelVoiceRecording?: () => void;
+  onFinishVoiceRecording?: () => void;
   /** Text in the field. Controlled when given together with `onChange`; otherwise the initial text. */
   value?: string;
   /** Called with the field's text as the user types. */
@@ -77,10 +83,17 @@ export function ChatComposer({
   modelPill,
   placeholder,
   suggestions,
+  voiceRecording,
+  onCancelVoiceRecording,
+  onFinishVoiceRecording,
 }: ChatComposerProps) {
   const [local, setLocal] = useState(value ?? "");
   const text = value !== undefined && onChange ? value : local;
-  const canSend = text.trim() !== "" || attachments.length > 0;
+  const canSend = !voiceRecording && (text.trim() !== "" || attachments.length > 0);
+  const seconds = Math.max(0, Math.floor(voiceRecording?.elapsedSeconds ?? 0));
+  const recordingLabel = voiceRecording?.phase === "preparing" ? "Preparing microphone…"
+    : voiceRecording?.phase === "attaching" ? "Attaching recording…"
+    : `Release to attach · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
   const update = (next: string) => {
     setLocal(next);
@@ -160,7 +173,7 @@ export function ChatComposer({
           {attachments.map((file, i) => (
             <Chip
               key={`${file.name}-${i}`}
-              icon={file.image ? "image" : "draft"}
+              icon={file.image ? "image" : file.audio ? "mic" : "draft"}
               label={file.name}
               onRemove={() => onRemoveAttachment?.(file)}
             />
@@ -171,6 +184,7 @@ export function ChatComposer({
         <textarea
           className="h-chat-composer__field"
           rows={1}
+          readOnly={!!voiceRecording}
           value={text}
           placeholder={
             placeholder ?? (replying ? "Queue a message…" : "Message Hermes…")
@@ -179,7 +193,9 @@ export function ChatComposer({
           onKeyDown={onKeyDown}
         />
         <div className="h-chat-composer__row">
-          {onAttach ? (
+          {voiceRecording ? (
+            <IconButton icon="close" label="Cancel voice message" tone="muted" onClick={onCancelVoiceRecording} />
+          ) : onAttach ? (
             <IconButton
               icon="add"
               label="Add attachment"
@@ -187,13 +203,15 @@ export function ChatComposer({
               onClick={onAttach}
             />
           ) : null}
-          <div className="h-chat-composer__pill">{modelPill}</div>
+          <div className={`h-chat-composer__pill${voiceRecording ? " h-chat-composer__recording" : ""}${voiceRecording?.phase === "recording" ? " h-chat-composer__recording--active" : ""}`}>
+            {voiceRecording ? recordingLabel : modelPill}
+          </div>
           <IconButton
-            icon="arrow_upward"
-            label="Send"
+            icon={voiceRecording ? "mic" : "arrow_upward"}
+            label={voiceRecording ? "Attach voice message" : "Send"}
             variant="filled"
-            disabled={!canSend}
-            onClick={send}
+            disabled={voiceRecording ? voiceRecording.phase === "attaching" : !canSend}
+            onClick={voiceRecording ? onFinishVoiceRecording : send}
           />
         </div>
       </div>

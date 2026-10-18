@@ -93,7 +93,7 @@ extension _ChatScreenComposer on _ChatScreenState {
 
   /// The package composer reports attachments-only sends as an empty [text].
   Future<void> _send(String text) async {
-    if (_queueSending) return;
+    if (_queueSending || _voiceRecording?.busy == true) return;
     if (_slashSending) return;
     if (_leaveToWindow(
       _chat.selectedThread?.id,
