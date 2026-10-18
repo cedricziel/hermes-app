@@ -164,6 +164,19 @@ abstract final class AppIcons {
     Icons.stop_circle_outlined,
     CupertinoIcons.stop_circle,
   );
+  static const call = AppIconSet(Icons.call_outlined, CupertinoIcons.phone);
+  static const endCall = AppIconSet(
+    Icons.call_end,
+    CupertinoIcons.phone_down_fill,
+  );
+  static const micOff = AppIconSet(
+    Icons.mic_off_outlined,
+    CupertinoIcons.mic_slash,
+  );
+  static const speaker = AppIconSet(
+    Icons.volume_up_outlined,
+    CupertinoIcons.speaker_2,
+  );
   static const mic = AppIconSet(Icons.mic_none, CupertinoIcons.mic);
   static const stopRecording = AppIconSet(
     Icons.stop_rounded,

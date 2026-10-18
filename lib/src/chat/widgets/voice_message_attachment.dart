@@ -68,7 +68,11 @@ class _VoiceMessageAttachmentState extends State<VoiceMessageAttachment>
           : active
           ? playback.error
           : null,
-      onToggle: available && !playback.loading && (!active || playback.canRetry)
+      onToggle:
+          available &&
+              !playback.blocked &&
+              !playback.loading &&
+              (!active || playback.canRetry)
           ? () => unawaited(
               playback.toggle(
                 id,
@@ -76,7 +80,9 @@ class _VoiceMessageAttachmentState extends State<VoiceMessageAttachment>
               ),
             )
           : null,
-      onSeek: active && !playback.loading ? playback.seek : null,
+      onSeek: active && !playback.blocked && !playback.loading
+          ? playback.seek
+          : null,
       onSave: available && !busy
           ? () => useFile(saveToDevice, local: true)
           : null,

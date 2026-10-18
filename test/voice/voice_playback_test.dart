@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/voice/voice_playback.dart';
+import 'package:hermes_app/src/voice/voice_audio_focus.dart';
 
 import '../support/fake_voice_player.dart';
 
@@ -151,4 +152,39 @@ void main() {
       playback = VoicePlayback(createPlayer: FakeVoicePlayer.new);
     },
   );
+  test(
+    'a native call pauses playback and blocks play/seek until it ends',
+    () async {
+      final call = Object();
+      await playback.toggle('a', fetch);
+      await VoiceAudioFocus.shared.acquire(call);
+      try {
+        expect(playback.blocked, isTrue);
+        expect(player.playing, isFalse);
+        await playback.toggle('a', fetch);
+        await playback.seek(const Duration(seconds: 5));
+        expect(player.plays, 1);
+        expect(player.seeks, isEmpty);
+      } finally {
+        VoiceAudioFocus.shared.release(call);
+      }
+      await playback.toggle('a', fetch);
+      expect(player.plays, 2);
+    },
+  );
+  test('a pending download cannot acquire audio after a call starts', () async {
+    final call = Object();
+    final download = Completer<File>();
+    final playing = playback.toggle('a', () => download.future);
+    await Future<void>.delayed(Duration.zero);
+    await VoiceAudioFocus.shared.acquire(call);
+    try {
+      download.complete(File('/cache/voice.ogg'));
+      await playing;
+      expect(player.plays, 0);
+      expect(player.loaded, isEmpty);
+    } finally {
+      VoiceAudioFocus.shared.release(call);
+    }
+  });
 }

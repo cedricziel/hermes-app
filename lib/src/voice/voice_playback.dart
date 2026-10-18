@@ -4,12 +4,21 @@ import 'package:flutter/foundation.dart';
 
 import '../chat/media/media_source.dart';
 import 'voice_player.dart';
+import 'voice_audio_focus.dart';
 
 /// Owns the single player in a transcript. Fetches only on Play, serializes
 /// actions, and never resumes a download after leaving the app or the thread.
 class VoicePlayback extends ChangeNotifier {
   VoicePlayback({VoicePlayer Function()? createPlayer})
-    : _createPlayer = createPlayer ?? NativeVoicePlayer.new;
+    : _createPlayer = createPlayer ?? NativeVoicePlayer.new {
+    VoiceAudioFocus.shared.register(pause);
+    VoiceAudioFocus.shared.addListener(_focusChanged);
+  }
+
+  bool get blocked => VoiceAudioFocus.shared.inCall;
+  void _focusChanged() {
+    if (!_disposed) notifyListeners();
+  }
 
   final VoicePlayer Function() _createPlayer;
   VoicePlayer? _player;
@@ -40,7 +49,7 @@ class VoicePlayback extends ChangeNotifier {
   }
 
   Future<void> toggle(String id, Future<File> Function() fetch) async {
-    if (_disposed || _loading) return;
+    if (_disposed || _loading || blocked) return;
     final generation = ++_generation;
     final needsLoad = _active != id || !_loaded;
     _active = id;
@@ -49,7 +58,7 @@ class VoicePlayback extends ChangeNotifier {
     _error = null;
     _fetchFailure = null;
     notifyListeners();
-    bool current() => !_disposed && generation == _generation;
+    bool current() => !_disposed && !blocked && generation == _generation;
     try {
       final player = _player ??= (_createPlayer()..addListener(_changed));
       if (needsLoad) {
@@ -93,7 +102,7 @@ class VoicePlayback extends ChangeNotifier {
   }
 
   Future<void> seek(Duration position) async {
-    if (_disposed || !_loaded || _loading) return;
+    if (_disposed || blocked || !_loaded || _loading) return;
     try {
       final end = duration.inMilliseconds;
       await _player!.seek(
@@ -120,6 +129,8 @@ class VoicePlayback extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    VoiceAudioFocus.shared.unregister(pause);
+    VoiceAudioFocus.shared.removeListener(_focusChanged);
     ++_generation;
     _player?.removeListener(_changed);
     _player?.dispose();

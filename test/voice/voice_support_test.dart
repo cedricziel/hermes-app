@@ -62,6 +62,13 @@ void main() {
       }
     });
 
+    test('disabled text-to-speech cannot start a call', () {
+      final support = VoiceSupport.fromJson(
+        config(tts: {'mode': 'relay', 'reason': 'tts disabled'}),
+      );
+      expect(support.textToSpeech, isFalse);
+    });
+
     test('text-to-speech without credentials is unusable', () {
       final support = VoiceSupport.fromJson(
         config(tts: {'mode': 'relay', 'reason': 'no credentials'}),

@@ -14,6 +14,7 @@ class ChatHeader extends StatelessWidget {
   const ChatHeader({
     super.key,
     this.avatar,
+    this.callButton,
     required this.thread,
     this.housekeeping,
     this.displayTitle,
@@ -25,6 +26,7 @@ class ChatHeader extends StatelessWidget {
 
   /// The open thread, or null before one is picked.
   final Widget? avatar;
+  final Widget? callButton;
   final ChatThread? thread;
   final ThreadHousekeeping? housekeeping;
   final String? displayTitle;
@@ -47,6 +49,7 @@ class ChatHeader extends StatelessWidget {
       ),
     );
     final actions = [
+      ?callButton,
       if (thread != null && thread.remote)
         ThreadActionsButton(
           key: const Key('header-thread-actions'),

@@ -17,6 +17,8 @@ import 'package:hermes_app/src/voice/dictation_controller.dart';
 import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/voice/dictation_view.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/chat_reply.dart' show kReplyFailedMessage;
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
@@ -234,6 +236,19 @@ WidgetbookNode chatNode() => WidgetbookFolder(
             thread: threads[0],
             onShowConnection: () {},
             onNewChat: () {},
+          ),
+        ),
+        _tool(
+          'Voice call available',
+          ChatHeader(
+            thread: threads[0],
+            onShowConnection: () {},
+            onNewChat: () {},
+            callButton: NamedIconButton(
+              label: 'Start voice call',
+              icon: AppIcons.call,
+              onPressed: () {},
+            ),
           ),
         ),
         _tool(
