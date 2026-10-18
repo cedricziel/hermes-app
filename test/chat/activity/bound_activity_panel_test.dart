@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
+import 'package:hermes_app/src/chat/memory/memory_activity_card.dart';
 import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -130,6 +131,35 @@ void main() {
   Finder inPanel(Finder finder) => find.descendant(
     of: find.byKey(const Key('activity-panel')),
     matching: finder,
+  );
+
+  testWidgets(
+    'recall events go to This session, survive clears and stay with their chat',
+    (tester) async {
+      await tester.runAsync(() async {
+        await open('stored-1');
+        gateway.event('status.update', 'rt-1', {
+          'kind': 'lifecycle',
+          'text': '🧠 robot-notes — recalled 5 memories',
+        });
+        gateway.event('status.update', 'rt-1', {
+          'kind': 'lifecycle',
+          'text': '',
+        });
+        await pumpEventQueue();
+      });
+      await pumpChat(tester);
+      expect(inStrip(find.byType(MemoryActivityCard)), findsNothing);
+      expect(inStrip(find.textContaining('recalled')), findsNothing);
+      expect(inPanel(find.byType(MemoryActivityCard)), findsOneWidget);
+      expect(inPanel(find.text('THIS SESSION')), findsOneWidget);
+      await tester.tap(inPanel(find.text('Memory & review')));
+      await tester.pumpAndSettle();
+      expect(inPanel(find.textContaining('did not include')), findsOneWidget);
+      await tester.runAsync(() => open('stored-2'));
+      await tester.pump();
+      expect(find.byType(MemoryActivityCard), findsNothing);
+    },
   );
 
   testWidgets('Verify billing access is offered only under This session', (

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -8,7 +9,7 @@ import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
 
 /// Hermes reads a reply back once its turn is over and may save memories or
-/// skills; the chat shows what it saved under that reply.
+/// skills; reports stay bound to that reply and appear in the inspector.
 void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
@@ -51,22 +52,22 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('what the review saved shows under the reply it read', (
+  testWidgets('background review appears only in the inspector', (
     tester,
   ) async {
     await sendAndFinish(tester, 'The disk was full.');
-
     transport.followUpStreams['s1']!.emit(
       const ReviewSummarized(['Memory updated', "Skill 'disk-check' patched"]),
     );
     await tester.pump();
-
-    final note = find.text("Memory updated · Skill 'disk-check' patched");
-    expect(note, findsOneWidget);
-    expect(
-      tester.getTopLeft(note).dy,
-      greaterThan(tester.getTopLeft(find.text('The disk was full.')).dy),
-    );
+    expect(find.textContaining('Memory updated'), findsNothing);
+    await tester.tap(find.byKey(const Key('header-activity')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Memory & review'));
+    await tester.pumpAndSettle();
+    expect(find.text('Memory updated'), findsOneWidget);
+    expect(find.text("Skill 'disk-check' patched"), findsOneWidget);
+    expect(find.text('The disk was full.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -81,12 +82,23 @@ void main() {
     follow.emit(const ReviewSummarized(['Memory updated']));
     await tester.pump();
 
-    final note = tester.getTopLeft(find.text('Memory updated')).dy;
-    expect(
-      note,
-      greaterThan(tester.getTopLeft(find.text('The disk was full.')).dy),
+    expect(find.text('Memory updated'), findsNothing);
+    await tester.tap(find.byKey(const Key('header-activity')));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    final panel = tester.widget<BoundActivityPanel>(
+      find.byType(BoundActivityPanel),
     );
-    expect(note, lessThan(tester.getTopLeft(find.text('Now cleaning up')).dy));
+    final messages = panel.thread!.messages;
+    expect(
+      messages.firstWhere((m) => m.content == 'The disk was full.').reviewNotes,
+      ['Memory updated'],
+    );
+    expect(messages.last.reviewNotes, isEmpty);
+    await tester.tap(find.text('Memory & review'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(find.text('Memory updated'), findsOneWidget);
 
     follow.emit(const ReplyCompleted('Now cleaning up the disk.'));
     await tester.pump(const Duration(seconds: 5));

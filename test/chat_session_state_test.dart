@@ -42,6 +42,40 @@ void main() {
     chat.dispose();
     attention.dispose();
   });
+  test(
+    'recall survives status clears and stays outside live session waits',
+    () async {
+      transport.sends.last
+        ..emit(
+          const SessionWaitUpdated(
+            'lifecycle',
+            '🧠 robot-notes — recalled 5 memories',
+            runtimeId: 'runtime-a',
+          ),
+        )
+        ..emit(
+          const SessionWaitUpdated(
+            'lifecycle',
+            'Preparing a response',
+            runtimeId: 'runtime-a',
+          ),
+        )
+        ..emit(
+          const SessionWaitUpdated('lifecycle', '', runtimeId: 'runtime-a'),
+        );
+      await pumpEventQueue();
+      final thread = chat.selectedThread!;
+      final state = chat.sessionStateIn(thread)!;
+      expect(state.waits, isEmpty);
+      expect(state.visible, isFalse);
+      expect(
+        state.memoryRecalls.single.summary,
+        'robot-notes — recalled 5 memories',
+      );
+      expect(thread.messages.last.isPending, isTrue);
+    },
+  );
+
   const control = SessionControlSnapshot(
     revision: 'opaque',
     goal: {

@@ -8,6 +8,8 @@ import 'package:hermes_app/src/chat/todo_plan/todo_plan_card.dart';
 import 'package:hermes_app/src/chat/todo_plan/todo_plan_state.dart';
 import 'package:hermes_app/src/chat/widgets/agent_notice_card.dart';
 import 'package:hermes_app/src/chat/widgets/session_status_card.dart';
+import 'package:hermes_app/src/chat/memory/memory_activity_card.dart';
+import 'package:hermes_app/src/chat/memory/memory_recall.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
@@ -46,11 +48,19 @@ TodoPlanState _plan() {
 List<Widget> _now() => [
   SessionStatusCard(
     state: ChatSessionState()
-      ..waits['status'] = 'robot-notes — recalled 5 memories',
+      ..waits['process'] = 'Waiting for background process',
   ),
 ];
 
 List<Widget> _session() => [
+  MemoryActivityCard(
+    recalls: [
+      MemoryRecall(
+        summary: 'robot-notes — recalled 5 memories',
+        receivedAt: DateTime(2030, 1, 1, 9, 41),
+      ),
+    ],
+  ),
   const SideResultCard(
     result: SideResult(
       kind: SideResultKind.btw,
@@ -75,6 +85,40 @@ Widget _sized(Widget panel, {required bool phone}) => Align(
 WidgetbookNode activityPanelNode() => WidgetbookComponent(
   name: 'Activity panel',
   useCases: [
+    for (final state in [
+      'Recall',
+      'Expanded recall',
+      'Repeated recalls',
+      'Review only',
+      'Recall and review',
+    ])
+      WidgetbookUseCase(
+        name: 'Memory, $state',
+        builder: (_) => frame(
+          MemoryActivityCard(
+            recalls: state == 'Review only'
+                ? const []
+                : [
+                    if (state == 'Repeated recalls')
+                      MemoryRecall(
+                        summary: 'robot-notes — recalled 5 memories',
+                        receivedAt: DateTime(2030, 1, 1, 9, 40),
+                      ),
+                    MemoryRecall(
+                      summary: 'robot-notes — recalled 5 memories',
+                      receivedAt: DateTime(2030, 1, 1, 9, 41),
+                    ),
+                  ],
+            reviewNotes: state == 'Review only' || state == 'Recall and review'
+                ? const [
+                    'Memory updated',
+                    'Proposed memory changes await your approval. Review them with /memory pending.',
+                  ]
+                : const [],
+            initiallyOpen: state != 'Recall',
+          ),
+        ),
+      ),
     for (final phone in [true, false]) ...[
       ...onEachPlatform(
         'All sections, ${phone ? 'phone sheet' : 'inspector'}',

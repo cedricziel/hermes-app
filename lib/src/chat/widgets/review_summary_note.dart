@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 
-/// What Hermes saved after reading a reply back — memories, the user profile,
-/// skills — shown under that reply. Hermes runs the review on its own once
-/// the turn is over, so this is the only sign the user gets that it changed
-/// anything.
+/// Compact legacy background-review label. New review reports are presented
+/// by MemoryActivityCard in the inspector and remain bound to their reply.
 class ReviewSummaryNote extends StatelessWidget {
   const ReviewSummaryNote({super.key, required this.items});
 
@@ -18,7 +16,7 @@ class ReviewSummaryNote extends StatelessWidget {
     final subtle = context.hermesColors.subtleText;
     final text = items.join(' · ');
     return Semantics(
-      label: 'Hermes saved: $text',
+      label: 'Background review: $text',
       excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
