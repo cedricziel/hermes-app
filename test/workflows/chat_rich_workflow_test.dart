@@ -409,11 +409,14 @@ void main() {
       );
       await runFrames(tester);
       await toBottom(tester);
-      await shots.capture(tester, 'review-saved');
-      expect(
-        find.text("Memory updated · Skill 'cert-rotation' patched"),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Memory updated'), findsNothing);
+      await tester.tap(find.byKey(const Key('header-activity')));
+      await runFrames(tester);
+      await tester.tap(find.text('Memory & review'));
+      await runFrames(tester);
+      await shots.capture(tester, 'review-inspector');
+      expect(find.text('Memory updated'), findsOneWidget);
+      expect(find.text("Skill 'cert-rotation' patched"), findsOneWidget);
     });
   }
 

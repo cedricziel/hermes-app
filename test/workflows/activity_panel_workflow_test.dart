@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_session_state.dart';
+import 'package:hermes_app/src/chat/memory/memory_activity_card.dart';
+import 'package:hermes_app/src/chat/memory/memory_recall.dart';
 import 'package:hermes_app/src/chat/chat_warning_state.dart';
 import 'package:hermes_app/src/chat/side_results/side_result_card.dart';
 import 'package:hermes_app/src/chat/side_results/side_result_state.dart';
@@ -51,7 +53,7 @@ ActivityPanel _panel({VoidCallback? onClose}) => ActivityPanel(
   now: [
     SessionStatusCard(
       state: ChatSessionState()
-        ..waits['status'] = 'robot-notes — recalled 5 memories',
+        ..waits['process'] = 'Waiting for a background process',
     ),
   ],
   plan: TodoPlanCard(state: _plan(), initiallyOpen: true),
@@ -88,6 +90,60 @@ void main() {
           ? buildHermesDarkTheme(platform: platform)
           : buildHermesLightTheme(platform: platform),
     );
+
+    for (final phone in [true, false]) {
+      testWidgets(
+        'memory recall in ${phone ? 'phone sheet' : 'inspector'} ($mode)',
+        (tester) async {
+          final shots = ScreenshotRecorder(
+            'memory-inspector-${phone ? 'phone' : 'desktop'}-$mode',
+          );
+          await shots.start(tester, phone ? phoneSize : desktopSize);
+          final panel = ActivityPanel(
+            session: [
+              MemoryActivityCard(
+                initiallyOpen: true,
+                recalls: [
+                  MemoryRecall(
+                    summary: 'robot-notes — recalled 5 memories',
+                    receivedAt: DateTime(2030, 1, 1, 9, 41),
+                  ),
+                ],
+                reviewNotes: const ['Memory updated'],
+              ),
+            ],
+          );
+          await tester.pumpWidget(
+            shots.frame(
+              MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: theme(phone ? TargetPlatform.iOS : TargetPlatform.macOS),
+                home: Scaffold(
+                  body: phone
+                      ? Align(
+                          alignment: Alignment.bottomCenter,
+                          child: SizedBox(height: 520, child: panel),
+                        )
+                      : InspectorLayout(
+                          content: Builder(builder: _chat),
+                          shown: true,
+                          inspector: panel,
+                        ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('NOW'), findsNothing);
+          expect(find.text('THIS SESSION'), findsOneWidget);
+          expect(
+            find.textContaining('did not include the note titles'),
+            findsOneWidget,
+          );
+          await shots.capture(tester, 'memory-expanded');
+        },
+      );
+    }
 
     testWidgets('chat screen with the activity inspector ($mode)', (
       tester,

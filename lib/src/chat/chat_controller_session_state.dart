@@ -64,7 +64,7 @@ extension _ChatControllerSessionState on ChatController {
       case SessionControlUnavailable():
         outcome = 'unavailable';
       case SessionWaitUpdated(:final kind, :final text):
-        if (text.isEmpty) {
+        if (state.recordMemoryRecall(text) || text.isEmpty) {
           state.waits.remove(kind);
         } else {
           state.waits[kind] = text;

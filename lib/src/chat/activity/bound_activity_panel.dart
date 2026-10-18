@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../chat_controller.dart';
 import '../chat_models.dart';
+import '../memory/memory_activity_card.dart';
 import '../reactions/reaction_cards.dart';
 import '../session_usage/session_usage_card.dart';
 import '../side_results/side_result_card.dart';
@@ -71,6 +72,14 @@ class BoundActivityPanel extends StatelessWidget {
         final state = chat.sessionStateIn(t);
         final processes = chat.processOutputsIn(t);
         final acknowledgement = reactions?.acknowledgement;
+        // The original review remains bound to its reply in the model. Its
+        // presentation is reference activity, outside the transcript.
+        final reviewNotes = t.messages.reversed
+            .map((message) => message.reviewNotes)
+            .firstWhere(
+              (items) => items.isNotEmpty,
+              orElse: () => const <String>[],
+            );
         return ActivityPanel(
           key: ObjectKey(t),
           onClose: onClose,
@@ -107,6 +116,13 @@ class BoundActivityPanel extends StatelessWidget {
               ? TodoPlanCard(state: plan, initiallyOpen: true)
               : null,
           session: [
+            if (state?.memoryRecalls.isNotEmpty == true ||
+                reviewNotes.isNotEmpty)
+              MemoryActivityCard(
+                recalls: state?.memoryRecalls ?? const [],
+                earlierRecallsOmitted: state?.earlierRecallsOmitted ?? false,
+                reviewNotes: reviewNotes,
+              ),
             if (usage != null && usage.shown)
               SessionUsageCard(controller: usage),
             if (billing != null &&

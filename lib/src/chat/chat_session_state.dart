@@ -1,3 +1,5 @@
+import 'memory/memory_recall.dart';
+
 class SessionControlSnapshot {
   const SessionControlSnapshot({
     required this.revision,
@@ -48,6 +50,24 @@ class ChatSessionState {
   String? runtimeId;
   SessionControlSnapshot? control;
   final waits = <String, String>{};
+  final _memoryRecalls = <MemoryRecall>[];
+  bool earlierRecallsOmitted = false;
+
+  List<MemoryRecall> get memoryRecalls => List.unmodifiable(_memoryRecalls);
+
+  /// Retain reference activity independently from transient process waits.
+  /// Empty status clears must not erase the last reported recall.
+  bool recordMemoryRecall(String text, {DateTime? receivedAt}) {
+    final recall = MemoryRecall.fromStatus(text, receivedAt: receivedAt);
+    if (recall == null) return false;
+    _memoryRecalls.add(recall);
+    if (_memoryRecalls.length > 20) {
+      _memoryRecalls.removeAt(0);
+      earlierRecallsOmitted = true;
+    }
+    return true;
+  }
+
   ResumeProgress? resume;
   String? reclaimedReason;
 
@@ -67,6 +87,8 @@ class ChatSessionState {
     runtimeId = null;
     control = null;
     waits.clear();
+    _memoryRecalls.clear();
+    earlierRecallsOmitted = false;
     resume = null;
     reclaimedReason = null;
   }

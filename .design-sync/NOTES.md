@@ -290,3 +290,5 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
     needs more room for its label and check the extra width.
 
 - Messenger Chats home, local recipient picker/chip, and profile avatars need a design port from the Flutter implementation. Include the compact iOS Chats list's New Chat floating button: theme primary/onPrimary colors, the shared 14-point corner radius, compose glyph, restrained elevation, and bottom scroll clearance for chat rows and search results. The existing React ThreadSidebar and chat headers still show the earlier navigation.
+
+- Memory recall and background review reports now belong in the Activity inspector under This session. `MemoryActivityCard` explains when Hermes supplied only a count and keeps recent live recall indicators separate from process waits. The new inspector card needs a design port; the transcript no longer renders background review notes.

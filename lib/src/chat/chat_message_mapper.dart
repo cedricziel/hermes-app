@@ -189,16 +189,6 @@ List<Message> chatMessageToFlyer(
       ),
     for (final (i, attachment) in media.attachments.indexed)
       attachmentMessage('${m.id}-media-$i', attachment),
-    if (m.reviewNotes.isNotEmpty)
-      CustomMessage(
-        id: '${m.id}-review',
-        authorId: authorId,
-        createdAt: createdAt,
-        metadata: {
-          kMetaKind: kKindReviewSummary,
-          kMetaReviewItems: m.reviewNotes,
-        },
-      ),
     if (showThinking)
       CustomMessage(
         id: '${m.id}-tool-${m.toolCalls.length}-reasoning',
