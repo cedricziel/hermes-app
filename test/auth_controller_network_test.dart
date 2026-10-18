@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/dns_failure_interceptor.dart';
 import 'support/fake_network_signals.dart';
 import 'support/memory_token_store.dart';
 import 'support/recorded_events.dart';
@@ -79,6 +80,7 @@ void main() {
     tokenStore: MemoryTokenStore(),
     telemetry: events.connection,
     networkSignals: signals,
+    interceptors: [dnsFailureInterceptor(host: 'hermes-nowhere.invalid')],
   );
 
   Future<void> save(int port) =>

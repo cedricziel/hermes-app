@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -8,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/dns_failure_interceptor.dart';
 import 'support/fake_network_signals.dart';
 import 'support/memory_token_store.dart';
 
@@ -17,8 +16,6 @@ void main() {
   late FakeNetworkSignals signals;
 
   setUp(() {
-    // The widget test binding otherwise answers every HTTP request with 400.
-    HttpOverrides.global = null;
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     signals = FakeNetworkSignals();
@@ -33,7 +30,10 @@ void main() {
     final auth = AuthController(
       tokenStore: MemoryTokenStore(),
       networkSignals: signals,
+      // These tests exercise the setup UI, not the machine's DNS or proxy.
+      interceptors: [dnsFailureInterceptor()],
     );
+    addTearDown(auth.dispose);
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthController>.value(
         value: auth,
@@ -96,11 +96,7 @@ void main() {
   });
 
   testWidgets('shows no hint for a public host', (tester) async {
-    final closed = await tester.runAsync(
-      () => HttpServer.bind(InternetAddress.loopbackIPv4, 0),
-    );
-    final url = 'http://127.0.0.1:${closed!.port}';
-    await tester.runAsync(() => closed.close(force: true));
+    const url = 'https://hermes.example.com';
     final auth = await pumpSetup(tester);
 
     await connectTo(tester, auth, url);
