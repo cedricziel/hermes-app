@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.69](https://github.com/cedricziel/hermes-app/compare/v0.1.68...v0.1.69) (2026-10-18)
+
+
+### Features
+
+* **voice:** check call prerequisites and offer setup through chat ([#798](https://github.com/cedricziel/hermes-app/issues/798)) ([bd5d4c8](https://github.com/cedricziel/hermes-app/commit/bd5d4c838686cb8c6d55b8a54cbef29fc97eff47))
+
 ## [0.1.68](https://github.com/cedricziel/hermes-app/compare/v0.1.67...v0.1.68) (2026-10-18)
 
 
