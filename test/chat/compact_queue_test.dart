@@ -67,7 +67,9 @@ void main() {
       expect(calls, 1);
       stopped.complete();
       await tester.pumpAndSettle();
-      expect(find.text('Hermes is replying…'), findsNothing);
+      await tester.tap(find.bySemanticsLabel('Stop response'));
+      await tester.pump();
+      expect(calls, 2);
     },
   );
 }
