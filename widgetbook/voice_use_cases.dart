@@ -4,6 +4,7 @@ import 'package:hermes_app/src/voice/on_device_speech.dart';
 import 'package:hermes_app/src/voice/widgets/dictation_settings_view.dart';
 import 'package:hermes_app/src/voice/widgets/dictation_notice.dart';
 import 'package:hermes_app/src/voice/widgets/voice_waveform.dart';
+import 'package:hermes_app/src/voice/widgets/voice_message_view.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -12,6 +13,49 @@ import 'frame.dart';
 WidgetbookNode voiceNode() => WidgetbookFolder(
   name: 'Voice',
   children: [
+    WidgetbookComponent(
+      name: 'VoiceMessageView',
+      useCases: [
+        for (final state in [
+          'Ready',
+          'Loading',
+          'Playing',
+          'Paused',
+          'Failed',
+          'Missing',
+          'Transcript',
+          'Transcript expanded',
+        ])
+          WidgetbookUseCase(
+            name: state,
+            builder: (_) => frame(
+              VoiceMessageView(
+                name: 'Morning briefing.mp3',
+                transcript: state.startsWith('Transcript')
+                    ? 'Your morning briefing: the nightly backup completed successfully. You have two meetings today, starting at ten.'
+                    : null,
+                initiallyExpanded: state == 'Transcript expanded',
+                loading: state == 'Loading',
+                playing: state == 'Playing',
+                position: state == 'Playing' || state == 'Paused'
+                    ? const Duration(seconds: 12)
+                    : Duration.zero,
+                duration: state == 'Playing' || state == 'Paused'
+                    ? const Duration(seconds: 48)
+                    : Duration.zero,
+                error: switch (state) {
+                  'Failed' => 'Could not play this audio. Try again.',
+                  'Missing' => 'This file is no longer available.',
+                  _ => null,
+                },
+                onToggle: state == 'Missing' ? null : () {},
+                onSeek: (_) {},
+                onSave: () {},
+              ),
+            ),
+          ),
+      ],
+    ),
     WidgetbookComponent(
       name: 'VoiceWaveform',
       useCases: [

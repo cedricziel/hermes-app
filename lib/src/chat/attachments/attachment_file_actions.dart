@@ -92,14 +92,16 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
   /// gone by the time the file arrived does nothing.
   ///
   /// With [preview], a failure is also reported to telemetry as a failed
-  /// Quick Look.
+  /// Quick Look. [local] also stages picked or embedded files when a client
+  /// player, rather than Quick Look, consumes them.
   Future<void> useFile(
     Future<void> Function(MediaStore store, File file) then, {
     QuickLookTrigger? preview,
+    bool? local,
   }) async {
     final store = context.read<MediaStore?>();
     if (store == null || _busy || !hasFile) return;
-    final local = quickLookTargetsAt(context);
+    final useLocal = local ?? quickLookTargetsAt(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     final telemetry = QuickLookTelemetry.of(context);
     setState(() {
@@ -107,7 +109,7 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
       clearFetchFailure();
     });
     try {
-      final file = await stageAttachment(store, attachment, local: local);
+      final file = await stageAttachment(store, attachment, local: useLocal);
       if (!mounted) return;
       await then(store, file);
     } on MediaFetchException catch (e) {

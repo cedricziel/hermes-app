@@ -5,6 +5,67 @@ import 'package:hermes_app/src/chat/media/extract_media.dart';
 
 void main() {
   group('extractMedia', () {
+    test(
+      'reads Hermes TTS voice output without showing its delivery marker',
+      () {
+        final out = extractMedia(
+          '[[audio_as_voice]]\nMEDIA:/srv/cache/audio/tts.ogg',
+        );
+        expect(out.text, isEmpty);
+        expect(out.attachments.single.isAudio, isTrue);
+        expect(out.attachments.single.remotePath, '/srv/cache/audio/tts.ogg');
+        expect(
+          extractMedia('`[[audio_as_voice]]`').text,
+          '`[[audio_as_voice]]`',
+        );
+      },
+    );
+
+    test(
+      'recognizes multiple audio formats from any configured TTS provider',
+      () {
+        for (final suffix in [
+          'ogg',
+          'opus',
+          'MP3',
+          'm4a',
+          'aac',
+          'wav',
+          'flac',
+        ]) {
+          expect(
+            extractMedia('MEDIA:/srv/voice.$suffix').attachments.single.isAudio,
+            isTrue,
+            reason: suffix,
+          );
+        }
+        expect(
+          extractMedia('MEDIA:/srv/report.pdf').attachments.single.isAudio,
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'keeps partial voice delivery markers and paths out of streamed text',
+      () {
+        for (final tail in [
+          '[[audio_',
+          '[[audio_as_voice]]',
+          '[[audio_as_voice]]\nMED',
+          '[[audio_as_voice]]\nMEDIA:/srv/clip.o',
+        ]) {
+          final out = extractMedia(tail, complete: false);
+          expect(out.text, isEmpty, reason: tail);
+          expect(out.attachments, isEmpty, reason: tail);
+        }
+        final out = extractMedia(
+          '[[audio_as_voice]]\nMEDIA:/srv/clip.ogg\n',
+          complete: false,
+        );
+        expect(out.attachments.single.isAudio, isTrue);
+      },
+    );
     test('turns an image tag into an attachment and hides the tag', () {
       final out = extractMedia(
         'Here you go MEDIA:/home/u/.hermes/images/a.png',

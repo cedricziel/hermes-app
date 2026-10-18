@@ -477,6 +477,25 @@ class ChatAttachment {
   /// The content, when the history embedded it (an inline data URL).
   final Uint8List? bytes;
 
+  /// Hermes TTS normally delivers MP3 to the dashboard; other configured
+  /// providers can return these audio containers. Keep the file kind so
+  /// history, saving and dragging continue to use the attachment pipeline.
+  bool get isAudio =>
+      kind == AttachmentKind.file &&
+      name.contains('.') &&
+      const {
+        'mp3',
+        'm4a',
+        'aac',
+        'wav',
+        'ogg',
+        'oga',
+        'opus',
+        'flac',
+        'aif',
+        'aiff',
+      }.contains(name.split('.').last.toLowerCase());
+
   /// The server path the app can ask Hermes for the file under: the
   /// [remotePath] when it is absolute. A path relative to the session's
   /// workspace, such as `attachments/x.pdf`, cannot be fetched.

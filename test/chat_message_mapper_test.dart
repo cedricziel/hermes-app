@@ -614,6 +614,30 @@ void main() {
     });
 
     group('files the agent sends', () {
+      test('a voice message before a later tool remains playable', () {
+        final out = chatMessageToFlyer(
+          message(
+            content: 'All set.',
+            sealedProse: const [
+              SealedProse(
+                '[[audio_as_voice]]\nMEDIA:/srv/briefing.ogg',
+                beforeToolCall: 0,
+              ),
+            ],
+            toolCalls: const [
+              ToolCall(name: 'calendar', summary: 'Check calendar'),
+            ],
+          ),
+        );
+        final file = out.first as FileMessage;
+        expect(file.id, 'm1-sealed-0-media-0');
+        expect(
+          (file.metadata![kMetaAttachment] as ChatAttachment).isAudio,
+          isTrue,
+        );
+        expect(out.whereType<TextMessage>().single.text, 'All set.');
+      });
+
       test('follow the text, hide the tag and are numbered media', () {
         final out = chatMessageToFlyer(
           message(content: 'Here you go\nMEDIA:/srv/a.png\nMEDIA:/srv/r.pdf'),
