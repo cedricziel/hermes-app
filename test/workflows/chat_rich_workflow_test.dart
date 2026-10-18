@@ -380,7 +380,7 @@ void main() {
         reply,
         const ReasoningUpdated('x509 error, so the pin never changed. '),
       );
-      await tester.tap(find.text('Thinking…'));
+      await tester.tap(find.textContaining('Thinking…'));
       await runFrames(tester);
       await shots.capture(tester, 'thinking-open');
 
@@ -889,13 +889,13 @@ void main() {
       await shots.capture(tester, 'many-tools-finished-reasoning-closed');
       for (
         var i = 0;
-        i < 20 && find.text('Thinking…').evaluate().isEmpty;
+        i < 20 && find.textContaining('Thinking…').evaluate().isEmpty;
         i++
       ) {
         await tester.drag(find.byType(Scrollable).first, const Offset(0, 300));
         await tester.pump(const Duration(milliseconds: 300));
       }
-      await tester.tap(find.text('Thinking…'));
+      await tester.tap(find.textContaining('Thinking…'));
       await runFrames(tester);
       await shots.capture(tester, 'many-tools-finished-reasoning');
 

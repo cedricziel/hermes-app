@@ -1,5 +1,7 @@
 import Cocoa
 import FlutterMacOS
+import audio_session
+import media_kit_libs_macos_audio
 import desktop_drop
 import desktop_multi_window
 import file_picker_darwin
@@ -227,6 +229,8 @@ final class ConversationWindow: NSObject {
   /// package info, and macos_window_utils (a static bound to the main
   /// window).
   private static func registerPlugins(_ registry: FlutterPluginRegistry) {
+    AudioSessionPlugin.register(with: registry.registrar(forPlugin: "AudioSessionPlugin"))
+    MediaKitLibsMacosAudioPlugin.register(with: registry.registrar(forPlugin: "MediaKitLibsMacosAudioPlugin"))
     DesktopDropPlugin.register(with: registry.registrar(forPlugin: "DesktopDropPlugin"))
     FilePickerPlugin.register(with: registry.registrar(forPlugin: "FilePickerPlugin"))
     FileSelectorPlugin.register(with: registry.registrar(forPlugin: "FileSelectorPlugin"))

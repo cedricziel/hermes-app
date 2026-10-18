@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// two lists here, so none is left out of a window by accident or registered
 /// in one where it does harm.
 const _inConversationWindows = {
+  'AudioSessionPlugin',
+  'MediaKitLibsMacosAudioPlugin',
   'DesktopDropPlugin',
   'FilePickerPlugin',
   'FileSelectorPlugin',

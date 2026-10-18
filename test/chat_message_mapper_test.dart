@@ -121,7 +121,7 @@ void main() {
         message(content: '', reasoning: 'Hmm', status: MessageStatus.thinking),
       );
 
-      expect(out.map((m) => m.id), ['m1-reasoning']);
+      expect(out.map((m) => m.id), ['m1-tool-0-reasoning']);
     });
 
     test('uses the user author id for user messages', () {
@@ -248,7 +248,7 @@ void main() {
         'm1-tool-0',
         'm1-tool-1-reasoning',
         'm1-tool-1',
-        'm1-reasoning',
+        'm1-tool-2-reasoning',
         'm1',
       ]);
     });
@@ -296,7 +296,7 @@ void main() {
       );
 
       final thinking = out.single as CustomMessage;
-      expect(thinking.id, 'm1-thinking');
+      expect(thinking.id, 'm1-tool-0-reasoning');
       expect(thinking.authorId, kAssistantAuthorId);
       expect(thinking.metadata, {
         kMetaKind: kKindThinking,
@@ -328,7 +328,7 @@ void main() {
         message(content: 'partial', status: MessageStatus.thinking),
       );
 
-      expect(out.single.id, 'm1-thinking');
+      expect(out.single.id, 'm1-tool-0-reasoning');
     });
 
     test('places the thinking indicator after tool calls', () {
@@ -340,7 +340,7 @@ void main() {
         ),
       );
 
-      expect(out.map((m) => m.id), ['m1-tool-0', 'm1-thinking']);
+      expect(out.map((m) => m.id), ['m1-tool-0', 'm1-tool-1-reasoning']);
     });
 
     test('emits a custom message per input request, after tool calls', () {
@@ -395,7 +395,7 @@ void main() {
         'm1-input-0',
         'm1-sealed-0',
         'm1-tool-1',
-        'm1-reasoning',
+        'm1-tool-2-reasoning',
         'm1',
       ]);
     });
@@ -464,7 +464,7 @@ void main() {
         ),
       );
 
-      expect(out.map((m) => m.id), ['m1-input-0', 'm1-thinking']);
+      expect(out.map((m) => m.id), ['m1-input-0', 'm1-tool-0-reasoning']);
     });
 
     test('keeps streaming content as text', () {
@@ -774,8 +774,8 @@ void main() {
         ..status = MessageStatus.sent;
       final after = chatMessageToFlyer(m).map((f) => f.id).toList();
 
-      expect(before, ['m1-thinking']);
-      expect(after, ['m1']);
+      expect(before, ['m1-tool-0-reasoning']);
+      expect(after, ['m1-tool-0-reasoning', 'm1']);
     });
   });
 

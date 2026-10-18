@@ -6,7 +6,7 @@ import "./ReasoningBlock.css";
 export interface ReasoningBlockProps {
   /** What the model reasoned, as plain text. */
   text: string;
-  /** The reply is still being written: the header reads `Thinking…` instead of `Reasoning`. */
+  /** Reasoning is arriving now: shimmer and show `Thinking…` until answer text starts. */
   active?: boolean;
   /** Open on first render, to show the reasoning text. Folded by default. */
   defaultOpen?: boolean;
@@ -34,7 +34,7 @@ export function ReasoningBlock({
   return (
     <PlatformScope platform={resolvedPlatform}>
       <div
-        className={cx("h-reasoning-block", apple && "h-reasoning-block--apple")}
+        className={cx("h-reasoning-block", apple && "h-reasoning-block--apple", active && "h-reasoning-block--active")}
       >
         <button
           type="button"
@@ -48,7 +48,7 @@ export function ReasoningBlock({
           </span>
           <Icon name={open ? "expand_less" : "expand_more"} size={18} />
         </button>
-        {open ? <div className="h-reasoning-block__body">{text}</div> : null}
+        {open ? <div className="h-reasoning-block__body">{text || (active ? "Waiting for reasoning…" : "No reasoning text was provided.")}</div> : null}
       </div>
     </PlatformScope>
   );

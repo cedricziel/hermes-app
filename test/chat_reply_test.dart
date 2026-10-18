@@ -31,6 +31,20 @@ const _clarify = ClarifyRequest(
 );
 
 void main() {
+  test('reasoning becomes inactive when answer text starts and can resume', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ReasoningUpdated('Check the log.'));
+    expect(reply.reasoningActive, isTrue);
+    applyReplyEvent(reply, const ReplyDelta('The log says'));
+    expect(reply.reasoningActive, isFalse);
+    expect(reply.reasoning, 'Check the log.');
+    applyReplyEvent(reply, const ReasoningUpdated(' Check one more thing.'));
+    expect(reply.reasoningActive, isTrue);
+    applyReplyEvent(reply, const ReplyCompleted('Done.'));
+    expect(reply.reasoningActive, isFalse);
+    expect(reply.reasoning, 'Check the log. Check one more thing.');
+  });
+
   test('reasoning deltas add up and stay thinking', () {
     final reply = _placeholder();
 

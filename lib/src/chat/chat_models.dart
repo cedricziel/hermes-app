@@ -536,7 +536,8 @@ class ChatMessage {
     this.sealedProse = const [],
     this.subagents = const [],
     this.error,
-  });
+  }) : reasoningActive = status == MessageStatus.thinking,
+       thinkingStarted = status == MessageStatus.thinking && toolCalls.isEmpty;
 
   final String id;
   final ChatRole role;
@@ -557,6 +558,13 @@ class ChatMessage {
   /// What the model reasoned after its last tool call, before answering, when
   /// the gateway shares it. Earlier reasoning belongs to [toolCalls].
   String reasoning;
+
+  /// Live reasoning is separate from an answer that is still streaming.
+  bool reasoningActive;
+
+  /// A live reply began with the waiting disclosure. Keep it after that phase,
+  /// even if this model never shares reasoning text. History does not invent it.
+  final bool thinkingStarted;
   final DateTime createdAt;
   MessageStatus status;
 

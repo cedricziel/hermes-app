@@ -407,8 +407,49 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       useCases: [
         _tool('Folded', const ReasoningBlock(text: reasoningText)),
         _tool(
+          'Long activity label',
+          const ReasoningBlock(
+            text: '',
+            active: true,
+            activity: 'Waiting for the interrupted reply to finish before continuing…',
+          ),
+        ),
+        _tool(
+          'Completed without reasoning text',
+          const ReasoningBlock(text: '', initiallyExpanded: true),
+        ),
+        _tool(
           'Still reasoning',
           const ReasoningBlock(text: reasoningText, active: true),
+        ),
+        _tool(
+          'Waiting for reasoning',
+          const ReasoningBlock(text: '', active: true, initiallyExpanded: true),
+        ),
+        _tool(
+          'Streaming expanded',
+          const ReasoningBlock(
+            text: reasoningText,
+            active: true,
+            initiallyExpanded: true,
+          ),
+        ),
+        _tool(
+          'Completed expanded',
+          const ReasoningBlock(text: reasoningText, initiallyExpanded: true),
+        ),
+        WidgetbookUseCase(
+          name: 'Reduce Motion',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: frame(
+              const ReasoningBlock(
+                text: reasoningText,
+                active: true,
+                initiallyExpanded: true,
+              ),
+            ),
+          ),
         ),
       ],
     ),
