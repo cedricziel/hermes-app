@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
+import '../media/quick_look.dart';
 import '../../widgets/named_icon_button.dart';
 import '../attachments/attachment_file_actions.dart';
 import '../chat_models.dart';
@@ -131,39 +133,87 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
         ? FileImage(File(path))
         : null;
     if (provider == null) return card;
-    return quickLookTarget(
-      onOpen: () => _open(provider, bytes),
-      child: GestureDetector(
-        // On a Mac a click selects; opening is the double-click.
-        onTap: quickLookTargetsAt(context)
-            ? null
-            : () => _open(provider, bytes),
-        child: ImageThumbnailView(
-          image: provider,
-          name: _attachment.name,
-          loading: busy,
-          // Not the whole card: this widget is already the target.
-          fallback: AttachmentCardFrame(attachment: _attachment),
-        ),
+    final mac = quickLookTargetsAt(context);
+    void open() => _open(provider, bytes);
+    final thumbnail = GestureDetector(
+      // On a Mac a click selects; opening is the double-click.
+      onTap: mac ? null : open,
+      child: ImageThumbnailView(
+        image: provider,
+        name: _attachment.name,
+        loading: busy,
+        fallback: AttachmentCardFrame(attachment: _attachment),
       ),
+    );
+    return quickLookTarget(
+      onOpen: open,
+      child: mac
+          ? thumbnail
+          : Semantics(
+              button: true,
+              image: true,
+              label: _attachment.name,
+              onTap: open,
+              excludeSemantics: true,
+              child: thumbnail,
+            ),
     );
   }
 
   void _open(ImageProvider image, Uint8List? bytes) {
     final store = context.read<MediaStore?>();
+    if (platformChromeOf(context) == PlatformChrome.ios &&
+        store != null &&
+        !busy) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      final current = store.beginPreview();
+      final route = ModalRoute.of(context);
+      useFile(
+        (store, file) async {
+          if (!current() ||
+              route?.isCurrent == false ||
+              WidgetsBinding.instance.lifecycleState !=
+                  AppLifecycleState.resumed) {
+            return;
+          }
+          final shown = await store.showQuickLook(file, toggle: false);
+          if (!mounted ||
+              !current() ||
+              route?.isCurrent == false ||
+              shown == QuickLookToggle.shown ||
+              WidgetsBinding.instance.lifecycleState !=
+                  AppLifecycleState.resumed) {
+            return;
+          }
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(
+              content: Text('Could not open this photo. Try again.'),
+            ),
+          );
+        },
+        local: true,
+        imageBytes: bytes,
+      );
+      return;
+    }
+    if (busy) return;
+    _openFallback(image, bytes);
+  }
+
+  void _openFallback(ImageProvider image, Uint8List? bytes) {
+    final store = context.read<MediaStore?>();
     final path = _attachment.path;
+    final name = _attachment.name;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
         builder: (_) => ImageViewerPage(
           image: image,
-          name: _attachment.name,
+          name: name,
           onSave: store == null
               ? null
-              : () async => store.save(
-                  _attachment.name,
-                  bytes ?? await File(path!).readAsBytes(),
-                ),
+              : () async =>
+                    store.save(name, bytes ?? await File(path!).readAsBytes()),
         ),
       ),
     );

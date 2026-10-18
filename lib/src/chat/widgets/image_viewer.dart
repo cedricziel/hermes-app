@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/named_icon_button.dart';
 
+/// The fallback viewer outside iOS. iOS chat photos use native Quick Look.
 /// An image full screen, which can be zoomed and moved, closed and, when
 /// [onSave] is given, saved. [onSave] answers whether the user saved it.
 class ImageViewerPage extends StatelessWidget {

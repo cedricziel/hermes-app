@@ -153,8 +153,9 @@ settingsOpen` shows is the public `SettingsDialog` (`AppShell`/`ChatScreen` take
   Window). Not drawn: the share picker and the window closing once its chat is archived or deleted.
 - `ConnectScreen` stays the setup and sign-in card (the app's ServerSetupScreen and LoginScreen); its preview has
   every Widgetbook state. The splash is a bare spinner, so it has no card.
-- `AppLockScreen` (the AppLockGate cover) and `ImageViewerScreen` (black in both themes). The app's image viewer
-  title takes the app bar theme's onSurface color, which is dark on black in light mode; the card draws it white.
+- `AppLockScreen` (the AppLockGate cover) and `ImageViewerScreen` (black in both themes). `ImageViewerScreen`
+  represents the Flutter fallback viewer outside iOS. iOS chat photos use Apple's Quick Look sheet, including
+  its system Share action, zoom and pull-down dismissal; that native surface is not recreated in the web catalog.
 
 ## Board and schedules screen cards
 

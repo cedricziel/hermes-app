@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
@@ -33,13 +34,15 @@ bool _isLocal(ChatAttachment attachment) =>
 /// the app's container), and the rest is downloaded, once: the same file the
 /// card's Open and a drag out of the app use.
 ///
-/// Without [local] only the server's file is considered, as before Quick Look.
+/// [imageBytes] reuses a photo already loaded for its thumbnail. Without
+/// [local] only the server's file is considered.
 Future<File> stageAttachment(
   MediaStore store,
   ChatAttachment attachment, {
   required bool local,
+  Uint8List? imageBytes,
 }) {
-  final bytes = local ? attachment.bytes : null;
+  final bytes = local ? imageBytes ?? attachment.bytes : null;
   if (bytes != null) {
     return store.stageBytes(
       'embedded:${sha256.convert(bytes)}',
@@ -93,15 +96,22 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
   ///
   /// With [preview], a failure is also reported to telemetry as a failed
   /// Quick Look. [local] also stages picked or embedded files when a client
-  /// player, rather than Quick Look, consumes them.
+  /// player, rather than Quick Look, consumes them. [imageBytes] reuses a
+  /// photo's existing bytes instead of downloading it again.
   Future<void> useFile(
     Future<void> Function(MediaStore store, File file) then, {
     QuickLookTrigger? preview,
     bool? local,
+    Uint8List? imageBytes,
   }) async {
     final store = context.read<MediaStore?>();
-    if (store == null || _busy || !hasFile) return;
     final useLocal = local ?? quickLookTargetsAt(context);
+    final requested = attachment;
+    if (store == null ||
+        _busy ||
+        !attachmentHasFile(requested, store, local: useLocal)) {
+      return;
+    }
     final messenger = ScaffoldMessenger.maybeOf(context);
     final telemetry = QuickLookTelemetry.of(context);
     setState(() {
@@ -109,8 +119,13 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
       clearFetchFailure();
     });
     try {
-      final file = await stageAttachment(store, attachment, local: useLocal);
-      if (!mounted) return;
+      final file = await stageAttachment(
+        store,
+        requested,
+        local: useLocal,
+        imageBytes: imageBytes,
+      );
+      if (!mounted || !identical(requested, attachment)) return;
       await then(store, file);
     } on MediaFetchException catch (e) {
       if (preview != null) {
@@ -125,9 +140,11 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
       }
       if (mounted) failedToFetch(e.reason);
     } on Object {
-      messenger?.showSnackBar(
-        const SnackBar(content: Text('Something went wrong. Try again.')),
-      );
+      if (mounted) {
+        messenger?.showSnackBar(
+          const SnackBar(content: Text('Something went wrong. Try again.')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

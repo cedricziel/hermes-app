@@ -108,13 +108,23 @@ void main() {
   group('platformQuickLook', () {
     tearDown(() => debugDefaultTargetPlatformOverride = null);
 
+    test(
+      'is a native preview on iOS without requesting double-click timing',
+      () async {
+        answer((_) => true);
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        expect(platformQuickLook(), isA<MethodChannelQuickLook>());
+        await pumpEventQueue();
+        expect(calls, isEmpty);
+      },
+    );
+
     test('is the panel on macOS', () {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       expect(platformQuickLook(), isA<MethodChannelQuickLook>());
     });
 
     for (final platform in [
-      TargetPlatform.iOS,
       TargetPlatform.android,
       TargetPlatform.windows,
       TargetPlatform.linux,

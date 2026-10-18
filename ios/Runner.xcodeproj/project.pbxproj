@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CF8300010000000000000001 /* PhotoPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8300010000000000000002 /* PhotoPreview.swift */; };
 		C900BFAD4E3FACB17EC29FE4 /* HermesLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A065B676562D3FF98F33E24 /* HermesLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		344A12BA9B08653AFA499068 /* HermesLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02A68B8ECBAECDA4AA375D6 /* HermesLiveActivity.swift */; };
 		5D0000000000000000000065 /* SurfaceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000001 /* SurfaceProvider.swift */; };
@@ -182,6 +183,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CF8300010000000000000002 /* PhotoPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPreview.swift; sourceTree = "<group>"; };
 		0A065B676562D3FF98F33E24 /* HermesLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HermesLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D02A68B8ECBAECDA4AA375D6 /* HermesLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesLiveActivity.swift; sourceTree = "<group>"; };
 		5D0000000000000000000001 /* SurfaceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurfaceProvider.swift; sourceTree = "<group>"; };
@@ -515,6 +517,7 @@
 				1B21F50268EC1F9DD82F2DF0 /* WatchRelay.swift */,
 				B4C7A1D20F3E5A9C6B8D1E04 /* BackgroundPlugins.swift */,
 				C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */,
+				CF8300010000000000000002 /* PhotoPreview.swift */,
 				5A1F0C2E7B3D4E6F90A1B2C3 /* KeyCommandMenu.swift */,
 				5F0A7C1E2B3D4A6980C1D2E4 /* Spotlight.swift */,
 				5D000000000000000000000E /* HermesAppShortcuts.swift */,
@@ -891,6 +894,7 @@
 				716D696945CB43F29555F6C9 /* WatchRelay.swift in Sources */,
 				B4C7A1D30F3E5A9C6B8D1E05 /* BackgroundPlugins.swift in Sources */,
 				DE381E177B356134B5F8DAC2 /* WebAuthSession.swift in Sources */,
+				CF8300010000000000000001 /* PhotoPreview.swift in Sources */,
 				6B2E1D3F8C4E5F7A01B2C3D4 /* KeyCommandMenu.swift in Sources */,
 				5F0A7C1E2B3D4A6980C1D2E3 /* Spotlight.swift in Sources */,
 				5D0000000000000000000072 /* SurfaceSnapshot.swift in Sources */,

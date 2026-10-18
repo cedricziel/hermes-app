@@ -19,8 +19,10 @@ export interface ImageViewerScreenProps {
 }
 
 /**
- * The full-screen viewer a tapped image attachment opens (`ImageViewerPage`
- * in the app): black in both themes, a 56px bar with Close, the file name
+ * The Flutter fallback viewer outside iOS (`ImageViewerPage` in the app).
+ * iOS chat photos use Apple's Quick Look sheet with native sharing and drag
+ * dismissal; this component does not recreate that system presentation.
+ * Black in both themes, a 56px bar with Close, the file name
  * and Save in white, and the image fitted in the middle (the app lets it be
  * pinched up to 8x). Fills its parent.
  */

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// The channel `macos/Runner/QuickLookPanel.swift` listens on.
+/// The channel the macOS Quick Look panel and iOS photo preview listen on.
 const quickLookChannelName = 'hermes_app/quick_look';
 
 /// What [QuickLook.toggle] did.
@@ -77,9 +77,12 @@ class MethodChannelQuickLook implements QuickLook {
 
   final MethodChannel _channel;
 
-  /// Whether this platform has the panel: macOS only.
+  /// Whether this platform has native Quick Look: a panel on macOS or a
+  /// dismissible preview with system sharing on iOS.
   static bool get supported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   /// What the panel answered, or null when it could not (a platform error, or
   /// an engine that never installed the channel).
@@ -119,12 +122,14 @@ class MethodChannelQuickLook implements QuickLook {
   }
 }
 
-/// The Quick Look of this platform: the panel on macOS, none elsewhere.
+/// The Quick Look of this platform: a Mac panel or iOS preview sheet.
 ///
-/// Each engine that asks also reads the system's double-click interval, once.
+/// A Mac engine also reads the system's double-click interval once.
 QuickLook platformQuickLook() {
   if (!MethodChannelQuickLook.supported) return const NoQuickLook();
   const quickLook = MethodChannelQuickLook();
-  unawaited(readDoubleClickInterval(quickLook));
+  if (defaultTargetPlatform == TargetPlatform.macOS) {
+    unawaited(readDoubleClickInterval(quickLook));
+  }
   return quickLook;
 }
