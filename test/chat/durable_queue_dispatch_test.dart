@@ -185,6 +185,58 @@ void main() {
     ]);
   });
 
+  for (final discard in [false, true]) {
+    test(
+      'fresh queue auto-sends after ${discard ? 'discarding' : 'sending'} the last suspended entry',
+      () async {
+        await store.commit(scope(), 'recovered');
+        final chat = await open();
+        // Session recovery retains the queue but suspends it until review.
+        activity.value = false;
+        activity.value = true;
+        await pumpEventQueue();
+        while (chat.loadingThreads) {
+          await pumpEventQueue();
+        }
+        chat.select('stored');
+        await queueIdle(chat);
+        await pumpEventQueue();
+        final thread = chat.selectedThread!;
+        expect(chat.queueNeedsReview(thread), true);
+        expect(transport.sends, isEmpty);
+        if (discard) {
+          await chat.removeQueued(thread, chat.queuedIn(thread).single);
+          await chat.submit('new turn', const []);
+        } else {
+          chat.sendQueued(thread);
+          await transport.prepared.timeout(const Duration(seconds: 5));
+          await pumpEventQueue();
+        }
+        expect(chat.queuedIn(thread), isEmpty);
+        expect(await chat.submit('fresh follow-up', const []), true);
+        expect(chat.queueNeedsReview(thread), false);
+        final first = transport.sends.single;
+        first
+          ..emit(const ReplyCompleted('Done'))
+          ..emit(const SessionInfo(running: false))
+          ..finish();
+        await pumpEventQueue();
+        await queueIdle(chat);
+        await pumpEventQueue();
+        expect(transport.sends.map((send) => send.text), [
+          discard ? 'new turn' : 'recovered',
+          'fresh follow-up',
+        ]);
+        transport.sends.last
+          ..emit(const ReplyCompleted('Follow-up done'))
+          ..emit(const SessionInfo(running: false))
+          ..finish();
+        await pumpEventQueue();
+        await store.load(scope());
+      },
+    );
+  }
+
   test(
     'same session ID restores only its exact profile after switching',
     () async {

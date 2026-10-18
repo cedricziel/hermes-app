@@ -1055,6 +1055,13 @@ The system SHALL hold the messages queued on a thread, text and attachments, in 
 - **THEN** the first queued message is sent and moves into the transcript with a thinking placeholder
 - **AND** the second stays queued until that reply completes, and is then sent
 
+#### Scenario: Fresh messages after recovered work is handled
+
+- **GIVEN** session recovery suspended a queue for explicit review
+- **WHEN** its last recovered entry is explicitly sent and accepted, or removed
+- **AND WHEN** a fresh message is queued during the next reply
+- **THEN** the fresh message is sent automatically after successful completion and session settlement
+
 #### Scenario: Sent only once the session settled
 
 - **WHEN** a message is queued during the current app visit and the reply completes

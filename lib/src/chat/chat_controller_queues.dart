@@ -348,7 +348,10 @@ extension _ChatControllerQueues on ChatController {
     if (prompt.durable != null) return _removeProtectedQueue(thread, prompt);
     final queue = _queues[thread];
     if (queue == null || !queue.remove(prompt)) return Future<void>.value();
-    if (queue.isEmpty) _queues.remove(thread);
+    if (queue.isEmpty) {
+      _queues.remove(thread);
+      _suspendedQueues.remove(thread);
+    }
     notifyListeners();
     return Future<void>.value();
   }
@@ -370,6 +373,7 @@ extension _ChatControllerQueues on ChatController {
       if (_queues[thread]?.isEmpty ?? false) {
         _queues.remove(thread);
         _restoredQueues.remove(thread);
+        _suspendedQueues.remove(thread);
       }
       breadcrumbs('chat.queue.removed', {
         'count': 1,
@@ -531,6 +535,9 @@ extension _ChatControllerQueues on ChatController {
     if (_queues[thread]?.isEmpty ?? false) {
       _queues.remove(thread);
       _restoredQueues.remove(thread);
+      // The recovered batch has been explicitly handled. Its suspension
+      // must not prevent fresh prompts from draining after this reply.
+      _suspendedQueues.remove(thread);
     }
     if (active) notifyListeners();
     unawaited(() async {
