@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.67](https://github.com/cedricziel/hermes-app/compare/v0.1.66...v0.1.67) (2026-10-18)
+
+
+### Bug Fixes
+
+* **build:** keep Apple audio libraries on Swift Package Manager ([#785](https://github.com/cedricziel/hermes-app/issues/785)) ([e7ed577](https://github.com/cedricziel/hermes-app/commit/e7ed577231342fef6bdb8451b668341f07406af6))
+* **iOS:** preview chat photos with native sharing and swipe dismissal ([#783](https://github.com/cedricziel/hermes-app/issues/783)) ([f14c444](https://github.com/cedricziel/hermes-app/commit/f14c4443cd3687d7d046323bf2ec7233d47b5538))
+
 ## [0.1.66](https://github.com/cedricziel/hermes-app/compare/v0.1.65...v0.1.66) (2026-10-18)
 
 
