@@ -11,6 +11,7 @@ import 'dart:async';
 import '../chat/chat_models.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/notification_settings.dart';
+import '../notifications/request_notifications.dart';
 import '../schedules/schedule_alerts.dart';
 import '../schedules/schedule_baseline.dart';
 import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
@@ -166,8 +167,9 @@ class RunningRepliesStep extends BackgroundStep {
         threadId: reply.threadId,
         profile: reply.profile,
         title: thread?.title ?? kUnnamedChatLabel,
-        body: preview,
+        body: await context.appLockOn() ? kReplyReadyBody : preview,
         bodyIsPlainText: true,
+        category: replyReadyCategory,
       ),
     );
     return _Verdict.announced;

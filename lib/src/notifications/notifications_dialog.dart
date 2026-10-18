@@ -98,9 +98,9 @@ class _NotificationsDialog extends StatelessWidget {
         if (liveActivities case final activities?)
           GroupedSection(
             footer:
-                'Show a reply you sent on the Lock Screen and in the Dynamic '
-                'Island while Hermes is running. It only says whether Hermes '
-                'is working, waiting for you or done.',
+                'Follow reply progress on the Lock Screen and in the Dynamic '
+                'Island. Completed replies include a short preview, subject '
+                'to iOS privacy settings and App Lock.',
             children: [
               ValueListenableBuilder<bool?>(
                 valueListenable: activities.systemAllowed,

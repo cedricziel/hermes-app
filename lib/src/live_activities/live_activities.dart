@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
+import '../app_lock/app_lock_controller.dart';
+import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -34,6 +36,7 @@ class _Activity {
   final String? profile;
   final DateTime startedAt;
   ReplyActivityState state = ReplyActivityState.working;
+  String preview = '';
 
   /// The values last sent to iOS, to skip updates that change nothing.
   Map<String, Object>? shown;
@@ -48,6 +51,7 @@ class LiveActivities with WidgetsBindingObserver {
   LiveActivities({
     required this.service,
     required this.settings,
+    this.appLock,
     Stream<void>? signedOut,
     this.breadcrumbs = Breadcrumbs.none,
     DateTime Function()? now,
@@ -58,10 +62,12 @@ class LiveActivities with WidgetsBindingObserver {
     _signedOut = signedOut?.listen((_) => _endAll('signed_out'));
     _launch = service.launchTap();
     settings.addListener(_onSettings);
+    appLock?.addListener(_onPrivacyChanged);
   }
 
   final LiveActivityService service;
   final NotificationSettings settings;
+  final AppLockController? appLock;
   final Breadcrumbs breadcrumbs;
   final DateTime Function() _now;
 
@@ -156,6 +162,10 @@ class LiveActivities with WidgetsBindingObserver {
       return;
     }
     activity.state = next;
+    if (event case ReplyCompleted(:final text, failed: false)
+        when _previewsAllowed) {
+      activity.preview = replyPreview(text);
+    }
     _push(thread, activity);
     // A finished activity stays in the map so that the next send in this chat
     // replaces it.
@@ -208,6 +218,21 @@ class LiveActivities with WidgetsBindingObserver {
     _wasOn = on;
   }
 
+  bool get _previewsAllowed =>
+      appLock == null || (appLock!.loaded && !appLock!.enabled);
+
+  void _onPrivacyChanged() {
+    if (_previewsAllowed) return;
+    // Finished activities cannot be updated by ActivityKit. Dismiss any
+    // lingering preview if App Lock is enabled after its reply completed.
+    for (final entry in _activities.entries.toList()) {
+      if (entry.value.preview.isNotEmpty) {
+        entry.value.preview = '';
+        _end(entry.key, 'privacy');
+      }
+    }
+  }
+
   Duration get _staleIn =>
       _focused ? kForegroundStaleAfter : kBackgroundStaleAfter;
 
@@ -215,6 +240,7 @@ class LiveActivities with WidgetsBindingObserver {
     'title': thread.title,
     'state': activity.state.name,
     'label': activity.state.label,
+    'preview': activity.preview,
     'startedAt': activity.startedAt.millisecondsSinceEpoch.toDouble(),
     'threadId': thread.id,
     'profile': activity.profile ?? '',
@@ -272,6 +298,7 @@ class LiveActivities with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     settings.removeListener(_onSettings);
+    appLock?.removeListener(_onPrivacyChanged);
     unawaited(_signedOut?.cancel());
     systemAllowed.dispose();
   }

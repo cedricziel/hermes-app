@@ -22,12 +22,13 @@ extension LiveActivitiesAppAttributes {
 let appGroup = Bundle.main.object(forInfoDictionaryKey: "AppGroupId") as? String
   ?? "group.com.cedricziel.hermesApp"
 
-/// What the app last wrote for one activity. Only a title and a fixed label:
-/// nothing a reply, command or question said reaches the Lock Screen.
+/// What the app last wrote for one activity. Completed reply previews are
+/// privacy-sensitive; commands, questions and streaming text stay in the app.
 struct ReplyActivity {
   let title: String
   let state: String
   let label: String
+  let preview: String
   let startedAt: Date
   let url: URL?
 
@@ -37,8 +38,10 @@ struct ReplyActivity {
       defaults?.string(forKey: attributes.prefixedKey(key)) ?? ""
     }
     title = string("title").isEmpty ? "Hermes" : string("title")
-    state = string("state")
+    let storedState = string("state")
+    state = storedState
     label = string("label").isEmpty ? "Working" : string("label")
+    preview = storedState == "ready" ? string("preview") : ""
     let millis = defaults?.double(forKey: attributes.prefixedKey("startedAt")) ?? 0
     startedAt = millis > 0 ? Date(timeIntervalSince1970: millis / 1000) : .now
     var components = URLComponents()
@@ -171,7 +174,7 @@ struct SmallView: View {
         .font(.title3)
         .foregroundStyle(reply.tint)
       VStack(alignment: .leading, spacing: 0) {
-        Text(reply.title).font(.headline).lineLimit(1)
+        Text(reply.title).font(.headline).lineLimit(1).privacySensitive()
         if stale && !reply.finished {
           Text("Open Hermes").font(.caption).foregroundStyle(.secondary)
         } else if reply.working {
@@ -210,15 +213,21 @@ struct LockScreenView: View {
   }
 }
 
-/// The chat's title and state, and a note when the app may be behind.
+/// The title, fixed status and private completed preview, plus a stale note.
 struct ReplyText: View {
   let reply: ReplyActivity
   let stale: Bool
 
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
-      Text(reply.title).font(.headline).lineLimit(1)
+      Text(reply.title).font(.headline).lineLimit(1).privacySensitive()
       Text(reply.label).font(.subheadline).foregroundStyle(.secondary)
+      if !reply.preview.isEmpty {
+        Text(reply.preview)
+          .font(.subheadline)
+          .lineLimit(3)
+          .privacySensitive()
+      }
       if stale && !reply.finished {
         Text("Open Hermes for the latest").font(.caption).foregroundStyle(.secondary)
       }

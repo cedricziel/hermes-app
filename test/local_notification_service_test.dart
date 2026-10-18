@@ -448,6 +448,35 @@ void main() {
       expect(plugin.posted.single.body, '**literal**');
     });
 
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      test(
+        'reply previews stay readable with a hidden-preview category on $platform',
+        () async {
+          debugDefaultTargetPlatformOverride = platform;
+          await service.show(
+            attentionFor(
+              event: const ReplyCompleted('**Done** with the update.'),
+              thread: ChatThread(
+                id: 'preview',
+                title: 'Update',
+                updatedAt: DateTime(2026),
+              ),
+              appFocused: false,
+              selectedThreadId: null,
+              enabled: true,
+            )!,
+          );
+          final note = plugin.posted.single;
+          expect(note.body, 'Done with the update.');
+          expect(
+            note.details?.iOS?.categoryIdentifier,
+            platform == TargetPlatform.iOS ? replyReadyCategory.id : null,
+          );
+          expect(note.details?.iOS?.interruptionLevel, isNull);
+        },
+      );
+    }
+
     test('posts a scheduled task with a payload that opens the task', () async {
       await service.show(
         const AttentionNotification.job(
