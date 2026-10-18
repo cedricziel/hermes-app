@@ -143,6 +143,8 @@ class _FollowingChatListState extends State<FollowingChatList> {
         child: ChatAnimatedList(
           itemBuilder: _countingItemBuilder,
           scrollController: _scroll,
+          // Short threads still need to accept a drag to dismiss the keyboard.
+          physics: const AlwaysScrollableScrollPhysics(),
           onEndReached: widget.onEndReached,
           initialScrollToEndMode: InitialScrollToEndMode.none,
           shouldScrollToEndWhenAtBottom: false,

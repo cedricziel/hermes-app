@@ -35,6 +35,8 @@ class WelcomeView extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, viewport) => SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(bottom: bottomPadding),
         child: ConstrainedBox(
           constraints: BoxConstraints(
