@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.68](https://github.com/cedricziel/hermes-app/compare/v0.1.67...v0.1.68) (2026-10-18)
+
+
+### Features
+
+* **chat:** hold Send to record a voice attachment before sending ([#786](https://github.com/cedricziel/hermes-app/issues/786)) ([6c8e396](https://github.com/cedricziel/hermes-app/commit/6c8e396b7fc4ed7b3c59d2d28f8ed7e9d1cc0ed6))
+* **ios:** show completed reply previews on system surfaces ([#791](https://github.com/cedricziel/hermes-app/issues/791)) ([0b594c0](https://github.com/cedricziel/hermes-app/commit/0b594c0dc0dfc41badc7375806c453b8cb459a3b))
+
+
+### Bug Fixes
+
+* **chat:** keep activity and queued messages compact ([#789](https://github.com/cedricziel/hermes-app/issues/789)) ([60eaf82](https://github.com/cedricziel/hermes-app/commit/60eaf82f0e683de6cbe7f22097e62f51b647db17))
+* **chat:** move memory recall and review events into the inspector ([#787](https://github.com/cedricziel/hermes-app/issues/787)) ([4b7f491](https://github.com/cedricziel/hermes-app/commit/4b7f49101c6ebed33ac5ad1dc61e6861f1caca84))
+* **chat:** resume fresh queues after recovered work is handled ([#793](https://github.com/cedricziel/hermes-app/issues/793)) ([bd4168a](https://github.com/cedricziel/hermes-app/commit/bd4168a5b54e7f1a2c4f00ae0e21b262232e2d34))
+* **chat:** show underlying tool names and readable command arguments ([#790](https://github.com/cedricziel/hermes-app/issues/790)) ([684a9f8](https://github.com/cedricziel/hermes-app/commit/684a9f83dd5eca39331a99d7ce42b9a3cf628ae9))
+
 ## [0.1.67](https://github.com/cedricziel/hermes-app/compare/v0.1.66...v0.1.67) (2026-10-18)
 
 
