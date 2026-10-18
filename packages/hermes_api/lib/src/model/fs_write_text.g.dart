@@ -11,44 +11,49 @@ abstract class _$FsWriteTextCWProxy {
 
   FsWriteText content(String content);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `FsWriteText(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `FsWriteText(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// FsWriteText(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   FsWriteText call({String path, String content});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfFsWriteText.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfFsWriteText.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfFsWriteText.copyWith(...)` or call `instanceOfFsWriteText.copyWith.fieldName(value)` for a single field.
 class _$FsWriteTextCWProxyImpl implements _$FsWriteTextCWProxy {
   const _$FsWriteTextCWProxyImpl(this._value);
 
   final FsWriteText _value;
 
   @override
-  FsWriteText path(String path) => this(path: path);
+  FsWriteText path(String path) => call(path: path);
 
   @override
-  FsWriteText content(String content) => this(content: content);
+  FsWriteText content(String content) => call(content: content);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `FsWriteText(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `FsWriteText(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// FsWriteText(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   FsWriteText call({
     Object? path = const $CopyWithPlaceholder(),
     Object? content = const $CopyWithPlaceholder(),
   }) {
     return FsWriteText(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
-      content: content == const $CopyWithPlaceholder()
+      content: content == const $CopyWithPlaceholder() || content == null
           ? _value.content
           // ignore: cast_nullable_to_non_nullable
           : content as String,
@@ -57,7 +62,8 @@ class _$FsWriteTextCWProxyImpl implements _$FsWriteTextCWProxy {
 }
 
 extension $FsWriteTextCopyWith on FsWriteText {
-  /// Returns a callable class that can be used as follows: `instanceOfFsWriteText.copyWith(...)` or like so:`instanceOfFsWriteText.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfFsWriteText.copyWith(...)` or `instanceOfFsWriteText.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$FsWriteTextCWProxy get copyWith => _$FsWriteTextCWProxyImpl(this);
 }

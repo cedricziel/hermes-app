@@ -11,40 +11,45 @@ abstract class _$CommentBodyCWProxy {
 
   CommentBody author(String? author);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CommentBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CommentBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CommentBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CommentBody call({String body, String? author});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCommentBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCommentBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCommentBody.copyWith(...)` or call `instanceOfCommentBody.copyWith.fieldName(value)` for a single field.
 class _$CommentBodyCWProxyImpl implements _$CommentBodyCWProxy {
   const _$CommentBodyCWProxyImpl(this._value);
 
   final CommentBody _value;
 
   @override
-  CommentBody body(String body) => this(body: body);
+  CommentBody body(String body) => call(body: body);
 
   @override
-  CommentBody author(String? author) => this(author: author);
+  CommentBody author(String? author) => call(author: author);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CommentBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CommentBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CommentBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CommentBody call({
     Object? body = const $CopyWithPlaceholder(),
     Object? author = const $CopyWithPlaceholder(),
   }) {
     return CommentBody(
-      body: body == const $CopyWithPlaceholder()
+      body: body == const $CopyWithPlaceholder() || body == null
           ? _value.body
           // ignore: cast_nullable_to_non_nullable
           : body as String,
@@ -57,7 +62,8 @@ class _$CommentBodyCWProxyImpl implements _$CommentBodyCWProxy {
 }
 
 extension $CommentBodyCopyWith on CommentBody {
-  /// Returns a callable class that can be used as follows: `instanceOfCommentBody.copyWith(...)` or like so:`instanceOfCommentBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCommentBody.copyWith(...)` or `instanceOfCommentBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CommentBodyCWProxy get copyWith => _$CommentBodyCWProxyImpl(this);
 }

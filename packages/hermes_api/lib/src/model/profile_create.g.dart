@@ -31,12 +31,14 @@ abstract class _$ProfileCreateCWProxy {
 
   ProfileCreate hubSkills(List<String>? hubSkills);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ProfileCreate call({
     String name,
     String? cloneFrom,
@@ -53,61 +55,64 @@ abstract class _$ProfileCreateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfProfileCreate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfProfileCreate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfProfileCreate.copyWith(...)` or call `instanceOfProfileCreate.copyWith.fieldName(value)` for a single field.
 class _$ProfileCreateCWProxyImpl implements _$ProfileCreateCWProxy {
   const _$ProfileCreateCWProxyImpl(this._value);
 
   final ProfileCreate _value;
 
   @override
-  ProfileCreate name(String name) => this(name: name);
+  ProfileCreate name(String name) => call(name: name);
 
   @override
-  ProfileCreate cloneFrom(String? cloneFrom) => this(cloneFrom: cloneFrom);
+  ProfileCreate cloneFrom(String? cloneFrom) => call(cloneFrom: cloneFrom);
 
   @override
   ProfileCreate cloneFromDefault(bool? cloneFromDefault) =>
-      this(cloneFromDefault: cloneFromDefault);
+      call(cloneFromDefault: cloneFromDefault);
 
   @override
-  ProfileCreate cloneAll(bool? cloneAll) => this(cloneAll: cloneAll);
+  ProfileCreate cloneAll(bool? cloneAll) => call(cloneAll: cloneAll);
 
   @override
   ProfileCreate cloneChannels(bool? cloneChannels) =>
-      this(cloneChannels: cloneChannels);
+      call(cloneChannels: cloneChannels);
 
   @override
-  ProfileCreate noSkills(bool? noSkills) => this(noSkills: noSkills);
+  ProfileCreate noSkills(bool? noSkills) => call(noSkills: noSkills);
 
   @override
   ProfileCreate description(String? description) =>
-      this(description: description);
+      call(description: description);
 
   @override
-  ProfileCreate provider(String? provider) => this(provider: provider);
+  ProfileCreate provider(String? provider) => call(provider: provider);
 
   @override
-  ProfileCreate model(String? model) => this(model: model);
+  ProfileCreate model(String? model) => call(model: model);
 
   @override
   ProfileCreate mcpServers(List<MCPServerCreate>? mcpServers) =>
-      this(mcpServers: mcpServers);
+      call(mcpServers: mcpServers);
 
   @override
   ProfileCreate keepSkills(List<String>? keepSkills) =>
-      this(keepSkills: keepSkills);
+      call(keepSkills: keepSkills);
 
   @override
   ProfileCreate hubSkills(List<String>? hubSkills) =>
-      this(hubSkills: hubSkills);
+      call(hubSkills: hubSkills);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ProfileCreate call({
     Object? name = const $CopyWithPlaceholder(),
     Object? cloneFrom = const $CopyWithPlaceholder(),
@@ -123,7 +128,7 @@ class _$ProfileCreateCWProxyImpl implements _$ProfileCreateCWProxy {
     Object? hubSkills = const $CopyWithPlaceholder(),
   }) {
     return ProfileCreate(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
@@ -176,7 +181,8 @@ class _$ProfileCreateCWProxyImpl implements _$ProfileCreateCWProxy {
 }
 
 extension $ProfileCreateCopyWith on ProfileCreate {
-  /// Returns a callable class that can be used as follows: `instanceOfProfileCreate.copyWith(...)` or like so:`instanceOfProfileCreate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfProfileCreate.copyWith(...)` or `instanceOfProfileCreate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ProfileCreateCWProxy get copyWith => _$ProfileCreateCWProxyImpl(this);
 }

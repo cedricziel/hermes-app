@@ -9,31 +9,36 @@ part of 'skills_update_request.dart';
 abstract class _$SkillsUpdateRequestCWProxy {
   SkillsUpdateRequest profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillsUpdateRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillsUpdateRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillsUpdateRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SkillsUpdateRequest call({String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSkillsUpdateRequest.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSkillsUpdateRequest.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSkillsUpdateRequest.copyWith(...)` or call `instanceOfSkillsUpdateRequest.copyWith.fieldName(value)` for a single field.
 class _$SkillsUpdateRequestCWProxyImpl implements _$SkillsUpdateRequestCWProxy {
   const _$SkillsUpdateRequestCWProxyImpl(this._value);
 
   final SkillsUpdateRequest _value;
 
   @override
-  SkillsUpdateRequest profile(String? profile) => this(profile: profile);
+  SkillsUpdateRequest profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillsUpdateRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillsUpdateRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillsUpdateRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SkillsUpdateRequest call({Object? profile = const $CopyWithPlaceholder()}) {
     return SkillsUpdateRequest(
       profile: profile == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$SkillsUpdateRequestCWProxyImpl implements _$SkillsUpdateRequestCWProxy {
 }
 
 extension $SkillsUpdateRequestCopyWith on SkillsUpdateRequest {
-  /// Returns a callable class that can be used as follows: `instanceOfSkillsUpdateRequest.copyWith(...)` or like so:`instanceOfSkillsUpdateRequest.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSkillsUpdateRequest.copyWith(...)` or `instanceOfSkillsUpdateRequest.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SkillsUpdateRequestCWProxy get copyWith =>
       _$SkillsUpdateRequestCWProxyImpl(this);

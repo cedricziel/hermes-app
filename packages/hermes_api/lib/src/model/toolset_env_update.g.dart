@@ -11,40 +11,45 @@ abstract class _$ToolsetEnvUpdateCWProxy {
 
   ToolsetEnvUpdate profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ToolsetEnvUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ToolsetEnvUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ToolsetEnvUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ToolsetEnvUpdate call({Map<String, String> env, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfToolsetEnvUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfToolsetEnvUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfToolsetEnvUpdate.copyWith(...)` or call `instanceOfToolsetEnvUpdate.copyWith.fieldName(value)` for a single field.
 class _$ToolsetEnvUpdateCWProxyImpl implements _$ToolsetEnvUpdateCWProxy {
   const _$ToolsetEnvUpdateCWProxyImpl(this._value);
 
   final ToolsetEnvUpdate _value;
 
   @override
-  ToolsetEnvUpdate env(Map<String, String> env) => this(env: env);
+  ToolsetEnvUpdate env(Map<String, String> env) => call(env: env);
 
   @override
-  ToolsetEnvUpdate profile(String? profile) => this(profile: profile);
+  ToolsetEnvUpdate profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ToolsetEnvUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ToolsetEnvUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ToolsetEnvUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ToolsetEnvUpdate call({
     Object? env = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return ToolsetEnvUpdate(
-      env: env == const $CopyWithPlaceholder()
+      env: env == const $CopyWithPlaceholder() || env == null
           ? _value.env
           // ignore: cast_nullable_to_non_nullable
           : env as Map<String, String>,
@@ -57,7 +62,8 @@ class _$ToolsetEnvUpdateCWProxyImpl implements _$ToolsetEnvUpdateCWProxy {
 }
 
 extension $ToolsetEnvUpdateCopyWith on ToolsetEnvUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfToolsetEnvUpdate.copyWith(...)` or like so:`instanceOfToolsetEnvUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfToolsetEnvUpdate.copyWith(...)` or `instanceOfToolsetEnvUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ToolsetEnvUpdateCWProxy get copyWith => _$ToolsetEnvUpdateCWProxyImpl(this);
 }

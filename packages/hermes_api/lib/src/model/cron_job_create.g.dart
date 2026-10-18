@@ -39,12 +39,14 @@ abstract class _$CronJobCreateCWProxy {
 
   CronJobCreate noAgent(bool? noAgent);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CronJobCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CronJobCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CronJobCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CronJobCreate call({
     bool? paused,
     String? pausedReason,
@@ -65,70 +67,73 @@ abstract class _$CronJobCreateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCronJobCreate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCronJobCreate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCronJobCreate.copyWith(...)` or call `instanceOfCronJobCreate.copyWith.fieldName(value)` for a single field.
 class _$CronJobCreateCWProxyImpl implements _$CronJobCreateCWProxy {
   const _$CronJobCreateCWProxyImpl(this._value);
 
   final CronJobCreate _value;
 
   @override
-  CronJobCreate paused(bool? paused) => this(paused: paused);
+  CronJobCreate paused(bool? paused) => call(paused: paused);
 
   @override
   CronJobCreate pausedReason(String? pausedReason) =>
-      this(pausedReason: pausedReason);
+      call(pausedReason: pausedReason);
 
   @override
-  CronJobCreate prompt(String? prompt) => this(prompt: prompt);
+  CronJobCreate prompt(String? prompt) => call(prompt: prompt);
 
   @override
-  CronJobCreate schedule(String schedule) => this(schedule: schedule);
+  CronJobCreate schedule(String schedule) => call(schedule: schedule);
 
   @override
-  CronJobCreate name(String? name) => this(name: name);
+  CronJobCreate name(String? name) => call(name: name);
 
   @override
-  CronJobCreate deliver(String? deliver) => this(deliver: deliver);
+  CronJobCreate deliver(String? deliver) => call(deliver: deliver);
 
   @override
-  CronJobCreate repeat(Object? repeat) => this(repeat: repeat);
+  CronJobCreate repeat(Object? repeat) => call(repeat: repeat);
 
   @override
-  CronJobCreate skills(List<String>? skills) => this(skills: skills);
+  CronJobCreate skills(List<String>? skills) => call(skills: skills);
 
   @override
-  CronJobCreate model(String? model) => this(model: model);
+  CronJobCreate model(String? model) => call(model: model);
 
   @override
-  CronJobCreate provider(String? provider) => this(provider: provider);
+  CronJobCreate provider(String? provider) => call(provider: provider);
 
   @override
-  CronJobCreate baseUrl(String? baseUrl) => this(baseUrl: baseUrl);
+  CronJobCreate baseUrl(String? baseUrl) => call(baseUrl: baseUrl);
 
   @override
-  CronJobCreate script(String? script) => this(script: script);
+  CronJobCreate script(String? script) => call(script: script);
 
   @override
   CronJobCreate contextFrom(Object? contextFrom) =>
-      this(contextFrom: contextFrom);
+      call(contextFrom: contextFrom);
 
   @override
   CronJobCreate enabledToolsets(List<String>? enabledToolsets) =>
-      this(enabledToolsets: enabledToolsets);
+      call(enabledToolsets: enabledToolsets);
 
   @override
-  CronJobCreate workdir(String? workdir) => this(workdir: workdir);
+  CronJobCreate workdir(String? workdir) => call(workdir: workdir);
 
   @override
-  CronJobCreate noAgent(bool? noAgent) => this(noAgent: noAgent);
+  CronJobCreate noAgent(bool? noAgent) => call(noAgent: noAgent);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CronJobCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CronJobCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CronJobCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CronJobCreate call({
     Object? paused = const $CopyWithPlaceholder(),
     Object? pausedReason = const $CopyWithPlaceholder(),
@@ -160,7 +165,7 @@ class _$CronJobCreateCWProxyImpl implements _$CronJobCreateCWProxy {
           ? _value.prompt
           // ignore: cast_nullable_to_non_nullable
           : prompt as String?,
-      schedule: schedule == const $CopyWithPlaceholder()
+      schedule: schedule == const $CopyWithPlaceholder() || schedule == null
           ? _value.schedule
           // ignore: cast_nullable_to_non_nullable
           : schedule as String,
@@ -217,7 +222,8 @@ class _$CronJobCreateCWProxyImpl implements _$CronJobCreateCWProxy {
 }
 
 extension $CronJobCreateCopyWith on CronJobCreate {
-  /// Returns a callable class that can be used as follows: `instanceOfCronJobCreate.copyWith(...)` or like so:`instanceOfCronJobCreate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCronJobCreate.copyWith(...)` or `instanceOfCronJobCreate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CronJobCreateCWProxy get copyWith => _$CronJobCreateCWProxyImpl(this);
 }

@@ -9,31 +9,36 @@ part of 'specify_body.dart';
 abstract class _$SpecifyBodyCWProxy {
   SpecifyBody author(String? author);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SpecifyBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SpecifyBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SpecifyBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SpecifyBody call({String? author});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSpecifyBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSpecifyBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSpecifyBody.copyWith(...)` or call `instanceOfSpecifyBody.copyWith.fieldName(value)` for a single field.
 class _$SpecifyBodyCWProxyImpl implements _$SpecifyBodyCWProxy {
   const _$SpecifyBodyCWProxyImpl(this._value);
 
   final SpecifyBody _value;
 
   @override
-  SpecifyBody author(String? author) => this(author: author);
+  SpecifyBody author(String? author) => call(author: author);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SpecifyBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SpecifyBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SpecifyBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SpecifyBody call({Object? author = const $CopyWithPlaceholder()}) {
     return SpecifyBody(
       author: author == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$SpecifyBodyCWProxyImpl implements _$SpecifyBodyCWProxy {
 }
 
 extension $SpecifyBodyCopyWith on SpecifyBody {
-  /// Returns a callable class that can be used as follows: `instanceOfSpecifyBody.copyWith(...)` or like so:`instanceOfSpecifyBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSpecifyBody.copyWith(...)` or `instanceOfSpecifyBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SpecifyBodyCWProxy get copyWith => _$SpecifyBodyCWProxyImpl(this);
 }

@@ -197,10 +197,10 @@ packages:
     dependency: transitive
     description:
       name: copy_with_extension
-      sha256: "28b8a99384df46f5287ed87e249869fddedd299752ea83603800448e0523f00b"
+      sha256: "9a832fe40e5a5fcbe58e094d2c857ac6b185f34ec200241051daebe48b1b0403"
       url: "https://pub.dev"
     source: hosted
-    version: "7.1.0"
+    version: "18.0.0"
   cross_cache:
     dependency: transitive
     description:

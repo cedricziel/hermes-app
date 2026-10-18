@@ -15,12 +15,14 @@ abstract class _$MoaModelSlotCWProxy {
 
   MoaModelSlot enabled(bool? enabled);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MoaModelSlot(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MoaModelSlot(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MoaModelSlot(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MoaModelSlot call({
     String? provider,
     String? model,
@@ -29,32 +31,35 @@ abstract class _$MoaModelSlotCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMoaModelSlot.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMoaModelSlot.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMoaModelSlot.copyWith(...)` or call `instanceOfMoaModelSlot.copyWith.fieldName(value)` for a single field.
 class _$MoaModelSlotCWProxyImpl implements _$MoaModelSlotCWProxy {
   const _$MoaModelSlotCWProxyImpl(this._value);
 
   final MoaModelSlot _value;
 
   @override
-  MoaModelSlot provider(String? provider) => this(provider: provider);
+  MoaModelSlot provider(String? provider) => call(provider: provider);
 
   @override
-  MoaModelSlot model(String? model) => this(model: model);
+  MoaModelSlot model(String? model) => call(model: model);
 
   @override
   MoaModelSlot reasoningEffort(String? reasoningEffort) =>
-      this(reasoningEffort: reasoningEffort);
+      call(reasoningEffort: reasoningEffort);
 
   @override
-  MoaModelSlot enabled(bool? enabled) => this(enabled: enabled);
+  MoaModelSlot enabled(bool? enabled) => call(enabled: enabled);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MoaModelSlot(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MoaModelSlot(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MoaModelSlot(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MoaModelSlot call({
     Object? provider = const $CopyWithPlaceholder(),
     Object? model = const $CopyWithPlaceholder(),
@@ -83,7 +88,8 @@ class _$MoaModelSlotCWProxyImpl implements _$MoaModelSlotCWProxy {
 }
 
 extension $MoaModelSlotCopyWith on MoaModelSlot {
-  /// Returns a callable class that can be used as follows: `instanceOfMoaModelSlot.copyWith(...)` or like so:`instanceOfMoaModelSlot.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMoaModelSlot.copyWith(...)` or `instanceOfMoaModelSlot.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MoaModelSlotCWProxy get copyWith => _$MoaModelSlotCWProxyImpl(this);
 }

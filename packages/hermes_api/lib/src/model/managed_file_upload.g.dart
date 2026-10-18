@@ -13,48 +13,53 @@ abstract class _$ManagedFileUploadCWProxy {
 
   ManagedFileUpload overwrite(bool? overwrite);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ManagedFileUpload(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ManagedFileUpload(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ManagedFileUpload(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ManagedFileUpload call({String path, String dataUrl, bool? overwrite});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfManagedFileUpload.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfManagedFileUpload.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfManagedFileUpload.copyWith(...)` or call `instanceOfManagedFileUpload.copyWith.fieldName(value)` for a single field.
 class _$ManagedFileUploadCWProxyImpl implements _$ManagedFileUploadCWProxy {
   const _$ManagedFileUploadCWProxyImpl(this._value);
 
   final ManagedFileUpload _value;
 
   @override
-  ManagedFileUpload path(String path) => this(path: path);
+  ManagedFileUpload path(String path) => call(path: path);
 
   @override
-  ManagedFileUpload dataUrl(String dataUrl) => this(dataUrl: dataUrl);
+  ManagedFileUpload dataUrl(String dataUrl) => call(dataUrl: dataUrl);
 
   @override
-  ManagedFileUpload overwrite(bool? overwrite) => this(overwrite: overwrite);
+  ManagedFileUpload overwrite(bool? overwrite) => call(overwrite: overwrite);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ManagedFileUpload(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ManagedFileUpload(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ManagedFileUpload(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ManagedFileUpload call({
     Object? path = const $CopyWithPlaceholder(),
     Object? dataUrl = const $CopyWithPlaceholder(),
     Object? overwrite = const $CopyWithPlaceholder(),
   }) {
     return ManagedFileUpload(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
-      dataUrl: dataUrl == const $CopyWithPlaceholder()
+      dataUrl: dataUrl == const $CopyWithPlaceholder() || dataUrl == null
           ? _value.dataUrl
           // ignore: cast_nullable_to_non_nullable
           : dataUrl as String,
@@ -67,7 +72,8 @@ class _$ManagedFileUploadCWProxyImpl implements _$ManagedFileUploadCWProxy {
 }
 
 extension $ManagedFileUploadCopyWith on ManagedFileUpload {
-  /// Returns a callable class that can be used as follows: `instanceOfManagedFileUpload.copyWith(...)` or like so:`instanceOfManagedFileUpload.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfManagedFileUpload.copyWith(...)` or `instanceOfManagedFileUpload.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ManagedFileUploadCWProxy get copyWith =>
       _$ManagedFileUploadCWProxyImpl(this);

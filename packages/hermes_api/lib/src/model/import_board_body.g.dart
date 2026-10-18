@@ -13,44 +13,49 @@ abstract class _$ImportBoardBodyCWProxy {
 
   ImportBoardBody switch_(bool? switch_);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ImportBoardBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ImportBoardBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ImportBoardBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ImportBoardBody call({String archive, String? slug, bool? switch_});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfImportBoardBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfImportBoardBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfImportBoardBody.copyWith(...)` or call `instanceOfImportBoardBody.copyWith.fieldName(value)` for a single field.
 class _$ImportBoardBodyCWProxyImpl implements _$ImportBoardBodyCWProxy {
   const _$ImportBoardBodyCWProxyImpl(this._value);
 
   final ImportBoardBody _value;
 
   @override
-  ImportBoardBody archive(String archive) => this(archive: archive);
+  ImportBoardBody archive(String archive) => call(archive: archive);
 
   @override
-  ImportBoardBody slug(String? slug) => this(slug: slug);
+  ImportBoardBody slug(String? slug) => call(slug: slug);
 
   @override
-  ImportBoardBody switch_(bool? switch_) => this(switch_: switch_);
+  ImportBoardBody switch_(bool? switch_) => call(switch_: switch_);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ImportBoardBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ImportBoardBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ImportBoardBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ImportBoardBody call({
     Object? archive = const $CopyWithPlaceholder(),
     Object? slug = const $CopyWithPlaceholder(),
     Object? switch_ = const $CopyWithPlaceholder(),
   }) {
     return ImportBoardBody(
-      archive: archive == const $CopyWithPlaceholder()
+      archive: archive == const $CopyWithPlaceholder() || archive == null
           ? _value.archive
           // ignore: cast_nullable_to_non_nullable
           : archive as String,
@@ -67,7 +72,8 @@ class _$ImportBoardBodyCWProxyImpl implements _$ImportBoardBodyCWProxy {
 }
 
 extension $ImportBoardBodyCopyWith on ImportBoardBody {
-  /// Returns a callable class that can be used as follows: `instanceOfImportBoardBody.copyWith(...)` or like so:`instanceOfImportBoardBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfImportBoardBody.copyWith(...)` or `instanceOfImportBoardBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ImportBoardBodyCWProxy get copyWith => _$ImportBoardBodyCWProxyImpl(this);
 }

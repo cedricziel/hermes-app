@@ -13,48 +13,53 @@ abstract class _$PairingRevokeCWProxy {
 
   PairingRevoke profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PairingRevoke(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PairingRevoke(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PairingRevoke(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   PairingRevoke call({String platform, String userId, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfPairingRevoke.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfPairingRevoke.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfPairingRevoke.copyWith(...)` or call `instanceOfPairingRevoke.copyWith.fieldName(value)` for a single field.
 class _$PairingRevokeCWProxyImpl implements _$PairingRevokeCWProxy {
   const _$PairingRevokeCWProxyImpl(this._value);
 
   final PairingRevoke _value;
 
   @override
-  PairingRevoke platform(String platform) => this(platform: platform);
+  PairingRevoke platform(String platform) => call(platform: platform);
 
   @override
-  PairingRevoke userId(String userId) => this(userId: userId);
+  PairingRevoke userId(String userId) => call(userId: userId);
 
   @override
-  PairingRevoke profile(String? profile) => this(profile: profile);
+  PairingRevoke profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PairingRevoke(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PairingRevoke(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PairingRevoke(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   PairingRevoke call({
     Object? platform = const $CopyWithPlaceholder(),
     Object? userId = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return PairingRevoke(
-      platform: platform == const $CopyWithPlaceholder()
+      platform: platform == const $CopyWithPlaceholder() || platform == null
           ? _value.platform
           // ignore: cast_nullable_to_non_nullable
           : platform as String,
-      userId: userId == const $CopyWithPlaceholder()
+      userId: userId == const $CopyWithPlaceholder() || userId == null
           ? _value.userId
           // ignore: cast_nullable_to_non_nullable
           : userId as String,
@@ -67,7 +72,8 @@ class _$PairingRevokeCWProxyImpl implements _$PairingRevokeCWProxy {
 }
 
 extension $PairingRevokeCopyWith on PairingRevoke {
-  /// Returns a callable class that can be used as follows: `instanceOfPairingRevoke.copyWith(...)` or like so:`instanceOfPairingRevoke.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfPairingRevoke.copyWith(...)` or `instanceOfPairingRevoke.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$PairingRevokeCWProxy get copyWith => _$PairingRevokeCWProxyImpl(this);
 }

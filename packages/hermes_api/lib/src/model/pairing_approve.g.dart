@@ -15,12 +15,14 @@ abstract class _$PairingApproveCWProxy {
 
   PairingApprove profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PairingApprove(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PairingApprove(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PairingApprove(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   PairingApprove call({
     String platform,
     String? code,
@@ -29,31 +31,34 @@ abstract class _$PairingApproveCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfPairingApprove.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfPairingApprove.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfPairingApprove.copyWith(...)` or call `instanceOfPairingApprove.copyWith.fieldName(value)` for a single field.
 class _$PairingApproveCWProxyImpl implements _$PairingApproveCWProxy {
   const _$PairingApproveCWProxyImpl(this._value);
 
   final PairingApprove _value;
 
   @override
-  PairingApprove platform(String platform) => this(platform: platform);
+  PairingApprove platform(String platform) => call(platform: platform);
 
   @override
-  PairingApprove code(String? code) => this(code: code);
+  PairingApprove code(String? code) => call(code: code);
 
   @override
-  PairingApprove requestId(String? requestId) => this(requestId: requestId);
+  PairingApprove requestId(String? requestId) => call(requestId: requestId);
 
   @override
-  PairingApprove profile(String? profile) => this(profile: profile);
+  PairingApprove profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PairingApprove(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PairingApprove(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PairingApprove(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   PairingApprove call({
     Object? platform = const $CopyWithPlaceholder(),
     Object? code = const $CopyWithPlaceholder(),
@@ -61,7 +66,7 @@ class _$PairingApproveCWProxyImpl implements _$PairingApproveCWProxy {
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return PairingApprove(
-      platform: platform == const $CopyWithPlaceholder()
+      platform: platform == const $CopyWithPlaceholder() || platform == null
           ? _value.platform
           // ignore: cast_nullable_to_non_nullable
           : platform as String,
@@ -82,7 +87,8 @@ class _$PairingApproveCWProxyImpl implements _$PairingApproveCWProxy {
 }
 
 extension $PairingApproveCopyWith on PairingApprove {
-  /// Returns a callable class that can be used as follows: `instanceOfPairingApprove.copyWith(...)` or like so:`instanceOfPairingApprove.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfPairingApprove.copyWith(...)` or `instanceOfPairingApprove.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$PairingApproveCWProxy get copyWith => _$PairingApproveCWProxyImpl(this);
 }

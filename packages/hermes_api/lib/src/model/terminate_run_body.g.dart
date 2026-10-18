@@ -9,31 +9,36 @@ part of 'terminate_run_body.dart';
 abstract class _$TerminateRunBodyCWProxy {
   TerminateRunBody reason(String? reason);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TerminateRunBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TerminateRunBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TerminateRunBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   TerminateRunBody call({String? reason});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfTerminateRunBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfTerminateRunBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfTerminateRunBody.copyWith(...)` or call `instanceOfTerminateRunBody.copyWith.fieldName(value)` for a single field.
 class _$TerminateRunBodyCWProxyImpl implements _$TerminateRunBodyCWProxy {
   const _$TerminateRunBodyCWProxyImpl(this._value);
 
   final TerminateRunBody _value;
 
   @override
-  TerminateRunBody reason(String? reason) => this(reason: reason);
+  TerminateRunBody reason(String? reason) => call(reason: reason);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TerminateRunBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TerminateRunBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TerminateRunBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   TerminateRunBody call({Object? reason = const $CopyWithPlaceholder()}) {
     return TerminateRunBody(
       reason: reason == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$TerminateRunBodyCWProxyImpl implements _$TerminateRunBodyCWProxy {
 }
 
 extension $TerminateRunBodyCopyWith on TerminateRunBody {
-  /// Returns a callable class that can be used as follows: `instanceOfTerminateRunBody.copyWith(...)` or like so:`instanceOfTerminateRunBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfTerminateRunBody.copyWith(...)` or `instanceOfTerminateRunBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$TerminateRunBodyCWProxy get copyWith => _$TerminateRunBodyCWProxyImpl(this);
 }

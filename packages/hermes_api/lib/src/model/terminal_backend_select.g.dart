@@ -11,16 +11,19 @@ abstract class _$TerminalBackendSelectCWProxy {
 
   TerminalBackendSelect profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TerminalBackendSelect(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TerminalBackendSelect(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TerminalBackendSelect(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   TerminalBackendSelect call({String backend, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfTerminalBackendSelect.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfTerminalBackendSelect.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfTerminalBackendSelect.copyWith(...)` or call `instanceOfTerminalBackendSelect.copyWith.fieldName(value)` for a single field.
 class _$TerminalBackendSelectCWProxyImpl
     implements _$TerminalBackendSelectCWProxy {
   const _$TerminalBackendSelectCWProxyImpl(this._value);
@@ -28,24 +31,26 @@ class _$TerminalBackendSelectCWProxyImpl
   final TerminalBackendSelect _value;
 
   @override
-  TerminalBackendSelect backend(String backend) => this(backend: backend);
+  TerminalBackendSelect backend(String backend) => call(backend: backend);
 
   @override
-  TerminalBackendSelect profile(String? profile) => this(profile: profile);
+  TerminalBackendSelect profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TerminalBackendSelect(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TerminalBackendSelect(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TerminalBackendSelect(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   TerminalBackendSelect call({
     Object? backend = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return TerminalBackendSelect(
-      backend: backend == const $CopyWithPlaceholder()
+      backend: backend == const $CopyWithPlaceholder() || backend == null
           ? _value.backend
           // ignore: cast_nullable_to_non_nullable
           : backend as String,
@@ -58,7 +63,8 @@ class _$TerminalBackendSelectCWProxyImpl
 }
 
 extension $TerminalBackendSelectCopyWith on TerminalBackendSelect {
-  /// Returns a callable class that can be used as follows: `instanceOfTerminalBackendSelect.copyWith(...)` or like so:`instanceOfTerminalBackendSelect.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfTerminalBackendSelect.copyWith(...)` or `instanceOfTerminalBackendSelect.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$TerminalBackendSelectCWProxy get copyWith =>
       _$TerminalBackendSelectCWProxyImpl(this);

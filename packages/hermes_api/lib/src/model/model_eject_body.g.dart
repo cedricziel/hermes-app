@@ -9,34 +9,39 @@ part of 'model_eject_body.dart';
 abstract class _$ModelEjectBodyCWProxy {
   ModelEjectBody modelId(String modelId);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ModelEjectBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ModelEjectBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ModelEjectBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ModelEjectBody call({String modelId});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfModelEjectBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfModelEjectBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfModelEjectBody.copyWith(...)` or call `instanceOfModelEjectBody.copyWith.fieldName(value)` for a single field.
 class _$ModelEjectBodyCWProxyImpl implements _$ModelEjectBodyCWProxy {
   const _$ModelEjectBodyCWProxyImpl(this._value);
 
   final ModelEjectBody _value;
 
   @override
-  ModelEjectBody modelId(String modelId) => this(modelId: modelId);
+  ModelEjectBody modelId(String modelId) => call(modelId: modelId);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ModelEjectBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ModelEjectBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ModelEjectBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ModelEjectBody call({Object? modelId = const $CopyWithPlaceholder()}) {
     return ModelEjectBody(
-      modelId: modelId == const $CopyWithPlaceholder()
+      modelId: modelId == const $CopyWithPlaceholder() || modelId == null
           ? _value.modelId
           // ignore: cast_nullable_to_non_nullable
           : modelId as String,
@@ -45,7 +50,8 @@ class _$ModelEjectBodyCWProxyImpl implements _$ModelEjectBodyCWProxy {
 }
 
 extension $ModelEjectBodyCopyWith on ModelEjectBody {
-  /// Returns a callable class that can be used as follows: `instanceOfModelEjectBody.copyWith(...)` or like so:`instanceOfModelEjectBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfModelEjectBody.copyWith(...)` or `instanceOfModelEjectBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ModelEjectBodyCWProxy get copyWith => _$ModelEjectBodyCWProxyImpl(this);
 }

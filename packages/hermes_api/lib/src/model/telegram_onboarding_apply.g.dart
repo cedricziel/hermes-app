@@ -11,16 +11,19 @@ abstract class _$TelegramOnboardingApplyCWProxy {
 
   TelegramOnboardingApply profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TelegramOnboardingApply(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TelegramOnboardingApply(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TelegramOnboardingApply(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   TelegramOnboardingApply call({List<String> allowedUserIds, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfTelegramOnboardingApply.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfTelegramOnboardingApply.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfTelegramOnboardingApply.copyWith(...)` or call `instanceOfTelegramOnboardingApply.copyWith.fieldName(value)` for a single field.
 class _$TelegramOnboardingApplyCWProxyImpl
     implements _$TelegramOnboardingApplyCWProxy {
   const _$TelegramOnboardingApplyCWProxyImpl(this._value);
@@ -29,24 +32,28 @@ class _$TelegramOnboardingApplyCWProxyImpl
 
   @override
   TelegramOnboardingApply allowedUserIds(List<String> allowedUserIds) =>
-      this(allowedUserIds: allowedUserIds);
+      call(allowedUserIds: allowedUserIds);
 
   @override
-  TelegramOnboardingApply profile(String? profile) => this(profile: profile);
+  TelegramOnboardingApply profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TelegramOnboardingApply(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TelegramOnboardingApply(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TelegramOnboardingApply(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   TelegramOnboardingApply call({
     Object? allowedUserIds = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return TelegramOnboardingApply(
-      allowedUserIds: allowedUserIds == const $CopyWithPlaceholder()
+      allowedUserIds:
+          allowedUserIds == const $CopyWithPlaceholder() ||
+              allowedUserIds == null
           ? _value.allowedUserIds
           // ignore: cast_nullable_to_non_nullable
           : allowedUserIds as List<String>,
@@ -59,7 +66,8 @@ class _$TelegramOnboardingApplyCWProxyImpl
 }
 
 extension $TelegramOnboardingApplyCopyWith on TelegramOnboardingApply {
-  /// Returns a callable class that can be used as follows: `instanceOfTelegramOnboardingApply.copyWith(...)` or like so:`instanceOfTelegramOnboardingApply.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfTelegramOnboardingApply.copyWith(...)` or `instanceOfTelegramOnboardingApply.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$TelegramOnboardingApplyCWProxy get copyWith =>
       _$TelegramOnboardingApplyCWProxyImpl(this);

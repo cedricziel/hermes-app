@@ -9,34 +9,39 @@ part of 'sideload_body.dart';
 abstract class _$SideloadBodyCWProxy {
   SideloadBody path(String path);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SideloadBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SideloadBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SideloadBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SideloadBody call({String path});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSideloadBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSideloadBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSideloadBody.copyWith(...)` or call `instanceOfSideloadBody.copyWith.fieldName(value)` for a single field.
 class _$SideloadBodyCWProxyImpl implements _$SideloadBodyCWProxy {
   const _$SideloadBodyCWProxyImpl(this._value);
 
   final SideloadBody _value;
 
   @override
-  SideloadBody path(String path) => this(path: path);
+  SideloadBody path(String path) => call(path: path);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SideloadBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SideloadBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SideloadBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SideloadBody call({Object? path = const $CopyWithPlaceholder()}) {
     return SideloadBody(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
@@ -45,7 +50,8 @@ class _$SideloadBodyCWProxyImpl implements _$SideloadBodyCWProxy {
 }
 
 extension $SideloadBodyCopyWith on SideloadBody {
-  /// Returns a callable class that can be used as follows: `instanceOfSideloadBody.copyWith(...)` or like so:`instanceOfSideloadBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSideloadBody.copyWith(...)` or `instanceOfSideloadBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SideloadBodyCWProxy get copyWith => _$SideloadBodyCWProxyImpl(this);
 }

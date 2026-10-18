@@ -31,12 +31,14 @@ abstract class _$CustomEndpointUpdateCWProxy {
     List<CustomEndpointModelDetail>? modelDetails,
   );
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CustomEndpointUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CustomEndpointUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CustomEndpointUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CustomEndpointUpdate call({
     String? id,
     String name,
@@ -52,7 +54,8 @@ abstract class _$CustomEndpointUpdateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCustomEndpointUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCustomEndpointUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCustomEndpointUpdate.copyWith(...)` or call `instanceOfCustomEndpointUpdate.copyWith.fieldName(value)` for a single field.
 class _$CustomEndpointUpdateCWProxyImpl
     implements _$CustomEndpointUpdateCWProxy {
   const _$CustomEndpointUpdateCWProxyImpl(this._value);
@@ -60,50 +63,52 @@ class _$CustomEndpointUpdateCWProxyImpl
   final CustomEndpointUpdate _value;
 
   @override
-  CustomEndpointUpdate id(String? id) => this(id: id);
+  CustomEndpointUpdate id(String? id) => call(id: id);
 
   @override
-  CustomEndpointUpdate name(String name) => this(name: name);
+  CustomEndpointUpdate name(String name) => call(name: name);
 
   @override
-  CustomEndpointUpdate baseUrl(String baseUrl) => this(baseUrl: baseUrl);
+  CustomEndpointUpdate baseUrl(String baseUrl) => call(baseUrl: baseUrl);
 
   @override
-  CustomEndpointUpdate model(String model) => this(model: model);
+  CustomEndpointUpdate model(String model) => call(model: model);
 
   @override
-  CustomEndpointUpdate apiKey(String? apiKey) => this(apiKey: apiKey);
+  CustomEndpointUpdate apiKey(String? apiKey) => call(apiKey: apiKey);
 
   @override
-  CustomEndpointUpdate apiMode(String? apiMode) => this(apiMode: apiMode);
+  CustomEndpointUpdate apiMode(String? apiMode) => call(apiMode: apiMode);
 
   @override
   CustomEndpointUpdate contextLength(int? contextLength) =>
-      this(contextLength: contextLength);
+      call(contextLength: contextLength);
 
   @override
   CustomEndpointUpdate discoverModels(bool? discoverModels) =>
-      this(discoverModels: discoverModels);
+      call(discoverModels: discoverModels);
 
   @override
   CustomEndpointUpdate makeDefault(bool? makeDefault) =>
-      this(makeDefault: makeDefault);
+      call(makeDefault: makeDefault);
 
   @override
-  CustomEndpointUpdate models(List<String>? models) => this(models: models);
+  CustomEndpointUpdate models(List<String>? models) => call(models: models);
 
   @override
   CustomEndpointUpdate modelDetails(
     List<CustomEndpointModelDetail>? modelDetails,
-  ) => this(modelDetails: modelDetails);
+  ) => call(modelDetails: modelDetails);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CustomEndpointUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CustomEndpointUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CustomEndpointUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CustomEndpointUpdate call({
     Object? id = const $CopyWithPlaceholder(),
     Object? name = const $CopyWithPlaceholder(),
@@ -122,15 +127,15 @@ class _$CustomEndpointUpdateCWProxyImpl
           ? _value.id
           // ignore: cast_nullable_to_non_nullable
           : id as String?,
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
-      baseUrl: baseUrl == const $CopyWithPlaceholder()
+      baseUrl: baseUrl == const $CopyWithPlaceholder() || baseUrl == null
           ? _value.baseUrl
           // ignore: cast_nullable_to_non_nullable
           : baseUrl as String,
-      model: model == const $CopyWithPlaceholder()
+      model: model == const $CopyWithPlaceholder() || model == null
           ? _value.model
           // ignore: cast_nullable_to_non_nullable
           : model as String,
@@ -167,7 +172,8 @@ class _$CustomEndpointUpdateCWProxyImpl
 }
 
 extension $CustomEndpointUpdateCopyWith on CustomEndpointUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfCustomEndpointUpdate.copyWith(...)` or like so:`instanceOfCustomEndpointUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCustomEndpointUpdate.copyWith(...)` or `instanceOfCustomEndpointUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CustomEndpointUpdateCWProxy get copyWith =>
       _$CustomEndpointUpdateCWProxyImpl(this);

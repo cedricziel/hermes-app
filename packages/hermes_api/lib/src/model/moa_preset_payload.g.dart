@@ -25,12 +25,14 @@ abstract class _$MoaPresetPayloadCWProxy {
 
   MoaPresetPayload enabled(bool? enabled);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MoaPresetPayload(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MoaPresetPayload(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MoaPresetPayload(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MoaPresetPayload call({
     num? referenceTimeout,
     MoaPresetPayloadDegradedReferencePolicyEnum? degradedReferencePolicy,
@@ -43,7 +45,8 @@ abstract class _$MoaPresetPayloadCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMoaPresetPayload.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMoaPresetPayload.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMoaPresetPayload.copyWith(...)` or call `instanceOfMoaPresetPayload.copyWith.fieldName(value)` for a single field.
 class _$MoaPresetPayloadCWProxyImpl implements _$MoaPresetPayloadCWProxy {
   const _$MoaPresetPayloadCWProxyImpl(this._value);
 
@@ -51,42 +54,44 @@ class _$MoaPresetPayloadCWProxyImpl implements _$MoaPresetPayloadCWProxy {
 
   @override
   MoaPresetPayload referenceTimeout(num? referenceTimeout) =>
-      this(referenceTimeout: referenceTimeout);
+      call(referenceTimeout: referenceTimeout);
 
   @override
   MoaPresetPayload degradedReferencePolicy(
     MoaPresetPayloadDegradedReferencePolicyEnum? degradedReferencePolicy,
-  ) => this(degradedReferencePolicy: degradedReferencePolicy);
+  ) => call(degradedReferencePolicy: degradedReferencePolicy);
 
   @override
   MoaPresetPayload referenceModels(List<MoaModelSlot>? referenceModels) =>
-      this(referenceModels: referenceModels);
+      call(referenceModels: referenceModels);
 
   @override
   MoaPresetPayload aggregator(MoaModelSlot? aggregator) =>
-      this(aggregator: aggregator);
+      call(aggregator: aggregator);
 
   @override
   MoaPresetPayload referenceTemperature(num? referenceTemperature) =>
-      this(referenceTemperature: referenceTemperature);
+      call(referenceTemperature: referenceTemperature);
 
   @override
   MoaPresetPayload aggregatorTemperature(num? aggregatorTemperature) =>
-      this(aggregatorTemperature: aggregatorTemperature);
+      call(aggregatorTemperature: aggregatorTemperature);
 
   @override
-  MoaPresetPayload fanout(String? fanout) => this(fanout: fanout);
+  MoaPresetPayload fanout(String? fanout) => call(fanout: fanout);
 
   @override
-  MoaPresetPayload enabled(bool? enabled) => this(enabled: enabled);
+  MoaPresetPayload enabled(bool? enabled) => call(enabled: enabled);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MoaPresetPayload(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MoaPresetPayload(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MoaPresetPayload(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MoaPresetPayload call({
     Object? referenceTimeout = const $CopyWithPlaceholder(),
     Object? degradedReferencePolicy = const $CopyWithPlaceholder(),
@@ -138,7 +143,8 @@ class _$MoaPresetPayloadCWProxyImpl implements _$MoaPresetPayloadCWProxy {
 }
 
 extension $MoaPresetPayloadCopyWith on MoaPresetPayload {
-  /// Returns a callable class that can be used as follows: `instanceOfMoaPresetPayload.copyWith(...)` or like so:`instanceOfMoaPresetPayload.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMoaPresetPayload.copyWith(...)` or `instanceOfMoaPresetPayload.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MoaPresetPayloadCWProxy get copyWith => _$MoaPresetPayloadCWProxyImpl(this);
 }

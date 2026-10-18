@@ -11,40 +11,45 @@ abstract class _$ToolsetToggleCWProxy {
 
   ToolsetToggle profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ToolsetToggle(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ToolsetToggle(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ToolsetToggle(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ToolsetToggle call({bool enabled, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfToolsetToggle.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfToolsetToggle.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfToolsetToggle.copyWith(...)` or call `instanceOfToolsetToggle.copyWith.fieldName(value)` for a single field.
 class _$ToolsetToggleCWProxyImpl implements _$ToolsetToggleCWProxy {
   const _$ToolsetToggleCWProxyImpl(this._value);
 
   final ToolsetToggle _value;
 
   @override
-  ToolsetToggle enabled(bool enabled) => this(enabled: enabled);
+  ToolsetToggle enabled(bool enabled) => call(enabled: enabled);
 
   @override
-  ToolsetToggle profile(String? profile) => this(profile: profile);
+  ToolsetToggle profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ToolsetToggle(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ToolsetToggle(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ToolsetToggle(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ToolsetToggle call({
     Object? enabled = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return ToolsetToggle(
-      enabled: enabled == const $CopyWithPlaceholder()
+      enabled: enabled == const $CopyWithPlaceholder() || enabled == null
           ? _value.enabled
           // ignore: cast_nullable_to_non_nullable
           : enabled as bool,
@@ -57,7 +62,8 @@ class _$ToolsetToggleCWProxyImpl implements _$ToolsetToggleCWProxy {
 }
 
 extension $ToolsetToggleCopyWith on ToolsetToggle {
-  /// Returns a callable class that can be used as follows: `instanceOfToolsetToggle.copyWith(...)` or like so:`instanceOfToolsetToggle.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfToolsetToggle.copyWith(...)` or `instanceOfToolsetToggle.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ToolsetToggleCWProxy get copyWith => _$ToolsetToggleCWProxyImpl(this);
 }

@@ -17,12 +17,14 @@ abstract class _$ValidationErrorCWProxy {
 
   ValidationError ctx(Object? ctx);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ValidationError(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ValidationError(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ValidationError(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ValidationError call({
     List<Object> loc,
     String msg,
@@ -32,34 +34,37 @@ abstract class _$ValidationErrorCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfValidationError.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfValidationError.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfValidationError.copyWith(...)` or call `instanceOfValidationError.copyWith.fieldName(value)` for a single field.
 class _$ValidationErrorCWProxyImpl implements _$ValidationErrorCWProxy {
   const _$ValidationErrorCWProxyImpl(this._value);
 
   final ValidationError _value;
 
   @override
-  ValidationError loc(List<Object> loc) => this(loc: loc);
+  ValidationError loc(List<Object> loc) => call(loc: loc);
 
   @override
-  ValidationError msg(String msg) => this(msg: msg);
+  ValidationError msg(String msg) => call(msg: msg);
 
   @override
-  ValidationError type(String type) => this(type: type);
+  ValidationError type(String type) => call(type: type);
 
   @override
-  ValidationError input(Object? input) => this(input: input);
+  ValidationError input(Object? input) => call(input: input);
 
   @override
-  ValidationError ctx(Object? ctx) => this(ctx: ctx);
+  ValidationError ctx(Object? ctx) => call(ctx: ctx);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ValidationError(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ValidationError(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ValidationError(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ValidationError call({
     Object? loc = const $CopyWithPlaceholder(),
     Object? msg = const $CopyWithPlaceholder(),
@@ -68,15 +73,15 @@ class _$ValidationErrorCWProxyImpl implements _$ValidationErrorCWProxy {
     Object? ctx = const $CopyWithPlaceholder(),
   }) {
     return ValidationError(
-      loc: loc == const $CopyWithPlaceholder()
+      loc: loc == const $CopyWithPlaceholder() || loc == null
           ? _value.loc
           // ignore: cast_nullable_to_non_nullable
           : loc as List<Object>,
-      msg: msg == const $CopyWithPlaceholder()
+      msg: msg == const $CopyWithPlaceholder() || msg == null
           ? _value.msg
           // ignore: cast_nullable_to_non_nullable
           : msg as String,
-      type: type == const $CopyWithPlaceholder()
+      type: type == const $CopyWithPlaceholder() || type == null
           ? _value.type
           // ignore: cast_nullable_to_non_nullable
           : type as String,
@@ -93,7 +98,8 @@ class _$ValidationErrorCWProxyImpl implements _$ValidationErrorCWProxy {
 }
 
 extension $ValidationErrorCopyWith on ValidationError {
-  /// Returns a callable class that can be used as follows: `instanceOfValidationError.copyWith(...)` or like so:`instanceOfValidationError.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfValidationError.copyWith(...)` or `instanceOfValidationError.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ValidationErrorCWProxy get copyWith => _$ValidationErrorCWProxyImpl(this);
 }

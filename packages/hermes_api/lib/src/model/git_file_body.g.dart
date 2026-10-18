@@ -11,40 +11,45 @@ abstract class _$GitFileBodyCWProxy {
 
   GitFileBody file(String? file);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitFileBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitFileBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitFileBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   GitFileBody call({String path, String? file});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfGitFileBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfGitFileBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfGitFileBody.copyWith(...)` or call `instanceOfGitFileBody.copyWith.fieldName(value)` for a single field.
 class _$GitFileBodyCWProxyImpl implements _$GitFileBodyCWProxy {
   const _$GitFileBodyCWProxyImpl(this._value);
 
   final GitFileBody _value;
 
   @override
-  GitFileBody path(String path) => this(path: path);
+  GitFileBody path(String path) => call(path: path);
 
   @override
-  GitFileBody file(String? file) => this(file: file);
+  GitFileBody file(String? file) => call(file: file);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitFileBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitFileBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitFileBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   GitFileBody call({
     Object? path = const $CopyWithPlaceholder(),
     Object? file = const $CopyWithPlaceholder(),
   }) {
     return GitFileBody(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
@@ -57,7 +62,8 @@ class _$GitFileBodyCWProxyImpl implements _$GitFileBodyCWProxy {
 }
 
 extension $GitFileBodyCopyWith on GitFileBody {
-  /// Returns a callable class that can be used as follows: `instanceOfGitFileBody.copyWith(...)` or like so:`instanceOfGitFileBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfGitFileBody.copyWith(...)` or `instanceOfGitFileBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$GitFileBodyCWProxy get copyWith => _$GitFileBodyCWProxyImpl(this);
 }

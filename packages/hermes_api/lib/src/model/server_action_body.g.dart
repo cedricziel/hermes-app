@@ -9,34 +9,39 @@ part of 'server_action_body.dart';
 abstract class _$ServerActionBodyCWProxy {
   ServerActionBody action(String action);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ServerActionBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ServerActionBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ServerActionBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ServerActionBody call({String action});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfServerActionBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfServerActionBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfServerActionBody.copyWith(...)` or call `instanceOfServerActionBody.copyWith.fieldName(value)` for a single field.
 class _$ServerActionBodyCWProxyImpl implements _$ServerActionBodyCWProxy {
   const _$ServerActionBodyCWProxyImpl(this._value);
 
   final ServerActionBody _value;
 
   @override
-  ServerActionBody action(String action) => this(action: action);
+  ServerActionBody action(String action) => call(action: action);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ServerActionBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ServerActionBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ServerActionBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ServerActionBody call({Object? action = const $CopyWithPlaceholder()}) {
     return ServerActionBody(
-      action: action == const $CopyWithPlaceholder()
+      action: action == const $CopyWithPlaceholder() || action == null
           ? _value.action
           // ignore: cast_nullable_to_non_nullable
           : action as String,
@@ -45,7 +50,8 @@ class _$ServerActionBodyCWProxyImpl implements _$ServerActionBodyCWProxy {
 }
 
 extension $ServerActionBodyCopyWith on ServerActionBody {
-  /// Returns a callable class that can be used as follows: `instanceOfServerActionBody.copyWith(...)` or like so:`instanceOfServerActionBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfServerActionBody.copyWith(...)` or `instanceOfServerActionBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ServerActionBodyCWProxy get copyWith => _$ServerActionBodyCWProxyImpl(this);
 }

@@ -9,16 +9,19 @@ part of 'memory_provider_select.dart';
 abstract class _$MemoryProviderSelectCWProxy {
   MemoryProviderSelect provider(String provider);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MemoryProviderSelect(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MemoryProviderSelect(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MemoryProviderSelect(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MemoryProviderSelect call({String provider});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMemoryProviderSelect.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMemoryProviderSelect.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMemoryProviderSelect.copyWith(...)` or call `instanceOfMemoryProviderSelect.copyWith.fieldName(value)` for a single field.
 class _$MemoryProviderSelectCWProxyImpl
     implements _$MemoryProviderSelectCWProxy {
   const _$MemoryProviderSelectCWProxyImpl(this._value);
@@ -26,18 +29,20 @@ class _$MemoryProviderSelectCWProxyImpl
   final MemoryProviderSelect _value;
 
   @override
-  MemoryProviderSelect provider(String provider) => this(provider: provider);
+  MemoryProviderSelect provider(String provider) => call(provider: provider);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MemoryProviderSelect(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MemoryProviderSelect(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MemoryProviderSelect(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MemoryProviderSelect call({Object? provider = const $CopyWithPlaceholder()}) {
     return MemoryProviderSelect(
-      provider: provider == const $CopyWithPlaceholder()
+      provider: provider == const $CopyWithPlaceholder() || provider == null
           ? _value.provider
           // ignore: cast_nullable_to_non_nullable
           : provider as String,
@@ -46,7 +51,8 @@ class _$MemoryProviderSelectCWProxyImpl
 }
 
 extension $MemoryProviderSelectCopyWith on MemoryProviderSelect {
-  /// Returns a callable class that can be used as follows: `instanceOfMemoryProviderSelect.copyWith(...)` or like so:`instanceOfMemoryProviderSelect.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMemoryProviderSelect.copyWith(...)` or `instanceOfMemoryProviderSelect.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MemoryProviderSelectCWProxy get copyWith =>
       _$MemoryProviderSelectCWProxyImpl(this);

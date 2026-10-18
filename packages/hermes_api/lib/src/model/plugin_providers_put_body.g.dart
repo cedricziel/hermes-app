@@ -11,16 +11,19 @@ abstract class _$PluginProvidersPutBodyCWProxy {
 
   PluginProvidersPutBody contextEngine(String? contextEngine);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PluginProvidersPutBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PluginProvidersPutBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PluginProvidersPutBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   PluginProvidersPutBody call({String? memoryProvider, String? contextEngine});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfPluginProvidersPutBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfPluginProvidersPutBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfPluginProvidersPutBody.copyWith(...)` or call `instanceOfPluginProvidersPutBody.copyWith.fieldName(value)` for a single field.
 class _$PluginProvidersPutBodyCWProxyImpl
     implements _$PluginProvidersPutBodyCWProxy {
   const _$PluginProvidersPutBodyCWProxyImpl(this._value);
@@ -29,19 +32,21 @@ class _$PluginProvidersPutBodyCWProxyImpl
 
   @override
   PluginProvidersPutBody memoryProvider(String? memoryProvider) =>
-      this(memoryProvider: memoryProvider);
+      call(memoryProvider: memoryProvider);
 
   @override
   PluginProvidersPutBody contextEngine(String? contextEngine) =>
-      this(contextEngine: contextEngine);
+      call(contextEngine: contextEngine);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PluginProvidersPutBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PluginProvidersPutBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PluginProvidersPutBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   PluginProvidersPutBody call({
     Object? memoryProvider = const $CopyWithPlaceholder(),
     Object? contextEngine = const $CopyWithPlaceholder(),
@@ -60,7 +65,8 @@ class _$PluginProvidersPutBodyCWProxyImpl
 }
 
 extension $PluginProvidersPutBodyCopyWith on PluginProvidersPutBody {
-  /// Returns a callable class that can be used as follows: `instanceOfPluginProvidersPutBody.copyWith(...)` or like so:`instanceOfPluginProvidersPutBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfPluginProvidersPutBody.copyWith(...)` or `instanceOfPluginProvidersPutBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$PluginProvidersPutBodyCWProxy get copyWith =>
       _$PluginProvidersPutBodyCWProxyImpl(this);

@@ -35,12 +35,14 @@ abstract class _$UpdateTaskBodyCWProxy {
 
   UpdateTaskBody clearReasoningEffort(bool? clearReasoningEffort);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `UpdateTaskBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `UpdateTaskBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// UpdateTaskBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   UpdateTaskBody call({
     String? status,
     String? assignee,
@@ -59,68 +61,71 @@ abstract class _$UpdateTaskBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfUpdateTaskBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfUpdateTaskBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfUpdateTaskBody.copyWith(...)` or call `instanceOfUpdateTaskBody.copyWith.fieldName(value)` for a single field.
 class _$UpdateTaskBodyCWProxyImpl implements _$UpdateTaskBodyCWProxy {
   const _$UpdateTaskBodyCWProxyImpl(this._value);
 
   final UpdateTaskBody _value;
 
   @override
-  UpdateTaskBody status(String? status) => this(status: status);
+  UpdateTaskBody status(String? status) => call(status: status);
 
   @override
-  UpdateTaskBody assignee(String? assignee) => this(assignee: assignee);
+  UpdateTaskBody assignee(String? assignee) => call(assignee: assignee);
 
   @override
-  UpdateTaskBody priority(int? priority) => this(priority: priority);
+  UpdateTaskBody priority(int? priority) => call(priority: priority);
 
   @override
-  UpdateTaskBody title(String? title) => this(title: title);
+  UpdateTaskBody title(String? title) => call(title: title);
 
   @override
-  UpdateTaskBody body(String? body) => this(body: body);
+  UpdateTaskBody body(String? body) => call(body: body);
 
   @override
-  UpdateTaskBody result(String? result) => this(result: result);
+  UpdateTaskBody result(String? result) => call(result: result);
 
   @override
   UpdateTaskBody blockReason(String? blockReason) =>
-      this(blockReason: blockReason);
+      call(blockReason: blockReason);
 
   @override
-  UpdateTaskBody summary(String? summary) => this(summary: summary);
+  UpdateTaskBody summary(String? summary) => call(summary: summary);
 
   @override
   UpdateTaskBody metadata(Map<String, Object>? metadata) =>
-      this(metadata: metadata);
+      call(metadata: metadata);
 
   @override
   UpdateTaskBody modelOverride(String? modelOverride) =>
-      this(modelOverride: modelOverride);
+      call(modelOverride: modelOverride);
 
   @override
   UpdateTaskBody providerOverride(String? providerOverride) =>
-      this(providerOverride: providerOverride);
+      call(providerOverride: providerOverride);
 
   @override
   UpdateTaskBody clearModelOverride(bool? clearModelOverride) =>
-      this(clearModelOverride: clearModelOverride);
+      call(clearModelOverride: clearModelOverride);
 
   @override
   UpdateTaskBody reasoningEffort(String? reasoningEffort) =>
-      this(reasoningEffort: reasoningEffort);
+      call(reasoningEffort: reasoningEffort);
 
   @override
   UpdateTaskBody clearReasoningEffort(bool? clearReasoningEffort) =>
-      this(clearReasoningEffort: clearReasoningEffort);
+      call(clearReasoningEffort: clearReasoningEffort);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `UpdateTaskBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `UpdateTaskBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// UpdateTaskBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   UpdateTaskBody call({
     Object? status = const $CopyWithPlaceholder(),
     Object? assignee = const $CopyWithPlaceholder(),
@@ -199,7 +204,8 @@ class _$UpdateTaskBodyCWProxyImpl implements _$UpdateTaskBodyCWProxy {
 }
 
 extension $UpdateTaskBodyCopyWith on UpdateTaskBody {
-  /// Returns a callable class that can be used as follows: `instanceOfUpdateTaskBody.copyWith(...)` or like so:`instanceOfUpdateTaskBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfUpdateTaskBody.copyWith(...)` or `instanceOfUpdateTaskBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$UpdateTaskBodyCWProxy get copyWith => _$UpdateTaskBodyCWProxyImpl(this);
 }

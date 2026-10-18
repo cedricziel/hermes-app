@@ -13,48 +13,53 @@ abstract class _$CredentialPoolAddCWProxy {
 
   CredentialPoolAdd label(String? label);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CredentialPoolAdd(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CredentialPoolAdd(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CredentialPoolAdd(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CredentialPoolAdd call({String provider, String apiKey, String? label});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCredentialPoolAdd.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCredentialPoolAdd.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCredentialPoolAdd.copyWith(...)` or call `instanceOfCredentialPoolAdd.copyWith.fieldName(value)` for a single field.
 class _$CredentialPoolAddCWProxyImpl implements _$CredentialPoolAddCWProxy {
   const _$CredentialPoolAddCWProxyImpl(this._value);
 
   final CredentialPoolAdd _value;
 
   @override
-  CredentialPoolAdd provider(String provider) => this(provider: provider);
+  CredentialPoolAdd provider(String provider) => call(provider: provider);
 
   @override
-  CredentialPoolAdd apiKey(String apiKey) => this(apiKey: apiKey);
+  CredentialPoolAdd apiKey(String apiKey) => call(apiKey: apiKey);
 
   @override
-  CredentialPoolAdd label(String? label) => this(label: label);
+  CredentialPoolAdd label(String? label) => call(label: label);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CredentialPoolAdd(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CredentialPoolAdd(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CredentialPoolAdd(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CredentialPoolAdd call({
     Object? provider = const $CopyWithPlaceholder(),
     Object? apiKey = const $CopyWithPlaceholder(),
     Object? label = const $CopyWithPlaceholder(),
   }) {
     return CredentialPoolAdd(
-      provider: provider == const $CopyWithPlaceholder()
+      provider: provider == const $CopyWithPlaceholder() || provider == null
           ? _value.provider
           // ignore: cast_nullable_to_non_nullable
           : provider as String,
-      apiKey: apiKey == const $CopyWithPlaceholder()
+      apiKey: apiKey == const $CopyWithPlaceholder() || apiKey == null
           ? _value.apiKey
           // ignore: cast_nullable_to_non_nullable
           : apiKey as String,
@@ -67,7 +72,8 @@ class _$CredentialPoolAddCWProxyImpl implements _$CredentialPoolAddCWProxy {
 }
 
 extension $CredentialPoolAddCopyWith on CredentialPoolAdd {
-  /// Returns a callable class that can be used as follows: `instanceOfCredentialPoolAdd.copyWith(...)` or like so:`instanceOfCredentialPoolAdd.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCredentialPoolAdd.copyWith(...)` or `instanceOfCredentialPoolAdd.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CredentialPoolAddCWProxy get copyWith =>
       _$CredentialPoolAddCWProxyImpl(this);

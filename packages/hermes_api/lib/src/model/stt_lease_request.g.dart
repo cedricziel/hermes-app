@@ -11,40 +11,45 @@ abstract class _$STTLeaseRequestCWProxy {
 
   STTLeaseRequest active(bool? active);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `STTLeaseRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `STTLeaseRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// STTLeaseRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   STTLeaseRequest call({String lease, bool? active});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSTTLeaseRequest.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSTTLeaseRequest.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSTTLeaseRequest.copyWith(...)` or call `instanceOfSTTLeaseRequest.copyWith.fieldName(value)` for a single field.
 class _$STTLeaseRequestCWProxyImpl implements _$STTLeaseRequestCWProxy {
   const _$STTLeaseRequestCWProxyImpl(this._value);
 
   final STTLeaseRequest _value;
 
   @override
-  STTLeaseRequest lease(String lease) => this(lease: lease);
+  STTLeaseRequest lease(String lease) => call(lease: lease);
 
   @override
-  STTLeaseRequest active(bool? active) => this(active: active);
+  STTLeaseRequest active(bool? active) => call(active: active);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `STTLeaseRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `STTLeaseRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// STTLeaseRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   STTLeaseRequest call({
     Object? lease = const $CopyWithPlaceholder(),
     Object? active = const $CopyWithPlaceholder(),
   }) {
     return STTLeaseRequest(
-      lease: lease == const $CopyWithPlaceholder()
+      lease: lease == const $CopyWithPlaceholder() || lease == null
           ? _value.lease
           // ignore: cast_nullable_to_non_nullable
           : lease as String,
@@ -57,7 +62,8 @@ class _$STTLeaseRequestCWProxyImpl implements _$STTLeaseRequestCWProxy {
 }
 
 extension $STTLeaseRequestCopyWith on STTLeaseRequest {
-  /// Returns a callable class that can be used as follows: `instanceOfSTTLeaseRequest.copyWith(...)` or like so:`instanceOfSTTLeaseRequest.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSTTLeaseRequest.copyWith(...)` or `instanceOfSTTLeaseRequest.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$STTLeaseRequestCWProxy get copyWith => _$STTLeaseRequestCWProxyImpl(this);
 }

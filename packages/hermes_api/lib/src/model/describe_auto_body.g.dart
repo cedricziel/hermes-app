@@ -9,31 +9,36 @@ part of 'describe_auto_body.dart';
 abstract class _$DescribeAutoBodyCWProxy {
   DescribeAutoBody overwrite(bool? overwrite);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `DescribeAutoBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `DescribeAutoBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// DescribeAutoBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   DescribeAutoBody call({bool? overwrite});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfDescribeAutoBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfDescribeAutoBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfDescribeAutoBody.copyWith(...)` or call `instanceOfDescribeAutoBody.copyWith.fieldName(value)` for a single field.
 class _$DescribeAutoBodyCWProxyImpl implements _$DescribeAutoBodyCWProxy {
   const _$DescribeAutoBodyCWProxyImpl(this._value);
 
   final DescribeAutoBody _value;
 
   @override
-  DescribeAutoBody overwrite(bool? overwrite) => this(overwrite: overwrite);
+  DescribeAutoBody overwrite(bool? overwrite) => call(overwrite: overwrite);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `DescribeAutoBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `DescribeAutoBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// DescribeAutoBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   DescribeAutoBody call({Object? overwrite = const $CopyWithPlaceholder()}) {
     return DescribeAutoBody(
       overwrite: overwrite == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$DescribeAutoBodyCWProxyImpl implements _$DescribeAutoBodyCWProxy {
 }
 
 extension $DescribeAutoBodyCopyWith on DescribeAutoBody {
-  /// Returns a callable class that can be used as follows: `instanceOfDescribeAutoBody.copyWith(...)` or like so:`instanceOfDescribeAutoBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfDescribeAutoBody.copyWith(...)` or `instanceOfDescribeAutoBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$DescribeAutoBodyCWProxy get copyWith => _$DescribeAutoBodyCWProxyImpl(this);
 }

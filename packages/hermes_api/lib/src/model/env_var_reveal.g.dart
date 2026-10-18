@@ -11,40 +11,45 @@ abstract class _$EnvVarRevealCWProxy {
 
   EnvVarReveal profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `EnvVarReveal(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `EnvVarReveal(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// EnvVarReveal(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   EnvVarReveal call({String key, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfEnvVarReveal.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfEnvVarReveal.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfEnvVarReveal.copyWith(...)` or call `instanceOfEnvVarReveal.copyWith.fieldName(value)` for a single field.
 class _$EnvVarRevealCWProxyImpl implements _$EnvVarRevealCWProxy {
   const _$EnvVarRevealCWProxyImpl(this._value);
 
   final EnvVarReveal _value;
 
   @override
-  EnvVarReveal key(String key) => this(key: key);
+  EnvVarReveal key(String key) => call(key: key);
 
   @override
-  EnvVarReveal profile(String? profile) => this(profile: profile);
+  EnvVarReveal profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `EnvVarReveal(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `EnvVarReveal(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// EnvVarReveal(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   EnvVarReveal call({
     Object? key = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return EnvVarReveal(
-      key: key == const $CopyWithPlaceholder()
+      key: key == const $CopyWithPlaceholder() || key == null
           ? _value.key
           // ignore: cast_nullable_to_non_nullable
           : key as String,
@@ -57,7 +62,8 @@ class _$EnvVarRevealCWProxyImpl implements _$EnvVarRevealCWProxy {
 }
 
 extension $EnvVarRevealCopyWith on EnvVarReveal {
-  /// Returns a callable class that can be used as follows: `instanceOfEnvVarReveal.copyWith(...)` or like so:`instanceOfEnvVarReveal.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfEnvVarReveal.copyWith(...)` or `instanceOfEnvVarReveal.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$EnvVarRevealCWProxy get copyWith => _$EnvVarRevealCWProxyImpl(this);
 }

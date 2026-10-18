@@ -11,44 +11,49 @@ abstract class _$ProfileModelUpdateCWProxy {
 
   ProfileModelUpdate model(String model);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileModelUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileModelUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileModelUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ProfileModelUpdate call({String provider, String model});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfProfileModelUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfProfileModelUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfProfileModelUpdate.copyWith(...)` or call `instanceOfProfileModelUpdate.copyWith.fieldName(value)` for a single field.
 class _$ProfileModelUpdateCWProxyImpl implements _$ProfileModelUpdateCWProxy {
   const _$ProfileModelUpdateCWProxyImpl(this._value);
 
   final ProfileModelUpdate _value;
 
   @override
-  ProfileModelUpdate provider(String provider) => this(provider: provider);
+  ProfileModelUpdate provider(String provider) => call(provider: provider);
 
   @override
-  ProfileModelUpdate model(String model) => this(model: model);
+  ProfileModelUpdate model(String model) => call(model: model);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileModelUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileModelUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileModelUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ProfileModelUpdate call({
     Object? provider = const $CopyWithPlaceholder(),
     Object? model = const $CopyWithPlaceholder(),
   }) {
     return ProfileModelUpdate(
-      provider: provider == const $CopyWithPlaceholder()
+      provider: provider == const $CopyWithPlaceholder() || provider == null
           ? _value.provider
           // ignore: cast_nullable_to_non_nullable
           : provider as String,
-      model: model == const $CopyWithPlaceholder()
+      model: model == const $CopyWithPlaceholder() || model == null
           ? _value.model
           // ignore: cast_nullable_to_non_nullable
           : model as String,
@@ -57,7 +62,8 @@ class _$ProfileModelUpdateCWProxyImpl implements _$ProfileModelUpdateCWProxy {
 }
 
 extension $ProfileModelUpdateCopyWith on ProfileModelUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfProfileModelUpdate.copyWith(...)` or like so:`instanceOfProfileModelUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfProfileModelUpdate.copyWith(...)` or `instanceOfProfileModelUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ProfileModelUpdateCWProxy get copyWith =>
       _$ProfileModelUpdateCWProxyImpl(this);

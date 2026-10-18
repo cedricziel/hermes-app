@@ -13,12 +13,14 @@ abstract class _$WhatsAppOnboardingApplyCWProxy {
 
   WhatsAppOnboardingApply profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `WhatsAppOnboardingApply(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `WhatsAppOnboardingApply(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// WhatsAppOnboardingApply(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   WhatsAppOnboardingApply call({
     String? mode,
     String? allowedUsers,
@@ -26,7 +28,8 @@ abstract class _$WhatsAppOnboardingApplyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfWhatsAppOnboardingApply.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfWhatsAppOnboardingApply.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfWhatsAppOnboardingApply.copyWith(...)` or call `instanceOfWhatsAppOnboardingApply.copyWith.fieldName(value)` for a single field.
 class _$WhatsAppOnboardingApplyCWProxyImpl
     implements _$WhatsAppOnboardingApplyCWProxy {
   const _$WhatsAppOnboardingApplyCWProxyImpl(this._value);
@@ -34,22 +37,24 @@ class _$WhatsAppOnboardingApplyCWProxyImpl
   final WhatsAppOnboardingApply _value;
 
   @override
-  WhatsAppOnboardingApply mode(String? mode) => this(mode: mode);
+  WhatsAppOnboardingApply mode(String? mode) => call(mode: mode);
 
   @override
   WhatsAppOnboardingApply allowedUsers(String? allowedUsers) =>
-      this(allowedUsers: allowedUsers);
+      call(allowedUsers: allowedUsers);
 
   @override
-  WhatsAppOnboardingApply profile(String? profile) => this(profile: profile);
+  WhatsAppOnboardingApply profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `WhatsAppOnboardingApply(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `WhatsAppOnboardingApply(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// WhatsAppOnboardingApply(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   WhatsAppOnboardingApply call({
     Object? mode = const $CopyWithPlaceholder(),
     Object? allowedUsers = const $CopyWithPlaceholder(),
@@ -73,7 +78,8 @@ class _$WhatsAppOnboardingApplyCWProxyImpl
 }
 
 extension $WhatsAppOnboardingApplyCopyWith on WhatsAppOnboardingApply {
-  /// Returns a callable class that can be used as follows: `instanceOfWhatsAppOnboardingApply.copyWith(...)` or like so:`instanceOfWhatsAppOnboardingApply.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfWhatsAppOnboardingApply.copyWith(...)` or `instanceOfWhatsAppOnboardingApply.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$WhatsAppOnboardingApplyCWProxy get copyWith =>
       _$WhatsAppOnboardingApplyCWProxyImpl(this);

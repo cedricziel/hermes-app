@@ -17,12 +17,14 @@ abstract class _$AgentPluginInstallBodyCWProxy {
 
   AgentPluginInstallBody ref(String? ref);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `AgentPluginInstallBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `AgentPluginInstallBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// AgentPluginInstallBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   AgentPluginInstallBody call({
     String identifier,
     bool? force,
@@ -32,7 +34,8 @@ abstract class _$AgentPluginInstallBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfAgentPluginInstallBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfAgentPluginInstallBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfAgentPluginInstallBody.copyWith(...)` or call `instanceOfAgentPluginInstallBody.copyWith.fieldName(value)` for a single field.
 class _$AgentPluginInstallBodyCWProxyImpl
     implements _$AgentPluginInstallBodyCWProxy {
   const _$AgentPluginInstallBodyCWProxyImpl(this._value);
@@ -41,28 +44,30 @@ class _$AgentPluginInstallBodyCWProxyImpl
 
   @override
   AgentPluginInstallBody identifier(String identifier) =>
-      this(identifier: identifier);
+      call(identifier: identifier);
 
   @override
-  AgentPluginInstallBody force(bool? force) => this(force: force);
+  AgentPluginInstallBody force(bool? force) => call(force: force);
 
   @override
-  AgentPluginInstallBody enable(bool? enable) => this(enable: enable);
+  AgentPluginInstallBody enable(bool? enable) => call(enable: enable);
 
   @override
   AgentPluginInstallBody catalogName(String? catalogName) =>
-      this(catalogName: catalogName);
+      call(catalogName: catalogName);
 
   @override
-  AgentPluginInstallBody ref(String? ref) => this(ref: ref);
+  AgentPluginInstallBody ref(String? ref) => call(ref: ref);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `AgentPluginInstallBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `AgentPluginInstallBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// AgentPluginInstallBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   AgentPluginInstallBody call({
     Object? identifier = const $CopyWithPlaceholder(),
     Object? force = const $CopyWithPlaceholder(),
@@ -71,7 +76,8 @@ class _$AgentPluginInstallBodyCWProxyImpl
     Object? ref = const $CopyWithPlaceholder(),
   }) {
     return AgentPluginInstallBody(
-      identifier: identifier == const $CopyWithPlaceholder()
+      identifier:
+          identifier == const $CopyWithPlaceholder() || identifier == null
           ? _value.identifier
           // ignore: cast_nullable_to_non_nullable
           : identifier as String,
@@ -96,7 +102,8 @@ class _$AgentPluginInstallBodyCWProxyImpl
 }
 
 extension $AgentPluginInstallBodyCopyWith on AgentPluginInstallBody {
-  /// Returns a callable class that can be used as follows: `instanceOfAgentPluginInstallBody.copyWith(...)` or like so:`instanceOfAgentPluginInstallBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfAgentPluginInstallBody.copyWith(...)` or `instanceOfAgentPluginInstallBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$AgentPluginInstallBodyCWProxy get copyWith =>
       _$AgentPluginInstallBodyCWProxyImpl(this);

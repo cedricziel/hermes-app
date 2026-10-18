@@ -9,34 +9,39 @@ part of 'tts_speak_request.dart';
 abstract class _$TTSSpeakRequestCWProxy {
   TTSSpeakRequest text(String text);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TTSSpeakRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TTSSpeakRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TTSSpeakRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   TTSSpeakRequest call({String text});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfTTSSpeakRequest.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfTTSSpeakRequest.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfTTSSpeakRequest.copyWith(...)` or call `instanceOfTTSSpeakRequest.copyWith.fieldName(value)` for a single field.
 class _$TTSSpeakRequestCWProxyImpl implements _$TTSSpeakRequestCWProxy {
   const _$TTSSpeakRequestCWProxyImpl(this._value);
 
   final TTSSpeakRequest _value;
 
   @override
-  TTSSpeakRequest text(String text) => this(text: text);
+  TTSSpeakRequest text(String text) => call(text: text);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TTSSpeakRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TTSSpeakRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TTSSpeakRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   TTSSpeakRequest call({Object? text = const $CopyWithPlaceholder()}) {
     return TTSSpeakRequest(
-      text: text == const $CopyWithPlaceholder()
+      text: text == const $CopyWithPlaceholder() || text == null
           ? _value.text
           // ignore: cast_nullable_to_non_nullable
           : text as String,
@@ -45,7 +50,8 @@ class _$TTSSpeakRequestCWProxyImpl implements _$TTSSpeakRequestCWProxy {
 }
 
 extension $TTSSpeakRequestCopyWith on TTSSpeakRequest {
-  /// Returns a callable class that can be used as follows: `instanceOfTTSSpeakRequest.copyWith(...)` or like so:`instanceOfTTSSpeakRequest.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfTTSSpeakRequest.copyWith(...)` or `instanceOfTTSSpeakRequest.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$TTSSpeakRequestCWProxy get copyWith => _$TTSSpeakRequestCWProxyImpl(this);
 }

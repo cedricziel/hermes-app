@@ -27,12 +27,14 @@ abstract class _$WebhookCreateCWProxy {
 
   WebhookCreate secret(String? secret);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `WebhookCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `WebhookCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// WebhookCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   WebhookCreate call({
     String name,
     String? description,
@@ -47,52 +49,55 @@ abstract class _$WebhookCreateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfWebhookCreate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfWebhookCreate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfWebhookCreate.copyWith(...)` or call `instanceOfWebhookCreate.copyWith.fieldName(value)` for a single field.
 class _$WebhookCreateCWProxyImpl implements _$WebhookCreateCWProxy {
   const _$WebhookCreateCWProxyImpl(this._value);
 
   final WebhookCreate _value;
 
   @override
-  WebhookCreate name(String name) => this(name: name);
+  WebhookCreate name(String name) => call(name: name);
 
   @override
   WebhookCreate description(String? description) =>
-      this(description: description);
+      call(description: description);
 
   @override
-  WebhookCreate events(List<String>? events) => this(events: events);
+  WebhookCreate events(List<String>? events) => call(events: events);
 
   @override
-  WebhookCreate prompt(String? prompt) => this(prompt: prompt);
+  WebhookCreate prompt(String? prompt) => call(prompt: prompt);
 
   @override
-  WebhookCreate script(String? script) => this(script: script);
+  WebhookCreate script(String? script) => call(script: script);
 
   @override
-  WebhookCreate skills(List<String>? skills) => this(skills: skills);
+  WebhookCreate skills(List<String>? skills) => call(skills: skills);
 
   @override
-  WebhookCreate deliver(String? deliver) => this(deliver: deliver);
+  WebhookCreate deliver(String? deliver) => call(deliver: deliver);
 
   @override
   WebhookCreate deliverOnly(bool? deliverOnly) =>
-      this(deliverOnly: deliverOnly);
+      call(deliverOnly: deliverOnly);
 
   @override
   WebhookCreate deliverChatId(String? deliverChatId) =>
-      this(deliverChatId: deliverChatId);
+      call(deliverChatId: deliverChatId);
 
   @override
-  WebhookCreate secret(String? secret) => this(secret: secret);
+  WebhookCreate secret(String? secret) => call(secret: secret);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `WebhookCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `WebhookCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// WebhookCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   WebhookCreate call({
     Object? name = const $CopyWithPlaceholder(),
     Object? description = const $CopyWithPlaceholder(),
@@ -106,7 +111,7 @@ class _$WebhookCreateCWProxyImpl implements _$WebhookCreateCWProxy {
     Object? secret = const $CopyWithPlaceholder(),
   }) {
     return WebhookCreate(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
@@ -151,7 +156,8 @@ class _$WebhookCreateCWProxyImpl implements _$WebhookCreateCWProxy {
 }
 
 extension $WebhookCreateCopyWith on WebhookCreate {
-  /// Returns a callable class that can be used as follows: `instanceOfWebhookCreate.copyWith(...)` or like so:`instanceOfWebhookCreate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfWebhookCreate.copyWith(...)` or `instanceOfWebhookCreate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$WebhookCreateCWProxy get copyWith => _$WebhookCreateCWProxyImpl(this);
 }

@@ -19,12 +19,14 @@ abstract class _$SessionRenameCWProxy {
 
   SessionRename profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SessionRename(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SessionRename(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SessionRename(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SessionRename call({
     String? title,
     bool? archived,
@@ -35,37 +37,40 @@ abstract class _$SessionRenameCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSessionRename.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSessionRename.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSessionRename.copyWith(...)` or call `instanceOfSessionRename.copyWith.fieldName(value)` for a single field.
 class _$SessionRenameCWProxyImpl implements _$SessionRenameCWProxy {
   const _$SessionRenameCWProxyImpl(this._value);
 
   final SessionRename _value;
 
   @override
-  SessionRename title(String? title) => this(title: title);
+  SessionRename title(String? title) => call(title: title);
 
   @override
-  SessionRename archived(bool? archived) => this(archived: archived);
+  SessionRename archived(bool? archived) => call(archived: archived);
 
   @override
-  SessionRename hidden(bool? hidden) => this(hidden: hidden);
+  SessionRename hidden(bool? hidden) => call(hidden: hidden);
 
   @override
-  SessionRename pinned(bool? pinned) => this(pinned: pinned);
+  SessionRename pinned(bool? pinned) => call(pinned: pinned);
 
   @override
-  SessionRename unread(bool? unread) => this(unread: unread);
+  SessionRename unread(bool? unread) => call(unread: unread);
 
   @override
-  SessionRename profile(String? profile) => this(profile: profile);
+  SessionRename profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SessionRename(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SessionRename(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SessionRename(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SessionRename call({
     Object? title = const $CopyWithPlaceholder(),
     Object? archived = const $CopyWithPlaceholder(),
@@ -104,7 +109,8 @@ class _$SessionRenameCWProxyImpl implements _$SessionRenameCWProxy {
 }
 
 extension $SessionRenameCopyWith on SessionRename {
-  /// Returns a callable class that can be used as follows: `instanceOfSessionRename.copyWith(...)` or like so:`instanceOfSessionRename.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSessionRename.copyWith(...)` or `instanceOfSessionRename.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SessionRenameCWProxy get copyWith => _$SessionRenameCWProxyImpl(this);
 }

@@ -13,12 +13,14 @@ abstract class _$CustomEndpointModelDetailCWProxy {
 
   CustomEndpointModelDetail reasoningEffort(String? reasoningEffort);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CustomEndpointModelDetail(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CustomEndpointModelDetail(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CustomEndpointModelDetail(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CustomEndpointModelDetail call({
     String id,
     String? canonicalModel,
@@ -26,7 +28,8 @@ abstract class _$CustomEndpointModelDetailCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCustomEndpointModelDetail.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCustomEndpointModelDetail.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCustomEndpointModelDetail.copyWith(...)` or call `instanceOfCustomEndpointModelDetail.copyWith.fieldName(value)` for a single field.
 class _$CustomEndpointModelDetailCWProxyImpl
     implements _$CustomEndpointModelDetailCWProxy {
   const _$CustomEndpointModelDetailCWProxyImpl(this._value);
@@ -34,30 +37,32 @@ class _$CustomEndpointModelDetailCWProxyImpl
   final CustomEndpointModelDetail _value;
 
   @override
-  CustomEndpointModelDetail id(String id) => this(id: id);
+  CustomEndpointModelDetail id(String id) => call(id: id);
 
   @override
   CustomEndpointModelDetail canonicalModel(String? canonicalModel) =>
-      this(canonicalModel: canonicalModel);
+      call(canonicalModel: canonicalModel);
 
   @override
   CustomEndpointModelDetail reasoningEffort(String? reasoningEffort) =>
-      this(reasoningEffort: reasoningEffort);
+      call(reasoningEffort: reasoningEffort);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CustomEndpointModelDetail(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CustomEndpointModelDetail(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CustomEndpointModelDetail(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CustomEndpointModelDetail call({
     Object? id = const $CopyWithPlaceholder(),
     Object? canonicalModel = const $CopyWithPlaceholder(),
     Object? reasoningEffort = const $CopyWithPlaceholder(),
   }) {
     return CustomEndpointModelDetail(
-      id: id == const $CopyWithPlaceholder()
+      id: id == const $CopyWithPlaceholder() || id == null
           ? _value.id
           // ignore: cast_nullable_to_non_nullable
           : id as String,
@@ -74,7 +79,8 @@ class _$CustomEndpointModelDetailCWProxyImpl
 }
 
 extension $CustomEndpointModelDetailCopyWith on CustomEndpointModelDetail {
-  /// Returns a callable class that can be used as follows: `instanceOfCustomEndpointModelDetail.copyWith(...)` or like so:`instanceOfCustomEndpointModelDetail.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCustomEndpointModelDetail.copyWith(...)` or `instanceOfCustomEndpointModelDetail.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CustomEndpointModelDetailCWProxy get copyWith =>
       _$CustomEndpointModelDetailCWProxyImpl(this);

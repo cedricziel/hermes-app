@@ -11,16 +11,19 @@ abstract class _$ProfileExportCWProxy {
 
   ProfileExport output(String? output);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileExport(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileExport(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileExport(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ProfileExport call({Map<String, String>? extraFiles, String? output});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfProfileExport.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfProfileExport.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfProfileExport.copyWith(...)` or call `instanceOfProfileExport.copyWith.fieldName(value)` for a single field.
 class _$ProfileExportCWProxyImpl implements _$ProfileExportCWProxy {
   const _$ProfileExportCWProxyImpl(this._value);
 
@@ -28,18 +31,20 @@ class _$ProfileExportCWProxyImpl implements _$ProfileExportCWProxy {
 
   @override
   ProfileExport extraFiles(Map<String, String>? extraFiles) =>
-      this(extraFiles: extraFiles);
+      call(extraFiles: extraFiles);
 
   @override
-  ProfileExport output(String? output) => this(output: output);
+  ProfileExport output(String? output) => call(output: output);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileExport(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileExport(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileExport(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ProfileExport call({
     Object? extraFiles = const $CopyWithPlaceholder(),
     Object? output = const $CopyWithPlaceholder(),
@@ -58,7 +63,8 @@ class _$ProfileExportCWProxyImpl implements _$ProfileExportCWProxy {
 }
 
 extension $ProfileExportCopyWith on ProfileExport {
-  /// Returns a callable class that can be used as follows: `instanceOfProfileExport.copyWith(...)` or like so:`instanceOfProfileExport.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfProfileExport.copyWith(...)` or `instanceOfProfileExport.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ProfileExportCWProxy get copyWith => _$ProfileExportCWProxyImpl(this);
 }

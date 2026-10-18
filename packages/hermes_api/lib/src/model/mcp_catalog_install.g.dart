@@ -15,12 +15,14 @@ abstract class _$MCPCatalogInstallCWProxy {
 
   MCPCatalogInstall profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MCPCatalogInstall(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MCPCatalogInstall(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MCPCatalogInstall(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MCPCatalogInstall call({
     String name,
     Map<String, String>? env,
@@ -29,31 +31,34 @@ abstract class _$MCPCatalogInstallCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMCPCatalogInstall.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMCPCatalogInstall.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMCPCatalogInstall.copyWith(...)` or call `instanceOfMCPCatalogInstall.copyWith.fieldName(value)` for a single field.
 class _$MCPCatalogInstallCWProxyImpl implements _$MCPCatalogInstallCWProxy {
   const _$MCPCatalogInstallCWProxyImpl(this._value);
 
   final MCPCatalogInstall _value;
 
   @override
-  MCPCatalogInstall name(String name) => this(name: name);
+  MCPCatalogInstall name(String name) => call(name: name);
 
   @override
-  MCPCatalogInstall env(Map<String, String>? env) => this(env: env);
+  MCPCatalogInstall env(Map<String, String>? env) => call(env: env);
 
   @override
-  MCPCatalogInstall enable(bool? enable) => this(enable: enable);
+  MCPCatalogInstall enable(bool? enable) => call(enable: enable);
 
   @override
-  MCPCatalogInstall profile(String? profile) => this(profile: profile);
+  MCPCatalogInstall profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MCPCatalogInstall(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MCPCatalogInstall(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MCPCatalogInstall(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MCPCatalogInstall call({
     Object? name = const $CopyWithPlaceholder(),
     Object? env = const $CopyWithPlaceholder(),
@@ -61,7 +66,7 @@ class _$MCPCatalogInstallCWProxyImpl implements _$MCPCatalogInstallCWProxy {
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return MCPCatalogInstall(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
@@ -82,7 +87,8 @@ class _$MCPCatalogInstallCWProxyImpl implements _$MCPCatalogInstallCWProxy {
 }
 
 extension $MCPCatalogInstallCopyWith on MCPCatalogInstall {
-  /// Returns a callable class that can be used as follows: `instanceOfMCPCatalogInstall.copyWith(...)` or like so:`instanceOfMCPCatalogInstall.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMCPCatalogInstall.copyWith(...)` or `instanceOfMCPCatalogInstall.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MCPCatalogInstallCWProxy get copyWith =>
       _$MCPCatalogInstallCWProxyImpl(this);

@@ -43,12 +43,14 @@ abstract class _$CreateTaskBodyCWProxy {
 
   CreateTaskBody projectId(String? projectId);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CreateTaskBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CreateTaskBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CreateTaskBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CreateTaskBody call({
     String title,
     String? body,
@@ -71,81 +73,84 @@ abstract class _$CreateTaskBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCreateTaskBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCreateTaskBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCreateTaskBody.copyWith(...)` or call `instanceOfCreateTaskBody.copyWith.fieldName(value)` for a single field.
 class _$CreateTaskBodyCWProxyImpl implements _$CreateTaskBodyCWProxy {
   const _$CreateTaskBodyCWProxyImpl(this._value);
 
   final CreateTaskBody _value;
 
   @override
-  CreateTaskBody title(String title) => this(title: title);
+  CreateTaskBody title(String title) => call(title: title);
 
   @override
-  CreateTaskBody body(String? body) => this(body: body);
+  CreateTaskBody body(String? body) => call(body: body);
 
   @override
-  CreateTaskBody assignee(String? assignee) => this(assignee: assignee);
+  CreateTaskBody assignee(String? assignee) => call(assignee: assignee);
 
   @override
-  CreateTaskBody tenant(String? tenant) => this(tenant: tenant);
+  CreateTaskBody tenant(String? tenant) => call(tenant: tenant);
 
   @override
-  CreateTaskBody priority(int? priority) => this(priority: priority);
+  CreateTaskBody priority(int? priority) => call(priority: priority);
 
   @override
   CreateTaskBody workspaceKind(String? workspaceKind) =>
-      this(workspaceKind: workspaceKind);
+      call(workspaceKind: workspaceKind);
 
   @override
   CreateTaskBody workspacePath(String? workspacePath) =>
-      this(workspacePath: workspacePath);
+      call(workspacePath: workspacePath);
 
   @override
-  CreateTaskBody parents(List<String>? parents) => this(parents: parents);
+  CreateTaskBody parents(List<String>? parents) => call(parents: parents);
 
   @override
-  CreateTaskBody triage(bool? triage) => this(triage: triage);
+  CreateTaskBody triage(bool? triage) => call(triage: triage);
 
   @override
   CreateTaskBody idempotencyKey(String? idempotencyKey) =>
-      this(idempotencyKey: idempotencyKey);
+      call(idempotencyKey: idempotencyKey);
 
   @override
   CreateTaskBody maxRuntimeSeconds(int? maxRuntimeSeconds) =>
-      this(maxRuntimeSeconds: maxRuntimeSeconds);
+      call(maxRuntimeSeconds: maxRuntimeSeconds);
 
   @override
-  CreateTaskBody skills(List<String>? skills) => this(skills: skills);
+  CreateTaskBody skills(List<String>? skills) => call(skills: skills);
 
   @override
-  CreateTaskBody goalMode(bool? goalMode) => this(goalMode: goalMode);
+  CreateTaskBody goalMode(bool? goalMode) => call(goalMode: goalMode);
 
   @override
   CreateTaskBody goalMaxTurns(int? goalMaxTurns) =>
-      this(goalMaxTurns: goalMaxTurns);
+      call(goalMaxTurns: goalMaxTurns);
 
   @override
   CreateTaskBody modelOverride(String? modelOverride) =>
-      this(modelOverride: modelOverride);
+      call(modelOverride: modelOverride);
 
   @override
   CreateTaskBody providerOverride(String? providerOverride) =>
-      this(providerOverride: providerOverride);
+      call(providerOverride: providerOverride);
 
   @override
   CreateTaskBody reasoningEffort(String? reasoningEffort) =>
-      this(reasoningEffort: reasoningEffort);
+      call(reasoningEffort: reasoningEffort);
 
   @override
-  CreateTaskBody projectId(String? projectId) => this(projectId: projectId);
+  CreateTaskBody projectId(String? projectId) => call(projectId: projectId);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CreateTaskBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CreateTaskBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CreateTaskBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CreateTaskBody call({
     Object? title = const $CopyWithPlaceholder(),
     Object? body = const $CopyWithPlaceholder(),
@@ -167,7 +172,7 @@ class _$CreateTaskBodyCWProxyImpl implements _$CreateTaskBodyCWProxy {
     Object? projectId = const $CopyWithPlaceholder(),
   }) {
     return CreateTaskBody(
-      title: title == const $CopyWithPlaceholder()
+      title: title == const $CopyWithPlaceholder() || title == null
           ? _value.title
           // ignore: cast_nullable_to_non_nullable
           : title as String,
@@ -244,7 +249,8 @@ class _$CreateTaskBodyCWProxyImpl implements _$CreateTaskBodyCWProxy {
 }
 
 extension $CreateTaskBodyCopyWith on CreateTaskBody {
-  /// Returns a callable class that can be used as follows: `instanceOfCreateTaskBody.copyWith(...)` or like so:`instanceOfCreateTaskBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCreateTaskBody.copyWith(...)` or `instanceOfCreateTaskBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CreateTaskBodyCWProxy get copyWith => _$CreateTaskBodyCWProxyImpl(this);
 }

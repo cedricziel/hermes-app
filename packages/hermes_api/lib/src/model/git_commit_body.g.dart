@@ -13,48 +13,53 @@ abstract class _$GitCommitBodyCWProxy {
 
   GitCommitBody push(bool? push);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitCommitBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitCommitBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitCommitBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   GitCommitBody call({String path, String message, bool? push});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfGitCommitBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfGitCommitBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfGitCommitBody.copyWith(...)` or call `instanceOfGitCommitBody.copyWith.fieldName(value)` for a single field.
 class _$GitCommitBodyCWProxyImpl implements _$GitCommitBodyCWProxy {
   const _$GitCommitBodyCWProxyImpl(this._value);
 
   final GitCommitBody _value;
 
   @override
-  GitCommitBody path(String path) => this(path: path);
+  GitCommitBody path(String path) => call(path: path);
 
   @override
-  GitCommitBody message(String message) => this(message: message);
+  GitCommitBody message(String message) => call(message: message);
 
   @override
-  GitCommitBody push(bool? push) => this(push: push);
+  GitCommitBody push(bool? push) => call(push: push);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitCommitBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitCommitBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitCommitBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   GitCommitBody call({
     Object? path = const $CopyWithPlaceholder(),
     Object? message = const $CopyWithPlaceholder(),
     Object? push = const $CopyWithPlaceholder(),
   }) {
     return GitCommitBody(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
-      message: message == const $CopyWithPlaceholder()
+      message: message == const $CopyWithPlaceholder() || message == null
           ? _value.message
           // ignore: cast_nullable_to_non_nullable
           : message as String,
@@ -67,7 +72,8 @@ class _$GitCommitBodyCWProxyImpl implements _$GitCommitBodyCWProxy {
 }
 
 extension $GitCommitBodyCopyWith on GitCommitBody {
-  /// Returns a callable class that can be used as follows: `instanceOfGitCommitBody.copyWith(...)` or like so:`instanceOfGitCommitBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfGitCommitBody.copyWith(...)` or `instanceOfGitCommitBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$GitCommitBodyCWProxy get copyWith => _$GitCommitBodyCWProxyImpl(this);
 }

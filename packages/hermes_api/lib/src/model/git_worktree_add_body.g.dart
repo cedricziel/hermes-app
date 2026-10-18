@@ -17,12 +17,14 @@ abstract class _$GitWorktreeAddBodyCWProxy {
 
   GitWorktreeAddBody existingBranch(String? existingBranch);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitWorktreeAddBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitWorktreeAddBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitWorktreeAddBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   GitWorktreeAddBody call({
     String path,
     String? name,
@@ -32,35 +34,38 @@ abstract class _$GitWorktreeAddBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfGitWorktreeAddBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfGitWorktreeAddBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfGitWorktreeAddBody.copyWith(...)` or call `instanceOfGitWorktreeAddBody.copyWith.fieldName(value)` for a single field.
 class _$GitWorktreeAddBodyCWProxyImpl implements _$GitWorktreeAddBodyCWProxy {
   const _$GitWorktreeAddBodyCWProxyImpl(this._value);
 
   final GitWorktreeAddBody _value;
 
   @override
-  GitWorktreeAddBody path(String path) => this(path: path);
+  GitWorktreeAddBody path(String path) => call(path: path);
 
   @override
-  GitWorktreeAddBody name(String? name) => this(name: name);
+  GitWorktreeAddBody name(String? name) => call(name: name);
 
   @override
-  GitWorktreeAddBody branch(String? branch) => this(branch: branch);
+  GitWorktreeAddBody branch(String? branch) => call(branch: branch);
 
   @override
-  GitWorktreeAddBody base_(String? base_) => this(base_: base_);
+  GitWorktreeAddBody base_(String? base_) => call(base_: base_);
 
   @override
   GitWorktreeAddBody existingBranch(String? existingBranch) =>
-      this(existingBranch: existingBranch);
+      call(existingBranch: existingBranch);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitWorktreeAddBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitWorktreeAddBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitWorktreeAddBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   GitWorktreeAddBody call({
     Object? path = const $CopyWithPlaceholder(),
     Object? name = const $CopyWithPlaceholder(),
@@ -69,7 +74,7 @@ class _$GitWorktreeAddBodyCWProxyImpl implements _$GitWorktreeAddBodyCWProxy {
     Object? existingBranch = const $CopyWithPlaceholder(),
   }) {
     return GitWorktreeAddBody(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
@@ -94,7 +99,8 @@ class _$GitWorktreeAddBodyCWProxyImpl implements _$GitWorktreeAddBodyCWProxy {
 }
 
 extension $GitWorktreeAddBodyCopyWith on GitWorktreeAddBody {
-  /// Returns a callable class that can be used as follows: `instanceOfGitWorktreeAddBody.copyWith(...)` or like so:`instanceOfGitWorktreeAddBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfGitWorktreeAddBody.copyWith(...)` or `instanceOfGitWorktreeAddBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$GitWorktreeAddBodyCWProxy get copyWith =>
       _$GitWorktreeAddBodyCWProxyImpl(this);

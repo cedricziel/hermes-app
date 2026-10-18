@@ -11,40 +11,45 @@ abstract class _$BulkDeleteSessionsCWProxy {
 
   BulkDeleteSessions profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `BulkDeleteSessions(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `BulkDeleteSessions(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// BulkDeleteSessions(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   BulkDeleteSessions call({List<String> ids, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfBulkDeleteSessions.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfBulkDeleteSessions.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfBulkDeleteSessions.copyWith(...)` or call `instanceOfBulkDeleteSessions.copyWith.fieldName(value)` for a single field.
 class _$BulkDeleteSessionsCWProxyImpl implements _$BulkDeleteSessionsCWProxy {
   const _$BulkDeleteSessionsCWProxyImpl(this._value);
 
   final BulkDeleteSessions _value;
 
   @override
-  BulkDeleteSessions ids(List<String> ids) => this(ids: ids);
+  BulkDeleteSessions ids(List<String> ids) => call(ids: ids);
 
   @override
-  BulkDeleteSessions profile(String? profile) => this(profile: profile);
+  BulkDeleteSessions profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `BulkDeleteSessions(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `BulkDeleteSessions(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// BulkDeleteSessions(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   BulkDeleteSessions call({
     Object? ids = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return BulkDeleteSessions(
-      ids: ids == const $CopyWithPlaceholder()
+      ids: ids == const $CopyWithPlaceholder() || ids == null
           ? _value.ids
           // ignore: cast_nullable_to_non_nullable
           : ids as List<String>,
@@ -57,7 +62,8 @@ class _$BulkDeleteSessionsCWProxyImpl implements _$BulkDeleteSessionsCWProxy {
 }
 
 extension $BulkDeleteSessionsCopyWith on BulkDeleteSessions {
-  /// Returns a callable class that can be used as follows: `instanceOfBulkDeleteSessions.copyWith(...)` or like so:`instanceOfBulkDeleteSessions.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfBulkDeleteSessions.copyWith(...)` or `instanceOfBulkDeleteSessions.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$BulkDeleteSessionsCWProxy get copyWith =>
       _$BulkDeleteSessionsCWProxyImpl(this);

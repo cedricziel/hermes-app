@@ -9,16 +9,19 @@ part of 'webhook_enabled_toggle.dart';
 abstract class _$WebhookEnabledToggleCWProxy {
   WebhookEnabledToggle enabled(bool enabled);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `WebhookEnabledToggle(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `WebhookEnabledToggle(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// WebhookEnabledToggle(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   WebhookEnabledToggle call({bool enabled});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfWebhookEnabledToggle.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfWebhookEnabledToggle.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfWebhookEnabledToggle.copyWith(...)` or call `instanceOfWebhookEnabledToggle.copyWith.fieldName(value)` for a single field.
 class _$WebhookEnabledToggleCWProxyImpl
     implements _$WebhookEnabledToggleCWProxy {
   const _$WebhookEnabledToggleCWProxyImpl(this._value);
@@ -26,18 +29,20 @@ class _$WebhookEnabledToggleCWProxyImpl
   final WebhookEnabledToggle _value;
 
   @override
-  WebhookEnabledToggle enabled(bool enabled) => this(enabled: enabled);
+  WebhookEnabledToggle enabled(bool enabled) => call(enabled: enabled);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `WebhookEnabledToggle(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `WebhookEnabledToggle(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// WebhookEnabledToggle(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   WebhookEnabledToggle call({Object? enabled = const $CopyWithPlaceholder()}) {
     return WebhookEnabledToggle(
-      enabled: enabled == const $CopyWithPlaceholder()
+      enabled: enabled == const $CopyWithPlaceholder() || enabled == null
           ? _value.enabled
           // ignore: cast_nullable_to_non_nullable
           : enabled as bool,
@@ -46,7 +51,8 @@ class _$WebhookEnabledToggleCWProxyImpl
 }
 
 extension $WebhookEnabledToggleCopyWith on WebhookEnabledToggle {
-  /// Returns a callable class that can be used as follows: `instanceOfWebhookEnabledToggle.copyWith(...)` or like so:`instanceOfWebhookEnabledToggle.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfWebhookEnabledToggle.copyWith(...)` or `instanceOfWebhookEnabledToggle.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$WebhookEnabledToggleCWProxy get copyWith =>
       _$WebhookEnabledToggleCWProxyImpl(this);

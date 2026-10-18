@@ -11,40 +11,45 @@ abstract class _$ManagedFileDeleteCWProxy {
 
   ManagedFileDelete recursive(bool? recursive);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ManagedFileDelete(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ManagedFileDelete(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ManagedFileDelete(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ManagedFileDelete call({String path, bool? recursive});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfManagedFileDelete.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfManagedFileDelete.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfManagedFileDelete.copyWith(...)` or call `instanceOfManagedFileDelete.copyWith.fieldName(value)` for a single field.
 class _$ManagedFileDeleteCWProxyImpl implements _$ManagedFileDeleteCWProxy {
   const _$ManagedFileDeleteCWProxyImpl(this._value);
 
   final ManagedFileDelete _value;
 
   @override
-  ManagedFileDelete path(String path) => this(path: path);
+  ManagedFileDelete path(String path) => call(path: path);
 
   @override
-  ManagedFileDelete recursive(bool? recursive) => this(recursive: recursive);
+  ManagedFileDelete recursive(bool? recursive) => call(recursive: recursive);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ManagedFileDelete(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ManagedFileDelete(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ManagedFileDelete(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ManagedFileDelete call({
     Object? path = const $CopyWithPlaceholder(),
     Object? recursive = const $CopyWithPlaceholder(),
   }) {
     return ManagedFileDelete(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
@@ -57,7 +62,8 @@ class _$ManagedFileDeleteCWProxyImpl implements _$ManagedFileDeleteCWProxy {
 }
 
 extension $ManagedFileDeleteCopyWith on ManagedFileDelete {
-  /// Returns a callable class that can be used as follows: `instanceOfManagedFileDelete.copyWith(...)` or like so:`instanceOfManagedFileDelete.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfManagedFileDelete.copyWith(...)` or `instanceOfManagedFileDelete.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ManagedFileDeleteCWProxy get copyWith =>
       _$ManagedFileDeleteCWProxyImpl(this);

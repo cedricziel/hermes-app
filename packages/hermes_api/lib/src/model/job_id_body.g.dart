@@ -9,34 +9,39 @@ part of 'job_id_body.dart';
 abstract class _$JobIdBodyCWProxy {
   JobIdBody jobId(String jobId);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `JobIdBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `JobIdBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// JobIdBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   JobIdBody call({String jobId});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfJobIdBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfJobIdBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfJobIdBody.copyWith(...)` or call `instanceOfJobIdBody.copyWith.fieldName(value)` for a single field.
 class _$JobIdBodyCWProxyImpl implements _$JobIdBodyCWProxy {
   const _$JobIdBodyCWProxyImpl(this._value);
 
   final JobIdBody _value;
 
   @override
-  JobIdBody jobId(String jobId) => this(jobId: jobId);
+  JobIdBody jobId(String jobId) => call(jobId: jobId);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `JobIdBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `JobIdBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// JobIdBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   JobIdBody call({Object? jobId = const $CopyWithPlaceholder()}) {
     return JobIdBody(
-      jobId: jobId == const $CopyWithPlaceholder()
+      jobId: jobId == const $CopyWithPlaceholder() || jobId == null
           ? _value.jobId
           // ignore: cast_nullable_to_non_nullable
           : jobId as String,
@@ -45,7 +50,8 @@ class _$JobIdBodyCWProxyImpl implements _$JobIdBodyCWProxy {
 }
 
 extension $JobIdBodyCopyWith on JobIdBody {
-  /// Returns a callable class that can be used as follows: `instanceOfJobIdBody.copyWith(...)` or like so:`instanceOfJobIdBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfJobIdBody.copyWith(...)` or `instanceOfJobIdBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$JobIdBodyCWProxy get copyWith => _$JobIdBodyCWProxyImpl(this);
 }

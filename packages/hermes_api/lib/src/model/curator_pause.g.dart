@@ -9,34 +9,39 @@ part of 'curator_pause.dart';
 abstract class _$CuratorPauseCWProxy {
   CuratorPause paused(bool paused);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CuratorPause(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CuratorPause(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CuratorPause(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CuratorPause call({bool paused});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCuratorPause.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCuratorPause.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCuratorPause.copyWith(...)` or call `instanceOfCuratorPause.copyWith.fieldName(value)` for a single field.
 class _$CuratorPauseCWProxyImpl implements _$CuratorPauseCWProxy {
   const _$CuratorPauseCWProxyImpl(this._value);
 
   final CuratorPause _value;
 
   @override
-  CuratorPause paused(bool paused) => this(paused: paused);
+  CuratorPause paused(bool paused) => call(paused: paused);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CuratorPause(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CuratorPause(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CuratorPause(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CuratorPause call({Object? paused = const $CopyWithPlaceholder()}) {
     return CuratorPause(
-      paused: paused == const $CopyWithPlaceholder()
+      paused: paused == const $CopyWithPlaceholder() || paused == null
           ? _value.paused
           // ignore: cast_nullable_to_non_nullable
           : paused as bool,
@@ -45,7 +50,8 @@ class _$CuratorPauseCWProxyImpl implements _$CuratorPauseCWProxy {
 }
 
 extension $CuratorPauseCopyWith on CuratorPause {
-  /// Returns a callable class that can be used as follows: `instanceOfCuratorPause.copyWith(...)` or like so:`instanceOfCuratorPause.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCuratorPause.copyWith(...)` or `instanceOfCuratorPause.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CuratorPauseCWProxy get copyWith => _$CuratorPauseCWProxyImpl(this);
 }

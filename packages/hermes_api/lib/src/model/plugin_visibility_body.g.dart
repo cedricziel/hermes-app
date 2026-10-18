@@ -9,16 +9,19 @@ part of 'plugin_visibility_body.dart';
 abstract class _$PluginVisibilityBodyCWProxy {
   PluginVisibilityBody hidden(bool hidden);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PluginVisibilityBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PluginVisibilityBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PluginVisibilityBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   PluginVisibilityBody call({bool hidden});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfPluginVisibilityBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfPluginVisibilityBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfPluginVisibilityBody.copyWith(...)` or call `instanceOfPluginVisibilityBody.copyWith.fieldName(value)` for a single field.
 class _$PluginVisibilityBodyCWProxyImpl
     implements _$PluginVisibilityBodyCWProxy {
   const _$PluginVisibilityBodyCWProxyImpl(this._value);
@@ -26,18 +29,20 @@ class _$PluginVisibilityBodyCWProxyImpl
   final PluginVisibilityBody _value;
 
   @override
-  PluginVisibilityBody hidden(bool hidden) => this(hidden: hidden);
+  PluginVisibilityBody hidden(bool hidden) => call(hidden: hidden);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PluginVisibilityBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PluginVisibilityBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PluginVisibilityBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   PluginVisibilityBody call({Object? hidden = const $CopyWithPlaceholder()}) {
     return PluginVisibilityBody(
-      hidden: hidden == const $CopyWithPlaceholder()
+      hidden: hidden == const $CopyWithPlaceholder() || hidden == null
           ? _value.hidden
           // ignore: cast_nullable_to_non_nullable
           : hidden as bool,
@@ -46,7 +51,8 @@ class _$PluginVisibilityBodyCWProxyImpl
 }
 
 extension $PluginVisibilityBodyCopyWith on PluginVisibilityBody {
-  /// Returns a callable class that can be used as follows: `instanceOfPluginVisibilityBody.copyWith(...)` or like so:`instanceOfPluginVisibilityBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfPluginVisibilityBody.copyWith(...)` or `instanceOfPluginVisibilityBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$PluginVisibilityBodyCWProxy get copyWith =>
       _$PluginVisibilityBodyCWProxyImpl(this);
