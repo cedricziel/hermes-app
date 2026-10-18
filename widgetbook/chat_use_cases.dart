@@ -16,6 +16,7 @@ import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/voice/dictation_controller.dart';
 import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/voice/dictation_view.dart';
+import 'package:hermes_app/src/voice/voice_recording_view.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/named_icon_button.dart';
@@ -683,6 +684,18 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       name: 'ChatComposer',
       useCases: [
         _composer('Empty'),
+        for (final phase in VoiceRecordingPhase.values)
+          _composer('Voice attachment, ${phase.name}', recording: phase),
+        _composer(
+          'Voice attachment, ready to send',
+          attachments: const [
+            SharedFile(
+              path: '/tmp/voice.wav',
+              name: 'Voice message 7s.wav',
+              mimeType: 'audio/wav',
+            ),
+          ],
+        ),
         _composer('Text', text: 'Why did the nightly upload fail?'),
         _composer(
           'Slash suggestions',
@@ -762,11 +775,21 @@ WidgetbookUseCase _composer(
   List<SlashCommand> slashCommands = const [],
   bool commandRunning = false,
   DictationPhase? dictation,
+  VoiceRecordingPhase? recording,
   DictationEngine engine = DictationEngine.device,
 }) => WidgetbookUseCase(
   name: name,
   builder: (_) => frame(
     _Composer(
+      recording: recording == null
+          ? null
+          : VoiceRecordingView(
+              phase: recording,
+              elapsed: const Duration(seconds: 7),
+              onStart: () {},
+              onFinish: () {},
+              onCancel: () {},
+            ),
       dictation: dictation == null
           ? null
           : DictationView(
@@ -804,9 +827,11 @@ class _Composer extends StatefulWidget {
     required this.slashCommands,
     required this.commandRunning,
     this.dictation,
+    this.recording,
   });
 
   final DictationView? dictation;
+  final VoiceRecordingView? recording;
 
   final String text;
   final List<SharedFile> attachments;
@@ -843,6 +868,7 @@ class _ComposerState extends State<_Composer> {
     slashCommands: widget.slashCommands,
     commandRunning: widget.commandRunning,
     dictation: widget.dictation,
+    recording: widget.recording,
     modelPill: widget.pill
         ? ComposerModelPill(
             options: modelOptions,

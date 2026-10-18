@@ -21,6 +21,7 @@ import '../slash_command.dart';
 import '../starter_prompts.dart';
 import 'chat_builders.dart';
 import '../../voice/dictation_controller.dart';
+import '../../voice/voice_message_recording.dart';
 import 'chat_composer_builder.dart';
 import 'message_actions.dart' show TurnActionStatus;
 import '../chat_session_state.dart';
@@ -59,6 +60,7 @@ class ChatThreadView extends StatelessWidget {
     required this.composerController,
     required this.composerFocus,
     this.dictation,
+    this.voiceRecording,
     required this.attachments,
     required this.attachmentSource,
     required this.onAddAttachments,
@@ -121,6 +123,7 @@ class ChatThreadView extends StatelessWidget {
 
   /// Dictation into the composer; none in a conversation window.
   final DictationController? dictation;
+  final VoiceMessageRecording? voiceRecording;
   final List<SharedFile> attachments;
   final AttachmentSource attachmentSource;
   final ValueChanged<List<SharedFile>> onAddAttachments;
@@ -197,6 +200,7 @@ class ChatThreadView extends StatelessWidget {
             controller: composerController,
             focusNode: composerFocus,
             dictation: dictation,
+            voiceRecording: voiceRecording,
             botContext: botContext,
             attachments: attachments,
             onRemoveAttachment: onRemoveAttachment,

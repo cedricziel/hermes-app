@@ -61,6 +61,7 @@ extension _ChatScreenCalls on _ChatScreenState {
             path: '/api/audio/speak-stream',
           ),
           prepare: () async {
+            await _voiceRecording?.cancel();
             await _dictation?.controller.cancel();
             if (settings?.loaded == false) await settings!.load();
             final chosen = settings?.engine ?? DictationEngine.device;

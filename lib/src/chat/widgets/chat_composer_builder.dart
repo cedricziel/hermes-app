@@ -9,6 +9,7 @@ import '../queued_prompt.dart';
 import '../slash_command.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/dictation_view.dart';
+import '../../voice/voice_message_recording.dart';
 import 'chat_composer.dart';
 
 /// Builds the Hermes [ChatComposer] for flutter_chat_ui's `Chat`, in place of
@@ -18,6 +19,7 @@ WidgetBuilder buildChatComposer({
   required TextEditingController controller,
   FocusNode? focusNode,
   DictationController? dictation,
+  VoiceMessageRecording? voiceRecording,
   required List<SharedFile> attachments,
   required ValueChanged<SharedFile> onRemoveAttachment,
   bool replying = false,
@@ -54,28 +56,27 @@ WidgetBuilder buildChatComposer({
     commandRunning: commandRunning,
     queueView: queueView,
     dictation: dictationView,
+    recording: voiceRecording?.view,
   );
   return (context) => _ComposerSlot(
-    builder: (onSend, onAttach) => dictation == null
-        ? composer(onSend, onAttach, null)
-        : ListenableBuilder(
-            listenable: dictation,
-            builder: (context, _) => composer(
-              onSend,
-              onAttach,
-              dictation.available
-                  ? DictationView.of(
-                      dictation,
-                      onSend: () => sendAfterDictation(
-                        dictation,
-                        controller,
-                        onSend,
-                        sendTarget,
-                      ),
-                    )
-                  : null,
-            ),
-          ),
+    builder: (onSend, onAttach) => ListenableBuilder(
+      listenable: Listenable.merge([dictation, voiceRecording]),
+      builder: (context, _) => composer(
+        onSend,
+        onAttach,
+        dictation?.available == true && voiceRecording?.busy != true
+            ? DictationView.of(
+                dictation!,
+                onSend: () => sendAfterDictation(
+                  dictation,
+                  controller,
+                  onSend,
+                  sendTarget,
+                ),
+              )
+            : null,
+      ),
+    ),
   );
 }
 

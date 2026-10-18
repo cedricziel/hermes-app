@@ -18,9 +18,14 @@ class VoiceAudioFocus extends ChangeNotifier {
     }
     _owner = owner;
     notifyListeners();
-    await Future.wait(_players.toList().map((pause) => pause()))
-        .timeout(const Duration(seconds: 10));
+    await pausePlayers();
   }
+
+  /// Pauses existing playback before microphone capture. A recorder registered
+  /// for call handoff excludes its own cancellation callback here.
+  Future<void> pausePlayers({Future<void> Function()? except}) => Future.wait(
+    _players.toList().where((pause) => pause != except).map((pause) => pause()),
+  ).timeout(const Duration(seconds: 10));
 
   void release(Object owner) {
     if (!identical(_owner, owner)) return;

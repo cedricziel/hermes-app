@@ -110,7 +110,7 @@ void main() {
     await openThread(tester, 'Running chat');
     await tester.enterText(composerField, 'Hello');
     await tester.pump();
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.bySemanticsLabel('Send'));
     await tester.pump();
     expect(transport.sends, hasLength(1));
     await tester.pageBack();
