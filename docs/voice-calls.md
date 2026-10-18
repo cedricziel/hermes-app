@@ -1,6 +1,29 @@
 # Native iOS voice conversations
 
-Open a chat and tap **Start voice call**. Hermes presents its own voice view.
+Open a chat and tap **Start voice call**. A readiness screen checks microphone
+access, the selected speech-recognition engine, Hermes speech configuration,
+and the authenticated voice connection before starting CallKit. It does not
+record audio, synthesize sample speech, prompt for permission, or send a chat
+message while checking. Each check has a timeout; Cancel discards late results.
+Local issues offer microphone access or the existing Dictation settings.
+
+For server issues, **Ask Hermes to set this up** explicitly sends an ordinary
+message in the current chat and returns to that conversation. Watch the reply,
+steer the agent, answer follow-up questions and approve changes through the
+normal chat controls. The composer's existing draft and attachments are kept.
+The request contains curated diagnostics, never voice-config credentials or
+raw server responses, and asks Hermes to explain and confirm changes first.
+Nothing installs or changes server settings automatically. Check again after
+setup to start a call. A failed call also offers **Ask Hermes for help**.
+
+The checks validate reported configuration and a WebSocket upgrade, not actual
+synthesis, provider credentials at runtime, or installed server executables.
+There is no backend dependency-health endpoint; Hermes can diagnose dependencies
+such as ffmpeg in the visible setup conversation. Checking makes no paid test
+request. Auth failures ask the user to sign in again instead of asking the agent
+to repair credentials.
+
+After the checks pass, Hermes presents its own voice view.
 **Show chat** minimizes that view without ending the call; the header's phone
 button returns to it. System mute, audio route and hang-up controls belong to
 CallKit from the start. Backgrounding or locking the phone does not create a

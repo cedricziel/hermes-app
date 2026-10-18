@@ -11,10 +11,10 @@ extension _ChatScreenCalls on _ChatScreenState {
         _recipientSendAllowed &&
         _chat.modelSendAllowed &&
         !_chat.loadingThreads &&
-        (thread != null &&
-            (!thread.isReplying &&
-                !thread.isCanonicalBotChat &&
-                _chat.queuedIn(thread).isEmpty));
+        thread != null &&
+        !thread.isReplying &&
+        !thread.isCanonicalBotChat &&
+        _chat.queuedIn(thread).isEmpty;
   }
 
   Widget? get _callButton => !_canCall
@@ -31,100 +31,128 @@ extension _ChatScreenCalls on _ChatScreenState {
   Future<void> _openVoiceCall() async {
     if (_callRouteOpen || !_canCall) return;
     _callRouteOpen = true;
+    final breadcrumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
+    breadcrumbs('voice_call.opened');
     try {
-      var call = _voiceCall;
-      if (call == null || call.ended) {
-        call?.removeListener(_callChanged);
-        call?.dispose();
-        _sessionActivity?.removeListener(_callOwnerChanged);
-        final auth = _maybeRead<AuthController>()!;
-        final repository = _chat.repository!;
-        final api = auth.api!;
-        final profile = _chat.profile;
-        final settings = _maybeRead<DictationSettings>();
-        final onDevice = _maybeRead<OnDeviceSpeech>();
-        final locale = OnDeviceSpeech.deviceLocale();
-        var device = false;
-        late final VoiceCall created;
-        final agent = ChatCallAgent(
-          _chat,
-          onContextLost: () => unawaited(created.end()),
-        );
-        created = VoiceCall(
-          bridge: AppleCallBridge(),
-          agent: agent,
-          profile: profile,
-          connect: hermesMixedSocketConnect(
-            baseUrl: auth.baseUrl!,
-            authRequired: auth.status?.authRequired ?? true,
-            api: api,
-            path: '/api/audio/speak-stream',
-          ),
-          prepare: () async {
-            await _voiceRecording?.cancel();
-            await _dictation?.controller.cancel();
-            if (settings?.loaded == false) await settings!.load();
-            final chosen = settings?.engine ?? DictationEngine.device;
-            final model = onDevice == null
-                ? OnDeviceModel.unsupported
-                : await onDevice.status(locale);
-            device =
-                effectiveDictationEngine(chosen, model) ==
-                DictationEngine.device;
-            if (device && model != OnDeviceModel.installed) {
-              throw const CallPreparationException(
-                'Install your speech language in Dictation settings before calling.',
-              );
-            }
-            final support = await repository.voiceSupport(profile: profile);
-            if (!support.textToSpeech || (!device && !support.speechToText)) {
-              throw const CallPreparationException(
-                'Configure speech providers on Hermes before calling.',
-              );
-            }
-            if (!agent.valid) {
-              throw StateError('The chat changed before the call started.');
-            }
-          },
-          transcribe: (wav) => device
-              ? onDevice!.transcribeFile(wav, locale: locale)
-              : repository.transcribe(
-                  wav,
-                  mimeType: 'audio/wav',
-                  profile: profile,
-                  timeout: const Duration(seconds: 60),
-                ),
-        );
-        call = _voiceCall = created;
-        _callHasEnded = false;
-        call.addListener(_callChanged);
-        _sessionActivity?.addListener(_callOwnerChanged);
-        unawaited(call.start());
-        _rebuild(() {});
-      }
-      if (!mounted) return;
-      final ongoing = call;
+      final auth = _maybeRead<AuthController>()!;
+      final api = auth.api!;
+      final baseUrl = auth.baseUrl!;
+      final repository = _chat.repository!;
+      final profile = _chat.profile;
+      final thread = _chat.selectedThread;
+      final settings = _maybeRead<DictationSettings>();
+      final onDevice = _maybeRead<OnDeviceSpeech>();
+      var locale = OnDeviceSpeech.deviceLocale();
+      bool ownerValid() =>
+          mounted &&
+          _chat.active &&
+          _sessionActivity?.value != false &&
+          identical(_maybeRead<AuthController>(), auth) &&
+          identical(auth.api, api) &&
+          auth.baseUrl == baseUrl &&
+          _chat.profile == profile &&
+          identical(_chat.selectedThread, thread) &&
+          _recipientSendAllowed &&
+          _chat.modelSendAllowed;
+      bool current() => _callRouteOpen && ownerValid();
+      final connect = hermesMixedSocketConnect(
+        baseUrl: baseUrl,
+        authRequired: auth.status?.authRequired ?? true,
+        api: api,
+        path: '/api/audio/speak-stream',
+      );
+      final checker = CallReadinessChecker(
+        isCurrent: current,
+        beforeCheck: () async {
+          await _voiceRecording?.cancel();
+          await _dictation?.controller.cancel();
+        },
+        microphone: () => callMicrophonePermission(),
+        input: () async {
+          if (settings?.loaded == false) await settings!.load();
+          locale = OnDeviceSpeech.deviceLocale();
+          final chosen = settings?.engine ?? DictationEngine.device;
+          final model = chosen == DictationEngine.hermes || onDevice == null
+              ? OnDeviceModel.unsupported
+              : await onDevice.status(locale);
+          final device =
+              effectiveDictationEngine(chosen, model) == DictationEngine.device;
+          return CallInput(
+            useDevice: device,
+            installed: model == OnDeviceModel.installed,
+          );
+        },
+        configuration: () => repository.voiceConfiguration(profile: profile),
+        connection: () => probeCallSpeech(connect, profile, isCurrent: current),
+      );
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           fullscreenDialog: true,
-          builder: (context) => Scaffold(
-            body: ListenableBuilder(
-              listenable: ongoing,
-              builder: (context, _) => VoiceCallView(
-                phase: ongoing.phase,
-                elapsed: ongoing.elapsed,
-                muted: ongoing.muted,
-                speaker: ongoing.speaker,
-                route: ongoing.route,
-                caption: ongoing.caption,
-                error: ongoing.error,
-                onMute: () => unawaited(ongoing.setMuted(!ongoing.muted)),
-                onSpeaker: () =>
-                    unawaited(ongoing.setSpeaker(!ongoing.speaker)),
-                onEnd: () => unawaited(ongoing.end()),
-                onShowChat: () => Navigator.of(context).pop(),
-              ),
-            ),
+          builder: (routeContext) => VoiceCallScreen(
+            checker: checker,
+            isCurrent: current,
+            ongoing: _voiceCall?.ended == false ? _voiceCall : null,
+            requestMicrophone: () => callMicrophonePermission(request: true),
+            openMicrophoneSettings: () async {
+              if (!await launchUrl(Uri.parse('app-settings:'))) {
+                throw StateError('Settings could not be opened');
+              }
+            },
+            openDictation: () => showDictationDialog(routeContext),
+            askHermes: (report) async {
+              if (!current() || !report.canAskHermes) return false;
+              // Normal chat submission preserves the composer's draft/files.
+              final accepted = await _chat.submit(report.setupPrompt, const []);
+              breadcrumbs('voice_call.setup_requested', {'accepted': accepted});
+              return accepted;
+            },
+            startCall: (readiness) {
+              if (!current() ||
+                  thread == null ||
+                  thread.isReplying ||
+                  _chat.queuedIn(thread).isNotEmpty) {
+                throw StateError('The chat changed before the call started');
+              }
+              final previous = _voiceCall;
+              previous?.removeListener(_callChanged);
+              previous?.dispose();
+              _sessionActivity?.removeListener(_callOwnerChanged);
+              late final VoiceCall created;
+              final agent = ChatCallAgent(
+                _chat,
+                onContextLost: () => unawaited(created.end()),
+              );
+              created = VoiceCall(
+                bridge: AppleCallBridge(),
+                agent: agent,
+                profile: profile,
+                connect: connect,
+                prepare: () async {
+                  if (!ownerValid() || !agent.valid) {
+                    throw const CallPreparationException(
+                      'This chat changed. Start the call again.',
+                    );
+                  }
+                },
+                transcribe: (wav) => readiness.useDeviceSpeech
+                    ? onDevice!.transcribeFile(wav, locale: locale)
+                    : repository.transcribe(
+                        wav,
+                        mimeType: 'audio/wav',
+                        profile: profile,
+                        timeout: const Duration(seconds: 60),
+                      ),
+              );
+              _voiceCall = created;
+              breadcrumbs('voice_call.ready', {
+                'device_speech': readiness.useDeviceSpeech,
+              });
+              _callHasEnded = false;
+              created.addListener(_callChanged);
+              _sessionActivity?.addListener(_callOwnerChanged);
+              _rebuild(() {});
+              return created;
+            },
           ),
         ),
       );

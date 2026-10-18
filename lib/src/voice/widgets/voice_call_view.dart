@@ -20,6 +20,8 @@ class VoiceCallView extends StatelessWidget {
     required this.onShowChat,
     this.caption = '',
     this.error,
+    this.onAskHermes,
+    this.helpBusy = false,
   });
   final CallPhase phase;
   final Duration elapsed;
@@ -28,6 +30,8 @@ class VoiceCallView extends StatelessWidget {
   final String route;
   final String caption;
   final String? error;
+  final VoidCallback? onAskHermes;
+  final bool helpBusy;
   final VoidCallback onMute;
   final VoidCallback onSpeaker;
   final VoidCallback onEnd;
@@ -160,11 +164,17 @@ class VoiceCallView extends StatelessWidget {
                       color: colors.onSurfaceVariant,
                     ),
                   ),
-                ] else
+                ] else ...[
+                  if (error != null && onAskHermes != null)
+                    FilledButton(
+                      onPressed: helpBusy ? null : onAskHermes,
+                      child: const Text('Ask Hermes for help'),
+                    ),
                   TextButton(
                     onPressed: onShowChat,
                     child: const Text('Back to chat'),
                   ),
+                ],
               ],
             ),
           ),
