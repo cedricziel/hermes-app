@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/voice/calls/call_readiness.dart';
@@ -39,7 +40,6 @@ void main() {
           probes++;
         },
     isCurrent: () => active,
-    timeout: const Duration(milliseconds: 30),
   );
 
   setUp(() {
@@ -151,16 +151,24 @@ void main() {
     },
   );
 
-  test(
-    'a hung device permission check is bounded and other checks finish',
-    () async {
-      final report = await checker(microphone: () => Completer<bool>().future)
-          .check();
-      expect(report.checks[0].status, CallCheckStatus.unavailable);
-      expect(report.checks[3].status, CallCheckStatus.ready);
-      expect(report.ready, isFalse);
-    },
-  );
+  test('a hung device permission check is bounded and other checks finish', () {
+    fakeAsync((clock) {
+      CallReadiness? report;
+      unawaited(
+        checker(microphone: () => Completer<bool>().future)
+            .check()
+            .then((value) => report = value),
+      );
+      clock.flushMicrotasks();
+      clock.elapse(const Duration(seconds: 7));
+      expect(report, isNull);
+      clock.elapse(const Duration(seconds: 1));
+      expect(report, isNotNull);
+      expect(report!.checks[0].status, CallCheckStatus.unavailable);
+      expect(report!.checks[3].status, CallCheckStatus.ready);
+      expect(report!.ready, isFalse);
+    });
+  });
 
   test('retired context does not continue into backend checks', () async {
     final permission = Completer<bool>();
