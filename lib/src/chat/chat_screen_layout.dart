@@ -121,7 +121,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           sendTarget: () => (_chat.profile, _chat.selectedId),
           composerController: _composerController,
           composerFocus: _composerFocus,
-          dictation: _dictation?.controller,
+          dictation: _voiceCall?.ended == false ? null : _dictation?.controller,
           attachments: _attachments,
           attachmentSource: _attachmentSource,
           onAddAttachments: _addAttachments,
@@ -167,6 +167,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                   housekeeping: chat.housekeeping,
                   onShowConnection: _showConnection,
                   onNewChat: _newThread,
+                  callButton: _callButton,
                   activityOpen: _activityOpen,
                   onToggleActivity: selected == null ? null : _toggleActivity,
                 ),
@@ -211,6 +212,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                     ],
                   ),
                   actions: [
+                    ?_callButton,
                     if (selected != null && selected.remote)
                       ThreadActionsButton(
                         key: const Key('header-thread-actions'),

@@ -1,3 +1,4 @@
+import 'voice_call_use_cases.dart';
 import 'messenger_identity_use_cases.dart';
 import 'reaction_use_cases.dart';
 import 'billing_verification_use_cases.dart';
@@ -63,6 +64,7 @@ import 'schedules_use_cases.dart';
 import 'voice_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
+  voiceCallNode(),
   messengerIdentityNode(),
   reactionNode(),
   changeInvalidationNode(),

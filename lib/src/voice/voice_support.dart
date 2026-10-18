@@ -38,7 +38,11 @@ class VoiceSupport {
 
   static bool _usable(Object? section) =>
       section is Map &&
-      !const {'stt disabled', 'no credentials'}.contains(section['reason']);
+      !const {
+        'stt disabled',
+        'tts disabled',
+        'no credentials',
+      }.contains(section['reason']);
 
   @override
   String toString() =>

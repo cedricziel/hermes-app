@@ -1,5 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
+import '../voice/calls/call_bridge.dart';
+import '../voice/calls/call_agent.dart';
+import '../voice/calls/voice_call.dart';
+import '../voice/widgets/voice_call_view.dart';
+
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:clock/clock.dart';
@@ -96,6 +103,7 @@ part 'chat_screen_recipients.dart';
 part 'chat_screen_navigation.dart';
 part 'chat_screen_composer.dart';
 part 'chat_screen_layout.dart';
+part 'chat_screen_calls.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -215,6 +223,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesGatewayTransport? _ownedTransport;
   SessionActivity? _sessionActivity;
   final _composerController = TextEditingController();
+  VoiceCall? _voiceCall;
+  bool _callRouteOpen = false;
+  bool _callHasEnded = true;
   ComposerDictation? _dictation;
   List<SlashCommand> _slashCommands = const [];
   String? _slashContext;
@@ -656,6 +667,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _panelTookVoice?.cancel();
     _windows?.removeListener(_advertise);
     _attention.dispose();
+    _sessionActivity?.removeListener(_callOwnerChanged);
+    _voiceCall?.removeListener(_callChanged);
+    _voiceCall?.dispose();
     _chat
       ..removeListener(_changed)
       ..dispose();
