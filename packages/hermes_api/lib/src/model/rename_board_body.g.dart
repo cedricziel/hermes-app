@@ -19,12 +19,14 @@ abstract class _$RenameBoardBodyCWProxy {
 
   RenameBoardBody projectId(String? projectId);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `RenameBoardBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `RenameBoardBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// RenameBoardBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   RenameBoardBody call({
     String? name,
     String? description,
@@ -35,39 +37,42 @@ abstract class _$RenameBoardBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfRenameBoardBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfRenameBoardBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfRenameBoardBody.copyWith(...)` or call `instanceOfRenameBoardBody.copyWith.fieldName(value)` for a single field.
 class _$RenameBoardBodyCWProxyImpl implements _$RenameBoardBodyCWProxy {
   const _$RenameBoardBodyCWProxyImpl(this._value);
 
   final RenameBoardBody _value;
 
   @override
-  RenameBoardBody name(String? name) => this(name: name);
+  RenameBoardBody name(String? name) => call(name: name);
 
   @override
   RenameBoardBody description(String? description) =>
-      this(description: description);
+      call(description: description);
 
   @override
-  RenameBoardBody icon(String? icon) => this(icon: icon);
+  RenameBoardBody icon(String? icon) => call(icon: icon);
 
   @override
-  RenameBoardBody color(String? color) => this(color: color);
+  RenameBoardBody color(String? color) => call(color: color);
 
   @override
   RenameBoardBody defaultWorkdir(String? defaultWorkdir) =>
-      this(defaultWorkdir: defaultWorkdir);
+      call(defaultWorkdir: defaultWorkdir);
 
   @override
-  RenameBoardBody projectId(String? projectId) => this(projectId: projectId);
+  RenameBoardBody projectId(String? projectId) => call(projectId: projectId);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `RenameBoardBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `RenameBoardBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// RenameBoardBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   RenameBoardBody call({
     Object? name = const $CopyWithPlaceholder(),
     Object? description = const $CopyWithPlaceholder(),
@@ -106,7 +111,8 @@ class _$RenameBoardBodyCWProxyImpl implements _$RenameBoardBodyCWProxy {
 }
 
 extension $RenameBoardBodyCopyWith on RenameBoardBody {
-  /// Returns a callable class that can be used as follows: `instanceOfRenameBoardBody.copyWith(...)` or like so:`instanceOfRenameBoardBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfRenameBoardBody.copyWith(...)` or `instanceOfRenameBoardBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$RenameBoardBodyCWProxy get copyWith => _$RenameBoardBodyCWProxyImpl(this);
 }

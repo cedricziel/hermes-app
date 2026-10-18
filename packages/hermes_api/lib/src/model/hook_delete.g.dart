@@ -11,44 +11,49 @@ abstract class _$HookDeleteCWProxy {
 
   HookDelete command(String command);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `HookDelete(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `HookDelete(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// HookDelete(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   HookDelete call({String event, String command});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfHookDelete.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfHookDelete.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfHookDelete.copyWith(...)` or call `instanceOfHookDelete.copyWith.fieldName(value)` for a single field.
 class _$HookDeleteCWProxyImpl implements _$HookDeleteCWProxy {
   const _$HookDeleteCWProxyImpl(this._value);
 
   final HookDelete _value;
 
   @override
-  HookDelete event(String event) => this(event: event);
+  HookDelete event(String event) => call(event: event);
 
   @override
-  HookDelete command(String command) => this(command: command);
+  HookDelete command(String command) => call(command: command);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `HookDelete(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `HookDelete(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// HookDelete(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   HookDelete call({
     Object? event = const $CopyWithPlaceholder(),
     Object? command = const $CopyWithPlaceholder(),
   }) {
     return HookDelete(
-      event: event == const $CopyWithPlaceholder()
+      event: event == const $CopyWithPlaceholder() || event == null
           ? _value.event
           // ignore: cast_nullable_to_non_nullable
           : event as String,
-      command: command == const $CopyWithPlaceholder()
+      command: command == const $CopyWithPlaceholder() || command == null
           ? _value.command
           // ignore: cast_nullable_to_non_nullable
           : command as String,
@@ -57,7 +62,8 @@ class _$HookDeleteCWProxyImpl implements _$HookDeleteCWProxy {
 }
 
 extension $HookDeleteCopyWith on HookDelete {
-  /// Returns a callable class that can be used as follows: `instanceOfHookDelete.copyWith(...)` or like so:`instanceOfHookDelete.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfHookDelete.copyWith(...)` or `instanceOfHookDelete.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$HookDeleteCWProxy get copyWith => _$HookDeleteCWProxyImpl(this);
 }

@@ -9,34 +9,39 @@ part of 'profile_rename.dart';
 abstract class _$ProfileRenameCWProxy {
   ProfileRename newName(String newName);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileRename(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileRename(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileRename(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ProfileRename call({String newName});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfProfileRename.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfProfileRename.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfProfileRename.copyWith(...)` or call `instanceOfProfileRename.copyWith.fieldName(value)` for a single field.
 class _$ProfileRenameCWProxyImpl implements _$ProfileRenameCWProxy {
   const _$ProfileRenameCWProxyImpl(this._value);
 
   final ProfileRename _value;
 
   @override
-  ProfileRename newName(String newName) => this(newName: newName);
+  ProfileRename newName(String newName) => call(newName: newName);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileRename(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileRename(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileRename(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ProfileRename call({Object? newName = const $CopyWithPlaceholder()}) {
     return ProfileRename(
-      newName: newName == const $CopyWithPlaceholder()
+      newName: newName == const $CopyWithPlaceholder() || newName == null
           ? _value.newName
           // ignore: cast_nullable_to_non_nullable
           : newName as String,
@@ -45,7 +50,8 @@ class _$ProfileRenameCWProxyImpl implements _$ProfileRenameCWProxy {
 }
 
 extension $ProfileRenameCopyWith on ProfileRename {
-  /// Returns a callable class that can be used as follows: `instanceOfProfileRename.copyWith(...)` or like so:`instanceOfProfileRename.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfProfileRename.copyWith(...)` or `instanceOfProfileRename.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ProfileRenameCWProxy get copyWith => _$ProfileRenameCWProxyImpl(this);
 }

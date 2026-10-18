@@ -9,34 +9,39 @@ part of 'cron_job_update.dart';
 abstract class _$CronJobUpdateCWProxy {
   CronJobUpdate updates(Map<String, Object> updates);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CronJobUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CronJobUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CronJobUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CronJobUpdate call({Map<String, Object> updates});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCronJobUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCronJobUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCronJobUpdate.copyWith(...)` or call `instanceOfCronJobUpdate.copyWith.fieldName(value)` for a single field.
 class _$CronJobUpdateCWProxyImpl implements _$CronJobUpdateCWProxy {
   const _$CronJobUpdateCWProxyImpl(this._value);
 
   final CronJobUpdate _value;
 
   @override
-  CronJobUpdate updates(Map<String, Object> updates) => this(updates: updates);
+  CronJobUpdate updates(Map<String, Object> updates) => call(updates: updates);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CronJobUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CronJobUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CronJobUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CronJobUpdate call({Object? updates = const $CopyWithPlaceholder()}) {
     return CronJobUpdate(
-      updates: updates == const $CopyWithPlaceholder()
+      updates: updates == const $CopyWithPlaceholder() || updates == null
           ? _value.updates
           // ignore: cast_nullable_to_non_nullable
           : updates as Map<String, Object>,
@@ -45,7 +50,8 @@ class _$CronJobUpdateCWProxyImpl implements _$CronJobUpdateCWProxy {
 }
 
 extension $CronJobUpdateCopyWith on CronJobUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfCronJobUpdate.copyWith(...)` or like so:`instanceOfCronJobUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCronJobUpdate.copyWith(...)` or `instanceOfCronJobUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CronJobUpdateCWProxy get copyWith => _$CronJobUpdateCWProxyImpl(this);
 }

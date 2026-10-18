@@ -11,40 +11,45 @@ abstract class _$ProfileImportCWProxy {
 
   ProfileImport name(String? name);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileImport(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileImport(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileImport(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ProfileImport call({String archive, String? name});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfProfileImport.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfProfileImport.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfProfileImport.copyWith(...)` or call `instanceOfProfileImport.copyWith.fieldName(value)` for a single field.
 class _$ProfileImportCWProxyImpl implements _$ProfileImportCWProxy {
   const _$ProfileImportCWProxyImpl(this._value);
 
   final ProfileImport _value;
 
   @override
-  ProfileImport archive(String archive) => this(archive: archive);
+  ProfileImport archive(String archive) => call(archive: archive);
 
   @override
-  ProfileImport name(String? name) => this(name: name);
+  ProfileImport name(String? name) => call(name: name);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileImport(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileImport(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileImport(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ProfileImport call({
     Object? archive = const $CopyWithPlaceholder(),
     Object? name = const $CopyWithPlaceholder(),
   }) {
     return ProfileImport(
-      archive: archive == const $CopyWithPlaceholder()
+      archive: archive == const $CopyWithPlaceholder() || archive == null
           ? _value.archive
           // ignore: cast_nullable_to_non_nullable
           : archive as String,
@@ -57,7 +62,8 @@ class _$ProfileImportCWProxyImpl implements _$ProfileImportCWProxy {
 }
 
 extension $ProfileImportCopyWith on ProfileImport {
-  /// Returns a callable class that can be used as follows: `instanceOfProfileImport.copyWith(...)` or like so:`instanceOfProfileImport.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfProfileImport.copyWith(...)` or `instanceOfProfileImport.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ProfileImportCWProxy get copyWith => _$ProfileImportCWProxyImpl(this);
 }

@@ -11,40 +11,45 @@ abstract class _$RawConfigUpdateCWProxy {
 
   RawConfigUpdate profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `RawConfigUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `RawConfigUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// RawConfigUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   RawConfigUpdate call({String yamlText, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfRawConfigUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfRawConfigUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfRawConfigUpdate.copyWith(...)` or call `instanceOfRawConfigUpdate.copyWith.fieldName(value)` for a single field.
 class _$RawConfigUpdateCWProxyImpl implements _$RawConfigUpdateCWProxy {
   const _$RawConfigUpdateCWProxyImpl(this._value);
 
   final RawConfigUpdate _value;
 
   @override
-  RawConfigUpdate yamlText(String yamlText) => this(yamlText: yamlText);
+  RawConfigUpdate yamlText(String yamlText) => call(yamlText: yamlText);
 
   @override
-  RawConfigUpdate profile(String? profile) => this(profile: profile);
+  RawConfigUpdate profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `RawConfigUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `RawConfigUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// RawConfigUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   RawConfigUpdate call({
     Object? yamlText = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return RawConfigUpdate(
-      yamlText: yamlText == const $CopyWithPlaceholder()
+      yamlText: yamlText == const $CopyWithPlaceholder() || yamlText == null
           ? _value.yamlText
           // ignore: cast_nullable_to_non_nullable
           : yamlText as String,
@@ -57,7 +62,8 @@ class _$RawConfigUpdateCWProxyImpl implements _$RawConfigUpdateCWProxy {
 }
 
 extension $RawConfigUpdateCopyWith on RawConfigUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfRawConfigUpdate.copyWith(...)` or like so:`instanceOfRawConfigUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfRawConfigUpdate.copyWith(...)` or `instanceOfRawConfigUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$RawConfigUpdateCWProxy get copyWith => _$RawConfigUpdateCWProxyImpl(this);
 }

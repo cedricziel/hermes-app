@@ -11,44 +11,49 @@ abstract class _$BrowsedDownloadBodyCWProxy {
 
   BrowsedDownloadBody paths(List<String> paths);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `BrowsedDownloadBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `BrowsedDownloadBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// BrowsedDownloadBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   BrowsedDownloadBody call({String repo, List<String> paths});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfBrowsedDownloadBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfBrowsedDownloadBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfBrowsedDownloadBody.copyWith(...)` or call `instanceOfBrowsedDownloadBody.copyWith.fieldName(value)` for a single field.
 class _$BrowsedDownloadBodyCWProxyImpl implements _$BrowsedDownloadBodyCWProxy {
   const _$BrowsedDownloadBodyCWProxyImpl(this._value);
 
   final BrowsedDownloadBody _value;
 
   @override
-  BrowsedDownloadBody repo(String repo) => this(repo: repo);
+  BrowsedDownloadBody repo(String repo) => call(repo: repo);
 
   @override
-  BrowsedDownloadBody paths(List<String> paths) => this(paths: paths);
+  BrowsedDownloadBody paths(List<String> paths) => call(paths: paths);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `BrowsedDownloadBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `BrowsedDownloadBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// BrowsedDownloadBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   BrowsedDownloadBody call({
     Object? repo = const $CopyWithPlaceholder(),
     Object? paths = const $CopyWithPlaceholder(),
   }) {
     return BrowsedDownloadBody(
-      repo: repo == const $CopyWithPlaceholder()
+      repo: repo == const $CopyWithPlaceholder() || repo == null
           ? _value.repo
           // ignore: cast_nullable_to_non_nullable
           : repo as String,
-      paths: paths == const $CopyWithPlaceholder()
+      paths: paths == const $CopyWithPlaceholder() || paths == null
           ? _value.paths
           // ignore: cast_nullable_to_non_nullable
           : paths as List<String>,
@@ -57,7 +62,8 @@ class _$BrowsedDownloadBodyCWProxyImpl implements _$BrowsedDownloadBodyCWProxy {
 }
 
 extension $BrowsedDownloadBodyCopyWith on BrowsedDownloadBody {
-  /// Returns a callable class that can be used as follows: `instanceOfBrowsedDownloadBody.copyWith(...)` or like so:`instanceOfBrowsedDownloadBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfBrowsedDownloadBody.copyWith(...)` or `instanceOfBrowsedDownloadBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$BrowsedDownloadBodyCWProxy get copyWith =>
       _$BrowsedDownloadBodyCWProxyImpl(this);

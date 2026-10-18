@@ -9,31 +9,36 @@ part of 'session_pr_scan_body.dart';
 abstract class _$SessionPrScanBodyCWProxy {
   SessionPrScanBody ids(List<String>? ids);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SessionPrScanBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SessionPrScanBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SessionPrScanBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SessionPrScanBody call({List<String>? ids});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSessionPrScanBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSessionPrScanBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSessionPrScanBody.copyWith(...)` or call `instanceOfSessionPrScanBody.copyWith.fieldName(value)` for a single field.
 class _$SessionPrScanBodyCWProxyImpl implements _$SessionPrScanBodyCWProxy {
   const _$SessionPrScanBodyCWProxyImpl(this._value);
 
   final SessionPrScanBody _value;
 
   @override
-  SessionPrScanBody ids(List<String>? ids) => this(ids: ids);
+  SessionPrScanBody ids(List<String>? ids) => call(ids: ids);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SessionPrScanBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SessionPrScanBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SessionPrScanBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SessionPrScanBody call({Object? ids = const $CopyWithPlaceholder()}) {
     return SessionPrScanBody(
       ids: ids == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$SessionPrScanBodyCWProxyImpl implements _$SessionPrScanBodyCWProxy {
 }
 
 extension $SessionPrScanBodyCopyWith on SessionPrScanBody {
-  /// Returns a callable class that can be used as follows: `instanceOfSessionPrScanBody.copyWith(...)` or like so:`instanceOfSessionPrScanBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSessionPrScanBody.copyWith(...)` or `instanceOfSessionPrScanBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SessionPrScanBodyCWProxy get copyWith =>
       _$SessionPrScanBodyCWProxyImpl(this);

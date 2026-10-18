@@ -9,34 +9,39 @@ part of 'font_set_body.dart';
 abstract class _$FontSetBodyCWProxy {
   FontSetBody font(String font);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `FontSetBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `FontSetBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// FontSetBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   FontSetBody call({String font});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfFontSetBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfFontSetBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfFontSetBody.copyWith(...)` or call `instanceOfFontSetBody.copyWith.fieldName(value)` for a single field.
 class _$FontSetBodyCWProxyImpl implements _$FontSetBodyCWProxy {
   const _$FontSetBodyCWProxyImpl(this._value);
 
   final FontSetBody _value;
 
   @override
-  FontSetBody font(String font) => this(font: font);
+  FontSetBody font(String font) => call(font: font);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `FontSetBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `FontSetBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// FontSetBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   FontSetBody call({Object? font = const $CopyWithPlaceholder()}) {
     return FontSetBody(
-      font: font == const $CopyWithPlaceholder()
+      font: font == const $CopyWithPlaceholder() || font == null
           ? _value.font
           // ignore: cast_nullable_to_non_nullable
           : font as String,
@@ -45,7 +50,8 @@ class _$FontSetBodyCWProxyImpl implements _$FontSetBodyCWProxy {
 }
 
 extension $FontSetBodyCopyWith on FontSetBody {
-  /// Returns a callable class that can be used as follows: `instanceOfFontSetBody.copyWith(...)` or like so:`instanceOfFontSetBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfFontSetBody.copyWith(...)` or `instanceOfFontSetBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$FontSetBodyCWProxy get copyWith => _$FontSetBodyCWProxyImpl(this);
 }

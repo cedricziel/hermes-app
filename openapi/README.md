@@ -60,3 +60,10 @@ fails if it produces a diff, so a spec update without a regenerated client is
 caught instead of silently drifting. `packages/hermes_api/pubspec.lock` is
 committed on purpose, so that check isn't at the mercy of a transitive
 dependency picking up a new version between two runs.
+
+Major generated-package dependency updates also need matching constraints in
+`update_build_dependencies` in `scripts/patch_generated_dart_client.py`; otherwise
+regeneration restores the upstream template's older versions and fails the drift
+check. Regenerate after changing those constraints and commit the resulting
+package and lockfile together. Dependabot's generated-client group excludes
+major updates so those generator changes can be reviewed explicitly.

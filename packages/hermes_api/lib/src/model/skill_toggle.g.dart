@@ -13,48 +13,53 @@ abstract class _$SkillToggleCWProxy {
 
   SkillToggle profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillToggle(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillToggle(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillToggle(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SkillToggle call({String name, bool enabled, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSkillToggle.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSkillToggle.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSkillToggle.copyWith(...)` or call `instanceOfSkillToggle.copyWith.fieldName(value)` for a single field.
 class _$SkillToggleCWProxyImpl implements _$SkillToggleCWProxy {
   const _$SkillToggleCWProxyImpl(this._value);
 
   final SkillToggle _value;
 
   @override
-  SkillToggle name(String name) => this(name: name);
+  SkillToggle name(String name) => call(name: name);
 
   @override
-  SkillToggle enabled(bool enabled) => this(enabled: enabled);
+  SkillToggle enabled(bool enabled) => call(enabled: enabled);
 
   @override
-  SkillToggle profile(String? profile) => this(profile: profile);
+  SkillToggle profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillToggle(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillToggle(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillToggle(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SkillToggle call({
     Object? name = const $CopyWithPlaceholder(),
     Object? enabled = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return SkillToggle(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
-      enabled: enabled == const $CopyWithPlaceholder()
+      enabled: enabled == const $CopyWithPlaceholder() || enabled == null
           ? _value.enabled
           // ignore: cast_nullable_to_non_nullable
           : enabled as bool,
@@ -67,7 +72,8 @@ class _$SkillToggleCWProxyImpl implements _$SkillToggleCWProxy {
 }
 
 extension $SkillToggleCopyWith on SkillToggle {
-  /// Returns a callable class that can be used as follows: `instanceOfSkillToggle.copyWith(...)` or like so:`instanceOfSkillToggle.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSkillToggle.copyWith(...)` or `instanceOfSkillToggle.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SkillToggleCWProxy get copyWith => _$SkillToggleCWProxyImpl(this);
 }

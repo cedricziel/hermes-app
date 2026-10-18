@@ -11,34 +11,39 @@ abstract class _$DebugShareRequestCWProxy {
 
   DebugShareRequest lines(int? lines);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `DebugShareRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `DebugShareRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// DebugShareRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   DebugShareRequest call({bool? redact, int? lines});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfDebugShareRequest.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfDebugShareRequest.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfDebugShareRequest.copyWith(...)` or call `instanceOfDebugShareRequest.copyWith.fieldName(value)` for a single field.
 class _$DebugShareRequestCWProxyImpl implements _$DebugShareRequestCWProxy {
   const _$DebugShareRequestCWProxyImpl(this._value);
 
   final DebugShareRequest _value;
 
   @override
-  DebugShareRequest redact(bool? redact) => this(redact: redact);
+  DebugShareRequest redact(bool? redact) => call(redact: redact);
 
   @override
-  DebugShareRequest lines(int? lines) => this(lines: lines);
+  DebugShareRequest lines(int? lines) => call(lines: lines);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `DebugShareRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `DebugShareRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// DebugShareRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   DebugShareRequest call({
     Object? redact = const $CopyWithPlaceholder(),
     Object? lines = const $CopyWithPlaceholder(),
@@ -57,7 +62,8 @@ class _$DebugShareRequestCWProxyImpl implements _$DebugShareRequestCWProxy {
 }
 
 extension $DebugShareRequestCopyWith on DebugShareRequest {
-  /// Returns a callable class that can be used as follows: `instanceOfDebugShareRequest.copyWith(...)` or like so:`instanceOfDebugShareRequest.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfDebugShareRequest.copyWith(...)` or `instanceOfDebugShareRequest.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$DebugShareRequestCWProxy get copyWith =>
       _$DebugShareRequestCWProxyImpl(this);

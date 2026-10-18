@@ -9,16 +9,19 @@ part of 'telegram_onboarding_start.dart';
 abstract class _$TelegramOnboardingStartCWProxy {
   TelegramOnboardingStart botName(String? botName);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TelegramOnboardingStart(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TelegramOnboardingStart(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TelegramOnboardingStart(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   TelegramOnboardingStart call({String? botName});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfTelegramOnboardingStart.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfTelegramOnboardingStart.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfTelegramOnboardingStart.copyWith(...)` or call `instanceOfTelegramOnboardingStart.copyWith.fieldName(value)` for a single field.
 class _$TelegramOnboardingStartCWProxyImpl
     implements _$TelegramOnboardingStartCWProxy {
   const _$TelegramOnboardingStartCWProxyImpl(this._value);
@@ -26,15 +29,17 @@ class _$TelegramOnboardingStartCWProxyImpl
   final TelegramOnboardingStart _value;
 
   @override
-  TelegramOnboardingStart botName(String? botName) => this(botName: botName);
+  TelegramOnboardingStart botName(String? botName) => call(botName: botName);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TelegramOnboardingStart(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TelegramOnboardingStart(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TelegramOnboardingStart(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   TelegramOnboardingStart call({
     Object? botName = const $CopyWithPlaceholder(),
   }) {
@@ -48,7 +53,8 @@ class _$TelegramOnboardingStartCWProxyImpl
 }
 
 extension $TelegramOnboardingStartCopyWith on TelegramOnboardingStart {
-  /// Returns a callable class that can be used as follows: `instanceOfTelegramOnboardingStart.copyWith(...)` or like so:`instanceOfTelegramOnboardingStart.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfTelegramOnboardingStart.copyWith(...)` or `instanceOfTelegramOnboardingStart.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$TelegramOnboardingStartCWProxy get copyWith =>
       _$TelegramOnboardingStartCWProxyImpl(this);

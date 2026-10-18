@@ -25,12 +25,14 @@ abstract class _$ModelAssignmentCWProxy {
 
   ModelAssignment profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ModelAssignment(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ModelAssignment(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ModelAssignment(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ModelAssignment call({
     String scope,
     String provider,
@@ -44,48 +46,51 @@ abstract class _$ModelAssignmentCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfModelAssignment.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfModelAssignment.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfModelAssignment.copyWith(...)` or call `instanceOfModelAssignment.copyWith.fieldName(value)` for a single field.
 class _$ModelAssignmentCWProxyImpl implements _$ModelAssignmentCWProxy {
   const _$ModelAssignmentCWProxyImpl(this._value);
 
   final ModelAssignment _value;
 
   @override
-  ModelAssignment scope(String scope) => this(scope: scope);
+  ModelAssignment scope(String scope) => call(scope: scope);
 
   @override
-  ModelAssignment provider(String provider) => this(provider: provider);
+  ModelAssignment provider(String provider) => call(provider: provider);
 
   @override
-  ModelAssignment model(String model) => this(model: model);
+  ModelAssignment model(String model) => call(model: model);
 
   @override
-  ModelAssignment task(String? task) => this(task: task);
+  ModelAssignment task(String? task) => call(task: task);
 
   @override
   ModelAssignment reasoningEffort(String? reasoningEffort) =>
-      this(reasoningEffort: reasoningEffort);
+      call(reasoningEffort: reasoningEffort);
 
   @override
-  ModelAssignment baseUrl(String? baseUrl) => this(baseUrl: baseUrl);
+  ModelAssignment baseUrl(String? baseUrl) => call(baseUrl: baseUrl);
 
   @override
-  ModelAssignment apiKey(String? apiKey) => this(apiKey: apiKey);
+  ModelAssignment apiKey(String? apiKey) => call(apiKey: apiKey);
 
   @override
   ModelAssignment confirmExpensiveModel(bool? confirmExpensiveModel) =>
-      this(confirmExpensiveModel: confirmExpensiveModel);
+      call(confirmExpensiveModel: confirmExpensiveModel);
 
   @override
-  ModelAssignment profile(String? profile) => this(profile: profile);
+  ModelAssignment profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ModelAssignment(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ModelAssignment(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ModelAssignment(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ModelAssignment call({
     Object? scope = const $CopyWithPlaceholder(),
     Object? provider = const $CopyWithPlaceholder(),
@@ -98,15 +103,15 @@ class _$ModelAssignmentCWProxyImpl implements _$ModelAssignmentCWProxy {
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return ModelAssignment(
-      scope: scope == const $CopyWithPlaceholder()
+      scope: scope == const $CopyWithPlaceholder() || scope == null
           ? _value.scope
           // ignore: cast_nullable_to_non_nullable
           : scope as String,
-      provider: provider == const $CopyWithPlaceholder()
+      provider: provider == const $CopyWithPlaceholder() || provider == null
           ? _value.provider
           // ignore: cast_nullable_to_non_nullable
           : provider as String,
-      model: model == const $CopyWithPlaceholder()
+      model: model == const $CopyWithPlaceholder() || model == null
           ? _value.model
           // ignore: cast_nullable_to_non_nullable
           : model as String,
@@ -140,7 +145,8 @@ class _$ModelAssignmentCWProxyImpl implements _$ModelAssignmentCWProxy {
 }
 
 extension $ModelAssignmentCopyWith on ModelAssignment {
-  /// Returns a callable class that can be used as follows: `instanceOfModelAssignment.copyWith(...)` or like so:`instanceOfModelAssignment.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfModelAssignment.copyWith(...)` or `instanceOfModelAssignment.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ModelAssignmentCWProxy get copyWith => _$ModelAssignmentCWProxyImpl(this);
 }

@@ -17,12 +17,14 @@ abstract class _$EnvVarUpdateCWProxy {
 
   EnvVarUpdate providerSetup(bool? providerSetup);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `EnvVarUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `EnvVarUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// EnvVarUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   EnvVarUpdate call({
     String key,
     String value,
@@ -32,35 +34,38 @@ abstract class _$EnvVarUpdateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfEnvVarUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfEnvVarUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfEnvVarUpdate.copyWith(...)` or call `instanceOfEnvVarUpdate.copyWith.fieldName(value)` for a single field.
 class _$EnvVarUpdateCWProxyImpl implements _$EnvVarUpdateCWProxy {
   const _$EnvVarUpdateCWProxyImpl(this._value);
 
   final EnvVarUpdate _value;
 
   @override
-  EnvVarUpdate key(String key) => this(key: key);
+  EnvVarUpdate key(String key) => call(key: key);
 
   @override
-  EnvVarUpdate value(String value) => this(value: value);
+  EnvVarUpdate value(String value) => call(value: value);
 
   @override
-  EnvVarUpdate profile(String? profile) => this(profile: profile);
+  EnvVarUpdate profile(String? profile) => call(profile: profile);
 
   @override
-  EnvVarUpdate apiKey(String? apiKey) => this(apiKey: apiKey);
+  EnvVarUpdate apiKey(String? apiKey) => call(apiKey: apiKey);
 
   @override
   EnvVarUpdate providerSetup(bool? providerSetup) =>
-      this(providerSetup: providerSetup);
+      call(providerSetup: providerSetup);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `EnvVarUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `EnvVarUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// EnvVarUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   EnvVarUpdate call({
     Object? key = const $CopyWithPlaceholder(),
     Object? value = const $CopyWithPlaceholder(),
@@ -69,11 +74,11 @@ class _$EnvVarUpdateCWProxyImpl implements _$EnvVarUpdateCWProxy {
     Object? providerSetup = const $CopyWithPlaceholder(),
   }) {
     return EnvVarUpdate(
-      key: key == const $CopyWithPlaceholder()
+      key: key == const $CopyWithPlaceholder() || key == null
           ? _value.key
           // ignore: cast_nullable_to_non_nullable
           : key as String,
-      value: value == const $CopyWithPlaceholder()
+      value: value == const $CopyWithPlaceholder() || value == null
           ? _value.value
           // ignore: cast_nullable_to_non_nullable
           : value as String,
@@ -94,7 +99,8 @@ class _$EnvVarUpdateCWProxyImpl implements _$EnvVarUpdateCWProxy {
 }
 
 extension $EnvVarUpdateCopyWith on EnvVarUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfEnvVarUpdate.copyWith(...)` or like so:`instanceOfEnvVarUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfEnvVarUpdate.copyWith(...)` or `instanceOfEnvVarUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$EnvVarUpdateCWProxy get copyWith => _$EnvVarUpdateCWProxyImpl(this);
 }

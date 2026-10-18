@@ -15,12 +15,14 @@ abstract class _$OrchestrationSettingsBodyCWProxy {
 
   OrchestrationSettingsBody autoPromoteChildren(bool? autoPromoteChildren);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `OrchestrationSettingsBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `OrchestrationSettingsBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// OrchestrationSettingsBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   OrchestrationSettingsBody call({
     String? orchestratorProfile,
     String? defaultAssignee,
@@ -29,7 +31,8 @@ abstract class _$OrchestrationSettingsBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfOrchestrationSettingsBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfOrchestrationSettingsBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfOrchestrationSettingsBody.copyWith(...)` or call `instanceOfOrchestrationSettingsBody.copyWith.fieldName(value)` for a single field.
 class _$OrchestrationSettingsBodyCWProxyImpl
     implements _$OrchestrationSettingsBodyCWProxy {
   const _$OrchestrationSettingsBodyCWProxyImpl(this._value);
@@ -38,27 +41,29 @@ class _$OrchestrationSettingsBodyCWProxyImpl
 
   @override
   OrchestrationSettingsBody orchestratorProfile(String? orchestratorProfile) =>
-      this(orchestratorProfile: orchestratorProfile);
+      call(orchestratorProfile: orchestratorProfile);
 
   @override
   OrchestrationSettingsBody defaultAssignee(String? defaultAssignee) =>
-      this(defaultAssignee: defaultAssignee);
+      call(defaultAssignee: defaultAssignee);
 
   @override
   OrchestrationSettingsBody autoDecompose(bool? autoDecompose) =>
-      this(autoDecompose: autoDecompose);
+      call(autoDecompose: autoDecompose);
 
   @override
   OrchestrationSettingsBody autoPromoteChildren(bool? autoPromoteChildren) =>
-      this(autoPromoteChildren: autoPromoteChildren);
+      call(autoPromoteChildren: autoPromoteChildren);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `OrchestrationSettingsBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `OrchestrationSettingsBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// OrchestrationSettingsBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   OrchestrationSettingsBody call({
     Object? orchestratorProfile = const $CopyWithPlaceholder(),
     Object? defaultAssignee = const $CopyWithPlaceholder(),
@@ -87,7 +92,8 @@ class _$OrchestrationSettingsBodyCWProxyImpl
 }
 
 extension $OrchestrationSettingsBodyCopyWith on OrchestrationSettingsBody {
-  /// Returns a callable class that can be used as follows: `instanceOfOrchestrationSettingsBody.copyWith(...)` or like so:`instanceOfOrchestrationSettingsBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfOrchestrationSettingsBody.copyWith(...)` or `instanceOfOrchestrationSettingsBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$OrchestrationSettingsBodyCWProxy get copyWith =>
       _$OrchestrationSettingsBodyCWProxyImpl(this);

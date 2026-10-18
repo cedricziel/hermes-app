@@ -11,19 +11,22 @@ abstract class _$MCPServersReplaceCWProxy {
 
   MCPServersReplace profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MCPServersReplace(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MCPServersReplace(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MCPServersReplace(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MCPServersReplace call({
     Map<String, Map<String, Object>>? servers,
     String? profile,
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMCPServersReplace.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMCPServersReplace.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMCPServersReplace.copyWith(...)` or call `instanceOfMCPServersReplace.copyWith.fieldName(value)` for a single field.
 class _$MCPServersReplaceCWProxyImpl implements _$MCPServersReplaceCWProxy {
   const _$MCPServersReplaceCWProxyImpl(this._value);
 
@@ -31,18 +34,20 @@ class _$MCPServersReplaceCWProxyImpl implements _$MCPServersReplaceCWProxy {
 
   @override
   MCPServersReplace servers(Map<String, Map<String, Object>>? servers) =>
-      this(servers: servers);
+      call(servers: servers);
 
   @override
-  MCPServersReplace profile(String? profile) => this(profile: profile);
+  MCPServersReplace profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MCPServersReplace(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MCPServersReplace(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MCPServersReplace(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MCPServersReplace call({
     Object? servers = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
@@ -61,7 +66,8 @@ class _$MCPServersReplaceCWProxyImpl implements _$MCPServersReplaceCWProxy {
 }
 
 extension $MCPServersReplaceCopyWith on MCPServersReplace {
-  /// Returns a callable class that can be used as follows: `instanceOfMCPServersReplace.copyWith(...)` or like so:`instanceOfMCPServersReplace.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMCPServersReplace.copyWith(...)` or `instanceOfMCPServersReplace.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MCPServersReplaceCWProxy get copyWith =>
       _$MCPServersReplaceCWProxyImpl(this);

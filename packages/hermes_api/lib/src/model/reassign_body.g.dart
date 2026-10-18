@@ -13,38 +13,43 @@ abstract class _$ReassignBodyCWProxy {
 
   ReassignBody reason(String? reason);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ReassignBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ReassignBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ReassignBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ReassignBody call({String? profile, bool? reclaimFirst, String? reason});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfReassignBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfReassignBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfReassignBody.copyWith(...)` or call `instanceOfReassignBody.copyWith.fieldName(value)` for a single field.
 class _$ReassignBodyCWProxyImpl implements _$ReassignBodyCWProxy {
   const _$ReassignBodyCWProxyImpl(this._value);
 
   final ReassignBody _value;
 
   @override
-  ReassignBody profile(String? profile) => this(profile: profile);
+  ReassignBody profile(String? profile) => call(profile: profile);
 
   @override
   ReassignBody reclaimFirst(bool? reclaimFirst) =>
-      this(reclaimFirst: reclaimFirst);
+      call(reclaimFirst: reclaimFirst);
 
   @override
-  ReassignBody reason(String? reason) => this(reason: reason);
+  ReassignBody reason(String? reason) => call(reason: reason);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ReassignBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ReassignBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ReassignBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ReassignBody call({
     Object? profile = const $CopyWithPlaceholder(),
     Object? reclaimFirst = const $CopyWithPlaceholder(),
@@ -68,7 +73,8 @@ class _$ReassignBodyCWProxyImpl implements _$ReassignBodyCWProxy {
 }
 
 extension $ReassignBodyCopyWith on ReassignBody {
-  /// Returns a callable class that can be used as follows: `instanceOfReassignBody.copyWith(...)` or like so:`instanceOfReassignBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfReassignBody.copyWith(...)` or `instanceOfReassignBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ReassignBodyCWProxy get copyWith => _$ReassignBodyCWProxyImpl(this);
 }

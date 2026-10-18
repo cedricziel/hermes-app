@@ -9,31 +9,36 @@ part of 'memory_reset.dart';
 abstract class _$MemoryResetCWProxy {
   MemoryReset target(String? target);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MemoryReset(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MemoryReset(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MemoryReset(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MemoryReset call({String? target});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMemoryReset.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMemoryReset.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMemoryReset.copyWith(...)` or call `instanceOfMemoryReset.copyWith.fieldName(value)` for a single field.
 class _$MemoryResetCWProxyImpl implements _$MemoryResetCWProxy {
   const _$MemoryResetCWProxyImpl(this._value);
 
   final MemoryReset _value;
 
   @override
-  MemoryReset target(String? target) => this(target: target);
+  MemoryReset target(String? target) => call(target: target);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MemoryReset(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MemoryReset(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MemoryReset(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MemoryReset call({Object? target = const $CopyWithPlaceholder()}) {
     return MemoryReset(
       target: target == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$MemoryResetCWProxyImpl implements _$MemoryResetCWProxy {
 }
 
 extension $MemoryResetCopyWith on MemoryReset {
-  /// Returns a callable class that can be used as follows: `instanceOfMemoryReset.copyWith(...)` or like so:`instanceOfMemoryReset.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMemoryReset.copyWith(...)` or `instanceOfMemoryReset.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MemoryResetCWProxy get copyWith => _$MemoryResetCWProxyImpl(this);
 }

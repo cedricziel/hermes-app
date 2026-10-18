@@ -9,31 +9,36 @@ part of 'runtime_install_body.dart';
 abstract class _$RuntimeInstallBodyCWProxy {
   RuntimeInstallBody backend(String? backend);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `RuntimeInstallBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `RuntimeInstallBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// RuntimeInstallBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   RuntimeInstallBody call({String? backend});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfRuntimeInstallBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfRuntimeInstallBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfRuntimeInstallBody.copyWith(...)` or call `instanceOfRuntimeInstallBody.copyWith.fieldName(value)` for a single field.
 class _$RuntimeInstallBodyCWProxyImpl implements _$RuntimeInstallBodyCWProxy {
   const _$RuntimeInstallBodyCWProxyImpl(this._value);
 
   final RuntimeInstallBody _value;
 
   @override
-  RuntimeInstallBody backend(String? backend) => this(backend: backend);
+  RuntimeInstallBody backend(String? backend) => call(backend: backend);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `RuntimeInstallBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `RuntimeInstallBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// RuntimeInstallBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   RuntimeInstallBody call({Object? backend = const $CopyWithPlaceholder()}) {
     return RuntimeInstallBody(
       backend: backend == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$RuntimeInstallBodyCWProxyImpl implements _$RuntimeInstallBodyCWProxy {
 }
 
 extension $RuntimeInstallBodyCopyWith on RuntimeInstallBody {
-  /// Returns a callable class that can be used as follows: `instanceOfRuntimeInstallBody.copyWith(...)` or like so:`instanceOfRuntimeInstallBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfRuntimeInstallBody.copyWith(...)` or `instanceOfRuntimeInstallBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$RuntimeInstallBodyCWProxy get copyWith =>
       _$RuntimeInstallBodyCWProxyImpl(this);

@@ -13,12 +13,14 @@ abstract class _$ToolsetProviderSelectCWProxy {
 
   ToolsetProviderSelect profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ToolsetProviderSelect(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ToolsetProviderSelect(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ToolsetProviderSelect(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ToolsetProviderSelect call({
     String provider,
     String? capability,
@@ -26,7 +28,8 @@ abstract class _$ToolsetProviderSelectCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfToolsetProviderSelect.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfToolsetProviderSelect.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfToolsetProviderSelect.copyWith(...)` or call `instanceOfToolsetProviderSelect.copyWith.fieldName(value)` for a single field.
 class _$ToolsetProviderSelectCWProxyImpl
     implements _$ToolsetProviderSelectCWProxy {
   const _$ToolsetProviderSelectCWProxyImpl(this._value);
@@ -34,29 +37,31 @@ class _$ToolsetProviderSelectCWProxyImpl
   final ToolsetProviderSelect _value;
 
   @override
-  ToolsetProviderSelect provider(String provider) => this(provider: provider);
+  ToolsetProviderSelect provider(String provider) => call(provider: provider);
 
   @override
   ToolsetProviderSelect capability(String? capability) =>
-      this(capability: capability);
+      call(capability: capability);
 
   @override
-  ToolsetProviderSelect profile(String? profile) => this(profile: profile);
+  ToolsetProviderSelect profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ToolsetProviderSelect(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ToolsetProviderSelect(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ToolsetProviderSelect(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ToolsetProviderSelect call({
     Object? provider = const $CopyWithPlaceholder(),
     Object? capability = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return ToolsetProviderSelect(
-      provider: provider == const $CopyWithPlaceholder()
+      provider: provider == const $CopyWithPlaceholder() || provider == null
           ? _value.provider
           // ignore: cast_nullable_to_non_nullable
           : provider as String,
@@ -73,7 +78,8 @@ class _$ToolsetProviderSelectCWProxyImpl
 }
 
 extension $ToolsetProviderSelectCopyWith on ToolsetProviderSelect {
-  /// Returns a callable class that can be used as follows: `instanceOfToolsetProviderSelect.copyWith(...)` or like so:`instanceOfToolsetProviderSelect.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfToolsetProviderSelect.copyWith(...)` or `instanceOfToolsetProviderSelect.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ToolsetProviderSelectCWProxy get copyWith =>
       _$ToolsetProviderSelectCWProxyImpl(this);

@@ -35,12 +35,14 @@ abstract class _$BulkTaskBodyCWProxy {
 
   BulkTaskBody clearReasoningEffort(bool? clearReasoningEffort);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `BulkTaskBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `BulkTaskBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// BulkTaskBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   BulkTaskBody call({
     List<String> ids,
     String? status,
@@ -59,68 +61,71 @@ abstract class _$BulkTaskBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfBulkTaskBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfBulkTaskBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfBulkTaskBody.copyWith(...)` or call `instanceOfBulkTaskBody.copyWith.fieldName(value)` for a single field.
 class _$BulkTaskBodyCWProxyImpl implements _$BulkTaskBodyCWProxy {
   const _$BulkTaskBodyCWProxyImpl(this._value);
 
   final BulkTaskBody _value;
 
   @override
-  BulkTaskBody ids(List<String> ids) => this(ids: ids);
+  BulkTaskBody ids(List<String> ids) => call(ids: ids);
 
   @override
-  BulkTaskBody status(String? status) => this(status: status);
+  BulkTaskBody status(String? status) => call(status: status);
 
   @override
-  BulkTaskBody assignee(String? assignee) => this(assignee: assignee);
+  BulkTaskBody assignee(String? assignee) => call(assignee: assignee);
 
   @override
-  BulkTaskBody priority(int? priority) => this(priority: priority);
+  BulkTaskBody priority(int? priority) => call(priority: priority);
 
   @override
-  BulkTaskBody archive(bool? archive) => this(archive: archive);
+  BulkTaskBody archive(bool? archive) => call(archive: archive);
 
   @override
-  BulkTaskBody result(String? result) => this(result: result);
+  BulkTaskBody result(String? result) => call(result: result);
 
   @override
-  BulkTaskBody summary(String? summary) => this(summary: summary);
+  BulkTaskBody summary(String? summary) => call(summary: summary);
 
   @override
   BulkTaskBody metadata(Map<String, Object>? metadata) =>
-      this(metadata: metadata);
+      call(metadata: metadata);
 
   @override
   BulkTaskBody reclaimFirst(bool? reclaimFirst) =>
-      this(reclaimFirst: reclaimFirst);
+      call(reclaimFirst: reclaimFirst);
 
   @override
   BulkTaskBody modelOverride(String? modelOverride) =>
-      this(modelOverride: modelOverride);
+      call(modelOverride: modelOverride);
 
   @override
   BulkTaskBody providerOverride(String? providerOverride) =>
-      this(providerOverride: providerOverride);
+      call(providerOverride: providerOverride);
 
   @override
   BulkTaskBody clearModelOverride(bool? clearModelOverride) =>
-      this(clearModelOverride: clearModelOverride);
+      call(clearModelOverride: clearModelOverride);
 
   @override
   BulkTaskBody reasoningEffort(String? reasoningEffort) =>
-      this(reasoningEffort: reasoningEffort);
+      call(reasoningEffort: reasoningEffort);
 
   @override
   BulkTaskBody clearReasoningEffort(bool? clearReasoningEffort) =>
-      this(clearReasoningEffort: clearReasoningEffort);
+      call(clearReasoningEffort: clearReasoningEffort);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `BulkTaskBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `BulkTaskBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// BulkTaskBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   BulkTaskBody call({
     Object? ids = const $CopyWithPlaceholder(),
     Object? status = const $CopyWithPlaceholder(),
@@ -138,7 +143,7 @@ class _$BulkTaskBodyCWProxyImpl implements _$BulkTaskBodyCWProxy {
     Object? clearReasoningEffort = const $CopyWithPlaceholder(),
   }) {
     return BulkTaskBody(
-      ids: ids == const $CopyWithPlaceholder()
+      ids: ids == const $CopyWithPlaceholder() || ids == null
           ? _value.ids
           // ignore: cast_nullable_to_non_nullable
           : ids as List<String>,
@@ -199,7 +204,8 @@ class _$BulkTaskBodyCWProxyImpl implements _$BulkTaskBodyCWProxy {
 }
 
 extension $BulkTaskBodyCopyWith on BulkTaskBody {
-  /// Returns a callable class that can be used as follows: `instanceOfBulkTaskBody.copyWith(...)` or like so:`instanceOfBulkTaskBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfBulkTaskBody.copyWith(...)` or `instanceOfBulkTaskBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$BulkTaskBodyCWProxy get copyWith => _$BulkTaskBodyCWProxyImpl(this);
 }

@@ -55,12 +55,14 @@ abstract class _$SessionPruneCWProxy {
 
   SessionPrune dryRun(bool? dryRun);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SessionPrune(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SessionPrune(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SessionPrune(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SessionPrune call({
     num? olderThanDays,
     String? source_,
@@ -89,7 +91,8 @@ abstract class _$SessionPruneCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSessionPrune.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSessionPrune.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSessionPrune.copyWith(...)` or call `instanceOfSessionPrune.copyWith.fieldName(value)` for a single field.
 class _$SessionPruneCWProxyImpl implements _$SessionPruneCWProxy {
   const _$SessionPruneCWProxyImpl(this._value);
 
@@ -97,89 +100,91 @@ class _$SessionPruneCWProxyImpl implements _$SessionPruneCWProxy {
 
   @override
   SessionPrune olderThanDays(num? olderThanDays) =>
-      this(olderThanDays: olderThanDays);
+      call(olderThanDays: olderThanDays);
 
   @override
-  SessionPrune source_(String? source_) => this(source_: source_);
+  SessionPrune source_(String? source_) => call(source_: source_);
 
   @override
-  SessionPrune profile(String? profile) => this(profile: profile);
+  SessionPrune profile(String? profile) => call(profile: profile);
 
   @override
   SessionPrune startedBefore(num? startedBefore) =>
-      this(startedBefore: startedBefore);
+      call(startedBefore: startedBefore);
 
   @override
   SessionPrune startedAfter(num? startedAfter) =>
-      this(startedAfter: startedAfter);
+      call(startedAfter: startedAfter);
 
   @override
-  SessionPrune titleLike(String? titleLike) => this(titleLike: titleLike);
+  SessionPrune titleLike(String? titleLike) => call(titleLike: titleLike);
 
   @override
-  SessionPrune endReason(String? endReason) => this(endReason: endReason);
+  SessionPrune endReason(String? endReason) => call(endReason: endReason);
 
   @override
-  SessionPrune cwdPrefix(String? cwdPrefix) => this(cwdPrefix: cwdPrefix);
+  SessionPrune cwdPrefix(String? cwdPrefix) => call(cwdPrefix: cwdPrefix);
 
   @override
-  SessionPrune minMessages(int? minMessages) => this(minMessages: minMessages);
+  SessionPrune minMessages(int? minMessages) => call(minMessages: minMessages);
 
   @override
-  SessionPrune maxMessages(int? maxMessages) => this(maxMessages: maxMessages);
+  SessionPrune maxMessages(int? maxMessages) => call(maxMessages: maxMessages);
 
   @override
-  SessionPrune modelLike(String? modelLike) => this(modelLike: modelLike);
+  SessionPrune modelLike(String? modelLike) => call(modelLike: modelLike);
 
   @override
-  SessionPrune provider(String? provider) => this(provider: provider);
+  SessionPrune provider(String? provider) => call(provider: provider);
 
   @override
-  SessionPrune userId(String? userId) => this(userId: userId);
+  SessionPrune userId(String? userId) => call(userId: userId);
 
   @override
-  SessionPrune chatId(String? chatId) => this(chatId: chatId);
+  SessionPrune chatId(String? chatId) => call(chatId: chatId);
 
   @override
-  SessionPrune chatType(String? chatType) => this(chatType: chatType);
+  SessionPrune chatType(String? chatType) => call(chatType: chatType);
 
   @override
-  SessionPrune branchLike(String? branchLike) => this(branchLike: branchLike);
+  SessionPrune branchLike(String? branchLike) => call(branchLike: branchLike);
 
   @override
-  SessionPrune minTokens(int? minTokens) => this(minTokens: minTokens);
+  SessionPrune minTokens(int? minTokens) => call(minTokens: minTokens);
 
   @override
-  SessionPrune maxTokens(int? maxTokens) => this(maxTokens: maxTokens);
+  SessionPrune maxTokens(int? maxTokens) => call(maxTokens: maxTokens);
 
   @override
-  SessionPrune minCost(num? minCost) => this(minCost: minCost);
+  SessionPrune minCost(num? minCost) => call(minCost: minCost);
 
   @override
-  SessionPrune maxCost(num? maxCost) => this(maxCost: maxCost);
+  SessionPrune maxCost(num? maxCost) => call(maxCost: maxCost);
 
   @override
   SessionPrune minToolCalls(int? minToolCalls) =>
-      this(minToolCalls: minToolCalls);
+      call(minToolCalls: minToolCalls);
 
   @override
   SessionPrune maxToolCalls(int? maxToolCalls) =>
-      this(maxToolCalls: maxToolCalls);
+      call(maxToolCalls: maxToolCalls);
 
   @override
   SessionPrune includeArchived(bool? includeArchived) =>
-      this(includeArchived: includeArchived);
+      call(includeArchived: includeArchived);
 
   @override
-  SessionPrune dryRun(bool? dryRun) => this(dryRun: dryRun);
+  SessionPrune dryRun(bool? dryRun) => call(dryRun: dryRun);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SessionPrune(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SessionPrune(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SessionPrune(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SessionPrune call({
     Object? olderThanDays = const $CopyWithPlaceholder(),
     Object? source_ = const $CopyWithPlaceholder(),
@@ -308,7 +313,8 @@ class _$SessionPruneCWProxyImpl implements _$SessionPruneCWProxy {
 }
 
 extension $SessionPruneCopyWith on SessionPrune {
-  /// Returns a callable class that can be used as follows: `instanceOfSessionPrune.copyWith(...)` or like so:`instanceOfSessionPrune.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSessionPrune.copyWith(...)` or `instanceOfSessionPrune.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SessionPruneCWProxy get copyWith => _$SessionPruneCWProxyImpl(this);
 }

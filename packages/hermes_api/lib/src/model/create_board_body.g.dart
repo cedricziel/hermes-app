@@ -23,12 +23,14 @@ abstract class _$CreateBoardBodyCWProxy {
 
   CreateBoardBody switch_(bool? switch_);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CreateBoardBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CreateBoardBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CreateBoardBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   CreateBoardBody call({
     String slug,
     String? name,
@@ -41,45 +43,48 @@ abstract class _$CreateBoardBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfCreateBoardBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfCreateBoardBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfCreateBoardBody.copyWith(...)` or call `instanceOfCreateBoardBody.copyWith.fieldName(value)` for a single field.
 class _$CreateBoardBodyCWProxyImpl implements _$CreateBoardBodyCWProxy {
   const _$CreateBoardBodyCWProxyImpl(this._value);
 
   final CreateBoardBody _value;
 
   @override
-  CreateBoardBody slug(String slug) => this(slug: slug);
+  CreateBoardBody slug(String slug) => call(slug: slug);
 
   @override
-  CreateBoardBody name(String? name) => this(name: name);
+  CreateBoardBody name(String? name) => call(name: name);
 
   @override
   CreateBoardBody description(String? description) =>
-      this(description: description);
+      call(description: description);
 
   @override
-  CreateBoardBody icon(String? icon) => this(icon: icon);
+  CreateBoardBody icon(String? icon) => call(icon: icon);
 
   @override
-  CreateBoardBody color(String? color) => this(color: color);
+  CreateBoardBody color(String? color) => call(color: color);
 
   @override
   CreateBoardBody defaultWorkdir(String? defaultWorkdir) =>
-      this(defaultWorkdir: defaultWorkdir);
+      call(defaultWorkdir: defaultWorkdir);
 
   @override
-  CreateBoardBody projectId(String? projectId) => this(projectId: projectId);
+  CreateBoardBody projectId(String? projectId) => call(projectId: projectId);
 
   @override
-  CreateBoardBody switch_(bool? switch_) => this(switch_: switch_);
+  CreateBoardBody switch_(bool? switch_) => call(switch_: switch_);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CreateBoardBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `CreateBoardBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// CreateBoardBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   CreateBoardBody call({
     Object? slug = const $CopyWithPlaceholder(),
     Object? name = const $CopyWithPlaceholder(),
@@ -91,7 +96,7 @@ class _$CreateBoardBodyCWProxyImpl implements _$CreateBoardBodyCWProxy {
     Object? switch_ = const $CopyWithPlaceholder(),
   }) {
     return CreateBoardBody(
-      slug: slug == const $CopyWithPlaceholder()
+      slug: slug == const $CopyWithPlaceholder() || slug == null
           ? _value.slug
           // ignore: cast_nullable_to_non_nullable
           : slug as String,
@@ -128,7 +133,8 @@ class _$CreateBoardBodyCWProxyImpl implements _$CreateBoardBodyCWProxy {
 }
 
 extension $CreateBoardBodyCopyWith on CreateBoardBody {
-  /// Returns a callable class that can be used as follows: `instanceOfCreateBoardBody.copyWith(...)` or like so:`instanceOfCreateBoardBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfCreateBoardBody.copyWith(...)` or `instanceOfCreateBoardBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$CreateBoardBodyCWProxy get copyWith => _$CreateBoardBodyCWProxyImpl(this);
 }

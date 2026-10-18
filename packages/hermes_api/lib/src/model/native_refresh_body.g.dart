@@ -11,16 +11,19 @@ abstract class _$NativeRefreshBodyCWProxy {
 
   NativeRefreshBody provider(String? provider);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `NativeRefreshBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `NativeRefreshBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// NativeRefreshBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   NativeRefreshBody call({String refreshToken, String? provider});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfNativeRefreshBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfNativeRefreshBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfNativeRefreshBody.copyWith(...)` or call `instanceOfNativeRefreshBody.copyWith.fieldName(value)` for a single field.
 class _$NativeRefreshBodyCWProxyImpl implements _$NativeRefreshBodyCWProxy {
   const _$NativeRefreshBodyCWProxyImpl(this._value);
 
@@ -28,24 +31,27 @@ class _$NativeRefreshBodyCWProxyImpl implements _$NativeRefreshBodyCWProxy {
 
   @override
   NativeRefreshBody refreshToken(String refreshToken) =>
-      this(refreshToken: refreshToken);
+      call(refreshToken: refreshToken);
 
   @override
-  NativeRefreshBody provider(String? provider) => this(provider: provider);
+  NativeRefreshBody provider(String? provider) => call(provider: provider);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `NativeRefreshBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `NativeRefreshBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// NativeRefreshBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   NativeRefreshBody call({
     Object? refreshToken = const $CopyWithPlaceholder(),
     Object? provider = const $CopyWithPlaceholder(),
   }) {
     return NativeRefreshBody(
-      refreshToken: refreshToken == const $CopyWithPlaceholder()
+      refreshToken:
+          refreshToken == const $CopyWithPlaceholder() || refreshToken == null
           ? _value.refreshToken
           // ignore: cast_nullable_to_non_nullable
           : refreshToken as String,
@@ -58,7 +64,8 @@ class _$NativeRefreshBodyCWProxyImpl implements _$NativeRefreshBodyCWProxy {
 }
 
 extension $NativeRefreshBodyCopyWith on NativeRefreshBody {
-  /// Returns a callable class that can be used as follows: `instanceOfNativeRefreshBody.copyWith(...)` or like so:`instanceOfNativeRefreshBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfNativeRefreshBody.copyWith(...)` or `instanceOfNativeRefreshBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$NativeRefreshBodyCWProxy get copyWith =>
       _$NativeRefreshBodyCWProxyImpl(this);

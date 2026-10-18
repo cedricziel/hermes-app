@@ -11,40 +11,45 @@ abstract class _$MCPEnabledToggleCWProxy {
 
   MCPEnabledToggle profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MCPEnabledToggle(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MCPEnabledToggle(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MCPEnabledToggle(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MCPEnabledToggle call({bool enabled, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMCPEnabledToggle.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMCPEnabledToggle.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMCPEnabledToggle.copyWith(...)` or call `instanceOfMCPEnabledToggle.copyWith.fieldName(value)` for a single field.
 class _$MCPEnabledToggleCWProxyImpl implements _$MCPEnabledToggleCWProxy {
   const _$MCPEnabledToggleCWProxyImpl(this._value);
 
   final MCPEnabledToggle _value;
 
   @override
-  MCPEnabledToggle enabled(bool enabled) => this(enabled: enabled);
+  MCPEnabledToggle enabled(bool enabled) => call(enabled: enabled);
 
   @override
-  MCPEnabledToggle profile(String? profile) => this(profile: profile);
+  MCPEnabledToggle profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MCPEnabledToggle(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MCPEnabledToggle(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MCPEnabledToggle(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MCPEnabledToggle call({
     Object? enabled = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return MCPEnabledToggle(
-      enabled: enabled == const $CopyWithPlaceholder()
+      enabled: enabled == const $CopyWithPlaceholder() || enabled == null
           ? _value.enabled
           // ignore: cast_nullable_to_non_nullable
           : enabled as bool,
@@ -57,7 +62,8 @@ class _$MCPEnabledToggleCWProxyImpl implements _$MCPEnabledToggleCWProxy {
 }
 
 extension $MCPEnabledToggleCopyWith on MCPEnabledToggle {
-  /// Returns a callable class that can be used as follows: `instanceOfMCPEnabledToggle.copyWith(...)` or like so:`instanceOfMCPEnabledToggle.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMCPEnabledToggle.copyWith(...)` or `instanceOfMCPEnabledToggle.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MCPEnabledToggleCWProxy get copyWith => _$MCPEnabledToggleCWProxyImpl(this);
 }

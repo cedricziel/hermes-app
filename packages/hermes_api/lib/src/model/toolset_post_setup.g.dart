@@ -11,40 +11,45 @@ abstract class _$ToolsetPostSetupCWProxy {
 
   ToolsetPostSetup profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ToolsetPostSetup(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ToolsetPostSetup(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ToolsetPostSetup(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ToolsetPostSetup call({String key, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfToolsetPostSetup.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfToolsetPostSetup.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfToolsetPostSetup.copyWith(...)` or call `instanceOfToolsetPostSetup.copyWith.fieldName(value)` for a single field.
 class _$ToolsetPostSetupCWProxyImpl implements _$ToolsetPostSetupCWProxy {
   const _$ToolsetPostSetupCWProxyImpl(this._value);
 
   final ToolsetPostSetup _value;
 
   @override
-  ToolsetPostSetup key(String key) => this(key: key);
+  ToolsetPostSetup key(String key) => call(key: key);
 
   @override
-  ToolsetPostSetup profile(String? profile) => this(profile: profile);
+  ToolsetPostSetup profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ToolsetPostSetup(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ToolsetPostSetup(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ToolsetPostSetup(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ToolsetPostSetup call({
     Object? key = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return ToolsetPostSetup(
-      key: key == const $CopyWithPlaceholder()
+      key: key == const $CopyWithPlaceholder() || key == null
           ? _value.key
           // ignore: cast_nullable_to_non_nullable
           : key as String,
@@ -57,7 +62,8 @@ class _$ToolsetPostSetupCWProxyImpl implements _$ToolsetPostSetupCWProxy {
 }
 
 extension $ToolsetPostSetupCopyWith on ToolsetPostSetup {
-  /// Returns a callable class that can be used as follows: `instanceOfToolsetPostSetup.copyWith(...)` or like so:`instanceOfToolsetPostSetup.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfToolsetPostSetup.copyWith(...)` or `instanceOfToolsetPostSetup.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ToolsetPostSetupCWProxy get copyWith => _$ToolsetPostSetupCWProxyImpl(this);
 }

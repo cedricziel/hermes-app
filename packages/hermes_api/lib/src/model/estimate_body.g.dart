@@ -11,34 +11,39 @@ abstract class _$EstimateBodyCWProxy {
 
   EstimateBody body(String? body);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `EstimateBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `EstimateBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// EstimateBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   EstimateBody call({String? title, String? body});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfEstimateBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfEstimateBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfEstimateBody.copyWith(...)` or call `instanceOfEstimateBody.copyWith.fieldName(value)` for a single field.
 class _$EstimateBodyCWProxyImpl implements _$EstimateBodyCWProxy {
   const _$EstimateBodyCWProxyImpl(this._value);
 
   final EstimateBody _value;
 
   @override
-  EstimateBody title(String? title) => this(title: title);
+  EstimateBody title(String? title) => call(title: title);
 
   @override
-  EstimateBody body(String? body) => this(body: body);
+  EstimateBody body(String? body) => call(body: body);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `EstimateBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `EstimateBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// EstimateBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   EstimateBody call({
     Object? title = const $CopyWithPlaceholder(),
     Object? body = const $CopyWithPlaceholder(),
@@ -57,7 +62,8 @@ class _$EstimateBodyCWProxyImpl implements _$EstimateBodyCWProxy {
 }
 
 extension $EstimateBodyCopyWith on EstimateBody {
-  /// Returns a callable class that can be used as follows: `instanceOfEstimateBody.copyWith(...)` or like so:`instanceOfEstimateBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfEstimateBody.copyWith(...)` or `instanceOfEstimateBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$EstimateBodyCWProxy get copyWith => _$EstimateBodyCWProxyImpl(this);
 }

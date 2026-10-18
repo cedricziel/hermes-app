@@ -9,31 +9,36 @@ part of 'profile_describe_auto.dart';
 abstract class _$ProfileDescribeAutoCWProxy {
   ProfileDescribeAuto overwrite(bool? overwrite);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileDescribeAuto(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileDescribeAuto(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileDescribeAuto(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ProfileDescribeAuto call({bool? overwrite});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfProfileDescribeAuto.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfProfileDescribeAuto.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfProfileDescribeAuto.copyWith(...)` or call `instanceOfProfileDescribeAuto.copyWith.fieldName(value)` for a single field.
 class _$ProfileDescribeAutoCWProxyImpl implements _$ProfileDescribeAutoCWProxy {
   const _$ProfileDescribeAutoCWProxyImpl(this._value);
 
   final ProfileDescribeAuto _value;
 
   @override
-  ProfileDescribeAuto overwrite(bool? overwrite) => this(overwrite: overwrite);
+  ProfileDescribeAuto overwrite(bool? overwrite) => call(overwrite: overwrite);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileDescribeAuto(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileDescribeAuto(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileDescribeAuto(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ProfileDescribeAuto call({Object? overwrite = const $CopyWithPlaceholder()}) {
     return ProfileDescribeAuto(
       overwrite: overwrite == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$ProfileDescribeAutoCWProxyImpl implements _$ProfileDescribeAutoCWProxy {
 }
 
 extension $ProfileDescribeAutoCopyWith on ProfileDescribeAuto {
-  /// Returns a callable class that can be used as follows: `instanceOfProfileDescribeAuto.copyWith(...)` or like so:`instanceOfProfileDescribeAuto.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfProfileDescribeAuto.copyWith(...)` or `instanceOfProfileDescribeAuto.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ProfileDescribeAutoCWProxy get copyWith =>
       _$ProfileDescribeAutoCWProxyImpl(this);

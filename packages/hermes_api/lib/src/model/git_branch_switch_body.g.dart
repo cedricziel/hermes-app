@@ -11,44 +11,49 @@ abstract class _$GitBranchSwitchBodyCWProxy {
 
   GitBranchSwitchBody branch(String branch);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitBranchSwitchBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitBranchSwitchBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitBranchSwitchBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   GitBranchSwitchBody call({String path, String branch});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfGitBranchSwitchBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfGitBranchSwitchBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfGitBranchSwitchBody.copyWith(...)` or call `instanceOfGitBranchSwitchBody.copyWith.fieldName(value)` for a single field.
 class _$GitBranchSwitchBodyCWProxyImpl implements _$GitBranchSwitchBodyCWProxy {
   const _$GitBranchSwitchBodyCWProxyImpl(this._value);
 
   final GitBranchSwitchBody _value;
 
   @override
-  GitBranchSwitchBody path(String path) => this(path: path);
+  GitBranchSwitchBody path(String path) => call(path: path);
 
   @override
-  GitBranchSwitchBody branch(String branch) => this(branch: branch);
+  GitBranchSwitchBody branch(String branch) => call(branch: branch);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitBranchSwitchBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitBranchSwitchBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitBranchSwitchBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   GitBranchSwitchBody call({
     Object? path = const $CopyWithPlaceholder(),
     Object? branch = const $CopyWithPlaceholder(),
   }) {
     return GitBranchSwitchBody(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
-      branch: branch == const $CopyWithPlaceholder()
+      branch: branch == const $CopyWithPlaceholder() || branch == null
           ? _value.branch
           // ignore: cast_nullable_to_non_nullable
           : branch as String,
@@ -57,7 +62,8 @@ class _$GitBranchSwitchBodyCWProxyImpl implements _$GitBranchSwitchBodyCWProxy {
 }
 
 extension $GitBranchSwitchBodyCopyWith on GitBranchSwitchBody {
-  /// Returns a callable class that can be used as follows: `instanceOfGitBranchSwitchBody.copyWith(...)` or like so:`instanceOfGitBranchSwitchBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfGitBranchSwitchBody.copyWith(...)` or `instanceOfGitBranchSwitchBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$GitBranchSwitchBodyCWProxy get copyWith =>
       _$GitBranchSwitchBodyCWProxyImpl(this);

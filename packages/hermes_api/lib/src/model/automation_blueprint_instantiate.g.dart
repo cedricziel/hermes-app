@@ -11,19 +11,22 @@ abstract class _$AutomationBlueprintInstantiateCWProxy {
 
   AutomationBlueprintInstantiate values(Map<String, Object>? values);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `AutomationBlueprintInstantiate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `AutomationBlueprintInstantiate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// AutomationBlueprintInstantiate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   AutomationBlueprintInstantiate call({
     String blueprint,
     Map<String, Object>? values,
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfAutomationBlueprintInstantiate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfAutomationBlueprintInstantiate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfAutomationBlueprintInstantiate.copyWith(...)` or call `instanceOfAutomationBlueprintInstantiate.copyWith.fieldName(value)` for a single field.
 class _$AutomationBlueprintInstantiateCWProxyImpl
     implements _$AutomationBlueprintInstantiateCWProxy {
   const _$AutomationBlueprintInstantiateCWProxyImpl(this._value);
@@ -32,25 +35,27 @@ class _$AutomationBlueprintInstantiateCWProxyImpl
 
   @override
   AutomationBlueprintInstantiate blueprint(String blueprint) =>
-      this(blueprint: blueprint);
+      call(blueprint: blueprint);
 
   @override
   AutomationBlueprintInstantiate values(Map<String, Object>? values) =>
-      this(values: values);
+      call(values: values);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `AutomationBlueprintInstantiate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `AutomationBlueprintInstantiate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// AutomationBlueprintInstantiate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   AutomationBlueprintInstantiate call({
     Object? blueprint = const $CopyWithPlaceholder(),
     Object? values = const $CopyWithPlaceholder(),
   }) {
     return AutomationBlueprintInstantiate(
-      blueprint: blueprint == const $CopyWithPlaceholder()
+      blueprint: blueprint == const $CopyWithPlaceholder() || blueprint == null
           ? _value.blueprint
           // ignore: cast_nullable_to_non_nullable
           : blueprint as String,
@@ -64,7 +69,8 @@ class _$AutomationBlueprintInstantiateCWProxyImpl
 
 extension $AutomationBlueprintInstantiateCopyWith
     on AutomationBlueprintInstantiate {
-  /// Returns a callable class that can be used as follows: `instanceOfAutomationBlueprintInstantiate.copyWith(...)` or like so:`instanceOfAutomationBlueprintInstantiate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfAutomationBlueprintInstantiate.copyWith(...)` or `instanceOfAutomationBlueprintInstantiate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$AutomationBlueprintInstantiateCWProxy get copyWith =>
       _$AutomationBlueprintInstantiateCWProxyImpl(this);

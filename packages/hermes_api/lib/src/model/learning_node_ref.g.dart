@@ -11,40 +11,45 @@ abstract class _$LearningNodeRefCWProxy {
 
   LearningNodeRef profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `LearningNodeRef(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `LearningNodeRef(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// LearningNodeRef(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   LearningNodeRef call({String id, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfLearningNodeRef.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfLearningNodeRef.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfLearningNodeRef.copyWith(...)` or call `instanceOfLearningNodeRef.copyWith.fieldName(value)` for a single field.
 class _$LearningNodeRefCWProxyImpl implements _$LearningNodeRefCWProxy {
   const _$LearningNodeRefCWProxyImpl(this._value);
 
   final LearningNodeRef _value;
 
   @override
-  LearningNodeRef id(String id) => this(id: id);
+  LearningNodeRef id(String id) => call(id: id);
 
   @override
-  LearningNodeRef profile(String? profile) => this(profile: profile);
+  LearningNodeRef profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `LearningNodeRef(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `LearningNodeRef(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// LearningNodeRef(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   LearningNodeRef call({
     Object? id = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return LearningNodeRef(
-      id: id == const $CopyWithPlaceholder()
+      id: id == const $CopyWithPlaceholder() || id == null
           ? _value.id
           // ignore: cast_nullable_to_non_nullable
           : id as String,
@@ -57,7 +62,8 @@ class _$LearningNodeRefCWProxyImpl implements _$LearningNodeRefCWProxy {
 }
 
 extension $LearningNodeRefCopyWith on LearningNodeRef {
-  /// Returns a callable class that can be used as follows: `instanceOfLearningNodeRef.copyWith(...)` or like so:`instanceOfLearningNodeRef.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfLearningNodeRef.copyWith(...)` or `instanceOfLearningNodeRef.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$LearningNodeRefCWProxy get copyWith => _$LearningNodeRefCWProxyImpl(this);
 }

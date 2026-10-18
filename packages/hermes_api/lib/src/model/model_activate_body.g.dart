@@ -9,34 +9,39 @@ part of 'model_activate_body.dart';
 abstract class _$ModelActivateBodyCWProxy {
   ModelActivateBody modelId(String modelId);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ModelActivateBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ModelActivateBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ModelActivateBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ModelActivateBody call({String modelId});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfModelActivateBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfModelActivateBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfModelActivateBody.copyWith(...)` or call `instanceOfModelActivateBody.copyWith.fieldName(value)` for a single field.
 class _$ModelActivateBodyCWProxyImpl implements _$ModelActivateBodyCWProxy {
   const _$ModelActivateBodyCWProxyImpl(this._value);
 
   final ModelActivateBody _value;
 
   @override
-  ModelActivateBody modelId(String modelId) => this(modelId: modelId);
+  ModelActivateBody modelId(String modelId) => call(modelId: modelId);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ModelActivateBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ModelActivateBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ModelActivateBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ModelActivateBody call({Object? modelId = const $CopyWithPlaceholder()}) {
     return ModelActivateBody(
-      modelId: modelId == const $CopyWithPlaceholder()
+      modelId: modelId == const $CopyWithPlaceholder() || modelId == null
           ? _value.modelId
           // ignore: cast_nullable_to_non_nullable
           : modelId as String,
@@ -45,7 +50,8 @@ class _$ModelActivateBodyCWProxyImpl implements _$ModelActivateBodyCWProxy {
 }
 
 extension $ModelActivateBodyCopyWith on ModelActivateBody {
-  /// Returns a callable class that can be used as follows: `instanceOfModelActivateBody.copyWith(...)` or like so:`instanceOfModelActivateBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfModelActivateBody.copyWith(...)` or `instanceOfModelActivateBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ModelActivateBodyCWProxy get copyWith =>
       _$ModelActivateBodyCWProxyImpl(this);

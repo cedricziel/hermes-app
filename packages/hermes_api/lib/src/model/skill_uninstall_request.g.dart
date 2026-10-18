@@ -11,16 +11,19 @@ abstract class _$SkillUninstallRequestCWProxy {
 
   SkillUninstallRequest profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillUninstallRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillUninstallRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillUninstallRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SkillUninstallRequest call({String name, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSkillUninstallRequest.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSkillUninstallRequest.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSkillUninstallRequest.copyWith(...)` or call `instanceOfSkillUninstallRequest.copyWith.fieldName(value)` for a single field.
 class _$SkillUninstallRequestCWProxyImpl
     implements _$SkillUninstallRequestCWProxy {
   const _$SkillUninstallRequestCWProxyImpl(this._value);
@@ -28,24 +31,26 @@ class _$SkillUninstallRequestCWProxyImpl
   final SkillUninstallRequest _value;
 
   @override
-  SkillUninstallRequest name(String name) => this(name: name);
+  SkillUninstallRequest name(String name) => call(name: name);
 
   @override
-  SkillUninstallRequest profile(String? profile) => this(profile: profile);
+  SkillUninstallRequest profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillUninstallRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillUninstallRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillUninstallRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SkillUninstallRequest call({
     Object? name = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return SkillUninstallRequest(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
@@ -58,7 +63,8 @@ class _$SkillUninstallRequestCWProxyImpl
 }
 
 extension $SkillUninstallRequestCopyWith on SkillUninstallRequest {
-  /// Returns a callable class that can be used as follows: `instanceOfSkillUninstallRequest.copyWith(...)` or like so:`instanceOfSkillUninstallRequest.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSkillUninstallRequest.copyWith(...)` or `instanceOfSkillUninstallRequest.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SkillUninstallRequestCWProxy get copyWith =>
       _$SkillUninstallRequestCWProxyImpl(this);

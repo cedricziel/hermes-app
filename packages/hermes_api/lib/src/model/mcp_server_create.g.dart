@@ -23,12 +23,14 @@ abstract class _$MCPServerCreateCWProxy {
 
   MCPServerCreate profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MCPServerCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MCPServerCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MCPServerCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MCPServerCreate call({
     String name,
     String? url,
@@ -41,44 +43,47 @@ abstract class _$MCPServerCreateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMCPServerCreate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMCPServerCreate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMCPServerCreate.copyWith(...)` or call `instanceOfMCPServerCreate.copyWith.fieldName(value)` for a single field.
 class _$MCPServerCreateCWProxyImpl implements _$MCPServerCreateCWProxy {
   const _$MCPServerCreateCWProxyImpl(this._value);
 
   final MCPServerCreate _value;
 
   @override
-  MCPServerCreate name(String name) => this(name: name);
+  MCPServerCreate name(String name) => call(name: name);
 
   @override
-  MCPServerCreate url(String? url) => this(url: url);
+  MCPServerCreate url(String? url) => call(url: url);
 
   @override
-  MCPServerCreate command(String? command) => this(command: command);
+  MCPServerCreate command(String? command) => call(command: command);
 
   @override
-  MCPServerCreate args(List<String>? args) => this(args: args);
+  MCPServerCreate args(List<String>? args) => call(args: args);
 
   @override
-  MCPServerCreate env(Map<String, String>? env) => this(env: env);
+  MCPServerCreate env(Map<String, String>? env) => call(env: env);
 
   @override
-  MCPServerCreate auth(String? auth) => this(auth: auth);
+  MCPServerCreate auth(String? auth) => call(auth: auth);
 
   @override
   MCPServerCreate bearerToken(String? bearerToken) =>
-      this(bearerToken: bearerToken);
+      call(bearerToken: bearerToken);
 
   @override
-  MCPServerCreate profile(String? profile) => this(profile: profile);
+  MCPServerCreate profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MCPServerCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MCPServerCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MCPServerCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MCPServerCreate call({
     Object? name = const $CopyWithPlaceholder(),
     Object? url = const $CopyWithPlaceholder(),
@@ -90,7 +95,7 @@ class _$MCPServerCreateCWProxyImpl implements _$MCPServerCreateCWProxy {
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return MCPServerCreate(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
@@ -127,7 +132,8 @@ class _$MCPServerCreateCWProxyImpl implements _$MCPServerCreateCWProxy {
 }
 
 extension $MCPServerCreateCopyWith on MCPServerCreate {
-  /// Returns a callable class that can be used as follows: `instanceOfMCPServerCreate.copyWith(...)` or like so:`instanceOfMCPServerCreate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMCPServerCreate.copyWith(...)` or `instanceOfMCPServerCreate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MCPServerCreateCWProxy get copyWith => _$MCPServerCreateCWProxyImpl(this);
 }

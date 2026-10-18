@@ -11,40 +11,45 @@ abstract class _$TTSLeaseRequestCWProxy {
 
   TTSLeaseRequest active(bool? active);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TTSLeaseRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TTSLeaseRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TTSLeaseRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   TTSLeaseRequest call({String lease, bool? active});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfTTSLeaseRequest.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfTTSLeaseRequest.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfTTSLeaseRequest.copyWith(...)` or call `instanceOfTTSLeaseRequest.copyWith.fieldName(value)` for a single field.
 class _$TTSLeaseRequestCWProxyImpl implements _$TTSLeaseRequestCWProxy {
   const _$TTSLeaseRequestCWProxyImpl(this._value);
 
   final TTSLeaseRequest _value;
 
   @override
-  TTSLeaseRequest lease(String lease) => this(lease: lease);
+  TTSLeaseRequest lease(String lease) => call(lease: lease);
 
   @override
-  TTSLeaseRequest active(bool? active) => this(active: active);
+  TTSLeaseRequest active(bool? active) => call(active: active);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `TTSLeaseRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `TTSLeaseRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// TTSLeaseRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   TTSLeaseRequest call({
     Object? lease = const $CopyWithPlaceholder(),
     Object? active = const $CopyWithPlaceholder(),
   }) {
     return TTSLeaseRequest(
-      lease: lease == const $CopyWithPlaceholder()
+      lease: lease == const $CopyWithPlaceholder() || lease == null
           ? _value.lease
           // ignore: cast_nullable_to_non_nullable
           : lease as String,
@@ -57,7 +62,8 @@ class _$TTSLeaseRequestCWProxyImpl implements _$TTSLeaseRequestCWProxy {
 }
 
 extension $TTSLeaseRequestCopyWith on TTSLeaseRequest {
-  /// Returns a callable class that can be used as follows: `instanceOfTTSLeaseRequest.copyWith(...)` or like so:`instanceOfTTSLeaseRequest.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfTTSLeaseRequest.copyWith(...)` or `instanceOfTTSLeaseRequest.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$TTSLeaseRequestCWProxy get copyWith => _$TTSLeaseRequestCWProxyImpl(this);
 }

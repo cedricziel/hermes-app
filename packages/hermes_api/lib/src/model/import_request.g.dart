@@ -11,40 +11,45 @@ abstract class _$ImportRequestCWProxy {
 
   ImportRequest force(bool? force);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ImportRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ImportRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ImportRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ImportRequest call({String archive, bool? force});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfImportRequest.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfImportRequest.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfImportRequest.copyWith(...)` or call `instanceOfImportRequest.copyWith.fieldName(value)` for a single field.
 class _$ImportRequestCWProxyImpl implements _$ImportRequestCWProxy {
   const _$ImportRequestCWProxyImpl(this._value);
 
   final ImportRequest _value;
 
   @override
-  ImportRequest archive(String archive) => this(archive: archive);
+  ImportRequest archive(String archive) => call(archive: archive);
 
   @override
-  ImportRequest force(bool? force) => this(force: force);
+  ImportRequest force(bool? force) => call(force: force);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ImportRequest(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ImportRequest(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ImportRequest(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ImportRequest call({
     Object? archive = const $CopyWithPlaceholder(),
     Object? force = const $CopyWithPlaceholder(),
   }) {
     return ImportRequest(
-      archive: archive == const $CopyWithPlaceholder()
+      archive: archive == const $CopyWithPlaceholder() || archive == null
           ? _value.archive
           // ignore: cast_nullable_to_non_nullable
           : archive as String,
@@ -57,7 +62,8 @@ class _$ImportRequestCWProxyImpl implements _$ImportRequestCWProxy {
 }
 
 extension $ImportRequestCopyWith on ImportRequest {
-  /// Returns a callable class that can be used as follows: `instanceOfImportRequest.copyWith(...)` or like so:`instanceOfImportRequest.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfImportRequest.copyWith(...)` or `instanceOfImportRequest.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ImportRequestCWProxy get copyWith => _$ImportRequestCWProxyImpl(this);
 }

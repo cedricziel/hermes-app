@@ -11,44 +11,49 @@ abstract class _$OAuthSubmitBodyCWProxy {
 
   OAuthSubmitBody code(String code);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `OAuthSubmitBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `OAuthSubmitBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// OAuthSubmitBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   OAuthSubmitBody call({String sessionId, String code});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfOAuthSubmitBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfOAuthSubmitBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfOAuthSubmitBody.copyWith(...)` or call `instanceOfOAuthSubmitBody.copyWith.fieldName(value)` for a single field.
 class _$OAuthSubmitBodyCWProxyImpl implements _$OAuthSubmitBodyCWProxy {
   const _$OAuthSubmitBodyCWProxyImpl(this._value);
 
   final OAuthSubmitBody _value;
 
   @override
-  OAuthSubmitBody sessionId(String sessionId) => this(sessionId: sessionId);
+  OAuthSubmitBody sessionId(String sessionId) => call(sessionId: sessionId);
 
   @override
-  OAuthSubmitBody code(String code) => this(code: code);
+  OAuthSubmitBody code(String code) => call(code: code);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `OAuthSubmitBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `OAuthSubmitBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// OAuthSubmitBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   OAuthSubmitBody call({
     Object? sessionId = const $CopyWithPlaceholder(),
     Object? code = const $CopyWithPlaceholder(),
   }) {
     return OAuthSubmitBody(
-      sessionId: sessionId == const $CopyWithPlaceholder()
+      sessionId: sessionId == const $CopyWithPlaceholder() || sessionId == null
           ? _value.sessionId
           // ignore: cast_nullable_to_non_nullable
           : sessionId as String,
-      code: code == const $CopyWithPlaceholder()
+      code: code == const $CopyWithPlaceholder() || code == null
           ? _value.code
           // ignore: cast_nullable_to_non_nullable
           : code as String,
@@ -57,7 +62,8 @@ class _$OAuthSubmitBodyCWProxyImpl implements _$OAuthSubmitBodyCWProxy {
 }
 
 extension $OAuthSubmitBodyCopyWith on OAuthSubmitBody {
-  /// Returns a callable class that can be used as follows: `instanceOfOAuthSubmitBody.copyWith(...)` or like so:`instanceOfOAuthSubmitBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfOAuthSubmitBody.copyWith(...)` or `instanceOfOAuthSubmitBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$OAuthSubmitBodyCWProxy get copyWith => _$OAuthSubmitBodyCWProxyImpl(this);
 }

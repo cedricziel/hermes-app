@@ -33,12 +33,14 @@ abstract class _$MoaConfigPayloadCWProxy {
 
   MoaConfigPayload profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MoaConfigPayload(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MoaConfigPayload(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MoaConfigPayload(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MoaConfigPayload call({
     num? referenceTimeout,
     MoaConfigPayloadDegradedReferencePolicyEnum? degradedReferencePolicy,
@@ -55,7 +57,8 @@ abstract class _$MoaConfigPayloadCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMoaConfigPayload.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMoaConfigPayload.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMoaConfigPayload.copyWith(...)` or call `instanceOfMoaConfigPayload.copyWith.fieldName(value)` for a single field.
 class _$MoaConfigPayloadCWProxyImpl implements _$MoaConfigPayloadCWProxy {
   const _$MoaConfigPayloadCWProxyImpl(this._value);
 
@@ -63,57 +66,59 @@ class _$MoaConfigPayloadCWProxyImpl implements _$MoaConfigPayloadCWProxy {
 
   @override
   MoaConfigPayload referenceTimeout(num? referenceTimeout) =>
-      this(referenceTimeout: referenceTimeout);
+      call(referenceTimeout: referenceTimeout);
 
   @override
   MoaConfigPayload degradedReferencePolicy(
     MoaConfigPayloadDegradedReferencePolicyEnum? degradedReferencePolicy,
-  ) => this(degradedReferencePolicy: degradedReferencePolicy);
+  ) => call(degradedReferencePolicy: degradedReferencePolicy);
 
   @override
   MoaConfigPayload defaultPreset(String? defaultPreset) =>
-      this(defaultPreset: defaultPreset);
+      call(defaultPreset: defaultPreset);
 
   @override
   MoaConfigPayload activePreset(String? activePreset) =>
-      this(activePreset: activePreset);
+      call(activePreset: activePreset);
 
   @override
   MoaConfigPayload presets(Map<String, MoaPresetPayload>? presets) =>
-      this(presets: presets);
+      call(presets: presets);
 
   @override
   MoaConfigPayload referenceModels(List<MoaModelSlot>? referenceModels) =>
-      this(referenceModels: referenceModels);
+      call(referenceModels: referenceModels);
 
   @override
   MoaConfigPayload aggregator(MoaModelSlot? aggregator) =>
-      this(aggregator: aggregator);
+      call(aggregator: aggregator);
 
   @override
   MoaConfigPayload referenceTemperature(num? referenceTemperature) =>
-      this(referenceTemperature: referenceTemperature);
+      call(referenceTemperature: referenceTemperature);
 
   @override
   MoaConfigPayload aggregatorTemperature(num? aggregatorTemperature) =>
-      this(aggregatorTemperature: aggregatorTemperature);
+      call(aggregatorTemperature: aggregatorTemperature);
 
   @override
-  MoaConfigPayload fanout(String? fanout) => this(fanout: fanout);
+  MoaConfigPayload fanout(String? fanout) => call(fanout: fanout);
 
   @override
-  MoaConfigPayload enabled(bool? enabled) => this(enabled: enabled);
+  MoaConfigPayload enabled(bool? enabled) => call(enabled: enabled);
 
   @override
-  MoaConfigPayload profile(String? profile) => this(profile: profile);
+  MoaConfigPayload profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MoaConfigPayload(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MoaConfigPayload(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MoaConfigPayload(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MoaConfigPayload call({
     Object? referenceTimeout = const $CopyWithPlaceholder(),
     Object? degradedReferencePolicy = const $CopyWithPlaceholder(),
@@ -185,7 +190,8 @@ class _$MoaConfigPayloadCWProxyImpl implements _$MoaConfigPayloadCWProxy {
 }
 
 extension $MoaConfigPayloadCopyWith on MoaConfigPayload {
-  /// Returns a callable class that can be used as follows: `instanceOfMoaConfigPayload.copyWith(...)` or like so:`instanceOfMoaConfigPayload.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMoaConfigPayload.copyWith(...)` or `instanceOfMoaConfigPayload.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MoaConfigPayloadCWProxy get copyWith => _$MoaConfigPayloadCWProxyImpl(this);
 }

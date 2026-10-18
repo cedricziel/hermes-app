@@ -15,12 +15,14 @@ abstract class _$MessagingPlatformUpdateCWProxy {
 
   MessagingPlatformUpdate profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MessagingPlatformUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MessagingPlatformUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MessagingPlatformUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   MessagingPlatformUpdate call({
     bool? enabled,
     Map<String, String>? env,
@@ -29,7 +31,8 @@ abstract class _$MessagingPlatformUpdateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfMessagingPlatformUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfMessagingPlatformUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfMessagingPlatformUpdate.copyWith(...)` or call `instanceOfMessagingPlatformUpdate.copyWith.fieldName(value)` for a single field.
 class _$MessagingPlatformUpdateCWProxyImpl
     implements _$MessagingPlatformUpdateCWProxy {
   const _$MessagingPlatformUpdateCWProxyImpl(this._value);
@@ -37,25 +40,27 @@ class _$MessagingPlatformUpdateCWProxyImpl
   final MessagingPlatformUpdate _value;
 
   @override
-  MessagingPlatformUpdate enabled(bool? enabled) => this(enabled: enabled);
+  MessagingPlatformUpdate enabled(bool? enabled) => call(enabled: enabled);
 
   @override
-  MessagingPlatformUpdate env(Map<String, String>? env) => this(env: env);
+  MessagingPlatformUpdate env(Map<String, String>? env) => call(env: env);
 
   @override
   MessagingPlatformUpdate clearEnv(List<String>? clearEnv) =>
-      this(clearEnv: clearEnv);
+      call(clearEnv: clearEnv);
 
   @override
-  MessagingPlatformUpdate profile(String? profile) => this(profile: profile);
+  MessagingPlatformUpdate profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `MessagingPlatformUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `MessagingPlatformUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// MessagingPlatformUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   MessagingPlatformUpdate call({
     Object? enabled = const $CopyWithPlaceholder(),
     Object? env = const $CopyWithPlaceholder(),
@@ -84,7 +89,8 @@ class _$MessagingPlatformUpdateCWProxyImpl
 }
 
 extension $MessagingPlatformUpdateCopyWith on MessagingPlatformUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfMessagingPlatformUpdate.copyWith(...)` or like so:`instanceOfMessagingPlatformUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfMessagingPlatformUpdate.copyWith(...)` or `instanceOfMessagingPlatformUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$MessagingPlatformUpdateCWProxy get copyWith =>
       _$MessagingPlatformUpdateCWProxyImpl(this);

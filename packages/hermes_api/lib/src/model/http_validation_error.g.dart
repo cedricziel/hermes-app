@@ -9,16 +9,19 @@ part of 'http_validation_error.dart';
 abstract class _$HTTPValidationErrorCWProxy {
   HTTPValidationError detail(List<ValidationError>? detail);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `HTTPValidationError(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `HTTPValidationError(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// HTTPValidationError(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   HTTPValidationError call({List<ValidationError>? detail});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfHTTPValidationError.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfHTTPValidationError.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfHTTPValidationError.copyWith(...)` or call `instanceOfHTTPValidationError.copyWith.fieldName(value)` for a single field.
 class _$HTTPValidationErrorCWProxyImpl implements _$HTTPValidationErrorCWProxy {
   const _$HTTPValidationErrorCWProxyImpl(this._value);
 
@@ -26,15 +29,17 @@ class _$HTTPValidationErrorCWProxyImpl implements _$HTTPValidationErrorCWProxy {
 
   @override
   HTTPValidationError detail(List<ValidationError>? detail) =>
-      this(detail: detail);
+      call(detail: detail);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `HTTPValidationError(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `HTTPValidationError(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// HTTPValidationError(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   HTTPValidationError call({Object? detail = const $CopyWithPlaceholder()}) {
     return HTTPValidationError(
       detail: detail == const $CopyWithPlaceholder()
@@ -46,7 +51,8 @@ class _$HTTPValidationErrorCWProxyImpl implements _$HTTPValidationErrorCWProxy {
 }
 
 extension $HTTPValidationErrorCopyWith on HTTPValidationError {
-  /// Returns a callable class that can be used as follows: `instanceOfHTTPValidationError.copyWith(...)` or like so:`instanceOfHTTPValidationError.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfHTTPValidationError.copyWith(...)` or `instanceOfHTTPValidationError.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$HTTPValidationErrorCWProxy get copyWith =>
       _$HTTPValidationErrorCWProxyImpl(this);

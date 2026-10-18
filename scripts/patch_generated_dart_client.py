@@ -37,6 +37,9 @@ generate` and `dart analyze` in scripts/generate_hermes_api_client.sh):
    calls, but the generated `deserialize` has no `'Object'` case and throws
    `Cannot deserialize` on any real body. An `'Object'` case that passes the
    decoded JSON through is added.
+7. The upstream pubspec template still limits copy_with_extension and its
+   generator to 7.x. Keep the upgraded 18.x constraints reproducible and
+   normalize dependency quoting to the manifest Dependabot maintains.
 """
 
 import re
@@ -136,6 +139,27 @@ def keep_pubspec_lock(package_dir: Path) -> None:
         print(f"patched {gitignore}")
 
 
+def update_build_dependencies(package_dir: Path) -> None:
+    path = package_dir / "pubspec.yaml"
+    text = path.read_text()
+    # Keep dependency upgrades here, rather than editing generated pubspecs:
+    # CI deletes and regenerates the entire package before checking for drift.
+    constraints = {
+        "copy_with_extension": "^18.0.0",
+        "copy_with_extension_gen": "^18.0.0",
+        "json_annotation": "^4.9.0",
+        "json_serializable": "^6.9.3",
+        "test": "^1.16.0",
+    }
+    for name, constraint in constraints.items():
+        text, count = re.subn(
+            rf"^  {name}: .+$", f"  {name}: {constraint}", text, flags=re.MULTILINE
+        )
+        if count != 1:
+            raise SystemExit(f"{path}: expected one {name} dependency")
+    path.write_text(text)
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         print(f"usage: {sys.argv[0]} <generated-package-dir>", file=sys.stderr)
@@ -162,6 +186,7 @@ def main() -> None:
 
     accept_untyped_objects(package_dir)
     keep_pubspec_lock(package_dir)
+    update_build_dependencies(package_dir)
 
 
 if __name__ == "__main__":

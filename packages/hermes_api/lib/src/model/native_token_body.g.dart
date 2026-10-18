@@ -11,45 +11,51 @@ abstract class _$NativeTokenBodyCWProxy {
 
   NativeTokenBody codeVerifier(String codeVerifier);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `NativeTokenBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `NativeTokenBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// NativeTokenBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   NativeTokenBody call({String code, String codeVerifier});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfNativeTokenBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfNativeTokenBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfNativeTokenBody.copyWith(...)` or call `instanceOfNativeTokenBody.copyWith.fieldName(value)` for a single field.
 class _$NativeTokenBodyCWProxyImpl implements _$NativeTokenBodyCWProxy {
   const _$NativeTokenBodyCWProxyImpl(this._value);
 
   final NativeTokenBody _value;
 
   @override
-  NativeTokenBody code(String code) => this(code: code);
+  NativeTokenBody code(String code) => call(code: code);
 
   @override
   NativeTokenBody codeVerifier(String codeVerifier) =>
-      this(codeVerifier: codeVerifier);
+      call(codeVerifier: codeVerifier);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `NativeTokenBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `NativeTokenBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// NativeTokenBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   NativeTokenBody call({
     Object? code = const $CopyWithPlaceholder(),
     Object? codeVerifier = const $CopyWithPlaceholder(),
   }) {
     return NativeTokenBody(
-      code: code == const $CopyWithPlaceholder()
+      code: code == const $CopyWithPlaceholder() || code == null
           ? _value.code
           // ignore: cast_nullable_to_non_nullable
           : code as String,
-      codeVerifier: codeVerifier == const $CopyWithPlaceholder()
+      codeVerifier:
+          codeVerifier == const $CopyWithPlaceholder() || codeVerifier == null
           ? _value.codeVerifier
           // ignore: cast_nullable_to_non_nullable
           : codeVerifier as String,
@@ -58,7 +64,8 @@ class _$NativeTokenBodyCWProxyImpl implements _$NativeTokenBodyCWProxy {
 }
 
 extension $NativeTokenBodyCopyWith on NativeTokenBody {
-  /// Returns a callable class that can be used as follows: `instanceOfNativeTokenBody.copyWith(...)` or like so:`instanceOfNativeTokenBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfNativeTokenBody.copyWith(...)` or `instanceOfNativeTokenBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$NativeTokenBodyCWProxy get copyWith => _$NativeTokenBodyCWProxyImpl(this);
 }

@@ -11,44 +11,49 @@ abstract class _$LinkBodyCWProxy {
 
   LinkBody childId(String childId);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `LinkBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `LinkBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// LinkBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   LinkBody call({String parentId, String childId});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfLinkBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfLinkBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfLinkBody.copyWith(...)` or call `instanceOfLinkBody.copyWith.fieldName(value)` for a single field.
 class _$LinkBodyCWProxyImpl implements _$LinkBodyCWProxy {
   const _$LinkBodyCWProxyImpl(this._value);
 
   final LinkBody _value;
 
   @override
-  LinkBody parentId(String parentId) => this(parentId: parentId);
+  LinkBody parentId(String parentId) => call(parentId: parentId);
 
   @override
-  LinkBody childId(String childId) => this(childId: childId);
+  LinkBody childId(String childId) => call(childId: childId);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `LinkBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `LinkBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// LinkBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   LinkBody call({
     Object? parentId = const $CopyWithPlaceholder(),
     Object? childId = const $CopyWithPlaceholder(),
   }) {
     return LinkBody(
-      parentId: parentId == const $CopyWithPlaceholder()
+      parentId: parentId == const $CopyWithPlaceholder() || parentId == null
           ? _value.parentId
           // ignore: cast_nullable_to_non_nullable
           : parentId as String,
-      childId: childId == const $CopyWithPlaceholder()
+      childId: childId == const $CopyWithPlaceholder() || childId == null
           ? _value.childId
           // ignore: cast_nullable_to_non_nullable
           : childId as String,
@@ -57,7 +62,8 @@ class _$LinkBodyCWProxyImpl implements _$LinkBodyCWProxy {
 }
 
 extension $LinkBodyCopyWith on LinkBody {
-  /// Returns a callable class that can be used as follows: `instanceOfLinkBody.copyWith(...)` or like so:`instanceOfLinkBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfLinkBody.copyWith(...)` or `instanceOfLinkBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$LinkBodyCWProxy get copyWith => _$LinkBodyCWProxyImpl(this);
 }

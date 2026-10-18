@@ -15,12 +15,14 @@ abstract class _$PasswordLoginBodyCWProxy {
 
   PasswordLoginBody next(String? next);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PasswordLoginBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PasswordLoginBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PasswordLoginBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   PasswordLoginBody call({
     String provider,
     String username,
@@ -29,31 +31,34 @@ abstract class _$PasswordLoginBodyCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfPasswordLoginBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfPasswordLoginBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfPasswordLoginBody.copyWith(...)` or call `instanceOfPasswordLoginBody.copyWith.fieldName(value)` for a single field.
 class _$PasswordLoginBodyCWProxyImpl implements _$PasswordLoginBodyCWProxy {
   const _$PasswordLoginBodyCWProxyImpl(this._value);
 
   final PasswordLoginBody _value;
 
   @override
-  PasswordLoginBody provider(String provider) => this(provider: provider);
+  PasswordLoginBody provider(String provider) => call(provider: provider);
 
   @override
-  PasswordLoginBody username(String username) => this(username: username);
+  PasswordLoginBody username(String username) => call(username: username);
 
   @override
-  PasswordLoginBody password(String password) => this(password: password);
+  PasswordLoginBody password(String password) => call(password: password);
 
   @override
-  PasswordLoginBody next(String? next) => this(next: next);
+  PasswordLoginBody next(String? next) => call(next: next);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `PasswordLoginBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `PasswordLoginBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// PasswordLoginBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   PasswordLoginBody call({
     Object? provider = const $CopyWithPlaceholder(),
     Object? username = const $CopyWithPlaceholder(),
@@ -61,15 +66,15 @@ class _$PasswordLoginBodyCWProxyImpl implements _$PasswordLoginBodyCWProxy {
     Object? next = const $CopyWithPlaceholder(),
   }) {
     return PasswordLoginBody(
-      provider: provider == const $CopyWithPlaceholder()
+      provider: provider == const $CopyWithPlaceholder() || provider == null
           ? _value.provider
           // ignore: cast_nullable_to_non_nullable
           : provider as String,
-      username: username == const $CopyWithPlaceholder()
+      username: username == const $CopyWithPlaceholder() || username == null
           ? _value.username
           // ignore: cast_nullable_to_non_nullable
           : username as String,
-      password: password == const $CopyWithPlaceholder()
+      password: password == const $CopyWithPlaceholder() || password == null
           ? _value.password
           // ignore: cast_nullable_to_non_nullable
           : password as String,
@@ -82,7 +87,8 @@ class _$PasswordLoginBodyCWProxyImpl implements _$PasswordLoginBodyCWProxy {
 }
 
 extension $PasswordLoginBodyCopyWith on PasswordLoginBody {
-  /// Returns a callable class that can be used as follows: `instanceOfPasswordLoginBody.copyWith(...)` or like so:`instanceOfPasswordLoginBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfPasswordLoginBody.copyWith(...)` or `instanceOfPasswordLoginBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$PasswordLoginBodyCWProxy get copyWith =>
       _$PasswordLoginBodyCWProxyImpl(this);

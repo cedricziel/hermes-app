@@ -15,12 +15,14 @@ abstract class _$SkillCreateCWProxy {
 
   SkillCreate profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SkillCreate call({
     String name,
     String content,
@@ -29,31 +31,34 @@ abstract class _$SkillCreateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSkillCreate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSkillCreate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSkillCreate.copyWith(...)` or call `instanceOfSkillCreate.copyWith.fieldName(value)` for a single field.
 class _$SkillCreateCWProxyImpl implements _$SkillCreateCWProxy {
   const _$SkillCreateCWProxyImpl(this._value);
 
   final SkillCreate _value;
 
   @override
-  SkillCreate name(String name) => this(name: name);
+  SkillCreate name(String name) => call(name: name);
 
   @override
-  SkillCreate content(String content) => this(content: content);
+  SkillCreate content(String content) => call(content: content);
 
   @override
-  SkillCreate category(String? category) => this(category: category);
+  SkillCreate category(String? category) => call(category: category);
 
   @override
-  SkillCreate profile(String? profile) => this(profile: profile);
+  SkillCreate profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SkillCreate call({
     Object? name = const $CopyWithPlaceholder(),
     Object? content = const $CopyWithPlaceholder(),
@@ -61,11 +66,11 @@ class _$SkillCreateCWProxyImpl implements _$SkillCreateCWProxy {
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return SkillCreate(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
-      content: content == const $CopyWithPlaceholder()
+      content: content == const $CopyWithPlaceholder() || content == null
           ? _value.content
           // ignore: cast_nullable_to_non_nullable
           : content as String,
@@ -82,7 +87,8 @@ class _$SkillCreateCWProxyImpl implements _$SkillCreateCWProxy {
 }
 
 extension $SkillCreateCopyWith on SkillCreate {
-  /// Returns a callable class that can be used as follows: `instanceOfSkillCreate.copyWith(...)` or like so:`instanceOfSkillCreate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSkillCreate.copyWith(...)` or `instanceOfSkillCreate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SkillCreateCWProxy get copyWith => _$SkillCreateCWProxyImpl(this);
 }

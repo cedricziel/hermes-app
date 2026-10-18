@@ -9,16 +9,19 @@ part of 'profile_description_update.dart';
 abstract class _$ProfileDescriptionUpdateCWProxy {
   ProfileDescriptionUpdate description(String? description);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileDescriptionUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileDescriptionUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileDescriptionUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ProfileDescriptionUpdate call({String? description});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfProfileDescriptionUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfProfileDescriptionUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfProfileDescriptionUpdate.copyWith(...)` or call `instanceOfProfileDescriptionUpdate.copyWith.fieldName(value)` for a single field.
 class _$ProfileDescriptionUpdateCWProxyImpl
     implements _$ProfileDescriptionUpdateCWProxy {
   const _$ProfileDescriptionUpdateCWProxyImpl(this._value);
@@ -27,15 +30,17 @@ class _$ProfileDescriptionUpdateCWProxyImpl
 
   @override
   ProfileDescriptionUpdate description(String? description) =>
-      this(description: description);
+      call(description: description);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileDescriptionUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileDescriptionUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileDescriptionUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ProfileDescriptionUpdate call({
     Object? description = const $CopyWithPlaceholder(),
   }) {
@@ -49,7 +54,8 @@ class _$ProfileDescriptionUpdateCWProxyImpl
 }
 
 extension $ProfileDescriptionUpdateCopyWith on ProfileDescriptionUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfProfileDescriptionUpdate.copyWith(...)` or like so:`instanceOfProfileDescriptionUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfProfileDescriptionUpdate.copyWith(...)` or `instanceOfProfileDescriptionUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ProfileDescriptionUpdateCWProxy get copyWith =>
       _$ProfileDescriptionUpdateCWProxyImpl(this);

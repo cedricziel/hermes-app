@@ -9,16 +9,19 @@ part of 'session_owner_backfill.dart';
 abstract class _$SessionOwnerBackfillCWProxy {
   SessionOwnerBackfill profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SessionOwnerBackfill(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SessionOwnerBackfill(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SessionOwnerBackfill(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SessionOwnerBackfill call({String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSessionOwnerBackfill.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSessionOwnerBackfill.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSessionOwnerBackfill.copyWith(...)` or call `instanceOfSessionOwnerBackfill.copyWith.fieldName(value)` for a single field.
 class _$SessionOwnerBackfillCWProxyImpl
     implements _$SessionOwnerBackfillCWProxy {
   const _$SessionOwnerBackfillCWProxyImpl(this._value);
@@ -26,15 +29,17 @@ class _$SessionOwnerBackfillCWProxyImpl
   final SessionOwnerBackfill _value;
 
   @override
-  SessionOwnerBackfill profile(String? profile) => this(profile: profile);
+  SessionOwnerBackfill profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SessionOwnerBackfill(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SessionOwnerBackfill(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SessionOwnerBackfill(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SessionOwnerBackfill call({Object? profile = const $CopyWithPlaceholder()}) {
     return SessionOwnerBackfill(
       profile: profile == const $CopyWithPlaceholder()
@@ -46,7 +51,8 @@ class _$SessionOwnerBackfillCWProxyImpl
 }
 
 extension $SessionOwnerBackfillCopyWith on SessionOwnerBackfill {
-  /// Returns a callable class that can be used as follows: `instanceOfSessionOwnerBackfill.copyWith(...)` or like so:`instanceOfSessionOwnerBackfill.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSessionOwnerBackfill.copyWith(...)` or `instanceOfSessionOwnerBackfill.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SessionOwnerBackfillCWProxy get copyWith =>
       _$SessionOwnerBackfillCWProxyImpl(this);

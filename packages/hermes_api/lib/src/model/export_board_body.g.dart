@@ -13,38 +13,43 @@ abstract class _$ExportBoardBodyCWProxy {
 
   ExportBoardBody logs(bool? logs);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ExportBoardBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ExportBoardBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ExportBoardBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ExportBoardBody call({String? output, bool? attachments, bool? logs});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfExportBoardBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfExportBoardBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfExportBoardBody.copyWith(...)` or call `instanceOfExportBoardBody.copyWith.fieldName(value)` for a single field.
 class _$ExportBoardBodyCWProxyImpl implements _$ExportBoardBodyCWProxy {
   const _$ExportBoardBodyCWProxyImpl(this._value);
 
   final ExportBoardBody _value;
 
   @override
-  ExportBoardBody output(String? output) => this(output: output);
+  ExportBoardBody output(String? output) => call(output: output);
 
   @override
   ExportBoardBody attachments(bool? attachments) =>
-      this(attachments: attachments);
+      call(attachments: attachments);
 
   @override
-  ExportBoardBody logs(bool? logs) => this(logs: logs);
+  ExportBoardBody logs(bool? logs) => call(logs: logs);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ExportBoardBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ExportBoardBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ExportBoardBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ExportBoardBody call({
     Object? output = const $CopyWithPlaceholder(),
     Object? attachments = const $CopyWithPlaceholder(),
@@ -68,7 +73,8 @@ class _$ExportBoardBodyCWProxyImpl implements _$ExportBoardBodyCWProxy {
 }
 
 extension $ExportBoardBodyCopyWith on ExportBoardBody {
-  /// Returns a callable class that can be used as follows: `instanceOfExportBoardBody.copyWith(...)` or like so:`instanceOfExportBoardBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfExportBoardBody.copyWith(...)` or `instanceOfExportBoardBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ExportBoardBodyCWProxy get copyWith => _$ExportBoardBodyCWProxyImpl(this);
 }

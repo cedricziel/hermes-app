@@ -9,34 +9,39 @@ part of 'profile_active_update.dart';
 abstract class _$ProfileActiveUpdateCWProxy {
   ProfileActiveUpdate name(String name);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileActiveUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileActiveUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileActiveUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ProfileActiveUpdate call({String name});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfProfileActiveUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfProfileActiveUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfProfileActiveUpdate.copyWith(...)` or call `instanceOfProfileActiveUpdate.copyWith.fieldName(value)` for a single field.
 class _$ProfileActiveUpdateCWProxyImpl implements _$ProfileActiveUpdateCWProxy {
   const _$ProfileActiveUpdateCWProxyImpl(this._value);
 
   final ProfileActiveUpdate _value;
 
   @override
-  ProfileActiveUpdate name(String name) => this(name: name);
+  ProfileActiveUpdate name(String name) => call(name: name);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ProfileActiveUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ProfileActiveUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ProfileActiveUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ProfileActiveUpdate call({Object? name = const $CopyWithPlaceholder()}) {
     return ProfileActiveUpdate(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
@@ -45,7 +50,8 @@ class _$ProfileActiveUpdateCWProxyImpl implements _$ProfileActiveUpdateCWProxy {
 }
 
 extension $ProfileActiveUpdateCopyWith on ProfileActiveUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfProfileActiveUpdate.copyWith(...)` or like so:`instanceOfProfileActiveUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfProfileActiveUpdate.copyWith(...)` or `instanceOfProfileActiveUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ProfileActiveUpdateCWProxy get copyWith =>
       _$ProfileActiveUpdateCWProxyImpl(this);

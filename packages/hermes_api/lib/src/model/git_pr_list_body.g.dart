@@ -13,44 +13,49 @@ abstract class _$GitPrListBodyCWProxy {
 
   GitPrListBody numbers(List<int>? numbers);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitPrListBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitPrListBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitPrListBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   GitPrListBody call({String path, List<String>? branches, List<int>? numbers});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfGitPrListBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfGitPrListBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfGitPrListBody.copyWith(...)` or call `instanceOfGitPrListBody.copyWith.fieldName(value)` for a single field.
 class _$GitPrListBodyCWProxyImpl implements _$GitPrListBodyCWProxy {
   const _$GitPrListBodyCWProxyImpl(this._value);
 
   final GitPrListBody _value;
 
   @override
-  GitPrListBody path(String path) => this(path: path);
+  GitPrListBody path(String path) => call(path: path);
 
   @override
-  GitPrListBody branches(List<String>? branches) => this(branches: branches);
+  GitPrListBody branches(List<String>? branches) => call(branches: branches);
 
   @override
-  GitPrListBody numbers(List<int>? numbers) => this(numbers: numbers);
+  GitPrListBody numbers(List<int>? numbers) => call(numbers: numbers);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitPrListBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitPrListBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitPrListBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   GitPrListBody call({
     Object? path = const $CopyWithPlaceholder(),
     Object? branches = const $CopyWithPlaceholder(),
     Object? numbers = const $CopyWithPlaceholder(),
   }) {
     return GitPrListBody(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
@@ -67,7 +72,8 @@ class _$GitPrListBodyCWProxyImpl implements _$GitPrListBodyCWProxy {
 }
 
 extension $GitPrListBodyCopyWith on GitPrListBody {
-  /// Returns a callable class that can be used as follows: `instanceOfGitPrListBody.copyWith(...)` or like so:`instanceOfGitPrListBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfGitPrListBody.copyWith(...)` or `instanceOfGitPrListBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$GitPrListBodyCWProxy get copyWith => _$GitPrListBodyCWProxyImpl(this);
 }

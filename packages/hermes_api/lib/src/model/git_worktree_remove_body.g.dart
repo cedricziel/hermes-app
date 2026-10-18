@@ -13,16 +13,19 @@ abstract class _$GitWorktreeRemoveBodyCWProxy {
 
   GitWorktreeRemoveBody force(bool? force);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitWorktreeRemoveBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitWorktreeRemoveBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitWorktreeRemoveBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   GitWorktreeRemoveBody call({String path, String worktreePath, bool? force});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfGitWorktreeRemoveBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfGitWorktreeRemoveBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfGitWorktreeRemoveBody.copyWith(...)` or call `instanceOfGitWorktreeRemoveBody.copyWith.fieldName(value)` for a single field.
 class _$GitWorktreeRemoveBodyCWProxyImpl
     implements _$GitWorktreeRemoveBodyCWProxy {
   const _$GitWorktreeRemoveBodyCWProxyImpl(this._value);
@@ -30,33 +33,36 @@ class _$GitWorktreeRemoveBodyCWProxyImpl
   final GitWorktreeRemoveBody _value;
 
   @override
-  GitWorktreeRemoveBody path(String path) => this(path: path);
+  GitWorktreeRemoveBody path(String path) => call(path: path);
 
   @override
   GitWorktreeRemoveBody worktreePath(String worktreePath) =>
-      this(worktreePath: worktreePath);
+      call(worktreePath: worktreePath);
 
   @override
-  GitWorktreeRemoveBody force(bool? force) => this(force: force);
+  GitWorktreeRemoveBody force(bool? force) => call(force: force);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `GitWorktreeRemoveBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `GitWorktreeRemoveBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// GitWorktreeRemoveBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   GitWorktreeRemoveBody call({
     Object? path = const $CopyWithPlaceholder(),
     Object? worktreePath = const $CopyWithPlaceholder(),
     Object? force = const $CopyWithPlaceholder(),
   }) {
     return GitWorktreeRemoveBody(
-      path: path == const $CopyWithPlaceholder()
+      path: path == const $CopyWithPlaceholder() || path == null
           ? _value.path
           // ignore: cast_nullable_to_non_nullable
           : path as String,
-      worktreePath: worktreePath == const $CopyWithPlaceholder()
+      worktreePath:
+          worktreePath == const $CopyWithPlaceholder() || worktreePath == null
           ? _value.worktreePath
           // ignore: cast_nullable_to_non_nullable
           : worktreePath as String,
@@ -69,7 +75,8 @@ class _$GitWorktreeRemoveBodyCWProxyImpl
 }
 
 extension $GitWorktreeRemoveBodyCopyWith on GitWorktreeRemoveBody {
-  /// Returns a callable class that can be used as follows: `instanceOfGitWorktreeRemoveBody.copyWith(...)` or like so:`instanceOfGitWorktreeRemoveBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfGitWorktreeRemoveBody.copyWith(...)` or `instanceOfGitWorktreeRemoveBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$GitWorktreeRemoveBodyCWProxy get copyWith =>
       _$GitWorktreeRemoveBodyCWProxyImpl(this);

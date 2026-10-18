@@ -13,48 +13,53 @@ abstract class _$LearningNodeEditCWProxy {
 
   LearningNodeEdit profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `LearningNodeEdit(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `LearningNodeEdit(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// LearningNodeEdit(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   LearningNodeEdit call({String id, String content, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfLearningNodeEdit.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfLearningNodeEdit.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfLearningNodeEdit.copyWith(...)` or call `instanceOfLearningNodeEdit.copyWith.fieldName(value)` for a single field.
 class _$LearningNodeEditCWProxyImpl implements _$LearningNodeEditCWProxy {
   const _$LearningNodeEditCWProxyImpl(this._value);
 
   final LearningNodeEdit _value;
 
   @override
-  LearningNodeEdit id(String id) => this(id: id);
+  LearningNodeEdit id(String id) => call(id: id);
 
   @override
-  LearningNodeEdit content(String content) => this(content: content);
+  LearningNodeEdit content(String content) => call(content: content);
 
   @override
-  LearningNodeEdit profile(String? profile) => this(profile: profile);
+  LearningNodeEdit profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `LearningNodeEdit(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `LearningNodeEdit(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// LearningNodeEdit(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   LearningNodeEdit call({
     Object? id = const $CopyWithPlaceholder(),
     Object? content = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return LearningNodeEdit(
-      id: id == const $CopyWithPlaceholder()
+      id: id == const $CopyWithPlaceholder() || id == null
           ? _value.id
           // ignore: cast_nullable_to_non_nullable
           : id as String,
-      content: content == const $CopyWithPlaceholder()
+      content: content == const $CopyWithPlaceholder() || content == null
           ? _value.content
           // ignore: cast_nullable_to_non_nullable
           : content as String,
@@ -67,7 +72,8 @@ class _$LearningNodeEditCWProxyImpl implements _$LearningNodeEditCWProxy {
 }
 
 extension $LearningNodeEditCopyWith on LearningNodeEdit {
-  /// Returns a callable class that can be used as follows: `instanceOfLearningNodeEdit.copyWith(...)` or like so:`instanceOfLearningNodeEdit.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfLearningNodeEdit.copyWith(...)` or `instanceOfLearningNodeEdit.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$LearningNodeEditCWProxy get copyWith => _$LearningNodeEditCWProxyImpl(this);
 }

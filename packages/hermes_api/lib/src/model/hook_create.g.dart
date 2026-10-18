@@ -17,12 +17,14 @@ abstract class _$HookCreateCWProxy {
 
   HookCreate approve(bool? approve);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `HookCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `HookCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// HookCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   HookCreate call({
     String event,
     String command,
@@ -32,34 +34,37 @@ abstract class _$HookCreateCWProxy {
   });
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfHookCreate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfHookCreate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfHookCreate.copyWith(...)` or call `instanceOfHookCreate.copyWith.fieldName(value)` for a single field.
 class _$HookCreateCWProxyImpl implements _$HookCreateCWProxy {
   const _$HookCreateCWProxyImpl(this._value);
 
   final HookCreate _value;
 
   @override
-  HookCreate event(String event) => this(event: event);
+  HookCreate event(String event) => call(event: event);
 
   @override
-  HookCreate command(String command) => this(command: command);
+  HookCreate command(String command) => call(command: command);
 
   @override
-  HookCreate matcher(String? matcher) => this(matcher: matcher);
+  HookCreate matcher(String? matcher) => call(matcher: matcher);
 
   @override
-  HookCreate timeout(int? timeout) => this(timeout: timeout);
+  HookCreate timeout(int? timeout) => call(timeout: timeout);
 
   @override
-  HookCreate approve(bool? approve) => this(approve: approve);
+  HookCreate approve(bool? approve) => call(approve: approve);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `HookCreate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `HookCreate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// HookCreate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   HookCreate call({
     Object? event = const $CopyWithPlaceholder(),
     Object? command = const $CopyWithPlaceholder(),
@@ -68,11 +73,11 @@ class _$HookCreateCWProxyImpl implements _$HookCreateCWProxy {
     Object? approve = const $CopyWithPlaceholder(),
   }) {
     return HookCreate(
-      event: event == const $CopyWithPlaceholder()
+      event: event == const $CopyWithPlaceholder() || event == null
           ? _value.event
           // ignore: cast_nullable_to_non_nullable
           : event as String,
-      command: command == const $CopyWithPlaceholder()
+      command: command == const $CopyWithPlaceholder() || command == null
           ? _value.command
           // ignore: cast_nullable_to_non_nullable
           : command as String,
@@ -93,7 +98,8 @@ class _$HookCreateCWProxyImpl implements _$HookCreateCWProxy {
 }
 
 extension $HookCreateCopyWith on HookCreate {
-  /// Returns a callable class that can be used as follows: `instanceOfHookCreate.copyWith(...)` or like so:`instanceOfHookCreate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfHookCreate.copyWith(...)` or `instanceOfHookCreate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$HookCreateCWProxy get copyWith => _$HookCreateCWProxyImpl(this);
 }

@@ -9,31 +9,36 @@ part of 'reclaim_body.dart';
 abstract class _$ReclaimBodyCWProxy {
   ReclaimBody reason(String? reason);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ReclaimBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ReclaimBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ReclaimBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ReclaimBody call({String? reason});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfReclaimBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfReclaimBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfReclaimBody.copyWith(...)` or call `instanceOfReclaimBody.copyWith.fieldName(value)` for a single field.
 class _$ReclaimBodyCWProxyImpl implements _$ReclaimBodyCWProxy {
   const _$ReclaimBodyCWProxyImpl(this._value);
 
   final ReclaimBody _value;
 
   @override
-  ReclaimBody reason(String? reason) => this(reason: reason);
+  ReclaimBody reason(String? reason) => call(reason: reason);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ReclaimBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ReclaimBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ReclaimBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ReclaimBody call({Object? reason = const $CopyWithPlaceholder()}) {
     return ReclaimBody(
       reason: reason == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$ReclaimBodyCWProxyImpl implements _$ReclaimBodyCWProxy {
 }
 
 extension $ReclaimBodyCopyWith on ReclaimBody {
-  /// Returns a callable class that can be used as follows: `instanceOfReclaimBody.copyWith(...)` or like so:`instanceOfReclaimBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfReclaimBody.copyWith(...)` or `instanceOfReclaimBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ReclaimBodyCWProxy get copyWith => _$ReclaimBodyCWProxyImpl(this);
 }

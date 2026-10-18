@@ -9,31 +9,36 @@ part of 'decompose_body.dart';
 abstract class _$DecomposeBodyCWProxy {
   DecomposeBody author(String? author);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `DecomposeBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `DecomposeBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// DecomposeBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   DecomposeBody call({String? author});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfDecomposeBody.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfDecomposeBody.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfDecomposeBody.copyWith(...)` or call `instanceOfDecomposeBody.copyWith.fieldName(value)` for a single field.
 class _$DecomposeBodyCWProxyImpl implements _$DecomposeBodyCWProxy {
   const _$DecomposeBodyCWProxyImpl(this._value);
 
   final DecomposeBody _value;
 
   @override
-  DecomposeBody author(String? author) => this(author: author);
+  DecomposeBody author(String? author) => call(author: author);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `DecomposeBody(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `DecomposeBody(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// DecomposeBody(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   DecomposeBody call({Object? author = const $CopyWithPlaceholder()}) {
     return DecomposeBody(
       author: author == const $CopyWithPlaceholder()
@@ -45,7 +50,8 @@ class _$DecomposeBodyCWProxyImpl implements _$DecomposeBodyCWProxy {
 }
 
 extension $DecomposeBodyCopyWith on DecomposeBody {
-  /// Returns a callable class that can be used as follows: `instanceOfDecomposeBody.copyWith(...)` or like so:`instanceOfDecomposeBody.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfDecomposeBody.copyWith(...)` or `instanceOfDecomposeBody.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$DecomposeBodyCWProxy get copyWith => _$DecomposeBodyCWProxyImpl(this);
 }

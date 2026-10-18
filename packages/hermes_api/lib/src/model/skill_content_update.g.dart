@@ -13,48 +13,53 @@ abstract class _$SkillContentUpdateCWProxy {
 
   SkillContentUpdate profile(String? profile);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillContentUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillContentUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillContentUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   SkillContentUpdate call({String name, String content, String? profile});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfSkillContentUpdate.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfSkillContentUpdate.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfSkillContentUpdate.copyWith(...)` or call `instanceOfSkillContentUpdate.copyWith.fieldName(value)` for a single field.
 class _$SkillContentUpdateCWProxyImpl implements _$SkillContentUpdateCWProxy {
   const _$SkillContentUpdateCWProxyImpl(this._value);
 
   final SkillContentUpdate _value;
 
   @override
-  SkillContentUpdate name(String name) => this(name: name);
+  SkillContentUpdate name(String name) => call(name: name);
 
   @override
-  SkillContentUpdate content(String content) => this(content: content);
+  SkillContentUpdate content(String content) => call(content: content);
 
   @override
-  SkillContentUpdate profile(String? profile) => this(profile: profile);
+  SkillContentUpdate profile(String? profile) => call(profile: profile);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `SkillContentUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `SkillContentUpdate(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// SkillContentUpdate(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   SkillContentUpdate call({
     Object? name = const $CopyWithPlaceholder(),
     Object? content = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
   }) {
     return SkillContentUpdate(
-      name: name == const $CopyWithPlaceholder()
+      name: name == const $CopyWithPlaceholder() || name == null
           ? _value.name
           // ignore: cast_nullable_to_non_nullable
           : name as String,
-      content: content == const $CopyWithPlaceholder()
+      content: content == const $CopyWithPlaceholder() || content == null
           ? _value.content
           // ignore: cast_nullable_to_non_nullable
           : content as String,
@@ -67,7 +72,8 @@ class _$SkillContentUpdateCWProxyImpl implements _$SkillContentUpdateCWProxy {
 }
 
 extension $SkillContentUpdateCopyWith on SkillContentUpdate {
-  /// Returns a callable class that can be used as follows: `instanceOfSkillContentUpdate.copyWith(...)` or like so:`instanceOfSkillContentUpdate.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfSkillContentUpdate.copyWith(...)` or `instanceOfSkillContentUpdate.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$SkillContentUpdateCWProxy get copyWith =>
       _$SkillContentUpdateCWProxyImpl(this);

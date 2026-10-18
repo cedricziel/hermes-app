@@ -11,40 +11,45 @@ abstract class _$ChatImageUploadCWProxy {
 
   ChatImageUpload filename(String? filename);
 
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ChatImageUpload(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ChatImageUpload(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ChatImageUpload(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
   ChatImageUpload call({String dataUrl, String? filename});
 }
 
-/// Proxy class for `copyWith` functionality. This is a callable class and can be used as follows: `instanceOfChatImageUpload.copyWith(...)`. Additionally contains functions for specific fields e.g. `instanceOfChatImageUpload.copyWith.fieldName(...)`
+/// Callable proxy for `copyWith` functionality.
+/// Use as `instanceOfChatImageUpload.copyWith(...)` or call `instanceOfChatImageUpload.copyWith.fieldName(value)` for a single field.
 class _$ChatImageUploadCWProxyImpl implements _$ChatImageUploadCWProxy {
   const _$ChatImageUploadCWProxyImpl(this._value);
 
   final ChatImageUpload _value;
 
   @override
-  ChatImageUpload dataUrl(String dataUrl) => this(dataUrl: dataUrl);
+  ChatImageUpload dataUrl(String dataUrl) => call(dataUrl: dataUrl);
 
   @override
-  ChatImageUpload filename(String? filename) => this(filename: filename);
+  ChatImageUpload filename(String? filename) => call(filename: filename);
 
-  @override
-  /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `ChatImageUpload(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
+  /// Creates a new instance with the provided field values.
+  /// Omitted fields keep their values; explicit `null` clears nullable fields.
+  /// The public API rejects `null` for non-nullable fields. To update a single field use `ChatImageUpload(...).copyWith.fieldName(value)`.
   ///
-  /// Usage
+  /// Example:
   /// ```dart
   /// ChatImageUpload(...).copyWith(id: 12, name: "My name")
-  /// ````
+  /// ```
+  @override
   ChatImageUpload call({
     Object? dataUrl = const $CopyWithPlaceholder(),
     Object? filename = const $CopyWithPlaceholder(),
   }) {
     return ChatImageUpload(
-      dataUrl: dataUrl == const $CopyWithPlaceholder()
+      dataUrl: dataUrl == const $CopyWithPlaceholder() || dataUrl == null
           ? _value.dataUrl
           // ignore: cast_nullable_to_non_nullable
           : dataUrl as String,
@@ -57,7 +62,8 @@ class _$ChatImageUploadCWProxyImpl implements _$ChatImageUploadCWProxy {
 }
 
 extension $ChatImageUploadCopyWith on ChatImageUpload {
-  /// Returns a callable class that can be used as follows: `instanceOfChatImageUpload.copyWith(...)` or like so:`instanceOfChatImageUpload.copyWith.fieldName(...)`.
+  /// Returns a callable class used to build a new instance with modified fields.
+  /// Example: `instanceOfChatImageUpload.copyWith(...)` or `instanceOfChatImageUpload.copyWith.fieldName(...)`.
   // ignore: library_private_types_in_public_api
   _$ChatImageUploadCWProxy get copyWith => _$ChatImageUploadCWProxyImpl(this);
 }
