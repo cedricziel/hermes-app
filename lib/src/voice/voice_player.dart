@@ -5,6 +5,8 @@ import 'package:media_kit/media_kit.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 
+import 'voice_audio_focus.dart';
+
 /// A native player for one downloaded audio file; replaceable in tests.
 abstract class VoicePlayer extends ChangeNotifier {
   bool get playing;
@@ -38,7 +40,11 @@ class NativeVoicePlayer extends VoicePlayer {
         _completed = value;
         if (value) {
           _playing = false;
-          unawaited(_session?.setActive(false).catchError((Object _) => false));
+          if (!VoiceAudioFocus.shared.inCall) {
+            unawaited(
+              _session?.setActive(false).catchError((Object _) => false),
+            );
+          }
         }
         notifyListeners();
       }, onError: _onError),
@@ -54,6 +60,7 @@ class NativeVoicePlayer extends VoicePlayer {
         (error) => _onError(error, StackTrace.current),
       ),
     ]);
+    VoiceAudioFocus.shared.addListener(_focusChanged);
   }
 
   // The bundled audio-only libmpv/FFmpeg decoder handles Ogg/Vorbis and
@@ -63,6 +70,11 @@ class NativeVoicePlayer extends VoicePlayer {
   bool _playing = false;
   bool _disposed = false;
   int _intent = 0;
+  void _focusChanged() {
+    if (!VoiceAudioFocus.shared.inCall) _sessionReady = null;
+  }
+
+  bool _observesSession = false;
   AudioSession? _session;
   Future<void>? _sessionReady;
   bool _completed = false;
@@ -110,12 +122,12 @@ class NativeVoicePlayer extends VoicePlayer {
       _sessionReady = null;
       rethrow;
     }
-    if (_disposed || intent != _intent) return;
+    if (_disposed || intent != _intent || VoiceAudioFocus.shared.inCall) return;
     if (!await _session!.setActive(true)) {
       throw StateError('Audio focus unavailable');
     }
-    if (_disposed || intent != _intent) {
-      await _session?.setActive(false);
+    if (_disposed || intent != _intent || VoiceAudioFocus.shared.inCall) {
+      if (!VoiceAudioFocus.shared.inCall) await _session?.setActive(false);
       return;
     }
     await _player.play();
@@ -124,9 +136,12 @@ class NativeVoicePlayer extends VoicePlayer {
   Future<void> _prepareSession() async {
     final session = await AudioSession.instance;
     if (_disposed) return;
+    if (VoiceAudioFocus.shared.inCall) throw StateError('Call audio is active');
     _session = session;
     await session.configure(const AudioSessionConfiguration.speech());
     if (_disposed) return;
+    if (_observesSession) return;
+    _observesSession = true;
     void interrupt() => unawaited(pause().catchError((Object _) {}));
     _subscriptions.addAll([
       session.interruptionEventStream.listen((event) {
@@ -139,8 +154,9 @@ class NativeVoicePlayer extends VoicePlayer {
   @override
   Future<void> pause() async {
     ++_intent;
+    await _sessionReady?.catchError((Object _) {});
     await _player.pause();
-    await _session?.setActive(false);
+    if (!VoiceAudioFocus.shared.inCall) await _session?.setActive(false);
   }
 
   @override
@@ -154,7 +170,10 @@ class NativeVoicePlayer extends VoicePlayer {
       unawaited(subscription.cancel());
     }
     unawaited(_player.dispose().catchError((Object _) {}));
-    unawaited(_session?.setActive(false).catchError((Object _) => false));
+    if (!VoiceAudioFocus.shared.inCall) {
+      unawaited(_session?.setActive(false).catchError((Object _) => false));
+    }
+    VoiceAudioFocus.shared.removeListener(_focusChanged);
     super.dispose();
   }
 }

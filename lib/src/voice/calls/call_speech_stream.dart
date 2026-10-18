@@ -165,13 +165,21 @@ class CallSpeechStream {
     _stopped = true;
     _pending.clear();
     if (!_done.isCompleted) _done.complete();
-    await _close();
     await output.stopPlayback();
+    await _close();
   }
 
   Future<void> _close() async {
-    await _frames?.cancel();
-    await _socket?.sink.close();
+    final cancelled = _frames?.cancel();
+    final socket = _socket;
+    _frames = null;
     _socket = null;
+    await cancelled
+        ?.timeout(const Duration(seconds: 2))
+        .catchError((Object _) {});
+    await socket?.sink
+        .close()
+        .timeout(const Duration(seconds: 2))
+        .catchError((Object _) {});
   }
 }

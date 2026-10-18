@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../chat/gateway/gateway_connection.dart';
 import '../wav.dart';
+import '../voice_audio_focus.dart';
 import 'call_agent.dart';
 import 'call_phase.dart';
 export 'call_phase.dart';
@@ -41,6 +42,7 @@ class VoiceCall extends ChangeNotifier {
   bool _disposed = false;
   bool _active = false;
   bool _startedOnce = false;
+  bool _nativeStarted = false;
   bool _waitingForInput = false;
   CallPhase phase = CallPhase.connecting;
   bool muted = false;
@@ -62,10 +64,13 @@ class VoiceCall extends ChangeNotifier {
     try {
       await prepare().timeout(const Duration(seconds: 20));
       if (!_current(epoch)) return;
+      await VoiceAudioFocus.shared.acquire(this);
+      if (!_current(epoch)) return;
       _events = bridge.events.listen(
         _event,
         onError: (Object _) => unawaited(end('Call audio became unavailable.')),
       );
+      _nativeStarted = true;
       await bridge.start(const Uuid().v4(), 'Hermes');
     } on CallPreparationException catch (failure) {
       if (_current(epoch)) await end(failure.message);
@@ -285,12 +290,14 @@ class VoiceCall extends ChangeNotifier {
     final speech = _speech;
     _speech = null;
     _notify();
+    final stopSpeech = speech?.stop().catchError((Object _) {});
     // Release native audio before waiting for any remote cancellation.
-    await bridge.end().catchError((Object _) {});
+    if (_nativeStarted) await bridge.end().catchError((Object _) {});
     await _events?.cancel().catchError((Object _) {});
     _events = null;
+    VoiceAudioFocus.shared.release(this);
     await Future.wait<void>([
-      if (speech != null) speech.stop().catchError((Object _) {}),
+      ?stopSpeech,
       agent.interrupt().catchError((Object _) {}),
     ]);
   }

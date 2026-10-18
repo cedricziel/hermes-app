@@ -46,6 +46,10 @@ Protocol reference: NousResearch/hermes-agent, commit
 `e6cf2a9b1e8f98d40408b09a9a55993c8459b4b4`,
 `hermes_cli/web_routers/audio.py`.
 
+Ordinary voice-message playback pauses before CallKit starts and cannot change
+the audio session while a call owns it, including background pause and disposal.
+It can be resumed explicitly after the call ends.
+
 ## CarPlay
 
 The integration uses system call controls and car audio routing. There is no

@@ -165,4 +165,23 @@ void main() {
     await starting;
     expect(bridge.starts, 0);
   });
+  test('a second call cannot replace the first call audio or end it', () async {
+    await activate();
+    final otherBridge = FakeCallBridge();
+    final other = VoiceCall(
+      bridge: otherBridge,
+      agent: FakeCallAgent(),
+      connect: ([_ = const {}]) async => socket.local,
+      transcribe: (_) async => '',
+      prepare: () async {},
+    );
+    await other.start();
+    expect(other.phase, CallPhase.failed);
+    expect(otherBridge.starts, 0);
+    expect(otherBridge.ends, 0);
+    expect(call.phase, CallPhase.listening);
+    expect(bridge.ends, 0);
+    other.dispose();
+    await otherBridge.controller.close();
+  });
 }
