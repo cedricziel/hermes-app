@@ -20,7 +20,6 @@ import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
-import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/vault_request_card.dart';
@@ -104,6 +103,10 @@ Color? _textColor(WidgetTester tester, String text) {
   return color;
 }
 
+Finder get waitingForReasoning => find.byWidgetPredicate(
+  (widget) => widget is ReasoningBlock && widget.active && widget.text.isEmpty,
+);
+
 void main() {
   group('textMessageBuilder', () {
     testWidgets('a failed reply keeps its text and says why in the error '
@@ -186,7 +189,7 @@ void main() {
       expect(card.call.summary, 'ls -la /var/log');
       expect(card.call.status, ToolCallStatus.completed);
       expect(find.text('shell.exec'), findsOneWidget);
-      expect(find.byType(ThinkingIndicator), findsNothing);
+      expect(waitingForReasoning, findsNothing);
     });
 
     testWidgets('tool_group of several calls collapses behind one row', (
@@ -251,7 +254,9 @@ void main() {
       expect(find.text('Thinking…'), findsOneWidget);
     });
 
-    testWidgets('thinking renders the ThinkingIndicator', (tester) async {
+    testWidgets('thinking renders an expandable reasoning disclosure', (
+      tester,
+    ) async {
       await _pumpChat(
         tester,
         messages: [
@@ -263,7 +268,7 @@ void main() {
         ],
       );
 
-      expect(find.byType(ThinkingIndicator), findsOneWidget);
+      expect(waitingForReasoning, findsOneWidget);
       expect(find.byType(ToolCallCard), findsNothing);
     });
 
@@ -383,7 +388,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(ToolCallCard), findsNothing);
-      expect(find.byType(ThinkingIndicator), findsNothing);
+      expect(waitingForReasoning, findsNothing);
     });
 
     testWidgets('missing metadata renders nothing and does not throw', (

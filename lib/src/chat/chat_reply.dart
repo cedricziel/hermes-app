@@ -13,10 +13,12 @@ const kProfileUnavailableMessage =
 void applyReplyEvent(ChatMessage reply, ChatEvent event) {
   switch (event) {
     case ReplyDelta(:final text):
+      reply.reasoningActive = false;
       reply.activity = null;
       reply.content += text;
       reply.status = MessageStatus.streaming;
     case ReplyCheckpoint(:final text, :final alreadyStreamed):
+      reply.reasoningActive = false;
       reply.activity = null;
       if (text.isEmpty) return;
       if (!alreadyStreamed) {
@@ -54,12 +56,15 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReasoningUpdated(:final text, fallback: false):
       reply.activity = null;
       reply.reasoning += text;
+      if (text.isNotEmpty) reply.reasoningActive = true;
     case ReasoningUpdated(:final text, fallback: true):
       reply.activity = null;
       if (reply.reasoning.isEmpty && !_wroteSinceLastToolCall(reply)) {
         reply.reasoning = text;
+        if (text.isNotEmpty) reply.reasoningActive = true;
       }
     case ToolPreparing(:final name):
+      reply.reasoningActive = false;
       reply.activity = null;
       _seal(reply, reply.content, awaitingCheckpoint: true);
       reply.content = '';
@@ -81,6 +86,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       :final args,
       :final runtimeId,
     ):
+      reply.reasoningActive = false;
       reply.activity = null;
       _closeCheckpoint(reply);
       _seal(reply, reply.content);
@@ -122,6 +128,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       }
       reply.reasoning = '';
     case ToolFinished():
+      reply.reasoningActive = false;
       reply.activity = null;
       _closeCheckpoint(reply);
       _settleTool(reply, event);
@@ -152,6 +159,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     ):
       // A completion is the final word: it supersedes a held error and a
       // settle without a completion.
+      reply.reasoningActive = false;
       reply.activity = null;
       reply.pendingError = null;
       reply.errorEventSeen = false;
@@ -190,6 +198,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       );
       expireInputRequests(reply);
     case ReplyErrored(:final message):
+      reply.reasoningActive = false;
       // Held: Hermes often follows an error with a completion that explains
       // it better, so it is shown only if the turn settles without one.
       reply.pendingError = message;
@@ -198,6 +207,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case SessionInfo(:final running):
       // Only a settle changes the reply. A re-keyed id is the controller's.
       if (running != false || !reply.isPending) return;
+      reply.reasoningActive = false;
       final held = reply.pendingError;
       if (held != null) {
         reply.pendingError = null;
@@ -213,6 +223,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReplyStatus(:final text):
       reply.activity = text.isEmpty ? null : text;
     case ReplyRebuilt(:final text):
+      reply.reasoningActive = false;
       reply.activity = null;
       reply.content = _unsealed(reply, text);
       if (text.isNotEmpty && reply.status == MessageStatus.thinking) {
@@ -380,6 +391,7 @@ void _addInputRequest(ChatMessage reply, InputRequest request) {
 }
 
 void _markFailed(ChatMessage reply, String error) {
+  reply.reasoningActive = false;
   reply.error = error;
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.error);

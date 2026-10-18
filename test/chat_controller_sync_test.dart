@@ -49,14 +49,14 @@ void main() {
     syncMessage(controller, before, chatMessageToFlyer(reply));
   }
 
-  test('the text takes the thinking indicator\'s place, mid-thread', () {
+  test('the answer follows the retained thinking disclosure, mid-thread', () {
     change(() {
       reply.status = MessageStatus.streaming;
       reply.content = 'Hi';
     });
 
-    expect(_ids(controller), ['t-0', 't-1', 't-2']);
-    expect((controller.messages[1] as TextMessage).text, 'Hi');
+    expect(_ids(controller), ['t-0', 't-1-tool-0-reasoning', 't-1', 't-2']);
+    expect((controller.messages[2] as TextMessage).text, 'Hi');
   });
 
   test('a later change updates the text in place', () {
@@ -66,8 +66,8 @@ void main() {
     });
     change(() => reply.content = 'Hi there');
 
-    expect(_ids(controller), ['t-0', 't-1', 't-2']);
-    expect((controller.messages[1] as TextMessage).text, 'Hi there');
+    expect(_ids(controller), ['t-0', 't-1-tool-0-reasoning', 't-1', 't-2']);
+    expect((controller.messages[2] as TextMessage).text, 'Hi there');
   });
 
   test('a group of tool cards appears before the text, keeping the reply\'s '
@@ -78,14 +78,25 @@ void main() {
         ToolCall(name: 'b', summary: '', status: ToolCallStatus.running),
       ],
     );
-    // The running calls show the activity, so there is no thinking line.
-    expect(_ids(controller), ['t-0', 't-1-tool-0', 't-2']);
+    // The initial disclosure stays before the running call group.
+    expect(_ids(controller), [
+      't-0',
+      't-1-tool-0-reasoning',
+      't-1-tool-0',
+      't-2',
+    ]);
 
     change(() {
       reply.status = MessageStatus.streaming;
       reply.content = 'Done';
     });
-    expect(_ids(controller), ['t-0', 't-1-tool-0', 't-1', 't-2']);
+    expect(_ids(controller), [
+      't-0',
+      't-1-tool-0-reasoning',
+      't-1-tool-0',
+      't-1',
+      't-2',
+    ]);
   });
 
   test('a tool card changes status in place', () {
@@ -100,8 +111,14 @@ void main() {
       ],
     );
 
-    final card = controller.messages[1] as CustomMessage;
-    expect(_ids(controller), ['t-0', 't-1-tool-0', 't-1-thinking', 't-2']);
+    final card = controller.messages[2] as CustomMessage;
+    expect(_ids(controller), [
+      't-0',
+      't-1-tool-0-reasoning',
+      't-1-tool-0',
+      't-1-tool-1-reasoning',
+      't-2',
+    ]);
     final calls = card.metadata?[kMetaToolCalls] as List<ToolCall>;
     expect(calls.single.status, ToolCallStatus.completed);
   });

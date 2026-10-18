@@ -21,7 +21,8 @@ const String kKindReviewSummary = 'review_summary';
 /// `Map<int, ApprovalRequest>`): the approvals that hold up a call of the
 /// run, by the call's position in it. A `kKindInputRequest` message carries
 /// `request` (the `InputRequest`). A `kKindReasoning` message carries `text`
-/// (String) and `active` (bool, the reply is still being written). A
+/// (String) and `active` (bool, reasoning is arriving), plus an optional
+/// `startedAt` while active. A
 /// `kKindThinking` message carries `startedAt` (DateTime, when the reply
 /// began) and `activity` (String, what it is doing right now).
 const String kMetaKind = 'kind';

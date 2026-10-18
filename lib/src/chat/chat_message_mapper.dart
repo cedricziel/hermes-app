@@ -16,8 +16,8 @@ import 'media/extract_media.dart';
 /// sent (read from `MEDIA:` tags in the text), and the thinking indicator.
 ///
 /// Ids derive only from [ChatMessage.id] (`id`, `id-attachment-N`,
-/// `id-sealed-N`, `id-tool-N-reasoning`, `id-tool-N`, `id-reasoning`,
-/// `id-media-N`, `id-input-N`, `id-thinking`), where `N` is the index in
+/// `id-sealed-N`, `id-tool-N-reasoning`, `id-tool-N`,
+/// `id-media-N`, `id-input-N`), where `N` is the index in
 /// [ChatMessage.sealedProse] or the index in [ChatMessage.toolCalls] of a
 /// run's first call, so a streaming reply that mutates content, status or
 /// appends another sealed entry or call maps to ids the controller can
@@ -107,7 +107,8 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
       ),
     for (final run in runs) ...[
       ...before(run.start),
-      if (run.calls.first.reasoning.isNotEmpty)
+      if (run.calls.first.reasoning.isNotEmpty ||
+          (run.start == 0 && m.thinkingStarted))
         _reasoningMessage(
           '${m.id}-tool-${run.start}-reasoning',
           authorId,
@@ -135,13 +136,19 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         createdAt: createdAt,
         metadata: {kMetaKind: kKindSubagents, kMetaSubagents: m.subagents},
       ),
-    if (m.reasoning.isNotEmpty)
+    if (m.reasoning.isNotEmpty ||
+        (m.thinkingStarted &&
+            m.toolCalls.isEmpty &&
+            !thinking &&
+            !m.awaitingInput))
       _reasoningMessage(
-        '${m.id}-reasoning',
+        // The next call inherits this reasoning and its row identity, so an
+        // expanded disclosure stays open when the tool begins.
+        '${m.id}-tool-${m.toolCalls.length}-reasoning',
         authorId,
         createdAt,
         m.reasoning,
-        active: m.isPending,
+        active: m.isPending && m.reasoningActive,
       ),
     if (!thinking && (media.text.isNotEmpty || m.status == MessageStatus.error))
       TextMessage(
@@ -172,7 +179,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
       ),
     if (showThinking)
       CustomMessage(
-        id: '${m.id}-thinking',
+        id: '${m.id}-tool-${m.toolCalls.length}-reasoning',
         authorId: authorId,
         createdAt: createdAt,
         metadata: {
@@ -236,6 +243,7 @@ Message _reasoningMessage(
     kMetaKind: kKindReasoning,
     kMetaReasoningText: text,
     kMetaReasoningActive: active,
+    if (active) kMetaThinkingStartedAt: createdAt,
   },
 );
 

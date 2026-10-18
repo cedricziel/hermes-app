@@ -110,7 +110,7 @@ void main() {
       for (final m in thread.messages)
         ...chatMessageToFlyer(m).map((f) => f.id),
     ]);
-    expect((shown[0] as TextMessage).text, 'resumed work');
+    expect(shown.whereType<TextMessage>().first.text, 'resumed work');
   });
 
   test('Auto-continue after resume: the order stays after the prompt\'s reply '
@@ -133,7 +133,11 @@ void main() {
       'mine',
     ]);
     expect(
-      chat.controllerFor(thread).messages.map((m) => (m as TextMessage).text),
+      chat
+          .controllerFor(thread)
+          .messages
+          .whereType<TextMessage>()
+          .map((m) => m.text),
       ['resumed work', 'Plan it', 'mine'],
     );
   });
@@ -204,7 +208,11 @@ void main() {
     expect(prefilled, 'Plan it');
     expect(thread.messages.map((m) => m.content), ['resumed work']);
     expect(
-      chat.controllerFor(thread).messages.map((m) => (m as TextMessage).text),
+      chat
+          .controllerFor(thread)
+          .messages
+          .whereType<TextMessage>()
+          .map((m) => m.text),
       ['resumed work'],
     );
   });
