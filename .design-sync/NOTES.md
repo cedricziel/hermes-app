@@ -178,6 +178,9 @@ settingsOpen` shows is the public `SettingsDialog` (`AppShell`/`ChatScreen` take
 
 ## Known gaps in the recreations
 
+- VoiceCallSetupView (checking, local fixes, server setup and retry) and the
+  failed VoiceCallView's explicit chat-help button need a design port. The
+  Flutter Widgetbook holds the light/dark phone and desktop reference states.
 - Markdown in AssistantMessage: no tables, blockquotes, nested lists or syntax highlighting.
 - ToolCallCard shows JSON input as pretty-printed text, not the app's collapsible tree.
 - Not recreated: thread rename/delete dialogs, the "Always allow" confirmation, UnsupportedRequestCard, the

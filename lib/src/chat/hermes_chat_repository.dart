@@ -194,13 +194,19 @@ class HermesChatRepository {
   /// voice routes).
   Future<VoiceSupport> voiceSupport({String? profile}) async {
     try {
-      final response = await _api.getClientVoiceConfigApiAudioVoiceConfigGet(
-        profile: profile,
-      );
-      return VoiceSupport.fromJson(response.data);
+      return await voiceConfiguration(profile: profile);
     } on Object {
       return VoiceSupport.none;
     }
+  }
+
+  /// Strict variant for readiness checks, which distinguish old servers from
+  /// connection/auth failures. Only non-secret capability flags are retained.
+  Future<VoiceSupport> voiceConfiguration({String? profile}) async {
+    final response = await _api.getClientVoiceConfigApiAudioVoiceConfigGet(
+      profile: profile,
+    );
+    return VoiceSupport.fromJson(response.data);
   }
 
   /// Asks the dashboard to load (or lets it unload) the profile's

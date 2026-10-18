@@ -11,9 +11,10 @@ class VoiceSupport {
     this.speechToText = false,
     this.liveTranscription = false,
     this.textToSpeech = false,
+    this.configurationKnown = true,
   });
 
-  static const none = VoiceSupport();
+  static const none = VoiceSupport(configurationKnown: false);
 
   factory VoiceSupport.fromJson(Object? body) {
     final json = body is Map ? body : const {};
@@ -23,6 +24,13 @@ class VoiceSupport {
       speechToText: _usable(stt),
       liveTranscription: stt is Map && stt['streaming'] == true,
       textToSpeech: _usable(tts),
+      configurationKnown:
+          stt is Map &&
+          tts is Map &&
+          ![stt['reason'], tts['reason']].any(
+            (reason) =>
+                reason == 'resolution error' || reason == 'resolution failed',
+          ),
     );
   }
 
@@ -35,6 +43,9 @@ class VoiceSupport {
 
   /// Whether replies can be spoken.
   final bool textToSpeech;
+
+  /// False when the server could not resolve or report its speech settings.
+  final bool configurationKnown;
 
   static bool _usable(Object? section) =>
       section is Map &&
