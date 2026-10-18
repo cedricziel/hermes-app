@@ -3,7 +3,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/chat/attachments/draggable_attachment.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
-    show AttachmentKind, ChatAttachment, ThreadSearchHit, ToolCallStatus;
+    show
+        AttachmentKind,
+        ChatAttachment,
+        ThreadSearchHit,
+        ToolCall,
+        ToolCallStatus;
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
@@ -35,6 +40,7 @@ import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_arguments_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/vault_request_card.dart';
@@ -119,12 +125,53 @@ WidgetbookNode chatNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ToolCallCard',
       useCases: [
+        _tool(
+          'Readable command arguments',
+          const ToolArgumentsView(
+            arguments: {
+              'command': 'git status --short\nflutter test',
+              'workdir': '/workspace/project',
+              'timeout_s': 60,
+              'background': false,
+              'options': {
+                'include_untracked': true,
+                'paths': ['lib', 'test'],
+              },
+            },
+          ),
+        ),
         _tool('Running', const ToolCallCard(call: runningToolCall)),
         _tool('Running, timed', ToolCallCard(call: timedToolCall())),
         _tool('Preparing', const ToolCallCard(call: preparingToolCall)),
         _tool('Finished', const ToolCallCard(call: finishedToolCall)),
         _tool('Failed', const ToolCallCard(call: failedToolCall)),
         _tool('Cancelled', const ToolCallCard(call: cancelledToolCall)),
+        _tool('Deferred tool', const ToolCallCard(call: bridgeToolCall)),
+        _tool(
+          'Deferred batch',
+          const ToolCallCard(call: batchBridgeToolCall, initiallyOpen: true),
+        ),
+        _tool(
+          'Deferred history',
+          ToolCallCard(call: bridgeToolCall.copyWith(labels: [])),
+        ),
+        _tool(
+          'Deferred preparing',
+          const ToolCallCard(
+            call: ToolCall(
+              name: 'tool_call',
+              summary: '',
+              preparing: true,
+              status: ToolCallStatus.running,
+            ),
+          ),
+        ),
+        _tool(
+          'Deferred missing details',
+          const ToolCallCard(
+            call: ToolCall(name: 'tool_call', summary: ''),
+          ),
+        ),
         _tool(
           'Waiting on approval',
           ToolCallCard(
@@ -165,6 +212,10 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool('Single call', const ToolCallGroup(calls: [runningToolCall])),
         _tool('Finished run', const ToolCallGroup(calls: finishedToolRun)),
         _tool('Running', const ToolCallGroup(calls: runningToolRun)),
+        _tool(
+          'Deferred running',
+          const ToolCallGroup(calls: [finishedToolCall, bridgeToolCall]),
+        ),
         _tool('Failed', const ToolCallGroup(calls: failedToolRun)),
         _tool('Cancelled', const ToolCallGroup(calls: cancelledToolRun)),
         _tool(

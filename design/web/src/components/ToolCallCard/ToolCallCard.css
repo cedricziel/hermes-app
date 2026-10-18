@@ -69,7 +69,12 @@
 }
 
 .h-tool-call__name {
-  flex: none;
+  flex: 0 1 auto;
+  max-width: 60%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-left: 8px;
   font-family: var(--h-font-mono);
   font-size: 12.5px;
@@ -97,6 +102,31 @@
   line-height: 16px;
   color: var(--h-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.h-tool-call__identity {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 4px 0;
+}
+.h-tool-call__identity .h-tool-call__name {
+  max-width: 100%;
+}
+.h-tool-call__argument {
+  margin-bottom: 10px;
+}
+.h-tool-call__argument-label {
+  color: var(--h-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+.h-tool-call__raw > summary {
+  cursor: pointer;
+  padding: 12px 10px;
+  font-size: 12px;
 }
 
 .h-tool-call__chevron {

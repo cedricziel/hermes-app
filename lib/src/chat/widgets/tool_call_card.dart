@@ -14,9 +14,11 @@ import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_tile.dart';
 import '../chat_models.dart';
+import '../tool_call_presentation.dart';
 import 'approval_card.dart';
 import 'thinking_indicator.dart' show formatThinkingElapsed;
 import 'tool_call_bodies.dart';
+import 'tool_arguments_view.dart';
 
 /// A compact summary of a tool the agent ran — assistant-ui surfaces tool
 /// calls as their own inline card rather than mixing them into the message
@@ -60,6 +62,25 @@ class ToolCallCard extends StatelessWidget {
             child: ApprovalCard(request: approval, onAnswer: onAnswerApproval),
           );
     final details = [
+      if (call.isToolBridge) ...[
+        if (call.argumentGroups.isEmpty && call.displayTools.isNotEmpty)
+          _Section(
+            label: 'Tools',
+            text: call.displayTools
+                .map(
+                  (tool) =>
+                      '${tool.text}${tool.name.isNotEmpty && tool.name != tool.text ? ' (${tool.name})' : ''}${tool.preview.isNotEmpty ? '\n${tool.preview}' : ''}',
+                )
+                .join('\n\n'),
+          )
+        else if (call.name == 'tool_call' && call.argumentGroups.isEmpty)
+          _Section(
+            label: 'Tool details',
+            text: call.preparing
+                ? 'The tool name will appear when Hermes starts the call.'
+                : 'Hermes did not include the underlying tool name.',
+          ),
+      ],
       if (call.outputRisk case final risk?)
         _Section(
           label: 'Output risk',
@@ -68,9 +89,33 @@ class ToolCallCard extends StatelessWidget {
               : risk.findings.join('\n'),
         ),
       ...switch (toolCallBody(call)) {
-        final Widget body => [body],
+        final Widget body => [
+          body,
+          if (call.name == 'terminal' &&
+              call.args?.keys.any((key) => key != 'command') == true)
+            ToolArgumentsView(
+              title: 'Arguments',
+              arguments: Map.of(call.args!)..remove('command'),
+            ),
+        ],
         null => _genericSections(call),
       },
+      if (call.isToolBridge || call.args?.isNotEmpty == true)
+        DisclosureTile(
+          dense: true,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          title: const Text('Raw arguments', style: TextStyle(fontSize: 12)),
+          children: [
+            if (call.isToolBridge)
+              _Section(label: 'Dispatcher', text: call.name),
+            if (call.args != null)
+              _Section(
+                label: 'Input',
+                text: const JsonEncoder.withIndent('  ').convert(call.args),
+              ),
+          ],
+        ),
       if (approvalCard != null && !_waiting) ...[
         const SizedBox(height: 8),
         approvalCard,
@@ -78,9 +123,24 @@ class ToolCallCard extends StatelessWidget {
     ];
     final expandable = details.isNotEmpty;
     final handoff = BotHandoffBody.of(call);
-    final summary = call.preparing
-        ? 'Preparing…'
-        : handoff?.label ?? call.summary;
+    final summary = handoff?.label ?? call.displaySummary;
+    final name = Text(
+      call.displayName,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        color: scheme.onSurface,
+      ),
+    );
+    final preview = Text(
+      summary,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontSize: 12.5, color: subtle),
+    );
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -132,24 +192,18 @@ class ToolCallCard extends StatelessWidget {
                     waiting: _waiting,
                   ),
                 const SizedBox(width: 8),
-                Text(
-                  call.name,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurface,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    summary,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12.5, color: subtle),
-                  ),
-                ),
+                if (call.isToolBridge)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [name, if (summary.isNotEmpty) preview],
+                    ),
+                  )
+                else ...[
+                  Flexible(flex: 2, child: name),
+                  const SizedBox(width: 8),
+                  Expanded(child: preview),
+                ],
                 ToolCallTime(call: call),
               ],
             ),
@@ -178,7 +232,13 @@ List<Widget> _genericSections(ToolCall call) {
       : call.summary.trim();
   final result = call.result.trim();
   return [
-    if (input.isNotEmpty) _Section(label: 'Input', text: input),
+    if (call.argumentGroups.isNotEmpty)
+      for (final group in call.argumentGroups)
+        ToolArgumentsView(title: group.title, arguments: group.arguments)
+    else if (args != null && args.isNotEmpty)
+      ToolArgumentsView(arguments: args)
+    else if (input.isNotEmpty)
+      _Section(label: 'Input', text: input),
     if (result.isNotEmpty)
       _Section(
         label: call.status == ToolCallStatus.error ? 'Error' : 'Result',

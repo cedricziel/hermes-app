@@ -14,6 +14,43 @@ const runningToolCall = ToolCall(
   status: ToolCallStatus.running,
 );
 
+const bridgeToolCall = ToolCall(
+  id: 'bridge-1',
+  name: 'tool_call',
+  summary: '',
+  status: ToolCallStatus.running,
+  args: {
+    'name': 'mcp__github__list_pull_requests',
+    'arguments': {'query': 'Open pull requests'},
+  },
+  labels: [
+    ToolLabel(
+      name: 'mcp__github__list_pull_requests',
+      text: 'GitHub · list pull requests',
+      preview: 'Open pull requests',
+    ),
+  ],
+);
+
+const batchBridgeToolCall = ToolCall(
+  name: 'tool_call',
+  summary: '',
+  args: {
+    'calls': [
+      {
+        'name': 'read_file',
+        'arguments': {'path': 'lib/main.dart'},
+      },
+      {'name': 'mcp__github__list_pull_requests', 'arguments': {}},
+      {
+        'name': 'plugin_tool_with_a_very_long_name_that_must_fit_on_a_phone',
+        'arguments': {},
+      },
+    ],
+  },
+  result: 'Completed three calls.',
+);
+
 const finishedToolCall = ToolCall(
   name: 'read_file',
   summary: 'lib/main.dart',

@@ -8,6 +8,7 @@ import {
 } from "../ToolCallCard/ToolCallCard";
 import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./ToolCallGroup.css";
+import { toolCallPresentation } from "../ToolCallCard/toolCallPresentation";
 
 export interface ToolCallGroupProps {
   /** The calls the agent made back to back, in order. One call renders as a plain ToolCallCard with no group line. */
@@ -50,11 +51,11 @@ export function ToolCallGroup({
         : "completed";
   const started = running.filter((c) => !c.preparing);
   const label = waiting.length
-    ? `Waiting on ${waiting[0].name}`
+    ? `Waiting on ${toolCallPresentation(waiting[0]).name}`
     : started.length
-      ? `Running ${started[0].name}…`
+      ? `Running ${toolCallPresentation(started[0]).name}…`
       : running.length
-        ? `Preparing ${running[0].name}…`
+        ? `Preparing ${toolCallPresentation(running[0]).name}…`
         : `Used ${calls.length} tools`;
   const open = opened || waiting.length > 0;
 

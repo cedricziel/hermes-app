@@ -85,6 +85,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       :final summary,
       :final args,
       :final runtimeId,
+      :final labels,
     ):
       reply.reasoningActive = false;
       reply.activity = null;
@@ -109,6 +110,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
             reasoning: call.reasoning + reply.reasoning,
             preparing: false,
             startedAt: DateTime.now(),
+            labels: labels,
           );
       } else {
         _settleUnreported(reply, before: reply.toolCalls.length);
@@ -123,6 +125,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
             status: ToolCallStatus.running,
             reasoning: reply.reasoning,
             startedAt: DateTime.now(),
+            labels: labels,
           ),
         ];
       }
@@ -422,6 +425,7 @@ void _settleTool(ChatMessage reply, ToolFinished event) {
       resultData: event.resultData,
       diff: event.diff,
       duration: event.duration ?? _ranFor(call),
+      labels: event.labels.isEmpty ? null : event.labels,
     );
 }
 

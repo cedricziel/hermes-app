@@ -336,6 +336,7 @@ final class ToolStarted extends ChatEvent {
     this.id = '',
     this.args,
     this.runtimeId = '',
+    this.labels = const [],
   });
 
   /// Hermes' id for the call; empty when it sent none.
@@ -344,6 +345,7 @@ final class ToolStarted extends ChatEvent {
   final String summary;
   final Map<String, Object?>? args;
   final String runtimeId;
+  final List<ToolLabel> labels;
 }
 
 final class ToolFinished extends ChatEvent {
@@ -356,6 +358,7 @@ final class ToolFinished extends ChatEvent {
     this.resultData,
     this.diff = '',
     this.duration,
+    this.labels = const [],
   });
 
   /// The id of the call this finishes; empty when Hermes sent none, and the
@@ -377,6 +380,7 @@ final class ToolFinished extends ChatEvent {
 
   /// How long the call ran, when Hermes timed it.
   final Duration? duration;
+  final List<ToolLabel> labels;
 }
 
 /// The dashboard named (or renamed) the thread.
