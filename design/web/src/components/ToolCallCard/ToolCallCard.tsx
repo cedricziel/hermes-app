@@ -7,6 +7,7 @@ import {
 } from "../ApprovalCard/ApprovalCard";
 import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./ToolCallCard.css";
+import { toolCallPresentation } from "./toolCallPresentation";
 
 /** Where a tool call stands. */
 export type ToolCallStatus = "running" | "completed" | "error" | "cancelled";
@@ -44,8 +45,12 @@ export type ToolCallBody =
 
 /** A tool call the agent made. */
 export interface ToolCallItem {
-  /** Tool name as Hermes reports it, shown monospace and bold: `terminal`, `read_file`, `mcp__github__list_prs`. */
+  /** Raw protocol tool name; deferred calls show their underlying tool label. */
   name: string;
+  /** Human-readable identities from Hermes, in batch order. */
+  labels?: { name: string; text: string; preview?: string }[];
+  /** Raw arguments, including `name`/`arguments` or `calls` for deferred tools. */
+  args?: Record<string, unknown>;
   /** One-line argument summary shown muted after the name (a path, a command, a query). */
   summary?: string;
   /** Defaults to `completed`. */
@@ -88,7 +93,6 @@ export function ToolCallStatusIcon({
       return (
         <Spinner
           size={12}
-
           label="Running"
           className="h-tool-status h-tool-status--running"
         />
@@ -142,6 +146,34 @@ function Section({ label, children }: { label?: string; children: ReactNode }) {
       {label ? <div className="h-tool-call__section-label">{label}</div> : null}
       <div className="h-tool-call__section-body">{children}</div>
     </div>
+  );
+}
+
+function renderArguments(title: string, args: Record<string, unknown>) {
+  const labels: Record<string, string> = {
+    cwd: "Working directory",
+    workdir: "Working directory",
+    timeout_s: "Timeout (seconds)",
+    timeout_ms: "Timeout (milliseconds)",
+  };
+  return (
+    <Section label={title}>
+      {Object.entries(args).map(([key, value]) => (
+        <div className="h-tool-call__argument" key={key}>
+          <div className="h-tool-call__argument-label">
+            {labels[key] ??
+              (key
+                ? key[0].toUpperCase() + key.slice(1).replace(/_/g, " ")
+                : "Value")}
+          </div>
+          <div className="h-tool-call__mono">
+            {typeof value === "string"
+              ? value || '""'
+              : JSON.stringify(value, null, 2)}
+          </div>
+        </div>
+      ))}
+    </Section>
   );
 }
 
@@ -260,6 +292,8 @@ function renderBody(body: ToolCallBody) {
 /** A compact inline card for one tool the agent ran: status icon, tool name, argument summary and time in a 36px header (44px under `platform="apple"`) that opens on click to what the tool was given and returned, in the tool's own view when it has one. An approval that holds the call up shows inside the card, under the header while pending. */
 export function ToolCallCard({
   name,
+  labels,
+  args,
   summary = "",
   status = "completed",
   preparing = false,
@@ -280,11 +314,54 @@ export function ToolCallCard({
   const isWaiting =
     waiting ?? (!!approval && (approval.status ?? "pending") === "pending");
   const pendingApproval = approval && isWaiting;
+  const display = toolCallPresentation({ name, labels, args, input, summary });
   const details: ReactNode[] = [];
-  if (body) details.push(<div key="body">{renderBody(body)}</div>);
-  else {
-    const inputText = (input ?? summary).trim();
-    if (inputText)
+  if (display.bridge && !display.argumentGroups.length) {
+    details.push(
+      <Section key="tools" label="Tools">
+        <div className="h-tool-call__mono">
+          {display.tools.length
+            ? display.tools
+                .map(
+                  (tool) =>
+                    `${tool.text}${tool.name && tool.name !== tool.text ? ` (${tool.name})` : ""}${tool.preview ? `\n${tool.preview}` : ""}`,
+                )
+                .join("\n\n")
+            : preparing
+              ? "The tool name will appear when Hermes starts the call."
+              : "Hermes did not include the underlying tool name."}
+        </div>
+      </Section>,
+    );
+  }
+  if (body) {
+    details.push(<div key="body">{renderBody(body)}</div>);
+    if (body.kind === "terminal" && args) {
+      const rest = Object.fromEntries(
+        Object.entries(args).filter(([key]) => key !== "command"),
+      );
+      if (Object.keys(rest).length)
+        details.push(
+          <div key="args">{renderArguments("Arguments", rest)}</div>,
+        );
+    }
+  } else {
+    const inputText = (
+      input ?? (args ? JSON.stringify(args, null, 2) : summary)
+    ).trim();
+    if (display.argumentGroups.length) {
+      display.argumentGroups.forEach((group, index) =>
+        details.push(
+          <div key={`args-${index}`}>
+            {renderArguments(group.title, group.arguments)}
+          </div>,
+        ),
+      );
+    } else if (display.args && Object.keys(display.args).length) {
+      details.push(
+        <div key="args">{renderArguments("Input", display.args)}</div>,
+      );
+    } else if (inputText)
       details.push(
         <Section key="input" label="Input">
           <div className="h-tool-call__mono">{inputText}</div>
@@ -297,6 +374,20 @@ export function ToolCallCard({
         </Section>,
       );
   }
+  if (display.bridge || display.args)
+    details.push(
+      <details key="raw" className="h-tool-call__raw">
+        <summary>Raw arguments</summary>
+        {display.bridge ? <Section label="Dispatcher">{name}</Section> : null}
+        {display.args ? (
+          <Section label="Input">
+            <div className="h-tool-call__mono">
+              {JSON.stringify(display.args, null, 2)}
+            </div>
+          </Section>
+        ) : null}
+      </details>,
+    );
   if (approval && !pendingApproval)
     details.push(
       <div
@@ -326,10 +417,23 @@ export function ToolCallCard({
           aria-expanded={expandable ? open : undefined}
         >
           <ToolCallStatusIcon status={status} waiting={isWaiting} />
-          <span className="h-tool-call__name">{name}</span>
-          <span className="h-tool-call__summary">
-            {preparing ? "Preparing…" : summary}
-          </span>
+          {display.bridge ? (
+            <span className="h-tool-call__identity">
+              <span className="h-tool-call__name">{display.name}</span>
+              {preparing || display.summary ? (
+                <span className="h-tool-call__summary">
+                  {preparing ? "Preparing…" : display.summary}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <>
+              <span className="h-tool-call__name">{display.name}</span>
+              <span className="h-tool-call__summary">
+                {preparing ? "Preparing…" : display.summary}
+              </span>
+            </>
+          )}
           {duration ? (
             <span className="h-tool-call__time">{duration}</span>
           ) : null}

@@ -4,6 +4,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../chat_models.dart';
+import '../tool_call_presentation.dart';
 import 'tool_call_card.dart';
 
 /// A run of tool calls the agent made back to back, with no reasoning
@@ -72,11 +73,11 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
     // rest are still being written.
     final started = running.where((c) => !c.preparing);
     final label = waiting.isNotEmpty
-        ? 'Waiting on ${waiting.first.name}'
+        ? 'Waiting on ${waiting.first.displayName}'
         : started.isNotEmpty
-        ? 'Running ${started.first.name}…'
+        ? 'Running ${started.first.displayName}…'
         : running.isNotEmpty
-        ? 'Preparing ${running.first.name}…'
+        ? 'Preparing ${running.first.displayName}…'
         : 'Used ${calls.length} tools';
     final open = _open || waiting.isNotEmpty;
 
@@ -112,12 +113,16 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
                         waiting: waiting.isNotEmpty,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSurface,
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 2),

@@ -89,6 +89,7 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
     'reasoning.available' => ReasoningUpdated(text('text'), fallback: true),
     'tool.generating' => ToolPreparing(text('name')),
     'tool.start' => ToolStarted(
+      labels: ToolLabel.decodeList(payload['labels']),
       runtimeId: event.sessionId,
       id: text('tool_id'),
       name: text('name'),
@@ -96,6 +97,7 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
       args: _args(payload['args']),
     ),
     'tool.complete' => ToolFinished(
+      labels: ToolLabel.decodeList(payload['labels']),
       id: text('tool_id'),
       name: text('name'),
       failed: toolResultStatus(payload['result']) == ToolCallStatus.error,

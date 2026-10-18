@@ -11,6 +11,9 @@ import 'reactions/reaction_state.dart';
 import '../models/model_provider_option.dart';
 import '../bot_mode/bot_chat_context.dart';
 import 'chat_warning_state.dart';
+import 'tool_label.dart';
+
+export 'tool_label.dart';
 
 enum ChatRole { user, assistant }
 
@@ -39,6 +42,7 @@ class ToolCall {
     this.outputRisk,
     this.runtimeId = '',
     this.warningGeneration,
+    this.labels = const [],
   });
 
   /// Hermes' id for the call, which its result answers. Empty when the
@@ -46,6 +50,9 @@ class ToolCall {
   final String id;
 
   final String name;
+
+  /// Human-readable tool identities supplied by newer Hermes gateways.
+  final List<ToolLabel> labels;
 
   /// A one-line preview of what the call works on, such as the command or
   /// the path.
@@ -99,6 +106,7 @@ class ToolCall {
     ToolOutputRisk? outputRisk,
     String? runtimeId,
     int? warningGeneration,
+    List<ToolLabel>? labels,
   }) => ToolCall(
     id: id ?? this.id,
     name: name,
@@ -115,6 +123,7 @@ class ToolCall {
     outputRisk: outputRisk ?? this.outputRisk,
     runtimeId: runtimeId ?? this.runtimeId,
     warningGeneration: warningGeneration ?? this.warningGeneration,
+    labels: labels ?? this.labels,
   );
 
   ToolCall withStatus(ToolCallStatus status, {String? result}) =>

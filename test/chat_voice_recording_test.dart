@@ -40,6 +40,17 @@ void main() {
     }
   }
 
+  Future<void> waitForAttachment(WidgetTester tester) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (find.byType(InputChip).evaluate().isEmpty &&
+        DateTime.now().isBefore(deadline)) {
+      // Attaching flushes a WAV to the real filesystem; pumping fake time
+      // alone cannot establish that it has finished on a loaded CI runner.
+      await frames(tester, 1);
+    }
+    expect(find.byType(InputChip), findsOneWidget);
+  }
+
   for (final dark in [false, true]) {
     testWidgets(
       'hold, release to attach, short tap sends audio with typed text (${dark ? 'dark' : 'light'})',
@@ -82,7 +93,7 @@ void main() {
         expect(transport.sends, isEmpty);
         await shots.capture(tester, 'recording');
         await hold.up();
-        await frames(tester);
+        await waitForAttachment(tester);
         expect(recorder.recording, isFalse);
         expect(transport.sends, isEmpty, reason: 'release must not send');
         expect(
@@ -162,7 +173,7 @@ void main() {
     recorder.speak(List.filled(8000, 200));
     await frames(tester, 2);
     await hold.up();
-    await frames(tester);
+    await waitForAttachment(tester);
     expect(find.byType(InputChip), findsOneWidget);
     final chip = tester.widget<InputChip>(find.byType(InputChip));
     chip.onDeleted!();

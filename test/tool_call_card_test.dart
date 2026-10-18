@@ -190,6 +190,12 @@ void main() {
     await tester.tap(find.text('read_file'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Path'), findsOneWidget);
+    expect(find.text('Limit'), findsOneWidget);
+    expect(find.text('20'), findsOneWidget);
+    expect(find.byType(JsonView), findsNothing);
+    await tester.tap(find.text('Raw arguments'));
+    await tester.pumpAndSettle();
     final viewer = find.byType(JsonView);
     expect(
       find.descendant(of: viewer, matching: find.textContaining('limit')),
@@ -266,7 +272,7 @@ void main() {
           name: 'terminal',
           summary: 'false',
           status: ToolCallStatus.error,
-          args: {'command': 'make test'},
+          args: {'command': 'make test', 'workdir': '/repo', 'timeout_s': 42},
           result: 'boom',
           resultData: {'output': 'boom', 'exit_code': 2, 'error': 'failed'},
         ),
@@ -282,6 +288,10 @@ void main() {
       );
       expect(find.text('boom'), findsOneWidget);
       expect(find.text('Exit code 2'), findsOneWidget);
+      expect(find.text('Working directory'), findsOneWidget);
+      expect(find.text('/repo'), findsOneWidget);
+      expect(find.text('Timeout (seconds)'), findsOneWidget);
+      expect(find.text('42'), findsOneWidget);
       expect(find.text('Input'), findsNothing);
     });
 
