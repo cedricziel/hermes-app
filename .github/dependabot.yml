@@ -11,6 +11,46 @@ updates:
         patterns:
           - "*"
 
+  # Generated-client constraints belong to codegen. Compatible updates are
+  # checked by verify-hermes-api-client; major upgrades need generator changes.
+  - package-ecosystem: "pub"
+    directory: "/packages/hermes_api"
+    schedule:
+      interval: "weekly"
+    versioning-strategy: "increase-if-necessary"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      generated-client-packages:
+        patterns:
+          - "*"
+
+  # Fastlane and its release-tool dependencies.
+  - package-ecosystem: "bundler"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-type: "all"
+    groups:
+      release-tools:
+        patterns:
+          - "*"
+
+  # Xcode-managed Swift packages, including KeyboardShortcuts. Dependabot
+  # discovers the project/workspace Package.resolved files below this directory.
+  - package-ecosystem: "swift"
+    directory: "/macos"
+    schedule:
+      interval: "weekly"
+    groups:
+      swift-packages:
+        patterns:
+          - "*"
+
+  # React and TypeScript under design/web are managed by Claude Design.
+
   # Actions used by our workflows.
   - package-ecosystem: "github-actions"
     directory: "/"
