@@ -25,6 +25,9 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
+      - name: Require Swift Package Manager for Apple plugins
+        run: python3 scripts/check_apple_spm.py
+
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
 
