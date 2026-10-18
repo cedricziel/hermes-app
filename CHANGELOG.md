@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.66](https://github.com/cedricziel/hermes-app/compare/v0.1.65...v0.1.66) (2026-10-18)
+
+
+### Features
+
+* **chat:** add a themed new-chat shortcut to the iPhone list ([#777](https://github.com/cedricziel/hermes-app/issues/777)) ([e4924de](https://github.com/cedricziel/hermes-app/commit/e4924de69bf0083b38e28ff87f014587e6891a74))
+* **chat:** play agent voice messages with collapsed transcripts ([#781](https://github.com/cedricziel/hermes-app/issues/781)) ([21e394c](https://github.com/cedricziel/hermes-app/commit/21e394c182078d5d592bb6c9cde0562b7a29af85))
+* **iOS:** add native CallKit voice conversations ([#782](https://github.com/cedricziel/hermes-app/issues/782)) ([00ba149](https://github.com/cedricziel/hermes-app/commit/00ba149a93663aed039a608a6ee10c5eea46d112))
+
+
+### Bug Fixes
+
+* **chat:** dismiss the iOS keyboard when dragging short chats ([#780](https://github.com/cedricziel/hermes-app/issues/780)) ([e2bc241](https://github.com/cedricziel/hermes-app/commit/e2bc2413a5ddc65cd8ff03e204e80e901f28e8d6))
+* **chat:** keep thinking expandable during and after streaming ([#778](https://github.com/cedricziel/hermes-app/issues/778)) ([56cd1a7](https://github.com/cedricziel/hermes-app/commit/56cd1a7dbb3a85cd8427fde6178a29e13e26e507))
+
 ## [0.1.65](https://github.com/cedricziel/hermes-app/compare/v0.1.64...v0.1.65) (2026-10-16)
 
 
