@@ -2,8 +2,8 @@ import '../chat/chat_transport.dart';
 import '../notifications/attention_policy.dart';
 
 /// What a chat's Live Activity shows. The labels are the notification bodies,
-/// so the Lock Screen never words a state two ways, and none of them carries
-/// anything the reply, a command or a question said.
+/// so the Lock Screen never words a state two ways. A completed reply's
+/// privacy-sensitive preview travels separately from these fixed labels.
 enum ReplyActivityState {
   working('Working'),
   approval(kApprovalBody),

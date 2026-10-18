@@ -69,6 +69,7 @@ void main() {
   late ScheduleBaseline baseline;
   var notificationsOn = true;
   var appOpen = false;
+  var replyPreviewsLocked = false;
 
   /// Runs where the snapshot write checks App Lock, just before it reads what
   /// is stored: a stand-in for another engine writing meanwhile.
@@ -80,6 +81,7 @@ void main() {
   setUp(() {
     notificationsOn = true;
     appOpen = false;
+    replyPreviewsLocked = false;
     beforeSnapshotWrite = null;
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.withData({kSavedServerUrlKey: _url});
@@ -149,7 +151,7 @@ void main() {
         notifications: notifications,
         announced: AnnouncedRequests(),
         notificationsEnabled: () async => notificationsOn,
-        appLockOn: () async => false,
+        appLockOn: () async => replyPreviewsLocked,
         cancelSchedule: () async {},
         appInFront: () async => appOpen,
         steps: steps,
@@ -248,6 +250,18 @@ void main() {
         ]);
       },
     );
+
+    test('background reply previews remain generic with App Lock', () async {
+      await running.replace([left('c1')]);
+      idle('c1');
+      stored('c1');
+      replyPreviewsLocked = true;
+      await refresh(() => [step()]);
+      final shown = notifications.shown.single;
+      expect(shown.body, kReplyReadyBody);
+      expect(shown.category?.placeholder, kReplyReadyBody);
+      expect(shown.timeSensitive, isFalse);
+    });
 
     test(
       'announces the reply of an ask that ran out of time before it ended',

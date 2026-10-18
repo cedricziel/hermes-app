@@ -41,8 +41,8 @@ class AttentionNotifier with WidgetsBindingObserver {
   /// Whether the owning session may publish announcements. Absent means active.
   final ValueListenable<bool>? activity;
 
-  /// Whether App Lock is on: requests are then announced without their text
-  /// or buttons.
+  /// Whether App Lock is on: replies and requests omit their text, and
+  /// requests have no answer buttons.
   final bool Function() appLock;
 
   static bool _off() => false;
@@ -167,7 +167,7 @@ class AttentionNotifier with WidgetsBindingObserver {
   }
 }
 
-/// Whether [lock] keeps requests out of notifications: while App Lock is on,
+/// Whether [lock] keeps private text out of notifications: while App Lock is on,
 /// and until its saved choice has loaded.
 bool appLockHidesRequests(AppLockController? lock) =>
     lock != null && (!lock.loaded || lock.enabled);

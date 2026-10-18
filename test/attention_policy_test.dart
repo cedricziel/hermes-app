@@ -111,6 +111,23 @@ void main() {
       expect(n.threadId, 't1');
       expect(n.title, 'Release notes');
       expect(n.body, 'Done.');
+      expect(n.category?.placeholder, kReplyReadyBody);
+      expect(n.category?.actions, isEmpty);
+      expect(n.timeSensitive, isFalse);
+    });
+
+    test('App Lock keeps completed replies generic', () {
+      final note = attentionFor(
+        event: const ReplyCompleted('Private **reply**'),
+        thread: _thread(),
+        appFocused: false,
+        selectedThreadId: null,
+        enabled: true,
+        appLock: true,
+      )!;
+      expect(note.body, kReplyReadyBody);
+      expect(note.request, isNull);
+      expect(note.timeSensitive, isFalse);
     });
 
     test('carries the profile it was made under', () {

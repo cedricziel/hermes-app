@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/live_activities/live_activities.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
@@ -13,6 +14,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/fake_live_activity_service.dart';
+import '../support/fake_device_authenticator.dart';
 
 ChatThread _thread(String id, [String title = 'Groceries']) =>
     ChatThread(id: id, title: title, updatedAt: DateTime(2026));
@@ -154,7 +156,7 @@ void main() {
 
     final activity = service.activities.single;
     expect(activity.state, 'ready');
-    expect(activity.data.values, isNot(contains('Done. Two files.')));
+    expect(activity.data['preview'], 'Done. Two files.');
     expect(activity.ended, isTrue);
     expect(activity.dismissAt, now.add(const Duration(minutes: 15)));
     expect(crumbs(), contains('live_activity.ended completed'));
@@ -173,8 +175,66 @@ void main() {
     await settle();
 
     expect(service.activities.single.state, 'failed');
+    expect(service.activities.single.data['preview'], isEmpty);
     expect(crumbs(), contains('live_activity.ended failed'));
   });
+
+  test(
+    'completed previews use bounded plain text and do not split emoji',
+    () async {
+      final thread = _thread('preview');
+      activities.begin(thread);
+      activities.onEvent(
+        thread,
+        ReplyCompleted('**${'x' * 119}👨‍👩‍👧‍👦 and more**'),
+      );
+      await settle();
+      expect(
+        service.activities.single.data['preview'],
+        '${'x' * 119}👨‍👩‍👧‍👦…',
+      );
+    },
+  );
+
+  test(
+    'App Lock suppresses previews and dismisses earlier lingering previews',
+    () async {
+      activities.dispose();
+      final lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+      addTearDown(lock.dispose);
+      activities = LiveActivities(
+        service: service,
+        settings: settings,
+        appLock: lock,
+      );
+      final unloaded = _thread('unloaded');
+      activities.begin(unloaded);
+      activities.onEvent(unloaded, const ReplyCompleted('Private reply'));
+      await settle();
+      expect(service.activities.last.data['preview'], isEmpty);
+
+      await lock.load();
+      final unlocked = _thread('unlocked');
+      activities.begin(unlocked);
+      activities.onEvent(unlocked, const ReplyCompleted('Readable reply'));
+      await settle();
+      expect(service.activities.last.data['preview'], 'Readable reply');
+      expect(service.activities.last.dismissAt, isNotNull);
+      await lock.setEnabled(true);
+      await settle();
+      expect(
+        service.activities.last.dismissAt,
+        isNull,
+        reason: 'the previous private card must be removed immediately',
+      );
+
+      final locked = _thread('locked');
+      activities.begin(locked);
+      activities.onEvent(locked, const ReplyCompleted('Another private reply'));
+      await settle();
+      expect(service.activities.last.data['preview'], isEmpty);
+    },
+  );
 
   test('a stopped reply goes away at once', () async {
     final thread = _thread('s1');

@@ -79,7 +79,7 @@ class AttentionNotification {
 
   /// Whether the agent is blocked on the user, which is what may break
   /// through a Focus.
-  bool get timeSensitive => category != null || needsInput;
+  bool get timeSensitive => category?.isRequest == true || needsInput;
 
   /// What the system stacks this notification with: the chat, or the
   /// scheduled task, within its profile. The profile is encoded so that no
@@ -108,8 +108,8 @@ String _cut(String text, int length) {
 /// off. An approval shows its command and a question the question, with the
 /// buttons that answer them; their category's placeholder hides the text
 /// while the system hides previews, as on a locked screen. Anything else the
-/// agent asks for stays generic, and so does every request while [appLock]
-/// is on, without buttons: the app asks to be unlocked before it shows one.
+/// agent asks for stays generic. While [appLock] is on, replies and requests
+/// stay generic and requests have no answer buttons.
 AttentionNotification? attentionFor({
   required ChatEvent event,
   required ChatThread thread,
@@ -126,7 +126,9 @@ AttentionNotification? attentionFor({
     ReplyCompleted(:final text, :final failed) =>
       failed
           ? kReplyFailedBody
-          : (replyPreview(text).isEmpty ? kReplyReadyBody : replyPreview(text)),
+          : appLock || replyPreview(text).isEmpty
+          ? kReplyReadyBody
+          : replyPreview(text),
     ApprovalRequested() when appLock => kApprovalBody,
     ClarifyRequested() when appLock => kQuestionBody,
     ApprovalRequested(:final request) => _requestBody([
@@ -154,9 +156,12 @@ AttentionNotification? attentionFor({
     bodyIsPlainText: event is ReplyCompleted,
     profile: profile,
     needsInput: event is VaultRequested || event is UnsupportedRequested,
-    category: request == null
-        ? null
-        : requestCategoryFor(request, appLock: appLock),
+    category: switch (event) {
+      ReplyCompleted(failed: true) => replyFailedCategory,
+      ReplyCompleted() => replyReadyCategory,
+      _ =>
+        request == null ? null : requestCategoryFor(request, appLock: appLock),
+    },
     request: request == null || appLock
         ? null
         : pendingRequestFor(

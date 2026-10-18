@@ -20,6 +20,17 @@ const kQuestionCategory = 'hermes.request.question';
 const kApprovalPlaceholderCategory = 'hermes.request.approval';
 const kQuestionPlaceholderCategory = 'hermes.request.questions';
 
+/// iOS replaces the reply body with these labels while system previews are
+/// hidden. Revealing the device restores the original notification body.
+const replyReadyCategory = RequestCategory(
+  'hermes.reply.ready',
+  placeholder: kReplyReadyBody,
+);
+const replyFailedCategory = RequestCategory(
+  'hermes.reply.failed',
+  placeholder: kReplyFailedBody,
+);
+
 const kAllowOnceAction = 'hermes.action.allow-once';
 const kAllowSessionAction = 'hermes.action.allow-session';
 const kAllowAlwaysAction = 'hermes.action.allow-always';
@@ -111,6 +122,9 @@ class RequestCategory {
   /// Registered when it is first used rather than at start.
   bool get isDynamic => id.startsWith('$kQuestionCategory.');
 
+  /// Reply preview categories have no request or time-sensitive interruption.
+  bool get isRequest => id.startsWith('hermes.request.');
+
   DarwinNotificationCategory toDarwin() => DarwinNotificationCategory(
     id,
     actions: [for (final action in actions) action.toDarwin()],
@@ -156,8 +170,8 @@ RequestCategory _approvalCategory(List<String> offered) => RequestCategory(
   ],
 );
 
-/// The categories registered at start: one per combination of approval
-/// choices, the open-ended question's and the two without buttons.
+/// Categories registered at start: request actions and placeholders, plus
+/// the reply placeholders used when iOS hides notification previews.
 List<RequestCategory> staticRequestCategories() {
   final choices = [for (final (choice, _, _) in _approvalActions) choice];
   return [
@@ -169,6 +183,8 @@ List<RequestCategory> staticRequestCategories() {
     _openEnded,
     _approvalPlaceholder,
     _questionPlaceholder,
+    replyReadyCategory,
+    replyFailedCategory,
   ];
 }
 

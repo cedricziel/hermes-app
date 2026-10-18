@@ -250,6 +250,7 @@ Future<void> main([List<String> args = const []]) async {
             return LiveActivities(
               service: PluginLiveActivityService(),
               settings: context.read<NotificationSettings>(),
+              appLock: context.read<AppLockController>(),
               signedOut: context.read<AuthController>().signedOut,
               breadcrumbs: context.read<Breadcrumbs>(),
             )..start();

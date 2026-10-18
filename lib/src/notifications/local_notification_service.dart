@@ -339,7 +339,9 @@ class LocalNotificationService
       );
       final body = _darwin
           ? notification.body
-          : notification.category?.placeholder ?? notification.body;
+          : notification.category?.isRequest == true
+          ? notification.category!.placeholder
+          : notification.body;
       if (!canDeliver()) {
         return const NotificationPostResult(NotificationPostStatus.failed);
       }
