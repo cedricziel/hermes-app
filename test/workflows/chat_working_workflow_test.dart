@@ -64,7 +64,7 @@ void main() {
       transport.followUpStreams['s1']!.emit(const ReplyStarted());
       transport.followUpStreams['s1']!.emit(const ReplyDelta('Still digging.'));
       await runFrames(tester);
-      expect(find.text('Stop'), findsOneWidget);
+      expect(find.bySemanticsLabel('Stop response'), findsOneWidget);
       await shots.capture(tester, 'picked-up-replying');
 
       transport.active.clear();
@@ -72,7 +72,7 @@ void main() {
         const ReplyCompleted('It was the retry loop.'),
       );
       await runFrames(tester);
-      expect(find.text('Stop'), findsNothing);
+      expect(find.bySemanticsLabel('Stop response'), findsNothing);
       await runFrames(tester);
     });
   }

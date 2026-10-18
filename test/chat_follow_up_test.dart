@@ -69,13 +69,13 @@ void main() {
 
     expect(find.text('Checking first.'), findsOneWidget);
     expect(find.text('Now the board'), findsOneWidget);
-    expect(find.text('Stop'), findsOneWidget);
+    expect(find.bySemanticsLabel('Stop response'), findsOneWidget);
 
     follow.emit(const ReplyCompleted('Now the board is planned.'));
     await tester.pump();
 
     expect(find.text('Now the board is planned.'), findsOneWidget);
-    expect(find.text('Stop'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -108,7 +108,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Done.'), findsOneWidget);
-    expect(find.text('Stop'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -123,7 +123,7 @@ void main() {
 
     expect(find.text('Board planning'), findsWidgets);
     expect(find.text('Done.'), findsOneWidget);
-    expect(find.text('Stop'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -138,7 +138,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('One.'), findsOneWidget);
-    expect(find.text('Stop'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 

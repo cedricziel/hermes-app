@@ -52,7 +52,7 @@ void main() {
   testWidgets('no Stop while nothing is replying', (tester) async {
     await pump(tester);
 
-    expect(find.text('Stop'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsNothing);
   });
 
   testWidgets('Stop shows while a reply is in flight and stops that thread', (
@@ -61,9 +61,9 @@ void main() {
     await pump(tester);
     await openThread(tester, 'Run failure');
     await send(tester, 'One');
-    expect(find.text('Stop'), findsOneWidget);
+    expect(find.bySemanticsLabel('Stop response'), findsOneWidget);
 
-    await tester.tap(find.text('Stop'));
+    await tester.tap(find.bySemanticsLabel('Stop response'));
     await tester.pump();
 
     expect(transport.stops, ['s1']);
@@ -77,7 +77,7 @@ void main() {
     turn.emit(const ReplyCompleted('', stopped: true));
     await tester.pump();
 
-    expect(find.text('Stop'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsNothing);
     expect(find.text('Stopped.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
@@ -99,11 +99,11 @@ void main() {
     await send(tester, 'One');
     transport.answerError = Exception('socket closed');
 
-    await tester.tap(find.text('Stop'));
+    await tester.tap(find.bySemanticsLabel('Stop response'));
     await tester.pump();
 
     expect(find.text('Could not stop the reply. Try again.'), findsOneWidget);
-    expect(find.text('Stop'), findsOneWidget);
+    expect(find.bySemanticsLabel('Stop response'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -115,10 +115,10 @@ void main() {
     await send(tester, 'One');
     transport.stopsRunning = false;
 
-    await tester.tap(find.text('Stop'));
+    await tester.tap(find.bySemanticsLabel('Stop response'));
     await tester.pump();
 
-    expect(find.text('Stop'), findsNothing);
+    expect(find.bySemanticsLabel('Stop response'), findsNothing);
     expect(find.text('Stopped.'), findsOneWidget);
     await send(tester, 'Two');
     expect(transport.sends, hasLength(2));
@@ -136,7 +136,7 @@ void main() {
 
     final gate = transport.stopGate = Completer<void>();
     transport.stopsRunning = false;
-    await tester.tap(find.text('Stop'));
+    await tester.tap(find.bySemanticsLabel('Stop response'));
     await tester.pump();
 
     first.emit(const ReplyCompleted('One done.'));
@@ -147,7 +147,7 @@ void main() {
 
     gate.complete();
     await tester.pump();
-    expect(find.text('Stop'), findsOneWidget);
+    expect(find.bySemanticsLabel('Stop response'), findsOneWidget);
     expect(find.text('Stopped.'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });

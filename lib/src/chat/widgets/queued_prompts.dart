@@ -119,7 +119,7 @@ class QueuedPrompts extends StatelessWidget {
               Expanded(
                 child: Text(
                   busy
-                      ? 'Queueing…'
+                      ? 'Saving queued messages…'
                       : reviewRequired
                       ? 'Recovered queue. Review before sending.'
                       : onSendNow == null
