@@ -772,6 +772,25 @@ Bash call. Once `$DIR` exists, only the `DIR=` and `export` lines are needed.
 - Its API contract is `openapi/hermes-agent.openapi.json`.
 
 
+## Call speech fallback
+
+Hermes' speak-stream `fallback` frame is distinct from an `error`. Current
+servers also have a sentence-to-PCM adapter for providers without a streaming
+API, so lack of a provider streaming API alone does not prove fallback will
+occur. Check the installed server's protocol before recommending a provider
+change. Never inspect the user's real Hermes config or tokens to do this.
+
+Run `flutter test test/voice/calls test/voice/native_voice_player_test.dart
+--dart-define=HERMES_NATIVE_AUDIO_TEST=true` on a host with libmpv available
+(see `test/fixtures/voice/README.md`). The call decoder uses libmpv's `ao=pcm`
+file output, with mono s16 at 24 kHz, and verifies the selected options because
+media_kit's `setProperty` does not propagate libmpv error codes. It must never
+use the ordinary voice player's audio-session configuration during CallKit.
+Test both Opus and Vorbis Ogg, fallback before/after the final text, speaker
+drain, cancellation and late results. These tests establish conversion and
+ownership logic; physical iPhone validation still needs to cover echo
+cancellation, route changes, lock/background and native audio interruptions.
+
 ## Dictation
 
 The composer shows a microphone when the dev backend's profile has usable

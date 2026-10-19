@@ -14,9 +14,14 @@ Run the real native decoder smoke tests on Linux with `libmpv2` installed
 
 ```sh
 flutter test test/voice/native_voice_player_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
+flutter test test/voice/calls/call_audio_decoder_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
 ```
 
 Set `HERMES_LIBMPV` to a full shared-library path when it is outside the
 system library search path. Tests use silent output and verify decoding,
 duration, and playback completion for every fixture. Native iOS audio routing
 and device interruptions still need an iPhone/simulator check.
+
+The call decoder test uses file-only libmpv output and checks 24 kHz mono
+signed-16 PCM for every format, so it exercises the call fallback without
+opening a hardware speaker or configuring the call's audio session.

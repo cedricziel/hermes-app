@@ -24,6 +24,7 @@ class VoiceCall extends ChangeNotifier {
     required this.transcribe,
     required this.prepare,
     this.profile,
+    this.speechFallback,
   });
   final CallBridge bridge;
   final CallAgent agent;
@@ -31,6 +32,7 @@ class VoiceCall extends ChangeNotifier {
   final Future<String> Function(Uint8List wav) transcribe;
   final Future<void> Function() prepare;
   final String? profile;
+  final CallSpeechFallback? speechFallback;
   final _vad = VoiceActivity();
   StreamSubscription<Map<String, Object?>>? _events;
   Timer? _clock;
@@ -199,6 +201,7 @@ class VoiceCall extends ChangeNotifier {
       speech = CallSpeechStream(
         connect: connect,
         output: bridge,
+        fallback: speechFallback,
         onAudio: () {
           if (_current(epoch) && !_waitingForInput) {
             phase = CallPhase.speaking;

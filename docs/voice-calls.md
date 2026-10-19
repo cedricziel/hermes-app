@@ -57,7 +57,19 @@ resumes listening on the new route.
 - Hermes supplies PCM over an authenticated, profile-scoped
   `/api/audio/speak-stream` socket, so call playback is independent of file
   attachment codecs and the voice-message player. Providers which produce no
-  streaming audio cause an explicit recoverable call error.
+  streaming audio can report `fallback`. The app then submits the completed
+  reply to the same profile's authenticated `POST /api/audio/speak` once.
+  Local libmpv/FFmpeg decoding converts inline Ogg/Opus, Vorbis, MP3, AAC,
+  WAV or FLAC to 24 kHz mono PCM for the existing CallKit graph. The converter
+  writes only temporary files and never selects a hardware audio output or
+  configures AVAudioSession. Files are removed after conversion, cancellation
+  or failure. Barge-in, hang-up and context changes cancel synthesis/conversion
+  and discard late audio. A fallback after PCM already played is an error,
+  preventing the reply from being spoken twice.
+- Current Hermes can also turn non-streaming providers into sentence PCM on
+  the server; `fallback` is its last resort when no audio was produced. Piper
+  does not require a provider change solely because it lacks a streaming API.
+  Synthesis/decoding failures use the existing explicit call-error recovery.
 - This is Hermes' chained STT → agent → TTS conversation, not the separately
   configured GPT-Live/WebRTC service. Prompt text is not augmented with hidden
   system instructions, and the normal selected model remains in use.

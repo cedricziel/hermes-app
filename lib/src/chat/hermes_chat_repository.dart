@@ -7,6 +7,7 @@ import 'package:hermes_api/hermes_api.dart';
 
 import '../api/request_timeout.dart';
 import '../voice/voice_support.dart';
+import '../voice/synthesized_speech.dart';
 import 'chat_models.dart';
 import 'reactions/reaction_state.dart';
 import 'thread_sections.dart';
@@ -198,6 +199,21 @@ class HermesChatRepository {
     } on Object {
       return VoiceSupport.none;
     }
+  }
+
+  /// Explicit speak-stream fallback, on the same authenticated API/profile.
+  Future<SynthesizedSpeech> synthesize(
+    String text, {
+    String? profile,
+    required CancelToken cancellation,
+  }) async {
+    final response = await _api.speakTextApiAudioSpeakPost(
+      tTSSpeakRequest: TTSSpeakRequest(text: text),
+      profile: profile,
+      cancelToken: cancellation,
+      extra: receiveTimeoutExtra(const Duration(seconds: 90)),
+    );
+    return SynthesizedSpeech.fromJson(response.data);
   }
 
   /// Strict variant for readiness checks, which distinguish old servers from

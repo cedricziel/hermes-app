@@ -63,5 +63,7 @@ ${checks.where((c) => c.status != CallCheckStatus.ready).map((c) => '- ${c.title
 
 Check that this Hermes server supports GET /api/audio/voice-config and the authenticated /api/audio/speak-stream WebSocket. Verify a working text-to-speech provider for this profile. ${useDeviceSpeech ? 'Speech recognition uses Apple on this device.' : 'If speech recognition uses Hermes, also verify a speech-to-text provider for /api/audio/transcribe.'} Check any required server dependencies, including ffmpeg for decoding synthesized audio. Test the speech configuration and explain what is missing.
 
+The app supports streamed PCM and, on a fallback response, POST /api/audio/speak with local decoding of Ogg/Opus, Vorbis, MP3, AAC, WAV and FLAC. A provider without its own streaming API does not by itself require a provider change.
+
 Explain proposed changes and ask me before installing packages, updating Hermes, changing providers or making paid test requests. Use secure credential setup when needed; do not ask me to paste secrets into this chat or print credentials. Device microphone permissions and Apple speech-language downloads must be handled on my device.''';
 }
