@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -124,6 +126,42 @@ void main() {
       await pumpEventQueue();
       expect(agent.interrupts, 1);
       expect(bridge.stops, 1);
+      expect(call.phase, CallPhase.listening);
+    },
+  );
+  test(
+    'barge-in cancels POST/decoding fallback and discards late PCM',
+    () async {
+      call.dispose();
+      final decoded = Completer<Uint8List>();
+      CancelToken? cancellation;
+      call = VoiceCall(
+        bridge: bridge,
+        agent: agent,
+        connect: ([_ = const {}]) async => socket.local,
+        prepare: () async {},
+        transcribe: (_) async => 'Hello Piper',
+        speechFallback: (_, _, token) {
+          cancellation = token;
+          return decoded.future;
+        },
+      );
+      await activate();
+      utterance();
+      await pumpEventQueue();
+      expect(agent.prompts, ['Hello Piper']);
+      agent.text!('Piper reply');
+      agent.pending!.complete();
+      socket.foreign.sink.add(jsonEncode({'type': 'fallback'}));
+      await pumpEventQueue();
+      expect(cancellation, isNotNull);
+      bridge.emit('pcm', {'data': pcm()});
+      await pumpEventQueue();
+      expect(cancellation!.isCancelled, isTrue);
+      decoded.complete(Uint8List.fromList([1, 2, 3, 4]));
+      await pumpEventQueue();
+      expect(bridge.played, isEmpty);
+      expect(bridge.ends, 0);
       expect(call.phase, CallPhase.listening);
     },
   );

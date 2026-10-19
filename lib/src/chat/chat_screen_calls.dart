@@ -127,6 +127,19 @@ extension _ChatScreenCalls on _ChatScreenState {
                 agent: agent,
                 profile: profile,
                 connect: connect,
+                speechFallback: (text, speechProfile, cancellation) async {
+                  if (!ownerValid() || cancellation.isCancelled) {
+                    throw StateError('The call changed');
+                  }
+                  breadcrumbs('voice_call.speech_fallback');
+                  final audio = await repository.synthesize(
+                    text,
+                    profile: speechProfile,
+                    cancellation: cancellation,
+                  );
+                  if (!ownerValid()) throw StateError('The call changed');
+                  return decodeCallAudio(audio, cancellation);
+                },
                 prepare: () async {
                   if (!ownerValid() || !agent.valid) {
                     throw const CallPreparationException(

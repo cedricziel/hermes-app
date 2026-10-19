@@ -3,9 +3,16 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:stream_channel/stream_channel.dart';
+import 'package:dio/dio.dart';
 
 import '../../chat/gateway/gateway_connection.dart';
 import 'call_bridge.dart';
+
+typedef CallSpeechFallback = Future<Uint8List> Function(
+  String text,
+  String? profile,
+  CancelToken cancellation,
+);
 
 /// Hermes' /api/audio/speak-stream: incremental text in, s16le mono PCM out.
 /// Completion includes native speaker drain, rather than just socket EOF.
@@ -15,6 +22,7 @@ class CallSpeechStream {
     required this.output,
     this.onAudio,
     this.onFailure,
+    this.fallback,
   }) {
     unawaited(
       _done.future.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
@@ -22,6 +30,7 @@ class CallSpeechStream {
   }
   final void Function()? onAudio;
   final void Function()? onFailure;
+  final CallSpeechFallback? fallback;
   bool hasText = false;
   final MixedSocketConnect connect;
   final CallBridge output;
@@ -29,6 +38,10 @@ class CallSpeechStream {
   StreamSubscription<Object?>? _frames;
   final _done = Completer<void>();
   final _pending = <String>[];
+  final _text = StringBuffer();
+  final _cancellation = CancelToken();
+  String? _profile;
+  bool _fallback = false, _fallbackStarted = false;
   Future<void> _writes = Future.value();
   int? _rate;
   int? _oddByte;
@@ -38,6 +51,7 @@ class CallSpeechStream {
   bool _produced = false;
 
   Future<void> open(String? profile) async {
+    _profile = profile;
     try {
       final opening = connect({'profile': ?profile});
       unawaited(
@@ -57,7 +71,7 @@ class CallSpeechStream {
         _frame,
         onError: _fail,
         onDone: () {
-          if (!_ended && !_stopped) {
+          if (!_ended && !_stopped && !_fallback) {
             _fail(StateError('Speech stream ended early'));
           }
         },
@@ -76,6 +90,8 @@ class CallSpeechStream {
   void append(String text) {
     if (_stopped || _ended || text.isEmpty) return;
     hasText = true;
+    _text.write(text);
+    if (_fallback) return;
     if (_socket case final socket?) {
       socket.sink.add(jsonEncode({'text': text}));
     } else {
@@ -86,12 +102,16 @@ class CallSpeechStream {
   Future<void> finish() {
     if (_stopped) return _done.future;
     _finishRequested = true;
-    _socket?.sink.add(jsonEncode({'done': true}));
+    if (_fallback) {
+      _startFallback();
+    } else {
+      _socket?.sink.add(jsonEncode({'done': true}));
+    }
     return _done.future.timeout(const Duration(minutes: 3));
   }
 
   void _frame(Object? data) {
-    if (_stopped || _ended) return;
+    if (_stopped || _ended || _fallback) return;
     if (data is List<int>) {
       final rate = _rate;
       if (rate == null) {
@@ -122,11 +142,50 @@ class CallSpeechStream {
         case {'type': 'end'}:
           _ended = true;
           unawaited(_drain());
-        case {'type': 'fallback'} || {'type': 'error'}:
+        case {'type': 'fallback'}:
+          if (_produced || fallback == null) {
+            _fail(StateError('The server could not produce call audio'));
+            return;
+          }
+          _fallback = true;
+          _pending.clear();
+          unawaited(_close().catchError((Object _) {}));
+          _startFallback();
+        case {'type': 'error'}:
           _fail(StateError('The server could not produce call audio'));
         default:
           _fail(StateError('Unsupported speech frame'));
       }
+    } on Object catch (error, stack) {
+      _fail(error, stack);
+    }
+  }
+
+  void _startFallback() {
+    if (!_finishRequested || _fallbackStarted || _stopped) return;
+    _fallbackStarted = true;
+    unawaited(_speakFallback());
+  }
+
+  Future<void> _speakFallback() async {
+    try {
+      final pcm = await fallback!(
+        _text.toString(),
+        _profile,
+        _cancellation,
+      ).timeout(const Duration(seconds: 120));
+      if (_stopped) return;
+      if (pcm.isEmpty || pcm.length.isOdd) {
+        throw StateError('Incomplete call audio');
+      }
+      _text.clear();
+      onAudio?.call();
+      _produced = true;
+      _ended = true;
+      _writes = _writes.then((_) async {
+        if (!_stopped) await output.play(pcm, 24000);
+      });
+      await _drain();
     } on Object catch (error, stack) {
       _fail(error, stack);
     }
@@ -140,6 +199,7 @@ class CallSpeechStream {
         throw StateError('Incomplete call audio');
       }
       await output.drain();
+      _text.clear();
       if (!_done.isCompleted) _done.complete();
       await _close();
     } on Object catch (error, stack) {
@@ -150,6 +210,8 @@ class CallSpeechStream {
   void _fail(Object error, [StackTrace? stack]) {
     if (_stopped) return;
     _stopped = true;
+    _cancellation.cancel();
+    _text.clear();
     if (!_done.isCompleted) _done.completeError(error, stack);
     unawaited(_close().catchError((Object _) {}));
     onFailure?.call();
@@ -157,12 +219,16 @@ class CallSpeechStream {
 
   Future<void> close() async {
     _stopped = true;
+    _cancellation.cancel();
+    _text.clear();
     if (!_done.isCompleted) _done.complete();
     await _close();
   }
 
   Future<void> stop() async {
     _stopped = true;
+    _cancellation.cancel();
+    _text.clear();
     _pending.clear();
     if (!_done.isCompleted) _done.complete();
     await output.stopPlayback();
