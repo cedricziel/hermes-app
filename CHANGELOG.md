@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.70](https://github.com/cedricziel/hermes-app/compare/v0.1.69...v0.1.70) (2026-10-19)
+
+
+### Bug Fixes
+
+* **voice:** play Piper and other TTS fallback audio through CallKit ([#802](https://github.com/cedricziel/hermes-app/issues/802)) ([c5c5551](https://github.com/cedricziel/hermes-app/commit/c5c55510467d62a596925a9008b83403fe9689a3))
+
 ## [0.1.69](https://github.com/cedricziel/hermes-app/compare/v0.1.68...v0.1.69) (2026-10-18)
 
 
