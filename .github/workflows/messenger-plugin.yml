@@ -1,0 +1,42 @@
+name: Hermes App messenger
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/hermes-app/**'
+      - 'openapi/HERMES_REF'
+      - '.github/workflows/messenger-plugin.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/hermes-app/**'
+      - 'openapi/HERMES_REF'
+      - '.github/workflows/messenger-plugin.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  messenger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Read the app's Hermes revision
+        id: hermes
+        run: echo "ref=$(tr -d '\n\r' < openapi/HERMES_REF)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: NousResearch/hermes-agent
+          ref: ${{ steps.hermes.outputs.ref }}
+          path: .hermes-backend
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install Hermes test runtime
+        run: pip install -e ./.hermes-backend
+      - name: Exercise messenger delivery against Hermes
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.hermes-backend
+        run: python -m unittest discover -s plugins/hermes-app/tests -v
