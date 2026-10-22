@@ -45,6 +45,7 @@ export * from "./components/SelectField/SelectField";
 export * from "./components/ListRow/ListRow";
 export * from "./components/MacToolbar/MacToolbar";
 export * from "./components/ChatThread/ChatThread";
+export * from "./components/ActivityPanel/ActivityPanel";
 export * from "./components/ChatScreen/ChatScreen";
 export * from "./components/AppLockScreen/AppLockScreen";
 export * from "./components/ImageViewerScreen/ImageViewerScreen";
