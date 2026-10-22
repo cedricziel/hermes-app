@@ -148,7 +148,8 @@ the root at `/data/caddy/pki/authorities/local/root.crt` in its container.
   Always Trust.
 - **Android:** install it as a CA certificate in Settings (search Settings for
   "CA certificate"). The app reads the CA certificates you installed when it
-  starts and when you return to it.
+  starts and when you return to it. One you remove stays trusted until the
+  app is closed and started again.
 
 Until then the app says that this device doesn't trust the server's
 certificate. A certificate from a public authority, such as the one

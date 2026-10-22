@@ -49,7 +49,7 @@ When a connect fails because the certificate is not trusted, the setup screen SH
 
 ### Requirement: Android trusts user-installed authorities
 
-On Android the system SHALL add the CA certificates the user installed to the trust store Dart uses for every request and websocket, at launch before the first connect, in each background isolate before it talks to Hermes, and again when the app returns to the foreground. A certificate that cannot be read SHALL be skipped and SHALL NOT keep the app from starting. Other platforms SHALL NOT change their trust store.
+On Android the system SHALL add the CA certificates the user installed to the trust store Dart uses for every request and websocket, at launch before the first connect, in each background isolate before it talks to Hermes, and again when the app returns to the foreground. A certificate that cannot be read SHALL be skipped and SHALL NOT keep the app from starting. A certificate the user removes MAY stay trusted until the app process ends, since Dart cannot remove a trusted certificate from a context. Other platforms SHALL NOT change their trust store.
 
 #### Scenario: Root installed after a failed connect
 

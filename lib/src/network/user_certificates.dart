@@ -21,8 +21,10 @@ class UserCertificates {
   final _trusted = <String>{};
 
   /// Trusts the installed certificates not trusted yet; call it again when
-  /// the user may have installed one, such as when the app resumes. Never
-  /// throws: a certificate that cannot be read is left out.
+  /// the user may have installed one, such as when the app resumes. A
+  /// context cannot drop a certificate, so one the user removes stays trusted
+  /// until the process ends. Never throws: a certificate that cannot be read
+  /// is left out.
   Future<void> load() async {
     final Map<String, Uint8List>? certificates;
     try {

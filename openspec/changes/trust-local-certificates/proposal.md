@@ -19,5 +19,5 @@ Non-goals:
 
 Security and privacy impact:
 
-- On Android the app trusts user-installed CA certificates, as Chrome does. A CA a user or their device management installed can then read the app's traffic, as it can the browser's. That matches what the sign-in browser already accepts.
+- On Android the app trusts user-installed CA certificates, as Chrome does. A CA a user or their device management installed can then read the app's traffic, as it can the browser's. That matches what the sign-in browser already accepts. A CA the user removes stays trusted until the app process ends: Dart's `SecurityContext` cannot remove a certificate, and swapping contexts across Dio, the websockets and every isolate is not worth it for a rare action.
 - No certificate, address or host name is logged; `auth.connect.failed` gains the reason `certificate`.
