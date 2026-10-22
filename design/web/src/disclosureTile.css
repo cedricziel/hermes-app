@@ -1,8 +1,15 @@
+/* The app's DisclosureTile (dense Material ExpansionTile) that the activity
+   cards sit in: hairlines above and below while open. */
 .h-disclosure {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   border-top: 1px solid transparent;
   border-bottom: 1px solid transparent;
   color: var(--h-fg);
   font-family: var(--h-font);
+  font-size: 14px;
+  line-height: 20px;
   box-sizing: border-box;
 }
 
@@ -14,14 +21,9 @@
 .h-disclosure__header {
   display: flex;
   align-items: center;
-  width: 100%;
+  gap: 16px;
   min-height: 48px;
   padding: 6px 16px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
   cursor: pointer;
   box-sizing: border-box;
 }
@@ -38,13 +40,15 @@
 .h-disclosure__title {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.h-disclosure__title--small {
   font-size: 13px;
   line-height: 1.5;
 }
 
 .h-disclosure__chevron {
   flex: none;
-  margin-left: 16px;
   color: var(--h-muted);
   transition: transform 200ms ease;
 }
@@ -54,7 +58,32 @@
   color: var(--h-fg);
 }
 
-.h-disclosure__body {
-  font-size: 14px;
-  line-height: 20px;
+/* Text, clamps and button rows inside a tile's details. */
+.h-notice-text {
+  padding: 12px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.h-notice-clamp2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.h-notice-clamp1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.h-notice-block {
+  margin-bottom: 12px;
 }

@@ -1,5 +1,5 @@
 import { Button } from "../Button/Button";
-import { NoticeDisclosure } from "../AgentNoticeCard/NoticeDisclosure";
+import { DisclosureTile } from "../../disclosureTile";
 
 /** The usage Hermes reported for a session. Leave out what it did not report: missing metrics are not shown. */
 export interface SessionUsageSnapshot {
@@ -93,7 +93,7 @@ export function SessionUsageCard({
       ? "Session usage"
       : `Session usage · ${total.toLocaleString("en-US")} tokens`;
   return (
-    <NoticeDisclosure
+    <DisclosureTile
       defaultOpen={defaultOpen}
       onToggle={(open) => {
         if (open) onDetails?.();
@@ -129,6 +129,6 @@ export function SessionUsageCard({
           </div>
         ) : null}
       </div>
-    </NoticeDisclosure>
+    </DisclosureTile>
   );
 }

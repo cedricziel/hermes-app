@@ -1,5 +1,5 @@
 import { Button } from "../Button/Button";
-import { NoticeDisclosure } from "../AgentNoticeCard/NoticeDisclosure";
+import { DisclosureTile } from "../../disclosureTile";
 
 /** One thing the operation asks the user to connect, enable or skip. */
 export interface ConnectorOperationTarget {
@@ -128,7 +128,7 @@ export function ConnectorOperationCard({
         ? "Sending response"
         : "Connection operation";
   return (
-    <NoticeDisclosure
+    <DisclosureTile
       defaultOpen={defaultOpen}
       onToggle={(open) => {
         if (open) onDetails?.();
@@ -200,6 +200,6 @@ export function ConnectorOperationCard({
           </div>
         ) : null}
       </div>
-    </NoticeDisclosure>
+    </DisclosureTile>
   );
 }

@@ -1,4 +1,4 @@
-import { DisclosureTile } from "../SessionStatusCard/DisclosureTile";
+import { DisclosureTile } from "../../disclosureTile";
 import "./TodoPlanCard.css";
 
 /** Where one plan task stands. */
@@ -56,8 +56,9 @@ export function TodoPlanCard({
     : "Plan · Some task details unavailable";
   return (
     <DisclosureTile
+      titleSize={13}
       defaultOpen={defaultOpen}
-      onOpen={onDetails}
+      onToggle={(open) => open && onDetails?.()}
       title={<span className="h-todo-plan__title">{title}</span>}
     >
       <div className="h-todo-plan__scroll">

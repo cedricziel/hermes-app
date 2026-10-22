@@ -1,5 +1,5 @@
 import { Button } from "../Button/Button";
-import { NoticeDisclosure } from "../AgentNoticeCard/NoticeDisclosure";
+import { DisclosureTile } from "../../disclosureTile";
 import "./BillingVerificationCard.css";
 
 /** Where the billing verification stands. */
@@ -98,7 +98,7 @@ export function BillingVerificationCard({
   const canOpen = canOpenVerification ?? host != null;
   return (
     <div className="h-billing">
-      <NoticeDisclosure
+      <DisclosureTile
         defaultOpen={defaultOpen}
         onToggle={(open) => {
           if (open) onDetails?.();
@@ -147,7 +147,7 @@ export function BillingVerificationCard({
             <div>Retry is available after the server delay.</div>
           ) : null}
         </div>
-      </NoticeDisclosure>
+      </DisclosureTile>
       <div className="h-billing__start">
         <Button variant="filled" disabled={!canStart} onClick={onStart}>
           Verify billing access

@@ -1,4 +1,4 @@
-import { DisclosureTile } from "../SessionStatusCard/DisclosureTile";
+import { DisclosureTile } from "../../disclosureTile";
 import "./ProcessOutputCard.css";
 
 export interface ProcessOutputCardProps {
@@ -45,8 +45,9 @@ export function ProcessOutputCard({
     );
   return (
     <DisclosureTile
+      titleSize={13}
       defaultOpen={defaultOpen}
-      onOpen={onDetails}
+      onToggle={(open) => open && onDetails?.()}
       title={
         <span className="h-process-output__title">
           Process {processId} · {closed ? "Closed" : "Output received"}

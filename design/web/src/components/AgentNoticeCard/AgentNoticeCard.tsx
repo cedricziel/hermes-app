@@ -1,6 +1,6 @@
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
-import { NoticeDisclosure } from "./NoticeDisclosure";
+import { DisclosureTile } from "../../disclosureTile";
 import "./AgentNoticeCard.css";
 
 /** How serious a notice is. `warn` and `error` draw the info icon in the error color, `success` in the primary color, anything else (`info`, or a level this app does not know) in muted gray. */
@@ -40,7 +40,7 @@ export function AgentNoticeCard({
         ? "success"
         : "info";
   return (
-    <NoticeDisclosure
+    <DisclosureTile
       defaultOpen={defaultOpen}
       onToggle={(open) => {
         if (open) onDetails?.();
@@ -70,6 +70,6 @@ export function AgentNoticeCard({
       }
     >
       <div className="h-notice-text">{text}</div>
-    </NoticeDisclosure>
+    </DisclosureTile>
   );
 }

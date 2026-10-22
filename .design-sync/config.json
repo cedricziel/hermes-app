@@ -392,6 +392,9 @@
     },
     "ConnectorOperationCard": {
       "cardMode": "column"
+    },
+    "ActivityPanel": {
+      "cardMode": "column"
     }
   }
 }

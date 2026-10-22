@@ -104,7 +104,10 @@ export const Unavailable = () => (
 );
 
 export const Dark = () => (
-  <HermesProvider theme="dark">
+  <HermesProvider
+    theme="dark"
+    style={{ width: "fit-content", padding: 16, borderRadius: 14 }}
+  >
     <div style={{ ...col, padding: 8 }}>
       <ConnectorOperationCard
         defaultOpen

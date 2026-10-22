@@ -1,4 +1,4 @@
-import { NoticeDisclosure } from "../AgentNoticeCard/NoticeDisclosure";
+import { DisclosureTile } from "../../disclosureTile";
 
 /** Where a side result came from: `background` is a task the agent ran off to the side, `btw` the answer to a side question asked mid-turn. */
 export type SideResultKind = "background" | "btw";
@@ -40,7 +40,7 @@ export function SideResultCard({
       </div>
     );
   return (
-    <NoticeDisclosure
+    <DisclosureTile
       defaultOpen={defaultOpen}
       maxBodyHeight={240}
       onToggle={(open) => {
@@ -56,6 +56,6 @@ export function SideResultCard({
         {result.question ? <div>Question: {result.question}</div> : null}
         <div>{result.text || "No result text reported"}</div>
       </div>
-    </NoticeDisclosure>
+    </DisclosureTile>
   );
 }

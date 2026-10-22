@@ -1,5 +1,5 @@
 import { BusyBar } from "../BusyBar/BusyBar";
-import { DisclosureTile } from "../SessionStatusCard/DisclosureTile";
+import { DisclosureTile } from "../../disclosureTile";
 import "./MoaProgressCard.css";
 
 /** One answer a Mixture-of-agents advisor gave. */
@@ -62,8 +62,9 @@ export function MoaProgressCard({
       : null;
   return (
     <DisclosureTile
+      titleSize={13}
       defaultOpen={defaultOpen}
-      onOpen={onDetails}
+      onToggle={(open) => open && onDetails?.()}
       title={
         <span className="h-moa-progress__title">
           <span className="h-moa-progress__line">

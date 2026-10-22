@@ -1,4 +1,4 @@
-import { NoticeDisclosure } from "../AgentNoticeCard/NoticeDisclosure";
+import { DisclosureTile } from "../../disclosureTile";
 
 /** What a session acknowledgement signalled. Hermes only reports `vibe` today. */
 export type SessionAcknowledgement = "vibe";
@@ -25,7 +25,7 @@ export function SessionAcknowledgementCard({
 }: SessionAcknowledgementCardProps) {
   if (!acknowledgement) return null;
   return (
-    <NoticeDisclosure
+    <DisclosureTile
       defaultOpen={defaultOpen}
       onToggle={(open) => {
         if (open) onDetails?.();
@@ -35,6 +35,6 @@ export function SessionAcknowledgementCard({
       <div className="h-notice-text">
         An acknowledgement was reported for this session.
       </div>
-    </NoticeDisclosure>
+    </DisclosureTile>
   );
 }

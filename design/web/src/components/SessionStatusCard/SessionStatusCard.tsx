@@ -1,5 +1,5 @@
 import { Button } from "../Button/Button";
-import { DisclosureTile } from "./DisclosureTile";
+import { DisclosureTile } from "../../disclosureTile";
 import "./SessionStatusCard.css";
 
 /** One control section Hermes reports (a goal, a loop or a heartbeat): flat fields of text, numbers and flags, keyed by the server's snake_case names. */
@@ -152,8 +152,9 @@ export function SessionStatusCard({
   const canReopen = !!onReopen && (reclaimed || resume?.status === "failed");
   return (
     <DisclosureTile
+      titleSize={13}
       defaultOpen={defaultOpen}
-      onOpen={onDetails}
+      onToggle={(open) => open && onDetails?.()}
       title={<span className="h-session-status__summary">{summary}</span>}
     >
       <div className="h-session-status__details">
