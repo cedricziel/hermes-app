@@ -134,6 +134,26 @@ or private address and the server does not answer, the app asks whether the VPN
 is connected. When the network changes or you return to the app, it tries the
 saved server again by itself.
 
+## HTTPS with your own certificate authority
+
+A reverse proxy with a certificate from its own authority, such as Caddy's
+`tls internal`, works once the device trusts that authority's root
+certificate. The system browser that signs you in needs it too. Caddy keeps
+the root at `/data/caddy/pki/authorities/local/root.crt` in its container.
+
+- **iOS:** open the root certificate on the device to install it as a profile,
+  then turn on full trust for it in Settings > General > About > Certificate
+  Trust Settings.
+- **macOS:** add it to the System keychain in Keychain Access and set it to
+  Always Trust.
+- **Android:** install it as a CA certificate in Settings (search Settings for
+  "CA certificate"). The app reads the CA certificates you installed when it
+  starts and when you return to it.
+
+Until then the app says that this device doesn't trust the server's
+certificate. A certificate from a public authority, such as the one
+`tailscale serve` provides or one from Let's Encrypt, needs none of this.
+
 ## How sign-in works
 
 The app uses the native-app OAuth flow (RFC 8252) that the dashboard exposes,
