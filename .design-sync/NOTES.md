@@ -228,6 +228,11 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
   its cards, queue recovery, tool output risks, reactions and short-window sidebars (see "Chat activity" below).
   Flutter UI commits #680 to #705 that only changed navigation guards, schedule suspension and desktop dialogs
   (#674, #684, #687, #697, #699, #700, #704, #705, #746) have no visual counterpart worth recreating.
+- Not yet ported (landed on main during the 2026-10-23 port): #770 messenger navigation, #777 iPhone new-chat
+  shortcut, #778 thinking expandable while streaming, #781 agent voice messages, #783 iOS photo preview, #786 hold
+  Send to record, #787 memory recall and review events moved into the inspector, #789 compact activity and queued
+  messages, #790 tool names and command arguments, #798 voice call prerequisites. #787 and #789 change the
+  Activity panel and strip recreated here; start the next port with them.
 - Preview content is static fixture data written for the previews, not loaded from `widgetbook/fixtures.dart`.
 - Only CupertinoIcons ships as a font file; the system font stack and Material Symbols Outlined come from the
   viewer's OS and Google Fonts. A new `cupertino_icons` version in `pubspec.lock` means copying its ttf again.
