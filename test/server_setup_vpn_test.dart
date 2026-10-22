@@ -8,6 +8,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'support/dns_failure_interceptor.dart';
 import 'support/fake_network_signals.dart';
+import 'support/local_authority.dart';
 import 'support/memory_token_store.dart';
 
 const _tailnetUrl = 'http://hermes-nowhere.tailtest.ts.net:9119';
@@ -113,5 +114,22 @@ void main() {
     await connectTo(tester, auth, _tailnetUrl);
 
     expect(auth.lastFailure, isNotNull);
+  });
+
+  testWidgets('explains how to trust a certificate from a local authority', (
+    tester,
+  ) async {
+    final authority = (await tester.runAsync(LocalAuthority.start))!;
+    addTearDown(() => tester.runAsync(authority.close));
+    final auth = await pumpSetup(tester);
+
+    await connectTo(tester, auth, authority.url.toString());
+
+    expect(
+      find.text("This device doesn't trust the server's certificate."),
+      findsOneWidget,
+    );
+    expect(find.textContaining("Caddy's tls internal"), findsOneWidget);
+    expect(find.textContaining('Is your VPN connected?'), findsNothing);
   });
 }

@@ -54,7 +54,11 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     final failure = auth.lastFailure;
     final hint = failure == null
         ? null
-        : vpnHint(failure, vpnActive: auth.vpnActive);
+        : connectHint(
+            failure,
+            platform: Theme.of(context).platform,
+            vpnActive: auth.vpnActive,
+          );
 
     return Scaffold(
       body: SafeArea(
