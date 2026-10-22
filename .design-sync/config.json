@@ -374,6 +374,24 @@
     },
     "TodoPlanCard": {
       "cardMode": "column"
+    },
+    "AgentNoticeCard": {
+      "cardMode": "column"
+    },
+    "SideResultCard": {
+      "cardMode": "column"
+    },
+    "SessionUsageCard": {
+      "cardMode": "column"
+    },
+    "SessionAcknowledgementCard": {
+      "cardMode": "column"
+    },
+    "BillingVerificationCard": {
+      "cardMode": "column"
+    },
+    "ConnectorOperationCard": {
+      "cardMode": "column"
     }
   }
 }

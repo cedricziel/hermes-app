@@ -1,0 +1,79 @@
+.h-notice-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  color: var(--h-fg);
+  font-family: var(--h-font);
+  font-size: 14px;
+  line-height: 20px;
+  box-sizing: border-box;
+}
+
+.h-notice-tile--open {
+  border-top-color: var(--h-border);
+  border-bottom-color: var(--h-border);
+}
+
+.h-notice-tile__header {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 16px;
+  gap: 16px;
+  cursor: pointer;
+}
+
+.h-notice-tile__header:hover {
+  background: var(--h-hover);
+}
+
+.h-notice-tile__header:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-notice-tile__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-notice-tile__chevron {
+  flex: none;
+  color: var(--h-muted);
+  transition: transform 160ms ease;
+}
+
+.h-notice-tile--open .h-notice-tile__chevron {
+  transform: rotate(180deg);
+}
+
+.h-notice-text {
+  padding: 12px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.h-notice-clamp2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.h-notice-clamp1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.h-notice-block {
+  margin-bottom: 12px;
+}
