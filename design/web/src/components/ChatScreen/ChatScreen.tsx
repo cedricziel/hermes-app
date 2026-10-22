@@ -187,11 +187,11 @@ export interface ChatScreenProps {
    */
   activityOpen?: boolean;
   /**
-   * The Working and Needs-you cards the app keeps above the transcript
-   * (`SessionStatusCard`, `ProcessOutputCard`, `TodoPlanCard`,
-   * `MoaProgressCard`, an actionable `ConnectorOperationCard` or
-   * `BillingVerificationCard`): a strip at most 280px (or 40% of the page)
-   * tall that scrolls. For-reference items belong in `activity` only.
+   * The Needs-you cards the app keeps above the transcript: an actionable
+   * `ConnectorOperationCard` or `BillingVerificationCard`, a reclaimed
+   * `SessionStatusCard` (`reclaimedReason`). A strip at most 280px (or 40% of
+   * the page) tall that scrolls. Routine status, process output, plans and
+   * MoA progress live only in `activity`, as in the app since #789.
    */
   activityStrip?: ReactNode[];
   /** The header's Activity button, the sheet's close button or a click beside the overlaid inspector. */

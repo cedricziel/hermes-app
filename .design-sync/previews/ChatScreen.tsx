@@ -467,17 +467,17 @@ const activity = {
   ],
 };
 
-/** The Working cards above the transcript (the activity strip) and the header's Activity button. */
+/** A Needs-you card above the transcript (the session was reopened elsewhere) and the header's Activity button. */
 export const ActivityStrip = () => (
   <div style={desktop}>
     <ChatScreen
       {...loaded}
-      replying
       activity={activity}
       activityStrip={[
         <SessionStatusCard
-          key="status"
-          waits={["restic — reading snapshot list"]}
+          key="reclaimed"
+          reclaimedReason="Another client reopened this session."
+          onReopen={() => {}}
         />,
       ]}
     />

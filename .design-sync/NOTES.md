@@ -187,8 +187,8 @@ settingsOpen` shows is the public `SettingsDialog` (`AppShell`/`ChatScreen` take
   the menu button and the three trailing controls, as in Flutter's test. `IconButton` gained `selected`.
 - `ChatScreen` `activity`, `activityOpen`, `activityStrip`, `onToggleActivity`: the 380px inspector docked beside
   the page from 760px of page width, over it below (container query on `.h-chat-screen__inspected`, a transparent
-  barrier closes it); on a phone a sheet at 72% height over the scrim. The strip holds Working and Needs-you cards
-  above the transcript (max 280px or 40%). The inspector sits beside the header too, as Flutter's `InspectorLayout`
+  barrier closes it); on a phone a sheet at 72% height over the scrim. The strip holds only Needs-you cards above
+  the transcript (max 280px or 40%), as Flutter does since #789. The inspector sits beside the header too, as Flutter's `InspectorLayout`
   wraps the whole thread view. `ConversationWindowScreen` has no Activity button yet (Flutter #769 added one).
 - Cards (group Agent activity, all `cardMode: "column"`): Working tier `SessionStatusCard`, `ProcessOutputCard`,
   `MoaProgressCard`, `TodoPlanCard`; reference/needs-you tier `AgentNoticeCard`, `SideResultCard`,
@@ -228,11 +228,8 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
   its cards, queue recovery, tool output risks, reactions and short-window sidebars (see "Chat activity" below).
   Flutter UI commits #680 to #705 that only changed navigation guards, schedule suspension and desktop dialogs
   (#674, #684, #687, #697, #699, #700, #704, #705, #746) have no visual counterpart worth recreating.
-- Not yet ported (landed on main during the 2026-10-23 port): #770 messenger navigation, #777 iPhone new-chat
-  shortcut, #778 thinking expandable while streaming, #781 agent voice messages, #783 iOS photo preview, #786 hold
-  Send to record, #787 memory recall and review events moved into the inspector, #789 compact activity and queued
-  messages, #790 tool names and command arguments, #798 voice call prerequisites. #787 and #789 change the
-  Activity panel and strip recreated here; start the next port with them.
+- Main's own ports during this one (#770 to #798) are recorded at the end of this file; their open items
+  (MemoryActivityCard for the inspector, VoiceCallSetupView, the Messenger Chats home) are still to port.
 - Preview content is static fixture data written for the previews, not loaded from `widgetbook/fixtures.dart`.
 - Only CupertinoIcons ships as a font file; the system font stack and Material Symbols Outlined come from the
   viewer's OS and Google Fonts. A new `cupertino_icons` version in `pubspec.lock` means copying its ttf again.
