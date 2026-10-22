@@ -476,6 +476,7 @@ export const ActivityStrip = () => (
       activityStrip={[
         <SessionStatusCard
           key="reclaimed"
+          defaultOpen
           reclaimedReason="Another client reopened this session."
           onReopen={() => {}}
         />,
