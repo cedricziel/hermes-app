@@ -123,6 +123,17 @@ void main() {
       expect(auth.lastFailure?.retryable, isFalse);
     });
 
+    test('HTTPS to a plain HTTP port is a TLS failure', () async {
+      final dashboard = await _Dashboard.start();
+      addTearDown(dashboard.close);
+      final auth = controller();
+
+      await auth.connect('https://127.0.0.1:${dashboard.port}');
+
+      expect(auth.lastFailure?.kind, ConnectFailureKind.tls);
+      expect(auth.errorMessage, 'The secure connection to the server failed.');
+    });
+
     test('a new connect clears the last failure', () async {
       final dashboard = await _Dashboard.start();
       addTearDown(dashboard.close);

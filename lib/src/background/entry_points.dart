@@ -11,6 +11,7 @@ import 'package:workmanager/workmanager.dart';
 import '../intents/ask_hermes.dart';
 import '../intents/intents_channel.dart';
 import '../intents/request_intents.dart';
+import '../network/user_certificates.dart';
 import '../notifications/local_notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../telemetry/telemetry.dart';
@@ -35,12 +36,14 @@ Future<void> prepareBackgroundIsolate() => _prepared ??= _prepare();
 Future<void> _prepare() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  final certificates = trustUserCertificates();
   try {
     _telemetry = await Telemetry.initialize(TelemetryConfig.fromEnvironment())
         .timeout(_telemetryBudget);
   } on Object {
     // Telemetry must never keep background work from running.
   }
+  await certificates;
 }
 
 /// The telemetry of a connection made in this isolate: the one

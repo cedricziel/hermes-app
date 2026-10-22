@@ -111,6 +111,7 @@ dependencies:
   media_kit: ^1.2.6
   media_kit_libs_audio: ^1.0.7
   audio_session: ^0.2.3
+  flutter_user_certificates_android: ^0.1.0
 
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.
