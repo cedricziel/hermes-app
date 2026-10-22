@@ -362,6 +362,18 @@
     },
     "ChatSuggestions": {
       "cardMode": "column"
+    },
+    "SessionStatusCard": {
+      "cardMode": "column"
+    },
+    "ProcessOutputCard": {
+      "cardMode": "column"
+    },
+    "MoaProgressCard": {
+      "cardMode": "column"
+    },
+    "TodoPlanCard": {
+      "cardMode": "column"
     }
   }
 }
