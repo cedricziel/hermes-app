@@ -85,6 +85,7 @@ export * from "./components/BotGroupChatScreen/BotGroupChatScreen";
 export * from "./components/BotsScreen/BotsScreen";
 export * from "./components/CreateGroupDialog/CreateGroupDialog";
 
+export type { MessageReaction } from "./components/MessageReactions/MessageReactions";
 export type { AppleDevice, GroupedChrome, Platform } from "./platform";
 export * from "./components/Tag/Tag";
 export * from "./components/Banner/Banner";

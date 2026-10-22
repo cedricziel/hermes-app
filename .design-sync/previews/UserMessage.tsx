@@ -49,3 +49,17 @@ export const Dark = () => (
     />
   </HermesProvider>
 );
+
+export const Reactions = () => (
+  <div style={{ width: 720, display: "grid", gap: 16 }}>
+    <UserMessage
+      text="Why did the nightly backup fail?"
+      reactions={[{ emoji: "👀", author: "agent" }]}
+    />
+    <UserMessage
+      text="Why did the nightly backup fail?"
+      reactions={[{ emoji: "👀", author: "agent" }]}
+      reactionsOpen
+    />
+  </div>
+);

@@ -27,6 +27,28 @@
   margin-top: 0;
 }
 
+/*
+ * A short Mac window (#756): the switcher and destinations scroll in the room
+ * the chat list leaves, and the list always keeps one 28px source-list row.
+ * Taller windows never overflow, so the query only keeps their menus from
+ * being clipped by the scroll container.
+ */
+.h-thread-sidebar--mac {
+  container: h-mac-sidebar / size;
+}
+
+@container h-mac-sidebar (max-height: 420px) {
+  .h-thread-sidebar__nav--mac {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .h-thread-sidebar__list.h-thread-sidebar__list--mac {
+    min-height: 28px;
+  }
+}
+
 .h-sidebar-row {
   border-radius: calc(var(--h-radius-xs) + 2px);
 }

@@ -459,3 +459,43 @@ export const AppleActionSheet = () => (
     </HermesProvider>
   </HermesProvider>
 );
+
+/** A short Mac window (#756): the profile switcher and the destinations scroll in the room above one remaining chat-list row, and the account footer stays pinned. Left: 280pt tall with the chat list squeezed to one row; right: a taller window for contrast. */
+export const AppleMacShortWindow = () => (
+  <HermesProvider
+    platform="apple"
+    typeRamp="default"
+    style={{ display: "flex", alignItems: "flex-start", gap: 24 }}
+  >
+    <div style={{ ...frame, height: 280 }}>
+      <ThreadSidebar
+        threads={macThreads}
+        now={now}
+        selectedId="nightly"
+        navigation={
+          <ShellNavigation
+            destinations={["chat", "bots", "kanban", "schedules", "profiles"]}
+            current="chat"
+            profiles={macProfiles}
+          />
+        }
+        {...macAccount}
+      />
+    </div>
+    <div style={{ ...frame, height: 420 }}>
+      <ThreadSidebar
+        threads={macThreads}
+        now={now}
+        selectedId="nightly"
+        navigation={
+          <ShellNavigation
+            destinations={["chat", "bots", "kanban", "schedules", "profiles"]}
+            current="chat"
+            profiles={macProfiles}
+          />
+        }
+        {...macAccount}
+      />
+    </div>
+  </HermesProvider>
+);

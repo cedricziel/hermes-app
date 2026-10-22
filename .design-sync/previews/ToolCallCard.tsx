@@ -199,3 +199,30 @@ export const AppleRunning = () => (
     <ToolCallCard name="read_file" summary="lib/main.dart" duration="0.4s" />
   </HermesProvider>
 );
+
+export const OutputRisk = () => (
+  <div style={col}>
+    <ToolCallCard
+      name="terminal"
+      summary="Read configuration"
+      defaultOpen
+      outputRisk={{
+        risk: "secret",
+        findings: ["A credential was removed from the output."],
+        redacted: true,
+      }}
+    />
+    <ToolCallCard
+      name="web_fetch"
+      defaultOpen
+      outputRisk={{ risk: "injection", findings: [], redacted: false }}
+    />
+    <ToolCallCard
+      name="read_file"
+      summary="deploy/.env"
+      duration="0.1s"
+      result="API_KEY=[redacted]"
+      outputRisk={{ risk: "secret", redacted: true }}
+    />
+  </div>
+);
