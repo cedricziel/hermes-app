@@ -1,0 +1,25 @@
+.h-process-output__title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-process-output__details {
+  padding: 12px;
+  user-select: text;
+}
+
+.h-process-output__text {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.h-process-output__unavailable {
+  color: var(--h-fg);
+  font-family: var(--h-font);
+  font-size: 14px;
+  line-height: 20px;
+}

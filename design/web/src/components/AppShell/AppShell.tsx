@@ -154,7 +154,7 @@ export interface ShellSidebarProps {
   mac?: boolean;
 }
 
-/** The 280px sidebar beside a page that has no thread list of its own (Bots, Kanban, Schedules, Profiles): app name, destinations, account footer. */
+/** The 280px sidebar beside a page that has no thread list of its own (Bots, Kanban, Schedules, Profiles): app name, destinations, account footer. In a short window the destinations scroll between the brand and the footer, which stays pinned (#759). */
 export function ShellSidebar({
   navigation,
   account,
@@ -168,7 +168,6 @@ export function ShellSidebar({
     <aside className={cx("h-shell-sidebar", mac && "h-shell-sidebar--mac")}>
       <SidebarBrand mac={mac} />
       <div className="h-shell-sidebar__nav">{navigation}</div>
-      <div className="h-shell-sidebar__spacer" />
       <AccountFooter
         label={account}
         serverUrl={serverUrl}

@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
+import {
+  MessageReactions,
+  type MessageReaction,
+} from "../MessageReactions/MessageReactions";
 import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./AssistantMessage.css";
 
@@ -36,6 +40,10 @@ export interface AssistantMessageProps {
    * icon. Live only: a reply read from history has none.
    */
   reviewNotes?: string[];
+  /** Emoji reactions reported on this message, drawn under it as "👍 · agent" with a "Message reactions" disclosure listing the authors. Nothing for an empty list. */
+  reactions?: MessageReaction[];
+  /** Start with the "Message reactions" details open, to preview that state. */
+  reactionsOpen?: boolean;
   /**
    * `apple`: the copy, retry and edit buttons are 44x44px (the glyph stays 16px),
    * the iOS minimum tap target; text is 17px Body when the provider's ramp is
@@ -61,6 +69,8 @@ export function AssistantMessage({
   onRetry,
   onEdit,
   reviewNotes,
+  reactions,
+  reactionsOpen = false,
   platform,
 }: AssistantMessageProps) {
   const resolvedPlatform = usePlatform(platform);
@@ -136,6 +146,9 @@ export function AssistantMessage({
             <Icon name="bookmark_added" size={16} />
             <span>{reviewNotes.join(" · ")}</span>
           </div>
+        ) : null}
+        {reactions?.length ? (
+          <MessageReactions reactions={reactions} defaultOpen={reactionsOpen} />
         ) : null}
       </div>
     </PlatformScope>

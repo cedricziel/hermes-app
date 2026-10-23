@@ -92,11 +92,10 @@
 }
 
 .h-shell-sidebar__nav {
-  padding: 0 8px;
-}
-
-.h-shell-sidebar__spacer {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px;
 }
 
 .h-shell-navigation {

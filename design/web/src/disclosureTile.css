@@ -1,0 +1,89 @@
+/* The app's DisclosureTile (dense Material ExpansionTile) that the activity
+   cards sit in: hairlines above and below while open. */
+.h-disclosure {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  color: var(--h-fg);
+  font-family: var(--h-font);
+  font-size: 14px;
+  line-height: 20px;
+  box-sizing: border-box;
+}
+
+.h-disclosure--open {
+  border-top-color: var(--h-border);
+  border-bottom-color: var(--h-border);
+}
+
+.h-disclosure__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 48px;
+  padding: 6px 16px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.h-disclosure__header:hover {
+  background: var(--h-hover);
+}
+
+.h-disclosure__header:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-disclosure__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-disclosure__title--small {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.h-disclosure__chevron {
+  flex: none;
+  color: var(--h-muted);
+  transition: transform 200ms ease;
+}
+
+.h-disclosure--open .h-disclosure__chevron {
+  transform: rotate(180deg);
+  color: var(--h-fg);
+}
+
+/* Text, clamps and button rows inside a tile's details. */
+.h-notice-text {
+  padding: 12px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.h-notice-clamp2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.h-notice-clamp1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.h-notice-block {
+  margin-bottom: 12px;
+}

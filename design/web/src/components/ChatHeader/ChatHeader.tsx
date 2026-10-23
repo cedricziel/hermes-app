@@ -87,6 +87,15 @@ export interface ChatHeaderProps {
   onSearchChange?: (query: string) => void;
   /** Mac: the field's clear button or Escape ended the search. */
   onSearchEnd?: () => void;
+  /** The Activity panel is open: the button is drawn selected ("Hide activity", on a Mac "Hide Inspector"). */
+  activityOpen?: boolean;
+  /**
+   * Adds the Activity button (Material `view_sidebar`, Apple
+   * `sidebar_right`): before the info button on touch and Material, after
+   * Connection Details on a Mac ("Show Inspector", ⌥⌘I). Leave it out while
+   * no chat is open, as the app does.
+   */
+  onToggleActivity?: () => void;
 }
 
 /**
@@ -114,6 +123,8 @@ export function ChatHeader({
   onSearchBegin,
   onSearchChange,
   onSearchEnd,
+  activityOpen = false,
+  onToggleActivity,
 }: ChatHeaderProps) {
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
@@ -135,6 +146,8 @@ export function ChatHeader({
         onSearchBegin={onSearchBegin}
         onSearchChange={onSearchChange}
         onSearchEnd={onSearchEnd}
+        activityOpen={activityOpen}
+        onToggleActivity={onToggleActivity}
       />
     );
   }
@@ -145,6 +158,7 @@ export function ChatHeader({
           "h-chat-header",
           `h-chat-header--${layout}`,
           apple && "h-chat-header--ios",
+          onToggleActivity && "h-chat-header--activity",
         )}
       >
         {layout === "phone" ? (
@@ -166,6 +180,17 @@ export function ChatHeader({
             onAction={onThreadAction}
             layout="phone"
           />
+        ) : null}
+        {onToggleActivity ? (
+          <span className="h-chat-header__activity">
+            <IconButton
+              icon="view_sidebar"
+              apple="sidebar_right"
+              label={activityOpen ? "Hide activity" : "Activity"}
+              selected={activityOpen}
+              onClick={onToggleActivity}
+            />
+          </span>
         ) : null}
         <span className="h-chat-header__info">
           <IconButton
@@ -193,6 +218,8 @@ function MacChatToolbar({
   onSearchBegin,
   onSearchChange,
   onSearchEnd,
+  activityOpen,
+  onToggleActivity,
 }: Pick<
   ChatHeaderProps,
   | "subtitle"
@@ -204,6 +231,8 @@ function MacChatToolbar({
   | "onSearchBegin"
   | "onSearchChange"
   | "onSearchEnd"
+  | "activityOpen"
+  | "onToggleActivity"
 > & {
   title: string;
   windowSize: "wide" | "medium" | "compact";
@@ -280,6 +309,15 @@ function MacChatToolbar({
               />
             </>
           )}
+          <MacToolbarButton
+            icon="view_sidebar"
+            apple="sidebar_right"
+            label={activityOpen ? "Hide Inspector" : "Show Inspector"}
+            shortcut="⌥⌘I"
+            selected={activityOpen}
+            disabled={!onToggleActivity}
+            onClick={onToggleActivity}
+          />
           {showField ? (
             <MacToolbarSearchField
               query={searchQuery}

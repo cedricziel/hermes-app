@@ -79,6 +79,14 @@ export function ToolCallGroup({
         >
           <ToolCallStatusIcon status={status} waiting={waiting.length > 0} />
           <span className="h-tool-group__label">{label}</span>
+          {calls.some((c) => c.outputRisk) ? (
+            <Icon
+              name="warning"
+              size={16}
+              label="Tool output warning"
+              className="h-tool-group__warning"
+            />
+          ) : null}
           <Icon
             name={open ? "expand_less" : "chevron_right"}
             size={16}

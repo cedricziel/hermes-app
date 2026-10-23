@@ -100,8 +100,9 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - `MacToolbar` is the app's Mac unified toolbar (#399, #396, #401): title over subtitle, 28px
   `MacToolbarButton`s, `MacToolbarSeparator`, `MacToolbarSearchField`, and the traffic-light clearance with the
   show-sidebar button while the sidebar is hidden. Pages on a Mac use it instead of their Material bar. The
-  inspector toggle draws `sidebar_left`, since its Material name (`view_sidebar_outlined`) is shared with the
-  sidebar toggle; the app draws `sidebar_right`.
+  Kanban inspector toggle draws `sidebar_left`, since its Material name (`view_sidebar_outlined`) is shared with
+  the sidebar toggle; the app draws `sidebar_right`. The chat's Activity button passes `apple="sidebar_right"`
+  (`MacToolbarButton` and, since this sync, `IconButton` take an `apple` glyph override).
 
 ## Follow-ups (base components the recreations asked for)
 
@@ -176,6 +177,38 @@ settingsOpen` shows is the public `SettingsDialog` (`AppShell`/`ChatScreen` take
   (`bookmark_added`, the app's `AppIcons.memory`) and the entries joined with " · " in 13px muted text, under the
   actions. The app hides Edit prompt while an undo is in flight; that transient state is not drawn.
 
+## Chat activity (Flutter #702 to #769, ported 2026-10-23)
+
+- `ActivityPanel` (Chat) is the app's Activity panel: "Activity" title row, then Now, Plan and This session under
+  11px uppercase headings, empty sections left out, "No activity for this chat" when all are empty. It takes the
+  cards as `ReactNode`s (`now`, `plan`, `session`); `frame="sheet"` adds the grab handle for the phone sheet.
+- `ChatHeader` `onToggleActivity`/`activityOpen` add the Activity button (Material `view_sidebar`, Apple
+  `sidebar_right`; on a Mac "Show Inspector" ⌥⌘I after Connection Details). The iPhone title is centred between
+  the menu button and the three trailing controls, as in Flutter's test. `IconButton` gained `selected`.
+- `ChatScreen` `activity`, `activityOpen`, `activityStrip`, `onToggleActivity`: the 380px inspector docked beside
+  the page from 760px of page width, over it below (container query on `.h-chat-screen__inspected`, a transparent
+  barrier closes it); on a phone a sheet at 72% height over the scrim. The strip holds only Needs-you cards above
+  the transcript (max 280px or 40%), as Flutter does since #789. The inspector sits beside the header too, as Flutter's `InspectorLayout`
+  wraps the whole thread view. `ConversationWindowScreen` has no Activity button yet (Flutter #769 added one).
+- Cards (group Agent activity, all `cardMode: "column"`): Working tier `SessionStatusCard`, `ProcessOutputCard`,
+  `MoaProgressCard`, `TodoPlanCard`; reference/needs-you tier `AgentNoticeCard`, `SideResultCard`,
+  `SessionUsageCard`, `SessionAcknowledgementCard`, `BillingVerificationCard`, `ConnectorOperationCard`. All take
+  plain props summarising the Dart controllers (see each `.d.ts`); none has a `platform` prop because the app's
+  `DisclosureTile` is Material everywhere. They share the internal `src/disclosureTile.tsx` (+ `.css`, also the
+  `h-notice-*` text/clamp/action helpers): 48px header, rotating chevron, hairlines when open; `titleSize={13}` for
+  the Working cards. A card with nothing to show returns null, as the app draws nothing.
+- Existing components extended: `ChatComposer` queue recovery (#735: `queueReviewRequired`, `queueBusy`,
+  `queueAvailable`, `queueLocked`, `queueError`, `onInspectQueue`; `QueuedPromptItem.uncertain`/`submitting`; "Send
+  now/next" follows `queuePaused || queueReviewRequired` rather than a callback being passed); `ToolCallItem.
+  outputRisk` (#702) on `ToolCallCard`/`ToolCallGroup`; `reactions`/`reactionsOpen` on `AssistantMessage` and
+  `UserMessage` (#743, internal `MessageReactions`, only the `MessageReaction` type exported); short windows
+  (#756, #759): `ShellSidebar` destinations scroll between brand and footer, the Mac `ThreadSidebar` nav scrolls
+  inside a `max-height: 420px` container query so taller windows keep open switcher menus unclipped.
+- Not recreated: `MessageReactionCard` details-unavailable state, the `connectorOperationCards` tier binding (the
+  screen's caller decides which card goes in the strip or the panel), the Dart "empty control" and "plan not
+  reported" use cases (the cards draw nothing), Apple 44px/28px text-button heights inside the cards.
+- `SessionStatusCard`'s `next_due_at` preview uses the viewer's time zone, so the date varies by machine.
+
 ## Known gaps in the recreations
 
 - VoiceCallSetupView (checking, local fixes, server setup and retry) and the
@@ -191,9 +224,12 @@ settingsOpen` shows is the public `SettingsDialog` (`AppShell`/`ChatScreen` take
 - Everything here is a hand copy of Flutter UI. Check `git log lib/src/theme lib/src/chat/widgets
 lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins lib/src/schedules` since the
   last sync and update the matching components before re-syncing, or Claude Design keeps the old look.
-- Last sync: 2026-10-14 at fc6265d9. The recreation was last ported at #662; the Flutter UI commits #680 to #759
-  (chat notices, todo plans, session usage, guarded connector/device controls, short-window navigation) have no
-  matching `design/web` change yet, so Claude Design shows the #662 look for those surfaces.
+- Last sync: 2026-10-23 at 504175f5 (0.1.64). The recreation is ported up to #769 for chat: the Activity panel and
+  its cards, queue recovery, tool output risks, reactions and short-window sidebars (see "Chat activity" below).
+  Flutter UI commits #680 to #705 that only changed navigation guards, schedule suspension and desktop dialogs
+  (#674, #684, #687, #697, #699, #700, #704, #705, #746) have no visual counterpart worth recreating.
+- Main's own ports during this one (#770 to #798) are recorded at the end of this file; their open items
+  (MemoryActivityCard for the inspector, VoiceCallSetupView, the Messenger Chats home) are still to port.
 - Preview content is static fixture data written for the previews, not loaded from `widgetbook/fixtures.dart`.
 - Only CupertinoIcons ships as a font file; the system font stack and Material Symbols Outlined come from the
   viewer's OS and Google Fonts. A new `cupertino_icons` version in `pubspec.lock` means copying its ttf again.

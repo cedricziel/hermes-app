@@ -1,4 +1,8 @@
 import { Icon } from "../Icon/Icon";
+import {
+  MessageReactions,
+  type MessageReaction,
+} from "../MessageReactions/MessageReactions";
 import "./UserMessage.css";
 
 export interface MessageAttachment {
@@ -21,6 +25,10 @@ export interface UserMessageProps {
   text?: string;
   /** Files sent with the turn, stacked right-aligned above the text, 8px apart. */
   attachments?: MessageAttachment[];
+  /** Emoji reactions reported on this message, drawn under it as "👍 · agent" with a "Message reactions" disclosure listing the authors. Nothing for an empty list. */
+  reactions?: MessageReaction[];
+  /** Start with the "Message reactions" details open, to preview that state. */
+  reactionsOpen?: boolean;
 }
 
 /**
@@ -28,13 +36,21 @@ export interface UserMessageProps {
  * with a 14px radius, with any attached images (240px thumbnails) and files
  * (cards with name and size) stacked above it.
  */
-export function UserMessage({ text, attachments = [] }: UserMessageProps) {
+export function UserMessage({
+  text,
+  attachments = [],
+  reactions,
+  reactionsOpen = false,
+}: UserMessageProps) {
   return (
     <div className="h-user-message">
       {attachments.map((file, i) => (
         <AttachmentView key={`${file.name}-${i}`} attachment={file} />
       ))}
       {text ? <div className="h-user-message__bubble">{text}</div> : null}
+      {reactions?.length ? (
+        <MessageReactions reactions={reactions} defaultOpen={reactionsOpen} />
+      ) : null}
     </div>
   );
 }

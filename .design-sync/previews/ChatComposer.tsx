@@ -67,6 +67,69 @@ export const QueuePaused = () => (
   </div>
 );
 
+export const RecoveredQueue = () => (
+  <div style={box}>
+    <ChatComposer
+      onAttach={() => {}}
+      queuePaused
+      queueReviewRequired
+      queued={[
+        { text: "Review the release checklist" },
+        { text: "Summarize the test results" },
+      ]}
+      modelPill={<ModelPill model="claude-opus-4" />}
+    />
+  </div>
+);
+
+export const UnknownSubmission = () => (
+  <div style={box}>
+    <ChatComposer
+      onAttach={() => {}}
+      queuePaused
+      queueReviewRequired
+      onInspectQueue={() => {}}
+      queued={[{ text: "Check the build", uncertain: true }]}
+      modelPill={<ModelPill model="claude-opus-4" />}
+    />
+  </div>
+);
+
+export const UnavailableOrFailed = () => (
+  <div style={{ ...box, display: "grid", gap: 16 }}>
+    <ChatComposer
+      queuePaused
+      queueReviewRequired
+      queueAvailable={false}
+      queued={[{ text: "Held for its original session" }]}
+      modelPill={<ModelPill model="claude-opus-4" />}
+    />
+    <ChatComposer
+      queueReviewRequired
+      queueError="Could not read the retained attachment. Nothing was sent."
+      queued={[{ text: "Read this attachment" }]}
+      modelPill={<ModelPill model="claude-opus-4" />}
+    />
+  </div>
+);
+
+export const QueueingAndLocked = () => (
+  <div style={{ ...box, display: "grid", gap: 16 }}>
+    <ChatComposer
+      replying
+      queueBusy
+      queued={[{ text: "Then bump the backoff cap to 30 s.", submitting: true }]}
+      modelPill={<ModelPill model="claude-opus-4" />}
+    />
+    <ChatComposer
+      queueLocked
+      queueReviewRequired
+      queued={[{ text: "Private recovered text" }]}
+      modelPill={<ModelPill model="claude-opus-4" />}
+    />
+  </div>
+);
+
 export const Dark = () => (
   <HermesProvider
     theme="dark"

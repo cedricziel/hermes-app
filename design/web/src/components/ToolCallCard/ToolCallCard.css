@@ -277,3 +277,10 @@
 .h-tool-call__approval--answered {
   padding-top: 8px;
 }
+
+.h-tool-call__risk {
+  padding: 0 10px 8px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--h-error);
+}

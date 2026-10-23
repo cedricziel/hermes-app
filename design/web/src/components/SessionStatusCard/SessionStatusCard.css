@@ -1,0 +1,24 @@
+.h-session-status__summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.h-session-status__details {
+  padding: 12px;
+  user-select: text;
+}
+
+.h-session-status__section {
+  margin-bottom: 8px;
+}
+
+.h-session-status__section-title {
+  font-weight: 600;
+}
+
+.h-session-status__action {
+  display: flex;
+  justify-content: flex-start;
+}
