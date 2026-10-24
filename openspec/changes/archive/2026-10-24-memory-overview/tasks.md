@@ -24,4 +24,4 @@ One PR, `feat(memory): show memory per file with its fill level`, about 500 chan
 
 - [x] 4.1 Run `/simplify` on the diff.
 - [x] 4.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all passing.
-- [ ] 4.3 Use `verify-in-app` against `scripts/dev-backend.sh` with seeded MEMORY.md and USER.md: the counts match the usage Hermes' memory tool reports after a save in a chat, a nearly full file shows the warning, an edit updates the count, and an empty profile shows the empty state.
+- [x] 4.3 (macOS, Hermes `d923a5eb`, 2026-10-24: "94 of 1,375 characters" matched the tool's "6% — 94/1,375 chars"; 2,109 of 2,200 showed "Full" and its warning; an edit took Agent notes to 1,620 and the file on disk; the work profile's empty Agent notes showed "Nothing remembered yet") Use `verify-in-app` against `scripts/dev-backend.sh` with seeded MEMORY.md and USER.md: the counts match the usage Hermes' memory tool reports after a save in a chat, a nearly full file shows the warning, an edit updates the count, and an empty profile shows the empty state.

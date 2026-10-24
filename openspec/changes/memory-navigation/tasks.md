@@ -22,4 +22,4 @@ One PR, `feat(navigation): open Memory from the sidebar and the Profiles page`, 
 
 - [ ] 4.1 Run `/simplify` on the diff.
 - [ ] 4.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all passing; look at the workflow screenshots of the sidebar and the Profiles page.
-- [ ] 4.3 Use `verify-in-app` on macOS with two profiles: the Profiles page shows Memory after Skills with a count and opens the selected profile's memory; Settings… has no Memory row. Check the phone drawer in a workflow test or simulator.
+- [ ] 4.3 (macOS part seen on 2026-10-24 against Hermes `d923a5eb`: the Profiles page lists Memory after Skills with 7 for default and 1 for work and opens that profile's Memory; Settings… has no Memory row. Still open: the phone drawer in a workflow test or simulator, and 4.1/4.2's /simplify and workflow screenshots; format, analyze and the full test suite passed on main `f7008abb`) Use `verify-in-app` on macOS with two profiles: the Profiles page shows Memory after Skills with a count and opens the selected profile's memory; Settings… has no Memory row. Check the phone drawer in a workflow test or simulator.
