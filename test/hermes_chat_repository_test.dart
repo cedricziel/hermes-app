@@ -323,6 +323,65 @@ void main() {
     });
   });
 
+  group('loadDeliveries', () {
+    test(
+      'asks for the profile\'s messages from Hermes, newest first',
+      () async {
+        server.on('GET', '/api/sessions', sessionListBody([]));
+
+        await repository.loadDeliveries(profile: 'work', offset: 20);
+
+        expect(
+          server.requestsTo('GET', '/api/sessions').single.queryParameters,
+          allOf([
+            for (final entry in {
+              'source': 'hermes_app',
+              'order': 'created',
+              'archived': 'exclude',
+              'limit': 20,
+              'offset': 20,
+              'profile': 'work',
+            }.entries)
+              containsPair(entry.key, entry.value),
+          ]),
+        );
+      },
+    );
+
+    test('reads the fields a look needs and skips unusable rows', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(
+            id: 'hermes-app-a',
+            title: 'Message: Report',
+            startedAt: 1780000100.5,
+            messageCount: 1,
+            unread: true,
+          ),
+          sessionRow(id: 'hermes-app-b', pinned: true, messageCount: 0),
+          sessionRow(id: 'cli-chat', unread: true),
+          {...sessionRow(id: 'hermes-app-c'), 'started_at': null},
+          {...sessionRow(id: 'hermes-app-d')}..remove('id'),
+        ]),
+      );
+
+      final rows = await repository.loadDeliveries();
+
+      expect(
+        [for (final row in rows) row.id],
+        ['hermes-app-a', 'hermes-app-b'],
+      );
+      expect(rows.first.title, 'Message: Report');
+      expect(rows.first.startedAt, 1780000100.5);
+      expect(rows.first.messageCount, 1);
+      expect(rows.first.unread, isTrue);
+      expect(rows.last.unread, isFalse);
+      expect(rows.last.pinned, isTrue);
+    });
+  });
+
   group('markRead', () {
     test('patches only the unread flag, under its profile', () async {
       server.on(

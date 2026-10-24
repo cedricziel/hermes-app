@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../agent_messages/agent_delivery.dart';
 import '../api/request_timeout.dart';
 import '../voice/voice_support.dart';
 import '../voice/synthesized_speech.dart';
@@ -94,6 +95,26 @@ class HermesChatRepository {
       nextOffset: offset + limit,
       hasMore: total == null ? rows.length >= limit : offset + limit < total,
     );
+  }
+
+  /// One page of the chats [profile]'s messenger deliveries created, newest
+  /// first. Pinned rows are appended to every page, wherever they belong.
+  Future<List<AgentDelivery>> loadDeliveries({
+    String? profile,
+    int offset = 0,
+  }) async {
+    final response = await _api.getSessionsApiSessionsGet(
+      limit: kDeliveryPageSize,
+      offset: offset,
+      order: 'created',
+      archived: 'exclude',
+      source_: kDeliverySource,
+      profile: profile,
+    );
+    return [
+      for (final row in _rows(response.data, 'sessions'))
+        ?AgentDelivery.fromRow(row),
+    ];
   }
 
   /// One session by id, or null when the dashboard does not have it. For a
