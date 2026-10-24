@@ -15,12 +15,16 @@ class MemoryEntryList extends StatelessWidget {
     required this.entries,
     required this.onOpen,
     required this.onRefresh,
+    this.footer = const [],
   });
 
   final MemoryUsage usage;
   final List<String> entries;
   final ValueChanged<int> onOpen;
   final VoidCallback onRefresh;
+
+  /// What follows the entries: the profile's settings.
+  final List<Widget> footer;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +80,7 @@ class MemoryEntryList extends StatelessWidget {
         GroupedSection(
           children: [GroupedRow(title: 'Refresh', onTap: onRefresh)],
         ),
+        ...footer,
       ],
     );
   }

@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_screen.dart';
+import 'package:hermes_app/src/memory/memory_settings_controller.dart';
+import 'package:hermes_app/src/memory/memory_settings_repository.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -69,4 +71,40 @@ void main() {
     expect(controller.tab, MemoryTab.aboutYou);
     expect(controller.draft, 'Changed');
   });
+
+  testWidgets(
+    'the Learning section shows below the entries and saves a switch',
+    (tester) async {
+      final server = FakeHermesServer()
+        ..on('GET', '/api/learning/graph', memoryGraph)
+        ..on('GET', '/api/config', {
+          ...memoryConfig(memoryLimit: 2200, userLimit: 1375),
+          ...memorySettingsConfig(writeApproval: true, interval: 5),
+        })
+        ..on('PUT', '/api/config', {'ok': true});
+      final controller = MemoryController();
+      final settings = MemorySettingsController();
+      addTearDown(controller.dispose);
+      addTearDown(settings.dispose);
+      await tester.runAsync(() async {
+        controller.bind(MemoryRepository(server.client().raw), 'work');
+        settings.bind(MemorySettingsRepository(server.client().raw), 'work');
+        await pumpEventQueue();
+        await settings.whenIdle;
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MemoryScreen(controller: controller, settings: settings),
+        ),
+      );
+      await tester.scrollUntilVisible(find.text('Learning'), 300);
+      expect(find.text('After every 5 messages'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Keep agent notes'), 100);
+      await tester.tap(find.byType(Switch).at(1));
+      await tester.pumpAndSettle();
+      expect(settings.settings!.agentNotes, isFalse);
+      final put = server.requestsTo('PUT', '/api/config').single;
+      expect(put.queryParameters['profile'], 'work');
+    },
+  );
 }

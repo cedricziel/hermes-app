@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_screen.dart';
+import 'package:hermes_app/src/memory/memory_settings.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/memory/widgets/memory_entry_editor.dart';
 import 'package:hermes_app/src/memory/widgets/memory_entry_list.dart';
 import 'package:hermes_app/src/memory/widgets/memory_fill_bar.dart';
+import 'package:hermes_app/src/memory/widgets/memory_learning_section.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
@@ -23,6 +26,34 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
       'Permanent deletion',
     ])
       ...onEachPlatform(state, (_) => _editor(state)),
+    for (final (state, settings, unreadable, message) in [
+      ('Learning, defaults', MemorySettings.defaults, false, null),
+      ('Learning, all off', _allOff, false, null),
+      ('Learning, unknown values', _unknown, false, null),
+      (
+        'Learning, a change failed',
+        MemorySettings.defaults,
+        false,
+        "Couldn't change Keep agent notes. Try again.",
+      ),
+      ('Learning, unreadable', null, true, null),
+    ])
+      ...onEachPlatform(
+        state,
+        (_) => Scaffold(
+          body: GroupedListView(
+            children: [
+              MemoryLearningSection(
+                settings: settings,
+                unreadable: unreadable,
+                message: message,
+                onChanged: (_, _) {},
+                onRetry: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
     ...onEachPlatform('Loading', (_) => _view(loading: true)),
     ...onEachPlatform('Empty', (_) => _view()),
     for (final (state, usage) in [
@@ -98,6 +129,16 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
     ),
   ],
 );
+
+final _allOff = MemorySettings.defaults
+    .withValue(MemorySetting.userProfile, false)
+    .withValue(MemorySetting.agentNotes, false)
+    .withValue(MemorySetting.reviewInterval, 0)
+    .withValue(MemorySetting.updatesInChat, 'off');
+
+final _unknown = MemorySettings.defaults
+    .withValue(MemorySetting.reviewInterval, 15)
+    .withValue(MemorySetting.updatesInChat, 'loud');
 
 const _entries = [
   'Prefers metric units and 24-hour times.',
