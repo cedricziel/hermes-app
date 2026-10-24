@@ -27,10 +27,12 @@ String encodeTarget(NotificationTarget target) => jsonEncode({
 /// answering needs.
 String notificationPayload(AttentionNotification notification) {
   final request = notification.request;
+  final message = notification.isMessage;
   return jsonEncode({
+    if (message) 'm': 1,
     if (notification.jobId case final job?)
       'j': job
-    else
+    else if (!message || notification.threadId.isNotEmpty)
       't': notification.threadId,
     'p': ?notification.profile,
     'q': ?notification.prompt,
@@ -54,6 +56,14 @@ NotificationTarget? targetFromPayload(String? payload) {
       prompt: decoded['q'] as String,
       profile: profile,
     );
+  }
+  if (decoded['m'] == 1) {
+    return decoded['t'] is String
+        ? NotificationTarget.message(
+            threadId: decoded['t'] as String,
+            profile: profile,
+          )
+        : const NotificationTarget.messages();
   }
   if (decoded['j'] is String) {
     return NotificationTarget.job(

@@ -191,6 +191,7 @@ List<RequestCategory> staticRequestCategories() {
     _questionPlaceholder,
     replyReadyCategory,
     replyFailedCategory,
+    messageCategory,
   ];
 }
 

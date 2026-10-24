@@ -21,17 +21,35 @@ enum NotificationPermission {
 class NotificationTarget {
   const NotificationTarget({required this.threadId, this.profile})
     : jobId = null,
-      prompt = null;
+      prompt = null,
+      isMessage = false;
+
+  /// A message a Hermes profile delivered. It is fetched when it is not among
+  /// the loaded chats, and opens under its own profile.
+  const NotificationTarget.message({required this.threadId, this.profile})
+    : jobId = null,
+      prompt = null,
+      isMessage = true;
+
+  /// The summary of several messages: it has no chat to open.
+  const NotificationTarget.messages()
+    : threadId = '',
+      profile = null,
+      jobId = null,
+      prompt = null,
+      isMessage = true;
 
   /// A new chat with [prompt] in the composer, unsent.
   const NotificationTarget.newChat({required String this.prompt, this.profile})
     : threadId = '',
-      jobId = null;
+      jobId = null,
+      isMessage = false;
 
   /// A scheduled task. It has no chat, so [threadId] is empty.
   const NotificationTarget.job({required String this.jobId, this.profile})
     : threadId = '',
-      prompt = null;
+      prompt = null,
+      isMessage = false;
 
   final String threadId;
   final String? jobId;
@@ -40,7 +58,12 @@ class NotificationTarget {
   /// The question of a [NotificationTarget.newChat].
   final String? prompt;
 
+  /// Whether it is about a message from Hermes, or the summary of several.
+  final bool isMessage;
+
   bool get isJob => jobId != null;
+
+  bool get isMessageSummary => isMessage && threadId.isEmpty;
 }
 
 /// An answer the user gave with a request notification's button.
