@@ -200,13 +200,15 @@ extension _ChatControllerHistory on ChatController {
         ..addAll(threads.where((thread) => thread.remote));
       _loadingThreads = false;
       _touched.clear();
-      _selectedId =
-          ChatController._isOnProfile(launch, profile) &&
-              threads.any((t) => t.id == launch!.threadId)
-          ? launch!.threadId
-          : preserveSelection && _threads.any((t) => t.id == previousSelection)
-          ? previousSelection
+      final launchedThread = ChatController._isOnProfile(launch, profile)
+          ? threads.where((t) => t.id == launch!.threadId).firstOrNull
           : null;
+      _selectedId =
+          launchedThread?.id ??
+          (preserveSelection && _threads.any((t) => t.id == previousSelection)
+              ? previousSelection
+              : null);
+      if (launchedThread != null) _markRead(launchedThread);
       if (preserveSelection &&
           previousSelection != null &&
           _selectedId == null &&

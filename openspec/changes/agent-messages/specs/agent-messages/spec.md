@@ -157,7 +157,7 @@ When a look in front finds a message from Hermes in the profile the chat screen 
 
 ### Requirement: Opening a chat marks it read
 
-When the user opens a chat that the server reports as unread, whether the chat came from the chat list or was fetched on its own (a notification tap, a search result, a link, a conversation window), the system SHALL mark it read on the server once per opening. A failure SHALL NOT be shown to the user and SHALL NOT block opening the chat; the chat is marked read at a later opening instead. A chat the server reports as read SHALL NOT cause a request.
+When the user opens a chat that the server reports as unread, whether the chat came from the chat list or was fetched on its own (a notification tap, a search result, a link, a conversation window), the system SHALL mark it read on the server once per opening. A failure SHALL NOT be shown to the user and SHALL NOT block opening the chat; the chat is marked read at a later opening instead. A chat the server reports as read SHALL NOT cause a request. Showing a chat counts as opening it when the user picked it or the app restored it in a conversation window, but not when the app moves the selection to the next chat after the open one was archived or deleted. For a chat fetched on its own the app SHALL judge read state from the session's stored `last_read_at` and `last_activity_at`; activity the server records only as messages may not count there until the chat appears in the list, so such a chat can stay unread until a later opening. The server's list wins over a single session's read state: a refresh of one chat SHALL NOT clear an unread the list reported.
 
 #### Scenario: Open an unread chat from the list
 
@@ -180,7 +180,7 @@ The system SHALL rely on:
 
 - `GET /api/sessions?source=hermes_app&order=created&archived=exclude&limit=20&offset=<n>&profile=<name>`, reading each row's `id`, `title`, `started_at` (seconds since the epoch), `message_count` and `unread`, and skipping rows without `id` or `started_at`;
 - `GET /api/sessions/{id}/messages?profile=<name>` for the delivered text;
-- `GET /api/sessions/{id}?profile=<name>`, reading `last_read_at`, `last_active` and `started_at` to tell whether a fetched chat is unread (unread when `last_read_at` is set and the latest activity is later);
+- `GET /api/sessions/{id}?profile=<name>`, reading `last_read_at`, `last_activity_at` and `started_at` to tell whether a fetched chat is unread (unread when `last_read_at` is set and the latest activity is later);
 - `PATCH /api/sessions/{id}` with `{"unread": false, "profile": <name>}`;
 - the profile list the app already reads.
 

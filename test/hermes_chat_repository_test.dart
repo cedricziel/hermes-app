@@ -296,23 +296,28 @@ void main() {
       return repository.loadThread('s1');
     }
 
-    test(
-      'a fetched chat is unread when it was active after it was read',
-      () async {
-        final unread = await fetched(
-          sessionRow(id: 's1', lastActive: 1780000100, lastReadAt: 1780000050),
-        );
-        expect(unread!.unread, isTrue);
-        final marked = await fetched(sessionRow(id: 's1', lastReadAt: 0));
-        expect(marked!.unread, isTrue);
-      },
-    );
+    test('a fetched chat is unread when active after it was read', () async {
+      final active = await fetched(
+        sessionDetailRow(
+          id: 's1',
+          lastActivityAt: 1780000100,
+          lastReadAt: 1780000050,
+        ),
+      );
+      expect(active!.unread, isTrue);
+      final marked = await fetched(sessionDetailRow(id: 's1', lastReadAt: 0));
+      expect(marked!.unread, isTrue);
+    });
 
-    test('a fetched chat never read or read since is not unread', () async {
-      final never = await fetched(sessionRow(id: 's1'));
+    test('a fetched chat never tracked or read since is not unread', () async {
+      final never = await fetched(sessionDetailRow(id: 's1'));
       expect(never!.unread, isFalse);
       final read = await fetched(
-        sessionRow(id: 's1', lastActive: 1780000100, lastReadAt: 1780000200),
+        sessionDetailRow(
+          id: 's1',
+          lastActivityAt: 1780000100,
+          lastReadAt: 1780000200,
+        ),
       );
       expect(read!.unread, isFalse);
     });

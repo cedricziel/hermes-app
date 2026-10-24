@@ -702,6 +702,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ..title = fresh.title
           ..named = fresh.named
           ..pinned = fresh.pinned
+          ..unread = fresh.unread
           ..updatedAt = fresh.updatedAt;
       }
       if (thread.remote) {
@@ -967,6 +968,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           : null;
       if (runningThread?.isReplying == true) {
         _selectedId = runningThread!.id;
+        _markRead(runningThread);
         notifyListeners();
         if (!current()) return false;
         onOpened?.call();
@@ -1008,7 +1010,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..addAll(page.messages);
       _unloaded.remove(selected.id);
       if (page.hasMore) _olderRows[selected.id] = page.rows;
+      if (thread.unread) selected.unread = true;
       _selectedId = selected.id;
+      _markRead(selected);
       await controllerFor(selected).setMessages(chatThreadToFlyer(selected));
       if (!current()) return false;
       notifyListeners();
@@ -1268,7 +1272,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   /// Tells the dashboard [thread] was read, once per opening. A failure is
-  /// only logged; the flag stays set so the next opening tries again.
+  /// only logged and the chat counts as unread again, so the next opening
+  /// retries.
   void _markRead(ChatThread thread) {
     final repository = this.repository;
     if (repository == null || !thread.remote || !thread.unread) return;

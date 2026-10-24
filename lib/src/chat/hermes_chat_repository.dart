@@ -252,13 +252,19 @@ class HermesChatRepository {
     );
   }
 
-  /// List rows say `unread`; a single session only has the `last_read_at`
-  /// watermark it is computed from: never read is null, marked unread is 0.
+  /// List rows say `unread`. A single session only has the `last_read_at`
+  /// watermark it is computed from (null: never tracked, which counts as
+  /// read; 0: marked unread) and its stored `last_activity_at`.
   static bool _unread(Map<String, dynamic> row) {
     if (row['unread'] case final bool unread) return unread;
     final lastRead = row['last_read_at'];
-    final lastActive = row['last_active'] ?? row['started_at'];
-    return lastRead is num && lastActive is num && lastActive > lastRead;
+    if (lastRead is! num) return false;
+    final activity = [
+      row['last_active'],
+      row['last_activity_at'],
+      row['started_at'],
+    ].whereType<num>().fold<num>(0, max);
+    return activity > lastRead;
   }
 
   /// The session-changing calls take the [profile] the session was listed
