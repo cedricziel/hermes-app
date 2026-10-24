@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -54,6 +55,7 @@ class _NotificationsDialog extends StatelessWidget {
 
   Widget _build(BuildContext context) {
     final settings = context.watch<NotificationSettings>();
+    final platform = Theme.of(context).platform;
     return GroupedDialog(
       title: 'Notifications',
       children: [
@@ -95,6 +97,27 @@ class _NotificationsDialog extends StatelessWidget {
             ),
           ],
         ),
+        if (platform
+            case TargetPlatform.android ||
+                TargetPlatform.iOS ||
+                TargetPlatform.macOS
+            when !kIsWeb)
+          GroupedSection(
+            footer:
+                'When a Hermes profile starts a chat for you, while the app is '
+                '${platform == TargetPlatform.macOS ? 'open' : 'open or when the system lets it check in the background'}. '
+                'The text stays hidden while App Lock is on.',
+            children: [
+              GroupedSwitchRow(
+                key: const Key('agent-messages'),
+                title: 'Messages from Hermes',
+                value: settings.agentMessages,
+                onChanged: settings.enabled
+                    ? (value) => settings.setAgentMessages(value)
+                    : null,
+              ),
+            ],
+          ),
         if (liveActivities case final activities?)
           GroupedSection(
             footer:

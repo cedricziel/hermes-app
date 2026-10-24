@@ -93,7 +93,7 @@ The system SHALL open the chat a notification was posted for when the user taps 
 
 ### Requirement: Messages from Hermes setting
 
-The system SHALL offer a "Messages from Hermes" switch among the notification settings, on by default, that applies only while the general notification setting is on, and explains that it announces chats a Hermes profile starts for the user, that they arrive while the app is open or when the system lets it check in the background, and that the text is hidden while App Lock is on. Turning it off SHALL stop the looks for messages from Hermes. Turning it on again, or turning the general notification setting on again while it is on, SHALL start from a new record so that messages delivered meanwhile are not announced. The switch position SHALL be persisted across launches.
+The system SHALL offer a "Messages from Hermes" switch among the notification settings on Android, iOS and macOS, and not on Linux or Windows, on by default, that applies only while the general notification setting is on, and explains that it announces chats a Hermes profile starts for the user, that they arrive while the app is open (on Android and iOS, also when the system lets it check in the background), and that the text is hidden while App Lock is on. Turning it off SHALL stop the looks for messages from Hermes. Turning it on again, or turning the general notification setting on again while it is on, SHALL start from a new record so that messages delivered meanwhile are not announced. The switch position SHALL be persisted across launches.
 
 #### Scenario: Default
 
