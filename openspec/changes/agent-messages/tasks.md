@@ -31,4 +31,5 @@ Four PRs, each under about 500 changed lines with tests, merged in order. Each e
 
 - [x] 4.1 Write failing `AgentMessagesStep` tests: quiet while the app is in front or notifications are off, skipped with the setting off, nothing written or posted when the profile list is unreadable (including the `[null]` fallback), signed out, locked or unreachable; profiles listed in parallel; record written before posting; a chat announced here is not announced again by the watcher; span attribute `agent_messages.found` and the `background: true` log. Then implement it in `lib/src/background/` and add it to `_defaultSteps`.
 - [x] 4.2 Update `CLAUDE.md` (Notifications and background paragraphs: watcher, step, record, tap path, mark read) and the `verify-in-app` skill (how to send a delivery with the plugin on a dev backend).
-- [ ] 4.3 Run format, analyze and test, all passing, and check the step on an Android emulator or iOS simulator by triggering the background task while suspended (or note in the PR why it could not be run).
+- [x] 4.3 Run format, analyze and test, all passing.
+- [ ] 4.4 Check the step on an Android emulator or iOS simulator by triggering the background task while suspended (or note in the PR why it could not be run).
