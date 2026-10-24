@@ -611,6 +611,10 @@ model:
   websocket script without it sees the command blocked instead.
 - Hermes runs some agent-level tools (`todo_list`) without `tool.start` or
   `tool.complete`: only `tool.generating` arrives.
+- To see a memory write waiting for approval, add `memory:\n  write_approval: true` to the home's `config.yaml`; the model then has to
+  call the `memory` tool (`fake_tool_model.py` has no such turn yet), and `tool.complete` for a
+  successful call only arrives while the profile's tool progress display is
+  not off. Approve or Reject on the card runs `/memory approve|reject <id>`.
 
 ## On Linux (cloud containers)
 

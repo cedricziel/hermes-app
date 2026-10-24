@@ -35,7 +35,7 @@ Platforms: iOS, iPadOS, Android, macOS, Windows, Linux. No native, entitlement, 
 
 **Text as + and − lines.** For add: `+ <content>`. For replace/patch: `− <old_text>` then `+ <content>`. For remove: `− <old_text>`. For `operations` (a list of the same shapes), one block per operation. The text is inert, selectable, and capped by `ToolBodyFrame`'s height.
 
-**Status of a full call.** The tool card's status for a `full` outcome is a warning ("Did not fit"), not failed, so the chat spec's failed rule gets an exception for this case. The body text: "<Tab> are at X of Y characters, so this entry did not fit. Nothing was saved; Hermes usually makes room and tries again." with X and Y from `usage`.
+**Status of a full call.** The tool card's status for a `full` outcome is the new `ToolCallStatus.warning` (a warning icon), not failed (`toolResultStatus(result, name: 'memory')`, used for live events and history alike), so the chat spec's failed rule gets an exception for this case. The body text: "<Tab> are at X of Y characters, so this entry did not fit. Nothing was saved; Hermes usually makes room and tries again." with X and Y from `usage`.
 
 **Actions without making the body stateful in the chat model.** `toolCallBody` stays a pure function of the call; the staged body reads a `MemoryDecisions` object from the widget tree (provided by `chat_thread_bindings.dart` for the chat screen, conversation windows and the quick panel) holding `decide(threadId, profile, pendingId, approve)` and a per-id state (`idle`, `running`, `saved`, `rejected`, `failed(text)`). Without a provider (catalog, tests) the buttons are hidden. The state lives in memory for the open thread and is dropped with it; after the history is read again a staged card shows its actions again, and deciding it twice returns Hermes' own answer, which is shown.
 
@@ -46,9 +46,9 @@ Platforms: iOS, iPadOS, Android, macOS, Windows, Linux. No native, entitlement, 
 
 A transport error shows "Couldn't reach Hermes. Try again." and keeps the buttons. The parser lives in `lib/src/memory/memory_decisions.dart` so `memory-proposals` reuses it.
 
-**Review note link.** `ReviewSummaryNote` takes an optional `onOpenMemory`; when set the row ends with a "Memory" link button. `chat_builders.dart` sets it to open `MemoryDestination(profile: <chat's profile>)` when the profile is known and the chat has a dashboard connection.
+**Review note link.** The review notes no longer render under the reply: `MemoryActivityCard` shows them in the Activity panel. It takes an optional `onOpenMemory`; when set, its review section ends with a "Memory" link button. `BoundActivityPanel` sets it to open `MemoryDestination(profile: <chat's profile>)` when the profile is known and the chat has a repository, pushing `MemoryDestination(profile:)`.
 
-**Widgets.** `MemoryToolBody` (outcome, tab, texts, decision state, callbacks) and the link variant of `ReviewSummaryNote`, catalogued first in `widgetbook/chat_use_cases.dart`.
+**Widgets.** `MemoryToolBody` (outcome, decision state, callback) and the link variant of `MemoryActivityCard`, catalogued first in `widgetbook/memory_tool_use_cases.dart`.
 
 **Invariants touched.** API layering: no REST call; the commands go over the existing gateway socket through `ChatTransport`. Privacy: nothing new is stored; texts stay in the chat's memory. Telemetry: no text or id.
 

@@ -468,7 +468,7 @@ class HermesChatRepository {
             args: args,
             status: result == null
                 ? ToolCallStatus.completed
-                : toolResultStatus(data ?? result),
+                : toolResultStatus(data ?? result, name: name),
             result: result ?? '',
             resultData: data,
             reasoning: calls.isEmpty ? reasoning : '',

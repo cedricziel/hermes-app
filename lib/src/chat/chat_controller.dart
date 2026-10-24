@@ -15,6 +15,7 @@ import '../background/running_replies.dart';
 import '../core/safe_notifier.dart';
 import '../bot_mode/bot_chat_context.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
+import '../memory/memory_decisions.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
 import '../models/model_options_state.dart';
@@ -453,6 +454,25 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _sideResults = <ChatThread, SideResultState>{};
   SideResultState? sideResultsIn(ChatThread thread) =>
       _ChatControllerSessionBinding(this)._sideResultsInImpl(thread);
+
+  final _memoryDecisions = <ChatThread, MemoryDecisions>{};
+
+  /// The staged memory writes of [thread], approved or rejected through its
+  /// session. They are dropped with the thread.
+  MemoryDecisions memoryDecisionsIn(ChatThread thread) =>
+      _memoryDecisions.putIfAbsent(
+        thread,
+        () => MemoryDecisions(
+          available: () => active && thread.remote && transport != null,
+          run: (command) async => (await transport!.runSlashCommand(
+            threadId: thread.id,
+            profile: _profile,
+            command: command,
+          )).output,
+          telemetry: usageTelemetry,
+          breadcrumbs: breadcrumbs,
+        ),
+      );
 
   final _processOutputs = <ChatThread, ProcessOutputState>{};
   ProcessOutputState? processOutputsIn(ChatThread thread) =>
@@ -1112,6 +1132,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _reactions.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
     _processOutputs.remove(thread)?.clear();
+    _memoryDecisions.remove(thread)?.dispose();
     _sessionStates.remove(thread);
     _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();

@@ -3,6 +3,7 @@ import 'messenger_identity_use_cases.dart';
 import 'reaction_use_cases.dart';
 import 'billing_verification_use_cases.dart';
 import 'change_invalidation_use_cases.dart';
+import 'memory_tool_use_cases.dart';
 import 'memory_use_cases.dart';
 import 'session_usage_use_cases.dart';
 import 'connector_operation_use_cases.dart';
@@ -94,6 +95,7 @@ final List<WidgetbookNode> directories = [
   dialogsNode(),
   chatNode(),
   memoryNode(),
+  memoryToolNode(),
   sessionUsageNode(),
   connectorOperationNode(),
   sideResultNode(),

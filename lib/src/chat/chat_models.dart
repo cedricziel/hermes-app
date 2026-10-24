@@ -21,7 +21,7 @@ enum MessageStatus { sent, thinking, streaming, error }
 
 /// Where a tool call stands. [cancelled] is a call the reply stopped before
 /// it finished, or one the model began to write but never ran.
-enum ToolCallStatus { running, completed, error, cancelled }
+enum ToolCallStatus { running, completed, warning, error, cancelled }
 
 /// A single tool invocation surfaced inline in an assistant message, e.g.
 /// Hermes running a shell command or a web search on the user's behalf.

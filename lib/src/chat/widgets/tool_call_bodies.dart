@@ -5,6 +5,7 @@ import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../tool_result.dart';
+import 'memory_tool_body.dart';
 
 /// What an opened [ToolCall] card shows for the tools that have a view of
 /// their own — assistant-ui's per-tool renderers. Null for any other tool,
@@ -27,6 +28,7 @@ Widget? toolCallBody(ToolCall call) {
     'terminal' => TerminalToolBody.of(call),
     'web_search' => WebSearchToolBody.of(call),
     'todo_list' || 'todo' => TodoToolBody.of(call),
+    'memory' => MemoryToolBody.of(call),
     _ => null,
   };
 }
