@@ -521,6 +521,11 @@ registration; the same few lines in Python work) and add a server with `"auth":"
 provider, so the flow ends by Cancel or after Hermes' five minute timeout. A cancelled flow keeps the server's
 "already in progress" slot for a moment until Hermes' worker ends, so an immediate second start answers 409.
 
+Memory: the built-in files are `$HERMES_HOME/memories/USER.md` (About you) and `MEMORY.md` (Agent notes), entries
+joined by `"\n§\n"`; write them under `.dart_tool/hermes-dev/home` and the learning graph lists them. Limits are
+`memory.user_char_limit` (1375) and `memory.memory_char_limit` (2200) in the config. A file near its limit shows
+the warning bar; the memory tool's usage report after a save in a chat is the number to compare with.
+
 Screens behind a tap: press your way there with `scripts/ax.swift` (see
 "Through the accessibility tree"). If the control has no name, add a
 temporary change that opens the screen (a post-frame callback calling the `_open…` method) or

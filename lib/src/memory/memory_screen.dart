@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/content_column.dart';
-import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'memory_controller.dart';
 import 'memory_repository.dart';
+import 'memory_usage.dart';
+import 'widgets/memory_entry_editor.dart';
+import 'widgets/memory_entry_list.dart';
 
 class MemoryScreen extends StatefulWidget {
   const MemoryScreen({
@@ -21,9 +23,51 @@ class MemoryScreen extends StatefulWidget {
   State<MemoryScreen> createState() => _MemoryScreenState();
 }
 
-class _MemoryScreenState extends State<MemoryScreen> {
+class _MemoryScreenState extends State<MemoryScreen>
+    with SingleTickerProviderStateMixin {
   bool _allowPop = false;
+  bool _switching = false;
+  late final _tabs = TabController(length: MemoryTab.values.length, vsync: this)
+    ..addListener(_onTab);
   MemoryController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_syncTab);
+  }
+
+  @override
+  void dispose() {
+    controller.removeListener(_syncTab);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  void _syncTab() {
+    if (_tabs.index != controller.tab.index) _tabs.index = controller.tab.index;
+  }
+
+  Future<void> _onTab() async {
+    final next = MemoryTab.values[_tabs.index];
+    if (_switching || next == controller.tab) return;
+    _switching = true;
+    final leave = await _leave();
+    _switching = false;
+    if (!mounted) return;
+    if (leave) {
+      controller.selectTab(next);
+    } else {
+      _tabs.index = controller.tab.index;
+    }
+  }
+
+  String? _place() {
+    final open = controller.selected, position = controller.position;
+    if (open == null || position == null) return null;
+    return 'Entry ${position.index} of ${position.count} in '
+        '${open.tab.label} (${open.tab.file})';
+  }
 
   Future<bool> _leave() async {
     if (!controller.needsLeaveConfirmation) return true;
@@ -116,8 +160,12 @@ class _MemoryScreenState extends State<MemoryScreen> {
                     ),
                 ],
               ),
+        tabs: [for (final tab in MemoryTab.values) tab.label],
+        tabController: _tabs,
         body: MemoryView(
-          entries: controller.entries,
+          usage: controller.usageOf(controller.tab),
+          entries: controller.entriesIn(controller.tab),
+          place: _place(),
           selected: controller.selected,
           detail: controller.detail,
           loading: controller.loading,
@@ -157,65 +205,27 @@ class MemoryEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pending = controller.mutation == MemoryMutation.pending;
-    final blocked =
-        pending ||
-        controller.mutation == MemoryMutation.uncertain ||
-        controller.mutation == MemoryMutation.conflict;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (controller.editing)
-          TextFormField(
-            key: ValueKey(controller.detail),
-            initialValue: controller.draft,
-            enabled: !pending,
-            minLines: 4,
-            maxLines: null,
-            decoration: const InputDecoration(
-              labelText: 'Full memory content',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: controller.setDraft,
-          ),
-        if (controller.mutationMessage != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(controller.mutationMessage!),
-          ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (!controller.editing)
-              TextButton(
-                onPressed: blocked ? null : controller.beginEdit,
-                child: const Text('Edit'),
-              ),
-            if (controller.editing)
-              FilledButton(
-                onPressed: controller.canSave
-                    ? () => controller.mutate(delete: false)
-                    : null,
-                child: Text(pending ? 'Saving...' : 'Save'),
-              ),
-            if (controller.editing)
-              TextButton(
-                onPressed: pending ? null : onCancel,
-                child: const Text('Cancel edit'),
-              ),
-            TextButton(
-              onPressed: blocked ? null : onDelete,
-              child: const Text('Delete'),
-            ),
-            if (controller.mutation == MemoryMutation.uncertain)
-              TextButton(
-                onPressed: controller.reconcile,
-                child: const Text('Check current memories'),
-              ),
-          ],
-        ),
-        if (pending) const LinearProgressIndicator(),
-      ],
+    final uncertain = controller.mutation == MemoryMutation.uncertain;
+    return MemoryEntryEditor(
+      tab: controller.selected?.tab ?? controller.tab,
+      editing: controller.editing,
+      draft: controller.draft,
+      fieldKey: controller.detail,
+      left: controller.leftWithDraft,
+      message: controller.mutationMessage,
+      pending: pending,
+      blocked:
+          pending ||
+          uncertain ||
+          controller.mutation == MemoryMutation.conflict,
+      canSave: controller.canSave,
+      uncertain: uncertain,
+      onChanged: controller.setDraft,
+      onEdit: controller.beginEdit,
+      onSave: () => controller.mutate(delete: false),
+      onCancel: onCancel,
+      onDelete: onDelete,
+      onCheck: controller.reconcile,
     );
   }
 }
@@ -223,7 +233,9 @@ class MemoryEditor extends StatelessWidget {
 class MemoryView extends StatelessWidget {
   const MemoryView({
     super.key,
+    this.usage = const MemoryUsage(used: 0, entries: 0),
     this.entries = const [],
+    this.place,
     this.selected,
     this.detail,
     this.loading = false,
@@ -236,7 +248,13 @@ class MemoryView extends StatelessWidget {
   });
   final bool showContent;
   final Widget? editor;
+  final MemoryUsage usage;
+
+  /// The entries of the file shown.
   final List<MemoryEntry> entries;
+
+  /// Where the open entry lives, such as "Entry 2 of 4 in About you (USER.md)".
+  final String? place;
   final MemoryEntry? selected;
   final MemoryDetail? detail;
   final bool loading;
@@ -270,6 +288,14 @@ class MemoryView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextButton(onPressed: onBack, child: const Text('All memories')),
+              if (place != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    place!,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
               const SizedBox(height: 12),
               if (showContent) SelectableText(opened.content),
               if (editor != null) ...[const SizedBox(height: 20), editor!],
@@ -278,33 +304,11 @@ class MemoryView extends StatelessWidget {
         ),
       );
     }
-    if (entries.isEmpty) {
-      return ContentColumn(
-        child: StateMessage(
-          title: 'No memories in this profile',
-          action: FilledButton(
-            onPressed: onRefresh,
-            child: const Text('Refresh'),
-          ),
-        ),
-      );
-    }
-    return GroupedListView(
-      children: [
-        GroupedSection(
-          children: [
-            for (final entry in entries)
-              GroupedRow(
-                title: entry.label,
-                subtitle: entry.tab.label,
-                onTap: () => onOpen(entry),
-              ),
-          ],
-        ),
-        GroupedSection(
-          children: [GroupedRow(title: 'Refresh', onTap: onRefresh)],
-        ),
-      ],
+    return MemoryEntryList(
+      usage: usage,
+      entries: [for (final entry in entries) entry.text],
+      onOpen: (index) => onOpen(entries[index]),
+      onRefresh: onRefresh,
     );
   }
 }

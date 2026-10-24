@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_screen.dart';
+import 'package:hermes_app/src/memory/memory_usage.dart';
+import 'package:hermes_app/src/memory/widgets/memory_entry_editor.dart';
+import 'package:hermes_app/src/memory/widgets/memory_entry_list.dart';
+import 'package:hermes_app/src/memory/widgets/memory_fill_bar.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
@@ -21,18 +25,63 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
       ...onEachPlatform(state, (_) => _editor(state)),
     ...onEachPlatform('Loading', (_) => _view(loading: true)),
     ...onEachPlatform('Empty', (_) => _view()),
-    ...onEachPlatform(
-      'Sources',
-      (_) => _view(
-        entries: const [
-          MemoryEntry('memory', 'Preferred language', source: 'memory'),
-          MemoryEntry('user', 'Work preferences', source: 'profile'),
-        ],
+    for (final (state, usage) in [
+      ('Fill bar', _usage([300, 300, 306], limit: 1375)),
+      ('Fill bar, nearly full', _usage([2100], limit: 2200)),
+      ('Fill bar, no limit known', _usage([300, 300])),
+      ('Fill bar, lower bound', _usage([1200, 40], limit: 1375, cut: true)),
+      ('Fill bar, empty', _usage([], limit: 1375)),
+    ])
+      ...onEachPlatform(state, (_) => frame(MemoryFillBar(usage: usage))),
+    for (final (state, texts, usage) in [
+      (
+        'Entries',
+        _entries,
+        _usage([for (final text in _entries) text.length], limit: 1375),
       ),
-    ),
+      ('Entries, nearly full', _entries, _usage([1300], limit: 1375)),
+      ('Entries, empty', const <String>[], _usage([], limit: 1375)),
+    ])
+      ...onEachPlatform(
+        state,
+        (_) => Scaffold(
+          body: MemoryEntryList(
+            usage: usage,
+            entries: texts,
+            onOpen: (_) {},
+            onRefresh: () {},
+          ),
+        ),
+      ),
+    for (final (state, draft, left) in [
+      ('Editor, viewing', null, 463),
+      ('Editor, characters left', 'Prefers metric units.', 453),
+      ('Editor, over the limit', 'Prefers metric units.', -137),
+      ('Editor, no limit known', 'Prefers metric units.', null),
+    ])
+      ...onEachPlatform(
+        state,
+        (_) => Scaffold(
+          body: frame(
+            MemoryEntryEditor(
+              tab: MemoryTab.aboutYou,
+              editing: draft != null,
+              draft: draft,
+              left: left,
+              onChanged: (_) {},
+              onEdit: () {},
+              onSave: () {},
+              onCancel: () {},
+              onDelete: () {},
+              onCheck: () {},
+            ),
+          ),
+        ),
+      ),
     ...onEachPlatform(
       'Full content',
       (_) => _view(
+        place: 'Entry 2 of 4 in About you (USER.md)',
         detail: MemoryDetail(
           const MemoryEntry('memory', 'Preferred language'),
           'User prefers Dart examples.\n${'Full memory content. ' * 100}',
@@ -50,14 +99,29 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
   ],
 );
 
+const _entries = [
+  'Prefers metric units and 24-hour times.',
+  'Works in Berlin, usually answers in the evening.',
+  'Dislikes long introductions; wants the answer first.',
+];
+
+MemoryUsage _usage(List<int> sizes, {int? limit, bool cut = false}) =>
+    MemoryUsage.of(
+      [for (final size in sizes) 'x' * size],
+      limit: limit,
+      lowerBound: cut,
+    );
+
 Widget _view({
   List<MemoryEntry> entries = const [],
   MemoryDetail? detail,
   bool loading = false,
   MemoryFailure? failure,
+  String? place,
 }) => Scaffold(
   body: MemoryView(
     entries: entries,
+    place: place,
     detail: detail,
     selected: detail?.entry,
     loading: loading,

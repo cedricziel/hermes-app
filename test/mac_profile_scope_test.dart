@@ -284,6 +284,9 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('profile-section-memory')));
     await tester.pumpAndSettle();
+    // The nodes name no memorySource, so they are listed under Agent notes.
+    await tester.tap(find.text('Agent notes'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Note 1'), findsOneWidget);
     expect(
