@@ -108,17 +108,52 @@ void main() {
       expect(await record.read('acct'), {'work': 300});
     });
 
-    test('never moves a profile backwards', () async {
+    test('drops a profile the list no longer names', () async {
       await record.write('acct', {'work': 100, 'home': 50});
 
       final wrote = await record.writeIfCurrent(
         'acct',
         expected: {'work': 100, 'home': 50},
-        {'work': 40},
+        {'work': 100},
       );
 
       expect(wrote, isTrue);
       expect(await record.read('acct'), {'work': 100});
+    });
+
+    test('reads a corrupt stored value as none', () async {
+      await SharedPreferencesAsync().setString(
+        'hermes.agent_messages.baseline.v1',
+        'not json',
+      );
+
+      expect(
+        await record.writeIfCurrent('acct', expected: {'work': 1}, {'work': 2}),
+        isFalse,
+      );
+      expect(
+        await record.writeIfCurrent('acct', expected: null, {'work': 2}),
+        isTrue,
+      );
+      expect(await record.read('acct'), {'work': 2});
+    });
+
+    test("reads another account's record as none", () async {
+      await record.write('other', {'work': 100});
+
+      expect(
+        await record.writeIfCurrent(
+          'acct',
+          expected: {'work': 100},
+          {'work': 200},
+        ),
+        isFalse,
+      );
+      expect(
+        await record.writeIfCurrent('acct', expected: null, {'work': 200}),
+        isTrue,
+      );
+      expect(await record.read('acct'), {'work': 200});
     });
 
     test('lets only one of two looks with the same record write', () async {

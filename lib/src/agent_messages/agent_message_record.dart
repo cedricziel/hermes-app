@@ -54,12 +54,12 @@ class AgentMessageRecord {
 
   /// Saves [next] as [account]'s only if the stored record still is what the
   /// look read as [expected] (null for none), and says whether it did. When it
-  /// did not, another look owns the messages [next] stands for. A profile
-  /// never moves back: the stored value wins when it is higher. Throws when
-  /// the record cannot be read or saved.
+  /// did not, another look owns the messages [next] stands for. [next] replaces
+  /// the record as it is: a profile the server no longer lists drops out of it
+  /// on purpose. Throws when the record cannot be read or saved.
   ///
   /// The check and the write are not atomic with another isolate's; this
-  /// narrows the window the lookups of a long text read leave open.
+  /// narrows the window a long text read leaves open.
   Future<bool> writeIfCurrent(
     String account,
     Map<String, double> next, {
@@ -70,12 +70,7 @@ class AgentMessageRecord {
       if (stored == null ? expected != null : !mapEquals(stored, expected)) {
         return false;
       }
-      await write(account, {
-        for (final MapEntry(:key, :value) in next.entries)
-          key: stored != null && (stored[key] ?? value) > value
-              ? stored[key]!
-              : value,
-      });
+      await write(account, next);
       return true;
     });
     _tail = done.then((_) {}, onError: (Object _) {});
