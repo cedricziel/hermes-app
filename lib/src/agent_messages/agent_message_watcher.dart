@@ -17,6 +17,16 @@ import 'agent_message_record.dart';
 import 'find_messages.dart';
 import 'message_alerts.dart';
 
+/// Whether messages from Hermes are looked for on [platform] (the running one
+/// when null): only where the app runs on a phone or a Mac.
+bool agentMessagesSupported([TargetPlatform? platform]) =>
+    !kIsWeb &&
+    const {
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }.contains(platform ?? defaultTargetPlatform);
+
 /// The profiles that had a message from Hermes in the latest look that found
 /// one, for the chat list to reload.
 class AgentMessageFinds extends ChangeNotifier {
@@ -57,13 +67,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
        _account = account ?? _noAccount,
        _platform = platform,
        _clock = clock ?? DateTime.now,
-       _supported =
-           !kIsWeb &&
-           const {
-             TargetPlatform.android,
-             TargetPlatform.iOS,
-             TargetPlatform.macOS,
-           }.contains(platform ?? defaultTargetPlatform) {
+       _supported = agentMessagesSupported(platform) {
     _foreground = AppPresence.foreground(
       WidgetsBinding.instance.lifecycleState,
       platform: platform,
@@ -272,9 +276,13 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       // in front.
       final summary = found.messages.length > kSummaryAbove;
       var locked = appLock();
-      final texts = found.messages.isEmpty || summary || locked
-          ? const <({String profile, String id}), String>{}
-          : await _texts(found);
+      final reads = found.messages.isNotEmpty && !summary && !locked;
+      final texts = reads
+          ? await _texts(found)
+          : const <({String profile, String id}), String>{};
+      final shown = reads
+          ? shownProfile?.call() ?? await _activeProfile()
+          : null;
       if (!_current(epoch)) return;
 
       final postEpoch = _postEpoch;
@@ -295,7 +303,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       var alerts = messageAlertsFor(
         found,
         texts,
-        shownProfile: shownProfile?.call(),
+        shownProfile: shown,
         appLock: locked,
       );
       for (var i = 0; i < alerts.length; i++) {
@@ -305,7 +313,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
           alerts = messageAlertsFor(
             found,
             const {},
-            shownProfile: shownProfile?.call(),
+            shownProfile: shown,
             appLock: true,
           );
         }
@@ -335,6 +343,18 @@ class AgentMessageWatcher with WidgetsBindingObserver {
           'background': false,
         });
       }
+    }
+  }
+
+  /// The server's active profile, for a message of another one to say which
+  /// when the chat screen has not reported the profile it shows. Null when it
+  /// cannot be read in time.
+  Future<String?> _activeProfile() async {
+    try {
+      final active = (await profiles.loadActive().timeout(lookup)).active;
+      return active.isEmpty ? null : active;
+    } on Object {
+      return null;
     }
   }
 
