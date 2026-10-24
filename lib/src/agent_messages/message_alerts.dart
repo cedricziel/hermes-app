@@ -1,6 +1,6 @@
-import 'agent_delivery.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/request_notifications.dart';
+import 'agent_delivery.dart';
 import 'find_messages.dart';
 
 const kMessageFallbackTitle = 'Message from Hermes';
