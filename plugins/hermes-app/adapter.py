@@ -27,6 +27,25 @@ def parse_target(target: str):
     return ("inbox", None) if target == "inbox" else None
 
 
+_TITLE_ATTEMPTS = 20
+
+
+def _set_unique_title(db, session_id: str, title: str) -> None:
+    # Hermes enforces unique titles. Trying each name and catching the
+    # ValueError (rather than checking first) stays correct under concurrent
+    # sends.
+    limit = db.MAX_TITLE_LENGTH
+    suffixes = [""] + [f" ({n})" for n in range(2, _TITLE_ATTEMPTS + 1)]
+    for suffix in suffixes:
+        try:
+            db.set_auto_title(session_id, title[: limit - len(suffix)] + suffix, source="derived")
+            return
+        except ValueError:
+            continue
+    suffix = f" [{uuid4().hex[:8]}]"
+    db.set_auto_title(session_id, title[: limit - len(suffix)] + suffix, source="derived")
+
+
 def _persist(home: Path, message: str) -> dict:
     from hermes_state import SessionDB
 
@@ -42,12 +61,7 @@ def _persist(home: Path, message: str) -> dict:
             # writes below must not see a read delivery and skip it for good.
             db.set_session_read(session_id, False)
             row_id = db.append_message(session_id, role="assistant", content=message)
-            try:
-                db.set_auto_title(session_id, title, source="derived")
-            except ValueError:
-                # Hermes enforces unique titles. Repeated reports still need
-                # independent deliveries, including concurrent sends.
-                db.set_auto_title(session_id, f"{title} [{uuid4().hex}]", source="derived")
+            _set_unique_title(db, session_id, title)
         except Exception:
             # Never leave a visible empty/partially delivered chat on failure.
             db.delete_session(session_id)

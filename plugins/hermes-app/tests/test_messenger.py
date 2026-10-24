@@ -107,6 +107,21 @@ class MessengerTest(unittest.TestCase):
         self.assertTrue(result.get("success"), result)
         self.assertEqual(unread_at, {"append_message": True, "set_auto_title": True})
 
+    def test_repeated_titles_get_short_numbers_then_a_random_suffix(self):
+        titles = []
+        for _ in range(22):
+            result = asyncio.run(self.entry.standalone_sender_fn(self.config, "inbox", "Daily report"))
+            self.assertTrue(result.get("success"), result)
+            from hermes_state import SessionDB
+            with SessionDB(db_path=self.home / "state.db") as db:
+                titles.append(db.get_session(result["session_id"])["title"])
+        self.assertEqual(titles[0], "Message: Daily report")
+        self.assertEqual(titles[1:3], ["Message: Daily report (2)", "Message: Daily report (3)"])
+        self.assertEqual(titles[19], "Message: Daily report (20)")
+        for title in titles[20:]:
+            self.assertRegex(title, r"^Message: Daily report \[[0-9a-f]{8}\]$")
+        self.assertEqual(len(set(titles)), 22)
+
     def test_cli_send_engine_routes_explicit_and_home_targets(self):
         for target in ("hermes_app:inbox", "hermes_app"):
             result = self.send("A routed message", target)
