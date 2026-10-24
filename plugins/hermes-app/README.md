@@ -1,13 +1,14 @@
 # Hermes App messenger
 
 A Hermes Agent platform plugin maintained with hermes-app. It registers
-`hermes_app` as a messaging destination, discoverable through the channel
-directory and `hermes send --list`. It also adds a bounded, session-frozen
+`hermes_app` as a messaging destination for `hermes send` and scheduled-job
+delivery (`hermes send --list` shows it once a gateway has run). It also adds a bounded, session-frozen
 prompt hint so the agent knows about the destination and its messaging skill.
 
 Delivery creates a new saved chat in the sending profile's `state.db`, using
-Hermes' public `SessionDB` API. Open that profile in Hermes App and refresh
-the chat list to read it; reply in the chat as usual. The dashboard's existing
+Hermes' public `SessionDB` API. Hermes App finds it and posts a notification;
+tap it to open the chat in its profile, and reply as usual. Opening it marks it
+read on the dashboard. The dashboard's existing
 authenticated session API serves these chats. Nothing listens on a new port,
 no app token is needed, and no third-party service receives the message.
 
@@ -57,6 +58,11 @@ ask “Send me a message in Hermes App.” The agent can load
 `hermes-app:messaging` and send with the CLI. Agent-generated text should be
 written to a file first, rather than interpolated into shell syntax.
 
+Hermes does not give the agent a tool to message other platforms on its own;
+cron delivery and the `hermes send` CLI are the ways out. The skill therefore
+sends only when the user asks, through the CLI, which needs a profile with the
+terminal tool.
+
 For scheduled output, select Hermes App in the schedule delivery picker, or
 use `deliver="hermes_app:inbox"` with Hermes' existing scheduler. Do not also
 ask the job's prompt to send: automatic delivery already sends the output.
@@ -73,9 +79,15 @@ ask the job's prompt to send: automatic delivery already sends the output.
 - The gateway adapter captures its profile home at construction; standalone
   sends resolve the current profile for each call. One profile cannot choose
   another profile through a delivery target.
-- Sending while the app is disconnected works. Messages appear when its chat
-  list next refreshes. This plugin does **not** implement live socket events,
-  APNs/FCM push, or guaranteed background notifications on suspended devices.
+- Sending while the app is disconnected works. Hermes App looks for new
+  deliveries once a minute while it is open (Android, iOS, macOS) and during
+  the iOS and Android background refresh, which the system schedules. Each
+  delivery is announced once per device. There is no APNs/FCM push, so a
+  closed or suspended app is not woken at once.
+- Registering the `hermes_app` platform also gives chats the app starts this
+  plugin's platform hint ("You are chatting in Hermes App. Markdown is
+  supported."), unless the profile already replaces it with the hint Hermes
+  App offers to write.
 
 ## Development
 

@@ -12,7 +12,8 @@ Use this skill when the user asks for a message in Hermes App.
 4. Remove the temporary file when finished.
 
 The message appears as a new saved chat in the current profile on the same
-Hermes dashboard. The user can refresh the chat list, open it, and reply.
+Hermes dashboard. Hermes App announces it with a notification and the user
+can open it and reply.
 Do not pass another profile unless the user explicitly names it. Never use
 an existing chat ID as the delivery target or append to a running conversation.
 
@@ -22,5 +23,6 @@ prompt must not send it again. Bare `deliver="hermes_app"` requires the home
 channel shown in this plugin's setup instructions.
 
 Messages are text-only, including Markdown. Attachments are rejected. Saved
-delivery works while the app is disconnected, but does not wake a suspended
-phone or produce APNs/FCM push notifications. Do not promise immediate alerts.
+delivery works while the app is disconnected. The app notices it within about
+a minute while it is open; a closed or suspended phone is not woken at once,
+so do not promise an immediate alert.

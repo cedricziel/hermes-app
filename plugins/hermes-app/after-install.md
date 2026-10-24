@@ -15,8 +15,8 @@ platforms:
 ```
 
 Restart the dashboard/gateway normally and start a new conversation so Hermes
-learns about the destination. Try `hermes send --to hermes_app:inbox 'Hello'`,
-then refresh the chat list in Hermes App under this profile.
+learns about the destination. Try `hermes send --to hermes_app:inbox 'Hello'`:
+Hermes App posts a notification for it, within about a minute while it is open.
 
-This saves a new, replyable chat on the server. It does not send device push
-notifications or wake a suspended phone. See this plugin's README for details.
+This saves a new, replyable chat on the server. A closed or suspended phone is
+not woken at once. See this plugin's README for details.

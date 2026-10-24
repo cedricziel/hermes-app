@@ -46,6 +46,8 @@ def _messaging_hint(session_info):
         "asks you to message them in Hermes App, load the skill "
         "hermes-app:messaging. Use `hermes send --to hermes_app:inbox --file PATH` "
         "to deliver UTF-8 text. Each send creates a new saved chat in the current "
-        "profile; the user can open it and reply. This does not send device push "
-        "notifications. Do not claim delivery unless the command succeeds."
+        "profile; the user can open it and reply. Hermes App announces it the next "
+        "time it checks, within about a minute while it is open; it is not an "
+        "instant push to a closed phone. Do not claim delivery unless the command "
+        "succeeds."
     )
