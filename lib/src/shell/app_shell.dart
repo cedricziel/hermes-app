@@ -197,6 +197,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         (_) => _offerHint(repositories, server),
       );
     }
+    _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
     if (service != null && settings != null && _cron != null) {
@@ -209,7 +210,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         account: () => accounts?.accountKey ?? '',
       )..paused = !_sessionAuthorized;
     }
-    if (service != null && settings != null && repositories != null) {
+    if (agentMessagesSupported() &&
+        service != null &&
+        settings != null &&
+        repositories != null) {
       final accounts = _maybeRead<AuthController>();
       _messages = AgentMessageWatcher(
         chat: repositories.chat,
@@ -231,7 +235,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     _detect();
     _deepLinks = _maybeRead<DeepLinks?>()?..addListener(_takeDeepLink);
-    _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
     // A link that came before this shell existed waited for sign-in.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _takeDeepLink(held: true),

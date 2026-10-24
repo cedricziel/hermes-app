@@ -2262,6 +2262,63 @@ void main() {
       expect(alert.body, 'Three builds failed');
     });
 
+    testWidgets('a chat of another profile than the one shown says which', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      server
+        ..on(
+          'GET',
+          '/api/profiles',
+          profileListBody([profileRow(name: 'work'), profileRow(name: 'home')]),
+        )
+        ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+        ..on('GET', '/api/sessions', sessionListBody([]))
+        ..on(
+          'GET',
+          '/api/sessions/hermes-app-new/messages',
+          messageListBody('hermes-app-new', [
+            messageRow(
+              id: 1,
+              role: 'assistant',
+              content: 'Three builds failed',
+            ),
+          ]),
+        );
+      void inboxOf(String profile, List<Map<String, Object?>> rows) =>
+          server.on(
+            'GET',
+            '/api/sessions',
+            sessionListBody(rows),
+            query: {'source': 'hermes_app', 'profile': profile},
+          );
+      inboxOf('work', []);
+      inboxOf('home', [delivered('hermes-app-old', 100, 'Message: Old')]);
+      final settings = NotificationSettings();
+      addTearDown(settings.dispose);
+      await tester.runAsync(settings.load);
+      final auth = FakeSessionAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        settings: settings,
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+
+      inboxOf('home', [
+        delivered('hermes-app-new', 200, 'Message: Report'),
+        delivered('hermes-app-old', 100, 'Message: Old'),
+      ]);
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+
+      final alert = notifications.shown.single;
+      expect(alert.profile, 'home');
+      expect(alert.title, 'Message: Report (home)');
+    });
+
     testWidgets('a signed-out shell looks at nothing', (tester) async {
       kanbanPlugin(on: false);
       final auth = FakeSessionAuth()..allowed = false;
