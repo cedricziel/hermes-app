@@ -204,10 +204,15 @@ class HeadlessHermes {
   /// The repositories the app's screens use.
   HermesRepositories get repositories => _connection.repositories;
 
-  /// The server's profile names; `[null]`, the server's default profile, when
-  /// they cannot be read. Throws once the session has failed, so that the run
-  /// ends as signed out rather than with a default profile.
-  Future<List<String?>> profiles() async {
+  Future<List<String?>>? _profileNames;
+
+  /// The server's profile names, read once per run; `[null]`, the server's
+  /// default profile, when they cannot be read. Throws once the session has
+  /// failed, so that the run ends as signed out rather than with a default
+  /// profile.
+  Future<List<String?>> profiles() => _profileNames ??= _readProfiles();
+
+  Future<List<String?>> _readProfiles() async {
     try {
       final names = [
         for (final profile in await repositories.profiles.list()) profile.name,

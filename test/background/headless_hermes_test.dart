@@ -218,6 +218,20 @@ void main() {
       expect(spanOutcome(), 'ok');
     });
 
+    test('reads the profile names once per run', () async {
+      final outcome = await run((hermes) async {
+        final first = await hermes.profiles();
+        final second = await hermes.profiles();
+        return [first, second];
+      });
+
+      expect((outcome as HeadlessDone).value, [
+        ['default', 'work'],
+        ['default', 'work'],
+      ]);
+      expect(dashboard.server.requestsTo('GET', '/api/profiles'), hasLength(1));
+    });
+
     test('is signed out when no server is saved', () async {
       SharedPreferencesAsyncPlatform.instance =
           InMemorySharedPreferencesAsync.empty();
