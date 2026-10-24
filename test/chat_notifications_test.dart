@@ -435,6 +435,21 @@ void main() {
         expect(find.text('Could not open that chat.'), findsNothing);
       });
 
+      testWidgets('a launch on another profile switches and fetches', (
+        tester,
+      ) async {
+        service
+          ..launchThread = 'hermes-app-1'
+          ..launchProfile = 'home'
+          ..launchMessage = true;
+
+        await pump(tester, withProfiles: true);
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(selected(tester), 'hermes-app-1');
+        expect(find.text('Could not open that chat.'), findsNothing);
+      });
+
       testWidgets('a tap for a deleted chat says so', (tester) async {
         await pump(tester, withProfiles: true);
 

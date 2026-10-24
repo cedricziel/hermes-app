@@ -197,6 +197,21 @@ void main() {
       expect(target.profile, 'work');
     });
 
+    test('round-trips a message from Hermes and the summary', () {
+      final message = roundTrip(
+        const NotificationTarget.message(
+          threadId: 'hermes-app-1',
+          profile: 'w',
+        ),
+      )!;
+      expect(message.isMessage, isTrue);
+      expect(message.threadId, 'hermes-app-1');
+      expect(message.profile, 'w');
+
+      final summary = roundTrip(const NotificationTarget.messages())!;
+      expect(summary.isMessageSummary, isTrue);
+    });
+
     test('round-trips a thread without a profile', () {
       final target = roundTrip(const NotificationTarget(threadId: 's1'))!;
 

@@ -18,7 +18,11 @@ const _channelName = 'Agent activity';
 
 /// The payload a notification for [target] carries.
 String encodeTarget(NotificationTarget target) => jsonEncode({
-  if (target.isJob) 'j': target.jobId else 't': target.threadId,
+  if (target.isMessage) 'm': 1,
+  if (target.isJob)
+    'j': target.jobId
+  else if (!target.isMessageSummary)
+    't': target.threadId,
   'p': ?target.profile,
 });
 

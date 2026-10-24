@@ -28,6 +28,9 @@ class FakeNotificationService
   /// The profile of the notification that started the app, if any.
   String? launchProfile;
 
+  /// Whether that notification is about a message from Hermes.
+  bool launchMessage = false;
+
   /// The scheduled task whose notification started the app, if it was one.
   String? launchJob;
 
@@ -106,9 +109,17 @@ class FakeNotificationService
     if (launchJob != null) {
       return NotificationTarget.job(jobId: launchJob!, profile: launchProfile);
     }
-    return launchThread == null
-        ? null
-        : NotificationTarget(threadId: launchThread!, profile: launchProfile);
+    return switch (launchThread) {
+      null => null,
+      final thread when launchMessage => NotificationTarget.message(
+        threadId: thread,
+        profile: launchProfile,
+      ),
+      final thread => NotificationTarget(
+        threadId: thread,
+        profile: launchProfile,
+      ),
+    };
   }
 
   @override
