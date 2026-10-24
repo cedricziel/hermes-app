@@ -14,7 +14,7 @@ import "./MacProfilesPage.css";
 
 /** What a profile's home holds, by the screen that manages it. */
 export type ProfileSection =
-  "skills" | "messaging" | "plugins" | "mcp" | "helperModels";
+  "skills" | "memory" | "messaging" | "plugins" | "mcp" | "helperModels";
 
 const sections: {
   id: ProfileSection;
@@ -27,6 +27,12 @@ const sections: {
     label: "Skills",
     detail: "What the agent knows how to do",
     icon: "auto_awesome",
+  },
+  {
+    id: "memory",
+    label: "Memory",
+    detail: "What Hermes remembers about you and your setup",
+    icon: "bookmark_added",
   },
   {
     id: "messaging",
@@ -60,9 +66,9 @@ export interface MacProfilesPageProps {
   /** Name of the selected profile, whose home the right side shows. */
   selected?: string;
   /**
-   * How many of each the selected profile holds: skills, messaging
-   * platforms switched on, plugins switched on, MCP servers and helper
-   * model slots. A section left out (still loading, or unreadable) shows no
+   * How many of each the selected profile holds: skills, memory entries,
+   * messaging platforms switched on, plugins switched on, MCP servers and
+   * helper model slots. A section left out (still loading, or unreadable) shows no
    * count. Every count is the selected profile's own, Messaging (#445) and
    * Plugins (#497) included.
    */
@@ -84,7 +90,7 @@ export interface MacProfilesPageProps {
  * instead of the pushed `ProfilesScreen`): a `MacToolbar` with New Profile,
  * the profiles in a 220px source list on the left, and the selected
  * profile's home on the right: its avatar, name and path, then a card of
- * what it holds (Skills, Messaging, Plugins, MCP servers, Helper models)
+ * what it holds (Skills, Memory, Messaging, Plugins, MCP servers, Helper models)
  * with a count each, every row opening that screen. Put it in a Mac
  * `AppShell`; it fills its parent.
  */

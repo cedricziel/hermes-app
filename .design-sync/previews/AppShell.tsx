@@ -302,6 +302,7 @@ export const AppleMacProfiles = () => (
           selected="work"
           counts={{
             skills: 12,
+            memory: 3,
             messaging: 1,
             plugins: 3,
             mcp: 2,

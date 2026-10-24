@@ -120,10 +120,11 @@ export type AccountAction =
   | "settings"
   | "connection";
 
-/** The six entries the app puts behind "More", in its order (Bots became Messaging in #429). Not on a Mac, whose profile pages are reached from the Profiles page. */
+/** The seven entries the app puts behind "More", in its order (Bots became Messaging in #429). Not on a Mac, whose profile pages are reached from the Profiles page. */
 export const DEFAULT_MORE_ENTRIES: SidebarMoreEntry[] = [
   { icon: "person", label: "Profiles" },
   { icon: "extension", label: "Skills" },
+  { icon: "bookmark_added", label: "Memory" },
   { icon: "smart_toy", label: "Messaging" },
   { icon: "extension", label: "Plugins" },
   { icon: "power", label: "MCP servers" },
@@ -475,7 +476,7 @@ export interface ThreadSidebarProps {
    * Leave it out when the shell has only Chat.
    */
   navigation?: ReactNode;
-  /** Entries behind the collapsible "More" row (touch and Material). Defaults to Profiles, Skills, Messaging, Plugins, MCP servers, Helper models; an empty list hides the section. A Mac sidebar has no "More": its Profiles page reaches those screens. */
+  /** Entries behind the collapsible "More" row (touch and Material). Defaults to Profiles, Skills, Memory (the profile's learned memory), Messaging, Plugins, MCP servers, Helper models; an empty list hides the section. A Mac sidebar has no "More": its Profiles page reaches those screens. */
   moreEntries?: SidebarMoreEntry[];
   /** Show the "More" section expanded initially. */
   defaultMoreOpen?: boolean;
