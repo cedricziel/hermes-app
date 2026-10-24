@@ -37,6 +37,7 @@ void main() {
       expect(alert.threadId, 'hermes-app-1');
       expect(alert.profile, 'work');
       expect(alert.category, messageCategory);
+      expect(alert.isMessage, isTrue);
       expect(alert.timeSensitive, isFalse);
     });
 
@@ -68,7 +69,7 @@ void main() {
       );
     });
 
-    test('an empty or unread text is a new message', () {
+    test('an empty or unreadable text is a new message', () {
       final empty = message('work', 'hermes-app-1');
       final unread = message('work', 'hermes-app-2');
       final alerts = messageAlertsFor(
@@ -112,7 +113,8 @@ void main() {
       expect(alerts.single.title, 'Hermes');
       expect(alerts.single.body, '6 new messages');
       expect(alerts.single.threadId, isEmpty);
-      expect(alerts.single.category, messageCategory);
+      expect(alerts.single.isMessage, isTrue);
+      expect(alerts.single.category, isNull);
     });
 
     test('five are announced one by one', () {
@@ -134,7 +136,44 @@ void main() {
       );
 
       expect(alerts.single.title, 'Hermes');
-      expect(alerts.single.body, '60 or more new messages');
+      expect(alerts.single.body, '6 or more new messages');
+    });
+
+    test('a capped look with a few found announces them one by one', () {
+      final few = [for (var i = 0; i < 3; i++) message('a', 'hermes-app-$i')];
+
+      final alerts = messageAlertsFor(
+        found(few, capped: true),
+        {},
+        shownProfile: 'a',
+        appLock: false,
+      );
+
+      expect(alerts, hasLength(3));
+    });
+
+    test('keeps the paragraphs of a reply preview', () {
+      final first = message('work', 'hermes-app-1');
+      final alerts = messageAlertsFor(
+        found([first]),
+        {first.key: 'First paragraph.\n\nSecond paragraph.'},
+        shownProfile: 'work',
+        appLock: false,
+      );
+
+      expect(alerts.single.body, 'First paragraph.\n\nSecond paragraph.');
+    });
+
+    test('names no profile when none is shown', () {
+      final first = message('work', 'hermes-app-1');
+      final alerts = messageAlertsFor(
+        found([first]),
+        {},
+        shownProfile: null,
+        appLock: false,
+      );
+
+      expect(alerts.single.title, 'Report');
     });
 
     test('nothing found, nothing to announce', () {

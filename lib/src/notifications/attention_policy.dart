@@ -31,6 +31,7 @@ class AttentionNotification {
     this.needsInput = false,
     this.prompt,
     this.bodyIsPlainText = false,
+    this.isMessage = false,
   }) : jobId = null;
 
   /// A scheduled task's run. It replaces an earlier notification for the same
@@ -44,6 +45,7 @@ class AttentionNotification {
        category = null,
        request = null,
        bodyIsPlainText = false,
+       isMessage = false,
        needsInput = false,
        prompt = null;
 
@@ -61,6 +63,10 @@ class AttentionNotification {
 
   /// Prevents reparsing rendered code and escaped punctuation in reply previews.
   final bool bodyIsPlainText;
+
+  /// A message a Hermes profile delivered, or the summary of several (with an
+  /// empty [threadId]): tapping it opens that chat, fetched when need be.
+  final bool isMessage;
 
   /// The buttons that answer the request this is about, if it can be
   /// answered from the notification.
