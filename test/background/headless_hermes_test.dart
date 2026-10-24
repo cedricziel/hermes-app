@@ -232,6 +232,51 @@ void main() {
       expect(dashboard.server.requestsTo('GET', '/api/profiles'), hasLength(1));
     });
 
+    test('tries the profile names again after a fallback', () async {
+      dashboard.server.on('GET', '/api/profiles', {
+        'detail': 'down',
+      }, status: 500);
+
+      final outcome = await run((hermes) async {
+        final first = await hermes.profiles();
+        dashboard.server.on(
+          'GET',
+          '/api/profiles',
+          profileListBody([profileRow(name: 'default', isDefault: true)]),
+        );
+        final second = await hermes.profiles();
+        final third = await hermes.profiles();
+        return [first, second, third];
+      });
+
+      expect((outcome as HeadlessDone).value, [
+        [null],
+        ['default'],
+        ['default'],
+      ]);
+      expect(dashboard.server.requestsTo('GET', '/api/profiles'), hasLength(2));
+    });
+
+    test('rethrows a stopped session without asking again', () async {
+      store.session = _session(expiresAt: 1);
+      dashboard.refreshStatus = 401;
+      var thrown = 0;
+
+      await run((hermes) async {
+        for (var i = 0; i < 2; i++) {
+          try {
+            await hermes.profiles();
+          } on Object {
+            thrown++;
+          }
+        }
+        return const <String?>[];
+      });
+
+      expect(thrown, 2);
+      expect(dashboard.refreshes, 1);
+    });
+
     test('is signed out when no server is saved', () async {
       SharedPreferencesAsyncPlatform.instance =
           InMemorySharedPreferencesAsync.empty();

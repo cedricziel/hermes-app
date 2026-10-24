@@ -207,9 +207,9 @@ class HeadlessHermes {
   Future<List<String?>>? _profileNames;
 
   /// The server's profile names, read once per run; `[null]`, the server's
-  /// default profile, when they cannot be read. Throws once the session has
-  /// failed, so that the run ends as signed out rather than with a default
-  /// profile.
+  /// default profile, when they cannot be read, which is not kept: the next
+  /// call asks again. Throws once the session has failed, so that the run
+  /// ends as signed out rather than with a default profile.
   Future<List<String?>> profiles() => _profileNames ??= _readProfiles();
 
   Future<List<String?>> _readProfiles() async {
@@ -217,11 +217,17 @@ class HeadlessHermes {
       final names = [
         for (final profile in await repositories.profiles.list()) profile.name,
       ];
-      return names.isEmpty ? const [null] : names;
+      if (names.isEmpty) return _unread();
+      return names;
     } on Object {
       if (_connection.auth?.stopped.isCompleted ?? false) rethrow;
-      return const [null];
+      return _unread();
     }
+  }
+
+  List<String?> _unread() {
+    _profileNames = null;
+    return const [null];
   }
 
   /// A gateway transport on a socket of its own, closed when the run ends.
