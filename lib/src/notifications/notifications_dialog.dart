@@ -1,7 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../agent_messages/agent_message_watcher.dart'
+    show agentMessagesSupported;
 import '../live_activities/live_activities.dart';
 import '../background/background_check_controller.dart';
 import 'background_check_section.dart';
@@ -97,11 +98,7 @@ class _NotificationsDialog extends StatelessWidget {
             ),
           ],
         ),
-        if (platform
-            case TargetPlatform.android ||
-                TargetPlatform.iOS ||
-                TargetPlatform.macOS
-            when !kIsWeb)
+        if (agentMessagesSupported(platform))
           GroupedSection(
             footer:
                 'When a Hermes profile starts a chat for you, while the app is '
