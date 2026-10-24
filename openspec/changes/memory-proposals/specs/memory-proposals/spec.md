@@ -20,7 +20,7 @@ The inbox SHALL list each proposal with a badge (Replace, Add, Remove, Skill, or
 
 #### Scenario: Replace from a background review
 
-- **WHEN** `/memory pending` lists `  1a2b3c4d [auto]  background review consolidation (replace on memory): Prefers spaces` with the detail line `      replaces entry: Prefers tabs in Go`
+- **WHEN** `/memory pending` lists `  1a2b3c4d [auto]  background review consolidation (replace on memory): - replace: Prefers spaces` with the detail line `      replaces entry: Prefers tabs in Go`
 - **THEN** the item shows Replace, Agent notes, "from a background review", "Prefers tabs in Go" struck through and "Prefers spaces"
 
 #### Scenario: Shortened new text
@@ -68,7 +68,7 @@ Approve and Reject SHALL run `/memory approve <id>` or `/memory reject <id>` (`/
 
 ### Requirement: Lenient proposal parsing
 
-The app SHALL read the commands' plain text leniently and SHALL NOT fail on text it does not recognize. "No pending memory writes." and any answer starting "No pending" SHALL read as empty. A line of two spaces, an 8-hex-character id, an optional "[auto]" and the summary SHALL start a proposal; a line of six spaces with "<verb> entry: <text>" SHALL give the replaced or removed entry; the header, blank lines and the "Apply:" footer SHALL be skipped; other lines SHALL continue the current proposal's summary. Both `replace` and `patch` SHALL read as Replace. A proposal whose action or target cannot be read SHALL keep its raw summary and stay decidable by its id. An answer that yields no proposal and is not an empty answer SHALL be shown as unreadable with its raw text and a retry.
+The app SHALL read the commands' plain text leniently and SHALL NOT fail on text it does not recognize. "No pending memory writes." and any answer starting "No pending" SHALL read as empty. Progress lines Hermes prints before the answer (starting "⏳") SHALL be skipped. A line of two spaces, an 8-hex-character id, an optional "[auto]" and the summary SHALL start a proposal; a line of six spaces with "<verb> entry: <text>" SHALL give a replaced or removed entry; the header, blank lines and the "Apply:" and "Review full diff:" footer lines SHALL be skipped; other lines SHALL continue the current proposal's summary. Both `replace` and `patch` SHALL read as Replace. An answer starting "Unknown command" SHALL read as the server not knowing the command. A proposal whose action or target cannot be read SHALL keep its raw summary and stay decidable by its id. An answer that yields no proposal and is not an empty answer SHALL be shown as unreadable with its raw text and a retry.
 
 #### Scenario: Unknown line
 
@@ -101,7 +101,7 @@ When proposals wait in a profile, the chat sidebar's Memory entry SHALL read "Me
 
 ### Requirement: Session for proposal commands
 
-Before implementation the app's behaviour SHALL be checked against a real backend: whether running a command with no thread (a new gateway session for the profile) leaves a stored session that the session list shows, and whether running it on an existing chat changes that chat's messages, title or last activity. The proposal commands SHALL then run in the first of these the check allows: a new session per command when none is left visible; else the profile's most recently active chat when the command leaves it untouched; else one session per profile titled "Memory review", found again by title and left out of the app's chat list and search. The app SHALL NOT leave a new empty chat in the list for each read.
+The proposal commands SHALL each run in a new gateway session of the profile with no thread. Checked against a real backend (Hermes `d923a5eb`), such a command leaves no stored session, so the session list shows nothing for it. The app SHALL NOT leave a new empty chat in the list for any read or decision.
 
 #### Scenario: Reading twice
 
@@ -110,7 +110,7 @@ Before implementation the app's behaviour SHALL be checked against a real backen
 
 ### Requirement: Memory proposals backend contract
 
-The inbox SHALL rely on the gateway slash commands `/memory pending`, `/memory approve <id>`, `/memory reject <id>`, `/skills pending`, `/skills approve <id>`, `/skills reject <id>` and `/skills diff <id>`, run through `slash.exec` or `command.dispatch` on a session of the profile, with the answer formats described above, 8-hex-character ids and `[auto]` marking a background review. There is no REST route or gateway event for proposals. The new text in a pending summary may be cut (120 characters for a chat write, 200 for a background one) while approving applies all of it. These formats were verified at Hermes `71d34bad`; earliest release support is unverified.
+The inbox SHALL rely on the gateway slash commands `/memory pending`, `/memory approve <id>`, `/memory reject <id>`, `/skills pending`, `/skills approve <id>`, `/skills reject <id>` and `/skills diff <id>`, run through `slash.exec` or `command.dispatch` on a session of the profile, with the answer formats described above, 8-hex-character ids and `[auto]` marking a background review. There is no REST route or gateway event for proposals. The new text in a pending summary may be cut (120 characters for a chat write, 200 for a background one) while approving applies all of it. These formats were verified at Hermes `d923a5eb`; earliest release support is unverified.
 
 #### Scenario: Older server without the command
 
