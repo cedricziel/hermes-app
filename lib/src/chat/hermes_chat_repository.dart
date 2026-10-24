@@ -127,7 +127,9 @@ class HermesChatRepository {
       oldestStartedAt: oldest is num ? oldest.toDouble() : null,
       listed: [
         for (final row in window)
-          if (row['started_at'] case final num startedAt) startedAt.toDouble(),
+          if (row['archived'] != true)
+            if (row['started_at'] case final num startedAt)
+              startedAt.toDouble(),
       ],
     );
   }

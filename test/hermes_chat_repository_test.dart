@@ -468,6 +468,7 @@ void main() {
           result.deliveries.map((d) => d.id),
           isNot(contains('hermes-app-archived')),
         );
+        expect(result.listed, hasLength(3));
       });
 
       test(

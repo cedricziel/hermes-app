@@ -440,6 +440,35 @@ void main() {
       expect(result.listed.first, 100);
     });
 
+    test('after a look, the next reads one page', () async {
+      // 60 app chats and one delivery: the first look reads the newest page.
+      DeliveryPage window(int offset) => DeliveryPage(
+        [if (offset == 0) delivery('d', 990)],
+        full: true,
+        oldestStartedAt: 1000.0 - offset - 19,
+        listed: [for (var i = 0; i < 20; i++) 1000.0 - offset - i],
+      );
+      final first = findMessages(
+        now: 1000,
+        record: null,
+        profileNames: ['work'],
+        listings: {
+          'work': await listDeliveries(
+            (offset) async => window(offset),
+            since: null,
+          ),
+        },
+      );
+
+      final offsets = <int>[];
+      await listDeliveries((offset) async {
+        offsets.add(offset);
+        return window(offset);
+      }, since: first.record['work']);
+
+      expect(offsets, [0]);
+    });
+
     test('lets a failing page fail the listing', () {
       expect(
         listDeliveries((_) async => throw StateError('down'), since: 0),

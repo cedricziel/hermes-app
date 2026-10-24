@@ -69,7 +69,9 @@ class DeliveryPage {
   /// that is not full.
   final double? oldestStartedAt;
 
-  /// The start time of every row of the window, deliveries or not: the
+  /// The start time of every row of the window, deliveries or not, and of
+  /// any pinned row the server added to a short one, archived rows left out:
+  /// the
   /// record follows the newest chat listed, so a look in the steady state
   /// reads one page.
   final List<double> listed;
