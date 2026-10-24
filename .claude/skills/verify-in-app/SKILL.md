@@ -537,12 +537,14 @@ plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
 
 ## Messages from Hermes
 
-A delivery needs the messenger plugin from PR #804 (`plugins/hermes-app` on that branch), enabled in the
-backend's throwaway home before `scripts/dev-backend.sh start`:
+A delivery needs the messenger plugin, which lives on the branch `origin/feat/hermes-app-messenger`
+(`git worktree add <scratch> origin/feat/hermes-app-messenger`; once it is merged it is
+`plugins/hermes-app` in this checkout). Enable it in the backend's throwaway home before
+`scripts/dev-backend.sh start`:
 
 ```bash
 H="$PWD/.dart_tool/hermes-dev/home"
-mkdir -p "$H/plugins" && cp -R <#804 checkout>/plugins/hermes-app "$H/plugins/"
+mkdir -p "$H/plugins" && cp -R <scratch>/plugins/hermes-app "$H/plugins/"
 # config.yaml: platforms.hermes_app with enabled: true and the inbox home channel
 HERMES_HOME="$H" hermes plugins enable hermes-app
 scripts/dev-backend.sh start
