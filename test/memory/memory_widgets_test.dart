@@ -24,8 +24,8 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Memory'), findsOneWidget);
-    expect(find.text('User profile'), findsOneWidget);
+    expect(find.text('Agent notes'), findsOneWidget);
+    expect(find.text('About you'), findsOneWidget);
   });
 
   testWidgets('full content remains inert selectable text', (tester) async {

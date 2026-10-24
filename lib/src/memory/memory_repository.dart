@@ -3,6 +3,7 @@ import 'package:flutter_otel/flutter_otel.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import '../telemetry/telemetry.dart';
+import 'memory_usage.dart';
 
 enum MemoryFailure implements Exception {
   unsupported('Memory inspection is unavailable on this server.'),
@@ -17,13 +18,33 @@ enum MemoryFailure implements Exception {
 }
 
 class MemoryEntry {
-  const MemoryEntry(this.id, this.label, {this.source});
+  const MemoryEntry(
+    this.id,
+    this.label, {
+    this.source,
+    String? text,
+    this.truncated = false,
+  }) : text = text ?? label;
   final String id, label;
   final String? source;
-  String? get sourceLabel => switch (source) {
-    'memory' => 'Memory',
-    'profile' => 'User profile',
-    _ => null,
+
+  /// What Hermes stored; the node's [label] until the list read the text.
+  final String text;
+
+  /// [text] is only the part of the entry the graph carries.
+  final bool truncated;
+  MemoryTab get tab => MemoryTab.forSource(source);
+}
+
+/// The size each memory file may reach, from the profile's config; null when
+/// the config does not say.
+class MemoryLimits {
+  const MemoryLimits({this.aboutYou, this.agentNotes});
+  static const unknown = MemoryLimits();
+  final int? aboutYou, agentNotes;
+  int? of(MemoryTab tab) => switch (tab) {
+    MemoryTab.aboutYou => aboutYou,
+    MemoryTab.agentNotes => agentNotes,
   };
 }
 
@@ -65,7 +86,63 @@ class MemoryRepository {
       }
       entries.add(MemoryEntry(id, label, source: source as String?));
     }
-    return List.unmodifiable(entries);
+    final cards = data['memory'] is List ? data['memory'] as List : const [];
+    return List<MemoryEntry>.unmodifiable(
+      await Future.wait([
+        for (final (i, entry) in entries.indexed)
+          _withText(entry, i < cards.length ? cards[i] : null, profile),
+      ]),
+    );
+  });
+
+  /// A card's `body` is the entry cut at this many characters.
+  static const _cardBodyLimit = 1200;
+
+  /// The graph's cards sit in the order of its memory nodes and carry the
+  /// node's source and label as theirs, but no id: a card that does not
+  /// agree with its node is not trusted.
+  Future<MemoryEntry> _withText(
+    MemoryEntry entry,
+    Object? card,
+    String profile,
+  ) async {
+    final body =
+        card is Map &&
+            card['source'] == (entry.source ?? card['source']) &&
+            card['title'] == entry.label &&
+            card['body'] is String
+        ? card['body'] as String
+        : null;
+    MemoryEntry withText(String? text, {bool truncated = false}) => MemoryEntry(
+      entry.id,
+      entry.label,
+      source: entry.source,
+      text: text,
+      truncated: truncated,
+    );
+    if (body != null && characterCount(body) < _cardBodyLimit) {
+      return withText(body);
+    }
+    try {
+      return withText((await detail(entry.id, profile)).content);
+    } on MemoryFailure {
+      return withText(body, truncated: true);
+    }
+  }
+
+  Future<MemoryLimits> limits(String profile) => _read('limits', () async {
+    final data = (await _api.getConfigApiConfigGet(profile: profile)).data;
+    if (data is! Map) throw MemoryFailure.malformed;
+    final memory = data['memory'];
+    int? limit(String key) {
+      final value = memory is Map ? memory[key] : null;
+      return value is int && value > 0 ? value : null;
+    }
+
+    return MemoryLimits(
+      aboutYou: limit('user_char_limit'),
+      agentNotes: limit('memory_char_limit'),
+    );
   });
 
   Future<MemoryDetail> detail(String id, String profile) =>
