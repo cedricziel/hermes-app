@@ -162,6 +162,28 @@ void main() {
     expect(settings.permissionDenied, isTrue);
   });
 
+  group('messages from Hermes', () {
+    test('are on by default and the choice survives a restart', () async {
+      final settings = await relaunch();
+      expect(settings.agentMessages, isTrue);
+
+      await settings.setAgentMessages(false);
+
+      expect((await relaunch()).agentMessages, isFalse);
+    });
+
+    test('a switch changed while loading is not undone', () async {
+      final settings = NotificationSettings(
+        prefs: _HookedPrefs(() => hooked?.setAgentMessages(false)),
+      );
+      hooked = settings;
+
+      await settings.load();
+
+      expect(settings.agentMessages, isFalse);
+    });
+  });
+
   group('scheduled tasks', () {
     test(
       'alerts are on by default and the choice survives a restart',

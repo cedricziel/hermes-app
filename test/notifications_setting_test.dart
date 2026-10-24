@@ -158,6 +158,36 @@ void main() {
     );
   });
 
+  testWidgets('the dialog has a switch for messages from Hermes, on to '
+      'begin with', (tester) async {
+    await openDialog(tester);
+
+    final tile = find.byKey(const Key('agent-messages'));
+    expect(tester.widget<GroupedSwitchRow>(tile).value, isTrue);
+
+    await tester.tap(switchOf(tile));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<GroupedSwitchRow>(tile).value, isFalse);
+    expect(settings.agentMessages, isFalse);
+  });
+
+  testWidgets('the messages switch waits for notifications to be on', (
+    tester,
+  ) async {
+    await openDialog(tester);
+
+    await tester.tap(switchOf(notifyTile));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<GroupedSwitchRow>(find.byKey(const Key('agent-messages')))
+          .onChanged,
+      isNull,
+    );
+  });
+
   group('Live Activities', () {
     final tile = find.byKey(const Key('live-activities'));
     const hint = 'Turn on Live Activities for Hermes in system settings.';

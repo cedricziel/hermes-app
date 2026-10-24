@@ -7,6 +7,7 @@ const _prefsDeniedKey = 'hermes.notifications_permission_denied';
 const _prefsSchedulesKey = 'hermes.notifications_schedules';
 const _prefsMutedKey = 'hermes.notifications_muted_jobs';
 const _prefsLiveActivitiesKey = 'hermes.live_activities';
+const _prefsAgentMessagesKey = 'hermes.notifications_agent_messages';
 
 /// Whether the user wants notifications, and what the system said when the
 /// app asked for permission. Kept across launches.
@@ -22,10 +23,12 @@ class NotificationSettings extends ChangeNotifier {
   bool _loaded = false;
   bool _scheduleAlerts = true;
   bool _liveActivities = true;
+  bool _agentMessages = true;
   Set<String> _muted = {};
   int _scheduleEdits = 0;
   int _mutedEdits = 0;
   int _liveActivityEdits = 0;
+  int _agentMessageEdits = 0;
   int _enabledEdits = 0;
   int _permissionEdits = 0;
   Future<void> _lastWrite = Future.value();
@@ -39,6 +42,10 @@ class NotificationSettings extends ChangeNotifier {
 
   /// Whether a scheduled task that ran is announced.
   bool get scheduleAlerts => _scheduleAlerts;
+
+  /// Whether a chat a Hermes profile delivered to the app's inbox is
+  /// announced.
+  bool get agentMessages => _agentMessages;
 
   /// Whether a reply sent from this iPhone is shown as a Live Activity.
   bool get liveActivities => _liveActivities;
@@ -54,12 +61,14 @@ class NotificationSettings extends ChangeNotifier {
     final scheduleEditsBefore = _scheduleEdits;
     final mutedEditsBefore = _mutedEdits;
     final liveActivityEditsBefore = _liveActivityEdits;
+    final agentMessageEditsBefore = _agentMessageEdits;
     final enabled = await _prefs.getBool(_prefsEnabledKey);
     final asked = await _prefs.getBool(_prefsAskedKey);
     final denied = await _prefs.getBool(_prefsDeniedKey);
     final schedules = await _prefs.getBool(_prefsSchedulesKey);
     final muted = await _prefs.getStringList(_prefsMutedKey);
     final liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
+    final agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
     if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;
     if (_permissionEdits == permissionEditsBefore) {
       _asked = asked ?? false;
@@ -71,6 +80,9 @@ class NotificationSettings extends ChangeNotifier {
     if (_mutedEdits == mutedEditsBefore) _muted = {...?muted};
     if (_liveActivityEdits == liveActivityEditsBefore) {
       _liveActivities = liveActivities ?? true;
+    }
+    if (_agentMessageEdits == agentMessageEditsBefore) {
+      _agentMessages = agentMessages ?? true;
     }
     _loaded = true;
     notifyListeners();
@@ -85,6 +97,11 @@ class NotificationSettings extends ChangeNotifier {
     _scheduleEdits++;
     _scheduleAlerts = value;
   }, {_prefsSchedulesKey: value});
+
+  Future<void> setAgentMessages(bool value) => _change(() {
+    _agentMessageEdits++;
+    _agentMessages = value;
+  }, {_prefsAgentMessagesKey: value});
 
   Future<void> setLiveActivities(bool value) => _change(() {
     _liveActivityEdits++;

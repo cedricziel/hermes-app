@@ -95,6 +95,22 @@ class _NotificationsDialog extends StatelessWidget {
             ),
           ],
         ),
+        GroupedSection(
+          footer:
+              'When a Hermes profile starts a chat for you, while the app is '
+              'open or when the system lets it check in the background. The '
+              'text stays hidden while App Lock is on.',
+          children: [
+            GroupedSwitchRow(
+              key: const Key('agent-messages'),
+              title: 'Messages from Hermes',
+              value: settings.agentMessages,
+              onChanged: settings.enabled
+                  ? (value) => settings.setAgentMessages(value)
+                  : null,
+            ),
+          ],
+        ),
         if (liveActivities case final activities?)
           GroupedSection(
             footer:
