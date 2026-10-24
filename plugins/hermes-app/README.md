@@ -96,8 +96,11 @@ script) falls back to a home channel, which can be this one, and
   longer messages are rejected.
 - Messages are text only. A `MEDIA:` tag still delivers the text, ends it
   with a line saying how many attachments were not delivered, and reports
-  success. The platform's separate image, document, voice and video sends
-  fail.
+  success when sent from a separate process (`hermes send`, cron outside the
+  gateway). Through a running gateway, Hermes sends the text and each
+  attachment as separate calls: the text is saved, and the send then reports
+  the attachments as failed. Don't retry such a send; it would save the text
+  again.
 - The gateway adapter captures its profile home at construction; standalone
   sends resolve the current profile for each call. One profile cannot choose
   another profile through a delivery target.
