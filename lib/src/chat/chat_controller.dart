@@ -728,7 +728,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final generation = _loadGeneration;
     try {
       final page = await readThreadListPage(profile);
-      applyInvalidatedThreads(page, profile: profile, generation: generation);
+      final applied = applyInvalidatedThreads(
+        page,
+        profile: profile,
+        generation: generation,
+      );
+      // A change that started during the read: wait for it and read again.
+      if (!applied &&
+          active &&
+          _profile == profile &&
+          generation == _loadGeneration &&
+          threadListInvalidationBlocked) {
+        _listRefreshPending = true;
+      }
     } on Object {
       // The next find, or opening the screen again, reads the list.
     }

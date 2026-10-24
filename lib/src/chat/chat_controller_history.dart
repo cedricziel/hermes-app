@@ -19,6 +19,8 @@ extension _ChatControllerHistory on ChatController {
           thread: thread.messages.where((message) => message.isPending).toSet(),
     };
     final generation = ++_loadGeneration;
+    // This load reads the list itself.
+    _listRefreshPending = false;
     _loadingThreads = true;
     _threadsFailed = false;
     notifyListeners();
