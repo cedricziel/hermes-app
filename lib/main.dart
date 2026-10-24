@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'src/agent_messages/agent_message_record.dart';
 import 'src/app.dart';
 import 'src/drag_out/drag_out_source.dart';
 import 'src/drag_out/drag_out_telemetry.dart';
@@ -299,10 +300,12 @@ Future<void> main([List<String> args = const []]) async {
           create: (context) {
             final running = context.read<RunningReplies?>();
             final baseline = ScheduleBaseline();
+            final messages = AgentMessageRecord();
             return SignedOutCleanup(
               context.read<AuthController>().signedOut,
               () => Future.wait([
                 baseline.clear(),
+                messages.clear(),
                 if (running != null) running.clearAll(),
                 if (running != null) running.clearAnnounced(),
               ]),
