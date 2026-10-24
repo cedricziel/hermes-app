@@ -90,6 +90,23 @@ class MessengerTest(unittest.TestCase):
             db.append_message(result["session_id"], role="user", content="Tell me more")
             self.assertEqual(db.get_messages(result["session_id"])[-1]["content"], "Tell me more")
 
+    def test_session_is_unread_before_message_and_title_are_written(self):
+        from hermes_state import SessionDB
+        unread_at = {}
+        for name in ("append_message", "set_auto_title"):
+            original = getattr(SessionDB, name)
+
+            def wrapper(db, session_id, *args, _name=name, _original=original, **kwargs):
+                unread_at[_name] = db.session_unread(db.get_session(session_id))
+                return _original(db, session_id, *args, **kwargs)
+
+            patcher = patch.object(SessionDB, name, wrapper)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        result = asyncio.run(self.entry.standalone_sender_fn(self.config, "inbox", "Hi"))
+        self.assertTrue(result.get("success"), result)
+        self.assertEqual(unread_at, {"append_message": True, "set_auto_title": True})
+
     def test_cli_send_engine_routes_explicit_and_home_targets(self):
         for target in ("hermes_app:inbox", "hermes_app"):
             result = self.send("A routed message", target)

@@ -38,6 +38,9 @@ def _persist(home: Path, message: str) -> dict:
     with SessionDB(db_path=home / "state.db") as db:
         db.create_session(session_id, source="hermes_app")
         try:
+            # Unread from the start: a client listing sessions between the
+            # writes below must not see a read delivery and skip it for good.
+            db.set_session_read(session_id, False)
             row_id = db.append_message(session_id, role="assistant", content=message)
             try:
                 db.set_auto_title(session_id, title, source="derived")
@@ -45,7 +48,6 @@ def _persist(home: Path, message: str) -> dict:
                 # Hermes enforces unique titles. Repeated reports still need
                 # independent deliveries, including concurrent sends.
                 db.set_auto_title(session_id, f"{title} [{uuid4().hex}]", source="derived")
-            db.set_session_read(session_id, False)
         except Exception:
             # Never leave a visible empty/partially delivered chat on failure.
             db.delete_session(session_id)
