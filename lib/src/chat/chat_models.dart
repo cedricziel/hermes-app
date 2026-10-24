@@ -669,6 +669,7 @@ class ChatThread {
     this.folderPath,
     this.remote = false,
     this.named = false,
+    this.unread = false,
     this.modelChoice,
     this.botContext,
     List<ChatMessage>? messages,
@@ -691,6 +692,10 @@ class ChatThread {
   /// opposed to one made from the prompt, a file name or the first message.
   /// Only a name may leave the app for a watch face.
   bool named;
+
+  /// Whether the dashboard holds this chat as unread: activity it has not
+  /// been opened for since, or a delivery the agent started for the user.
+  bool unread;
   final List<ChatMessage> messages;
 
   /// The model picked for this thread; null runs the profile's default.

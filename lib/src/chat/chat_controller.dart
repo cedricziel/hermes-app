@@ -1250,6 +1250,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final load = repository != null ? _loadMessages(id) : Future<void>.value();
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (thread != null) {
+      _markRead(thread);
       unawaited(_restoreQueue(thread));
       final profile = _profile;
       unawaited(
@@ -1264,6 +1265,27 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     }
     unawaited(refreshActive());
+  }
+
+  /// Tells the dashboard [thread] was read, once per opening. A failure is
+  /// only logged; the flag stays set so the next opening tries again.
+  void _markRead(ChatThread thread) {
+    final repository = this.repository;
+    if (repository == null || !thread.remote || !thread.unread) return;
+    thread.unread = false;
+    unawaited(
+      repository
+          .markRead(thread.id, profile: _profile)
+          .then<void>(
+            (_) {},
+            onError: (Object e) {
+              thread.unread = true;
+              events('chat.mark_read_failed', {
+                'error_type': '${e.runtimeType}',
+              });
+            },
+          ),
+    );
   }
 
   /// Starts following [thread] once, so a turn running there that this client

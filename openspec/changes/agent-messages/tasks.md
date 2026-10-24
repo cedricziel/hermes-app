@@ -4,9 +4,9 @@ Four PRs, each under about 500 changed lines with tests, merged in order. Each e
 
 ## 1. PR 1 — `feat(chat): mark opened chats read`
 
-- [ ] 1.1 Write failing repository tests against `FakeHermesServer`: a list row with `unread: true` gives `ChatThread.unread == true`, `false` or absent gives false; a detail row (`GET /api/sessions/{id}`) is unread when `last_read_at` is set and `last_active` (else `started_at`) is later, read when `last_read_at` is null. Then add `unread` to `ChatThread` and parse it in `_thread`.
-- [ ] 1.2 Write a failing test that `HermesChatRepository.markRead(id, profile:)` sends `PATCH /api/sessions/{id}` with `{"unread": false, "profile": ...}`, then implement it on `_patch`.
-- [ ] 1.3 Write failing `ChatController` tests: selecting an unread remote thread sends one mark-read request and clears the flag; a read thread sends none; a chat fetched through `open(fetchMissing: true)` that is unread is marked read; a failing request keeps the chat open, shows nothing, sets the flag again and logs `chat.mark_read_failed` with only the error type. Then implement it in `select`.
+- [x] 1.1 Write failing repository tests against `FakeHermesServer`: a list row with `unread: true` gives `ChatThread.unread == true`, `false` or absent gives false; a detail row (`GET /api/sessions/{id}`) is unread when `last_read_at` is set and `last_active` (else `started_at`) is later, read when `last_read_at` is null. Then add `unread` to `ChatThread` and parse it in `_thread`.
+- [x] 1.2 Write a failing test that `HermesChatRepository.markRead(id, profile:)` sends `PATCH /api/sessions/{id}` with `{"unread": false, "profile": ...}`, then implement it on `_patch`.
+- [x] 1.3 Write failing `ChatController` tests: selecting an unread remote thread sends one mark-read request and clears the flag; a read thread sends none; a chat fetched through `open(fetchMissing: true)` that is unread is marked read; a failing request keeps the chat open, shows nothing, sets the flag again and logs `chat.mark_read_failed` with only the error type. Then implement it in `select`.
 - [ ] 1.4 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all passing.
 
 ## 2. PR 2 — `feat(notifications): find and open messages from Hermes`

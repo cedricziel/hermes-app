@@ -169,6 +169,8 @@ Map<String, Object?> sessionRow({
   double? lastActive,
   bool pinned = false,
   bool archived = false,
+  bool? unread,
+  double? lastReadAt,
 }) => {
   'id': id,
   'source': 'cli',
@@ -181,6 +183,8 @@ Map<String, Object?> sessionRow({
   'archived': archived,
   'pinned': pinned,
   'last_active': lastActive ?? startedAt,
+  'unread': ?unread,
+  'last_read_at': ?lastReadAt,
 };
 
 /// A `GET /api/sessions/{id}/messages` row.
