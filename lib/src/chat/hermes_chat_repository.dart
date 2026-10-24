@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../agent_messages/agent_delivery.dart';
 import '../api/request_timeout.dart';
 import '../voice/voice_support.dart';
 import '../voice/synthesized_speech.dart';
@@ -93,6 +94,43 @@ class HermesChatRepository {
       threads: [for (final row in rows) ?_thread(row)],
       nextOffset: offset + limit,
       hasMore: total == null ? rows.length >= limit : offset + limit < total,
+    );
+  }
+
+  /// One page of the chats [profile]'s messenger deliveries created, newest
+  /// first.
+  Future<DeliveryPage> loadDeliveries({String? profile, int offset = 0}) async {
+    final response = await _api.getSessionsApiSessionsGet(
+      limit: kDeliveryPageSize,
+      offset: offset,
+      order: 'created',
+      archived: 'exclude',
+      source_: kDeliverySource,
+      profile: profile,
+    );
+    final rows = _rows(response.data, 'sessions');
+    final total = switch (response.data) {
+      {'total': final int total} => total,
+      _ => null,
+    };
+    // The window is the first rows; pinned ones not in it follow. `total`
+    // also counts hidden sessions, so it can overstate what follows; the
+    // page limit bounds the cost.
+    final window = rows.take(kDeliveryPageSize);
+    final full =
+        rows.length >= kDeliveryPageSize &&
+        (total == null || offset + kDeliveryPageSize < total);
+    final oldest = full ? rows[kDeliveryPageSize - 1]['started_at'] : null;
+    return DeliveryPage(
+      [for (final row in rows) ?AgentDelivery.fromRow(row)],
+      full: full,
+      oldestStartedAt: oldest is num ? oldest.toDouble() : null,
+      listed: [
+        for (final row in window)
+          if (row['archived'] != true)
+            if (row['started_at'] case final num startedAt)
+              startedAt.toDouble(),
+      ],
     );
   }
 
