@@ -4,6 +4,7 @@ import 'chat_models.dart';
 enum ThreadSectionKind {
   pinned('Pinned'),
   today('Today'),
+  yesterday('Yesterday'),
   previous7Days('Previous 7 days'),
   previous30Days('Previous 30 days'),
   older('Older');
@@ -22,6 +23,7 @@ List<ThreadSection> groupThreads(
   required DateTime now,
 }) {
   final today = DateTime(now.year, now.month, now.day);
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
   final weekAgo = today.subtract(const Duration(days: 7));
   final monthAgo = today.subtract(const Duration(days: 30));
   final byKind = <ThreadSectionKind, List<ChatThread>>{};
@@ -31,6 +33,8 @@ List<ThreadSection> groupThreads(
         ? ThreadSectionKind.pinned
         : !at.isBefore(today)
         ? ThreadSectionKind.today
+        : !at.isBefore(yesterday)
+        ? ThreadSectionKind.yesterday
         : !at.isBefore(weekAgo)
         ? ThreadSectionKind.previous7Days
         : !at.isBefore(monthAgo)
