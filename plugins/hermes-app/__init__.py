@@ -2,6 +2,11 @@
 
 from pathlib import Path
 
+# The hint goes only to the owner's direct surfaces. Hermes passes the session's
+# platform but not its chat type, so group and channel chats on messaging
+# platforms cannot be told from DMs and are left out; cron runs have no user.
+_HINT_PLATFORMS = frozenset({"hermes_app", "cli", "tui", "desktop"})
+
 
 def register(ctx):
     from .adapter import HermesAppAdapter, configured, parse_target, standalone_send
@@ -16,7 +21,7 @@ def register(ctx):
         emoji="💬",
         max_message_length=0,
         parse_target_ref_fn=parse_target,
-        validate_target_ref_fn=lambda target: target == "inbox",
+        validate_target_ref_fn=_validate_target,
         standalone_sender_fn=standalone_send,
         # Hermes uses this field to recognise plugin cron targets. Home
         # channels still come from config.yaml; no environment setup needed.
@@ -33,18 +38,27 @@ def register(ctx):
     )
 
 
+def _validate_target(target):
+    if target == "inbox":
+        return True
+    return "Use hermes_app:inbox; other chats and sessions are not delivery targets."
+
+
 def _messaging_hint(session_info):
     # Rendered once for a new session; Hermes freezes it with the prompt.
-    from hermes_cli.config import load_config_readonly
+    if str((session_info or {}).get("platform") or "") not in _HINT_PLATFORMS:
+        return ""
+    from gateway.config import Platform, load_gateway_config
 
-    platforms = load_config_readonly().get("platforms") or {}
-    config = platforms.get("hermes_app") or {}
-    if config.get("enabled") is not True:
+    from .adapter import configured
+
+    config = load_gateway_config().platforms.get(Platform("hermes_app"))
+    if config is None or not configured(config):
         return ""
     return (
-        "Hermes App messaging is available on this installation. When the user "
-        "asks you to message them in Hermes App, load the skill "
-        "hermes-app:messaging. Use `hermes send --to hermes_app:inbox --file PATH` "
+        "Hermes App messaging is available on this installation. Only when the "
+        "user explicitly asks you in this conversation to message them in Hermes "
+        "App, load the skill hermes-app:messaging. Use `hermes send --to hermes_app:inbox --file PATH` "
         "to deliver UTF-8 text. Each send creates a new saved chat in the current "
         "profile; the user can open it and reply. Hermes App announces it the next "
         "time it checks, within about a minute while it is open; it is not an "

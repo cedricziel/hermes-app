@@ -90,22 +90,31 @@ class MessengerTest(unittest.TestCase):
             db.append_message(result["session_id"], role="user", content="Tell me more")
             self.assertEqual(db.get_messages(result["session_id"])[-1]["content"], "Tell me more")
 
-    def test_session_is_unread_before_message_and_title_are_written(self):
+    def test_message_is_the_last_write_so_a_visible_delivery_is_complete(self):
         from hermes_state import SessionDB
-        unread_at = {}
-        for name in ("append_message", "set_auto_title"):
+        calls = []
+        for name in ("create_session", "set_session_read", "set_auto_title", "append_message"):
             original = getattr(SessionDB, name)
 
-            def wrapper(db, session_id, *args, _name=name, _original=original, **kwargs):
-                unread_at[_name] = db.session_unread(db.get_session(session_id))
-                return _original(db, session_id, *args, **kwargs)
+            def wrapper(db, *args, _name=name, _original=original, **kwargs):
+                calls.append(_name)
+                return _original(db, *args, **kwargs)
 
             patcher = patch.object(SessionDB, name, wrapper)
             patcher.start()
             self.addCleanup(patcher.stop)
         result = asyncio.run(self.entry.standalone_sender_fn(self.config, "inbox", "Hi"))
         self.assertTrue(result.get("success"), result)
-        self.assertEqual(unread_at, {"append_message": True, "set_auto_title": True})
+        self.assertEqual(
+            calls, ["create_session", "set_session_read", "set_auto_title", "append_message"])
+
+    def test_delivery_uses_the_shared_session_db_and_releases_it(self):
+        import hermes_state_registry as registry
+        with patch.object(registry, "acquire", wraps=registry.acquire) as acquire:
+            result = asyncio.run(self.entry.standalone_sender_fn(self.config, "inbox", "Hi"))
+        self.assertTrue(result.get("success"), result)
+        acquire.assert_called_once()
+        self.assertEqual(registry.stats()["total_refcounts"], 0)
 
     def test_repeated_titles_get_short_numbers_then_a_random_suffix(self):
         titles = []
@@ -141,11 +150,48 @@ class MessengerTest(unittest.TestCase):
             ("another-profile", "text", {}),
             ("inbox", "text", {"thread_id": "some-session"}),
             ("inbox", "  \n", {}),
-            ("inbox", "caption", {"media_files": [("/tmp/report.pdf", False)]}),
+            ("inbox", "  \n", {"media_files": [("/tmp/report.pdf", False)]}),
         ):
             result = asyncio.run(self.entry.standalone_sender_fn(self.config, target, text, **kwargs))
             self.assertIn("error", result)
         self.assertFalse((self.home / "state.db").exists())
+
+    def test_media_tags_deliver_the_text_and_say_what_was_left_out(self):
+        files = []
+        for name in ("report.pdf", "chart.png"):
+            path = Path(self.temp.name) / name
+            path.write_bytes(b"data")
+            files.append(path)
+        one = self.send(f"Here is the report.\nMEDIA:{files[0]}")
+        self.assertTrue(one.get("success"), one)
+        two = self.send(f"Both files.\nMEDIA:{files[0]}\nMEDIA:{files[1]}")
+        self.assertTrue(two.get("success"), two)
+        self.assert_delivery(
+            {"success": True, "session_id": one["session_id"]},
+            "Here is the report.\n\n(1 attachment was not delivered: Hermes App messages are text only.)",
+        )
+        self.assert_delivery(
+            {"success": True, "session_id": two["session_id"]},
+            "Both files.\n\n(2 attachments were not delivered: Hermes App messages are text only.)",
+        )
+
+    def test_messages_over_the_size_cap_are_rejected_with_a_clear_error(self):
+        result = asyncio.run(self.entry.standalone_sender_fn(self.config, "inbox", "x" * 100_001))
+        self.assertIn("100,000", result["error"])
+        self.assertFalse((self.home / "state.db").exists())
+        at_cap = asyncio.run(self.entry.standalone_sender_fn(self.config, "inbox", "x" * 100_000))
+        self.assertTrue(at_cap.get("success"), at_cap)
+
+    def test_title_drops_leading_markdown_markers(self):
+        for text, expected in (
+            ("## Daily report\nbody", "Message: Daily report"),
+            ("> - * quoted item", "Message: quoted item"),
+            ("# \n\nSecond line", "Message: Second line"),
+        ):
+            result = asyncio.run(self.entry.standalone_sender_fn(self.config, "inbox", text))
+            from hermes_state import SessionDB
+            with SessionDB(db_path=self.home / "state.db") as db:
+                self.assertEqual(db.get_session(result["session_id"])["title"], expected)
 
     def test_unknown_target_rejected_by_shared_send_engine(self):
         self.assertIn("error", self.send(target="hermes_app:some-session"))
@@ -189,12 +235,34 @@ class MessengerTest(unittest.TestCase):
         self.assertIn("error", result)
         self.assertFalse((self.home / "state.db").exists())
 
+    def hint(self, session_info):
+        from hermes_cli.plugins import get_plugin_manager
+        sections = get_plugin_manager().render_system_prompt_sections(session_info)
+        return "\n".join(section.content for section in sections)
+
+    def test_hint_is_limited_to_the_owners_direct_surfaces(self):
+        for platform in ("hermes_app", "cli", "tui", "desktop"):
+            self.assertIn("hermes-app:messaging", self.hint({"platform": platform}), platform)
+        for platform in ("cron", "telegram", "discord", "slack", "email", "api_server", ""):
+            self.assertEqual(self.hint({"platform": platform}), "", platform)
+
+    def test_hint_follows_the_gateways_own_config_loading(self):
+        config = self.home / "config.yaml"
+        data = json.loads(config.read_text(encoding="utf-8"))
+        data["platforms"]["hermes_app"]["enabled"] = False
+        config.write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(self.hint({"platform": "cli"}), "")
+        # The gateway also reads platform blocks nested under `gateway:`.
+        del data["platforms"]
+        data["gateway"] = {"platforms": {"hermes_app": {"enabled": True}}}
+        config.write_text(json.dumps(data), encoding="utf-8")
+        self.assertIn("hermes-app:messaging", self.hint({"platform": "cli"}))
+
     def test_plugin_makes_destination_and_skill_known_to_new_sessions(self):
         from hermes_cli.plugins import get_plugin_manager
         manager = get_plugin_manager()
         self.assertIsNotNone(manager.find_plugin_skill("hermes-app:messaging"))
-        sections = manager.render_system_prompt_sections({"source": "cli"})
-        text = "\n".join(section.content for section in sections)
+        text = self.hint({"platform": "cli"})
         self.assertIn("hermes send --to hermes_app:inbox", text)
         self.assertIn("hermes-app:messaging", text)
 
@@ -203,6 +271,8 @@ class MessengerTest(unittest.TestCase):
         with patch.object(SessionDB, "append_message", side_effect=OSError("disk error")):
             result = asyncio.run(self.entry.standalone_sender_fn(self.config, "inbox", "Not saved"))
         self.assertIn("error", result)
+        self.assertIn("OSError", result["error"])
+        self.assertNotIn("disk error", result["error"])
         self.assertEqual(self.sessions(), [])
 
     def test_cron_recognizes_inbox_and_resolves_home_from_yaml(self):

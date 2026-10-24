@@ -1,7 +1,10 @@
 """Outbound-only platform: persist a delivery as a normal, replyable app chat.
 
-Both gateway and separate-process sends use SessionDB's public API. No direct
-SQL, dashboard credentials, app listener, or changes to Hermes core are needed.
+Both gateway and separate-process sends use SessionDB's public API, through
+the process-wide shared handle from ``hermes_state_registry`` (a private writer
+connection can corrupt pages when its close-time checkpoint races another
+writer's). No direct SQL, dashboard credentials, app listener, or changes to
+Hermes core are needed.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from hermes_constants import get_hermes_home
 
 log = logging.getLogger(__name__)
 UNSUPPORTED_MEDIA = "Hermes App messenger currently accepts text only."
+MAX_MESSAGE_CHARS = 100_000
 
 
 def configured(config) -> bool:
@@ -46,22 +50,37 @@ def _set_unique_title(db, session_id: str, title: str) -> None:
     db.set_auto_title(session_id, title[: limit - len(suffix)] + suffix, source="derived")
 
 
+def _derive_title(message: str) -> str:
+    lines = [line.strip() for line in message.splitlines() if line.strip()]
+    for line in lines:
+        text = line.lstrip("#>-* \t").strip()
+        if text:
+            return "Message: " + text[:70]
+    return "Message: " + lines[0][:70]
+
+
+def _with_media_note(message: str, dropped: int) -> str:
+    if not dropped:
+        return message
+    noun = "attachment was" if dropped == 1 else "attachments were"
+    return f"{message}\n\n({dropped} {noun} not delivered: Hermes App messages are text only.)"
+
+
 def _persist(home: Path, message: str) -> dict:
-    from hermes_state import SessionDB
+    from hermes_state_registry import acquire
 
     session_id = f"hermes-app-{uuid4().hex}"
-    title = next(line.strip() for line in message.splitlines() if line.strip())
-    title = "Message: " + title[:70]
+    title = _derive_title(message)
     # A fresh session avoids editing a live agent's cached conversation and
     # keeps repeated deliveries out of a transcript of consecutive assistants.
-    with SessionDB(db_path=home / "state.db") as db:
+    with acquire(home / "state.db") as db:
         db.create_session(session_id, source="hermes_app")
         try:
-            # Unread from the start: a client listing sessions between the
-            # writes below must not see a read delivery and skip it for good.
+            # The app treats a session with a message as a finished delivery, so
+            # the message is written last, after the unread flag and the title.
             db.set_session_read(session_id, False)
-            row_id = db.append_message(session_id, role="assistant", content=message)
             _set_unique_title(db, session_id, title)
+            row_id = db.append_message(session_id, role="assistant", content=message)
         except Exception:
             # Never leave a visible empty/partially delivered chat on failure.
             db.delete_session(session_id)
@@ -78,15 +97,18 @@ def _persist(home: Path, message: str) -> dict:
 async def _deliver(home, chat_id, message, *, thread_id=None, media_files=None):
     if chat_id != "inbox" or thread_id:
         return {"error": "Use hermes_app:inbox; existing chats and threads are not delivery targets."}
-    if media_files:
-        return {"error": UNSUPPORTED_MEDIA}
     if not isinstance(message, str) or not message.strip():
         return {"error": "A non-empty text message is required."}
+    if len(message) > MAX_MESSAGE_CHARS:
+        return {"error": f"Message is {len(message):,} characters; Hermes App accepts at most {MAX_MESSAGE_CHARS:,}."}
+    # The send engine hands MEDIA: attachments over separately. Failing the whole
+    # delivery would lose the text, so deliver it and say what was left out.
+    message = _with_media_note(message, len(media_files or ()))
     try:
         return await asyncio.to_thread(_persist, home, message)
-    except Exception:
+    except Exception as exc:
         log.exception("Hermes App delivery could not be saved")
-        return {"error": "Could not save the Hermes App message; check the Hermes logs."}
+        return {"error": f"Could not save the Hermes App message ({type(exc).__name__}); check the Hermes logs."}
 
 
 async def standalone_send(
@@ -101,6 +123,8 @@ async def standalone_send(
 
 
 class HermesAppAdapter(BasePlatformAdapter):
+    # Hermes' delivery layer otherwise truncates long output (cron saves the
+    # rest to a file and appends a footer); the message is stored whole.
     splits_long_messages = True
 
     def __init__(self, config):
