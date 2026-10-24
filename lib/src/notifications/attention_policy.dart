@@ -8,6 +8,7 @@ import 'notification_preview.dart';
 const kPreviewLength = 120;
 const kReplyReadyBody = 'Reply ready';
 const kReplyFailedBody = 'Reply failed';
+const kNewMessageBody = 'New message';
 const kApprovalBody = 'Waiting for your approval';
 const kQuestionBody = 'Has a question for you';
 const kNeedsYouBody = 'Waiting for you in Hermes';
