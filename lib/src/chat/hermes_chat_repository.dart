@@ -98,11 +98,8 @@ class HermesChatRepository {
   }
 
   /// One page of the chats [profile]'s messenger deliveries created, newest
-  /// first. Pinned rows are appended to every page, wherever they belong.
-  Future<List<AgentDelivery>> loadDeliveries({
-    String? profile,
-    int offset = 0,
-  }) async {
+  /// first.
+  Future<DeliveryPage> loadDeliveries({String? profile, int offset = 0}) async {
     final response = await _api.getSessionsApiSessionsGet(
       limit: kDeliveryPageSize,
       offset: offset,
@@ -111,10 +108,21 @@ class HermesChatRepository {
       source_: kDeliverySource,
       profile: profile,
     );
-    return [
-      for (final row in _rows(response.data, 'sessions'))
-        ?AgentDelivery.fromRow(row),
-    ];
+    final rows = _rows(response.data, 'sessions');
+    final total = switch (response.data) {
+      {'total': final int total} => total,
+      _ => null,
+    };
+    // The window is the first rows; pinned ones not in it follow.
+    final full =
+        rows.length >= kDeliveryPageSize &&
+        (total == null || offset + kDeliveryPageSize < total);
+    final oldest = full ? rows[kDeliveryPageSize - 1]['started_at'] : null;
+    return DeliveryPage(
+      [for (final row in rows) ?AgentDelivery.fromRow(row)],
+      full: full,
+      oldestStartedAt: oldest is num ? oldest.toDouble() : null,
+    );
   }
 
   /// One session by id, or null when the dashboard does not have it. For a

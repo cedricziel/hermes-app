@@ -7,14 +7,12 @@ AgentDelivery delivery(
   double startedAt, {
   int messages = 1,
   bool unread = true,
-  bool pinned = false,
 }) => AgentDelivery(
   id: id,
   title: id,
   startedAt: startedAt,
   messageCount: messages,
   unread: unread,
-  pinned: pinned,
 );
 
 DeliveryListing listing(List<AgentDelivery> rows, {bool capped = false}) =>
@@ -152,8 +150,8 @@ void main() {
       expect(found.record, {'work': 30});
     });
 
-    test('a pinned row listed twice counts once', () {
-      final pinned = delivery('pinned', 20, pinned: true);
+    test('a row listed twice counts once', () {
+      final pinned = delivery('pinned', 20);
       final found = findMessages(
         record: {'work': 10},
         profileNames: ['work'],
@@ -163,6 +161,69 @@ void main() {
       );
 
       expect(ids(found), ['new', 'pinned']);
+    });
+
+    test('a delivery already behind the record is not unfinished', () {
+      final found = findMessages(
+        record: {'work': 50},
+        profileNames: ['work'],
+        listings: {
+          'work': listing([
+            delivery('new', 60),
+            delivery('old', 40, messages: 0),
+          ]),
+        },
+      );
+
+      expect(ids(found), ['new']);
+      expect(found.record, {'work': 60});
+    });
+
+    test('a first look does not wait for an unfinished delivery', () {
+      final found = findMessages(
+        record: null,
+        profileNames: ['work'],
+        listings: {
+          'work': listing([
+            delivery('unfinished', 30, messages: 0),
+            delivery('a', 20),
+          ]),
+        },
+      );
+
+      expect(found.record, {'work': 30});
+    });
+
+    test('gives up on a delivery that stays unfinished for an hour', () {
+      final found = findMessages(
+        record: {'work': 1000},
+        profileNames: ['work'],
+        listings: {
+          'work': listing([
+            delivery('late', 9000),
+            delivery('orphan', 5000, messages: 0),
+          ]),
+        },
+      );
+
+      expect(ids(found), ['late']);
+      expect(found.record, {'work': 9000});
+    });
+
+    test('keeps waiting for one that is less than an hour behind', () {
+      final found = findMessages(
+        record: {'work': 1000},
+        profileNames: ['work'],
+        listings: {
+          'work': listing([
+            delivery('late', 4000),
+            delivery('unfinished', 3000, messages: 0),
+          ]),
+        },
+      );
+
+      expect(found.messages, isEmpty);
+      expect(found.record, {'work': 1000});
     });
 
     test('a profile whose list failed keeps its value', () {
@@ -204,10 +265,15 @@ void main() {
   });
 
   group('listDeliveries', () {
-    List<AgentDelivery> page(int newest, {int count = kDeliveryPageSize}) => [
-      for (var i = 0; i < count; i++)
-        delivery('d${newest - i}', (newest - i).toDouble()),
-    ];
+    DeliveryPage page(int newest, {bool full = true, int deliveries = 20}) =>
+        DeliveryPage(
+          [
+            for (var i = 0; i < deliveries; i++)
+              delivery('d${newest - i}', (newest - i).toDouble()),
+          ],
+          full: full,
+          oldestStartedAt: full ? (newest - 19).toDouble() : null,
+        );
 
     test('reads only the newest page without a record', () async {
       final offsets = <int>[];
@@ -232,35 +298,42 @@ void main() {
       expect(result.deliveries, hasLength(40));
     });
 
-    test('stops at a page that is not full', () async {
+    test('stops at the last page', () async {
       final offsets = <int>[];
       await listDeliveries((offset) async {
         offsets.add(offset);
-        return page(100, count: 7);
+        return page(100, full: false, deliveries: 7);
       }, since: 0);
 
       expect(offsets, [0]);
     });
 
-    test('reports the cap after three newer pages', () async {
-      final offsets = <int>[];
-      final result = await listDeliveries((offset) async {
-        offsets.add(offset);
-        return page(1000 - offset);
-      }, since: 0);
-
-      expect(offsets, [0, 20, 40]);
-      expect(result.capped, isTrue);
-    });
-
-    test('ignores pinned rows when deciding to stop', () async {
+    test('keeps reading when other chats fill the window', () async {
       final offsets = <int>[];
       await listDeliveries((offset) async {
         offsets.add(offset);
-        return [...page(100 - offset), delivery('pinned', 1, pinned: true)];
-      }, since: 10);
+        return page(1000 - offset, deliveries: 10);
+      }, since: 0);
 
       expect(offsets, [0, 20, 40]);
+    });
+
+    test('reports the cap after three newer pages', () async {
+      final result = await listDeliveries(
+        (offset) async => page(1000 - offset),
+        since: 0,
+      );
+
+      expect(result.capped, isTrue);
+    });
+
+    test('a third page that reaches the record is not the cap', () async {
+      final result = await listDeliveries(
+        (offset) async => page(1000 - offset),
+        since: 941,
+      );
+
+      expect(result.capped, isFalse);
     });
 
     test('lets a failing page fail the listing', () {

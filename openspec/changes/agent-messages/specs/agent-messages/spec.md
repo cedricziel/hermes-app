@@ -8,9 +8,9 @@ Lets a Hermes profile reach the user on its own: chats the Hermes App messenger 
 
 ### Requirement: Finding messages from Hermes
 
-The system SHALL treat a chat as a message from Hermes when the server lists it with source `hermes_app` and an id starting with `hermes-app-` (the messenger plugin's deliveries, never a chat the app started), reports it as unread, it holds at least one message, and it started after the record the app keeps for that profile. The record SHALL be kept per account and per profile name (the default profile under the name `default`) and SHALL never move backwards. After each successful look at a profile, the record SHALL be the newest start time among the listed deliveries, except that it SHALL NOT pass a delivery that holds no message yet, so a delivery still being written is judged again at the next look.
+The system SHALL treat a chat as a message from Hermes when the server lists it with source `hermes_app` and an id starting with `hermes-app-` (the messenger plugin's deliveries, never a chat the app started), reports it as unread, it holds at least one message, and it started after the record the app keeps for that profile. The record SHALL be kept per account and per profile name (the default profile under the name `default`) and SHALL never move backwards. After each successful look at a profile, the record SHALL be the newest start time among the listed deliveries, except that it SHALL NOT pass a delivery that holds no message yet, so a delivery still being written is judged again at the next look. A delivery that started after one still being written SHALL wait for it, so that none is announced twice. A delivery that still holds no message when the newest listed delivery started more than an hour after it SHALL be given up on, and the record passes it.
 
-The first look at a profile on a device, after the account or server changed, or after the "Messages from Hermes" setting or the general notification setting was turned on SHALL only record and SHALL announce nothing; a first look that finds no deliveries SHALL record the profile as having none, so its first delivery is announced. A look SHALL read up to three pages of 20 deliveries, newest first, and stop at the first delivery not newer than the record.
+The first look at a profile on a device, after the account or server changed, or after the "Messages from Hermes" setting or the general notification setting was turned on SHALL only record and SHALL announce nothing; a first look that finds no deliveries SHALL record the profile as having none, so its first delivery is announced. A first look SHALL ignore deliveries that hold no message yet. A look SHALL read up to three pages of 20 listed sessions, newest first, and stop at the page that is the last or whose oldest session is not newer than the record; other chats and pinned sessions among the listed sessions count toward the page.
 
 When the profile names cannot be read, the look SHALL be skipped and no record SHALL change. A look that fails for one profile SHALL leave that profile's record unchanged and SHALL NOT stop the other profiles' looks. A profile SHALL be dropped from the record only when a successfully read profile list no longer names it.
 
@@ -39,6 +39,17 @@ When the profile names cannot be read, the look SHALL be skipped and no record S
 - **WHEN** a look lists a new delivery that holds no message yet
 - **THEN** it is not announced and the record stays before it
 - **AND** the next look announces it once it holds its message
+
+#### Scenario: Delivery behind one still being written
+
+- **WHEN** a look lists a new delivery that holds its message and, older than it, one that holds none yet
+- **THEN** neither is announced and the record stays before both
+- **AND** the next look announces both once the older holds its message
+
+#### Scenario: Delivery that is never finished
+
+- **WHEN** a delivery holds no message and the newest listed delivery started more than an hour after it
+- **THEN** it is given up on and the record passes it
 
 #### Scenario: Chat started in the app
 

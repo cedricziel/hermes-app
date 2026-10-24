@@ -16,7 +16,6 @@ class AgentDelivery {
     required this.startedAt,
     required this.messageCount,
     required this.unread,
-    this.pinned = false,
   });
 
   final String id;
@@ -26,9 +25,6 @@ class AgentDelivery {
   final double startedAt;
   final int messageCount;
   final bool unread;
-
-  /// The server appends pinned rows to every page, wherever they belong.
-  final bool pinned;
 
   /// The delivery in a session-list [row], or null when the row is not one or
   /// lacks what a look needs.
@@ -41,11 +37,33 @@ class AgentDelivery {
       id: id,
       title: row['title'] is String ? row['title'] as String : null,
       startedAt: startedAt.toDouble(),
+      // A row without a count is not known to be unfinished.
       messageCount: row['message_count'] is num
           ? (row['message_count'] as num).toInt()
-          : 0,
+          : 1,
       unread: row['unread'] == true,
-      pinned: row['pinned'] == true,
     );
   }
+}
+
+/// One request's worth of the session list, judged by the rows the server
+/// listed: other chats share the source and pinned rows are appended to every
+/// page, so the deliveries alone say nothing about where the page ends.
+class DeliveryPage {
+  const DeliveryPage(
+    this.deliveries, {
+    required this.full,
+    required this.oldestStartedAt,
+  });
+
+  /// Every delivery among the rows, the pinned rows appended behind the
+  /// window included.
+  final List<AgentDelivery> deliveries;
+
+  /// Whether the list goes on after this page.
+  final bool full;
+
+  /// The start time of the last row of the window itself, null for a page
+  /// that is not full.
+  final double? oldestStartedAt;
 }

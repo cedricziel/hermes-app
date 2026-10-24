@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'agent_delivery.dart';
 
 /// What one profile's listing of deliveries holds.
@@ -10,31 +12,29 @@ class DeliveryListing {
   final bool capped;
 }
 
-/// Reads pages of deliveries with [page] (by offset), newest first, until one
-/// reaches [since], the record of the profile (null when there is none, which
-/// needs only the newest page), is not full, or [kDeliveryPages] were read.
-/// A page that fails fails the listing.
+/// Reads pages of deliveries with [page] (by offset), newest first, until
+/// one is the last, reaches [since], the record of the profile (null when
+/// there is none, which needs only the newest page), or [kDeliveryPages] were
+/// read. A page that fails fails the listing.
 Future<DeliveryListing> listDeliveries(
-  Future<List<AgentDelivery>> Function(int offset) page, {
+  Future<DeliveryPage> Function(int offset) page, {
   required double? since,
 }) async {
   final rows = <AgentDelivery>[];
   for (var index = 0; index < kDeliveryPages; index++) {
     final fetched = await page(index * kDeliveryPageSize);
-    rows.addAll(fetched);
-    // Pinned rows are appended to every page, so only the others say where
-    // the page ends.
-    final ordered = [
-      for (final row in fetched)
-        if (!row.pinned) row,
-    ];
-    if (since == null || ordered.length < kDeliveryPageSize) {
+    rows.addAll(fetched.deliveries);
+    final oldest = fetched.oldestStartedAt;
+    if (since == null || !fetched.full || oldest == null || oldest <= since) {
       return DeliveryListing(rows);
     }
-    if (ordered.last.startedAt <= since) return DeliveryListing(rows);
   }
   return DeliveryListing(rows, capped: true);
 }
+
+/// How long a delivery may stay without a message before it is given up on:
+/// one the plugin never finished writing must not hold the record for good.
+const kUnfinishedGrace = 3600.0;
 
 /// A delivery to announce, and the profile it came from.
 class FoundMessage {
@@ -70,8 +70,10 @@ class MessagesFound {
 /// A delivery is found when it is newer than the profile's record, unread and
 /// holds a message. The record moves up to the newest delivery that is older
 /// than every delivery still without a message, never backwards: such a
-/// delivery is judged again at the next look, and so is any delivery behind
-/// it, so that none is announced twice.
+/// delivery is judged again at the next look, and so is any delivery newer
+/// than it, so that none is announced twice. Only a delivery newer than the
+/// record counts as unfinished, none on a first look, and none that stays so
+/// for [kUnfinishedGrace] behind the newest listed.
 MessagesFound findMessages({
   required Map<String, double>? record,
   required Map<String, DeliveryListing?> listings,
@@ -89,10 +91,18 @@ MessagesFound findMessages({
     }
     capped |= listing.capped;
     final rows = {for (final row in listing.deliveries) row.id: row}.values;
-    final unfinished = rows
-        .where((row) => row.messageCount == 0)
-        .map((row) => row.startedAt)
-        .fold<double?>(null, (a, b) => a == null || b < a ? b : a);
+    final newest = rows.fold<double>(0, (a, row) => max(a, row.startedAt));
+    final unfinished = before == null
+        ? null
+        : rows
+              .where(
+                (row) =>
+                    row.messageCount == 0 &&
+                    row.startedAt > before &&
+                    newest - row.startedAt <= kUnfinishedGrace,
+              )
+              .map((row) => row.startedAt)
+              .fold<double?>(null, (a, b) => a == null || b < a ? b : a);
     final settled = [
       for (final row in rows)
         if (unfinished == null || row.startedAt < unfinished) row,
