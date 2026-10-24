@@ -296,7 +296,7 @@ class MemoryView extends StatelessWidget {
             for (final entry in entries)
               GroupedRow(
                 title: entry.label,
-                subtitle: entry.sourceLabel,
+                subtitle: entry.tab.label,
                 onTap: () => onOpen(entry),
               ),
           ],

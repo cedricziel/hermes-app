@@ -2,6 +2,7 @@ import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
+import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
@@ -42,7 +43,7 @@ void main() {
         ...events,
         ...trail.recent.map((entry) => '${entry.name} ${entry.attributes}'),
       ].join(' ');
-      expect(tracer.spans, hasLength(3));
+      expect(tracer.spans, hasLength(4));
       expect(tracer.spans.every((span) => span.ended), isTrue);
       expect(exported, contains('memory.fetch_failed'));
       expect(exported, contains('memory.open'));
@@ -94,6 +95,58 @@ void main() {
           events: (_, [attributes = const {}]) => throw StateError('telemetry'),
         ),
       ).mutate(memoryId, 'private-profile', content: fullMemory);
+    },
+  );
+
+  test(
+    'the limits read is traced and its failure logged by operation',
+    () async {
+      final server = FakeHermesServer()
+        ..on('GET', '/api/learning/graph', memoryGraph)
+        ..on('GET', '/api/config', {}, status: 500);
+      final tracer = RecordingTracer();
+      final events = <String>[];
+      final trail = BreadcrumbTrail();
+      final controller = MemoryController(breadcrumbs: Breadcrumbs.of(trail));
+      addTearDown(controller.dispose);
+      controller.bind(
+        MemoryRepository(
+          server.client().raw,
+          telemetry: ConnectionTelemetry(
+            tracer: tracer,
+            serverAttributes: const {'hermes.version': 'test'},
+            events: (name, [attributes = const {}]) =>
+                events.add('$name $attributes'),
+          ),
+        ),
+        'private-profile',
+      );
+      await pumpEventQueue();
+      controller.selectTab(MemoryTab.agentNotes);
+      final limits = tracer.spans.singleWhere(
+        (span) => span.attributes['operation'] == 'limits',
+      );
+      expect(limits.name, 'memory.fetch');
+      expect(limits.attributes['outcome'], 'transport');
+      expect(limits.attributes['hermes.version'], 'test');
+      expect(limits.ended, isTrue);
+      expect(
+        events,
+        contains(
+          "memory.fetch_failed {operation: limits, category: transport}",
+        ),
+      );
+      final tab = trail.recent.singleWhere(
+        (entry) => entry.name == 'memory.tab',
+      );
+      expect(tab.attributes, {'tab': 'agent_notes'});
+      final exported = [
+        ...tracer.spans.map((span) => '${span.name} ${span.attributes}'),
+        ...events,
+        ...trail.recent.map((entry) => '${entry.name} ${entry.attributes}'),
+      ].join(' ');
+      expect(exported, isNot(contains('private-profile')));
+      expect(exported, isNot(contains('Long memory')));
     },
   );
 
