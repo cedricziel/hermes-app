@@ -83,7 +83,7 @@ dependencies:
   file_picker: ^13.1.0
   image_picker: ^1.2.4
   desktop_drop: ^0.8.4
-  pasteboard: ^0.5.0
+  pasteboard: ^0.6.0
   # Opens a downloaded file in the system's app for its type, on all five
   # platforms (open_filex is mobile only).
   open_file: ^4.0.0
@@ -110,7 +110,7 @@ dependencies:
   # Audio-only libmpv/FFmpeg playback, including OGG/Opus on iOS and macOS.
   media_kit: ^1.2.6
   media_kit_libs_audio: ^1.0.7
-  audio_session: ^0.2.3
+  audio_session: ^0.2.4
   flutter_user_certificates_android: ^0.1.0
 
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
