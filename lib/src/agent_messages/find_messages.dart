@@ -4,9 +4,13 @@ import 'agent_delivery.dart';
 
 /// What one profile's listing of deliveries holds.
 class DeliveryListing {
-  const DeliveryListing(this.deliveries, {this.capped = false});
+  DeliveryListing(this.deliveries, {this.capped = false, List<double>? listed})
+    : listed = listed ?? [for (final row in deliveries) row.startedAt];
 
   final List<AgentDelivery> deliveries;
+
+  /// The start time of every chat the pages listed, deliveries or not.
+  final List<double> listed;
 
   /// The look stopped at its page limit with newer deliveries unread.
   final bool capped;
@@ -21,15 +25,17 @@ Future<DeliveryListing> listDeliveries(
   required double? since,
 }) async {
   final rows = <AgentDelivery>[];
+  final listed = <double>[];
   for (var index = 0; index < kDeliveryPages; index++) {
     final fetched = await page(index * kDeliveryPageSize);
     rows.addAll(fetched.deliveries);
+    listed.addAll(fetched.listed);
     final oldest = fetched.oldestStartedAt;
     if (since == null || !fetched.full || oldest == null || oldest <= since) {
-      return DeliveryListing(rows);
+      return DeliveryListing(rows, listed: listed);
     }
   }
-  return DeliveryListing(rows, capped: true);
+  return DeliveryListing(rows, capped: true, listed: listed);
 }
 
 /// How long a delivery may stay without a message before it is given up on:
@@ -55,7 +61,7 @@ class MessagesFound {
   });
 
   /// What to store for the next look: per profile name, the start time in
-  /// seconds of the newest delivery already dealt with, 0 for none yet.
+  /// seconds of the newest chat already dealt with, 0 for none yet.
   final Map<String, double> record;
   final List<FoundMessage> messages;
   final bool capped;
@@ -68,16 +74,18 @@ class MessagesFound {
 /// value.
 ///
 /// A delivery is found when it is newer than the profile's record, unread and
-/// holds a message. The record moves up to the newest delivery that is older
-/// than every delivery still without a message, never backwards: such a
-/// delivery is judged again at the next look, and so is any delivery newer
-/// than it, so that none is announced twice. Only a delivery newer than the
-/// record counts as unfinished, none on a first look, and none that stays so
-/// for [kUnfinishedGrace] behind the newest listed.
+/// holds a message. The record moves up to the newest chat listed, delivery
+/// or not, that is older than every delivery still without a message, never
+/// backwards: such a delivery is judged again at the next look, and so is any
+/// delivery newer than it, so that none is announced twice. Only a delivery
+/// newer than the record counts as unfinished, none on a first look, and none
+/// that started more than [kUnfinishedGrace] before [now] (seconds since the
+/// epoch).
 MessagesFound findMessages({
   required Map<String, double>? record,
   required Map<String, DeliveryListing?> listings,
   required List<String> profileNames,
+  required double now,
 }) {
   final next = <String, double>{};
   final messages = <FoundMessage>[];
@@ -91,7 +99,6 @@ MessagesFound findMessages({
     }
     capped |= listing.capped;
     final rows = {for (final row in listing.deliveries) row.id: row}.values;
-    final newest = rows.fold<double>(0, (a, row) => max(a, row.startedAt));
     final unfinished = before == null
         ? null
         : rows
@@ -99,7 +106,7 @@ MessagesFound findMessages({
                 (row) =>
                     row.messageCount == 0 &&
                     row.startedAt > before &&
-                    newest - row.startedAt <= kUnfinishedGrace,
+                    now - row.startedAt <= kUnfinishedGrace,
               )
               .map((row) => row.startedAt)
               .fold<double?>(null, (a, b) => a == null || b < a ? b : a);
@@ -107,7 +114,11 @@ MessagesFound findMessages({
       for (final row in rows)
         if (unfinished == null || row.startedAt < unfinished) row,
     ]..sort((a, b) => b.startedAt.compareTo(a.startedAt));
-    final cutoff = settled.isEmpty ? 0.0 : settled.first.startedAt;
+    final cutoff = [
+      for (final startedAt in listing.listed)
+        if (unfinished == null || startedAt < unfinished) startedAt,
+      if (settled.isNotEmpty) settled.first.startedAt,
+    ].fold<double>(0, max);
     if (before == null) {
       next[name] = cutoff;
       continue;

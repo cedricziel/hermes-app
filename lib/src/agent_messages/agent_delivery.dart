@@ -32,7 +32,8 @@ class AgentDelivery {
     final id = row['id'];
     final startedAt = row['started_at'];
     if (id is! String || !id.startsWith(kDeliveryIdPrefix)) return null;
-    if (startedAt is! num) return null;
+    // Archived pinned rows come back with every page.
+    if (startedAt is! num || row['archived'] == true) return null;
     return AgentDelivery(
       id: id,
       title: row['title'] is String ? row['title'] as String : null,
@@ -54,6 +55,7 @@ class DeliveryPage {
     this.deliveries, {
     required this.full,
     required this.oldestStartedAt,
+    this.listed = const [],
   });
 
   /// Every delivery among the rows, the pinned rows appended behind the
@@ -66,4 +68,9 @@ class DeliveryPage {
   /// The start time of the last row of the window itself, null for a page
   /// that is not full.
   final double? oldestStartedAt;
+
+  /// The start time of every row of the window, deliveries or not: the
+  /// record follows the newest chat listed, so a look in the steady state
+  /// reads one page.
+  final List<double> listed;
 }

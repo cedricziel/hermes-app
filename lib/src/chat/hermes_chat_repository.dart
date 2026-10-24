@@ -113,7 +113,10 @@ class HermesChatRepository {
       {'total': final int total} => total,
       _ => null,
     };
-    // The window is the first rows; pinned ones not in it follow.
+    // The window is the first rows; pinned ones not in it follow. `total`
+    // also counts hidden sessions, so it can overstate what follows; the
+    // page limit bounds the cost.
+    final window = rows.take(kDeliveryPageSize);
     final full =
         rows.length >= kDeliveryPageSize &&
         (total == null || offset + kDeliveryPageSize < total);
@@ -122,6 +125,10 @@ class HermesChatRepository {
       [for (final row in rows) ?AgentDelivery.fromRow(row)],
       full: full,
       oldestStartedAt: oldest is num ? oldest.toDouble() : null,
+      listed: [
+        for (final row in window)
+          if (row['started_at'] case final num startedAt) startedAt.toDouble(),
+      ],
     );
   }
 

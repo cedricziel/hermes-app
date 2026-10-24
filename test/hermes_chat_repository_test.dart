@@ -441,6 +441,35 @@ void main() {
         },
       );
 
+      test('lists the start time of every row in the window', () async {
+        final listed = [
+          ...rows(20),
+          sessionRow(id: 'hermes-app-pinned', startedAt: 1.0, pinned: true),
+        ];
+
+        final result = await page(listed, total: 100);
+
+        expect(result.listed, hasLength(20));
+        expect(result.listed.first, 1780000000.0);
+      });
+
+      test('skips an archived delivery the pinned rows bring back', () async {
+        final listed = [
+          ...rows(3),
+          {
+            ...sessionRow(id: 'hermes-app-archived', pinned: true),
+            'archived': true,
+          },
+        ];
+
+        final result = await page(listed);
+
+        expect(
+          result.deliveries.map((d) => d.id),
+          isNot(contains('hermes-app-archived')),
+        );
+      });
+
       test(
         'is the last when fewer rows came back than were asked for',
         () async {
