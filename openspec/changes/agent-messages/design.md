@@ -61,7 +61,7 @@ Platforms: Android, iOS and macOS for the foreground watcher (the platforms that
 - Log `agent_messages.announced` (`count`, `summary`, `background`), from the watcher and the step after posting.
 - Log `agent_messages.look_failed` (`error` type, `background`), at most once per look, when the profile list or any profile's listing fails.
 - Span attribute `agent_messages.found` (count) on `background.task` through `HeadlessHermes.annotate`.
-- Log `chat.mark_read_failed` (`error` type), from `ChatController`.
+- Log `chat.mark_read_failed` (`error_type`), from `ChatController`.
 
 None carries a title, text, profile name, session id or server address.
 

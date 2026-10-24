@@ -248,7 +248,17 @@ class HermesChatRepository {
       remote: true,
       named:
           row['title'] is String && (row['title'] as String).trim().isNotEmpty,
+      unread: _unread(row),
     );
+  }
+
+  /// List rows say `unread`; a single session only has the `last_read_at`
+  /// watermark it is computed from: never read is null, marked unread is 0.
+  static bool _unread(Map<String, dynamic> row) {
+    if (row['unread'] case final bool unread) return unread;
+    final lastRead = row['last_read_at'];
+    final lastActive = row['last_active'] ?? row['started_at'];
+    return lastRead is num && lastActive is num && lastActive > lastRead;
   }
 
   /// The session-changing calls take the [profile] the session was listed
@@ -276,6 +286,9 @@ class HermesChatRepository {
 
   Future<void> archiveThread(String id, {String? profile}) =>
       _patch(id, SessionRename(archived: true, profile: profile));
+
+  Future<void> markRead(String id, {String? profile}) =>
+      _patch(id, SessionRename(unread: false, profile: profile));
 
   /// Deleting a session the dashboard no longer has counts as success.
   Future<void> deleteThread(String id, {String? profile}) =>

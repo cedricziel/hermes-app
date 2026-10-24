@@ -276,6 +276,63 @@ void main() {
     });
   });
 
+  group('unread', () {
+    Future<ChatThread> listed(Map<String, Object?> row) async {
+      server.on('GET', '/api/sessions', sessionListBody([row]));
+      return (await repository.loadThreads()).single;
+    }
+
+    test('a listed chat is unread only when the dashboard says so', () async {
+      expect((await listed(sessionRow(id: 's1', unread: true))).unread, isTrue);
+      expect(
+        (await listed(sessionRow(id: 's1', unread: false))).unread,
+        isFalse,
+      );
+      expect((await listed(sessionRow(id: 's1'))).unread, isFalse);
+    });
+
+    Future<ChatThread?> fetched(Map<String, Object?> row) async {
+      server.on('GET', '/api/sessions/s1', row);
+      return repository.loadThread('s1');
+    }
+
+    test(
+      'a fetched chat is unread when it was active after it was read',
+      () async {
+        final unread = await fetched(
+          sessionRow(id: 's1', lastActive: 1780000100, lastReadAt: 1780000050),
+        );
+        expect(unread!.unread, isTrue);
+        final marked = await fetched(sessionRow(id: 's1', lastReadAt: 0));
+        expect(marked!.unread, isTrue);
+      },
+    );
+
+    test('a fetched chat never read or read since is not unread', () async {
+      final never = await fetched(sessionRow(id: 's1'));
+      expect(never!.unread, isFalse);
+      final read = await fetched(
+        sessionRow(id: 's1', lastActive: 1780000100, lastReadAt: 1780000200),
+      );
+      expect(read!.unread, isFalse);
+    });
+  });
+
+  group('markRead', () {
+    test('patches only the unread flag, under its profile', () async {
+      server.on(
+        'PATCH',
+        '/api/sessions/s1',
+        sessionPatchBody(flags: {'unread': false}),
+      );
+
+      await repository.markRead('s1', profile: 'work');
+
+      final request = server.requestsTo('PATCH', '/api/sessions/s1').single;
+      expect(jsonBody(request), {'unread': false, 'profile': 'work'});
+    });
+  });
+
   group('deleteThread', () {
     test('deletes the session', () async {
       server.on('DELETE', '/api/sessions/s1', {'ok': true});
