@@ -1,0 +1,6 @@
+name: hermes-app
+label: Hermes App
+kind: platform
+version: 1.0.0
+description: Deliver messages into saved Hermes App chats on this Hermes installation.
+author: cedricziel
