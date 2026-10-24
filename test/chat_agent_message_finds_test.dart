@@ -187,6 +187,72 @@ void main() {
       expect(chat.threads.map((t) => t.id), contains('hermes-app-1'));
     });
 
+    test('reads again when a change starts while it reads', () async {
+      final readHeld = Completer<void>();
+      final archiveHeld = Completer<void>();
+      var served = 0;
+      server
+        ..onRequest('GET', '/api/sessions', (_) async {
+          if (served++ == 0) await readHeld.future;
+          return (
+            status: 200,
+            body: sessionListBody([
+              delivered,
+              sessionRow(id: 'recent', title: 'Recent chat'),
+            ]),
+          );
+        }, query: {'profile': 'work'})
+        ..onRequest('PATCH', '/api/sessions/recent', (_) async {
+          await archiveHeld.future;
+          return (status: 200, body: sessionPatchBody());
+        });
+
+      final refreshing = chat.refreshThreadList();
+      await pumpEventQueue();
+      final archiving = chat.housekeeping!.archive(thread('recent'));
+      await pumpEventQueue();
+      expect(chat.threadListInvalidationBlocked, isTrue);
+
+      readHeld.complete();
+      await refreshing;
+      expect(chat.threads.map((t) => t.id), isNot(contains('hermes-app-1')));
+
+      archiveHeld.complete();
+      await archiving;
+      await pumpEventQueue();
+
+      expect(served, 2);
+      expect(chat.threads.map((t) => t.id), contains('hermes-app-1'));
+    });
+
+    test('drops a waiting read when another profile loads', () async {
+      final archiveHeld = Completer<void>();
+      server
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 'other', title: 'Other')]),
+          query: {'profile': 'home'},
+        )
+        ..onRequest('PATCH', '/api/sessions/recent', (_) async {
+          await archiveHeld.future;
+          return (status: 200, body: sessionPatchBody());
+        });
+      final archiving = chat.housekeeping!.archive(thread('recent'));
+      await pumpEventQueue();
+      await chat.refreshThreadList();
+
+      await chat.loadThreads('home');
+      archiveHeld.complete();
+      await archiving;
+      await pumpEventQueue();
+
+      final homeLists = server
+          .requestsTo('GET', '/api/sessions')
+          .where((r) => r.queryParameters['profile'] == 'home');
+      expect(homeLists, hasLength(1));
+    });
+
     test('is not run again once it has been run', () async {
       final held = Completer<void>();
       var served = 0;

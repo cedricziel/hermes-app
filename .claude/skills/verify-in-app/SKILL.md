@@ -535,6 +535,27 @@ screenshot, then revert it. Check a diff before committing so none of it ships.
 The Kanban tab appears only because the backend lists the bundled `kanban`
 plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
 
+## Messages from Hermes
+
+A delivery needs the messenger plugin, which lives on the branch `origin/feat/hermes-app-messenger`
+(`git worktree add <scratch> origin/feat/hermes-app-messenger`; once it is merged it is
+`plugins/hermes-app` in this checkout). Enable it in the backend's throwaway home before
+`scripts/dev-backend.sh start`:
+
+```bash
+H="$PWD/.dart_tool/hermes-dev/home"
+mkdir -p "$H/plugins" && cp -R <scratch>/plugins/hermes-app "$H/plugins/"
+# config.yaml: platforms.hermes_app with enabled: true and the inbox home channel
+HERMES_HOME="$H" hermes plugins enable hermes-app
+scripts/dev-backend.sh start
+HERMES_HOME="$H" hermes send --to hermes_app:inbox --file msg.txt
+```
+
+The row appears in `GET /api/sessions?source=hermes_app` with an id starting `hermes-app-`, `message_count` 1 and
+`last_read_at` 0 (`unread: true`). In the app, the next minute's look posts the notification; a tap opens the
+chat and marks it read (`unread` false in the list). A background run needs the app suspended on a phone
+build; see "Background work".
+
 ## The watch app
 
 The watch app relays requests through WatchConnectivity to the phone. Follow
