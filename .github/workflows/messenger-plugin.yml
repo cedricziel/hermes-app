@@ -5,14 +5,22 @@ on:
     paths:
       - 'plugins/hermes-app/**'
       - 'openapi/HERMES_REF'
+      - 'openrpc/HERMES_REF'
+      - 'scripts/hermes_contracts.py'
       - '.github/workflows/messenger-plugin.yml'
   push:
     branches: [main]
     paths:
       - 'plugins/hermes-app/**'
       - 'openapi/HERMES_REF'
+      - 'openrpc/HERMES_REF'
+      - 'scripts/hermes_contracts.py'
       - '.github/workflows/messenger-plugin.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -20,11 +28,12 @@ permissions:
 jobs:
   messenger:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - name: Read the app's Hermes revision
+      - name: Resolve the app's Hermes revision
         id: hermes
-        run: echo "ref=$(tr -d '\n\r' < openapi/HERMES_REF)" >> "$GITHUB_OUTPUT"
+        run: echo "ref=$(python3 -I scripts/hermes_contracts.py resolve)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           repository: NousResearch/hermes-agent
@@ -34,6 +43,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+          cache: pip
+          cache-dependency-path: .hermes-backend/pyproject.toml
       - name: Install Hermes test runtime
         run: pip install -e ./.hermes-backend
       - name: Exercise messenger delivery against Hermes
