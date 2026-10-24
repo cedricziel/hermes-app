@@ -8,6 +8,7 @@ import 'package:hermes_app/src/agent_messages/agent_message_watcher.dart';
 import 'package:hermes_app/src/agent_messages/find_messages.dart'
     show kUnfinishedGrace;
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
@@ -514,10 +515,12 @@ void main() {
     testWidgets('a look that finds nothing tells nobody', (tester) async {
       await tester.runAsync(() async {
         await setUpWatcher();
+        shown = null;
         var notified = 0;
         finds.addListener(() => notified++);
         await watcher!.check();
 
+        expect(server.requestsTo('GET', '/api/profiles/active'), isEmpty);
         expect(trail.recent, isEmpty);
         expect(events, isEmpty);
         expect(notified, 0);
@@ -611,8 +614,13 @@ void main() {
           tester.binding.handleAppLifecycleStateChanged(
             AppLifecycleState.inactive,
           );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          final again = watcher!.check();
           gate.complete();
           await look;
+          await again;
 
           expect(service.shown.single.threadId, 'hermes-app-new');
           expect(await record(), {'default': 0, 'work': 200});
@@ -695,6 +703,29 @@ void main() {
 
         expect(service.shown.single.title, 'Message from Hermes');
         expect(service.shown.single.body, 'New message');
+      });
+    });
+
+    testWidgets('App Lock turned on while the first of two is posted makes '
+        'the second generic', (tester) async {
+      await tester.runAsync(() async {
+        service = _OnShow(() => appLock = true);
+        await setUpWatcher();
+        await watcher!.check();
+        deliveries('work', [
+          delivery('hermes-app-b', at: 300, title: 'Message: Second'),
+          delivery('hermes-app-a', at: 200, title: 'Message: First'),
+        ]);
+        text('hermes-app-a', 'First text');
+        text('hermes-app-b', 'Second text');
+
+        await watcher!.check();
+
+        expect(
+          [for (final alert in service.shown) alert.title],
+          ['Message: Second', 'Message from Hermes'],
+        );
+        expect(service.shown.last.body, 'New message');
       });
     });
 
@@ -1058,4 +1089,17 @@ base class _FailingWritePrefs extends InMemorySharedPreferencesAsync {
     String value,
     SharedPreferencesOptions options,
   ) async => throw StateError('disk full');
+}
+
+/// Calls [onShow] when a notification is posted.
+class _OnShow extends FakeNotificationService {
+  _OnShow(this.onShow);
+
+  final void Function() onShow;
+
+  @override
+  Future<void> show(AttentionNotification notification) async {
+    await super.show(notification);
+    onShow();
+  }
 }
