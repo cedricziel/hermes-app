@@ -207,6 +207,9 @@ extension _ChatControllerHistory on ChatController {
           : preserveSelection && _threads.any((t) => t.id == previousSelection)
           ? previousSelection
           : null;
+      if (launch != null && _selectedId == launch.threadId) {
+        _markRead(threads.firstWhere((t) => t.id == launch.threadId));
+      }
       if (preserveSelection &&
           previousSelection != null &&
           _selectedId == null &&

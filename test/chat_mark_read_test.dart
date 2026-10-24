@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
@@ -97,7 +98,7 @@ void main() {
       ..on(
         'GET',
         '/api/sessions/older',
-        sessionRow(id: 'older', title: 'Delivery', lastReadAt: 0),
+        sessionDetailRow(id: 'older', title: 'Delivery', lastReadAt: 0),
       )
       ..on(
         'PATCH',
@@ -143,5 +144,78 @@ void main() {
     chat.select('unread');
     await pumpEventQueue();
     expect(markReads('unread'), hasLength(2));
+  });
+
+  test('a chat opened while the list loads is marked read', () async {
+    final load = chat.loadThreads('work');
+    chat.open(
+      const NotificationTarget(threadId: 'unread', profile: 'work'),
+      fetchMissing: true,
+    );
+    await load;
+    await pumpEventQueue();
+
+    expect(chat.selectedId, 'unread');
+    expect(markReads('unread'), [
+      {'unread': false, 'profile': 'work'},
+    ]);
+  });
+
+  test(
+    'a chat that became unread since the list loaded is marked read',
+    () async {
+      server.on(
+        'PATCH',
+        '/api/sessions/read',
+        sessionPatchBody(flags: {'unread': false}),
+      );
+      await chat.loadThreads('work');
+      chat.applyInvalidatedThreads(
+        ThreadPage(
+          threads: [
+            ChatThread(
+              id: 'read',
+              title: 'Old',
+              updatedAt: DateTime(2026),
+              remote: true,
+              unread: true,
+            ),
+          ],
+          nextOffset: 50,
+          hasMore: false,
+        ),
+        profile: 'work',
+        generation: chat.threadListGeneration,
+      );
+
+      chat.select('read');
+      await pumpEventQueue();
+
+      expect(markReads('read'), hasLength(1));
+    },
+  );
+
+  test('a chat handed off from another device is marked read', () async {
+    server
+      ..on(
+        'GET',
+        '/api/sessions/older',
+        sessionDetailRow(id: 'older', lastReadAt: 0),
+      )
+      ..on(
+        'PATCH',
+        '/api/sessions/older',
+        sessionPatchBody(flags: {'unread': false}),
+      );
+    await chat.loadThreads('work');
+
+    final restored = await chat.restoreHandoff(
+      const NotificationTarget(threadId: 'older', profile: 'work'),
+      () => true,
+    );
+    await pumpEventQueue();
+
+    expect(restored, isTrue);
+    expect(markReads('older'), hasLength(1));
   });
 }

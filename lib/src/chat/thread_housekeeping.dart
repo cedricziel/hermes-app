@@ -222,13 +222,14 @@ class ThreadHousekeeping {
     if (current()) forget(thread);
   });
 
-  /// Takes on what the dashboard now holds for [thread]: its title, pin and
-  /// last activity, changed elsewhere (another window).
+  /// Takes on what the dashboard now holds for [thread]: its title, pin, read
+  /// state and last activity, changed elsewhere (another window).
   void adopt(ChatThread thread, ChatThread fresh) {
     thread
       ..title = fresh.title
       ..named = fresh.named
       ..pinned = fresh.pinned
+      ..unread = fresh.unread
       ..updatedAt = fresh.updatedAt;
     _sort();
   }

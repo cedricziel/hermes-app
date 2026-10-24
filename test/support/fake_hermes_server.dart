@@ -187,6 +187,27 @@ Map<String, Object?> sessionRow({
   'last_read_at': ?lastReadAt,
 };
 
+/// A `GET /api/sessions/{id}` body: the stored session row, which has
+/// `last_activity_at` and `last_read_at` but none of the list's computed
+/// `last_active` or `unread`.
+Map<String, Object?> sessionDetailRow({
+  required String id,
+  String? title,
+  double startedAt = 1780000000,
+  double? lastActivityAt,
+  double? lastReadAt,
+}) => {
+  'id': id,
+  'source': 'cli',
+  'title': title,
+  'model': 'hermes-4',
+  'started_at': startedAt,
+  'ended_at': null,
+  'message_count': 2,
+  'last_activity_at': lastActivityAt,
+  'last_read_at': lastReadAt,
+};
+
 /// A `GET /api/sessions/{id}/messages` row.
 Map<String, Object?> messageRow({
   required int id,

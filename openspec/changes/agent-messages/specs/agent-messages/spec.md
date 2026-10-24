@@ -180,7 +180,7 @@ The system SHALL rely on:
 
 - `GET /api/sessions?source=hermes_app&order=created&archived=exclude&limit=20&offset=<n>&profile=<name>`, reading each row's `id`, `title`, `started_at` (seconds since the epoch), `message_count` and `unread`, and skipping rows without `id` or `started_at`;
 - `GET /api/sessions/{id}/messages?profile=<name>` for the delivered text;
-- `GET /api/sessions/{id}?profile=<name>`, reading `last_read_at`, `last_active` and `started_at` to tell whether a fetched chat is unread (unread when `last_read_at` is set and the latest activity is later);
+- `GET /api/sessions/{id}?profile=<name>`, reading `last_read_at`, `last_activity_at` and `started_at` to tell whether a fetched chat is unread (unread when `last_read_at` is set and the latest activity is later);
 - `PATCH /api/sessions/{id}` with `{"unread": false, "profile": <name>}`;
 - the profile list the app already reads.
 
