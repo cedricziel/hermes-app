@@ -46,7 +46,7 @@ Platforms: iOS, iPadOS, Android, macOS, Windows, Linux. No native, entitlement, 
 
 A transport error shows "Couldn't reach Hermes. Try again." and keeps the buttons. The parser lives in `lib/src/memory/memory_decisions.dart` so `memory-proposals` reuses it.
 
-**Review note link.** The review notes no longer render under the reply: `MemoryActivityCard` shows them in the Activity panel. It takes an optional `onOpenMemory`; when set, its review section ends with a "Memory" link button. `BoundActivityPanel` sets it to open `MemoryDestination(profile: <chat's profile>)` when the profile is known and the chat has a repository; `MemoryDestination` gets an optional `profile`.
+**Review note link.** The review notes no longer render under the reply: `MemoryActivityCard` shows them in the Activity panel. It takes an optional `onOpenMemory`; when set, its review section ends with a "Memory" link button. `BoundActivityPanel` sets it to open `MemoryDestination(profile: <chat's profile>)` when the profile is known and the chat has a repository, pushing `MemoryDestination(profile:)`.
 
 **Widgets.** `MemoryToolBody` (outcome, decision state, callback) and the link variant of `MemoryActivityCard`, catalogued first in `widgetbook/memory_tool_use_cases.dart`.
 
