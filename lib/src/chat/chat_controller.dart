@@ -968,6 +968,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           : null;
       if (runningThread?.isReplying == true) {
         _selectedId = runningThread!.id;
+        _markRead(runningThread);
         notifyListeners();
         if (!current()) return false;
         onOpened?.call();

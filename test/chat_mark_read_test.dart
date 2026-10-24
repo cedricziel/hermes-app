@@ -218,4 +218,42 @@ void main() {
     expect(restored, isTrue);
     expect(markReads('older'), hasLength(1));
   });
+
+  test('a refresh never clears an unread the list reported', () async {
+    server.on(
+      'GET',
+      '/api/sessions/unread',
+      sessionDetailRow(id: 'unread', title: 'Report'),
+    );
+    await chat.loadThreads('work');
+
+    await chat.refreshThread('unread');
+    chat.select('unread');
+    await pumpEventQueue();
+
+    expect(markReads('unread'), hasLength(1));
+  });
+
+  test('a listed chat handed off as unread is marked read', () async {
+    server
+      ..on(
+        'GET',
+        '/api/sessions/read',
+        sessionDetailRow(id: 'read', title: 'Old', lastReadAt: 0),
+      )
+      ..on(
+        'PATCH',
+        '/api/sessions/read',
+        sessionPatchBody(flags: {'unread': false}),
+      );
+    await chat.loadThreads('work');
+
+    await chat.restoreHandoff(
+      const NotificationTarget(threadId: 'read', profile: 'work'),
+      () => true,
+    );
+    await pumpEventQueue();
+
+    expect(markReads('read'), hasLength(1));
+  });
 }
