@@ -68,8 +68,8 @@ For scheduled output, select Hermes App in the schedule delivery picker, or
 use `deliver="hermes_app:inbox"` with Hermes' existing scheduler. Do not also
 ask the job's prompt to send: automatic delivery already sends the output.
 
-Every run delivered this way becomes a new chat and a notification, so a
-frequent job fills the inbox. With this plugin enabled and its home channel
+Every run delivered this way becomes a new chat, so a frequent job fills the
+inbox. Hermes App may also post a notification for each one once it finds it. With this plugin enabled and its home channel
 set, two other delivery settings can reach the inbox without naming it:
 `deliver=origin` on a job that has no origin (created through the API or a
 script) falls back to a home channel, which can be this one, and

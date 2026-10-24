@@ -31,6 +31,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Resolve the app's Hermes revision
         id: hermes
         run: echo "ref=$(python3 -I scripts/hermes_contracts.py resolve)" >> "$GITHUB_OUTPUT"
