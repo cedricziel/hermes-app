@@ -120,6 +120,7 @@ void main() {
       expect(ids, contains(kQuestionCategory));
       expect(ids, contains(kApprovalPlaceholderCategory));
       expect(ids, contains(kQuestionPlaceholderCategory));
+      expect(ids, contains(messageCategory.id));
       expect(
         ids.where((id) => id.startsWith('$kApprovalCategoryPrefix.')).length,
         15,

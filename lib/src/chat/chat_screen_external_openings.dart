@@ -30,7 +30,8 @@ extension _ChatScreenExternalOpenings on _ChatScreenState {
     _handoff?.cancel();
     if (target.isJob) return widget.onOpenJob?.call(target);
     if (target.prompt != null) return _openNewChatFromNotification(target);
-    _chat.open(target, fetchMissing: false);
+    if (target.isMessageSummary) return widget.onShowChat?.call();
+    _chat.open(target, fetchMissing: target.isMessage);
   }
 
   /// A notification about a question that never reached Hermes: a new chat
