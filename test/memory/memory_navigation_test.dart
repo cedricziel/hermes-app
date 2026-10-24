@@ -46,7 +46,7 @@ void main() {
   testWidgets('opens on the named profile, not the active one', (tester) async {
     await pumpDestination(tester, 'work');
 
-    expect(find.text('Long memory'), findsOneWidget);
+    expect(find.text('User preference'), findsOneWidget);
     expect(
       server.requestsTo('GET', '/api/learning/graph').single.queryParameters,
       {'profile': 'work'},

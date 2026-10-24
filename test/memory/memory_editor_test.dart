@@ -24,6 +24,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: MemoryScreen(controller: controller)),
     );
+    expect(
+      find.text('Entry 1 of 1 in Agent notes (MEMORY.md)'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Used from the next chat'), findsOneWidget);
     await tester.ensureVisible(find.text('Edit'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit'));
@@ -36,9 +41,9 @@ void main() {
           .onPressed,
       isNull,
     );
-    await tester.ensureVisible(find.text('Delete'));
+    await tester.ensureVisible(find.text('Delete entry'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
+    await tester.tap(find.text('Delete entry'));
     await tester.pumpAndSettle();
     expect(find.text('Permanently delete this memory?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
