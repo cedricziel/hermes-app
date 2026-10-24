@@ -67,6 +67,12 @@ void main() {
       {'profile': 'other'},
     );
     expect(server.requestsTo('POST', '/api/profiles/active'), isEmpty);
+    expect(
+      server
+          .requestsTo('GET', '/api/config')
+          .map((request) => request.queryParameters['profile']),
+      containsAllInOrder(['work', 'other']),
+    );
   });
 
   testWidgets('a profile the server no longer lists is unavailable', (

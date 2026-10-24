@@ -11,6 +11,8 @@ import '../widgets/state_message.dart';
 import 'memory_controller.dart';
 import 'memory_repository.dart';
 import 'memory_screen.dart';
+import 'memory_settings_controller.dart';
+import 'memory_settings_repository.dart';
 
 /// Where Memory was opened from, for the `nav.memory` breadcrumb.
 enum MemoryEntryPoint {
@@ -55,8 +57,10 @@ class MemoryDestination extends StatefulWidget {
 
 class _MemoryDestinationState extends State<MemoryDestination> {
   late final MemoryController _controller;
+  late final MemorySettingsController _settings;
   HermesRepositories? _repositories;
   MemoryRepository? _memory;
+  MemorySettingsRepository? _settingsRepository;
   Map<String, String> _profiles = const {};
   MemoryFailure? _failure;
   bool _loading = false;
@@ -86,10 +90,12 @@ class _MemoryDestinationState extends State<MemoryDestination> {
     _generation++;
     _repositories = null;
     _memory = null;
+    _settingsRepository = null;
     _profiles = const {};
     _loading = false;
     _failure = null;
     _controller.bind(null, null);
+    _settings.bind(null, null);
   }
 
   @override
@@ -102,6 +108,7 @@ class _MemoryDestinationState extends State<MemoryDestination> {
       breadcrumbs = Breadcrumbs.none;
     }
     _controller = MemoryController(breadcrumbs: breadcrumbs);
+    _settings = MemorySettingsController(breadcrumbs: breadcrumbs);
   }
 
   @override
@@ -136,13 +143,25 @@ class _MemoryDestinationState extends State<MemoryDestination> {
     _repositories = repositories;
     _profiles = const {};
     _controller.bind(null, null);
+    _settings.bind(null, null);
     _memory = repositories == null
         ? null
         : MemoryRepository(
             repositories.api.raw,
             telemetry: repositories.telemetry,
           );
+    _settingsRepository = repositories == null
+        ? null
+        : MemorySettingsRepository(
+            repositories.api.raw,
+            telemetry: repositories.telemetry,
+          );
     if (repositories != null) _loadProfiles();
+  }
+
+  void _show(String profile) {
+    _controller.bind(_memory, profile);
+    _settings.bind(_settingsRepository, profile);
   }
 
   Future<void> _loadProfiles() async {
@@ -172,7 +191,7 @@ class _MemoryDestinationState extends State<MemoryDestination> {
         throw MemoryFailure.profileUnavailable;
       }
       setState(() => _profiles = profiles);
-      _controller.bind(_memory, selected);
+      _show(selected);
     } on Object catch (error) {
       if (mounted && generation == _generation) {
         setState(
@@ -220,8 +239,9 @@ class _MemoryDestinationState extends State<MemoryDestination> {
     }
     return MemoryScreen(
       controller: _controller,
+      settings: _settings,
       profiles: _profiles,
-      onProfile: (profile) => _controller.bind(_memory, profile),
+      onProfile: _show,
     );
   }
 
@@ -230,6 +250,7 @@ class _MemoryDestinationState extends State<MemoryDestination> {
     _auth?.removeListener(_authorizationChanged);
     _generation++;
     _controller.dispose();
+    _settings.dispose();
     super.dispose();
   }
 }

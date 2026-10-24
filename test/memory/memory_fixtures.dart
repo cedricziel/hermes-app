@@ -62,3 +62,21 @@ const memoryMutationRejection = {
 const memoryStaleError = {
   'detail': 'memory node id is stale — refresh the graph',
 };
+
+/// `GET /api/config` with defaults included, reduced to the keys the Learning
+/// section reads; each argument falls back to Hermes' default.
+Map<String, Object?> memorySettingsConfig({
+  bool userProfile = true,
+  bool agentNotes = true,
+  bool writeApproval = false,
+  int interval = 10,
+  String updates = 'on',
+}) => {
+  'memory': {
+    'user_profile_enabled': userProfile,
+    'memory_enabled': agentNotes,
+    'write_approval': writeApproval,
+    'nudge_interval': interval,
+  },
+  'display': {'memory_notifications': updates},
+};

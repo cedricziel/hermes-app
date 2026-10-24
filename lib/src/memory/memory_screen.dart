@@ -5,9 +5,11 @@ import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'memory_controller.dart';
 import 'memory_repository.dart';
+import 'memory_settings_controller.dart';
 import 'memory_usage.dart';
 import 'widgets/memory_entry_editor.dart';
 import 'widgets/memory_entry_list.dart';
+import 'widgets/memory_learning_section.dart';
 
 class MemoryScreen extends StatefulWidget {
   const MemoryScreen({
@@ -15,8 +17,12 @@ class MemoryScreen extends StatefulWidget {
     required this.controller,
     this.profiles = const {},
     this.onProfile,
+    this.settings,
   });
   final MemoryController controller;
+
+  /// The profile's Learning settings; the section is left out without it.
+  final MemorySettingsController? settings;
   final Map<String, String> profiles;
   final ValueChanged<String>? onProfile;
   @override
@@ -163,6 +169,9 @@ class _MemoryScreenState extends State<MemoryScreen>
         tabs: [for (final tab in MemoryTab.values) tab.label],
         tabController: _tabs,
         body: MemoryView(
+          footer: widget.settings == null
+              ? const []
+              : [_LearningSection(controller: widget.settings!)],
           usage: controller.usageOf(controller.tab),
           entries: controller.entriesIn(controller.tab),
           place: _place(),
@@ -189,6 +198,22 @@ class _MemoryScreenState extends State<MemoryScreen>
                 ),
         ),
       ),
+    ),
+  );
+}
+
+class _LearningSection extends StatelessWidget {
+  const _LearningSection({required this.controller});
+  final MemorySettingsController controller;
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) => MemoryLearningSection(
+      settings: controller.settings,
+      unreadable: controller.unreadable,
+      message: controller.message,
+      onChanged: controller.change,
+      onRetry: controller.load,
     ),
   );
 }
@@ -242,12 +267,16 @@ class MemoryView extends StatelessWidget {
     this.failure,
     this.editor,
     this.showContent = true,
+    this.footer = const [],
     required this.onOpen,
     required this.onRefresh,
     required this.onBack,
   });
   final bool showContent;
   final Widget? editor;
+
+  /// Shown under the list of entries.
+  final List<Widget> footer;
   final MemoryUsage usage;
 
   /// The entries of the file shown.
@@ -309,6 +338,7 @@ class MemoryView extends StatelessWidget {
       entries: [for (final entry in entries) entry.text],
       onOpen: (index) => onOpen(entries[index]),
       onRefresh: onRefresh,
+      footer: footer,
     );
   }
 }
