@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -14,7 +13,7 @@ import '../schedules/schedule_alerts.dart' show kSummaryAbove;
 import '../shell/app_presence.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'agent_message_record.dart';
-import 'find_messages.dart';
+import 'look_for_messages.dart';
 import 'message_alerts.dart';
 
 /// Whether messages from Hermes are looked for on [platform] (the running one
@@ -238,38 +237,15 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       final before = await _record.read(account);
       if (!_current(epoch)) return;
 
-      // A listing that fails or takes too long stands for a profile that
-      // could not be read.
-      Future<DeliveryListing?> list(String name) async {
-        try {
-          return await listDeliveries(
-            (offset) => chat.loadDeliveries(profile: name, offset: offset),
-            since: before?[name],
-          ).timeout(lookup);
-        } on Object catch (error) {
-          failure ??= error;
-          return null;
-        }
-      }
-
-      final listings = await Future.wait([
-        for (final name in names) list(name),
-      ]);
-      if (!_current(epoch)) return;
-      // The device's clock may be wrong, but no chat started after the newest
-      // one the server lists.
-      final newestListed = listings
-          .whereType<DeliveryListing>()
-          .expand((listing) => listing.listed)
-          .fold<double>(0, max);
-      final found = findMessages(
+      final found = await lookForMessages(
+        chat: chat,
+        names: names,
         record: before,
-        listings: {
-          for (var i = 0; i < names.length; i++) names[i]: listings[i],
-        },
-        profileNames: names,
-        now: max(_clock().millisecondsSinceEpoch / 1000, newestListed),
+        clock: _clock,
+        lookup: lookup,
+        onFailure: (error) => failure ??= error,
       );
+      if (!_current(epoch)) return;
 
       // The texts come before the record: once it has moved the messages are
       // announced or lost, so nothing after it may depend on the app staying
@@ -278,10 +254,10 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       var locked = appLock();
       final reads = found.messages.isNotEmpty && !summary && !locked;
       final texts = reads
-          ? await _texts(found)
+          ? await readMessageTexts(chat, found, lookup)
           : const <({String profile, String id}), String>{};
       final shown = reads
-          ? shownProfile?.call() ?? await _activeProfile()
+          ? shownProfile?.call() ?? await activeProfileName(profiles, lookup)
           : null;
       if (!_current(epoch)) return;
 
@@ -343,46 +319,6 @@ class AgentMessageWatcher with WidgetsBindingObserver {
           'background': false,
         });
       }
-    }
-  }
-
-  /// The server's active profile, for a message of another one to say which
-  /// when the chat screen has not reported the profile it shows. Null when it
-  /// cannot be read in time.
-  Future<String?> _activeProfile() async {
-    try {
-      final active = (await profiles.loadActive().timeout(lookup)).active;
-      return active.isEmpty ? null : active;
-    } on Object {
-      return null;
-    }
-  }
-
-  /// The text of each message, by [FoundMessage.key]; one that cannot be read
-  /// within [lookup] is left out.
-  Future<Map<({String profile, String id}), String>> _texts(
-    MessagesFound found,
-  ) async {
-    final texts = await Future.wait([
-      for (final message in found.messages) _text(message),
-    ]);
-    return {
-      for (var i = 0; i < texts.length; i++) found.messages[i].key: ?texts[i],
-    };
-  }
-
-  Future<String?> _text(FoundMessage message) async {
-    try {
-      final page = await chat
-          .loadMessagePage(
-            message.delivery.id,
-            profile: message.profile,
-            limit: 1,
-          )
-          .timeout(lookup);
-      return page.messages.firstOrNull?.content;
-    } on Object {
-      return null;
     }
   }
 
