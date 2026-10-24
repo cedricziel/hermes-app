@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 
+import '../agent_messages/agent_message_watcher.dart' show AgentMessageFinds;
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
@@ -274,6 +275,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _foreground = true;
   bool _routeVisible = true;
   ChangeInvalidationBinding? _listChanges;
+  AgentMessageFinds? _finds;
 
   /// Whether the window is a Mac one, as of the last build.
   bool _mac = false;
@@ -317,6 +319,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
+    _finds = _maybeRead<AgentMessageFinds>()?..addListener(_onAgentMessages);
     final liveActivities = _maybeRead<LiveActivities?>();
     final appLock = _maybeRead<AppLockController>();
     _attention = AttentionNotifier(
@@ -746,6 +749,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     widget.chatProfiles?.attach(null);
     widget.openRequests?.removeListener(_onOpenRequest);
+    _finds?.removeListener(_onAgentMessages);
     _share.removeListener(_onShared);
     _mainFocused?.cancel();
     _panelTookVoice?.cancel();
@@ -781,6 +785,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _onOpenRequest({bool initial = false}) =>
       _ChatScreenExternalOpenings(this)._onOpenRequest(initial: initial);
   void _onShared() => _ChatScreenSharing(this)._onShared();
+
+  void _onAgentMessages() {
+    if (_finds!.profiles.contains(_chat.profile)) {
+      unawaited(_chat.refreshThreadList());
+    }
+  }
+
   void _syncDock() => _ChatScreenWindows(this)._syncDock();
   void _advertise() => _ChatScreenWindows(this)._advertise();
 

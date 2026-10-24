@@ -700,6 +700,32 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// Reads the shown profile's chats again, for a chat that appeared on the
+  /// server, and merges them in without touching the open chat or any reply
+  /// in flight. Does nothing while the list is loading or has pending
+  /// changes; a failed read leaves the list as it is.
+  Future<void> refreshThreadList() async {
+    final profile = _profile;
+    final repository = this.repository;
+    if (!active ||
+        repository == null ||
+        profile == null ||
+        threadListInvalidationBlocked) {
+      return;
+    }
+    final generation = _loadGeneration;
+    final count = _threads.where((thread) => thread.remote).length;
+    try {
+      final page = await repository.loadThreadPage(
+        limit: count > 50 ? count : 50,
+        profile: profile,
+      );
+      applyInvalidatedThreads(page, profile: profile, generation: generation);
+    } on Object {
+      // The next find, or opening the screen again, reads the list.
+    }
+  }
+
   bool applyInvalidatedThreads(
     ThreadPage page, {
     required String profile,
