@@ -42,6 +42,11 @@
   line-height: 24px;
 }
 
+.h-chat-header__activity {
+  display: inline-flex;
+  margin: 4px 0 4px 4px;
+}
+
 .h-chat-header__info {
   display: inline-flex;
   margin: 4px;
@@ -83,5 +88,23 @@
 }
 
 .h-chat-header--ios .h-thread-actions + .h-chat-header__info {
+  margin-left: 0;
+}
+
+/* Three trailing controls (menu, Activity, info): the title is centred
+   between them and the leading menu button, not on the screen. */
+.h-chat-header--ios.h-chat-header--activity .h-chat-header__title {
+  inset: 0 136px 0 48px;
+}
+
+.h-chat-header--ios .h-chat-header__activity {
+  margin: 0 0 0 auto;
+}
+
+.h-chat-header--ios .h-thread-actions + .h-chat-header__activity {
+  margin-left: 0;
+}
+
+.h-chat-header--ios .h-chat-header__activity + .h-chat-header__info {
   margin-left: 0;
 }

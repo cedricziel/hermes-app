@@ -31,6 +31,7 @@ import 'src/macos/dock/dock_menu_bridge.dart';
 import 'src/macos/dock/dock_menu_controller.dart';
 import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
+import 'src/network/user_certificates.dart';
 import 'src/intents/ask_hermes.dart';
 import 'src/intents/intent_shortcuts.dart';
 import 'src/intents/intents_channel.dart';
@@ -72,11 +73,15 @@ Future<void> main([List<String> args = const []]) async {
   if (conversationWindowLaunch(args) case final window?) {
     return runConversationWindow(window.windowId, window.arguments);
   }
+  final certificates = trustUserCertificates();
   await MacWindow.initialize();
   final telemetry = await Telemetry.initialize(
     TelemetryConfig.fromEnvironment(),
   );
   telemetry.logUncaughtErrors();
+  await certificates;
+  // A certificate installed in Settings counts once the user is back.
+  AppLifecycleListener(onResume: () => unawaited(trustUserCertificates()));
 
   runApp(
     MultiProvider(

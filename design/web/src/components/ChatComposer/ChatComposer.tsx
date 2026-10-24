@@ -19,11 +19,18 @@ export interface QueuedPromptItem {
   text: string;
   /** Names of files queued with the prompt; with text, shown as a paperclip and a count. */
   files?: string[];
+  /** A restored entry whose earlier send may already have reached Hermes: the queue shows "Submission outcome unknown" and offers no "Send now" while it is first. */
+  uncertain?: boolean;
+  /** The entry is being sent right now, so its remove button is disabled. */
+  submitting?: boolean;
 }
 
 export interface ChatComposerProps {
   /** Preview of native hold-to-record state. Capture is owned by Flutter. */
-  voiceRecording?: { phase: "preparing" | "recording" | "attaching"; elapsedSeconds?: number };
+  voiceRecording?: {
+    phase: "preparing" | "recording" | "attaching";
+    elapsedSeconds?: number;
+  };
   onCancelVoiceRecording?: () => void;
   onFinishVoiceRecording?: () => void;
   /** Text in the field. Controlled when given together with `onChange`; otherwise the initial text. */
@@ -52,6 +59,18 @@ export interface ChatComposerProps {
   onSendQueued?: () => void;
   /** Called with the index of the queued prompt whose close button was pressed. */
   onRemoveQueued?: (index: number) => void;
+  /** The queue was restored from storage (after a restart): the header reads "Recovered queue. Review before sending." and the button "Send next", one explicit send per entry. */
+  queueReviewRequired?: boolean;
+  /** Entries are being saved to the durable queue: the header reads "Queueing…" and the remove buttons are disabled. */
+  queueBusy?: boolean;
+  /** The recovered queue's original conversation can't be reached: "Original conversation unavailable." shows and "Send next" is hidden. Defaults to `true`. */
+  queueAvailable?: boolean;
+  /** App Lock is on: the queue shows only "Unlock to review queued prompts." and no prompt text. */
+  queueLocked?: boolean;
+  /** A storage problem to tell the user about under the queue header, e.g. "Protected storage is unavailable. Your draft was kept." While it shows, the queue offers no "Send now" / "Send next". */
+  queueError?: string;
+  /** Called by "Inspect conversation", shown under an uncertain entry. */
+  onInspectQueue?: () => void;
   /** Slot left of the send button for the model pill, normally `<ModelPill model="claude-opus-4" effort="Medium" />`. */
   modelPill?: ReactNode;
   /** Overrides the hint text ("Message Hermes…", or "Queue a message…" while replying). */
@@ -80,6 +99,12 @@ export function ChatComposer({
   queuePaused = false,
   onSendQueued,
   onRemoveQueued,
+  queueReviewRequired = false,
+  queueBusy = false,
+  queueAvailable = true,
+  queueLocked = false,
+  queueError,
+  onInspectQueue,
   modelPill,
   placeholder,
   suggestions,
@@ -89,11 +114,30 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const [local, setLocal] = useState(value ?? "");
   const text = value !== undefined && onChange ? value : local;
-  const canSend = !voiceRecording && (text.trim() !== "" || attachments.length > 0);
+  const canSend =
+    !voiceRecording && (text.trim() !== "" || attachments.length > 0);
   const seconds = Math.max(0, Math.floor(voiceRecording?.elapsedSeconds ?? 0));
-  const recordingLabel = voiceRecording?.phase === "preparing" ? "Preparing microphone…"
-    : voiceRecording?.phase === "attaching" ? "Attaching recording…"
-    : `Release to attach · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  const recordingLabel =
+    voiceRecording?.phase === "preparing"
+      ? "Preparing microphone…"
+      : voiceRecording?.phase === "attaching"
+        ? "Attaching recording…"
+        : `Release to attach · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  const anyUncertain = queued.some((prompt) => prompt.uncertain);
+  const canSendQueued =
+    (queuePaused || queueReviewRequired) &&
+    queueAvailable &&
+    !queueBusy &&
+    !queueError &&
+    !queued[0]?.uncertain;
+  // As the app's QueuedPrompts: a queue that needs the user opens itself and
+  // says so in its one-line summary.
+  const queueAttention =
+    queuePaused ||
+    queueReviewRequired ||
+    !queueAvailable ||
+    !!queueError ||
+    anyUncertain;
 
   const update = (next: string) => {
     setLocal(next);
@@ -125,32 +169,70 @@ export function ChatComposer({
         </div>
       ) : null}
       <div className="h-chat-composer__card">
-        {queued.length > 0 ? (
+        {queueLocked && queued.length > 0 ? (
+          <div className="h-chat-composer__queue h-chat-composer__queue--locked">
+            Unlock to review queued prompts.
+          </div>
+        ) : queued.length > 0 || queueBusy || queueReviewRequired ? (
           <details
             className="h-chat-composer__queue"
-            open={queuePaused || undefined}
+            open={queueAttention || undefined}
           >
             <summary>
               <span>
-                {queuePaused
-                  ? `Queue paused · ${queued.length}`
-                  : `${queued.length} queued · ${queued[0].text || queued[0].files?.join(", ") || "Attachments"}`}
+                {queueBusy
+                  ? "Queueing…"
+                  : queueReviewRequired
+                    ? "Review queued messages"
+                    : canSendQueued
+                      ? `Queue paused · ${queued.length}`
+                      : queueAttention
+                        ? "Queue needs attention"
+                        : `${queued.length} queued · ${queued[0].text || queued[0].files?.join(", ") || "Attachments"}`}
               </span>
               <Icon name="expand_more" size={18} />
             </summary>
             <div className="h-chat-composer__queue-details">
               <div className="h-chat-composer__bar h-chat-composer__bar--queue">
                 <span className="h-chat-composer__bar-text">
-                  {queuePaused
-                    ? "Queue paused"
-                    : "Queued, sent when Hermes is done"}
+                  {queueBusy
+                    ? "Saving queued messages…"
+                    : queueReviewRequired
+                      ? "Recovered queue. Review before sending."
+                      : canSendQueued
+                        ? "Queue paused"
+                        : "Queued, sent when Hermes is done"}
                 </span>
-                {queuePaused ? (
+                {canSendQueued ? (
                   <Button variant="text" icon="send" onClick={onSendQueued}>
-                    Send now
+                    {queueReviewRequired ? "Send next" : "Send now"}
                   </Button>
                 ) : null}
               </div>
+              {!queueAvailable ? (
+                <div className="h-chat-composer__queue-note">
+                  Original conversation unavailable.
+                </div>
+              ) : null}
+              {queueError ? (
+                <div className="h-chat-composer__queue-note">{queueError}</div>
+              ) : null}
+              {anyUncertain ? (
+                <div className="h-chat-composer__queue-note">
+                  <div>Submission outcome unknown</div>
+                  <div>
+                    An earlier attempt may already have reached Hermes. To send
+                    it again, enter a new prompt.
+                  </div>
+                  {onInspectQueue ? (
+                    <div className="h-chat-composer__inspect">
+                      <Button variant="text" onClick={onInspectQueue}>
+                        Inspect conversation
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {queued.map((prompt, i) => {
                 const files = prompt.files ?? [];
                 return (
@@ -173,6 +255,7 @@ export function ChatComposer({
                       icon="close"
                       label="Remove from queue"
                       size={32}
+                      disabled={queueBusy || prompt.submitting}
                       onClick={() => onRemoveQueued?.(i)}
                     />
                   </div>
@@ -205,7 +288,12 @@ export function ChatComposer({
         </div>
         <div className="h-chat-composer__row">
           {voiceRecording ? (
-            <IconButton icon="close" label="Cancel voice message" tone="muted" onClick={onCancelVoiceRecording} />
+            <IconButton
+              icon="close"
+              label="Cancel voice message"
+              tone="muted"
+              onClick={onCancelVoiceRecording}
+            />
           ) : onAttach ? (
             <IconButton
               icon="add"
@@ -214,14 +302,18 @@ export function ChatComposer({
               onClick={onAttach}
             />
           ) : null}
-          <div className={`h-chat-composer__pill${voiceRecording ? " h-chat-composer__recording" : ""}${voiceRecording?.phase === "recording" ? " h-chat-composer__recording--active" : ""}`}>
+          <div
+            className={`h-chat-composer__pill${voiceRecording ? " h-chat-composer__recording" : ""}${voiceRecording?.phase === "recording" ? " h-chat-composer__recording--active" : ""}`}
+          >
             {voiceRecording ? recordingLabel : modelPill}
           </div>
           <IconButton
             icon={voiceRecording ? "mic" : "arrow_upward"}
             label={voiceRecording ? "Attach voice message" : "Send"}
             variant="filled"
-            disabled={voiceRecording ? voiceRecording.phase === "attaching" : !canSend}
+            disabled={
+              voiceRecording ? voiceRecording.phase === "attaching" : !canSend
+            }
             onClick={voiceRecording ? onFinishVoiceRecording : send}
           />
         </div>

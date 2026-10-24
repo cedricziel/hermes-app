@@ -1,3 +1,8 @@
+import type { ReactNode } from "react";
+import {
+  ActivityPanel,
+  type ActivityPanelProps,
+} from "../ActivityPanel/ActivityPanel";
 import {
   AppShell,
   ShellNavigation,
@@ -169,6 +174,28 @@ export interface ChatScreenProps {
   onAnswerClarify?: (turn: number, answers: Record<string, string[]>) => void;
   /** Retry after the chats failed to load (`state="failed"`). */
   onRetryLoad?: () => void;
+  /**
+   * What the open chat's Activity panel lists (Now, Plan, This session); see
+   * `ActivityPanel`. Shown while `activityOpen`.
+   */
+  activity?: Pick<ActivityPanelProps, "now" | "plan" | "session">;
+  /**
+   * The Activity panel is open (it needs an open chat). `desktop`: the 380px
+   * inspector on the right of the page, beside the chat from 760px of page
+   * width and over it from the right below that (a click beside it closes
+   * it). `phone`: a sheet over the chat with "Close activity".
+   */
+  activityOpen?: boolean;
+  /**
+   * The Needs-you cards the app keeps above the transcript: an actionable
+   * `ConnectorOperationCard` or `BillingVerificationCard`, a reclaimed
+   * `SessionStatusCard` (`reclaimedReason`). A strip at most 280px (or 40% of
+   * the page) tall that scrolls. Routine status, process output, plans and
+   * MoA progress live only in `activity`, as in the app since #789.
+   */
+  activityStrip?: ReactNode[];
+  /** The header's Activity button, the sheet's close button or a click beside the overlaid inspector. */
+  onToggleActivity?: () => void;
 }
 
 /**
@@ -251,6 +278,10 @@ export function ChatScreen({
   onAnswerApproval,
   onAnswerClarify,
   onRetryLoad,
+  activity,
+  activityOpen = false,
+  activityStrip,
+  onToggleActivity,
 }: ChatScreenProps) {
   const resolvedPlatform = usePlatform(platform);
   const phone = layout === "phone";
@@ -352,66 +383,106 @@ export function ChatScreen({
       onSelect={onSelectDestination}
       onCloseDrawer={onCloseDrawer}
     >
-      <ChatHeader
-        layout={layout}
-        title={selected?.title}
-        remote={selected?.remote !== false}
-        pinned={selected?.pinned}
-        onOpenMenu={onOpenMenu}
-        onShowConnection={onShowConnection}
-        onThreadAction={(action) =>
-          selected && onThreadAction?.(selected.id, action)
-        }
-        subtitle={
-          [profileName, model?.model].filter(Boolean).join(" · ") || undefined
-        }
-        windowSize={windowSize}
-        defaultMenuOpen={toolbarMenuOpen}
-        searchQuery={search?.query ?? searchQuery}
-        searchActive={!!search || searchActive}
-        onSearchBegin={onSearchBegin}
-        onSearchChange={onSearchChange}
-        onSearchEnd={onSearchEnd}
-        onNewChat={onNewThread}
-        onCopyTranscript={
-          selected
-            ? () => onThreadAction?.(selected.id, "copy-transcript")
-            : undefined
-        }
-      />
-      {selected && turns.length ? (
-        <ChatThread
-          turns={turns}
-          onRetry={onRetryReply}
-          onEdit={onEditPrompt}
-          onAnswerApproval={onAnswerApproval}
-          onAnswerClarify={onAnswerClarify}
-        />
-      ) : (
-        <div className="h-chat-screen__fill">
-          <WelcomeView
-            greetingName={greetingName}
-            prompts={prompts}
-            onPick={onPickPrompt}
+      <div className="h-chat-screen__inspected">
+        <div className="h-chat-screen__page">
+          <ChatHeader
+            layout={layout}
+            title={selected?.title}
+            remote={selected?.remote !== false}
+            pinned={selected?.pinned}
+            onOpenMenu={onOpenMenu}
+            onShowConnection={onShowConnection}
+            onThreadAction={(action) =>
+              selected && onThreadAction?.(selected.id, action)
+            }
+            subtitle={
+              [profileName, model?.model].filter(Boolean).join(" · ") ||
+              undefined
+            }
+            windowSize={windowSize}
+            defaultMenuOpen={toolbarMenuOpen}
+            searchQuery={search?.query ?? searchQuery}
+            searchActive={!!search || searchActive}
+            onSearchBegin={onSearchBegin}
+            onSearchChange={onSearchChange}
+            onSearchEnd={onSearchEnd}
+            onNewChat={onNewThread}
+            onCopyTranscript={
+              selected
+                ? () => onThreadAction?.(selected.id, "copy-transcript")
+                : undefined
+            }
+            activityOpen={activityOpen && !phone}
+            onToggleActivity={
+              selected ? (onToggleActivity ?? (() => {})) : undefined
+            }
           />
+          {selected && activityStrip?.length ? (
+            <div className="h-chat-screen__strip">{activityStrip}</div>
+          ) : null}
+          {selected && turns.length ? (
+            <ChatThread
+              turns={turns}
+              onRetry={onRetryReply}
+              onEdit={onEditPrompt}
+              onAnswerApproval={onAnswerApproval}
+              onAnswerClarify={onAnswerClarify}
+            />
+          ) : (
+            <div className="h-chat-screen__fill">
+              <WelcomeView
+                greetingName={greetingName}
+                prompts={prompts}
+                onPick={onPickPrompt}
+              />
+            </div>
+          )}
+          <div className="h-chat-screen__composer">
+            <ChatComposer
+              value={composerValue}
+              onChange={onComposerChange}
+              onSend={onSend}
+              onAttach={onAttach}
+              attachments={attachments}
+              replying={replying}
+              onStop={onStop}
+              queued={queued}
+              modelPill={
+                model ? (
+                  <ModelPill model={model.model} effort={model.effort} />
+                ) : undefined
+              }
+            />
+          </div>
+          {phone && activityOpen && selected ? (
+            <div className="h-chat-screen__sheet-layer">
+              <div
+                className="h-chat-screen__scrim"
+                aria-hidden
+                onClick={onToggleActivity}
+              />
+              <div className="h-chat-screen__sheet">
+                <ActivityPanel
+                  {...activity}
+                  frame="sheet"
+                  onClose={onToggleActivity ?? (() => {})}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
-      )}
-      <div className="h-chat-screen__composer">
-        <ChatComposer
-          value={composerValue}
-          onChange={onComposerChange}
-          onSend={onSend}
-          onAttach={onAttach}
-          attachments={attachments}
-          replying={replying}
-          onStop={onStop}
-          queued={queued}
-          modelPill={
-            model ? (
-              <ModelPill model={model.model} effort={model.effort} />
-            ) : undefined
-          }
-        />
+        {!phone && activityOpen && selected ? (
+          <>
+            <div
+              className="h-chat-screen__barrier"
+              aria-hidden
+              onClick={onToggleActivity}
+            />
+            <aside className="h-chat-screen__inspector" aria-label="Inspector">
+              <ActivityPanel {...activity} />
+            </aside>
+          </>
+        ) : null}
       </div>
     </AppShell>
   );

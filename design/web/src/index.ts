@@ -16,6 +16,10 @@ export * from "./components/ActionSheet/ActionSheet";
 export * from "./components/ApprovalCard/ApprovalCard";
 export * from "./components/ToolCallCard/ToolCallCard";
 export * from "./components/ToolCallGroup/ToolCallGroup";
+export * from "./components/SessionStatusCard/SessionStatusCard";
+export * from "./components/ProcessOutputCard/ProcessOutputCard";
+export * from "./components/MoaProgressCard/MoaProgressCard";
+export * from "./components/TodoPlanCard/TodoPlanCard";
 export * from "./components/ClarifyCard/ClarifyCard";
 export * from "./components/ChatComposer/ChatComposer";
 export * from "./components/ModelPill/ModelPill";
@@ -45,6 +49,7 @@ export * from "./components/SelectField/SelectField";
 export * from "./components/ListRow/ListRow";
 export * from "./components/MacToolbar/MacToolbar";
 export * from "./components/ChatThread/ChatThread";
+export * from "./components/ActivityPanel/ActivityPanel";
 export * from "./components/ChatScreen/ChatScreen";
 export * from "./components/AppLockScreen/AppLockScreen";
 export * from "./components/ImageViewerScreen/ImageViewerScreen";
@@ -80,6 +85,7 @@ export * from "./components/BotGroupChatScreen/BotGroupChatScreen";
 export * from "./components/BotsScreen/BotsScreen";
 export * from "./components/CreateGroupDialog/CreateGroupDialog";
 
+export type { MessageReaction } from "./components/MessageReactions/MessageReactions";
 export type { AppleDevice, GroupedChrome, Platform } from "./platform";
 export * from "./components/Tag/Tag";
 export * from "./components/Banner/Banner";
@@ -124,3 +130,10 @@ export * from "./components/SettingsDialog/SettingsDialog";
 export * from "./components/KanbanTaskChoiceDialog/KanbanTaskChoiceDialog";
 
 export * from "./components/ChatSuggestions/ChatSuggestions";
+
+export * from "./components/AgentNoticeCard/AgentNoticeCard";
+export * from "./components/SideResultCard/SideResultCard";
+export * from "./components/SessionUsageCard/SessionUsageCard";
+export * from "./components/SessionAcknowledgementCard/SessionAcknowledgementCard";
+export * from "./components/BillingVerificationCard/BillingVerificationCard";
+export * from "./components/ConnectorOperationCard/ConnectorOperationCard";

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/auth/connect_failure.dart';
@@ -72,15 +73,36 @@ void main() {
     test('a failed TLS handshake is a TLS failure', () {
       final e = _dio(
         DioExceptionType.connectionError,
-        error: const HandshakeException('bad certificate'),
+        error: const HandshakeException(
+          'Handshake error in client',
+          OSError('WRONG_VERSION_NUMBER(tls_record.cc:127)', 0),
+        ),
       );
       expect(_kind(e), ConnectFailureKind.tls);
     });
 
-    test('a rejected certificate is a TLS failure', () {
+    test(
+      'a certificate the device does not trust is a certificate failure',
+      () {
+        final e = _dio(
+          DioExceptionType.connectionError,
+          error: const HandshakeException(
+            'Handshake error in client',
+            OSError(
+              'CERTIFICATE_VERIFY_FAILED: unable to get local issuer '
+              'certificate(handshake.cc:393)',
+              0,
+            ),
+          ),
+        );
+        expect(_kind(e), ConnectFailureKind.certificate);
+      },
+    );
+
+    test('a rejected certificate is a certificate failure', () {
       expect(
         _kind(_dio(DioExceptionType.badCertificate)),
-        ConnectFailureKind.tls,
+        ConnectFailureKind.certificate,
       );
     });
 
@@ -185,7 +207,7 @@ void main() {
     });
   });
 
-  group('vpn hint', () {
+  group('VPN hint', () {
     ConnectFailure failure(ConnectFailureKind kind, String host) =>
         ConnectFailure(kind: kind, hostKind: classifyHost(host));
 
@@ -193,7 +215,11 @@ void main() {
       for (final kind in [ConnectFailureKind.dns, ConnectFailureKind.timeout]) {
         for (final host in ['a.tail1.ts.net', '100.101.1.1', '192.168.1.2']) {
           expect(
-            vpnHint(failure(kind, host), vpnActive: null),
+            connectHint(
+              failure(kind, host),
+              platform: TargetPlatform.iOS,
+              vpnActive: null,
+            ),
             'Is your VPN connected?',
           );
         }
@@ -202,8 +228,9 @@ void main() {
 
     test('says so when the platform reports no VPN', () {
       expect(
-        vpnHint(
+        connectHint(
           failure(ConnectFailureKind.timeout, '100.101.1.1'),
+          platform: TargetPlatform.iOS,
           vpnActive: false,
         ),
         contains('No VPN is active on this device'),
@@ -212,8 +239,9 @@ void main() {
 
     test('says so when a VPN is active but the server does not answer', () {
       expect(
-        vpnHint(
+        connectHint(
           failure(ConnectFailureKind.timeout, '10.0.0.5'),
+          platform: TargetPlatform.iOS,
           vpnActive: true,
         ),
         contains('A VPN is active, but the server did not answer'),
@@ -222,8 +250,9 @@ void main() {
 
     test('a refused connection says nothing listens there', () {
       expect(
-        vpnHint(
+        connectHint(
           failure(ConnectFailureKind.refused, '100.101.1.1'),
+          platform: TargetPlatform.iOS,
           vpnActive: false,
         ),
         'The server answered, but nothing is listening at that address. '
@@ -233,26 +262,64 @@ void main() {
 
     test('a public host, or another failure, gets no hint', () {
       expect(
-        vpnHint(
+        connectHint(
           failure(ConnectFailureKind.timeout, 'hermes.example.com'),
+          platform: TargetPlatform.iOS,
           vpnActive: false,
         ),
         isNull,
       );
       expect(
-        vpnHint(
+        connectHint(
           failure(ConnectFailureKind.refused, 'hermes.example.com'),
+          platform: TargetPlatform.iOS,
           vpnActive: null,
         ),
         isNull,
       );
-      for (final kind in [
-        ConnectFailureKind.tls,
-        ConnectFailureKind.http,
-        ConnectFailureKind.other,
-      ]) {
-        expect(vpnHint(failure(kind, '100.101.1.1'), vpnActive: null), isNull);
+      for (final kind in [ConnectFailureKind.http, ConnectFailureKind.other]) {
+        expect(
+          connectHint(
+            failure(kind, '100.101.1.1'),
+            platform: TargetPlatform.iOS,
+            vpnActive: null,
+          ),
+          isNull,
+        );
       }
+    });
+  });
+
+  group('TLS hint', () {
+    ConnectFailure failure(ConnectFailureKind kind) =>
+        ConnectFailure(kind: kind, hostKind: HostKind.public);
+
+    test('an untrusted certificate says how to trust it on each platform', () {
+      final hints = {
+        for (final platform in TargetPlatform.values)
+          platform: connectHint(
+            failure(ConnectFailureKind.certificate),
+            platform: platform,
+            vpnActive: null,
+          ),
+      };
+      expect(hints[TargetPlatform.iOS], contains('Certificate Trust Settings'));
+      expect(hints[TargetPlatform.macOS], contains('Keychain Access'));
+      expect(hints[TargetPlatform.android], contains('CA certificate'));
+      for (final hint in hints.values) {
+        expect(hint, contains("Caddy's tls internal"));
+      }
+    });
+
+    test('another TLS failure asks about the scheme and port', () {
+      expect(
+        connectHint(
+          failure(ConnectFailureKind.tls),
+          platform: TargetPlatform.android,
+          vpnActive: null,
+        ),
+        contains('http:// or https://'),
+      );
     });
   });
 }

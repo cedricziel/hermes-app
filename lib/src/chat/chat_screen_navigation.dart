@@ -13,6 +13,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
     _scaffoldKey.currentState?.closeDrawer();
   }
 
+  /// Puts the cursor in the composer of the new chat a window opens on, so
+  /// typing can start at once. A phone opens on the chat list, and focus that
+  /// something else took meanwhile stays where it is.
+  void _focusComposerOnLaunch() {
+    if (!mounted || !_showsWelcome || !(_wide || _mac || _detailOpen)) return;
+    if (_maybeRead<AppLockController>()?.covered ?? false) return;
+    final focused = FocusManager.instance.primaryFocus;
+    if (focused != null && focused is! FocusScopeNode) return;
+    _composerFocus.requestFocus();
+  }
+
   /// Opens the toolbar search of a Mac window and puts the cursor in it. A
   /// compact window shows the sidebar too, where the results go.
   void _beginSearch() {

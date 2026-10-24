@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 import { Icon } from "../Icon/Icon";
+import type { CupertinoIconName } from "../Icon/cupertinoIcons";
 import "./IconButton.css";
 
 export interface IconButtonProps extends Omit<
@@ -19,6 +20,10 @@ export interface IconButtonProps extends Omit<
   tone?: "default" | "muted";
   /** 40 (default), 32 for dense rows, or 44 for an iOS bar button (22px glyph). */
   size?: 32 | 40 | 44;
+  /** A toggle that is on (the Activity inspector shown): the glyph sits on a tinted circle and the button is announced as pressed. */
+  selected?: boolean;
+  /** Under `platform="apple"`, the CupertinoIcons glyph by name where it differs from the one paired with `icon` (see `Icon apple`). */
+  apple?: CupertinoIconName | false;
 }
 
 /** An icon-only button with a circular hover state. */
@@ -28,6 +33,8 @@ export function IconButton({
   variant = "standard",
   tone = "default",
   size = 40,
+  selected,
+  apple,
   className,
   type = "button",
   ...rest
@@ -36,6 +43,7 @@ export function IconButton({
     "h-icon-button",
     `h-icon-button--${variant}`,
     tone === "muted" ? "h-icon-button--muted" : null,
+    selected ? "h-icon-button--selected" : null,
     className,
   ]
     .filter(Boolean)
@@ -46,10 +54,11 @@ export function IconButton({
       className={classes}
       aria-label={label}
       title={label}
+      aria-pressed={selected}
       style={{ width: size, height: size }}
       {...rest}
     >
-      <Icon name={icon} size={size === 32 ? 18 : 22} />
+      <Icon name={icon} apple={apple} size={size === 32 ? 18 : 22} />
     </button>
   );
 }

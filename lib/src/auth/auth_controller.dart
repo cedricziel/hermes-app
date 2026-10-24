@@ -374,7 +374,9 @@ class AuthController extends ChangeNotifier {
     final failure = classifyConnectFailure(e, Uri.parse(url));
     _lastFailure = failure;
     _failedUrl = url;
-    _errorMessage = _describeDioError(e, fallback: fallback);
+    _errorMessage =
+        connectFailureMessage(failure) ??
+        _describeDioError(e, fallback: fallback);
     _events('auth.connect.failed', {
       'reason': failure.kind.name,
       'host_kind': failure.hostKind.name,

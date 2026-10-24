@@ -20,6 +20,10 @@
   background: var(--h-hover);
 }
 
+.h-icon-button--selected {
+  background: var(--h-hover);
+}
+
 .h-icon-button--filled {
   background: var(--h-primary);
   color: var(--h-on-primary);

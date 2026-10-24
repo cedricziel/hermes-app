@@ -106,3 +106,21 @@ export const PlatformCompare = () => (
     </HermesProvider>
   </div>
 );
+
+/** Emoji reactions reported on the reply (#743): the compact line, and the opened details. */
+export const Reactions = () => (
+  <div style={{ width: 720, display: "grid", gap: 16 }}>
+    <AssistantMessage
+      text="Done. The repin ran on staging and the next upload went through."
+      reactions={[{ emoji: "👍", author: "agent" }]}
+    />
+    <AssistantMessage
+      text="Done. The repin ran on staging and the next upload went through."
+      reactions={[
+        { emoji: "👍", author: "agent" },
+        { emoji: "🎉", author: "@ops" },
+      ]}
+      reactionsOpen
+    />
+  </div>
+);

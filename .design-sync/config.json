@@ -362,6 +362,39 @@
     },
     "ChatSuggestions": {
       "cardMode": "column"
+    },
+    "SessionStatusCard": {
+      "cardMode": "column"
+    },
+    "ProcessOutputCard": {
+      "cardMode": "column"
+    },
+    "MoaProgressCard": {
+      "cardMode": "column"
+    },
+    "TodoPlanCard": {
+      "cardMode": "column"
+    },
+    "AgentNoticeCard": {
+      "cardMode": "column"
+    },
+    "SideResultCard": {
+      "cardMode": "column"
+    },
+    "SessionUsageCard": {
+      "cardMode": "column"
+    },
+    "SessionAcknowledgementCard": {
+      "cardMode": "column"
+    },
+    "BillingVerificationCard": {
+      "cardMode": "column"
+    },
+    "ConnectorOperationCard": {
+      "cardMode": "column"
+    },
+    "ActivityPanel": {
+      "cardMode": "column"
     }
   }
 }

@@ -431,3 +431,26 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+/** A short Mac window (#759): on a page without a thread list the profile switcher and destinations scroll between the brand strip and the account footer, which stays pinned. */
+export const AppleMacShortWindow = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...desktop, height: 280, overflow: "hidden" }}>
+      <AppShell
+        layout="desktop"
+        destinations={["chat", "bots", "kanban", "schedules", "profiles"]}
+        current="schedules"
+        account="Ada Lovelace"
+        serverUrl="https://hermes.example.net"
+        authRequired
+        profiles={{
+          current: "work",
+          profiles: macProfileList,
+        }}
+        showTrafficLights
+      >
+        <SchedulesPage />
+      </AppShell>
+    </div>
+  </HermesProvider>
+);

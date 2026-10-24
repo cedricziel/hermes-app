@@ -1,0 +1,68 @@
+/* The app's ActivityPanel: a 16px semibold "Activity" title row, then
+   the sections under 11px uppercase headings, scrolling as one column. */
+.h-activity {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--h-bg);
+  color: var(--h-fg);
+}
+
+.h-activity--sheet {
+  border-radius: 28px 28px 0 0;
+  background: var(--h-surface);
+}
+
+.h-activity__handle {
+  flex: none;
+  width: 32px;
+  height: 4px;
+  margin: 12px auto 0;
+  border-radius: 2px;
+  background: var(--h-muted);
+  opacity: 0.4;
+}
+
+.h-activity__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 14px 8px 6px 16px;
+  box-sizing: border-box;
+}
+
+.h-activity__title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.h-activity__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+.h-activity__empty {
+  padding-top: 48px;
+}
+
+.h-activity__empty .h-state__detail {
+  color: var(--h-muted);
+}
+
+.h-activity__section-title {
+  margin: 0;
+  padding: 18px 16px 4px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--h-secondary);
+}

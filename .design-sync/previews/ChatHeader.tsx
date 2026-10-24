@@ -127,3 +127,53 @@ export const AppleMacCompactMenu = () => (
     </div>
   </HermesProvider>
 );
+
+/** The Activity button, closed and with the inspector open, on each platform. */
+export const ActivityButton = () => (
+  <div style={{ display: "grid", gap: 16 }}>
+    <div style={wide}>
+      <ChatHeader
+        title="Plan the chief of staff agent"
+        onToggleActivity={() => {}}
+      />
+    </div>
+    <div style={wide}>
+      <ChatHeader
+        title="Plan the chief of staff agent"
+        activityOpen
+        onToggleActivity={() => {}}
+      />
+    </div>
+    <div style={{ width: 390, border: "1px solid var(--h-border)" }}>
+      <ChatHeader
+        layout="phone"
+        title="Plan the chief of staff agent"
+        onToggleActivity={() => {}}
+      />
+    </div>
+  </div>
+);
+
+export const AppleActivityButton = () => (
+  <HermesProvider platform="apple">
+    <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ width: 390, border: "1px solid var(--h-border)" }}>
+        <ChatHeader
+          layout="phone"
+          title="Plan the chief of staff agent for the team"
+          onToggleActivity={() => {}}
+        />
+      </div>
+      <div style={{ width: 760 }}>
+        <ChatHeader
+          title="Plan the chief of staff agent"
+          subtitle="default · claude-opus-4"
+          windowSize="medium"
+          activityOpen
+          onToggleActivity={() => {}}
+          onCopyTranscript={() => {}}
+        />
+      </div>
+    </div>
+  </HermesProvider>
+);

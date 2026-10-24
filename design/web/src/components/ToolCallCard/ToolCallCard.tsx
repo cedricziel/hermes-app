@@ -43,6 +43,16 @@ export type ToolCallBody =
   | { kind: "todo"; items: TodoItem[] }
   | { kind: "diff"; diff: string };
 
+/** What Hermes' output scan found in a tool's result. */
+export interface ToolOutputRisk {
+  /** The kind of risk, shown on the line under the header as "Output risk: secret": `secret`, `injection`... */
+  risk: string;
+  /** Plain-language findings, one per line in the opened "Output risk" section. Empty reads "No further details". */
+  findings?: string[];
+  /** Hermes removed the risky part from the output; the line under the header adds "· Redacted". */
+  redacted?: boolean;
+}
+
 /** A tool call the agent made. */
 export interface ToolCallItem {
   /** Raw protocol tool name; deferred calls show their underlying tool label. */
@@ -65,6 +75,8 @@ export interface ToolCallItem {
   result?: string;
   /** The tool's own view when opened, instead of the generic input and result. */
   body?: ToolCallBody;
+  /** Set when the scan of the tool's output found something. Adds an "Output risk" section at the top of the opened card, so the card can be opened even with no input or result, and a one-line summary in the error color under the header. */
+  outputRisk?: ToolOutputRisk;
   /** An approval that holds this call up; rendered as an ApprovalCard inside the card. */
   approval?: ApprovalCardProps;
 }
@@ -302,6 +314,7 @@ export function ToolCallCard({
   result,
   body,
   approval,
+  outputRisk,
   defaultOpen = false,
   waiting,
   children,
@@ -316,6 +329,16 @@ export function ToolCallCard({
   const pendingApproval = approval && isWaiting;
   const display = toolCallPresentation({ name, labels, args, input, summary });
   const details: ReactNode[] = [];
+  if (outputRisk)
+    details.push(
+      <Section key="risk" label="Output risk">
+        <div className="h-tool-call__mono">
+          {outputRisk.findings?.length
+            ? outputRisk.findings.join("\n")
+            : "No further details"}
+        </div>
+      </Section>,
+    );
   if (display.bridge && !display.argumentGroups.length) {
     details.push(
       <Section key="tools" label="Tools">
@@ -459,6 +482,12 @@ export function ToolCallCard({
         ) : null}
         {children ? (
           <div className="h-tool-call__approval">{children}</div>
+        ) : null}
+        {outputRisk ? (
+          <div className="h-tool-call__risk">
+            Output risk: {outputRisk.risk}
+            {outputRisk.redacted ? " · Redacted" : ""}
+          </div>
         ) : null}
       </div>
     </PlatformScope>

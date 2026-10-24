@@ -55,3 +55,9 @@
   gap: 6px;
   padding-top: 4px;
 }
+
+.h-tool-group__warning {
+  flex: none;
+  margin-left: 2px;
+  color: var(--h-error);
+}

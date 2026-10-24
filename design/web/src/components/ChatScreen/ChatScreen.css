@@ -27,3 +27,84 @@
   margin: 0 auto;
   background: var(--h-bg);
 }
+
+/* The page and, while the Activity panel is open, the 380px inspector on
+   its right: docked beside it from 760px, over it from the right below
+   (the app's InspectorLayout). */
+.h-chat-screen__inspected {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  container-type: inline-size;
+}
+
+.h-chat-screen__page {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.h-chat-screen__inspector {
+  flex: none;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--h-bg);
+  border-left: 1px solid var(--h-border);
+}
+
+.h-chat-screen__barrier {
+  display: none;
+}
+
+@container (max-width: 759px) {
+  .h-chat-screen__inspector {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(380px, 100%);
+    box-shadow: -4px 0 24px rgb(0 0 0 / 0.18);
+  }
+
+  .h-chat-screen__barrier {
+    display: block;
+    position: absolute;
+    inset: 0;
+  }
+}
+
+/* Working and Needs-you cards above the transcript. */
+.h-chat-screen__strip {
+  flex: none;
+  max-height: min(280px, 40%);
+  overflow-y: auto;
+}
+
+/* Phone: the Activity panel as a sheet over the chat. */
+.h-chat-screen__sheet-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.h-chat-screen__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--h-scrim);
+}
+
+.h-chat-screen__sheet {
+  position: relative;
+  height: 72%;
+  display: flex;
+  flex-direction: column;
+}

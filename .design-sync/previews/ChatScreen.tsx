@@ -1,4 +1,11 @@
-import { ChatScreen, HermesProvider } from "@hermes-app/ui";
+import {
+  AgentNoticeCard,
+  ChatScreen,
+  HermesProvider,
+  SessionStatusCard,
+  SessionUsageCard,
+  TodoPlanCard,
+} from "@hermes-app/ui";
 import type { ChatTurn, StarterPromptItem, ThreadItem } from "@hermes-app/ui";
 
 const now = "2026-10-04T12:00:00";
@@ -425,4 +432,97 @@ export const Dark = () => (
       />
     </div>
   </HermesProvider>
+);
+
+const activityPlan = (
+  <TodoPlanCard
+    defaultOpen
+    items={[
+      { content: "Read the backup job's log", status: "completed" },
+      { content: "Check the storage quota", status: "in_progress" },
+      { content: "Propose a retention change", status: "pending" },
+    ]}
+  />
+);
+
+const activity = {
+  now: [
+    <SessionStatusCard
+      key="status"
+      waits={["restic — reading snapshot list"]}
+    />,
+  ],
+  plan: activityPlan,
+  session: [
+    <SessionUsageCard
+      key="usage"
+      snapshot={{
+        model: "claude-opus-4",
+        input: 18420,
+        output: 2310,
+        total: 20730,
+      }}
+    />,
+    <AgentNoticeCard key="notice" text="Capabilities refreshed." />,
+  ],
+};
+
+/** A Needs-you card above the transcript (the session was reopened elsewhere) and the header's Activity button. */
+export const ActivityStrip = () => (
+  <div style={desktop}>
+    <ChatScreen
+      {...loaded}
+      activity={activity}
+      activityStrip={[
+        <SessionStatusCard
+          key="reclaimed"
+          defaultOpen
+          reclaimedReason="Another client reopened this session."
+          onReopen={() => {}}
+        />,
+      ]}
+    />
+  </div>
+);
+
+/** Mac with the sidebar hidden: the page is 760px or wider, so the Activity inspector docks beside the chat (Show Inspector, ⌥⌘I, selected). */
+export const AppleMacActivityInspector = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...desktop, borderRadius: 10 }}>
+      <ChatScreen
+        {...loaded}
+        showTrafficLights
+        sidebarCollapsed
+        windowSize="medium"
+        activityOpen
+        activity={activity}
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Material desktop: next to the sidebar the page is under 760px, so the inspector lies over the chat from the right; a click beside it closes it. */
+export const MaterialActivityOverlay = () => (
+  <div style={desktop}>
+    <ChatScreen {...loaded} activityOpen activity={activity} />
+  </div>
+);
+
+/** Phones: the Activity panel as a sheet over the chat. */
+export const PhoneActivitySheet = () => (
+  <div style={{ display: "flex", gap: 24 }}>
+    <HermesProvider platform="apple">
+      <div style={phone}>
+        <ChatScreen
+          {...loaded}
+          layout="phone"
+          activityOpen
+          activity={activity}
+        />
+      </div>
+    </HermesProvider>
+    <div style={phone}>
+      <ChatScreen {...loaded} layout="phone" activityOpen activity={activity} />
+    </div>
+  </div>
 );

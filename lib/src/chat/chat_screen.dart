@@ -504,7 +504,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     _composerController.addListener(_onComposerText);
     if (_chat.repository != null) {
-      _chat.loadThreads();
+      unawaited(
+        _chat.loadThreads().then(
+          (_) => WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _focusComposerOnLaunch(),
+          ),
+        ),
+      );
       widget.chatProfiles?.attach(_chat.loadThreads);
     }
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();

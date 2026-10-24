@@ -83,3 +83,23 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+export const OutputRisk = () => (
+  <div style={box}>
+    <ToolCallGroup
+      defaultOpen
+      calls={[
+        { name: "terminal", summary: "cat deploy/.env", duration: "0.2s" },
+        {
+          name: "web_fetch",
+          summary: "https://example.com/status",
+          duration: "0.9s",
+          outputRisk: {
+            risk: "injection",
+            findings: ["The page asks the agent to ignore its instructions."],
+          },
+        },
+      ]}
+    />
+  </div>
+);
