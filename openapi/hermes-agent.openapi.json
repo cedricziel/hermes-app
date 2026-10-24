@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Hermes Agent",
-    "version": "71d34bad1045"
+    "version": "d923a5eb487a"
   },
   "paths": {
     "/api/memory/providers/{provider}/oauth/start": {
