@@ -80,7 +80,8 @@ class MessagesFound {
 /// delivery newer than it, so that none is announced twice. Only a delivery
 /// newer than the record counts as unfinished, none on a first look, and none
 /// that started more than [kUnfinishedGrace] before [now] (seconds since the
-/// epoch).
+/// epoch; callers pass the later of the device's clock and the newest chat
+/// listed, so a clock that runs behind cannot hold the record for good).
 MessagesFound findMessages({
   required Map<String, double>? record,
   required Map<String, DeliveryListing?> listings,
