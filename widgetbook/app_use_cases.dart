@@ -524,6 +524,16 @@ WidgetbookNode appNode() => WidgetbookFolder(
           'Notifications · messages from Hermes off',
           (_) => _notificationsWith((s) => s.setAgentMessages(false)),
         ),
+        WidgetbookUseCase(
+          name: 'Notifications · no messages row (Linux)',
+          builder: (context) => Theme(
+            data: Theme.of(context).copyWith(platform: TargetPlatform.linux),
+            child: withAppProviders(
+              CatalogAuth(),
+              _dialog(showNotificationsDialog),
+            ),
+          ),
+        ),
         ...onEachPlatform(
           'Notifications · Live Activities',
           (_) => _withLiveActivities(allowed: true),

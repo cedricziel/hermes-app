@@ -5,6 +5,7 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/live_activities/live_activities.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
+import 'package:hermes_app/src/notifications/notifications_dialog.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -186,6 +187,60 @@ void main() {
           .onChanged,
       isNull,
     );
+  });
+
+  group('the messages row by platform', () {
+    Future<void> openOn(WidgetTester tester, TargetPlatform platform) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.runAsync(settings.load);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: settings,
+          child: MaterialApp(
+            theme: buildHermesLightTheme().copyWith(platform: platform),
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showNotificationsDialog(context),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    final row = find.byKey(const Key('agent-messages'));
+    const background = 'or when the system lets it check in the background';
+
+    for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+      testWidgets('is hidden on $platform, which cannot look', (tester) async {
+        await openOn(tester, platform);
+
+        expect(row, findsNothing);
+        expect(find.textContaining('Hermes profile starts'), findsNothing);
+      });
+    }
+
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      testWidgets('mentions the background check on $platform', (tester) async {
+        await openOn(tester, platform);
+
+        expect(row, findsOneWidget);
+        expect(find.textContaining(background), findsOneWidget);
+      });
+    }
+
+    testWidgets('does not promise a background check on macOS', (tester) async {
+      await openOn(tester, TargetPlatform.macOS);
+
+      expect(row, findsOneWidget);
+      expect(find.textContaining('Hermes profile starts'), findsOneWidget);
+      expect(find.textContaining(background), findsNothing);
+    });
   });
 
   group('Live Activities', () {
