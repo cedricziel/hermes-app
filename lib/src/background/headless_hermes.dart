@@ -227,6 +227,9 @@ class HeadlessHermes {
   /// A gateway transport on a socket of its own, closed when the run ends.
   HermesGatewayTransport transport() => _run._openTransport(_connection);
 
+  /// What is left until the run is cut off, counted from before it connected.
+  Duration get untilDeadline => _run._deadline.difference(DateTime.now());
+
   /// Adds [value] to the run's `background.task` span as [name]. Counts and
   /// flags only: the span never holds ids, titles or text.
   void annotate(String name, Object value) => _run.annotations[name] = value;

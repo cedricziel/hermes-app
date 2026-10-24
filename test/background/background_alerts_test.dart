@@ -1612,6 +1612,38 @@ void main() {
       expect(taskSpan().attributes['steps_failed'], 0);
     });
 
+    test('writes and posts nothing when the run deadline is near, whatever '
+        'the step budget', () async {
+      await arrangeNew();
+      // A slow connect eats into the run's own deadline, which the step
+      // budget (counted from after the connect) does not see.
+      server.onRequest('GET', '/api/status', (_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        return (
+          status: 200,
+          body: <String, Object?>{'auth_required': false, 'version': '0.9.0'},
+        );
+      });
+
+      await runBackgroundRefresh(
+        deps: BackgroundRefreshDeps(
+          headless: headless(),
+          notifications: notifications,
+          announced: AnnouncedRequests(),
+          notificationsEnabled: () async => true,
+          appLockOn: () async => false,
+          cancelSchedule: () async {},
+          appInFront: () async => false,
+          steps: () => [step()],
+          timeout: const Duration(milliseconds: 2500),
+          stepTimeout: const Duration(seconds: 20),
+        ),
+      );
+
+      expect(notifications.shown, isEmpty);
+      expect(await record.read(_account), seen);
+    });
+
     test('writes and posts nothing when the app came to the front while '
         'the text was read', () async {
       await arrangeNew();

@@ -29,9 +29,6 @@ const kAlertLookupBudget = Duration(seconds: 4);
 /// The longest the active profile may take to be named in a notification.
 const _activeLookup = Duration(seconds: 2);
 
-/// What a step keeps of its time for posting, once its record is saved.
-const _postingTime = Duration(seconds: 1);
-
 /// The `session.active_list` statuses of a session whose turn has not ended.
 const _turnStatuses = {
   'starting',
@@ -312,7 +309,7 @@ class AgentMessagesStep extends BackgroundStep {
     // A run cut off before the record is saved repeats; one cut off after
     // it loses the messages. So save only with time left for the posting, and
     // while the app, which announces by itself, is not in front.
-    if (context.remainingStepBudget(reserve: _postingTime) == Duration.zero ||
+    if (context.remainingStepBudget() == Duration.zero ||
         await context.appInFrontNow()) {
       return const StepCounts();
     }

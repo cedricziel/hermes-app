@@ -114,11 +114,14 @@ class BackgroundContext {
   Future<bool> appInFrontNow() => _inFront();
 
   /// What is left of a step's time, less [reserve] for the work it still has
-  /// to do after waiting; never below zero. All steps start with the run.
+  /// to do after waiting; never below zero. All steps start with the run, and
+  /// the run's own deadline, counted from before it connected, may come first.
   Duration remainingStepBudget({
     Duration reserve = const Duration(seconds: 2),
   }) {
-    final left = stepTimeout - _now().difference(_started) - reserve;
+    final step = stepTimeout - _now().difference(_started);
+    final run = hermes.untilDeadline;
+    final left = (run < step ? run : step) - reserve;
     return left.isNegative ? Duration.zero : left;
   }
 
