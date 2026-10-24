@@ -80,3 +80,27 @@ Map<String, Object?> memorySettingsConfig({
   },
   'display': {'memory_notifications': updates},
 };
+
+/// `GET /api/memory` for the built-in store: `active` is empty and
+/// `builtin_files` holds byte sizes.
+Map<String, Object?> memoryStatus({
+  String active = '',
+  List<Map<String, Object?>> providers = const [],
+}) => {
+  'active': active,
+  'providers': providers,
+  'builtin_files': {'memory': 120, 'user': 64},
+};
+
+Map<String, Object?> memoryProviderRow(
+  String name, {
+  String description = '',
+  String status = 'ready',
+}) => {
+  'name': name,
+  'description': description,
+  'available': status == 'ready',
+  'configured': status != 'needs_config',
+  'status': status,
+  'setup': <String, Object?>{},
+};

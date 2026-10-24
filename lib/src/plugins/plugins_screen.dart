@@ -22,18 +22,29 @@ import 'plugins_controller.dart';
 import 'providers_controller.dart';
 import 'providers_tab.dart';
 
-const _catalogTab = 1;
+/// The tabs of the Plugins screen, in the order they are shown.
+enum PluginsTab { installed, catalog, providers }
 
 /// Manages the plugins of the connected dashboard: the ones installed, with a
 /// details view for each, and the catalog to install more from.
 class PluginsScreen extends StatefulWidget {
-  const PluginsScreen({super.key, this.repository, this.events, this.openLink});
+  const PluginsScreen({
+    super.key,
+    this.repository,
+    this.events,
+    this.openLink,
+    this.initialTab = PluginsTab.installed,
+  });
 
   final HermesPluginManagerRepository? repository;
   final AppEventLogger? events;
 
   /// Opens a docs link; the system browser when null.
   final LinkOpener? openLink;
+
+  /// The tab shown first. A tab loads when it is first shown, so another than
+  /// Installed leaves the catalog unrequested.
+  final PluginsTab initialTab;
 
   @override
   State<PluginsScreen> createState() => _PluginsScreenState();
@@ -46,7 +57,11 @@ class _PluginsScreenState extends State<PluginsScreen>
   late final CatalogController _catalog;
   final _catalogQuery = ValueNotifier<String>('');
   late final ProvidersController _providers;
-  late final _tabs = TabController(length: 3, vsync: this);
+  late final _tabs = TabController(
+    length: PluginsTab.values.length,
+    vsync: this,
+    initialIndex: widget.initialTab.index,
+  );
 
   @override
   void initState() {
@@ -125,7 +140,7 @@ class _PluginsScreenState extends State<PluginsScreen>
         subtitle: _subtitle(mac),
         tabs: const ['Installed', 'Catalog', 'Providers'],
         tabController: _tabs,
-        search: mac && _tabs.index == _catalogTab
+        search: mac && _tabs.index == PluginsTab.catalog.index
             ? SettingsSearch(
                 query: _catalog.query,
                 hint: 'Search catalog',

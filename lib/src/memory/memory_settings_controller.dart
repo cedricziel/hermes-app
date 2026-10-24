@@ -3,16 +3,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../telemetry/breadcrumbs.dart';
+import 'memory_provider.dart';
 import 'memory_repository.dart';
 import 'memory_settings.dart';
 import 'memory_settings_repository.dart';
 
-/// The Learning section's state for one profile. A change shows at once and
-/// is sent as its own key; when the server does not take it, the control goes
-/// back to the last value the server confirmed.
+/// The state of the Learning and Storage sections for one profile. A change
+/// shows at once and is sent as its own key; when the server does not take it,
+/// the control goes back to the last value the server confirmed.
 class MemorySettingsController extends ChangeNotifier {
-  MemorySettingsController({this.breadcrumbs = Breadcrumbs.none});
+  MemorySettingsController({this.breadcrumbs = Breadcrumbs.none, this.onReset});
   final Breadcrumbs breadcrumbs;
+
+  /// Reads the memory entries again after a reset.
+  final Future<void> Function()? onReset;
 
   MemorySettingsRepository? _repository;
   String? _profile;
@@ -20,6 +24,9 @@ class MemorySettingsController extends ChangeNotifier {
   final _writing = <MemorySetting>{};
   final _running = <Future<void>>{};
   int _generation = 0;
+
+  /// Counts the config reads, so the newest answer wins.
+  int _reads = 0;
   bool _disposed = false;
 
   /// What the controls show; null until the config is read, and after a read
@@ -30,6 +37,15 @@ class MemorySettingsController extends ChangeNotifier {
 
   /// What the last refused change says, until the next change.
   String? message;
+
+  /// The memory provider; null until it is read, and after a read that
+  /// failed.
+  MemoryProviderStatus? provider;
+  bool providerFailed = false;
+  bool resetting = false;
+
+  /// What the last reset came to, until the next one or another profile.
+  MemoryNotice? notice;
 
   /// Completes when every read and write started so far has ended.
   Future<void> get whenIdle async {
@@ -53,33 +69,92 @@ class MemorySettingsController extends ChangeNotifier {
     message = null;
     unreadable = false;
     loading = false;
+    provider = null;
+    providerFailed = false;
+    resetting = false;
+    notice = null;
     notifyListeners();
     if (repository != null && profile != null && profile.isNotEmpty) {
       _track(load());
+      _track(loadProvider());
     }
   }
 
   Future<void> load() async {
     final repository = _repository, profile = _profile;
     if (repository == null || profile == null || profile.isEmpty) return;
-    final generation = ++_generation;
+    final generation = _generation, read = ++_reads;
+    bool stale() => _disposed || generation != _generation || read != _reads;
     loading = true;
     unreadable = false;
     notifyListeners();
     try {
-      final read = await repository.read(profile);
-      if (_disposed || generation != _generation) return;
-      _confirmed = settings = read;
+      final result = await repository.read(profile);
+      if (stale()) return;
+      _confirmed = settings = result;
     } on MemoryFailure {
-      if (_disposed || generation != _generation) return;
+      if (stale()) return;
       _confirmed = settings = null;
       unreadable = true;
     } finally {
-      if (!_disposed && generation == _generation) {
+      if (!stale()) {
         loading = false;
         notifyListeners();
       }
     }
+  }
+
+  Future<void> loadProvider() async {
+    final repository = _repository, profile = _profile;
+    if (repository == null || profile == null || profile.isEmpty) return;
+    final generation = _generation;
+    providerFailed = false;
+    try {
+      final read = await repository.status(profile);
+      if (_disposed || generation != _generation) return;
+      provider = read;
+    } on MemoryFailure {
+      if (_disposed || generation != _generation) return;
+      provider = null;
+      providerFailed = true;
+    }
+    notifyListeners();
+  }
+
+  /// Deletes the memory files [target] names and reads everything again. A
+  /// lost answer is not retried: the reset may have happened, so the reads
+  /// show what is there now.
+  Future<void> reset(MemoryResetTarget target) async {
+    final repository = _repository, profile = _profile;
+    if (repository == null || profile == null || profile.isEmpty || resetting) {
+      return;
+    }
+    final generation = _generation;
+    breadcrumbs('memory.reset_confirmed', {'target': target.wire});
+    resetting = true;
+    notice = null;
+    notifyListeners();
+    var reread = true;
+    try {
+      await repository.reset(profile, target);
+      notice = MemoryNotice(
+        'Reset ${target.what}. New chats start without it.',
+        MemoryNoticeTone.success,
+      );
+    } on MemoryWriteFailure catch (failure) {
+      reread = failure.uncertain;
+      notice = MemoryNotice(
+        failure.uncertain
+            ? 'The reset may have happened. Reading memory again.'
+            : failure.message,
+        failure.uncertain ? MemoryNoticeTone.warning : MemoryNoticeTone.error,
+      );
+    }
+    if (_disposed || generation != _generation) return;
+    resetting = false;
+    notifyListeners();
+    if (!reread) return;
+    await Future.wait([load(), loadProvider(), ?onReset?.call()]);
   }
 
   void change(MemorySetting setting, Object value) {

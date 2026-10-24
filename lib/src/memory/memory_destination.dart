@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../api/hermes_repositories.dart';
 import '../auth/auth_controller.dart';
 import '../auth/verified_session_owner.dart';
+import '../plugins/plugins_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../widgets/settings_scaffold.dart';
@@ -108,7 +109,10 @@ class _MemoryDestinationState extends State<MemoryDestination> {
       breadcrumbs = Breadcrumbs.none;
     }
     _controller = MemoryController(breadcrumbs: breadcrumbs);
-    _settings = MemorySettingsController(breadcrumbs: breadcrumbs);
+    _settings = MemorySettingsController(
+      breadcrumbs: breadcrumbs,
+      onReset: _controller.load,
+    );
   }
 
   @override
@@ -162,6 +166,20 @@ class _MemoryDestinationState extends State<MemoryDestination> {
   void _show(String profile) {
     _controller.bind(_memory, profile);
     _settings.bind(_settingsRepository, profile);
+  }
+
+  void _openProviders(String profile) {
+    final repositories = _repositories;
+    if (repositories == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PluginsScreen(
+          repository: repositories.pluginManager.forProfile(profile),
+          events: repositories.telemetry.events,
+          initialTab: PluginsTab.providers,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadProfiles() async {
@@ -240,6 +258,7 @@ class _MemoryDestinationState extends State<MemoryDestination> {
     return MemoryScreen(
       controller: _controller,
       settings: _settings,
+      onOpenProviders: _openProviders,
       profiles: _profiles,
       onProfile: _show,
     );

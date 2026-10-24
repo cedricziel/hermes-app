@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_screen.dart';
+import 'package:hermes_app/src/memory/memory_provider.dart';
 import 'package:hermes_app/src/memory/memory_settings.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/memory/widgets/memory_entry_editor.dart';
 import 'package:hermes_app/src/memory/widgets/memory_entry_list.dart';
 import 'package:hermes_app/src/memory/widgets/memory_fill_bar.dart';
 import 'package:hermes_app/src/memory/widgets/memory_learning_section.dart';
+import 'package:hermes_app/src/memory/widgets/memory_reset_dialog.dart';
+import 'package:hermes_app/src/memory/widgets/memory_storage_section.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -54,6 +57,81 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
           ),
         ),
       ),
+    for (final (state, provider, failed, notice) in [
+      ('Storage, built-in', MemoryProviderStatus.builtin, false, null),
+      (
+        'Storage, named provider',
+        const MemoryProviderStatus(
+          MemoryProviderState.ready,
+          name: 'honcho',
+          description: 'Honcho memory',
+        ),
+        false,
+        null,
+      ),
+      (
+        'Storage, provider missing',
+        const MemoryProviderStatus(MemoryProviderState.missing, name: 'honcho'),
+        false,
+        null,
+      ),
+      (
+        'Storage, needs setup',
+        const MemoryProviderStatus(
+          MemoryProviderState.needsConfig,
+          name: 'mem0',
+          description: 'Mem0 memory',
+        ),
+        false,
+        null,
+      ),
+      ('Storage, read failed', null, true, null),
+      (
+        'Storage, reset done',
+        MemoryProviderStatus.builtin,
+        false,
+        const MemoryNotice(
+          'Reset about you. New chats start without it.',
+          MemoryNoticeTone.success,
+        ),
+      ),
+      (
+        'Storage, reset refused',
+        MemoryProviderStatus.builtin,
+        false,
+        const MemoryNotice(
+          'The server refused the reset.',
+          MemoryNoticeTone.error,
+        ),
+      ),
+    ])
+      ...onEachPlatform(
+        state,
+        (_) => Scaffold(
+          body: GroupedListView(
+            children: [
+              MemoryStorageSection(
+                provider: provider,
+                providerFailed: failed,
+                notice: notice,
+                onOpenProviders: () {},
+                onRetry: () {},
+                onReset: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    ...onEachPlatform(
+      'Reset alert',
+      (_) => Scaffold(
+        body: MemoryResetAlert(
+          profile: 'work',
+          onPick: (_) {},
+          onCancel: () {},
+        ),
+      ),
+    ),
     ...onEachPlatform('Loading', (_) => _view(loading: true)),
     ...onEachPlatform('Empty', (_) => _view()),
     for (final (state, usage) in [

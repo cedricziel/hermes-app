@@ -107,4 +107,88 @@ void main() {
       expect(put.queryParameters['profile'], 'work');
     },
   );
+
+  testWidgets(
+    'the provider row and Reset both work for the screen\'s profile',
+    (tester) async {
+      tester.view
+        ..physicalSize = const Size(800, 2400)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final server = FakeHermesServer()
+        ..on('GET', '/api/learning/graph', memoryGraph)
+        ..on('GET', '/api/config', memorySettingsConfig())
+        ..on('GET', '/api/memory', memoryStatus())
+        ..on('POST', '/api/memory/reset', {
+          'ok': true,
+          'deleted': ['MEMORY.md', 'USER.md'],
+        });
+      final controller = MemoryController();
+      final opened = <String>[];
+
+      final settings = MemorySettingsController(onReset: controller.load);
+      addTearDown(controller.dispose);
+      addTearDown(settings.dispose);
+      await tester.runAsync(() async {
+        controller.bind(MemoryRepository(server.client().raw), 'work');
+        settings.bind(MemorySettingsRepository(server.client().raw), 'work');
+        await pumpEventQueue();
+        await settings.whenIdle;
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MemoryScreen(
+            controller: controller,
+            settings: settings,
+            onOpenProviders: opened.add,
+          ),
+        ),
+      );
+      expect(find.text('Built-in · MEMORY.md and USER.md'), findsOneWidget);
+      await tester.tap(find.text('Memory provider'));
+      expect(opened, ['work']);
+
+      await tester.tap(find.text('Reset memory…'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reset memory?'), findsOneWidget);
+      await tester.tap(find.text('Reset both'));
+      await tester.pumpAndSettle();
+      final resets = server.requestsTo('POST', '/api/memory/reset');
+      expect(resets, hasLength(1));
+      expect(resets.single.queryParameters, {'profile': 'work'});
+      expect(server.requestsTo('GET', '/api/learning/graph'), hasLength(2));
+      expect(server.requestsTo('GET', '/api/config').length, greaterThan(2));
+    },
+  );
+
+  testWidgets('Cancel on the reset alert sends nothing', (tester) async {
+    tester.view
+      ..physicalSize = const Size(800, 2400)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final server = FakeHermesServer()
+      ..on('GET', '/api/learning/graph', memoryGraph)
+      ..on('GET', '/api/config', memorySettingsConfig())
+      ..on('GET', '/api/memory', memoryStatus());
+    final controller = MemoryController();
+    final settings = MemorySettingsController();
+    addTearDown(controller.dispose);
+    addTearDown(settings.dispose);
+    await tester.runAsync(() async {
+      controller.bind(MemoryRepository(server.client().raw), 'work');
+      settings.bind(MemorySettingsRepository(server.client().raw), 'work');
+      await pumpEventQueue();
+      await settings.whenIdle;
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemoryScreen(controller: controller, settings: settings),
+      ),
+    );
+    await tester.tap(find.text('Reset memory…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(server.requestsTo('POST', '/api/memory/reset'), isEmpty);
+  });
 }

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/memory/memory_destination.dart';
+import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:provider/provider.dart';
 
+import '../hermes_plugin_manager_repository_test.dart' show providersHub;
 import '../support/fake_hermes_server.dart';
 import 'memory_fixtures.dart';
 
@@ -83,5 +85,34 @@ void main() {
     expect(find.text('This profile is no longer available.'), findsOneWidget);
     expect(find.text('Long memory'), findsNothing);
     expect(server.requestsTo('GET', '/api/learning/graph'), isEmpty);
+  });
+
+  testWidgets('the provider row opens Plugins on Providers for that profile', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(800, 2400)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    server
+      ..on('GET', '/api/memory', memoryStatus())
+      ..on('GET', '/api/dashboard/plugins/hub', providersHub());
+    await pumpDestination(tester, 'work');
+
+    await tester.tap(find.text('Memory provider'));
+    await settle(tester);
+
+    expect(find.byType(PluginsScreen), findsOneWidget);
+    expect(
+      tester.widget<PluginsScreen>(find.byType(PluginsScreen)).initialTab,
+      PluginsTab.providers,
+    );
+    expect(
+      server
+          .requestsTo('GET', '/api/dashboard/plugins/hub')
+          .map((request) => request.queryParameters['profile']),
+      everyElement('work'),
+    );
+    expect(server.requestsTo('GET', '/api/dashboard/plugins/catalog'), isEmpty);
   });
 }

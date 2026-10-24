@@ -7,7 +7,7 @@ The Memory screen SHALL show a Learning section for its profile with three switc
 - "Remember things about me" for `memory.user_profile_enabled`;
 - "Keep agent notes" for `memory.memory_enabled`;
 - "Ask before saving" for `memory.write_approval`;
-- "Review chats" for `memory.nudge_interval`, offering Off (0) and Every 5, 10 or 20 messages;
+- "Review chats" for `memory.nudge_interval`, offering Off (0) and After every 5, 10 or 20 messages;
 - "Memory updates in chat" for `display.memory_notifications`, offering Off (`off`), Short note (`on`) and With details (`verbose`).
 
 The section SHALL be captioned "Ask before saving applies right away, the rest from the next chat." Values SHALL be read from `GET /api/config?profile=<profile>` with defaults included. A missing or ill-typed key SHALL show the server's default (true, true, false, 10, `on`). A value the app does not offer SHALL be shown as it is and kept as a choice until the user picks another.
@@ -43,7 +43,7 @@ A change SHALL take effect on screen at once and SHALL be sent as `PUT /api/conf
 
 ### Requirement: Memory provider row
 
-The Memory screen SHALL show a Storage section with a Memory provider row read from `GET /api/memory?profile=<profile>`. When `active` is empty the row SHALL read "Built-in · MEMORY.md and USER.md"; otherwise it SHALL show the active provider's name and description. When the active provider's `status` is `missing`, the section SHALL show an error banner saying the provider is configured but not installed on the server. A `needs_config` or `unavailable` status SHALL add a warning line. A tap SHALL open the Plugins screen on its Providers tab for the same profile. A failed read SHALL show "Couldn't read the memory provider" with a retry, and SHALL NOT hide the rest of the screen.
+The Memory screen SHALL show a Storage section with a Memory provider row read from `GET /api/memory?profile=<profile>`. When `active` is empty the row SHALL read "Built-in · MEMORY.md and USER.md"; otherwise it SHALL show the active provider's name and description. When the active provider's `status` is `missing`, the section SHALL show an error banner titled "Memory provider is missing" saying the provider is no longer installed on the server and that Hermes falls back to the built-in files. A `needs_config` or `unavailable` status SHALL add a warning line. A tap SHALL open the Plugins screen on its Providers tab for the same profile. A failed read SHALL show "Couldn't read the memory provider" with a retry, and SHALL NOT hide the rest of the screen.
 
 #### Scenario: Built-in memory
 
@@ -53,7 +53,7 @@ The Memory screen SHALL show a Storage section with a Memory provider row read f
 #### Scenario: Provider gone
 
 - **WHEN** the active provider reports `status: missing`
-- **THEN** an error banner says it is configured but not installed on the server
+- **THEN** an error banner says it is no longer installed on the server
 
 #### Scenario: Open providers
 
@@ -62,7 +62,7 @@ The Memory screen SHALL show a Storage section with a Memory provider row read f
 
 ### Requirement: Resetting memory
 
-The Memory screen SHALL offer "Reset memory…", which asks with an alert offering Reset agent notes, Reset about you, Reset both and Cancel, with the footnote "Erases the files on the server. Open chats keep what they started with. This can't be undone." The reset actions SHALL be destructive. Confirming SHALL send `POST /api/memory/reset?profile=<profile>` with `{"target": "memory"}`, `{"target": "user"}` or `{"target": "all"}`, always with the profile, and SHALL be counted as done only when the answer has `ok: true`. After a reset the screen SHALL read its entries and settings again. A refusal SHALL show the server's `detail` when it is text. A lost answer SHALL say the reset may have happened, read the entries again, and SHALL NOT repeat the request. Cancel SHALL send nothing.
+The Memory screen SHALL offer "Reset memory…", which asks with an alert offering Reset agent notes, Reset about you, Reset both and Cancel, with the footnote "Erases the files on the server. Open chats keep what they started with. This can't be undone." under the button; the alert itself says what goes, for which profile, and that it cannot be undone The reset actions SHALL be destructive. Confirming SHALL send `POST /api/memory/reset?profile=<profile>` with `{"target": "memory"}`, `{"target": "user"}` or `{"target": "all"}`, always with the profile, and SHALL be counted as done only when the answer has `ok: true`. After a reset the screen SHALL read its entries and settings again. A refusal SHALL show the server's `detail` when it is text. A lost answer SHALL say the reset may have happened, read the entries again, and SHALL NOT repeat the request. Cancel SHALL send nothing.
 
 #### Scenario: Reset about you
 

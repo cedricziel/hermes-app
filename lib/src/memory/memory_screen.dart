@@ -10,6 +10,8 @@ import 'memory_usage.dart';
 import 'widgets/memory_entry_editor.dart';
 import 'widgets/memory_entry_list.dart';
 import 'widgets/memory_learning_section.dart';
+import 'widgets/memory_reset_dialog.dart';
+import 'widgets/memory_storage_section.dart';
 
 class MemoryScreen extends StatefulWidget {
   const MemoryScreen({
@@ -18,11 +20,15 @@ class MemoryScreen extends StatefulWidget {
     this.profiles = const {},
     this.onProfile,
     this.settings,
+    this.onOpenProviders,
   });
   final MemoryController controller;
 
   /// The profile's Learning settings; the section is left out without it.
   final MemorySettingsController? settings;
+
+  /// Opens the Plugins screen's Providers tab for the profile named.
+  final ValueChanged<String>? onOpenProviders;
   final Map<String, String> profiles;
   final ValueChanged<String>? onProfile;
   @override
@@ -171,7 +177,14 @@ class _MemoryScreenState extends State<MemoryScreen>
         body: MemoryView(
           footer: widget.settings == null
               ? const []
-              : [_LearningSection(controller: widget.settings!)],
+              : [
+                  _LearningSection(controller: widget.settings!),
+                  _StorageSection(
+                    controller: widget.settings!,
+                    profile: controller.profile,
+                    onOpenProviders: widget.onOpenProviders,
+                  ),
+                ],
           usage: controller.usageOf(controller.tab),
           entries: controller.entriesIn(controller.tab),
           place: _place(),
@@ -216,6 +229,43 @@ class _LearningSection extends StatelessWidget {
       onRetry: controller.load,
     ),
   );
+}
+
+class _StorageSection extends StatelessWidget {
+  const _StorageSection({
+    required this.controller,
+    required this.profile,
+    required this.onOpenProviders,
+  });
+  final MemorySettingsController controller;
+  final String? profile;
+  final ValueChanged<String>? onOpenProviders;
+
+  Future<void> _reset(BuildContext context, String profile) async {
+    final target = await showMemoryResetDialog(context, profile: profile);
+    if (target != null) await controller.reset(target);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final named = profile;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => MemoryStorageSection(
+        provider: controller.provider,
+        providerFailed: controller.providerFailed,
+        resetting: controller.resetting,
+        notice: controller.notice,
+        onOpenProviders: () {
+          if (named != null) onOpenProviders?.call(named);
+        },
+        onRetry: controller.loadProvider,
+        onReset: () {
+          if (named != null) _reset(context, named);
+        },
+      ),
+    );
+  }
 }
 
 class MemoryEditor extends StatelessWidget {
