@@ -12,6 +12,35 @@ import 'memory_controller.dart';
 import 'memory_repository.dart';
 import 'memory_screen.dart';
 
+/// Where Memory was opened from, for the `nav.memory` breadcrumb.
+enum MemoryEntryPoint {
+  sidebar('sidebar'),
+  profilesPage('profiles_page');
+
+  const MemoryEntryPoint(this.wire);
+  final String wire;
+}
+
+/// Pushes Memory for [profile] and notes how the user got there.
+Future<void> openMemory(
+  BuildContext context, {
+  required MemoryEntryPoint from,
+  required String? profile,
+}) {
+  Breadcrumbs breadcrumbs;
+  try {
+    breadcrumbs = context.read<Breadcrumbs>();
+  } on ProviderNotFoundException {
+    breadcrumbs = Breadcrumbs.none;
+  }
+  breadcrumbs('nav.memory', {'from': from.wire});
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => MemoryDestination(profile: profile),
+    ),
+  );
+}
+
 /// Memory of one profile. [profile] is the one its entry point names, which
 /// the server's active profile never replaces; without one the screen opens
 /// on the active profile.

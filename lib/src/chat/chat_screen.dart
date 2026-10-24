@@ -34,6 +34,7 @@ import '../messaging/messaging_screen.dart';
 import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../mcp/mcp_servers_screen.dart';
+import '../memory/memory_destination.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/widgets/model_setup_dialog.dart';
 import '../live_activities/live_activities.dart';

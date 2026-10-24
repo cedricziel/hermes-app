@@ -10,6 +10,11 @@ import 'profile_avatar.dart';
 /// What a profile's home holds, by the screen that manages it.
 enum ProfileSection {
   skills('Skills', 'What the agent knows how to do', AppIcons.sparkle),
+  memory(
+    'Memory',
+    'What Hermes remembers about you and your setup',
+    AppIcons.memory,
+  ),
   messaging('Messaging', 'Chat platforms the agent answers on', AppIcons.bot),
   plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
   mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),

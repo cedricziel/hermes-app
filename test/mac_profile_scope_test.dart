@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/screens/home_screen.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
+import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../widgetbook/catalog_auth.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/protected_catalog_auth.dart';
 
 /// Profile scope in a Mac window: the switcher at the top of the sidebar, the
 /// Profiles page, and the account footer.
@@ -71,6 +75,29 @@ void main() {
       )
       ..on(
         'GET',
+        '/api/learning/graph',
+        {
+          'nodes': [
+            for (final i in [1, 2, 3])
+              {
+                'id': 'memory:memory:$i:d',
+                'kind': 'memory',
+                'label': 'Note $i',
+              },
+            {'id': 'skill', 'kind': 'skill', 'label': 'Skill'},
+          ],
+        },
+        query: {'profile': 'work'},
+      )
+      ..on(
+        'GET',
+        '/api/learning/graph',
+        {'detail': 'down'},
+        status: 500,
+        query: {'profile': 'default'},
+      )
+      ..on(
+        'GET',
         '/api/model/auxiliary',
         {'detail': 'down'},
         status: 500,
@@ -104,6 +131,7 @@ void main() {
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.macOS,
     MacCommandRegistry? registry,
+    BreadcrumbTrail? trail,
   }) async {
     tester.view
       ..physicalSize = const Size(1200, 800)
@@ -114,14 +142,17 @@ void main() {
     await tester.pumpWidget(
       withAppProviders(
         auth,
-        MaterialApp(
-          theme: buildHermesLightTheme(platform: platform),
-          home: registry == null
-              ? const AppShell()
-              : MacCommandScope.root(
-                  registry: registry,
-                  child: const AppShell(),
-                ),
+        Provider<Breadcrumbs>.value(
+          value: trail == null ? Breadcrumbs.none : Breadcrumbs.of(trail),
+          child: MaterialApp(
+            theme: buildHermesLightTheme(platform: platform),
+            home: registry == null
+                ? const AppShell()
+                : MacCommandScope.root(
+                    registry: registry,
+                    child: const AppShell(),
+                  ),
+          ),
         ),
       ),
     );
@@ -203,6 +234,7 @@ void main() {
     }
 
     expect(countIn(ProfileSection.skills), '12');
+    expect(countIn(ProfileSection.memory), '3');
     expect(countIn(ProfileSection.mcp), '1');
     expect(countIn(ProfileSection.helperModels), isNull);
     expect(countIn(ProfileSection.messaging), '2');
@@ -210,6 +242,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('profile-row-default')));
     await tester.pumpAndSettle();
+    expect(countIn(ProfileSection.memory), isNull);
     expect(countIn(ProfileSection.messaging), '1');
     expect(countIn(ProfileSection.plugins), '1');
 
@@ -234,6 +267,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('jira'), findsOneWidget);
+  });
+
+  testWidgets('the Profiles page opens the memory of the selected profile', (
+    tester,
+  ) async {
+    final trail = BreadcrumbTrail();
+    await pump(tester, trail: trail);
+    await tester.tap(inSidebar(find.text('Profiles')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('profile-row-work')));
+    await tester.pumpAndSettle();
+
+    final sections = [for (final s in ProfileSection.values) s.name];
+    expect(sections.indexOf('memory'), sections.indexOf('skills') + 1);
+
+    await tester.tap(find.byKey(const ValueKey('profile-section-memory')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Note 1'), findsOneWidget);
+    expect(
+      server.requestsTo('GET', '/api/learning/graph').last.queryParameters,
+      {'profile': 'work'},
+    );
+    expect(
+      trail.recent
+          .where((crumb) => crumb.name == 'nav.memory')
+          .map((crumb) => crumb.attributes),
+      [
+        {'from': 'profiles_page'},
+      ],
+    );
   });
 
   testWidgets('the account footer opens Settings', (tester) async {
@@ -337,9 +401,8 @@ void main() {
   });
 }
 
-class _CountingAuth extends CatalogAuth {
-  _CountingAuth(FakeHermesServer server, this.onSignOut)
-    : super(server: server, gated: true);
+class _CountingAuth extends ProtectedCatalogAuth {
+  _CountingAuth(super.server, this.onSignOut);
 
   final VoidCallback onSignOut;
 

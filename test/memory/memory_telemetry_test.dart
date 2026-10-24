@@ -167,4 +167,24 @@ void main() {
       throwsA(MemoryFailure.transport),
     );
   });
+
+  test(
+    'counting entries is one memory.fetch span with operation count',
+    () async {
+      final server = FakeHermesServer()
+        ..on('GET', '/api/learning/graph', memoryGraph);
+      final tracer = RecordingTracer();
+      final repository = MemoryRepository(
+        server.client().raw,
+        telemetry: ConnectionTelemetry(tracer: tracer),
+      );
+
+      expect(await repository.count('private-profile'), 2);
+
+      final span = tracer.spans.single;
+      expect(span.name, 'memory.fetch');
+      expect(span.attributes, {'operation': 'count', 'outcome': 'success'});
+      expect(span.ended, isTrue);
+    },
+  );
 }

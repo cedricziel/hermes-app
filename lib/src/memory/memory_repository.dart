@@ -66,6 +66,21 @@ class MemoryRepository {
   final ConnectionTelemetry telemetry;
 
   Future<List<MemoryEntry>> load(String profile) => _read('list', () async {
+    final (entries, cards) = await _graph(profile);
+    return List<MemoryEntry>.unmodifiable(
+      await Future.wait([
+        for (final (i, entry) in entries.indexed)
+          _withText(entry, i < cards.length ? cards[i] : null, profile),
+      ]),
+    );
+  });
+
+  /// How many entries [profile] holds, for the Profiles page; reads the
+  /// graph only, not each entry's text.
+  Future<int> count(String profile) =>
+      _read('count', () async => (await _graph(profile)).$1.length);
+
+  Future<(List<MemoryEntry>, List<Object?>)> _graph(String profile) async {
     final data = (await _api.getLearningGraphApiLearningGraphGet(
       profile: profile,
     )).data;
@@ -86,14 +101,11 @@ class MemoryRepository {
       }
       entries.add(MemoryEntry(id, label, source: source as String?));
     }
-    final cards = data['memory'] is List ? data['memory'] as List : const [];
-    return List<MemoryEntry>.unmodifiable(
-      await Future.wait([
-        for (final (i, entry) in entries.indexed)
-          _withText(entry, i < cards.length ? cards[i] : null, profile),
-      ]),
-    );
-  });
+    final cards = data['memory'] is List
+        ? data['memory'] as List<Object?>
+        : const <Object?>[];
+    return (entries, cards);
+  }
 
   /// A card's `body` is the entry cut at this many characters.
   static const _cardBodyLimit = 1200;
@@ -278,7 +290,7 @@ class MemoryRepository {
             detail.endsWith('does not exist.')) {
           return MemoryFailure.profileUnavailable;
         }
-        return operation == 'list'
+        return operation != 'detail'
             ? MemoryFailure.unsupported
             : MemoryFailure.missing;
       }
