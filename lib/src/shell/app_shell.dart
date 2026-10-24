@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
+import '../agent_messages/agent_message_watcher.dart';
 import '../api/hermes_repositories.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
@@ -34,6 +35,7 @@ import '../settings/account_actions.dart';
 import '../settings/settings_dialog.dart';
 import '../kanban/kanban_screen.dart';
 import '../telemetry/breadcrumbs.dart';
+import '../notifications/attention_notifier.dart' show appLockHidesRequests;
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../platform_hint/platform_hint_offer.dart';
@@ -117,6 +119,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   final _opened = <_Destination>{};
   SchedulesController? _schedulesController;
   ScheduleWatcher? _watcher;
+  AgentMessageWatcher? _messages;
+  final _finds = AgentMessageFinds();
   StreamSubscription<bool>? _windowlessChanges;
   var _appForeground = true;
 
@@ -205,6 +209,22 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         account: () => accounts?.accountKey ?? '',
       )..paused = !_sessionAuthorized;
     }
+    if (service != null && settings != null && repositories != null) {
+      final accounts = _maybeRead<AuthController>();
+      _messages = AgentMessageWatcher(
+        chat: repositories.chat,
+        profiles: repositories.profiles,
+        service: service,
+        settings: settings,
+        finds: _finds,
+        appLock: () => appLockHidesRequests(_appLock),
+        shownProfile: () => _chatProfiles?.current,
+        account: () => accounts?.accountKey ?? '',
+        breadcrumbs: _breadcrumbs,
+        events: repositories.telemetry.events,
+        paused: !_sessionAuthorized,
+      );
+    }
     WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
       _windowlessChanges = MacApp.windowlessChanges.listen(_onWindowless);
@@ -250,6 +270,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _windowlessChanges?.cancel();
     _windows?.currentProfile = null;
     _watcher?.dispose();
+    _messages?.dispose();
+    _finds.dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();
     _schedulesController?.dispose();
@@ -448,6 +470,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _sessionAuthorized = authorized;
       _detection++;
       _watcher?.paused = !authorized;
+      _messages?.paused = !authorized;
       if (authorized) unawaited(_detect());
     }
     _navigationQueue?.resume();
@@ -736,7 +759,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final built = _build(context);
+    final built = ChangeNotifierProvider.value(
+      value: _finds,
+      child: _build(context),
+    );
     final chrome = platformChromeOf(context);
     if (!chrome.isApple) return built;
     final mac = chrome == PlatformChrome.macos;
@@ -780,7 +806,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         openRequests: _openRequests,
         onOpenJob: _openJob,
         navigation: navigation,
-        chatProfiles: mac ? _chatProfiles : null,
+        chatProfiles: _chatProfiles,
       ),
     );
     final destinations = [
