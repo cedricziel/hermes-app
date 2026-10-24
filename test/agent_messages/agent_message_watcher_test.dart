@@ -223,6 +223,60 @@ void main() {
       });
     });
 
+    group('with no profile shown', () {
+      Future<void> twoDeliveries() async {
+        await setUpWatcher();
+        await watcher!.check();
+        shown = null;
+        deliveries('default', [
+          delivery('hermes-app-a', at: 200, title: 'Report'),
+        ]);
+        deliveries('work', [delivery('hermes-app-b', at: 200, title: 'Other')]);
+        text('hermes-app-a', 'Hi');
+        text('hermes-app-b', 'Hi');
+        await watcher!.check();
+      }
+
+      testWidgets("names a profile other than the server's active one, "
+          'asking once per look', (tester) async {
+        await tester.runAsync(() async {
+          server.on(
+            'GET',
+            '/api/profiles/active',
+            activeProfileBody(active: 'work'),
+          );
+
+          await twoDeliveries();
+
+          expect(
+            {for (final alert in service.shown) alert.title},
+            {'Report (default)', 'Other'},
+          );
+          expect(
+            server.requestsTo('GET', '/api/profiles/active'),
+            hasLength(1),
+          );
+        });
+      });
+
+      testWidgets('names no profile when the active one cannot be read', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          server.on('GET', '/api/profiles/active', {
+            'detail': 'no',
+          }, status: 500);
+
+          await twoDeliveries();
+
+          expect(
+            {for (final alert in service.shown) alert.title},
+            {'Report', 'Other'},
+          );
+        });
+      });
+    });
+
     testWidgets('looks at every profile in parallel', (tester) async {
       await tester.runAsync(() async {
         final started = <String>[];
