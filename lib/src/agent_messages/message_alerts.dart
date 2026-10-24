@@ -49,8 +49,8 @@ List<AttentionNotification> messageAlertsFor(
 }
 
 String _title(FoundMessage message, {required String? shownProfile}) {
-  final title = message.delivery.title?.trim();
-  if (title == null || title.isEmpty) return kMessageFallbackTitle;
+  final named = message.delivery.title?.trim() ?? '';
+  final title = named.isEmpty ? kMessageFallbackTitle : named;
   return shownProfile != null && message.profile != shownProfile
       ? '$title (${message.profile})'
       : title;

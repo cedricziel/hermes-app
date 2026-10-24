@@ -69,6 +69,17 @@ void main() {
       );
     });
 
+    test('a chat of another profile without a title still names it', () {
+      final alerts = messageAlertsFor(
+        found([message('home', 'hermes-app-1', title: null)]),
+        {},
+        shownProfile: 'work',
+        appLock: false,
+      );
+
+      expect(alerts.single.title, 'Message from Hermes (home)');
+    });
+
     test('an empty or unreadable text is a new message', () {
       final empty = message('work', 'hermes-app-1');
       final unread = message('work', 'hermes-app-2');
