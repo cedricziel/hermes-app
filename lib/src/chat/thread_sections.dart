@@ -22,8 +22,9 @@ List<ThreadSection> groupThreads(
   Iterable<ChatThread> threads, {
   required DateTime now,
 }) {
-  final today = DateTime(now.year, now.month, now.day);
-  final yesterday = DateTime(now.year, now.month, now.day - 1);
+  final local = now.toLocal();
+  final today = DateTime(local.year, local.month, local.day);
+  final yesterday = DateTime(local.year, local.month, local.day - 1);
   final weekAgo = today.subtract(const Duration(days: 7));
   final monthAgo = today.subtract(const Duration(days: 30));
   final byKind = <ThreadSectionKind, List<ChatThread>>{};
