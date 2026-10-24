@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -105,12 +106,28 @@ class AgentMessageWatcher with WidgetsBindingObserver {
   /// it never compares with a record that was about to go.
   Future<void> _forgetting = Future.value();
 
+  /// The record write last started. A look waits for it, and a removal of
+  /// the record comes after it, so neither sees a record that is about to
+  /// change.
+  Future<void> _writing = Future.value();
+
+  /// The error types already logged as a failed look, until one succeeds.
+  final _reported = <String>{};
+
   late bool _foreground;
   bool _wasOn = false;
   bool _paused;
   bool _disposed = false;
   Future<void>? _inflight;
+
+  /// Ends the steps of a look before it records: any change that makes the
+  /// look stale, including the app leaving the front.
   int _epoch = 0;
+
+  /// Ends the posting after it recorded: only what makes the announcement
+  /// unwanted (paused, a setting turned on again, disposed), not the app
+  /// leaving the front, since the record has moved past the messages.
+  int _postEpoch = 0;
   Timer? _timer;
 
   /// The user's choice, whether or not it has loaded yet: only a change of
@@ -124,7 +141,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
   set paused(bool value) {
     if (_paused == value) return;
     _paused = value;
-    _invalidate();
+    _invalidate(posts: true);
     _sync();
   }
 
@@ -144,7 +161,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
     // Turning it on starts from a new record, so messages from the time it
     // was off are not announced.
     if (on && !_wasOn) {
-      _invalidate();
+      _invalidate(posts: true);
       _forgetRecord();
     }
     _wasOn = on;
@@ -181,8 +198,17 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       _enabled &&
       epoch == _epoch;
 
-  void _invalidate() {
+  /// Whether a look that recorded at [postEpoch] may still announce.
+  bool _postable(int postEpoch) =>
+      !_disposed &&
+      !_paused &&
+      _supported &&
+      _enabled &&
+      postEpoch == _postEpoch;
+
+  void _invalidate({bool posts = false}) {
     _epoch++;
+    if (posts) _postEpoch++;
     _inflight = null;
   }
 
@@ -191,7 +217,10 @@ class AgentMessageWatcher with WidgetsBindingObserver {
     try {
       final List<String> names;
       try {
-        names = [for (final profile in await profiles.list()) profile.name];
+        names = [
+          for (final profile in await profiles.list().timeout(lookup))
+            profile.name,
+        ];
         // A server that lists no profile at all is not readable either.
         if (names.isEmpty) throw StateError('no profiles');
       } on Object catch (error) {
@@ -199,7 +228,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
         return;
       }
       if (!_current(epoch)) return;
-      await _forgetting;
+      await Future.wait([_forgetting, _writing]);
       if (!_current(epoch)) return;
       final account = _account();
       final before = await _record.read(account);
@@ -223,45 +252,74 @@ class AgentMessageWatcher with WidgetsBindingObserver {
         for (final name in names) list(name),
       ]);
       if (!_current(epoch)) return;
+      // The device's clock may be wrong, but no chat started after the newest
+      // one the server lists.
+      final newestListed = listings
+          .whereType<DeliveryListing>()
+          .expand((listing) => listing.listed)
+          .fold<double>(0, max);
       final found = findMessages(
         record: before,
         listings: {
           for (var i = 0; i < names.length; i++) names[i]: listings[i],
         },
         profileNames: names,
-        now: _clock().millisecondsSinceEpoch / 1000,
+        now: max(_clock().millisecondsSinceEpoch / 1000, newestListed),
       );
-      // Before the alerts, so that a record that cannot be saved announces
-      // nothing now rather than once more at every look.
-      await _record.write(account, found.record);
-      if (!_current(epoch) || found.messages.isEmpty) return;
 
-      breadcrumbs('agent_messages.found', {'count': found.messages.length});
-      finds.report({for (final message in found.messages) message.profile});
+      // The texts come before the record: once it has moved the messages are
+      // announced or lost, so nothing after it may depend on the app staying
+      // in front.
       final summary = found.messages.length > kSummaryAbove;
-      final locked = appLock();
-      final texts = summary || locked
+      var locked = appLock();
+      final texts = found.messages.isEmpty || summary || locked
           ? const <({String profile, String id}), String>{}
           : await _texts(found);
       if (!_current(epoch)) return;
-      final alerts = messageAlertsFor(
+
+      final postEpoch = _postEpoch;
+      final write = _record.write(account, found.record);
+      _writing = write.then((_) {}, onError: (_) {});
+      try {
+        await write;
+      } on Object catch (error) {
+        // Nothing is announced now rather than once more at every look.
+        failure ??= error;
+        return;
+      }
+      if (failure == null) _reported.clear();
+      if (found.messages.isEmpty || !_postable(postEpoch)) return;
+
+      breadcrumbs('agent_messages.found', {'count': found.messages.length});
+      finds.report({for (final message in found.messages) message.profile});
+      var alerts = messageAlertsFor(
         found,
         texts,
         shownProfile: shownProfile?.call(),
         appLock: locked,
       );
-      for (final alert in alerts) {
-        if (!_current(epoch)) return;
+      for (var i = 0; i < alerts.length; i++) {
+        // App Lock may have gone on while the texts were read.
+        if (!locked && appLock()) {
+          locked = true;
+          alerts = messageAlertsFor(
+            found,
+            const {},
+            shownProfile: shownProfile?.call(),
+            appLock: true,
+          );
+        }
+        if (!_postable(postEpoch)) return;
         if (service is GuardedNotificationService) {
           await (service as GuardedNotificationService).showWhile(
-            alert,
-            () => _current(epoch),
+            alerts[i],
+            () => _postable(postEpoch),
           );
         } else {
-          await service.show(alert);
+          await service.show(alerts[i]);
         }
       }
-      if (!_current(epoch)) return;
+      if (!_postable(postEpoch)) return;
       events('agent_messages.announced', {
         'count': found.messages.length,
         'summary': summary,
@@ -270,7 +328,8 @@ class AgentMessageWatcher with WidgetsBindingObserver {
     } on Object {
       // A look that failed is tried again on the next tick.
     } finally {
-      if (failure case final error? when _current(epoch)) {
+      if (failure case final error?
+          when _current(epoch) && _reported.add('${error.runtimeType}')) {
         events('agent_messages.look_failed', {
           'error_type': '${error.runtimeType}',
           'background': false,
@@ -308,7 +367,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
   }
 
   void _forgetRecord() {
-    _forgetting = _forgetting.then((_) async {
+    _forgetting = Future.wait([_forgetting, _writing]).then((_) async {
       try {
         await _record.clear();
       } on Object {
@@ -319,7 +378,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
 
   void dispose() {
     _disposed = true;
-    _invalidate();
+    _invalidate(posts: true);
     _timer?.cancel();
     settings.removeListener(_settingsChanged);
     WidgetsBinding.instance.removeObserver(this);

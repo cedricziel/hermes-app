@@ -35,6 +35,7 @@ void main() {
     TargetPlatform? platform,
     AgentMessageRecord? record,
     DateTime Function()? clock,
+    Duration lookup = const Duration(seconds: 4),
   }) async {
     settings = NotificationSettings();
     if (load) await settings.load();
@@ -53,6 +54,7 @@ void main() {
       platform: platform,
       clock: clock,
       paused: paused,
+      lookup: lookup,
     );
   }
 
@@ -91,6 +93,31 @@ void main() {
       messageRow(id: 1, role: 'assistant', content: content),
     ]),
   );
+
+  /// Holds the text of [id] until the returned completer completes.
+  Completer<void> holdText(String id, {String content = 'Hi'}) {
+    final held = Completer<void>();
+    server.onRequest('GET', '/api/sessions/$id/messages', (_) async {
+      await held.future;
+      return (
+        status: 200,
+        body: messageListBody(id, [
+          messageRow(id: 1, role: 'assistant', content: content),
+        ]),
+      );
+    });
+    return held;
+  }
+
+  /// Puts the lifecycle back to resumed whatever the test did to it.
+  void restoreLifecycle(WidgetTester tester) => addTearDown(
+    () => tester.binding.handleAppLifecycleStateChanged(
+      AppLifecycleState.resumed,
+    ),
+  );
+
+  Future<void> untilStarted(Completer<void> started) =>
+      started.future.timeout(const Duration(seconds: 5));
 
   int listings() => server
       .requestsTo('GET', '/api/sessions')
@@ -413,6 +440,306 @@ void main() {
       });
     });
 
+    testWidgets('gives up on an unfinished delivery whatever the device clock '
+        'says, once a newer chat is listed', (tester) async {
+      await tester.runAsync(() async {
+        await setUpWatcher(
+          clock: () => DateTime.fromMillisecondsSinceEpoch(100 * 1000),
+        );
+        await watcher!.check();
+        deliveries('work', [
+          delivery('hermes-app-b', at: 200 + kUnfinishedGrace + 10),
+          delivery('hermes-app-a', at: 200, messages: 0),
+        ]);
+        text('hermes-app-b', 'Hi');
+
+        await watcher!.check();
+
+        expect(service.shown.single.threadId, 'hermes-app-b');
+      });
+    });
+
+    testWidgets('keeps waiting for an unfinished delivery nothing has '
+        'outlived', (tester) async {
+      await tester.runAsync(() async {
+        await setUpWatcher(
+          clock: () => DateTime.fromMillisecondsSinceEpoch(100 * 1000),
+        );
+        await watcher!.check();
+        deliveries('work', [
+          delivery('hermes-app-b', at: 300),
+          delivery('hermes-app-a', at: 200, messages: 0),
+        ]);
+        text('hermes-app-b', 'Hi');
+
+        await watcher!.check();
+
+        expect(service.shown, isEmpty);
+        expect(await record(), {'default': 0, 'work': 0});
+      });
+    });
+
+    group('a change of lifecycle', () {
+      testWidgets('while the texts are read aborts the look before it '
+          'records, and the next one announces', (tester) async {
+        restoreLifecycle(tester);
+        await tester.runAsync(() async {
+          await setUpWatcher();
+          await watcher!.check();
+          deliveries('work', [delivery('hermes-app-new', at: 200)]);
+          final held = holdText('hermes-app-new');
+          final look = watcher!.check();
+          await pumpEventQueue();
+
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+          held.complete();
+          await look;
+
+          expect(service.shown, isEmpty);
+          expect(await record(), {'default': 0, 'work': 0});
+
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await watcher!.check();
+
+          expect(service.shown.single.threadId, 'hermes-app-new');
+        });
+      });
+
+      testWidgets('while the record is written still posts what it recorded', (
+        tester,
+      ) async {
+        restoreLifecycle(tester);
+        await tester.runAsync(() async {
+          final prefs = _HoldablePrefs();
+          SharedPreferencesAsyncPlatform.instance = prefs;
+          await setUpWatcher();
+          await watcher!.check();
+          deliveries('work', [delivery('hermes-app-new', at: 200)]);
+          text('hermes-app-new', 'Hi');
+          final gate = prefs.hold();
+          final look = watcher!.check();
+          await untilStarted(prefs.writing);
+
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+          gate.complete();
+          await look;
+
+          expect(service.shown.single.threadId, 'hermes-app-new');
+          expect(await record(), {'default': 0, 'work': 200});
+          expect(eventAttributes('agent_messages.announced'), {
+            'count': 1,
+            'summary': false,
+            'background': false,
+          });
+        });
+      });
+    });
+
+    for (final (name, interrupt) in <(String, void Function())>[
+      ('pausing', () => watcher!.paused = true),
+      ('disposing', () => watcher!.dispose()),
+      ('turning the setting off', () => settings.setAgentMessages(false)),
+    ]) {
+      group(name, () {
+        testWidgets('while the texts are read writes and posts nothing', (
+          tester,
+        ) async {
+          await tester.runAsync(() async {
+            await setUpWatcher();
+            await watcher!.check();
+            deliveries('work', [delivery('hermes-app-new', at: 200)]);
+            final held = holdText('hermes-app-new');
+            final look = watcher!.check();
+            await pumpEventQueue();
+
+            interrupt();
+            held.complete();
+            await look;
+
+            expect(service.shown, isEmpty);
+            expect(await record(), {'default': 0, 'work': 0});
+          });
+        });
+
+        testWidgets('while the record is written posts nothing', (
+          tester,
+        ) async {
+          await tester.runAsync(() async {
+            final prefs = _HoldablePrefs();
+            SharedPreferencesAsyncPlatform.instance = prefs;
+            await setUpWatcher();
+            await watcher!.check();
+            deliveries('work', [delivery('hermes-app-new', at: 200)]);
+            text('hermes-app-new', 'Hi');
+            final gate = prefs.hold();
+            final look = watcher!.check();
+            await untilStarted(prefs.writing);
+
+            interrupt();
+            gate.complete();
+            await look;
+
+            expect(service.shown, isEmpty);
+            expect(events, isEmpty);
+          });
+        });
+      });
+    }
+
+    testWidgets('hides a text App Lock covered while it was read', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        await setUpWatcher();
+        await watcher!.check();
+        deliveries('work', [
+          delivery('hermes-app-new', at: 200, title: 'Message: Secret'),
+        ]);
+        final held = holdText('hermes-app-new', content: 'Secret text');
+        final look = watcher!.check();
+        await pumpEventQueue();
+
+        appLock = true;
+        held.complete();
+        await look;
+
+        expect(service.shown.single.title, 'Message from Hermes');
+        expect(service.shown.single.body, 'New message');
+      });
+    });
+
+    testWidgets('a text that takes too long is "New message"', (tester) async {
+      await tester.runAsync(() async {
+        await setUpWatcher(lookup: const Duration(milliseconds: 100));
+        await watcher!.check();
+        deliveries('work', [
+          delivery('hermes-app-new', at: 200, title: 'Message: Report'),
+        ]);
+        final held = holdText('hermes-app-new');
+
+        await watcher!.check();
+        held.complete();
+
+        expect(service.shown.single.title, 'Message: Report');
+        expect(service.shown.single.body, 'New message');
+      });
+    });
+
+    testWidgets('a listing that takes too long keeps the record of its '
+        'profile and spares the others', (tester) async {
+      await tester.runAsync(() async {
+        await AgentMessageRecord().write('acct', {'default': 0, 'work': 100});
+        final held = Completer<FakeResponse>();
+        server.onRequest(
+          'GET',
+          '/api/sessions',
+          (_) => held.future,
+          query: {'source': 'hermes_app', 'profile': 'work'},
+        );
+        deliveries('default', [delivery('hermes-app-new', at: 200)]);
+        text('hermes-app-new', 'Hi');
+        await setUpWatcher(lookup: const Duration(milliseconds: 100));
+
+        await watcher!.check();
+        held.complete((status: 200, body: sessionListBody([])));
+
+        expect(service.shown.single.threadId, 'hermes-app-new');
+        expect(await record(), {'default': 200, 'work': 100});
+        expect(eventAttributes('agent_messages.look_failed'), {
+          'error_type': 'TimeoutException',
+          'background': false,
+        });
+      });
+    });
+
+    testWidgets('a profile list that takes too long writes nothing', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        final held = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/profiles', (_) => held.future);
+        await setUpWatcher(lookup: const Duration(milliseconds: 100));
+
+        await watcher!.check();
+        held.complete((status: 200, body: {'profiles': <Object>[]}));
+
+        expect(listings(), 0);
+        expect(await record(), isNull);
+        expect(eventAttributes('agent_messages.look_failed'), {
+          'error_type': 'TimeoutException',
+          'background': false,
+        });
+      });
+    });
+
+    testWidgets('a profile list with no profile writes and posts nothing', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        profiles([]);
+        await setUpWatcher();
+        await watcher!.check();
+
+        expect(listings(), 0);
+        expect(await record(), isNull);
+        expect(service.shown, isEmpty);
+      });
+    });
+
+    testWidgets('a record that cannot be saved is a failed look', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        SharedPreferencesAsyncPlatform.instance = _FailingWritePrefs();
+        deliveries('work', [delivery('hermes-app-new', at: 200)]);
+        text('hermes-app-new', 'Hi');
+        await setUpWatcher();
+        await watcher!.check();
+
+        expect(service.shown, isEmpty);
+        expect(eventNames(), ['agent_messages.look_failed']);
+        expect(eventAttributes('agent_messages.look_failed'), {
+          'error_type': 'StateError',
+          'background': false,
+        });
+      });
+    });
+
+    testWidgets('logs a failure once per type until a look succeeds', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        void failListing(bool fail) => server.on(
+          'GET',
+          '/api/sessions',
+          fail ? {'detail': 'no'} : sessionListBody([]),
+          status: fail ? 500 : 200,
+          query: {'source': 'hermes_app', 'profile': 'work'},
+        );
+        failListing(true);
+        await setUpWatcher();
+        await watcher!.check();
+        await watcher!.check();
+        expect(eventNames(), ['agent_messages.look_failed']);
+
+        failListing(false);
+        await watcher!.check();
+        failListing(true);
+        await watcher!.check();
+
+        expect(eventNames(), [
+          'agent_messages.look_failed',
+          'agent_messages.look_failed',
+        ]);
+      });
+    });
+
     group('does not look', () {
       testWidgets('while paused', (tester) async {
         await tester.runAsync(() async {
@@ -553,6 +880,31 @@ void main() {
   });
 
   group('timing', () {
+    testWidgets('on macOS goes on looking with no window in front', (
+      tester,
+    ) async {
+      restoreLifecycle(tester);
+      await setUpWatcher(platform: TargetPlatform.macOS);
+      await tester.pumpAndSettle();
+      expect(listings(), 2);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pumpAndSettle();
+      expect(listings(), 2);
+
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+      expect(listings(), 4);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump(const Duration(minutes: 3));
+      await tester.pumpAndSettle();
+      expect(listings(), 4);
+
+      watcher!.dispose();
+    });
+
     testWidgets('looks every minute in front and not in the background', (
       tester,
     ) async {
@@ -578,6 +930,35 @@ void main() {
       watcher!.dispose();
     });
   });
+}
+
+/// Prefs whose next write can be held, to stop a look in the middle of saving
+/// its record.
+base class _HoldablePrefs extends InMemorySharedPreferencesAsync {
+  _HoldablePrefs() : super.empty();
+
+  Completer<void>? _gate;
+  Completer<void> writing = Completer<void>();
+
+  /// Holds the next write until the returned completer completes.
+  Completer<void> hold() {
+    writing = Completer<void>();
+    return _gate = Completer<void>();
+  }
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) async {
+    if (_gate case final gate?) {
+      _gate = null;
+      writing.complete();
+      await gate.future;
+    }
+    return super.setString(key, value, options);
+  }
 }
 
 base class _FailingWritePrefs extends InMemorySharedPreferencesAsync {
