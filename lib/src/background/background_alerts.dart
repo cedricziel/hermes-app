@@ -322,6 +322,7 @@ class AgentMessagesStep extends BackgroundStep {
         found.record,
         expected: before,
       )) {
+        context.events('agent_messages.write_skipped', {'background': true});
         return const StepCounts();
       }
     } on Object catch (error) {

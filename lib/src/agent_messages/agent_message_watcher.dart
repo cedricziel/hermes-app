@@ -275,7 +275,10 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       }
       // Another look moved the record while this one read the texts, and
       // announces those messages.
-      if (!wrote) return;
+      if (!wrote) {
+        events('agent_messages.write_skipped', {'background': false});
+        return;
+      }
       if (failure == null) _reported.clear();
       if (found.messages.isEmpty || !_postable(postEpoch)) return;
 

@@ -1716,6 +1716,9 @@ void main() {
 
       expect(notifications.shown, hasLength(1));
       expect(await record.read(_account), {'default': 0, 'work': 200});
+      expect(events.named('agent_messages.write_skipped'), [
+        {'background': true},
+      ]);
     });
 
     test('announces nothing when the record cannot be saved', () async {

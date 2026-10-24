@@ -700,6 +700,9 @@ void main() {
 
         expect(service.shown, isEmpty);
         expect(await record(), {'default': 0, 'work': 250});
+        expect(eventAttributes('agent_messages.write_skipped'), {
+          'background': false,
+        });
       });
     });
 
