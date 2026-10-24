@@ -73,7 +73,7 @@ class MemoryLearningSection extends StatelessWidget {
       children: [
         if (message != null)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.only(top: 16),
             child: McpBanner(
               tone: McpTone.error,
               icon: AppIcons.error,

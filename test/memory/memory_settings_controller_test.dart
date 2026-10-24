@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/memory/memory_provider.dart';
 import 'package:hermes_app/src/memory/memory_settings.dart';
 import 'package:hermes_app/src/memory/memory_settings_controller.dart';
 import 'package:hermes_app/src/memory/memory_settings_repository.dart';
@@ -13,17 +15,27 @@ import 'memory_fixtures.dart';
 
 void main() {
   late FakeHermesServer server;
+  late int reloaded;
 
   setUp(() {
     server = FakeHermesServer()
       ..on('GET', '/api/config', memorySettingsConfig())
-      ..on('PUT', '/api/config', {'ok': true});
+      ..on('PUT', '/api/config', {'ok': true})
+      ..on('GET', '/api/memory', memoryStatus())
+      ..on('POST', '/api/memory/reset', {
+        'ok': true,
+        'deleted': ['USER.md'],
+      });
+    reloaded = 0;
   });
 
   Future<MemorySettingsController> bound({
     Breadcrumbs breadcrumbs = Breadcrumbs.none,
   }) async {
-    final controller = MemorySettingsController(breadcrumbs: breadcrumbs);
+    final controller = MemorySettingsController(
+      breadcrumbs: breadcrumbs,
+      onReset: () async => reloaded++,
+    );
     addTearDown(controller.dispose);
     controller.bind(MemorySettingsRepository(server.client().raw), 'work');
     await controller.whenIdle;
@@ -159,5 +171,100 @@ void main() {
     expect(controller.settings!.writeApproval, isTrue);
     controller.bind(null, null);
     expect(controller.settings, isNull);
+  });
+
+  group('provider', () {
+    test('is read with the settings', () async {
+      final controller = await bound();
+      expect(controller.provider!.state, MemoryProviderState.builtin);
+      expect(controller.providerFailed, isFalse);
+      expect(server.requestsTo('GET', '/api/memory').single.queryParameters, {
+        'profile': 'work',
+      });
+    });
+
+    test(
+      'a failed read leaves the settings alone and can be retried',
+      () async {
+        server.on('GET', '/api/memory', {'detail': 'x'}, status: 500);
+        final controller = await bound();
+        expect(controller.provider, isNull);
+        expect(controller.providerFailed, isTrue);
+        expect(controller.settings, isNotNull);
+        server.on('GET', '/api/memory', memoryStatus());
+        await controller.loadProvider();
+        expect(controller.provider, isNotNull);
+        expect(controller.providerFailed, isFalse);
+      },
+    );
+  });
+
+  group('reset', () {
+    test(
+      'sends once, then reads settings, provider and entries again',
+      () async {
+        final trail = BreadcrumbTrail();
+        final controller = await bound(breadcrumbs: Breadcrumbs.of(trail));
+        await controller.reset(MemoryResetTarget.aboutYou);
+        expect(server.requestsTo('POST', '/api/memory/reset'), hasLength(1));
+        expect(server.requestsTo('GET', '/api/config'), hasLength(2));
+        expect(server.requestsTo('GET', '/api/memory'), hasLength(2));
+        expect(reloaded, 1);
+        expect(controller.notice!.tone, MemoryNoticeTone.success);
+        expect(
+          controller.notice!.text,
+          'Reset about you. New chats start without it.',
+        );
+        expect(controller.resetting, isFalse);
+        final crumb = trail.recent.single;
+        expect(crumb.name, 'memory.reset_confirmed');
+        expect(crumb.attributes, {'target': 'user'});
+      },
+    );
+
+    test('a refusal says why and reads nothing again', () async {
+      final controller = await bound();
+      server.on('POST', '/api/memory/reset', {
+        'detail': 'pick a profile',
+      }, status: 400);
+      await controller.reset(MemoryResetTarget.both);
+      expect(controller.notice!.tone, MemoryNoticeTone.error);
+      expect(controller.notice!.text, 'pick a profile');
+      expect(reloaded, 0);
+      expect(server.requestsTo('GET', '/api/config'), hasLength(1));
+    });
+
+    test('a lost answer says it may have happened and reads again', () async {
+      final controller = await bound();
+      server.onRequest(
+        'POST',
+        '/api/memory/reset',
+        (request) => throw DioException.connectionError(
+          requestOptions: request,
+          reason: 'closed',
+        ),
+      );
+      await controller.reset(MemoryResetTarget.both);
+      expect(controller.notice!.tone, MemoryNoticeTone.warning);
+      expect(server.requestsTo('POST', '/api/memory/reset'), hasLength(1));
+      expect(reloaded, 1);
+      expect(server.requestsTo('GET', '/api/config'), hasLength(2));
+    });
+
+    test('one reset runs at a time', () async {
+      final controller = await bound();
+      final first = controller.reset(MemoryResetTarget.agentNotes);
+      await controller.reset(MemoryResetTarget.both);
+      await first;
+      expect(server.requestsTo('POST', '/api/memory/reset'), hasLength(1));
+    });
+
+    test('binding another profile drops the notice', () async {
+      final controller = await bound();
+      await controller.reset(MemoryResetTarget.agentNotes);
+      controller.bind(MemorySettingsRepository(server.client().raw), 'other');
+      expect(controller.notice, isNull);
+      expect(controller.provider, isNull);
+    });
   });
 }
