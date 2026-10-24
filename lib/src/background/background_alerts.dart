@@ -1,5 +1,6 @@
 /// The steps of a background run that tell the user what happened while the
-/// app was away: a reply that finished, and a scheduled task that ran.
+/// app was away: a reply that finished, a scheduled task that ran and a
+/// message from Hermes.
 ///
 /// Both do what the app in front does, with the same texts and the same
 /// per-chat or per-job notification, so a run the app already announced is
@@ -8,6 +9,9 @@ library;
 
 import 'dart:async';
 
+import '../agent_messages/agent_message_record.dart';
+import '../agent_messages/look_for_messages.dart';
+import '../agent_messages/message_alerts.dart';
 import '../chat/chat_models.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/notification_settings.dart';
@@ -232,5 +236,92 @@ class ScheduleAlertsStep extends BackgroundStep {
     // runs again, which replaces their notifications.
     await _baseline.write(account, pass.baseline);
     return StepCounts(schedulesRan: unmuted.length);
+  }
+}
+
+/// The look for messages from Hermes of the app in front, for the time it is
+/// away: the same listings, texts and notifications, against the record the
+/// app in front keeps too. Nothing is written or posted when the profile
+/// names cannot be read.
+class AgentMessagesStep extends BackgroundStep {
+  AgentMessagesStep({
+    AgentMessageRecord? record,
+    this._settings,
+    DateTime Function()? now,
+    this.lookup = kAlertLookupBudget,
+  }) : _record = record ?? AgentMessageRecord(),
+       _now = now ?? DateTime.now;
+
+  final AgentMessageRecord _record;
+  final NotificationSettings? _settings;
+  final DateTime Function() _now;
+  final Duration lookup;
+
+  @override
+  Future<StepCounts> run(BackgroundContext context) async {
+    if (await _quiet(context)) return const StepCounts();
+    final settings = _settings ?? NotificationSettings();
+    if (!settings.loaded) await settings.load();
+    if (!settings.agentMessages) return const StepCounts();
+
+    void failed(String errorType) => context.events(
+      'agent_messages.look_failed',
+      {'error_type': errorType, 'background': true},
+    );
+
+    final hermes = context.hermes;
+    final names = [for (final name in await hermes.profiles()) ?name];
+    // `[null]` is what the run falls back to when the names cannot be read.
+    if (names.isEmpty) {
+      failed('UnreadableProfiles');
+      return const StepCounts();
+    }
+    final account = hermes.accountKey;
+    final chat = hermes.repositories.chat;
+    Object? failure;
+    final found = await lookForMessages(
+      chat: chat,
+      names: names,
+      record: await _record.read(account),
+      clock: _now,
+      lookup: lookup,
+      onFailure: (error) => failure ??= error,
+    );
+
+    final summary = found.messages.length > kSummaryAbove;
+    final locked = await context.appLockOn();
+    final reads = found.messages.isNotEmpty && !summary && !locked;
+    final texts = reads
+        ? await readMessageTexts(chat, found, lookup)
+        : const <({String profile, String id}), String>{};
+    final shown = reads
+        ? await activeProfileName(hermes.repositories.profiles, _activeLookup)
+        : null;
+
+    // Before the notifications, as the app in front does: a record that
+    // cannot be saved announces nothing rather than the same chat every run.
+    try {
+      await _record.write(account, found.record);
+    } on Object catch (error) {
+      failure ??= error;
+      failed('${failure.runtimeType}');
+      return const StepCounts();
+    }
+    if (failure case final error?) failed('${error.runtimeType}');
+    for (final alert in messageAlertsFor(
+      found,
+      texts,
+      shownProfile: shown,
+      appLock: locked,
+    )) {
+      await context.notifications.show(alert);
+    }
+    if (found.messages.isEmpty) return const StepCounts();
+    context.events('agent_messages.announced', {
+      'count': found.messages.length,
+      'summary': summary,
+      'background': true,
+    });
+    return StepCounts(messagesFound: found.messages.length);
   }
 }

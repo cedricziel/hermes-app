@@ -49,6 +49,7 @@ class StepCounts {
     this.newRequests = 0,
     this.repliesFinished = 0,
     this.schedulesRan = 0,
+    this.messagesFound = 0,
   });
 
   /// Open requests announced for the first time.
@@ -59,6 +60,9 @@ class StepCounts {
 
   /// Scheduled runs announced.
   final int schedulesRan;
+
+  /// Messages from Hermes announced.
+  final int messagesFound;
 }
 
 /// Everything a step may use. The gateway socket is shared by all steps.
@@ -580,6 +584,7 @@ List<BackgroundStep> _defaultSteps() {
     ShortcutsRefreshStep(snapshot),
     RunningRepliesStep(),
     ScheduleAlertsStep(),
+    AgentMessagesStep(),
   ];
 }
 
@@ -618,12 +623,14 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
       var newRequests = 0;
       var repliesFinished = 0;
       var schedulesRan = 0;
+      var messagesFound = 0;
       var failed = 0;
       void report() {
         hermes
           ..annotate('requests.new', newRequests)
           ..annotate('replies.finished', repliesFinished)
           ..annotate('schedules.ran', schedulesRan)
+          ..annotate('agent_messages.found', messagesFound)
           ..annotate('steps_failed', failed);
       }
 
@@ -638,6 +645,7 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
               newRequests += counts.newRequests;
               repliesFinished += counts.repliesFinished;
               schedulesRan += counts.schedulesRan;
+              messagesFound += counts.messagesFound;
             }
             report();
           }),

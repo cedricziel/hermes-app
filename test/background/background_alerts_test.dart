@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/agent_messages/agent_message_record.dart';
+import 'package:hermes_app/src/agent_messages/agent_message_watcher.dart';
+import 'package:hermes_app/src/agent_messages/message_alerts.dart'
+    show kMessageFallbackTitle;
 import 'package:hermes_app/src/auth/account_key.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/background/background_alerts.dart';
@@ -12,12 +18,14 @@ import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/background/running_replies.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/intents/intent_shortcuts.dart'
     show kShortcutsChannel;
 import 'package:hermes_app/src/intents/ask_hermes.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/badge_controller.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_alerts.dart';
 import 'package:hermes_app/src/spotlight/spotlight_index.dart';
 import 'package:hermes_app/src/spotlight/spotlight_settings.dart';
@@ -1207,6 +1215,349 @@ void main() {
       await run(platform: TargetPlatform.android);
 
       expect(asked, isEmpty);
+    });
+  });
+
+  group('messages from Hermes', () {
+    late AgentMessageRecord record;
+
+    AgentMessagesStep step() => AgentMessagesStep(record: record);
+
+    Map<String, Object?> delivery(
+      String id, {
+      required double at,
+      String? title,
+      bool unread = true,
+      int messages = 1,
+    }) => sessionRow(
+      id: id,
+      title: title,
+      startedAt: at,
+      unread: unread,
+      messageCount: messages,
+      source: 'hermes_app',
+    );
+
+    void deliveries(String profile, List<Map<String, Object?>> rows) =>
+        server.on(
+          'GET',
+          '/api/sessions',
+          sessionListBody(rows),
+          query: {'source': 'hermes_app', 'profile': profile},
+        );
+
+    void text(String id, String content) => server.on(
+      'GET',
+      '/api/sessions/$id/messages',
+      messageListBody(id, [
+        messageRow(id: 1, role: 'assistant', content: content),
+      ]),
+    );
+
+    List<Object?> listings() => [
+      for (final request in server.requestsTo('GET', '/api/sessions'))
+        if (request.queryParameters['source'] == 'hermes_app')
+          request.queryParameters['profile'],
+    ];
+
+    final seen = {'default': 0.0, 'work': 100.0};
+
+    /// Stores [seen] and lists one new delivery in `work`.
+    Future<void> arrangeNew() async {
+      await record.write(_account, seen);
+      deliveries('work', [
+        delivery('hermes-app-new', at: 200, title: 'Message: Report'),
+        delivery('hermes-app-old', at: 100),
+      ]);
+      text('hermes-app-new', 'Daily report ready: 3 builds failed');
+    }
+
+    setUp(() {
+      record = AgentMessageRecord();
+      deliveries('default', []);
+      deliveries('work', []);
+    });
+
+    test('announces a delivery after the first run, not before', () async {
+      deliveries('work', [delivery('hermes-app-old', at: 100)]);
+      await refresh(() => [step()]);
+      expect(notifications.shown, isEmpty);
+      expect(await record.read(_account), seen);
+
+      await arrangeNew();
+      await refresh(() => [step()]);
+
+      final shown = notifications.shown.single;
+      expect(shown.threadId, 'hermes-app-new');
+      expect(shown.profile, 'work');
+      expect(shown.title, 'Message: Report (work)');
+      expect(shown.body, 'Daily report ready: 3 builds failed');
+      expect(shown.isMessage, isTrue);
+      expect(await record.read(_account), {'default': 0, 'work': 200});
+
+      await refresh(() => [step()]);
+      expect(notifications.shown, hasLength(1));
+    });
+
+    test('names no profile when the delivery is in the active one', () async {
+      await record.write(_account, seen);
+      deliveries('default', [delivery('hermes-app-new', at: 200, title: 'Hi')]);
+      text('hermes-app-new', 'Hello');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.title, 'Hi');
+    });
+
+    test('lists every profile at once', () async {
+      await record.write(_account, seen);
+      final started = <Object?>[];
+      final release = Completer<void>();
+      for (final profile in ['default', 'work']) {
+        server.onRequest('GET', '/api/sessions', (request) async {
+          started.add(request.queryParameters['profile']);
+          await release.future;
+          return (status: 200, body: sessionListBody([]));
+        }, query: {'source': 'hermes_app', 'profile': profile});
+      }
+
+      final run = refresh(() => [step()]);
+      for (var i = 0; i < 200 && started.length < 2; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(started, unorderedEquals(['default', 'work']));
+      release.complete();
+      await run;
+    });
+
+    test('saves the record before it posts, so a cut run repeats', () async {
+      await arrangeNew();
+      final stored = <Map<String, double>?>[];
+      final service = _OrderedService(() async {
+        stored.add(await record.read(_account));
+      });
+
+      await runBackgroundRefresh(
+        deps: BackgroundRefreshDeps(
+          headless: headless(),
+          notifications: service,
+          announced: AnnouncedRequests(),
+          notificationsEnabled: () async => true,
+          appLockOn: () async => false,
+          cancelSchedule: () async {},
+          appInFront: () async => false,
+          steps: () => [step()],
+        ),
+      );
+
+      expect(stored, [
+        {'default': 0, 'work': 200},
+      ]);
+    });
+
+    test('is not announced again by the app in front', () async {
+      await arrangeNew();
+      await refresh(() => [step()]);
+      expect(notifications.shown, hasLength(1));
+
+      final settings = NotificationSettings();
+      await settings.load();
+      final finds = AgentMessageFinds();
+      final watcher = AgentMessageWatcher(
+        chat: HermesChatRepository(server.client().raw),
+        profiles: HermesProfilesRepository(server.client().raw),
+        service: notifications,
+        settings: settings,
+        finds: finds,
+        record: record,
+        account: () => _account,
+        appLock: () => false,
+      );
+      addTearDown(() {
+        watcher.dispose();
+        finds.dispose();
+      });
+      await watcher.check();
+
+      expect(notifications.shown, hasLength(1));
+      expect(finds.profiles, isEmpty);
+    });
+
+    test('hides the title and text under App Lock', () async {
+      replyPreviewsLocked = true;
+      await arrangeNew();
+
+      await refresh(() => [step()]);
+
+      final shown = notifications.shown.single;
+      expect(shown.title, kMessageFallbackTitle);
+      expect(shown.body, kNewMessageBody);
+      expect(
+        server.requestsTo('GET', '/api/sessions/hermes-app-new/messages'),
+        isEmpty,
+      );
+    });
+
+    test('says "New message" when the text cannot be read', () async {
+      await arrangeNew();
+      server.on('GET', '/api/sessions/hermes-app-new/messages', {
+        'detail': 'down',
+      }, status: 500);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.body, kNewMessageBody);
+    });
+
+    test('keeps the record of a profile that cannot be listed', () async {
+      await arrangeNew();
+      server.on(
+        'GET',
+        '/api/sessions',
+        {'detail': 'down'},
+        status: 500,
+        query: {'source': 'hermes_app', 'profile': 'default'},
+      );
+      await record.write(_account, {'default': 50, 'work': 100});
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, hasLength(1));
+      expect(await record.read(_account), {'default': 50, 'work': 200});
+      expect(events.named('agent_messages.look_failed'), [
+        {'error_type': 'DioException', 'background': true},
+      ]);
+    });
+
+    test('does nothing while the app is in front', () async {
+      appOpen = true;
+      await arrangeNew();
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(listings(), isEmpty);
+      expect(await record.read(_account), seen);
+    });
+
+    test('does nothing while notifications are off', () async {
+      notificationsOn = false;
+      await arrangeNew();
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(listings(), isEmpty);
+      expect(await record.read(_account), seen);
+    });
+
+    test('follows the setting', () async {
+      await NotificationSettings().setAgentMessages(false);
+      await arrangeNew();
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(listings(), isEmpty);
+      expect(await record.read(_account), seen);
+    });
+
+    for (final (name, arrange) in <(String, void Function())>[
+      (
+        'the profile list fails',
+        () =>
+            server.on('GET', '/api/profiles', {'detail': 'down'}, status: 500),
+      ),
+      (
+        'the server lists no profile',
+        () => server.on('GET', '/api/profiles', {'profiles': <Object?>[]}),
+      ),
+    ]) {
+      test('writes and posts nothing when $name', () async {
+        await arrangeNew();
+        arrange();
+
+        await refresh(() => [step()]);
+
+        expect(notifications.shown, isEmpty);
+        expect(listings(), isEmpty);
+        expect(await record.read(_account), seen);
+        expect(events.named('agent_messages.look_failed'), [
+          {'error_type': 'UnreadableProfiles', 'background': true},
+        ]);
+      });
+    }
+
+    for (final (name, arrange, expected)
+        in <(String, void Function(), Matcher)>[
+          (
+            'locked',
+            () => tokens.unreadable = true,
+            isA<HeadlessLocked<void>>(),
+          ),
+          (
+            'server down',
+            () => server.on('GET', '/api/status', {
+              'detail': 'down',
+            }, status: 503),
+            isA<HeadlessUnreachable<void>>(),
+          ),
+          (
+            'signed out',
+            () => server.on('GET', '/api/status', {
+              'auth_required': true,
+              'version': '0.9.0',
+            }),
+            isA<HeadlessSignedOut<void>>(),
+          ),
+        ]) {
+      test('does not run and keeps the record when $name', () async {
+        await arrangeNew();
+        arrange();
+
+        final outcome = await refresh(() => [step()]);
+
+        expect(outcome, expected);
+        expect(notifications.shown, isEmpty);
+        expect(await record.read(_account), seen);
+      });
+    }
+
+    test('does not use the record of another account', () async {
+      await arrangeNew();
+      await record.write('someone-else', seen);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await record.read(_account), {'default': 0, 'work': 200});
+    });
+
+    test('counts and logs what it announced, and no content', () async {
+      await arrangeNew();
+
+      await refresh(() => [step()]);
+
+      final span = taskSpan();
+      expect(span.attributes['agent_messages.found'], 1);
+      expect(events.named('agent_messages.announced'), [
+        {'count': 1, 'summary': false, 'background': true},
+      ]);
+      final recorded = [
+        span.attributes,
+        events.named('agent_messages.announced'),
+      ].toString();
+      for (final secret in ['hermes-app-new', 'Report', 'builds', 'work']) {
+        expect(recorded, isNot(contains(secret)));
+      }
+    });
+
+    test('is part of the default run', () async {
+      await arrangeNew();
+
+      await refresh(null);
+
+      expect(notifications.shown.map((n) => n.threadId), ['hermes-app-new']);
     });
   });
 
