@@ -420,6 +420,8 @@ void _settleTool(ChatMessage reply, ToolFinished event) {
           ? ToolCallStatus.cancelled
           : event.failed
           ? ToolCallStatus.error
+          : event.warning
+          ? ToolCallStatus.warning
           : ToolCallStatus.completed,
       result: event.result,
       resultData: event.resultData,

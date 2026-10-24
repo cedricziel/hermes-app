@@ -1,3 +1,4 @@
+import '../memory/memory_tool_outcome.dart';
 import 'chat_models.dart';
 
 /// How a tool call ended, read from what it returned: Hermes sends no status
@@ -7,9 +8,17 @@ import 'chat_models.dart';
 /// marks by ending the output with a bracketed "[Command interrupted]" or
 /// "[execution interrupted]" line (Hermes' `is_interrupted_tool_result`). It
 /// failed when it carries an `error`, or a shell command exited non-zero.
-ToolCallStatus toolResultStatus(Object? result) {
+///
+/// The `memory` tool (given as [name]) reports a full file as an error, but
+/// nothing went wrong: Hermes usually makes room and tries again, so that
+/// is a warning.
+ToolCallStatus toolResultStatus(Object? result, {String name = ''}) {
   if (isInterruptedToolResult(result)) return ToolCallStatus.cancelled;
   if (result is! Map) return ToolCallStatus.completed;
+  if (name == 'memory' &&
+      MemoryToolOutcome.parse(result: result)?.kind == MemoryOutcomeKind.full) {
+    return ToolCallStatus.warning;
+  }
   final error = result['error'];
   if (error != null && error != '' && error != false) {
     return ToolCallStatus.error;

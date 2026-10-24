@@ -20,6 +20,7 @@ class FakeChatTransport implements ChatTransport, PromptAcknowledgement {
   final catalogGates = <Completer<List<SlashCommand>>>[];
   final catalogContexts = <(String?, String?)>[];
   final slashRuns = <String>[];
+  final slashContexts = <(String?, String?)>[];
   SlashCommandResult? slashResult;
   Completer<SlashCommandResult>? slashGate;
 
@@ -40,6 +41,7 @@ class FakeChatTransport implements ChatTransport, PromptAcknowledgement {
     required String command,
   }) async {
     slashRuns.add(command);
+    slashContexts.add((threadId, profile));
     if (slashGate case final gate?) return gate.future;
     return slashResult ??
         SlashCommandResult(

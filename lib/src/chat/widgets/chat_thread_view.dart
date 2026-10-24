@@ -19,7 +19,9 @@ import '../chat_theme.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
 import '../starter_prompts.dart';
+import '../../memory/memory_decisions.dart';
 import 'chat_builders.dart';
+import 'memory_tool_body.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/voice_message_recording.dart';
 import 'chat_composer_builder.dart';
@@ -83,6 +85,7 @@ class ChatThreadView extends StatelessWidget {
     this.onMoaDetails,
     this.processOutputs,
     this.onProcessOutputDetails,
+    this.memoryDecisions,
     this.onSessionDetails,
     this.onReopenSession,
     this.onRetry,
@@ -110,6 +113,9 @@ class ChatThreadView extends StatelessWidget {
   final List<MoaProgress> moaProgress;
   final VoidCallback? onMoaDetails;
   final ProcessOutputState? processOutputs;
+
+  /// Approves and rejects the staged memory writes the chat's cards show.
+  final MemoryDecisions? memoryDecisions;
   final VoidCallback? onProcessOutputDetails;
   final VoidCallback? onSessionDetails;
   final VoidCallback? onReopenSession;
@@ -297,18 +303,21 @@ class ChatThreadView extends StatelessWidget {
                     maxWidth: kChatColumnMaxWidth,
                   ),
                   child: SizedBox.expand(
-                    child: FlyerMaterialScope(
-                      child: Chat(
-                        // The controller too: after a profile switch the same
-                        // id names another thread.
-                        key: ValueKey((thread?.id, chatController)),
-                        chatController: chatController,
-                        currentUserId: kUserAuthorId,
-                        resolveUser: (id) async => User(id: id),
-                        onMessageSend: onSend,
-                        onAttachmentTap: openAttachMenu,
-                        theme: buildChatTheme(Theme.of(context)),
-                        builders: shown,
+                    child: MemoryDecisionsScope(
+                      decisions: memoryDecisions,
+                      child: FlyerMaterialScope(
+                        child: Chat(
+                          // The controller too: after a profile switch the
+                          // same id names another thread.
+                          key: ValueKey((thread?.id, chatController)),
+                          chatController: chatController,
+                          currentUserId: kUserAuthorId,
+                          resolveUser: (id) async => User(id: id),
+                          onMessageSend: onSend,
+                          onAttachmentTap: openAttachMenu,
+                          theme: buildChatTheme(Theme.of(context)),
+                          builders: shown,
+                        ),
                       ),
                     ),
                   ),

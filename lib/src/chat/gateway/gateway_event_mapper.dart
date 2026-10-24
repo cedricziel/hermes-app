@@ -96,18 +96,7 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
       summary: text('context'),
       args: _args(payload['args']),
     ),
-    'tool.complete' => ToolFinished(
-      labels: ToolLabel.decodeList(payload['labels']),
-      id: text('tool_id'),
-      name: text('name'),
-      failed: toolResultStatus(payload['result']) == ToolCallStatus.error,
-      interrupted:
-          toolResultStatus(payload['result']) == ToolCallStatus.cancelled,
-      result: _toolResult(payload['result']),
-      resultData: payload['result'],
-      diff: text('inline_diff'),
-      duration: _seconds(payload['duration_s']),
-    ),
+    'tool.complete' => _toolFinished(payload, text),
     'background.complete' || 'btw.complete' => switch (SideResult.decode(
       event.type,
       payload,
@@ -416,6 +405,26 @@ ApprovalRequest toApproval(String requestId, Map<String, Object?> fields) =>
       choices: _strings(fields['choices']),
       toolName: fields['tool_name'] as String? ?? '',
     );
+
+ToolFinished _toolFinished(
+  Map<String, Object?> payload,
+  String Function(String key) text,
+) {
+  final name = text('name');
+  final status = toolResultStatus(payload['result'], name: name);
+  return ToolFinished(
+    labels: ToolLabel.decodeList(payload['labels']),
+    id: text('tool_id'),
+    name: name,
+    failed: status == ToolCallStatus.error,
+    warning: status == ToolCallStatus.warning,
+    interrupted: status == ToolCallStatus.cancelled,
+    result: _toolResult(payload['result']),
+    resultData: payload['result'],
+    diff: text('inline_diff'),
+    duration: _seconds(payload['duration_s']),
+  );
+}
 
 Map<String, Object?>? _args(Object? value) =>
     value is Map && value.isNotEmpty ? value.cast<String, Object?>() : null;

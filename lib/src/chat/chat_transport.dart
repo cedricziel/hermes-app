@@ -353,6 +353,7 @@ final class ToolFinished extends ChatEvent {
     required this.name,
     this.id = '',
     this.failed = false,
+    this.warning = false,
     this.interrupted = false,
     this.result = '',
     this.resultData,
@@ -366,6 +367,10 @@ final class ToolFinished extends ChatEvent {
   final String id;
   final String name;
   final bool failed;
+
+  /// The call did not fail but did not do its work, as a memory that is
+  /// full.
+  final bool warning;
 
   /// The run was killed before it finished, as by stopping the reply.
   final bool interrupted;
