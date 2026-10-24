@@ -253,12 +253,9 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       final summary = found.messages.length > kSummaryAbove;
       var locked = appLock();
       final reads = found.messages.isNotEmpty && !summary && !locked;
-      final texts = reads
-          ? await readMessageTexts(chat, found, lookup)
-          : const <({String profile, String id}), String>{};
-      final shown = reads
-          ? shownProfile?.call() ?? await activeProfileName(profiles, lookup)
-          : null;
+      final (texts, shown) = reads
+          ? await (readMessageTexts(chat, found, lookup), _shownProfile()).wait
+          : (const <({String profile, String id}), String>{}, null);
       if (!_current(epoch)) return;
 
       final postEpoch = _postEpoch;
@@ -321,6 +318,10 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       }
     }
   }
+
+  /// The profile the chat screen shows, else the server's active one.
+  Future<String?> _shownProfile() async =>
+      shownProfile?.call() ?? await activeProfileName(profiles, lookup);
 
   void _forgetRecord() {
     _forgetting = Future.wait([_forgetting, _writing]).then((_) async {

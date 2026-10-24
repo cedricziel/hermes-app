@@ -259,6 +259,36 @@ void main() {
         });
       });
 
+      testWidgets('asks for the active profile while the texts are read', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          server.on(
+            'GET',
+            '/api/profiles/active',
+            activeProfileBody(active: 'work'),
+          );
+          await setUpWatcher();
+          await watcher!.check();
+          shown = null;
+          deliveries('work', [delivery('hermes-app-new', at: 200)]);
+          final held = holdText('hermes-app-new');
+
+          final look = watcher!.check();
+          for (var i = 0; i < 100; i++) {
+            if (server.requestsTo('GET', '/api/profiles/active').isNotEmpty) {
+              break;
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+          final asked = server.requestsTo('GET', '/api/profiles/active').length;
+          held.complete();
+          await look;
+
+          expect(asked, 1);
+        });
+      });
+
       testWidgets('names no profile when the active one cannot be read', (
         tester,
       ) async {

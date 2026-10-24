@@ -291,12 +291,12 @@ class AgentMessagesStep extends BackgroundStep {
     final summary = found.messages.length > kSummaryAbove;
     final locked = await context.appLockOn();
     final reads = found.messages.isNotEmpty && !summary && !locked;
-    final texts = reads
-        ? await readMessageTexts(chat, found, lookup)
-        : const <({String profile, String id}), String>{};
-    final shown = reads
-        ? await activeProfileName(hermes.repositories.profiles, _activeLookup)
-        : null;
+    final (texts, shown) = reads
+        ? await (
+            readMessageTexts(chat, found, lookup),
+            activeProfileName(hermes.repositories.profiles, _activeLookup),
+          ).wait
+        : (const <({String profile, String id}), String>{}, null);
 
     // Before the notifications, as the app in front does: a record that
     // cannot be saved announces nothing rather than the same chat every run.
