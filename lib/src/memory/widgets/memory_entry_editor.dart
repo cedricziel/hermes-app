@@ -70,14 +70,20 @@ class MemoryEntryEditor extends StatelessWidget {
             child: Row(
               children: [
                 Text('${characterCount(draft ?? '')} characters', style: muted),
-                const Spacer(),
-                if (left != null)
-                  Text(
-                    over
-                        ? '${groupThousands(-left)} over the limit in ${tab.label}'
-                        : '${groupThousands(left)} left in ${tab.label}',
-                    style: over ? muted.copyWith(color: colors.warning) : muted,
+                if (left != null) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      over
+                          ? '${groupThousands(-left)} over the limit in ${tab.label}'
+                          : '${groupThousands(left)} left in ${tab.label}',
+                      textAlign: TextAlign.end,
+                      style: over
+                          ? muted.copyWith(color: colors.warning)
+                          : muted,
+                    ),
                   ),
+                ],
               ],
             ),
           ),
