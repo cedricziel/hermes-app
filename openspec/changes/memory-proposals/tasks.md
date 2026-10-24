@@ -10,7 +10,7 @@ Two PRs, each under about 500 changed lines with tests, merged in order, after `
 - [x] 1.4 (option 1; no stored session to hide, so only the thread-less call is tested, and the contract test checks the session list) Write failing `MemoryProposalSession` tests for the option selected in 1.1 with `FakeChatTransport` (and `FakeHermesServer` for the session list when option 3 applies): no new visible chat per read; the chosen session is left out of the chat list and search when option 3 applies. Then implement it.
 - [x] 1.5 (also fixes `parseMemoryDecisionAnswer`: the "Overwrote/Patched/Removed" lines of an approved replace, patch or remove read "<id>: <entry>" and were taken for failures) Write failing `MemoryProposalsRepository` tests: both kinds read in parallel, one failing kind keeps the other, unsupported command is reported as such; per-item approve and reject reuse `MemoryDecisions`; Approve all and Reject all send one command per listed id and never `all`, stopping at a transport error; scope changes drop late answers. Then implement it.
 - [x] 1.6 Write a failing test that `memory.proposals.fetch`, `memory.proposals.decide`, `memory.proposals.diff`, `memory.proposal_decided` and `memory.proposals.parse_lenient` carry only their fixed attributes and counts. Then add them.
-- [ ] 1.7 Run `/simplify`, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all passing.
+- [x] 1.7 Run `/simplify`, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all passing.
 
 ## 2. PR 2 — `feat(memory): add the waiting-for-you inbox`
 
