@@ -684,6 +684,25 @@ void main() {
       });
     }
 
+    testWidgets('posts nothing for a record another look moved while the '
+        'text was read', (tester) async {
+      await tester.runAsync(() async {
+        await setUpWatcher();
+        await watcher!.check();
+        deliveries('work', [delivery('hermes-app-new', at: 200)]);
+        final held = holdText('hermes-app-new');
+        final look = watcher!.check();
+        await pumpEventQueue();
+
+        await AgentMessageRecord().write('acct', {'default': 0, 'work': 250});
+        held.complete();
+        await look;
+
+        expect(service.shown, isEmpty);
+        expect(await record(), {'default': 0, 'work': 250});
+      });
+    });
+
     testWidgets('hides a text App Lock covered while it was read', (
       tester,
     ) async {

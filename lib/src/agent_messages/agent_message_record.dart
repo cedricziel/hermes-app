@@ -48,9 +48,9 @@ class AgentMessageRecord {
         jsonEncode({'account': account, 'profiles': record}),
       );
 
-  /// The writes of this isolate in turn, so that two looks cannot both find
-  /// the record as they read it and both save.
-  static Future<void> _tail = Future.value();
+  /// The conditional writes of this instance in turn, so that two looks
+  /// cannot both find the record as they read it and both save.
+  Future<void> _tail = Future.value();
 
   /// Saves [next] as [account]'s only if the stored record still is what the
   /// look read as [expected] (null for none), and says whether it did. When it

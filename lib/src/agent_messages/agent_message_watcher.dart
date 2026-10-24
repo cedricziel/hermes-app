@@ -259,15 +259,23 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       if (!_current(epoch)) return;
 
       final postEpoch = _postEpoch;
-      final write = _record.write(account, found.record);
+      final write = _record.writeIfCurrent(
+        account,
+        found.record,
+        expected: before,
+      );
       _writing = write.then((_) {}, onError: (_) {});
+      final bool wrote;
       try {
-        await write;
+        wrote = await write;
       } on Object catch (error) {
         // Nothing is announced now rather than once more at every look.
         failure ??= error;
         return;
       }
+      // Another look moved the record while this one read the texts, and
+      // announces those messages.
+      if (!wrote) return;
       if (failure == null) _reported.clear();
       if (found.messages.isEmpty || !_postable(postEpoch)) return;
 
