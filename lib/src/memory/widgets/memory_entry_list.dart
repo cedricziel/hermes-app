@@ -15,6 +15,7 @@ class MemoryEntryList extends StatelessWidget {
     required this.entries,
     required this.onOpen,
     required this.onRefresh,
+    this.header = const [],
     this.footer = const [],
   });
 
@@ -22,6 +23,9 @@ class MemoryEntryList extends StatelessWidget {
   final List<String> entries;
   final ValueChanged<int> onOpen;
   final VoidCallback onRefresh;
+
+  /// What comes first: a card that needs the user's attention.
+  final List<Widget> header;
 
   /// What follows the entries: the profile's settings.
   final List<Widget> footer;
@@ -33,6 +37,7 @@ class MemoryEntryList extends StatelessWidget {
     final textStyle = TextStyle(fontSize: metrics.subtitleSize, color: muted);
     return GroupedListView(
       children: [
+        ...header,
         Padding(
           padding: EdgeInsets.fromLTRB(
             metrics.rowPadding,

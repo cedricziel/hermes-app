@@ -842,6 +842,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             _Destination.profiles => MacProfilesPage(
               profiles: _chatProfiles!,
               changeSource: _gateway,
+              transport: _gateway,
             ),
           };
           if (!wide ||

@@ -35,6 +35,9 @@ import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../memory/memory_destination.dart';
+import '../memory/memory_proposal_session.dart';
+import '../memory/memory_proposals_repository.dart';
+import '../memory/memory_waiting_count.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/widgets/model_setup_dialog.dart';
 import '../live_activities/live_activities.dart';
@@ -212,6 +215,11 @@ class ChatScreen extends StatefulWidget {
 /// Owns resources and lifecycle; private parts group feature behavior and layout.
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
+
+  /// How many staged memory changes wait in the chat's profile, for the
+  /// Memory entry; null without a dashboard connection.
+  MemoryWaitingCount? _memoryWaiting;
+  var _wasLoadingThreads = false;
   HandoffController? _handoff;
   DockMenuController? _dock;
   HermesProfilesRepository? _profiles;
@@ -397,6 +405,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
     )..addListener(_changed);
+    if (transport != null && _skills != null) {
+      _memoryWaiting = MemoryWaitingCount(
+        MemoryProposalsRepository(
+          MemoryProposalSession(transport),
+          telemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
+        ),
+      )..addListener(_memoryWaitingChanged);
+    }
     if (auth != null &&
         transport is GatewayConnectionTransport &&
         _chat.repository != null) {
@@ -563,9 +579,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     blocked: _chat.threadListInvalidationBlocked,
   );
 
+  void _memoryWaitingChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _changed() {
     if (!mounted) return;
     _syncListChanges();
+    final loading = _chat.loadingThreads;
+    if (_wasLoadingThreads && !loading) {
+      unawaited(_memoryWaiting?.refresh(_chat.profile));
+    }
+    _wasLoadingThreads = loading;
     final thread = _chat.selectedThread;
     final owner = (_chat.profile, _chat.selectedId);
     final savedOwner = _draftOwners[thread];
@@ -703,6 +728,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat.forgetRunningReplies();
     unawaited(_dictation?.refresh());
     _chat.checkConnection();
+    unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
 
@@ -733,6 +759,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..dispose();
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
+    _memoryWaiting
+      ?..removeListener(_memoryWaitingChanged)
+      ..dispose();
     _ownedTransport?.close();
     _voiceRecording?.dispose();
     _dictation?.dispose();

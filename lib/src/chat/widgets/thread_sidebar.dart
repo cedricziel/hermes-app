@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
 import '../../macos/mac_sidebar.dart';
+import '../../memory/memory_waiting_count.dart';
 import '../../macos/mac_source_list.dart' show kMacSourceListRowHeight;
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
@@ -69,6 +70,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenMessaging,
     this.onOpenSkills,
     this.onOpenMemory,
+    this.memoryWaiting,
     this.onOpenPlugins,
     this.onOpenMcp,
     this.onOpenHelperModels,
@@ -99,6 +101,9 @@ class ThreadSidebar extends StatelessWidget {
   final VoidCallback? onOpenMessaging;
   final VoidCallback? onOpenSkills;
   final VoidCallback? onOpenMemory;
+
+  /// How many staged memory changes wait, for the Memory entry.
+  final int? memoryWaiting;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
   final VoidCallback? onOpenHelperModels;
@@ -220,7 +225,11 @@ class ThreadSidebar extends StatelessWidget {
                   if (onOpenSkills != null)
                     (AppIcons.extension, 'Skills', onOpenSkills!),
                   if (onOpenMemory != null)
-                    (AppIcons.memory, 'Memory', onOpenMemory!),
+                    (
+                      AppIcons.memory,
+                      memoryEntryLabel(memoryWaiting),
+                      onOpenMemory!,
+                    ),
                   if (onOpenMessaging != null)
                     (AppIcons.bot, 'Messaging', onOpenMessaging!),
                   if (onOpenPlugins != null)
