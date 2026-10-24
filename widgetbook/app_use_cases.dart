@@ -366,6 +366,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
               onOpenProfiles: () {},
               onOpenMessaging: () {},
               onOpenSkills: () {},
+              onOpenMemory: () {},
               onOpenPlugins: () {},
               onOpenMcp: () {},
             ),

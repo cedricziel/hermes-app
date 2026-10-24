@@ -91,6 +91,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           onOpenProfiles: _profiles == null ? null : _openProfiles,
           onOpenMessaging: _messaging == null ? null : _openMessaging,
           onOpenSkills: _skills == null ? null : _openSkills,
+          onOpenMemory: _skills == null ? null : _openMemory,
           onOpenPlugins: _plugins == null ? null : _openPlugins,
           onOpenMcp: _mcp == null ? null : _openMcp,
           onOpenHelperModels: _models == null ? null : _openHelperModels,
@@ -269,6 +270,12 @@ extension _ChatScreenLayout on _ChatScreenState {
                                 icon: AppIcons.extension,
                                 label: 'Skills',
                                 onTap: _openSkills,
+                              ),
+                            if (_skills != null)
+                              SidebarAction(
+                                icon: AppIcons.memory,
+                                label: 'Memory',
+                                onTap: _openMemory,
                               ),
                             if (_messaging != null)
                               SidebarAction(

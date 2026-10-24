@@ -7,6 +7,8 @@ import '../messaging/messaging_screen.dart';
 import '../chat/gateway_connection_transport.dart';
 import '../macos/mac_toolbar.dart';
 import '../mcp/mcp_servers_screen.dart';
+import '../memory/memory_destination.dart';
+import '../memory/memory_repository.dart';
 import '../plugins/installed_plugin.dart';
 import '../plugins/plugins_screen.dart';
 import '../settings/helper_models_screen.dart';
@@ -95,6 +97,13 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     if (repositories == null) return;
     await Future.wait([
       count(
+        ProfileSection.memory,
+        () => MemoryRepository(
+          repositories.api.raw,
+          telemetry: repositories.telemetry,
+        ).count(name),
+      ),
+      count(
         ProfileSection.mcp,
         () async => (await repositories.mcp.loadServers(profile: name)).length,
       ),
@@ -125,6 +134,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     final repositories = HermesRepositories.maybeOf(context);
     if (name == null || repositories == null) return;
     final page = switch (section) {
+      ProfileSection.memory => null,
       ProfileSection.skills => SkillsScreen(
         repository: repositories.skills,
         chatProfile: name,
@@ -146,6 +156,10 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         profile: name,
       ),
     };
+    if (page == null) {
+      openMemory(context, from: MemoryEntryPoint.profilesPage, profile: name);
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 

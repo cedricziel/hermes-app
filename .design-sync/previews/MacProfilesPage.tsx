@@ -42,6 +42,7 @@ export const Selected = () => (
         host="hermes.example.com"
         counts={{
           skills: 12,
+          memory: 3,
           messaging: 2,
           plugins: 3,
           mcp: 4,
@@ -65,6 +66,7 @@ export const OtherProfile = () => (
         host="hermes.example.com"
         counts={{
           skills: 12,
+          memory: 3,
           messaging: 1,
           plugins: 1,
           mcp: 4,
@@ -110,6 +112,7 @@ export const Dark = () => (
         host="hermes.example.com"
         counts={{
           skills: 58,
+          memory: 5,
           messaging: 1,
           plugins: 2,
           mcp: 0,

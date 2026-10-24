@@ -214,6 +214,11 @@ extension _ChatScreenNavigation on _ChatScreenState {
     _rebuild(() => _appendToComposer(draft));
   }
 
+  void _openMemory() {
+    _closeDrawerIfNarrow();
+    openMemory(context, from: MemoryEntryPoint.sidebar, profile: _chat.profile);
+  }
+
   void _openPlugins() {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(

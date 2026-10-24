@@ -1,80 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
-import 'package:hermes_app/src/settings/settings_dialog.dart';
+import 'package:hermes_app/src/memory/memory_destination.dart';
 import 'package:provider/provider.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'memory_fixtures.dart';
 
 void main() {
-  testWidgets('settings opens memory for an explicit active profile', (
-    tester,
-  ) async {
-    final server = FakeHermesServer()
+  late FakeHermesServer server;
+
+  setUp(() {
+    server = FakeHermesServer()
       ..on('GET', '/api/profiles', {
         'profiles': [profileRow(name: 'work'), profileRow(name: 'other')],
       })
-      ..on('GET', '/api/profiles/active', {'active': 'work', 'current': 'work'})
+      ..on('GET', '/api/profiles/active', {
+        'active': 'other',
+        'current': 'other',
+      })
       ..on('GET', '/api/learning/graph', memoryGraph);
+  });
+
+  Future<void> settle(WidgetTester tester) async {
+    await tester.runAsync(() async {
+      await pumpEventQueue();
+    });
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 5),
+    );
+  }
+
+  Future<void> pumpDestination(WidgetTester tester, String profile) async {
     await tester.pumpWidget(
       Provider<HermesRepositories?>.value(
         value: HermesRepositories(server.client()),
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showSettingsDialog(context),
-              child: const Text('Settings'),
-            ),
-          ),
-        ),
+        child: MaterialApp(home: MemoryDestination(profile: profile)),
       ),
     );
-    await tester.tap(find.text('Settings'));
-    await tester.runAsync(() async {
-      await pumpEventQueue();
-    });
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 5),
-    );
-    await tester.tap(find.text('Memory'));
-    await tester.runAsync(() async {
-      await pumpEventQueue();
-    });
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 5),
-    );
+    await settle(tester);
+  }
+
+  testWidgets('opens on the named profile, not the active one', (tester) async {
+    await pumpDestination(tester, 'work');
+
     expect(find.text('Long memory'), findsOneWidget);
     expect(
       server.requestsTo('GET', '/api/learning/graph').single.queryParameters,
       {'profile': 'work'},
     );
+    expect(server.requestsTo('GET', '/api/profiles/active'), isEmpty);
+  });
+
+  testWidgets('the subtitle menu still switches profile', (tester) async {
+    await pumpDestination(tester, 'work');
+
     await tester.tap(find.byKey(const Key('settings-subtitle-menu')));
-    await tester.runAsync(() async {
-      await pumpEventQueue();
-    });
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 5),
-    );
+    await settle(tester);
     await tester.tap(find.text('other').last);
-    await tester.runAsync(() async {
-      await pumpEventQueue();
-    });
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 5),
-    );
+    await settle(tester);
+
     expect(
       server.requestsTo('GET', '/api/learning/graph').last.queryParameters,
       {'profile': 'other'},
     );
     expect(server.requestsTo('POST', '/api/profiles/active'), isEmpty);
+  });
+
+  testWidgets('a profile the server no longer lists is unavailable', (
+    tester,
+  ) async {
+    await pumpDestination(tester, 'gone');
+
+    expect(find.text('This profile is no longer available.'), findsOneWidget);
+    expect(find.text('Long memory'), findsNothing);
+    expect(server.requestsTo('GET', '/api/learning/graph'), isEmpty);
   });
 }

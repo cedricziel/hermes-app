@@ -68,6 +68,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenProfiles,
     this.onOpenMessaging,
     this.onOpenSkills,
+    this.onOpenMemory,
     this.onOpenPlugins,
     this.onOpenMcp,
     this.onOpenHelperModels,
@@ -97,6 +98,7 @@ class ThreadSidebar extends StatelessWidget {
   final VoidCallback? onOpenProfiles;
   final VoidCallback? onOpenMessaging;
   final VoidCallback? onOpenSkills;
+  final VoidCallback? onOpenMemory;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
   final VoidCallback? onOpenHelperModels;
@@ -217,6 +219,8 @@ class ThreadSidebar extends StatelessWidget {
                     (AppIcons.person, 'Profiles', onOpenProfiles!),
                   if (onOpenSkills != null)
                     (AppIcons.extension, 'Skills', onOpenSkills!),
+                  if (onOpenMemory != null)
+                    (AppIcons.memory, 'Memory', onOpenMemory!),
                   if (onOpenMessaging != null)
                     (AppIcons.bot, 'Messaging', onOpenMessaging!),
                   if (onOpenPlugins != null)
@@ -409,8 +413,8 @@ class SidebarAction extends StatelessWidget {
   }
 }
 
-/// Profiles, skills, messaging, plugins, MCP servers and helper models behind one
-/// row, so the thread list keeps the height.
+/// Profiles, skills, memory, messaging, plugins, MCP servers and helper models
+/// behind one row, so the thread list keeps the height.
 class _MoreSection extends StatefulWidget {
   const _MoreSection({required this.entries});
 

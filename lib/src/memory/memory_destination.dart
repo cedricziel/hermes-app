@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../api/hermes_repositories.dart';
 import '../auth/auth_controller.dart';
 import '../auth/verified_session_owner.dart';
+import '../profiles/hermes_profiles_repository.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
@@ -11,8 +12,43 @@ import 'memory_controller.dart';
 import 'memory_repository.dart';
 import 'memory_screen.dart';
 
+/// Where Memory was opened from, for the `nav.memory` breadcrumb.
+enum MemoryEntryPoint {
+  sidebar('sidebar'),
+  profilesPage('profiles_page');
+
+  const MemoryEntryPoint(this.wire);
+  final String wire;
+}
+
+/// Pushes Memory for [profile] and notes how the user got there.
+Future<void> openMemory(
+  BuildContext context, {
+  required MemoryEntryPoint from,
+  required String? profile,
+}) {
+  Breadcrumbs breadcrumbs;
+  try {
+    breadcrumbs = context.read<Breadcrumbs>();
+  } on ProviderNotFoundException {
+    breadcrumbs = Breadcrumbs.none;
+  }
+  breadcrumbs('nav.memory', {'from': from.wire});
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => MemoryDestination(profile: profile),
+    ),
+  );
+}
+
+/// Memory of one profile. [profile] is the one its entry point names, which
+/// the server's active profile never replaces; without one the screen opens
+/// on the active profile.
 class MemoryDestination extends StatefulWidget {
-  const MemoryDestination({super.key});
+  const MemoryDestination({super.key, this.profile});
+
+  final String? profile;
+
   @override
   State<MemoryDestination> createState() => _MemoryDestinationState();
 }
@@ -118,14 +154,20 @@ class _MemoryDestinationState extends State<MemoryDestination> {
       _failure = null;
     });
     try {
-      final overview = await repositories.profiles.load();
+      final named = widget.profile;
+      final ProfilesOverview? overview = named == null
+          ? await repositories.profiles.load()
+          : null;
+      final listed = overview?.profiles ?? await repositories.profiles.list();
       if (!mounted || generation != _generation) return;
       final profiles = {
-        for (final profile in overview.profiles) profile.name: profile.label,
+        for (final profile in listed) profile.name: profile.label,
       };
-      final selected = profiles.containsKey(overview.active)
-          ? overview.active
-          : overview.current;
+      final selected =
+          named ??
+          (profiles.containsKey(overview!.active)
+              ? overview.active
+              : overview.current);
       if (!profiles.containsKey(selected)) {
         throw MemoryFailure.profileUnavailable;
       }
