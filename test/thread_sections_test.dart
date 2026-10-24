@@ -26,7 +26,8 @@ void main() {
       [
         'Pinned: pinned-old',
         'Today: this-morning',
-        'Previous 7 days: yesterday, last-week',
+        'Yesterday: yesterday',
+        'Previous 7 days: last-week',
         'Previous 30 days: last-month',
         'Older: long-ago',
       ],
@@ -51,10 +52,22 @@ void main() {
     expect(sections.single.kind, ThreadSectionKind.today);
   });
 
+  test('yesterday starts at the previous midnight', () {
+    final sections = groupThreads([
+      _thread('just-after', DateTime(2026, 10, 3)),
+      _thread('just-before', DateTime(2026, 10, 2, 23, 59)),
+    ], now: now);
+    expect(
+      [for (final s in sections) s.kind],
+      [ThreadSectionKind.yesterday, ThreadSectionKind.previous7Days],
+    );
+  });
+
   test('labels each section', () {
     expect(ThreadSectionKind.values.map((k) => k.label), [
       'Pinned',
       'Today',
+      'Yesterday',
       'Previous 7 days',
       'Previous 30 days',
       'Older',
