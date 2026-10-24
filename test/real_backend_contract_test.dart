@@ -16,6 +16,11 @@ import 'package:hermes_api/hermes_api.dart'
         RawConfigUpdate,
         SessionRename;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
+import 'package:hermes_app/src/memory/memory_decisions.dart';
+import 'package:hermes_app/src/memory/memory_proposal_session.dart';
+import 'package:hermes_app/src/memory/memory_proposals.dart';
+import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
+import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -2504,6 +2509,352 @@ void main() {
       );
 
       expect(await repository.loadRawServers(), before);
+    }, skip: skip);
+  });
+
+  group('staged memory and skill writes (no model call, local backend)', () {
+    late Directory home;
+    late HermesGatewayTransport transport;
+    late MemoryProposalSession session;
+    late MemoryProposalsRepository repository;
+    late File memoryFile, userFile;
+    String? memoryBefore, userBefore;
+    final staged = <File>[];
+    var counter = 0;
+
+    setUpAll(() async {
+      if (url == null) return;
+      final status = (await Dio().get<Map<String, dynamic>>('$url/api/status'))
+          .data!;
+      home = Directory(status['hermes_home'] as String);
+      transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      session = MemoryProposalSession(transport);
+      repository = MemoryProposalsRepository(session);
+      memoryFile = File('${home.path}/memories/MEMORY.md');
+      userFile = File('${home.path}/memories/USER.md');
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      await transport.close();
+    });
+
+    setUp(() {
+      if (url == null) return;
+      memoryFile.parent.createSync(recursive: true);
+      memoryBefore = memoryFile.existsSync()
+          ? memoryFile.readAsStringSync()
+          : null;
+      userBefore = userFile.existsSync() ? userFile.readAsStringSync() : null;
+      memoryFile.writeAsStringSync(
+        'Prefers tabs in Go\n§\nDeploys with deploy.sh',
+      );
+      userFile.writeAsStringSync('Likes tea, no sugar');
+    });
+
+    tearDown(() {
+      if (url == null) return;
+      for (final file in staged) {
+        if (file.existsSync()) file.deleteSync();
+      }
+      staged.clear();
+      void restore(File file, String? before) {
+        if (before == null) {
+          if (file.existsSync()) file.deleteSync();
+        } else {
+          file.writeAsStringSync(before);
+        }
+      }
+
+      restore(memoryFile, memoryBefore);
+      restore(userFile, userBefore);
+    });
+
+    /// Writes a pending record the way Hermes' `stage_write` does and returns
+    /// its id.
+    String stage(
+      String subsystem,
+      Map<String, Object?> payload, {
+      required String summary,
+      String origin = 'foreground',
+    }) {
+      final id =
+          (0xa0000000 +
+                  DateTime.now().microsecondsSinceEpoch % 0x5fffffff +
+                  counter++)
+              .toRadixString(16);
+      final directory = Directory('${home.path}/pending/$subsystem')
+        ..createSync(recursive: true);
+      final file = File('${directory.path}/$id.json')
+        ..writeAsStringSync(
+          jsonEncode({
+            'id': id,
+            'subsystem': subsystem,
+            'action': payload['action'],
+            'summary': summary,
+            'origin': origin,
+            'created_at': DateTime.now().millisecondsSinceEpoch / 1000,
+            'payload': payload,
+          }),
+        );
+      staged.add(file);
+      return id;
+    }
+
+    MemoryDecisions decisions() => MemoryDecisions(
+      available: () => true,
+      run: (command) => session.run('default', command),
+      surface: 'inbox',
+    );
+
+    test('the pending list reads into proposals', () async {
+      final add = stage('memory', {
+        'action': 'add',
+        'target': 'user',
+        'content': 'Runs on a Mac',
+      }, summary: 'add to user profile: Runs on a Mac');
+      final replace = stage(
+        'memory',
+        {
+          'action': 'replace',
+          'target': 'memory',
+          'content': 'Prefers spaces',
+          'old_text': 'Prefers tabs',
+          'matched_entry': 'Prefers tabs in Go',
+        },
+        summary:
+            'replace in memory: entry matching: Prefers tabs\n'
+            'whole entry becomes: Prefers spaces',
+      );
+      final patch = stage(
+        'memory',
+        {
+          'action': 'patch',
+          'target': 'memory',
+          'content': 'ship.sh',
+          'old_text': 'deploy.sh',
+          'matched_entry': 'Deploys with deploy.sh',
+        },
+        summary: "background review consolidation (patch on memory): - patch span 'deploy.sh' -> 'ship.sh' (rest of the entry is kept)",
+        origin: 'background_review',
+      );
+      final remove = stage(
+        'memory',
+        {
+          'action': 'remove',
+          'target': 'user',
+          'old_text': 'Likes tea',
+          'matched_entry': 'Likes tea, no sugar',
+        },
+        summary: 'background review consolidation (remove on user): - remove: Likes tea',
+        origin: 'background_review',
+      );
+
+      final proposals = {
+        for (final p in (await repository.load('default')).memory.proposals)
+          p.id: p,
+      };
+
+      expect(proposals[add]!.action, ProposalAction.add);
+      expect(proposals[add]!.target, MemoryTab.aboutYou);
+      expect(proposals[add]!.newText, 'Runs on a Mac');
+      expect(proposals[add]!.background, isFalse);
+      expect(proposals[replace]!.action, ProposalAction.replace);
+      expect(proposals[replace]!.replaced, ['Prefers tabs in Go']);
+      expect(proposals[replace]!.newText, 'Prefers spaces');
+      expect(proposals[patch]!.action, ProposalAction.replace);
+      expect(proposals[patch]!.background, isTrue);
+      expect(proposals[patch]!.replaced, ['Deploys with deploy.sh']);
+      expect(proposals[patch]!.newText, 'ship.sh');
+      expect(proposals[remove]!.action, ProposalAction.remove);
+      expect(proposals[remove]!.target, MemoryTab.aboutYou);
+      expect(proposals[remove]!.replaced, ['Likes tea, no sugar']);
+      expect(proposals[remove]!.newText, isNull);
+    }, skip: skip);
+
+    test('approving a replace writes it and is read as saved', () async {
+      final id = stage(
+        'memory',
+        {
+          'action': 'replace',
+          'target': 'memory',
+          'content': 'Prefers spaces',
+          'old_text': 'Prefers tabs',
+          'matched_entry': 'Prefers tabs in Go',
+        },
+        summary:
+            'replace in memory: entry matching: Prefers tabs\n'
+            'whole entry becomes: Prefers spaces',
+      );
+      final inbox = decisions();
+      addTearDown(inbox.dispose);
+
+      await inbox.decide(id, approve: true);
+
+      expect(inbox.stateOf(id).phase, MemoryDecisionPhase.saved);
+      expect(memoryFile.readAsStringSync(), startsWith('Prefers spaces'));
+      final listed = (await repository.load('default')).proposals;
+      expect(listed.map((p) => p.id), isNot(contains(id)));
+    }, skip: skip);
+
+    test('approving a remove and an add is read as saved', () async {
+      final remove = stage(
+        'memory',
+        {
+          'action': 'remove',
+          'target': 'user',
+          'old_text': 'Likes tea',
+          'matched_entry': 'Likes tea, no sugar',
+        },
+        summary: 'background review consolidation (remove on user): - remove: Likes tea',
+        origin: 'background_review',
+      );
+      final add = stage('memory', {
+        'action': 'add',
+        'target': 'user',
+        'content': 'Runs on a Mac',
+      }, summary: 'add to user profile: Runs on a Mac');
+      final inbox = decisions();
+      addTearDown(inbox.dispose);
+
+      await inbox.decide(remove, approve: true);
+      await inbox.decide(add, approve: true);
+
+      expect(inbox.stateOf(remove).phase, MemoryDecisionPhase.saved);
+      expect(inbox.stateOf(add).phase, MemoryDecisionPhase.saved);
+      expect(userFile.readAsStringSync(), 'Runs on a Mac');
+    }, skip: skip);
+
+    test(
+      'an entry that changed since staging fails and stays pending',
+      () async {
+        final id = stage(
+          'memory',
+          {
+            'action': 'replace',
+            'target': 'memory',
+            'content': 'Prefers spaces',
+            'old_text': 'Prefers tabs',
+            'matched_entry': 'Prefers tabs in Rust',
+          },
+          summary:
+              'replace in memory: entry matching: Prefers tabs\n'
+              'whole entry becomes: Prefers spaces',
+        );
+        final inbox = decisions();
+        addTearDown(inbox.dispose);
+
+        await inbox.decide(id, approve: true);
+
+        expect(inbox.stateOf(id).phase, MemoryDecisionPhase.failed);
+        expect(inbox.stateOf(id).text, startsWith('Entry changed'));
+        expect(memoryFile.readAsStringSync(), startsWith('Prefers tabs in Go'));
+        expect(
+          (await repository.load('default')).proposals.map((p) => p.id),
+          contains(id),
+        );
+      },
+      skip: skip,
+    );
+
+    test('rejecting drops the record and leaves memory alone', () async {
+      final id = stage('memory', {
+        'action': 'add',
+        'target': 'user',
+        'content': 'Runs on a Mac',
+      }, summary: 'add to user profile: Runs on a Mac');
+      final inbox = decisions();
+      addTearDown(inbox.dispose);
+
+      await inbox.decide(id, approve: false);
+
+      expect(inbox.stateOf(id).phase, MemoryDecisionPhase.rejected);
+      expect(userFile.readAsStringSync(), 'Likes tea, no sugar');
+      expect(
+        (await repository.load('default')).proposals.map((p) => p.id),
+        isNot(contains(id)),
+      );
+    }, skip: skip);
+
+    test('Approve all decides the ids it was given, not a later one', () async {
+      final first = stage('memory', {
+        'action': 'add',
+        'target': 'user',
+        'content': 'Runs on a Mac',
+      }, summary: 'add to user profile: Runs on a Mac');
+      final listed = (await repository.load('default')).proposals
+          .where((p) => p.id == first)
+          .toList();
+      final later = stage('memory', {
+        'action': 'add',
+        'target': 'user',
+        'content': 'Plays chess',
+      }, summary: 'add to user profile: Plays chess');
+      final inbox = decisions();
+      addTearDown(inbox.dispose);
+
+      await inbox.decideAll(listed, approve: true);
+
+      expect(inbox.stateOf(first).phase, MemoryDecisionPhase.saved);
+      expect(inbox.stateOf(later).phase, MemoryDecisionPhase.idle);
+      expect(userFile.readAsStringSync(), isNot(contains('chess')));
+      expect(
+        (await repository.load('default')).proposals.map((p) => p.id),
+        contains(later),
+      );
+    }, skip: skip);
+
+    test('a skill proposal lists, shows its changes and is rejected', () async {
+      final id = stage(
+        'skills',
+        {
+          'action': 'create',
+          'name': 'contract-check',
+          'content': '---\nname: contract-check\ndescription: Checks things\n---\nBody\n',
+        },
+        summary: "create 'contract-check' — Checks things (60 chars)",
+        origin: 'background_review',
+      );
+
+      final snapshot = await repository.load('default');
+      final skill = snapshot.skills.proposals.singleWhere((p) => p.id == id);
+      expect(skill.skillName, 'contract-check');
+      expect(skill.background, isTrue);
+      expect(await repository.diff('default', id), startsWith('---\nname:'));
+
+      final inbox = decisions();
+      addTearDown(inbox.dispose);
+      await inbox.decide(id, approve: false, kind: ProposalKind.skill);
+      expect(inbox.stateOf(id).phase, MemoryDecisionPhase.rejected);
+    }, skip: skip);
+
+    test(
+      'a command the server does not know answers Unknown command',
+      () async {
+        expect(
+          await session.run('default', '/nosuch pending'),
+          startsWith('Unknown command'),
+        );
+      },
+      skip: skip,
+    );
+
+    test('reading proposals leaves no chat behind', () async {
+      final before = (await HermesChatRepository(
+        client.raw,
+      ).loadThreads()).map((t) => t.id).toSet();
+      await repository.load('default');
+      await repository.load('default');
+      final after = (await HermesChatRepository(
+        client.raw,
+      ).loadThreads()).map((t) => t.id).toSet();
+      expect(after, before);
     }, skip: skip);
   });
 

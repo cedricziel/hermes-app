@@ -2191,6 +2191,160 @@ void main() {
       },
     );
   });
+
+  group('messages from Hermes', () {
+    void inbox(List<Map<String, Object?>> rows) => server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody(rows),
+      query: {'source': 'hermes_app'},
+    );
+
+    Map<String, Object?> delivered(String id, double at, String title) =>
+        sessionRow(
+          id: id,
+          title: title,
+          startedAt: at,
+          unread: true,
+          source: 'hermes_app',
+          messageCount: 1,
+        );
+
+    testWidgets('a delivered chat is announced at the next look', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      server
+        ..on(
+          'GET',
+          '/api/profiles',
+          profileListBody([profileRow(name: 'work')]),
+        )
+        ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+        ..on('GET', '/api/sessions', sessionListBody([]))
+        ..on(
+          'GET',
+          '/api/sessions/hermes-app-new/messages',
+          messageListBody('hermes-app-new', [
+            messageRow(
+              id: 1,
+              role: 'assistant',
+              content: 'Three builds failed',
+            ),
+          ]),
+        );
+      inbox([delivered('hermes-app-old', 100, 'Message: Old')]);
+      final settings = NotificationSettings();
+      addTearDown(settings.dispose);
+      await tester.runAsync(settings.load);
+      final auth = FakeSessionAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        settings: settings,
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      expect(notifications.shown, isEmpty);
+
+      inbox([
+        delivered('hermes-app-new', 200, 'Message: Report'),
+        delivered('hermes-app-old', 100, 'Message: Old'),
+      ]);
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+
+      final alert = notifications.shown.single;
+      expect(alert.threadId, 'hermes-app-new');
+      expect(alert.profile, 'work');
+      expect(alert.title, 'Message: Report');
+      expect(alert.body, 'Three builds failed');
+    });
+
+    testWidgets('a chat of another profile than the one shown says which', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      server
+        ..on(
+          'GET',
+          '/api/profiles',
+          profileListBody([profileRow(name: 'work'), profileRow(name: 'home')]),
+        )
+        ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+        ..on('GET', '/api/sessions', sessionListBody([]))
+        ..on(
+          'GET',
+          '/api/sessions/hermes-app-new/messages',
+          messageListBody('hermes-app-new', [
+            messageRow(
+              id: 1,
+              role: 'assistant',
+              content: 'Three builds failed',
+            ),
+          ]),
+        );
+      void inboxOf(String profile, List<Map<String, Object?>> rows) =>
+          server.on(
+            'GET',
+            '/api/sessions',
+            sessionListBody(rows),
+            query: {'source': 'hermes_app', 'profile': profile},
+          );
+      inboxOf('work', []);
+      inboxOf('home', [delivered('hermes-app-old', 100, 'Message: Old')]);
+      final settings = NotificationSettings();
+      addTearDown(settings.dispose);
+      await tester.runAsync(settings.load);
+      final auth = FakeSessionAuth();
+      addTearDown(auth.dispose);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        settings: settings,
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+
+      inboxOf('home', [
+        delivered('hermes-app-new', 200, 'Message: Report'),
+        delivered('hermes-app-old', 100, 'Message: Old'),
+      ]);
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+
+      final alert = notifications.shown.single;
+      expect(alert.profile, 'home');
+      expect(alert.title, 'Message: Report (home)');
+    });
+
+    testWidgets('a signed-out shell looks at nothing', (tester) async {
+      kanbanPlugin(on: false);
+      final auth = FakeSessionAuth()..allowed = false;
+      addTearDown(auth.dispose);
+      final settings = NotificationSettings();
+      addTearDown(settings.dispose);
+      await tester.runAsync(settings.load);
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        settings: settings,
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+
+      await tester.pump(const Duration(minutes: 2));
+      await tester.pumpAndSettle();
+
+      expect(
+        server
+            .requestsTo('GET', '/api/sessions')
+            .where((r) => r.queryParameters['source'] == 'hermes_app'),
+        isEmpty,
+      );
+    });
+  });
 }
 
 class _ShellAuth extends AuthController {

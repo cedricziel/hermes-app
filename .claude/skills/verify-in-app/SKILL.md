@@ -521,6 +521,11 @@ registration; the same few lines in Python work) and add a server with `"auth":"
 provider, so the flow ends by Cancel or after Hermes' five minute timeout. A cancelled flow keeps the server's
 "already in progress" slot for a moment until Hermes' worker ends, so an immediate second start answers 409.
 
+Memory: the built-in files are `$HERMES_HOME/memories/USER.md` (About you) and `MEMORY.md` (Agent notes), entries
+joined by `"\n§\n"`; write them under `.dart_tool/hermes-dev/home` and the learning graph lists them. Limits are
+`memory.user_char_limit` (1375) and `memory.memory_char_limit` (2200) in the config. A file near its limit shows
+the warning bar; the memory tool's usage report after a save in a chat is the number to compare with.
+
 Screens behind a tap: press your way there with `scripts/ax.swift` (see
 "Through the accessibility tree"). If the control has no name, add a
 temporary change that opens the screen (a post-frame callback calling the `_open…` method) or
@@ -529,6 +534,27 @@ screenshot, then revert it. Check a diff before committing so none of it ships.
 
 The Kanban tab appears only because the backend lists the bundled `kanban`
 plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
+
+## Messages from Hermes
+
+A delivery needs the messenger plugin, which lives on the branch `origin/feat/hermes-app-messenger`
+(`git worktree add <scratch> origin/feat/hermes-app-messenger`; once it is merged it is
+`plugins/hermes-app` in this checkout). Enable it in the backend's throwaway home before
+`scripts/dev-backend.sh start`:
+
+```bash
+H="$PWD/.dart_tool/hermes-dev/home"
+mkdir -p "$H/plugins" && cp -R <scratch>/plugins/hermes-app "$H/plugins/"
+# config.yaml: platforms.hermes_app with enabled: true and the inbox home channel
+HERMES_HOME="$H" hermes plugins enable hermes-app
+scripts/dev-backend.sh start
+HERMES_HOME="$H" hermes send --to hermes_app:inbox --file msg.txt
+```
+
+The row appears in `GET /api/sessions?source=hermes_app` with an id starting `hermes-app-`, `message_count` 1 and
+`last_read_at` 0 (`unread: true`). In the app, the next minute's look posts the notification; a tap opens the
+chat and marks it read (`unread` false in the list). A background run needs the app suspended on a phone
+build; see "Background work".
 
 ## The watch app
 
@@ -611,6 +637,10 @@ model:
   websocket script without it sees the command blocked instead.
 - Hermes runs some agent-level tools (`todo_list`) without `tool.start` or
   `tool.complete`: only `tool.generating` arrives.
+- To see a memory write waiting for approval, add `memory:\n  write_approval: true` to the home's `config.yaml`; the model then has to
+  call the `memory` tool (`fake_tool_model.py` has no such turn yet), and `tool.complete` for a
+  successful call only arrives while the profile's tool progress display is
+  not off. Approve or Reject on the card runs `/memory approve|reject <id>`.
 
 ## On Linux (cloud containers)
 

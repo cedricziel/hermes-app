@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use when cutting, checking or shipping a hermes-app release — merging the release-please PR, following the TestFlight and Linux builds, re-running a failed upload for an existing tag, or shipping the latest pre-release to App Review with combined release notes since the last full release. Not for retaking screenshots (store-screenshots).
+description: Use when cutting, checking or shipping a hermes-app release — merging the release-please PR, following the TestFlight and download builds (macOS DMG, Linux, Android, Windows), re-running a failed upload for an existing tag, or shipping the latest pre-release to App Review with combined release notes since the last full release. Not for retaking screenshots (store-screenshots).
 ---
 
 # Release hermes-app
@@ -9,8 +9,10 @@ A release goes through three steps, each started by a person:
 
 1. **Cut**: merge the release-please PR. The tag `vX.Y.Z` and a GitHub
    **pre-release** are created, and `release-please.yml` uploads the build to
-   TestFlight (iOS and macOS, external group "Public beta") and attaches the Linux
-   tar.gz and .deb (x86_64, arm64).
+   TestFlight (iOS and macOS, external group "Public beta") and attaches the
+   downloads: a notarized macOS DMG, the Linux tar.gz and .deb (x86_64, arm64),
+   an Android APK and AAB, and a Windows x64 zip (unsigned, so SmartScreen
+   warns on first launch).
 2. **Test**: testers use the TestFlight build.
 3. **Ship**: promote the pre-release to a full release. `app-store.yml` then
    submits that version's TestFlight build to App Review on iOS and macOS. It does
@@ -55,8 +57,25 @@ gets the same number.
 If an upload failed, rebuild one part of an existing tag without cutting a new one:
 
 ```bash
-gh workflow run release-please.yml -f tag=vX.Y.Z -f only=testflight   # or linux, or all
+gh workflow run release-please.yml -f tag=vX.Y.Z -f only=testflight   # or macos-dmg, linux, android, windows, all
 ```
+
+Tags cut before the DMG, Android and Windows jobs were added cannot build those
+parts: the Fastfile has no `mac dmg` lane there and Android has no signing config.
+
+### Signing the downloads
+
+- **Android**: `ANDROID_UPLOAD_KEYSTORE_BASE64` (a PKCS#12 keystore, alias
+  `upload`) and `ANDROID_UPLOAD_KEYSTORE_PASSWORD` (store and key). The job
+  fails without them rather than ship a debug-signed APK, because Android only
+  installs an update signed with the same key. The keystore's only backup is
+  the owner's 1Password item "Hermes App Android upload key"; losing it means
+  users of the GitHub APK must uninstall to update.
+- **macOS DMG**: match's `developer_id` certificate and profiles, notarized with
+  the `ASC_*` key. An API key cannot create a Developer ID certificate: the
+  account holder creates "Developer ID Application" in the developer portal,
+  runs `fastlane match import --type developer_id --platform macos`, then
+  `fastlane bootstrap_signing` for the profiles.
 
 The `flutter-ci` skill covers diagnosing a failed job.
 
@@ -110,7 +129,7 @@ Listing text lives in `fastlane/metadata/`. Screenshots are uploaded separately
 
 ## Where things are
 
-- `.github/workflows/release-please.yml`: release PR, TestFlight, Linux.
+- `.github/workflows/release-please.yml`: release PR, TestFlight, macOS DMG, Linux, Android, Windows.
 - `.github/workflows/app-store.yml`: App Review submission.
-- `fastlane/Fastfile`: lanes `ios release`, `mac release`, `submit`, `sync_metadata`.
+- `fastlane/Fastfile`: lanes `ios release`, `mac release`, `mac dmg`, `submit`, `sync_metadata`.
 - `release-please-config.json`, `.release-please-manifest.json`.

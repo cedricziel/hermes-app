@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
+import 'package:hermes_app/src/memory/memory_usage.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'memory_fixtures.dart';
@@ -16,8 +17,11 @@ void main() {
     server.on('GET', '/api/learning/graph', memoryGraph);
     final rows = await repository.load('private-profile');
     expect(rows.map((entry) => entry.id), [memoryId, 'memory:profile:1:other']);
-    expect(rows.first.sourceLabel, 'Memory');
-    expect(rows.last.sourceLabel, 'User profile');
+    expect(rows.map((entry) => entry.text), ['Long memory', 'User preference']);
+    expect(rows.map((entry) => entry.tab), [
+      MemoryTab.agentNotes,
+      MemoryTab.aboutYou,
+    ]);
     expect(server.requests.single.queryParameters, {
       'profile': 'private-profile',
     });
@@ -91,5 +95,112 @@ void main() {
       repository.load('work'),
       throwsA(MemoryFailure.transport),
     );
+  });
+
+  group('entry text', () {
+    Map<String, Object?> graph(List<(String, String)> entries) => {
+      'nodes': [
+        for (final (i, (source, text)) in entries.indexed)
+          {
+            'id': 'memory:$source:$i:digest',
+            'kind': 'memory',
+            'label': text.split('\n').first,
+            'memorySource': source,
+          },
+      ],
+      'memory': [
+        for (final (source, text) in entries) memoryCard(source, text),
+      ],
+    };
+
+    test('comes from the card without a detail request', () async {
+      server.on(
+        'GET',
+        '/api/learning/graph',
+        graph([('profile', 'Metric units')]),
+      );
+      final rows = await repository.load('work');
+      expect(rows.single.text, 'Metric units');
+      expect(rows.single.truncated, isFalse);
+      expect(server.requestsTo('GET', '/api/learning/node'), isEmpty);
+    });
+
+    test('a body of 1200 characters is completed from the detail', () async {
+      final text = 'x' * 1500;
+      server
+        ..on('GET', '/api/learning/graph', graph([('memory', text)]))
+        ..on('GET', '/api/learning/node', {
+          ...memoryDetail,
+          'id': 'memory:memory:0:digest',
+          'content': text,
+        });
+      final rows = await repository.load('work');
+      expect(rows.single.text, text);
+      expect(rows.single.truncated, isFalse);
+      expect(server.requestsTo('GET', '/api/learning/node'), hasLength(1));
+    });
+
+    test('a body of 1199 characters is complete', () async {
+      server.on('GET', '/api/learning/graph', graph([('memory', 'x' * 1199)]));
+      final rows = await repository.load('work');
+      expect(rows.single.text, hasLength(1199));
+      expect(server.requestsTo('GET', '/api/learning/node'), isEmpty);
+    });
+
+    test('a node without a matching card is read from the detail', () async {
+      server
+        ..on('GET', '/api/learning/graph', {
+          ...graph([('memory', 'Short')]),
+          'memory': [],
+        })
+        ..on('GET', '/api/learning/node', {
+          ...memoryDetail,
+          'id': 'memory:memory:0:digest',
+          'content': 'Short and complete',
+        });
+      final rows = await repository.load('work');
+      expect(rows.single.text, 'Short and complete');
+    });
+
+    test('a failing detail marks the entry as cut short', () async {
+      final text = 'x' * 1500;
+      server
+        ..on('GET', '/api/learning/graph', graph([('memory', text)]))
+        ..on('GET', '/api/learning/node', {}, status: 500);
+      final rows = await repository.load('work');
+      expect(rows.single.text, hasLength(1200));
+      expect(rows.single.truncated, isTrue);
+    });
+  });
+
+  group('limits', () {
+    test('are read from the profile config when positive integers', () async {
+      server.on(
+        'GET',
+        '/api/config',
+        memoryConfig(memoryLimit: 3000, userLimit: 2000),
+      );
+      final limits = await repository.limits('work');
+      expect(limits.agentNotes, 3000);
+      expect(limits.aboutYou, 2000);
+      expect(server.requests.single.queryParameters['profile'], 'work');
+    });
+
+    test('a missing or invalid limit stays unknown', () async {
+      server.on('GET', '/api/config', {
+        'memory': {'memory_char_limit': 0, 'user_char_limit': '1375'},
+      });
+      final limits = await repository.limits('work');
+      expect(limits.agentNotes, isNull);
+      expect(limits.aboutYou, isNull);
+    });
+
+    test('a failing config read is a transport failure', () async {
+      server.on('GET', '/api/config', {}, status: 500);
+      await expectLater(
+        repository.limits('work'),
+        throwsA(MemoryFailure.transport),
+      );
+    });
   });
 }

@@ -117,6 +117,8 @@ void main() {
       );
       await tester.runAsync(() async => pumpEventQueue());
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Agent notes'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Long memory'));
       await tester.runAsync(() async => pumpEventQueue());
       await tester.pumpAndSettle();
@@ -151,6 +153,8 @@ void main() {
       ),
     );
     await tester.runAsync(() async => pumpEventQueue());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Agent notes'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Long memory'));
     await tester.runAsync(() async => pumpEventQueue());

@@ -197,6 +197,21 @@ void main() {
       expect(target.profile, 'work');
     });
 
+    test('round-trips a message from Hermes and the summary', () {
+      final message = roundTrip(
+        const NotificationTarget.message(
+          threadId: 'hermes-app-1',
+          profile: 'w',
+        ),
+      )!;
+      expect(message.isMessage, isTrue);
+      expect(message.threadId, 'hermes-app-1');
+      expect(message.profile, 'w');
+
+      final summary = roundTrip(const NotificationTarget.messages())!;
+      expect(summary.isMessageSummary, isTrue);
+    });
+
     test('round-trips a thread without a profile', () {
       final target = roundTrip(const NotificationTarget(threadId: 's1'))!;
 
@@ -1028,6 +1043,66 @@ void main() {
 
       expect(target.prompt, isNull);
       expect(target.threadId, 's1');
+    });
+  });
+
+  group('a message from Hermes', () {
+    AttentionNotification note({String threadId = 'hermes-app-1'}) =>
+        AttentionNotification(
+          threadId: threadId,
+          title: 'Report',
+          body: 'b',
+          profile: 'work',
+          isMessage: true,
+        );
+
+    test('opens its chat under its profile', () {
+      final payload = notificationPayload(note());
+
+      final target = targetFromPayload(payload)!;
+
+      expect(target.isMessage, isTrue);
+      expect(target.threadId, 'hermes-app-1');
+      expect(target.profile, 'work');
+    });
+
+    test('the summary has no chat', () {
+      final payload = notificationPayload(note(threadId: ''));
+
+      final target = targetFromPayload(payload)!;
+
+      expect(target.isMessageSummary, isTrue);
+      expect(jsonDecode(payload), {'m': 1, 'p': 'work'});
+    });
+
+    test('a notification under the message category alone is not one', () {
+      final target = targetFromPayload(
+        notificationPayload(
+          const AttentionNotification(
+            threadId: 's1',
+            title: 't',
+            body: 'b',
+            category: messageCategory,
+          ),
+        ),
+      )!;
+
+      expect(target.isMessage, isFalse);
+    });
+
+    test('a reply is not a message', () {
+      final target = targetFromPayload(
+        notificationPayload(
+          const AttentionNotification(
+            threadId: 's1',
+            title: 't',
+            body: 'b',
+            category: replyReadyCategory,
+          ),
+        ),
+      )!;
+
+      expect(target.isMessage, isFalse);
     });
   });
 }

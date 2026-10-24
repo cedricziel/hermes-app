@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../agent_messages/agent_delivery.dart';
 import '../api/request_timeout.dart';
 import '../voice/voice_support.dart';
 import '../voice/synthesized_speech.dart';
@@ -93,6 +94,43 @@ class HermesChatRepository {
       threads: [for (final row in rows) ?_thread(row)],
       nextOffset: offset + limit,
       hasMore: total == null ? rows.length >= limit : offset + limit < total,
+    );
+  }
+
+  /// One page of the chats [profile]'s messenger deliveries created, newest
+  /// first.
+  Future<DeliveryPage> loadDeliveries({String? profile, int offset = 0}) async {
+    final response = await _api.getSessionsApiSessionsGet(
+      limit: kDeliveryPageSize,
+      offset: offset,
+      order: 'created',
+      archived: 'exclude',
+      source_: kDeliverySource,
+      profile: profile,
+    );
+    final rows = _rows(response.data, 'sessions');
+    final total = switch (response.data) {
+      {'total': final int total} => total,
+      _ => null,
+    };
+    // The window is the first rows; pinned ones not in it follow. `total`
+    // also counts hidden sessions, so it can overstate what follows; the
+    // page limit bounds the cost.
+    final window = rows.take(kDeliveryPageSize);
+    final full =
+        rows.length >= kDeliveryPageSize &&
+        (total == null || offset + kDeliveryPageSize < total);
+    final oldest = full ? rows[kDeliveryPageSize - 1]['started_at'] : null;
+    return DeliveryPage(
+      [for (final row in rows) ?AgentDelivery.fromRow(row)],
+      full: full,
+      oldestStartedAt: oldest is num ? oldest.toDouble() : null,
+      listed: [
+        for (final row in window)
+          if (row['archived'] != true)
+            if (row['started_at'] case final num startedAt)
+              startedAt.toDouble(),
+      ],
     );
   }
 
@@ -248,7 +286,23 @@ class HermesChatRepository {
       remote: true,
       named:
           row['title'] is String && (row['title'] as String).trim().isNotEmpty,
+      unread: _unread(row),
     );
+  }
+
+  /// List rows say `unread`. A single session only has the `last_read_at`
+  /// watermark it is computed from (null: never tracked, which counts as
+  /// read; 0: marked unread) and its stored `last_activity_at`.
+  static bool _unread(Map<String, dynamic> row) {
+    if (row['unread'] case final bool unread) return unread;
+    final lastRead = row['last_read_at'];
+    if (lastRead is! num) return false;
+    final activity = [
+      row['last_active'],
+      row['last_activity_at'],
+      row['started_at'],
+    ].whereType<num>().fold<num>(0, max);
+    return activity > lastRead;
   }
 
   /// The session-changing calls take the [profile] the session was listed
@@ -276,6 +330,9 @@ class HermesChatRepository {
 
   Future<void> archiveThread(String id, {String? profile}) =>
       _patch(id, SessionRename(archived: true, profile: profile));
+
+  Future<void> markRead(String id, {String? profile}) =>
+      _patch(id, SessionRename(unread: false, profile: profile));
 
   /// Deleting a session the dashboard no longer has counts as success.
   Future<void> deleteThread(String id, {String? profile}) =>
@@ -449,7 +506,7 @@ class HermesChatRepository {
             args: args,
             status: result == null
                 ? ToolCallStatus.completed
-                : toolResultStatus(data ?? result),
+                : toolResultStatus(data ?? result, name: name),
             result: result ?? '',
             resultData: data,
             reasoning: calls.isEmpty ? reasoning : '',

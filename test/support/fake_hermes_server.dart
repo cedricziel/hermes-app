@@ -169,6 +169,35 @@ Map<String, Object?> sessionRow({
   double? lastActive,
   bool pinned = false,
   bool archived = false,
+  bool? unread,
+  double? lastReadAt,
+  String source = 'cli',
+  int messageCount = 2,
+}) => {
+  'id': id,
+  'source': source,
+  'title': title,
+  'model': 'hermes-4',
+  'started_at': startedAt,
+  'ended_at': null,
+  'message_count': messageCount,
+  'preview': preview,
+  'archived': archived,
+  'pinned': pinned,
+  'last_active': lastActive ?? startedAt,
+  'unread': ?unread,
+  'last_read_at': ?lastReadAt,
+};
+
+/// A `GET /api/sessions/{id}` body: the stored session row, which has
+/// `last_activity_at` and `last_read_at` but none of the list's computed
+/// `last_active` or `unread`.
+Map<String, Object?> sessionDetailRow({
+  required String id,
+  String? title,
+  double startedAt = 1780000000,
+  double? lastActivityAt,
+  double? lastReadAt,
 }) => {
   'id': id,
   'source': 'cli',
@@ -177,10 +206,8 @@ Map<String, Object?> sessionRow({
   'started_at': startedAt,
   'ended_at': null,
   'message_count': 2,
-  'preview': preview,
-  'archived': archived,
-  'pinned': pinned,
-  'last_active': lastActive ?? startedAt,
+  'last_activity_at': lastActivityAt,
+  'last_read_at': lastReadAt,
 };
 
 /// A `GET /api/sessions/{id}/messages` row.

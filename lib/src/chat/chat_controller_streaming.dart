@@ -170,6 +170,10 @@ extension _ChatControllerStreaming on ChatController {
       state.clear();
     }
     _processOutputs.clear();
+    for (final decisions in _memoryDecisions.values) {
+      decisions.dispose();
+    }
+    _memoryDecisions.clear();
     _ownedBindings.clear();
     _sessionActionGenerations.clear();
     _sessionStates.clear();

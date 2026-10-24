@@ -85,7 +85,7 @@ jobs:
           [ "${{ needs.analyze.result }}" = success ] && [ "${{ needs.test.result }}" = success ] && [ "${{ needs.test-watch.result }}" = success ]
 
   build-android:
-    name: Build Android (debug)
+    name: Build Android (release)
     runs-on: ubuntu-latest
     needs: analyze-and-test
     steps:
@@ -104,8 +104,28 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      # A release build, so R8 shrinking is checked too. Without
+      # android/key.properties it is signed with the debug key.
+      - name: Build release APK
+        run: flutter build apk --release
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Build release
+        run: flutter build windows --release
 
   # The watch app's logic lives in a Swift package (ios/HermesWatch) so it can
   # be tested on the Mac without a watch simulator. The system surfaces' shared

@@ -49,6 +49,7 @@ class StepCounts {
     this.newRequests = 0,
     this.repliesFinished = 0,
     this.schedulesRan = 0,
+    this.messagesFound = 0,
   });
 
   /// Open requests announced for the first time.
@@ -59,6 +60,9 @@ class StepCounts {
 
   /// Scheduled runs announced.
   final int schedulesRan;
+
+  /// Messages from Hermes announced.
+  final int messagesFound;
 }
 
 /// Everything a step may use. The gateway socket is shared by all steps.
@@ -105,12 +109,19 @@ class BackgroundContext {
   /// alive in the background does not.
   Future<bool> isAppInFront() => _inFrontNow ??= _inFront();
 
+  /// Whether the app is in front now, asked again each time: for a step that
+  /// must not act on an answer from before a long read.
+  Future<bool> appInFrontNow() => _inFront();
+
   /// What is left of a step's time, less [reserve] for the work it still has
-  /// to do after waiting; never below zero. All steps start with the run.
+  /// to do after waiting; never below zero. All steps start with the run, and
+  /// the run's own deadline, counted from before it connected, may come first.
   Duration remainingStepBudget({
     Duration reserve = const Duration(seconds: 2),
   }) {
-    final left = stepTimeout - _now().difference(_started) - reserve;
+    final step = stepTimeout - _now().difference(_started);
+    final run = hermes.untilDeadline;
+    final left = (run < step ? run : step) - reserve;
     return left.isNegative ? Duration.zero : left;
   }
 
@@ -580,6 +591,7 @@ List<BackgroundStep> _defaultSteps() {
     ShortcutsRefreshStep(snapshot),
     RunningRepliesStep(),
     ScheduleAlertsStep(),
+    AgentMessagesStep(),
   ];
 }
 
@@ -618,12 +630,14 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
       var newRequests = 0;
       var repliesFinished = 0;
       var schedulesRan = 0;
+      var messagesFound = 0;
       var failed = 0;
       void report() {
         hermes
           ..annotate('requests.new', newRequests)
           ..annotate('replies.finished', repliesFinished)
           ..annotate('schedules.ran', schedulesRan)
+          ..annotate('agent_messages.found', messagesFound)
           ..annotate('steps_failed', failed);
       }
 
@@ -638,6 +652,7 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
               newRequests += counts.newRequests;
               repliesFinished += counts.repliesFinished;
               schedulesRan += counts.schedulesRan;
+              messagesFound += counts.messagesFound;
             }
             report();
           }),

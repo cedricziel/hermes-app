@@ -437,6 +437,12 @@ class ToolCallStatusIcon extends StatelessWidget {
           size: 14,
           color: context.hermesColors.success,
         );
+      case ToolCallStatus.warning:
+        return AppIcon(
+          AppIcons.warning,
+          size: 14,
+          color: context.hermesColors.warning,
+        );
       case ToolCallStatus.error:
         return AppIcon(
           AppIcons.errorFilled,

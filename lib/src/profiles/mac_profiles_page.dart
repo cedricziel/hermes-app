@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,11 @@ import '../messaging/messaging_screen.dart';
 import '../chat/gateway_connection_transport.dart';
 import '../macos/mac_toolbar.dart';
 import '../mcp/mcp_servers_screen.dart';
+import '../memory/memory_destination.dart';
+import '../chat/chat_transport.dart';
+import '../memory/memory_proposal_session.dart';
+import '../memory/memory_proposals_repository.dart';
+import '../memory/memory_repository.dart';
 import '../plugins/installed_plugin.dart';
 import '../plugins/plugins_screen.dart';
 import '../settings/helper_models_screen.dart';
@@ -24,10 +31,19 @@ import 'widgets/new_profile_dialog.dart';
 /// Counts are read when a profile is selected and left out when a read
 /// fails. Messaging platforms and plugins count the ones switched on.
 class MacProfilesPage extends StatefulWidget {
-  const MacProfilesPage({super.key, required this.profiles, this.changeSource});
+  const MacProfilesPage({
+    super.key,
+    required this.profiles,
+    this.changeSource,
+    this.transport,
+  });
 
   final ChatProfiles profiles;
   final GatewayConnectionTransport? changeSource;
+
+  /// Runs the commands that count the changes waiting in a profile; the
+  /// count is left out without one.
+  final ChatTransport? transport;
 
   @override
   State<MacProfilesPage> createState() => _MacProfilesPageState();
@@ -39,6 +55,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   /// The counts read so far, by profile, shown at once when a profile is
   /// selected again while they are read anew.
   final _counts = <String, Map<ProfileSection, int>>{};
+
+  /// The staged memory changes waiting, by profile.
+  final _waiting = <String, int>{};
   int _generation = 0;
 
   ChatProfiles get _profiles => widget.profiles;
@@ -94,6 +113,14 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     if (profile != null) put(ProfileSection.skills, profile.skillCount);
     if (repositories == null) return;
     await Future.wait([
+      _loadWaiting(name, generation, repositories),
+      count(
+        ProfileSection.memory,
+        () => MemoryRepository(
+          repositories.api.raw,
+          telemetry: repositories.telemetry,
+        ).count(name),
+      ),
       count(
         ProfileSection.mcp,
         () async => (await repositories.mcp.loadServers(profile: name)).length,
@@ -120,11 +147,34 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     ]);
   }
 
-  void _open(ProfileSection section) {
+  Future<void> _loadWaiting(
+    String name,
+    int generation,
+    HermesRepositories repositories,
+  ) async {
+    final transport = widget.transport;
+    if (transport == null) return;
+    final snapshot = await MemoryProposalsRepository(
+      MemoryProposalSession(transport),
+      telemetry: repositories.telemetry,
+    ).load(name);
+    if (!mounted || generation != _generation) return;
+    setState(() {
+      switch (snapshot.waiting) {
+        case final waiting?:
+          _waiting[name] = waiting;
+        case null:
+          _waiting.remove(name);
+      }
+    });
+  }
+
+  Future<void> _open(ProfileSection section) async {
     final name = _selected;
     final repositories = HermesRepositories.maybeOf(context);
     if (name == null || repositories == null) return;
     final page = switch (section) {
+      ProfileSection.memory => null,
       ProfileSection.skills => SkillsScreen(
         repository: repositories.skills,
         chatProfile: name,
@@ -146,6 +196,16 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         profile: name,
       ),
     };
+    if (page == null) {
+      await openMemory(
+        context,
+        from: MemoryEntryPoint.profilesPage,
+        profile: name,
+        transport: widget.transport,
+      );
+      if (mounted) unawaited(_loadCounts(name));
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
@@ -188,6 +248,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     selected: _selected,
                     onSelect: _select,
                     counts: _counts[_selected] ?? const {},
+                    memoryWaiting: _waiting[_selected],
                     onOpen: _open,
                   ),
           ),

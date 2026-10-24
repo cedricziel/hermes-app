@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/agent_messages/agent_delivery.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 
@@ -273,6 +274,232 @@ void main() {
       }, status: 404);
 
       expect(repository.archiveThread('s1'), throwsA(isA<DioException>()));
+    });
+  });
+
+  group('unread', () {
+    Future<ChatThread> listed(Map<String, Object?> row) async {
+      server.on('GET', '/api/sessions', sessionListBody([row]));
+      return (await repository.loadThreads()).single;
+    }
+
+    test('a listed chat is unread only when the dashboard says so', () async {
+      expect((await listed(sessionRow(id: 's1', unread: true))).unread, isTrue);
+      expect(
+        (await listed(sessionRow(id: 's1', unread: false))).unread,
+        isFalse,
+      );
+      expect((await listed(sessionRow(id: 's1'))).unread, isFalse);
+    });
+
+    Future<ChatThread?> fetched(Map<String, Object?> row) async {
+      server.on('GET', '/api/sessions/s1', row);
+      return repository.loadThread('s1');
+    }
+
+    test('a fetched chat is unread when active after it was read', () async {
+      final active = await fetched(
+        sessionDetailRow(
+          id: 's1',
+          lastActivityAt: 1780000100,
+          lastReadAt: 1780000050,
+        ),
+      );
+      expect(active!.unread, isTrue);
+      final marked = await fetched(sessionDetailRow(id: 's1', lastReadAt: 0));
+      expect(marked!.unread, isTrue);
+    });
+
+    test('a fetched chat never tracked or read since is not unread', () async {
+      final never = await fetched(sessionDetailRow(id: 's1'));
+      expect(never!.unread, isFalse);
+      final read = await fetched(
+        sessionDetailRow(
+          id: 's1',
+          lastActivityAt: 1780000100,
+          lastReadAt: 1780000200,
+        ),
+      );
+      expect(read!.unread, isFalse);
+    });
+  });
+
+  group('loadDeliveries', () {
+    test(
+      'asks for the profile\'s messages from Hermes, newest first',
+      () async {
+        server.on('GET', '/api/sessions', sessionListBody([]));
+
+        await repository.loadDeliveries(profile: 'work', offset: 20);
+
+        expect(
+          server.requestsTo('GET', '/api/sessions').single.queryParameters,
+          allOf([
+            for (final entry in {
+              'source': 'hermes_app',
+              'order': 'created',
+              'archived': 'exclude',
+              'limit': 20,
+              'offset': 20,
+              'profile': 'work',
+            }.entries)
+              containsPair(entry.key, entry.value),
+          ]),
+        );
+      },
+    );
+
+    test('reads the fields a look needs and skips unusable rows', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(
+            id: 'hermes-app-a',
+            title: 'Message: Report',
+            startedAt: 1780000100.5,
+            messageCount: 1,
+            unread: true,
+          ),
+          sessionRow(id: 'hermes-app-b', messageCount: 0),
+          {...sessionRow(id: 'hermes-app-e')}..remove('message_count'),
+          sessionRow(id: 'cli-chat', unread: true),
+          {...sessionRow(id: 'hermes-app-c'), 'started_at': null},
+          {...sessionRow(id: 'hermes-app-d')}..remove('id'),
+        ]),
+      );
+
+      final rows = (await repository.loadDeliveries()).deliveries;
+
+      expect(
+        [for (final row in rows) row.id],
+        ['hermes-app-a', 'hermes-app-b', 'hermes-app-e'],
+      );
+      expect(rows.first.title, 'Message: Report');
+      expect(rows.first.startedAt, 1780000100.5);
+      expect(rows.first.messageCount, 1);
+      expect(rows.first.unread, isTrue);
+      expect(rows[1].unread, isFalse);
+      expect(rows[1].messageCount, 0);
+      expect(rows.last.messageCount, 1);
+    });
+
+    group('the page', () {
+      List<Map<String, Object?>> rows(int count, {int appChatEvery = 2}) => [
+        for (var i = 0; i < count; i++)
+          sessionRow(
+            id: i % appChatEvery == 0 ? 'hermes-app-$i' : 'chat-$i',
+            startedAt: 1780000000.0 - i,
+          ),
+      ];
+
+      Future<DeliveryPage> page(
+        List<Map<String, Object?>> rows, {
+        int? total,
+        int offset = 0,
+      }) {
+        server.on('GET', '/api/sessions', sessionListBody(rows, total: total));
+        return repository.loadDeliveries(offset: offset);
+      }
+
+      test(
+        'is judged by the rows listed, not by the deliveries among them',
+        () async {
+          final result = await page(rows(20), total: 100);
+
+          expect(result.deliveries, hasLength(10));
+          expect(result.full, isTrue);
+          expect(result.oldestStartedAt, 1780000000.0 - 19);
+        },
+      );
+
+      test('counts a pinned row inside the window', () async {
+        final listed = rows(20, appChatEvery: 20)
+          ..[5] = sessionRow(id: 'hermes-app-pinned', pinned: true);
+
+        final result = await page(listed, total: 100);
+
+        expect(result.full, isTrue);
+        expect(
+          result.deliveries.map((d) => d.id),
+          contains('hermes-app-pinned'),
+        );
+      });
+
+      test(
+        'measures the window, not the pinned rows added behind it',
+        () async {
+          final listed = [
+            ...rows(20),
+            sessionRow(id: 'hermes-app-pinned', startedAt: 1.0, pinned: true),
+          ];
+
+          final result = await page(listed, total: 100);
+
+          expect(result.oldestStartedAt, 1780000000.0 - 19);
+          expect(result.deliveries, hasLength(11));
+        },
+      );
+
+      test('lists the start time of every row in the window', () async {
+        final listed = [
+          ...rows(20),
+          sessionRow(id: 'hermes-app-pinned', startedAt: 1.0, pinned: true),
+        ];
+
+        final result = await page(listed, total: 100);
+
+        expect(result.listed, hasLength(20));
+        expect(result.listed.first, 1780000000.0);
+      });
+
+      test('skips an archived delivery the pinned rows bring back', () async {
+        final listed = [
+          ...rows(3),
+          {
+            ...sessionRow(id: 'hermes-app-archived', pinned: true),
+            'archived': true,
+          },
+        ];
+
+        final result = await page(listed);
+
+        expect(
+          result.deliveries.map((d) => d.id),
+          isNot(contains('hermes-app-archived')),
+        );
+        expect(result.listed, hasLength(3));
+      });
+
+      test(
+        'is the last when fewer rows came back than were asked for',
+        () async {
+          final result = await page(rows(7), total: 7);
+
+          expect(result.full, isFalse);
+        },
+      );
+
+      test('is the last when the list ends with it', () async {
+        final result = await page(rows(20), total: 40, offset: 20);
+
+        expect(result.full, isFalse);
+      });
+    });
+  });
+
+  group('markRead', () {
+    test('patches only the unread flag, under its profile', () async {
+      server.on(
+        'PATCH',
+        '/api/sessions/s1',
+        sessionPatchBody(flags: {'unread': false}),
+      );
+
+      await repository.markRead('s1', profile: 'work');
+
+      final request = server.requestsTo('PATCH', '/api/sessions/s1').single;
+      expect(jsonBody(request), {'unread': false, 'profile': 'work'});
     });
   });
 

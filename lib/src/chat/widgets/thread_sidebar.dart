@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
 import '../../macos/mac_sidebar.dart';
+import '../../memory/memory_waiting_count.dart';
 import '../../macos/mac_source_list.dart' show kMacSourceListRowHeight;
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
@@ -68,6 +69,8 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenProfiles,
     this.onOpenMessaging,
     this.onOpenSkills,
+    this.onOpenMemory,
+    this.memoryWaiting,
     this.onOpenPlugins,
     this.onOpenMcp,
     this.onOpenHelperModels,
@@ -97,6 +100,10 @@ class ThreadSidebar extends StatelessWidget {
   final VoidCallback? onOpenProfiles;
   final VoidCallback? onOpenMessaging;
   final VoidCallback? onOpenSkills;
+  final VoidCallback? onOpenMemory;
+
+  /// How many staged memory changes wait, for the Memory entry.
+  final int? memoryWaiting;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
   final VoidCallback? onOpenHelperModels;
@@ -217,6 +224,12 @@ class ThreadSidebar extends StatelessWidget {
                     (AppIcons.person, 'Profiles', onOpenProfiles!),
                   if (onOpenSkills != null)
                     (AppIcons.extension, 'Skills', onOpenSkills!),
+                  if (onOpenMemory != null)
+                    (
+                      AppIcons.memory,
+                      memoryEntryLabel(memoryWaiting),
+                      onOpenMemory!,
+                    ),
                   if (onOpenMessaging != null)
                     (AppIcons.bot, 'Messaging', onOpenMessaging!),
                   if (onOpenPlugins != null)
@@ -409,8 +422,8 @@ class SidebarAction extends StatelessWidget {
   }
 }
 
-/// Profiles, skills, messaging, plugins, MCP servers and helper models behind one
-/// row, so the thread list keeps the height.
+/// Profiles, skills, memory, messaging, plugins, MCP servers and helper models
+/// behind one row, so the thread list keeps the height.
 class _MoreSection extends StatefulWidget {
   const _MoreSection({required this.entries});
 

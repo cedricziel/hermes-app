@@ -1,5 +1,7 @@
+import 'package:flutter/material.dart' show MaterialPageRoute;
 import 'package:flutter/widgets.dart';
 
+import '../../memory/memory_destination.dart';
 import '../chat_controller.dart';
 import '../chat_models.dart';
 import '../memory/memory_activity_card.dart';
@@ -138,6 +140,14 @@ class BoundActivityPanel extends StatelessWidget {
                 recalls: state?.memoryRecalls ?? const [],
                 earlierRecallsOmitted: state?.earlierRecallsOmitted ?? false,
                 reviewNotes: reviewNotes,
+                onOpenMemory: chat.repository == null || chat.profile == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              MemoryDestination(profile: chat.profile),
+                        ),
+                      ),
               ),
             if (usage != null && usage.shown)
               SessionUsageCard(controller: usage),

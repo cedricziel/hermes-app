@@ -350,6 +350,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(selected(tester), isNull);
+    expect(server.requestsTo('GET', '/api/sessions/gone'), isEmpty);
   });
 
   testWidgets('a notification carries the profile the chat is on', (
@@ -385,6 +386,100 @@ void main() {
 
       expect(selected(tester), isNull);
       expect(find.text('Could not open that chat.'), findsOneWidget);
+    });
+
+    group('on a message from Hermes', () {
+      setUp(() {
+        server
+          ..on(
+            'GET',
+            '/api/sessions',
+            sessionListBody([sessionRow(id: 'other', title: 'Other')]),
+            query: {'profile': 'home'},
+          )
+          ..on(
+            'GET',
+            '/api/sessions/hermes-app-1',
+            sessionRow(
+              id: 'hermes-app-1',
+              title: 'Message: Report',
+              source: 'hermes_app',
+              unread: true,
+            ),
+            query: {'profile': 'home'},
+          )
+          ..on(
+            'GET',
+            '/api/sessions/hermes-app-1/messages',
+            messageListBody('hermes-app-1', [
+              messageRow(id: 1, role: 'assistant', content: 'Report ready'),
+            ]),
+          );
+      });
+
+      testWidgets('a tap switches profile and fetches the chat', (
+        tester,
+      ) async {
+        await pump(tester, withProfiles: true);
+
+        service.tapTarget(
+          const NotificationTarget.message(
+            threadId: 'hermes-app-1',
+            profile: 'home',
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(selected(tester), 'hermes-app-1');
+        expect(find.text('Could not open that chat.'), findsNothing);
+      });
+
+      testWidgets('a launch on another profile switches and fetches', (
+        tester,
+      ) async {
+        service
+          ..launchThread = 'hermes-app-1'
+          ..launchProfile = 'home'
+          ..launchMessage = true;
+
+        await pump(tester, withProfiles: true);
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(selected(tester), 'hermes-app-1');
+        expect(find.text('Could not open that chat.'), findsNothing);
+      });
+
+      testWidgets('a tap for a deleted chat says so', (tester) async {
+        await pump(tester, withProfiles: true);
+
+        service.tapTarget(
+          const NotificationTarget.message(
+            threadId: 'hermes-app-gone',
+            profile: 'home',
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(selected(tester), isNull);
+        expect(find.text('Could not open that chat.'), findsOneWidget);
+      });
+
+      testWidgets('a tap on the summary shows the chat and nothing else', (
+        tester,
+      ) async {
+        var shown = 0;
+        await pump(tester, withProfiles: true, onShowChat: () => shown++);
+
+        service.tapTarget(const NotificationTarget.messages());
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(shown, 1);
+        expect(selected(tester), isNull);
+        expect(find.text('Could not open that chat.'), findsNothing);
+      });
     });
 
     testWidgets('a tap made under this profile opens its thread', (

@@ -14,7 +14,7 @@ import "./MacProfilesPage.css";
 
 /** What a profile's home holds, by the screen that manages it. */
 export type ProfileSection =
-  "skills" | "messaging" | "plugins" | "mcp" | "helperModels";
+  "skills" | "memory" | "messaging" | "plugins" | "mcp" | "helperModels";
 
 const sections: {
   id: ProfileSection;
@@ -27,6 +27,12 @@ const sections: {
     label: "Skills",
     detail: "What the agent knows how to do",
     icon: "auto_awesome",
+  },
+  {
+    id: "memory",
+    label: "Memory",
+    detail: "What Hermes remembers about you and your setup",
+    icon: "bookmark_added",
   },
   {
     id: "messaging",
@@ -60,13 +66,15 @@ export interface MacProfilesPageProps {
   /** Name of the selected profile, whose home the right side shows. */
   selected?: string;
   /**
-   * How many of each the selected profile holds: skills, messaging
-   * platforms switched on, plugins switched on, MCP servers and helper
-   * model slots. A section left out (still loading, or unreadable) shows no
+   * How many of each the selected profile holds: skills, memory entries,
+   * messaging platforms switched on, plugins switched on, MCP servers and
+   * helper model slots. A section left out (still loading, or unreadable) shows no
    * count. Every count is the selected profile's own, Messaging (#445) and
    * Plugins (#497) included.
    */
   counts?: Partial<Record<ProfileSection, number>>;
+  /** Staged memory changes waiting for approval in the selected profile. While it is above 0 the Memory row shows "N waiting" in place of its count. */
+  memoryWaiting?: number;
   /** The server's host, in the subtitle: "4 profiles on hermes.example.com". */
   host?: string;
   /** The profiles could not be loaded: "Could not load profiles" with Retry. */
@@ -84,7 +92,7 @@ export interface MacProfilesPageProps {
  * instead of the pushed `ProfilesScreen`): a `MacToolbar` with New Profile,
  * the profiles in a 220px source list on the left, and the selected
  * profile's home on the right: its avatar, name and path, then a card of
- * what it holds (Skills, Messaging, Plugins, MCP servers, Helper models)
+ * what it holds (Skills, Memory, Messaging, Plugins, MCP servers, Helper models)
  * with a count each, every row opening that screen. Put it in a Mac
  * `AppShell`; it fills its parent.
  */
@@ -92,6 +100,7 @@ export function MacProfilesPage({
   profiles = [],
   selected,
   counts = {},
+  memoryWaiting,
   host,
   failed = false,
   onSelect,
@@ -178,7 +187,11 @@ export function MacProfilesPage({
                         title={s.label}
                         subtitle={s.detail}
                         leading={<GroupedTile icon={s.icon} />}
-                        value={counts[s.id]?.toString()}
+                        value={
+                          s.id === "memory" && (memoryWaiting ?? 0) > 0
+                            ? `${memoryWaiting} waiting`
+                            : counts[s.id]?.toString()
+                        }
                         onClick={() => onOpen?.(s.id)}
                       />
                     ))}

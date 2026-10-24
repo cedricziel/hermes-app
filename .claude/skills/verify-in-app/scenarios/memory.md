@@ -61,3 +61,32 @@ inspection; apply the dependent mutation change before these checks.
 6. Inspect `memory.mutate`, `memory.mutation_outcome`, `memory.edit.open`, and
    `memory.delete.confirm`. Content, opaque IDs, labels, profiles, and backend
    error strings must be absent. A telemetry failure must not break the action.
+
+## Verify waiting memory and skill changes
+
+Stage records by hand in the throwaway home; Hermes lists whatever is in
+`<HERMES_HOME>/pending/memory/` and `<HERMES_HOME>/pending/skills/`.
+`test/real_backend_contract_test.dart` ("staged memory and skill writes") has
+the record shapes. A record is `{id (8 hex), subsystem, action, summary,
+origin (foreground | background_review), created_at, payload}`; a replace,
+patch or remove needs `payload.matched_entry` to equal an entry of
+`memories/MEMORY.md` or `USER.md` (entries are separated by `\n§\n`) or
+approving fails with "Entry changed since it was staged".
+
+1. Stage a chat add, a chat replace (`summary` of `replace in memory: entry
+   matching: X` + newline + `whole entry becomes: Y`), a background patch
+   (`origin: background_review`, `summary` of `background review consolidation
+   (patch on memory): - patch span 'X' -> 'Y' (rest of the entry is kept)`), a
+   background remove and a skill `create`. Open Memory: the card reads "N
+   changes waiting for you" and opens Waiting for you with the right badges,
+   targets and origins; the replaced entry is struck through.
+2. In a window of 900 points or wider (macOS) and on an iPad simulator, the
+   list sits beside the first proposal's detail; on a phone, a row opens a
+   page. Approve one: "Saved to <target>", the list is read again and the file
+   on disk changed. Reject one: the file did not. A skill shows "Show changes".
+3. Change the entry a record is pinned to on disk, then approve it: Hermes'
+   "Entry changed since it was staged" shows and the record stays.
+4. Approve all and Reject all (asks first) decide exactly the listed ids: stage
+   one more record after the list was read and check it stays pending.
+5. The chat sidebar's Memory entry reads "Memory · N waiting" and the Mac
+   Profiles page "N waiting"; the chat list shows no new chat after reading.
