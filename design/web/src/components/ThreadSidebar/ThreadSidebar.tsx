@@ -476,7 +476,7 @@ export interface ThreadSidebarProps {
    * Leave it out when the shell has only Chat.
    */
   navigation?: ReactNode;
-  /** Entries behind the collapsible "More" row (touch and Material). Defaults to Profiles, Skills, Memory (the profile's learned memory), Messaging, Plugins, MCP servers, Helper models; an empty list hides the section. A Mac sidebar has no "More": its Profiles page reaches those screens. */
+  /** Entries behind the collapsible "More" row (touch and Material). Defaults to Profiles, Skills, Memory (the profile's learned memory; "Memory · 2 waiting" while staged changes wait for approval), Messaging, Plugins, MCP servers, Helper models; an empty list hides the section. A Mac sidebar has no "More": its Profiles page reaches those screens. */
   moreEntries?: SidebarMoreEntry[];
   /** Show the "More" section expanded initially. */
   defaultMoreOpen?: boolean;

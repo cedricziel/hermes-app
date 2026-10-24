@@ -160,6 +160,56 @@ void main() {
       expect(opened, [ProfileSection.plugins]);
     });
 
+    testWidgets('Memory shows how many changes wait instead of its count', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        MacProfilesView(
+          profiles: _profiles,
+          selected: 'work',
+          onSelect: (_) {},
+          counts: const {ProfileSection.memory: 3},
+          memoryWaiting: 2,
+          onOpen: (_) {},
+        ),
+      );
+
+      final memory = find.byKey(const ValueKey('profile-section-memory'));
+      expect(
+        find.descendant(of: memory, matching: find.text('2 waiting')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: memory, matching: find.text('3')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('Memory keeps its count when nothing waits or it is unread', (
+      tester,
+    ) async {
+      for (final waiting in [0, null]) {
+        await _pump(
+          tester,
+          MacProfilesView(
+            profiles: _profiles,
+            selected: 'work',
+            onSelect: (_) {},
+            counts: const {ProfileSection.memory: 3},
+            memoryWaiting: waiting,
+            onOpen: (_) {},
+          ),
+        );
+        final memory = find.byKey(const ValueKey('profile-section-memory'));
+        expect(
+          find.descendant(of: memory, matching: find.text('3')),
+          findsOneWidget,
+        );
+        expect(find.textContaining('waiting'), findsNothing);
+      }
+    });
+
     testWidgets('the home path can be selected and copied', (tester) async {
       await _pump(
         tester,

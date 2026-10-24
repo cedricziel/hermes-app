@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/memory/memory_destination.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../hermes_plugin_manager_repository_test.dart' show providersHub;
 import '../support/fake_hermes_server.dart';
 import 'memory_fixtures.dart';
+import 'memory_proposal_support.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -35,11 +37,17 @@ void main() {
     );
   }
 
-  Future<void> pumpDestination(WidgetTester tester, String profile) async {
+  Future<void> pumpDestination(
+    WidgetTester tester,
+    String profile, {
+    ChatTransport? transport,
+  }) async {
     await tester.pumpWidget(
       Provider<HermesRepositories?>.value(
         value: HermesRepositories(server.client()),
-        child: MaterialApp(home: MemoryDestination(profile: profile)),
+        child: MaterialApp(
+          home: MemoryDestination(profile: profile, transport: transport),
+        ),
       ),
     );
     await settle(tester);
@@ -54,6 +62,30 @@ void main() {
       {'profile': 'work'},
     );
     expect(server.requestsTo('GET', '/api/profiles/active'), isEmpty);
+  });
+
+  testWidgets('the waiting card counts the changes of the named profile', (
+    tester,
+  ) async {
+    final transport = ScriptedSlashTransport()
+      ..script['/memory pending'] =
+          'Pending memory writes (1):\n  aa000001  add to memory: Other\n'
+      ..script['/skills pending'] = 'No pending skills writes.';
+    await pumpDestination(tester, 'work', transport: transport);
+
+    expect(find.text('1 change waiting for you'), findsOneWidget);
+    expect(transport.asked.map((a) => a.$2).toSet(), {'work'});
+
+    await tester.tap(find.byKey(const Key('memory-waiting-card')));
+    await settle(tester);
+    expect(find.text('Waiting for you'), findsOneWidget);
+  });
+
+  testWidgets('without a way to run commands there is no card', (tester) async {
+    await pumpDestination(tester, 'work');
+
+    expect(find.byKey(const Key('memory-waiting-card')), findsNothing);
+    expect(find.text('User preference'), findsOneWidget);
   });
 
   testWidgets('the subtitle menu still switches profile', (tester) async {

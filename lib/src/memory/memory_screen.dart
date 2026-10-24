@@ -6,12 +6,15 @@ import '../widgets/state_message.dart';
 import 'memory_controller.dart';
 import 'memory_repository.dart';
 import 'memory_settings_controller.dart';
+import 'memory_proposals_controller.dart';
+import 'memory_proposals_screen.dart';
 import 'memory_usage.dart';
 import 'widgets/memory_entry_editor.dart';
 import 'widgets/memory_entry_list.dart';
 import 'widgets/memory_learning_section.dart';
 import 'widgets/memory_reset_dialog.dart';
 import 'widgets/memory_storage_section.dart';
+import 'widgets/memory_waiting_card.dart';
 
 class MemoryScreen extends StatefulWidget {
   const MemoryScreen({
@@ -21,8 +24,13 @@ class MemoryScreen extends StatefulWidget {
     this.onProfile,
     this.settings,
     this.onOpenProviders,
+    this.proposals,
   });
   final MemoryController controller;
+
+  /// The changes Hermes waits on; the card and the inbox are left out without
+  /// it.
+  final MemoryProposalsController? proposals;
 
   /// The profile's Learning settings; the section is left out without it.
   final MemorySettingsController? settings;
@@ -175,6 +183,17 @@ class _MemoryScreenState extends State<MemoryScreen>
         tabs: [for (final tab in MemoryTab.values) tab.label],
         tabController: _tabs,
         body: MemoryView(
+          header: [
+            if (widget.proposals case final proposals?)
+              _WaitingCard(
+                proposals: proposals,
+                onOpen: () => openMemoryProposals(
+                  context,
+                  controller: proposals,
+                  settings: widget.settings,
+                ),
+              ),
+          ],
           footer: widget.settings == null
               ? const []
               : [
@@ -212,6 +231,22 @@ class _MemoryScreenState extends State<MemoryScreen>
         ),
       ),
     ),
+  );
+}
+
+class _WaitingCard extends StatelessWidget {
+  const _WaitingCard({required this.proposals, required this.onOpen});
+  final MemoryProposalsController proposals;
+  final VoidCallback onOpen;
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: proposals,
+    builder: (context, _) {
+      final waiting = proposals.waiting ?? 0;
+      return waiting == 0
+          ? const SizedBox.shrink()
+          : MemoryWaitingCard(count: waiting, onTap: onOpen);
+    },
   );
 }
 
@@ -317,6 +352,7 @@ class MemoryView extends StatelessWidget {
     this.failure,
     this.editor,
     this.showContent = true,
+    this.header = const [],
     this.footer = const [],
     required this.onOpen,
     required this.onRefresh,
@@ -324,6 +360,9 @@ class MemoryView extends StatelessWidget {
   });
   final bool showContent;
   final Widget? editor;
+
+  /// Shown above the list of entries.
+  final List<Widget> header;
 
   /// Shown under the list of entries.
   final List<Widget> footer;
@@ -388,6 +427,7 @@ class MemoryView extends StatelessWidget {
       entries: [for (final entry in entries) entry.text],
       onOpen: (index) => onOpen(entries[index]),
       onRefresh: onRefresh,
+      header: header,
       footer: footer,
     );
   }

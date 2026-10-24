@@ -42,6 +42,13 @@ class ProposalsSnapshot {
   ];
 
   int get count => memory.proposals.length + skills.proposals.length;
+
+  /// How many changes wait, or null when neither kind could be read.
+  int? get waiting =>
+      memory.status == ProposalReadStatus.ok ||
+          skills.status == ProposalReadStatus.ok
+      ? count
+      : null;
 }
 
 final _unknownCommand = RegExp(r'^Unknown command\b');

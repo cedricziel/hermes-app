@@ -54,15 +54,10 @@ class MemoryProposalsController extends ChangeNotifier {
   /// Decides the proposals of the bound profile; null while unbound.
   MemoryDecisions? decisions;
 
+  String? get profile => _profile;
+
   /// How many changes wait, or null when neither kind could be read.
-  int? get waiting {
-    final read = snapshot;
-    if (read == null) return null;
-    final readable =
-        read.memory.status == ProposalReadStatus.ok ||
-        read.skills.status == ProposalReadStatus.ok;
-    return readable ? read.count : null;
-  }
+  int? get waiting => snapshot?.waiting;
 
   /// The proposal whose detail is shown: the one picked, else the first.
   MemoryProposal? get selected {

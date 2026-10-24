@@ -73,6 +73,8 @@ export interface MacProfilesPageProps {
    * Plugins (#497) included.
    */
   counts?: Partial<Record<ProfileSection, number>>;
+  /** Staged memory changes waiting for approval in the selected profile. While it is above 0 the Memory row shows "N waiting" in place of its count. */
+  memoryWaiting?: number;
   /** The server's host, in the subtitle: "4 profiles on hermes.example.com". */
   host?: string;
   /** The profiles could not be loaded: "Could not load profiles" with Retry. */
@@ -98,6 +100,7 @@ export function MacProfilesPage({
   profiles = [],
   selected,
   counts = {},
+  memoryWaiting,
   host,
   failed = false,
   onSelect,
@@ -184,7 +187,11 @@ export function MacProfilesPage({
                         title={s.label}
                         subtitle={s.detail}
                         leading={<GroupedTile icon={s.icon} />}
-                        value={counts[s.id]?.toString()}
+                        value={
+                          s.id === "memory" && (memoryWaiting ?? 0) > 0
+                            ? `${memoryWaiting} waiting`
+                            : counts[s.id]?.toString()
+                        }
                         onClick={() => onOpen?.(s.id)}
                       />
                     ))}
