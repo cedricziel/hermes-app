@@ -419,7 +419,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (auth != null &&
         transport is GatewayConnectionTransport &&
         _chat.repository != null) {
-      final repository = _chat.repository!;
       final changes = _listChanges = ChangeInvalidationBinding(
         source: transport as GatewayConnectionTransport,
         auth: auth,
@@ -429,40 +428,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
       var requestedGeneration = _chat.threadListGeneration;
       String? requestedProfile;
-      changes.controller.register<
-        ({int generation, String profile, ThreadPage page})
-      >(
-        InvalidationResource.sessions,
-        readSnapshot: (scope) async {
-          final generation = requestedGeneration = _chat.threadListGeneration;
-          final profile = requestedProfile = scope.profile!;
-          final count = _chat.threads.where((thread) => thread.remote).length;
-          final page = await repository.loadThreadPage(
-            limit: count > 50 ? count : 50,
-            profile: profile,
+      changes.controller
+          .register<({int generation, String profile, ThreadPage page})>(
+            InvalidationResource.sessions,
+            readSnapshot: (scope) async {
+              final generation = requestedGeneration =
+                  _chat.threadListGeneration;
+              final profile = requestedProfile = scope.profile!;
+              final page = await _chat.readThreadListPage(profile);
+              return (generation: generation, profile: profile, page: page);
+            },
+            snapshotIsCurrent: (snapshot) =>
+                _chat.active &&
+                snapshot.generation == _chat.threadListGeneration &&
+                snapshot.profile == _chat.profile &&
+                !_chat.threadListInvalidationBlocked,
+            applySnapshot: (snapshot) => _chat.applyInvalidatedThreads(
+              snapshot.page,
+              profile: snapshot.profile,
+              generation: snapshot.generation,
+            ),
+            onFailure: (_) {
+              final profile = requestedProfile;
+              if (profile != null) {
+                _chat.threadListInvalidationFailed(
+                  profile: profile,
+                  generation: requestedGeneration,
+                );
+              }
+            },
           );
-          return (generation: generation, profile: profile, page: page);
-        },
-        snapshotIsCurrent: (snapshot) =>
-            _chat.active &&
-            snapshot.generation == _chat.threadListGeneration &&
-            snapshot.profile == _chat.profile &&
-            !_chat.threadListInvalidationBlocked,
-        applySnapshot: (snapshot) => _chat.applyInvalidatedThreads(
-          snapshot.page,
-          profile: snapshot.profile,
-          generation: snapshot.generation,
-        ),
-        onFailure: (_) {
-          final profile = requestedProfile;
-          if (profile != null) {
-            _chat.threadListInvalidationFailed(
-              profile: profile,
-              generation: requestedGeneration,
-            );
-          }
-        },
-      );
       changes.controller.addListener(_invalidationsChanged);
       _syncListChanges();
     }

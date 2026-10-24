@@ -700,29 +700,46 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// Reads the first page of [profile]'s chats, at least as many as the list
+  /// holds, so that a change merges into everything the user can see.
+  Future<ThreadPage> readThreadListPage(String profile) {
+    final count = _threads.where((thread) => thread.remote).length;
+    return repository!.loadThreadPage(
+      limit: count > 50 ? count : 50,
+      profile: profile,
+    );
+  }
+
+  /// Whether a [refreshThreadList] was asked for while the list could not
+  /// take it, and waits for the list to settle.
+  bool _listRefreshPending = false;
+
   /// Reads the shown profile's chats again, for a chat that appeared on the
   /// server, and merges them in without touching the open chat or any reply
-  /// in flight. Does nothing while the list is loading or has pending
-  /// changes; a failed read leaves the list as it is.
+  /// in flight. While the list is loading or has pending changes it waits
+  /// and reads when they are done; a failed read leaves the list as it is.
   Future<void> refreshThreadList() async {
     final profile = _profile;
-    final repository = this.repository;
-    if (!active ||
-        repository == null ||
-        profile == null ||
-        threadListInvalidationBlocked) {
+    if (!active || repository == null || profile == null) return;
+    if (threadListInvalidationBlocked) {
+      _listRefreshPending = true;
       return;
     }
     final generation = _loadGeneration;
-    final count = _threads.where((thread) => thread.remote).length;
     try {
-      final page = await repository.loadThreadPage(
-        limit: count > 50 ? count : 50,
-        profile: profile,
-      );
+      final page = await readThreadListPage(profile);
       applyInvalidatedThreads(page, profile: profile, generation: generation);
     } on Object {
       // The next find, or opening the screen again, reads the list.
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    if (_listRefreshPending && !threadListInvalidationBlocked) {
+      _listRefreshPending = false;
+      unawaited(refreshThreadList());
     }
   }
 
@@ -748,8 +765,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ..title = fresh.title
           ..named = fresh.named
           ..pinned = fresh.pinned
-          ..unread = fresh.unread
           ..updatedAt = fresh.updatedAt;
+        // The open chat was marked read when it opened; the list may be older.
+        if (thread.id != _selectedId) thread.unread = fresh.unread;
       }
       if (thread.remote) {
         _bound.add(thread);
