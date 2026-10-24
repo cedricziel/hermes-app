@@ -109,6 +109,10 @@ class BackgroundContext {
   /// alive in the background does not.
   Future<bool> isAppInFront() => _inFrontNow ??= _inFront();
 
+  /// Whether the app is in front now, asked again each time: for a step that
+  /// must not act on an answer from before a long read.
+  Future<bool> appInFrontNow() => _inFront();
+
   /// What is left of a step's time, less [reserve] for the work it still has
   /// to do after waiting; never below zero. All steps start with the run.
   Duration remainingStepBudget({

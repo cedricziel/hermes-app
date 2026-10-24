@@ -1552,6 +1552,182 @@ void main() {
       }
     });
 
+    test('shares one profile list request with the other steps', () async {
+      await arrangeNew();
+
+      await refresh(() => [OpenRequestsStep(), step()]);
+
+      expect(server.requestsTo('GET', '/api/profiles'), hasLength(1));
+    });
+
+    test('gives up on a profile list that takes too long', () async {
+      await arrangeNew();
+      final release = Completer<void>();
+      server.onRequest('GET', '/api/profiles', (_) async {
+        await release.future;
+        return (
+          status: 200,
+          body: profileListBody([profileRow(name: 'default', isDefault: true)]),
+        );
+      });
+
+      await refresh(
+        () => [
+          AgentMessagesStep(
+            record: record,
+            lookup: const Duration(milliseconds: 100),
+          ),
+        ],
+      );
+      release.complete();
+
+      expect(notifications.shown, isEmpty);
+      expect(await record.read(_account), seen);
+      expect(events.named('agent_messages.look_failed'), [
+        {'error_type': 'UnreadableProfiles', 'background': true},
+      ]);
+      expect(taskSpan().attributes['steps_failed'], 0);
+    });
+
+    test('writes and posts nothing when the step has no time left', () async {
+      await arrangeNew();
+
+      await runBackgroundRefresh(
+        deps: BackgroundRefreshDeps(
+          headless: headless(),
+          notifications: notifications,
+          announced: AnnouncedRequests(),
+          notificationsEnabled: () async => true,
+          appLockOn: () async => false,
+          cancelSchedule: () async {},
+          appInFront: () async => false,
+          steps: () => [step()],
+          timeout: const Duration(seconds: 5),
+          stepTimeout: const Duration(seconds: 1),
+        ),
+      );
+
+      expect(notifications.shown, isEmpty);
+      expect(await record.read(_account), seen);
+      expect(taskSpan().attributes['steps_failed'], 0);
+    });
+
+    test('writes and posts nothing when the app came to the front while '
+        'the text was read', () async {
+      await arrangeNew();
+      server.onRequest('GET', '/api/sessions/hermes-app-new/messages', (
+        _,
+      ) async {
+        appOpen = true;
+        return (
+          status: 200,
+          body: messageListBody('hermes-app-new', [
+            messageRow(id: 1, role: 'assistant', content: 'Hi'),
+          ]),
+        );
+      });
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(await record.read(_account), seen);
+    });
+
+    test('posts nothing for a record the app in front moved while the text '
+        'was read', () async {
+      await arrangeNew();
+      final held = Completer<void>();
+      var reads = 0;
+      var started = false;
+      server.onRequest('GET', '/api/sessions/hermes-app-new/messages', (
+        _,
+      ) async {
+        // The first read is the step's; the watcher's comes later.
+        if (reads++ == 0) {
+          started = true;
+          await held.future;
+        }
+        return (
+          status: 200,
+          body: messageListBody('hermes-app-new', [
+            messageRow(id: 1, role: 'assistant', content: 'Hi'),
+          ]),
+        );
+      });
+
+      final run = refresh(() => [step()]);
+      for (var i = 0; i < 200 && !started; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      final settings = NotificationSettings();
+      await settings.load();
+      final finds = AgentMessageFinds();
+      final watcher = AgentMessageWatcher(
+        chat: HermesChatRepository(server.client().raw),
+        profiles: HermesProfilesRepository(server.client().raw),
+        service: notifications,
+        settings: settings,
+        finds: finds,
+        record: record,
+        account: () => _account,
+        appLock: () => false,
+      );
+      addTearDown(() {
+        watcher.dispose();
+        finds.dispose();
+      });
+      await watcher.check();
+      expect(notifications.shown, hasLength(1));
+
+      held.complete();
+      await run;
+
+      expect(notifications.shown, hasLength(1));
+      expect(await record.read(_account), {'default': 0, 'work': 200});
+    });
+
+    test('announces nothing when the record cannot be saved', () async {
+      SharedPreferencesAsyncPlatform.instance = _RecordWriteFails({
+        kSavedServerUrlKey: _url,
+        'hermes.agent_messages.baseline.v1':
+            '{"account":"$_account","profiles":{"default":0,"work":100}}',
+      });
+      record = AgentMessageRecord();
+      deliveries('work', [
+        delivery('hermes-app-new', at: 200, title: 'Message: Report'),
+      ]);
+      text('hermes-app-new', 'Hi');
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown, isEmpty);
+      expect(events.named('agent_messages.look_failed'), [
+        {'error_type': 'StateError', 'background': true},
+      ]);
+      expect(events.named('agent_messages.announced'), isEmpty);
+    });
+
+    test('folds more than five finds into one summary without reading any '
+        'text', () async {
+      await record.write(_account, seen);
+      deliveries('work', [
+        for (var i = 0; i < 6; i++) delivery('hermes-app-$i', at: 200.0 + i),
+      ]);
+
+      await refresh(() => [step()]);
+
+      expect(notifications.shown.single.body, '6 new messages');
+      expect(
+        server.requests.where((r) => r.path.endsWith('/messages')),
+        isEmpty,
+      );
+      expect(server.requestsTo('GET', '/api/profiles/active'), isEmpty);
+      expect(events.named('agent_messages.announced'), [
+        {'count': 6, 'summary': true, 'background': true},
+      ]);
+      expect(taskSpan().attributes['agent_messages.found'], 6);
+    });
+
     test('is part of the default run', () async {
       await arrangeNew();
 
@@ -1604,5 +1780,22 @@ class _OrderedService extends FakeNotificationService {
   Future<void> show(AttentionNotification notification) async {
     await onShow();
     await super.show(notification);
+  }
+}
+
+/// Fails the save of the agent-message record and no other.
+base class _RecordWriteFails extends InMemorySharedPreferencesAsync {
+  _RecordWriteFails(super.data) : super.withData();
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) async {
+    if (key == 'hermes.agent_messages.baseline.v1') {
+      throw StateError('disk full');
+    }
+    return super.setString(key, value, options);
   }
 }

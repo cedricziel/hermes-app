@@ -2,9 +2,9 @@
 /// app was away: a reply that finished, a scheduled task that ran and a
 /// message from Hermes.
 ///
-/// Both do what the app in front does, with the same texts and the same
+/// Each does what the app in front does, with the same texts and the same
 /// per-chat or per-job notification, so a run the app already announced is
-/// replaced rather than added to. Neither starts while the app is in front.
+/// replaced rather than added to. None starts while the app is in front.
 library;
 
 import 'dart:async';
@@ -28,6 +28,9 @@ const kAlertLookupBudget = Duration(seconds: 4);
 
 /// The longest the active profile may take to be named in a notification.
 const _activeLookup = Duration(seconds: 2);
+
+/// What a step keeps of its time for posting, once its record is saved.
+const _postingTime = Duration(seconds: 1);
 
 /// The `session.active_list` statuses of a session whose turn has not ended.
 const _turnStatuses = {
@@ -270,19 +273,27 @@ class AgentMessagesStep extends BackgroundStep {
     );
 
     final hermes = context.hermes;
-    final names = [for (final name in await hermes.profiles()) ?name];
-    // `[null]` is what the run falls back to when the names cannot be read.
+    // `[null]` is what the run falls back to when the names cannot be read,
+    // or take too long.
+    final names = [
+      for (final name in await hermes.profiles().timeout(
+        lookup,
+        onTimeout: () => const [null],
+      ))
+        ?name,
+    ];
     if (names.isEmpty) {
       failed('UnreadableProfiles');
       return const StepCounts();
     }
     final account = hermes.accountKey;
     final chat = hermes.repositories.chat;
+    final before = await _record.read(account);
     Object? failure;
     final found = await lookForMessages(
       chat: chat,
       names: names,
-      record: await _record.read(account),
+      record: before,
       clock: _now,
       lookup: lookup,
       onFailure: (error) => failure ??= error,
@@ -298,10 +309,24 @@ class AgentMessagesStep extends BackgroundStep {
           ).wait
         : (const <({String profile, String id}), String>{}, null);
 
+    // A run cut off before the record is saved repeats; one cut off after
+    // it loses the messages. So save only with time left for the posting, and
+    // while the app, which announces by itself, is not in front.
+    if (context.remainingStepBudget(reserve: _postingTime) == Duration.zero ||
+        await context.appInFrontNow()) {
+      return const StepCounts();
+    }
     // Before the notifications, as the app in front does: a record that
     // cannot be saved announces nothing rather than the same chat every run.
     try {
-      await _record.write(account, found.record);
+      // Another look may have moved it meanwhile and announces those messages.
+      if (!await _record.writeIfCurrent(
+        account,
+        found.record,
+        expected: before,
+      )) {
+        return const StepCounts();
+      }
     } on Object catch (error) {
       failure ??= error;
       failed('${failure.runtimeType}');
