@@ -176,13 +176,7 @@ class BotScreenController extends ChangeNotifier {
   bool get _shouldPoll => _canTalk && _demand > 0 && (status?.running ?? false);
 
   void _onConnectionEvent(GatewayConnectionEvent signal) {
-    if (!signal.connected) {
-      if (_demand > 0) {
-        _statusDue = true;
-        _pump();
-      }
-      return;
-    }
+    if (!signal.connected) return _missedBroadcasts();
     final event = signal.event;
     final key = status?.profileKey;
     if (event == null || key == null) return;
@@ -204,11 +198,14 @@ class BotScreenController extends ChangeNotifier {
 
   /// The feed ended in an error, as the session transport's does when its
   /// connection is swapped or retired: broadcasts may have been missed.
-  void _onConnectionError(Object error, StackTrace stackTrace) {
-    if (_demand > 0) {
-      _statusDue = true;
-      _pump();
-    }
+  void _onConnectionError(Object error, StackTrace stackTrace) =>
+      _missedBroadcasts();
+
+  /// Reads the status again, if a surface is showing the screen.
+  void _missedBroadcasts() {
+    if (_demand == 0) return;
+    _statusDue = true;
+    _pump();
   }
 
   /// Takes [next] as the status. A stopped screen or a person in control
