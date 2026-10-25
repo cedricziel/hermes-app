@@ -24,8 +24,8 @@ One PR, `feat(bot-screen): add a watch-only RFB client`, about 500 changed lines
 
 ## 5. Docs and skills
 
-- [ ] 5.1 Add the RFB client to `CLAUDE.md`'s Bot Screen paragraph: the display socket opener (ticket only, typed errors without URL), the pixel format, the encodings, ZRLE's persistent stream and that the client sends no input.
-- [ ] 5.2 No skill change.
+- [x] 5.1 Add the RFB client to `CLAUDE.md`'s Bot Screen paragraph: the display socket opener (ticket only, typed errors without URL), the pixel format, the encodings, ZRLE's persistent stream and that the client sends no input.
+- [x] 5.2 No skill change.
 
 ## 6. Verify
 
