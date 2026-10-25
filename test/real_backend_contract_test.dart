@@ -16,6 +16,8 @@ import 'package:hermes_api/hermes_api.dart'
         RawConfigUpdate,
         SessionRename;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/memory/memory_decisions.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals.dart';
@@ -784,6 +786,76 @@ void main() {
       containsAll(['approval', 'clarify', 'sudo', 'secret']),
     );
   }, skip: skip);
+
+  group('the Bot Screen over the gateway (no model call)', () {
+    late GatewayRpcClient rpc;
+    late BotScreenRepository screen;
+
+    setUp(() async {
+      rpc = GatewayRpcClient(
+        await hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        )(),
+      );
+      addTearDown(rpc.close);
+      screen = BotScreenRepository(
+        (method, params, {required timeout}) =>
+            rpc.request(method, params).timeout(timeout),
+      );
+    });
+
+    // A macOS backend reports `supported: false` and never shows a screen;
+    // set HERMES_DEV_BOT_SCREEN=1 against a Linux backend whose default
+    // profile has a started screen (the verify-bot-screen skill) to check
+    // the running shapes too.
+    final running = Platform.environment['HERMES_DEV_BOT_SCREEN'] == '1';
+
+    test('display.status for the default profile has the shape the app '
+        'relies on', () async {
+      final raw = await rpc.request('display.status', {'profile': 'default'});
+
+      expect(raw['supported'], isA<bool>());
+      expect(raw['installed'], isA<bool>());
+      expect(raw['missing'], isA<List<Object?>>());
+      expect(raw['running'], isA<bool>());
+      expect(raw['geometry'], isA<String>());
+      expect(raw['profile_key'], isA<String>());
+      expect(raw['lease'], containsPair('holder', isIn(['agent', 'human'])));
+      expect(raw['lease'], containsPair('epoch', isA<int>()));
+
+      final status = switch (await screen.status('default')) {
+        BotScreenOk(:final value) => value,
+        final other => fail('expected a status, got $other'),
+      };
+      if (running) {
+        expect(status.supported, isTrue);
+        expect(status.running, isTrue);
+      } else if (!status.supported) {
+        expect(status.running, isFalse);
+      }
+    }, skip: skip);
+
+    test('display.thumbnail for the default profile is a JPEG, or says why '
+        'there is none', () async {
+      final raw = await rpc.request('display.thumbnail', {
+        'profile': 'default',
+      });
+      final frame = switch (await screen.thumbnail('default')) {
+        BotScreenOk(:final value) => value,
+        final other => fail('expected a frame result, got $other'),
+      };
+
+      expect(raw, contains('data_url'));
+      switch (frame) {
+        case BotScreenJpeg(:final bytes):
+          expect(bytes.take(2), [0xff, 0xd8]);
+        case BotScreenSuppressed() || BotScreenStopped():
+          expect(running, isFalse);
+      }
+    }, skip: skip);
+  });
 
   group('media the agent sends (local backend, no model call)', () {
     late MediaSource media;
