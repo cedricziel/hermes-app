@@ -29,5 +29,5 @@ One PR, `feat(bot-screen): add a watch-only RFB client`, about 500 changed lines
 
 ## 6. Verify
 
-- [ ] 6.1 Run format, analyze and the full test suite, all clean.
+- [x] 6.1 Run format, analyze and the full test suite, all clean.
 - [ ] 6.2 Following the `verify-bot-screen` skill, run a throwaway test (not committed) that calls `display.observe` on the container backend through the gateway transport's `request`, opens the display socket and completes the handshake and one full ZRLE frame; record the result in the PR. No verify-in-app run: there is no UI.
