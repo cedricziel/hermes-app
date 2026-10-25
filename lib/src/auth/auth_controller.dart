@@ -319,10 +319,21 @@ class AuthController extends ChangeNotifier {
       return;
     }
 
-    final storedSession = _ignoreStoredSession
-        ? null
-        : await _tokenStore.read();
+    final stored = _ignoreStoredSession
+        ? const SessionEmpty()
+        : await _tokenStore.readState();
     if (stale()) return;
+    if (stored is SessionUnreadable) {
+      _protectedRequestsAllowed = false;
+      _errorMessage = 'Could not read your saved sign-in. Unlock your device and try again.';
+      _events('auth.session.restore_failed', {
+        'reason': 'keychain_unavailable',
+        'locked': stored.locked,
+      });
+      _setState(HermesConnectionState.connectionError);
+      return;
+    }
+    final storedSession = stored.session;
     // A session another dashboard minted is no use here. The address the
     // connect started from counts as well as the one it was redirected to:
     // a proxy that starts redirecting elsewhere is still the same dashboard.

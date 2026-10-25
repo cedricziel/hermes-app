@@ -8,6 +8,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/memory_token_store.dart';
+import 'support/recorded_events.dart';
 
 const _storedSession = HermesSession(
   accessToken: 'access',
@@ -96,6 +97,37 @@ void main() {
   });
 
   tearDown(() => dashboard.close(force: true));
+
+  test(
+    'an unavailable keychain during restore keeps the session for retry',
+    () async {
+      final server = await _Dashboard.start();
+      dashboard = server._server;
+      final tokens = MemoryTokenStore(_storedSession)..unreadable = true;
+      final events = RecordedEvents();
+      final controller = AuthController(
+        tokenStore: tokens,
+        devServerUrl: server.url,
+        telemetry: events.connection,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.bootstrap();
+
+      expect(controller.state, HermesConnectionState.connectionError);
+      expect(controller.errorMessage, contains('saved sign-in'));
+      expect(tokens.session, same(_storedSession));
+      expect(events.named('auth.session.restore_failed'), [
+        {'reason': 'keychain_unavailable', 'locked': true},
+      ]);
+
+      tokens.unreadable = false;
+      await controller.connect(server.url);
+
+      expect(controller.state, HermesConnectionState.ready);
+      expect(controller.identity?.userId, 'u1');
+    },
+  );
 
   final malformed = {
     'providers is not a list': {'providers': 'oidc'},
