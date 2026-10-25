@@ -25,8 +25,8 @@ One PR, `feat(bot-screen): read the bot's screen state over the gateway`, about 
 
 ## 5. Docs and skills
 
-- [ ] 5.1 Add a Bot Screen paragraph to `CLAUDE.md`'s Architecture: `lib/src/bot_screen/`, explicit `profile` (`default` for the default profile), the display timeout that keeps the connection, when status is re-read, and the minimum Hermes version.
-- [ ] 5.2 Create `.claude/skills/verify-bot-screen/SKILL.md`: start a throwaway Linux Hermes with the desktop packages in a container (`nousresearch/hermes-agent:latest-desktop` or a pinned `-desktop` tag; `nousresearch/hermes-sandbox:desktop` for the sandbox placement) with its own ports and `HERMES_HOME` volume, start a profile's screen (`display.start` or a `computer_use` turn), point `scripts/dev-app.sh` or `HERMES_DEV_URL` at it, and tear the container and volume down afterwards. Say that a macOS host reports `supported: false`, so the `scripts/dev-backend.sh` backend on a Mac never shows a screen. Never mount the real `~/.hermes`. Reference it from the `verify-in-app` skill.
+- [x] 5.1 Add a Bot Screen paragraph to `CLAUDE.md`'s Architecture: `lib/src/bot_screen/`, explicit `profile` (`default` for the default profile), the display timeout that keeps the connection, when status is re-read, and the minimum Hermes version.
+- [x] 5.2 Create `.claude/skills/verify-bot-screen/SKILL.md`: start a throwaway Linux Hermes with the desktop packages in a container (`nousresearch/hermes-agent:latest-desktop` or a pinned `-desktop` tag; `nousresearch/hermes-sandbox:desktop` for the sandbox placement) with its own ports and `HERMES_HOME` volume, start a profile's screen (`display.start` or a `computer_use` turn), point `scripts/dev-app.sh` or `HERMES_DEV_URL` at it, and tear the container and volume down afterwards. Say that a macOS host reports `supported: false`, so the `scripts/dev-backend.sh` backend on a Mac never shows a screen. Never mount the real `~/.hermes`. Reference it from the `verify-in-app` skill.
 
 ## 6. Verify
 
