@@ -209,6 +209,15 @@ class GatewayRpcClient {
     Map<String, Object?> params = const {},
   ]) => _request(method, params);
 
+  /// Like [request], but a request that gets no answer within [timeout] is
+  /// abandoned: it fails with [GatewayRequestTimeout], its span ends and its
+  /// entry is dropped, so a late answer is ignored. The socket stays open.
+  Future<Map<String, Object?>> requestWithin(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) => _request(method, params, timeout: timeout);
+
   /// Rechecks ownership after instrumentation, before sending the request frame.
   Future<Map<String, Object?>> requestGuarded(
     String method,
@@ -220,6 +229,7 @@ class GatewayRpcClient {
     String method,
     Map<String, Object?> params, {
     bool Function()? authorize,
+    Duration? timeout,
   }) {
     if (_closed || authorize?.call() == false) {
       return Future.error(const GatewayConnectionClosed());
@@ -231,7 +241,14 @@ class GatewayRpcClient {
       return Future.error(const GatewayConnectionClosed());
     }
     final completer = Completer<Map<String, Object?>>();
-    _pending[id] = _Pending(completer, span);
+    final pending = _pending[id] = _Pending(completer, span);
+    if (timeout != null) {
+      pending.timer = Timer(timeout, () {
+        if (_pending.remove(id) == null) return;
+        _telemetry?.finishRequest(span, failure: const GatewayRequestTimeout());
+        completer.completeError(const GatewayRequestTimeout());
+      });
+    }
     _channel.sink.add(
       jsonEncode({
         'jsonrpc': '2.0',
@@ -366,6 +383,7 @@ class GatewayRpcClient {
   void _settle(int id, Map<String, dynamic> message) {
     final pending = _pending.remove(id);
     if (pending == null) return;
+    pending.timer?.cancel();
     final error = message['error'];
     if (error is Map) {
       final code = (error['code'] as num?)?.toInt() ?? 0;
@@ -420,6 +438,7 @@ class GatewayRpcClient {
     final pending = _pending.values.toList();
     _pending.clear();
     for (final call in pending) {
+      call.timer?.cancel();
       _telemetry?.finishRequest(
         call.span,
         failure: const GatewayConnectionClosed(),
@@ -437,4 +456,7 @@ class _Pending {
 
   final Completer<Map<String, Object?>> completer;
   final Span? span;
+
+  /// Abandons the request when it runs out of time, if it was given any.
+  Timer? timer;
 }

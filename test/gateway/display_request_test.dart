@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 
 import '../support/fake_gateway.dart';
+import '../support/recording_tracer.dart';
 
 void main() {
   late FakeGateway gateway;
@@ -105,5 +108,33 @@ void main() {
 
       expect(connects, 2);
     });
+  });
+
+  test('a request that timed out is abandoned: its span ends and a late '
+      'answer is ignored', () async {
+    final wire = StreamChannelController<String>();
+    final frames = <String>[];
+    wire.foreign.stream.listen(frames.add);
+    final tracer = RecordingTracer();
+    final client = GatewayRpcClient(
+      wire.local,
+      telemetry: gatewayTracer(tracer),
+    );
+    addTearDown(client.close);
+
+    await expectLater(
+      client.requestWithin(
+        'display.thumbnail',
+        const {},
+        timeout: const Duration(milliseconds: 20),
+      ),
+      throwsA(isA<GatewayRequestTimeout>()),
+    );
+
+    expect(tracer.spans, isNotEmpty);
+    expect(tracer.spans.every((span) => span.ended), isTrue);
+    wire.foreign.sink.add('{"jsonrpc":"2.0","id":1,"result":{}}');
+    await pumpEventQueue();
+    expect(client.isClosed, isFalse);
   });
 }
