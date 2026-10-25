@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fake_async/fake_async.dart';
@@ -6,6 +7,8 @@ import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/chat/gateway_connection_transport.dart';
+import 'package:hermes_app/src/chat/session_chat_transport.dart';
 
 import '../support/fake_gateway.dart';
 import 'bot_screen_repository_test.dart' show jpeg, statusJson;
@@ -25,6 +28,9 @@ void main() {
 
   void settle() => async.flushMicrotasks();
 
+  Map<String, Object?> lastRequest(String method) =>
+      gateway.requests.lastWhere((r) => r['method'] == method);
+
   void broadcastStatus({bool isRunning = true, String key = _key}) {
     gateway.event('display.status', '', {
       ...statusJson(running: isRunning),
@@ -42,7 +48,10 @@ void main() {
   }
 
   /// Runs [body] under fake time with a controller for the profile `work`.
-  void scenario(void Function() body) {
+  void scenario(
+    void Function() body, {
+    Stream<GatewayConnectionEvent> Function()? events,
+  }) {
     fakeAsync((zone) {
       async = zone;
       running = true;
@@ -62,7 +71,7 @@ void main() {
       transport = HermesGatewayTransport(connect: gateway.connect);
       controller = BotScreenController(
         BotScreenRepository(transport.requestKeepingConnection),
-        transport.connectionEvents,
+        events?.call() ?? transport.connectionEvents,
         profile: 'work',
       );
       try {
@@ -449,6 +458,192 @@ void main() {
         expect(controller.starting, isFalse);
         expect(controller.status?.running, isFalse);
         expect(controller.startError, BotScreenFailure.display);
+      });
+    });
+  });
+
+  group('a connection feed that fails', () {
+    test('an error in the feed is not uncaught and re-reads the status', () {
+      final feed = StreamController<GatewayConnectionEvent>.broadcast();
+      scenario(() {
+        controller.watch();
+        settle();
+        expect(calls('display.status'), 1);
+
+        feed.addError(SessionTransportUnavailable(retired: false));
+        settle();
+
+        expect(calls('display.status'), 2);
+      }, events: () => feed.stream);
+      feed.close();
+    });
+
+    test('an error with nothing shown does nothing', () {
+      final feed = StreamController<GatewayConnectionEvent>.broadcast();
+      scenario(() {
+        feed.addError(SessionTransportUnavailable(retired: true));
+        settle();
+
+        expect(gateway.requests, isEmpty);
+      }, events: () => feed.stream);
+      feed.close();
+    });
+  });
+
+  group('answers older than a broadcast', () {
+    test('a frame requested before a human took the lease is not shown', () {
+      scenario(() {
+        controller.watch();
+        settle();
+        gateway.silent.add('display.thumbnail');
+        async.elapse(const Duration(seconds: 3));
+        expect(calls('display.thumbnail'), 2);
+
+        broadcastLease('human');
+        gateway.replyTo(lastRequest('display.thumbnail'), {
+          'data_url': 'data:image/jpeg;base64,${base64Encode(jpeg)}',
+        });
+        settle();
+
+        expect(controller.frame, isNull);
+        expect(controller.suppressed, isTrue);
+      });
+    });
+
+    test('a status read before a broadcast does not overwrite it', () {
+      scenario(() {
+        controller.watch();
+        settle();
+        gateway.silent.add('display.status');
+        controller.foreground = false;
+        controller.foreground = true;
+        settle();
+        expect(calls('display.status'), 2);
+
+        broadcastLease('human');
+        gateway.replyTo(
+          lastRequest('display.status'),
+          statusJson(lease: {'holder': 'agent', 'epoch': 1}),
+        );
+        settle();
+
+        expect(controller.status?.lease.holder, BotScreenHolder.human);
+      });
+    });
+
+    test('a frame is ignored while the status says a human holds control', () {
+      scenario(() {
+        holder = 'human';
+        controller.watch();
+        settle();
+
+        expect(calls('display.thumbnail'), 1);
+        expect(controller.frame, isNull);
+      });
+    });
+  });
+
+  group('failures', () {
+    test('a failed first status read is retried with a growing wait', () {
+      scenario(() {
+        var failures = 3;
+        gateway.handlers['display.status'] = (_) {
+          if (failures-- > 0) throw const FakeRpcError(5300, 'busy');
+          return statusJson();
+        };
+        controller.watch();
+        settle();
+        expect(calls('display.status'), 1);
+        expect(controller.status, isNull);
+        expect(controller.failure, BotScreenFailure.display);
+
+        async.elapse(const Duration(seconds: 1));
+        expect(calls('display.status'), 2);
+        async.elapse(const Duration(seconds: 1));
+        expect(calls('display.status'), 2);
+        async.elapse(const Duration(seconds: 1));
+        expect(calls('display.status'), 3);
+        async.elapse(const Duration(seconds: 4));
+        expect(calls('display.status'), 4);
+
+        expect(controller.status?.running, isTrue);
+        expect(controller.failure, isNull);
+        expect(calls('display.thumbnail'), greaterThan(0));
+      });
+    });
+
+    test('the retry stops when nothing asks any more', () {
+      scenario(() {
+        gateway.handlers['display.status'] = (_) =>
+            throw const FakeRpcError(5300, 'busy');
+        final handle = controller.watch();
+        settle();
+        handle.release();
+
+        async.elapse(const Duration(minutes: 5));
+
+        expect(calls('display.status'), 1);
+      });
+    });
+
+    test('frame reads back off after failures and recover on success', () {
+      scenario(() {
+        var failing = true;
+        gateway.handlers['display.thumbnail'] = (_) {
+          if (failing) throw const FakeRpcError(5300, 'no frame');
+          return {'data_url': 'data:image/jpeg;base64,${base64Encode(jpeg)}'};
+        };
+        controller.watch();
+        async.elapse(const Duration(seconds: 30));
+
+        // Requests at 0, 6 and 18 s instead of every 3 s.
+        expect(calls('display.thumbnail'), 3);
+        expect(controller.failure, BotScreenFailure.display);
+
+        failing = false;
+        async.elapse(const Duration(seconds: 12));
+        expect(controller.frame, jpeg);
+        final before = calls('display.thumbnail');
+        async.elapse(const Duration(seconds: 6));
+        expect(calls('display.thumbnail'), before + 2);
+      });
+    });
+  });
+
+  group('start while the app cannot talk', () {
+    test('sends nothing under App Lock or in the background', () {
+      scenario(() {
+        running = false;
+        controller.watch();
+        settle();
+
+        controller.unlocked = false;
+        controller.start();
+        controller.unlocked = true;
+        controller.foreground = false;
+        controller.start();
+        settle();
+
+        expect(calls('display.start'), 0);
+        expect(controller.starting, isFalse);
+      });
+    });
+
+    test('a server without the feature stops polling after a start', () {
+      scenario(() {
+        gateway.handlers['display.start'] = (_) =>
+            throw const FakeRpcError(-32601, 'unknown method');
+        controller.watch();
+        settle();
+        running = true;
+        expect(calls('display.thumbnail'), 1);
+
+        controller.start();
+        settle();
+        async.elapse(const Duration(seconds: 12));
+
+        expect(controller.unsupported, isTrue);
+        expect(calls('display.thumbnail'), 1);
       });
     });
   });

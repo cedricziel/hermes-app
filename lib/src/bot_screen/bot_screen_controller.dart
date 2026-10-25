@@ -45,7 +45,10 @@ class BotScreenController extends ChangeNotifier {
     this.profile,
     this.pollEvery = kFramePollInterval,
   }) {
-    _events = connectionEvents.listen(_onConnectionEvent);
+    _events = connectionEvents.listen(
+      _onConnectionEvent,
+      onError: _onConnectionError,
+    );
   }
 
   final BotScreenRepository _repository;
@@ -84,8 +87,13 @@ class BotScreenController extends ChangeNotifier {
   var _statusDue = false;
   var _frameDue = false;
   var _frameRequests = 0;
+  var _broadcasts = 0;
+  var _statusFailures = 0;
+  var _frameFailures = 0;
+  var _skipTicks = 0;
   var _disposed = false;
   Timer? _timer;
+  Timer? _statusRetry;
 
   bool get foreground => _foreground;
   set foreground(bool value) {
@@ -118,17 +126,27 @@ class BotScreenController extends ChangeNotifier {
   }
 
   /// Starts the profile's screen. The status stays as it was and [starting]
-  /// is set until Hermes answers; a failure is left in [startError].
+  /// is set until Hermes answers; a failure is left in [startError]. Nothing
+  /// is sent while the app is in the background or under App Lock.
   Future<void> start() async {
-    if (starting || _disposed) return;
-    final generation = _generation;
+    if (starting || !_canTalk) return;
+    final mark = _mark();
     starting = true;
     startError = null;
     _notify();
-    final result = await _repository.start(profile);
+    final BotScreenResult<BotScreenStatus> result;
+    try {
+      result = await _repository.start(profile);
+    } catch (_) {
+      if (!_disposed) {
+        starting = false;
+        _notify();
+      }
+      rethrow;
+    }
     if (_disposed) return;
     starting = false;
-    if (generation != _generation) {
+    if (mark != _mark()) {
       // The answer is dropped, but the server may have started the screen.
       _statusDue = true;
       _notify();
@@ -140,13 +158,18 @@ class BotScreenController extends ChangeNotifier {
         _apply(value);
       case BotScreenUnsupported():
         unsupported = true;
+        _reconcile();
       case BotScreenFailed(:final kind):
         startError = kind;
     }
     _notify();
   }
 
-  bool _stale(int generation) => _disposed || generation != _generation;
+  /// What an answer must still match to be used: App Lock and a broadcast
+  /// both make an answer that was asked for before them out of date.
+  (int, int) _mark() => (_generation, _broadcasts);
+
+  bool _stale((int, int) mark) => _disposed || mark != _mark();
 
   bool get _canTalk => !_disposed && _unlocked && _foreground && !unsupported;
 
@@ -167,13 +190,24 @@ class BotScreenController extends ChangeNotifier {
     if (payload['profile_key'] != key) return;
     switch (event.type) {
       case 'display.status':
+        _broadcasts++;
         _apply(BotScreenStatus.fromJson(payload));
         _notify();
       case 'display.lease':
         final current = status;
         if (current == null) return;
+        _broadcasts++;
         _apply(current.withLease(BotScreenLease.fromJson(payload['lease'])));
         _notify();
+    }
+  }
+
+  /// The feed ended in an error, as the session transport's does when its
+  /// connection is swapped or retired: broadcasts may have been missed.
+  void _onConnectionError(Object error, StackTrace stackTrace) {
+    if (_demand > 0) {
+      _statusDue = true;
+      _pump();
     }
   }
 
@@ -194,6 +228,10 @@ class BotScreenController extends ChangeNotifier {
     if (_shouldPoll) {
       if (_timer == null) {
         _timer = Timer.periodic(pollEvery, (_) {
+          if (_skipTicks > 0) {
+            _skipTicks--;
+            return;
+          }
           _frameDue = true;
           _pump();
         });
@@ -203,6 +241,13 @@ class BotScreenController extends ChangeNotifier {
       _timer?.cancel();
       _timer = null;
       _frameDue = false;
+      _frameFailures = 0;
+      _skipTicks = 0;
+    }
+    if (_demand == 0) {
+      _statusRetry?.cancel();
+      _statusRetry = null;
+      _statusFailures = 0;
     }
     _pump();
   }
@@ -220,37 +265,58 @@ class BotScreenController extends ChangeNotifier {
     }
   }
 
-  void _run(Future<void> Function(int generation) call) {
+  void _run(Future<void> Function((int, int) mark) call) {
     _busy = true;
-    call(_generation).whenComplete(() {
+    call(_mark()).whenComplete(() {
       _busy = false;
       if (!_disposed) _pump();
     });
   }
 
-  Future<void> _readStatus(int generation) async {
+  Future<void> _readStatus((int, int) mark) async {
     final result = await _repository.status(profile);
-    if (_stale(generation)) return;
+    if (_stale(mark)) return;
     switch (result) {
       case BotScreenOk(:final value):
+        _statusFailures = 0;
+        _statusRetry?.cancel();
+        _statusRetry = null;
         _apply(value);
       case BotScreenUnsupported():
         unsupported = true;
         _reconcile();
       case BotScreenFailed(:final kind):
         failure = kind;
+        _retryStatusLater();
     }
     _notify();
   }
 
-  Future<void> _readFrame(int generation) async {
+  /// Reads the status again after a growing wait (1 s, doubling to 32 s) for
+  /// as long as a surface asks, because nothing else would: with no status
+  /// there is no polling and no broadcast to match.
+  void _retryStatusLater() {
+    if (_demand == 0 || _statusRetry != null) return;
+    final seconds = 1 << (_statusFailures++).clamp(0, 5);
+    _statusRetry = Timer(Duration(seconds: seconds), () {
+      _statusRetry = null;
+      if (_demand == 0) return;
+      _statusDue = true;
+      _pump();
+    });
+  }
+
+  Future<void> _readFrame((int, int) mark) async {
     final result = await _repository.thumbnail(profile);
-    if (_stale(generation)) return;
+    if (_stale(mark)) return;
     switch (result) {
       case BotScreenOk(value: BotScreenJpeg(:final bytes)):
-        frame = bytes;
-        suppressed = false;
+        _frameFailures = 0;
         failure = null;
+        if (status?.lease.holder != BotScreenHolder.human) {
+          frame = bytes;
+          suppressed = false;
+        }
       case BotScreenOk(value: BotScreenSuppressed()):
         frame = null;
         suppressed = true;
@@ -263,6 +329,8 @@ class BotScreenController extends ChangeNotifier {
         _reconcile();
       case BotScreenFailed(:final kind):
         failure = kind;
+        // Wait out 1, 3, 7 and then at most 9 ticks before the next try.
+        _skipTicks = ((1 << ++_frameFailures) - 1).clamp(0, 9);
     }
     _notify();
   }
@@ -278,6 +346,8 @@ class BotScreenController extends ChangeNotifier {
     _generation++;
     _timer?.cancel();
     _timer = null;
+    _statusRetry?.cancel();
+    _statusRetry = null;
     frame = null;
     unawaited(_events.cancel());
     super.dispose();

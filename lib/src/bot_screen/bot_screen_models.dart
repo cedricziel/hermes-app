@@ -15,16 +15,20 @@ class BotScreenLease {
     this.epoch = 0,
   });
 
-  /// Reads a lease leniently: anything unreadable is the agent's own lease.
+  /// Reads a lease, failing closed: anything but an explicit `agent` holder
+  /// (a missing or unreadable lease included) counts as a person holding
+  /// control, so no picture is shown on a guess.
   factory BotScreenLease.fromJson(Object? json) {
-    if (json is! Map) return const BotScreenLease();
+    if (json is! Map) {
+      return const BotScreenLease(holder: BotScreenHolder.human);
+    }
     final hash = json['viewer_hash'];
     final reason = json['reason'];
     final epoch = json['epoch'];
     return BotScreenLease(
-      holder: json['holder'] == 'human'
-          ? BotScreenHolder.human
-          : BotScreenHolder.agent,
+      holder: json['holder'] == 'agent'
+          ? BotScreenHolder.agent
+          : BotScreenHolder.human,
       viewerHash: hash is String ? hash : null,
       reason: reason is String ? reason : '',
       epoch: epoch is num ? epoch.toInt() : 0,

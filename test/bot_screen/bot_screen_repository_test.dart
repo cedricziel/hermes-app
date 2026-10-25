@@ -36,10 +36,17 @@ void main() {
   late FakeGateway gateway;
   late HermesGatewayTransport transport;
   late BotScreenRepository repository;
+  late int connects;
 
   setUp(() {
     gateway = FakeGateway();
-    transport = HermesGatewayTransport(connect: gateway.connect);
+    connects = 0;
+    transport = HermesGatewayTransport(
+      connect: () {
+        connects++;
+        return gateway.connect();
+      },
+    );
     repository = BotScreenRepository(
       transport.requestKeepingConnection,
       timeout: const Duration(milliseconds: 50),
@@ -129,6 +136,7 @@ void main() {
         'supported': true,
         'running': true,
         'profile_key': 'k',
+        'lease': {'holder': 'agent'},
       };
 
       final status = await ok(repository.status('work'));
@@ -144,6 +152,23 @@ void main() {
       expect(status.lease.holder, BotScreenHolder.agent);
       expect(status.lease.viewerHash, isNull);
     });
+
+    test(
+      'a missing or unreadable lease counts as a person in control',
+      () async {
+        for (final lease in [null, 'garbage', <String, Object?>{}]) {
+          gateway.handlers['display.status'] = (_) => {
+            'supported': true,
+            'running': true,
+            'lease': ?lease,
+          };
+
+          final status = await ok(repository.status('work'));
+
+          expect(status.lease.holder, BotScreenHolder.human, reason: '$lease');
+        }
+      },
+    );
 
     test('method-not-found means the server has no screen feature', () async {
       gateway.handlers['display.status'] = (_) =>
@@ -224,6 +249,7 @@ void main() {
 
       expect((result as BotScreenFailed).kind, BotScreenFailure.timeout);
       expect(gateway.methods.where((m) => m == 'display.status'), hasLength(1));
+      expect(connects, 1);
     });
 
     test('a connection that closes mid-call is a closed failure', () async {

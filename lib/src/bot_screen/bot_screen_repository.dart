@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:dio/dio.dart' show DioException;
 import 'package:flutter_otel/flutter_otel.dart' show Span;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../chat/gateway/gateway_rpc_client.dart';
+import '../chat/session_chat_transport.dart' show SessionTransportUnavailable;
 import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import '../telemetry/telemetry.dart';
 import 'bot_screen_models.dart';
@@ -34,6 +39,7 @@ class BotScreenRepository {
   final ConnectionTelemetry telemetry;
   final Duration timeout;
   var _reportedUnsupported = false;
+  var _failureLogged = false;
 
   Future<BotScreenResult<BotScreenStatus>> status(String? profile) =>
       _call('display.status', profile, BotScreenStatus.fromJson);
@@ -71,7 +77,9 @@ class BotScreenRepository {
       final answer = await _rpc(method, {
         'profile': profile ?? kDefaultProfile,
       }, timeout: timeout);
-      return BotScreenOk(parse(answer));
+      final value = parse(answer);
+      _failureLogged = false;
+      return BotScreenOk(value);
     } on GatewayRpcException catch (error) {
       if (error.code == kGatewayMethodNotFound) {
         if (method == 'display.status') _reportUnsupported();
@@ -82,12 +90,25 @@ class BotScreenRepository {
       return _failed(method, BotScreenFailure.display);
     } on GatewayRequestTimeout {
       return _failed(method, BotScreenFailure.timeout);
-    } on Object {
+    } on TimeoutException {
+      return _failed(method, BotScreenFailure.timeout);
+    } on GatewayConnectionClosed {
+      return _failed(method, BotScreenFailure.closed);
+    } on SessionTransportUnavailable {
+      return _failed(method, BotScreenFailure.closed);
+    } on SocketException {
+      return _failed(method, BotScreenFailure.closed);
+    } on WebSocketChannelException {
+      return _failed(method, BotScreenFailure.closed);
+    } on DioException {
       return _failed(method, BotScreenFailure.closed);
     }
   }
 
+  /// Logs the first failure of a streak only; any success ends the streak.
   BotScreenFailed<T> _failed<T>(String method, BotScreenFailure kind) {
+    if (_failureLogged) return BotScreenFailed(kind);
+    _failureLogged = true;
     _quiet(
       () => telemetry.events('bot_screen.read_failed', {
         'method': method,

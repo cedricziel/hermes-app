@@ -111,11 +111,18 @@ void main() {
     test(
       'a failed call logs bot_screen.read_failed with method and type',
       () async {
+        Future<void> succeed() async {
+          answer = () async => {'supported': true};
+          await repository.status('work');
+        }
+
         answer = () async => throw const GatewayRequestTimeout();
         await repository.thumbnail('work');
+        await succeed();
         answer = () async =>
             throw const GatewayRpcException(5300, 'secret text');
         await repository.start('work');
+        await succeed();
         answer = () async => throw const GatewayConnectionClosed();
         await repository.status('work');
 
@@ -126,6 +133,24 @@ void main() {
         ]);
       },
     );
+
+    test('a streak of failures is logged once', () async {
+      answer = () async => throw const GatewayRequestTimeout();
+
+      await repository.thumbnail('work');
+      await repository.thumbnail('work');
+      await repository.status('work');
+
+      expect(events, hasLength(1));
+    });
+
+    test('a call that is not a read failure leaves the logger alone', () async {
+      answer = () async => throw StateError('programming error');
+
+      await expectLater(repository.status('work'), throwsStateError);
+
+      expect(events, isEmpty);
+    });
 
     test('a status read logs nothing when it works', () async {
       answer = () async => {'supported': true, 'profile_key': '/home/u/work'};
