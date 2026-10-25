@@ -16,8 +16,8 @@ One PR, `feat(bot-screen): read the bot's screen state over the gateway`, about 
 
 ## 3. Controller
 
-- [ ] 3.1 Write failing tests for `BotScreenController` with a fake clock: it polls every 3 s only while demand is held, the status is running, and it is foreground and unlocked; never two requests in flight; a `display.lease` broadcast with `holder: human` for its `profile_key` clears the frame at once, one for another key changes nothing; `display.status` with `running: false` clears the frame; it re-reads status on gaining demand, on `GatewayConnectionEvent.lost` while demanded, on resume, and with every 10th poll; a frame answer arriving after `unlocked = false` or dispose is dropped; Start goes off → starting → running, or back to off with the failure.
-- [ ] 3.2 Implement the controller; verify 3.1 passes.
+- [x] 3.1 Write failing tests for `BotScreenController` with a fake clock: it polls every 3 s only while demand is held, the status is running, and it is foreground and unlocked; never two requests in flight; a `display.lease` broadcast with `holder: human` for its `profile_key` clears the frame at once, one for another key changes nothing; `display.status` with `running: false` clears the frame; it re-reads status on gaining demand, on `GatewayConnectionEvent.lost` while demanded, on resume, and with every 10th poll; a frame answer arriving after `unlocked = false` or dispose is dropped; Start goes off → starting → running, or back to off with the failure.
+- [x] 3.2 Implement the controller; verify 3.1 passes.
 
 ## 4. Observability
 

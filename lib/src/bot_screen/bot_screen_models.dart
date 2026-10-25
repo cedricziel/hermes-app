@@ -77,6 +77,22 @@ class BotScreenStatus {
     );
   }
 
+  /// This status with [lease] in place of its own, as a `display.lease`
+  /// broadcast changes it.
+  BotScreenStatus withLease(BotScreenLease lease) => BotScreenStatus(
+    supported: supported,
+    installed: installed,
+    missing: missing,
+    running: running,
+    geometry: geometry,
+    placement: placement,
+    installCommand: installCommand,
+    blocker: blocker,
+    memoryAvailableMb: memoryAvailableMb,
+    profileKey: profileKey,
+    lease: lease,
+  );
+
   final bool supported;
   final bool installed;
 
