@@ -13,6 +13,9 @@ skill), not instead of it.
 
 Read the relevant feature scenarios in `scenarios/` alongside this procedure. Put verification steps for each feature in separate scenario files so independent changes do not edit the shared guide.
 
+For session restoration and OIDC refresh failures, follow the
+[auth session scenario](scenarios/auth-session.md).
+
 Backend state, runner bookkeeping, logs, and screenshots are checkout-scoped.
 Native macOS Debug storage is shared by worktrees using the same bundle ID.
 `HERMES_HOME` and `HERMES_SERVER_URL` isolate the backend connection, not app
