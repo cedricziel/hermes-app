@@ -63,6 +63,8 @@ recipients, and profile avatars, follow
 
 For the Memory screen, its settings, proposals and the memory tool card, follow [the Memory scenario](scenarios/memory.md).
 
+For the Bot Screen (the agent's own Linux desktop), a macOS backend can never show one; follow the `verify-bot-screen` skill, which runs a throwaway Linux Hermes in a container.
+
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
    Analyze and test print a long dependency-update block; read the last lines.
 2. `scripts/dev-backend.sh start`. Prints `ready: <url>`; needs `hermes` on
