@@ -1,0 +1,50 @@
+# Design
+
+## Context
+
+Server rules (Hermes `tools/bot_desktop/lease.py`, `tui_gateway/methods_display.py`, `hermes_cli/web_routers/display.py`):
+
+- `display.observe` mints viewer ids per gateway connection; it honours a requested id only when that connection minted it. Acquire and release refuse an id the calling connection did not mint (5300, `data.code: "viewer_mismatch"`).
+- Acquire always succeeds for a minted id ("last writer wins") and answers `{lease}`; release with a foreign holder is ignored and answers the real lease; `release {force: true}` with no viewer id releases whoever holds.
+- The bridge releases the lease when the holder's socket closes with 1000 or 1001. Any other close keeps the person's exclusion. A holder that loses control to another person is closed with 4000.
+- `computer_use` raises `HumanHasControl` while a person holds the lease; the agent's step ends with that error and the agent tells the user what it needs.
+- Thumbnails are suppressed while a person holds control. RFB watchers are not: Hermes Desktop's live viewers still see the screen.
+
+`bot-screen-live-view` gives `BotScreenViewerController` (observe, stream, close-code table, pause) and the viewer chrome; `bot-screen-rfb-input` gives the client's input methods, `KeysymMapper`, `ScreenGeometry` and `ScreenGestureLayer` (disabled by default). `bot-screen-status` gives `GatewayRpcException.dataCode`. `HermesGatewayTransport.request` always goes over the current connection (`_client()`) and opens a new one when needed; `GatewayConnectionTransport.gatewayConnection` names the current connection. `AppLockController.covered` is true while locked and while the app is inactive (the iOS notification shade, Control Center, the app switcher). The Mac menu bar owns ⌘Q, ⌘W, ⌘H and ⌘M and only sees keys no Flutter widget handled. `accountKeyFor(baseUrl, session)` lives in `lib/src/auth/account_key.dart`.
+
+## Decisions
+
+- **Pinned requests.** `HermesGatewayTransport.requestOn(Object connection, method, params, {timeout})` sends on that connection or throws `GatewayConnectionClosed` without opening another. `observe` records `gatewayConnection` together with its answer (the repository reads it in the same microtask the answer completes). `acquire`/`release` use `requestOn` with that connection. On `GatewayConnectionClosed` or `viewer_mismatch` the controller observes again (new connection, new id) and retries once, logging `outcome: retried`; a second failure is `refused`.
+- **Viewer ids.** `BotScreenViewerIds` (one per app session, held by `ChatScreen` next to the controllers) keeps every viewer id minted in this run and their 12-hex hashes. "This device holds control" means `holder: human` and `viewer_hash` is one of them. `BotScreenController` and the viewer read it; nothing persists it.
+- **Lease state.** `ViewerControl { watching, confirming, acquiring, inControl, lost }`. It moves to `inControl` from the acquire answer's lease (hash match), not only from a broadcast, and to `watching` from the release answer. A broadcast or status naming another holder while `inControl` moves to `lost` and logs `bot_screen.lost_control` (`other_holder`); a 4000 close does the same with `control_taken`. `lost` reads "Someone else took control" and reconnects as a watcher (live-view's table).
+- **Lifecycle.** While `inControl`:
+  - not resumed (background, a hidden Mac window) → close with 4100 at once; the lease stays;
+  - covered (App Lock or inactive) → wait 2 s, then close with 4100 if still covered; uncovered within 2 s → keep the stream (the App Lock cover hides the picture meanwhile);
+  - return → observe passing the current viewer id (the same connection honours it); if the server minted a new id and the lease hash names an earlier id this app holds, acquire with the new id without asking;
+  - sign-out, profile switch, Change Server → `release` (pinned), then close with 1000, before the owner disposes the controller; the release has a 2 s budget and the close happens regardless.
+    While watching, every pause closes with 1000 as in live-view.
+- **Closing the viewer** while `inControl` (Close button, ⌘. or F8) calls release first, then closes with 1000; either alone releases, both make the hand-back explicit and logged (`reason: close`).
+- **Force hand back.** When `holder: human` and the hash matches no held id, the card and the viewer show "Someone is in control" with **Hand back to Hermes**. A confirmation ("Hand control back to Hermes? Whoever is using the screen loses control, which may be you on another device or before the app restarted.") then sends `display.lease.release {profile, force: true}` with no viewer id (the server refuses a foreign id; force with no id releases any holder).
+- **Confirmation.** `TakeoverConfirmation` (iOS action sheet, Material bottom sheet, desktop dialog) with the corrected text and "Don't ask again", stored as `bot_screen.takeover.skip_confirm.<accountKeyFor(server, session)>` (bool) in shared preferences.
+- **Input wiring.** `ScreenGestureLayer(enabled: inControl, mode: touch|trackpad)` over the picture, sinking into `RfbClient`; the trackpad cursor overlay follows its pointer. Hardware keys: a `Focus` with `onKeyEvent` on the picture, active only while `inControl`. Routing on desktop:
+  - macOS: ⌘V → Paste action; ⌘Q, ⌘W, ⌘H, ⌘M, ⌘Tab → `KeyEventResult.ignored` so the menu bar and the system get them; ⌘. → close the viewer; other ⌘ chords → `KeysymMapper(commandAsControl: true)`, so ⌘A is Ctrl+A; Escape → the screen.
+  - Windows and Linux: Ctrl+V → Paste action; F8 → close the viewer (TigerVNC's own viewer reserves F8 the same way) and the toolbar's Send F8 sends it; Alt+Tab, Alt+F4 and Super chords are ignored (the system takes them); everything else, Escape included, goes to the screen.
+  - A `MacCommandScope` while `inControl` offers no Edit commands, so ⌘C/⌘X/⌘A reach the focus handler instead of the menu.
+- **On-screen keyboard.** A hidden `TextField` (zero-size, focused while `inControl` and the user taps the keyboard button) with `autocorrect: false`, `enableSuggestions: false`, `enableIMEPersonalizedLearning: false`, `smartQuotesType: SmartQuotesType.disabled`, `smartDashesType: SmartDashesType.disabled`, `keyboardType: TextInputType.visiblePassword`, `autofillHints: null`, and a `DeltaTextInputClient`: an insertion outside a composing range becomes press/release per character, a deletion becomes BackSpace, a newline Return; deltas inside a composing range are held and sent when the composition commits. The field's text is reset after each delta, so no typed text accumulates in it.
+- **Paste.** Read `Clipboard.getData(text/plain)` (iOS may show its paste permission prompt), `cutText` it (a `RfbClipboardError` shows "This text can't be pasted to the screen" and logs `bot_screen.paste_refused`), press and release Control_L+v, then after 500 ms send `cutText('')` so the secret does not remain on the remote clipboard.
+- **Key bar** (touch, while in control): Esc, Tab, Ctrl and Alt (latched for the next key), ←, →, keyboard, Paste. Desktop toolbar: Hand Back, Touch/Trackpad hidden, Paste, Send F8 (Windows/Linux).
+- **Catalog and design system.** Viewer states: watching with Take over, confirming, in control (touch with key bar, desktop with toolbar), trackpad with cursor, lost control, someone in control with Hand back to Hermes, force confirmation. `design/web` `BotScreenViewer` gains the same states; `BotScreenCard` gains "You're in control" and the force action.
+
+Platforms: iOS, Android, macOS, Windows, Linux. No native, entitlement, manifest or Xcode change; the soft keyboard uses the standard text input client.
+
+Invariants touched:
+
+- Telemetry: `bot_screen.takeover`, `bot_screen.handback`, `bot_screen.lost_control` and `bot_screen.paste_refused` from the viewer controller through `AppEventLogger`; `took_over` and `input_events` (bucketed `0`, `1-10`, `11-100`, `>100`) on `bot_screen.stream`; breadcrumbs `bot_screen.takeover.pressed`, `.handback.pressed`, `.force_handback.pressed`, `bot_screen.input.mode` in the chrome. None holds text, key names, coordinates, viewer ids or profile names.
+- Storage: one boolean per account in shared preferences; no secret.
+
+## Risks / Trade-offs
+
+- [A user who leaves the app in control leaves Hermes waiting] → By design (the server does the same for Hermes Desktop); the card says "You're in control" on return, and force hand back frees a lease the app lost track of.
+- [Force hand back can evict a real person on another device] → Behind a confirmation that says so.
+- [F8 on Windows and Linux shadows a key the remote may want] → Send F8 in the toolbar.
+- [Two of the user's devices] → Each has its own viewer id; the second take over evicts the first, which says someone else took control.
