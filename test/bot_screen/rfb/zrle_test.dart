@@ -203,6 +203,26 @@ void main() {
       expectRegion(s, 64, 64, 6, 2, (x, y) => y * 6 + x < 6 ? white : blue);
     });
 
+    test('many thin tiles each repeating a large palette', () async {
+      // 1280 x 1 is 20 tiles of 64 x 1. TigerVNC writes the palette in every
+      // tile, so the tile data is far larger than 4 bytes per pixel.
+      final palette = [
+        for (var i = 0; i < 127; i++) [i, 255 - i, (i * 7) % 256],
+      ];
+      final s = await zrleSession(
+        1280,
+        1,
+        [
+          for (var t = 0; t < 20; t++) ...paletteRleTile(palette, [(t, 64)]),
+        ],
+        fbWidth: 1280,
+        fbHeight: 4,
+      );
+
+      expect(s.events.whereType<RfbEnded>(), isEmpty);
+      expectRegion(s, 0, 0, 1280, 1, (x, _) => palette[x ~/ 64]);
+    });
+
     test('rectangle offsets leave the rest of the picture alone', () async {
       final s = RfbSession();
       await s.handshake(20, 10);
@@ -264,6 +284,33 @@ void main() {
 
       expectRegion(s, 0, 0, 64, 64, at);
     });
+
+    test(
+      'decodes a really compressed stream flushed after each rectangle',
+      () async {
+        // The same raw tile twice: the second rectangle compresses to
+        // back-references into the first, across the flush point.
+        Rgb at(int x, int y) => [(x * 37 + y * 11) % 256, (x ^ y) * 3 % 256, 9];
+        final tile = rawTile(64, 64, at);
+        final deflate = DeflateSyncStream();
+        final first = deflate.next(tile);
+        final second = deflate.next(tile);
+
+        for (final part in [first, second]) {
+          expect(part.sublist(part.length - 4), [0, 0, 0xFF, 0xFF]);
+        }
+        expect(first.length, lessThan(tile.length));
+        expect(second.length, lessThan(first.length ~/ 4));
+
+        final s = RfbSession();
+        await s.handshake(80, 70);
+        await s.send(rfbUpdate([rfbZrleRect(0, 0, 64, 64, first)]));
+        await s.send(rfbUpdate([rfbZrleRect(8, 4, 64, 64, second)]));
+
+        expect(s.events.whereType<RfbEnded>(), isEmpty);
+        expectRegion(s, 8, 4, 64, 64, at);
+      },
+    );
 
     test('a corrupt stream is a decode failure', () async {
       final s = RfbSession();

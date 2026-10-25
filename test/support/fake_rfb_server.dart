@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart' show pumpEventQueue;
@@ -28,6 +29,9 @@ class FakeDisplayChannel with StreamChannelMixin implements WebSocketChannel {
   }
 
   void serverSend(Object data) => _incoming.add(data);
+
+  /// The socket fails, as when the network drops.
+  void serverError() => _incoming.addError(const SocketException('reset'));
 
   Future<void> serverClose([int? code]) {
     _closeCode = code;
@@ -178,9 +182,8 @@ Uint8List rfbZrleRect(int x, int y, int w, int h, List<int> payload) =>
 /// A zlib stream (RFC 1950) built the way a ZRLE server writes one: a single
 /// header, then each rectangle's data ending at a flush point.
 ///
-/// `dart:io`'s encoder cannot flush without finishing the stream, so the data
-/// goes out in stored (uncompressed) deflate blocks, which are byte aligned and
-/// decodable the moment they arrive, like Z_SYNC_FLUSH output.
+/// This one writes stored (uncompressed) deflate blocks, which are byte
+/// aligned and decodable the moment they arrive; [DeflateSyncStream] compresses.
 class ZlibSyncStream {
   bool _started = false;
 
@@ -227,4 +230,25 @@ List<Uint8List> clientMessages(Uint8List written) {
     p += length;
   }
   return out;
+}
+
+/// A zlib stream that really compresses and ends every rectangle's data with
+/// a Z_SYNC_FLUSH (`00 00 FF FF`), as Xvnc's does. Later rectangles can refer
+/// back into earlier ones.
+///
+/// `ZLibEncoder` cannot flush without finishing the stream, but the raw filter
+/// flushes on request.
+class DeflateSyncStream {
+  final _filter = RawZLibFilter.deflateFilter(level: 6);
+
+  /// The bytes to send as the payload of the next ZRLE rectangle.
+  Uint8List next(List<int> data) {
+    _filter.process(data, 0, data.length);
+    final out = BytesBuilder();
+    for (var chunk = _filter.processed(); chunk != null;) {
+      out.add(chunk);
+      chunk = _filter.processed();
+    }
+    return out.takeBytes();
+  }
 }

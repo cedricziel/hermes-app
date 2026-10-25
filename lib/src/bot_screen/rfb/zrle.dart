@@ -20,15 +20,21 @@ class ZrleDecoder {
   final _inflated = BytesBuilder();
   int _inflatedLimit = 0;
 
-  /// The most compressed bytes a [w] x [h] rectangle can need: zlib adds a few
-  /// bytes per 64 KiB to tile data of at most 4 bytes per pixel.
-  static int maxPayload(int w, int h) => w * h * 5 + 64 * 1024;
-
-  /// The most tile data a [w] x [h] rectangle can hold: a one-pixel run in
-  /// plain RLE takes 4 bytes, plus 1 byte per tile.
-  static int _maxInflated(int w, int h) =>
+  /// The most tile data a [w] x [h] rectangle can hold: 4 bytes per pixel (a
+  /// one-pixel run in plain RLE), plus per tile its subencoding byte and a
+  /// palette of up to 127 colours, which TigerVNC repeats in every tile.
+  static int maxInflated(int w, int h) =>
       w * h * 4 +
-      ((w + _tileSize - 1) ~/ _tileSize) * ((h + _tileSize - 1) ~/ _tileSize);
+      ((w + _tileSize - 1) ~/ _tileSize) *
+          ((h + _tileSize - 1) ~/ _tileSize) *
+          (1 + 3 * 127);
+
+  /// The most compressed bytes such a rectangle can need: incompressible data
+  /// plus zlib's framing.
+  static int maxPayload(int w, int h) {
+    final inflated = maxInflated(w, h);
+    return inflated + inflated ~/ 100 + 64 * 1024;
+  }
 
   void _collect(List<int> chunk) {
     _inflated.add(chunk);
@@ -49,7 +55,7 @@ class ZrleDecoder {
     int w,
     int h,
   ) {
-    _inflatedLimit = _maxInflated(w, h);
+    _inflatedLimit = maxInflated(w, h);
     _inflater.add(payload);
     final data = _inflated.takeBytes();
     var p = 0;
