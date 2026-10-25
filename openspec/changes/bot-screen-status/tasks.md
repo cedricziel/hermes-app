@@ -30,5 +30,5 @@ One PR, `feat(bot-screen): read the bot's screen state over the gateway`, about 
 
 ## 6. Verify
 
-- [ ] 6.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
+- [x] 6.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
 - [ ] 6.2 Following the new `verify-bot-screen` skill, run `test/real_backend_contract_test.dart` with `HERMES_DEV_URL` against the container backend with a started screen, and record the result in the PR. No verify-in-app run: there is no UI.
