@@ -622,6 +622,15 @@ abstract interface class GatewayRequester {
     String method, [
     Map<String, Object?> params = const {},
   ]);
+
+  /// Like [request], but a call that gets no answer within [timeout] throws
+  /// `GatewayRequestTimeout` instead of closing the connection that running
+  /// replies share.
+  Future<Map<String, Object?>> requestKeepingConnection(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  });
 }
 
 /// Awaits protected persistence immediately before the prompt RPC.

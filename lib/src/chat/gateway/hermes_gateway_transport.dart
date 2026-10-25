@@ -864,6 +864,22 @@ class HermesGatewayTransport
     Map<String, Object?> params = const {},
   ]) async => _call(await _client(), method, params);
 
+  /// Like [request], but a call that gets no answer within [timeout] throws
+  /// [GatewayRequestTimeout] and leaves the connection, and the replies
+  /// running on it, alone.
+  @override
+  Future<Map<String, Object?>> requestKeepingConnection(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) async => _call(
+    await _client(),
+    method,
+    params,
+    timeout: timeout,
+    dropOnTimeout: false,
+  );
+
   @override
   Future<List<SlashCommand>> slashCommands({
     String? threadId,
@@ -2393,20 +2409,26 @@ class HermesGatewayTransport
     if (incoming != null) out.add((incoming, true));
   }
 
-  /// Sends [method] and gives up on a gateway that does not answer: the
-  /// connection is dropped, so the next send opens a new one.
+  /// Sends [method] and gives up on a gateway that does not answer within
+  /// [timeout] (the transport's `requestTimeout` by default): the connection
+  /// is dropped, so the next send opens a new one. With [dropOnTimeout] false
+  /// the connection stays open and the call throws [GatewayRequestTimeout]
+  /// instead; its late answer settles a request nobody awaits.
   Future<Map<String, Object?>> _call(
     GatewayRpcClient client,
     String method,
     Map<String, Object?> params, {
     bool Function()? authorize,
+    Duration? timeout,
+    bool dropOnTimeout = true,
   }) async {
     try {
       final request = authorize == null
           ? client.request(method, params)
           : client.requestGuarded(method, params, authorize: authorize);
-      return await request.timeout(requestTimeout);
+      return await request.timeout(timeout ?? requestTimeout);
     } on TimeoutException {
+      if (!dropOnTimeout) throw const GatewayRequestTimeout();
       _drop(client);
       throw const GatewayConnectionClosed();
     }

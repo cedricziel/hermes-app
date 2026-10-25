@@ -61,10 +61,20 @@ const kGatewayMethodNotFound = -32601;
 
 /// The gateway answered a request with a JSON-RPC error.
 class GatewayRpcException implements Exception {
-  const GatewayRpcException(this.code, this.message);
+  const GatewayRpcException(this.code, this.message, [this.data]);
 
   final int code;
   final String message;
+
+  /// The error's `data` object, when the gateway sent one.
+  final Map<String, Object?>? data;
+
+  /// `data.code`, the machine-readable reason of a refusal such as
+  /// `viewer_mismatch`.
+  String? get dataCode {
+    final code = data?['code'];
+    return code is String ? code : null;
+  }
 
   @override
   String toString() => 'GatewayRpcException($code): $message';
@@ -76,6 +86,15 @@ class GatewayConnectionClosed implements Exception {
 
   @override
   String toString() => 'The gateway connection closed';
+}
+
+/// A request that asked not to take the connection down with it gave up
+/// waiting for its answer. The connection is still open.
+class GatewayRequestTimeout implements Exception {
+  const GatewayRequestTimeout();
+
+  @override
+  String toString() => 'The gateway did not answer in time';
 }
 
 /// A JSON-RPC 2.0 client for the dashboard's `/api/ws` socket: requests are
@@ -351,8 +370,13 @@ class GatewayRpcClient {
     if (error is Map) {
       final code = (error['code'] as num?)?.toInt() ?? 0;
       _telemetry?.finishRequest(pending.span, errorCode: code);
+      final data = error['data'];
       pending.completer.completeError(
-        GatewayRpcException(code, error['message']?.toString() ?? ''),
+        GatewayRpcException(
+          code,
+          error['message']?.toString() ?? '',
+          data is Map ? Map<String, Object?>.from(data) : null,
+        ),
       );
     } else {
       _telemetry?.finishRequest(pending.span);
