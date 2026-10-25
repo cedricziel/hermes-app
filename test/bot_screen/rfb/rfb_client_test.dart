@@ -152,6 +152,43 @@ void main() {
       expect(s.ended.failure, RfbFailure.protocol);
     });
 
+    test('a socket error is a failure, not a clean close', () async {
+      final s = RfbSession();
+      await s.handshake();
+      s.channel.serverError();
+      await pumpEventQueue();
+
+      expect(s.ended.failure, RfbFailure.connection);
+      expect(s.ended.step, RfbStep.decode);
+    });
+
+    test(
+      'a socket error during the handshake is a handshake failure',
+      () async {
+        final s = RfbSession();
+        await s.send(rfbVersion());
+        s.channel.serverError();
+        await pumpEventQueue();
+
+        expect(s.ended.failure, RfbFailure.connection);
+        expect(s.ended.step, RfbStep.handshake);
+      },
+    );
+
+    test(
+      'a close with nothing buffered mid-handshake has no failure',
+      () async {
+        final s = RfbSession();
+        await s.send(rfbVersion());
+        await s.channel.serverClose(4401);
+        await pumpEventQueue();
+
+        expect(s.events.whereType<RfbConnected>(), isEmpty);
+        expect(s.ended.failure, isNull);
+        expect(s.ended.closeCode, 4401);
+      },
+    );
+
     test('reports the close code the server sent', () async {
       final s = RfbSession();
       await s.channel.serverClose(4401);
@@ -196,6 +233,30 @@ void main() {
       expect(s.pixel(2, 0), [1, 2, 3, 255]);
       expect((s.events.last as RfbUpdated).dirty, const RfbRect(1, 0, 2, 1));
     });
+
+    test(
+      'CopyRect with a source and destination that overlap vertically',
+      () async {
+        final s = RfbSession();
+        await s.handshake(4, 6);
+        await s.send(
+          rfbUpdate([
+            for (var y = 0; y < 4; y++)
+              for (var x = 0; x < 2; x++)
+                rfbRawRect(x, y, 1, 1, [y * 10 + x, 0, 0]),
+          ]),
+        );
+        // Rows 0-2 move down one row, over themselves.
+        await s.send(rfbUpdate([rfbCopyRect(0, 1, 2, 3, 0, 0)]));
+
+        for (var x = 0; x < 2; x++) {
+          expect(s.pixel(x, 0), [x, 0, 0, 255]);
+          expect(s.pixel(x, 1), [x, 0, 0, 255]);
+          expect(s.pixel(x, 2), [10 + x, 0, 0, 255]);
+          expect(s.pixel(x, 3), [20 + x, 0, 0, 255]);
+        }
+      },
+    );
 
     test('an update is followed by an incremental request', () async {
       final s = RfbSession();
@@ -344,6 +405,15 @@ void main() {
       expect(s.ended.failure, RfbFailure.decode);
     });
 
+    test('a desktop over 16 Mi pixels is refused', () async {
+      final s = RfbSession();
+      for (final part in rfbHandshake(4097, 4096)) {
+        await s.send(part);
+      }
+
+      expect(s.ended.failure, RfbFailure.protocol);
+    });
+
     test('an absurd desktop size is refused instead of allocated', () async {
       final s = RfbSession();
       for (final part in rfbHandshake(65535, 65535)) {
@@ -365,6 +435,22 @@ void main() {
       await pumpEventQueue();
 
       expect(s.ended.failure, RfbFailure.decode);
+    });
+
+    test('close refuses a status code a close frame cannot carry', () async {
+      final s = RfbSession();
+      await s.handshake();
+
+      for (final code in [0, 999, 1001, 2999, 5000]) {
+        expect(
+          () => s.client.close(code),
+          throwsArgumentError,
+          reason: '$code',
+        );
+      }
+      expect(s.events.whereType<RfbEnded>(), isEmpty);
+      await s.client.close(3000);
+      expect(s.channel.sentCloseCode, 3000);
     });
 
     test('close sends the status code and ends the events', () async {

@@ -20,6 +20,9 @@ enum RfbFailure {
 
   /// A message was truncated or its pixel data malformed.
   decode,
+
+  /// The socket failed (as opposed to being closed).
+  connection,
 }
 
 /// The part of the stream a failure happened in.
@@ -81,7 +84,8 @@ final class RfbUpdated extends RfbEvent {
   final RfbRect dirty;
 }
 
-/// The desktop changed size; [RfbClient.framebuffer] is a new, empty buffer.
+/// The desktop changed size; [RfbClient.framebuffer] is a new buffer, black
+/// until the rest of the update (and later ones) paint into it.
 final class RfbResized extends RfbEvent {
   const RfbResized(this.width, this.height);
 
@@ -90,7 +94,10 @@ final class RfbResized extends RfbEvent {
 }
 
 /// The stream ended. [failure] is null when the socket was closed cleanly,
-/// by the server (see [closeCode]) or by [RfbClient.close].
+/// by the server (see [closeCode]) or by [RfbClient.close]. A server that
+/// closes mid-handshake with nothing half-received also ends with a null
+/// failure, so check whether [RfbConnected] arrived before treating it as a
+/// normal end.
 final class RfbEnded extends RfbEvent {
   const RfbEnded({this.failure, this.step, this.closeCode, this.reason});
 
@@ -108,7 +115,8 @@ const _encodingCopyRect = 1;
 const _encodingZrle = 16;
 const _encodingDesktopSize = -223;
 
-const _maxPixels = 32 * 1024 * 1024;
+const _maxPixels = 16 * 1024 * 1024;
+const _keepBuffer = 256 * 1024;
 const _maxReason = 4096;
 const _maxName = 64 * 1024;
 
@@ -182,7 +190,14 @@ class _Reader {
   Uint8List view(int at, int length) =>
       Uint8List.sublistView(_buf, _start + at, _start + at + length);
 
-  void skip(int length) => _start += length;
+  void skip(int length) {
+    _start += length;
+    if (_start == _end && _buf.length > _keepBuffer) {
+      // A big rectangle is consumed; do not hold its memory.
+      _buf = Uint8List(4096);
+      _start = _end = 0;
+    }
+  }
 }
 
 /// A watch-only RFB 3.8 client over the display socket.
@@ -195,7 +210,7 @@ class RfbClient {
   RfbClient(this._channel) {
     _subscription = _channel.stream.listen(
       _onData,
-      onError: (Object _) => _end(closeCode: _channel.closeCode),
+      onError: (Object _) => _end(failure: RfbFailure.connection),
       onDone: _onDone,
       cancelOnError: true,
     );
@@ -227,9 +242,15 @@ class RfbClient {
   Set<int> get encodingsSeen => Set.unmodifiable(_encodings);
 
   /// Ends the stream with a close frame carrying [code].
-  Future<void> close([int code = 1000]) async {
-    if (_ended) return;
+  ///
+  /// Throws [ArgumentError] unless [code] is 1000 or in 3000-4999, the codes
+  /// an endpoint may send.
+  Future<void> close([int code = 1000]) {
+    if (code != 1000 && (code < 3000 || code > 4999)) {
+      throw ArgumentError.value(code, 'code', 'not a sendable close code');
+    }
     _end(closeWith: code);
+    return _channel.sink.done.catchError((Object _) {});
   }
 
   void _onData(Object? data) {
