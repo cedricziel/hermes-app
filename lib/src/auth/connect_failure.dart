@@ -61,10 +61,15 @@ ConnectFailure classifyConnectFailure(DioException e, Uri uri) {
   return ConnectFailure(kind: kind, hostKind: hostKind, retryable: retryable);
 }
 
+/// Whether a TLS failure is the device not trusting the server's certificate.
+bool isCertificateFailure(TlsException error) =>
+    '${error.message} ${error.osError?.message ?? ''}'.contains(
+      'CERTIFICATE_VERIFY_FAILED',
+    );
+
 ConnectFailureKind _kindOfError(Object? error) {
   if (error is TlsException) {
-    final reason = '${error.message} ${error.osError?.message ?? ''}';
-    return reason.contains('CERTIFICATE_VERIFY_FAILED')
+    return isCertificateFailure(error)
         ? ConnectFailureKind.certificate
         : ConnectFailureKind.tls;
   }

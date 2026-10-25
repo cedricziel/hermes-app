@@ -59,4 +59,4 @@ None.
 
 ## Observability
 
-None in this change: nothing calls the client yet. It counts received bytes and the encodings seen so the `bot_screen.stream` span in `bot-screen-live-view` can report them, and its typed errors carry a fixed `step` (`connect`, `handshake`, `decode`) for that change's failure log.
+None in this change: nothing calls the client yet. It counts received bytes and the encodings seen so the `bot_screen.stream` span in `bot-screen-live-view` can report them, and its typed errors carry a fixed kind for that change's failure log: `DisplaySocketError` for the connect step, and `RfbFailure` with an `RfbStep` (`handshake` or `decode`) for the stream. A server that closes mid-handshake with nothing half-received ends with no failure (only its close code), so the caller checks whether `RfbConnected` arrived.
