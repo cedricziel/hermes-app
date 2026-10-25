@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.72](https://github.com/cedricziel/hermes-app/compare/v0.1.71...v0.1.72) (2026-10-25)
+
+
+### Features
+
+* **bot-screen:** add an RFB client for the bot's screen ([#842](https://github.com/cedricziel/hermes-app/issues/842)) ([5e193f1](https://github.com/cedricziel/hermes-app/commit/5e193f1e4710c59b112e93315a84c379a735813b))
+* **bot-screen:** read the bot's screen state over the gateway ([#841](https://github.com/cedricziel/hermes-app/issues/841)) ([1958cc0](https://github.com/cedricziel/hermes-app/commit/1958cc0f639cc300c295a77bf5a6f9d4d010e910))
+
+
+### Bug Fixes
+
+* **auth:** preserve valid OIDC sessions ([#843](https://github.com/cedricziel/hermes-app/issues/843)) ([85b9786](https://github.com/cedricziel/hermes-app/commit/85b9786fd8454ea4bcdfac97b356886bff09e68f))
+
+
+### Documentation
+
+* **memory:** record in-app verification ([#838](https://github.com/cedricziel/hermes-app/issues/838)) ([6311b39](https://github.com/cedricziel/hermes-app/commit/6311b39687a676c7536cb375d32ebd5561d11a45))
+* **openspec:** propose the Bot Screen changes ([#840](https://github.com/cedricziel/hermes-app/issues/840)) ([6f182bd](https://github.com/cedricziel/hermes-app/commit/6f182bde73d95dc9298b0a5c6c7bcd3e18b40126))
+
 ## [0.1.71](https://github.com/cedricziel/hermes-app/compare/v0.1.70...v0.1.71) (2026-10-24)
 
 
