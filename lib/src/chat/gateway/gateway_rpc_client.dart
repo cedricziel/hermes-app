@@ -242,13 +242,6 @@ class GatewayRpcClient {
     }
     final completer = Completer<Map<String, Object?>>();
     final pending = _pending[id] = _Pending(completer, span);
-    if (timeout != null) {
-      pending.timer = Timer(timeout, () {
-        if (_pending.remove(id) == null) return;
-        _telemetry?.finishRequest(span, failure: const GatewayRequestTimeout());
-        completer.completeError(const GatewayRequestTimeout());
-      });
-    }
     _channel.sink.add(
       jsonEncode({
         'jsonrpc': '2.0',
@@ -257,6 +250,14 @@ class GatewayRpcClient {
         'params': params,
       }),
     );
+    // Armed once the frame is out, so the wait never counts the send.
+    if (timeout != null) {
+      pending.timer = Timer(timeout, () {
+        if (_pending.remove(id) == null) return;
+        _telemetry?.finishRequest(span, failure: const GatewayRequestTimeout());
+        completer.completeError(const GatewayRequestTimeout());
+      });
+    }
     return completer.future;
   }
 

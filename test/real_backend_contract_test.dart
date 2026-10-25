@@ -800,10 +800,7 @@ void main() {
         )(),
       );
       addTearDown(rpc.close);
-      screen = BotScreenRepository(
-        (method, params, {required timeout}) =>
-            rpc.request(method, params).timeout(timeout),
-      );
+      screen = BotScreenRepository(rpc.requestWithin);
     });
 
     // A macOS backend reports `supported: false` and never shows a screen;

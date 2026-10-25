@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -107,6 +111,67 @@ void main() {
       await transport.request('display.status');
 
       expect(connects, 2);
+    });
+  });
+
+  test('a display call that times out does not cut a reply that is '
+      'streaming', () async {
+    String? runtime;
+    gateway.turn = (g, sid) {
+      runtime = sid;
+      g.event('message.start', sid);
+      g.event('message.delta', sid, {'text': 'Hel'});
+    };
+    gateway.silent.add('display.thumbnail');
+    final events = <ChatEvent>[];
+    final done = Completer<void>();
+    transport
+        .send(text: 'hi')
+        .listen(events.add, onDone: done.complete, cancelOnError: true);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(runtime, isNotNull);
+
+    await expectLater(
+      transport.requestKeepingConnection('display.thumbnail', const {
+        'profile': 'work',
+      }, timeout: const Duration(milliseconds: 20)),
+      throwsA(isA<GatewayRequestTimeout>()),
+    );
+    gateway.event('message.delta', runtime!, {'text': 'lo'});
+    gateway.event('message.complete', runtime!, {
+      'text': 'Hello',
+      'status': 'complete',
+    });
+    await done.future.timeout(const Duration(seconds: 2));
+
+    expect(events.whereType<ReplyDelta>().map((e) => e.text).join(), 'Hello');
+    expect(events.last, isA<ReplyCompleted>());
+    expect((events.last as ReplyCompleted).failed, isFalse);
+    expect(connects, 1);
+  });
+
+  test('a connection that closes during a timed request fails it as closed '
+      'and leaves no timer to fire later', () {
+    fakeAsync((async) {
+      final wire = StreamChannelController<String>();
+      final client = GatewayRpcClient(wire.local);
+      Object? error;
+      client
+          .requestWithin(
+            'display.thumbnail',
+            const {},
+            timeout: const Duration(seconds: 10),
+          )
+          .then<void>((_) {}, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+
+      wire.foreign.sink.close();
+      async.flushMicrotasks();
+      expect(error, isA<GatewayConnectionClosed>());
+
+      async.elapse(const Duration(minutes: 1));
+      expect(error, isA<GatewayConnectionClosed>());
+      expect(async.pendingTimers, isEmpty);
     });
   });
 

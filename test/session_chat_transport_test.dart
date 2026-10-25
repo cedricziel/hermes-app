@@ -28,6 +28,33 @@ void main() {
     },
   );
 
+  test('requestKeepingConnection reaches the delegate with its timeout and '
+      'is refused once suspended', () async {
+    final delegate = _Delegate();
+    final transport = SessionChatTransport(() => delegate);
+    final answer = transport.requestKeepingConnection('display.thumbnail', {
+      'profile': 'work',
+    }, timeout: const Duration(seconds: 10));
+    delegate.response.complete({'data_url': null});
+
+    expect(await answer, {'data_url': null});
+    expect(delegate.requests.single.$1, 'display.thumbnail');
+    expect(delegate.requests.single.$2, {'profile': 'work'});
+    expect(delegate.timeouts.single, const Duration(seconds: 10));
+
+    await transport.suspend();
+    await expectLater(
+      transport.requestKeepingConnection(
+        'display.thumbnail',
+        const {},
+        timeout: const Duration(seconds: 10),
+      ),
+      throwsA(unavailable),
+    );
+    expect(delegate.timeouts, hasLength(1));
+    await transport.close();
+  });
+
   test(
     'late delegate errors are replaced with the suspension result',
     () async {
@@ -223,6 +250,7 @@ class _Delegate
   final response = Completer<Map<String, Object?>>();
   final statuses = Completer<Map<String, String>>();
   final requests = <(String, Map<String, Object?>)>[];
+  final timeouts = <Duration>[];
   Completer<void>? holdCancellation;
   Completer<void>? holdClose;
   var sendListened = false;
@@ -262,7 +290,10 @@ class _Delegate
     String method,
     Map<String, Object?> params, {
     required Duration timeout,
-  }) => request(method, params);
+  }) {
+    timeouts.add(timeout);
+    return request(method, params);
+  }
 
   @override
   Future<Map<String, String>> activeStatuses({String? profile}) =>
