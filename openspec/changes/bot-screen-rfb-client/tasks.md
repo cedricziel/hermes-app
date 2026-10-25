@@ -9,9 +9,9 @@ One PR, `feat(bot-screen): add a watch-only RFB client`, about 500 changed lines
 
 ## 2. Handshake and Raw
 
-- [ ] 2.1 Write failing tests for `RfbClient` over an in-memory channel: it sends `RFB 003.008\n`; a security count of 0 reads the reason and fails with `security`; it chooses None and fails without it; it reads the SecurityResult and fails with its reason on non-zero; it sends ClientInit with shared = 1 and parses ServerInit; it then sends SetPixelFormat (32/24, little-endian, true colour, shifts 0/8/16), SetEncodings [16, 1, 0, -223] and a non-incremental request; messages split across and packed into frames parse the same; a server version below 3.8 fails with `version`; a text frame fails with `protocol`.
-- [ ] 2.2 Write failing tests: Raw and CopyRect update the framebuffer with alpha 255; DesktopSize resizes it and is followed by a non-incremental request; other updates are followed by an incremental request; Bell and SetColourMapEntries are skipped; ServerCutText with a positive and a negative length is skipped without surfacing its bytes; an unknown message type fails with `protocol`.
-- [ ] 2.3 Implement the reader, handshake, Raw, CopyRect and DesktopSize; verify 2.1 and 2.2 pass, and assert over a whole session that the client wrote only handshake bytes, SetPixelFormat, SetEncodings and FramebufferUpdateRequest.
+- [x] 2.1 Write failing tests for `RfbClient` over an in-memory channel: it sends `RFB 003.008\n`; a security count of 0 reads the reason and fails with `security`; it chooses None and fails without it; it reads the SecurityResult and fails with its reason on non-zero; it sends ClientInit with shared = 1 and parses ServerInit; it then sends SetPixelFormat (32/24, little-endian, true colour, shifts 0/8/16), SetEncodings [16, 1, 0, -223] and a non-incremental request; messages split across and packed into frames parse the same; a server version below 3.8 fails with `version`; a text frame fails with `protocol`.
+- [x] 2.2 Write failing tests: Raw and CopyRect update the framebuffer with alpha 255; DesktopSize resizes it and is followed by a non-incremental request; other updates are followed by an incremental request; Bell and SetColourMapEntries are skipped; ServerCutText with a positive and a negative length is skipped without surfacing its bytes; an unknown message type fails with `protocol`.
+- [x] 2.3 Implement the reader, handshake, Raw, CopyRect and DesktopSize; verify 2.1 and 2.2 pass, and assert over a whole session that the client wrote only handshake bytes, SetPixelFormat, SetEncodings and FramebufferUpdateRequest.
 
 ## 3. ZRLE
 
@@ -20,7 +20,7 @@ One PR, `feat(bot-screen): add a watch-only RFB client`, about 500 changed lines
 
 ## 4. Observability
 
-- [ ] 4.1 No spans, logs or breadcrumbs in this change. Write a failing test that `bytesReceived` and `encodingsSeen` reflect a session, for the span in `bot-screen-live-view`; implement and verify.
+- [x] 4.1 No spans, logs or breadcrumbs in this change. Write a failing test that `bytesReceived` and `encodingsSeen` reflect a session, for the span in `bot-screen-live-view`; implement and verify.
 
 ## 5. Docs and skills
 
