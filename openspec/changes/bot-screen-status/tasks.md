@@ -4,15 +4,15 @@ One PR, `feat(bot-screen): read the bot's screen state over the gateway`, about 
 
 ## 1. Gateway plumbing
 
-- [ ] 1.1 Write failing tests in `test/gateway/`: an error answer with `data: {code: "viewer_mismatch"}` yields a `GatewayRpcException` whose `data` and `dataCode` hold it; `request(..., timeout: 10 s, dropOnTimeout: false)` that gets no answer throws `GatewayRequestTimeout` and the next `request` reuses the same connection; the default `request` still drops the connection on timeout.
-- [ ] 1.2 Add `GatewayRpcException.data`, `GatewayRequestTimeout` and the `request` options; verify 1.1 and the existing transport tests pass.
+- [x] 1.1 Write failing tests in `test/gateway/`: an error answer with `data: {code: "viewer_mismatch"}` yields a `GatewayRpcException` whose `data` and `dataCode` hold it; `requestKeepingConnection(..., timeout:)` that gets no answer throws `GatewayRequestTimeout` and the next `request` reuses the same connection; the default `request` still drops the connection on timeout.
+- [x] 1.2 Add `GatewayRpcException.data`, `GatewayRequestTimeout` and `requestKeepingConnection`; verify 1.1 and the existing transport tests pass.
 
 ## 2. Repository and contract
 
-- [ ] 2.1 Write failing tests for `BotScreenRepository` against a fake gateway: every call sends `profile`, and `default` when built for the default profile; `display.status` parses every field the spec names, tolerates missing optional ones and yields `unsupported` on `-32601`; `display.thumbnail` decodes a JPEG data URL, maps `data_url: null` with `suppressed` to suppressed and without it to stopped; 5300, a timeout and a closed connection yield `failed` with the matching kind; `display.start` returns the new status or the failure.
-- [ ] 2.2 Implement the repository and models; verify 2.1 passes.
-- [ ] 2.3 In `test/gateway/gateway_contract_test.dart`, change `display.status` and `display.lease` in `notifications` to `Use.transport` with the reason "Bot Screen state"; verify the contract test passes.
-- [ ] 2.4 Add `display.status` and `display.thumbnail` shape checks for the default profile to `test/real_backend_contract_test.dart` (skipped without `HERMES_DEV_URL`, like the rest); on a macOS backend expect `supported: false`.
+- [x] 2.1 Write failing tests for `BotScreenRepository` against a fake gateway: every call sends `profile`, and `default` when built for the default profile; `display.status` parses every field the spec names, tolerates missing optional ones and yields `unsupported` on `-32601`; `display.thumbnail` decodes a JPEG data URL, maps `data_url: null` with `suppressed` to suppressed and without it to stopped; 5300, a timeout and a closed connection yield `failed` with the matching kind; `display.start` returns the new status or the failure.
+- [x] 2.2 Implement the repository and models; verify 2.1 passes.
+- [x] 2.3 In `test/gateway/gateway_contract_test.dart`, change `display.status` and `display.lease` in `notifications` to `Use.transport` with the reason "Bot Screen state"; verify the contract test passes.
+- [x] 2.4 Add `display.status` and `display.thumbnail` shape checks for the default profile to `test/real_backend_contract_test.dart` (skipped without `HERMES_DEV_URL`, like the rest); on a macOS backend expect `supported: false`.
 
 ## 3. Controller
 
@@ -21,7 +21,7 @@ One PR, `feat(bot-screen): read the bot's screen state over the gateway`, about 
 
 ## 4. Observability
 
-- [ ] 4.1 Write failing tests with a recording telemetry and event logger: a thumbnail records `bot_screen.thumbnail` with `outcome` and `bytes_kib` only; method-not-found logs `bot_screen.unsupported` once per connection; a failed call logs `bot_screen.read_failed` with `method` and `error_type`; no attribute holds a data URL, path or profile name. Implement and verify.
+- [x] 4.1 Write failing tests with a recording telemetry and event logger: a thumbnail records `bot_screen.thumbnail` with `outcome` and `bytes_kib` only; method-not-found logs `bot_screen.unsupported` once per connection; a failed call logs `bot_screen.read_failed` with `method` and `error_type`; no attribute holds a data URL, path or profile name. Implement and verify.
 
 ## 5. Docs and skills
 
