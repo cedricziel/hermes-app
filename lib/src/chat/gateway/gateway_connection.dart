@@ -1,5 +1,6 @@
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:stream_channel/stream_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../api/hermes_api_client.dart';
@@ -21,12 +22,20 @@ Uri gatewayUri(
   );
 }
 
-/// Opens a WebSocket to [uri] once the server has accepted the upgrade.
-Future<StreamChannel<String>> openWebSocket(Uri uri) async {
-  final channel = WebSocketChannel.connect(uri);
+/// Connects to [uri] and returns the channel once the server has accepted the
+/// upgrade. Unlike the casting openers, it keeps `closeCode` readable.
+///
+/// It uses [IOWebSocketChannel] rather than `WebSocketChannel.connect`, whose
+/// adapter drops the HTTP status of a refused upgrade.
+Future<WebSocketChannel> connectWebSocketChannel(Uri uri) async {
+  final channel = IOWebSocketChannel.connect(uri);
   await channel.ready;
-  return channel.cast<String>();
+  return channel;
 }
+
+/// Opens a WebSocket to [uri] once the server has accepted the upgrade.
+Future<StreamChannel<String>> openWebSocket(Uri uri) async =>
+    (await connectWebSocketChannel(uri)).cast<String>();
 
 /// Opens a WebSocket to a dashboard [path], optionally with extra [query]
 /// parameters beside the credential.
@@ -36,11 +45,8 @@ typedef SocketConnect = Future<StreamChannel<String>> Function([
 
 /// Opens a WebSocket to [uri] that carries both text and binary frames, as
 /// the dashboard's audio sockets do.
-Future<StreamChannel<Object?>> openMixedWebSocket(Uri uri) async {
-  final channel = WebSocketChannel.connect(uri);
-  await channel.ready;
-  return channel.cast<Object?>();
-}
+Future<StreamChannel<Object?>> openMixedWebSocket(Uri uri) async =>
+    (await connectWebSocketChannel(uri)).cast<Object?>();
 
 /// Opens a dashboard WebSocket whose frames are text or bytes.
 typedef MixedSocketConnect = Future<StreamChannel<Object?>> Function([

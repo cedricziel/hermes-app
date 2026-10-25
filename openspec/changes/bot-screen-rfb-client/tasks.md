@@ -4,8 +4,8 @@ One PR, `feat(bot-screen): add a watch-only RFB client`, about 500 changed lines
 
 ## 1. Display socket
 
-- [ ] 1.1 Write failing tests against a local `HttpServer`: the opener's URL is `wss` for an `https` base, keeps the base URL's path prefix, has only the `display_ticket` query parameter and no `token` or `ticket`; the returned channel exposes the server's close code and `sink.close(4100)` sends that status; an upgrade answered with 403 throws `DisplaySocketError.notAllowed`, and neither its `toString` nor any field contains the URL or the ticket; a refused connection throws `unreachable` with the same guarantee.
-- [ ] 1.2 Factor the connect step out of `openMixedWebSocket` and implement `openDisplaySocket`; verify 1.1 and the existing gateway socket tests pass.
+- [x] 1.1 Write failing tests against a local `HttpServer`: the opener's URL is `wss` for an `https` base, keeps the base URL's path prefix, has only the `display_ticket` query parameter and no `token` or `ticket`; the returned channel exposes the server's close code and `sink.close(4100)` sends that status; an upgrade answered with 403 throws `DisplaySocketError.notAllowed`, and neither its `toString` nor any field contains the URL or the ticket; a refused connection throws `unreachable` with the same guarantee.
+- [x] 1.2 Factor the connect step out of `openMixedWebSocket` and implement `openDisplaySocket`; verify 1.1 and the existing gateway socket tests pass.
 
 ## 2. Handshake and Raw
 
