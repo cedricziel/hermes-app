@@ -29,6 +29,8 @@ import '../api/hermes_repositories.dart';
 import '../auth/auth_controller.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
+import '../bot_screen/bot_screen_controller.dart';
+import '../bot_screen/bot_screen_repository.dart';
 import '../handoff/handoff_controller.dart';
 import '../handoff/handoff_activity.dart';
 import '../messaging/messaging_screen.dart';
@@ -59,6 +61,7 @@ import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
 import '../macos/dock/dock_menu_controller.dart';
+import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
 import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
@@ -118,6 +121,7 @@ part 'chat_screen_navigation.dart';
 part 'chat_screen_composer.dart';
 part 'chat_screen_layout.dart';
 part 'chat_screen_calls.dart';
+part 'chat_screen_bot_screen.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -244,6 +248,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesMcpRepository? _mcp;
   HermesModelsRepository? _models;
   HermesGatewayTransport? _ownedTransport;
+
+  /// The Bot Screen of the chat's profile, and what it was made for.
+  BotScreenController? _screen;
+  String? _screenProfile;
+  ({GatewayRequester requests, GatewayConnectionTransport events})?
+  _screenGateway;
+  AppLockController? _screenLock;
+  StreamSubscription<bool>? _windowlessChanges;
+  bool _windowless = false;
   SessionActivity? _sessionActivity;
   final _composerController = TextEditingController();
   VoiceCall? _voiceCall;
@@ -550,6 +563,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       unawaited(_voiceRecording?.cancel());
     });
     _dictation?.controller.addListener(_takeVoice);
+    _initBotScreen(transport);
   }
 
   void _recordingChanged() {
@@ -584,6 +598,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _changed() {
     if (!mounted) return;
     _syncListChanges();
+    _syncBotScreen();
     final loading = _chat.loadingThreads;
     if (_wasLoadingThreads && !loading) {
       unawaited(_memoryWaiting?.refresh(_chat.profile));
@@ -667,6 +682,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _updateActivePolling() {
     _routeVisible = ModalRoute.of(context)?.isCurrent != false;
     _syncListChanges();
+    _syncBotScreenGates();
     if (!_foreground || !widget.visible || !_routeVisible) {
       unawaited(_voiceRecording?.cancel());
     }
@@ -732,6 +748,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _disposeBotScreen();
+    _windowlessChanges?.cancel();
     _listChanges?.controller.removeListener(_invalidationsChanged);
     _listChanges?.dispose();
     _menuBar?.disconnect(_chat);

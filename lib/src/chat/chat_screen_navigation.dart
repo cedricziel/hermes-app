@@ -69,11 +69,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
     crumbs('chat.activity.opened', {'surface': 'sheet', 'source': source});
     final sheet = showKanbanDetentSheet(
       context,
-      (controller) => BoundActivityPanel(
-        chat: _chat,
-        thread: thread,
-        scrollController: controller,
-        onClose: () => Navigator.of(context).pop(),
+      (controller) => ListenableBuilder(
+        // The profile may change while the sheet is open, and with it the
+        // screen.
+        listenable: _chat,
+        builder: (_, _) => BoundActivityPanel(
+          chat: _chat,
+          thread: thread,
+          screen: _screen,
+          scrollController: controller,
+          onClose: () => Navigator.of(context).pop(),
+        ),
       ),
     );
     unawaited(

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
@@ -12,9 +14,12 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
 import 'package:hermes_app/src/windows/conversation_window_screen.dart';
+import 'package:hermes_app/src/windows/conversation_windows.dart'
+    show kInspectorWindowCommand;
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 
 import 'support/fake_chat_transport.dart';
+import 'support/fake_gateway.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/find_app_icon.dart';
 import 'support/pump_chat.dart' show composerField;
@@ -106,7 +111,11 @@ void main() {
       );
   });
 
-  Future<void> pump(WidgetTester tester, {ConversationDraft? draft}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    ConversationDraft? draft,
+    ChatTransport? withTransport,
+  }) async {
     tester.view.physicalSize = const Size(900, 700);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -118,7 +127,7 @@ void main() {
           draft: draft,
           link: link,
           chat: HermesChatRepository(server.client().raw),
-          transport: transport,
+          transport: withTransport ?? transport,
         ),
       ),
     );
@@ -244,5 +253,29 @@ void main() {
       link.calls,
       contains('share:## You\n\nWhere to?\n\n## Hermes\n\nLisbon'),
     );
+  });
+
+  testWidgets('the Activity panel of a window shows no Bot screen card and '
+      'requests no frames', (tester) async {
+    final gateway = FakeGateway()..activeSessions = {};
+    gateway.handlers['display.status'] = (_) => {
+      'supported': true,
+      'installed': true,
+      'running': true,
+      'lease': {'holder': 'agent'},
+    };
+    final gatewayTransport = HermesGatewayTransport(connect: gateway.connect);
+    addTearDown(gatewayTransport.close);
+    await pump(tester, withTransport: gatewayTransport);
+
+    link.commandsIn.add(kInspectorWindowCommand);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 12));
+
+    expect(find.byKey(const Key('activity-panel')), findsOneWidget);
+    expect(find.byType(BotScreenCard), findsNothing);
+    expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(gatewayTransport.close);
   });
 }
