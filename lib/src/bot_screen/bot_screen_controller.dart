@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 
 import '../chat/gateway_connection_transport.dart';
 import 'bot_screen_models.dart';
@@ -33,8 +35,9 @@ class BotScreenWatch {
 /// the owner reports whether the app is in [foreground] and [unlocked].
 ///
 /// Frames stay in memory, are dropped when the screen stops, a person takes
-/// control or App Lock covers the app, and an answer that arrives after App
-/// Lock or [dispose] is discarded.
+/// control, App Lock covers the app, the app leaves the foreground or the last
+/// surface lets go, and an answer that arrives after App Lock or [dispose] is
+/// discarded.
 class BotScreenController extends ChangeNotifier {
   /// [connectionEvents] is the shared gateway's raw feed, in which the
   /// `display.status` and `display.lease` broadcasts arrive. A null [profile]
@@ -44,6 +47,7 @@ class BotScreenController extends ChangeNotifier {
     Stream<GatewayConnectionEvent> connectionEvents, {
     this.profile,
     this.pollEvery = kFramePollInterval,
+    this.events = noopAppEventLogger,
   }) {
     _events = connectionEvents.listen(
       _onConnectionEvent,
@@ -56,6 +60,9 @@ class BotScreenController extends ChangeNotifier {
   /// The profile the screen is read for; null is the server's default.
   final String? profile;
   final Duration pollEvery;
+
+  /// Where `bot_screen.start` is logged, with its outcome only.
+  final AppEventLogger events;
   late final StreamSubscription<GatewayConnectionEvent> _events;
 
   /// The latest status, or null before the first answer.
@@ -100,6 +107,7 @@ class BotScreenController extends ChangeNotifier {
     if (value == _foreground) return;
     _foreground = value;
     if (value && _demand > 0) _statusDue = true;
+    if (!value) _dropFrame();
     _reconcile();
   }
 
@@ -109,10 +117,15 @@ class BotScreenController extends ChangeNotifier {
     _unlocked = value;
     if (!value) {
       _generation++;
-      frame = null;
-      _notify();
+      _dropFrame();
     }
     _reconcile();
+  }
+
+  void _dropFrame() {
+    if (frame == null) return;
+    frame = null;
+    _notify();
   }
 
   /// Asks for frames until the returned handle is released.
@@ -122,7 +135,28 @@ class BotScreenController extends ChangeNotifier {
     return BotScreenWatch._(() {
       _demand--;
       _reconcile();
+      // The release can come while the tree is being torn down, when a
+      // listener must not rebuild, so listeners hear of the dropped frame
+      // right after.
+      if (_demand == 0 && frame != null) {
+        frame = null;
+        scheduleMicrotask(_notify);
+      }
     });
+  }
+
+  /// Reads the screen again at once, past the waits that follow a failure.
+  /// For a surface's Try Again; does nothing while nothing asks for frames.
+  void retry() {
+    if (_demand == 0) return;
+    _statusRetry?.cancel();
+    _statusRetry = null;
+    _statusFailures = 0;
+    _frameFailures = 0;
+    _skipTicks = 0;
+    _statusDue = true;
+    if (_shouldPoll) _frameDue = true;
+    _pump();
   }
 
   /// Starts the profile's screen. The status stays as it was and [starting]
@@ -138,12 +172,18 @@ class BotScreenController extends ChangeNotifier {
     try {
       result = await _repository.start(profile);
     } catch (_) {
+      _logStart('error');
       if (!_disposed) {
         starting = false;
         _notify();
       }
       rethrow;
     }
+    _logStart(switch (result) {
+      BotScreenOk(:final value) when value.blocker != null => 'blocked',
+      BotScreenOk(:final value) when value.running => 'started',
+      _ => 'error',
+    });
     if (_disposed) return;
     starting = false;
     if (mark != _mark()) {
@@ -163,6 +203,15 @@ class BotScreenController extends ChangeNotifier {
         startError = kind;
     }
     _notify();
+  }
+
+  /// Logs the outcome of a Start. Telemetry must never break the app.
+  void _logStart(String outcome) {
+    try {
+      events('bot_screen.start', {'outcome': outcome});
+    } on Object {
+      return;
+    }
   }
 
   /// What an answer must still match to be used: App Lock and a broadcast

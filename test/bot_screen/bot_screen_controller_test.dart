@@ -23,6 +23,7 @@ void main() {
   var running = true;
   var holder = 'agent';
   var startFails = false;
+  final logged = <String>[];
 
   int calls(String method) => gateway.methods.where((m) => m == method).length;
 
@@ -57,6 +58,7 @@ void main() {
       running = true;
       holder = 'agent';
       startFails = false;
+      logged.clear();
       gateway = FakeGateway();
       gateway.handlers['display.status'] = (_) =>
           statusJson(running: running, lease: {'holder': holder, 'epoch': 1});
@@ -73,6 +75,8 @@ void main() {
         BotScreenRepository(transport.requestKeepingConnection),
         events?.call() ?? transport.connectionEvents,
         profile: 'work',
+        events: (name, [attributes = const {}]) =>
+            logged.add('$name $attributes'),
       );
       try {
         body();
@@ -458,6 +462,148 @@ void main() {
         expect(controller.starting, isFalse);
         expect(controller.status?.running, isFalse);
         expect(controller.startError, BotScreenFailure.display);
+      });
+    });
+  });
+
+  group('start outcome', () {
+    test('is logged as started, with nothing else', () {
+      scenario(() {
+        running = false;
+        controller.watch();
+        settle();
+
+        controller.start();
+        settle();
+
+        expect(logged, ['bot_screen.start {outcome: started}']);
+      });
+    });
+
+    test('is logged as blocked when Hermes names a blocker', () {
+      scenario(() {
+        running = false;
+        gateway.handlers['display.start'] = (_) =>
+            statusJson(running: false, extra: {'blocker': 'Not enough memory'});
+        controller.watch();
+        settle();
+
+        controller.start();
+        settle();
+
+        expect(logged, ['bot_screen.start {outcome: blocked}']);
+      });
+    });
+
+    test('is logged as error when the start fails', () {
+      scenario(() {
+        running = false;
+        startFails = true;
+        controller.watch();
+        settle();
+
+        controller.start();
+        settle();
+
+        expect(logged, ['bot_screen.start {outcome: error}']);
+      });
+    });
+
+    test('is not logged when nothing was sent', () {
+      scenario(() {
+        running = false;
+        controller.watch();
+        settle();
+        controller.foreground = false;
+
+        controller.start();
+        settle();
+
+        expect(logged, isEmpty);
+      });
+    });
+  });
+
+  group('what a surface that is gone leaves behind', () {
+    test('the last surface letting go drops the frame', () {
+      scenario(() {
+        final handle = controller.watch();
+        settle();
+        expect(controller.frame, jpeg);
+
+        handle.release();
+        settle();
+
+        expect(controller.frame, isNull);
+      });
+    });
+
+    test('another surface still asking keeps the frame', () {
+      scenario(() {
+        final first = controller.watch();
+        controller.watch();
+        settle();
+
+        first.release();
+        settle();
+
+        expect(controller.frame, jpeg);
+      });
+    });
+
+    test('the app leaving the foreground drops the frame', () {
+      scenario(() {
+        controller.watch();
+        settle();
+
+        controller.foreground = false;
+
+        expect(controller.frame, isNull);
+        async.elapse(const Duration(seconds: 9));
+        expect(controller.frame, isNull);
+      });
+    });
+  });
+
+  group('retry', () {
+    test('reads the status again at once after a failure', () {
+      scenario(() {
+        var failures = 1;
+        gateway.handlers['display.status'] = (_) {
+          if (failures-- > 0) throw const FakeRpcError(5300, 'busy');
+          return statusJson();
+        };
+        controller.watch();
+        settle();
+        expect(controller.failure, BotScreenFailure.display);
+
+        controller.retry();
+        settle();
+
+        expect(calls('display.status'), 2);
+        expect(controller.failure, isNull);
+        expect(controller.status?.running, isTrue);
+      });
+    });
+
+    test('asks for a frame at once instead of waiting out the back-off', () {
+      scenario(() {
+        var failing = true;
+        gateway.handlers['display.thumbnail'] = (_) {
+          if (failing) throw const FakeRpcError(5300, 'no frame');
+          return {'data_url': 'data:image/jpeg;base64,${base64Encode(jpeg)}'};
+        };
+        controller.watch();
+        async.elapse(const Duration(seconds: 7));
+        expect(controller.failure, BotScreenFailure.display);
+        expect(controller.frame, isNull);
+
+        failing = false;
+        controller.retry();
+        settle();
+
+        expect(controller.frame, jpeg);
+        expect(controller.failure, isNull);
       });
     });
   });
