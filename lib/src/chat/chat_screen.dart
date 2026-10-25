@@ -674,6 +674,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     }
     if (widget.visible != oldWidget.visible) {
+      _syncBotScreenGates();
       _updateActivePolling();
       WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
     }
@@ -682,7 +683,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _updateActivePolling() {
     _routeVisible = ModalRoute.of(context)?.isCurrent != false;
     _syncListChanges();
-    _syncBotScreenGates();
     if (!_foreground || !widget.visible || !_routeVisible) {
       unawaited(_voiceRecording?.cancel());
     }
@@ -733,6 +733,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
+    _syncBotScreenGates();
     _updateActivePolling();
     if (state case AppLifecycleState.paused || AppLifecycleState.hidden) {
       _dictation?.controller.cancel();

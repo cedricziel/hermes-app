@@ -53,9 +53,10 @@ extension _ChatScreenBotScreen on _ChatScreenState {
   }
 
   void _syncBotScreenGates() {
+    // Not `_routeVisible`: the phone's Activity sheet is a route of its own
+    // above the chat, and it is what asks for the frames.
     _screen
-      ?..foreground =
-          _foreground && widget.visible && _routeVisible && !_windowless
+      ?..foreground = _foreground && widget.visible && !_windowless
       ..unlocked = !(_screenLock?.covered ?? false);
   }
 
