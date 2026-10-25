@@ -3,7 +3,7 @@
 Run the focused checks serially before native verification:
 
 ```bash
-flutter test --concurrency=1 test/auth_controller_bootstrap_test.dart test/token_store_test.dart test/auth_controller_refresh_test.dart test/auth_controller_sign_in_test.dart test/auth_controller_network_test.dart test/window_auth_interceptor_test.dart
+flutter test --concurrency=1 test/auth_controller_session_recovery_test.dart test/auth_controller_bootstrap_test.dart test/token_store_test.dart test/auth_controller_refresh_test.dart test/auth_controller_sign_in_test.dart test/auth_controller_network_test.dart test/window_auth_interceptor_test.dart
 ```
 
 Check these boundaries with synthetic credentials:

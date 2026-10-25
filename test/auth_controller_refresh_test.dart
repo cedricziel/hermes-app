@@ -355,46 +355,6 @@ void main() {
     expect(requestedPaths, contains('/auth/native/refresh'));
   });
 
-  test('a delayed retried 401 preserves a newer session', () async {
-    await bootstrapWith(_session());
-    final held = Completer<void>();
-    dashboard.authResponseGates.addAll([Future.value(), held.future]);
-    dashboard.forcedAuthStatuses.addAll([401, 401]);
-    final before = dashboard.authRequests;
-    final pending = expectLater(
-      controller.api!.fetchMe(),
-      throwsA(isA<DioException>()),
-    );
-    await (() async {
-      while (dashboard.authRequests < before + 2) {
-        await Future<void>.delayed(const Duration(milliseconds: 1));
-      }
-    })().timeout(const Duration(seconds: 5));
-    await controller.windowAuthHeaders(
-      rejected: {'Authorization': 'Bearer access-2'},
-    );
-    held.complete();
-    await pending;
-
-    expect(controller.state, HermesConnectionState.ready);
-    expect(store.session?.accessToken, 'access-3');
-    expect(events.named('auth.session.expired'), isEmpty);
-    expect((await controller.api!.fetchMe()).userId, 'u1');
-  });
-
-  test('a retried 401 for the current token expires the session', () async {
-    await bootstrapWith(_session());
-    dashboard.forcedAuthStatuses.addAll([401, 401]);
-
-    await expectLater(controller.api!.fetchMe(), throwsA(isA<DioException>()));
-
-    expect(controller.state, HermesConnectionState.needsLogin);
-    expect(store.session, isNull);
-    expect(events.named('auth.session.expired'), [
-      {'cause': 'unauthorized_after_retry'},
-    ]);
-  });
-
   test('keeps the session when the refresh endpoint is unavailable', () async {
     await bootstrapWith(_session());
     dashboard
