@@ -192,10 +192,14 @@ class _Reader {
 
   void skip(int length) {
     _start += length;
-    if (_start == _end && _buf.length > _keepBuffer) {
-      // A big rectangle is consumed; do not hold its memory.
-      _buf = Uint8List(4096);
-      _start = _end = 0;
+    final live = available;
+    if (_buf.length > _keepBuffer && live <= _keepBuffer ~/ 2) {
+      // A big rectangle is consumed; keep only what follows it.
+      final small = Uint8List(math.max(4096, live));
+      small.setRange(0, live, _buf, _start);
+      _buf = small;
+      _start = 0;
+      _end = live;
     }
   }
 }
