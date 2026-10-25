@@ -1,0 +1,31 @@
+# Design
+
+## Context
+
+Server side (Hermes `hermes_cli/web_routers/display.py`, `tools/bot_desktop/rfb_filter.py`): `/api/display/ws` refuses Host/Origin before accepting (`ws.close(4403)` before `accept`, which a client sees as an HTTP 403 on the upgrade), then consumes `display_ticket` after accepting (4401 in a close frame), and splices the profile's Xvnc into binary frames; a text frame closes with 1003. Xvnc runs `-SecurityTypes None` and `-AlwaysShared`. The bridge frames every client message it forwards (SetPixelFormat, SetEncodings, FramebufferUpdateRequest, input, EnableContinuousUpdates, Fence, SetDesktopSize, QEMU) and closes with 1003 on any other type.
+
+In the app, `openMixedWebSocket` (`lib/src/chat/gateway/gateway_connection.dart`) does `WebSocketChannel.connect(uri)`, awaits `ready` and returns `channel.cast<Object?>()`, which hides `closeCode`. `gatewayUri` keeps the base URL's path prefix (`'${base.path}$path'`). TLS goes through `dart:io`'s default `SecurityContext`, to which `network/user_certificates.dart` adds the user-installed CAs on Android. `dart:io` throws `WebSocketException("Connection to '<url>' was not upgraded to websocket, HTTP status code: 403")` on a refused upgrade, so the raw message contains the ticket.
+
+## Decisions
+
+- **Opener.** `openDisplaySocket(String baseUrl, String path, String ticket)` builds the URI with `gatewayUri(baseUrl, {'display_ticket': ticket}, path: path)` and calls a `_connectChannel(uri)` helper that `openMixedWebSocket` now uses too; it returns the `WebSocketChannel` uncast. Failures are caught at `ready` and mapped by inspecting the exception type and status code only: HTTP 403 → `DisplaySocketError.notAllowed`, `HandshakeException` with a certificate failure → `untrustedCertificate`, everything else → `unreachable`. The original exception is dropped, not attached as a cause, and the typed error's `toString` holds only the kind.
+- **Reader.** `RfbClient` (`lib/src/bot_screen/rfb/rfb_client.dart`) runs over the channel's binary frames (a text frame is a protocol error) and buffers into a growable reader with `need(n)`/`take(n)`, because RFB messages do not align with WebSocket frames. It exposes `Stream<RfbEvent>` (`Connected(width, height)`, `Updated(dirty rect)`, `Resized`, `Ended(RfbFailure)`), a `Framebuffer` (`Uint8List` RGBA, width, height), `bytesReceived` and `encodingsSeen`.
+- **Handshake.** Read `RFB 003.00x\n`; anything below 3.8 is `RfbFailure.version`. Send `RFB 003.008\n`. Read the security-type count; 0 means a u32 reason string follows, read it and fail with `RfbFailure.security` (reason kept only in memory). Choose None (1) or fail when absent. Read the u32 SecurityResult; non-zero means a u32 reason string follows; fail. Send ClientInit with shared = 1. Read ServerInit (width, height, pixel format, name); the name is skipped.
+- **Pixel format and encodings.** Send SetPixelFormat: 32 bpp, depth 24, little-endian, true colour, max 255/255/255, shifts 0/8/16, so wire pixels are R, G, B, padding and the decoder writes alpha 255. Send SetEncodings [16 ZRLE, 1 CopyRect, 0 Raw, -223 DesktopSize], then a non-incremental FramebufferUpdateRequest for the whole screen. After each FramebufferUpdate send an incremental request; after one that carried DesktopSize, reallocate the framebuffer and send a non-incremental request for the new size.
+- **Server messages.** FramebufferUpdate is decoded; SetColourMapEntries is read past (true colour makes it moot); Bell is ignored; ServerCutText is read past by the absolute value of its signed length (the extended-clipboard form is negative) and discarded. Any other type is `RfbFailure.protocol`.
+- **ZRLE** (`zrle.dart`). One `ZLibDecoder` (zlib format, RFC 1950, not raw) per connection, fed through a chunked conversion sink with exactly the u32-length payload of each ZRLE rectangle; the inflater's output is read as the next tiles, since ZRLE's zlib stream persists across rectangles and updates. Tiles are 64×64, left to right, top to bottom, smaller at the right and bottom edges. CPIXEL is 3 bytes for this pixel format. Subencodings: 0 raw, 1 solid, 2–16 packed palette (1 bit per index for 2 colours, 2 bits for 3–4, 4 bits for 5–16, rows padded to a byte), 128 plain RLE, 130–255 palette RLE (palette of n−128; an index byte with the top bit set is followed by a run length); run lengths are 1 plus the sum of bytes up to the first byte below 255. 17–127 and 129 are `RfbFailure.decode`.
+- **Containment.** Every parse step is bounds-checked; a short or malformed message ends the connection with `Ended(RfbFailure.decode)` and closes the socket with 1000, never throwing to the caller.
+- **No input surface.** The class has no method that sends KeyEvent, PointerEvent, ClientCutText or SetDesktopSize; a test asserts the bytes the client writes over a whole session are only the handshake, SetPixelFormat, SetEncodings and FramebufferUpdateRequest.
+
+Platforms: iOS, Android, macOS, Windows, Linux. No native change: `dart:io` sockets and zlib exist on every target; outgoing network is already allowed on macOS.
+
+Invariants touched:
+
+- Telemetry: none recorded here. The typed errors carry only a fixed `step` and kind, so the live-view span and log cannot leak the URL.
+- API layering: the display socket is a WebSocket, not REST.
+
+## Risks / Trade-offs
+
+- [A hand-written decoder can corrupt the picture on an edge case] → Tests cover each subencoding, partial edge tiles, a zlib stream spanning two updates, and truncated input at every offset of a recorded session.
+- [Raw over a phone network is heavy (about 4 MB per full frame at 1280×800)] → ZRLE is listed first; Xvnc picks it.
+- [Mapping exceptions by status code depends on `dart:io`'s exception shape] → A test pins it with a local server that answers 403.
