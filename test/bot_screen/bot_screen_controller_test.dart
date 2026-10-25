@@ -409,6 +409,33 @@ void main() {
       });
     });
 
+    test('App Lock during a start still ends starting and re-reads the '
+        'status', () {
+      scenario(() {
+        running = false;
+        gateway.silent.add('display.start');
+        controller.watch();
+        settle();
+        controller.start();
+        settle();
+        expect(controller.starting, isTrue);
+
+        controller.unlocked = false;
+        gateway.replyTo(
+          gateway.requestOf('display.start'),
+          statusJson(running: true),
+        );
+        settle();
+        running = true;
+        controller.unlocked = true;
+        settle();
+
+        expect(controller.starting, isFalse);
+        expect(calls('display.status'), 2);
+        expect(controller.status?.running, isTrue);
+      });
+    });
+
     test('goes back to off with the failure', () {
       scenario(() {
         running = false;

@@ -126,8 +126,15 @@ class BotScreenController extends ChangeNotifier {
     startError = null;
     _notify();
     final result = await _repository.start(profile);
-    if (_stale(generation)) return;
+    if (_disposed) return;
     starting = false;
+    if (generation != _generation) {
+      // The answer is dropped, but the server may have started the screen.
+      _statusDue = true;
+      _notify();
+      _pump();
+      return;
+    }
     switch (result) {
       case BotScreenOk(:final value):
         _apply(value);
