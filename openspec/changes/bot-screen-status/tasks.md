@@ -21,7 +21,7 @@ One PR, `feat(bot-screen): read the bot's screen state over the gateway`, about 
 
 ## 4. Observability
 
-- [x] 4.1 Write failing tests with a recording telemetry and event logger: a thumbnail records `bot_screen.thumbnail` with `outcome` and `bytes_kib` only; method-not-found logs `bot_screen.unsupported` once per connection; a failed call logs `bot_screen.read_failed` with `method` and `error_type`; no attribute holds a data URL, path or profile name. Implement and verify.
+- [x] 4.1 Write failing tests with a recording telemetry and event logger: a thumbnail records `bot_screen.thumbnail` with `outcome` and `bytes_kib` only; method-not-found logs `bot_screen.unsupported` once per repository; a failed call logs `bot_screen.read_failed` with `method` and `error_type`; no attribute holds a data URL, path or profile name. Implement and verify.
 
 ## 5. Docs and skills
 

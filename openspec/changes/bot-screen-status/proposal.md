@@ -67,6 +67,6 @@ None.
 ## Observability
 
 - Span `bot_screen.thumbnail` per frame request (it crosses the socket and takes time), with the connection's `hermes.*` attributes, `outcome` (`frame`, `suppressed`, `stopped`, `timeout`, `error`) and `bytes_kib` (the JPEG's size in KiB, bucketed). The `GatewayRpcClient` request span for `display.thumbnail` also appears per request; both are kept, since the RPC span is shared by every method.
-- Log event `bot_screen.unsupported` once per connection when `display.status` answers method-not-found: how many servers are too old.
-- Log event `bot_screen.read_failed` with `method` and `error_type` (`timeout`, `display_error`, `closed`) when a display call fails: how often the screen cannot be read.
+- Log event `bot_screen.unsupported` once per repository (built for one connection) when `display.status` answers method-not-found: how many servers are too old.
+- Log event `bot_screen.read_failed` with `method` and `error_type` (`timeout`, `display_error`, `closed`) when a display call fails, once per failure streak: how often the screen cannot be read.
 - No breadcrumbs: this change has no user step.
