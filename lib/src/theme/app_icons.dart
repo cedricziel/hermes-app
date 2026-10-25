@@ -397,6 +397,14 @@ abstract final class AppIcons {
     Icons.cancel,
     CupertinoIcons.xmark_circle_fill,
   );
+  static const screen = AppIconSet(
+    Icons.desktop_windows_outlined,
+    CupertinoIcons.desktopcomputer,
+  );
+  static const enlarge = AppIconSet(
+    Icons.open_in_full,
+    CupertinoIcons.arrow_up_left_arrow_down_right,
+  );
 
   /// Every set by name, for the catalog and for tests.
   static const all = <String, AppIconSet>{
@@ -509,5 +517,7 @@ abstract final class AppIcons {
     'compose': compose,
     'share': share,
     'clearFilled': clearFilled,
+    'screen': screen,
+    'enlarge': enlarge,
   };
 }
