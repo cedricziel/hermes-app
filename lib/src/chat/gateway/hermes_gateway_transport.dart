@@ -864,6 +864,16 @@ class HermesGatewayTransport
     Map<String, Object?> params = const {},
   ]) async => _call(await _client(), method, params);
 
+  /// Like [request], but a call that gets no answer within [timeout] throws
+  /// [GatewayRequestTimeout] and leaves the connection, and the replies
+  /// running on it, alone.
+  @override
+  Future<Map<String, Object?>> requestKeepingConnection(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) async => (await _client()).requestWithin(method, params, timeout: timeout);
+
   @override
   Future<List<SlashCommand>> slashCommands({
     String? threadId,

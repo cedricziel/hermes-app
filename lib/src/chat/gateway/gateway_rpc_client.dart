@@ -61,10 +61,20 @@ const kGatewayMethodNotFound = -32601;
 
 /// The gateway answered a request with a JSON-RPC error.
 class GatewayRpcException implements Exception {
-  const GatewayRpcException(this.code, this.message);
+  const GatewayRpcException(this.code, this.message, [this.data]);
 
   final int code;
   final String message;
+
+  /// The error's `data` object, when the gateway sent one.
+  final Map<String, Object?>? data;
+
+  /// `data.code`, the machine-readable reason of a refusal such as
+  /// `viewer_mismatch`.
+  String? get dataCode {
+    final code = data?['code'];
+    return code is String ? code : null;
+  }
 
   @override
   String toString() => 'GatewayRpcException($code): $message';
@@ -76,6 +86,15 @@ class GatewayConnectionClosed implements Exception {
 
   @override
   String toString() => 'The gateway connection closed';
+}
+
+/// A request that asked not to take the connection down with it gave up
+/// waiting for its answer. The connection is still open.
+class GatewayRequestTimeout implements Exception {
+  const GatewayRequestTimeout();
+
+  @override
+  String toString() => 'The gateway did not answer in time';
 }
 
 /// A JSON-RPC 2.0 client for the dashboard's `/api/ws` socket: requests are
@@ -190,6 +209,15 @@ class GatewayRpcClient {
     Map<String, Object?> params = const {},
   ]) => _request(method, params);
 
+  /// Like [request], but a request that gets no answer within [timeout] is
+  /// abandoned: it fails with [GatewayRequestTimeout], its span ends and its
+  /// entry is dropped, so a late answer is ignored. The socket stays open.
+  Future<Map<String, Object?>> requestWithin(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) => _request(method, params, timeout: timeout);
+
   /// Rechecks ownership after instrumentation, before sending the request frame.
   Future<Map<String, Object?>> requestGuarded(
     String method,
@@ -201,6 +229,7 @@ class GatewayRpcClient {
     String method,
     Map<String, Object?> params, {
     bool Function()? authorize,
+    Duration? timeout,
   }) {
     if (_closed || authorize?.call() == false) {
       return Future.error(const GatewayConnectionClosed());
@@ -212,7 +241,7 @@ class GatewayRpcClient {
       return Future.error(const GatewayConnectionClosed());
     }
     final completer = Completer<Map<String, Object?>>();
-    _pending[id] = _Pending(completer, span);
+    final pending = _pending[id] = _Pending(completer, span);
     _channel.sink.add(
       jsonEncode({
         'jsonrpc': '2.0',
@@ -221,6 +250,14 @@ class GatewayRpcClient {
         'params': params,
       }),
     );
+    // Armed once the frame is out, so the wait never counts the send.
+    if (timeout != null) {
+      pending.timer = Timer(timeout, () {
+        if (_pending.remove(id) == null) return;
+        _telemetry?.finishRequest(span, failure: const GatewayRequestTimeout());
+        completer.completeError(const GatewayRequestTimeout());
+      });
+    }
     return completer.future;
   }
 
@@ -347,12 +384,18 @@ class GatewayRpcClient {
   void _settle(int id, Map<String, dynamic> message) {
     final pending = _pending.remove(id);
     if (pending == null) return;
+    pending.timer?.cancel();
     final error = message['error'];
     if (error is Map) {
       final code = (error['code'] as num?)?.toInt() ?? 0;
       _telemetry?.finishRequest(pending.span, errorCode: code);
+      final data = error['data'];
       pending.completer.completeError(
-        GatewayRpcException(code, error['message']?.toString() ?? ''),
+        GatewayRpcException(
+          code,
+          error['message']?.toString() ?? '',
+          data is Map ? Map<String, Object?>.from(data) : null,
+        ),
       );
     } else {
       _telemetry?.finishRequest(pending.span);
@@ -396,6 +439,7 @@ class GatewayRpcClient {
     final pending = _pending.values.toList();
     _pending.clear();
     for (final call in pending) {
+      call.timer?.cancel();
       _telemetry?.finishRequest(
         call.span,
         failure: const GatewayConnectionClosed(),
@@ -413,4 +457,7 @@ class _Pending {
 
   final Completer<Map<String, Object?>> completer;
   final Span? span;
+
+  /// Abandons the request when it runs out of time, if it was given any.
+  Timer? timer;
 }
