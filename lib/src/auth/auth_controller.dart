@@ -713,7 +713,10 @@ class AuthController extends ChangeNotifier {
             return handler.next(error);
           }
           if (options.extra['hermes_retried'] == true) {
-            await _handleSessionExpired('unauthorized_after_retry');
+            if (options.headers['Authorization'] ==
+                'Bearer ${session.accessToken}') {
+              await _handleSessionExpired('unauthorized_after_retry');
+            }
             return handler.next(error);
           }
           if (session.refreshToken.isEmpty) {
