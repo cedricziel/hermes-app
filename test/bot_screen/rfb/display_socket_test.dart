@@ -142,6 +142,23 @@ void main() {
       expect(error.kind, DisplaySocketErrorKind.untrustedCertificate);
     });
 
+    test('finds the certificate failure inside the channel exception', () {
+      for (final inner in [
+        const HandshakeException(
+          'Handshake error in client',
+          OSError('CERTIFICATE_VERIFY_FAILED: self signed certificate', 0),
+        ),
+        const HandshakeException('CERTIFICATE_VERIFY_FAILED: expired'),
+        const TlsException('CERTIFICATE_VERIFY_FAILED: unknown ca'),
+      ]) {
+        final error = displaySocketErrorFor(
+          WebSocketChannelException.from(inner),
+        );
+        expect(error.kind, DisplaySocketErrorKind.untrustedCertificate);
+        _expectNoSecrets(error, 0);
+      }
+    });
+
     test('maps any other handshake failure to unreachable', () {
       final error = displaySocketErrorFor(
         const HandshakeException('Connection terminated during handshake'),

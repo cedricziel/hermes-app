@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../auth/connect_failure.dart';
 import '../../chat/gateway/gateway_connection.dart';
 
 enum DisplaySocketErrorKind {
@@ -60,8 +61,7 @@ DisplaySocketError displaySocketErrorFor(Object error) {
       cause.httpStatusCode == HttpStatus.forbidden) {
     return const DisplaySocketError(DisplaySocketErrorKind.notAllowed);
   }
-  if (cause is HandshakeException &&
-      (cause.osError?.message ?? '').contains('CERTIFICATE_VERIFY_FAILED')) {
+  if (cause is TlsException && isCertificateFailure(cause)) {
     return const DisplaySocketError(
       DisplaySocketErrorKind.untrustedCertificate,
     );
