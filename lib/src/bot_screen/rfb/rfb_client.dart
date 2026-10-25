@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'rfb_input_sink.dart';
 import 'zrle.dart';
 
 /// Why an RFB stream ended badly.
@@ -204,13 +205,16 @@ class _Reader {
   }
 }
 
-/// A watch-only RFB 3.8 client over the display socket.
+/// An RFB 3.8 client over the display socket.
 ///
 /// It sends the handshake, SetPixelFormat, SetEncodings and
-/// FramebufferUpdateRequest, and nothing else: there is no way to send input.
-/// Failures and the end of the stream arrive as [RfbEnded]; nothing throws
-/// past this API.
-class RfbClient {
+/// FramebufferUpdateRequest, and input only when a caller asks for it
+/// ([pointer], [key], [scroll], [cutText]): nothing sends input by itself, and
+/// SetDesktopSize is never sent. Failures and the end of the stream arrive as
+/// [RfbEnded]; the stream side never throws past this API. The input methods
+/// throw [StateError] before ServerInit and after the end, and never log or
+/// keep what they send.
+class RfbClient implements RfbInputSink {
   RfbClient(this._channel) {
     _subscription = _channel.stream.listen(
       _onData,
@@ -255,6 +259,86 @@ class RfbClient {
     }
     _end(closeWith: code);
     return _channel.sink.done.catchError((Object _) {});
+  }
+
+  /// The buttons the latest [pointer] call held, which [scroll] keeps.
+  int _heldButtons = 0;
+
+  @override
+  void pointer(int x, int y, int buttonMask) {
+    if (buttonMask < 0 || buttonMask > 0xFF) {
+      throw ArgumentError.value(buttonMask, 'buttonMask', 'not one byte');
+    }
+    _requireRunning();
+    _heldButtons = buttonMask & RfbButtons.held;
+    _sendPointer(x, y, buttonMask);
+  }
+
+  @override
+  void key(int keysym, {required bool down}) {
+    if (keysym < 0 || keysym > 0xFFFFFFFF) {
+      throw ArgumentError.value(keysym, 'keysym', 'not 32 bits');
+    }
+    _requireRunning();
+    final message = ByteData(8)
+      ..setUint8(0, 4)
+      ..setUint8(1, down ? 1 : 0)
+      ..setUint32(4, keysym);
+    _send(message.buffer.asUint8List());
+  }
+
+  @override
+  void scroll(int x, int y, {int dx = 0, int dy = 0}) {
+    _requireRunning();
+    _wheel(x, y, dy, RfbButtons.wheelUp, RfbButtons.wheelDown);
+    _wheel(x, y, dx, RfbButtons.wheelLeft, RfbButtons.wheelRight);
+  }
+
+  void _wheel(int x, int y, int notches, int negative, int positive) {
+    final wheel = notches < 0 ? negative : positive;
+    for (var i = 0; i < notches.abs(); i++) {
+      _sendPointer(x, y, _heldButtons | wheel);
+      _sendPointer(x, y, _heldButtons);
+    }
+  }
+
+  @override
+  void cutText(String text) {
+    _requireRunning();
+    // One pass: Latin-1 check and line breaks as a line feed, the way X
+    // expects them, written straight into the message.
+    final message = Uint8List(8 + text.length);
+    var length = 0;
+    for (var i = 0; i < text.length; i++) {
+      var unit = text.codeUnitAt(i);
+      if (unit > 0xFF) throw RfbClipboardError.notLatin1;
+      if (unit == 0x0D) {
+        unit = 0x0A;
+        if (i + 1 < text.length && text.codeUnitAt(i + 1) == 0x0A) i++;
+      }
+      message[8 + length++] = unit;
+    }
+    if (length > maxCutTextBytes) throw RfbClipboardError.tooLarge;
+    message[0] = 6;
+    ByteData.sublistView(message).setUint32(4, length);
+    _send(Uint8List.sublistView(message, 0, 8 + length));
+  }
+
+  void _requireRunning() {
+    if (_ended) throw StateError('The RFB stream has ended');
+    if (_phase != _Phase.running) {
+      throw StateError('The RFB handshake has not finished');
+    }
+  }
+
+  void _sendPointer(int x, int y, int mask) {
+    final fb = _framebuffer!;
+    final message = ByteData(6)
+      ..setUint8(0, 5)
+      ..setUint8(1, mask)
+      ..setUint16(2, math.min(math.max(x, 0), fb.width - 1))
+      ..setUint16(4, math.min(math.max(y, 0), fb.height - 1));
+    _send(message.buffer.asUint8List());
   }
 
   void _onData(Object? data) {
@@ -318,7 +402,10 @@ class RfbClient {
   }
 
   void _send(List<int> message) {
-    if (!_ended) _channel.sink.add(Uint8List.fromList(message));
+    if (_ended) return;
+    _channel.sink.add(
+      message is Uint8List ? message : Uint8List.fromList(message),
+    );
   }
 
   /// Parses what has arrived; false when more bytes are needed.
