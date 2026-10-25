@@ -30,40 +30,10 @@ List<int> _request(int w, int h, {required bool incremental}) => [
   ...u16(h),
 ];
 
-class _Session {
-  _Session() : channel = FakeDisplayChannel() {
-    client = RfbClient(channel);
-    client.events.listen(events.add);
-  }
-
-  final FakeDisplayChannel channel;
-  late final RfbClient client;
-  final events = <RfbEvent>[];
-
-  Future<void> send(List<int> data) async {
-    channel.serverSend(Uint8List.fromList(data));
-    await pumpEventQueue();
-  }
-
-  Future<void> handshake([int w = 8, int h = 4]) async {
-    for (final part in rfbHandshake(w, h)) {
-      await send(part);
-    }
-  }
-
-  RfbEnded get ended => events.whereType<RfbEnded>().single;
-
-  List<int> pixel(int x, int y) {
-    final fb = client.framebuffer!;
-    final o = (y * fb.width + x) * 4;
-    return fb.rgba.sublist(o, o + 4);
-  }
-}
-
 void main() {
   group('handshake', () {
     test('answers the server version with 3.8 and picks None', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.send(rfbVersion());
       expect(s.channel.sentBytes, ascii('RFB 003.008\n'));
 
@@ -72,7 +42,7 @@ void main() {
     });
 
     test('accepts a server newer than 3.8', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.send(rfbVersion('RFB 003.889\n'));
       expect(s.channel.sentBytes, ascii('RFB 003.008\n'));
       expect(s.events, isEmpty);
@@ -80,7 +50,7 @@ void main() {
 
     test('fails on a version below 3.8', () async {
       for (final old in ['RFB 003.003\n', 'RFB 003.007\n']) {
-        final s = _Session();
+        final s = RfbSession();
         await s.send(rfbVersion(old));
         expect(s.ended.failure, RfbFailure.version);
         expect(s.ended.step, RfbStep.handshake);
@@ -90,13 +60,13 @@ void main() {
     });
 
     test('fails on a greeting that is not RFB', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.send(ascii('SSH-2.0-Open'));
       expect(s.ended.failure, RfbFailure.version);
     });
 
     test('reads the reason when no security type is offered', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.send(rfbVersion());
       await s.send([0]);
       expect(s.events, isEmpty);
@@ -107,7 +77,7 @@ void main() {
     });
 
     test('fails when None is not among the security types', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.send(rfbVersion());
       await s.send([2, 2, 19]);
 
@@ -116,7 +86,7 @@ void main() {
     });
 
     test('fails with the reason when the security result is not 0', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.send(rfbVersion());
       await s.send([1, 1]);
       await s.send(u32(1));
@@ -130,7 +100,7 @@ void main() {
 
     test('sends a shared ClientInit, then the pixel format, encodings and '
         'a full non-incremental request', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake(1280, 800);
 
       expect(s.events.single, isA<RfbConnected>());
@@ -158,10 +128,10 @@ void main() {
           ]),
         ]);
 
-        final packed = _Session();
+        final packed = RfbSession();
         await packed.send(server);
 
-        final split = _Session();
+        final split = RfbSession();
         for (final byte in server) {
           await split.send([byte]);
         }
@@ -175,7 +145,7 @@ void main() {
     );
 
     test('fails on a text frame', () async {
-      final s = _Session();
+      final s = RfbSession();
       s.channel.serverSend('RFB 003.008\n');
       await pumpEventQueue();
 
@@ -183,7 +153,7 @@ void main() {
     });
 
     test('reports the close code the server sent', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.channel.serverClose(4401);
       await pumpEventQueue();
 
@@ -194,7 +164,7 @@ void main() {
 
   group('updates', () {
     test('Raw rectangles paint opaque pixels', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake();
       await s.send(
         rfbUpdate([
@@ -211,7 +181,7 @@ void main() {
     });
 
     test('CopyRect copies pixels, also over themselves', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake();
       await s.send(
         rfbUpdate([
@@ -228,7 +198,7 @@ void main() {
     });
 
     test('an update is followed by an incremental request', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake(8, 4);
       final before = s.channel.sentBytes.length;
       await s.send(
@@ -244,7 +214,7 @@ void main() {
     });
 
     test('DesktopSize resizes and asks for the whole new screen', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake(8, 4);
       await s.send(
         rfbUpdate([
@@ -266,7 +236,7 @@ void main() {
     });
 
     test('draws into the new size within the same update', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake(8, 4);
       await s.send(
         rfbUpdate([
@@ -280,7 +250,7 @@ void main() {
     });
 
     test('reads past Bell and SetColourMapEntries', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake();
       await s.send([2]); // Bell
       await s.send([
@@ -302,7 +272,7 @@ void main() {
       'discards ServerCutText of either form, however it is framed',
       () async {
         for (final length in [5, -5]) {
-          final s = _Session();
+          final s = RfbSession();
           await s.handshake();
           final secret = ascii('hunter2');
           final message = cat([
@@ -329,7 +299,7 @@ void main() {
     );
 
     test('skips a very large ServerCutText without buffering it', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake();
       await s.send([3, 0, 0, 0, ...u32(0x7FFFFFF0)]);
       await s.send(Uint8List(1 << 20));
@@ -339,7 +309,7 @@ void main() {
     });
 
     test('an unknown server message type is a protocol failure', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake();
       await s.send([42]);
 
@@ -349,7 +319,7 @@ void main() {
     });
 
     test('an unrequested encoding is a protocol failure', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake();
       await s.send(
         cat([
@@ -363,7 +333,7 @@ void main() {
     });
 
     test('a rectangle outside the screen is a decode failure', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake(8, 4);
       await s.send(
         rfbUpdate([
@@ -375,7 +345,7 @@ void main() {
     });
 
     test('an absurd desktop size is refused instead of allocated', () async {
-      final s = _Session();
+      final s = RfbSession();
       for (final part in rfbHandshake(65535, 65535)) {
         await s.send(part);
       }
@@ -384,7 +354,7 @@ void main() {
     });
 
     test('a socket that closes mid-message is a decode failure', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake();
       await s.send(
         rfbUpdate([
@@ -398,7 +368,7 @@ void main() {
     });
 
     test('close sends the status code and ends the events', () async {
-      final s = _Session();
+      final s = RfbSession();
       await s.handshake();
       await s.client.close(4100);
       await pumpEventQueue();
@@ -410,7 +380,7 @@ void main() {
     test(
       'writes only the handshake, pixel format, encodings and requests',
       () async {
-        final s = _Session();
+        final s = RfbSession();
         await s.handshake(8, 4);
         await s.send(
           rfbUpdate([
@@ -429,7 +399,7 @@ void main() {
 
   group('counters', () {
     test('count the bytes received and the encodings seen', () async {
-      final s = _Session();
+      final s = RfbSession();
       final handshake = rfbHandshake(8, 4);
       for (final part in handshake) {
         await s.send(part);

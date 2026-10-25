@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter_test/flutter_test.dart' show pumpEventQueue;
+import 'package:hermes_app/src/bot_screen/rfb/rfb_client.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -75,6 +77,37 @@ class _FakeSink implements WebSocketSink {
 
   @override
   Future get done => _done.future;
+}
+
+/// An [RfbClient] on a [FakeDisplayChannel], with its events collected.
+class RfbSession {
+  RfbSession() : channel = FakeDisplayChannel() {
+    client = RfbClient(channel);
+    client.events.listen(events.add);
+  }
+
+  final FakeDisplayChannel channel;
+  late final RfbClient client;
+  final events = <RfbEvent>[];
+
+  Future<void> send(List<int> data) async {
+    channel.serverSend(Uint8List.fromList(data));
+    await pumpEventQueue();
+  }
+
+  Future<void> handshake([int w = 8, int h = 4]) async {
+    for (final part in rfbHandshake(w, h)) {
+      await send(part);
+    }
+  }
+
+  RfbEnded get ended => events.whereType<RfbEnded>().single;
+
+  List<int> pixel(int x, int y) {
+    final fb = client.framebuffer!;
+    final o = (y * fb.width + x) * 4;
+    return fb.rgba.sublist(o, o + 4);
+  }
 }
 
 // Server messages (RFC 6143 section 7.6) ------------------------------------

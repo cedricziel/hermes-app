@@ -5,6 +5,8 @@ import 'dart:typed_data';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'zrle.dart';
+
 /// Why an RFB stream ended badly.
 enum RfbFailure {
   /// The server speaks a version below 3.8.
@@ -103,6 +105,7 @@ final class RfbEnded extends RfbEvent {
 
 const _encodingRaw = 0;
 const _encodingCopyRect = 1;
+const _encodingZrle = 16;
 const _encodingDesktopSize = -223;
 
 const _maxPixels = 32 * 1024 * 1024;
@@ -203,6 +206,7 @@ class RfbClient {
   final _events = StreamController<RfbEvent>();
   final _reader = _Reader();
   final _encodings = <int>{};
+  final _zrle = ZrleDecoder();
 
   _Phase _phase = _Phase.version;
   _Update? _update;
@@ -266,6 +270,7 @@ class RfbClient {
     _ended = true;
     final step = _phase == _Phase.running ? RfbStep.decode : RfbStep.handshake;
     unawaited(_subscription.cancel());
+    _zrle.close();
     unawaited(_closeSink(closeWith ?? 1000));
     _events
       ..add(
@@ -433,6 +438,17 @@ class RfbClient {
         inside(srcX, srcY, w, h);
         _copy(fb, srcX, srcY, x, y, w, h);
         r.skip(16);
+        update.paint(x, y, w, h);
+      case _encodingZrle:
+        if (r.available < 16) return false;
+        final length = r.u32(12);
+        inside(x, y, w, h);
+        if (length > ZrleDecoder.maxPayload(w, h)) {
+          throw const _Fail(RfbFailure.decode);
+        }
+        if (r.available < 16 + length) return false;
+        _zrle.decode(r.view(16, length), fb.rgba, fb.width, x, y, w, h);
+        r.skip(16 + length);
         update.paint(x, y, w, h);
       case _encodingDesktopSize:
         _checkSize(w, h);

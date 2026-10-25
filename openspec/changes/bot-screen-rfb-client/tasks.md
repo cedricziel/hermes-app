@@ -15,8 +15,8 @@ One PR, `feat(bot-screen): add a watch-only RFB client`, about 500 changed lines
 
 ## 3. ZRLE
 
-- [ ] 3.1 Write failing tests for ZRLE with one zlib-format stream spanning two updates, fed exactly each rectangle's length: raw, solid, packed palette with 2, 3–4 and 5–16 colours, plain RLE (including runs over 255), palette RLE, and a partial edge tile; subencodings 17–127 and 129 fail with `decode`; truncating a recorded session at every offset ends with `decode` and never throws to the caller.
-- [ ] 3.2 Implement ZRLE; verify 3.1 passes.
+- [x] 3.1 Write failing tests for ZRLE with one zlib-format stream spanning two updates, fed exactly each rectangle's length: raw, solid, packed palette with 2, 3–4 and 5–16 colours, plain RLE (including runs over 255), palette RLE, and a partial edge tile; subencodings 17–127 and 129 fail with `decode`; truncating a recorded session at every offset ends with `decode` and never throws to the caller.
+- [x] 3.2 Implement ZRLE; verify 3.1 passes.
 
 ## 4. Observability
 
