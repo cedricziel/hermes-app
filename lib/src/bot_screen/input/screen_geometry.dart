@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/widgets.dart';
 
 /// How a position on the zoomed and panned picture maps to a framebuffer
@@ -13,7 +11,9 @@ class ScreenGeometry {
     required this.pictureRect,
     Matrix4? transform,
   }) : _transform = transform ?? Matrix4.identity(),
-       _inverse = _invert(transform);
+       _inverse =
+           (transform == null ? null : Matrix4.tryInvert(transform)) ??
+           Matrix4.identity();
 
   /// A picture shown with [BoxFit.contain] in a content area of [viewport]'s
   /// size, centred: the way `RawImage` fills an `InteractiveViewer` child.
@@ -72,15 +72,9 @@ class ScreenGeometry {
           delta.dy * framebuffer.height / (pictureRect.height * scale),
         );
     return Offset(
-      math.min(math.max(moved.dx, 0), framebuffer.width - 1),
-      math.min(math.max(moved.dy, 0), framebuffer.height - 1),
+      moved.dx.clamp(0, framebuffer.width - 1),
+      moved.dy.clamp(0, framebuffer.height - 1),
     );
-  }
-
-  static Matrix4 _invert(Matrix4? transform) {
-    if (transform == null) return Matrix4.identity();
-    final inverse = Matrix4.copy(transform);
-    return inverse.invert() == 0 ? Matrix4.identity() : inverse;
   }
 }
 
