@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -9,14 +11,18 @@ import 'package:hermes_app/src/models/hermes_session.dart';
 
 import 'support/recorded_events.dart';
 
+import 'package:hermes_app/src/auth/session_mutex_native.dart';
+
 class _FakeStorage extends FlutterSecureStorage {
   _FakeStorage({this.value, this.readError, this.deleteError, this.writeError});
 
   String? value;
-  final Object? readError;
+  Object? readError;
   final Object? deleteError;
   final Object? writeError;
   final writes = <String?>[];
+  void Function()? afterRead;
+  Future<void> Function()? beforeWrite;
 
   @override
   Future<String?> read({
@@ -29,7 +35,9 @@ class _FakeStorage extends FlutterSecureStorage {
     WindowsOptions? wOptions,
   }) async {
     if (readError != null) throw readError!; // ignore: only_throw_errors
-    return value;
+    final snapshot = value;
+    afterRead?.call();
+    return snapshot;
   }
 
   @override
@@ -44,6 +52,7 @@ class _FakeStorage extends FlutterSecureStorage {
     WindowsOptions? wOptions,
   }) async {
     if (writeError != null) throw writeError!; // ignore: only_throw_errors
+    await beforeWrite?.call();
     writes.add(value);
     this.value = value;
   }
@@ -74,6 +83,85 @@ const _session = HermesSession(
 String _stored() => jsonEncode(_session.toStorageJson());
 
 void main() {
+  for (final initial in [_stored(), '{invalid json']) {
+    for (final replacement in [
+      jsonEncode({
+        ..._session.toStorageJson(),
+        'accessToken': 'new-access',
+        'refreshToken': 'new-refresh',
+      }),
+      null,
+    ]) {
+      test(
+        'replace and logout serialize across independent store connections',
+        () async {
+          final dir = await Directory.systemTemp.createTemp(
+            'hermes-token-cas-',
+          );
+          addTearDown(() => dir.delete(recursive: true));
+          final path = '${dir.path}/lock.sqlite';
+          final storage = _FakeStorage(value: _stored());
+          final foreground = TokenStore(
+            storage: storage,
+            mutex: SqliteSessionMutex(path: path),
+          );
+          final background = TokenStore(
+            storage: storage,
+            mutex: SqliteSessionMutex(path: path),
+          );
+          final started = Completer<void>();
+          final release = Completer<void>();
+          storage.beforeWrite = () async {
+            started.complete();
+            await release.future;
+          };
+          final next = HermesSession.fromStorageJson({
+            ..._session.toStorageJson(),
+            'accessToken': 'new-access',
+            'refreshToken': 'new-refresh',
+          });
+          final refresh = background.replace(_session, next);
+          await started.future;
+          final logout = foreground.clear();
+          release.complete();
+          expect(await refresh, isTrue);
+          await logout;
+          expect(storage.value, isNull);
+          expect(await background.replace(_session, next), isFalse);
+          expect(storage.value, isNull);
+        },
+      );
+
+      test('conditional writes preserve replacement accounts and unreadable storage', () async {
+        final storage = _FakeStorage(value: _stored());
+        final store = TokenStore(storage: storage);
+        final other = HermesSession.fromStorageJson({
+          ..._session.toStorageJson(),
+          'userId': 'other',
+        });
+        await store.write(other);
+        expect(await store.replace(_session, _session), isFalse);
+        expect(await store.replace(_session, null), isFalse);
+        expect((await store.read())?.userId, 'other');
+        final before = storage.value;
+        storage.readError = PlatformException(code: '-25308');
+        await expectLater(store.replace(other, _session), throwsStateError);
+        expect(storage.value, before);
+      });
+
+      test(
+        'read preserves concurrent change: $initial -> $replacement',
+        () async {
+          final storage = _FakeStorage(value: initial);
+          storage.afterRead = () => storage.value = replacement;
+          await TokenStore(storage: storage).readState();
+          expect(storage.value, replacement);
+          expect(storage.writes, isEmpty);
+        },
+      );
+    }
+  }
+
   test('the session stays readable on iOS while the phone is locked', () {
     // A watch request wakes the phone app in the background, usually locked.
     final options = TokenStore.defaultStorage.iOptions;
@@ -84,21 +172,18 @@ void main() {
     );
   });
 
-  test(
-    'a stored session is saved again once, under the current options',
-    () async {
-      final storage = _FakeStorage(value: _stored());
-      final store = TokenStore(storage: storage);
+  test('reading a stored session never writes it back', () async {
+    final storage = _FakeStorage(value: _stored());
+    final store = TokenStore(storage: storage);
 
-      final first = await store.read();
-      await store.read();
+    final first = await store.read();
+    await store.read();
 
-      expect(first?.accessToken, 'access');
-      expect(storage.writes, [_stored()]);
-    },
-  );
+    expect(first?.accessToken, 'access');
+    expect(storage.writes, isEmpty);
+  });
 
-  test('a session that cannot be saved again is still returned', () async {
+  test('a session stays readable when writes are unavailable', () async {
     final storage = _FakeStorage(
       value: _stored(),
       writeError: PlatformException(code: '-25299'),
@@ -169,7 +254,7 @@ void main() {
         final storage = _FakeStorage(value: entry.value);
 
         expect(await TokenStore(storage: storage).read(), isNull);
-        expect(storage.value, isNull);
+        expect(storage.value, entry.value);
       });
     }
 
@@ -186,7 +271,7 @@ void main() {
       },
     );
 
-    test('even when clearing the bad value also fails', () async {
+    test('without trying to clear the bad value', () async {
       final storage = _FakeStorage(
         value: '[]',
         deleteError: PlatformException(code: '-25308'),

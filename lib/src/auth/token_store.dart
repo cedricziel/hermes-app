@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
@@ -7,13 +8,66 @@ import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
 import '../models/hermes_session.dart';
+import 'session_mutex.dart';
+import 'session_mutex_stub.dart'
+    if (dart.library.io) 'session_mutex_native.dart';
 
 /// Persists the native-app token set in the OS keychain (iOS/macOS) or
 /// Keystore-encrypted prefs (Android) — the same trust boundary
 /// Hermes Desktop uses for its own token store, and never a browser cookie.
 class TokenStore {
-  TokenStore({FlutterSecureStorage? storage, this._events = noopAppEventLogger})
-    : _storage = storage ?? defaultStorage;
+  TokenStore({
+    FlutterSecureStorage? storage,
+    SessionMutex? mutex,
+    this._events = noopAppEventLogger,
+  }) : _storage = storage ?? defaultStorage,
+       _mutex =
+           mutex ??
+           (storage == null ? createSessionMutex() : MemorySessionMutex());
+
+  final SessionMutex _mutex;
+  static final _lockZone = Object();
+
+  Future<T> _exclusive<T>(Future<T> Function() body) {
+    final held = Zone.current[_lockZone];
+    if (held is _HeldLock && held.active && identical(held.owner, this)) {
+      return body();
+    }
+    return _mutex.run(() async {
+      final lease = _HeldLock(this);
+      try {
+        return await runZoned(body, zoneValues: {_lockZone: lease});
+      } finally {
+        lease.active = false;
+      }
+    });
+  }
+
+  /// Compare and mutate under the same lock used by sign-in and sign-out.
+  /// Unreadable storage never authorizes overwriting or deleting a session.
+  Future<bool> replace(HermesSession expected, HermesSession? next) =>
+      _exclusive(() async {
+        final stored = await readState(repair: false);
+        if (stored is SessionUnreadable) {
+          throw StateError('Secure storage is temporarily unreadable');
+        }
+        final current = stored.session;
+        if (current == null ||
+            current.refreshToken != expected.refreshToken ||
+            current.accessToken != expected.accessToken ||
+            current.userId != expected.userId ||
+            current.provider != expected.provider ||
+            (current.serverUrl != null &&
+                current.serverUrl != expected.serverUrl)) {
+          return false;
+        }
+        if (next == null) {
+          await clear();
+        } else {
+          await write(next);
+        }
+        return true;
+      });
 
   /// On iOS the session stays readable while the phone is locked, once it has
   /// been unlocked since it started: a request from the watch wakes the phone
@@ -34,18 +88,17 @@ class TokenStore {
   final FlutterSecureStorage _storage;
   final AppEventLogger _events;
 
-  /// Whether the stored session was written again under the current options.
-  bool _resaved = false;
-
   Future<HermesSession?> read() async => (await readState()).session;
 
   /// Like [read], but says why there is no session: nothing is stored, or the
   /// keychain cannot be read right now (on iOS: before the first unlock since
   /// the device started).
   ///
-  /// With [repair] false it only reads: it neither saves the session again
-  /// under the current options nor clears a value it cannot parse, for a
-  /// reader that must not write beside the app.
+  /// Reads never write or delete: another engine may rotate the session or
+  /// sign out after the snapshot was read. New sign-ins and successful
+  /// refreshes apply the current storage options when writing their tokens.
+  /// [repair] is retained for callers that already request read-only access;
+  /// both values now leave storage untouched.
   Future<SessionRead> readState({bool repair = true}) async {
     final String? raw;
     try {
@@ -69,16 +122,8 @@ class TokenStore {
         throw const FormatException('stored session is not an object');
       }
       final session = HermesSession.fromStorageJson(json);
-      if (repair) await _resaveOnce(raw);
       return SessionFound(session);
     } on Object {
-      if (repair) {
-        try {
-          await clear();
-        } on Object {
-          // The next sign-in overwrites the entry.
-        }
-      }
       return const SessionEmpty();
     }
   }
@@ -91,26 +136,16 @@ class TokenStore {
           error.details == -25308 ||
           (error.message?.contains('-25308') ?? false));
 
-  /// A session saved by an older version keeps the options it was saved
-  /// with until it is written again.
-  Future<void> _resaveOnce(String raw) async {
-    if (_resaved) return;
-    _resaved = true;
-    try {
-      await _storage.write(key: _sessionKey, value: raw);
-    } on Object {
-      // The next token refresh writes it again.
-    }
-  }
-
   Future<void> write(HermesSession session) {
-    return _storage.write(
-      key: _sessionKey,
-      value: jsonEncode(session.toStorageJson()),
+    return _exclusive(
+      () => _storage.write(
+        key: _sessionKey,
+        value: jsonEncode(session.toStorageJson()),
+      ),
     );
   }
 
-  Future<void> clear() => _storage.delete(key: _sessionKey);
+  Future<void> clear() => _exclusive(() => _storage.delete(key: _sessionKey));
 }
 
 /// What [TokenStore.readState] found.
@@ -141,4 +176,10 @@ final class SessionUnreadable extends SessionRead {
   /// Whether the keychain is locked, as on iOS before the first unlock since
   /// the device started, rather than failing for another reason.
   final bool locked;
+}
+
+class _HeldLock {
+  _HeldLock(this.owner);
+  final TokenStore owner;
+  bool active = true;
 }
