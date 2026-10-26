@@ -969,7 +969,17 @@ class AuthController extends ChangeNotifier {
       if (current == null || !current.sameOwner(sent)) return null;
       // A caller rejected with the same token already took over a pair.
       if (current.refreshToken != sent.refreshToken) return current;
-      final adopted = await _adoptStored(sent);
+      // A rejected token may already have been rotated by another engine.
+      // Unreadable storage cannot establish that its replacement is absent.
+      final SessionRead stored;
+      try {
+        stored = await _tokenStore.readState(repair: false);
+      } on Object {
+        return null;
+      }
+      if (!valid()) return null;
+      if (stored is SessionUnreadable) return null;
+      final adopted = await _adoptStored(sent, snapshot: stored);
       if (!valid()) return null;
       if (adopted != null) return adopted;
     }
@@ -984,12 +994,15 @@ class AuthController extends ChangeNotifier {
   /// Takes over the stored pair when it replaced [sent]: the same user on the
   /// same dashboard as this controller, received after [sent], while this
   /// controller still holds [sent]. Null otherwise.
-  Future<HermesSession?> _adoptStored(HermesSession sent) async {
+  Future<HermesSession?> _adoptStored(
+    HermesSession sent, {
+    SessionRead? snapshot,
+  }) async {
     final ownerEpoch = _ownerEpoch;
     final requestEpoch = _requestEpoch;
     final HermesSession? stored;
     try {
-      stored = await _tokenStore.read();
+      stored = (snapshot ?? await _tokenStore.readState(repair: false)).session;
     } on Object {
       return null;
     }
