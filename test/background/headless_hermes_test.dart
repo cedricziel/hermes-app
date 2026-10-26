@@ -832,6 +832,42 @@ void main() {
       },
     );
 
+    test(
+      'unreadable writeback never overwrites a replacement account',
+      () async {
+        store.session = _session(expiresAt: 1);
+        final replacement = HermesSession.fromStorageJson({
+          ..._session().toStorageJson(),
+          'userId': 'other',
+          'refreshToken': 'other-refresh',
+        });
+        store.beforeRead = (read) {
+          if (read == 2) {
+            store.session = replacement;
+            store.unreadable = true;
+          }
+        };
+        await run(readProfiles);
+        expect(store.session, same(replacement));
+        expect(store.writes, 0);
+      },
+    );
+
+    test(
+      'transient write failure retries the same pair without refreshing again',
+      () async {
+        store.session = _session(expiresAt: 1);
+        store.beforeRead = (read) {
+          if (read == 2) store.failWrites = true;
+          if (read == 3) store.failWrites = false;
+        };
+        await run(readProfiles);
+        expect(store.session?.refreshToken, 'refresh-2');
+        expect(store.writes, 2);
+        expect(dashboard.refreshes, 1);
+      },
+    );
+
     test('a failed write is logged and does not fail the run', () async {
       store.session = _session(expiresAt: 1);
       store.failWrites = true;

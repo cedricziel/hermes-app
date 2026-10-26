@@ -698,26 +698,31 @@ class _HeadlessAuth {
 
     session = refreshed;
     await _writeBack(held, refreshed);
-    return refreshed;
+    return _over ? null : session;
   }
 
-  /// Stores [refreshed] unless storage no longer holds the pair [spent]
-  /// came from: the app may have rotated it or the user signed out since.
-  /// A storage that cannot be read is written anyway, since [spent] is gone
-  /// whatever it holds.
+  /// Compare and write under the same cross-engine lock as foreground
+  /// sign-in and sign-out. An unreadable store cannot authorize a write.
   Future<void> _writeBack(HermesSession spent, HermesSession refreshed) async {
-    final current = await _storedState();
-    if (current is SessionEmpty) return;
-    if (current is SessionFound &&
-        current.session.refreshToken != spent.refreshToken) {
-      return;
-    }
-    try {
-      await store.write(refreshed);
-    } on Object catch (error) {
-      events('auth.session.store_failed', {
-        'error.type': error.runtimeType.toString(),
-      });
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (await store.replace(spent, refreshed)) return;
+        final adopted = _newerStored(spent, await _stored());
+        if (adopted != null) {
+          session = adopted;
+        } else {
+          _stop(_Stop.unreachable);
+        }
+        return;
+      } on Object catch (error) {
+        if (attempt == 2) {
+          events('auth.session.store_failed', {
+            'error.type': error.runtimeType.toString(),
+          });
+          return;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
     }
   }
 

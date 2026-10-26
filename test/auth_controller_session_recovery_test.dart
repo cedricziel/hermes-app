@@ -78,6 +78,74 @@ void main() {
   });
 
   test(
+    'failed persistence retries on the next request without another refresh',
+    () async {
+      await controller.bootstrap();
+      var refreshes = 0;
+      server.onRequest('POST', '/auth/native/refresh', (_) {
+        refreshes++;
+        return (
+          status: 200,
+          body: {
+            'access_token': 'access-2',
+            'refresh_token': 'refresh-2',
+            'expires_at': 4102444800,
+            ..._identity,
+          },
+        );
+      });
+      server.onRequest(
+        'GET',
+        '/api/auth/me',
+        (request) => (
+          status: request.headers['Authorization'] == 'Bearer access-2'
+              ? 200
+              : 401,
+          body: _identity,
+        ),
+      );
+      tokens.failWrites = true;
+      await controller.api!.fetchMe();
+      expect(tokens.session?.refreshToken, 'refresh-1');
+      tokens.failWrites = false;
+      await controller.api!.fetchMe();
+      expect(tokens.session?.refreshToken, 'refresh-2');
+      expect(refreshes, 1);
+    },
+  );
+
+  test(
+    'failed persistence retries while idle and never resurrects logout',
+    () async {
+      await controller.bootstrap();
+      final stored = Completer<void>();
+      tokens.onWrite = (_) {
+        if (!stored.isCompleted) stored.complete();
+      };
+      {
+        tokens.failWrites = true;
+        await controller.windowAuthHeaders(
+          rejected: {'Authorization': 'Bearer access-1'},
+        );
+        expect(tokens.session?.refreshToken, 'refresh-1');
+        tokens.failWrites = false;
+        await stored.future.timeout(const Duration(seconds: 5));
+        expect(tokens.session?.refreshToken, 'refresh-2');
+
+        tokens.failWrites = true;
+        await controller.windowAuthHeaders(
+          rejected: {'Authorization': 'Bearer access-2'},
+        );
+        await controller.signOut();
+        tokens.failWrites = false;
+        await Future<void>.delayed(const Duration(milliseconds: 1100));
+        expect(tokens.session, isNull);
+        expect(controller.state, HermesConnectionState.needsLogin);
+      }
+    },
+  );
+
+  test(
     'an unavailable keychain during restore keeps the session for retry',
     () async {
       tokens.unreadable = true;
