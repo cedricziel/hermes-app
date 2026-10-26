@@ -863,7 +863,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<String?> _ensureFreshAccessToken() async {
-    await _persistPendingSession();
+    if (_pendingSessionWrite != null) await _persistPendingSession();
     final ownerEpoch = _ownerEpoch;
     final requestEpoch = _requestEpoch;
     final session = _session;

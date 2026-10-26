@@ -83,6 +83,81 @@ const _session = HermesSession(
 String _stored() => jsonEncode(_session.toStorageJson());
 
 void main() {
+  test(
+    'replace and logout serialize across independent store connections',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('hermes-token-cas-');
+      addTearDown(() => dir.delete(recursive: true));
+      final path = '${dir.path}/lock.sqlite';
+      final storage = _FakeStorage(value: _stored());
+      final foreground = TokenStore(
+        storage: storage,
+        mutex: SqliteSessionMutex(path: path),
+      );
+      final background = TokenStore(
+        storage: storage,
+        mutex: SqliteSessionMutex(path: path),
+      );
+      final started = Completer<void>();
+      final release = Completer<void>();
+      storage.beforeWrite = () async {
+        started.complete();
+        await release.future;
+      };
+      final next = HermesSession.fromStorageJson({
+        ..._session.toStorageJson(),
+        'accessToken': 'new-access',
+        'refreshToken': 'new-refresh',
+      });
+      final refresh = background.replace(_session, next);
+      await started.future;
+      final logout = foreground.clear();
+      release.complete();
+      expect(await refresh, isTrue);
+      await logout;
+      expect(storage.value, isNull);
+      expect(await background.replace(_session, next), isFalse);
+      expect(storage.value, isNull);
+    },
+  );
+
+  test(
+    'conditional writes preserve replacement accounts and unreadable storage',
+    () async {
+      final storage = _FakeStorage(value: _stored());
+      final store = TokenStore(storage: storage);
+      final other = HermesSession.fromStorageJson({
+        ..._session.toStorageJson(),
+        'userId': 'other',
+      });
+      await store.write(other);
+      expect(await store.replace(_session, _session), isFalse);
+      expect(await store.replace(_session, null), isFalse);
+      expect((await store.read())?.userId, 'other');
+      final before = storage.value;
+      storage.readError = PlatformException(code: '-25308');
+      await expectLater(store.replace(other, _session), throwsStateError);
+      expect(storage.value, before);
+    },
+  );
+
+  test('conditional mutations accept the same credentials rebound after a redirect', () async {
+    final original = _session.boundTo('https://old.hermes.test');
+    final rebound = original.boundTo('https://new.hermes.test');
+    final rotated = HermesSession.fromStorageJson({
+      ...rebound.toStorageJson(),
+      'accessToken': 'new-access',
+      'refreshToken': 'new-refresh',
+    });
+    final storage = _FakeStorage(value: jsonEncode(original.toStorageJson()));
+    final store = TokenStore(storage: storage);
+    expect(await store.replace(rebound, rotated), isTrue);
+    expect((await store.read())?.serverUrl, rebound.serverUrl);
+    await store.write(original);
+    expect(await store.replace(rebound, null), isTrue);
+    expect(storage.value, isNull);
+  });
+
   for (final initial in [_stored(), '{invalid json']) {
     for (final replacement in [
       jsonEncode({
@@ -92,63 +167,6 @@ void main() {
       }),
       null,
     ]) {
-      test(
-        'replace and logout serialize across independent store connections',
-        () async {
-          final dir = await Directory.systemTemp.createTemp(
-            'hermes-token-cas-',
-          );
-          addTearDown(() => dir.delete(recursive: true));
-          final path = '${dir.path}/lock.sqlite';
-          final storage = _FakeStorage(value: _stored());
-          final foreground = TokenStore(
-            storage: storage,
-            mutex: SqliteSessionMutex(path: path),
-          );
-          final background = TokenStore(
-            storage: storage,
-            mutex: SqliteSessionMutex(path: path),
-          );
-          final started = Completer<void>();
-          final release = Completer<void>();
-          storage.beforeWrite = () async {
-            started.complete();
-            await release.future;
-          };
-          final next = HermesSession.fromStorageJson({
-            ..._session.toStorageJson(),
-            'accessToken': 'new-access',
-            'refreshToken': 'new-refresh',
-          });
-          final refresh = background.replace(_session, next);
-          await started.future;
-          final logout = foreground.clear();
-          release.complete();
-          expect(await refresh, isTrue);
-          await logout;
-          expect(storage.value, isNull);
-          expect(await background.replace(_session, next), isFalse);
-          expect(storage.value, isNull);
-        },
-      );
-
-      test('conditional writes preserve replacement accounts and unreadable storage', () async {
-        final storage = _FakeStorage(value: _stored());
-        final store = TokenStore(storage: storage);
-        final other = HermesSession.fromStorageJson({
-          ..._session.toStorageJson(),
-          'userId': 'other',
-        });
-        await store.write(other);
-        expect(await store.replace(_session, _session), isFalse);
-        expect(await store.replace(_session, null), isFalse);
-        expect((await store.read())?.userId, 'other');
-        final before = storage.value;
-        storage.readError = PlatformException(code: '-25308');
-        await expectLater(store.replace(other, _session), throwsStateError);
-        expect(storage.value, before);
-      });
-
       test(
         'read preserves concurrent change: $initial -> $replacement',
         () async {

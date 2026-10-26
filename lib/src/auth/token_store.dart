@@ -51,14 +51,14 @@ class TokenStore {
         if (stored is SessionUnreadable) {
           throw StateError('Secure storage is temporarily unreadable');
         }
+        // The connection validates the issuer before binding a redirected URL.
+        // Compare the actual credential pair, not its potentially rebound URL.
         final current = stored.session;
         if (current == null ||
             current.refreshToken != expected.refreshToken ||
             current.accessToken != expected.accessToken ||
             current.userId != expected.userId ||
-            current.provider != expected.provider ||
-            (current.serverUrl != null &&
-                current.serverUrl != expected.serverUrl)) {
+            current.provider != expected.provider) {
           return false;
         }
         if (next == null) {

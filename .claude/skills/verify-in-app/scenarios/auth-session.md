@@ -43,3 +43,8 @@ pending work on departure/disposal. Background persistence retries are bounded
 and share the existing shutdown grace. Persistent keychain failures or process
 termination before a successful write can still lose a rotated pair; never log
 or put those tokens in the lock database to work around that limitation.
+
+The pinned `path_provider_foundation` 2.6.0 uses a Dart FFI implementation,
+registered by `DartPluginRegistrant.ensureInitialized()` in background entry
+points. It has no Swift `PathProviderPlugin` to add to `BackgroundPlugins`.
+Recheck the pinned implementation before changing engine registration.
