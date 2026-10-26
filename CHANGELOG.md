@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.73](https://github.com/cedricziel/hermes-app/compare/v0.1.72...v0.1.73) (2026-10-26)
+
+
+### Bug Fixes
+
+* **auth:** preserve sessions when refresh recovery cannot read keychain ([#845](https://github.com/cedricziel/hermes-app/issues/845)) ([f7ec132](https://github.com/cedricziel/hermes-app/commit/f7ec132fca4f9355e02c484da2171352525309a3))
+* **auth:** serialize session mutations and retry token persistence ([#847](https://github.com/cedricziel/hermes-app/issues/847)) ([6a8d3b3](https://github.com/cedricziel/hermes-app/commit/6a8d3b30c5fdd87b512efe562eaae586086df0c2))
+
 ## [0.1.72](https://github.com/cedricziel/hermes-app/compare/v0.1.71...v0.1.72) (2026-10-25)
 
 
