@@ -61,6 +61,7 @@ void main() {
       tokenStore: tokens,
       devServerUrl: _baseUrl,
       telemetry: events.connection,
+      rejectionRecheck: Duration.zero,
       interceptors: [
         InterceptorsWrapper(
           onRequest: (options, handler) async {
@@ -97,6 +98,68 @@ void main() {
       expect(controller.identity?.userId, 'u1');
     },
   );
+
+  test(
+    'unreadable storage after refresh rejection preserves recovery',
+    () async {
+      await controller.bootstrap();
+      server.on('GET', '/api/auth/me', _unauthorized, status: 401);
+      server.onRequest('POST', '/auth/native/refresh', (_) {
+        tokens.unreadable = true;
+        return (status: 401, body: _unauthorized);
+      });
+
+      await expectLater(
+        controller.api!.fetchMe(),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(tokens.session, same(_storedSession));
+      expect(controller.state, HermesConnectionState.ready);
+      expect(events.named('auth.session.expired'), isEmpty);
+
+      // The other engine's rotated pair becomes readable again.
+      tokens.session = const HermesSession(
+        accessToken: 'access-2',
+        refreshToken: 'refresh-2',
+        expiresAt: 4102444800,
+        provider: 'oidc',
+        userId: 'u1',
+        serverUrl: _baseUrl,
+      ).rotatedFrom(_storedSession);
+      tokens.unreadable = false;
+      server.onRequest(
+        'GET',
+        '/api/auth/me',
+        (request) => (
+          status: request.headers['Authorization'] == 'Bearer access-2'
+              ? 200
+              : 401,
+          body: request.headers['Authorization'] == 'Bearer access-2'
+              ? _identity
+              : _unauthorized,
+        ),
+      );
+
+      expect((await controller.api!.fetchMe()).userId, 'u1');
+      expect(controller.state, HermesConnectionState.ready);
+      expect(events.named('auth.session.expired'), isEmpty);
+    },
+  );
+
+  test('rejected refresh with readable unchanged storage expires', () async {
+    await controller.bootstrap();
+    server.on('GET', '/api/auth/me', _unauthorized, status: 401);
+    server.on('POST', '/auth/native/refresh', _unauthorized, status: 401);
+
+    await expectLater(controller.api!.fetchMe(), throwsA(isA<DioException>()));
+
+    expect(tokens.session, isNull);
+    expect(controller.state, HermesConnectionState.needsLogin);
+    expect(events.named('auth.session.expired'), [
+      {'cause': 'refresh_rejected'},
+    ]);
+  });
 
   test('a delayed retried 401 preserves a newer session', () async {
     await controller.bootstrap();
