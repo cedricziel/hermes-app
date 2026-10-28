@@ -84,8 +84,8 @@ Then open a chat, press the Activity button (View > Inspector, ⌥⌘I, on a Mac
 
 Watch the screen live (the card's Enlarge or its picture; the transcript preview once it exists):
 
-- Open the viewer: the picture moves by itself (let Hermes run a `computer_use` turn, or move something on the screen), the header says the profile and "Hermes is in control", and a click or tap on the picture does nothing on the screen. A window 760 pt wide or more shows it over the whole window (Escape closes it), a phone shows a full-screen page.
-- Send the app to the background and return: the stream closes while away (an attached viewer keeps the server from stopping an idle screen, so none may stay attached) and a new one opens on return.
+- Open the viewer: the picture moves by itself (let Hermes run a `computer_use` turn, or move something on the screen), the header says the profile and "Hermes is in control", and a click or tap on the picture does nothing on the screen. A phone (shortest side under 600 pt, landscape too) shows a full-screen page, a larger window shows it over the whole window; Escape and Back close either, and a dialog opened over it (Settings, Sign Out) is drawn above it.
+- Send the app to the background and return: the stream closes while away and a new one opens on return (an attached viewer counts as use on the server, and a changing screen can be kept from its idle stop, so none should stay attached). On a desktop only hiding or minimising the app does this; losing focus does not.
 - Take over from another process: the viewer blanks and says someone else is in control, and the picture returns when control goes back to Hermes.
 - Stop the screen (`hermes computer-use screen stop`) with the viewer open: it shows "The screen is off" and Start Screen, with no reconnect loop. Restart the container with the viewer open: it says Reconnecting, then either recovers or ends on "Can't reach the screen" with Try Again after 5 attempts.
 

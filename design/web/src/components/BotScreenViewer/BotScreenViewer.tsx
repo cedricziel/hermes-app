@@ -2,7 +2,13 @@ import { Button } from "../Button/Button";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
 import { Spinner } from "../Spinner/Spinner";
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
+import {
+  cx,
+  PlatformScope,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
 import "./BotScreenViewer.css";
 
 /** What the viewer shows. */
@@ -16,7 +22,7 @@ export type BotScreenViewerState =
   | "unreachable"
   | "failed";
 
-/** A full-screen page on a phone, or a layer over the whole window from 760px. */
+/** A full-screen page on a phone (shortest side under 600px), or an opaque layer over the whole window. */
 export type BotScreenViewerPresentation = "page" | "overlay";
 
 export interface BotScreenViewerProps {
@@ -37,7 +43,7 @@ export interface BotScreenViewerProps {
   pictureSrc?: string;
   /** Width over height of the screen; default 16 / 10. */
   aspectRatio?: number;
-  /** `page` (default): the phone's full-screen page, Close at the leading edge, below the status bar. `overlay`: the layer over the whole window; on macOS it leaves room for the traffic lights and Close sits at the trailing edge; Esc closes it too. */
+  /** `page` (default): the phone's full-screen page, a route with the platform's transition, Close at the leading edge, inside the safe area. `overlay`: the opaque layer over the whole window for a tablet or desktop; Escape (or Back) closes either; a dialog opened over it draws above it. */
   presentation?: BotScreenViewerPresentation;
   /** Close. */
   onClose?: () => void;
@@ -47,6 +53,8 @@ export interface BotScreenViewerProps {
   onRetry?: () => void;
   /** Inherits the provider's platform. `apple` uses CupertinoIcons, a 44px bar on a page and a 52px one in an overlay; `material` a 56px bar. */
   platform?: Platform;
+  /** Under `apple`: `mac` leaves room for the traffic lights, puts Close at the trailing edge and uses the 52px bar, as a page or as a layer. Left out, a layer is `mac` and a page is `touch` (iPhone and iPad). Ignored on `material`. */
+  device?: AppleDevice;
 }
 
 const notices: Record<
@@ -99,6 +107,7 @@ export function BotScreenViewer({
   onStart,
   onRetry,
   platform,
+  device,
 }: BotScreenViewerProps) {
   const resolved = usePlatform(platform);
   const overlay = presentation === "overlay";
@@ -119,13 +128,9 @@ export function BotScreenViewer({
     </div>
   ) : null;
   const closeButton = (
-    <IconButton
-      icon="close"
-      label="Close"
-      onClick={onClose}
-    />
+    <IconButton icon="close" label="Close" onClick={onClose} />
   );
-  const mac = resolved === "apple" && overlay;
+  const mac = resolved === "apple" && (device ? device === "mac" : overlay);
   const notice =
     state === "blanked" ||
     state === "off" ||
@@ -146,7 +151,7 @@ export function BotScreenViewer({
         className={cx(
           "h-bot-viewer",
           resolved === "apple" && "h-bot-viewer--apple",
-          overlay && "h-bot-viewer--overlay",
+          mac && "h-bot-viewer--mac",
         )}
       >
         <header className="h-bot-viewer__bar">
