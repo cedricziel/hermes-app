@@ -9,8 +9,8 @@ One PR, `feat(bot-screen): watch the screen live`, about 500 changed lines inclu
 
 ## 2. Catalog first
 
-- [ ] 2.1 Build `BotScreenViewerView` from a plain model (connecting, live with a picture, reconnecting over a dimmed picture, off with Start Screen, someone else in control, not allowed, cannot reach with Try Again) with Widgetbook use cases on iPhone, Android and desktop widths, as page and overlay, Apple and Material, both themes. Verify the catalog test passes.
-- [ ] 2.2 Mirror it in `design/web` (`BotScreenViewer`, `docs/BotScreenViewer.md` with `category: Screens`) and verify `npm run build` passes.
+- [x] 2.1 Build `BotScreenViewerView` from a plain model (connecting, live with a picture, reconnecting over a dimmed picture, off with Start Screen, someone else in control, not allowed, cannot reach with Try Again) with Widgetbook use cases on iPhone, Android and desktop widths, as page and overlay, Apple and Material, both themes. Verify the catalog test passes.
+- [x] 2.2 Mirror it in `design/web` (`BotScreenViewer`, `docs/BotScreenViewer.md` with `category: Screens`) and verify `npm run build` passes.
 
 ## 3. Wiring
 

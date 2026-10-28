@@ -88,7 +88,7 @@ export interface BotScreenCardProps {
   onCopyCommand?: () => void;
   /** Try Again, in `error`; hidden without it. */
   onRetry?: () => void;
-  /** Enlarge, over a `frame`. Leave it out: the app shows no Enlarge until the live viewer it opens exists. */
+  /** Enlarge, over a `frame`, and the picture itself: both open the live viewer (`BotScreenViewer`). Hidden without it. */
   onEnlarge?: () => void;
   /** Inherits the provider's platform. */
   platform?: Platform;
