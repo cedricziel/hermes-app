@@ -11,6 +11,14 @@ import '../bot_screen_models.dart' show BotScreenViewerPhase;
 /// the whole window from 760 points.
 enum BotScreenViewerPresentation { page, overlay }
 
+final _darkThemes = <TargetPlatform, ThemeData>{};
+
+/// The viewer's black look for [platform], made once.
+ThemeData _darkTheme(TargetPlatform platform) => _darkThemes.putIfAbsent(
+  platform,
+  () => buildHermesDarkTheme().copyWith(platform: platform),
+);
+
 /// The screen viewer: a header that names the profile and who is in control,
 /// and below it the live picture, or the reason there is none.
 ///
@@ -53,25 +61,27 @@ class BotScreenViewerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final platform = Theme.of(context).platform;
     // Like a photo viewer, the picture sits on black in both themes.
-    final dark = buildHermesDarkTheme().copyWith(platform: platform);
+    final dark = _darkTheme(Theme.of(context).platform);
     return Theme(
       data: dark,
       child: Builder(
         builder: (context) => Material(
           color: Colors.black,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Header(
-                profile: profile,
-                control: _control,
-                presentation: presentation,
-                onClose: onClose,
-              ),
-              Expanded(child: _body(context)),
-            ],
+          // A notch beside a landscape phone, the home indicator.
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _Header(
+                  profile: profile,
+                  control: _control,
+                  presentation: presentation,
+                  onClose: onClose,
+                ),
+                Expanded(child: _body(context)),
+              ],
+            ),
           ),
         ),
       ),
@@ -80,53 +90,63 @@ class BotScreenViewerView extends StatelessWidget {
 
   Widget _body(BuildContext context) {
     final picture = this.picture;
-    return switch (phase) {
-      BotScreenViewerPhase.live when picture != null => _Picture(
-        aspectRatio: aspectRatio,
-        child: picture,
-      ),
-      BotScreenViewerPhase.reconnecting when picture != null => Stack(
-        fit: StackFit.expand,
-        children: [
-          _Picture(aspectRatio: aspectRatio, child: picture),
-          const IgnorePointer(child: ColoredBox(color: Colors.black54)),
-          const Center(child: _Busy('Reconnecting…')),
-        ],
-      ),
-      BotScreenViewerPhase.live ||
-      BotScreenViewerPhase.reconnecting ||
-      BotScreenViewerPhase.connecting => const Center(
-        child: _Busy('Connecting to the screen…'),
-      ),
-      BotScreenViewerPhase.blanked => const _Notice(
-        icon: AppIcons.lock,
-        title: 'Someone else is in control',
-        text: 'The picture returns when Hermes has control again.',
-      ),
-      BotScreenViewerPhase.off => _Notice(
-        icon: AppIcons.screen,
-        title: 'The screen is off',
-        text: 'It starts by itself when Hermes needs it.',
-        action: onStart == null ? null : ('Start Screen', onStart!),
-      ),
-      BotScreenViewerPhase.notAllowed => const _Notice(
-        icon: AppIcons.blocked,
-        title: "Viewing isn't allowed from this app",
-        text: 'The server refused the connection to the screen.',
-      ),
-      BotScreenViewerPhase.unreachable => _Notice(
-        icon: AppIcons.warning,
-        title: "Can't reach the screen",
-        text: 'Check the connection to the server.',
-        action: onRetry == null ? null : ('Try Again', onRetry!),
-      ),
-      BotScreenViewerPhase.failed => _Notice(
-        icon: AppIcons.warning,
-        title: 'The screen stopped sending',
-        text: 'The server ended the stream with an error.',
-        action: onRetry == null ? null : ('Try Again', onRetry!),
-      ),
-    };
+    switch (phase) {
+      case BotScreenViewerPhase.connecting ||
+          BotScreenViewerPhase.live ||
+          BotScreenViewerPhase.reconnecting ||
+          BotScreenViewerPhase.blanked:
+        // One stage for all four, so the zoom and the picture below it survive
+        // a reconnect, a blank and coming back.
+        final drawn =
+            picture != null &&
+            (phase == BotScreenViewerPhase.live ||
+                phase == BotScreenViewerPhase.reconnecting);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _Picture(aspectRatio: aspectRatio, child: drawn ? picture : null),
+            if (drawn && phase == BotScreenViewerPhase.reconnecting)
+              const IgnorePointer(child: ColoredBox(color: Colors.black54)),
+            if (phase == BotScreenViewerPhase.blanked)
+              const _Notice(
+                icon: AppIcons.lock,
+                title: 'Someone else is in control',
+                text: 'The picture returns when Hermes has control again.',
+              )
+            else if (!drawn)
+              const Center(child: _Busy('Connecting to the screen…'))
+            else if (phase == BotScreenViewerPhase.reconnecting)
+              const Center(child: _Busy('Reconnecting…')),
+          ],
+        );
+      case BotScreenViewerPhase.off:
+        return _Notice(
+          icon: AppIcons.screen,
+          title: 'The screen is off',
+          text: 'It starts by itself when Hermes needs it.',
+          action: onStart == null ? null : ('Start Screen', onStart!),
+        );
+      case BotScreenViewerPhase.notAllowed:
+        return const _Notice(
+          icon: AppIcons.blocked,
+          title: "Viewing isn't allowed from this app",
+          text: 'The server refused the connection to the screen.',
+        );
+      case BotScreenViewerPhase.unreachable:
+        return _Notice(
+          icon: AppIcons.warning,
+          title: "Can't reach the screen",
+          text: 'Check the connection to the server.',
+          action: onRetry == null ? null : ('Try Again', onRetry!),
+        );
+      case BotScreenViewerPhase.failed:
+        return _Notice(
+          icon: AppIcons.warning,
+          title: 'The screen stopped sending',
+          text: 'The server ended the stream with an error.',
+          action: onRetry == null ? null : ('Try Again', onRetry!),
+        );
+    }
   }
 }
 
@@ -153,59 +173,57 @@ class _Header extends StatelessWidget {
       PlatformChrome.macos => kMacToolbarHeight,
       PlatformChrome.material => kToolbarHeight,
     };
-    final safeTop = overlay ? 0.0 : MediaQuery.paddingOf(context).top;
     final muted = context.hermesColors.subtleText;
     final close = NamedIconButton(
       label: 'Close',
-      tooltip: overlay ? 'Close (Esc)' : null,
+      tooltip: overlay || chrome == PlatformChrome.macos ? 'Close (Esc)' : null,
       icon: AppIcons.close,
       iconSize: 22,
       onPressed: onClose,
     );
-    return Padding(
-      padding: EdgeInsets.only(top: safeTop),
-      child: SizedBox(
-        height: height,
-        child: Row(
-          children: [
-            // A layer over the whole window also covers the traffic lights.
-            if (overlay && chrome == PlatformChrome.macos)
-              const SizedBox(width: kMacTrafficLightsWidth)
-            else
-              const SizedBox(width: 4),
-            if (chrome != PlatformChrome.macos) close,
-            const SizedBox(width: 8),
-            Expanded(
-              child: Semantics(
-                header: true,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      profile,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+    final bar = SizedBox(
+      height: height,
+      child: Row(
+        children: [
+          // The viewer covers the window, traffic lights included.
+          if (chrome == PlatformChrome.macos)
+            const SizedBox(width: kMacTrafficLightsWidth)
+          else
+            const SizedBox(width: 4),
+          if (chrome != PlatformChrome.macos) close,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                    Text(
-                      control ?? 'Bot screen',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(color: muted),
-                    ),
-                  ],
-                ),
+                  ),
+                  Text(
+                    control ?? 'Bot screen',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                  ),
+                ],
               ),
             ),
-            if (chrome == PlatformChrome.macos) close,
-            const SizedBox(width: 8),
-          ],
-        ),
+          ),
+          if (chrome == PlatformChrome.macos) close,
+          const SizedBox(width: 8),
+        ],
       ),
     );
+    // A Mac window moves by its toolbar.
+    return chrome == PlatformChrome.macos ? MacWindowDragArea(child: bar) : bar;
   }
 }
 
@@ -214,19 +232,22 @@ class _Picture extends StatelessWidget {
   const _Picture({required this.aspectRatio, required this.child});
 
   final double aspectRatio;
-  final Widget child;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) => InteractiveViewer(
+    minScale: 1,
     maxScale: 4,
     child: Center(
       child: AspectRatio(
         aspectRatio: aspectRatio,
-        child: Semantics(
-          image: true,
-          label: "Hermes's screen",
-          child: ExcludeSemantics(child: child),
-        ),
+        child: child == null
+            ? const SizedBox.shrink()
+            : Semantics(
+                image: true,
+                label: "Hermes's screen",
+                child: ExcludeSemantics(child: child),
+              ),
       ),
     ),
   );

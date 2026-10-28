@@ -169,7 +169,8 @@ void main() {
             await shots.capture(tester, 'live');
             if (!phone) {
               await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-              await tester.pump(const Duration(milliseconds: 100));
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 400));
               expect(find.byType(BotScreenViewer), findsNothing);
               expect(find.byType(BotScreenCard), findsOneWidget);
             }

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/profiles/chat_profiles.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
@@ -105,7 +108,12 @@ void main() {
     }
   }
 
-  Future<void> pumpScreen(WidgetTester tester, {Size? size}) async {
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    Size? size,
+    MacCommandRegistry? commands,
+    ValueListenable<bool>? visible,
+  }) async {
     await pumpChatScreen(
       tester,
       server: server,
@@ -113,6 +121,8 @@ void main() {
       transport: transport,
       chatProfiles: profiles,
       size: size ?? const Size(1400, 900),
+      commands: commands,
+      visible: visible,
       displaySocketOpener: (path, ticket) async {
         tickets.add(ticket);
         final channel = FakeDisplayChannel();
@@ -125,16 +135,19 @@ void main() {
       ],
     );
     await openThread(tester, 'First chat');
-    if (size == null || size.width >= 760) {
-      await tester.tap(find.byKey(const Key('header-activity')));
-    } else {
-      await tester.tap(find.byKey(const Key('header-activity')));
-    }
+    await tester.tap(find.byKey(const Key('header-activity')));
     await tester.pump();
     await settle(tester);
   }
 
+  /// Frames for a while, for a screen that has a spinner and never settles.
+  Future<void> pumpFor(WidgetTester tester) async {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+  }
+
   Future<void> finish(WidgetTester tester) async {
+    debugDefaultTargetPlatformOverride = null;
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(transport.close);
     await tester.pump(const Duration(seconds: 1));
@@ -342,6 +355,212 @@ void main() {
 
     expect(channels.last.sentCloseCode, 1000);
     await tester.runAsync(transport.close);
+  });
+  group('as a route on the root navigator', () {
+    testWidgets('a dialog pushed over the viewer is shown on top of it', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await tester.tap(enlarge);
+      await settle(tester);
+
+      unawaited(
+        showDialog<void>(
+          context: tester.element(viewer),
+          builder: (context) => AlertDialog(
+            title: const Text('Sign out?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      );
+      await pumpFor(tester);
+
+      expect(find.text('Cancel').hitTestable(), findsOne);
+      await tester.tap(find.text('Cancel'));
+      await pumpFor(tester);
+      expect(viewer, findsOne, reason: 'only the dialog went');
+      await finish(tester);
+    });
+
+    testWidgets('Back closes the viewer and leaves the chat', (tester) async {
+      await pumpScreen(tester);
+      await tester.tap(enlarge);
+      await settle(tester);
+      await serve(tester);
+
+      await tester.binding.handlePopRoute();
+      await settle(tester);
+
+      expect(viewer, findsNothing);
+      expect(channels.last.sentCloseCode, 1000);
+      expect(find.byKey(const Key('header-activity')), findsOne);
+      await finish(tester);
+    });
+
+    testWidgets('the chat\'s menu commands act on nothing while it is open', (
+      tester,
+    ) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pumpScreen(tester, commands: commands);
+      expect(commands.invoke(MacCommand.find), isTrue);
+      await tester.tap(enlarge);
+      await settle(tester);
+      await pumpFor(tester);
+
+      for (final command in [
+        MacCommand.newChat,
+        MacCommand.toggleInspector,
+        MacCommand.find,
+      ]) {
+        expect(commands.invoke(command), isFalse, reason: '$command');
+      }
+
+      await tester.tap(find.byTooltip('Close (Esc)'));
+      await settle(tester);
+      await pumpFor(tester);
+      expect(commands.invoke(MacCommand.newChat), isTrue);
+      await finish(tester);
+    });
+
+    testWidgets('a landscape phone gets the page', (tester) async {
+      await pumpScreen(tester, size: const Size(844, 390));
+      await pumpFor(tester);
+      await tester.ensureVisible(enlarge);
+      await tester.pump();
+
+      await tester.tap(enlarge, warnIfMissed: false);
+      await settle(tester);
+
+      expect(find.byKey(const Key('bot-screen-viewer-page')), findsOne);
+      expect(find.byKey(const Key('bot-screen-viewer-overlay')), findsNothing);
+      await finish(tester);
+    });
+
+    testWidgets('a tablet gets the layer over the window', (tester) async {
+      await pumpScreen(tester, size: const Size(800, 1100));
+      await tester.pumpAndSettle();
+      await tester.tap(enlarge);
+      await settle(tester);
+
+      expect(find.byKey(const Key('bot-screen-viewer-overlay')), findsOne);
+      expect(find.byKey(const Key('bot-screen-viewer-page')), findsNothing);
+      await finish(tester);
+    });
+
+    testWidgets('Escape closes the page too', (tester) async {
+      await pumpScreen(tester, size: const Size(390, 844));
+      await pumpFor(tester);
+      await tester.tap(enlarge);
+      await settle(tester);
+      expect(find.byKey(const Key('bot-screen-viewer-page')), findsOne);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+
+      expect(viewer, findsNothing);
+      expect(channels.last.sentCloseCode, 1000);
+      await finish(tester);
+    });
+  });
+
+  group('when the stream stops for not being seen', () {
+    testWidgets('a desktop window that is merely inactive keeps its stream', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      await pumpScreen(tester);
+      await tester.tap(enlarge);
+      await settle(tester);
+      await serve(tester);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await settle(tester);
+
+      expect(channels.last.sentCloseCode, isNull);
+      expect(channels, hasLength(1));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await settle(tester);
+      expect(channels.last.sentCloseCode, 1000);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await settle(tester);
+      expect(channels, hasLength(2));
+      await finish(tester);
+    });
+
+    testWidgets('a desktop app that was paused closes it', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      await pumpScreen(tester);
+      await tester.tap(enlarge);
+      await settle(tester);
+      await serve(tester);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await settle(tester);
+
+      expect(channels.last.sentCloseCode, 1000);
+      await finish(tester);
+    });
+
+    testWidgets('a page covered by another route closes it and returns', (
+      tester,
+    ) async {
+      await pumpScreen(tester, size: const Size(390, 844));
+      await pumpFor(tester);
+      await tester.tap(enlarge);
+      await settle(tester);
+      await serve(tester);
+
+      final navigator = Navigator.of(
+        tester.element(viewer),
+        rootNavigator: true,
+      );
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('on top')),
+          ),
+        ),
+      );
+      await pumpFor(tester);
+      await settle(tester);
+
+      expect(channels.last.sentCloseCode, 1000);
+      expect(channels, hasLength(1));
+
+      navigator.pop();
+      await pumpFor(tester);
+      await settle(tester);
+
+      expect(channels, hasLength(2));
+      await finish(tester);
+    });
+
+    testWidgets('the chat leaving the screen closes the viewer', (
+      tester,
+    ) async {
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      await pumpScreen(tester, visible: visible);
+      await tester.tap(enlarge);
+      await settle(tester);
+      await serve(tester);
+
+      visible.value = false;
+      await settle(tester);
+
+      expect(viewer, findsNothing);
+      expect(channels.last.sentCloseCode, 1000);
+      await finish(tester);
+    });
   });
 }
 

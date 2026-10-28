@@ -1,5 +1,11 @@
 part of 'chat_screen.dart';
 
+const _desktopPlatforms = {
+  TargetPlatform.macOS,
+  TargetPlatform.windows,
+  TargetPlatform.linux,
+};
+
 /// The chat profile's Bot Screen: one controller on the shared gateway, held
 /// while the screen is open, replaced when the chat moves to another profile,
 /// and kept from asking for frames unless the app is resumed, unlocked and,
@@ -58,10 +64,21 @@ extension _ChatScreenBotScreen on _ChatScreenState {
       HermesRepositories.maybeOf(context)?.telemetry ??
       const ConnectionTelemetry();
 
+  /// Whether the app is in front as far as the Bot Screen is concerned. A
+  /// desktop window that is only inactive (another app has the focus) is still
+  /// on screen, unlike a phone that is showing the notification shade.
+  bool get _screenInFront {
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state == null || state == AppLifecycleState.resumed) return true;
+    return state == AppLifecycleState.inactive &&
+        !kIsWeb &&
+        _desktopPlatforms.contains(defaultTargetPlatform);
+  }
+
   void _syncBotScreenGates() {
     // Not `_routeVisible`: the phone's Activity sheet is a route of its own
     // above the chat, and it is what asks for the frames.
-    final foreground = _foreground && widget.visible && !_windowless;
+    final foreground = _screenInFront && widget.visible && !_windowless;
     final unlocked = !(_screenLock?.covered ?? false);
     _screen
       ?..foreground = foreground

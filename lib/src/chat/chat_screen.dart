@@ -688,6 +688,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     }
     if (widget.visible != oldWidget.visible) {
+      // The viewer is a route above the whole shell: it does not follow a
+      // tab switch.
+      if (!widget.visible) _viewerHandle?.close();
       _syncBotScreenGates();
       _updateActivePolling();
       WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
