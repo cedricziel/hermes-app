@@ -192,4 +192,8 @@ class BotScreenFailed<T> extends BotScreenResult<T> {
 /// per controller.
 class BotScreenShown {
   String? slug;
+
+  /// The reply whose transcript preview was last recorded as shown, so a
+  /// preview that scrolls away and back does not record it again.
+  String? previewReply;
 }

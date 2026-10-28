@@ -63,7 +63,7 @@ class BoundBotScreenCard extends StatelessWidget {
     };
     return BotScreenCard(
       model: model,
-      breadcrumbs: _breadcrumbs(context),
+      breadcrumbs: breadcrumbsOf(context),
       shown: controller.shown,
       onStart: controller.start,
       onRetry: controller.retry,
@@ -73,7 +73,7 @@ class BoundBotScreenCard extends StatelessWidget {
     );
   }
 
-  static Breadcrumbs _breadcrumbs(BuildContext context) {
+  static Breadcrumbs breadcrumbsOf(BuildContext context) {
     try {
       return context.read<Breadcrumbs>();
     } on ProviderNotFoundException {

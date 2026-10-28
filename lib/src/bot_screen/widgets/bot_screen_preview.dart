@@ -28,12 +28,16 @@ class BotScreenPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) => switch (model) {
     BotScreenPreviewHidden() => const SizedBox.shrink(),
-    final BotScreenPreviewFrame frame => _frame(context, frame),
-    final BotScreenPreviewSuppressed suppressed => _suppressed(
-      context,
-      suppressed,
+    final BotScreenPreviewFrame frame => _spaced(_frame(context, frame)),
+    final BotScreenPreviewSuppressed suppressed => _spaced(
+      _suppressed(context, suppressed),
     ),
   };
+
+  /// The room the preview keeps below its header and above whatever follows,
+  /// so a hidden one takes none.
+  static Widget _spaced(Widget child) =>
+      Padding(padding: const EdgeInsets.only(top: 2, bottom: 8), child: child);
 
   Widget _frame(BuildContext context, BotScreenPreviewFrame frame) {
     final theme = Theme.of(context);

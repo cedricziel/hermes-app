@@ -217,7 +217,7 @@ class ToolCallCard extends StatelessWidget {
           if (approvalCard != null && _waiting) approvalCard,
           if (preview case final screen?)
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: screen,
             ),
           if (call.outputRisk case final risk?)

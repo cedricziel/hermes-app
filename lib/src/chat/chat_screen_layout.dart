@@ -116,6 +116,8 @@ extension _ChatScreenLayout on _ChatScreenState {
             onSetup: _openProfiles,
           ),
           onSetupModel: _setupModel,
+          screen: _screen,
+          onOpenScreen: () => _openActivity(source: 'preview'),
           thread: selected,
           greetingName: context.select<AuthController, String?>(
             (auth) => auth.identity?.displayName,

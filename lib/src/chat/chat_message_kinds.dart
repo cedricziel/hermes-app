@@ -28,6 +28,11 @@ const String kKindReviewSummary = 'review_summary';
 const String kMetaKind = 'kind';
 const String kMetaToolCalls = 'calls';
 const String kMetaToolApprovals = 'approvals';
+
+/// Carried by the `kKindToolGroup` message of the run that holds the latest
+/// `computer_use` call of a reply that is still running: the reply's id (a
+/// `String`). The transcript draws the Bot screen's still preview there.
+const String kMetaScreenPreview = 'screenPreview';
 const String kMetaInputRequest = 'request';
 const String kMetaThinkingStartedAt = 'startedAt';
 const String kMetaThinkingActivity = 'activity';

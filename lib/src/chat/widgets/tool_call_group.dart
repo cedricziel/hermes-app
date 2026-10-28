@@ -154,10 +154,7 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
           ),
         ),
         if (widget.preview case final preview?)
-          Padding(
-            padding: const EdgeInsets.only(left: 2, top: 2, bottom: 4),
-            child: preview,
-          ),
+          Padding(padding: const EdgeInsets.only(left: 2), child: preview),
         if (open)
           Padding(
             padding: const EdgeInsets.only(top: 4),

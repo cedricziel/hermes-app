@@ -77,6 +77,12 @@ List<Message> chatMessageToFlyer(
     for (final (_, request) in standalone) slotOf(request).toolCalls,
   });
 
+  // While the reply runs, the Bot screen's preview belongs to the run that
+  // holds its latest `computer_use` call.
+  final screenCall = m.role == ChatRole.assistant && m.isPending
+      ? m.toolCalls.lastIndexWhere((call) => call.name == 'computer_use')
+      : -1;
+
   Iterable<Message> sealedProse(int place) sync* {
     final text = m.sealedProse[place].text;
     final media = m.role == ChatRole.assistant
@@ -147,6 +153,9 @@ List<Message> chatMessageToFlyer(
           kMetaToolCalls: run.calls,
           if (_approvalsOf(run, approvals) case final held when held.isNotEmpty)
             kMetaToolApprovals: held,
+          if (screenCall >= run.start &&
+              screenCall < run.start + run.calls.length)
+            kMetaScreenPreview: m.id,
         },
       ),
     ],
