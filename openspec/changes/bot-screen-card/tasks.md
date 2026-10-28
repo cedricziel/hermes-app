@@ -28,5 +28,5 @@ One PR, `feat(bot-screen): show the bot's screen in the Activity panel`, about 5
 
 ## 6. Verify
 
-- [ ] 6.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
-- [ ] 6.2 Following the `verify-bot-screen` skill, run the macOS app against the container backend with a started screen, open the Activity panel and screenshot the card running, then stop the screen and screenshot Off.
+- [x] 6.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
+- [ ] 6.2 (not run: no Docker host was available; run before the series ships) Following the `verify-bot-screen` skill, run the macOS app against the container backend with a started screen, open the Activity panel and screenshot the card running, then stop the screen and screenshot Off.
