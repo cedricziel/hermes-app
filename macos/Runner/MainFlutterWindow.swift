@@ -20,8 +20,14 @@ class MainFlutterWindow: NSWindow {
   private var channel: FlutterMethodChannel?
   private var menuBarStatusItem: MenuBarStatusItem?
 
+  /// The main engine's controller. Not `contentViewController`: macos_window_utils
+  /// wraps that in its own view controller once Dart initializes it, which can
+  /// happen before applicationDidFinishLaunching.
+  private(set) var flutterViewController: FlutterViewController?
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
+    self.flutterViewController = flutterViewController
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
