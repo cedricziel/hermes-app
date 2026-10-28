@@ -60,11 +60,13 @@ void main() {
     };
     transport = HermesGatewayTransport(connect: gateway.connect);
     installs = BotScreenInstalls(
-      repository: BotScreenRepository(transport.requestKeepingConnection),
+      repository: BotScreenRepository(
+        transport.requestKeepingConnection,
+        installRpc: transport.requestKeepingConnectionOnClient,
+      ),
       connectionEvents: transport.connectionEvents,
-      connection: () => transport.gatewayConnection,
       registerServerRequestHandler: transport.registerServerRequestHandler,
-      askPassword: (host, ended) async => null,
+      askPassword: (host, profile, ended) async => null,
       host: 'hermes.example.com',
     );
     attention = AttentionNotifier(

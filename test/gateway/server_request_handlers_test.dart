@@ -50,6 +50,18 @@ void main() {
     expect(gateway.responses, isEmpty);
   });
 
+  test('a call can say which connection carried it', () async {
+    final (result, connection) = await transport
+        .requestKeepingConnectionOnClient(
+          'display.status',
+          const {},
+          timeout: const Duration(seconds: 5),
+        );
+
+    expect(result['running'], isTrue);
+    expect(identical(connection, transport.gatewayConnection), isTrue);
+  });
+
   group('a registered handler', () {
     const method = 'display.install.sudo';
 

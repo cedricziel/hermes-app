@@ -26,6 +26,7 @@ void main() {
       home: Scaffold(
         body: SudoPasswordPrompt(
           host: 'hermes.example.com',
+          profile: 'work',
           controller: controller,
           onInstall: answered.add,
           onCancel: () => cancelled++,
@@ -63,7 +64,8 @@ void main() {
                     .autofillHints,
           isNull,
         );
-        expect(text.keyboardType, TextInputType.visiblePassword);
+        // Not visiblePassword: Android then uses its password variation.
+        expect(text.keyboardType, TextInputType.text);
         expect(text.smartDashesType, SmartDashesType.disabled);
         expect(text.smartQuotesType, SmartQuotesType.disabled);
         expect(text.readOnly, isFalse);
@@ -74,7 +76,11 @@ void main() {
       ) async {
         await pump(tester, platform: platform);
 
-        expect(find.textContaining('hermes.example.com'), findsOne);
+        expect(
+          find.textContaining('Your Hermes server (hermes.example.com)'),
+          findsOne,
+        );
+        expect(find.textContaining('for the profile "work"'), findsOne);
         expect(find.textContaining('not stored'), findsOne);
       });
 

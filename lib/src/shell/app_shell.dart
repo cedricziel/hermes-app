@@ -31,6 +31,7 @@ import '../deep_links/deep_link_listener.dart';
 import '../deep_links/deep_link_target.dart';
 import '../kanban/hermes_plugins_repository.dart';
 import '../macos/mac_app.dart';
+import '../macos/mac_window.dart';
 import '../macos/mac_commands.dart';
 import '../navigation/desktop_navigation_history.dart';
 import '../macos/mac_sidebar.dart';
@@ -207,9 +208,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         repository: BotScreenRepository(
           gateway.requestKeepingConnection,
           telemetry: repositories.telemetry,
+          installRpc: gateway.requestKeepingConnectionOnClient,
         ),
         connectionEvents: gateway.connectionEvents,
-        connection: () => gateway.gatewayConnection,
         registerServerRequestHandler: gateway.registerServerRequestHandler,
         askPassword: _askSudoPassword,
         host: Uri.tryParse(auth!.baseUrl!)?.host ?? 'your server',
@@ -285,11 +286,27 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   /// The sudo password of the Hermes host, asked over whatever page is up.
-  Future<String?> _askSudoPassword(String host, Future<void> ended) async {
+  /// Nothing is asked once the session is gone; the answer is then a decline.
+  Future<String?> _askSudoPassword(
+    String host,
+    String profile,
+    Future<void> ended,
+  ) async {
+    if (!_authorizedOwner) return null;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      // The question would otherwise open on a window nobody can see.
+      try {
+        await (_windows?.showMainWindow() ?? MacWindow.orderFront());
+      } on Object {
+        // The question still goes on screen.
+      }
+      if (!_authorizedOwner) return null;
+    }
     if (!mounted) return null;
     return showSudoPasswordPrompt(
       context,
       host: host,
+      profile: profile,
       ended: ended,
       breadcrumbs: _breadcrumbs,
     );

@@ -192,7 +192,11 @@ class BotScreenFailed<T> extends BotScreenResult<T> {
 
 /// What `display.install` answered when it started an install.
 class BotScreenInstallStart {
-  const BotScreenInstallStart({this.command, required this.profileKey});
+  const BotScreenInstallStart({
+    this.command,
+    required this.profileKey,
+    this.connection,
+  });
 
   /// The package manager command Hermes runs; shown, never logged.
   final String? command;
@@ -200,6 +204,11 @@ class BotScreenInstallStart {
   /// The profile's `HERMES_HOME` path the install broadcasts carry; matched
   /// in memory only, never shown or logged.
   final String profileKey;
+
+  /// The connection that carried the call, which is the only one the sudo
+  /// request of this install arrives on; null when the repository was given
+  /// no way to tell.
+  final Object? connection;
 }
 
 /// The state the Bot screen card last recorded as shown, so a card that

@@ -24,6 +24,14 @@ typedef DisplayRpc = Future<Map<String, Object?>> Function(
   required Duration timeout,
 });
 
+/// [DisplayRpc] that also gives the connection that carried the call
+/// (`HermesGatewayTransport.requestKeepingConnectionOnClient`).
+typedef InstallRpc = Future<(Map<String, Object?>, Object)> Function(
+  String method,
+  Map<String, Object?> params, {
+  required Duration timeout,
+});
+
 /// Reads and starts a profile's Bot Screen over the gateway's `display.*`
 /// methods. Every call names its profile (`default` for the server's default
 /// profile) because Hermes answers for its launch home otherwise, and every
@@ -33,9 +41,14 @@ class BotScreenRepository {
     this._rpc, {
     this.telemetry = const ConnectionTelemetry(),
     this.timeout = kDisplayTimeout,
+    this.installRpc,
   });
 
   final DisplayRpc _rpc;
+
+  /// What `display.install` goes through, to learn the connection it used;
+  /// without it the install's connection is unknown.
+  final InstallRpc? installRpc;
   final ConnectionTelemetry telemetry;
   final Duration timeout;
   var _reportedUnsupported = false;
@@ -52,8 +65,13 @@ class BotScreenRepository {
   /// (another install running, an unsupported host, a sandbox, no package
   /// manager) is a [BotScreenFailed] carrying Hermes' message; it is not a
   /// read failure, so it is not logged here.
-  Future<BotScreenResult<BotScreenInstallStart>> install(String? profile) =>
-      _call('display.install', profile, (result) {
+  Future<BotScreenResult<BotScreenInstallStart>> install(String? profile) {
+    Object? carrier;
+    final withClient = installRpc;
+    return _call(
+      'display.install',
+      profile,
+      (result) {
         final key = result['profile_key'];
         final command = result['command'];
         if (key is! String || key.isEmpty) {
@@ -62,8 +80,23 @@ class BotScreenRepository {
         return BotScreenInstallStart(
           command: command is String ? command : null,
           profileKey: key,
+          connection: carrier,
         );
-      }, logFailures: false);
+      },
+      logFailures: false,
+      rpc: withClient == null
+          ? null
+          : (method, params, {required timeout}) async {
+              final (result, connection) = await withClient(
+                method,
+                params,
+                timeout: timeout,
+              );
+              carrier = connection;
+              return result;
+            },
+    );
+  }
 
   /// One JPEG grab of the screen; read-only, it never changes the lease.
   Future<BotScreenResult<BotScreenFrame>> thumbnail(String? profile) async {
@@ -90,13 +123,14 @@ class BotScreenRepository {
     String? profile,
     T Function(Map<String, Object?> result) parse, {
     bool logFailures = true,
+    DisplayRpc? rpc,
   }) async {
     BotScreenFailed<T> failed(BotScreenFailure kind, [String? message]) =>
         logFailures
         ? _failed(method, kind, message)
         : BotScreenFailed(kind, message: message);
     try {
-      final answer = await _rpc(method, {
+      final answer = await (rpc ?? _rpc)(method, {
         'profile': profile ?? kDefaultProfile,
       }, timeout: timeout);
       final value = parse(answer);

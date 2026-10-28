@@ -14,8 +14,10 @@ import '../bot_screen_repository.dart';
 import 'install_state.dart';
 
 /// How long an install may run without `display.install.done` before the app
-/// stops waiting for it.
-const kInstallPatience = Duration(minutes: 20);
+/// stops waiting for it, counted from Hermes' answer. Hermes itself waits up
+/// to 300 s for the password and runs the package manager for up to 900 s, so
+/// it can take about 1206 s to finish.
+const kInstallPatience = Duration(minutes: 22);
 
 /// The sudo request method Hermes asks the password with.
 const kSudoRequestMethod = 'display.install.sudo';
@@ -28,11 +30,13 @@ typedef RegisterServerRequestHandler = void Function() Function(
   ServerRequestHandler handler,
 );
 
-/// Asks the user for the sudo password of the Hermes host [host] and answers
-/// it, or null when they cancel or dismiss the question. [ended] completes
-/// when the install is over and the question no longer matters.
+/// Asks the user for the sudo password of the Hermes host [host], for the
+/// install of [profile], and answers it, or null when they cancel or dismiss
+/// the question. [ended] completes when the question no longer matters: the
+/// install is over or the server withdrew the request.
 typedef SudoPasswordAsker = Future<String?> Function(
   String host,
+  String profile,
   Future<void> ended,
 );
 
@@ -59,7 +63,6 @@ class BotScreenInstalls extends ChangeNotifier {
   BotScreenInstalls({
     required this._repository,
     required Stream<GatewayConnectionEvent> connectionEvents,
-    required this._connection,
     required this._registerServerRequestHandler,
     required this._askPassword,
     required this.host,
@@ -78,7 +81,6 @@ class BotScreenInstalls extends ChangeNotifier {
   final Duration patience;
 
   final BotScreenRepository _repository;
-  final Object? Function() _connection;
   final RegisterServerRequestHandler _registerServerRequestHandler;
   final SudoPasswordAsker _askPassword;
   late final StreamSubscription<GatewayConnectionEvent> _events;
@@ -111,7 +113,7 @@ class BotScreenInstalls extends ChangeNotifier {
   Future<void> start(String? profile, {String? profileKey}) async {
     final name = profile ?? kDefaultProfile;
     if (_disposed || _running.any((install) => install.profile == name)) return;
-    final install = _Install(name, profileKey, _connection());
+    final install = _Install(name, profileKey);
     install.span = _startSpan();
     _running.add(install);
     _ended.remove(name);
@@ -124,8 +126,9 @@ class BotScreenInstalls extends ChangeNotifier {
         install
           ..profileKey = value.profileKey
           ..command = value.command
-          ..connection = _connection() ?? install.connection
+          ..connection = value.connection
           ..timer = Timer(patience, () => _giveUp(install));
+        install.bound.complete();
       case BotScreenUnsupported():
         _finish(install, const InstallRefused());
       case BotScreenFailed(:final kind, :final message):
@@ -166,6 +169,14 @@ class BotScreenInstalls extends ChangeNotifier {
         install.lines.add(text);
         if (install.lines.length > kInstallLines) install.lines.removeAt(0);
         _notify();
+      case 'request.cancel':
+        if (payload['method'] != kSudoRequestMethod) return;
+        for (final install in _running) {
+          if (install.prompt?.requestId == payload['id']) {
+            install.prompt?.close();
+            install.prompt = null;
+          }
+        }
       case 'display.install.done':
         final install = _installOf(payload['profile_key']);
         final code = payload['code'];
@@ -231,21 +242,32 @@ class BotScreenInstalls extends ChangeNotifier {
     GatewayServerRequest request,
     Object connection,
   ) async {
-    final install = _installOf(
-      request.params['profile_key'],
-      connection: connection,
-    );
-    if (install == null || install.prompting) {
+    final key = request.params['profile_key'];
+    var install = _installOf(key);
+    // The request can overtake Hermes' answer to display.install, which is
+    // what tells which connection carried it.
+    if (install != null && !install.bound.isCompleted) {
+      await install.bound.future;
+    }
+    install = _installOf(key, connection: connection);
+    if (install == null || install.prompt != null) {
       throw const GatewayRpcException(-32602, 'Not requested');
     }
-    install
-      ..prompting = true
-      ..askedPassword = true;
+    final prompt = install.prompt = _Prompt(request.id);
+    install.askedPassword = true;
     _notify();
     try {
-      return {'value': await _askPassword(host, install.ended.future) ?? ''};
+      final password = await _askPassword(
+        host,
+        install.profile,
+        prompt.closed.future,
+      );
+      return {'value': password ?? ''};
+    } on Object {
+      _quiet(() => telemetry.events('bot_screen.install.prompt_failed'));
+      rethrow;
     } finally {
-      install.prompting = false;
+      if (identical(install.prompt, prompt)) install.prompt = null;
     }
   }
 
@@ -256,7 +278,8 @@ class BotScreenInstalls extends ChangeNotifier {
   }) {
     if (!_running.remove(install)) return;
     install.timer?.cancel();
-    if (!install.ended.isCompleted) install.ended.complete();
+    install.prompt?.close();
+    if (!install.bound.isCompleted) install.bound.complete();
     _ended[install.profile] = InstallEnded(result, status: status);
     _syncHandler();
     final outcome = result.outcome;
@@ -320,7 +343,8 @@ class BotScreenInstalls extends ChangeNotifier {
     _unregister = null;
     for (final install in _running) {
       install.timer?.cancel();
-      if (!install.ended.isCompleted) install.ended.complete();
+      install.prompt?.close();
+      if (!install.bound.isCompleted) install.bound.complete();
       _quiet(() => install.span?.end());
     }
     _running.clear();
@@ -330,7 +354,7 @@ class BotScreenInstalls extends ChangeNotifier {
 
 /// One install this app started and that has not ended.
 class _Install {
-  _Install(this.profile, this.profileKey, this.connection);
+  _Install(this.profile, this.profileKey);
 
   final String profile;
 
@@ -338,14 +362,34 @@ class _Install {
   /// answers, and confirmed by the answer.
   String? profileKey;
 
-  /// The socket `display.install` went over, which is the only one the sudo
-  /// request arrives on; null once it was lost.
+  /// The socket that carried `display.install`, which is the only one the sudo
+  /// request arrives on; unknown until Hermes answers, and null again once it
+  /// was lost.
   Object? connection;
   String? command;
   final lines = <String>[];
   var askedPassword = false;
-  var prompting = false;
+
+  /// The question that is open for this install, if any.
+  _Prompt? prompt;
   Span? span;
   Timer? timer;
-  final ended = Completer<void>();
+
+  /// Completes when Hermes answered `display.install` or the install ended
+  /// without that answer, so a request that came first can tell whether it
+  /// arrived on the right connection.
+  final bound = Completer<void>();
+}
+
+/// A password question for one server request, closed when the install ends or
+/// the server withdraws the request.
+class _Prompt {
+  _Prompt(this.requestId);
+
+  final String requestId;
+  final closed = Completer<void>();
+
+  void close() {
+    if (!closed.isCompleted) closed.complete();
+  }
 }

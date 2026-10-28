@@ -249,6 +249,26 @@ void main() {
       expect(started.profileKey, '/home/u/.hermes/profiles/work');
     });
 
+    test('says which connection carried the call when it can', () async {
+      gateway.handlers['display.install'] = (_) => {
+        'started': true,
+        'profile_key': 'k',
+      };
+      final withClient = BotScreenRepository(
+        transport.requestKeepingConnection,
+        installRpc: transport.requestKeepingConnectionOnClient,
+      );
+
+      final started = await ok(withClient.install('work'));
+      final without = await ok(repository.install('work'));
+
+      expect(
+        identical(started.connection, transport.gatewayConnection),
+        isTrue,
+      );
+      expect(without.connection, isNull);
+    });
+
     test(
       'a refusal keeps the server message and logs no read failure',
       () async {

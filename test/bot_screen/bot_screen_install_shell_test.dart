@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/bot_screen/install/bot_screen_installs.dart';
 import 'package:hermes_app/src/bot_screen/install/install_state.dart';
@@ -11,6 +13,8 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/windows/conversation_windows.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -18,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../support/fake_conversation_window_host.dart';
 import '../support/fake_gateway.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_share_inbox.dart';
@@ -31,11 +36,13 @@ void main() {
   late FakeGateway gateway;
   late FakeHermesServer server;
   late BreadcrumbTrail trail;
+  late _Auth auth;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     trail = BreadcrumbTrail();
+    auth = _Auth();
     gateway = FakeGateway()..activeSessions = {};
     gateway.handlers['display.status'] = (_) =>
         statusJson(extra: {'installed': false});
@@ -70,14 +77,20 @@ void main() {
     }
   }
 
-  Future<BotScreenInstalls> pumpShell(WidgetTester tester) async {
+  Future<BotScreenInstalls> pumpShell(
+    WidgetTester tester, {
+    _Lock? lock,
+    ConversationWindows? windows,
+  }) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<AuthController>(create: (_) => _Auth()),
+          ChangeNotifierProvider<AuthController>.value(value: auth),
+          if (windows != null)
+            ChangeNotifierProvider<ConversationWindows?>.value(value: windows),
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(FakeShareInbox())..start(),
           ),
@@ -88,6 +101,13 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
+          builder: lock == null
+              ? null
+              : (context, child) =>
+                    ChangeNotifierProvider<AppLockController>.value(
+                      value: lock,
+                      child: AppLockGate(child: child!),
+                    ),
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),
@@ -140,7 +160,11 @@ void main() {
 
     expect(prompt, findsOne);
     expect(find.text('the board'), findsOne);
-    expect(find.textContaining('Hermes on hermes.example.com'), findsOne);
+    expect(find.textContaining('for the profile "work"'), findsOne);
+    expect(
+      find.textContaining('Your Hermes server (hermes.example.com)'),
+      findsOne,
+    );
     final field = tester.widget<EditableText>(find.byType(EditableText));
     expect(field.obscureText, isTrue);
     expect(field.autocorrect, isFalse);
@@ -251,27 +275,114 @@ void main() {
   });
 
   testWidgets('every platform builds the question', (tester) async {
-    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-      debugDefaultTargetPlatformOverride = platform;
-      final installs = await pumpShell(tester);
+    try {
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+        debugDefaultTargetPlatformOverride = platform;
+        final installs = await pumpShell(tester);
+        await startInstall(tester, installs);
+        await sudo(tester);
+
+        expect(prompt, findsOne);
+        expect(find.byType(CupertinoTextField), findsOne);
+        await tester.tap(find.text('Cancel'));
+        await settle(tester);
+      }
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('without a session nothing is asked and the answer declines', (
+    tester,
+  ) async {
+    final installs = await pumpShell(tester);
+    await startInstall(tester, installs);
+    auth.allow(false);
+    await tester.pump();
+
+    await sudo(tester);
+
+    expect(prompt, findsNothing);
+    expect(answer()['result'], {'value': ''});
+  });
+
+  testWidgets('on a Mac the main window is brought forward before the '
+      'question shows', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    final host = FakeConversationWindowHost();
+    final windows = ConversationWindows(
+      host: host,
+      store: ConversationWindowStore(SharedPreferencesAsync()),
+      connection: () => (baseUrl: 'https://hermes.test', authRequired: false),
+      ownerKey: () => 'test-owner',
+      headers: ({rejected}) async => {},
+    );
+    addTearDown(host.dispose);
+    addTearDown(windows.dispose);
+    try {
+      final installs = await pumpShell(tester, windows: windows);
       await startInstall(tester, installs);
+      expect(host.mainShown, 0);
+
       await sudo(tester);
 
+      expect(host.mainShown, 1);
       expect(prompt, findsOne);
-      expect(find.byType(CupertinoTextField), findsOne);
-      await tester.tap(find.text('Cancel'));
-      await settle(tester);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
     }
-    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('the question over the lock screen takes no keys', (
+    tester,
+  ) async {
+    final lock = _Lock();
+    final installs = await pumpShell(tester, lock: lock);
+    await startInstall(tester, installs);
+    await sudo(tester);
+    final promptField = find.descendant(
+      of: find.byType(AlertDialog, skipOffstage: false),
+      matching: find.byType(EditableText, skipOffstage: false),
+    );
+    expect(tester.widget<EditableText>(promptField).focusNode.hasFocus, isTrue);
+
+    lock.covered = true;
+    await tester.pump();
+    await tester.pump();
+
+    // Nothing typed on the lock screen may reach the hidden field.
+    expect(
+      tester.widget<EditableText>(promptField).focusNode.hasFocus,
+      isFalse,
+    );
   });
 }
 
+class _Lock extends AppLockController {
+  var _covered = false;
+
+  @override
+  bool get covered => _covered;
+
+  set covered(bool value) {
+    _covered = value;
+    notifyListeners();
+  }
+}
+
 class _Auth extends AuthController {
+  var _allowed = true;
+
+  void allow(bool value) {
+    _allowed = value;
+    notifyListeners();
+  }
+
   @override
   HermesConnectionState get state => HermesConnectionState.ready;
 
   @override
-  bool get protectedRequestsAllowed => true;
+  bool get protectedRequestsAllowed => _allowed;
 
   @override
   String? get baseUrl => 'https://hermes.example.com:9119';

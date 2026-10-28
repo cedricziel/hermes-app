@@ -15,7 +15,9 @@ import '../../widgets/route_dismissal.dart';
 /// A plain widget over [host] and two callbacks, drawn as the platform's alert
 /// (a Cupertino alert on iOS and macOS, a Material one elsewhere). The field
 /// is obscured and tells the keyboard and the system to remember nothing:
-/// autocorrect, suggestions, keyboard learning and autofill are off. Install
+/// autocorrect, suggestions, keyboard learning and autofill are off (the
+/// keyboard type stays the default, so Android uses its password variation,
+/// which already turns suggestions off). Install
 /// hands the typed password to [onInstall] once, clearing the field as it
 /// does; Cancel only calls [onCancel]. The password is never kept
 /// here, shown again or recorded.
@@ -23,6 +25,7 @@ class SudoPasswordPrompt extends StatefulWidget {
   const SudoPasswordPrompt({
     super.key,
     required this.host,
+    required this.profile,
     required this.onInstall,
     required this.onCancel,
     this.controller,
@@ -30,6 +33,9 @@ class SudoPasswordPrompt extends StatefulWidget {
 
   /// The Hermes host the password is for.
   final String host;
+
+  /// The profile the install is for.
+  final String profile;
   final ValueChanged<String> onInstall;
   final VoidCallback onCancel;
 
@@ -79,9 +85,9 @@ class _SudoPasswordPromptState extends State<SudoPasswordPrompt> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Hermes on ${widget.host} needs the password of its user to '
-            'install the desktop. It goes to your server once and is not '
-            'stored.',
+            'Your Hermes server (${widget.host}) needs the password of its '
+            'user to install the desktop for the profile "${widget.profile}". '
+            'It goes to the server once and is not stored.',
           ),
           const SizedBox(height: 12),
           apple ? _appleField() : _materialField(),
@@ -109,7 +115,6 @@ class _SudoPasswordPromptState extends State<SudoPasswordPrompt> {
     enableSuggestions: false,
     enableIMEPersonalizedLearning: false,
     autofillHints: null,
-    keyboardType: TextInputType.visiblePassword,
     smartDashesType: SmartDashesType.disabled,
     smartQuotesType: SmartQuotesType.disabled,
     textInputAction: TextInputAction.done,
@@ -125,7 +130,6 @@ class _SudoPasswordPromptState extends State<SudoPasswordPrompt> {
     enableSuggestions: false,
     enableIMEPersonalizedLearning: false,
     autofillHints: null,
-    keyboardType: TextInputType.visiblePassword,
     smartDashesType: SmartDashesType.disabled,
     smartQuotesType: SmartQuotesType.disabled,
     textInputAction: TextInputAction.done,
@@ -134,7 +138,8 @@ class _SudoPasswordPromptState extends State<SudoPasswordPrompt> {
   );
 }
 
-/// Asks for the sudo password of [host] over whatever is on screen.
+/// Asks for the sudo password of [host], for the install of [profile], over
+/// whatever is on screen.
 ///
 /// Answers the typed password, or null when the user cancels or dismisses the
 /// question. The question closes by itself, answering null, when [ended]
@@ -144,6 +149,7 @@ class _SudoPasswordPromptState extends State<SudoPasswordPrompt> {
 Future<String?> showSudoPasswordPrompt(
   BuildContext context, {
   required String host,
+  required String profile,
   required Future<void> ended,
   Breadcrumbs breadcrumbs = Breadcrumbs.none,
 }) async {
@@ -155,6 +161,7 @@ Future<String?> showSudoPasswordPrompt(
       onEnded: () => over = true,
       child: SudoPasswordPrompt(
         host: host,
+        profile: profile,
         onInstall: (password) => Navigator.pop(context, password),
         onCancel: () => Navigator.pop(context),
       ),

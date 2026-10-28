@@ -31,6 +31,7 @@ class _PromptState extends State<_Prompt> {
       child: SingleChildScrollView(
         child: SudoPasswordPrompt(
           host: 'hermes.example.com',
+          profile: 'work',
           controller: _controller,
           onInstall: (_) {},
           onCancel: () {},
