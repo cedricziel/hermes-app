@@ -223,6 +223,22 @@ List<Uint8List> clientMessages(Uint8List written) {
         length = 4 + 4 * ((written[p + 2] << 8) | written[p + 3]);
       case 3:
         length = 10;
+      case 4:
+        length = 8;
+      case 5:
+        length = 6;
+      case 6:
+        // The bridge frames a negative length (the extended clipboard) by its
+        // absolute value and refuses anything above 256 KiB.
+        final n =
+            ((written[p + 4] << 24) |
+                    (written[p + 5] << 16) |
+                    (written[p + 6] << 8) |
+                    written[p + 7])
+                .toSigned(32)
+                .abs();
+        if (n > 256 * 1024) throw StateError('Clipboard message too large');
+        length = 8 + n;
       default:
         throw StateError('Unexpected client message type $type');
     }

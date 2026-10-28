@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/rfb/rfb_client.dart';
+import 'package:hermes_app/src/bot_screen/rfb/rfb_input_sink.dart';
 
 import '../../support/fake_rfb_server.dart';
 
@@ -29,6 +30,13 @@ List<int> _request(int w, int h, {required bool incremental}) => [
   ...u16(w),
   ...u16(h),
 ];
+
+void expectInputUnusable(RfbClient client) {
+  expect(() => client.pointer(0, 0, 0), throwsStateError);
+  expect(() => client.key(0x61, down: true), throwsStateError);
+  expect(() => client.scroll(0, 0, dy: 1), throwsStateError);
+  expect(() => client.cutText('x'), throwsStateError);
+}
 
 void main() {
   group('handshake', () {
@@ -481,6 +489,326 @@ void main() {
         expect(types, [0, 2, 3, 3, 3]);
       },
     );
+  });
+
+  group('input', () {
+    Future<RfbSession> ready([int w = 8, int h = 4]) async {
+      final s = RfbSession();
+      await s.handshake(w, h);
+      return s;
+    }
+
+    // What the client wrote after the handshake, framed as the bridge does,
+    // keeping only the input messages (types 4, 5 and 6).
+    List<List<int>> input(RfbSession s) => [
+      for (final m in clientMessages(s.channel.sentBytes))
+        if (m[0] >= 4 && m[0] <= 6) m.toList(),
+    ];
+
+    test('a PointerEvent is 6 bytes: type, mask, x and y', () async {
+      final s = await ready(1024, 768);
+      s.client.pointer(0x0123, 0x0145, 5);
+
+      expect(input(s), [
+        [5, 5, 0x01, 0x23, 0x01, 0x45],
+      ]);
+    });
+
+    test('coordinates are clamped to the screen', () async {
+      final s = await ready(8, 4);
+      s.client
+        ..pointer(-3, -1, 0)
+        ..pointer(99, 99, 1)
+        ..pointer(7, 3, 0);
+
+      expect(input(s), [
+        [5, 0, 0, 0, 0, 0],
+        [5, 1, 0, 7, 0, 3],
+        [5, 0, 0, 7, 0, 3],
+      ]);
+    });
+
+    test('clamps to the new size after the desktop resized', () async {
+      final s = await ready(8, 4);
+      await s.send(rfbUpdate([rfbDesktopSizeRect(16, 6)]));
+      s.client.pointer(99, 99, 0);
+
+      expect(input(s), [
+        [5, 0, 0, 15, 0, 5],
+      ]);
+    });
+
+    test('a button mask over one byte is refused', () async {
+      final s = await ready();
+      expect(() => s.client.pointer(0, 0, 256), throwsArgumentError);
+      expect(() => s.client.pointer(0, 0, -1), throwsArgumentError);
+      expect(input(s), isEmpty);
+    });
+
+    test('a KeyEvent is 8 bytes: type, down flag, padding, keysym', () async {
+      final s = await ready();
+      s.client
+        ..key(0x010020AC, down: true)
+        ..key(0x010020AC, down: false);
+
+      expect(input(s), [
+        [4, 1, 0, 0, 0x01, 0x00, 0x20, 0xAC],
+        [4, 0, 0, 0, 0x01, 0x00, 0x20, 0xAC],
+      ]);
+    });
+
+    test('a keysym that does not fit 32 bits is refused', () async {
+      final s = await ready();
+      expect(() => s.client.key(-1, down: true), throwsArgumentError);
+      expect(() => s.client.key(0x100000000, down: true), throwsArgumentError);
+      expect(input(s), isEmpty);
+    });
+
+    test('a wheel notch is a press and a release of its button', () async {
+      final s = await ready();
+      s.client.scroll(3, 2, dy: 3);
+
+      expect(input(s), [
+        for (var i = 0; i < 3; i++) ...[
+          [5, 16, 0, 3, 0, 2], // button 5, down
+          [5, 0, 0, 3, 0, 2],
+        ],
+      ]);
+    });
+
+    test('up is button 4, left is button 6 and right is button 7', () async {
+      final s = await ready();
+      s.client
+        ..scroll(1, 1, dy: -2)
+        ..scroll(1, 1, dx: -1)
+        ..scroll(1, 1, dx: 1);
+
+      expect(input(s).map((m) => m[1]), [8, 0, 8, 0, 32, 0, 64, 0]);
+    });
+
+    test('both axes in one call send the vertical notches first', () async {
+      final s = await ready();
+      s.client.scroll(0, 0, dx: 1, dy: 1);
+
+      expect(input(s).map((m) => m[1]), [16, 0, 64, 0]);
+    });
+
+    test('a wheel notch keeps the buttons that are held', () async {
+      final s = await ready();
+      s.client
+        ..pointer(4, 1, 1)
+        ..scroll(4, 1, dy: 1);
+
+      expect(input(s).map((m) => m[1]), [1, 17, 1]);
+    });
+
+    test('the held buttons follow the latest pointer event', () async {
+      final s = await ready();
+      s.client
+        ..pointer(4, 1, 1 | 4)
+        ..pointer(4, 1, 0)
+        ..scroll(4, 1, dy: 1);
+
+      expect(input(s).map((m) => m[1]), [5, 0, 16, 0]);
+    });
+
+    test('a wheel bit passed to pointer is not remembered as held', () async {
+      final s = await ready();
+      s.client
+        ..pointer(4, 1, 16)
+        ..scroll(4, 1, dy: 1);
+
+      expect(input(s).map((m) => m[1]), [16, 16, 0]);
+    });
+
+    test('a scroll with no notches sends nothing', () async {
+      final s = await ready();
+      s.client.scroll(1, 1);
+
+      expect(input(s), isEmpty);
+    });
+
+    test('clamps the position of a scroll', () async {
+      final s = await ready(8, 4);
+      s.client.scroll(50, -5, dy: 1);
+
+      expect(input(s).first, [5, 16, 0, 7, 0, 0]);
+    });
+
+    test('ClientCutText is 8 + n bytes with a positive length', () async {
+      final s = await ready();
+      s.client.cutText('hi');
+
+      expect(input(s), [
+        [6, 0, 0, 0, 0, 0, 0, 2, 0x68, 0x69],
+      ]);
+    });
+
+    test('Latin-1 text goes out byte for byte', () async {
+      final s = await ready();
+      s.client.cutText('café ÿ ');
+
+      final message = input(s).single;
+      expect(message.sublist(4, 8), [0, 0, 0, 7]);
+      expect(message.sublist(8), [...'caf'.codeUnits, 0xE9, 0x20, 0xFF, 0xA0]);
+    });
+
+    test('line breaks go out as a line feed', () async {
+      final s = await ready();
+      s.client.cutText('a\r\nb\rc\nd');
+
+      expect(input(s).single.sublist(8), 'a\nb\nc\nd'.codeUnits);
+    });
+
+    test('empty text is sent, to clear the remote clipboard', () async {
+      final s = await ready();
+      s.client.cutText('');
+
+      expect(input(s), [
+        [6, 0, 0, 0, 0, 0, 0, 0],
+      ]);
+    });
+
+    test('text outside Latin-1 is refused and nothing is sent', () async {
+      final s = await ready();
+      for (final text in ['€', 'ok \u{1F600}', 'aĀ']) {
+        expect(
+          () => s.client.cutText(text),
+          throwsA(RfbClipboardError.notLatin1),
+          reason: text,
+        );
+      }
+      expect(input(s), isEmpty);
+    });
+
+    test('256 KiB goes out and one byte more is refused', () async {
+      final s = await ready();
+      s.client.cutText('a' * (256 * 1024));
+      expect(input(s).single.length, 8 + 256 * 1024);
+      expect(input(s).single.sublist(4, 8), [0, 4, 0, 0]);
+
+      expect(
+        () => s.client.cutText('a' * (256 * 1024 + 1)),
+        throwsA(RfbClipboardError.tooLarge),
+      );
+      expect(input(s), hasLength(1));
+    });
+
+    test('a scroll is limited to 50 notches per axis and call', () async {
+      final s = await ready();
+      s.client.scroll(1, 1, dy: 1000, dx: -1000);
+
+      final masks = input(s).map((m) => m[1]).toList();
+      expect(masks, hasLength(200));
+      expect(masks.where((m) => m == 16), hasLength(50));
+      expect(masks.where((m) => m == 32), hasLength(50));
+    });
+
+    test('line breaks that collapse can bring text under the limit', () async {
+      final s = await ready();
+      // 128 Ki CRLF pairs are 256 Ki code units but 128 Ki bytes.
+      s.client.cutText('\r\n' * (128 * 1024));
+      expect(input(s).single.sublist(4, 8), [0, 2, 0, 0]);
+
+      s.client.cutText('${'a' * (256 * 1024 - 1)}\r\n');
+      expect(input(s).last.length, 8 + 256 * 1024);
+
+      expect(
+        () => s.client.cutText('${'a' * (256 * 1024)}\r\n'),
+        throwsA(RfbClipboardError.tooLarge),
+      );
+      expect(input(s), hasLength(2));
+    });
+
+    test('the first problem found decides the error', () async {
+      final s = await ready();
+      expect(
+        () => s.client.cutText('${'a' * (256 * 1024 + 1)}€'),
+        throwsA(RfbClipboardError.tooLarge),
+      );
+      expect(
+        () => s.client.cutText('€${'a' * (256 * 1024 + 1)}'),
+        throwsA(RfbClipboardError.notLatin1),
+      );
+      expect(input(s), isEmpty);
+    });
+
+    test('errors for bad values do not carry the values', () async {
+      final s = await ready();
+      Matcher noValue(String value) => throwsA(
+        isA<ArgumentError>().having(
+          (e) => e.toString(),
+          'text',
+          isNot(contains(value)),
+        ),
+      );
+
+      expect(() => s.client.pointer(0, 0, 987654), noValue('987654'));
+      expect(
+        () => s.client.key(98765432109, down: true),
+        noValue('98765432109'),
+      );
+      expect(() => s.client.key(-4242, down: true), noValue('4242'));
+    });
+
+    test('a bad value before ServerInit is still a StateError', () {
+      final s = RfbSession();
+      expect(() => s.client.pointer(0, 0, 999), throwsStateError);
+      expect(() => s.client.key(-1, down: true), throwsStateError);
+    });
+
+    test('the clipboard errors carry no text', () {
+      for (final error in RfbClipboardError.values) {
+        expect(error.toString(), startsWith('RfbClipboardError.'));
+      }
+    });
+
+    test('every input method throws before ServerInit', () async {
+      final s = RfbSession();
+      void expectUnusable() => expectInputUnusable(s.client);
+
+      expectUnusable();
+      await s.send(rfbVersion());
+      expectUnusable();
+      await s.send([1, 1]);
+      await s.send(u32(0));
+      expectUnusable();
+      expect(s.channel.sentBytes.length, 12 + 1 + 1);
+    });
+
+    test('every input method throws after the stream ended', () async {
+      for (final end in <Future<void> Function(RfbSession)>[
+        (s) => s.client.close(),
+        (s) => s.channel.serverClose(),
+        (s) async {
+          s.channel.serverError();
+          await pumpEventQueue();
+        },
+      ]) {
+        final s = await ready();
+        await end(s);
+        await pumpEventQueue();
+
+        expectInputUnusable(s.client);
+        expect(input(s), isEmpty);
+      }
+    });
+
+    test('never sends SetDesktopSize or a QEMU message', () async {
+      final s = await ready();
+      s.client
+        ..pointer(1, 1, 1)
+        ..key(0x61, down: true)
+        ..scroll(1, 1, dy: 1, dx: -1)
+        ..cutText('x');
+      await s.send(rfbUpdate([rfbDesktopSizeRect(16, 6)]));
+
+      // clientMessages throws on a type the bridge cannot frame.
+      final types = clientMessages(s.channel.sentBytes).map((m) => m[0]);
+      expect(types, isNot(contains(251)));
+      expect(types, isNot(contains(255)));
+      expect(types.toSet(), {0, 2, 3, 4, 5, 6});
+    });
   });
 
   group('counters', () {
