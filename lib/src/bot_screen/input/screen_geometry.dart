@@ -42,12 +42,17 @@ class ScreenGeometry {
   final Matrix4 _transform;
   final Matrix4 _inverse;
 
+  /// Nothing to map: no screen, or no room to draw it in.
+  bool get _empty =>
+      framebuffer.isEmpty || pictureRect.isEmpty || !pictureRect.isFinite;
+
   /// The zoom: 1 shows the picture at fit.
   double get scale => _transform.getMaxScaleOnAxis();
 
   /// The framebuffer pixel under [local], a position in the viewer; a
   /// position outside the picture gives the nearest pixel at its edge.
   ({int x, int y}) toFramebuffer(Offset local) {
+    if (_empty) return (x: 0, y: 0);
     final content = MatrixUtils.transformPoint(_inverse, local);
     final x =
         (content.dx - pictureRect.left) * framebuffer.width / pictureRect.width;
@@ -65,6 +70,7 @@ class ScreenGeometry {
   /// finger travel: the further the picture is zoomed in, the less the
   /// pointer travels. The result stays on the screen.
   Offset movePointer(Offset pointer, Offset delta) {
+    if (_empty) return pointer;
     final moved =
         pointer +
         Offset(
@@ -78,10 +84,12 @@ class ScreenGeometry {
   }
 }
 
-/// Gathers trackpad scroll distance into wheel notches.
+/// Gathers scroll distance into wheel notches.
 class ScrollAccumulator {
+  ScrollAccumulator({this.pixelsPerNotch = 40});
+
   /// Logical pixels of scrolling that make one wheel notch.
-  static const pixelsPerNotch = 40.0;
+  final double pixelsPerNotch;
 
   double _rest = 0;
 

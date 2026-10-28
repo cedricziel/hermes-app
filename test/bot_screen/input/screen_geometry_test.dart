@@ -108,7 +108,43 @@ void main() {
     });
   });
 
+  group('empty sizes', () {
+    test('a viewport without size maps to the origin', () {
+      final geometry = ScreenGeometry.fitted(
+        framebuffer: const Size(1000, 500),
+        viewport: Size.zero,
+      );
+
+      expect(geometry.toFramebuffer(const Offset(5, 5)), (x: 0, y: 0));
+      expect(
+        geometry.movePointer(const Offset(3, 4), const Offset(9, 9)),
+        const Offset(3, 4),
+      );
+    });
+
+    test('a screen without size maps to the origin', () {
+      final geometry = ScreenGeometry.fitted(
+        framebuffer: Size.zero,
+        viewport: const Size(400, 400),
+      );
+
+      expect(geometry.toFramebuffer(const Offset(5, 5)), (x: 0, y: 0));
+      expect(
+        geometry.movePointer(Offset.zero, const Offset(9, 9)),
+        Offset.zero,
+      );
+    });
+  });
+
   group('ScrollAccumulator', () {
+    test('takes the pixels per notch as a parameter', () {
+      final wheel = ScrollAccumulator(pixelsPerNotch: 120);
+
+      expect(wheel.add(100), 0);
+      expect(wheel.add(20), 1);
+      expect(wheel.add(-240), -2);
+    });
+
     test('turns 40 logical pixels into a notch and keeps the rest', () {
       final scroll = ScrollAccumulator();
 
