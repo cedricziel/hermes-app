@@ -26,8 +26,9 @@ _ITALIC = re.compile(r"\*(.+?)\*|(?<!\w)_(.+?)_(?!\w)")
 _CODE = re.compile(r"`([^`]*)`")
 _HEADING = re.compile(r"^#{1,6}\s+(.*)$")
 _BULLET = re.compile(r"^\s*[*+-]\s+")
-# "windows" alone is a Mac app's windows; the platform is "Windows" or a scope.
-_OTHER_PLATFORM = re.compile(r"(?i:\b(?:android|linux)\b)|\bWindows\b|\bwindows:")
+# "windows" alone is a Mac app's windows; the platform is "Windows" or the
+# release-please scope at the start of an entry.
+_OTHER_PLATFORM = re.compile(r"(?i:\b(?:android|linux)\b)|\bWindows\b|^windows:")
 
 
 def _inline(text: str) -> str:
@@ -38,10 +39,18 @@ def _inline(text: str) -> str:
     return _CODE.sub(r"\1", text).strip()
 
 
+class _Section:
+    def __init__(self, title):
+        self.title = title
+        self.lines = []
+        # A heading about another platform leaves out everything under it.
+        self.other_platform = title is not None and bool(_OTHER_PLATFORM.search(title))
+        self.left_out = False
+
+
 def plain(markdown: str) -> str:
-    # Heading, the lines kept under it and whether any were left out. The first
-    # heading is None, for text before any heading.
-    sections: list[tuple[str | None, list[str], list[bool]]] = [(None, [], [False])]
+    # The first section has no heading: the text before any.
+    sections = [_Section(None)]
     blank = False
     for raw in markdown.splitlines():
         if not raw.strip():
@@ -49,28 +58,29 @@ def plain(markdown: str) -> str:
             continue
         heading = _HEADING.match(raw.strip())
         if heading:
-            sections.append((_inline(heading.group(1)), [], [False]))
+            sections.append(_Section(_inline(heading.group(1))))
             blank = False
             continue
-        text = _inline(raw)
-        if _OTHER_PLATFORM.search(text):
-            sections[-1][2][0] = True
+        section = sections[-1]
+        bullet = _BULLET.match(raw)
+        text = _inline(_BULLET.sub("", raw) if bullet else raw)
+        if section.other_platform or _OTHER_PLATFORM.search(text):
+            section.left_out = True
             continue
-        body = sections[-1][1]
-        if blank and body:
-            body.append("")
-        body.append(f"- {_inline(_BULLET.sub('', raw))}" if _BULLET.match(raw) else text)
+        if blank and section.lines:
+            section.lines.append("")
+        section.lines.append(f"- {text}" if bullet else text)
         blank = False
 
     lines: list[str] = []
-    for title, body, [left_out] in sections:
-        if left_out and not body:
+    for section in sections:
+        if section.other_platform or (section.left_out and not section.lines):
             continue
-        if title is not None:
+        if section.title is not None:
             if lines:
                 lines.append("")
-            lines.append(title)
-        lines.extend(body)
+            lines.append(section.title)
+        lines.extend(section.lines)
 
     text = "\n".join(lines)
     if len(text) <= LIMIT:
