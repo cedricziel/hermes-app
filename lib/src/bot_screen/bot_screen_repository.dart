@@ -48,6 +48,23 @@ class BotScreenRepository {
   Future<BotScreenResult<BotScreenStatus>> start(String? profile) =>
       _call('display.start', profile, BotScreenStatus.fromJson);
 
+  /// Starts installing the desktop packages on the gateway host. A refusal
+  /// (another install running, an unsupported host, a sandbox, no package
+  /// manager) is a [BotScreenFailed] carrying Hermes' message; it is not a
+  /// read failure, so it is not logged here.
+  Future<BotScreenResult<BotScreenInstallStart>> install(String? profile) =>
+      _call('display.install', profile, (result) {
+        final key = result['profile_key'];
+        final command = result['command'];
+        if (key is! String || key.isEmpty) {
+          throw const FormatException('profile_key');
+        }
+        return BotScreenInstallStart(
+          command: command is String ? command : null,
+          profileKey: key,
+        );
+      }, logFailures: false);
+
   /// One JPEG grab of the screen; read-only, it never changes the lease.
   Future<BotScreenResult<BotScreenFrame>> thumbnail(String? profile) async {
     Span? span;
@@ -71,8 +88,13 @@ class BotScreenRepository {
   Future<BotScreenResult<T>> _call<T>(
     String method,
     String? profile,
-    T Function(Map<String, Object?> result) parse,
-  ) async {
+    T Function(Map<String, Object?> result) parse, {
+    bool logFailures = true,
+  }) async {
+    BotScreenFailed<T> failed(BotScreenFailure kind, [String? message]) =>
+        logFailures
+        ? _failed(method, kind, message)
+        : BotScreenFailed(kind, message: message);
     try {
       final answer = await _rpc(method, {
         'profile': profile ?? kDefaultProfile,
@@ -85,29 +107,34 @@ class BotScreenRepository {
         if (method == 'display.status') _reportUnsupported();
         return BotScreenUnsupported();
       }
-      return _failed(method, BotScreenFailure.display);
+      return failed(BotScreenFailure.display, error.message);
     } on FormatException {
-      return _failed(method, BotScreenFailure.display);
+      return failed(BotScreenFailure.display);
     } on GatewayRequestTimeout {
-      return _failed(method, BotScreenFailure.timeout);
+      return failed(BotScreenFailure.timeout);
     } on TimeoutException {
-      return _failed(method, BotScreenFailure.timeout);
+      return failed(BotScreenFailure.timeout);
     } on GatewayConnectionClosed {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     } on SessionTransportUnavailable {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     } on SocketException {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     } on WebSocketChannelException {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     } on DioException {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     }
   }
 
   /// Logs the first failure of a streak only; any success ends the streak.
-  BotScreenFailed<T> _failed<T>(String method, BotScreenFailure kind) {
-    if (_failureLogged) return BotScreenFailed(kind);
+  BotScreenFailed<T> _failed<T>(
+    String method,
+    BotScreenFailure kind, [
+    String? message,
+  ]) {
+    final failure = BotScreenFailed<T>(kind, message: message);
+    if (_failureLogged) return failure;
     _failureLogged = true;
     _quiet(
       () => telemetry.events('bot_screen.read_failed', {
@@ -115,7 +142,7 @@ class BotScreenRepository {
         'error_type': kind.slug,
       }),
     );
-    return BotScreenFailed(kind);
+    return failure;
   }
 
   void _reportUnsupported() {
