@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_card_model.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
+import 'package:hermes_app/src/bot_screen/install/install_state.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -15,10 +16,23 @@ Widget _card(BotScreenCardModel model, {bool enlarge = false}) => frame(
     onStart: () {},
     onCopyCommand: () {},
     onRetry: () {},
+    onInstall: () {},
     onEnlarge: enlarge ? () {} : null,
   ),
   maxWidth: 380,
 );
+
+const _manualCommand = 'apt-get install -y tigervnc-standalone-server xfce4';
+const _installCommand = 'sudo $_manualCommand';
+
+const _installLines = [
+  'Reading package lists...',
+  'Building dependency tree...',
+  'The following NEW packages will be installed:',
+  'Get:1 http://deb.example.org/debian bookworm/main xfce4 [1,106 B]',
+  'Unpacking tigervnc-standalone-server (1.12.0+dfsg-9) ...',
+  'Setting up xfce4-session (4.18.1-1) ...',
+];
 
 WidgetbookNode botScreenNode() {
   final picture = botScreenFixturePng();
@@ -48,6 +62,77 @@ WidgetbookNode botScreenNode() {
     (
       'Not installed, with a command',
       const BotScreenNotInstalled(command: 'hermes computer-use install --yes'),
+      enlarge: false,
+    ),
+    (
+      'Not installed, Install on Server',
+      const BotScreenNotInstalled(command: _installCommand, canInstall: true),
+      enlarge: false,
+    ),
+    ('Installing, no output yet', const BotScreenInstalling(), enlarge: false),
+    (
+      'Installing, with output',
+      const BotScreenInstalling(lines: _installLines),
+      enlarge: false,
+    ),
+    (
+      "Install couldn't start",
+      const BotScreenNotInstalled(
+        command: _installCommand,
+        canInstall: true,
+        result: InstallRefused(
+          message: 'an install is already running for this profile',
+        ),
+      ),
+      enlarge: false,
+    ),
+    (
+      "Install couldn't start, no answer",
+      const BotScreenNotInstalled(
+        command: _installCommand,
+        canInstall: true,
+        result: InstallUnreachable(BotScreenFailure.timeout),
+      ),
+      enlarge: false,
+    ),
+    (
+      'Install cancelled',
+      const BotScreenNotInstalled(
+        command: _installCommand,
+        canInstall: true,
+        result: InstallCancelled(),
+      ),
+      enlarge: false,
+    ),
+    (
+      'Install: no sudo on the server',
+      const BotScreenNotInstalled(
+        command: _manualCommand,
+        result: InstallNoSudo(command: _installCommand),
+      ),
+      enlarge: false,
+    ),
+    (
+      'Install failed',
+      const BotScreenNotInstalled(
+        command: _installCommand,
+        canInstall: true,
+        result: InstallFailed(
+          lines: [
+            'E: Unable to locate package tigervnc-standalone-server',
+            'E: Package xfce4 has no installation candidate',
+          ],
+        ),
+      ),
+      enlarge: false,
+    ),
+    (
+      'Install may still be running',
+      const BotScreenNotInstalled(
+        command: _installCommand,
+        canInstall: true,
+        result: InstallMayStillRun(),
+      ),
       enlarge: false,
     ),
     (

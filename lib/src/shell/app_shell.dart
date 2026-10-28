@@ -19,6 +19,9 @@ import '../bot_mode/bot_mode_roster_repository.dart';
 import '../bot_mode/bot_mode_roster_screen.dart';
 import '../bot_mode/group_protocol/hermes_groups_repository.dart';
 import '../bot_mode/groups/group_chat_screen.dart';
+import '../bot_screen/bot_screen_repository.dart';
+import '../bot_screen/install/bot_screen_installs.dart';
+import '../bot_screen/widgets/sudo_password_prompt.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 
@@ -28,6 +31,7 @@ import '../deep_links/deep_link_listener.dart';
 import '../deep_links/deep_link_target.dart';
 import '../kanban/hermes_plugins_repository.dart';
 import '../macos/mac_app.dart';
+import '../macos/mac_window.dart';
 import '../macos/mac_commands.dart';
 import '../navigation/desktop_navigation_history.dart';
 import '../macos/mac_sidebar.dart';
@@ -68,7 +72,13 @@ enum _Destination { chat, bots, kanban, schedules, profiles }
 /// destination is first opened and stays alive behind Chat afterwards, so its
 /// filters and selection survive; it is dropped when the destination goes off.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.plugins, this.cron, this.kanbanBuilder});
+  const AppShell({
+    super.key,
+    this.plugins,
+    this.cron,
+    this.kanbanBuilder,
+    this.gatewayConnect,
+  });
 
   /// Overrides the repository built from the signed-in client.
   final HermesPluginsRepository? plugins;
@@ -78,6 +88,9 @@ class AppShell extends StatefulWidget {
 
   /// Overrides the Kanban page.
   final WidgetBuilder? kanbanBuilder;
+
+  /// Overrides how the gateway socket is opened.
+  final GatewayConnect? gatewayConnect;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -91,6 +104,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   HermesCronRepository? _cron;
   HermesProfilesRepository? _profiles;
   HermesGatewayTransport? _gateway;
+
+  /// The installs of the desktop on the server the user started, which go on
+  /// whatever page is up and ask for the sudo password over it.
+  BotScreenInstalls? _installs;
   BotModeRosterRepository? _botsRepository;
   BotModeChatRepository? _botChats;
   HermesGroupsRepository? _groups;
@@ -175,15 +192,29 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     auth?.addListener(_resumeExternalNavigation);
     if (repositories != null && auth?.baseUrl != null) {
       final telemetry = repositories.telemetry.gateway();
-      _gateway = HermesGatewayTransport(
-        connect: hermesGatewayConnect(
-          baseUrl: auth!.baseUrl!,
-          authRequired: auth.status?.authRequired ?? true,
-          api: repositories.api,
-          telemetry: telemetry,
-        ),
+      final gateway = _gateway = HermesGatewayTransport(
+        connect:
+            widget.gatewayConnect ??
+            hermesGatewayConnect(
+              baseUrl: auth!.baseUrl!,
+              authRequired: auth.status?.authRequired ?? true,
+              api: repositories.api,
+              telemetry: telemetry,
+            ),
         telemetry: telemetry,
         events: repositories.telemetry.events,
+      );
+      _installs = BotScreenInstalls(
+        repository: BotScreenRepository(
+          gateway.requestKeepingConnection,
+          telemetry: repositories.telemetry,
+          installRpc: gateway.requestKeepingConnectionOnClient,
+        ),
+        connectionEvents: gateway.connectionEvents,
+        registerServerRequestHandler: gateway.registerServerRequestHandler,
+        askPassword: _askSudoPassword,
+        host: Uri.tryParse(auth!.baseUrl!)?.host ?? 'your server',
+        telemetry: repositories.telemetry,
       );
       _botsRepository = BotModeRosterRepository(
         _gateway!.request,
@@ -254,6 +285,33 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
+  /// The sudo password of the Hermes host, asked over whatever page is up.
+  /// Nothing is asked once the session is gone; the answer is then a decline.
+  Future<String?> _askSudoPassword(
+    String host,
+    String profile,
+    Future<void> ended,
+  ) async {
+    if (!_authorizedOwner) return null;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      // The question would otherwise open on a window nobody can see.
+      try {
+        await (_windows?.showMainWindow() ?? MacWindow.orderFront());
+      } on Object {
+        // The question still goes on screen.
+      }
+      if (!_authorizedOwner) return null;
+    }
+    if (!mounted) return null;
+    return showSudoPasswordPrompt(
+      context,
+      host: host,
+      profile: profile,
+      ended: ended,
+      breadcrumbs: _breadcrumbs,
+    );
+  }
+
   T? _maybeRead<T>() {
     try {
       return context.read<T>();
@@ -279,6 +337,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _sidebar.dispose();
     _schedulesController?.dispose();
     _openRequests.dispose();
+    _installs?.dispose();
     _gateway?.close();
     super.dispose();
   }
@@ -292,7 +351,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     _appForeground = AppPresence.foreground(state);
     _syncSchedulesForeground();
-    if (state == AppLifecycleState.resumed) _detect();
+    if (state == AppLifecycleState.resumed) {
+      _installs?.resumed();
+      _detect();
+    }
   }
 
   void _onWindowless(bool windowless) {
@@ -764,7 +826,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final built = ChangeNotifierProvider.value(
       value: _finds,
-      child: _build(context),
+      child: switch (_installs) {
+        final installs? => ChangeNotifierProvider.value(
+          value: installs,
+          child: _build(context),
+        ),
+        null => _build(context),
+      },
     );
     final chrome = platformChromeOf(context);
     if (!chrome.isApple) return built;

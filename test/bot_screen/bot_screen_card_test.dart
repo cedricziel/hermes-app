@@ -22,6 +22,7 @@ Future<void> pumpCard(
   WidgetTester tester,
   BotScreenCardModel model, {
   VoidCallback? onStart,
+  VoidCallback? onInstall,
   VoidCallback? onCopyCommand,
   VoidCallback? onRetry,
   VoidCallback? onEnlarge,
@@ -36,6 +37,7 @@ Future<void> pumpCard(
         child: BotScreenCard(
           model: model,
           onStart: onStart,
+          onInstall: onInstall,
           onCopyCommand: onCopyCommand,
           onRetry: onRetry,
           onEnlarge: onEnlarge,

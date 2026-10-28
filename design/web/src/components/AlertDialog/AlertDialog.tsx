@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { Button } from "../Button/Button";
 import { Sheet } from "../Sheet/Sheet";
 import { useModalFocus } from "../../modalFocus";
@@ -25,6 +25,8 @@ export interface AlertDialogProps {
   title: string;
   /** One or two sentences under it: "You will need to sign in again to see your chats." */
   message?: string;
+  /** Content under the message, such as a field. Not part of the Flutter `AppAlertDialog` for plain questions; `SudoPasswordPrompt` puts its password field here. */
+  children?: ReactNode;
   /** The buttons, dismissive first and the confirming one last: Cancel, then Sign Out. */
   actions: AlertDialogAction[];
   /**
@@ -56,6 +58,7 @@ export interface AlertDialogProps {
 export function AlertDialog({
   title,
   message,
+  children,
   actions,
   stacked,
   platform,
@@ -71,7 +74,9 @@ export function AlertDialog({
           actions={actions}
           stacked={stacked ?? actions.length > 2}
           onDismiss={onDismiss}
-        />
+        >
+          {children}
+        </AppleAlert>
       ) : (
         <Sheet
           presentation="dialog"
@@ -94,6 +99,7 @@ export function AlertDialog({
               {message}
             </p>
           ) : null}
+          {children}
         </Sheet>
       )}
     </PlatformScope>
@@ -103,6 +109,7 @@ export function AlertDialog({
 function AppleAlert({
   title,
   message,
+  children,
   actions,
   stacked,
   onDismiss,
@@ -132,6 +139,7 @@ function AppleAlert({
               {message}
             </p>
           ) : null}
+          {children}
         </div>
         <div
           className={cx(

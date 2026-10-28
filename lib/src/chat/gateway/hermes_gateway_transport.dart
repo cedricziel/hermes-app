@@ -41,6 +41,22 @@ const handledServerRequests = {
   'vault.code',
 };
 
+/// Server requests that reach only the connection that caused them and carry
+/// no session, so no other client can answer them. With no handler registered
+/// (see [HermesGatewayTransport.registerServerRequestHandler]) they are refused
+/// at once, whatever their session; the server would otherwise wait out its
+/// own timeout.
+const registrableServerRequests = {'display.install.sudo'};
+
+/// Answers a server request of a registered method with its result, or throws
+/// a [GatewayRpcException] to refuse it with that error. [connection] is the
+/// socket it arrived on (see `GatewayConnectionTransport.gatewayConnection`).
+/// Any other throw answers an internal error without its message.
+typedef ServerRequestHandler = Future<Map<String, Object?>> Function(
+  GatewayServerRequest request,
+  Object connection,
+);
+
 /// What `image.attach_bytes` answers for a file that is not an image type it
 /// knows.
 const _unsupportedImage = 4016;
@@ -603,6 +619,26 @@ class HermesGatewayTransport
   /// The runtime sessions a reply is in flight for, with how many.
   final _replying = <String, int>{};
 
+  final _requestHandlers = <String, ServerRequestHandler>{};
+
+  /// Has [handler] answer the server requests of [method], which must be one
+  /// of [registrableServerRequests]. A later registration for the same method
+  /// replaces this one. The returned function removes this registration only.
+  void Function() registerServerRequestHandler(
+    String method,
+    ServerRequestHandler handler,
+  ) {
+    if (!registrableServerRequests.contains(method)) {
+      throw ArgumentError.value(method, 'method', 'cannot be registered');
+    }
+    _requestHandlers[method] = handler;
+    return () {
+      if (identical(_requestHandlers[method], handler)) {
+        _requestHandlers.remove(method);
+      }
+    };
+  }
+
   /// The runtime session a reply is in flight in, by the thread it belongs to.
   final _runtimeOf = <_ThreadOwner, String>{};
 
@@ -872,7 +908,26 @@ class HermesGatewayTransport
     String method,
     Map<String, Object?> params, {
     required Duration timeout,
-  }) async => (await _client()).requestWithin(method, params, timeout: timeout);
+  }) async => (await requestKeepingConnectionOnClient(
+    method,
+    params,
+    timeout: timeout,
+  )).$1;
+
+  /// [requestKeepingConnection], also saying which connection carried the
+  /// call (the token `GatewayConnectionTransport.gatewayConnection` gives),
+  /// for a call whose server request comes back on that connection alone.
+  Future<(Map<String, Object?>, Object)> requestKeepingConnectionOnClient(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) async {
+    final client = await _client();
+    return (
+      await client.requestWithin(method, params, timeout: timeout),
+      client,
+    );
+  }
 
   @override
   Future<List<SlashCommand>> slashCommands({
@@ -3471,9 +3526,18 @@ class HermesGatewayTransport
     client.serverRequests
         .where((request) => !handledServerRequests.contains(request.method))
         .listen((request) {
+          if (_requestHandlers[request.method] case final handler?) {
+            unawaited(_answerWithHandler(client, request, handler));
+            return;
+          }
           _reportUnmapped(request.method, serverRequest: true, on: unmapped);
-          if (_replying.containsKey(request.sessionId)) {
-            client.respondError(request.id, -32601, 'Method not found');
+          if (registrableServerRequests.contains(request.method) ||
+              _replying.containsKey(request.sessionId)) {
+            client.respondError(
+              request.id,
+              kGatewayMethodNotFound,
+              'Method not found',
+            );
           }
         });
     client.events.listen(
@@ -3490,6 +3554,20 @@ class HermesGatewayTransport
     );
     _billingUnavailable.clear();
     return _open = client;
+  }
+
+  Future<void> _answerWithHandler(
+    GatewayRpcClient client,
+    GatewayServerRequest request,
+    ServerRequestHandler handler,
+  ) async {
+    try {
+      client.respond(request.id, await handler(request, client));
+    } on GatewayRpcException catch (error) {
+      client.respondError(request.id, error.code, error.message);
+    } on Object {
+      client.respondError(request.id, -32603, 'Internal error');
+    }
   }
 
   ChatEvent? _fromServerRequest(GatewayServerRequest request) {
