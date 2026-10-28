@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
@@ -21,15 +22,21 @@ enum ScreenGestureMode {
 /// calls on an [RfbInputSink].
 ///
 /// It draws nothing and sits over an `InteractiveViewer` whose
-/// [transformation] it reads at every event. It reads pointer events directly
-/// instead of joining the gesture arena, so it never competes with the
-/// viewer: two-finger gestures, a pinch included, are left to the viewer, and
-/// the layer sends nothing for them. A second finger landing during a drag
-/// releases the button first.
+/// [transformation] it reads at every event. While [enabled] it wins every
+/// single-pointer gesture against the viewer's pan: a finger or mouse drag
+/// goes to the screen, and so does a trackpad scroll (pan/zoom events whose
+/// scale stays near 1). Two-pointer gestures stay with the viewer: a second
+/// finger that lands before the first has moved past the touch slop, and a
+/// trackpad pinch, leave the arena to the viewer and send nothing. A finger
+/// that already moved past the slop owns the gesture, so a second finger then
+/// only ends its drag.
+///
+/// An `InteractiveViewer` also zooms on the mouse wheel by itself, which this
+/// layer cannot prevent; whoever places the layer decides its `scaleEnabled`.
 ///
 /// The picture is taken to fill the layer with `BoxFit.contain`, the way a
 /// `RawImage` fills the viewer's child. [enabled] is false by default; while
-/// it is, the layer sends nothing.
+/// it is, the layer sends nothing and takes no part in the gesture arena.
 class ScreenGestureLayer extends StatefulWidget {
   const ScreenGestureLayer({
     super.key,
@@ -50,8 +57,9 @@ class ScreenGestureLayer extends StatefulWidget {
   final TransformationController? transformation;
 
   /// Where the virtual pointer of [ScreenGestureMode.trackpad] is, in screen
-  /// pixels. The layer moves it; show a cursor from it. Without one the
-  /// layer keeps its own, starting at the centre.
+  /// pixels. The layer moves it, also to where a mouse points, and keeps it on
+  /// the screen; show a cursor from it. Without one the layer keeps its own,
+  /// starting at the centre.
   final ValueNotifier<Offset>? virtualPointer;
 
   final bool enabled;
@@ -63,10 +71,31 @@ class ScreenGestureLayer extends StatefulWidget {
 
 enum _Touch { idle, pending, dragging, panning, longPressed }
 
+/// What a trackpad's pan/zoom gesture turned out to be.
+enum _PanZoom { undecided, scroll, pinch }
+
+/// A scale this far from 1 makes a trackpad gesture a pinch (the viewer's own
+/// scale slop).
+const _pinchScale = 0.05;
+
+bool _isPinch(PointerPanZoomUpdateEvent event) =>
+    (event.scale - 1).abs() > _pinchScale;
+
+/// A wheel event this large is one click of a notched wheel, which scrolls at
+/// least one notch; smaller ones come from smooth wheels and gather.
+const _discreteWheel = 30.0;
+
+/// Logical pixels of a wheel click, or of smooth scrolling, that make one
+/// notch.
+const _wheelPixelsPerNotch = 120.0;
+
 class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   ValueNotifier<Offset>? _ownPointer;
   final _scrollX = ScrollAccumulator();
   final _scrollY = ScrollAccumulator();
+  final _wheelX = ScrollAccumulator(pixelsPerNotch: _wheelPixelsPerNotch);
+  final _wheelY = ScrollAccumulator(pixelsPerNotch: _wheelPixelsPerNotch);
+  _PanZoom _panZoom = _PanZoom.undecided;
 
   final _touches = <int>{};
   bool _multiTouch = false;
@@ -75,8 +104,9 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   Offset _touchStart = Offset.zero;
   Timer? _longPress;
 
-  /// Where the primary button is held, in screen pixels, while a drag runs.
-  ({int x, int y})? _held;
+  /// The latest pointer message sent, to skip a repeat and to release a button
+  /// that is still held when the layer stops.
+  ({int x, int y, int mask})? _sent;
 
   ValueNotifier<Offset> get _pointer =>
       widget.virtualPointer ??
@@ -90,6 +120,17 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     transform: widget.transformation?.value,
   );
 
+  /// The virtual pointer in screen pixels, kept on the screen.
+  ({int x, int y}) get _virtual {
+    final at = _onScreen(_pointer.value);
+    return (x: at.dx.floor(), y: at.dy.floor());
+  }
+
+  Offset _onScreen(Offset position) => Offset(
+    position.dx.clamp(0, math.max(0, widget.framebuffer.width - 1)).toDouble(),
+    position.dy.clamp(0, math.max(0, widget.framebuffer.height - 1)).toDouble(),
+  );
+
   @override
   void didUpdateWidget(ScreenGestureLayer old) {
     super.didUpdateWidget(old);
@@ -100,6 +141,12 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
       _multiTouch = false;
       _stopGesture(sink: old.sink);
     }
+    if (old.framebuffer != widget.framebuffer) {
+      // A notifier's listeners may rebuild, which they cannot do mid-build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pointer.value = _onScreen(_pointer.value);
+      });
+    }
   }
 
   @override
@@ -109,18 +156,25 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     super.dispose();
   }
 
-  /// Ends a touch in progress, letting go of the button if a drag holds it.
+  /// Ends a touch in progress, letting go of any button still held.
   void _stopGesture({RfbInputSink? sink}) {
     _longPress?.cancel();
     _touch = _Touch.idle;
-    final held = _held;
-    _held = null;
-    if (held != null) _pointerTo(held.x, held.y, 0, sink: sink);
+    final sent = _sent;
+    if (sent != null && sent.mask != 0) {
+      _pointerTo(sent.x, sent.y, 0, sink: sink);
+    }
+    _sent = null;
   }
+
+  /// Pointer events of a gesture that began before the layer was disabled or
+  /// removed still reach its handlers; they are dropped.
+  bool get _live => mounted && widget.enabled;
 
   // Touch ---------------------------------------------------------------------
 
   void _onDown(PointerDownEvent event) {
+    if (!_live) return;
     if (event.kind == PointerDeviceKind.mouse) return _sendMouse(event);
     if (!_isTouch(event)) return;
     _touches.add(event.pointer);
@@ -137,6 +191,7 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   }
 
   void _onMove(PointerMoveEvent event) {
+    if (!_live) return;
     if (event.kind == PointerDeviceKind.mouse) return _sendMouse(event);
     if (!_isTouch(event) || _multiTouch || event.pointer != _touchId) return;
     switch (_touch) {
@@ -147,13 +202,14 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
           _touch = _Touch.dragging;
           _sendAt(_touchStart, 0);
           _sendAt(_touchStart, RfbButtons.primary);
-          _held = _sendAt(event.localPosition, RfbButtons.primary);
+          _sendAt(event.localPosition, RfbButtons.primary);
         } else {
           _touch = _Touch.panning;
-          _movePointer(event.localDelta);
+          // The travel up to the slop counts.
+          _movePointer(event.localPosition - _touchStart);
         }
       case _Touch.dragging:
-        _held = _sendAt(event.localPosition, RfbButtons.primary);
+        _sendAt(event.localPosition, RfbButtons.primary);
       case _Touch.panning:
         _movePointer(event.localDelta);
       case _Touch.idle || _Touch.longPressed:
@@ -162,6 +218,7 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   }
 
   void _onUp(PointerUpEvent event) {
+    if (!_live) return;
     if (event.kind == PointerDeviceKind.mouse) return _sendMouse(event);
     if (!_isTouch(event) || _fingerLifted(event.pointer)) return;
     if (event.pointer != _touchId) return;
@@ -171,7 +228,6 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
         _click(RfbButtons.primary);
       case _Touch.dragging:
         _sendAt(event.localPosition, 0);
-        _held = null;
       case _Touch.idle || _Touch.panning || _Touch.longPressed:
         break;
     }
@@ -179,6 +235,8 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   }
 
   void _onCancel(PointerCancelEvent event) {
+    if (!_live) return;
+    if (event.kind == PointerDeviceKind.mouse) return _stopGesture();
     if (!_isTouch(event) || _fingerLifted(event.pointer)) return;
     if (event.pointer == _touchId) _stopGesture();
   }
@@ -211,14 +269,14 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   void _click(int button) {
     final at = widget.mode == ScreenGestureMode.touch
         ? _geometry.toFramebuffer(_touchStart)
-        : (x: _pointer.value.dx.floor(), y: _pointer.value.dy.floor());
+        : _virtual;
     _pointerTo(at.x, at.y, 0);
     _pointerTo(at.x, at.y, button);
     _pointerTo(at.x, at.y, 0);
   }
 
   void _movePointer(Offset delta) {
-    final moved = _geometry.movePointer(_pointer.value, delta);
+    final moved = _geometry.movePointer(_onScreen(_pointer.value), delta);
     _pointer.value = moved;
     _pointerTo(moved.dx.floor(), moved.dy.floor(), 0);
   }
@@ -232,11 +290,21 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     return at;
   }
 
-  void _sendMouse(PointerEvent event) =>
-      _sendAt(event.localPosition, _rfbButtons(event.buttons));
+  /// A mouse points at the screen itself, in trackpad mode too, where it also
+  /// moves the virtual pointer.
+  void _sendMouse(PointerEvent event) {
+    final at = _sendAt(event.localPosition, _rfbButtons(event.buttons));
+    if (widget.mode == ScreenGestureMode.trackpad) {
+      _pointer.value = Offset(at.x.toDouble(), at.y.toDouble());
+    }
+  }
 
-  void _pointerTo(int x, int y, int mask, {RfbInputSink? sink}) =>
-      _guarded(() => (sink ?? widget.sink).pointer(x, y, mask));
+  void _pointerTo(int x, int y, int mask, {RfbInputSink? sink}) {
+    final next = (x: x, y: y, mask: mask);
+    if (sink == null && next == _sent) return;
+    _guarded(() => (sink ?? widget.sink).pointer(x, y, mask));
+    _sent = next;
+  }
 
   /// A sink that has closed throws [StateError]; input that arrives after the
   /// stream ended is dropped, the server let go of any button with it.
@@ -249,61 +317,157 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   }
 
   void _onHover(PointerHoverEvent event) {
-    if (event.kind == PointerDeviceKind.mouse) _sendMouse(event);
+    if (!_live || event.kind != PointerDeviceKind.mouse) return;
+    _sendMouse(event);
   }
 
   void _onSignal(PointerSignalEvent event) {
+    if (!_live) return;
     if (event is! PointerScrollEvent) return;
     // Claim the wheel, so a scrollable around the layer does not scroll with
-    // it. An InteractiveViewer reads the wheel itself and zooms regardless.
+    // it.
     GestureBinding.instance.pointerSignalResolver.register(event, (_) {
       final delta = event.scrollDelta;
       final mouse = event.kind == PointerDeviceKind.mouse;
-      _scroll(
-        event.localPosition,
-        mouse ? delta.dx.sign.toInt() : _scrollX.add(delta.dx),
-        mouse ? delta.dy.sign.toInt() : _scrollY.add(delta.dy),
+      _scrollAt(
+        event,
+        mouse ? _wheelNotches(delta.dx, _wheelX) : _scrollX.add(delta.dx),
+        mouse ? _wheelNotches(delta.dy, _wheelY) : _scrollY.add(delta.dy),
       );
     });
   }
 
-  void _resetScroll(PointerEvent _) {
+  /// A click of a notched wheel is at least one notch; the small deltas of a
+  /// smooth wheel gather until they make one.
+  int _wheelNotches(double delta, ScrollAccumulator smooth) {
+    if (delta.abs() < _discreteWheel) return smooth.add(delta);
+    smooth.reset();
+    final notches = math.max(1, (delta.abs() / _wheelPixelsPerNotch).round());
+    return delta.isNegative ? -notches : notches;
+  }
+
+  void _onPanZoomStart(PointerPanZoomStartEvent event) {
+    if (!_live) return;
+    _resetScroll();
+    _panZoom = _PanZoom.undecided;
+  }
+
+  void _onPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    if (!_live) return;
+    if (_panZoom == _PanZoom.pinch) return;
+    if (_isPinch(event)) {
+      _panZoom = _PanZoom.pinch;
+      return;
+    }
+    var delta = event.panDelta;
+    if (_panZoom == _PanZoom.undecided) {
+      if (event.pan.distance <= kPrecisePointerPanSlop) return;
+      _panZoom = _PanZoom.scroll;
+      delta = event.pan;
+    }
+    // Fingers moving up move the content up, which is a scroll down.
+    _scrollAt(event, _scrollX.add(-delta.dx), _scrollY.add(-delta.dy));
+  }
+
+  void _onPanZoomEnd(PointerPanZoomEndEvent event) {
+    if (!_live) return;
+    _resetScroll();
+  }
+
+  void _resetScroll() {
     _scrollX.reset();
     _scrollY.reset();
   }
 
-  void _onPanZoomUpdate(PointerPanZoomUpdateEvent event) {
-    // Fingers moving up move the content up, which is a scroll down.
-    _scroll(
-      event.localPosition,
-      _scrollX.add(-event.panDelta.dx),
-      _scrollY.add(-event.panDelta.dy),
-    );
-  }
-
-  void _scroll(Offset local, int dx, int dy) {
+  /// Scrolls at the virtual pointer in trackpad mode and under the pointer
+  /// otherwise.
+  void _scrollAt(PointerEvent event, int dx, int dy) {
     if (dx == 0 && dy == 0) return;
-    final at = _geometry.toFramebuffer(local);
+    final at = widget.mode == ScreenGestureMode.trackpad
+        ? _virtual
+        : _geometry.toFramebuffer(event.localPosition);
     _guarded(() => widget.sink.scroll(at.x, at.y, dx: dx, dy: dy));
   }
 
   @override
   Widget build(BuildContext context) {
     if (!widget.enabled) return const SizedBox.expand();
-    return Listener(
+    return RawGestureDetector(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: _onDown,
-      onPointerMove: _onMove,
-      onPointerUp: _onUp,
-      onPointerCancel: _onCancel,
-      onPointerHover: _onHover,
-      onPointerSignal: _onSignal,
-      onPointerPanZoomStart: _resetScroll,
-      onPointerPanZoomUpdate: _onPanZoomUpdate,
-      onPointerPanZoomEnd: _resetScroll,
-      child: const SizedBox.expand(),
+      gestures: _claimGestures,
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _onDown,
+        onPointerMove: _onMove,
+        onPointerUp: _onUp,
+        onPointerCancel: _onCancel,
+        onPointerHover: _onHover,
+        onPointerSignal: _onSignal,
+        onPointerPanZoomStart: _onPanZoomStart,
+        onPointerPanZoomUpdate: _onPanZoomUpdate,
+        onPointerPanZoomEnd: _onPanZoomEnd,
+        child: const SizedBox.expand(),
+      ),
     );
   }
+}
+
+final _claimGestures = <Type, GestureRecognizerFactory>{
+  _ClaimRecognizer: GestureRecognizerFactoryWithHandlers<_ClaimRecognizer>(
+    _ClaimRecognizer.new,
+    (_) {},
+  ),
+};
+
+/// Wins the gesture arena for a single pointer, so the viewer under the layer
+/// does not pan with it, and leaves two-pointer gestures to the viewer.
+///
+/// A mouse button wins at once. A finger wins when it moves past the touch
+/// slop, ahead of the viewer's own, and loses as soon as a second finger lands
+/// before that. A trackpad's pan/zoom gesture wins when it pans while its
+/// scale stays near 1, and loses once the scale moves: a pinch. It sends
+/// nothing itself; the layer's pointer events do the work.
+class _ClaimRecognizer extends OneSequenceGestureRecognizer {
+  final _starts = <int, Offset>{};
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    startTrackingPointer(event.pointer, event.transform);
+    if (event.kind == PointerDeviceKind.mouse) {
+      resolve(GestureDisposition.accepted);
+      return;
+    }
+    _starts[event.pointer] = event.position;
+    if (_starts.length > 1) resolve(GestureDisposition.rejected);
+  }
+
+  @override
+  void addAllowedPointerPanZoom(PointerPanZoomStartEvent event) {
+    startTrackingPointer(event.pointer, event.transform);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerMoveEvent) {
+      final start = _starts[event.pointer];
+      if (start != null && (event.position - start).distance > kTouchSlop) {
+        resolve(GestureDisposition.accepted);
+      }
+    } else if (event is PointerPanZoomUpdateEvent) {
+      if (_isPinch(event)) {
+        resolve(GestureDisposition.rejected);
+      } else if (event.pan.distance > kPrecisePointerPanSlop) {
+        resolve(GestureDisposition.accepted);
+      }
+    }
+    stopTrackingIfPointerNoLongerDown(event);
+  }
+
+  @override
+  void didStopTrackingLastPointer(int pointer) => _starts.clear();
+
+  @override
+  String get debugDescription => 'claim the screen';
 }
 
 /// Flutter's button bits as an RFB button mask.
