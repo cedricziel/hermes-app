@@ -29,24 +29,34 @@ class KeysymMapper {
   /// 0xa0 to 0xff, the key the character stands for when it is Backspace, Tab,
   /// a line break, Escape or Delete, and otherwise the X11 Unicode keysym.
   ///
-  /// Throws [ArgumentError] for a value that is not a character.
+  /// Throws [ArgumentError] (without the value) for a value that is not a
+  /// character and for a control character that has no key of its own (NUL,
+  /// the other C0 and the C1 controls): `0x01000000 + codepoint` would name no
+  /// key. Ctrl+letter comes from the logical key with Control pressed, not
+  /// from the control character.
   int forCodePoint(int codePoint) {
     if (codePoint < 0 ||
         codePoint > 0x10FFFF ||
         (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
-      throw ArgumentError.value(codePoint, 'codePoint', 'not a character');
+      throw ArgumentError('The value is not a character');
     }
     if ((codePoint >= 0x20 && codePoint <= 0x7e) ||
         (codePoint >= 0xa0 && codePoint <= 0xff)) {
       return codePoint;
     }
-    return _controlCharacters[codePoint] ?? 0x01000000 + codePoint;
+    final key = _controlCharacters[codePoint];
+    if (key != null) return key;
+    if (codePoint < 0x20 || (codePoint >= 0x7f && codePoint < 0xa0)) {
+      throw ArgumentError('The control character has no key');
+    }
+    return 0x01000000 + codePoint;
   }
 
   /// The strokes that type [text]: a press and a release for each code point
   /// (a grapheme cluster is typed as its parts), with CRLF as one Return.
   ///
-  /// Throws [ArgumentError] for a lone surrogate instead of replacing it.
+  /// Throws [ArgumentError] for a lone surrogate or a control character
+  /// without a key (see [forCodePoint]) instead of replacing it.
   List<KeyStroke> text(String text) {
     final strokes = <KeyStroke>[];
     final runes = text.runes.toList();

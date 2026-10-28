@@ -98,7 +98,7 @@ void main() {
       for (var unit = 0xa0; unit <= 0xff; unit++) {
         expect(mapper.forCodePoint(unit), unit);
       }
-      expect(mapper.forCodePoint('é'.runes.single), 0xe9);
+      expect(mapper.forCodePoint('\u00E9'.runes.single), 0xe9);
     });
 
     test('any other character is an X11 Unicode keysym', () {
@@ -124,6 +124,37 @@ void main() {
     test('a value that is not a character is refused', () {
       for (final bad in [-1, 0xD800, 0xDFFF, 0x110000]) {
         expect(() => mapper.forCodePoint(bad), throwsArgumentError);
+      }
+    });
+
+    test('control characters without a key of their own are refused', () {
+      final others = [
+        for (var c = 0; c < 0x20; c++)
+          if (![0x08, 0x09, 0x0a, 0x0d, 0x1b].contains(c)) c,
+        for (var c = 0x80; c < 0xa0; c++) c,
+      ];
+      for (final control in others) {
+        expect(
+          () => mapper.forCodePoint(control),
+          throwsArgumentError,
+          reason: '$control',
+        );
+      }
+      expect(() => mapper.text('a\u0000'), throwsArgumentError);
+    });
+
+    test('the errors do not carry the value', () {
+      for (final bad in [0xD800, 0x110000, 0x07]) {
+        expect(
+          () => mapper.forCodePoint(bad),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.toString(),
+              'text',
+              isNot(anyOf(contains('$bad'), contains(bad.toRadixString(16)))),
+            ),
+          ),
+        );
       }
     });
   });
