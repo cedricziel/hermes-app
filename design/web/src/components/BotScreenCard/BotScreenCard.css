@@ -46,6 +46,31 @@
   user-select: text;
 }
 
+.h-bot-screen__lines {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border-radius: var(--h-radius-sm);
+  background: var(--h-surface-high);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.h-bot-screen__lines > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.h-bot-screen__lines--wrap > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .h-bot-screen__action {
   display: flex;
   justify-content: flex-start;
