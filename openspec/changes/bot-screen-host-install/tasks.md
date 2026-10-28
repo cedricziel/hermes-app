@@ -33,5 +33,5 @@ One PR, `feat(bot-screen): install the desktop on the server`, about 500 changed
 
 ## 7. Verify
 
-- [ ] 7.1 Run format, analyze and the full test suite, all clean.
+- [x] 7.1 Run format, analyze and the full test suite, all clean.
 - [ ] 7.2 (not run in the PR: no Docker on the machine that built it) Run `verify-in-app` per the `verify-bot-screen` skill: against the sudo layer, press Install on Server, answer the password prompt, screenshot Installing and the Off state after it, and repeat with Cancel; against the plain image, check the no-sudo result shows the install command.
