@@ -28,5 +28,5 @@ One PR, `feat(bot-screen): preview the screen in the transcript`, about 400 chan
 
 ## 6. Verify
 
-- [ ] 6.1 Run format, analyze and the full test suite, all clean.
-- [ ] 6.2 Run `verify-in-app` per the `verify-bot-screen` skill: start a `computer_use` turn on the container backend, screenshot the preview on a single call and in a folded group, tap it and screenshot the opened panel.
+- [x] 6.1 Run format, analyze and the full test suite, all clean.
+- [ ] 6.2 Run `verify-in-app` per the `verify-bot-screen` skill: start a `computer_use` turn on the container backend, screenshot the preview on a single call and in a folded group, tap it and screenshot the opened panel. Not run: no Docker host was available; the placement, polling and tap are covered against the fake gateway only.
