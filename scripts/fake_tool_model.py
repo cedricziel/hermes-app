@@ -5,7 +5,9 @@ point a throwaway Hermes home at it (see the verify-in-app skill) and send any
 prompt. Each request plays the next turn of MAIN: two terminal commands, a
 todo list, a patch of $SANDBOX/backup.timer, a command that exits 3, and a
 chmod Hermes holds for approval, then a closing answer. A prompt containing
-"slow" runs `sleep 60` instead, for stopping a reply mid-call.
+"slow" runs `sleep 60` instead, for stopping a reply mid-call, and a prompt
+containing "computer" makes one `computer_use` screenshot call, which puts the
+Bot screen card in the Activity panel (see the verify-bot-screen skill).
 
     python3 scripts/fake_tool_model.py [port]   # default 18555
 
@@ -44,6 +46,11 @@ MAIN = [
     ("All done: the timer now runs at 03:30.", []),
 ]
 
+COMPUTER = [
+    ("", [call("computer_use", {"action": "screenshot"})]),
+    ("I looked at the screen.", []),
+]
+
 SLOW = [
     ("", [call("terminal", {"command": "sleep 60; echo late"})]),
     ("Finished waiting.", []),
@@ -55,7 +62,8 @@ def pick(messages):
     last = users[-1]["content"] if users else ""
     if isinstance(last, list):
         last = " ".join(p.get("text", "") for p in last if isinstance(p, dict))
-    script = SLOW if "slow" in str(last).lower() else MAIN
+    text = str(last).lower()
+    script = SLOW if "slow" in text else COMPUTER if "computer" in text else MAIN
     # Count tool-calling turns since the last user message.
     tail = messages[max(i for i, m in enumerate(messages) if m.get("role") == "user"):] if users else messages
     step = sum(1 for m in tail if m.get("role") == "assistant" and m.get("tool_calls"))

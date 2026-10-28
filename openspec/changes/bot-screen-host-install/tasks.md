@@ -9,7 +9,7 @@ One PR, `feat(bot-screen): install the desktop on the server`, about 500 changed
 
 ## 2. Install state
 
-- [x] 2.1 Write failing tests for `BotScreenInstalls`: Install on Server sends `display.install` with `profile`; a 5300 answer becomes refused with its message; log broadcasts for its key keep the last 6 lines and others are ignored; done with 0, -1, -2 and 1 produce the results, -2 carrying the status' install command; a sudo request for a running key shows the prompt and answers the value once, Cancel answers ''; for another key it refuses; the state survives the chat's controller being disposed; a status read with `installed: true` on resume or after a lost connection ends Installing; 20 minutes without done ends it as unknown.
+- [x] 2.1 Write failing tests for `BotScreenInstalls`: Install on Server sends `display.install` with `profile`; a 5300 answer becomes refused with its message; log broadcasts for its key keep the last 6 lines and others are ignored; done with 0, -1, -2 and 1 produce the results, -2 carrying the status' install command; a sudo request for a running key shows the prompt and answers the value once, Cancel answers ''; for another key it refuses; the state survives the chat's controller being disposed; a status read with `installed: true` on resume or after a lost connection ends Installing; 22 minutes without done end it as unknown.
 - [x] 2.2 Implement and provide it from `AppShell`; verify 2.1 passes.
 
 ## 3. Catalog first
@@ -34,4 +34,4 @@ One PR, `feat(bot-screen): install the desktop on the server`, about 500 changed
 ## 7. Verify
 
 - [x] 7.1 Run format, analyze and the full test suite, all clean.
-- [ ] 7.2 (not run in the PR: no Docker on the machine that built it) Run `verify-in-app` per the `verify-bot-screen` skill: against the sudo layer, press Install on Server, answer the password prompt, screenshot Installing and the Off state after it, and repeat with Cancel; against the plain image, check the no-sudo result shows the install command.
+- [ ] 7.2 (not run in the PR: no Docker on the machine that built it) Run `verify-in-app` per the `verify-bot-screen` skill: against the sudo layer, press Install on Server, answer the password prompt, screenshot Installing and the Off state after it, and repeat with Cancel; against the plain image, check the no-sudo result shows the install command. On an iOS device against the same dashboard, also check that the password field offers no Save Password or QuickType suggestion, and on Android that the keyboard shows no suggestions.
