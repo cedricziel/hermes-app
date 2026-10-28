@@ -93,30 +93,37 @@ class _BotScreenViewerOverlayState extends State<BotScreenViewerOverlay> {
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    key: const Key('bot-screen-viewer-overlay'),
-    children: [
-      const Positioned.fill(
-        child: ModalBarrier(dismissible: false, color: Colors.black),
-      ),
-      Positioned.fill(
-        // A widget handler, not a menu chord: no menu item owns Escape.
-        child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.escape): widget.onClose,
-          },
-          child: Focus(
-            focusNode: _focus,
-            child: BotScreenViewer(
-              controller: widget.controller,
-              profile: widget.profile,
-              presentation: BotScreenViewerPresentation.overlay,
-              onClose: widget.onClose,
+  Widget build(BuildContext context) => FocusScope(
+    // Tab stays in the viewer, and a screen reader does not reach the chat
+    // below it.
+    child: BlockSemantics(
+      child: Stack(
+        key: const Key('bot-screen-viewer-overlay'),
+        children: [
+          const Positioned.fill(
+            child: ModalBarrier(dismissible: false, color: Colors.black),
+          ),
+          Positioned.fill(
+            // A widget handler, not a menu chord: no menu item owns Escape.
+            child: CallbackShortcuts(
+              bindings: {
+                const SingleActivator(LogicalKeyboardKey.escape):
+                    widget.onClose,
+              },
+              child: Focus(
+                focusNode: _focus,
+                child: BotScreenViewer(
+                  controller: widget.controller,
+                  profile: widget.profile,
+                  presentation: BotScreenViewerPresentation.overlay,
+                  onClose: widget.onClose,
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
-    ],
+    ),
   );
 }
 
