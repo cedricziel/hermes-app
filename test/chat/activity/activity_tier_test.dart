@@ -19,6 +19,7 @@ void main() {
         ActivityKind.process: ActivityTier.working,
         ActivityKind.moa: ActivityTier.working,
         ActivityKind.resume: ActivityTier.working,
+        ActivityKind.screen: ActivityTier.working,
         ActivityKind.usage: ActivityTier.reference,
         ActivityKind.sideResult: ActivityTier.reference,
         ActivityKind.notice: ActivityTier.reference,

@@ -75,7 +75,7 @@ For UI changes, run the app against the container. `scripts/dev-app.sh` takes it
 flutter run -d macos --dart-define=HERMES_SERVER_URL=http://127.0.0.1:19119
 ```
 
-Then watch the card or viewer, and also check:
+Then open a chat, press the Activity button (View > Inspector, ⌥⌘I, on a Mac) and watch the Bot screen card under Now (a picture refreshed every 3 seconds and "Hermes is in control"; Off with Start Screen after `hermes computer-use screen stop`; "Someone else is in control" with no picture after a takeover), and also check:
 
 - Stop the screen (`hermes computer-use screen stop`): the app drops its frame within one broadcast.
 - Take over from another process, then confirm the app shows no picture and learns it at the latest with the 10th frame request: the lease changes made by the CLI are not broadcast.

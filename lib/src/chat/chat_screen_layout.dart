@@ -180,7 +180,11 @@ extension _ChatScreenLayout on _ChatScreenState {
             ? InspectorLayout(
                 content: threadView,
                 shown: _activityOpen && selected != null,
-                inspector: BoundActivityPanel(chat: chat, thread: selected),
+                inspector: BoundActivityPanel(
+                  chat: chat,
+                  thread: selected,
+                  screen: _screen,
+                ),
                 panelKey: const Key('activity-inspector'),
                 onDismissOverlay: _toggleActivity,
               )

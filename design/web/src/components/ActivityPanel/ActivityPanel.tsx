@@ -7,7 +7,7 @@ import "./ActivityPanel.css";
 export interface ActivityPanelProps {
   /**
    * Live work of the session, listed under "Now": `SessionStatusCard`,
-   * `ProcessOutputCard`, `MoaProgressCard`.
+   * `ProcessOutputCard`, `MoaProgressCard`, `BotScreenCard`.
    */
   now?: ReactNode[];
   /** The agent's plan, listed under "Plan": a `TodoPlanCard` with `open`. */

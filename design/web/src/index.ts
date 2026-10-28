@@ -17,6 +17,7 @@ export * from "./components/ApprovalCard/ApprovalCard";
 export * from "./components/ToolCallCard/ToolCallCard";
 export * from "./components/ToolCallGroup/ToolCallGroup";
 export * from "./components/SessionStatusCard/SessionStatusCard";
+export * from "./components/BotScreenCard/BotScreenCard";
 export * from "./components/ProcessOutputCard/ProcessOutputCard";
 export * from "./components/MoaProgressCard/MoaProgressCard";
 export * from "./components/TodoPlanCard/TodoPlanCard";

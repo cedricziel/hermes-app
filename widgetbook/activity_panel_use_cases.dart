@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_card_model.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_session_state.dart';
 import 'package:hermes_app/src/chat/chat_warning_state.dart';
@@ -12,6 +14,7 @@ import 'package:hermes_app/src/chat/memory/memory_activity_card.dart';
 import 'package:hermes_app/src/chat/memory/memory_recall.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'bot_screen_fixture.dart';
 import 'frame.dart';
 
 TodoPlanState _plan() {
@@ -46,6 +49,10 @@ TodoPlanState _plan() {
 }
 
 List<Widget> _now() => [
+  BotScreenCard(
+    model: BotScreenShowing(bytes: botScreenFixturePng()),
+    onEnlarge: null,
+  ),
   SessionStatusCard(
     state: ChatSessionState()
       ..waits['process'] = 'Waiting for background process',
