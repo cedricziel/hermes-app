@@ -66,6 +66,24 @@ class PlainReleaseNotes(unittest.TestCase):
             "- explain (#12) behavior",
         )
 
+    def test_lines_about_other_platforms_are_left_out(self):
+        # App Review rejects "What's New" that mentions them (guideline 2.3.10).
+        self.assertEqual(
+            plain(
+                "### Bug Fixes\n\n"
+                "* no white screen after unlock on iOS and Android\n"
+                "* the Windows zip starts again\n"
+                "* **windows:** sign the installer\n"
+                "* **linux:** package for arm64\n"
+                "* the sidebar stays usable in short Mac windows\n"
+                "\n### Features\n\n* Android widgets"
+            ),
+            "Bug Fixes\n- the sidebar stays usable in short Mac windows",
+        )
+
+    def test_a_word_that_only_contains_a_platform_name_stays(self):
+        self.assertEqual(plain("* resize the windowless panel"), "- resize the windowless panel")
+
     def test_empty_and_blank_input_give_nothing(self):
         self.assertEqual(plain(""), "")
         self.assertEqual(plain("\n\n  \n"), "")
