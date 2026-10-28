@@ -71,6 +71,8 @@ class BotScreenViewerController extends ChangeNotifier {
   var _revision = 0;
   var _foreground = true;
   var _unlocked = true;
+  var _visible = true;
+  var _delivered = false;
   var _started = false;
   var _disposed = false;
 
@@ -142,13 +144,21 @@ class BotScreenViewerController extends ChangeNotifier {
     _syncVisible();
   }
 
-  bool get _hidden => !_foreground || !_unlocked;
+  /// Whether the viewer is on screen: false while another route covers it.
+  bool get visible => _visible;
+  set visible(bool value) {
+    if (value == _visible) return;
+    _visible = value;
+    _syncVisible();
+  }
+
+  bool get _hidden => !_foreground || !_unlocked || !_visible;
 
   /// Starts watching: holds the screen's status and opens the first stream.
   void start() {
     if (_started || _disposed) return;
     _started = true;
-    _watch = screen.watch();
+    _watch = screen.watch(frames: false);
     _screenRunning = screen.status?.running ?? false;
     screen.addListener(_onScreen);
     _connectNow();
@@ -165,7 +175,12 @@ class BotScreenViewerController extends ChangeNotifier {
   /// Starts the profile's screen, from Start Screen; the viewer then watches
   /// it as soon as it runs.
   Future<void> startScreen() async {
-    await screen.start();
+    try {
+      await screen.start();
+    } on Object {
+      _logFailure('observe', 'unexpected');
+      return;
+    }
     if (!_disposed &&
         _base == BotScreenViewerPhase.off &&
         screen.status?.running == true) {
@@ -215,16 +230,25 @@ class BotScreenViewerController extends ChangeNotifier {
   Future<void> _connect(int run) async {
     _base = _waiting;
     _notify();
-    final result = await repository.observe(profile, viewerId: _viewerId);
-    if (_stale(run)) return;
-    switch (result) {
-      case BotScreenOk(:final value):
-        _viewerId = value.viewerId;
-        await _open(run, value);
-      case BotScreenUnsupported():
-        await _observeFailed(run, 'unsupported');
-      case BotScreenFailed(:final kind):
-        await _observeFailed(run, kind.slug);
+    try {
+      final result = await repository.observe(profile, viewerId: _viewerId);
+      if (_stale(run)) return;
+      switch (result) {
+        case BotScreenOk(:final value):
+          _viewerId = value.viewerId;
+          // The answer carries the screen's status and so the lease.
+          screen.adoptStatus(value.status);
+          await _open(run, value);
+        case BotScreenUnsupported():
+          await _observeFailed(run, 'unsupported');
+        case BotScreenFailed(:final kind):
+          await _observeFailed(run, kind.slug);
+      }
+    } on Object {
+      // Nothing may escape this method, and the error's text is not logged.
+      if (_stale(run)) return;
+      _logFailure('observe', 'unexpected');
+      _retryLater();
     }
   }
 
@@ -275,6 +299,7 @@ class BotScreenViewerController extends ChangeNotifier {
       return;
     }
     _connected = false;
+    _delivered = false;
     final client = _client = RfbClient(channel);
     _clientSpan = span;
     _events = client.events.listen((event) => _onEvent(run, client, event));
@@ -284,24 +309,27 @@ class BotScreenViewerController extends ChangeNotifier {
     if (_stale(run) || !identical(client, _client)) return;
     switch (event) {
       case RfbConnected():
+        // The framebuffer is black until the first update, so the last
+        // picture stays and the viewer is not live yet.
         _connected = true;
-        _attempts = 0;
-        _ticketRetried = false;
-        _picture = client.framebuffer;
-        _base = BotScreenViewerPhase.live;
-        _revision++;
-        _notify();
       case RfbUpdated() || RfbResized():
+        if (!_delivered) {
+          // A stream that delivers a picture has earned its attempts anew.
+          _delivered = true;
+          _attempts = 0;
+          _ticketRetried = false;
+          _base = BotScreenViewerPhase.live;
+        }
         _picture = client.framebuffer;
         _revision++;
         _notify();
       case RfbEnded():
-        _ended(client, event);
+        _ended(run, client, event);
     }
   }
 
   /// The stream ended without the app closing it.
-  void _ended(RfbClient client, RfbEnded ended) {
+  void _ended(int run, RfbClient client, RfbEnded ended) {
     final code = ended.closeCode;
     final failure = ended.failure;
     final step = switch (ended.step) {
@@ -320,7 +348,7 @@ class BotScreenViewerController extends ChangeNotifier {
       case 4000:
         // Another person took control from this viewer; watch again.
         end('closed', 'control_taken');
-        _connectNow();
+        _retryLater(immediate: true);
       case 4001:
         end('gone', 'gone');
         _picture = null;
@@ -336,6 +364,10 @@ class BotScreenViewerController extends ChangeNotifier {
           _ticketRetried = true;
           _connectNow();
         }
+      case 1000 || 1001 when failure == null:
+        // The bridge closes this way when Xvnc's end of the stream is gone,
+        // which is how a stopped screen shows.
+        unawaited(_closedByServer(run, client, ended, span, step));
       case 1003:
         end('protocol', 'protocol');
         _picture = null;
@@ -347,13 +379,50 @@ class BotScreenViewerController extends ChangeNotifier {
     }
   }
 
-  /// Opens the stream again after a jittered, growing delay, or gives up.
-  void _retryLater() {
+  /// A clean close from the server: Off when the screen is not running any
+  /// more, else a stream that ended and is opened again.
+  Future<void> _closedByServer(
+    int run,
+    RfbClient client,
+    RfbEnded ended,
+    Span? span,
+    String step,
+  ) async {
+    BotScreenResult<BotScreenStatus> status;
+    try {
+      status = await repository.status(profile);
+    } on Object {
+      status = const BotScreenFailed(BotScreenFailure.display);
+    }
+    if (_stale(run)) {
+      _endSpan(span, 'closed', code: ended.closeCode, client: client);
+      return;
+    }
+    if (status case BotScreenOk(:final value) when !value.running) {
+      _endSpan(span, 'gone', code: ended.closeCode, client: client);
+      _picture = null;
+      _base = BotScreenViewerPhase.off;
+      _notify();
+      return;
+    }
+    _logFailure(step, 'closed');
+    _endSpan(span, 'error', code: ended.closeCode, client: client);
+    _retryLater();
+  }
+
+  /// Opens the stream again after a jittered, growing delay (at once with
+  /// [immediate]), or gives up after [kViewerReconnectAttempts].
+  void _retryLater({bool immediate = false}) {
     if (_disposed || _hidden) return;
     if (_attempts >= kViewerReconnectAttempts) {
       _picture = null;
       _base = BotScreenViewerPhase.unreachable;
       _notify();
+      return;
+    }
+    if (immediate) {
+      _attempts++;
+      _connectNow();
       return;
     }
     final delay = reconnectDelay(_attempts++, _random);

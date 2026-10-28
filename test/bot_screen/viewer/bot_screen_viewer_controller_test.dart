@@ -58,11 +58,17 @@ void main() {
   late bool running;
   late bool statusFails;
   late bool observeFails;
+  late bool startThrows;
+  late int thumbnails;
+  late Error? observeThrows;
+  late String leaseOnObserve;
+  late String statusLease;
   var minted = 0;
 
   void settle() => async.flushMicrotasks();
 
-  void handshake() {
+  /// The server's handshake alone: the viewer goes live on the first update.
+  void handshakeOnly() {
     for (final part in rfbHandshake(8, 4)) {
       channel.serverSend(part);
       settle();
@@ -76,6 +82,12 @@ void main() {
       ]),
     );
     settle();
+  }
+
+  /// The handshake and the first picture.
+  void handshake() {
+    handshakeOnly();
+    update(0);
   }
 
   void closeWith(int? code) {
@@ -116,6 +128,11 @@ void main() {
       running = true;
       statusFails = false;
       observeFails = false;
+      startThrows = false;
+      thumbnails = 0;
+      observeThrows = null;
+      leaseOnObserve = 'agent';
+      statusLease = 'agent';
       tracer = RecordingTracer();
       broadcasts = StreamController<GatewayConnectionEvent>.broadcast();
       repository = BotScreenRepository((
@@ -126,6 +143,7 @@ void main() {
         switch (method) {
           case 'display.observe':
             observed.add(params);
+            if (observeThrows case final Error error) throw error;
             if (observeFails || !running) {
               throw const GatewayRpcException(5300, 'not running');
             }
@@ -133,14 +151,19 @@ void main() {
               'ticket': 'ticket-${++minted}',
               'path': '/api/display/ws',
               'viewer_id': 'viewer-1',
-              ...statusJson(),
+              ...statusJson(lease: {'holder': leaseOnObserve, 'epoch': 1}),
             };
           case 'display.status':
             if (statusFails) throw const GatewayRpcException(5300, 'broken');
-            return statusJson(running: running);
+            return statusJson(
+              running: running,
+              lease: {'holder': statusLease, 'epoch': 2},
+            );
           case 'display.thumbnail':
+            thumbnails++;
             return {'data_url': null};
           case 'display.start':
+            if (startThrows) throw StateError('boom');
             running = true;
             return statusJson();
         }
@@ -570,23 +593,272 @@ void main() {
       });
     });
 
-    test('shows no picture until the lease is known', () {
+    test('the observation seeds the lease, so a person in control shows no '
+        'picture from the start', () {
       scenario(() {
         statusFails = true;
+        leaseOnObserve = 'human';
         viewer.start();
         settle();
         handshake();
-        update(10);
 
+        expect(viewer.someoneElseInControl, isTrue);
+        expect(viewer.phase, BotScreenViewerPhase.blanked);
         expect(viewer.framebuffer, isNull);
-        expect(viewer.phase, BotScreenViewerPhase.connecting);
+      }, start: false);
+    });
+  });
 
-        statusFails = false;
-        async.elapse(const Duration(seconds: 2));
-
+  group('going live', () {
+    test('waits for the first picture, not the handshake', () {
+      scenario(() {
+        handshake();
+        closeWith(null);
+        async.elapse(const Duration(seconds: 1));
+        expect(viewer.phase, BotScreenViewerPhase.reconnecting);
         expect(viewer.framebuffer, isNotNull);
+
+        handshakeOnly();
+        expect(viewer.phase, BotScreenViewerPhase.reconnecting);
+
+        update(40);
+        expect(viewer.phase, BotScreenViewerPhase.live);
+        expect(viewer.framebuffer?.rgba[0], 40);
+      });
+    });
+
+    test('a first stream shows no picture before its first update', () {
+      scenario(() {
+        handshakeOnly();
+
+        expect(viewer.phase, BotScreenViewerPhase.connecting);
+        expect(viewer.framebuffer, isNull);
+      });
+    });
+  });
+
+  group('bounding the loops', () {
+    test('streams that never deliver a picture earn no fresh attempts', () {
+      scenario(() {
+        for (var i = 0; i < 8; i++) {
+          if (viewer.phase == BotScreenViewerPhase.unreachable) break;
+          handshakeOnly();
+          closeWith(null);
+          async.elapse(const Duration(seconds: 20));
+        }
+
+        expect(viewer.phase, BotScreenViewerPhase.unreachable);
+        expect(opened, hasLength(6));
+      });
+    });
+
+    test(
+      'a server that keeps evicting the viewer with 4000 is given up on',
+      () {
+        scenario(() {
+          for (var i = 0; i < 10; i++) {
+            if (viewer.phase == BotScreenViewerPhase.unreachable) break;
+            handshakeOnly();
+            closeWith(4000);
+          }
+
+          expect(viewer.phase, BotScreenViewerPhase.unreachable);
+          expect(opened, hasLength(6));
+        });
+      },
+    );
+
+    test('a stream that delivered a picture earns its attempts anew', () {
+      scenario(() {
+        for (var i = 0; i < 4; i++) {
+          closeWith(null);
+          async.elapse(const Duration(seconds: 20));
+        }
+        handshake();
+        closeWith(4000);
+        closeWith(4000);
+
+        expect(viewer.phase, isNot(BotScreenViewerPhase.unreachable));
+        expect(opened, hasLength(7));
+      });
+    });
+  });
+
+  group('a screen that stopped while watched', () {
+    test('a server close 1000 with the screen not running is Off', () {
+      scenario(() {
+        handshake();
+        running = false;
+        closeWith(1000);
+        async.elapse(const Duration(minutes: 1));
+
+        expect(viewer.phase, BotScreenViewerPhase.off);
+        expect(viewer.framebuffer, isNull);
+        expect(opened, hasLength(1));
+        expect(logged, isEmpty);
+        expect(tracer.spans.single.attributes['outcome'], 'gone');
+        expect(tracer.spans.single.attributes['close_code'], 1000);
+      });
+    });
+
+    test('so is a 1001', () {
+      scenario(() {
+        handshake();
+        running = false;
+        closeWith(1001);
+
+        expect(viewer.phase, BotScreenViewerPhase.off);
+      });
+    });
+
+    test('a 1000 with the screen still running reconnects with backoff', () {
+      scenario(() {
+        handshake();
+        closeWith(1000);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(opened, hasLength(2));
+        expect(logged, [contains('step: decode')]);
+        expect(tracer.spans.first.attributes['outcome'], 'error');
+      });
+    });
+
+    test('a status that cannot be read counts as still running', () {
+      scenario(() {
+        handshake();
+        statusFails = true;
+        closeWith(1000);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(viewer.phase, isNot(BotScreenViewerPhase.off));
+        expect(opened, hasLength(2));
+      });
+    });
+
+    test('the viewer closing meanwhile leaves nothing behind', () {
+      scenario(() {
+        handshake();
+        running = false;
+        closeWith(1000);
+        viewer.foreground = false;
+        settle();
+        async.elapse(const Duration(minutes: 1));
+
+        expect(opened, hasLength(1));
+        expect(tracer.spans.every((span) => span.ended), isTrue);
+      });
+    });
+  });
+
+  group('what no one expected', () {
+    test('an observe that throws is logged without its text and retried', () {
+      scenario(() {
+        observeThrows = StateError('secret text');
+        viewer.start();
+        settle();
+        async.elapse(const Duration(minutes: 5));
+
+        expect(viewer.phase, BotScreenViewerPhase.unreachable);
+        expect(observed, hasLength(6));
+        expect(logged.first, contains('step: observe'));
+        expect(logged.first, contains('error_type: unexpected'));
+        expect(logged.join(), isNot(contains('secret text')));
+      }, start: false);
+    });
+
+    test('a retry after the failure goes through', () {
+      scenario(() {
+        observeThrows = StateError('boom');
+        viewer.start();
+        settle();
+        async.elapse(const Duration(seconds: 1));
+
+        observeThrows = null;
+        async.elapse(const Duration(seconds: 20));
+        handshake();
+
         expect(viewer.phase, BotScreenViewerPhase.live);
       }, start: false);
+    });
+
+    test('a Start Screen that throws completes normally', () {
+      scenario(() {
+        running = false;
+        viewer.start();
+        settle();
+        startThrows = true;
+
+        Object? error;
+        viewer.startScreen().catchError((Object e) => error = e);
+        settle();
+
+        expect(error, isNull);
+        expect(viewer.phase, BotScreenViewerPhase.off);
+      }, start: false);
+    });
+  });
+
+  group('Start Screen', () {
+    test('asks for one ticket, not two', () {
+      scenario(() {
+        running = false;
+        viewer.start();
+        settle();
+        expect(observed, hasLength(1));
+
+        unawaited(viewer.startScreen());
+        settle();
+        async.elapse(const Duration(seconds: 10));
+
+        expect(observed, hasLength(2));
+        expect(opened, hasLength(1));
+      }, start: false);
+    });
+  });
+
+  group('the screen status', () {
+    test('is read, not the frames', () {
+      scenario(() {
+        handshake();
+        async.elapse(const Duration(seconds: 30));
+
+        expect(thumbnails, 0);
+      });
+    });
+
+    test('a takeover the broadcast missed blanks the picture', () {
+      scenario(() {
+        handshake();
+        update(10);
+        expect(viewer.phase, BotScreenViewerPhase.live);
+
+        leaseOnObserve = 'human';
+        statusLease = 'human';
+        async.elapse(const Duration(seconds: 3));
+
+        expect(viewer.phase, BotScreenViewerPhase.blanked);
+        expect(viewer.framebuffer, isNull);
+      });
+    });
+  });
+
+  group('not shown', () {
+    test('a covered page closes the stream and shows again on return', () {
+      scenario(() {
+        handshake();
+        final first = channel;
+
+        viewer.visible = false;
+        settle();
+        expect(first.sentCloseCode, 1000);
+        expect(viewer.framebuffer, isNull);
+        async.elapse(const Duration(minutes: 1));
+        expect(opened, hasLength(1));
+
+        viewer.visible = true;
+        settle();
+        expect(opened, hasLength(2));
+      });
     });
   });
 
