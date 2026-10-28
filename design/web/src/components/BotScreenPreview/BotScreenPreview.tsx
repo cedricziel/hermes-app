@@ -39,6 +39,11 @@ export function BotScreenPreview({
   className,
 }: BotScreenPreviewProps) {
   const ratio = Math.min(3, Math.max(0.5, aspectRatio));
+  // What assistive technology hears for the picture or the pill, as in the app.
+  const label =
+    state === "controlled"
+      ? `Hermes's screen. ${byYou ? "You're in control" : "Someone else is in control"}`
+      : "Hermes's screen, live. Hermes is in control";
   const body =
     state === "controlled" ? (
       <span className="h-bot-preview__controlled">
@@ -69,7 +74,7 @@ export function BotScreenPreview({
     <button
       type="button"
       className="h-bot-preview__button"
-      aria-label="Open Hermes's screen"
+      aria-label={label}
       onClick={onOpen}
     >
       {body}
@@ -89,7 +94,12 @@ export function BotScreenPreview({
     >
       {wrapped}
       {state === "frame" ? (
-        <div className="h-bot-preview__caption">Hermes is in control</div>
+        <div
+          className="h-bot-preview__caption"
+          aria-hidden={onOpen ? true : undefined}
+        >
+          Hermes is in control
+        </div>
       ) : null}
     </div>
   );
