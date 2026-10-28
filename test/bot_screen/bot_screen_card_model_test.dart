@@ -457,10 +457,32 @@ void main() {
     test('no sudo shows the command it carries when the status has none', () {
       final model = _model(
         status: missing(command: null),
-        install: const InstallEnded(InstallNoSudo(command: 'run this')),
+        install: const InstallEnded(InstallNoSudo(command: 'sudo run this')),
       );
 
       expect((model as BotScreenNotInstalled).command, 'run this');
+    });
+
+    test('no sudo shows the command without sudo, and offers no installer', () {
+      final model = _model(
+        status: missing(command: 'sudo apt-get install -y x'),
+        install: const InstallEnded(
+          InstallNoSudo(command: 'sudo apt-get install -y x'),
+        ),
+      ) as BotScreenNotInstalled;
+
+      expect(model.command, 'apt-get install -y x');
+      expect(model.canInstall, isFalse);
+      expect(model.result, isA<InstallNoSudo>());
+    });
+
+    test('a command that does not start with sudo is shown as it is', () {
+      final model = _model(
+        status: missing(command: 'pacman -S --noconfirm x'),
+        install: const InstallEnded(InstallNoSudo()),
+      ) as BotScreenNotInstalled;
+
+      expect(model.command, 'pacman -S --noconfirm x');
     });
 
     test('a sandbox shows no result and no installer', () {

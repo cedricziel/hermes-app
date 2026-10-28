@@ -65,14 +65,21 @@ sealed class BotScreenCardModel {
           result,
         _ => null,
       };
-      final command = sandbox
+      var command = sandbox
           ? null
           : status.installCommand ??
                 (result is InstallNoSudo ? result.command : null);
+      // A server with no sudo is run as the user who can install: the command
+      // to run by hand has no sudo in it, and installing again is no use.
+      final noSudo = result is InstallNoSudo;
+      if (noSudo && command != null && command.startsWith('sudo ')) {
+        command = command.substring('sudo '.length).trimLeft();
+      }
       return BotScreenNotInstalled(
         command: command,
         sandbox: sandbox,
-        canInstall: canInstall && !sandbox && status.installCommand != null,
+        canInstall:
+            canInstall && !sandbox && !noSudo && status.installCommand != null,
         result: result,
         screenRunning: running,
       );

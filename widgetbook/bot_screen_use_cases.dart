@@ -22,8 +22,8 @@ Widget _card(BotScreenCardModel model, {bool enlarge = false}) => frame(
   maxWidth: 380,
 );
 
-const _installCommand =
-    'sudo apt-get install -y tigervnc-standalone-server xfce4';
+const _manualCommand = 'apt-get install -y tigervnc-standalone-server xfce4';
+const _installCommand = 'sudo $_manualCommand';
 
 const _installLines = [
   'Reading package lists...',
@@ -107,8 +107,7 @@ WidgetbookNode botScreenNode() {
     (
       'Install: no sudo on the server',
       const BotScreenNotInstalled(
-        command: _installCommand,
-        canInstall: true,
+        command: _manualCommand,
         result: InstallNoSudo(command: _installCommand),
       ),
       enlarge: false,

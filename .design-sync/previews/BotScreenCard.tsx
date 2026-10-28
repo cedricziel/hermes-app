@@ -67,17 +67,15 @@ export const InstallCancelled = () => (
   </HermesProvider>
 );
 
-/** The server has no sudo: the command to run there by hand. */
+/** The server has no sudo: the command to run there by hand, without sudo, and no Install on Server. */
 export const InstallNoSudo = () => (
   <HermesProvider>
     <div style={column}>
       <BotScreenCard
         state="not_installed"
-        command={command}
-        canInstall
+        command="apt-get install -y tigervnc-standalone-server xfce4"
         installResult="no_sudo"
         onCopyCommand={() => {}}
-        onInstall={() => {}}
       />
     </div>
   </HermesProvider>

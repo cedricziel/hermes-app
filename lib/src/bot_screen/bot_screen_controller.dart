@@ -56,6 +56,11 @@ class BotScreenController extends ChangeNotifier {
       _onConnectionEvent,
       onError: _onConnectionError,
     );
+    // What ended before this controller existed was already read from the
+    // server's status; only a later ending brings a status to apply.
+    if (installs?.stateFor(profile) case final InstallEnded ended) {
+      _appliedInstall = ended;
+    }
     installs?.addListener(_onInstalls);
   }
 

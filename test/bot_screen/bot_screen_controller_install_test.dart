@@ -44,11 +44,13 @@ void main() {
     };
     transport = HermesGatewayTransport(connect: gateway.connect);
     installs = BotScreenInstalls(
-      repository: BotScreenRepository(transport.requestKeepingConnection),
+      repository: BotScreenRepository(
+        transport.requestKeepingConnection,
+        installRpc: transport.requestKeepingConnectionOnClient,
+      ),
       connectionEvents: transport.connectionEvents,
-      connection: () => transport.gatewayConnection,
       registerServerRequestHandler: transport.registerServerRequestHandler,
-      askPassword: (host, ended) async => null,
+      askPassword: (host, profile, ended) async => null,
       host: 'hermes.example.com',
     );
   });
@@ -146,5 +148,29 @@ void main() {
     await settle();
 
     expect(screen.install, isNull);
+  });
+
+  test('an install that ended before the controller was made is not applied '
+      'on a later notification', () async {
+    final first = await watched();
+    await first.startInstall();
+    gateway.event('display.install.done', '', {
+      'profile_key': _key,
+      'code': 0,
+      'status': statusJson(running: false, extra: {'installed': true}),
+    });
+    await settle();
+    expect(first.status?.installed, isTrue);
+    first.dispose();
+    // The packages were removed again since; the new controller reads that.
+    installed = false;
+    final second = await watched();
+    expect(second.status?.installed, isFalse);
+
+    // Another profile's install changes the installs, which tells everyone.
+    await installs.start('other', profileKey: '/other');
+    await settle();
+
+    expect(second.status?.installed, isFalse);
   });
 }
