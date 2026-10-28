@@ -22,6 +22,8 @@ One PR, `feat(bot-screen): take over and hand back the screen`, about 500 change
 - [ ] 4.1 Write failing widget tests: Take over asks once per account and not after "Don't ask again"; in control a tap sends a click at the mapped point; the hidden field has autocorrect, suggestions and learning off, smart quotes and dashes disabled and `visiblePassword`, and sends composing text only on commit; Paste sends the text, Control+V, then an empty cut text after 500 ms; text outside Latin-1 shows the refusal and sends nothing; on macOS ⌘V pastes, ⌘Q/⌘W/⌘H/⌘M are not handled by the picture, ⌘A sends Ctrl+A, Escape reaches the screen and ⌘. closes the viewer; on Windows Ctrl+V pastes and F8 closes; Hand Back returns to watching.
 - [ ] 4.2 Wire the chrome, `ScreenGestureLayer`, keyboard focus, the hidden field, paste and the confirmations; verify 4.1 passes.
 
+- [ ] 4.3 Give trackpad mode a way to drag with a button held (tap and drag: a tap followed at once by a press that moves holds the primary button), which `ScreenGestureLayer` does not offer: there the one-finger pan only moves the virtual pointer. Add a test with the other gesture tests.
+
 ## 5. Observability
 
 - [ ] 5.1 Write failing tests: `bot_screen.takeover`, `bot_screen.handback`, `bot_screen.lost_control` and `bot_screen.paste_refused` carry only their fixed attribute; the stream span gets `took_over` and bucketed `input_events`; breadcrumbs carry fixed values; no recorded value contains typed text, a key name, coordinates or a viewer id. Implement and verify.
