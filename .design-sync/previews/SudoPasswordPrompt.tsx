@@ -25,7 +25,7 @@ export const AppleEmpty = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={frame}>
       {behind}
-      <SudoPasswordPrompt host="hermes.example.com" />
+      <SudoPasswordPrompt host="hermes.example.com" profile="work" />
     </div>
   </HermesProvider>
 );
@@ -37,6 +37,7 @@ export const ApplePhoneTyped = () => (
       {behind}
       <SudoPasswordPrompt
         host="hermes.example.com"
+        profile="work"
         defaultValue="correct horse battery"
       />
     </div>
@@ -50,6 +51,7 @@ export const MaterialTyped = () => (
       {behind}
       <SudoPasswordPrompt
         host="hermes.example.com"
+        profile="work"
         defaultValue="correct horse battery"
       />
     </div>
@@ -61,7 +63,7 @@ export const MaterialDark = () => (
   <HermesProvider theme="dark">
     <div style={frame}>
       {behind}
-      <SudoPasswordPrompt host="hermes.example.com" />
+      <SudoPasswordPrompt host="hermes.example.com" profile="work" />
     </div>
   </HermesProvider>
 );

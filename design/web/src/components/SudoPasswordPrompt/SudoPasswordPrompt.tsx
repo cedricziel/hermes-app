@@ -7,6 +7,8 @@ import "./SudoPasswordPrompt.css";
 export interface SudoPasswordPromptProps {
   /** The Hermes host the password is for, as the dashboard's address names it: "hermes.example.com". */
   host: string;
+  /** The profile the install is for, named in the question: "work". */
+  profile: string;
   /** What the field holds at first. Leave out: the app starts empty. A preview can show a filled field. */
   defaultValue?: string;
   /** Install, with the typed password. It is disabled while the field is empty. */
@@ -31,6 +33,7 @@ export interface SudoPasswordPromptProps {
  */
 export function SudoPasswordPrompt({
   host,
+  profile,
   defaultValue = "",
   onInstall,
   onCancel,
@@ -48,7 +51,7 @@ export function SudoPasswordPrompt({
     <PlatformScope platform={resolved}>
       <AlertDialog
         title="Sudo password"
-        message={`Hermes on ${host} needs the password of its user to install the desktop. It goes to your server once and is not stored.`}
+        message={`Your Hermes server (${host}) needs the password of its user to install the desktop for the profile "${profile}". It goes to the server once and is not stored.`}
         actions={[
           { label: "Cancel", onClick: onCancel },
           {
@@ -70,7 +73,7 @@ export function SudoPasswordPrompt({
             onKeyDown={(e) => {
               if (e.key === "Enter") install();
             }}
-            autoComplete="off"
+            autoComplete="new-password"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
