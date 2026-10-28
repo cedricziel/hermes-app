@@ -154,7 +154,7 @@ class BotScreenInstalls extends ChangeNotifier {
       return _readStatuses();
     }
     final event = signal.event;
-    if (event == null) return;
+    if (event == null || _running.isEmpty) return;
     final payload = event.payload;
     switch (event.type) {
       case 'display.install.log':

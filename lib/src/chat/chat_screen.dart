@@ -31,6 +31,7 @@ import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
 import '../bot_screen/bot_screen_repository.dart';
+import '../bot_screen/install/bot_screen_installs.dart';
 import '../handoff/handoff_controller.dart';
 import '../handoff/handoff_activity.dart';
 import '../messaging/messaging_screen.dart';

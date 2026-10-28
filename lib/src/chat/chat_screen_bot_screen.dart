@@ -44,6 +44,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
       gateway.events.connectionEvents,
       profile: _screenProfile,
       events: telemetry.events,
+      installs: _maybeRead<BotScreenInstalls>(),
     );
     _syncBotScreenGates();
     if (previous != null) {
