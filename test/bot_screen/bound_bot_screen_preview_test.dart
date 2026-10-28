@@ -8,7 +8,6 @@ import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bound_bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
 import '../support/fake_gateway.dart';
 import 'bot_screen_repository_test.dart' show jpeg, statusJson;
@@ -24,7 +23,6 @@ void main() {
   int calls(String method) => gateway.methods.where((m) => m == method).length;
 
   setUp(() {
-    VisibilityDetectorController.instance.updateInterval = Duration.zero;
     gateway = FakeGateway();
     gateway.handlers['display.status'] = (_) => statusJson();
     gateway.handlers['display.thumbnail'] = (_) => {
@@ -68,7 +66,11 @@ void main() {
             scrollCacheExtent: const ScrollCacheExtent.pixels(4000),
             children: [
               SizedBox(height: before),
-              BoundBotScreenPreview(controller: controller, replyId: 'r1'),
+              BoundBotScreenPreview(
+                controller: controller,
+                replyId: 'r1',
+                startedAt: DateTime.utc(2026),
+              ),
               const SizedBox(height: 2000),
             ],
           ),
@@ -178,4 +180,54 @@ void main() {
       await end(tester);
     },
   );
+
+  testWidgets('of two pending replies only the newer shows the preview, and '
+      'the older one takes it back when the newer ends', (tester) async {
+    final older = DateTime.utc(2026, 1, 1);
+    final newer = DateTime.utc(2026, 1, 2);
+    Widget app({required bool withNewer}) => MaterialApp(
+      home: Scaffold(
+        body: Column(
+          children: [
+            BoundBotScreenPreview(
+              key: BoundBotScreenPreview.keyFor(controller, 'old'),
+              controller: controller,
+              replyId: 'old',
+              startedAt: older,
+            ),
+            if (withNewer)
+              BoundBotScreenPreview(
+                key: BoundBotScreenPreview.keyFor(controller, 'new'),
+                controller: controller,
+                replyId: 'new',
+                startedAt: newer,
+              ),
+          ],
+        ),
+      ),
+    );
+    final old = find.byKey(BoundBotScreenPreview.keyFor(controller, 'old'));
+    final recent = find.byKey(BoundBotScreenPreview.keyFor(controller, 'new'));
+    Finder drawn(Finder owner) =>
+        find.descendant(of: owner, matching: find.byType(BotScreenPreview));
+
+    await tester.pumpWidget(app(withNewer: false));
+    await tester.pump();
+    await settle(tester);
+    expect(drawn(old), findsOne);
+
+    await tester.pumpWidget(app(withNewer: true));
+    await tester.pump();
+    await settle(tester);
+    await tester.pump();
+    expect(drawn(recent), findsOne);
+    expect(drawn(old), findsNothing);
+
+    await tester.pumpWidget(app(withNewer: false));
+    await tester.pump();
+    await settle(tester);
+    await tester.pump();
+    expect(drawn(old), findsOne);
+    await end(tester);
+  });
 }

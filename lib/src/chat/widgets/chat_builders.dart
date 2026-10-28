@@ -53,9 +53,9 @@ const double kChatGutter = 20;
 const double kChatTurnGap = 20;
 const double kChatItemGap = 8;
 
-/// Builds the still preview of the Bot screen for the reply [replyId], which
-/// goes under the tool calls of its latest `computer_use` call.
-typedef ScreenPreviewBuilder = Widget Function(String replyId);
+/// Builds the still preview of the Bot screen for the reply [run], which goes
+/// under the tool calls of its latest `computer_use` call.
+typedef ScreenPreviewBuilder = Widget Function(ScreenPreviewRun run);
 
 /// The `flutter_chat_ui` builders that give Hermes' message kinds and empty
 /// state their assistant-ui look inside a `Chat`.
@@ -342,7 +342,7 @@ Widget _buildCustom(
             const {},
         onAnswerApproval: onAnswerApproval,
         preview: switch (metadata[kMetaScreenPreview]) {
-          final String replyId => screenPreview?.call(replyId),
+          final ScreenPreviewRun run => screenPreview?.call(run),
           _ => null,
         },
       );

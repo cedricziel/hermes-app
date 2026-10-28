@@ -37,7 +37,7 @@ bool threadUsedScreen(ChatThread thread) {
     return scan.used;
   }
   final used = messages.any(
-    (message) => message.toolCalls.any((call) => call.name == 'computer_use'),
+    (message) => message.toolCalls.any((call) => call.name == kComputerUseTool),
   );
   _scans[thread] = _ScreenScan(count, lastCalls, used);
   return used;

@@ -151,9 +151,11 @@ ChatThreadView boundChatThreadView({
     thread: t,
     screenPreview: screen == null
         ? null
-        : (replyId) => BoundBotScreenPreview(
+        : (run) => BoundBotScreenPreview(
+            key: BoundBotScreenPreview.keyFor(screen, run.replyId),
             controller: screen,
-            replyId: replyId,
+            replyId: run.replyId,
+            startedAt: run.startedAt,
             onTap: onOpenScreen,
           ),
     sessionState: t == null ? null : chat.sessionStateIn(t),
