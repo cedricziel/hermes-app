@@ -14,7 +14,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
       );
     }
     _screenLock = _maybeRead<AppLockController>()
-      ?..addListener(_syncBotScreenGates);
+      ?..addListener(_onBotScreenGates);
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
       _windowlessChanges = MacApp.windowlessChanges.listen((windowless) {
         _windowless = windowless;
@@ -61,7 +61,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
   }
 
   void _disposeBotScreen() {
-    _screenLock?.removeListener(_syncBotScreenGates);
+    _screenLock?.removeListener(_onBotScreenGates);
     _screen?.dispose();
   }
 }

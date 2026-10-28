@@ -143,6 +143,14 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('leaving the screen stops listening to App Lock', (tester) async {
+    await pumpScreen(tester);
+
+    await finish(tester);
+
+    expect(lock.listening, isFalse);
+  });
+
   testWidgets('closing the inspector stops the frame requests', (tester) async {
     await pumpScreen(tester);
     final before = calls('display.thumbnail');
@@ -261,6 +269,8 @@ class _Lock extends AppLockController {
 
   @override
   bool get covered => _covered;
+
+  bool get listening => hasListeners;
 
   set covered(bool value) {
     _covered = value;

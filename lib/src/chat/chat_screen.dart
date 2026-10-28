@@ -799,6 +799,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _onOpenRequest({bool initial = false}) =>
       _ChatScreenExternalOpenings(this)._onOpenRequest(initial: initial);
   void _onShared() => _ChatScreenSharing(this)._onShared();
+  void _onBotScreenGates() => _ChatScreenBotScreen(this)._syncBotScreenGates();
 
   void _onAgentMessages() {
     if (_finds!.profiles.contains(_chat.profile)) {
