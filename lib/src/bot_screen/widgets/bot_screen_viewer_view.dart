@@ -240,17 +240,20 @@ class _Busy extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     liveRegion: true,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-        ),
-        const SizedBox(width: 10),
-        Text(text),
-      ],
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+          ),
+          const SizedBox(width: 10),
+          Flexible(child: Text(text)),
+        ],
+      ),
     ),
   );
 }
