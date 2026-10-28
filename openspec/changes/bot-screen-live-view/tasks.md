@@ -14,12 +14,12 @@ One PR, `feat(bot-screen): watch the screen live`, about 500 changed lines inclu
 
 ## 3. Wiring
 
-- [ ] 3.1 Write failing widget tests: the card's Enlarge is visible and opens the viewer, as does tapping its picture; the transcript preview opens the viewer, not the Activity panel; a phone width pushes a page and 1200 pt shows the full-window overlay; Escape and Close close the overlay; backgrounding, App Lock and a profile switch close the stream; no input message is sent when the user taps or clicks the picture.
-- [ ] 3.2 Wire the openers and presentation in `ChatScreen`; verify 3.1 passes.
+- [x] 3.1 Write failing widget tests: the card's Enlarge is visible and opens the viewer, as does tapping its picture; the transcript preview opens the viewer, not the Activity panel; a phone width pushes a page and 1200 pt shows the full-window overlay; Escape and Close close the overlay; backgrounding, App Lock and a profile switch close the stream; no input message is sent when the user taps or clicks the picture.
+- [x] 3.2 Wire the openers and presentation in `ChatScreen`; verify 3.1 passes.
 
 ## 4. Observability
 
-- [ ] 4.1 Write failing tests: a stream records `bot_screen.stream` with only the named attributes; an ending the app did not cause logs `bot_screen.stream_failed` with `step` and `error_type`; opening and closing record the breadcrumbs with `surface` and `source`; no attribute value contains the ticket, the URL or the viewer id. Implement and verify.
+- [x] 4.1 Write failing tests: a stream records `bot_screen.stream` with only the named attributes; an ending the app did not cause logs `bot_screen.stream_failed` with `step` and `error_type`; opening and closing record the breadcrumbs with `surface` and `source`; no attribute value contains the ticket, the URL or the viewer id. Implement and verify.
 
 ## 5. Docs and skills
 

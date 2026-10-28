@@ -186,6 +186,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                   chat: chat,
                   thread: selected,
                   screen: _screen,
+                  onEnlargeScreen: () => _openViewer('card'),
                 ),
                 panelKey: const Key('activity-inspector'),
                 onDismissOverlay: _toggleActivity,

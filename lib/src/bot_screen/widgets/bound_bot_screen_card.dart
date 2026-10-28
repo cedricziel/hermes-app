@@ -50,10 +50,14 @@ class BoundBotScreenCard extends StatelessWidget {
     super.key,
     required this.controller,
     required this.model,
+    this.onEnlarge,
   });
 
   final BotScreenController controller;
   final BotScreenCardModel model;
+
+  /// Opens the live viewer; Enlarge is hidden without it.
+  final VoidCallback? onEnlarge;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +72,7 @@ class BoundBotScreenCard extends StatelessWidget {
       onStart: controller.start,
       onInstall: controller.canInstall ? controller.startInstall : null,
       onRetry: controller.retry,
+      onEnlarge: onEnlarge,
       onCopyCommand: command == null
           ? null
           : () => Clipboard.setData(ClipboardData(text: command)),

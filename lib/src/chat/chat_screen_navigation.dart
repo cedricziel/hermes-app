@@ -85,6 +85,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
           chat: _chat,
           thread: thread,
           screen: _screen,
+          onEnlargeScreen: () => _openViewer('card'),
           scrollController: controller,
           onClose: () => Navigator.of(context).pop(),
         ),
