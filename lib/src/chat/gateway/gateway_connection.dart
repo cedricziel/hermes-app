@@ -26,9 +26,19 @@ Uri gatewayUri(
 /// upgrade. Unlike the casting openers, it keeps `closeCode` readable.
 ///
 /// It uses [IOWebSocketChannel] rather than `WebSocketChannel.connect`, whose
-/// adapter drops the HTTP status of a refused upgrade.
-Future<WebSocketChannel> connectWebSocketChannel(Uri uri) async {
-  final channel = IOWebSocketChannel.connect(uri);
+/// adapter drops the HTTP status of a refused upgrade. [pingInterval] makes
+/// the socket ping and end itself when the peer stops answering, and
+/// [connectTimeout] bounds the connect; neither is set by default.
+Future<WebSocketChannel> connectWebSocketChannel(
+  Uri uri, {
+  Duration? pingInterval,
+  Duration? connectTimeout,
+}) async {
+  final channel = IOWebSocketChannel.connect(
+    uri,
+    pingInterval: pingInterval,
+    connectTimeout: connectTimeout,
+  );
   await channel.ready;
   return channel;
 }

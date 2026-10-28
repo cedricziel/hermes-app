@@ -35,17 +35,29 @@ class DisplaySocketError implements Exception {
 Uri displaySocketUri(String baseUrl, String path, String ticket) =>
     gatewayUri(baseUrl, {'display_ticket': ticket}, path: path);
 
+/// How often the display socket pings. A static screen sends nothing, so
+/// without it a proxy may close an idle link, and a half-open one would never
+/// end.
+const kDisplayPingInterval = Duration(seconds: 15);
+
+/// How long opening the display socket may take.
+const kDisplayConnectTimeout = Duration(seconds: 10);
+
 /// Opens the display socket. The channel is returned uncast so the caller can
 /// read the server's close code and close with a status code of its own.
 /// Throws [DisplaySocketError], never the underlying exception.
 Future<WebSocketChannel> openDisplaySocket(
   String baseUrl,
   String path,
-  String ticket,
-) async {
+  String ticket, {
+  Duration pingInterval = kDisplayPingInterval,
+  Duration connectTimeout = kDisplayConnectTimeout,
+}) async {
   try {
     return await connectWebSocketChannel(
       displaySocketUri(baseUrl, path, ticket),
+      pingInterval: pingInterval,
+      connectTimeout: connectTimeout,
     );
   } catch (error) {
     throw displaySocketErrorFor(error);
