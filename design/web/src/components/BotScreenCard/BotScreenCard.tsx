@@ -1,9 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../Button/Button";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
 import { Spinner } from "../Spinner/Spinner";
-import { PlatformScope, usePlatform, type Platform } from "../../platform";
+import {
+  cx,
+  PlatformScope,
+  useRowDevice,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
 import "./BotScreenCard.css";
 
 /** One state of the card; the app shows exactly one, chosen in this order. */
@@ -45,7 +52,7 @@ export interface BotScreenCardProps {
   startFailure?: BotScreenStartFailure;
   /** `frame`: the latest picture, an image URL or data URL. */
   frameSrc?: string;
-  /** `frame`: width over height of the screen, from its geometry; default 16 / 10. */
+  /** `frame`: width over height of the screen, from its geometry, kept between 0.5 and 3 as the app does; default 16 / 10. */
   aspectRatio?: number;
   /** `controlled`: true says "You're in control", otherwise "Someone else is in control". */
   byYou?: boolean;
@@ -59,6 +66,8 @@ export interface BotScreenCardProps {
   onEnlarge?: () => void;
   /** Inherits the provider's platform. */
   platform?: Platform;
+  /** Under `apple`: `touch` (default, iPhone and iPad) keeps the buttons at least 44px tall, `mac` leaves them at their own height. Ignored on `material`. */
+  device?: AppleDevice;
 }
 
 const failureText: Record<BotScreenStartFailure, string> = {
@@ -74,7 +83,9 @@ const failureText: Record<BotScreenStartFailure, string> = {
  * running screen, or while it has none and the chat used `computer_use`; it
  * refreshes the picture every 3 seconds only while the panel shows it. A
  * 14px-radius outlined box with a "Bot screen" title row and one state below.
- * The same layout on every platform; only the icons follow `platform`.
+ * Start Screen and Try Again are filled buttons, as the app's tonal buttons
+ * draw. The layout is the same on every platform; the icons follow `platform`
+ * and, on iPhone and iPad, the buttons are at least 44px tall (`device`).
  */
 export function BotScreenCard({
   state,
@@ -91,12 +102,22 @@ export function BotScreenCard({
   onRetry,
   onEnlarge,
   platform,
+  device,
 }: BotScreenCardProps) {
   const resolved = usePlatform(platform);
+  const touch = resolved === "apple" && useRowDevice(device) === "touch";
   const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
   return (
     <PlatformScope platform={resolved}>
-      <section className="h-bot-screen" aria-label="Bot screen">
+      <section
+        className={cx("h-bot-screen", touch && "h-bot-screen--touch")}
+        aria-label="Bot screen"
+      >
         <div className="h-bot-screen__title">
           <Icon name="desktop_windows_outlined" size={18} />
           <h3>Bot screen</h3>
@@ -126,6 +147,7 @@ export function BotScreenCard({
                       variant="text"
                       compact
                       icon={copied ? "check" : "copy"}
+                      aria-label={copied ? "Copied" : "Copy install command"}
                       onClick={() => {
                         onCopyCommand();
                         setCopied(true);
@@ -141,7 +163,7 @@ export function BotScreenCard({
         ) : null}
         {state === "blocked" ? (
           <div className="h-bot-screen__blocked">
-            <Icon name="warning" size={20} />
+            <Icon name="warning_amber_outlined" size={20} />
             <div>
               <div>{blockerText}</div>
               {memoryMb !== undefined ? (
@@ -168,10 +190,10 @@ export function BotScreenCard({
                 <div>{failureText[startFailure]}</div>
               </div>
             ) : null}
-            <p>The screen starts by itself when Hermes needs it.</p>
+            <p>The screen is off. It starts by itself when Hermes needs it.</p>
             {onStart ? (
               <div className="h-bot-screen__action">
-                <Button variant="outlined" onClick={onStart}>
+                <Button variant="filled" onClick={onStart}>
                   Start Screen
                 </Button>
               </div>
@@ -183,7 +205,7 @@ export function BotScreenCard({
             <p>Couldn't read the screen</p>
             {onRetry ? (
               <div className="h-bot-screen__action">
-                <Button variant="outlined" onClick={onRetry}>
+                <Button variant="filled" onClick={onRetry}>
                   Try Again
                 </Button>
               </div>
@@ -194,7 +216,9 @@ export function BotScreenCard({
           <>
             <div
               className="h-bot-screen__picture"
-              style={{ aspectRatio: String(aspectRatio) }}
+              style={{
+                aspectRatio: String(Math.min(3, Math.max(0.5, aspectRatio))),
+              }}
             >
               {frameSrc ? (
                 <img src={frameSrc} alt="Hermes's screen" />

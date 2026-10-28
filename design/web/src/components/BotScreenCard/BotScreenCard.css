@@ -104,3 +104,7 @@
 .h-bot-screen__controlled > .h-icon {
   color: var(--h-muted);
 }
+
+.h-bot-screen--touch .h-button {
+  min-height: 44px;
+}
