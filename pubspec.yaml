@@ -113,6 +113,7 @@ dependencies:
   audio_session: ^0.2.4
   flutter_user_certificates_android: ^0.1.0
   sqlite3: ^3.8.0
+  visibility_detector: ^0.4.0+2
 
 # The published 1.1.4 Apple audio libraries only support CocoaPods. Pin the
 # upstream SPM implementation until those packages publish their next release.
