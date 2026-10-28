@@ -29,5 +29,5 @@ One PR, `feat(bot-screen): watch the screen live`, about 500 changed lines inclu
 
 ## 6. Verify
 
-- [ ] 6.1 Run format, analyze and the full test suite, all clean.
-- [ ] 6.2 Run `verify-in-app` per the `verify-bot-screen` skill: open the viewer from the card and from the preview, screenshot it live on macOS, stop the screen and screenshot Off.
+- [x] 6.1 Run format, analyze and the full test suite, all clean.
+- [ ] 6.2 (not run: no Docker host here) Run `verify-in-app` per the `verify-bot-screen` skill: open the viewer from the card and from the preview, screenshot it live on macOS, stop the screen and screenshot Off.
