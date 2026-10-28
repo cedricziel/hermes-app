@@ -125,10 +125,13 @@ class BotScreenController extends ChangeNotifier {
     _reconcile();
   }
 
+  /// Drops the frame. The setters that call this can run while the tree is
+  /// building (a page turning invisible), when a listener must not rebuild, so
+  /// listeners hear of it right after.
   void _dropFrame() {
     if (frame == null) return;
     frame = null;
-    _notify();
+    scheduleMicrotask(_notify);
   }
 
   /// Asks for frames until the returned handle is released.
@@ -138,16 +141,10 @@ class BotScreenController extends ChangeNotifier {
     return BotScreenWatch._(() {
       _demand--;
       _reconcile();
-      // The release can come while the tree is being torn down, when a
-      // listener must not rebuild, so listeners hear of the dropped frame
-      // right after.
       if (_demand == 0) {
         // An answer already on its way must not bring the frame back.
         _generation++;
-        if (frame != null) {
-          frame = null;
-          scheduleMicrotask(_notify);
-        }
+        _dropFrame();
       }
     });
   }

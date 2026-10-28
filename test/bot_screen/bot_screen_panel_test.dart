@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -335,6 +336,36 @@ void main() {
     expect(screen!.frame, isNull);
 
     await pumpPanel(tester);
+    await tester.pump(const Duration(seconds: 3));
+    await settle(tester);
+    expect(calls('display.thumbnail'), greaterThan(before));
+    expect(screen!.frame, isNotNull);
+  });
+
+  panelTest('a page pushed over the panel stops the requests, popping it '
+      'resumes them', (tester) async {
+    await openChat(tester);
+    await pumpPanel(tester);
+    final before = calls('display.thumbnail');
+    final navigator = Navigator.of(
+      tester.element(find.byType(BoundActivityPanel)),
+    );
+
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Skills')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await settle(tester);
+    await tester.pump(const Duration(seconds: 12));
+    expect(calls('display.thumbnail'), before);
+    expect(screen!.frame, isNull);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
     await settle(tester);
     expect(calls('display.thumbnail'), greaterThan(before));

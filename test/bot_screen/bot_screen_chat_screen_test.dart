@@ -101,6 +101,8 @@ void main() {
   Future<void> pumpScreen(
     WidgetTester tester, {
     MacCommandRegistry? commands,
+    ValueListenable<bool>? visible,
+    Size? size,
   }) async {
     await pumpChatScreen(
       tester,
@@ -109,6 +111,8 @@ void main() {
       transport: transport,
       chatProfiles: profiles,
       commands: commands,
+      visible: visible,
+      size: size ?? const Size(1400, 900),
       providers: [ChangeNotifierProvider<AppLockController>.value(value: lock)],
     );
     await openThread(tester, 'First chat');
@@ -140,6 +144,27 @@ void main() {
     expect(find.text('Hermes is in control'), findsOne);
     expect(find.byType(Image), findsWidgets);
     expect(profilesAsked('display.status').toSet(), {'default'});
+    await finish(tester);
+  });
+
+  testWidgets('the page being hidden while the phone sheet is open stops the '
+      'requests without rebuilding during build', (tester) async {
+    final visible = ValueNotifier(true);
+    addTearDown(visible.dispose);
+    await pumpScreen(tester, visible: visible, size: const Size(390, 844));
+    // The phone layout opens the Activity panel as a sheet.
+    expect(find.byKey(const Key('activity-close')), findsOne);
+    expect(card, findsOne);
+    final before = calls('display.thumbnail');
+
+    visible.value = false;
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(Image), findsNothing);
+    await tester.pump(const Duration(seconds: 12));
+    expect(calls('display.thumbnail'), before);
     await finish(tester);
   });
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -55,6 +56,7 @@ Future<void> pumpChatScreen(
   Widget Function(Widget app)? wrap,
   ThemeData? theme,
   Size size = const Size(1400, 900),
+  ValueListenable<bool>? visible,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -74,29 +76,53 @@ Future<void> pumpChatScreen(
       debugShowCheckedModeBanner: false,
       theme: theme ?? buildHermesLightTheme().copyWith(platform: platform),
       builder: macCommandsBuilder(commands),
-      home: ChatScreen(
-        repository: server == null
-            ? null
-            : HermesChatRepository(server.client().raw),
-        profiles: withProfiles
-            ? HermesProfilesRepository(server!.client().raw)
-            : null,
-        skills: withSkills
-            ? HermesSkillsRepository(server!.client().raw)
-            : null,
-        transport: transport,
-        onShowChat: onShowChat,
-        onExternalNavigation: onExternalNavigation,
-        attachmentSource: attachmentSource,
-        starterContext: starterContext,
-        voiceRecorder: voiceRecorder,
-        voiceMessageRecorder: voiceMessageRecorder,
-        chatProfiles: chatProfiles,
+      home: _Visible(
+        visible: visible,
+        builder: (shown) => ChatScreen(
+          visible: shown,
+          repository: server == null
+              ? null
+              : HermesChatRepository(server.client().raw),
+          profiles: withProfiles
+              ? HermesProfilesRepository(server!.client().raw)
+              : null,
+          skills: withSkills
+              ? HermesSkillsRepository(server!.client().raw)
+              : null,
+          transport: transport,
+          onShowChat: onShowChat,
+          onExternalNavigation: onExternalNavigation,
+          attachmentSource: attachmentSource,
+          starterContext: starterContext,
+          voiceRecorder: voiceRecorder,
+          voiceMessageRecorder: voiceMessageRecorder,
+          chatProfiles: chatProfiles,
+        ),
       ),
     ),
   );
   await tester.pumpWidget(wrap == null ? app : wrap(app));
   if (settle) await tester.pumpAndSettle();
+}
+
+/// Builds [builder] with the latest value of [visible], or with true when
+/// there is none.
+class _Visible extends StatelessWidget {
+  const _Visible({required this.visible, required this.builder});
+
+  final ValueListenable<bool>? visible;
+  final Widget Function(bool shown) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = this.visible;
+    return visible == null
+        ? builder(true)
+        : ValueListenableBuilder<bool>(
+            valueListenable: visible,
+            builder: (_, shown, _) => builder(shown),
+          );
+  }
 }
 
 /// Opens the sidebar row titled [title]; the screen starts on the welcome

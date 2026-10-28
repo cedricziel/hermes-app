@@ -58,7 +58,8 @@ class BoundBotScreenCard extends StatelessWidget {
 /// shows yet.
 ///
 /// A panel that is not painted (an offstage page, a [Visibility] with
-/// `visible: false`) counts as hidden, as for `KanbanBoardController.active`.
+/// `visible: false`) or that sits under a pushed page (its tickers are off)
+/// counts as hidden, as for `GroupChatScreen`.
 class BotScreenDemand extends StatefulWidget {
   const BotScreenDemand({
     super.key,
@@ -80,7 +81,7 @@ class _BotScreenDemandState extends State<BotScreenDemand> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _visible = Visibility.of(context);
+    _visible = Visibility.of(context) && TickerMode.valuesOf(context).enabled;
     _sync();
   }
 
