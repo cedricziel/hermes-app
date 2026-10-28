@@ -836,4 +836,163 @@ void main() {
       });
     });
   });
+  group('a status-only surface', () {
+    test('reads the status every 3 seconds and never a frame', () {
+      scenario(() {
+        controller.watch(frames: false);
+        settle();
+        expect(calls('display.status'), 1);
+
+        async.elapse(const Duration(seconds: 9));
+
+        expect(calls('display.status'), 4);
+        expect(calls('display.thumbnail'), 0);
+        expect(controller.frame, isNull);
+      });
+    });
+
+    test('picks up a takeover no broadcast reported, within a poll', () {
+      scenario(() {
+        controller.watch(frames: false);
+        settle();
+        holder = 'human';
+
+        async.elapse(const Duration(seconds: 3));
+
+        expect(controller.status?.lease.holder, BotScreenHolder.human);
+      });
+    });
+
+    test('still follows the lease broadcast at once', () {
+      scenario(() {
+        controller.watch(frames: false);
+        settle();
+
+        broadcastLease('human');
+
+        expect(controller.status?.lease.holder, BotScreenHolder.human);
+        expect(calls('display.status'), 1);
+      });
+    });
+
+    test('polls nothing for a screen that is not running', () {
+      scenario(() {
+        running = false;
+        controller.watch(frames: false);
+        settle();
+        async.elapse(const Duration(seconds: 12));
+
+        expect(calls('display.status'), 1);
+      });
+    });
+
+    test('a frame surface on top asks for frames, and leaving drops them', () {
+      scenario(() {
+        controller.watch(frames: false);
+        final frames = controller.watch();
+        settle();
+        expect(calls('display.thumbnail'), 1);
+        expect(controller.frame, jpeg);
+
+        frames.release();
+        expect(controller.frame, isNull);
+        async.elapse(const Duration(seconds: 9));
+
+        expect(calls('display.thumbnail'), 1);
+        expect(calls('display.status'), greaterThan(3));
+      });
+    });
+
+    test('letting go of the last surface stops everything', () {
+      scenario(() {
+        final watch = controller.watch(frames: false);
+        settle();
+
+        watch.release();
+        async.elapse(const Duration(seconds: 30));
+
+        expect(calls('display.status'), 1);
+      });
+    });
+  });
+
+  group('adopting a status', () {
+    test('takes one when there is none, and tells the listeners', () {
+      scenario(() {
+        var told = 0;
+        controller.addListener(() => told++);
+
+        controller.adoptStatus(
+          BotScreenStatus.fromJson(statusJson(lease: {'holder': 'human'})),
+        );
+
+        expect(controller.status?.lease.holder, BotScreenHolder.human);
+        expect(controller.suppressed, isTrue);
+        expect(told, 1);
+      });
+    });
+
+    test('ignores an older lease than the one it has', () {
+      scenario(() {
+        controller.adoptStatus(
+          BotScreenStatus.fromJson(
+            statusJson(lease: {'holder': 'human', 'epoch': 5}),
+          ),
+        );
+
+        controller.adoptStatus(
+          BotScreenStatus.fromJson(
+            statusJson(lease: {'holder': 'agent', 'epoch': 4}),
+          ),
+        );
+
+        expect(controller.status?.lease.holder, BotScreenHolder.human);
+      });
+    });
+
+    test('takes a newer lease', () {
+      scenario(() {
+        controller.adoptStatus(
+          BotScreenStatus.fromJson(
+            statusJson(lease: {'holder': 'human', 'epoch': 5}),
+          ),
+        );
+
+        controller.adoptStatus(
+          BotScreenStatus.fromJson(
+            statusJson(lease: {'holder': 'agent', 'epoch': 6}),
+          ),
+        );
+
+        expect(controller.status?.lease.holder, BotScreenHolder.agent);
+      });
+    });
+
+    test('ignores the status of another profile', () {
+      scenario(() {
+        controller.adoptStatus(BotScreenStatus.fromJson(statusJson()));
+
+        controller.adoptStatus(
+          BotScreenStatus.fromJson(
+            statusJson(
+              lease: {'holder': 'human', 'epoch': 9},
+              extra: {'profile_key': '/home/u/.hermes/profiles/other'},
+            ),
+          ),
+        );
+
+        expect(controller.status?.lease.holder, BotScreenHolder.agent);
+      });
+    });
+
+    test('does nothing once disposed', () {
+      scenario(() {
+        controller.dispose();
+
+        controller.adoptStatus(BotScreenStatus.fromJson(statusJson()));
+
+        expect(controller.status, isNull);
+      });
+    });
+  });
 }
