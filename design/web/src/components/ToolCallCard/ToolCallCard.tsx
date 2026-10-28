@@ -145,6 +145,8 @@ export interface ToolCallCardProps extends ToolCallItem {
   waiting?: boolean;
   /** Extra content shown under the header whether open or not, such as a custom input request card. */
   children?: ReactNode;
+  /** A live picture under the header, whether open or not: the app passes a BotScreenPreview here for a running `computer_use` call. */
+  preview?: ReactNode;
   /** Called with the new open state when the header is clicked. */
   onToggle?: (open: boolean) => void;
   /** `apple`: the header is 44px tall, the iOS minimum tap target (36px on `material`). Inherits the provider's platform. */
@@ -318,6 +320,7 @@ export function ToolCallCard({
   defaultOpen = false,
   waiting,
   children,
+  preview,
   onToggle,
   platform,
   className,
@@ -483,6 +486,7 @@ export function ToolCallCard({
         {children ? (
           <div className="h-tool-call__approval">{children}</div>
         ) : null}
+        {preview ? <div className="h-tool-call__preview">{preview}</div> : null}
         {outputRisk ? (
           <div className="h-tool-call__risk">
             Output risk: {outputRisk.risk}

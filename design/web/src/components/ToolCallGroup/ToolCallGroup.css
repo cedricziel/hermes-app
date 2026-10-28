@@ -61,3 +61,8 @@
   margin-left: 2px;
   color: var(--h-error);
 }
+
+.h-tool-group__preview {
+  width: 100%;
+  padding: 2px 0 4px 2px;
+}

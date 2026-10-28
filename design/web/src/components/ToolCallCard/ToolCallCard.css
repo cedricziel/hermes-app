@@ -284,3 +284,7 @@
   line-height: 16px;
   color: var(--h-error);
 }
+
+.h-tool-call__preview {
+  padding: 0 10px 10px;
+}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
 import {
   ToolCallCard,
@@ -17,6 +17,8 @@ export interface ToolCallGroupProps {
   defaultOpen?: boolean;
   /** Called with the new open state when the group line is clicked. */
   onToggle?: (open: boolean) => void;
+  /** A live picture under the group line, which stays in view while the group is folded: the app passes a BotScreenPreview for the run that holds the reply's latest `computer_use` call. A run of one call hands it to its card. */
+  preview?: ReactNode;
   /** `apple`: the group line and each card header are at least 44px tall. Inherits the provider's platform. */
   platform?: Platform;
   className?: string;
@@ -27,6 +29,7 @@ export function ToolCallGroup({
   calls,
   defaultOpen = false,
   onToggle,
+  preview,
   platform,
   className,
 }: ToolCallGroupProps) {
@@ -34,7 +37,12 @@ export function ToolCallGroup({
   const resolved = usePlatform(platform);
   if (calls.length === 1)
     return (
-      <ToolCallCard {...calls[0]} platform={resolved} className={className} />
+      <ToolCallCard
+        {...calls[0]}
+        preview={preview}
+        platform={resolved}
+        className={className}
+      />
     );
 
   const statusOf = (c: ToolCallItem) => c.status ?? "completed";
@@ -93,6 +101,7 @@ export function ToolCallGroup({
             className="h-tool-group__chevron"
           />
         </button>
+        {preview ? <div className="h-tool-group__preview">{preview}</div> : null}
         {open ? (
           <div className="h-tool-group__list">
             {calls.map((c, i) => (
