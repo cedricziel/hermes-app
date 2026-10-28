@@ -16,6 +16,7 @@ import "./BotScreenCard.css";
 /** One state of the card; the app shows exactly one, chosen in this order. */
 export type BotScreenCardState =
   | "not_offered"
+  | "installing"
   | "not_installed"
   | "blocked"
   | "starting"
@@ -27,6 +28,20 @@ export type BotScreenCardState =
 /** Why the last Start Screen failed. */
 export type BotScreenStartFailure = "display" | "timeout" | "closed";
 
+/**
+ * How the last install ended when it did not succeed, shown over the
+ * not-installed text: `refused` ("Couldn't start the install." with the
+ * server's `installMessage`, or the `startFailure` reason when there was no
+ * answer), `cancelled`, `no_sudo`, `failed` (with the last `installLines`) and
+ * `may_still_run`.
+ */
+export type BotScreenInstallResult =
+  | "refused"
+  | "cancelled"
+  | "no_sudo"
+  | "failed"
+  | "may_still_run";
+
 export interface BotScreenCardProps {
   /**
    * What the card shows. `not_offered`: the server uses its own display, no
@@ -34,7 +49,8 @@ export interface BotScreenCardProps {
    * `sandbox`). `blocked`: the screen cannot start (`blockerText`,
    * `memoryMb`). `starting`: a Start Screen request is in flight. `off`: the
    * screen is stopped, with Start Screen (`startFailure` after a failed
-   * start). `error`: "Couldn't read the screen" with Try Again. `frame`:
+   * start). `installing`: the app's install of the desktop runs (`installLines`).
+   * `error`: "Couldn't read the screen" with Try Again. `frame`:
    * Hermes holds control and the latest picture is shown (`frameSrc`, or
    * "Waiting for the first picture…" without it). `controlled`: a person
    * holds control, so there is no picture (`byYou`).
@@ -42,6 +58,14 @@ export interface BotScreenCardProps {
   state: BotScreenCardState;
   /** `not_installed` on the server itself: the install command to copy, drawn in monospace with Copy. Leave out when the server sent none. */
   command?: string;
+  /** `not_installed` on the server itself: offers Install on Server (needs `command`, as the app needs the server's install command, and `onInstall`). */
+  canInstall?: boolean;
+  /** `not_installed`: how the last install ended, when it did not succeed. */
+  installResult?: BotScreenInstallResult;
+  /** `refused`: the server's own words ("an install is already running"). */
+  installMessage?: string;
+  /** `installing`, or `failed` in `installResult`: the package manager's latest lines, at most 6, one per line. */
+  installLines?: string[];
   /** `not_installed` for a profile whose screen lives in the terminal sandbox: says the sandbox image needs the desktop stack, and never shows a command. */
   sandbox?: boolean;
   /** `blocked`: the server's own words. */
@@ -58,6 +82,8 @@ export interface BotScreenCardProps {
   byYou?: boolean;
   /** Start Screen, in `off`; hidden without it. */
   onStart?: () => void;
+  /** Install on Server, in `not_installed` with `canInstall`; hidden without it. */
+  onInstall?: () => void;
   /** Copy, in `not_installed`; hidden without it. */
   onCopyCommand?: () => void;
   /** Try Again, in `error`; hidden without it. */
@@ -91,6 +117,10 @@ export function BotScreenCard({
   state,
   command,
   sandbox = false,
+  canInstall = false,
+  installResult,
+  installMessage,
+  installLines = [],
   blockerText,
   memoryMb,
   startFailure,
@@ -98,6 +128,7 @@ export function BotScreenCard({
   aspectRatio = 16 / 10,
   byYou = false,
   onStart,
+  onInstall,
   onCopyCommand,
   onRetry,
   onEnlarge,
@@ -132,8 +163,62 @@ export function BotScreenCard({
             needs the desktop stack.
           </p>
         ) : null}
+        {state === "installing" ? (
+          <>
+            <div className="h-bot-screen__starting">
+              <Spinner size={16} label="Installing the desktop" />
+              <span>Installing the desktop on the server…</span>
+            </div>
+            {installLines.length > 0 ? (
+              <code className="h-bot-screen__lines">
+                {installLines.map((line, i) => (
+                  <span key={i}>{line}</span>
+                ))}
+              </code>
+            ) : null}
+            <div className="h-bot-screen__caption">
+              You can close this; the install keeps going.
+            </div>
+          </>
+        ) : null}
         {state === "not_installed" && !sandbox ? (
           <>
+            {installResult === "refused" ? (
+              <div>
+                <div className="h-bot-screen__failed">
+                  Couldn't start the install.
+                </div>
+                {installMessage ? (
+                  <div>{installMessage}</div>
+                ) : startFailure ? (
+                  <div>{failureText[startFailure]}</div>
+                ) : null}
+              </div>
+            ) : null}
+            {installResult === "failed" ? (
+              <>
+                <div className="h-bot-screen__failed">The install failed.</div>
+                {installLines.length > 0 ? (
+                  <code className="h-bot-screen__lines h-bot-screen__lines--wrap">
+                    {installLines.map((line, i) => (
+                      <span key={i}>{line}</span>
+                    ))}
+                  </code>
+                ) : null}
+              </>
+            ) : null}
+            {installResult === "cancelled" ? (
+              <p>The install was cancelled.</p>
+            ) : null}
+            {installResult === "no_sudo" ? (
+              <p>
+                There's no sudo on the server, so Hermes can't install the
+                desktop itself.
+              </p>
+            ) : null}
+            {installResult === "may_still_run" ? (
+              <p>The install may still be running. Check again later.</p>
+            ) : null}
             <p>
               {command
                 ? "The desktop isn't installed on the server. Run this there:"
@@ -159,6 +244,13 @@ export function BotScreenCard({
                   </div>
                 ) : null}
               </>
+            ) : null}
+            {canInstall && command && onInstall ? (
+              <div className="h-bot-screen__action">
+                <Button variant="filled" onClick={onInstall}>
+                  Install on Server
+                </Button>
+              </div>
             ) : null}
           </>
         ) : null}

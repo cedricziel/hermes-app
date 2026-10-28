@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_card_model.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
+import 'package:hermes_app/src/bot_screen/install/install_state.dart';
 
 final _jpeg = Uint8List.fromList([0xff, 0xd8, 1, 2]);
 
@@ -37,6 +38,8 @@ BotScreenCardModel? _model({
   Uint8List? frame,
   bool suppressed = false,
   Set<String> ownViewerHashes = const {},
+  InstallState? install,
+  bool canInstall = true,
 }) => BotScreenCardModel.fromState(
   status: status,
   unsupported: unsupported,
@@ -46,6 +49,8 @@ BotScreenCardModel? _model({
   frame: frame,
   suppressed: suppressed,
   ownViewerHashes: ownViewerHashes,
+  install: install,
+  canInstall: canInstall,
 );
 
 void main() {
@@ -371,6 +376,137 @@ void main() {
 
       expect(model.listed(usedByChat: false), isFalse);
       expect(model.listed(usedByChat: true), isTrue);
+    });
+  });
+
+  group('installing', () {
+    BotScreenStatus missing({String? command = 'sudo apt-get install -y x'}) =>
+        _status(installed: false, running: false, installCommand: command);
+
+    test('an install that runs comes before not installed, with its lines', () {
+      final model = _model(
+        status: missing(),
+        install: const InstallRunning(lines: ['one', 'two']),
+      );
+
+      expect(
+        model,
+        isA<BotScreenInstalling>().having((m) => m.lines, 'lines', [
+          'one',
+          'two',
+        ]),
+      );
+      expect(model!.slug, 'installing');
+    });
+
+    test('not offered still comes before installing', () {
+      final model = _model(
+        status: _status(supported: false, installed: false),
+        install: const InstallRunning(),
+      );
+
+      expect(model, isA<BotScreenNotOffered>());
+    });
+
+    test('Install on Server needs the gateway, a command and an installer', () {
+      bool offered({
+        String placement = 'gateway',
+        String? command = 'sudo apt-get install -y x',
+        bool canInstall = true,
+      }) => (_model(
+        status: _status(
+          installed: false,
+          running: false,
+          placement: placement,
+          installCommand: command,
+        ),
+        canInstall: canInstall,
+      ) as BotScreenNotInstalled).canInstall;
+
+      expect(offered(), isTrue);
+      expect(offered(placement: 'docker'), isFalse);
+      expect(offered(command: null), isFalse);
+      expect(offered(canInstall: false), isFalse);
+    });
+
+    test('an ended install shows its result under not installed', () {
+      final model = _model(
+        status: missing(),
+        install: const InstallEnded(InstallCancelled()),
+      );
+
+      expect(
+        model,
+        isA<BotScreenNotInstalled>().having(
+          (m) => m.result,
+          'result',
+          isA<InstallCancelled>(),
+        ),
+      );
+    });
+
+    test('an install that finished shows no result', () {
+      final model = _model(
+        status: missing(),
+        install: const InstallEnded(InstallInstalled()),
+      );
+
+      expect((model as BotScreenNotInstalled).result, isNull);
+    });
+
+    test('no sudo shows the command it carries when the status has none', () {
+      final model = _model(
+        status: missing(command: null),
+        install: const InstallEnded(InstallNoSudo(command: 'sudo run this')),
+      );
+
+      expect((model as BotScreenNotInstalled).command, 'run this');
+    });
+
+    test('no sudo shows the command without sudo, and offers no installer', () {
+      final model = _model(
+        status: missing(command: 'sudo apt-get install -y x'),
+        install: const InstallEnded(
+          InstallNoSudo(command: 'sudo apt-get install -y x'),
+        ),
+      ) as BotScreenNotInstalled;
+
+      expect(model.command, 'apt-get install -y x');
+      expect(model.canInstall, isFalse);
+      expect(model.result, isA<InstallNoSudo>());
+    });
+
+    test('a command that does not start with sudo is shown as it is', () {
+      final model = _model(
+        status: missing(command: 'pacman -S --noconfirm x'),
+        install: const InstallEnded(InstallNoSudo()),
+      ) as BotScreenNotInstalled;
+
+      expect(model.command, 'pacman -S --noconfirm x');
+    });
+
+    test('a sandbox shows no result and no installer', () {
+      final model = _model(
+        status: _status(
+          installed: false,
+          running: false,
+          placement: 'docker',
+          installCommand: 'x',
+        ),
+        install: const InstallEnded(InstallCancelled()),
+      ) as BotScreenNotInstalled;
+
+      expect(model.result, isNull);
+      expect(model.canInstall, isFalse);
+    });
+
+    test('once installed the state follows the status, not the install', () {
+      final model = _model(
+        status: _status(running: false),
+        install: const InstallEnded(InstallInstalled()),
+      );
+
+      expect(model, isA<BotScreenOff>());
     });
   });
 }

@@ -31,7 +31,7 @@ The Not installed state SHALL offer Install on Server only when `placement` is `
 
 ### Requirement: Sudo password
 
-When an install the app started asks for the sudo password, the app SHALL show a masked password field naming the dashboard's host, with Install and Cancel, wherever the user is in the app. Install SHALL answer with the typed password once; Cancel or dismissal SHALL answer an empty value. The app SHALL NOT store the password, offer to save it, log it or send it anywhere but that answer, SHALL turn off autocorrect, suggestions, keyboard learning and autofill for the field, and SHALL clear the field after answering. When the install ends before the user answers, the prompt SHALL close.
+When an install the app started asks for the sudo password, the app SHALL show a masked password field naming the dashboard's host, with Install and Cancel, wherever the user is in the app. Install SHALL answer with the typed password once; Cancel or dismissal SHALL answer an empty value. The app SHALL NOT store the password, offer to save it, log it or send it anywhere but that answer, SHALL turn off autocorrect, suggestions, keyboard learning and autofill for the field, and SHALL clear the field after answering. When the install ends before the user answers, or the server withdraws the request, the prompt SHALL close; the app SHALL NOT ask while the session is gone, and on macOS SHALL bring the main window forward first. The prompt SHALL name the Hermes host and the profile.
 
 #### Scenario: The user enters the password
 
@@ -43,6 +43,11 @@ When an install the app started asks for the sudo password, the app SHALL show a
 - **WHEN** the user started the install, opened Kanban, and the server then asks for the password
 - **THEN** the password prompt appears over Kanban
 
+#### Scenario: The server withdraws the question
+
+- **WHEN** the prompt is open and the server sends `request.cancel` for its request
+- **THEN** the prompt closes and a later password request for the same install is asked again
+
 #### Scenario: The user cancels
 
 - **WHEN** the user cancels the password question
@@ -50,7 +55,7 @@ When an install the app started asks for the sudo password, the app SHALL show a
 
 ### Requirement: Install results
 
-`display.install.done` SHALL end the Installing state: code 0 shows the state from its `status`; -1 says the install was cancelled; -2 says the server has no sudo and shows the status' install command with Copy to run by hand; any other code says the install failed with the last log lines and offers Install on Server again. Because the done broadcast can be missed, the app SHALL read `display.status` while an install runs when the app returns to the foreground and after the gateway connection was lost, SHALL end Installing when the status reports the packages installed, and SHALL end it after 20 minutes without done, saying the install may still be running.
+`display.install.done` SHALL end the Installing state: code 0 shows the state from its `status`; -1 says the install was cancelled; -2 says the server has no sudo and shows the install command without its `sudo` prefix with Copy to run by hand, and offers no Install on Server; any other code says the install failed with the last log lines and offers Install on Server again. Because the done broadcast can be missed, the app SHALL read `display.status` while an install runs when the app returns to the foreground and after the gateway connection was lost, SHALL end Installing when the status reports the packages installed, and SHALL end it after 22 minutes without done, saying the install may still be running.
 
 #### Scenario: No sudo on the server
 

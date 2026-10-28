@@ -9,6 +9,7 @@ import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 import '../bot_screen_card_model.dart';
 import '../bot_screen_models.dart';
+import '../install/install_state.dart';
 
 const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
 
@@ -16,16 +17,19 @@ const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
 /// shows, who is in control, and why there is no picture when there is none.
 ///
 /// It draws [model] and nothing else, so it needs no controller. The callbacks
-/// are the actions a state offers: [onStart] (Start Screen), [onCopyCommand]
-/// (Copy, for the install command), [onRetry] (Try Again) and [onEnlarge],
-/// whose absence hides Enlarge. [breadcrumbs] gets `bot_screen.card.shown`
-/// when the state changes (never per refreshed frame) and
-/// `bot_screen.start.pressed`, with fixed words only.
+/// are the actions a state offers: [onStart] (Start Screen), [onInstall]
+/// (Install on Server, which also needs the model to allow it),
+/// [onCopyCommand] (Copy, for the install command), [onRetry] (Try Again) and
+/// [onEnlarge], whose absence hides Enlarge. [breadcrumbs] gets
+/// `bot_screen.card.shown` when the state changes (never per refreshed frame),
+/// `bot_screen.start.pressed` and `bot_screen.install.pressed`, with fixed
+/// words only.
 class BotScreenCard extends StatefulWidget {
   const BotScreenCard({
     super.key,
     required this.model,
     this.onStart,
+    this.onInstall,
     this.onCopyCommand,
     this.onRetry,
     this.onEnlarge,
@@ -35,6 +39,7 @@ class BotScreenCard extends StatefulWidget {
 
   final BotScreenCardModel model;
   final VoidCallback? onStart;
+  final VoidCallback? onInstall;
   final VoidCallback? onCopyCommand;
   final VoidCallback? onRetry;
   final VoidCallback? onEnlarge;
@@ -84,6 +89,11 @@ class _BotScreenCardState extends State<BotScreenCard> {
     widget.onStart?.call();
   }
 
+  void _install() {
+    widget.breadcrumbs('bot_screen.install.pressed');
+    widget.onInstall?.call();
+  }
+
   void _copy() {
     widget.onCopyCommand?.call();
     setState(() => _copied = true);
@@ -121,9 +131,12 @@ class _BotScreenCardState extends State<BotScreenCard> {
                 BotScreenNotOffered() => const Text(
                   "Hermes uses this server's own display.",
                 ),
+                BotScreenInstalling() => _InstallingBody(model.lines),
                 BotScreenNotInstalled() => _notInstalled(context, model),
                 BotScreenBlocked() => _blocked(context, model),
-                BotScreenStarting() => const _Starting(),
+                BotScreenStarting() => const _SpinnerRow(
+                  'Starting the screen…',
+                ),
                 BotScreenOff() => _off(context, model),
                 BotScreenReadFailed() => _readFailed(),
                 BotScreenShowing() => _showing(context, model),
@@ -137,7 +150,6 @@ class _BotScreenCardState extends State<BotScreenCard> {
   }
 
   Widget _notInstalled(BuildContext context, BotScreenNotInstalled model) {
-    final scheme = Theme.of(context).colorScheme;
     final command = model.command;
     if (model.sandbox) {
       return const Text(
@@ -145,9 +157,14 @@ class _BotScreenCardState extends State<BotScreenCard> {
         'needs the desktop stack.',
       );
     }
+    final result = model.result;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (result != null) ...[
+          _InstallResultNote(result),
+          const SizedBox(height: 8),
+        ],
         Text(
           command == null
               ? "The desktop isn't installed on the server."
@@ -155,16 +172,7 @@ class _BotScreenCardState extends State<BotScreenCard> {
         ),
         if (command != null) ...[
           const SizedBox(height: 8),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: SelectableText(command, style: _mono),
-            ),
-          ),
+          _CodeBlock(child: SelectableText(command, style: _mono)),
           if (widget.onCopyCommand != null)
             Align(
               alignment: Alignment.centerLeft,
@@ -183,6 +191,10 @@ class _BotScreenCardState extends State<BotScreenCard> {
                 ),
               ),
             ),
+        ],
+        if (model.canInstall && widget.onInstall != null) ...[
+          const SizedBox(height: 8),
+          _action(context, 'Install on Server', _install),
         ],
       ],
     );
@@ -368,19 +380,124 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Starting extends StatelessWidget {
-  const _Starting();
+/// The box the install command and the package manager's lines sit in.
+class _CodeBlock extends StatelessWidget {
+  const _CodeBlock({required this.child});
+
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) => const Row(
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Padding(padding: const EdgeInsets.all(10), child: child),
+  );
+}
+
+/// The package manager's latest lines, each cut off after [maxLines].
+class _LogLines extends StatelessWidget {
+  const _LogLines(this.lines, {this.maxLines = 1});
+
+  final List<String> lines;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) => _CodeBlock(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final line in lines)
+          Text(
+            line,
+            style: _mono,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
+      ],
+    ),
+  );
+}
+
+class _InstallingBody extends StatelessWidget {
+  const _InstallingBody(this.lines);
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      SizedBox(
+      const _SpinnerRow('Installing the desktop on the server…'),
+      if (lines.isNotEmpty) ...[const SizedBox(height: 8), _LogLines(lines)],
+      const SizedBox(height: 6),
+      const BotScreenCaption('You can close this; the install keeps going.'),
+    ],
+  );
+}
+
+/// How the last install ended, when it did not succeed.
+class _InstallResultNote extends StatelessWidget {
+  const _InstallResultNote(this.result);
+
+  final InstallResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = TextStyle(color: Theme.of(context).colorScheme.error);
+    return switch (result) {
+      InstallRefused(:final message) => _notStarted(error, message),
+      InstallUnreachable(:final failure) => _notStarted(
+        error,
+        _BotScreenCardState._failureText(failure),
+      ),
+      InstallFailed(:final lines) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('The install failed.', style: error),
+          if (lines.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _LogLines(lines, maxLines: 3),
+          ],
+        ],
+      ),
+      InstallCancelled() => const Text('The install was cancelled.'),
+      InstallNoSudo() => const Text(
+        "There's no sudo on the server, so Hermes can't install the desktop "
+        'itself.',
+      ),
+      InstallMayStillRun() => const Text(
+        'The install may still be running. Check again later.',
+      ),
+      InstallInstalled() => const SizedBox.shrink(),
+    };
+  }
+
+  Widget _notStarted(TextStyle style, String? detail) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text("Couldn't start the install.", style: style),
+      if (detail != null && detail.isNotEmpty) Text(detail),
+    ],
+  );
+}
+
+class _SpinnerRow extends StatelessWidget {
+  const _SpinnerRow(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      const SizedBox(
         width: 16,
         height: 16,
         child: CircularProgressIndicator.adaptive(strokeWidth: 2),
       ),
-      SizedBox(width: 10),
-      Expanded(child: Text('Starting the screen…')),
+      const SizedBox(width: 10),
+      Expanded(child: Text(text)),
     ],
   );
 }

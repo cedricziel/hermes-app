@@ -66,6 +66,7 @@ class BoundBotScreenCard extends StatelessWidget {
       breadcrumbs: breadcrumbsOf(context),
       shown: controller.shown,
       onStart: controller.start,
+      onInstall: controller.canInstall ? controller.startInstall : null,
       onRetry: controller.retry,
       onCopyCommand: command == null
           ? null

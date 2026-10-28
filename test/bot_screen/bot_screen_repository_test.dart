@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 
@@ -226,6 +227,74 @@ void main() {
           throw const FakeRpcError(5300, 'Xvnc not installed');
 
       final result = await repository.start('work');
+
+      expect((result as BotScreenFailed).kind, BotScreenFailure.display);
+    });
+  });
+
+  group('display.install', () {
+    test('names the profile and reads what started', () async {
+      gateway.handlers['display.install'] = (_) => {
+        'started': true,
+        'command': 'sudo apt-get install -y x',
+        'profile_key': '/home/u/.hermes/profiles/work',
+      };
+
+      final started = await ok(repository.install('work'));
+
+      expect(gateway.requestOf('display.install')['params'], {
+        'profile': 'work',
+      });
+      expect(started.command, 'sudo apt-get install -y x');
+      expect(started.profileKey, '/home/u/.hermes/profiles/work');
+    });
+
+    test('says which connection carried the call when it can', () async {
+      gateway.handlers['display.install'] = (_) => {
+        'started': true,
+        'profile_key': 'k',
+      };
+      final withClient = BotScreenRepository(
+        transport.requestKeepingConnection,
+        installRpc: transport.requestKeepingConnectionOnClient,
+      );
+
+      final started = await ok(withClient.install('work'));
+      final without = await ok(repository.install('work'));
+
+      expect(
+        identical(started.connection, transport.gatewayConnection),
+        isTrue,
+      );
+      expect(without.connection, isNull);
+    });
+
+    test(
+      'a refusal keeps the server message and logs no read failure',
+      () async {
+        final logged = <String>[];
+        final logging = BotScreenRepository(
+          transport.requestKeepingConnection,
+          telemetry: ConnectionTelemetry(
+            events: (name, [attributes = const {}]) => logged.add(name),
+          ),
+        );
+        gateway.handlers['display.install'] = (_) =>
+            throw const FakeRpcError(5300, 'an install is already running');
+
+        final result = await logging.install('work');
+
+        final failed = result as BotScreenFailed;
+        expect(failed.kind, BotScreenFailure.display);
+        expect(failed.message, 'an install is already running');
+        expect(logged, isEmpty);
+      },
+    );
+
+    test('an answer without a profile key is unreadable', () async {
+      gateway.handlers['display.install'] = (_) => {'started': true};
+
+      final result = await repository.install('work');
 
       expect((result as BotScreenFailed).kind, BotScreenFailure.display);
     });

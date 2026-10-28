@@ -7,6 +7,8 @@ import 'package:flutter_otel/flutter_otel.dart'
 import '../chat/gateway_connection_transport.dart';
 import 'bot_screen_models.dart';
 import 'bot_screen_repository.dart';
+import 'install/bot_screen_installs.dart';
+import 'install/install_state.dart';
 
 /// How often a frame is requested while a surface asks for one.
 const kFramePollInterval = Duration(seconds: 3);
@@ -48,11 +50,18 @@ class BotScreenController extends ChangeNotifier {
     this.profile,
     this.pollEvery = kFramePollInterval,
     this.events = noopAppEventLogger,
+    this.installs,
   }) {
     _events = connectionEvents.listen(
       _onConnectionEvent,
       onError: _onConnectionError,
     );
+    // What ended before this controller existed was already read from the
+    // server's status; only a later ending brings a status to apply.
+    if (installs?.stateFor(profile) case final InstallEnded ended) {
+      _appliedInstall = ended;
+    }
+    installs?.addListener(_onInstalls);
   }
 
   final BotScreenRepository _repository;
@@ -63,6 +72,10 @@ class BotScreenController extends ChangeNotifier {
 
   /// Where `bot_screen.start` is logged, with its outcome only.
   final AppEventLogger events;
+
+  /// The installs of the app, which hold this profile's install while the
+  /// controller comes and goes; null offers no Install on Server.
+  final BotScreenInstalls? installs;
   late final StreamSubscription<GatewayConnectionEvent> _events;
 
   /// The card state last recorded as shown, for the card's breadcrumb.
@@ -89,6 +102,9 @@ class BotScreenController extends ChangeNotifier {
   /// Why the latest Start failed.
   BotScreenFailure? startError;
 
+  /// The ended install whose status was taken over already.
+  InstallEnded? _appliedInstall;
+
   var _foreground = true;
   var _unlocked = true;
   var _demand = 0;
@@ -104,6 +120,33 @@ class BotScreenController extends ChangeNotifier {
   var _disposed = false;
   Timer? _timer;
   Timer? _statusRetry;
+
+  /// What the install of this profile, if the app started one, is doing or
+  /// ended with.
+  InstallState? get install => installs?.stateFor(profile);
+
+  /// Whether the app can install the desktop on the server.
+  bool get canInstall => installs != null;
+
+  /// Presses Install on Server. The install belongs to the app, so it goes on
+  /// when this controller is gone.
+  Future<void> startInstall() async =>
+      installs?.start(profile, profileKey: status?.profileKey);
+
+  /// Takes over the status that came with the end of an install, which
+  /// Hermes broadcasts to nobody else, and tells the listeners.
+  void _onInstalls() {
+    if (_disposed) return;
+    if (install case final InstallEnded ended
+        when !identical(ended, _appliedInstall)) {
+      _appliedInstall = ended;
+      if (ended.status case final fresh?) {
+        _broadcasts++;
+        _apply(fresh);
+      }
+    }
+    _notify();
+  }
 
   bool get foreground => _foreground;
   set foreground(bool value) {
@@ -396,6 +439,7 @@ class BotScreenController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    installs?.removeListener(_onInstalls);
     _generation++;
     _timer?.cancel();
     _timer = null;

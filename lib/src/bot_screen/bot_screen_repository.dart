@@ -24,6 +24,14 @@ typedef DisplayRpc = Future<Map<String, Object?>> Function(
   required Duration timeout,
 });
 
+/// [DisplayRpc] that also gives the connection that carried the call
+/// (`HermesGatewayTransport.requestKeepingConnectionOnClient`).
+typedef InstallRpc = Future<(Map<String, Object?>, Object)> Function(
+  String method,
+  Map<String, Object?> params, {
+  required Duration timeout,
+});
+
 /// Reads and starts a profile's Bot Screen over the gateway's `display.*`
 /// methods. Every call names its profile (`default` for the server's default
 /// profile) because Hermes answers for its launch home otherwise, and every
@@ -33,9 +41,14 @@ class BotScreenRepository {
     this._rpc, {
     this.telemetry = const ConnectionTelemetry(),
     this.timeout = kDisplayTimeout,
+    this.installRpc,
   });
 
   final DisplayRpc _rpc;
+
+  /// What `display.install` goes through, to learn the connection it used;
+  /// without it the install's connection is unknown.
+  final InstallRpc? installRpc;
   final ConnectionTelemetry telemetry;
   final Duration timeout;
   var _reportedUnsupported = false;
@@ -47,6 +60,43 @@ class BotScreenRepository {
   /// Starts the profile's screen (idempotent) and returns its new status.
   Future<BotScreenResult<BotScreenStatus>> start(String? profile) =>
       _call('display.start', profile, BotScreenStatus.fromJson);
+
+  /// Starts installing the desktop packages on the gateway host. A refusal
+  /// (another install running, an unsupported host, a sandbox, no package
+  /// manager) is a [BotScreenFailed] carrying Hermes' message; it is not a
+  /// read failure, so it is not logged here.
+  Future<BotScreenResult<BotScreenInstallStart>> install(String? profile) {
+    Object? carrier;
+    final withClient = installRpc;
+    return _call(
+      'display.install',
+      profile,
+      (result) {
+        final key = result['profile_key'];
+        final command = result['command'];
+        if (key is! String || key.isEmpty) {
+          throw const FormatException('profile_key');
+        }
+        return BotScreenInstallStart(
+          command: command is String ? command : null,
+          profileKey: key,
+          connection: carrier,
+        );
+      },
+      logFailures: false,
+      rpc: withClient == null
+          ? null
+          : (method, params, {required timeout}) async {
+              final (result, connection) = await withClient(
+                method,
+                params,
+                timeout: timeout,
+              );
+              carrier = connection;
+              return result;
+            },
+    );
+  }
 
   /// One JPEG grab of the screen; read-only, it never changes the lease.
   /// [watchers] is how many surfaces share the poll this grab belongs to, for
@@ -79,10 +129,16 @@ class BotScreenRepository {
   Future<BotScreenResult<T>> _call<T>(
     String method,
     String? profile,
-    T Function(Map<String, Object?> result) parse,
-  ) async {
+    T Function(Map<String, Object?> result) parse, {
+    bool logFailures = true,
+    DisplayRpc? rpc,
+  }) async {
+    BotScreenFailed<T> failed(BotScreenFailure kind, [String? message]) =>
+        logFailures
+        ? _failed(method, kind, message)
+        : BotScreenFailed(kind, message: message);
     try {
-      final answer = await _rpc(method, {
+      final answer = await (rpc ?? _rpc)(method, {
         'profile': profile ?? kDefaultProfile,
       }, timeout: timeout);
       final value = parse(answer);
@@ -93,29 +149,34 @@ class BotScreenRepository {
         if (method == 'display.status') _reportUnsupported();
         return BotScreenUnsupported();
       }
-      return _failed(method, BotScreenFailure.display);
+      return failed(BotScreenFailure.display, error.message);
     } on FormatException {
-      return _failed(method, BotScreenFailure.display);
+      return failed(BotScreenFailure.display);
     } on GatewayRequestTimeout {
-      return _failed(method, BotScreenFailure.timeout);
+      return failed(BotScreenFailure.timeout);
     } on TimeoutException {
-      return _failed(method, BotScreenFailure.timeout);
+      return failed(BotScreenFailure.timeout);
     } on GatewayConnectionClosed {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     } on SessionTransportUnavailable {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     } on SocketException {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     } on WebSocketChannelException {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     } on DioException {
-      return _failed(method, BotScreenFailure.closed);
+      return failed(BotScreenFailure.closed);
     }
   }
 
   /// Logs the first failure of a streak only; any success ends the streak.
-  BotScreenFailed<T> _failed<T>(String method, BotScreenFailure kind) {
-    if (_failureLogged) return BotScreenFailed(kind);
+  BotScreenFailed<T> _failed<T>(
+    String method,
+    BotScreenFailure kind, [
+    String? message,
+  ]) {
+    final failure = BotScreenFailed<T>(kind, message: message);
+    if (_failureLogged) return failure;
     _failureLogged = true;
     _quiet(
       () => telemetry.events('bot_screen.read_failed', {
@@ -123,7 +184,7 @@ class BotScreenRepository {
         'error_type': kind.slug,
       }),
     );
-    return BotScreenFailed(kind);
+    return failure;
   }
 
   void _reportUnsupported() {

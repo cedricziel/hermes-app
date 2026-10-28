@@ -2,10 +2,11 @@ import 'dart:typed_data';
 
 import 'bot_screen_controller.dart';
 import 'bot_screen_models.dart';
+import 'install/install_state.dart';
 
 /// What the Bot screen card shows: exactly one state, chosen in this order.
-/// Not offered, not installed, blocked, starting, off, error, then the
-/// running screen.
+/// Not offered, installing, not installed, blocked, starting, off, error, then
+/// the running screen.
 ///
 /// A plain value, so the card draws from it without a controller.
 sealed class BotScreenCardModel {
@@ -26,11 +27,15 @@ sealed class BotScreenCardModel {
     frame: controller.frame,
     suppressed: controller.suppressed,
     ownViewerHashes: ownViewerHashes,
+    install: controller.install,
+    canInstall: controller.canInstall,
   );
 
   /// [from] over the controller's fields. [ownViewerHashes] are the lease
   /// hashes of the viewer ids this app holds, which tell "You're in control"
   /// from someone else; the app holds none until `bot-screen-takeover`.
+  /// [install] is what the install the app started for the profile is doing,
+  /// and [canInstall] whether the app can start one at all.
   static BotScreenCardModel? fromState({
     BotScreenStatus? status,
     bool unsupported = false,
@@ -40,6 +45,8 @@ sealed class BotScreenCardModel {
     Uint8List? frame,
     bool suppressed = false,
     Set<String> ownViewerHashes = const {},
+    InstallState? install,
+    bool canInstall = false,
   }) {
     if (unsupported) return null;
     if (status == null) {
@@ -47,11 +54,33 @@ sealed class BotScreenCardModel {
     }
     final running = status.running;
     if (!status.supported) return BotScreenNotOffered(screenRunning: running);
+    if (install is InstallRunning) {
+      return BotScreenInstalling(lines: install.lines, screenRunning: running);
+    }
     if (!status.installed) {
       final sandbox = status.placement != 'gateway';
+      final result = switch (install) {
+        InstallEnded(:final result)
+            when result is! InstallInstalled && !sandbox =>
+          result,
+        _ => null,
+      };
+      var command = sandbox
+          ? null
+          : status.installCommand ??
+                (result is InstallNoSudo ? result.command : null);
+      // A server with no sudo is run as the user who can install: the command
+      // to run by hand has no sudo in it, and installing again is no use.
+      final noSudo = result is InstallNoSudo;
+      if (noSudo && command != null && command.startsWith('sudo ')) {
+        command = command.substring('sudo '.length).trimLeft();
+      }
       return BotScreenNotInstalled(
-        command: sandbox ? null : status.installCommand,
+        command: command,
         sandbox: sandbox,
+        canInstall:
+            canInstall && !sandbox && !noSudo && status.installCommand != null,
+        result: result,
         screenRunning: running,
       );
     }
@@ -108,6 +137,7 @@ sealed class BotScreenCardModel {
   /// The fixed word the `bot_screen.card.shown` breadcrumb records.
   String get slug => switch (this) {
     BotScreenNotOffered() => 'not_offered',
+    BotScreenInstalling() => 'installing',
     BotScreenNotInstalled() => 'not_installed',
     BotScreenBlocked() => 'blocked',
     BotScreenStarting() => 'starting',
@@ -123,18 +153,35 @@ final class BotScreenNotOffered extends BotScreenCardModel {
   const BotScreenNotOffered({super.screenRunning = false});
 }
 
+/// The app's install of the desktop packages runs; [lines] are the package
+/// manager's latest output.
+final class BotScreenInstalling extends BotScreenCardModel {
+  const BotScreenInstalling({
+    this.lines = const [],
+    super.screenRunning = false,
+  });
+
+  final List<String> lines;
+}
+
 /// The desktop packages are missing. [command] is the server's install
 /// command (gateway placement only); [sandbox] is true when the screen lives
 /// in the terminal backend's image, which needs the desktop stack.
+/// [canInstall] offers Install on Server, and [result] is how the last
+/// install the app started ended, when it did not succeed.
 final class BotScreenNotInstalled extends BotScreenCardModel {
   const BotScreenNotInstalled({
     this.command,
     this.sandbox = false,
+    this.canInstall = false,
+    this.result,
     super.screenRunning = false,
   });
 
   final String? command;
   final bool sandbox;
+  final bool canInstall;
+  final InstallResult? result;
 }
 
 /// The screen cannot start; [text] is the server's own words and [memoryMb]
