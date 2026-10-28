@@ -51,6 +51,11 @@ WidgetbookNode botScreenNode() {
       enlarge: false,
     ),
     (
+      'Not installed, with no command',
+      const BotScreenNotInstalled(),
+      enlarge: false,
+    ),
+    (
       'Not installed, in a sandbox',
       const BotScreenNotInstalled(sandbox: true),
       enlarge: false,
