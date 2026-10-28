@@ -105,7 +105,8 @@ export function BotScreenCard({
   device,
 }: BotScreenCardProps) {
   const resolved = usePlatform(platform);
-  const touch = resolved === "apple" && useRowDevice(device) === "touch";
+  const appleDevice = useRowDevice(device);
+  const touch = resolved === "apple" && appleDevice === "touch";
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
