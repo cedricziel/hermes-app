@@ -53,6 +53,10 @@ const double kChatGutter = 20;
 const double kChatTurnGap = 20;
 const double kChatItemGap = 8;
 
+/// Builds the still preview of the Bot screen for the reply [run], which goes
+/// under the tool calls of its latest `computer_use` call.
+typedef ScreenPreviewBuilder = Widget Function(ScreenPreviewRun run);
+
 /// The `flutter_chat_ui` builders that give Hermes' message kinds and empty
 /// state their assistant-ui look inside a `Chat`.
 ///
@@ -98,6 +102,7 @@ Builders buildChatBuilders({
   List<ReportedReaction>? Function(DurableReactionRow row)? reactionsFor,
   VoidCallback? onReactionDetails,
   LinkOpener? openLink,
+  ScreenPreviewBuilder? screenPreview,
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
   return Builders(
@@ -143,6 +148,7 @@ Builders buildChatBuilders({
               onAnswerClarify: onAnswerClarify,
               onSkipUnsupported: onSkipUnsupported,
               onAnswerVault: onAnswerVault,
+              screenPreview: screenPreview,
             ),
     chatMessageBuilder:
         (
@@ -324,6 +330,7 @@ Widget _buildCustom(
     String code,
   })?
   onAnswerVault,
+  ScreenPreviewBuilder? screenPreview,
 }) {
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
@@ -334,6 +341,10 @@ Widget _buildCustom(
             metadata[kMetaToolApprovals] as Map<int, ApprovalRequest>? ??
             const {},
         onAnswerApproval: onAnswerApproval,
+        preview: switch (metadata[kMetaScreenPreview]) {
+          final ScreenPreviewRun run => screenPreview?.call(run),
+          _ => null,
+        },
       );
     case kKindSubagents:
       return SubagentGroupCard(

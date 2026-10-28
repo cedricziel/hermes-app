@@ -135,7 +135,7 @@ class ToolCallCard extends StatelessWidget {
         color: scheme.onSurface,
       ),
     );
-    final preview = Text(
+    final summaryText = Text(
       summary,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
@@ -196,13 +196,13 @@ class ToolCallCard extends StatelessWidget {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [name, if (summary.isNotEmpty) preview],
+                      children: [name, if (summary.isNotEmpty) summaryText],
                     ),
                   )
                 else ...[
                   Flexible(flex: 2, child: name),
                   const SizedBox(width: 8),
-                  Expanded(child: preview),
+                  Expanded(child: summaryText),
                 ],
                 ToolCallTime(call: call),
               ],

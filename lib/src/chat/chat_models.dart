@@ -23,6 +23,9 @@ enum MessageStatus { sent, thinking, streaming, error }
 /// it finished, or one the model began to write but never ran.
 enum ToolCallStatus { running, completed, warning, error, cancelled }
 
+/// The tool whose calls drive the bot's own screen (the Bot Screen).
+const String kComputerUseTool = 'computer_use';
+
 /// A single tool invocation surfaced inline in an assistant message, e.g.
 /// Hermes running a shell command or a web search on the user's behalf.
 class ToolCall {

@@ -37,7 +37,7 @@ bool threadUsedScreen(ChatThread thread) {
     return scan.used;
   }
   final used = messages.any(
-    (message) => message.toolCalls.any((call) => call.name == 'computer_use'),
+    (message) => message.toolCalls.any((call) => call.name == kComputerUseTool),
   );
   _scans[thread] = _ScreenScan(count, lastCalls, used);
   return used;
@@ -63,7 +63,7 @@ class BoundBotScreenCard extends StatelessWidget {
     };
     return BotScreenCard(
       model: model,
-      breadcrumbs: _breadcrumbs(context),
+      breadcrumbs: breadcrumbsOf(context),
       shown: controller.shown,
       onStart: controller.start,
       onInstall: controller.canInstall ? controller.startInstall : null,
@@ -74,7 +74,7 @@ class BoundBotScreenCard extends StatelessWidget {
     );
   }
 
-  static Breadcrumbs _breadcrumbs(BuildContext context) {
+  static Breadcrumbs breadcrumbsOf(BuildContext context) {
     try {
       return context.read<Breadcrumbs>();
     } on ProviderNotFoundException {

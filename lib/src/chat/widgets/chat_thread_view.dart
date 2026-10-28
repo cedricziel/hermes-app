@@ -101,6 +101,7 @@ class ChatThreadView extends StatelessWidget {
     this.onSendQueued,
     this.greetingName,
     this.welcome = true,
+    this.screenPreview,
   });
 
   final ChatThread? thread;
@@ -179,6 +180,10 @@ class ChatThreadView extends StatelessWidget {
   /// just the composer instead.
   final bool welcome;
 
+  /// The Bot screen's preview under a running `computer_use` call; none in a
+  /// window that holds no screen.
+  final ScreenPreviewBuilder? screenPreview;
+
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -198,6 +203,7 @@ class ChatThreadView extends StatelessWidget {
           onAnswerVault: onAnswerVault,
           reactionsFor: reactionsFor,
           onReactionDetails: onReactionDetails,
+          screenPreview: screenPreview,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,

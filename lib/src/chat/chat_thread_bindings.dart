@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../bot_screen/bot_screen_controller.dart';
+import '../bot_screen/widgets/bound_bot_screen_preview.dart';
 import '../models/widgets/composer_model_pill.dart';
 import '../models/widgets/model_setup_dialog.dart';
 import '../share/shared_item.dart';
@@ -115,6 +117,8 @@ Widget? protectedQueueView(ChatController chat, ChatThread? t) =>
 /// retries, paging and queue bound to [chat]. A null [thread] (a new chat)
 /// has none of them. Only the main window lets the last prompt be edited
 /// ([editable]) and offers [starterPrompts], slash commands and a [header].
+/// A [screen] shows the Bot screen's preview under a running `computer_use`
+/// call, and a tap on it calls [onOpenScreen].
 ChatThreadView boundChatThreadView({
   required ChatController chat,
   required ChatThread? thread,
@@ -139,10 +143,21 @@ ChatThreadView boundChatThreadView({
   Widget? header,
   Widget? recipientChip,
   VoidCallback? onSetupModel,
+  BotScreenController? screen,
+  VoidCallback? onOpenScreen,
 }) {
   final t = thread;
   return ChatThreadView(
     thread: t,
+    screenPreview: screen == null
+        ? null
+        : (run) => BoundBotScreenPreview(
+            key: BoundBotScreenPreview.keyFor(screen, run.replyId),
+            controller: screen,
+            replyId: run.replyId,
+            startedAt: run.startedAt,
+            onTap: onOpenScreen,
+          ),
     sessionState: t == null ? null : chat.sessionStateIn(t),
     connectorOperations: t == null ? null : chat.connectorOperationsIn(t),
     billingVerification: t == null ? null : chat.billingVerificationIn(t),

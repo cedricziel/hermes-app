@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
+import 'package:hermes_app/src/chat/gateway_connection_transport.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../support/recording_tracer.dart';
@@ -14,9 +16,11 @@ void main() {
   late List<String> events;
   late Future<Map<String, Object?>> Function() answer;
   late BotScreenRepository repository;
+  var calls = 0;
 
   setUp(() {
     tracer = RecordingTracer();
+    calls = 0;
     events = [];
     answer = () async => {'data_url': null};
     repository = BotScreenRepository(
@@ -84,6 +88,36 @@ void main() {
         tracer.spans.every((s) => !s.attributes.containsKey('bytes_kib')),
         isTrue,
       );
+    });
+
+    test('the watchers the caller names are an attribute', () async {
+      answer = () async => {'data_url': jpegOf(1024)};
+
+      await repository.thumbnail('work', watchers: 2);
+      await repository.thumbnail('work');
+
+      expect(tracer.spans.first.attributes['watchers'], 2);
+      expect(tracer.spans.last.attributes.containsKey('watchers'), isFalse);
+    });
+
+    test('the controller passes the surfaces that ask for frames', () async {
+      answer = () async => switch (calls++) {
+        0 => {'supported': true, 'installed': true, 'running': true},
+        _ => {'data_url': jpegOf(1024)},
+      };
+      final controller = BotScreenController(
+        repository,
+        const Stream<GatewayConnectionEvent>.empty(),
+        profile: 'work',
+      );
+      addTearDown(controller.dispose);
+
+      controller
+        ..watch()
+        ..watch();
+      await pumpEventQueue();
+
+      expect(tracer.spans.first.attributes['watchers'], 2);
     });
 
     test('no attribute holds the picture, a path or the profile', () async {

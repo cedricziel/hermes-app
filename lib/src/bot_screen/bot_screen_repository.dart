@@ -99,7 +99,12 @@ class BotScreenRepository {
   }
 
   /// One JPEG grab of the screen; read-only, it never changes the lease.
-  Future<BotScreenResult<BotScreenFrame>> thumbnail(String? profile) async {
+  /// [watchers] is how many surfaces share the poll this grab belongs to, for
+  /// its span.
+  Future<BotScreenResult<BotScreenFrame>> thumbnail(
+    String? profile, {
+    int? watchers,
+  }) async {
     Span? span;
     _quiet(
       () => span = telemetry.tracer?.startSpan(
@@ -107,6 +112,9 @@ class BotScreenRepository {
         attributes: telemetry.serverAttributes,
       ),
     );
+    _quiet(() {
+      if (watchers != null) span?.setAttribute('watchers', watchers);
+    });
     final result = await _call('display.thumbnail', profile, _frame);
     _quiet(() {
       span?.setAttribute('outcome', _outcome(result));

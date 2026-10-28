@@ -21,7 +21,7 @@ Minimum Hermes version: the `display.*` methods first ship in Hermes v2026.9.24 
 
 ## What Changes
 
-- From the first `computer_use` call of a reply until that reply ends, the transcript shows the screen's still preview (Live badge, who is in control) under the header of the run of tool calls that holds the reply's latest `computer_use` call: in the collapsed group header when consecutive calls are folded into a group, otherwise on the single call's card. It moves to a later run when a later `computer_use` call starts, and leaves when the reply ends.
+- From the first `computer_use` call of a reply until that reply ends, the transcript shows the screen's still preview (Live badge, who is in control) right under the run of tool calls that holds the reply's latest `computer_use` call, outside any card: below the group header when consecutive calls are folded into a group, below the card of a single call. It moves to a later run when a later `computer_use` call starts, and leaves when the reply ends.
 - The preview refreshes on the card's rules, and counts as a watcher only while it is actually on screen, not while it is merely built in the list's cache extent.
 - Tapping or clicking the preview opens the Activity panel (it never closes it), where the Bot screen card is in Now. `bot-screen-live-view` later replaces this with the viewer.
 - The preview is in the Widgetbook catalog and in `design/web` (`ToolCallCard` and `ToolCallGroup` preview slots).
@@ -45,12 +45,12 @@ None.
 
 ## Impact
 
-- `lib/src/chat/widgets/tool_call_card.dart` and `tool_call_group.dart`: an optional `preview` slot under the header.
-- `lib/src/chat/widgets/chat_builders.dart`: picks the run that holds the reply's latest `computer_use` call and passes `BotScreenPreview` into it.
+- `lib/src/chat/widgets/tool_call_group.dart`: an optional `preview` slot under the run.
+- `lib/src/chat/chat_message_mapper.dart` picks the run that holds the reply's latest `computer_use` call of a pending reply; `lib/src/chat/widgets/chat_builders.dart` passes `BotScreenPreview` into it.
 - New `lib/src/bot_screen/widgets/bot_screen_preview.dart`.
 - `lib/src/chat/chat_screen_navigation.dart`: an open-only Activity action beside `_toggleActivity`.
 - `BotScreenController`: thumbnail spans carry the number of watchers.
-- New dependency `visibility_detector` (Google, all platforms) to tell on-screen from cache-extent builds.
+- New `lib/src/bot_screen/widgets/on_screen.dart`: a small in-repo check that tells on-screen from cache-extent builds (no new dependency).
 - Widgetbook use cases; `design/web` `ToolCallCard`/`ToolCallGroup` `preview` props.
 
 ## Security and privacy

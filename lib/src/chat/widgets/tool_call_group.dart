@@ -23,9 +23,15 @@ class ToolCallGroup extends StatefulWidget {
     required this.calls,
     this.approvals = const {},
     this.onAnswerApproval,
+    this.preview,
   });
 
   final List<ToolCall> calls;
+
+  /// Drawn right under the run, outside any card: below the card of a run of
+  /// one call, below the header of a longer run, so it stays in view while that
+  /// is folded. The still picture of the screen a `computer_use` call drives.
+  final Widget? preview;
 
   /// The approvals that hold up a call, by its position in [calls].
   final Map<int, ApprovalRequest> approvals;
@@ -56,7 +62,18 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
       );
     }
 
-    if (calls.length == 1) return card(0);
+    // Both shapes keep the preview in the child list's second place, which
+    // with its key is all it takes for it to move without losing its state.
+    if (calls.length == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          card(0),
+          if (widget.preview case final preview?)
+            Padding(padding: const EdgeInsets.only(top: 6), child: preview),
+        ],
+      );
+    }
 
     final waiting = widget.approvals.entries
         .where((e) => e.value.status == InputRequestStatus.pending)
@@ -147,6 +164,11 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
             ),
           ),
         ),
+        if (widget.preview case final preview?)
+          Padding(
+            padding: const EdgeInsets.only(left: 2, top: 2),
+            child: SizedBox(width: double.infinity, child: preview),
+          ),
         if (open)
           Padding(
             padding: const EdgeInsets.only(top: 4),

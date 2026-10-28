@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_card_model.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_preview_model.dart';
+
 import 'package:hermes_app/src/bot_screen/install/install_state.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/chat_models.dart'
+    show ToolCall, ToolCallStatus;
+import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'bot_screen_fixture.dart';
@@ -21,6 +27,50 @@ Widget _card(BotScreenCardModel model, {bool enlarge = false}) => frame(
   ),
   maxWidth: 380,
 );
+
+const _computerUse = ToolCall(
+  id: 'computer-use-1',
+  name: 'computer_use',
+  summary: '{"action":"click","coordinate":[640,400]}',
+  status: ToolCallStatus.running,
+);
+
+const _computerUseRun = [
+  ToolCall(
+    id: 'computer-use-0',
+    name: 'computer_use',
+    summary: '{"action":"screenshot"}',
+  ),
+  _computerUse,
+];
+
+Widget _preview(BotScreenPreviewModel model) =>
+    frame(BotScreenPreview(model: model, onTap: () {}), maxWidth: 480);
+
+/// The tool call widgets as the transcript builds them, with the preview in
+/// their slot.
+List<WidgetbookUseCase> _inToolCalls(
+  BotScreenPreviewModel model,
+  String state,
+) {
+  final preview = BotScreenPreview(model: model, onTap: () {});
+  return [
+    ...onEachPlatform(
+      '$state, single call',
+      (_) => frame(
+        ToolCallGroup(calls: const [_computerUse], preview: preview),
+        maxWidth: 480,
+      ),
+    ),
+    ...onEachPlatform(
+      '$state, folded group',
+      (_) => frame(
+        ToolCallGroup(calls: _computerUseRun, preview: preview),
+        maxWidth: 480,
+      ),
+    ),
+  ];
+}
 
 const _manualCommand = 'apt-get install -y tigervnc-standalone-server xfce4';
 const _installCommand = 'sudo $_manualCommand';
@@ -162,11 +212,48 @@ WidgetbookNode botScreenNode() {
     ),
     ('Not offered', const BotScreenNotOffered(), enlarge: false),
   ];
-  return WidgetbookComponent(
-    name: 'Bot screen card',
-    useCases: [
-      for (final (name, model, :enlarge) in states)
-        ...onEachPlatform(name, (_) => _card(model, enlarge: enlarge)),
+  final previews = <(String, BotScreenPreviewModel)>[
+    ('Hermes in control', BotScreenPreviewFrame(bytes: picture)),
+    (
+      'Portrait screen',
+      BotScreenPreviewFrame(bytes: picture, aspectRatio: 3 / 4),
+    ),
+    ('Waiting for the first picture', const BotScreenPreviewFrame()),
+    ('Someone else in control', const BotScreenPreviewSuppressed()),
+    ('You in control', const BotScreenPreviewSuppressed(byYou: true)),
+  ];
+  return WidgetbookFolder(
+    name: 'Bot screen',
+    children: [
+      WidgetbookComponent(
+        name: 'Bot screen card',
+        useCases: [
+          for (final (name, model, :enlarge) in states)
+            ...onEachPlatform(name, (_) => _card(model, enlarge: enlarge)),
+        ],
+      ),
+      WidgetbookComponent(
+        name: 'Bot screen preview',
+        useCases: [
+          for (final (name, model) in previews)
+            ...onEachPlatform(name, (_) => _preview(model)),
+          ...onEachPlatform(
+            'Not tappable',
+            (_) => frame(
+              BotScreenPreview(model: BotScreenPreviewFrame(bytes: picture)),
+              maxWidth: 480,
+            ),
+          ),
+        ],
+      ),
+      WidgetbookComponent(
+        name: 'Bot screen preview in a tool call',
+        useCases: [
+          for (final (name, model) in previews)
+            if (!name.startsWith('Portrait') && !name.startsWith('You'))
+              ..._inToolCalls(model, name),
+        ],
+      ),
     ],
   );
 }

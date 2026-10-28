@@ -28,6 +28,33 @@ const String kKindReviewSummary = 'review_summary';
 const String kMetaKind = 'kind';
 const String kMetaToolCalls = 'calls';
 const String kMetaToolApprovals = 'approvals';
+
+/// Carried by the `kKindToolGroup` message of the run that holds the latest
+/// `computer_use` call of a reply that is still running: its
+/// [ScreenPreviewRun]. The transcript draws the Bot screen's still preview
+/// there.
+const String kMetaScreenPreview = 'screenPreview';
+
+/// The reply a Bot screen preview belongs to.
+class ScreenPreviewRun {
+  const ScreenPreviewRun(this.replyId, this.startedAt);
+
+  final String replyId;
+
+  /// When the reply began; of two replies pending at once, the newer one shows
+  /// the preview.
+  final DateTime startedAt;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ScreenPreviewRun &&
+      other.replyId == replyId &&
+      other.startedAt == startedAt;
+
+  @override
+  int get hashCode => Object.hash(replyId, startedAt);
+}
+
 const String kMetaInputRequest = 'request';
 const String kMetaThinkingStartedAt = 'startedAt';
 const String kMetaThinkingActivity = 'activity';
