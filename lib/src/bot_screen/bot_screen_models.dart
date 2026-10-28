@@ -123,6 +123,29 @@ class BotScreenStatus {
   final BotScreenLease lease;
 }
 
+/// What `display.observe` answered: the single-use [ticket] for the display
+/// stream (valid for 30 seconds), its [path], the [viewerId] the server minted
+/// for this gateway connection and the screen's [status].
+///
+/// The ticket and the id are credentials. They are kept in memory only, and a
+/// printed observation shows neither.
+class BotScreenObservation {
+  const BotScreenObservation({
+    required this.ticket,
+    required this.path,
+    required this.viewerId,
+    required this.status,
+  });
+
+  final String ticket;
+  final String path;
+  final String viewerId;
+  final BotScreenStatus status;
+
+  @override
+  String toString() => 'BotScreenObservation()';
+}
+
 /// What `display.thumbnail` answered.
 sealed class BotScreenFrame {
   const BotScreenFrame();

@@ -4,8 +4,8 @@ One PR, `feat(bot-screen): watch the screen live`, about 500 changed lines inclu
 
 ## 1. Viewer controller
 
-- [ ] 1.1 Write failing tests for `BotScreenViewerController` with a fake gateway and a fake socket opener: observe sends `profile` and the stream opens with its ticket and path; each row of the close-code table (1000, 4000, 4001, 4401 once and twice, 1003, HTTP 403, 1006 with backoff and give-up after 5 attempts); an observe failure reads status and shows Off when not running, Error otherwise; pausing closes with 1000 and drops the framebuffer, resuming observes again; a lease held by someone else blanks the picture and keeps the stream.
-- [ ] 1.2 Add `BotScreenRepository.observe` and implement the controller; verify 1.1 passes.
+- [x] 1.1 Write failing tests for `BotScreenViewerController` with a fake gateway and a fake socket opener: observe sends `profile` and the stream opens with its ticket and path; each row of the close-code table (1000, 4000, 4001, 4401 once and twice, 1003, HTTP 403, 1006 with backoff and give-up after 5 attempts); an observe failure reads status and shows Off when not running, Error otherwise; pausing closes with 1000 and drops the framebuffer, resuming observes again; a lease held by someone else blanks the picture and keeps the stream.
+- [x] 1.2 Add `BotScreenRepository.observe` and implement the controller; verify 1.1 passes.
 
 ## 2. Catalog first
 

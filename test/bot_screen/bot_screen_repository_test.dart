@@ -331,4 +331,77 @@ void main() {
       expect(((await result) as BotScreenFailed).kind, BotScreenFailure.closed);
     });
   });
+  group('display.observe', () {
+    setUp(() {
+      gateway.handlers['display.observe'] = (_) => {
+        'ticket': 'ticket-secret',
+        'path': '/api/display/ws',
+        'viewer_id': 'viewer-1',
+        ...statusJson(),
+      };
+    });
+
+    test(
+      'names the profile and reads the ticket, path, id and status',
+      () async {
+        final observation = await ok(repository.observe('work'));
+
+        expect(gateway.requestOf('display.observe')['params'], {
+          'profile': 'work',
+        });
+        expect(observation.ticket, 'ticket-secret');
+        expect(observation.path, '/api/display/ws');
+        expect(observation.viewerId, 'viewer-1');
+        expect(observation.status.running, isTrue);
+        expect(observation.status.lease.holder, BotScreenHolder.agent);
+      },
+    );
+
+    test('names the default profile and passes a viewer id along', () async {
+      await repository.observe(null, viewerId: 'viewer-1');
+
+      expect(gateway.requestOf('display.observe')['params'], {
+        'profile': 'default',
+        'viewer_id': 'viewer-1',
+      });
+    });
+
+    test('a printed observation holds neither ticket nor id', () async {
+      final observation = await ok(repository.observe('work'));
+
+      expect('$observation', isNot(contains('ticket-secret')));
+      expect('$observation', isNot(contains('viewer-1')));
+    });
+
+    test('an error answer is a display failure', () async {
+      gateway.handlers['display.observe'] = (_) =>
+          throw const FakeRpcError(5300, 'not running');
+
+      final result = await repository.observe('work');
+
+      expect((result as BotScreenFailed).kind, BotScreenFailure.display);
+    });
+
+    test('method-not-found is unsupported', () async {
+      gateway.handlers['display.observe'] = (_) =>
+          throw const FakeRpcError(-32601, 'unknown method');
+
+      expect(await repository.observe('work'), isA<BotScreenUnsupported>());
+    });
+
+    test('an answer without a ticket or path cannot be used', () async {
+      for (final broken in [
+        {'path': '/api/display/ws', 'viewer_id': 'v'},
+        {'ticket': 't', 'viewer_id': 'v'},
+        {'ticket': 't', 'path': '/api/display/ws'},
+        {'ticket': '', 'path': '/api/display/ws', 'viewer_id': 'v'},
+      ]) {
+        gateway.handlers['display.observe'] = (_) => broken;
+
+        final result = await repository.observe('work');
+
+        expect((result as BotScreenFailed).kind, BotScreenFailure.display);
+      }
+    });
+  });
 }
