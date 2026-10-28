@@ -4,8 +4,8 @@ One PR, `feat(bot-screen): preview the screen in the transcript`, about 400 chan
 
 ## 1. Catalog first
 
-- [x] 1.1 Add `BotScreenPreview` and the `preview` slots on `ToolCallCard` and `ToolCallGroup`, with Widgetbook use cases: a single running `computer_use` card with a preview, a folded group whose header carries it, suppressed, Apple and Material, both themes, phone and desktop. Verify `flutter test test/widgetbook_test.dart` passes.
-- [x] 1.2 Mirror them in `design/web` (`preview` props, `BotScreenPreview` with `docs/BotScreenPreview.md`, `category: Agent activity`) and verify `npm run build` passes.
+- [x] 1.1 Add `BotScreenPreview` and the `preview` slot on `ToolCallGroup`, with Widgetbook use cases: a single running `computer_use` call with a preview below its card, a folded group whose header carries it, suppressed, Apple and Material, both themes, phone and desktop. Verify `flutter test test/widgetbook_test.dart` passes.
+- [x] 1.2 Mirror them in `design/web` (the `preview` prop on `ToolCallGroup`, `BotScreenPreview` with `docs/BotScreenPreview.md`, `category: Agent activity`) and verify `npm run build` passes.
 
 ## 2. Placement
 
@@ -15,7 +15,7 @@ One PR, `feat(bot-screen): preview the screen in the transcript`, about 400 chan
 ## 3. Demand and tap
 
 - [x] 3.1 Write failing widget tests: a preview scrolled into the cache extent but off screen holds no watch and causes no `display.thumbnail` request; one on screen does; tapping it opens the Activity panel and a second tap leaves it open; with the inspector already open a tap keeps it open.
-- [x] 3.2 Add `visibility_detector`, the binding and `_openActivity`; verify 3.1 passes.
+- [x] 3.2 Add the binding with its in-repo on-screen check (not the `visibility_detector` package, see `design.md`) and `_openActivity`; verify 3.1 passes.
 
 ## 4. Observability
 
@@ -23,7 +23,7 @@ One PR, `feat(bot-screen): preview the screen in the transcript`, about 400 chan
 
 ## 5. Docs and skills
 
-- [x] 5.1 Extend `CLAUDE.md`'s Bot Screen paragraph (where the transcript preview sits, on-screen demand, the open-only action), and give the reason for `visibility_detector` in the PR description, as CLAUDE.md's Dependencies section asks.
+- [x] 5.1 Extend `CLAUDE.md`'s Bot Screen paragraph (where the transcript preview sits, on-screen demand, the open-only action), and say in the PR description why no package is used for the on-screen check.
 - [x] 5.2 No skill change.
 
 ## 6. Verify
