@@ -360,7 +360,7 @@ class BotScreenController extends ChangeNotifier {
   }
 
   Future<void> _readFrame((int, int) mark) async {
-    final result = await _repository.thumbnail(profile);
+    final result = await _repository.thumbnail(profile, watchers: _demand);
     if (_stale(mark)) return;
     switch (result) {
       case BotScreenOk(value: BotScreenJpeg(:final bytes)):
