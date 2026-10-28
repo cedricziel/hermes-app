@@ -274,13 +274,13 @@ class _BotScreenCardState extends State<BotScreenCard> {
                         gaplessPlayback: true,
                         excludeFromSemantics: true,
                         errorBuilder: (_, _, _) => const Center(
-                          child: _Caption('Picture unavailable'),
+                          child: BotScreenCaption('Picture unavailable'),
                         ),
                       ),
                     )
                   else
                     const Center(
-                      child: _Caption('Waiting for the first picture…'),
+                      child: BotScreenCaption('Waiting for the first picture…'),
                     ),
                   if (widget.onEnlarge != null)
                     Positioned(
@@ -303,7 +303,7 @@ class _BotScreenCardState extends State<BotScreenCard> {
           ),
         ),
         const SizedBox(height: 6),
-        const _Caption('Hermes is in control'),
+        const BotScreenCaption('Hermes is in control'),
       ],
     );
   }
@@ -385,8 +385,9 @@ class _Starting extends StatelessWidget {
   );
 }
 
-class _Caption extends StatelessWidget {
-  const _Caption(this.text);
+/// Small muted text under a picture, shared with the transcript preview.
+class BotScreenCaption extends StatelessWidget {
+  const BotScreenCaption(this.text, {super.key});
 
   final String text;
 

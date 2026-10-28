@@ -23,9 +23,14 @@ class ToolCallGroup extends StatefulWidget {
     required this.calls,
     this.approvals = const {},
     this.onAnswerApproval,
+    this.preview,
   });
 
   final List<ToolCall> calls;
+
+  /// Drawn under the header of a folded run, so it stays in view while the
+  /// run is folded, and on the card of a run of one call.
+  final Widget? preview;
 
   /// The approvals that hold up a call, by its position in [calls].
   final Map<int, ApprovalRequest> approvals;
@@ -44,11 +49,12 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
   @override
   Widget build(BuildContext context) {
     final calls = widget.calls;
-    Widget card(int i) {
+    Widget card(int i, {Widget? preview}) {
       final approval = widget.approvals[i];
       final answer = widget.onAnswerApproval;
       return ToolCallCard(
         call: calls[i],
+        preview: preview,
         approval: approval,
         onAnswerApproval: approval == null || answer == null
             ? null
@@ -56,7 +62,7 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
       );
     }
 
-    if (calls.length == 1) return card(0);
+    if (calls.length == 1) return card(0, preview: widget.preview);
 
     final waiting = widget.approvals.entries
         .where((e) => e.value.status == InputRequestStatus.pending)
@@ -147,6 +153,11 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
             ),
           ),
         ),
+        if (widget.preview case final preview?)
+          Padding(
+            padding: const EdgeInsets.only(left: 2, top: 2, bottom: 4),
+            child: preview,
+          ),
         if (open)
           Padding(
             padding: const EdgeInsets.only(top: 4),
