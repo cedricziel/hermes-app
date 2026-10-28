@@ -41,7 +41,7 @@ class AppDelegate: FlutterAppDelegate {
 
     override func applicationDidFinishLaunching(_ notification: Notification) {
         mainWindow = mainFlutterWindow
-        if let controller = mainFlutterWindow?.contentViewController as? FlutterViewController {
+        if let controller = (mainFlutterWindow as? MainFlutterWindow)?.flutterViewController {
             let channel = FlutterMethodChannel(
                 name: "hermes_app/share", binaryMessenger: controller.engine.binaryMessenger
             )
