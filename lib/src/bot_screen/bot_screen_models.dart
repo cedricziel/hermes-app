@@ -240,3 +240,31 @@ class BotScreenInstallStart {
 class BotScreenShown {
   String? slug;
 }
+
+/// What the viewer shows.
+enum BotScreenViewerPhase {
+  /// Asking for a ticket, opening the socket or waiting for the first picture.
+  connecting,
+
+  /// The picture arrives.
+  live,
+
+  /// The stream ended and is being opened again; the last picture is dimmed.
+  reconnecting,
+
+  /// A person other than this device holds control, so there is no picture.
+  blanked,
+
+  /// The screen is not running.
+  off,
+
+  /// Hermes does not let this app view the screen (HTTP 403).
+  notAllowed,
+
+  /// The stream could not be opened again, after all attempts.
+  unreachable,
+
+  /// The stream ended for a reason retrying does not fix: a protocol error or
+  /// a ticket that kept being refused.
+  failed,
+}

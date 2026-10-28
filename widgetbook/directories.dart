@@ -78,6 +78,7 @@ final List<WidgetbookNode> directories = [
   activityPanelNode(),
   botScreenNode(),
   sudoPasswordPromptNode(),
+  botScreenViewerNode(),
   activityButtonNode(),
   moaProgressNode(),
   backgroundCheckStatusNode(),
