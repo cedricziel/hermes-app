@@ -54,6 +54,7 @@ void main() {
   late List<String> logged;
   late List<_Open> openScript;
   late List<Duration> openTimes;
+  late List<Completer<void>> openGates;
   late bool running;
   late bool statusFails;
   late bool observeFails;
@@ -111,6 +112,7 @@ void main() {
       logged = [];
       openScript = [];
       openTimes = [];
+      openGates = [];
       running = true;
       statusFails = false;
       observeFails = false;
@@ -155,6 +157,7 @@ void main() {
         openSocket: (path, ticket) async {
           opened.add((path: path, ticket: ticket));
           openTimes.add(async.elapsed);
+          if (openGates.isNotEmpty) await openGates.removeAt(0).future;
           final result = openScript.isEmpty ? _Open.ok : openScript.removeAt(0);
           switch (result) {
             case _Open.notAllowed:
@@ -637,6 +640,38 @@ void main() {
 
         expect(outcomes, ['gone', 'ticket', 'ticket', 'protocol', 'error']);
       });
+    });
+
+    test('a run superseded while opening ends its own span, not the next', () {
+      scenario(() {
+        final first = Completer<void>();
+        final second = Completer<void>();
+        openGates.addAll([first, second]);
+        viewer.start();
+        settle();
+        viewer.foreground = false;
+        settle();
+        viewer.foreground = true;
+        settle();
+        expect(opened, hasLength(2));
+
+        first.complete();
+        settle();
+        expect(tracer.spans, hasLength(2));
+        expect(tracer.spans[0].ended, isTrue);
+        expect(tracer.spans[0].attributes['outcome'], 'closed');
+        expect(tracer.spans[1].ended, isFalse);
+
+        second.complete();
+        settle();
+        handshake();
+        update(1);
+        viewer.dispose();
+        settle();
+
+        expect(tracer.spans[1].ended, isTrue);
+        expect(tracer.spans[1].attributes['encodings_used'], 'raw');
+      }, start: false);
     });
 
     test('a refused upgrade is not_allowed', () {

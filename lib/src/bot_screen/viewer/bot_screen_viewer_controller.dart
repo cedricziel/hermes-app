@@ -85,7 +85,10 @@ class BotScreenViewerController extends ChangeNotifier {
   RfbClient? _client;
   StreamSubscription<RfbEvent>? _events;
   Timer? _retry;
-  Span? _span;
+
+  /// The span of the open client's stream. The span of a stream still being
+  /// opened is local to its run, so a superseded run cannot end a newer one.
+  Span? _clientSpan;
 
   /// What the viewer shows now. A picture waits for the lease: it is hidden
   /// while that is unknown and blanked while another person holds control.
@@ -241,38 +244,39 @@ class BotScreenViewerController extends ChangeNotifier {
   }
 
   Future<void> _open(int run, BotScreenObservation observation) async {
-    _startSpan();
+    final span = _startSpan();
     final WebSocketChannel channel;
     try {
       channel = await openSocket(observation.path, observation.ticket);
     } on DisplaySocketError catch (error) {
-      if (_stale(run)) return _endSpan('closed');
+      if (_stale(run)) return _endSpan(span, 'closed');
       _logFailure('connect', error.kind.name);
       if (error.kind == DisplaySocketErrorKind.notAllowed) {
-        _endSpan('not_allowed');
+        _endSpan(span, 'not_allowed');
         _picture = null;
         _base = BotScreenViewerPhase.notAllowed;
         _notify();
       } else {
-        _endSpan('error');
+        _endSpan(span, 'error');
         _retryLater();
       }
       return;
     } on Object {
       // Whatever the opener threw, its message may name the ticket.
-      if (_stale(run)) return _endSpan('closed');
+      if (_stale(run)) return _endSpan(span, 'closed');
       _logFailure('connect', 'unreachable');
-      _endSpan('error');
+      _endSpan(span, 'error');
       _retryLater();
       return;
     }
     if (_stale(run)) {
-      _endSpan('closed', code: 1000);
+      _endSpan(span, 'closed', code: 1000);
       unawaited(_closeQuietly(channel));
       return;
     }
     _connected = false;
     final client = _client = RfbClient(channel);
+    _clientSpan = span;
     _events = client.events.listen((event) => _onEvent(run, client, event));
   }
 
@@ -305,10 +309,11 @@ class BotScreenViewerController extends ChangeNotifier {
       RfbStep.decode => 'decode',
       null => _connected ? 'decode' : 'handshake',
     };
+    final span = _clientSpan;
     _forgetClient();
     void end(String outcome, String errorType) {
       _logFailure(step, errorType);
-      _endSpan(outcome, code: code, client: client);
+      _endSpan(span, outcome, code: code, client: client);
     }
 
     switch (code) {
@@ -366,14 +371,16 @@ class BotScreenViewerController extends ChangeNotifier {
     unawaited(_events?.cancel());
     _events = null;
     _client = null;
+    _clientSpan = null;
   }
 
   /// Closes the open stream, if any, as the app's own doing (1000).
   void _dropStream() {
     final client = _client;
     if (client == null) return;
+    final span = _clientSpan;
     _forgetClient();
-    _endSpan('closed', code: 1000, client: client);
+    _endSpan(span, 'closed', code: 1000, client: client);
     unawaited(client.close(1000).catchError((Object _) {}));
   }
 
@@ -385,21 +392,20 @@ class BotScreenViewerController extends ChangeNotifier {
     }
   }
 
-  void _startSpan() {
-    _span = null;
+  Span? _startSpan() {
+    Span? span;
     _quiet(
-      () => _span = telemetry.tracer?.startSpan(
+      () => span = telemetry.tracer?.startSpan(
         'bot_screen.stream',
         attributes: telemetry.serverAttributes,
       ),
     );
+    return span;
   }
 
   /// Ends the stream's span with its outcome, the close code, the encodings
   /// used and the bytes received in a bucket. Never the ticket or the path.
-  void _endSpan(String outcome, {int? code, RfbClient? client}) {
-    final span = _span;
-    _span = null;
+  void _endSpan(Span? span, String outcome, {int? code, RfbClient? client}) {
     if (span == null) return;
     _quiet(() {
       span.setAttribute('outcome', outcome);
