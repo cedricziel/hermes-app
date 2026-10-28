@@ -62,7 +62,16 @@
   color: var(--h-error);
 }
 
+.h-tool-group__single {
+  display: flex;
+  flex-direction: column;
+}
+
 .h-tool-group__preview {
   width: 100%;
-  padding: 2px 0 4px 2px;
+  padding: 2px 0 0 2px;
+}
+
+.h-tool-group__preview--single {
+  padding: 6px 0 0;
 }

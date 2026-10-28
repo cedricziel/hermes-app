@@ -6,7 +6,6 @@ import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../widgetbook/bot_screen_fixture.dart';
 import '../bot_screen/bot_screen_repository_test.dart' show statusJson;
@@ -29,7 +28,6 @@ void main() {
       testWidgets('the preview in the transcript ($device, $mode)', (
         tester,
       ) async {
-        VisibilityDetectorController.instance.updateInterval = Duration.zero;
         final shots = ScreenshotRecorder('bot-screen-preview-$device-$mode');
         await shots.start(tester, size);
         final gateway = FakeGateway()..activeSessions = {};

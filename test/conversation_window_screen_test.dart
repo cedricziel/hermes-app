@@ -17,6 +17,8 @@ import 'package:hermes_app/src/windows/conversation_window_screen.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart'
     show kInspectorWindowCommand;
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_gateway.dart';
@@ -274,6 +276,56 @@ void main() {
 
     expect(find.byKey(const Key('activity-panel')), findsOneWidget);
     expect(find.byType(BotScreenCard), findsNothing);
+    expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(gatewayTransport.close);
+  });
+
+  testWidgets('a computer_use call in a window shows no Bot screen preview '
+      'and requests no frames', (tester) async {
+    final gateway = FakeGateway()..activeSessions = {};
+    gateway.handlers['display.status'] = (_) => {
+      'supported': true,
+      'installed': true,
+      'running': true,
+      'lease': {'holder': 'agent'},
+    };
+    gateway.handlers['session.resume'] = (params) => {
+      'session_id': 'rt-1',
+      'stored_session_id': params['session_id'],
+      'session_key': params['session_id'],
+    };
+    final gatewayTransport = HermesGatewayTransport(connect: gateway.connect);
+    addTearDown(gatewayTransport.close);
+    await pump(tester, withTransport: gatewayTransport);
+
+    await tester.enterText(composerField, 'Book a table');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Send'));
+    await tester.pump();
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+    }
+    gateway
+      ..event('message.start', gateway.lastSessionId)
+      ..event('tool.start', gateway.lastSessionId, {
+        'tool_id': 'c1',
+        'name': 'computer_use',
+        'context': 'click',
+      });
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+    }
+    await tester.pump(const Duration(seconds: 12));
+
+    expect(find.byType(ToolCallCard), findsOneWidget);
+    expect(find.byType(BotScreenPreview), findsNothing);
     expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(gatewayTransport.close);

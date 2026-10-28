@@ -28,8 +28,9 @@ class ToolCallGroup extends StatefulWidget {
 
   final List<ToolCall> calls;
 
-  /// Drawn under the header of a folded run, so it stays in view while the
-  /// run is folded, and on the card of a run of one call.
+  /// Drawn right under the run, outside any card: below the card of a run of
+  /// one call, below the header of a longer run, so it stays in view while that
+  /// is folded. The still picture of the screen a `computer_use` call drives.
   final Widget? preview;
 
   /// The approvals that hold up a call, by its position in [calls].
@@ -49,12 +50,11 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
   @override
   Widget build(BuildContext context) {
     final calls = widget.calls;
-    Widget card(int i, {Widget? preview}) {
+    Widget card(int i) {
       final approval = widget.approvals[i];
       final answer = widget.onAnswerApproval;
       return ToolCallCard(
         call: calls[i],
-        preview: preview,
         approval: approval,
         onAnswerApproval: approval == null || answer == null
             ? null
@@ -62,7 +62,18 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
       );
     }
 
-    if (calls.length == 1) return card(0, preview: widget.preview);
+    // Both shapes keep the preview in the child list's second place, which
+    // with its key is all it takes for it to move without losing its state.
+    if (calls.length == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          card(0),
+          if (widget.preview case final preview?)
+            Padding(padding: const EdgeInsets.only(top: 6), child: preview),
+        ],
+      );
+    }
 
     final waiting = widget.approvals.entries
         .where((e) => e.value.status == InputRequestStatus.pending)
@@ -154,7 +165,10 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
           ),
         ),
         if (widget.preview case final preview?)
-          Padding(padding: const EdgeInsets.only(left: 2), child: preview),
+          Padding(
+            padding: const EdgeInsets.only(left: 2, top: 2),
+            child: SizedBox(width: double.infinity, child: preview),
+          ),
         if (open)
           Padding(
             padding: const EdgeInsets.only(top: 4),

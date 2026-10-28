@@ -26,8 +26,8 @@ const MAX_HEIGHT = 200;
  * The still preview of the bot's screen under a `computer_use` tool call, at most 320px wide
  * and 200px tall: the latest picture in an outlined box, a Live badge top left, and "Hermes is
  * in control" under it. The app draws it for as long as the reply is using the screen, in the
- * `preview` slot of the ToolCallCard of a single call or under the line of a folded
- * ToolCallGroup; it refreshes about every 3 seconds, only while it is on screen. When a person
+ * `preview` slot of a ToolCallGroup, right under the card of a single call or under the line
+ * of a folded group, outside any card; it refreshes about every 3 seconds, only while it is on screen. When a person
  * holds control it shrinks to one outlined line with a lock.
  */
 export function BotScreenPreview({

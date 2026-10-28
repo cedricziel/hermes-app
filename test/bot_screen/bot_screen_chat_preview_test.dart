@@ -1,11 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bound_bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
@@ -15,12 +18,12 @@ import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
+import '../../widgetbook/bot_screen_fixture.dart';
 import '../support/fake_gateway.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart';
-import 'bot_screen_repository_test.dart' show jpeg, statusJson;
+import 'bot_screen_repository_test.dart' show statusJson;
 
 /// The still preview under the `computer_use` call of a running reply, on the
 /// chat screen over the real transport.
@@ -43,7 +46,6 @@ void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
-    VisibilityDetectorController.instance.updateInterval = Duration.zero;
     running = true;
     unsupported = false;
     trail = BreadcrumbTrail();
@@ -54,7 +56,8 @@ void main() {
       return statusJson(running: running);
     };
     gateway.handlers['display.thumbnail'] = (_) => {
-      'data_url': 'data:image/jpeg;base64,${base64Encode(jpeg)}',
+      'data_url':
+          'data:image/png;base64,${base64Encode(botScreenFixturePng())}',
     };
     gateway.handlers['session.resume'] = (params) => {
       'session_id': 'rt-1',
@@ -66,19 +69,45 @@ void main() {
       ..on(
         'GET',
         '/api/profiles',
-        profileListBody([profileRow(name: 'default', isDefault: true)]),
+        profileListBody([
+          profileRow(name: 'default', isDefault: true),
+          profileRow(name: 'work'),
+        ]),
       )
       ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'))
       ..on(
         'GET',
         '/api/sessions',
-        sessionListBody([sessionRow(id: 'stored-1', title: 'First chat')]),
+        sessionListBody([
+          sessionRow(id: 'stored-1', title: 'First chat'),
+          sessionRow(id: 'stored-2', title: 'Second chat'),
+          sessionRow(id: 'stored-3', title: 'Long chat'),
+        ]),
       )
       ..on(
         'GET',
         '/api/sessions/stored-1/messages',
         messageListBody('stored-1', [
           messageRow(id: 1, role: 'user', content: 'Hello'),
+        ]),
+      )
+      ..on(
+        'GET',
+        '/api/sessions/stored-2/messages',
+        messageListBody('stored-2', [
+          messageRow(id: 1, role: 'user', content: 'Another'),
+        ]),
+      )
+      ..on(
+        'GET',
+        '/api/sessions/stored-3/messages',
+        messageListBody('stored-3', [
+          for (var i = 1; i <= 40; i++)
+            messageRow(
+              id: i,
+              role: i.isOdd ? 'user' : 'assistant',
+              content: 'Message $i of a long conversation. ' * 8,
+            ),
         ]),
       );
     profiles = ChatProfiles(HermesProfilesRepository(server.client().raw));
@@ -102,6 +131,7 @@ void main() {
   Future<void> pumpScreen(
     WidgetTester tester, {
     Size size = const Size(1400, 900),
+    String thread = 'First chat',
   }) async {
     await pumpChatScreen(
       tester,
@@ -115,7 +145,7 @@ void main() {
         Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
       ],
     );
-    await openThread(tester, 'First chat');
+    await openThread(tester, thread);
   }
 
   /// Sends a prompt; the fake gateway then holds the turn open until the test
@@ -167,6 +197,10 @@ void main() {
   }
 
   final preview = find.byType(BotScreenPreview);
+  final previewTarget = find.descendant(
+    of: preview,
+    matching: find.byType(InkWell),
+  );
 
   group('placement', () {
     testWidgets('a running computer_use call shows the preview on its card', (
@@ -181,7 +215,7 @@ void main() {
       expect(find.text('Live'), findsOne);
       expect(find.text('Hermes is in control'), findsOne);
       expect(
-        find.descendant(of: find.byType(ToolCallCard), matching: preview),
+        find.descendant(of: find.byType(ToolCallGroup), matching: preview),
         findsOne,
       );
       expect(calls('display.thumbnail'), greaterThan(0));
@@ -216,14 +250,18 @@ void main() {
       await useScreen(tester, 'c1', finish: true);
       // Text before the next call starts a run of its own.
       await emitAndSettle(tester, 'message.delta', {'text': 'Now the form.'});
+      final state = tester.state(find.byType(BoundBotScreenPreview));
 
       await useScreen(tester, 'c2');
 
       expect(preview, findsOne);
-      final owner = tester.widget<ToolCallCard>(
-        find.ancestor(of: preview, matching: find.byType(ToolCallCard)),
+      final owner = tester.widget<ToolCallGroup>(
+        find.ancestor(of: preview, matching: find.byType(ToolCallGroup)),
       );
-      expect(owner.call.id, 'c2');
+      expect(owner.calls.single.id, 'c2');
+      // It moved to the later run with its state, not drawn anew.
+      expect(tester.state(find.byType(BoundBotScreenPreview)), same(state));
+      expect(find.text('Waiting for the first picture…'), findsNothing);
       await end(tester);
     });
 
@@ -318,12 +356,12 @@ void main() {
       await useScreen(tester, 'c1');
       expect(find.byKey(const Key('activity-inspector')), findsNothing);
 
-      await tester.tap(preview);
+      await tester.tap(previewTarget);
       await tester.pump();
       await settle(tester);
       expect(card, findsOne);
 
-      await tester.tap(preview);
+      await tester.tap(previewTarget);
       await tester.pump();
       await settle(tester);
       expect(card, findsOne);
@@ -340,7 +378,7 @@ void main() {
       await useScreen(tester, 'c1');
       expect(card, findsOne);
 
-      await tester.tap(preview);
+      await tester.tap(previewTarget);
       await tester.pump();
       await settle(tester);
 
@@ -354,12 +392,193 @@ void main() {
       await useScreen(tester, 'c1');
       expect(find.byKey(const Key('activity-close')), findsNothing);
 
-      await tester.tap(preview);
+      await tester.tap(previewTarget);
       await tester.pump();
       await settle(tester);
 
       expect(find.byKey(const Key('activity-close')), findsOne);
       expect(card, findsOne);
+      await end(tester);
+    });
+  });
+
+  group('where it sits and what keeps it', () {
+    Map<String, Object?> call(String id) => {
+      'tool_id': id,
+      'name': 'computer_use',
+      'context': 'click',
+      'args': {'action': 'click'},
+    };
+
+    testWidgets('a folded group that starts cold still shows it and asks for '
+        'frames', (tester) async {
+      await pumpScreen(tester);
+      await startReply(tester);
+
+      // Two calls arrive before anything has been read.
+      emit('tool.start', call('c1'));
+      emit('tool.start', call('c2'));
+      await settle(tester);
+
+      expect(find.byType(ToolCallGroup), findsOne);
+      expect(preview, findsOne);
+      expect(calls('display.thumbnail'), greaterThan(0));
+      await end(tester);
+    });
+
+    testWidgets('the preview sits below a single call\'s card and keeps its '
+        'state and frame when the run folds into a group', (tester) async {
+      await pumpScreen(tester);
+      await startReply(tester);
+      await useScreen(tester, 'c1');
+      expect(find.text('Waiting for the first picture…'), findsNothing);
+      final state = tester.state(find.byType(BoundBotScreenPreview));
+      expect(
+        tester.getTopLeft(preview).dy,
+        greaterThanOrEqualTo(
+          tester.getBottomLeft(find.byType(ToolCallCard)).dy,
+        ),
+      );
+      final statusReads = calls('display.status');
+
+      await useScreen(tester, 'c2');
+
+      expect(find.byType(ToolCallGroup), findsOne);
+      expect(tester.state(find.byType(BoundBotScreenPreview)), same(state));
+      expect(find.text('Waiting for the first picture…'), findsNothing);
+      expect(calls('display.status'), statusReads);
+      await end(tester);
+    });
+
+    testWidgets('an approval appearing on the call leaves the preview as it '
+        'was', (tester) async {
+      await pumpScreen(tester);
+      await startReply(tester);
+      await useScreen(tester, 'c1');
+      final state = tester.state(find.byType(BoundBotScreenPreview));
+      final statusReads = calls('display.status');
+
+      await emitAndSettle(tester, 'approval.request', {
+        'request_id': 'r1',
+        'command': 'open the booking page',
+        'description': 'computer use',
+        'choices': ['once', 'deny'],
+        'tool_name': 'computer_use',
+      });
+
+      expect(find.byType(ApprovalCard), findsOne);
+      expect(preview, findsOne);
+      expect(tester.state(find.byType(BoundBotScreenPreview)), same(state));
+      expect(find.text('Waiting for the first picture…'), findsNothing);
+      expect(calls('display.status'), statusReads);
+      await end(tester);
+    });
+
+    for (final (name, status) in [
+      ('a failed reply', 'error'),
+      ('a stopped reply', 'interrupted'),
+    ]) {
+      testWidgets('$name takes the preview away and stops the requests', (
+        tester,
+      ) async {
+        await pumpScreen(tester);
+        await startReply(tester);
+        await useScreen(tester, 'c1');
+        expect(preview, findsOne);
+
+        await emitAndSettle(tester, 'message.complete', {
+          'text': '',
+          'status': status,
+          if (status == 'error') 'error': 'It broke',
+        });
+        final before = calls('display.thumbnail');
+
+        expect(preview, findsNothing);
+        await tester.pump(const Duration(seconds: 12));
+        await settle(tester);
+        expect(calls('display.thumbnail'), before);
+        await end(tester);
+      });
+    }
+  });
+
+  group('in the real transcript', () {
+    final list = find.descendant(
+      of: find.byType(Chat),
+      matching: find.byType(Scrollable),
+    );
+
+    testWidgets('scrolling the preview off screen stops the requests and '
+        'scrolling back asks again', (tester) async {
+      await pumpScreen(tester, thread: 'Long chat');
+      await startReply(tester);
+      await useScreen(tester, 'c1');
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(preview, findsOne);
+      expect(calls('display.thumbnail'), greaterThan(0));
+
+      // Far enough that it is below the screen, near enough that the list
+      // still builds it.
+      await tester.drag(list.first, const Offset(0, 600));
+      await tester.pump(const Duration(milliseconds: 100));
+      await settle(tester);
+      expect(
+        find.byType(BoundBotScreenPreview, skipOffstage: false),
+        findsOne,
+        reason: 'built in the cache extent',
+      );
+      final before = calls('display.thumbnail');
+      await tester.pump(const Duration(seconds: 12));
+      await settle(tester);
+      expect(calls('display.thumbnail'), before);
+
+      await tester.drag(list.first, const Offset(0, -600));
+      await tester.pump(const Duration(milliseconds: 100));
+      await settle(tester);
+      expect(calls('display.thumbnail'), greaterThan(before));
+      await end(tester);
+    });
+
+    testWidgets('opening another chat releases the watch', (tester) async {
+      await pumpScreen(tester);
+      await startReply(tester);
+      await useScreen(tester, 'c1');
+      expect(calls('display.thumbnail'), greaterThan(0));
+
+      await openThread(tester, 'Second chat', settle: false);
+      await settle(tester);
+      expect(preview, findsNothing);
+      final before = calls('display.thumbnail');
+      await tester.pump(const Duration(seconds: 12));
+      await settle(tester);
+
+      expect(calls('display.thumbnail'), before);
+      await end(tester);
+    });
+
+    testWidgets('another profile releases the watch', (tester) async {
+      await pumpScreen(tester);
+      await startReply(tester);
+      await useScreen(tester, 'c1');
+      expect(calls('display.thumbnail'), greaterThan(0));
+
+      await tester.runAsync(() => profiles.switchTo('work'));
+      await settle(tester);
+      await openThread(tester, 'First chat', settle: false);
+      await settle(tester);
+      int defaultFrames() => gateway.requests
+          .where(
+            (r) =>
+                r['method'] == 'display.thumbnail' &&
+                (r['params'] as Map)['profile'] == 'default',
+          )
+          .length;
+      final before = defaultFrames();
+      await tester.pump(const Duration(seconds: 12));
+      await settle(tester);
+
+      expect(preview, findsNothing);
+      expect(defaultFrames(), before);
       await end(tester);
     });
   });
@@ -423,7 +642,7 @@ void main() {
       await settle(tester);
       expect(crumbs(), ['bot_screen.preview.shown {}']);
 
-      await tester.tap(preview);
+      await tester.tap(previewTarget);
       await tester.pump();
       await settle(tester);
 

@@ -1,4 +1,4 @@
-import { BotScreenPreview, ToolCallCard, ToolCallGroup } from "@hermes-app/ui";
+import { BotScreenPreview, ToolCallGroup } from "@hermes-app/ui";
 
 const box = { width: 480 } as const;
 
@@ -46,13 +46,13 @@ export const YouInControl = () => (
   </div>
 );
 
-/** In the slot of a single running call's card. */
-export const InAToolCallCard = () => (
+/** Below the card of a single running call, outside it. */
+export const BelowASingleCall = () => (
   <div style={box}>
-    <ToolCallCard
-      name="computer_use"
-      summary="click (640, 400)"
-      status="running"
+    <ToolCallGroup
+      calls={[
+        { name: "computer_use", summary: "click (640, 400)", status: "running" },
+      ]}
       preview={<BotScreenPreview frameSrc={desktop} onOpen={() => {}} />}
     />
   </div>

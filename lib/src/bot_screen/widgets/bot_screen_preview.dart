@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../bot_screen_preview_model.dart';
 import 'bot_screen_card.dart' show BotScreenCaption;
 
@@ -13,12 +16,15 @@ const double kBotScreenPreviewMaxWidth = 320;
 /// The tallest the picture grows, so a portrait screen does not fill the chat.
 const double kBotScreenPreviewMaxHeight = 200;
 
+const _hermesInControl = 'Hermes is in control';
+
 /// The still preview of the bot's screen under a `computer_use` tool call: the
 /// latest picture with a Live badge, and who is in control. Tapping it calls
 /// [onTap].
 ///
 /// It draws [model] and nothing else, so it needs no controller. A hidden
-/// model draws nothing.
+/// model draws nothing. It leaves room below itself but none above, which is
+/// for the place that holds it to give.
 class BotScreenPreview extends StatelessWidget {
   const BotScreenPreview({super.key, required this.model, this.onTap});
 
@@ -34,10 +40,9 @@ class BotScreenPreview extends StatelessWidget {
     ),
   };
 
-  /// The room the preview keeps below its header and above whatever follows,
-  /// so a hidden one takes none.
+  /// The room the preview keeps below itself, so a hidden one takes none.
   static Widget _spaced(Widget child) =>
-      Padding(padding: const EdgeInsets.only(top: 2, bottom: 8), child: child);
+      Padding(padding: const EdgeInsets.only(bottom: 8), child: child);
 
   Widget _frame(BuildContext context, BotScreenPreviewFrame frame) {
     final theme = Theme.of(context);
@@ -46,6 +51,7 @@ class BotScreenPreview extends StatelessWidget {
       kBotScreenPreviewMaxWidth,
       kBotScreenPreviewMaxHeight * frame.aspectRatio,
     );
+    const caption = BotScreenCaption(_hermesInControl);
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
@@ -53,8 +59,10 @@ class BotScreenPreview extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Tappable(
+            _Labeled(
+              label: "Hermes's screen, live. $_hermesInControl",
               onTap: onTap,
+              image: true,
               child: AspectRatio(
                 aspectRatio: frame.aspectRatio,
                 child: DecoratedBox(
@@ -69,26 +77,10 @@ class BotScreenPreview extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         if (bytes != null)
-                          Semantics(
-                            image: true,
-                            label: "Hermes's screen",
-                            child: Image.memory(
-                              bytes,
-                              fit: BoxFit.contain,
-                              // Frames are drawn at most this wide, whatever
-                              // size the screen has.
-                              cacheWidth:
-                                  (width *
-                                          MediaQuery.devicePixelRatioOf(
-                                            context,
-                                          ))
-                                      .ceil(),
-                              gaplessPlayback: true,
-                              excludeFromSemantics: true,
-                              errorBuilder: (_, _, _) => const Center(
-                                child: BotScreenCaption('Picture unavailable'),
-                              ),
-                            ),
+                          _FramePicture(
+                            bytes: bytes,
+                            width:
+                                width * MediaQuery.devicePixelRatioOf(context),
                           )
                         else
                           const Center(
@@ -104,7 +96,11 @@ class BotScreenPreview extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const BotScreenCaption('Hermes is in control'),
+            // A tappable picture already says it.
+            if (onTap == null)
+              caption
+            else
+              const ExcludeSemantics(child: caption),
           ],
         ),
       ),
@@ -116,35 +112,39 @@ class BotScreenPreview extends StatelessWidget {
     BotScreenPreviewSuppressed suppressed,
   ) {
     final theme = Theme.of(context);
+    final text = suppressed.byYou
+        ? "You're in control"
+        : 'Someone else is in control';
     return Align(
       alignment: Alignment.centerLeft,
-      child: _Tappable(
+      child: _Labeled(
+        label: "Hermes's screen. $text",
         onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.colorScheme.outline),
-            borderRadius: BorderRadius.circular(8),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: platformChromeOf(context) == PlatformChrome.ios
+                ? kAppleMinTapTarget
+                : 0,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppIcon(
-                  AppIcons.lock,
-                  size: 16,
-                  color: context.hermesColors.subtleText,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    suppressed.byYou
-                        ? "You're in control"
-                        : 'Someone else is in control',
-                    style: theme.textTheme.bodySmall,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: theme.colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppIcon(
+                    AppIcons.lock,
+                    size: 16,
+                    color: context.hermesColors.subtleText,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(text, style: theme.textTheme.bodySmall)),
+                ],
+              ),
             ),
           ),
         ),
@@ -153,19 +153,87 @@ class BotScreenPreview extends StatelessWidget {
   }
 }
 
-/// Makes [child] a button that calls [onTap], when there is one.
-class _Tappable extends StatelessWidget {
-  const _Tappable({required this.child, this.onTap});
+/// The picture of one frame, decoded no wider than it is drawn (never
+/// upscaled), and taken out of the image cache again once a newer frame or the
+/// end of the preview replaces it: the cache would otherwise hold a decoded
+/// frame of the screen long after it was dropped.
+class _FramePicture extends StatefulWidget {
+  const _FramePicture({required this.bytes, required this.width});
 
+  final Uint8List bytes;
+
+  /// The width to decode at, in device pixels.
+  final double width;
+
+  @override
+  State<_FramePicture> createState() => _FramePictureState();
+}
+
+class _FramePictureState extends State<_FramePicture> {
+  late ResizeImage _provider = _make();
+
+  ResizeImage _make() => ResizeImage(
+    MemoryImage(widget.bytes),
+    width: widget.width.ceil(),
+    allowUpscaling: false,
+  );
+
+  @override
+  void didUpdateWidget(_FramePicture oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.bytes, widget.bytes) ||
+        oldWidget.width != widget.width) {
+      final old = _provider;
+      _provider = _make();
+      unawaited(old.evict());
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_provider.evict());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Image(
+    image: _provider,
+    fit: BoxFit.contain,
+    gaplessPlayback: true,
+    excludeFromSemantics: true,
+    errorBuilder: (_, _, _) =>
+        const Center(child: BotScreenCaption('Picture unavailable')),
+  );
+}
+
+/// Names [child] for assistive technology as [label]: a button that calls
+/// [onTap] when there is one, otherwise an image or plain text.
+class _Labeled extends StatelessWidget {
+  const _Labeled({
+    required this.label,
+    required this.child,
+    this.onTap,
+    this.image = false,
+  });
+
+  final String label;
   final Widget child;
   final VoidCallback? onTap;
+  final bool image;
 
   @override
   Widget build(BuildContext context) {
-    if (onTap == null) return child;
+    if (onTap == null) {
+      return Semantics(
+        image: image,
+        label: label,
+        excludeSemantics: true,
+        child: child,
+      );
+    }
     return Semantics(
       button: true,
-      label: "Open Hermes's screen",
+      label: label,
       excludeSemantics: true,
       onTap: onTap,
       child: Material(

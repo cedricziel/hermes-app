@@ -17,7 +17,7 @@ export interface ToolCallGroupProps {
   defaultOpen?: boolean;
   /** Called with the new open state when the group line is clicked. */
   onToggle?: (open: boolean) => void;
-  /** A live picture under the group line, which stays in view while the group is folded: the app passes a BotScreenPreview for the run that holds the reply's latest `computer_use` call. A run of one call hands it to its card. */
+  /** A live picture right under the run, outside any card: below the card of a one-call run, below the group line of a longer one, so it stays in view while the group is folded. The app passes a BotScreenPreview for the run that holds the reply's latest `computer_use` call. */
   preview?: ReactNode;
   /** `apple`: the group line and each card header are at least 44px tall. Inherits the provider's platform. */
   platform?: Platform;
@@ -37,12 +37,14 @@ export function ToolCallGroup({
   const resolved = usePlatform(platform);
   if (calls.length === 1)
     return (
-      <ToolCallCard
-        {...calls[0]}
-        preview={preview}
-        platform={resolved}
-        className={className}
-      />
+      <div className="h-tool-group__single">
+        <ToolCallCard {...calls[0]} platform={resolved} className={className} />
+        {preview ? (
+          <div className="h-tool-group__preview h-tool-group__preview--single">
+            {preview}
+          </div>
+        ) : null}
+      </div>
     );
 
   const statusOf = (c: ToolCallItem) => c.status ?? "completed";

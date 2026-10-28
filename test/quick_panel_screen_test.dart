@@ -13,6 +13,8 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -489,6 +491,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_draft(tester), 'and Porto?');
+  });
+
+  testWidgets('a computer_use call shows no Bot screen preview', (
+    tester,
+  ) async {
+    await pump(tester);
+    await show(tester);
+
+    (await ask(tester, 'Book a table'))
+      ..emit(const ThreadBound('s9'))
+      ..emit(const ReplyStarted())
+      ..emit(const ToolStarted(name: 'computer_use', id: 'c1'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(ToolCallCard), findsOneWidget);
+    expect(find.byType(BotScreenPreview), findsNothing);
   });
 
   testWidgets('picking files holds the panel open', (tester) async {

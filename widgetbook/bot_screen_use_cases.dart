@@ -6,7 +6,6 @@ import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
     show ToolCall, ToolCallStatus;
-import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -56,7 +55,7 @@ List<WidgetbookUseCase> _inToolCalls(
     ...onEachPlatform(
       '$state, single call',
       (_) => frame(
-        ToolCallCard(call: _computerUse, preview: preview),
+        ToolCallGroup(calls: const [_computerUse], preview: preview),
         maxWidth: 480,
       ),
     ),

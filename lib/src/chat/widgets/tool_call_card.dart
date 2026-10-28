@@ -37,14 +37,9 @@ class ToolCallCard extends StatelessWidget {
     this.approval,
     this.onAnswerApproval,
     this.initiallyOpen = false,
-    this.preview,
   });
 
   final ToolCall call;
-
-  /// Drawn under the header, whether the details are open or not: the
-  /// still picture of the screen a `computer_use` call is driving.
-  final Widget? preview;
 
   /// Starts with the details showing, as the catalog does to show them.
   final bool initiallyOpen;
@@ -215,11 +210,6 @@ class ToolCallCard extends StatelessWidget {
             children: details,
           ),
           if (approvalCard != null && _waiting) approvalCard,
-          if (preview case final screen?)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: screen,
-            ),
           if (call.outputRisk case final risk?)
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
