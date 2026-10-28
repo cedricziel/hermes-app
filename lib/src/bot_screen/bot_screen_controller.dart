@@ -107,7 +107,10 @@ class BotScreenController extends ChangeNotifier {
     if (value == _foreground) return;
     _foreground = value;
     if (value && _demand > 0) _statusDue = true;
-    if (!value) _dropFrame();
+    if (!value) {
+      _generation++;
+      _dropFrame();
+    }
     _reconcile();
   }
 
@@ -138,9 +141,13 @@ class BotScreenController extends ChangeNotifier {
       // The release can come while the tree is being torn down, when a
       // listener must not rebuild, so listeners hear of the dropped frame
       // right after.
-      if (_demand == 0 && frame != null) {
-        frame = null;
-        scheduleMicrotask(_notify);
+      if (_demand == 0) {
+        // An answer already on its way must not bring the frame back.
+        _generation++;
+        if (frame != null) {
+          frame = null;
+          scheduleMicrotask(_notify);
+        }
       }
     });
   }

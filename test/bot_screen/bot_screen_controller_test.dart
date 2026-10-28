@@ -353,11 +353,54 @@ void main() {
   });
 
   group('answers that arrive too late', () {
-    void holdFrameRequest() {
+    BotScreenWatch holdFrameRequest() {
       gateway.silent.add('display.thumbnail');
-      controller.watch();
+      final handle = controller.watch();
+      settle();
+      return handle;
+    }
+
+    void answerFrame() {
+      gateway.replyTo(gateway.requestOf('display.thumbnail'), {
+        'data_url': 'data:image/jpeg;base64,${base64Encode(jpeg)}',
+      });
       settle();
     }
+
+    test('a frame answered after the app left the foreground is dropped', () {
+      scenario(() {
+        holdFrameRequest();
+        controller.foreground = false;
+
+        answerFrame();
+
+        expect(controller.frame, isNull);
+      });
+    });
+
+    test('a frame answered after the last surface let go is dropped', () {
+      scenario(() {
+        final handle = holdFrameRequest();
+        handle.release();
+        settle();
+
+        answerFrame();
+
+        expect(controller.frame, isNull);
+      });
+    });
+
+    test('a frame answered after another surface took over the demand is '
+        'still shown', () {
+      scenario(() {
+        holdFrameRequest();
+        controller.watch();
+
+        answerFrame();
+
+        expect(controller.frame, jpeg);
+      });
+    });
 
     test('a frame answered after App Lock covered the app is dropped', () {
       scenario(() {
