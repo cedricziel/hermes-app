@@ -266,20 +266,20 @@ class RfbClient implements RfbInputSink {
 
   @override
   void pointer(int x, int y, int buttonMask) {
-    if (buttonMask < 0 || buttonMask > 0xFF) {
-      throw ArgumentError.value(buttonMask, 'buttonMask', 'not one byte');
-    }
     _requireRunning();
+    if (buttonMask < 0 || buttonMask > 0xFF) {
+      throw ArgumentError('The button mask does not fit one byte');
+    }
     _heldButtons = buttonMask & RfbButtons.held;
     _sendPointer(x, y, buttonMask);
   }
 
   @override
   void key(int keysym, {required bool down}) {
-    if (keysym < 0 || keysym > 0xFFFFFFFF) {
-      throw ArgumentError.value(keysym, 'keysym', 'not 32 bits');
-    }
     _requireRunning();
+    if (keysym < 0 || keysym > 0xFFFFFFFF) {
+      throw ArgumentError('The keysym does not fit 32 bits');
+    }
     final message = ByteData(8)
       ..setUint8(0, 4)
       ..setUint8(1, down ? 1 : 0)
@@ -296,7 +296,8 @@ class RfbClient implements RfbInputSink {
 
   void _wheel(int x, int y, int notches, int negative, int positive) {
     final wheel = notches < 0 ? negative : positive;
-    for (var i = 0; i < notches.abs(); i++) {
+    final count = math.min(notches.abs(), maxScrollNotches);
+    for (var i = 0; i < count; i++) {
       _sendPointer(x, y, _heldButtons | wheel);
       _sendPointer(x, y, _heldButtons);
     }
@@ -307,18 +308,20 @@ class RfbClient implements RfbInputSink {
     _requireRunning();
     // One pass: Latin-1 check and line breaks as a line feed, the way X
     // expects them, written straight into the message.
-    final message = Uint8List(8 + text.length);
+    // The buffer never grows past the limit: text over it is refused at the
+    // first byte that does not fit.
+    final message = Uint8List(8 + math.min(text.length, maxCutTextBytes));
     var length = 0;
     for (var i = 0; i < text.length; i++) {
       var unit = text.codeUnitAt(i);
       if (unit > 0xFF) throw RfbClipboardError.notLatin1;
+      if (length == maxCutTextBytes) throw RfbClipboardError.tooLarge;
       if (unit == 0x0D) {
         unit = 0x0A;
         if (i + 1 < text.length && text.codeUnitAt(i + 1) == 0x0A) i++;
       }
       message[8 + length++] = unit;
     }
-    if (length > maxCutTextBytes) throw RfbClipboardError.tooLarge;
     message[0] = 6;
     ByteData.sublistView(message).setUint32(4, length);
     _send(Uint8List.sublistView(message, 0, 8 + length));

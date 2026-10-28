@@ -694,6 +694,69 @@ void main() {
       expect(input(s), hasLength(1));
     });
 
+    test('a scroll is limited to 50 notches per axis and call', () async {
+      final s = await ready();
+      s.client.scroll(1, 1, dy: 1000, dx: -1000);
+
+      final masks = input(s).map((m) => m[1]).toList();
+      expect(masks, hasLength(200));
+      expect(masks.where((m) => m == 16), hasLength(50));
+      expect(masks.where((m) => m == 32), hasLength(50));
+    });
+
+    test('line breaks that collapse can bring text under the limit', () async {
+      final s = await ready();
+      // 128 Ki CRLF pairs are 256 Ki code units but 128 Ki bytes.
+      s.client.cutText('\r\n' * (128 * 1024));
+      expect(input(s).single.sublist(4, 8), [0, 2, 0, 0]);
+
+      s.client.cutText('${'a' * (256 * 1024 - 1)}\r\n');
+      expect(input(s).last.length, 8 + 256 * 1024);
+
+      expect(
+        () => s.client.cutText('${'a' * (256 * 1024)}\r\n'),
+        throwsA(RfbClipboardError.tooLarge),
+      );
+      expect(input(s), hasLength(2));
+    });
+
+    test('the first problem found decides the error', () async {
+      final s = await ready();
+      expect(
+        () => s.client.cutText('${'a' * (256 * 1024 + 1)}€'),
+        throwsA(RfbClipboardError.tooLarge),
+      );
+      expect(
+        () => s.client.cutText('€${'a' * (256 * 1024 + 1)}'),
+        throwsA(RfbClipboardError.notLatin1),
+      );
+      expect(input(s), isEmpty);
+    });
+
+    test('errors for bad values do not carry the values', () async {
+      final s = await ready();
+      Matcher noValue(String value) => throwsA(
+        isA<ArgumentError>().having(
+          (e) => e.toString(),
+          'text',
+          isNot(contains(value)),
+        ),
+      );
+
+      expect(() => s.client.pointer(0, 0, 987654), noValue('987654'));
+      expect(
+        () => s.client.key(98765432109, down: true),
+        noValue('98765432109'),
+      );
+      expect(() => s.client.key(-4242, down: true), noValue('4242'));
+    });
+
+    test('a bad value before ServerInit is still a StateError', () {
+      final s = RfbSession();
+      expect(() => s.client.pointer(0, 0, 999), throwsStateError);
+      expect(() => s.client.key(-1, down: true), throwsStateError);
+    });
+
     test('the clipboard errors carry no text', () {
       for (final error in RfbClipboardError.values) {
         expect(error.toString(), startsWith('RfbClipboardError.'));

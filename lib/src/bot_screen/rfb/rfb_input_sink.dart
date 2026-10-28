@@ -17,6 +17,9 @@ enum RfbClipboardError implements Exception {
 /// `-MaxCutText` takes.
 const maxCutTextBytes = 256 * 1024;
 
+/// The most wheel notches [RfbInputSink.scroll] sends per axis and call.
+const maxScrollNotches = 50;
+
 /// The bits of a PointerEvent button mask (RFC 6143, section 7.5.5).
 abstract final class RfbButtons {
   static const primary = 1;
@@ -45,7 +48,8 @@ abstract interface class RfbInputSink {
   void key(int keysym, {required bool down});
 
   /// Scrolls [dy] notches down (negative: up) and [dx] notches right
-  /// (negative: left) at ([x], [y]), keeping the held buttons.
+  /// (negative: left) at ([x], [y]), keeping the held buttons. A call sends at
+  /// most [maxScrollNotches] per axis.
   void scroll(int x, int y, {int dx = 0, int dy = 0});
 
   /// Sets the remote clipboard to [text].
