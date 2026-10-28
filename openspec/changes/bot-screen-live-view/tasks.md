@@ -14,8 +14,9 @@ One PR, `feat(bot-screen): watch the screen live`, about 500 changed lines inclu
 
 ## 3. Wiring
 
-- [x] 3.1 Write failing widget tests: the card's Enlarge is visible and opens the viewer, as does tapping its picture; the transcript preview opens the viewer, not the Activity panel; a phone width pushes a page and 1200 pt shows the full-window overlay; Escape and Close close the overlay; backgrounding, App Lock and a profile switch close the stream; no input message is sent when the user taps or clicks the picture.
+- [x] 3.1 Write failing widget tests: the card's Enlarge is visible and opens the viewer, as does tapping its picture; (the transcript preview's part is 3.3) a phone width pushes a page and 1200 pt shows the full-window overlay; Escape and Close close the overlay; backgrounding, App Lock and a profile switch close the stream; no input message is sent when the user taps or clicks the picture.
 - [x] 3.2 Wire the openers and presentation in `ChatScreen`; verify 3.1 passes.
+- [ ] 3.3 Open the viewer from the transcript preview (`_openViewer('preview')`, replacing its `_openActivity` tap) and test it beside 3.1's. Waits for `bot-screen-chat-preview`, which is not on `main` yet; the first PR leaves this open.
 
 ## 4. Observability
 
@@ -23,8 +24,8 @@ One PR, `feat(bot-screen): watch the screen live`, about 500 changed lines inclu
 
 ## 5. Docs and skills
 
-- [ ] 5.1 Extend `CLAUDE.md`'s Bot Screen paragraph: the viewer, its presentation, the close-code table, blanking while someone else is in control, and when the stream closes.
-- [ ] 5.2 Add a "watch the screen live" step to the `verify-bot-screen` skill (open the viewer, background the app, return).
+- [x] 5.1 Extend `CLAUDE.md`'s Bot Screen paragraph: the viewer, its presentation, the close-code table, blanking while someone else is in control, and when the stream closes.
+- [x] 5.2 Add a "watch the screen live" step to the `verify-bot-screen` skill (open the viewer, background the app, return).
 
 ## 6. Verify
 

@@ -82,6 +82,13 @@ Then open a chat, press the Activity button (View > Inspector, ⌥⌘I, on a Mac
 - Restart the container while a surface is shown: the app re-reads the status after the connection comes back.
 - Lock the app (App Lock) while a frame request is in flight: no frame appears after unlocking until the next one arrives.
 
+Watch the screen live (the card's Enlarge or its picture; the transcript preview once it exists):
+
+- Open the viewer: the picture moves by itself (let Hermes run a `computer_use` turn, or move something on the screen), the header says the profile and "Hermes is in control", and a click or tap on the picture does nothing on the screen. A window 760 pt wide or more shows it over the whole window (Escape closes it), a phone shows a full-screen page.
+- Send the app to the background and return: the stream closes while away (an attached viewer keeps the server from stopping an idle screen, so none may stay attached) and a new one opens on return.
+- Take over from another process: the viewer blanks and says someone else is in control, and the picture returns when control goes back to Hermes.
+- Stop the screen (`hermes computer-use screen stop`) with the viewer open: it shows "The screen is off" and Start Screen, with no reconnect loop. Restart the container with the viewer open: it says Reconnecting, then either recovers or ends on "Can't reach the screen" with Try Again after 5 attempts.
+
 ## 3b. Install on Server
 
 The app can have Hermes install the desktop packages itself (`display.install`), and Hermes asks the app for the server's sudo password (`display.install.sudo`). Check it on a server that does not have the packages yet, in two layers: the plain image (no `sudo`) and a throwaway layer on it with `sudo`. Each gets its own container, named volume and port, and the same cleanup rules as step 1: run step 4 whether the checks pass or fail, or start the shell with
