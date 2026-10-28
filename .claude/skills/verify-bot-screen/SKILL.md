@@ -56,7 +56,7 @@ docker exec hermes-bot-screen-verify hermes computer-use screen status --json
 
 `status` should say `supported: true`, `installed: true`, `running: true` and a lease held by the agent. It exits 1 while the screen is stopped, and its JSON has no `profile_key` (that one only appears in the gateway's `display.status`), so read it for the booleans and the lease only. Alternatively let the app do it with `BotScreenController.start()`, which calls `display.start`, or run a `computer_use` turn.
 
-If the packages are missing (a plain image), `installed` is false and `missing` lists them. Installing from the app is the later change `bot-screen-host-install`.
+If the packages are missing (a plain image), `installed` is false and `missing` lists them. Installing from the app is section 3b.
 
 ## 3. Run the checks
 
@@ -82,13 +82,53 @@ Then open a chat, press the Activity button (View > Inspector, ⌥⌘I, on a Mac
 - Restart the container while a surface is shown: the app re-reads the status after the connection comes back.
 - Lock the app (App Lock) while a frame request is in flight: no frame appears after unlocking until the next one arrives.
 
+## 3b. Install on Server
+
+The app can have Hermes install the desktop packages itself (`display.install`), and Hermes asks the app for the server's sudo password (`display.install.sudo`). Check it on a server that does not have the packages yet, in two layers. Use a loopback or tunnelled dashboard as in step 1, with its own container, volume and port, and the same cleanup rules.
+
+**Plain image: no sudo.** The plain image (`nousresearch/hermes-agent:latest`) runs Hermes unprivileged and ships no `sudo`, so the install ends with `display.install.done` code -2 and the manual command streamed. Start it as in step 1 but with the plain image (no `-desktop` suffix) and the names `hermes-bot-screen-install-plain` (container and volume), then in the app: open a chat that has a `computer_use` tool call (the card is listed only while the screen runs or while the open chat used `computer_use`, and this server has no screen yet), open the Activity panel and check:
+
+- the card says the desktop is not installed on the server, shows the command with Copy, and Install on Server;
+- pressing Install on Server shows Installing, with the package manager's lines and "You can close this; the install keeps going.";
+- it ends as "There's no sudo on the server, so Hermes can't install the desktop itself." with the command to run by hand.
+
+**Sudo layer: the password prompt.** Build a throwaway layer on the plain image that has `sudo` and a Hermes user with a password-protected sudo rule. The user name and the image's package manager are not known here, so read them first and correct this layer if they differ:
+
+```bash
+docker run --rm --entrypoint id nousresearch/hermes-agent:latest   # the Hermes user and its uid
+docker run --rm --entrypoint sh nousresearch/hermes-agent:latest -c 'command -v apt-get dnf pacman'
+mkdir -p /tmp/hermes-sudo-layer && cat > /tmp/hermes-sudo-layer/Dockerfile <<'EOF'
+FROM nousresearch/hermes-agent:latest
+ARG HERMES_USER=hermes
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends sudo \
+ && rm -rf /var/lib/apt/lists/* \
+ && echo "${HERMES_USER} ALL=(ALL) ALL" > /etc/sudoers.d/hermes-verify \
+ && chmod 0440 /etc/sudoers.d/hermes-verify \
+ && echo "${HERMES_USER}:verify-only-password" | chpasswd
+USER ${HERMES_USER}
+EOF
+docker build --build-arg HERMES_USER=<the user from id> -t hermes-bot-screen-install-sudo /tmp/hermes-sudo-layer
+```
+
+The password `verify-only-password` is a test value for this throwaway image and never a real one. If the image already runs as root, Hermes does not ask for a password and this layer shows nothing new. Start a container from `hermes-bot-screen-install-sudo` as in step 1 (names `hermes-bot-screen-install-sudo`, a named volume, and the image's own entrypoint arguments `gateway run` with the same environment), then in the app:
+
+- press Install on Server; the password question appears with the dashboard's host and an obscured field, also after opening Kanban while it waits (the prompt must appear over Kanban); screenshot it;
+- type `verify-only-password` and press Install: the card shows Installing with lines, then, when the packages are in, Off with Start Screen (screenshot both); the typed text is gone from the field and appears nowhere in the app's log output (`scripts/dev-app.sh logs` style output, or the debug console);
+- repeat with Cancel in the question: the card ends as "The install was cancelled." and offers Install on Server again;
+- while the install runs, restart the container once: after the connection comes back the card leaves Installing (status says the packages are installed, or the install failed) without waiting 20 minutes.
+
+Record in the PR what ran. This section was written from Hermes' `methods_display.py` and has not been run end to end; correct it as soon as a step turns out wrong.
+
 ## 4. Tear down
 
 Always, also when a check failed:
 
 ```bash
-docker rm -f hermes-bot-screen-verify
-docker volume rm hermes-bot-screen-verify
+docker rm -f hermes-bot-screen-verify hermes-bot-screen-install-plain hermes-bot-screen-install-sudo
+docker volume rm hermes-bot-screen-verify hermes-bot-screen-install-plain hermes-bot-screen-install-sudo
+docker rmi hermes-bot-screen-install-sudo
+rm -rf /tmp/hermes-sudo-layer
 ```
 
 Record in the PR what ran: the image tag or digest, the Hermes version from `/api/status`, and which checks passed or were skipped.
