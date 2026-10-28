@@ -90,13 +90,16 @@ sealed class BotScreenCardModel {
   /// `computer_use` tool call).
   bool listed({required bool usedByChat}) => screenRunning || usedByChat;
 
+  /// The ratio of a `WIDTHxHEIGHT` geometry, which may carry a colour depth
+  /// (`1280x800x24`), kept between 0.5 and 3 so an odd size cannot make an
+  /// absurd box. 16:10 when unreadable.
   static double _aspectRatio(String? geometry) {
     final parts = geometry?.split('x');
-    if (parts != null && parts.length == 2) {
+    if (parts != null && parts.length >= 2) {
       final width = int.tryParse(parts[0]);
       final height = int.tryParse(parts[1]);
       if (width != null && height != null && width > 0 && height > 0) {
-        return width / height;
+        return (width / height).clamp(0.5, 3.0);
       }
     }
     return 16 / 10;

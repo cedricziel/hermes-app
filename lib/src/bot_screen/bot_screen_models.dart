@@ -186,3 +186,10 @@ class BotScreenFailed<T> extends BotScreenResult<T> {
 
   final BotScreenFailure kind;
 }
+
+/// The state the Bot screen card last recorded as shown, so a card that
+/// mounts again (a reopened panel, another chat) does not record it twice. One
+/// per controller.
+class BotScreenShown {
+  String? slug;
+}

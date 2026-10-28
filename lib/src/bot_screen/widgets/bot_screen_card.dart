@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../telemetry/breadcrumbs.dart';
@@ -28,6 +30,7 @@ class BotScreenCard extends StatefulWidget {
     this.onRetry,
     this.onEnlarge,
     this.breadcrumbs = Breadcrumbs.none,
+    this.shown,
   });
 
   final BotScreenCardModel model;
@@ -37,12 +40,18 @@ class BotScreenCard extends StatefulWidget {
   final VoidCallback? onEnlarge;
   final Breadcrumbs breadcrumbs;
 
+  /// Remembers the state last recorded, across cards, so a card mounting
+  /// again with the same state records nothing. Without it each card records
+  /// its first state.
+  final BotScreenShown? shown;
+
   @override
   State<BotScreenCard> createState() => _BotScreenCardState();
 }
 
 class _BotScreenCardState extends State<BotScreenCard> {
   var _copied = false;
+  Timer? _copiedReset;
 
   @override
   void initState() {
@@ -55,12 +64,20 @@ class _BotScreenCardState extends State<BotScreenCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.model.slug != widget.model.slug) {
       _copied = false;
+      _copiedReset?.cancel();
       _recordShown();
     }
   }
 
-  void _recordShown() =>
-      widget.breadcrumbs('bot_screen.card.shown', {'state': widget.model.slug});
+  void _recordShown() {
+    final slug = widget.model.slug;
+    final shown = widget.shown;
+    if (shown != null) {
+      if (shown.slug == slug) return;
+      shown.slug = slug;
+    }
+    widget.breadcrumbs('bot_screen.card.shown', {'state': slug});
+  }
 
   void _start() {
     widget.breadcrumbs('bot_screen.start.pressed');
@@ -70,6 +87,16 @@ class _BotScreenCardState extends State<BotScreenCard> {
   void _copy() {
     widget.onCopyCommand?.call();
     setState(() => _copied = true);
+    _copiedReset?.cancel();
+    _copiedReset = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _copiedReset?.cancel();
+    super.dispose();
   }
 
   @override
@@ -141,13 +168,19 @@ class _BotScreenCardState extends State<BotScreenCard> {
           if (widget.onCopyCommand != null)
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: _copy,
-                icon: AppIcon(
-                  _copied ? AppIcons.check : AppIcons.copy,
-                  size: 18,
+              child: Semantics(
+                button: true,
+                label: _copied ? 'Copied' : 'Copy install command',
+                excludeSemantics: true,
+                onTap: _copy,
+                child: TextButton.icon(
+                  onPressed: _copy,
+                  icon: AppIcon(
+                    _copied ? AppIcons.check : AppIcons.copy,
+                    size: 18,
+                  ),
+                  label: Text(_copied ? 'Copied' : 'Copy'),
                 ),
-                label: Text(_copied ? 'Copied' : 'Copy'),
               ),
             ),
         ],
@@ -194,7 +227,9 @@ class _BotScreenCardState extends State<BotScreenCard> {
           Text(_failureText(failure)),
           const SizedBox(height: 8),
         ],
-        const Text('The screen starts by itself when Hermes needs it.'),
+        const Text(
+          'The screen is off. It starts by itself when Hermes needs it.',
+        ),
         if (widget.onStart != null) ...[
           const SizedBox(height: 8),
           _action(context, 'Start Screen', _start),
@@ -342,7 +377,7 @@ class _Starting extends StatelessWidget {
       SizedBox(
         width: 16,
         height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2),
+        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
       ),
       SizedBox(width: 10),
       Expanded(child: Text('Starting the screen…')),

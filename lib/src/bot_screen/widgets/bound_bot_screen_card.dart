@@ -8,11 +8,40 @@ import '../bot_screen_card_model.dart';
 import '../bot_screen_controller.dart';
 import 'bot_screen_card.dart';
 
+/// What the last scan of a thread found, and what it was a scan of.
+class _ScreenScan {
+  const _ScreenScan(this.messages, this.lastToolCalls, this.used);
+
+  final int messages;
+  final int lastToolCalls;
+  final bool used;
+}
+
+final _scans = Expando<_ScreenScan>();
+
 /// Whether [thread] holds a `computer_use` tool call, which lists the Bot
 /// screen card even while the screen is off.
-bool threadUsedScreen(ChatThread thread) => thread.messages.any(
-  (message) => message.toolCalls.any((call) => call.name == 'computer_use'),
-);
+///
+/// The panel asks on every chat change, which includes each streamed delta,
+/// so the answer is kept per thread and scanned again only when the thread has
+/// another message or its newest message another tool call (the only place a
+/// call can arrive).
+bool threadUsedScreen(ChatThread thread) {
+  final messages = thread.messages;
+  final count = messages.length;
+  final lastCalls = count == 0 ? 0 : messages[count - 1].toolCalls.length;
+  final scan = _scans[thread];
+  if (scan != null &&
+      scan.messages == count &&
+      scan.lastToolCalls == lastCalls) {
+    return scan.used;
+  }
+  final used = messages.any(
+    (message) => message.toolCalls.any((call) => call.name == 'computer_use'),
+  );
+  _scans[thread] = _ScreenScan(count, lastCalls, used);
+  return used;
+}
 
 /// [BotScreenCard] over [controller], drawing [model] (which the Activity
 /// panel derived to decide whether to list the card at all).
@@ -35,6 +64,7 @@ class BoundBotScreenCard extends StatelessWidget {
     return BotScreenCard(
       model: model,
       breadcrumbs: _breadcrumbs(context),
+      shown: controller.shown,
       onStart: controller.start,
       onRetry: controller.retry,
       onCopyCommand: command == null

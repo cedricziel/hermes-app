@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,7 @@ Future<void> pumpCard(
   VoidCallback? onRetry,
   VoidCallback? onEnlarge,
   Breadcrumbs breadcrumbs = Breadcrumbs.none,
+  BotScreenShown? shown,
   TargetPlatform platform = TargetPlatform.android,
 }) => tester.pumpWidget(
   MaterialApp(
@@ -38,6 +40,7 @@ Future<void> pumpCard(
           onRetry: onRetry,
           onEnlarge: onEnlarge,
           breadcrumbs: breadcrumbs,
+          shown: shown,
         ),
       ),
     ),
@@ -112,12 +115,59 @@ void main() {
       expect(find.text('Start Screen'), findsNothing);
     });
 
+    testWidgets('starting draws the activity indicator of Apple platforms', (
+      tester,
+    ) async {
+      await pumpCard(
+        tester,
+        const BotScreenStarting(),
+        platform: TargetPlatform.iOS,
+      );
+
+      expect(find.byType(CupertinoActivityIndicator), findsOne);
+    });
+
+    testWidgets('starting draws the Material ring elsewhere', (tester) async {
+      await pumpCard(tester, const BotScreenStarting());
+
+      expect(find.byType(CupertinoActivityIndicator), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOne);
+    });
+
+    testWidgets('Copied goes back to Copy after two seconds', (tester) async {
+      await pumpCard(
+        tester,
+        const BotScreenNotInstalled(command: 'hermes computer-use install'),
+        onCopyCommand: () {},
+      );
+
+      await tester.tap(find.text('Copy'));
+      await tester.pump();
+      expect(find.text('Copied'), findsOne);
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.text('Copy'), findsOne);
+      expect(find.text('Copied'), findsNothing);
+    });
+
+    testWidgets('the Copy button is named for what it copies', (tester) async {
+      await pumpCard(
+        tester,
+        const BotScreenNotInstalled(command: 'hermes computer-use install'),
+        onCopyCommand: () {},
+      );
+
+      expect(find.bySemanticsLabel('Copy install command'), findsOne);
+    });
+
     testWidgets('off explains and starts', (tester) async {
       var started = 0;
       await pumpCard(tester, const BotScreenOff(), onStart: () => started++);
 
       expect(
-        find.text('The screen starts by itself when Hermes needs it.'),
+        find.text(
+          'The screen is off. It starts by itself when Hermes needs it.',
+        ),
         findsOne,
       );
       await tester.tap(find.text('Start Screen'));
@@ -195,6 +245,50 @@ void main() {
     });
   });
 
+  group('accessibility', () {
+    testWidgets('every action is labelled and has a big enough target', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+        for (final model in <BotScreenCardModel>[
+          const BotScreenNotInstalled(command: 'hermes computer-use install'),
+          const BotScreenOff(),
+          const BotScreenReadFailed(),
+          BotScreenShowing(bytes: _picture),
+        ]) {
+          await pumpCard(
+            tester,
+            model,
+            platform: platform,
+            onStart: () {},
+            onCopyCommand: () {},
+            onRetry: () {},
+            onEnlarge: () {},
+          );
+          await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+          await expectLater(tester, meetsGuideline(textContrastGuideline));
+        }
+      }
+      handle.dispose();
+    });
+
+    testWidgets('the picture is an image named for the screen', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpCard(tester, BotScreenShowing(bytes: _picture));
+
+      final node = tester.getSemantics(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.label == "Hermes's screen",
+        ),
+      );
+
+      expect(node.label, contains("Hermes's screen"));
+      expect(node.getSemanticsData().flagsCollection.isImage, isTrue);
+      handle.dispose();
+    });
+  });
+
   group('Enlarge', () {
     testWidgets('is hidden without a viewer to open', (tester) async {
       await pumpCard(tester, BotScreenShowing(bytes: _picture));
@@ -257,6 +351,35 @@ void main() {
         'bot_screen.card.shown {state: frame}',
         'bot_screen.card.shown {state: controlled}',
         'bot_screen.card.shown {state: frame}',
+      ]);
+    });
+
+    testWidgets('are not repeated by a new card showing the same state', (
+      tester,
+    ) async {
+      final trail = BreadcrumbTrail();
+      final breadcrumbs = Breadcrumbs.of(trail);
+      final shown = BotScreenShown();
+
+      for (var i = 0; i < 3; i++) {
+        await pumpCard(
+          tester,
+          const BotScreenOff(),
+          breadcrumbs: breadcrumbs,
+          shown: shown,
+        );
+        await tester.pumpWidget(const SizedBox());
+      }
+      await pumpCard(
+        tester,
+        const BotScreenReadFailed(),
+        breadcrumbs: breadcrumbs,
+        shown: shown,
+      );
+
+      expect(crumbs(trail), [
+        'bot_screen.card.shown {state: off}',
+        'bot_screen.card.shown {state: error}',
       ]);
     });
 

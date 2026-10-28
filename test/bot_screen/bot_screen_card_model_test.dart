@@ -236,6 +236,33 @@ void main() {
       );
     });
 
+    test('a geometry with a colour depth takes its first two numbers', () {
+      final model = _model(status: _status(geometry: '1280x800x24'));
+
+      expect(
+        model,
+        isA<BotScreenShowing>().having(
+          (m) => m.aspectRatio,
+          'ratio',
+          1280 / 800,
+        ),
+      );
+    });
+
+    test('an extreme geometry is clamped to between 0.5 and 3', () {
+      final tall = _model(status: _status(geometry: '100x1000'));
+      final wide = _model(status: _status(geometry: '3000x100'));
+
+      expect(
+        tall,
+        isA<BotScreenShowing>().having((m) => m.aspectRatio, 'ratio', 0.5),
+      );
+      expect(
+        wide,
+        isA<BotScreenShowing>().having((m) => m.aspectRatio, 'ratio', 3),
+      );
+    });
+
     test('an unknown or unreadable geometry is 16:10', () {
       for (final geometry in [null, '', 'wide', '0x0', '1280x', '-1x5']) {
         final model = _model(status: _status(geometry: geometry));

@@ -65,6 +65,9 @@ class BotScreenController extends ChangeNotifier {
   final AppEventLogger events;
   late final StreamSubscription<GatewayConnectionEvent> _events;
 
+  /// The card state last recorded as shown, for the card's breadcrumb.
+  final shown = BotScreenShown();
+
   /// The latest status, or null before the first answer.
   BotScreenStatus? status;
 

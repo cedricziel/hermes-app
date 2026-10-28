@@ -280,6 +280,19 @@ void main() {
     );
     expect(workFrames, isEmpty);
 
+    // The profile left behind asks for nothing more.
+    int defaultFrames() => gateway.requests
+        .where(
+          (r) =>
+              r['method'] == 'display.thumbnail' &&
+              (r['params'] as Map)['profile'] == 'default',
+        )
+        .length;
+    final before = defaultFrames();
+    await tester.pump(const Duration(seconds: 12));
+    await settle(tester);
+    expect(defaultFrames(), before);
+
     await tester.runAsync(() => profiles.switchTo('default'));
     await settle(tester);
     await openThread(tester, 'First chat', settle: false);

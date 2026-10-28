@@ -284,6 +284,33 @@ void main() {
     );
   });
 
+  panelTest('Start Screen shows Starting until display.start answers', (
+    tester,
+  ) async {
+    running = false;
+    usedComputer = true;
+    gateway.silent.add('display.start');
+    await openChat(tester);
+    await pumpPanel(tester);
+
+    await tester.tap(find.text('Start Screen'));
+    await settle(tester);
+
+    expect(find.text('Starting the screen…'), findsOne);
+    expect(find.text('Start Screen'), findsNothing);
+
+    gateway.silent.remove('display.start');
+    running = true;
+    gateway.replyTo(
+      gateway.requestOf('display.start'),
+      statusJson(running: true),
+    );
+    await settle(tester);
+
+    expect(find.text('Starting the screen…'), findsNothing);
+    expect(find.text('Hermes is in control'), findsOne);
+  });
+
   panelTest('a failed Start shows Off with the reason', (tester) async {
     running = false;
     usedComputer = true;
@@ -340,6 +367,20 @@ void main() {
     await settle(tester);
     expect(calls('display.thumbnail'), greaterThan(before));
     expect(screen!.frame, isNotNull);
+  });
+
+  panelTest('reopening the panel does not record the same state again', (
+    tester,
+  ) async {
+    await openChat(tester);
+    await pumpPanel(tester);
+    await pumpPanel(tester, panel: false);
+    await pumpPanel(tester);
+
+    expect(
+      [for (final c in trail.recent) '${c.name} ${c.attributes}'],
+      ['bot_screen.card.shown {state: frame}'],
+    );
   });
 
   panelTest('a page pushed over the panel stops the requests, popping it '
