@@ -11,6 +11,7 @@ import 'package:hermes_app/src/bot_screen/input/screen_gesture_layer.dart';
 import 'package:hermes_app/src/bot_screen/takeover_setting.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
+import 'package:hermes_app/src/bot_screen/widgets/trackpad_cursor.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:provider/provider.dart';
@@ -312,6 +313,10 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const Key('trackpad-cursor')), findsOne);
+      expect(
+        tester.getTopLeft(find.byKey(const Key('trackpad-cursor'))),
+        tester.getCenter(find.byType(TrackpadCursor)),
+      );
       expect(crumbs(), contains('bot_screen.input.mode {mode: trackpad}'));
       expect(
         tester.widget<ScreenGestureLayer>(find.byType(ScreenGestureLayer)).mode,
@@ -413,6 +418,52 @@ void main() {
         '4 1,0,0,0,0,ff,9',
         '4 0,0,0,0,0,ff,9',
       ]);
+      await finish(tester);
+    });
+
+    testWidgets('the stream closing for the background takes the keyboard '
+        'away and it can be opened again on return', (tester) async {
+      await openViewer(tester, size: const Size(390, 844));
+      await takeOver(tester);
+      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.pump();
+      expect(tester.testTextInput.hasAnyClients, isTrue);
+
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await settle(tester);
+      expect(tester.testTextInput.hasAnyClients, isFalse);
+
+      for (final state in [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await settle(tester);
+      final channel = channels.last;
+      for (final part in rfbHandshake(8, 4)) {
+        channel.serverSend(part);
+        await settle(tester);
+      }
+      channel.serverSend(
+        rfbUpdate([
+          rfbRawRect(0, 0, 8, 4, [200, 0, 0]),
+        ]),
+      );
+      await settle(tester);
+
+      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.pump();
+      tester.testTextInput.enterText('\u200b7');
+      await tester.pump();
+      expect(sent().last, '4 0,0,0,0,0,0,37');
       await finish(tester);
     });
 

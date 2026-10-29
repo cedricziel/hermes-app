@@ -116,6 +116,11 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
     final inControl = _controller.inControl;
     if (inControl && !_wasInControl) {
       _keys.requestFocus();
+      // The virtual pointer of Trackpad mode starts in the middle.
+      final picture = _controller.framebuffer;
+      if (picture != null) {
+        _pointer.value = Offset(picture.width / 2, picture.height / 2);
+      }
     } else if (!inControl && _wasInControl) {
       _soft?.hide();
       _soft = null;
@@ -124,6 +129,12 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
       _mode = ScreenGestureMode.touch;
     }
     _wasInControl = inControl;
+    // The keyboard belongs to the stream's input, which goes with the stream.
+    if (inControl && _soft != null && !identical(_softFor, _controller.input)) {
+      _soft!.hide();
+      _soft = null;
+      _softFor = null;
+    }
   }
 
   bool get _touch =>
