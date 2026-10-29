@@ -769,6 +769,133 @@ void main() {
     });
   });
 
+  group('trackpad tap and drag', () {
+    Future<Offset> pumpTrackpad(WidgetTester tester, Rig rig) =>
+        pumpLayer(tester, rig, mode: ScreenGestureMode.trackpad);
+
+    testWidgets('a tap followed at once by a press that moves holds the '
+        'primary button for the drag', (tester) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+      await tester.tapAt(origin + const Offset(100, 100));
+      rig.sink.calls.clear();
+
+      final finger = await tester.startGesture(origin + const Offset(100, 100));
+      await finger.moveBy(const Offset(30, 0));
+      await finger.moveBy(const Offset(20, 0));
+      await finger.up();
+
+      // 30 px of travel is 75 screen pixels, then 50 more.
+      expect(rig.sink.calls, [
+        'p 500 250 1',
+        'p 575 250 1',
+        'p 625 250 1',
+        'p 625 250 0',
+      ]);
+      expect(rig.pointer.value, const Offset(625, 250));
+    });
+
+    testWidgets('a second tap that does not move is a second click', (
+      tester,
+    ) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+
+      await tester.tapAt(origin + const Offset(100, 100));
+      await tester.tapAt(origin + const Offset(100, 100));
+
+      expect(rig.sink.calls, [
+        'p 500 250 0',
+        'p 500 250 1',
+        'p 500 250 0',
+        'p 500 250 1',
+        'p 500 250 0',
+      ]);
+    });
+
+    testWidgets('a press that comes too late only moves the pointer', (
+      tester,
+    ) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+      await tester.tapAt(origin + const Offset(100, 100));
+      rig.sink.calls.clear();
+
+      await tester.pump(const Duration(milliseconds: 400));
+      final finger = await tester.startGesture(origin + const Offset(100, 100));
+      await finger.moveBy(const Offset(30, 0));
+      await finger.up();
+
+      expect(rig.sink.calls, ['p 575 250 0']);
+    });
+
+    testWidgets('a drag is not a tap that arms the next one', (tester) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+      final first = await tester.startGesture(origin + const Offset(100, 100));
+      await first.moveBy(const Offset(30, 0));
+      await first.up();
+      rig.sink.calls.clear();
+
+      final second = await tester.startGesture(origin + const Offset(100, 100));
+      await second.moveBy(const Offset(30, 0));
+      await second.up();
+
+      expect(rig.sink.calls, ['p 650 250 0']);
+    });
+
+    testWidgets('a second finger landing during the drag lets the button '
+        'go', (tester) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+      await tester.tapAt(origin + const Offset(100, 100));
+      final finger = await tester.startGesture(origin + const Offset(100, 100));
+      await finger.moveBy(const Offset(30, 0));
+      rig.sink.calls.clear();
+
+      final other = await tester.startGesture(origin + const Offset(300, 300));
+      await other.up();
+      await finger.up();
+
+      expect(rig.sink.calls, ['p 575 250 0']);
+    });
+
+    testWidgets('disabling the layer during the drag lets the button go', (
+      tester,
+    ) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+      await tester.tapAt(origin + const Offset(100, 100));
+      final finger = await tester.startGesture(origin + const Offset(100, 100));
+      await finger.moveBy(const Offset(30, 0));
+      rig.sink.calls.clear();
+
+      await pumpLayer(
+        tester,
+        rig,
+        mode: ScreenGestureMode.trackpad,
+        enabled: false,
+      );
+      await finger.up();
+
+      expect(rig.sink.calls, ['p 575 250 0']);
+    });
+
+    testWidgets('touch mode has no tap and drag: the drag starts where the '
+        'finger is', (tester) async {
+      final rig = Rig();
+      final origin = await pumpLayer(tester, rig);
+      await tester.tapAt(origin + const Offset(100, 150));
+      rig.sink.calls.clear();
+
+      final finger = await tester.startGesture(origin + const Offset(100, 150));
+      await finger.moveBy(const Offset(30, 0));
+      await finger.up();
+
+      expect(rig.sink.calls.first, 'p 250 125 1');
+    });
+  });
+
   group('disabled', () {
     testWidgets('sends nothing for touch, mouse or wheel', (tester) async {
       final rig = Rig();
