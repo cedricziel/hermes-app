@@ -20,6 +20,16 @@ class FakeDisplayChannel with StreamChannelMixin implements WebSocketChannel {
   /// bridge ended the stream first.
   void Function(int? code)? onClientClose;
   var serverClosed = false;
+
+  /// Whether input (key, pointer and clipboard messages) is forwarded to the
+  /// screen at the moment it arrives. The bridge drops it from a stream that
+  /// does not hold the lease.
+  bool Function() mayInput = () => true;
+
+  /// The input messages the screen got, and those the bridge dropped, each as
+  /// the bytes the client wrote.
+  final accepted = <Uint8List>[];
+  final dropped = <Uint8List>[];
   // The client closes it; a test that never does leaks nothing.
   // ignore: close_sinks
   late final _sink = _FakeSink(this);
@@ -70,7 +80,16 @@ class _FakeSink implements WebSocketSink {
   final _done = Completer<void>();
 
   @override
-  void add(Object? data) => _channel.sent.add(data);
+  void add(Object? data) {
+    _channel.sent.add(data);
+    if (data is List<int> &&
+        data.isNotEmpty &&
+        data.first >= 4 &&
+        data.first <= 6) {
+      final message = Uint8List.fromList(data);
+      (_channel.mayInput() ? _channel.accepted : _channel.dropped).add(message);
+    }
+  }
 
   @override
   void addError(Object error, [StackTrace? stackTrace]) {}

@@ -20,7 +20,9 @@ const fakeDisplayProfileKey = '/home/u/.hermes/profiles/work';
 /// It plays the bridge too, for the streams opened with [openStream]: a holder
 /// whose stream closes with 1000 or 1001 gives the lease back, any other close
 /// keeps it, and a stream whose viewer held the lease and lost it to another
-/// person is closed with 4000.
+/// person is closed with 4000. Input (keys, the pointer and the clipboard) is
+/// forwarded only while the stream's viewer holds the lease, message by
+/// message, as `rfb_filter` does; the channel keeps what it dropped.
 class FakeDisplayServer {
   FakeDisplayServer(this.gateway, {required this.connection}) {
     gateway.handlers['display.status'] = (_) => _status();
@@ -67,6 +69,7 @@ class FakeDisplayServer {
     final viewerId = RegExp(r'^ticket-(.+)-\d+$').firstMatch(ticket)!.group(1)!;
     final channel = FakeDisplayChannel();
     final entry = (viewerId: viewerId, channel: channel);
+    channel.mayInput = () => holder == 'human' && holderId == viewerId;
     channel.onClientClose = (code) {
       _streams.remove(entry);
       if ((code == 1000 || code == 1001) &&

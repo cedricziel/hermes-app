@@ -206,12 +206,14 @@ class BotScreenViewerController extends ChangeNotifier {
       : 'Someone else took control.';
 
   /// What the person in control sends input through, or null while this
-  /// device is not in control or the stream is not open. It belongs to the open
-  /// stream and goes with it (keys still held are released and the screen's
-  /// clipboard is cleared first), so ask again after a reconnect.
+  /// device is not in control, is handing control back or the stream is not
+  /// open. It belongs to the open stream and goes with it (keys still held are
+  /// released and the screen's clipboard is cleared first, while the lease is
+  /// still held: the bridge drops input from a stream that does not hold it),
+  /// so ask again after a reconnect.
   ScreenInput? get input {
     final client = _client;
-    if (client == null || !inControl) return null;
+    if (client == null || _releasing || !inControl) return null;
     // `_forgetClient` drops the input with its client, so a live one is
     // always the open stream's.
     if (_input == null) {
@@ -862,6 +864,9 @@ class BotScreenViewerController extends ChangeNotifier {
       return false;
     }
     _releasing = true;
+    // Let go of keys and empty the clipboard before the release: once the lease
+    // is gone the bridge drops what this stream sends.
+    _dropInput();
     // An owner that is being torn down starts this from its dispose, when
     // nothing may rebuild.
     scheduleMicrotask(_notify);
@@ -908,6 +913,7 @@ class BotScreenViewerController extends ChangeNotifier {
     _retry = null;
     _coverTimer?.cancel();
     _coverTimer = null;
+    _dropInput();
     if (screen.inControlHere) {
       try {
         await handBack(reason: reason)

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:fake_async/fake_async.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
@@ -35,6 +35,7 @@ late List<FakeDisplayChannel> channels;
 FakeDisplayChannel get channel => channels.last;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late FakeAsync async;
   late FakeGateway gateway;
   late FakeDisplayServer server;
@@ -1000,6 +1001,83 @@ void main() {
         final messages = sentMessages().sublist(before);
         expect(messages.last, '6 0,0,0,0,0,0,0');
         expect(channel.sentCloseCode, 4100);
+      });
+    });
+
+    /// The input the screen got, and the input the bridge dropped because
+    /// its stream no longer held the lease, as `type` and the rest in hex.
+    String hex(Uint8List message) =>
+        '${message.first} ${message.skip(1).map((b) => b.toRadixString(16)).join(',')}';
+    List<String> accepted() => [for (final m in channel.accepted) hex(m)];
+    List<String> dropped() => [for (final m in channel.dropped) hex(m)];
+
+    void holdKey() {
+      viewer.input!.keyboard.handle(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyA,
+          logicalKey: LogicalKeyboardKey.keyA,
+          character: 'a',
+          timeStamp: Duration.zero,
+        ),
+      );
+    }
+
+    test('a pasted secret is cleared and held keys are let go while the '
+        'lease is still held, when handing back within the 500 ms', () {
+      scenario(() {
+        takeOver();
+        clipboard = 'secret';
+        unawaited(viewer.paste());
+        settle();
+        holdKey();
+
+        unawaited(viewer.handBack());
+        settle();
+
+        expect(server.holder, 'agent');
+        expect(accepted().sublist(accepted().length - 2), [
+          '4 0,0,0,0,0,0,61',
+          '6 0,0,0,0,0,0,0',
+        ]);
+        expect(dropped(), isEmpty);
+        // The clear does not come a second time.
+        async.elapse(const Duration(seconds: 1));
+        expect(accepted().where((m) => m.startsWith('6 ')), hasLength(2));
+        expect(dropped(), isEmpty);
+      });
+    });
+
+    test('closing within the 500 ms clears the pasted secret while the '
+        'lease is still held', () {
+      scenario(() {
+        takeOver();
+        clipboard = 'secret';
+        unawaited(viewer.paste());
+        settle();
+        holdKey();
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+
+        expect(server.holder, 'agent');
+        expect(accepted().last, '6 0,0,0,0,0,0,0');
+        expect(accepted(), contains('4 0,0,0,0,0,0,61'));
+        expect(dropped(), isEmpty);
+      });
+    });
+
+    test('offers no input while the release is being answered', () {
+      scenario(() {
+        takeOver();
+        gateway.silent.add('display.lease.release');
+
+        unawaited(viewer.handBack());
+        settle();
+
+        expect(viewer.control, BotScreenControl.releasing);
+        expect(viewer.input, isNull);
+        expect(viewer.paste(), completion(PasteOutcome.closed));
+        settle();
       });
     });
 
