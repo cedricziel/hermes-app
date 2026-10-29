@@ -6,19 +6,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../telemetry/breadcrumbs.dart';
+import '../../widgets/adaptive_sheet.dart';
+import '../input/screen_gesture_layer.dart';
+import '../input/screen_input.dart';
+import '../input/screen_keyboard.dart';
+import '../input/screen_paste.dart';
+import '../input/soft_keyboard.dart';
 import '../rfb/rfb_client.dart' show Framebuffer;
+import '../takeover_setting.dart';
+import '../widgets/bot_screen_desktop_tools.dart';
+import '../widgets/bot_screen_key_bar.dart';
 import '../widgets/bot_screen_viewer_view.dart';
 import '../widgets/force_hand_back.dart';
+import '../widgets/takeover_confirmation.dart';
+import '../widgets/trackpad_cursor.dart';
 import 'bot_screen_viewer_controller.dart';
 
 /// [BotScreenViewerView] over [controller]: the picture of its framebuffer,
-/// and the actions its phase and its control offer.
+/// the actions its phase and its control offer, and, while this device is in
+/// control, the input: the gesture layer over the picture, the hardware keys,
+/// the on-screen keyboard and Paste.
 ///
 /// It tells the controller whether the route it is on is on screen (a route
 /// above it that covers it pauses the stream), and closes on Escape and the
 /// system's dismiss action, except while this device is in control, when
-/// Escape belongs to the screen. [breadcrumbs] gets
-/// `bot_screen.handback.pressed` and `bot_screen.force_handback.pressed`.
+/// Escape belongs to the screen and the viewer closes through its Close button
+/// or the reserved key (⌘. on a Mac, F8 elsewhere). Take over asks first
+/// unless [takeover] says the user chose not to be asked. [breadcrumbs] gets
+/// `bot_screen.takeover.pressed`, `bot_screen.handback.pressed`,
+/// `bot_screen.force_handback.pressed` and `bot_screen.input.mode`, with fixed
+/// words only.
 class BotScreenViewer extends StatefulWidget {
   const BotScreenViewer({
     super.key,
@@ -26,6 +43,7 @@ class BotScreenViewer extends StatefulWidget {
     required this.profile,
     required this.presentation,
     required this.onClose,
+    this.takeover,
     this.breadcrumbs = Breadcrumbs.none,
   });
 
@@ -35,6 +53,10 @@ class BotScreenViewer extends StatefulWidget {
   final String profile;
   final BotScreenViewerPresentation presentation;
   final VoidCallback onClose;
+
+  /// Whether to ask before taking over, kept per account; null always asks and
+  /// remembers nothing.
+  final TakeoverSetting? takeover;
   final Breadcrumbs breadcrumbs;
 
   @override
@@ -42,25 +64,171 @@ class BotScreenViewer extends StatefulWidget {
 }
 
 class _BotScreenViewerState extends State<BotScreenViewer> {
+  final _keys = FocusNode(debugLabel: 'bot screen keys');
+  final _zoom = TransformationController();
+  final _pointer = ValueNotifier(Offset.zero);
+  var _mode = ScreenGestureMode.touch;
+  SoftKeyboard? _soft;
+  ScreenInput? _softFor;
+  String? _notice;
+  Timer? _noticeTimer;
+  var _wasInControl = false;
+
+  BotScreenViewerController get _controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _keys.addListener(_focusChanged);
+    _controller.addListener(_controlChanged);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // A route above that covers this one turns its tickers off, as for
     // `BotScreenDemand`. The setter tells its listeners a microtask later, so
     // it is safe while the tree builds.
-    widget.controller.visible = TickerMode.valuesOf(context).enabled;
+    _controller.visible = TickerMode.valuesOf(context).enabled;
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_controlChanged);
+    _keys.removeListener(_focusChanged);
+    _soft?.hide();
+    _noticeTimer?.cancel();
+    _keys.dispose();
+    _zoom.dispose();
+    _pointer.dispose();
+    super.dispose();
+  }
+
+  /// Keys the person was holding when the focus left are let go of, since
+  /// their release would never come.
+  void _focusChanged() {
+    if (!_keys.hasFocus) _controller.input?.keyboard.releaseAll();
+  }
+
+  /// Takes the keyboard focus when this device takes control, and closes the
+  /// on-screen keyboard and the notice when it stops being in control.
+  void _controlChanged() {
+    final inControl = _controller.inControl;
+    if (inControl && !_wasInControl) {
+      _keys.requestFocus();
+    } else if (!inControl && _wasInControl) {
+      _soft?.hide();
+      _soft = null;
+      _softFor = null;
+      _notice = null;
+      _mode = ScreenGestureMode.touch;
+    }
+    _wasInControl = inControl;
+  }
+
+  bool get _touch =>
+      Theme.of(context).platform == TargetPlatform.iOS ||
+      Theme.of(context).platform == TargetPlatform.android;
+
+  Future<void> _takeOver() async {
+    widget.breadcrumbs('bot_screen.takeover.pressed');
+    if (!await _confirmed() || !mounted) return;
+    await _controller.takeOver();
+  }
+
+  /// Whether the user is happy to take over: not asked again when they said
+  /// so for this account.
+  Future<bool> _confirmed() async {
+    final setting = widget.takeover;
+    if (setting != null && await setting.skipsConfirmation()) return true;
+    if (!mounted) return false;
+    final answer = await showAdaptiveSheet<({bool dontAskAgain})>(
+      context,
+      builder: (sheet) => TakeoverConfirmation(
+        onCancel: () => Navigator.pop(sheet),
+        onConfirm: (dontAskAgain) =>
+            Navigator.pop(sheet, (dontAskAgain: dontAskAgain)),
+      ),
+    );
+    if (answer == null) return false;
+    if (answer.dontAskAgain) await setting?.skipConfirmation();
+    return true;
   }
 
   void _handBack() {
     widget.breadcrumbs('bot_screen.handback.pressed');
-    unawaited(widget.controller.handBack());
+    unawaited(_controller.handBack());
   }
 
   /// [context] is below the viewer's own messenger, so a failure is said
   /// inside the viewer and not behind it.
   void _forceHandBack(BuildContext context) {
     widget.breadcrumbs('bot_screen.force_handback.pressed');
-    unawaited(confirmForceHandBack(context, widget.controller.forceHandBack));
+    unawaited(confirmForceHandBack(context, _controller.forceHandBack));
+  }
+
+  void _setMode(ScreenGestureMode mode) {
+    widget.breadcrumbs('bot_screen.input.mode', {'mode': mode.name});
+    setState(() => _mode = mode);
+  }
+
+  Future<void> _paste() async {
+    final outcome = await _controller.paste();
+    if (!mounted) return;
+    switch (outcome) {
+      case PasteOutcome.notLatin1 || PasteOutcome.tooLarge:
+        _say("This text can't be pasted to the screen.");
+      case PasteOutcome.pasted || PasteOutcome.empty || PasteOutcome.closed:
+        break;
+    }
+  }
+
+  /// Shows [text] under the header for a few seconds.
+  void _say(String text) {
+    _noticeTimer?.cancel();
+    setState(() => _notice = text);
+    _noticeTimer = Timer(const Duration(seconds: 5), _clearNotice);
+  }
+
+  void _clearNotice() {
+    _noticeTimer?.cancel();
+    if (mounted) setState(() => _notice = null);
+  }
+
+  /// The on-screen keyboard of [input], made when first asked for.
+  SoftKeyboard _keyboardOf(ScreenInput input) {
+    if (_soft == null || !identical(_softFor, input)) {
+      _soft?.hide();
+      _softFor = input;
+      _soft = SoftKeyboard(
+        onText: input.keyboard.typeText,
+        onBackspace: () => input.keyboard.tap(ScreenKeys.backSpace),
+        onReturn: () => input.keyboard.tap(ScreenKeys.enter),
+      );
+    }
+    return _soft!;
+  }
+
+  void _toggleKeyboard(ScreenInput input) {
+    final soft = _keyboardOf(input);
+    setState(soft.visible ? soft.hide : soft.show);
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    final input = _controller.input;
+    if (input == null) return KeyEventResult.ignored;
+    switch (input.keyboard.handle(event)) {
+      case ScreenKeyResult.sent || ScreenKeyResult.consumed:
+        return KeyEventResult.handled;
+      case ScreenKeyResult.paste:
+        unawaited(_paste());
+        return KeyEventResult.handled;
+      case ScreenKeyResult.close:
+        widget.onClose();
+        return KeyEventResult.handled;
+      case ScreenKeyResult.ignored:
+        return KeyEventResult.ignored;
+    }
   }
 
   @override
@@ -71,23 +239,34 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
       DismissIntent: CallbackAction<DismissIntent>(
         // While this device is in control Escape is for the screen.
         onInvoke: (_) {
-          if (!widget.controller.inControl) widget.onClose();
+          if (!_controller.inControl) widget.onClose();
           return null;
         },
       ),
     },
     child: Focus(
+      focusNode: _keys,
       autofocus: true,
+      onKeyEvent: _onKey,
       // The viewer is a route of its own, so it has a messenger of its own:
       // a snackbar of the screen below would be hidden behind it.
       child: ScaffoldMessenger(
         child: Scaffold(
           backgroundColor: Colors.black,
           body: ListenableBuilder(
-            listenable: widget.controller,
+            listenable: _controller,
             builder: (context, _) {
-              final controller = widget.controller;
+              final controller = _controller;
               final framebuffer = controller.framebuffer;
+              final input = controller.input;
+              final platform = Theme.of(context).platform;
+              final touch = _touch;
+              final size = framebuffer == null
+                  ? Size.zero
+                  : Size(
+                      framebuffer.width.toDouble(),
+                      framebuffer.height.toDouble(),
+                    );
               return BotScreenViewerView(
                 phase: controller.phase,
                 profile: widget.profile,
@@ -107,9 +286,68 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
                 onClose: widget.onClose,
                 onRetry: controller.retry,
                 onStart: () => controller.startScreen(),
+                onTakeOver: controller.canTakeOver ? _takeOver : null,
                 onHandBack: _handBack,
                 onForceHandBack: () => _forceHandBack(context),
                 onDismissLost: controller.dismissLost,
+                notice: _notice,
+                onDismissNotice: _clearNotice,
+                transformation: _zoom,
+                // A mouse wheel over the picture is the screen's, not a zoom; a
+                // finger's pinch stays.
+                scaleEnabled: input == null || touch,
+                stageOverlay: input == null || framebuffer == null
+                    ? null
+                    : ScreenGestureLayer(
+                        sink: input.sink,
+                        framebuffer: size,
+                        transformation: _zoom,
+                        virtualPointer: _pointer,
+                        enabled: true,
+                        mode: _mode,
+                      ),
+                pictureOverlay:
+                    input != null &&
+                        touch &&
+                        _mode == ScreenGestureMode.trackpad &&
+                        framebuffer != null
+                    ? TrackpadCursor(pointer: _pointer, framebuffer: size)
+                    : null,
+                keyBar: input != null && touch
+                    ? ListenableBuilder(
+                        listenable: Listenable.merge([
+                          input.keyboard.ctrl,
+                          input.keyboard.alt,
+                        ]),
+                        builder: (context, _) => BotScreenKeyBar(
+                          mode: _mode,
+                          ctrl: input.keyboard.ctrl.value,
+                          alt: input.keyboard.alt.value,
+                          keyboardOpen: _soft?.visible ?? false,
+                          onMode: _setMode,
+                          onEscape: () => input.keyboard.tap(ScreenKeys.escape),
+                          onTab: () => input.keyboard.tap(ScreenKeys.tab),
+                          onLeft: () =>
+                              input.keyboard.tap(ScreenKeys.arrowLeft),
+                          onRight: () =>
+                              input.keyboard.tap(ScreenKeys.arrowRight),
+                          onToggleCtrl: () => input.keyboard.ctrl.value =
+                              !input.keyboard.ctrl.value,
+                          onToggleAlt: () => input.keyboard.alt.value =
+                              !input.keyboard.alt.value,
+                          onToggleKeyboard: () => _toggleKeyboard(input),
+                          onPaste: _paste,
+                        ),
+                      )
+                    : null,
+                tools: input != null && !touch
+                    ? BotScreenDesktopTools(
+                        onPaste: _paste,
+                        onSendF8: platform == TargetPlatform.macOS
+                            ? null
+                            : () => input.keyboard.tap(ScreenKeys.f8),
+                      )
+                    : null,
               );
             },
           ),

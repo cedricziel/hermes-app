@@ -32,6 +32,7 @@ const _backSpace = 0xff08;
 const _arrowLeft = 0xff51;
 const _arrowRight = 0xff53;
 const _f8 = 0xffc5;
+const _enter = 0xff0d;
 
 /// The keys of the key bar, which send a keysym of their own.
 abstract final class ScreenKeys {
@@ -41,6 +42,7 @@ abstract final class ScreenKeys {
   static const arrowLeft = _arrowLeft;
   static const arrowRight = _arrowRight;
   static const f8 = _f8;
+  static const enter = _enter;
 }
 
 /// Turns the keys of the person in control into key events for the screen.

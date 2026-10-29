@@ -141,6 +141,11 @@ extension _ChatScreenBotScreen on _ChatScreenState {
       controller: controller,
       profile: profile ?? 'default',
       source: source,
+      takeover:
+          widget.takeoverSetting ??
+          (_screenAuth?.accountKey == null
+              ? null
+              : TakeoverSetting(accountKey: _screenAuth!.accountKey!)),
       breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
       onClosed: () {
         if (identical(_viewer, controller)) {

@@ -116,8 +116,60 @@ class SoftKeyboard with TextInputClient, DeltaTextInputClient {
     _connection = null;
   }
 
+  /// A keyboard that reports the whole value instead of deltas (the model is
+  /// asked for, but not every platform's keyboard gives it): what changed is
+  /// found by comparing with what the field held.
   @override
-  void updateEditingValue(TextEditingValue value) {}
+  void updateEditingValue(TextEditingValue value) {
+    final old = _value;
+    final before = old.text, after = value.text;
+    var start = 0;
+    while (start < before.length &&
+        start < after.length &&
+        before[start] == after[start]) {
+      start++;
+    }
+    var oldEnd = before.length, newEnd = after.length;
+    while (oldEnd > start &&
+        newEnd > start &&
+        before[oldEnd - 1] == after[newEnd - 1]) {
+      oldEnd--;
+      newEnd--;
+    }
+    final added = after.substring(start, newEnd);
+    final range = TextRange(start: start, end: oldEnd);
+    updateEditingValueWithDeltas([
+      if (before == after)
+        TextEditingDeltaNonTextUpdate(
+          oldText: before,
+          selection: value.selection,
+          composing: value.composing,
+        )
+      else if (range.isCollapsed)
+        TextEditingDeltaInsertion(
+          oldText: before,
+          textInserted: added,
+          insertionOffset: start,
+          selection: value.selection,
+          composing: value.composing,
+        )
+      else if (added.isEmpty)
+        TextEditingDeltaDeletion(
+          oldText: before,
+          deletedRange: range,
+          selection: value.selection,
+          composing: value.composing,
+        )
+      else
+        TextEditingDeltaReplacement(
+          oldText: before,
+          replacementText: added,
+          replacedRange: range,
+          selection: value.selection,
+          composing: value.composing,
+        ),
+    ]);
+  }
 
   @override
   void updateFloatingCursor(RawFloatingCursorPoint point) {}

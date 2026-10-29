@@ -219,6 +219,49 @@ void main() {
     });
   });
 
+  group('a keyboard that reports whole values, not deltas', () {
+    testWidgets('typed text is found by comparing with what the field held', (
+      tester,
+    ) async {
+      keyboard.show();
+
+      tester.testTextInput.enterText('${_rest}481');
+
+      expect(sent, ['text 481']);
+      expect(keyboard.currentTextEditingValue!.text, _rest);
+    });
+
+    testWidgets('a deleted character is a BackSpace', (tester) async {
+      keyboard.show();
+
+      tester.testTextInput.enterText('');
+
+      expect(sent, ['backspace']);
+    });
+
+    testWidgets('composing text is held until it is committed', (tester) async {
+      keyboard.show();
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '${_rest}he',
+          selection: TextSelection.collapsed(offset: 3),
+          composing: TextRange(start: 1, end: 3),
+        ),
+      );
+      expect(sent, isEmpty);
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '${_rest}hello',
+          selection: TextSelection.collapsed(offset: 6),
+        ),
+      );
+
+      expect(sent, ['text hello']);
+    });
+  });
+
   group('when it is gone', () {
     testWidgets('a delta after hide sends nothing', (tester) async {
       keyboard.show();

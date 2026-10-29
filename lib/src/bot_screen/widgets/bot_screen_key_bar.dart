@@ -49,7 +49,7 @@ class BotScreenKeyBar extends StatelessWidget {
     final trackpad = mode == ScreenGestureMode.trackpad;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       child: Row(
         children: [
           _Key.icon(
@@ -98,7 +98,7 @@ class _Gap extends StatelessWidget {
   const _Gap();
 
   @override
-  Widget build(BuildContext context) => const SizedBox(width: 6);
+  Widget build(BuildContext context) => const SizedBox(width: 4);
 }
 
 /// One key of the bar. A key with [latched] set is a toggle and draws as held.
@@ -149,10 +149,10 @@ class _Key extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         onTap: onPressed,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: 44, minHeight: minimum),
+          constraints: BoxConstraints(minWidth: 38, minHeight: minimum),
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 7),
               child: content,
             ),
           ),

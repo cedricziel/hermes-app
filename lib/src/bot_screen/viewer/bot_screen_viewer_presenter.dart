@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../telemetry/breadcrumbs.dart';
+import '../takeover_setting.dart';
 import '../widgets/bot_screen_viewer_view.dart';
 import 'bot_screen_viewer.dart';
 import 'bot_screen_viewer_controller.dart';
@@ -37,6 +38,7 @@ BotScreenViewerHandle showBotScreenViewer(
   required String profile,
   required String source,
   required VoidCallback onClosed,
+  TakeoverSetting? takeover,
   Breadcrumbs breadcrumbs = Breadcrumbs.none,
 }) {
   final page =
@@ -63,6 +65,7 @@ BotScreenViewerHandle showBotScreenViewer(
         controller: controller,
         profile: profile,
         presentation: presentation,
+        takeover: takeover,
         breadcrumbs: breadcrumbs,
         onClose: () {
           if (!route.isCurrent) return close();
