@@ -34,6 +34,7 @@ import '../bot_screen/bot_screen_repository.dart';
 import '../bot_screen/bot_screen_viewer_ids.dart';
 import '../bot_screen/install/bot_screen_installs.dart';
 import '../bot_screen/rfb/display_socket.dart';
+import '../bot_screen/takeover_setting.dart';
 import '../bot_screen/viewer/bot_screen_viewer_controller.dart';
 import '../bot_screen/viewer/bot_screen_viewer_presenter.dart';
 import '../handoff/handoff_controller.dart';
@@ -162,6 +163,7 @@ class ChatScreen extends StatefulWidget {
     this.voiceRecorder,
     this.voiceMessageRecorder,
     this.displaySocketOpener,
+    this.takeoverSetting,
   });
 
   final HermesChatRepository? repository;
@@ -222,6 +224,10 @@ class ChatScreen extends StatefulWidget {
   /// Opens the Bot Screen's display stream; the connected dashboard's unless
   /// a test supplies its own.
   final DisplaySocketOpener? displaySocketOpener;
+
+  /// Whether to ask before taking over the Bot Screen; the signed-in
+  /// account's own unless a test supplies one.
+  final TakeoverSetting? takeoverSetting;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();

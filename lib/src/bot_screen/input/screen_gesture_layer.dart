@@ -31,6 +31,11 @@ enum ScreenGestureMode {
 /// that already moved past the slop owns the gesture, so a second finger then
 /// only ends its drag.
 ///
+/// In [ScreenGestureMode.trackpad] a tap followed within
+/// [kDoubleTapTimeout] by a press that moves holds the primary button for the
+/// drag, as on a laptop trackpad (tap and drag); a second tap that does not
+/// move is a second click.
+///
 /// An `InteractiveViewer` also zooms on the mouse wheel by itself, which this
 /// layer cannot prevent; whoever places the layer decides its `scaleEnabled`.
 ///
@@ -104,6 +109,17 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   Offset _touchStart = Offset.zero;
   Timer? _longPress;
 
+  /// Whether a tap just ended, so that a press now may be a tap and drag. The
+  /// tap's click waits ([_clickWaiting]) until the window passes without the
+  /// press that would make it a drag.
+  bool _tapped = false;
+  bool _clickWaiting = false;
+  Timer? _tapWindow;
+
+  /// Whether the finger that is down began as the second half of a tap and
+  /// drag, and whether it holds the button now.
+  bool _dragArmed = false;
+
   /// The latest pointer message sent, to skip a repeat and to release a button
   /// that is still held when the layer stops.
   ({int x, int y, int mask})? _sent;
@@ -159,6 +175,8 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
   /// Ends a touch in progress, letting go of any button still held.
   void _stopGesture({RfbInputSink? sink}) {
     _longPress?.cancel();
+    _tapWindow?.cancel();
+    _tapped = _clickWaiting = _dragArmed = false;
     _touch = _Touch.idle;
     final sent = _sent;
     if (sent != null && sent.mask != 0) {
@@ -180,14 +198,18 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     _touches.add(event.pointer);
     if (_touches.length > 1) {
       _multiTouch = true;
-      _stopGesture();
+      _flushAndStop();
       return;
     }
     _multiTouch = false;
     _touchId = event.pointer;
     _touchStart = event.localPosition;
+    _dragArmed = _tapped && widget.mode == ScreenGestureMode.trackpad;
+    _tapWindow?.cancel();
+    _tapped = false;
     _touch = _Touch.pending;
-    _longPress = Timer(kLongPressTimeout, _onLongPress);
+    // A press that may drag is no long press.
+    if (!_dragArmed) _longPress = Timer(kLongPressTimeout, _onLongPress);
   }
 
   void _onMove(PointerMoveEvent event) {
@@ -205,6 +227,13 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
           _sendAt(event.localPosition, RfbButtons.primary);
         } else {
           _touch = _Touch.panning;
+          if (_dragArmed) {
+            // Tap and drag: the drag takes the place of the tap's click, and
+            // the button goes down where the pointer is.
+            _clickWaiting = false;
+            final at = _virtual;
+            _pointerTo(at.x, at.y, RfbButtons.primary);
+          }
           // The travel up to the slop counts.
           _movePointer(event.localPosition - _touchStart);
         }
@@ -225,12 +254,23 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     _longPress?.cancel();
     switch (_touch) {
       case _Touch.pending:
-        _click(RfbButtons.primary);
+        if (widget.mode == ScreenGestureMode.trackpad) {
+          // A tap before this one clicks now; this one waits for a second
+          // press.
+          _clickTapWaiting();
+          _openTapWindow();
+        } else {
+          _click(RfbButtons.primary);
+        }
       case _Touch.dragging:
         _sendAt(event.localPosition, 0);
+      case _Touch.panning when _dragArmed:
+        final at = _virtual;
+        _pointerTo(at.x, at.y, 0);
       case _Touch.idle || _Touch.panning || _Touch.longPressed:
         break;
     }
+    _dragArmed = false;
     _touch = _Touch.idle;
   }
 
@@ -238,7 +278,8 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     if (!_live) return;
     if (event.kind == PointerDeviceKind.mouse) return _stopGesture();
     if (!_isTouch(event) || _fingerLifted(event.pointer)) return;
-    if (event.pointer == _touchId) _stopGesture();
+    if (event.pointer != _touchId) return;
+    _flushAndStop();
   }
 
   /// Whether [event] comes from a finger or a stylus, as opposed to a mouse
@@ -275,10 +316,38 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     _pointerTo(at.x, at.y, 0);
   }
 
+  /// A tap just ended: for [kDoubleTapTimeout] a press may begin a drag, and
+  /// the tap's click waits for that.
+  void _openTapWindow() {
+    _tapped = _clickWaiting = true;
+    _tapWindow?.cancel();
+    _tapWindow = Timer(kDoubleTapTimeout, () {
+      _tapped = false;
+      _clickTapWaiting();
+    });
+  }
+
+  /// Ends the gesture, but a tap that was waiting for a drag still clicks.
+  void _flushAndStop() {
+    _clickTapWaiting();
+    _stopGesture();
+  }
+
+  /// Sends the click of a tap that was waiting for a drag.
+  void _clickTapWaiting() {
+    if (!_clickWaiting) return;
+    _clickWaiting = false;
+    _click(RfbButtons.primary);
+  }
+
   void _movePointer(Offset delta) {
     final moved = _geometry.movePointer(_onScreen(_pointer.value), delta);
     _pointer.value = moved;
-    _pointerTo(moved.dx.floor(), moved.dy.floor(), 0);
+    _pointerTo(
+      moved.dx.floor(),
+      moved.dy.floor(),
+      _dragArmed ? RfbButtons.primary : 0,
+    );
   }
 
   // Mouse and wheel -----------------------------------------------------------

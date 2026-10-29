@@ -21,6 +21,14 @@ Widget _app(
   VoidCallback? onHandBack,
   VoidCallback? onForceHandBack,
   VoidCallback? onDismissLost,
+  Widget? keyBar,
+  Widget? tools,
+  String? notice,
+  VoidCallback? onDismissNotice,
+  TransformationController? transformation,
+  bool scaleEnabled = true,
+  Widget? stageOverlay,
+  Widget? pictureOverlay,
 }) => MaterialApp(
   theme: buildHermesLightTheme(platform: platform),
   home: MediaQuery(
@@ -38,6 +46,14 @@ Widget _app(
       onHandBack: onHandBack,
       onForceHandBack: onForceHandBack,
       onDismissLost: onDismissLost,
+      keyBar: keyBar,
+      tools: tools,
+      notice: notice,
+      onDismissNotice: onDismissNotice,
+      transformation: transformation,
+      scaleEnabled: scaleEnabled,
+      stageOverlay: stageOverlay,
+      pictureOverlay: pictureOverlay,
     ),
   ),
 );
@@ -364,6 +380,108 @@ void main() {
           expect(tester.takeException(), isNull, reason: '$platform $control');
         }
       }
+    });
+  });
+
+  group('input chrome', () {
+    testWidgets('a key bar sits under the picture and the tools above it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.inControl,
+          keyBar: const Text('the keys', key: Key('keys')),
+          tools: const Text('the tools', key: Key('tools')),
+        ),
+      );
+
+      expect(find.byKey(const Key('keys')), findsOne);
+      expect(find.byKey(const Key('tools')), findsOne);
+      expect(
+        tester.getTopLeft(find.byKey(const Key('keys'))).dy,
+        greaterThan(tester.getBottomLeft(zoom).dy - 1),
+      );
+      expect(
+        tester.getBottomLeft(find.byKey(const Key('tools'))).dy,
+        lessThan(tester.getTopLeft(zoom).dy + 1),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('tools'))).dy,
+        greaterThan(tester.getBottomLeft(find.text('research')).dy - 1),
+      );
+    });
+
+    testWidgets('a notice is said with a way to close it', (tester) async {
+      var closed = 0;
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.inControl,
+          notice: "This text can't be pasted to the screen.",
+          onDismissNotice: () => closed++,
+        ),
+      );
+
+      expect(find.text("This text can't be pasted to the screen."), findsOne);
+      await tester.tap(find.byTooltip('Dismiss'));
+
+      expect(closed, 1);
+    });
+
+    testWidgets('the zoom is the owner\'s controller and its wheel zoom can be '
+        'turned off', (tester) async {
+      final controller = TransformationController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.live,
+          transformation: controller,
+          scaleEnabled: false,
+        ),
+      );
+
+      final viewer = tester.widget<InteractiveViewer>(zoom);
+      expect(viewer.transformationController, same(controller));
+      expect(viewer.scaleEnabled, isFalse);
+    });
+
+    testWidgets('the stage overlay covers the picture and the picture '
+        'overlay moves with it', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.live,
+          stageOverlay: const SizedBox.expand(key: Key('layer')),
+          pictureOverlay: const SizedBox.expand(key: Key('cursor')),
+        ),
+      );
+
+      expect(
+        tester.getRect(find.byKey(const Key('layer'))),
+        tester.getRect(zoom),
+      );
+      expect(
+        find.descendant(of: zoom, matching: find.byKey(const Key('cursor'))),
+        findsOne,
+      );
+      expect(
+        find.descendant(of: zoom, matching: find.byKey(const Key('layer'))),
+        findsNothing,
+      );
+    });
+
+    testWidgets('no overlay is drawn without a picture', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.connecting,
+          picture: false,
+          pictureOverlay: const SizedBox.expand(key: Key('cursor')),
+          stageOverlay: const SizedBox.expand(key: Key('layer')),
+        ),
+      );
+
+      expect(find.byKey(const Key('cursor')), findsNothing);
+      expect(find.byKey(const Key('layer')), findsNothing);
     });
   });
 }

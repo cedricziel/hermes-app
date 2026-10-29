@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_viewer_ids.dart';
+import 'package:hermes_app/src/bot_screen/input/screen_paste.dart'
+    show PasteOutcome;
 import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
@@ -32,6 +35,7 @@ late List<FakeDisplayChannel> channels;
 FakeDisplayChannel get channel => channels.last;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late FakeAsync async;
   late FakeGateway gateway;
   late FakeDisplayServer server;
@@ -42,6 +46,7 @@ void main() {
   late RecordingTracer tracer;
   late List<String> logged;
   late int connects;
+  String? clipboard;
 
   void settle() => async.flushMicrotasks();
 
@@ -69,6 +74,7 @@ void main() {
     fakeAsync((zone) {
       async = zone;
       connects = 0;
+      clipboard = null;
       channels = [];
       logged = [];
       tracer = RecordingTracer();
@@ -112,6 +118,8 @@ void main() {
         random: _Fixed(),
         telemetry: telemetry,
         coverGrace: coverGrace,
+        platform: TargetPlatform.macOS,
+        readClipboard: () async => clipboard,
       );
       try {
         viewer.start();
@@ -909,6 +917,279 @@ void main() {
 
         expect(channels, hasLength(1));
         expect(server.observedWith, hasLength(1));
+      });
+    });
+  });
+
+  group('input', () {
+    void takeOver() {
+      unawaited(viewer.takeOver());
+      settle();
+    }
+
+    /// The client messages after the handshake, as `type` and the rest in hex.
+    List<String> sentMessages() => [
+      for (final message in clientMessages(channel.sentBytes))
+        if (message.first == 4 || message.first == 5 || message.first == 6)
+          '${message.first} ${message.skip(1).map((b) => b.toRadixString(16)).join(',')}',
+    ];
+
+    test('is offered only while this device is in control', () {
+      scenario(() {
+        expect(viewer.input, isNull);
+
+        takeOver();
+        expect(viewer.input, isNotNull);
+
+        unawaited(viewer.handBack());
+        settle();
+        expect(viewer.input, isNull);
+      });
+    });
+
+    test('goes out on the stream of the id that holds the lease', () {
+      scenario(() {
+        takeOver();
+
+        viewer.input!.sink.pointer(3, 2, 1);
+
+        expect(sentMessages(), ['5 1,0,3,0,2']);
+      });
+    });
+
+    test('is the same object until the stream or the lease changes', () {
+      scenario(() {
+        takeOver();
+        final first = viewer.input;
+
+        expect(viewer.input, same(first));
+
+        server.giveToAgent();
+        settle();
+        expect(viewer.input, isNull);
+      });
+    });
+
+    test('a stream that was opened again gets its own', () {
+      scenario(() {
+        takeOver();
+        final first = viewer.input;
+
+        viewer.foreground = false;
+        settle();
+        viewer.foreground = true;
+        settle();
+        handshake();
+
+        expect(viewer.input, isNot(same(first)));
+        expect(viewer.input, isNotNull);
+      });
+    });
+
+    test('a pasted secret is cleared from the screen before the stream '
+        'closes', () {
+      scenario(() {
+        takeOver();
+        clipboard = 'secret';
+        unawaited(viewer.paste());
+        settle();
+        final before = sentMessages().length;
+
+        viewer.foreground = false;
+        settle();
+
+        final messages = sentMessages().sublist(before);
+        expect(messages.last, '6 0,0,0,0,0,0,0');
+        expect(channel.sentCloseCode, 4100);
+      });
+    });
+
+    /// The input the screen got, and the input the bridge dropped because
+    /// its stream no longer held the lease, as `type` and the rest in hex.
+    String hex(Uint8List message) =>
+        '${message.first} ${message.skip(1).map((b) => b.toRadixString(16)).join(',')}';
+    List<String> accepted() => [for (final m in channel.accepted) hex(m)];
+    List<String> dropped() => [for (final m in channel.dropped) hex(m)];
+
+    void holdKey() {
+      viewer.input!.keyboard.handle(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyA,
+          logicalKey: LogicalKeyboardKey.keyA,
+          character: 'a',
+          timeStamp: Duration.zero,
+        ),
+      );
+    }
+
+    test('a pasted secret is cleared and held keys are let go while the '
+        'lease is still held, when handing back within the 500 ms', () {
+      scenario(() {
+        takeOver();
+        clipboard = 'secret';
+        unawaited(viewer.paste());
+        settle();
+        holdKey();
+
+        unawaited(viewer.handBack());
+        settle();
+
+        expect(server.holder, 'agent');
+        expect(accepted().sublist(accepted().length - 2), [
+          '4 0,0,0,0,0,0,61',
+          '6 0,0,0,0,0,0,0',
+        ]);
+        expect(dropped(), isEmpty);
+        // The clear does not come a second time.
+        async.elapse(const Duration(seconds: 1));
+        expect(accepted().where((m) => m.startsWith('6 ')), hasLength(2));
+        expect(dropped(), isEmpty);
+      });
+    });
+
+    test('closing within the 500 ms clears the pasted secret while the '
+        'lease is still held', () {
+      scenario(() {
+        takeOver();
+        clipboard = 'secret';
+        unawaited(viewer.paste());
+        settle();
+        holdKey();
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+
+        expect(server.holder, 'agent');
+        expect(accepted().last, '6 0,0,0,0,0,0,0');
+        expect(accepted(), contains('4 0,0,0,0,0,0,61'));
+        expect(dropped(), isEmpty);
+      });
+    });
+
+    test('offers no input while the release is being answered', () {
+      scenario(() {
+        takeOver();
+        gateway.silent.add('display.lease.release');
+
+        unawaited(viewer.handBack());
+        settle();
+
+        expect(viewer.control, BotScreenControl.releasing);
+        expect(viewer.input, isNull);
+        expect(viewer.paste(), completion(PasteOutcome.closed));
+        settle();
+      });
+    });
+
+    test('counts the events of a stream in a bucket and not what they '
+        'were', () {
+      for (final (count, bucket) in [
+        (0, '0'),
+        (1, '1-10'),
+        (10, '1-10'),
+        (11, '11-100'),
+        (100, '11-100'),
+        (101, '>100'),
+      ]) {
+        scenario(() {
+          takeOver();
+          for (var i = 0; i < count; i++) {
+            viewer.input!.sink.pointer(i, i, 0);
+          }
+
+          viewer.foreground = false;
+          settle();
+
+          final span = tracer.spans
+              .where((span) => span.name == 'bot_screen.stream')
+              .first;
+          expect(span.attributes['input_events'], bucket, reason: '$count');
+        });
+      }
+    });
+
+    test('a stream that sent nothing says 0', () {
+      scenario(() {
+        viewer.foreground = false;
+        settle();
+
+        final span = tracer.spans.firstWhere(
+          (span) => span.name == 'bot_screen.stream',
+        );
+        expect(span.attributes['input_events'], '0');
+      });
+    });
+
+    test('Paste sends the text, Control+V and, later, an empty clipboard', () {
+      scenario(() {
+        takeOver();
+        clipboard = 'hunter2';
+        PasteOutcome? outcome;
+        viewer.paste().then((value) => outcome = value);
+        settle();
+
+        expect(outcome, PasteOutcome.pasted);
+        final sent = sentMessages();
+        expect(sent.first, startsWith('6 '));
+        expect(sent, hasLength(5));
+
+        async.elapse(const Duration(milliseconds: 500));
+        expect(sentMessages().last, '6 0,0,0,0,0,0,0');
+      });
+    });
+
+    test('a refused paste logs only why, never the text', () {
+      scenario(() {
+        takeOver();
+        clipboard = 'caf\u00e9 \u{1F600}';
+        logged.clear();
+
+        PasteOutcome? outcome;
+        viewer.paste().then((value) => outcome = value);
+        settle();
+
+        expect(outcome, PasteOutcome.notLatin1);
+        expect(logged, ['bot_screen.paste_refused {reason: not_latin1}']);
+        expect(sentMessages(), isEmpty);
+
+        clipboard = 'a' * (256 * 1024 + 1);
+        viewer.paste();
+        settle();
+        expect(logged.last, 'bot_screen.paste_refused {reason: too_large}');
+      });
+    });
+
+    test('Paste does nothing while watching', () {
+      scenario(() {
+        clipboard = 'hunter2';
+        PasteOutcome? outcome;
+        viewer.paste().then((value) => outcome = value);
+        settle();
+
+        expect(outcome, PasteOutcome.closed);
+        expect(sentMessages(), isEmpty);
+      });
+    });
+
+    test('nothing typed, pasted or pointed at reaches a log, span or '
+        'error', () {
+      scenario(() {
+        takeOver();
+        clipboard = 'hunter2';
+        viewer.input!.keyboard.typeText('hunter2');
+        viewer.input!.sink.pointer(412, 233, 1);
+        unawaited(viewer.paste());
+        settle();
+        viewer.foreground = false;
+        settle();
+
+        final everything = [
+          ...logged,
+          for (final span in tracer.spans) '${span.attributes}',
+        ].join(' ');
+        expect(everything, isNot(contains('hunter2')));
+        expect(everything, isNot(contains('412')));
+        expect(everything, isNot(contains('233')));
       });
     });
   });

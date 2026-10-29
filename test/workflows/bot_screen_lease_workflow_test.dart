@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
+import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
@@ -134,6 +135,56 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 100));
       }
+
+      testWidgets('taking over and using the screen ($device, $mode)', (
+        tester,
+      ) async {
+        await run(
+          tester,
+          flow: 'bot-screen-takeover',
+          body: (shots, display, channel) async {
+            await tester.tap(find.byTooltip('Enlarge screen'));
+            await _settle(tester);
+            await tester.pump(const Duration(milliseconds: 500));
+            await serve(tester, channel());
+            expect(find.text('Take over'), findsOneWidget);
+            await shots.capture(tester, 'watching');
+
+            await tester.tap(find.text('Take over'));
+            await tester.pumpAndSettle();
+            expect(find.text('Take over the screen?'), findsOneWidget);
+            await shots.capture(tester, 'question');
+
+            await tester.tap(
+              find.descendant(
+                of: find.byType(TakeoverConfirmation),
+                matching: find.text('Take over'),
+              ),
+            );
+            await tester.pumpAndSettle();
+            await _settle(tester);
+            expect(find.text("You're in control"), findsWidgets);
+            expect(display.holder, 'human');
+            await shots.capture(tester, 'in-control');
+
+            if (phone) {
+              await tester.tap(find.byTooltip('Keyboard'));
+              await tester.pump();
+              tester.testTextInput.enterText('\u200b481');
+              await tester.pump();
+              await tester.ensureVisible(find.byTooltip('Use Trackpad mode'));
+              await tester.tap(find.byTooltip('Use Trackpad mode'));
+              await tester.pump();
+              await shots.capture(tester, 'trackpad');
+            }
+
+            await tester.tap(find.text('Hand Back'));
+            await _settle(tester);
+            expect(display.holder, 'agent');
+            await shots.capture(tester, 'handed-back');
+          },
+        );
+      });
 
       testWidgets('in control, then handing back ($device, $mode)', (
         tester,

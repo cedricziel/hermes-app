@@ -98,6 +98,7 @@ export * from "./components/FactList/FactList";
 export * from "./components/SectionHeader/SectionHeader";
 export * from "./components/Sheet/Sheet";
 export * from "./components/AlertDialog/AlertDialog";
+export * from "./components/TakeoverConfirmation/TakeoverConfirmation";
 export * from "./components/SudoPasswordPrompt/SudoPasswordPrompt";
 export * from "./components/McpCatalogRow/McpCatalogRow";
 export * from "./components/McpServerDetail/McpServerDetail";
