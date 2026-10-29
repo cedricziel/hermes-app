@@ -106,6 +106,18 @@ void main() {
       expect(sink.calls, ['d ff1b', 'u ff1b']);
     });
 
+    testWidgets('Command+backquote cycles the Mac\'s windows and sends '
+        'nothing', (tester) async {
+      await pump(tester, TargetPlatform.macOS);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft, platform: mac);
+      await press(tester, LogicalKeyboardKey.backquote, mac, character: '`');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft, platform: mac);
+
+      expect(sink.calls, isEmpty);
+      expect(results, contains(ScreenKeyResult.ignored));
+    });
+
     testWidgets('Command alone sends nothing', (tester) async {
       await pump(tester, TargetPlatform.macOS);
 

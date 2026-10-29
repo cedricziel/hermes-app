@@ -28,6 +28,13 @@ class ScreenInput {
   late final ScreenKeyboard keyboard;
   late final ScreenPaste paste;
 
+  /// Lets go of the keys and the pointer button still held, for a moment the
+  /// app will not see their release in (the window lost the keyboard).
+  void releaseAll() {
+    keyboard.releaseAll();
+    _counting.releaseButtons();
+  }
+
   void dispose() {
     keyboard.dispose();
     paste.dispose();
@@ -82,16 +89,18 @@ class _CountingSink implements RfbInputSink {
     _onEvent();
   }
 
-  /// Lets go of a button still down, where it was pressed, and closes.
-  void dispose() {
-    if (_disposed) return;
-    if (_mask != 0) {
-      try {
-        pointer(_x, _y, 0);
-      } on Object {
-        // The stream may be gone already.
-      }
+  /// Lets go of a button still down, where it was pressed.
+  void releaseButtons() {
+    if (_disposed || _mask == 0) return;
+    try {
+      pointer(_x, _y, 0);
+    } on Object {
+      // The stream may be gone already.
     }
+  }
+
+  void dispose() {
+    releaseButtons();
     _disposed = true;
   }
 }

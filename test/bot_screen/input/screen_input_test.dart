@@ -25,6 +25,7 @@ class _Client implements RfbInputSink {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late _Client client;
   late int events;
   late ScreenInput input;
@@ -65,6 +66,28 @@ void main() {
       input.dispose();
 
       expect(client.calls, isEmpty);
+    });
+  });
+
+  test('releaseAll lets go of held keys and a held button, and goes on', () {
+    scenario((async) {
+      input.keyboard.handle(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyA,
+          logicalKey: LogicalKeyboardKey.keyA,
+          character: 'a',
+          timeStamp: Duration.zero,
+        ),
+      );
+      input.sink.pointer(5, 6, 1);
+      client.calls.clear();
+
+      input.releaseAll();
+
+      expect(client.calls, containsAll(['key 61 u', 'pointer 5,6,0']));
+      client.calls.clear();
+      input.sink.pointer(7, 8, 0);
+      expect(client.calls, ['pointer 7,8,0']);
     });
   });
 

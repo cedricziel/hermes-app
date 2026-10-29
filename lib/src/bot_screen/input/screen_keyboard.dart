@@ -51,7 +51,7 @@ abstract final class ScreenKeys {
 ///
 /// Hardware keys come through [handle]. The reserved keys stay with the app:
 /// on a Mac (and an iPad, whose Command key is the same) ⌘V is Paste, ⌘Q, ⌘W,
-/// ⌘H, ⌘M and ⌘Tab belong to the app and the system, ⌘. closes the viewer and
+/// ⌘H, ⌘M, ⌘Tab and ⌘` belong to the app and the system, ⌘. closes the viewer and
 /// any other ⌘ chord reaches the screen with Control in its place (⌘A is
 /// Ctrl+A). Elsewhere Ctrl+V is Paste, F8 closes the viewer, and Alt+Tab,
 /// Alt+F4 and every Super chord belong to the system. Escape and everything
@@ -328,4 +328,6 @@ final _appKeys = {
   LogicalKeyboardKey.keyH,
   LogicalKeyboardKey.keyM,
   LogicalKeyboardKey.tab,
+  // Cycles the app's windows.
+  LogicalKeyboardKey.backquote,
 };

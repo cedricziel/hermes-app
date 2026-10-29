@@ -28,11 +28,15 @@ class SoftKeyboard with TextInputClient, DeltaTextInputClient {
     required this.onText,
     required this.onBackspace,
     required this.onReturn,
+    this.onClosed,
   });
 
   final void Function(String text) onText;
   final void Function() onBackspace;
   final void Function() onReturn;
+
+  /// Told when the system closes the connection (not when [hide] does).
+  final void Function()? onClosed;
 
   TextInputConnection? _connection;
   var _value = _restValue;
@@ -69,6 +73,7 @@ class SoftKeyboard with TextInputClient, DeltaTextInputClient {
   void hide() {
     _connection?.close();
     _connection = null;
+    _value = _restValue;
   }
 
   @override
@@ -114,6 +119,8 @@ class SoftKeyboard with TextInputClient, DeltaTextInputClient {
   @override
   void connectionClosed() {
     _connection = null;
+    _value = _restValue;
+    onClosed?.call();
   }
 
   /// A keyboard that reports the whole value instead of deltas (the model is

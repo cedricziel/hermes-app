@@ -9,13 +9,16 @@ const _rest = '​';
 void main() {
   late SoftKeyboard keyboard;
   late List<String> sent;
+  late int closed;
 
   setUp(() {
     sent = [];
+    closed = 0;
     keyboard = SoftKeyboard(
       onText: (text) => sent.add('text $text'),
       onBackspace: () => sent.add('backspace'),
       onReturn: () => sent.add('return'),
+      onClosed: () => closed++,
     );
   });
 
@@ -63,6 +66,45 @@ void main() {
 
       expect(keyboard.visible, isFalse);
       expect(tester.testTextInput.hasAnyClients, isFalse);
+    });
+
+    testWidgets('showing again brings back a keyboard the system dismissed', (
+      tester,
+    ) async {
+      keyboard.show();
+      tester.testTextInput.hide();
+      expect(tester.testTextInput.isVisible, isFalse);
+
+      keyboard.show();
+
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(keyboard.visible, isTrue);
+    });
+
+    testWidgets('a connection the system closes is reported once, and the '
+        'keyboard is not visible', (tester) async {
+      keyboard.show();
+
+      tester.testTextInput.closeConnection();
+
+      expect(closed, 1);
+      expect(keyboard.visible, isFalse);
+    });
+
+    testWidgets('hiding forgets text that was still being composed', (
+      tester,
+    ) async {
+      keyboard.show();
+      keyboard.updateEditingValueWithDeltas([
+        insert('ab', composing: const TextRange(start: 1, end: 3)),
+      ]);
+      expect(keyboard.currentTextEditingValue!.composing.isCollapsed, isFalse);
+
+      keyboard.hide();
+
+      expect(keyboard.currentTextEditingValue!.text, _rest);
+      expect(keyboard.currentTextEditingValue!.composing.isCollapsed, isTrue);
+      expect(closed, 0);
     });
 
     testWidgets('showing twice keeps one connection', (tester) async {
