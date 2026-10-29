@@ -48,6 +48,7 @@ class ScreenPaste {
   final Future<String?> Function() readClipboard;
   final Duration clearAfter;
   Timer? _clear;
+  bool _disposed = false;
 
   Future<PasteOutcome> paste() async {
     final String? text;
@@ -57,6 +58,7 @@ class ScreenPaste {
       // A refused clipboard permission is no text.
       return PasteOutcome.empty;
     }
+    if (_disposed) return PasteOutcome.closed;
     if (text == null || text.isEmpty) return PasteOutcome.empty;
     try {
       _sink.cutText(text);
@@ -87,6 +89,7 @@ class ScreenPaste {
   /// Empties the screen's clipboard at once if that is still due, since the
   /// stream is about to close.
   void dispose() {
+    _disposed = true;
     if (_clear == null) return;
     _clear!.cancel();
     _empty();

@@ -8,26 +8,30 @@ import 'screen_paste.dart';
 /// (the stream's client, counting what goes through it), the [keyboard] that
 /// maps keys and typed text, and [paste].
 ///
-/// It belongs to the stream. [dispose] lets go of keys still held and empties
-/// the screen's clipboard, which the owner does before it closes the stream.
+/// It belongs to the stream. [dispose] lets go of keys and pointer buttons
+/// still held and empties the screen's clipboard, which the owner does while
+/// this device still holds the lease and before it closes the stream; after
+/// it the sink refuses everything.
 class ScreenInput {
   ScreenInput(
     RfbInputSink client, {
     required TargetPlatform platform,
     required Future<String?> Function() readClipboard,
     required VoidCallback onEvent,
-  }) : sink = _CountingSink(client, onEvent) {
-    keyboard = ScreenKeyboard(sink, platform: platform);
-    paste = ScreenPaste(sink, keyboard, readClipboard: readClipboard);
+  }) : _counting = _CountingSink(client, onEvent) {
+    keyboard = ScreenKeyboard(_counting, platform: platform);
+    paste = ScreenPaste(_counting, keyboard, readClipboard: readClipboard);
   }
 
-  final RfbInputSink sink;
+  final _CountingSink _counting;
+  RfbInputSink get sink => _counting;
   late final ScreenKeyboard keyboard;
   late final ScreenPaste paste;
 
   void dispose() {
     keyboard.dispose();
     paste.dispose();
+    _counting.dispose();
   }
 }
 
@@ -37,28 +41,57 @@ class _CountingSink implements RfbInputSink {
 
   final RfbInputSink _inner;
   final VoidCallback _onEvent;
+  bool _disposed = false;
+  int _x = 0;
+  int _y = 0;
+  int _mask = 0;
+
+  /// A closed sink throws [StateError], as the client does.
+  void _open() {
+    if (_disposed) throw StateError('The input is closed.');
+  }
 
   @override
   void pointer(int x, int y, int buttonMask) {
+    _open();
     _inner.pointer(x, y, buttonMask);
+    _x = x;
+    _y = y;
+    _mask = buttonMask;
     _onEvent();
   }
 
   @override
   void key(int keysym, {required bool down}) {
+    _open();
     _inner.key(keysym, down: down);
     _onEvent();
   }
 
   @override
   void scroll(int x, int y, {int dx = 0, int dy = 0}) {
+    _open();
     _inner.scroll(x, y, dx: dx, dy: dy);
     _onEvent();
   }
 
   @override
   void cutText(String text) {
+    _open();
     _inner.cutText(text);
     _onEvent();
+  }
+
+  /// Lets go of a button still down, where it was pressed, and closes.
+  void dispose() {
+    if (_disposed) return;
+    if (_mask != 0) {
+      try {
+        pointer(_x, _y, 0);
+      } on Object {
+        // The stream may be gone already.
+      }
+    }
+    _disposed = true;
   }
 }
