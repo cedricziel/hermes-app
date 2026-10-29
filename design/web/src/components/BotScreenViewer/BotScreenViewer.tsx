@@ -33,8 +33,8 @@ export type BotScreenViewerControl =
 
 /**
  * What input shows while the viewer is `in_control`. `touch`: the key bar under
- * the picture (Esc, Tab, Ctrl and Alt that latch, the arrows, the keyboard,
- * Paste and the Touch or Trackpad switch, last). `desktop`: a row of tools
+ * the picture (the keyboard first, then Esc, Tab, Ctrl and Alt that latch, the
+ * arrows, Paste and, last, the Touch or Trackpad switch). `desktop`: a row of tools
  * under the header (Paste, and Send F8 on Windows and Linux, where F8 itself
  * closes the viewer); a mouse and keyboard need no key bar.
  */
