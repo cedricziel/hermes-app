@@ -236,7 +236,9 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
   /// not mean on screen: the person can dismiss it with the system's own key.
   void _toggleKeyboard(ScreenInput input) {
     final soft = _keyboardOf(input);
-    final onScreen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    // A one-off read: a dependency would rebuild the viewer with every frame
+    // of the keyboard's animation.
+    final onScreen = View.of(context).viewInsets.bottom > 0;
     setState(soft.visible && onScreen ? soft.hide : soft.show);
   }
 

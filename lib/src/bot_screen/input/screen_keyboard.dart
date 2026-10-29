@@ -279,7 +279,8 @@ class ScreenKeyboard {
 
   /// The keysym a key event stands for, or null when it has none: a
   /// non-printing key from the table, else the character it typed, else (when
-  /// the character is a control code, as with Control held) its letter.
+  /// there is none, or it is a control code, as with Control held on Windows)
+  /// its letter.
   int? _keysym(KeyEvent event) {
     final known = _mapper.forLogicalKey(event.logicalKey);
     if (known != null) return known;

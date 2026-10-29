@@ -198,8 +198,7 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     _touches.add(event.pointer);
     if (_touches.length > 1) {
       _multiTouch = true;
-      _clickTapWaiting();
-      _stopGesture();
+      _flushAndStop();
       return;
     }
     _multiTouch = false;
@@ -254,12 +253,15 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     if (event.pointer != _touchId) return;
     _longPress?.cancel();
     switch (_touch) {
-      case _Touch.pending when widget.mode == ScreenGestureMode.trackpad:
-        // A tap before this one clicks now; this one waits for a second press.
-        _clickTapWaiting();
-        _openTapWindow();
       case _Touch.pending:
-        _click(RfbButtons.primary);
+        if (widget.mode == ScreenGestureMode.trackpad) {
+          // A tap before this one clicks now; this one waits for a second
+          // press.
+          _clickTapWaiting();
+          _openTapWindow();
+        } else {
+          _click(RfbButtons.primary);
+        }
       case _Touch.dragging:
         _sendAt(event.localPosition, 0);
       case _Touch.panning when _dragArmed:
@@ -277,8 +279,7 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
     if (event.kind == PointerDeviceKind.mouse) return _stopGesture();
     if (!_isTouch(event) || _fingerLifted(event.pointer)) return;
     if (event.pointer != _touchId) return;
-    _clickTapWaiting();
-    _stopGesture();
+    _flushAndStop();
   }
 
   /// Whether [event] comes from a finger or a stylus, as opposed to a mouse
@@ -324,6 +325,12 @@ class _ScreenGestureLayerState extends State<ScreenGestureLayer> {
       _tapped = false;
       _clickTapWaiting();
     });
+  }
+
+  /// Ends the gesture, but a tap that was waiting for a drag still clicks.
+  void _flushAndStop() {
+    _clickTapWaiting();
+    _stopGesture();
   }
 
   /// Sends the click of a tap that was waiting for a drag.

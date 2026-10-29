@@ -72,6 +72,10 @@ class SoftKeyboard with TextInputClient, DeltaTextInputClient {
   /// Takes the keyboard away.
   void hide() {
     _connection?.close();
+    _detach();
+  }
+
+  void _detach() {
     _connection = null;
     _value = _restValue;
   }
@@ -118,8 +122,7 @@ class SoftKeyboard with TextInputClient, DeltaTextInputClient {
 
   @override
   void connectionClosed() {
-    _connection = null;
-    _value = _restValue;
+    _detach();
     onClosed?.call();
   }
 
