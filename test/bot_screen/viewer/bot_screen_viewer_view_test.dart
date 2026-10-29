@@ -13,16 +13,29 @@ Widget _app(
   EdgeInsets padding = EdgeInsets.zero,
   Size size = const Size(390, 844),
   VoidCallback? onClose,
+  BotScreenControl control = BotScreenControl.watching,
+  bool canForce = false,
+  String profile = 'research',
+  VoidCallback? onTakeOver,
+  VoidCallback? onHandBack,
+  VoidCallback? onForceHandBack,
+  VoidCallback? onDismissLost,
 }) => MaterialApp(
   theme: buildHermesLightTheme(platform: platform),
   home: MediaQuery(
     data: MediaQueryData(size: size, padding: padding),
     child: BotScreenViewerView(
       phase: phase,
-      profile: 'research',
+      profile: profile,
       presentation: presentation,
       picture: picture ? const ColoredBox(color: Colors.blue) : null,
       onClose: onClose,
+      control: control,
+      canForce: canForce,
+      onTakeOver: onTakeOver,
+      onHandBack: onHandBack,
+      onForceHandBack: onForceHandBack,
+      onDismissLost: onDismissLost,
     ),
   ),
 );
@@ -165,6 +178,160 @@ void main() {
       }
 
       expect(closed, TargetPlatform.values.length);
+    });
+  });
+
+  group('control', () {
+    testWidgets('watching a live picture says Hermes is in control and offers '
+        'Take over', (tester) async {
+      var tookOver = 0;
+      await tester.pumpWidget(
+        _app(BotScreenViewerPhase.live, onTakeOver: () => tookOver++),
+      );
+
+      expect(find.text('Hermes is in control'), findsOne);
+      await tester.tap(find.text('Take over'));
+
+      expect(tookOver, 1);
+      expect(find.text('Hand Back'), findsNothing);
+    });
+
+    testWidgets('offers no Take over without a handler or without a live '
+        'picture', (tester) async {
+      await tester.pumpWidget(_app(BotScreenViewerPhase.live));
+      expect(find.text('Take over'), findsNothing);
+
+      for (final phase in [
+        BotScreenViewerPhase.connecting,
+        BotScreenViewerPhase.reconnecting,
+        BotScreenViewerPhase.blanked,
+        BotScreenViewerPhase.off,
+        BotScreenViewerPhase.failed,
+      ]) {
+        await tester.pumpWidget(_app(phase, onTakeOver: () {}));
+        expect(find.text('Take over'), findsNothing, reason: '$phase');
+      }
+    });
+
+    testWidgets('acquiring shows Taking over and no second press', (
+      tester,
+    ) async {
+      var tookOver = 0;
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.acquiring,
+          onTakeOver: () => tookOver++,
+        ),
+      );
+
+      expect(find.text('Taking over…'), findsOne);
+      expect(find.text('Take over'), findsNothing);
+      expect(tookOver, 0);
+    });
+
+    testWidgets('in control says so, keeps the picture and offers Hand Back', (
+      tester,
+    ) async {
+      var handedBack = 0;
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.inControl,
+          onTakeOver: () {},
+          onHandBack: () => handedBack++,
+        ),
+      );
+
+      expect(find.text("You're in control"), findsOne);
+      expect(find.text('Hermes is in control'), findsNothing);
+      expect(find.text('Take over'), findsNothing);
+      expect(find.byType(InteractiveViewer), findsOne);
+      await tester.tap(find.text('Hand Back'));
+
+      expect(handedBack, 1);
+    });
+
+    testWidgets('losing control says so, with a way to dismiss it and to '
+        'take over again', (tester) async {
+      var dismissed = 0;
+      var tookOver = 0;
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.lost,
+          onTakeOver: () => tookOver++,
+          onDismissLost: () => dismissed++,
+        ),
+      );
+
+      expect(find.text('Someone else took control.'), findsOne);
+      await tester.tap(find.byTooltip('Dismiss'));
+      await tester.tap(find.text('Take over'));
+
+      expect((dismissed, tookOver), (1, 1));
+    });
+
+    testWidgets('someone else in control offers Hand back to Hermes only '
+        'when it can be forced', (tester) async {
+      var forced = 0;
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.blanked,
+          picture: false,
+          canForce: true,
+          onForceHandBack: () => forced++,
+        ),
+      );
+
+      expect(find.text('Someone else is in control'), findsWidgets);
+      await tester.tap(find.text('Hand back to Hermes'));
+      expect(forced, 1);
+
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.blanked,
+          picture: false,
+          onForceHandBack: () {},
+        ),
+      );
+      expect(find.text('Hand back to Hermes'), findsNothing);
+
+      await tester.pumpWidget(
+        _app(BotScreenViewerPhase.blanked, picture: false, canForce: true),
+      );
+      expect(find.text('Hand back to Hermes'), findsNothing);
+    });
+
+    testWidgets('the header fits a narrow phone with a long profile name on '
+        'every platform', (tester) async {
+      for (final platform in [
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      ]) {
+        for (final control in [
+          BotScreenControl.watching,
+          BotScreenControl.acquiring,
+          BotScreenControl.inControl,
+        ]) {
+          await tester.pumpWidget(
+            _app(
+              BotScreenViewerPhase.live,
+              platform: platform,
+              size: const Size(320, 640),
+              control: control,
+              profile: 'a-very-long-profile-name-for-the-research-bot',
+              onTakeOver: () {},
+              onHandBack: () {},
+              onClose: () {},
+            ),
+          );
+          await tester.pump(const Duration(seconds: 1));
+
+          expect(tester.takeException(), isNull, reason: '$platform $control');
+        }
+      }
     });
   });
 }

@@ -893,6 +893,7 @@ void main() {
         expect(span.attributes, {
           'hermes.version': '0.22.0',
           'outcome': 'closed',
+          'took_over': false,
           'close_code': 1000,
           'encodings_used': 'raw',
           'kib_received': '<256',

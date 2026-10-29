@@ -1,20 +1,24 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../telemetry/breadcrumbs.dart';
 import '../rfb/rfb_client.dart' show Framebuffer;
 import '../widgets/bot_screen_viewer_view.dart';
+import '../widgets/force_hand_back.dart';
 import 'bot_screen_viewer_controller.dart';
 
 /// [BotScreenViewerView] over [controller]: the picture of its framebuffer,
-/// and the actions its phase offers.
+/// and the actions its phase and its control offer.
 ///
 /// It tells the controller whether the route it is on is on screen (a route
 /// above it that covers it pauses the stream), and closes on Escape and the
-/// system's dismiss action. Nothing here reacts to a tap or click on the
-/// picture; the viewer only zooms and pans.
+/// system's dismiss action, except while this device is in control, when
+/// Escape belongs to the screen. [breadcrumbs] gets
+/// `bot_screen.handback.pressed` and `bot_screen.force_handback.pressed`.
 class BotScreenViewer extends StatefulWidget {
   const BotScreenViewer({
     super.key,
@@ -22,6 +26,7 @@ class BotScreenViewer extends StatefulWidget {
     required this.profile,
     required this.presentation,
     required this.onClose,
+    this.breadcrumbs = Breadcrumbs.none,
   });
 
   final BotScreenViewerController controller;
@@ -30,6 +35,7 @@ class BotScreenViewer extends StatefulWidget {
   final String profile;
   final BotScreenViewerPresentation presentation;
   final VoidCallback onClose;
+  final Breadcrumbs breadcrumbs;
 
   @override
   State<BotScreenViewer> createState() => _BotScreenViewerState();
@@ -45,14 +51,25 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
     widget.controller.visible = TickerMode.valuesOf(context).enabled;
   }
 
+  void _handBack() {
+    widget.breadcrumbs('bot_screen.handback.pressed');
+    unawaited(widget.controller.handBack());
+  }
+
+  void _forceHandBack() {
+    widget.breadcrumbs('bot_screen.force_handback.pressed');
+    unawaited(confirmForceHandBack(context, widget.controller.forceHandBack));
+  }
+
   @override
   Widget build(BuildContext context) => Actions(
     // Escape is `DismissIntent` in the app's default shortcuts, and a widget
     // handler, not a menu chord: no menu item owns it.
     actions: {
       DismissIntent: CallbackAction<DismissIntent>(
+        // While this device is in control Escape is for the screen.
         onInvoke: (_) {
-          widget.onClose();
+          if (!widget.controller.inControl) widget.onClose();
           return null;
         },
       ),
@@ -77,9 +94,14 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
             aspectRatio: framebuffer == null
                 ? 16 / 10
                 : (framebuffer.width / framebuffer.height).clamp(0.5, 3.0),
+            control: controller.control,
+            canForce: controller.someoneElseInControl,
             onClose: widget.onClose,
             onRetry: controller.retry,
             onStart: () => controller.startScreen(),
+            onHandBack: _handBack,
+            onForceHandBack: _forceHandBack,
+            onDismissLost: controller.dismissLost,
           );
         },
       ),
