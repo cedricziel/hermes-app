@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -11,12 +11,13 @@ import '../../widgetbook/bot_screen_fixture.dart';
 import '../bot_screen/bot_screen_repository_test.dart' show statusJson;
 import '../support/fake_gateway.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
 
 /// The Bot screen's still preview in the transcript while a reply drives the
 /// screen: under a single call's card, under a folded group's header, and the
-/// Activity panel a tap opens.
+/// live viewer a tap opens.
 void main() {
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
@@ -32,6 +33,12 @@ void main() {
         await shots.start(tester, size);
         final gateway = FakeGateway()..activeSessions = {};
         gateway.handlers['display.status'] = (_) => statusJson();
+        gateway.handlers['display.observe'] = (_) => {
+          'ticket': 'ticket',
+          'path': '/api/display/ws',
+          'viewer_id': 'viewer',
+          ...statusJson(),
+        };
         gateway.handlers['display.thumbnail'] = (_) => {
           'data_url':
               'data:image/png;base64,${base64Encode(botScreenFixturePng())}',
@@ -69,6 +76,7 @@ void main() {
                 : buildHermesLightTheme(platform: platform),
           ),
           wrap: shots.frame,
+          displaySocketOpener: (path, ticket) async => FakeDisplayChannel(),
         );
         await openThread(tester, 'Book a table');
 
@@ -120,8 +128,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 500));
         await settle();
 
-        expect(find.byType(BotScreenCard), findsOneWidget);
-        await shots.capture(tester, 'panel-opened');
+        expect(find.byType(BotScreenViewerView), findsOneWidget);
+        await shots.capture(tester, 'viewer-opened');
 
         await tester.pumpWidget(const SizedBox());
         await tester.runAsync(transport.close);

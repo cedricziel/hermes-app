@@ -1,12 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bound_bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -22,6 +24,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../../widgetbook/bot_screen_fixture.dart';
 import '../support/fake_gateway.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import 'bot_screen_repository_test.dart' show statusJson;
 
@@ -34,6 +37,7 @@ void main() {
   late FakeHermesServer server;
   late ChatProfiles profiles;
   late BreadcrumbTrail trail;
+  late List<FakeDisplayChannel> channels;
   late _Lock lock;
   var running = true;
   var unsupported = false;
@@ -49,11 +53,18 @@ void main() {
     running = true;
     unsupported = false;
     trail = BreadcrumbTrail();
+    channels = [];
     lock = _Lock();
     gateway = FakeGateway()..activeSessions = {};
     gateway.handlers['display.status'] = (_) {
       if (unsupported) throw const FakeRpcError(-32601, 'unknown method');
       return statusJson(running: running);
+    };
+    gateway.handlers['display.observe'] = (_) => {
+      'ticket': 'ticket',
+      'path': '/api/display/ws',
+      'viewer_id': 'viewer',
+      ...statusJson(),
     };
     gateway.handlers['display.thumbnail'] = (_) => {
       'data_url':
@@ -140,6 +151,11 @@ void main() {
       transport: transport,
       chatProfiles: profiles,
       size: size,
+      displaySocketOpener: (path, ticket) async {
+        final channel = FakeDisplayChannel();
+        channels.add(channel);
+        return channel;
+      },
       providers: [
         ChangeNotifierProvider<AppLockController>.value(value: lock),
         Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
@@ -345,10 +361,11 @@ void main() {
     });
   });
 
-  group('opening the Activity panel', () {
+  group('opening the live viewer', () {
+    final viewer = find.byType(BotScreenViewerView);
     final card = find.byType(BotScreenCard);
 
-    testWidgets('a click opens the inspector, and another leaves it open', (
+    testWidgets('a click opens the viewer over the window, not the panel', (
       tester,
     ) async {
       await pumpScreen(tester);
@@ -359,16 +376,45 @@ void main() {
       await tester.tap(previewTarget);
       await tester.pump();
       await settle(tester);
-      expect(card, findsOne);
+
+      expect(viewer, findsOne);
+      expect(find.byKey(const Key('bot-screen-viewer-overlay')), findsOne);
+      expect(find.byType(BotScreenCard), findsNothing);
+      expect(channels, hasLength(1));
+      expect(
+        gateway.requests.where((r) => r['method'] == 'display.observe'),
+        hasLength(1),
+      );
+      await end(tester);
+    });
+
+    testWidgets('closing it leaves the chat as it was, and it opens again', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await startReply(tester);
+      await useScreen(tester, 'c1');
+      await tester.tap(previewTarget);
+      await tester.pump();
+      await settle(tester);
+
+      await tester.tap(find.byTooltip('Close (Esc)'));
+      await tester.pump();
+      await settle(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(viewer, findsNothing);
+      expect(find.byKey(const Key('activity-inspector')), findsNothing);
+      expect(channels.last.sentCloseCode, 1000);
 
       await tester.tap(previewTarget);
       await tester.pump();
       await settle(tester);
-      expect(card, findsOne);
+      expect(viewer, findsOne);
+      expect(channels, hasLength(2));
       await end(tester);
     });
 
-    testWidgets('with the inspector already open a click keeps it open', (
+    testWidgets('with the inspector open the panel stays beneath it', (
       tester,
     ) async {
       await pumpScreen(tester);
@@ -382,22 +428,51 @@ void main() {
       await tester.pump();
       await settle(tester);
 
+      expect(viewer, findsOne);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await settle(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(viewer, findsNothing);
       expect(card, findsOne);
       await end(tester);
     });
 
-    testWidgets('a tap opens the Activity sheet on a phone', (tester) async {
+    testWidgets('a tap opens a full-screen page on a phone', (tester) async {
       await pumpScreen(tester, size: const Size(390, 844));
       await startReply(tester);
       await useScreen(tester, 'c1');
-      expect(find.byKey(const Key('activity-close')), findsNothing);
 
       await tester.tap(previewTarget);
       await tester.pump();
       await settle(tester);
 
-      expect(find.byKey(const Key('activity-close')), findsOne);
-      expect(card, findsOne);
+      expect(find.byKey(const Key('bot-screen-viewer-page')), findsOne);
+      expect(find.byKey(const Key('activity-close')), findsNothing);
+      await end(tester);
+    });
+
+    testWidgets('records the preview tap and where the viewer opened from', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await startReply(tester);
+      await useScreen(tester, 'c1');
+
+      await tester.tap(previewTarget);
+      await tester.pump();
+      await settle(tester);
+
+      final all = [
+        for (final crumb in trail.recent) '${crumb.name} ${crumb.attributes}',
+      ];
+      expect(all, contains('bot_screen.preview.tapped {}'));
+      expect(
+        all,
+        contains(
+          'bot_screen.viewer.opened {surface: overlay, source: preview}',
+        ),
+      );
       await end(tester);
     });
   });

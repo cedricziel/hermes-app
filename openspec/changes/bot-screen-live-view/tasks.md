@@ -16,7 +16,7 @@ One PR, `feat(bot-screen): watch the screen live`, about 500 changed lines inclu
 
 - [x] 3.1 Write failing widget tests: the card's Enlarge is visible and opens the viewer, as does tapping its picture; (the transcript preview's part is 3.3) a phone width pushes a page and 1200 pt shows the full-window overlay; Escape and Close close the overlay; backgrounding, App Lock and a profile switch close the stream; no input message is sent when the user taps or clicks the picture.
 - [x] 3.2 Wire the openers and presentation in `ChatScreen`; verify 3.1 passes.
-- [ ] 3.3 Open the viewer from the transcript preview (`_openViewer('preview')`, replacing its `_openActivity` tap) and test it beside 3.1's. Waits for `bot-screen-chat-preview`, which is not on `main` yet; the first PR leaves this open.
+- [x] 3.3 Open the viewer from the transcript preview (`_openViewer('preview')`, replacing its `_openActivity` tap) and test it beside 3.1's.
 
 ## 4. Observability
 
