@@ -153,16 +153,15 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
     final setting = widget.takeover;
     if (setting != null && await setting.skipsConfirmation()) return true;
     if (!mounted) return false;
-    final answer = await showAdaptiveSheet<({bool dontAskAgain})>(
+    final dontAskAgain = await showAdaptiveSheet<bool>(
       context,
       builder: (sheet) => TakeoverConfirmation(
         onCancel: () => Navigator.pop(sheet),
-        onConfirm: (dontAskAgain) =>
-            Navigator.pop(sheet, (dontAskAgain: dontAskAgain)),
+        onConfirm: (dontAskAgain) => Navigator.pop(sheet, dontAskAgain),
       ),
     );
-    if (answer == null) return false;
-    if (answer.dontAskAgain) await setting?.skipConfirmation();
+    if (dontAskAgain == null) return false;
+    if (dontAskAgain) await setting?.skipConfirmation();
     return true;
   }
 

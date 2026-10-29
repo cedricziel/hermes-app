@@ -134,7 +134,6 @@ class BotScreenViewerController extends ChangeNotifier {
   /// What the open stream was used for, for its span.
   var _use = _StreamUse();
   ScreenInput? _input;
-  RfbClient? _inputClient;
   RfbClient? _client;
 
   /// The lease hash of the viewer id the open stream was ticketed with. The
@@ -213,10 +212,10 @@ class BotScreenViewerController extends ChangeNotifier {
   ScreenInput? get input {
     final client = _client;
     if (client == null || !inControl) return null;
-    if (_input == null || !identical(_inputClient, client)) {
-      _dropInput();
+    // `_forgetClient` drops the input with its client, so a live one is
+    // always the open stream's.
+    if (_input == null) {
       final use = _use;
-      _inputClient = client;
       _input = ScreenInput(
         client,
         platform: platform,
@@ -230,7 +229,6 @@ class BotScreenViewerController extends ChangeNotifier {
   void _dropInput() {
     _input?.dispose();
     _input = null;
-    _inputClient = null;
   }
 
   /// Pastes the device clipboard onto the screen. A paste the screen cannot

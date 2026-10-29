@@ -177,13 +177,8 @@ class ScreenKeyboard {
   /// character) is dropped.
   void typeText(String text) {
     for (final rune in text.runes) {
-      final int keysym;
-      try {
-        keysym = _mapper.forCodePoint(rune);
-      } on ArgumentError {
-        continue;
-      }
-      _chord([keysym]);
+      final keysym = _keysymOf(rune);
+      if (keysym != null) _chord([keysym]);
     }
   }
 
@@ -222,6 +217,7 @@ class ScreenKeyboard {
 
   /// Lets go of every key still down.
   void releaseAll() {
+    if (_held.isEmpty) return;
     final held = _held.values.toList();
     _held.clear();
     _guarded(() {
@@ -246,19 +242,19 @@ class ScreenKeyboard {
     if (known != null) return known;
     final character = event.character;
     if (character != null && character.isNotEmpty && !controlHeld) {
-      try {
-        return _mapper.forCodePoint(character.runes.first);
-      } on ArgumentError {
-        return null;
-      }
+      return _keysymOf(character.runes.first);
     }
     final label = event.logicalKey.keyLabel;
     if (label.runes.length != 1) return null;
     final shifted = HardwareKeyboard.instance.isShiftPressed;
+    return _keysymOf((shifted ? label : label.toLowerCase()).runes.first);
+  }
+
+  /// The keysym of a character, or null for one with no key (a control
+  /// character).
+  int? _keysymOf(int codePoint) {
     try {
-      return _mapper.forCodePoint(
-        (shifted ? label : label.toLowerCase()).runes.first,
-      );
+      return _mapper.forCodePoint(codePoint);
     } on ArgumentError {
       return null;
     }
