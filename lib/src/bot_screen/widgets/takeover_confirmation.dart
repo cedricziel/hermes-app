@@ -7,16 +7,19 @@ import '../../theme/hermes_theme.dart';
 /// dialog on a Mac or a wide window) that the caller shows and dismisses.
 ///
 /// [onConfirm] is told whether the user chose not to be asked again for this
-/// account.
+/// account. Without somewhere to remember that ([offerDontAskAgain] false) the
+/// switch is left out and the answer is always false.
 class TakeoverConfirmation extends StatefulWidget {
   const TakeoverConfirmation({
     super.key,
     required this.onCancel,
     required this.onConfirm,
+    this.offerDontAskAgain = true,
   });
 
   final VoidCallback onCancel;
   final ValueChanged<bool> onConfirm;
+  final bool offerDontAskAgain;
 
   @override
   State<TakeoverConfirmation> createState() => _TakeoverConfirmationState();
@@ -62,12 +65,13 @@ class _TakeoverConfirmationState extends State<TakeoverConfirmation> {
             'the picture meanwhile. Hermes Desktop’s live viewers may '
             'still see it.',
           ),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text("Don't ask again"),
-            value: _dontAskAgain,
-            onChanged: (value) => setState(() => _dontAskAgain = value),
-          ),
+          if (widget.offerDontAskAgain)
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text("Don't ask again"),
+              value: _dontAskAgain,
+              onChanged: (value) => setState(() => _dontAskAgain = value),
+            ),
           const SizedBox(height: 8),
           Wrap(
             alignment: WrapAlignment.end,

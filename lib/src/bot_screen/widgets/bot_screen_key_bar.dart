@@ -132,9 +132,8 @@ class _Key extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final held = latched ?? false;
-    final minimum = platformChromeOf(context) == PlatformChrome.ios
-        ? 44.0
-        : 40.0;
+    final ios = platformChromeOf(context) == PlatformChrome.ios;
+    final minimum = ios ? 44.0 : 40.0;
     final foreground = held ? scheme.onPrimary : scheme.onSurface;
     final content = label != null
         ? Text(
@@ -149,7 +148,10 @@ class _Key extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         onTap: onPressed,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: 38, minHeight: minimum),
+          constraints: BoxConstraints(
+            minWidth: ios ? 44 : 38,
+            minHeight: minimum,
+          ),
           child: Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 7),

@@ -129,6 +129,18 @@ void main() {
               .first,
         );
         expect(box.height, greaterThanOrEqualTo(44), reason: label);
+        expect(box.width, greaterThanOrEqualTo(44), reason: label);
+      }
+      for (final tooltip in ['Left arrow', 'Right arrow', 'Keyboard']) {
+        final box = tester.getRect(
+          find
+              .ancestor(
+                of: find.byTooltip(tooltip),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(box.width, greaterThanOrEqualTo(44), reason: tooltip);
       }
     });
   });
@@ -174,6 +186,25 @@ void main() {
       await tester.tap(find.text('Take over'));
 
       expect(answer, isTrue);
+    });
+
+    testWidgets('has no Don\'t ask again where nothing could remember it', (
+      tester,
+    ) async {
+      bool? answer;
+      await tester.pumpWidget(
+        _app(
+          TakeoverConfirmation(
+            offerDontAskAgain: false,
+            onCancel: () {},
+            onConfirm: (v) => answer = v,
+          ),
+        ),
+      );
+
+      expect(find.text("Don't ask again"), findsNothing);
+      await tester.tap(find.text('Take over'));
+      expect(answer, isFalse);
     });
 
     testWidgets('Cancel cancels', (tester) async {

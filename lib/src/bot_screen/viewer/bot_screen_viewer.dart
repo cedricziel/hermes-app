@@ -73,6 +73,7 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
   String? _notice;
   Timer? _noticeTimer;
   var _wasInControl = false;
+  late final AppLifecycleListener _lifecycle;
 
   BotScreenViewerController get _controller => widget.controller;
 
@@ -81,6 +82,9 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
     super.initState();
     _keys.addListener(_focusChanged);
     _controller.addListener(_controlChanged);
+    // A computer's window that loses the keyboard to Alt+Tab or a click
+    // elsewhere is still in the foreground, and never sees the key-ups.
+    _lifecycle = AppLifecycleListener(onInactive: _releaseHeld);
   }
 
   @override
@@ -94,6 +98,7 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _controller.removeListener(_controlChanged);
     _keys.removeListener(_focusChanged);
     _soft?.hide();
@@ -104,10 +109,12 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
     super.dispose();
   }
 
-  /// Keys the person was holding when the focus left are let go of, since
-  /// their release would never come.
+  /// Keys and buttons the person was holding when the focus or the window left
+  /// are let go of, since their release would never come.
+  void _releaseHeld() => _controller.input?.releaseAll();
+
   void _focusChanged() {
-    if (!_keys.hasFocus) _controller.input?.keyboard.releaseAll();
+    if (!_keys.hasFocus) _releaseHeld();
   }
 
   /// Takes the keyboard focus when this device takes control, and closes the
@@ -156,6 +163,7 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
     final dontAskAgain = await showAdaptiveSheet<bool>(
       context,
       builder: (sheet) => TakeoverConfirmation(
+        offerDontAskAgain: setting != null,
         onCancel: () => Navigator.pop(sheet),
         onConfirm: (dontAskAgain) => Navigator.pop(sheet, dontAskAgain),
       ),
@@ -214,14 +222,22 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
         onText: input.keyboard.typeText,
         onBackspace: () => input.keyboard.tap(ScreenKeys.backSpace),
         onReturn: () => input.keyboard.tap(ScreenKeys.enter),
+        // The system can close the connection (a dismissed keyboard on some
+        // platforms); the key bar shows it.
+        onClosed: () {
+          if (mounted) setState(() {});
+        },
       );
     }
     return _soft!;
   }
 
+  /// Shows the keyboard unless it is on screen, which hides it. Attached does
+  /// not mean on screen: the person can dismiss it with the system's own key.
   void _toggleKeyboard(ScreenInput input) {
     final soft = _keyboardOf(input);
-    setState(soft.visible ? soft.hide : soft.show);
+    final onScreen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    setState(soft.visible && onScreen ? soft.hide : soft.show);
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {

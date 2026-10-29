@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/bot_screen/input/screen_gesture_layer.dart';
 import 'package:hermes_app/src/bot_screen/takeover_setting.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_key_bar.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
 import 'package:hermes_app/src/bot_screen/widgets/trackpad_cursor.dart';
@@ -126,7 +127,8 @@ void main() {
       platform: platform,
       takeoverSetting: setting,
       displaySocketOpener: (path, ticket) async {
-        final channel = FakeDisplayChannel();
+        // The bridge's side: input only from the stream that holds the lease.
+        final channel = display.openStream(ticket);
         channels.add(channel);
         return channel;
       },
@@ -183,13 +185,15 @@ void main() {
     await settle(tester);
   }
 
-  /// The client messages the stream carried after the handshake, as the
-  /// message type and its bytes in hex.
-  List<String> sent() => [
-    for (final message in clientMessages(channels.last.sentBytes))
-      if (message.first == 4 || message.first == 5 || message.first == 6)
-        '${message.first} ${message.skip(1).map((b) => b.toRadixString(16)).join(',')}',
-  ];
+  String hex(Uint8List message) =>
+      '${message.first} ${message.skip(1).map((b) => b.toRadixString(16)).join(',')}';
+
+  /// The input the screen got on the stream, as the message type and its
+  /// bytes in hex: what the bridge forwarded.
+  List<String> sent() => [for (final m in channels.last.accepted) hex(m)];
+
+  /// The input the bridge dropped because the stream did not hold the lease.
+  List<String> dropped() => [for (final m in channels.last.dropped) hex(m)];
 
   group('taking over', () {
     testWidgets('asks first, and a cancel sends nothing', (tester) async {
@@ -467,6 +471,56 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('the keyboard key brings the keyboard back after the system '
+        'dismissed it, and hides it while it is on screen', (tester) async {
+      await openViewer(tester, size: const Size(390, 844));
+      await takeOver(tester);
+      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      // The person dismissed it with the keyboard's own key: attached, but not
+      // on screen.
+      tester.testTextInput.hide();
+      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      // On screen, it is the toggle that hides it.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pump();
+      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.pump();
+      expect(tester.testTextInput.hasAnyClients, isFalse);
+      await finish(tester);
+    });
+
+    testWidgets('a keyboard the system closed shows as closed on the key '
+        'bar', (tester) async {
+      await openViewer(tester, size: const Size(390, 844));
+      await takeOver(tester);
+      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<BotScreenKeyBar>(find.byType(BotScreenKeyBar))
+            .keyboardOpen,
+        isTrue,
+      );
+
+      tester.testTextInput.closeConnection();
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<BotScreenKeyBar>(find.byType(BotScreenKeyBar))
+            .keyboardOpen,
+        isFalse,
+      );
+      await finish(tester);
+    });
+
     testWidgets('losing control closes the keyboard', (tester) async {
       await openViewer(tester, size: const Size(390, 844));
       await takeOver(tester);
@@ -679,6 +733,254 @@ void main() {
       '4 0,0,0,0,0,ff,e3',
     ]);
     await finish(tester);
+  });
+
+  group('on a Mac, the keys of the app', () {
+    Future<void> openMac(WidgetTester tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      clipboard = 'hunter2';
+      await openViewer(
+        tester,
+        platform: TargetPlatform.macOS,
+        activity: const Key('toolbar-activity'),
+      );
+      await takeOver(tester);
+    }
+
+    /// Presses [key] with Command held and answers whether anything handled it.
+    Future<bool> chord(
+      WidgetTester tester,
+      LogicalKeyboardKey key,
+      String character,
+    ) async {
+      await tester.sendKeyDownEvent(
+        LogicalKeyboardKey.metaLeft,
+        platform: 'macos',
+      );
+      final handled = await tester.sendKeyDownEvent(
+        key,
+        platform: 'macos',
+        character: character,
+      );
+      await tester.sendKeyUpEvent(key, platform: 'macos');
+      await tester.sendKeyUpEvent(
+        LogicalKeyboardKey.metaLeft,
+        platform: 'macos',
+      );
+      return handled;
+    }
+
+    testWidgets('Command+V pastes', (tester) async {
+      await openMac(tester);
+      final before = sent().length;
+
+      await chord(tester, LogicalKeyboardKey.keyV, 'v');
+      await settle(tester);
+
+      final pasted = sent().sublist(before);
+      expect(pasted.first, startsWith('6 '));
+      expect(pasted.skip(1), [
+        '4 1,0,0,0,0,ff,e3',
+        '4 1,0,0,0,0,0,76',
+        '4 0,0,0,0,0,0,76',
+        '4 0,0,0,0,0,ff,e3',
+      ]);
+      await tester.pump(const Duration(seconds: 1));
+      await finish(tester);
+    });
+
+    testWidgets('Command+period closes the viewer and hands control back', (
+      tester,
+    ) async {
+      await openMac(tester);
+
+      await chord(tester, LogicalKeyboardKey.period, '.');
+      await settle(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(viewer, findsNothing);
+      expect(display.holder, 'agent');
+      expect(dropped(), isEmpty);
+      await finish(tester);
+    });
+
+    testWidgets('Command+Q, W, H, M and backquote are left to the app and '
+        'the system, and send nothing', (tester) async {
+      await openMac(tester);
+      final before = sent().length;
+
+      final handled = {
+        'Q': await chord(tester, LogicalKeyboardKey.keyQ, 'q'),
+        'W': await chord(tester, LogicalKeyboardKey.keyW, 'w'),
+        'H': await chord(tester, LogicalKeyboardKey.keyH, 'h'),
+        'M': await chord(tester, LogicalKeyboardKey.keyM, 'm'),
+        '`': await chord(tester, LogicalKeyboardKey.backquote, '`'),
+      };
+      await settle(tester);
+
+      // Nobody handled them, so they reach the menu bar and the system.
+      expect(handled.values, everyElement(isFalse), reason: '$handled');
+      expect(sent().length, before);
+      expect(viewer, findsOne);
+      await finish(tester);
+    });
+
+    testWidgets('Command+A is handled here and reaches the screen as '
+        'Control+A', (tester) async {
+      await openMac(tester);
+
+      final handled = await chord(tester, LogicalKeyboardKey.keyA, 'a');
+
+      expect(handled, isTrue);
+      expect(sent(), contains('4 1,0,0,0,0,0,61'));
+      await finish(tester);
+    });
+
+    testWidgets('Escape goes to the screen and the viewer stays', (
+      tester,
+    ) async {
+      await openMac(tester);
+      final before = sent().length;
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape, platform: 'macos');
+      await settle(tester);
+
+      expect(sent().sublist(before), [
+        '4 1,0,0,0,0,ff,1b',
+        '4 0,0,0,0,0,ff,1b',
+      ]);
+      expect(viewer, findsOne);
+      await finish(tester);
+    });
+  });
+
+  group('letting go', () {
+    testWidgets('a window that loses the keyboard lets go of the keys it '
+        'held', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      await openViewer(tester, platform: TargetPlatform.linux);
+      await takeOver(tester);
+      await tester.sendKeyDownEvent(
+        LogicalKeyboardKey.altLeft,
+        platform: 'linux',
+      );
+      expect(sent().last, '4 1,0,0,0,0,ff,e9');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await settle(tester);
+
+      expect(sent().last, '4 0,0,0,0,0,ff,e9');
+      expect(dropped(), isEmpty);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.sendKeyUpEvent(
+        LogicalKeyboardKey.altLeft,
+        platform: 'linux',
+      );
+      await finish(tester);
+    });
+
+    testWidgets('a pasted secret is cleared and a held key let go before '
+        'Hand Back, while the lease is held', (tester) async {
+      clipboard = 'hunter2';
+      await openViewer(tester, size: const Size(390, 844));
+      await takeOver(tester);
+      await tester.ensureVisible(find.byTooltip('Paste'));
+      await tester.tap(find.byTooltip('Paste'));
+      await tester.pump();
+      await tester.tap(find.text('Ctrl'));
+      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.pump();
+
+      await tester.tap(find.text('Hand Back'));
+      await settle(tester);
+
+      expect(sent().last, '6 0,0,0,0,0,0,0');
+      expect(dropped(), isEmpty);
+      expect(display.holder, 'agent');
+      await tester.pump(const Duration(seconds: 1));
+      expect(dropped(), isEmpty);
+      await finish(tester);
+    });
+
+    testWidgets('closing the viewer within the 500 ms clears the pasted '
+        'secret while the lease is held', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      clipboard = 'hunter2';
+      await openViewer(tester, platform: TargetPlatform.linux);
+      await takeOver(tester);
+      await tester.tap(find.byTooltip('Paste'));
+      await tester.pump();
+      await settle(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f8, platform: 'linux');
+      await settle(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(channels.last.accepted.map(hex).last, '6 0,0,0,0,0,0,0');
+      expect(dropped(), isEmpty);
+      expect(display.holder, 'agent');
+      await finish(tester);
+    });
+
+    testWidgets('nothing is sent while the release is being answered', (
+      tester,
+    ) async {
+      clipboard = 'hunter2';
+      await openViewer(tester, size: const Size(390, 844));
+      await takeOver(tester);
+      gateway.silent.add('display.lease.release');
+
+      await tester.tap(find.text('Hand Back'));
+      await tester.pump();
+      final before = sent().length;
+      await tester.tapAt(tester.getCenter(find.byType(BotScreenViewerView)));
+      await tester.pump();
+
+      expect(find.byType(ScreenGestureLayer), findsNothing);
+      expect(find.byTooltip('Paste'), findsNothing);
+      expect(sent().length, before);
+      expect(dropped(), isEmpty);
+      await finish(tester);
+    });
+  });
+
+  group('zoomed in', () {
+    testWidgets('a tap maps through the zoom of the wired viewer', (
+      tester,
+    ) async {
+      await openViewer(tester, size: const Size(390, 844));
+      await takeOver(tester);
+      final zoom = tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!;
+      // 2x, panned 400 up.
+      zoom.value = Matrix4.identity()
+        ..translateByDouble(0, -400, 0, 1)
+        ..scaleByDouble(2, 2, 1, 1);
+      await tester.pump();
+      final layer = find.byType(ScreenGestureLayer);
+      final box = tester.getRect(layer);
+      final before = sent().length;
+
+      final local = Offset(box.width / 2, box.height / 2);
+      await tester.tapAt(box.topLeft + local);
+      await tester.pump();
+
+      // The point under the finger is the finger's position less the pan, over
+      // the zoom; the picture is as wide as the layer (8 columns) and centred
+      // in its height.
+      final cell = box.width / 8;
+      final x = (local.dx / 2 / cell).floor();
+      final y =
+          (((local.dy + 400) / 2 - (box.height - box.width / 2) / 2) / cell)
+              .floor();
+      expect(y, greaterThan(0), reason: 'a tap that is not clamped');
+      expect(
+        sent().sublist(before).take(2).last,
+        hex(Uint8List.fromList([5, 1, 0, x, 0, y])),
+      );
+      await finish(tester);
+    });
   });
 
   testWidgets('no key name, text or coordinate reaches a breadcrumb', (
