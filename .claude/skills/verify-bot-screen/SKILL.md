@@ -82,7 +82,7 @@ Then open a chat, press the Activity button (View > Inspector, ⌥⌘I, on a Mac
 - Restart the container while a surface is shown: the app re-reads the status after the connection comes back.
 - Lock the app (App Lock) while a frame request is in flight: no frame appears after unlocking until the next one arrives.
 
-Watch the screen live (the card's Enlarge or its picture; the transcript preview once it exists):
+Watch the screen live (the card's Enlarge or its picture, or a tap on the preview under a `computer_use` call in the transcript):
 
 - Open the viewer: the picture moves by itself (let Hermes run a `computer_use` turn, or move something on the screen), the header says the profile and "Hermes is in control", and a click or tap on the picture does nothing on the screen. A phone (shortest side under 600 pt, landscape too) shows a full-screen page, a larger window shows it over the whole window; Escape and Back close either, and a dialog opened over it (Settings, Sign Out) is drawn above it.
 - Send the app to the background and return: the stream closes while away and a new one opens on return (an attached viewer counts as use on the server, and a changing screen can be kept from its idle stop, so none should stay attached). On a desktop only hiding or minimising the app does this; losing focus does not.
