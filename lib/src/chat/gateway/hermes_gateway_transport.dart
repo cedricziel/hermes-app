@@ -941,6 +941,13 @@ class HermesGatewayTransport
     if (_closed || open == null || !identical(open, connection)) {
       throw const GatewayConnectionClosed();
     }
+    // A socket the OS dropped while nothing watched it would fail this call
+    // only after its timeout; check one that went quiet first, as `_client`
+    // does, and drop a dead one.
+    if (open.isStale && !await _alive(open)) {
+      _drop(open);
+      throw const GatewayConnectionClosed();
+    }
     return open.requestWithin(method, params, timeout: timeout);
   }
 

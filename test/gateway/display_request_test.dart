@@ -207,6 +207,51 @@ void main() {
     });
   });
 
+  test('a pinned request on a connection that went quiet and died is not '
+      'sent: it throws closed and drops it', () {
+    fakeAsync((async) {
+      final gateway = FakeGateway();
+      gateway.handlers['display.status'] = (_) => {'running': true};
+      var connects = 0;
+      final transport = HermesGatewayTransport(
+        connect: () async {
+          connects++;
+          return gateway.connect();
+        },
+      );
+      Object? connection;
+      transport
+          .requestKeepingConnectionOnClient(
+            'display.status',
+            const {},
+            timeout: const Duration(seconds: 1),
+          )
+          .then<void>((answer) {
+            connection = answer.$2;
+          });
+      async.flushMicrotasks();
+      async.elapse(const Duration(minutes: 2));
+      gateway.deaf = true;
+      Object? error;
+
+      transport
+          .requestOn(
+            connection!,
+            'display.status',
+            const {},
+            timeout: const Duration(seconds: 10),
+          )
+          .then<void>((_) {}, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 20));
+
+      expect(error, isA<GatewayConnectionClosed>());
+      expect(connects, 1);
+      expect(transport.gatewayConnection, isNull);
+      unawaited(transport.close());
+    });
+  });
+
   test('a display call that times out does not cut a reply that is '
       'streaming', () async {
     String? runtime;
