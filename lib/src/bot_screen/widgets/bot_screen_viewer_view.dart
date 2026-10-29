@@ -30,6 +30,16 @@ ThemeData _darkTheme(TargetPlatform platform) => _darkThemes.putIfAbsent(
 /// watched), [onHandBack] (while this device is in control),
 /// [onForceHandBack] (Hand back to Hermes, while someone else is in control
 /// and [canForce]) and [onDismissLost] (the notice that control was lost).
+///
+/// What input needs is given as widgets, so the view knows nothing of the
+/// stream: [keyBar] under the picture, [tools] in a row under the header,
+/// [stageOverlay]
+/// over the whole stage (the gesture layer, which maps the pointer through
+/// [transformation], the zoom this view's `InteractiveViewer` uses, so the
+/// owner can read it) and [pictureOverlay] over the picture itself (the
+/// trackpad cursor, which moves and zooms with it). [scaleEnabled] false turns
+/// off the viewer's pinch and wheel zoom. [notice] is a line under the header,
+/// such as a refused paste.
 class BotScreenViewerView extends StatelessWidget {
   const BotScreenViewerView({
     super.key,
@@ -48,6 +58,14 @@ class BotScreenViewerView extends StatelessWidget {
     this.onHandBack,
     this.onForceHandBack,
     this.onDismissLost,
+    this.keyBar,
+    this.tools,
+    this.notice,
+    this.onDismissNotice,
+    this.transformation,
+    this.scaleEnabled = true,
+    this.stageOverlay,
+    this.pictureOverlay,
   });
 
   final BotScreenViewerPhase phase;
@@ -75,6 +93,14 @@ class BotScreenViewerView extends StatelessWidget {
   final VoidCallback? onHandBack;
   final VoidCallback? onForceHandBack;
   final VoidCallback? onDismissLost;
+  final Widget? keyBar;
+  final Widget? tools;
+  final String? notice;
+  final VoidCallback? onDismissNotice;
+  final TransformationController? transformation;
+  final bool scaleEnabled;
+  final Widget? stageOverlay;
+  final Widget? pictureOverlay;
 
   bool get _live =>
       phase == BotScreenViewerPhase.live ||
@@ -139,7 +165,16 @@ class BotScreenViewerView extends StatelessWidget {
                 if (control == BotScreenControl.lost &&
                     (_live || phase == BotScreenViewerPhase.blanked))
                   _Banner(text: lostText, onDismiss: onDismissLost),
+                if (tools != null && _live)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Align(alignment: Alignment.centerLeft, child: tools),
+                  ),
+                if (notice != null && _live)
+                  _Banner(text: notice!, onDismiss: onDismissNotice),
                 Expanded(child: _body(context)),
+                if (keyBar != null && _live) keyBar!,
               ],
             ),
           ),
@@ -164,7 +199,14 @@ class BotScreenViewerView extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            _Picture(aspectRatio: aspectRatio, child: drawn ? picture : null),
+            _Picture(
+              aspectRatio: aspectRatio,
+              transformation: transformation,
+              scaleEnabled: scaleEnabled,
+              overlay: drawn ? pictureOverlay : null,
+              child: drawn ? picture : null,
+            ),
+            if (drawn && stageOverlay != null) stageOverlay!,
             if (_inControl) const _ControlFrame(),
             if (drawn && phase == BotScreenViewerPhase.reconnecting)
               const IgnorePointer(child: ColoredBox(color: Colors.black54)),
@@ -374,13 +416,26 @@ class _ControlFrame extends StatelessWidget {
 
 /// The picture, kept in its aspect ratio and open to pinch, wheel and drag.
 class _Picture extends StatelessWidget {
-  const _Picture({required this.aspectRatio, required this.child});
+  const _Picture({
+    required this.aspectRatio,
+    required this.child,
+    this.transformation,
+    this.scaleEnabled = true,
+    this.overlay,
+  });
 
   final double aspectRatio;
   final Widget? child;
+  final TransformationController? transformation;
+  final bool scaleEnabled;
+
+  /// Drawn over the picture inside its box, so it zooms and pans with it.
+  final Widget? overlay;
 
   @override
   Widget build(BuildContext context) => InteractiveViewer(
+    transformationController: transformation,
+    scaleEnabled: scaleEnabled,
     minScale: 1,
     maxScale: 4,
     child: Center(
@@ -388,10 +443,16 @@ class _Picture extends StatelessWidget {
         aspectRatio: aspectRatio,
         child: child == null
             ? const SizedBox.shrink()
-            : Semantics(
-                image: true,
-                label: "Hermes's screen",
-                child: ExcludeSemantics(child: child),
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  Semantics(
+                    image: true,
+                    label: "Hermes's screen",
+                    child: ExcludeSemantics(child: child),
+                  ),
+                  ?overlay,
+                ],
               ),
       ),
     ),

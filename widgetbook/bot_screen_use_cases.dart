@@ -4,7 +4,13 @@ import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_preview_model.dart';
 
 import 'package:hermes_app/src/bot_screen/install/install_state.dart';
+import 'package:hermes_app/src/bot_screen/input/screen_gesture_layer.dart'
+    show ScreenGestureMode;
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_desktop_tools.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_key_bar.dart';
+import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
+import 'package:hermes_app/src/bot_screen/widgets/trackpad_cursor.dart';
 import 'package:hermes_app/src/bot_screen/widgets/force_hand_back.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
@@ -241,6 +247,59 @@ WidgetbookNode botScreenNode() {
         ],
       ),
       WidgetbookComponent(
+        name: 'Take over confirmation',
+        useCases: [
+          ...onEachPlatform(
+            'Sheet on a phone',
+            (_) => fill(
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Material(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                  child: TakeoverConfirmation(
+                    onCancel: () {},
+                    onConfirm: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+          ...onEachPlatform(
+            'Dialog on a computer',
+            (_) => fill(
+              Center(
+                child: Dialog(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: TakeoverConfirmation(
+                      onCancel: () {},
+                      onConfirm: (_) {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      WidgetbookComponent(
+        name: 'Key bar',
+        useCases: [
+          for (final (name, bar) in [
+            ('Touch', _keyBar()),
+            ('Ctrl latched', _keyBar(ctrl: true)),
+            (
+              'Alt latched, keyboard open',
+              _keyBar(alt: true, keyboardOpen: true),
+            ),
+            ('Trackpad', _keyBar(mode: ScreenGestureMode.trackpad)),
+          ])
+            ...onEachPlatform(name, (_) => frame(bar, maxWidth: 420)),
+        ],
+      ),
+      WidgetbookComponent(
         name: 'Hand back confirmation',
         useCases: onEachPlatform(
           'Hand control back to Hermes',
@@ -294,6 +353,10 @@ Widget _viewer(
   bool canForce = false,
   bool actions = false,
   String lostText = 'Someone else took control.',
+  Widget? keyBar,
+  Widget? tools,
+  String? notice,
+  Widget? pictureOverlay,
 }) => fill(
   BotScreenViewerView(
     phase: phase,
@@ -311,6 +374,45 @@ Widget _viewer(
     onHandBack: actions ? () {} : null,
     onForceHandBack: actions ? () {} : null,
     onDismissLost: actions ? () {} : null,
+    keyBar: keyBar,
+    tools: tools,
+    notice: notice,
+    onDismissNotice: notice == null ? null : () {},
+    pictureOverlay: pictureOverlay,
+  ),
+);
+
+BotScreenKeyBar _keyBar({
+  ScreenGestureMode mode = ScreenGestureMode.touch,
+  bool ctrl = false,
+  bool alt = false,
+  bool keyboardOpen = false,
+}) => BotScreenKeyBar(
+  mode: mode,
+  ctrl: ctrl,
+  alt: alt,
+  keyboardOpen: keyboardOpen,
+  onMode: (_) {},
+  onEscape: () {},
+  onTab: () {},
+  onLeft: () {},
+  onRight: () {},
+  onToggleCtrl: () {},
+  onToggleAlt: () {},
+  onToggleKeyboard: () {},
+  onPaste: () {},
+);
+
+/// [builder] under [platform], whichever the viewport's own is.
+WidgetbookUseCase _on(
+  String name,
+  TargetPlatform platform,
+  Widget Function(BuildContext context) builder,
+) => WidgetbookUseCase(
+  name: name,
+  builder: (context) => Theme(
+    data: Theme.of(context).copyWith(platform: platform),
+    child: Builder(builder: builder),
   ),
 );
 
@@ -464,6 +566,71 @@ WidgetbookNode botScreenViewerNode() {
           actions: true,
         ),
       ),
+      // Input: the key bar on a touch device, the tools on a computer.
+      ...onEachPlatform(
+        'In control, key bar',
+        (_) => _viewer(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.inControl,
+          picture: true,
+          actions: true,
+          keyBar: _keyBar(),
+        ),
+      ),
+      ...onEachPlatform(
+        'In control, Ctrl latched and the keyboard open',
+        (_) => _viewer(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.inControl,
+          picture: true,
+          actions: true,
+          keyBar: _keyBar(ctrl: true, keyboardOpen: true),
+        ),
+      ),
+      ...onEachPlatform(
+        'In control, Trackpad mode with its cursor',
+        (_) => _viewer(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.inControl,
+          picture: true,
+          actions: true,
+          keyBar: _keyBar(mode: ScreenGestureMode.trackpad),
+          pictureOverlay: TrackpadCursor(
+            pointer: ValueNotifier(const Offset(150, 90)),
+            framebuffer: const Size(320, 200),
+          ),
+        ),
+      ),
+      ...onEachPlatform(
+        'In control, the text cannot be pasted',
+        (_) => _viewer(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.inControl,
+          picture: true,
+          actions: true,
+          keyBar: _keyBar(),
+          notice: "This text can't be pasted to the screen.",
+        ),
+      ),
+      for (final (name, platform, f8) in [
+        ('Mac', TargetPlatform.macOS, false),
+        ('Windows and Linux', TargetPlatform.windows, true),
+      ])
+        _on(
+          'In control, tools ($name)',
+          platform,
+          (_) => _viewer(
+            BotScreenViewerPhase.live,
+            presentation: BotScreenViewerPresentation.overlay,
+            control: BotScreenControl.inControl,
+            picture: true,
+            actions: true,
+            tools: BotScreenDesktopTools(
+              onPaste: () {},
+              onSendF8: f8 ? () {} : null,
+            ),
+          ),
+        ),
       // The layer over a whole window, from 760 points.
       for (final (name, phase, picture) in [
         ('Live', BotScreenViewerPhase.live, true),
