@@ -31,6 +31,38 @@ export type BotScreenViewerState =
 export type BotScreenViewerControl =
   "watching" | "acquiring" | "in_control" | "releasing" | "lost";
 
+/**
+ * What input shows while the viewer is `in_control`. `touch`: the key bar under
+ * the picture (Esc, Tab, Ctrl and Alt that latch, the arrows, the keyboard,
+ * Paste and the Touch or Trackpad switch, last). `desktop`: a row of tools
+ * under the header (Paste, and Send F8 on Windows and Linux, where F8 itself
+ * closes the viewer); a mouse and keyboard need no key bar.
+ */
+export interface BotScreenViewerInput {
+  /** `touch` shows the key bar, `desktop` the tools row. */
+  device: "touch" | "desktop";
+  /** `touch`: Touch mode (default) or Trackpad mode, which draws a cursor. */
+  mode?: "touch" | "trackpad";
+  /** `touch`: Ctrl is latched for the next key. */
+  ctrl?: boolean;
+  /** `touch`: Alt is latched for the next key. */
+  alt?: boolean;
+  /** `touch`: the on-screen keyboard is shown. */
+  keyboardOpen?: boolean;
+  /** `desktop`: offers Send F8 (Windows and Linux). */
+  sendF8?: boolean;
+  /** Trackpad mode: where the cursor is, as fractions of the picture (0 to 1). Default the middle. */
+  cursor?: { x: number; y: number };
+  /** A line under the header, such as "This text can't be pasted to the screen." */
+  notice?: string;
+  /** Switch between Touch and Trackpad mode. */
+  onMode?: (mode: "touch" | "trackpad") => void;
+  /** Paste the device clipboard onto the screen. */
+  onPaste?: () => void;
+  /** Send F8 to the screen, `desktop` with `sendF8`. */
+  onSendF8?: () => void;
+}
+
 /** A full-screen page on a phone (shortest side under 600px), or an opaque layer over the whole window. */
 export type BotScreenViewerPresentation = "page" | "overlay";
 
@@ -62,6 +94,8 @@ export interface BotScreenViewerProps {
   canForce?: boolean;
   /** The profile's name, the header's title. */
   profile: string;
+  /** `in_control` only: the key bar or the tools, the Trackpad cursor and a notice. Left out, the viewer shows none. */
+  input?: BotScreenViewerInput;
   /** `live` and `reconnecting`: the latest picture, an image URL or data URL. */
   pictureSrc?: string;
   /** Width over height of the screen; default 16 / 10. */
@@ -144,6 +178,7 @@ export function BotScreenViewer({
   onHandBack,
   onForceHandBack,
   onDismissLost,
+  input,
   platform,
   device,
 }: BotScreenViewerProps) {
@@ -161,13 +196,27 @@ export function BotScreenViewer({
         : "Bot screen";
   const showsPicture =
     (state === "live" || state === "reconnecting") && pictureSrc;
+  const typing = inControl ? input : undefined;
+  const trackpad = typing?.device === "touch" && typing.mode === "trackpad";
+  const cursor = typing?.cursor ?? { x: 0.5, y: 0.5 };
   const picture = showsPicture ? (
     <div className="h-bot-viewer__picture">
-      <img
-        src={pictureSrc}
-        alt="Hermes's screen"
+      <div
+        className="h-bot-viewer__screen"
         style={{ aspectRatio: String(aspectRatio) }}
-      />
+      >
+        <img src={pictureSrc} alt="Hermes's screen" />
+        {trackpad ? (
+          <span
+            className="h-bot-viewer__cursor"
+            aria-hidden="true"
+            style={{
+              left: `${cursor.x * 100}%`,
+              top: `${cursor.y * 100}%`,
+            }}
+          />
+        ) : null}
+      </div>
     </div>
   ) : null;
   const closeButton = (
@@ -233,6 +282,26 @@ export function BotScreenViewer({
           {headerAction}
           {mac ? closeButton : null}
         </header>
+        {typing?.device === "desktop" ? (
+          <div className="h-bot-viewer__tools">
+            <IconButton
+              icon="content_paste"
+              label="Paste"
+              size={32}
+              onClick={typing.onPaste}
+            />
+            {typing.sendF8 ? (
+              <Button variant="text" compact onClick={typing.onSendF8}>
+                Send F8
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        {typing?.notice ? (
+          <div className="h-bot-viewer__banner" role="status">
+            <span>{typing.notice}</span>
+          </div>
+        ) : null}
         {(isLive || state === "blanked") && control === "lost" ? (
           <div className="h-bot-viewer__banner" role="status">
             <span>{lostText}</span>
@@ -278,7 +347,58 @@ export function BotScreenViewer({
             </div>
           ) : null}
         </div>
+        {typing?.device === "touch" ? (
+          <div className="h-bot-viewer__keys" role="toolbar" aria-label="Keys">
+            <KeyBarKey
+              label="Keyboard"
+              icon="keyboard"
+              pressed={typing.keyboardOpen}
+            />
+            <KeyBarKey label="Esc" />
+            <KeyBarKey label="Tab" />
+            <KeyBarKey label="Ctrl" pressed={typing.ctrl ?? false} />
+            <KeyBarKey label="Alt" pressed={typing.alt ?? false} />
+            <KeyBarKey label="Left arrow" icon="chevron_left" />
+            <KeyBarKey label="Right arrow" icon="chevron_right" />
+            <KeyBarKey
+              label="Paste"
+              icon="content_paste"
+              onClick={typing.onPaste}
+            />
+            <KeyBarKey
+              label={trackpad ? "Use Touch mode" : "Use Trackpad mode"}
+              icon={trackpad ? "mouse" : "touch_app"}
+              onClick={() => typing.onMode?.(trackpad ? "touch" : "trackpad")}
+            />
+          </div>
+        ) : null}
       </div>
     </PlatformScope>
+  );
+}
+
+/** One key of the key bar: text, or an icon named by `label`. A key with `pressed` set is a toggle that is on. */
+function KeyBarKey({
+  label,
+  icon,
+  pressed,
+  onClick,
+}: {
+  label: string;
+  icon?: string;
+  pressed?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cx("h-bot-viewer__key", pressed && "h-bot-viewer__key--on")}
+      aria-label={icon ? label : undefined}
+      aria-pressed={pressed === undefined ? undefined : pressed}
+      title={icon ? label : undefined}
+      onClick={onClick}
+    >
+      {icon ? <Icon name={icon} size={20} /> : label}
+    </button>
   );
 }
