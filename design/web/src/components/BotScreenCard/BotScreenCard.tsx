@@ -36,7 +36,11 @@ export type BotScreenStartFailure = "display" | "timeout" | "closed";
  * `may_still_run`.
  */
 export type BotScreenInstallResult =
-  "refused" | "cancelled" | "no_sudo" | "failed" | "may_still_run";
+  | "refused"
+  | "cancelled"
+  | "no_sudo"
+  | "failed"
+  | "may_still_run";
 
 export interface BotScreenCardProps {
   /**

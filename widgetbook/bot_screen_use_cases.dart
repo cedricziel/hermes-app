@@ -293,6 +293,7 @@ Widget _viewer(
   BotScreenControl control = BotScreenControl.watching,
   bool canForce = false,
   bool actions = false,
+  String lostText = 'Someone else took control.',
 }) => fill(
   BotScreenViewerView(
     phase: phase,
@@ -301,6 +302,7 @@ Widget _viewer(
     aspectRatio: aspectRatio,
     presentation: presentation,
     control: control,
+    lostText: lostText,
     canForce: canForce,
     onClose: () {},
     onRetry: () {},
@@ -388,6 +390,13 @@ WidgetbookNode botScreenViewerNode() {
           true,
         ),
         (
+          'Handing back',
+          BotScreenViewerPhase.live,
+          BotScreenControl.releasing,
+          false,
+          true,
+        ),
+        (
           'In control, reconnecting',
           BotScreenViewerPhase.reconnecting,
           BotScreenControl.inControl,
@@ -426,6 +435,16 @@ WidgetbookNode botScreenViewerNode() {
             actions: true,
           ),
         ),
+      ...onEachPlatform(
+        'Lost control, Hermes took it back',
+        (_) => _viewer(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.lost,
+          picture: true,
+          actions: true,
+          lostText: 'Hermes took control back.',
+        ),
+      ),
       ...onEachPlatform(
         'In control, over the window',
         (_) => _viewer(

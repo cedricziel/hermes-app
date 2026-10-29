@@ -25,11 +25,11 @@ export type BotScreenViewerState =
 /**
  * Who is driving. `watching`: the viewer only looks. `acquiring`: a take over
  * is on its way to the server. `in_control`: this device holds the control
- * lease. `lost`: this device was in control and is no longer; the viewer says so
+ * lease. `releasing`: a hand back is on its way. `lost`: this device was in control and is no longer; the viewer says so
  * until it is dismissed.
  */
 export type BotScreenViewerControl =
-  "watching" | "acquiring" | "in_control" | "lost";
+  "watching" | "acquiring" | "in_control" | "releasing" | "lost";
 
 /** A full-screen page on a phone (shortest side under 600px), or an opaque layer over the whole window. */
 export type BotScreenViewerPresentation = "page" | "overlay";
@@ -49,11 +49,15 @@ export interface BotScreenViewerProps {
   /**
    * Who is driving: `watching` (default), `acquiring` ("Taking over…"),
    * `in_control` (the subtitle says "You're in control" in amber, the stage
-   * gets an amber frame and the header offers Hand Back) or `lost` (a line
-   * under the header says "Someone else took control." with Dismiss). Only
-   * `live` and `reconnecting` show it.
+   * gets an amber frame and the header offers Hand Back), `releasing` (the
+   * same, with the header saying "Handing back…" and no button) or `lost` (a
+   * line under the header says who has the screen now, `lostText`, with
+   * Dismiss, also while the picture is `blanked`). Only `live`,
+   * `reconnecting` and, for `lost`, `blanked` show it.
    */
   control?: BotScreenViewerControl;
+  /** `lost`: what the line says; "Hermes took control back." when the lease went back to Hermes. Default "Someone else took control.". */
+  lostText?: string;
   /** `blanked`: the lease is held under a viewer id this app does not hold (another device, or this one before the app restarted), so the notice offers Hand back to Hermes (needs `onForceHandBack`). */
   canForce?: boolean;
   /** The profile's name, the header's title. */
@@ -131,6 +135,7 @@ export function BotScreenViewer({
   aspectRatio = 16 / 10,
   presentation = "page",
   control = "watching",
+  lostText = "Someone else took control.",
   canForce = false,
   onClose,
   onStart,
@@ -145,7 +150,8 @@ export function BotScreenViewer({
   const resolved = usePlatform(platform);
   const overlay = presentation === "overlay";
   const isLive = state === "live" || state === "reconnecting";
-  const inControl = isLive && control === "in_control";
+  const inControl =
+    isLive && (control === "in_control" || control === "releasing");
   const subtitle = inControl
     ? "You're in control"
     : isLive
@@ -184,7 +190,11 @@ export function BotScreenViewer({
         : state === "blanked" && canForce && onForceHandBack
           ? { label: "Hand back to Hermes", run: onForceHandBack }
           : null;
-  const headerAction = inControl ? (
+  const headerAction = isLive && control === "releasing" ? (
+    <Button variant="filled" compact disabled>
+      Handing back…
+    </Button>
+  ) : inControl ? (
     <Button variant="filled" compact onClick={onHandBack}>
       Hand Back
     </Button>
@@ -223,9 +233,9 @@ export function BotScreenViewer({
           {headerAction}
           {mac ? closeButton : null}
         </header>
-        {isLive && control === "lost" ? (
+        {(isLive || state === "blanked") && control === "lost" ? (
           <div className="h-bot-viewer__banner" role="status">
-            <span>Someone else took control.</span>
+            <span>{lostText}</span>
             {onDismissLost ? (
               <IconButton
                 icon="close"
