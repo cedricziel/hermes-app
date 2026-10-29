@@ -273,6 +273,76 @@ void main() {
       expect(sink.calls, ['d $_alt', 'u $_alt']);
     });
 
+    testWidgets('a paste while Control is held keeps the screen\'s Control '
+        'down', (tester) async {
+      await pump(tester, TargetPlatform.windows);
+
+      await tester.sendKeyDownEvent(
+        LogicalKeyboardKey.controlLeft,
+        platform: windows,
+      );
+      keyboard.pressControl(0x76);
+      await tester.sendKeyUpEvent(
+        LogicalKeyboardKey.controlLeft,
+        platform: windows,
+      );
+
+      expect(sink.calls, ['d $_control', 'd 76', 'u 76', 'u $_control']);
+    });
+
+    testWidgets('AltGr types the character of the layout, without the Control '
+        'and Alt Windows adds', (tester) async {
+      await pump(tester, TargetPlatform.windows);
+
+      await tester.sendKeyDownEvent(
+        LogicalKeyboardKey.controlLeft,
+        platform: windows,
+      );
+      await tester.sendKeyDownEvent(
+        LogicalKeyboardKey.altRight,
+        platform: windows,
+      );
+      await press(tester, LogicalKeyboardKey.keyQ, windows, character: '@');
+      await tester.sendKeyUpEvent(
+        LogicalKeyboardKey.altRight,
+        platform: windows,
+      );
+      await tester.sendKeyUpEvent(
+        LogicalKeyboardKey.controlLeft,
+        platform: windows,
+      );
+
+      expect(sink.calls, [
+        'd $_control',
+        'd ffea',
+        'u ffea',
+        'u $_control',
+        'd 40',
+        'u 40',
+        'd $_control',
+        'd ffea',
+        'u ffea',
+        'u $_control',
+      ]);
+    });
+
+    testWidgets('a character is used whenever it is printable, with Control '
+        'held', (tester) async {
+      await pump(tester, TargetPlatform.linux);
+
+      await tester.sendKeyDownEvent(
+        LogicalKeyboardKey.controlLeft,
+        platform: 'linux',
+      );
+      await press(tester, LogicalKeyboardKey.keyA, 'linux', character: 'ä');
+      await tester.sendKeyUpEvent(
+        LogicalKeyboardKey.controlLeft,
+        platform: 'linux',
+      );
+
+      expect(sink.calls, ['d $_control', 'd e4', 'u e4', 'u $_control']);
+    });
+
     testWidgets('a Super chord stays with the system', (tester) async {
       await pump(tester, TargetPlatform.linux);
 

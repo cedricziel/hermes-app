@@ -25,6 +25,8 @@ enum ScreenKeyResult {
 }
 
 const _controlLeft = 0xffe3;
+const _controlRight = 0xffe4;
+const _altRight = 0xffea;
 const _altLeft = 0xffe9;
 const _tab = 0xff09;
 const _escape = 0xff1b;
@@ -102,8 +104,12 @@ class ScreenKeyboard {
     if (event is KeyRepeatEvent && _held.containsKey(event.physicalKey)) {
       return _repeat(event.physicalKey);
     }
-    final keysym = _keysym(event, controlHeld: keyboard.isControlPressed);
+    final keysym = _keysym(event);
     if (keysym == null) return ScreenKeyResult.ignored;
+    if (_isAltGr(event, keyboard)) {
+      _typeAltGr(keysym);
+      return ScreenKeyResult.sent;
+    }
     final modifiers = <int>[
       if (_commandIsControl && meta) _controlLeft,
       if (ctrl.value) _controlLeft,
@@ -183,15 +189,52 @@ class ScreenKeyboard {
   }
 
   /// Presses Control+[keysym] and releases both: the Paste chord, whatever the
-  /// platform.
+  /// platform. A Control the person holds already stays down.
   void pressControl(int keysym) {
+    final held =
+        _heldKeysyms.contains(_controlLeft) ||
+        _heldKeysyms.contains(_controlRight);
     _guarded(() {
+      if (!held) _sink.key(_controlLeft, down: true);
       _sink
-        ..key(_controlLeft, down: true)
         ..key(keysym, down: true)
-        ..key(keysym, down: false)
-        ..key(_controlLeft, down: false);
+        ..key(keysym, down: false);
+      if (!held) _sink.key(_controlLeft, down: false);
     });
+  }
+
+  Iterable<int> get _heldKeysyms => _held.values.expand((sent) => sent);
+
+  /// Windows reports AltGr as Control and Alt together, with the character the
+  /// layout makes of it.
+  bool _isAltGr(KeyEvent event, HardwareKeyboard keyboard) =>
+      platform == TargetPlatform.windows &&
+      keyboard.isControlPressed &&
+      keyboard.isAltPressed &&
+      _printable(event.character);
+
+  /// Types the character of an AltGr chord with the Control and Alt that went
+  /// to the screen with it let go, and presses them again after.
+  void _typeAltGr(int keysym) {
+    const modifiers = {_controlLeft, _controlRight, _altLeft, _altRight};
+    final suspended = _heldKeysyms.where(modifiers.contains).toList();
+    _guarded(() {
+      for (final modifier in suspended.reversed) {
+        _sink.key(modifier, down: false);
+      }
+      _sink
+        ..key(keysym, down: true)
+        ..key(keysym, down: false);
+      for (final modifier in suspended) {
+        _sink.key(modifier, down: true);
+      }
+    });
+  }
+
+  bool _printable(String? character) {
+    if (character == null || character.isEmpty) return false;
+    final first = character.runes.first;
+    return first >= 0x20 && first != 0x7f;
   }
 
   void _chord(List<int> keysyms) {
@@ -235,15 +278,13 @@ class ScreenKeyboard {
   }
 
   /// The keysym a key event stands for, or null when it has none: a
-  /// non-printing key from the table, else the character it typed, else (with
-  /// Control held, when the character is a control code) its letter.
-  int? _keysym(KeyEvent event, {required bool controlHeld}) {
+  /// non-printing key from the table, else the character it typed, else (when
+  /// the character is a control code, as with Control held) its letter.
+  int? _keysym(KeyEvent event) {
     final known = _mapper.forLogicalKey(event.logicalKey);
     if (known != null) return known;
     final character = event.character;
-    if (character != null && character.isNotEmpty && !controlHeld) {
-      return _keysymOf(character.runes.first);
-    }
+    if (_printable(character)) return _keysymOf(character!.runes.first);
     final label = event.logicalKey.keyLabel;
     if (label.runes.length != 1) return null;
     final shifted = HardwareKeyboard.instance.isShiftPressed;
