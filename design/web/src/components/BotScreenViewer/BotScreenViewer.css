@@ -66,22 +66,25 @@
   display: flex;
   flex: 1;
   min-height: 0;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  /* A short window scrolls a notice; children centre themselves with
+     `margin: auto`, which keeps the top of an overflowing one reachable. */
+  overflow: auto;
 }
 
 .h-bot-viewer__picture {
-  max-width: 100%;
-  max-height: 100%;
-  width: 100%;
-}
-
-.h-bot-viewer__picture img {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+}
+
+/* Fit inside the stage whichever side is short, never stretch. */
+.h-bot-viewer__picture img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .h-bot-viewer__dim {
@@ -100,6 +103,7 @@
 
 .h-bot-viewer__stage > .h-bot-viewer__busy:only-child {
   position: static;
+  margin: auto;
 }
 
 .h-bot-viewer__notice {
@@ -108,6 +112,7 @@
   align-items: center;
   gap: 6px;
   max-width: 360px;
+  margin: auto;
   padding: 24px;
   text-align: center;
 }

@@ -120,11 +120,12 @@ export function BotScreenViewer({
   const showsPicture =
     (state === "live" || state === "reconnecting") && pictureSrc;
   const picture = showsPicture ? (
-    <div
-      className="h-bot-viewer__picture"
-      style={{ aspectRatio: String(aspectRatio) }}
-    >
-      <img src={pictureSrc} alt="Hermes's screen" />
+    <div className="h-bot-viewer__picture">
+      <img
+        src={pictureSrc}
+        alt="Hermes's screen"
+        style={{ aspectRatio: String(aspectRatio) }}
+      />
     </div>
   ) : null;
   const closeButton = (
