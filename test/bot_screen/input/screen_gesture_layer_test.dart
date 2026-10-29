@@ -242,6 +242,10 @@ void main() {
       );
 
       await tester.tapAt(origin + const Offset(20, 20));
+      // The click waits, in case the tap turns out to be half of a tap and
+      // drag.
+      expect(rig.sink.calls, isEmpty);
+      await tester.pump(kDoubleTapTimeout);
 
       expect(rig.sink.calls, ['p 500 250 0', 'p 500 250 1', 'p 500 250 0']);
     });
@@ -764,6 +768,7 @@ void main() {
       );
 
       await tester.tapAt(const Offset(20, 20));
+      await tester.pump(kDoubleTapTimeout);
 
       expect(sink.calls, ['p 500 250 0', 'p 500 250 1', 'p 500 250 0']);
     });
@@ -778,14 +783,15 @@ void main() {
       final rig = Rig();
       final origin = await pumpTrackpad(tester, rig);
       await tester.tapAt(origin + const Offset(100, 100));
-      rig.sink.calls.clear();
 
       final finger = await tester.startGesture(origin + const Offset(100, 100));
       await finger.moveBy(const Offset(30, 0));
       await finger.moveBy(const Offset(20, 0));
       await finger.up();
+      await tester.pump(kDoubleTapTimeout);
 
-      // 30 px of travel is 75 screen pixels, then 50 more.
+      // No click for the tap: 30 px of travel is 75 screen pixels, then 50
+      // more.
       expect(rig.sink.calls, [
         'p 500 250 1',
         'p 575 250 1',
@@ -803,6 +809,7 @@ void main() {
 
       await tester.tapAt(origin + const Offset(100, 100));
       await tester.tapAt(origin + const Offset(100, 100));
+      await tester.pump(kDoubleTapTimeout);
 
       expect(rig.sink.calls, [
         'p 500 250 0',
@@ -819,14 +826,68 @@ void main() {
       final rig = Rig();
       final origin = await pumpTrackpad(tester, rig);
       await tester.tapAt(origin + const Offset(100, 100));
-      rig.sink.calls.clear();
 
       await tester.pump(const Duration(milliseconds: 400));
+      expect(rig.sink.calls, ['p 500 250 0', 'p 500 250 1', 'p 500 250 0']);
+      rig.sink.calls.clear();
       final finger = await tester.startGesture(origin + const Offset(100, 100));
       await finger.moveBy(const Offset(30, 0));
       await finger.up();
 
       expect(rig.sink.calls, ['p 575 250 0']);
+    });
+
+    testWidgets('holding the second press still is not a right click', (
+      tester,
+    ) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+      await tester.tapAt(origin + const Offset(100, 100));
+
+      final finger = await tester.startGesture(origin + const Offset(100, 100));
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await finger.up();
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(
+        rig.sink.calls.where((call) => call.endsWith(' 4')),
+        isEmpty,
+        reason: 'no secondary button',
+      );
+    });
+
+    testWidgets('a second finger after a tap still lets the tap click', (
+      tester,
+    ) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+      await tester.tapAt(origin + const Offset(100, 100));
+
+      final one = await tester.startGesture(origin + const Offset(100, 100));
+      final two = await tester.startGesture(origin + const Offset(200, 200));
+      await one.up();
+      await two.up();
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(rig.sink.calls, ['p 500 250 0', 'p 500 250 1', 'p 500 250 0']);
+    });
+
+    testWidgets('disabling the layer drops a click that was waiting', (
+      tester,
+    ) async {
+      final rig = Rig();
+      final origin = await pumpTrackpad(tester, rig);
+      await tester.tapAt(origin + const Offset(100, 100));
+
+      await pumpLayer(
+        tester,
+        rig,
+        mode: ScreenGestureMode.trackpad,
+        enabled: false,
+      );
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(rig.sink.calls, isEmpty);
     });
 
     testWidgets('a drag is not a tap that arms the next one', (tester) async {
