@@ -27,9 +27,14 @@ class ForceHandBackDialog extends StatelessWidget {
       'the screen.',
     ),
     actions: [
-      AppDialogAction(onPressed: onCancel, child: const Text('Cancel')),
+      // Cancel is the default: the destructive answer is the one to choose on
+      // purpose, since it takes the screen from whoever uses it.
       AppDialogAction(
         isDefault: true,
+        onPressed: onCancel,
+        child: const Text('Cancel'),
+      ),
+      AppDialogAction(
         isDestructive: true,
         onPressed: onConfirm,
         child: const Text('Hand Back'),
