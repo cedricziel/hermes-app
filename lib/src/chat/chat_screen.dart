@@ -32,6 +32,9 @@ import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
 import '../bot_screen/bot_screen_repository.dart';
 import '../bot_screen/install/bot_screen_installs.dart';
+import '../bot_screen/rfb/display_socket.dart';
+import '../bot_screen/viewer/bot_screen_viewer_controller.dart';
+import '../bot_screen/viewer/bot_screen_viewer_presenter.dart';
 import '../handoff/handoff_controller.dart';
 import '../handoff/handoff_activity.dart';
 import '../messaging/messaging_screen.dart';
@@ -157,6 +160,7 @@ class ChatScreen extends StatefulWidget {
     this.chatProfiles,
     this.voiceRecorder,
     this.voiceMessageRecorder,
+    this.displaySocketOpener,
   });
 
   final HermesChatRepository? repository;
@@ -214,6 +218,10 @@ class ChatScreen extends StatefulWidget {
   /// Optional microphone override for draft audio attachments.
   final VoiceRecorder? voiceMessageRecorder;
 
+  /// Opens the Bot Screen's display stream; the connected dashboard's unless
+  /// a test supplies its own.
+  final DisplaySocketOpener? displaySocketOpener;
+
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
@@ -252,7 +260,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// The Bot Screen of the chat's profile, and what it was made for.
   BotScreenController? _screen;
+  BotScreenRepository? _screenRepository;
   String? _screenProfile;
+
+  /// The live viewer while it is open, and how to close it.
+  BotScreenViewerController? _viewer;
+  BotScreenViewerHandle? _viewerHandle;
   ({GatewayRequester requests, GatewayConnectionTransport events})?
   _screenGateway;
   AppLockController? _screenLock;
@@ -675,6 +688,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     }
     if (widget.visible != oldWidget.visible) {
+      // The viewer is a route above the whole shell: it does not follow a
+      // tab switch.
+      if (!widget.visible) _viewerHandle?.close();
       _syncBotScreenGates();
       _updateActivePolling();
       WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());

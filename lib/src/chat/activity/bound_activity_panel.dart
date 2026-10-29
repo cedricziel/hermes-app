@@ -34,6 +34,7 @@ class BoundActivityPanel extends StatelessWidget {
     required this.chat,
     required this.thread,
     this.screen,
+    this.onEnlargeScreen,
     this.onClose,
     this.scrollController,
   });
@@ -41,6 +42,10 @@ class BoundActivityPanel extends StatelessWidget {
   final ChatController chat;
   final ChatThread? thread;
   final BotScreenController? screen;
+
+  /// Opens the Bot screen's live viewer from the card; the card offers no
+  /// Enlarge without it.
+  final VoidCallback? onEnlargeScreen;
   final VoidCallback? onClose;
   final ScrollController? scrollController;
 
@@ -117,6 +122,7 @@ class BoundActivityPanel extends StatelessWidget {
                 key: const Key('bot-screen-card'),
                 controller: screen!,
                 model: screenModel,
+                onEnlarge: onEnlargeScreen,
               ),
             if (state != null &&
                 state.visible &&

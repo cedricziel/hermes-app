@@ -52,14 +52,6 @@ extension _ChatScreenNavigation on _ChatScreenState {
   /// the chat.
   void _focusSidebarSearch() => _searchFocus.requestFocus();
 
-  /// Opens the Activity panel like [_toggleActivity], but leaves the inspector
-  /// open when it already is: for what takes the user to the panel, such as
-  /// the Bot screen's preview in the transcript.
-  void _openActivity({required String source}) {
-    if (_wide && _activityOpen) return;
-    _toggleActivity(source: source);
-  }
-
   /// Opens the Activity panel: the inspector beside or over a wide chat, a
   /// sheet on a phone. A second call closes the inspector.
   void _toggleActivity({String source = 'button'}) {
@@ -85,6 +77,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
           chat: _chat,
           thread: thread,
           screen: _screen,
+          onEnlargeScreen: () => _openViewer('card'),
           scrollController: controller,
           onClose: () => Navigator.of(context).pop(),
         ),

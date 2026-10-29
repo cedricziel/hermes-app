@@ -108,6 +108,7 @@ class BotScreenController extends ChangeNotifier {
   var _foreground = true;
   var _unlocked = true;
   var _demand = 0;
+  var _frameDemand = 0;
   var _generation = 0;
   var _busy = false;
   var _statusDue = false;
@@ -180,19 +181,44 @@ class BotScreenController extends ChangeNotifier {
     scheduleMicrotask(_notify);
   }
 
-  /// Asks for frames until the returned handle is released.
-  BotScreenWatch watch() {
+  /// Asks for the status, and for frames unless [frames] is false, until the
+  /// returned handle is released. A surface that draws its own picture (the
+  /// live viewer) wants the status alone: it is read every
+  /// [kFramePollInterval] while the screen runs, and a lease change that no
+  /// broadcast reported is found within one.
+  BotScreenWatch watch({bool frames = true}) {
     if (_demand++ == 0) _statusDue = true;
+    if (frames && _frameDemand++ == 0) _frameDue = true;
     _reconcile();
     return BotScreenWatch._(() {
       _demand--;
+      if (frames) _frameDemand--;
       _reconcile();
-      if (_demand == 0) {
+      if (_demand == 0 || (frames && _frameDemand == 0)) {
         // An answer already on its way must not bring the frame back.
         _generation++;
         _dropFrame();
       }
     });
+  }
+
+  /// Takes [next], a status read elsewhere (the live viewer's
+  /// `display.observe` answer carries one), unless the screen already holds a
+  /// newer lease or belongs to another profile. Reads asked for before it are
+  /// dropped as older.
+  void adoptStatus(BotScreenStatus next) {
+    if (_disposed) return;
+    final current = status;
+    if (current != null) {
+      final key = current.profileKey;
+      if (key != null && next.profileKey != null && key != next.profileKey) {
+        return;
+      }
+      if (next.lease.epoch < current.lease.epoch) return;
+    }
+    _broadcasts++;
+    _apply(next);
+    _notify();
   }
 
   /// Reads the screen again at once, past the waits that follow a failure.
@@ -205,7 +231,7 @@ class BotScreenController extends ChangeNotifier {
     _frameFailures = 0;
     _skipTicks = 0;
     _statusDue = true;
-    if (_shouldPoll) _frameDue = true;
+    if (_shouldPoll && _frameDemand > 0) _frameDue = true;
     _pump();
   }
 
@@ -328,10 +354,14 @@ class BotScreenController extends ChangeNotifier {
             _skipTicks--;
             return;
           }
-          _frameDue = true;
+          if (_frameDemand > 0) {
+            _frameDue = true;
+          } else {
+            _statusDue = true;
+          }
           _pump();
         });
-        _frameDue = true;
+        _frameDue = _frameDemand > 0;
       }
     } else {
       _timer?.cancel();
@@ -354,7 +384,7 @@ class BotScreenController extends ChangeNotifier {
     if (_statusDue) {
       _statusDue = false;
       _run(_readStatus);
-    } else if (_frameDue && _shouldPoll) {
+    } else if (_frameDue && _shouldPoll && _frameDemand > 0) {
       _frameDue = false;
       if (++_frameRequests % kStatusEveryFrames == 0) _statusDue = true;
       _run(_readFrame);

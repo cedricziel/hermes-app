@@ -98,6 +98,18 @@ class BotScreenRepository {
     );
   }
 
+  /// Asks for a ticket to watch the screen's stream. [viewerId] is the id an
+  /// earlier answer on this connection gave, which the server then keeps.
+  Future<BotScreenResult<BotScreenObservation>> observe(
+    String? profile, {
+    String? viewerId,
+  }) => _call(
+    'display.observe',
+    profile,
+    _observation,
+    extra: {'viewer_id': ?viewerId},
+  );
+
   /// One JPEG grab of the screen; read-only, it never changes the lease.
   /// [watchers] is how many surfaces share the poll this grab belongs to, for
   /// its span.
@@ -132,6 +144,7 @@ class BotScreenRepository {
     T Function(Map<String, Object?> result) parse, {
     bool logFailures = true,
     DisplayRpc? rpc,
+    Map<String, Object?> extra = const {},
   }) async {
     BotScreenFailed<T> failed(BotScreenFailure kind, [String? message]) =>
         logFailures
@@ -140,6 +153,7 @@ class BotScreenRepository {
     try {
       final answer = await (rpc ?? _rpc)(method, {
         'profile': profile ?? kDefaultProfile,
+        ...extra,
       }, timeout: timeout);
       final value = parse(answer);
       _failureLogged = false;
@@ -191,6 +205,21 @@ class BotScreenRepository {
     if (_reportedUnsupported) return;
     _reportedUnsupported = true;
     _quiet(() => telemetry.events('bot_screen.unsupported'));
+  }
+
+  static BotScreenObservation _observation(Map<String, Object?> result) {
+    String text(String key) {
+      final value = result[key];
+      if (value is! String || value.isEmpty) throw FormatException(key);
+      return value;
+    }
+
+    return BotScreenObservation(
+      ticket: text('ticket'),
+      path: text('path'),
+      viewerId: text('viewer_id'),
+      status: BotScreenStatus.fromJson(result),
+    );
   }
 
   static BotScreenFrame _frame(Map<String, Object?> result) {

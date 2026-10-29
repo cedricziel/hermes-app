@@ -311,6 +311,29 @@ void main() {
       expect(enlarged, 1);
     });
 
+    testWidgets('also opens it from the picture itself', (tester) async {
+      var enlarged = 0;
+      await pumpCard(
+        tester,
+        BotScreenShowing(bytes: _picture),
+        onEnlarge: () => enlarged++,
+      );
+
+      await tester.tap(find.byType(Image));
+
+      expect(enlarged, 1);
+    });
+
+    testWidgets('a picture with no viewer to open ignores a tap', (
+      tester,
+    ) async {
+      await pumpCard(tester, BotScreenShowing(bytes: _picture));
+
+      await tester.tap(find.byType(Image));
+
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('is not offered when a person is in control', (tester) async {
       await pumpCard(tester, const BotScreenControlled(), onEnlarge: () {});
 

@@ -117,7 +117,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           ),
           onSetupModel: _setupModel,
           screen: _screen,
-          onOpenScreen: () => _openActivity(source: 'preview'),
+          onOpenScreen: () => _openViewer('preview'),
           thread: selected,
           greetingName: context.select<AuthController, String?>(
             (auth) => auth.identity?.displayName,
@@ -186,6 +186,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                   chat: chat,
                   thread: selected,
                   screen: _screen,
+                  onEnlargeScreen: () => _openViewer('card'),
                 ),
                 panelKey: const Key('activity-inspector'),
                 onDismissOverlay: _toggleActivity,

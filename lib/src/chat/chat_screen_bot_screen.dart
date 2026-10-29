@@ -1,5 +1,11 @@
 part of 'chat_screen.dart';
 
+const _desktopPlatforms = {
+  TargetPlatform.macOS,
+  TargetPlatform.windows,
+  TargetPlatform.linux,
+};
+
 /// The chat profile's Bot Screen: one controller on the shared gateway, held
 /// while the screen is open, replaced when the chat moves to another profile,
 /// and kept from asking for frames unless the app is resumed, unlocked and,
@@ -31,16 +37,17 @@ extension _ChatScreenBotScreen on _ChatScreenState {
         (_screen != null && _screenProfile == _chat.profile)) {
       return;
     }
-    final telemetry =
-        HermesRepositories.maybeOf(context)?.telemetry ??
-        const ConnectionTelemetry();
+    final telemetry = _screenTelemetry();
     final previous = _screen;
+    // The viewer watches the screen that is being replaced.
+    _viewerHandle?.close();
     _screenProfile = _chat.profile;
+    final repository = _screenRepository = BotScreenRepository(
+      gateway.requests.requestKeepingConnection,
+      telemetry: telemetry,
+    );
     _screen = BotScreenController(
-      BotScreenRepository(
-        gateway.requests.requestKeepingConnection,
-        telemetry: telemetry,
-      ),
+      repository,
       gateway.events.connectionEvents,
       profile: _screenProfile,
       events: telemetry.events,
@@ -53,16 +60,76 @@ extension _ChatScreenBotScreen on _ChatScreenState {
     }
   }
 
+  ConnectionTelemetry _screenTelemetry() =>
+      HermesRepositories.maybeOf(context)?.telemetry ??
+      const ConnectionTelemetry();
+
+  /// Whether the app is in front as far as the Bot Screen is concerned. A
+  /// desktop window that is only inactive (another app has the focus) is still
+  /// on screen, unlike a phone that is showing the notification shade.
+  bool get _screenInFront {
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state == null || state == AppLifecycleState.resumed) return true;
+    return state == AppLifecycleState.inactive &&
+        !kIsWeb &&
+        _desktopPlatforms.contains(defaultTargetPlatform);
+  }
+
   void _syncBotScreenGates() {
     // Not `_routeVisible`: the phone's Activity sheet is a route of its own
     // above the chat, and it is what asks for the frames.
+    final foreground = _screenInFront && widget.visible && !_windowless;
+    final unlocked = !(_screenLock?.covered ?? false);
     _screen
-      ?..foreground = _foreground && widget.visible && !_windowless
-      ..unlocked = !(_screenLock?.covered ?? false);
+      ?..foreground = foreground
+      ..unlocked = unlocked;
+    _viewer
+      ?..foreground = foreground
+      ..unlocked = unlocked;
+  }
+
+  /// Opens the live, watch-only viewer of the chat profile's screen, from the
+  /// Activity card (`source: card`) or the transcript preview (`preview`).
+  void _openViewer(String source) {
+    final screen = _screen;
+    final repository = _screenRepository;
+    if (screen == null || repository == null || _viewer != null) return;
+    final baseUrl = _maybeRead<AuthController>()?.baseUrl;
+    final profile = _screenProfile;
+    final controller = _viewer = BotScreenViewerController(
+      repository: repository,
+      screen: screen,
+      openSocket:
+          widget.displaySocketOpener ??
+          (path, ticket) => baseUrl == null
+              ? Future.error(
+                  const DisplaySocketError(DisplaySocketErrorKind.unreachable),
+                )
+              : openDisplaySocket(baseUrl, path, ticket),
+      profile: profile,
+      telemetry: _screenTelemetry(),
+    );
+    _syncBotScreenGates();
+    controller.start();
+    _viewerHandle = showBotScreenViewer(
+      context,
+      controller: controller,
+      profile: profile ?? 'default',
+      source: source,
+      breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
+      onClosed: () {
+        if (identical(_viewer, controller)) {
+          _viewer = null;
+          _viewerHandle = null;
+        }
+        controller.dispose();
+      },
+    );
   }
 
   void _disposeBotScreen() {
     _screenLock?.removeListener(_onBotScreenGates);
+    _viewerHandle?.close();
     _screen?.dispose();
   }
 }

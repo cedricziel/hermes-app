@@ -123,6 +123,29 @@ class BotScreenStatus {
   final BotScreenLease lease;
 }
 
+/// What `display.observe` answered: the single-use [ticket] for the display
+/// stream (valid for 30 seconds), its [path], the [viewerId] the server minted
+/// for this gateway connection and the screen's [status].
+///
+/// The ticket and the id are credentials. They are kept in memory only, and a
+/// printed observation shows neither.
+class BotScreenObservation {
+  const BotScreenObservation({
+    required this.ticket,
+    required this.path,
+    required this.viewerId,
+    required this.status,
+  });
+
+  final String ticket;
+  final String path;
+  final String viewerId;
+  final BotScreenStatus status;
+
+  @override
+  String toString() => 'BotScreenObservation()';
+}
+
 /// What `display.thumbnail` answered.
 sealed class BotScreenFrame {
   const BotScreenFrame();
@@ -216,4 +239,32 @@ class BotScreenInstallStart {
 /// per controller.
 class BotScreenShown {
   String? slug;
+}
+
+/// What the viewer shows.
+enum BotScreenViewerPhase {
+  /// Asking for a ticket, opening the socket or waiting for the first picture.
+  connecting,
+
+  /// The picture arrives.
+  live,
+
+  /// The stream ended and is being opened again; the last picture is dimmed.
+  reconnecting,
+
+  /// A person other than this device holds control, so there is no picture.
+  blanked,
+
+  /// The screen is not running.
+  off,
+
+  /// Hermes does not let this app view the screen (HTTP 403).
+  notAllowed,
+
+  /// The stream could not be opened again, after all attempts.
+  unreachable,
+
+  /// The stream ended for a reason retrying does not fix: a protocol error or
+  /// a ticket that kept being refused.
+  failed,
 }

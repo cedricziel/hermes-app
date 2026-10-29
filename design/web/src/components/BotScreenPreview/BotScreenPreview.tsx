@@ -14,7 +14,7 @@ export interface BotScreenPreviewProps {
   aspectRatio?: number;
   /** `controlled`: true says "You're in control", otherwise "Someone else is in control". */
   byYou?: boolean;
-  /** Makes the preview a button. In the app a tap opens the Activity panel, where the Bot screen card is. */
+  /** Makes the preview a button. In the app a tap opens the live viewer (`BotScreenViewer`). */
   onOpen?: () => void;
   className?: string;
 }

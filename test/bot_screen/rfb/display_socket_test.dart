@@ -119,6 +119,49 @@ void main() {
     );
   });
 
+  group('keeping the link honest', () {
+    test('pings every 15 seconds and gives up connecting after 10', () {
+      expect(kDisplayPingInterval, const Duration(seconds: 15));
+      expect(kDisplayConnectTimeout, const Duration(seconds: 10));
+    });
+
+    test('a peer that stops answering ends the stream', () async {
+      onRequest = (request) async {
+        final socket = await WebSocketTransformer.upgrade(request);
+        // Not reading means no pong, as on a link that went half-open.
+        socket.listen((_) {}).pause();
+        return socket;
+      };
+      final channel = await openDisplaySocket(
+        base(),
+        '/ws',
+        _ticket,
+        pingInterval: const Duration(milliseconds: 100),
+      );
+
+      await channel.stream.drain<void>().timeout(const Duration(seconds: 5));
+
+      expect(channel.closeCode, isNotNull);
+    });
+
+    test('a server that never answers the upgrade is given up on', () async {
+      final silent = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => silent.close());
+      silent.listen((_) {});
+      final error = await _failure(
+        openDisplaySocket(
+          'http://127.0.0.1:${silent.port}',
+          '/ws',
+          _ticket,
+          connectTimeout: const Duration(milliseconds: 200),
+        ),
+      );
+
+      expect(error.kind, DisplaySocketErrorKind.unreachable);
+      _expectNoSecrets(error, silent.port);
+    });
+  });
+
   group('displaySocketErrorFor', () {
     test('maps only an HTTP 403 upgrade refusal to notAllowed', () {
       DisplaySocketErrorKind kindOf(int? status) => displaySocketErrorFor(

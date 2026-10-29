@@ -1,0 +1,141 @@
+/* Black and white in both themes, like the image viewer and the app's own
+   Colors.black. The tokens are set here so the buttons and icons follow. */
+.h-bot-viewer {
+  --h-bg: #000;
+  --h-fg: #fff;
+  --h-muted: rgba(255, 255, 255, 0.6);
+  --h-hover: rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--h-bg);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-bot-viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 56px;
+  padding: 0 8px 0 4px;
+}
+
+.h-bot-viewer--apple .h-bot-viewer__bar {
+  height: 44px;
+}
+
+.h-bot-viewer--apple.h-bot-viewer--mac .h-bot-viewer__bar {
+  height: 52px;
+}
+
+/* The layer covers the window's traffic lights. */
+.h-bot-viewer__lights {
+  flex-shrink: 0;
+  width: 78px;
+}
+
+.h-bot-viewer__title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+}
+
+.h-bot-viewer__title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-bot-viewer__subtitle {
+  color: var(--h-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.h-bot-viewer__stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  /* A short window scrolls a notice; children centre themselves with
+     `margin: auto`, which keeps the top of an overflowing one reachable. */
+  overflow: auto;
+}
+
+.h-bot-viewer__picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Fit inside the stage whichever side is short, never stretch. */
+.h-bot-viewer__picture img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.h-bot-viewer__dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.54);
+}
+
+.h-bot-viewer__busy {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.h-bot-viewer__stage > .h-bot-viewer__busy:only-child {
+  position: static;
+  margin: auto;
+}
+
+.h-bot-viewer__notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 360px;
+  margin: auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.h-bot-viewer__notice .h-icon {
+  margin-bottom: 6px;
+  color: var(--h-muted);
+}
+
+.h-bot-viewer__notice h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+
+.h-bot-viewer__notice p {
+  margin: 0;
+  color: var(--h-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.h-bot-viewer__notice .h-button {
+  margin-top: 10px;
+}

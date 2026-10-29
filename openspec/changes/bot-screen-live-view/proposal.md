@@ -21,19 +21,19 @@ Minimum Hermes version: `display.observe` and `/api/display/ws` first ship in He
 
 ## What Changes
 
-- A **screen viewer**: on phones a full-screen page (portrait and landscape, pinch to zoom, pan); from 760 pt a new full-window overlay (Close or Escape to leave). The inspector's overlay is a 380 pt side panel and is not reused.
+- A **screen viewer**: on a phone (shortest side under 600 pt) a full-screen page (portrait and landscape, pinch to zoom, pan); elsewhere an opaque layer over the whole window. Both are routes on the root navigator, so a dialog opened over the viewer draws above it and Back or Escape closes it. The inspector's overlay is a 380 pt side panel and is not reused.
 - It opens from the Activity card's picture and its Enlarge action, which becomes visible, and from the transcript preview, which now opens the viewer instead of the Activity panel.
 - The viewer calls `display.observe` for a ticket and viewer id, opens the stream with `bot-screen-rfb-client`, and draws the framebuffer as updates arrive.
 - The header names the profile and who is in control. While a person other than this device holds control, the viewer blanks the picture and says someone else is in control, as the still preview does.
-- Each close code has one meaning: 1000 the app closed it; 4000 reconnect as a watcher; 4001 the screen is off (no retry); 4401 observe again once, then show an error; 1003 a protocol error (no retry); an upgrade refused with HTTP 403 means viewing is not allowed (no retry); anything else reconnects with full-jitter backoff (300 ms to 15 s, 5 attempts). When observe fails, the viewer reads the status again to tell Off from an error.
-- The stream is closed whenever the viewer is not visible: closed viewer, app not resumed, App Lock, sign-out, profile switch. An open viewer keeps the screen alive, because the server counts an attached viewer as use and skips its idle stop.
+- Each close code has one meaning: 1000 the app closed it; 4000 reconnect as a watcher; 4001, or a server close with 1000 or 1001 while the status says the screen is not running, the screen is off (no retry); 4401 observe again once, then show an error; 1003 a protocol error (no retry); an upgrade refused with HTTP 403 means viewing is not allowed (no retry); anything else reconnects with full-jitter backoff (300 ms to 15 s, 5 attempts). When observe fails, the viewer reads the status again to tell Off from an error.
+- The stream is closed whenever the viewer is not visible: closed viewer, a phone app that is not resumed (a desktop app that is merely inactive keeps it), a hidden or paused app, App Lock, another route covering the viewer, the chat leaving the screen, sign-out, profile switch. The display socket pings every 15 s so a half-open link ends and a proxy does not close a static screen. While a viewer is attached the bridge stamps the screen's activity, at most once a minute and only when Xvnc sends bytes, so a screen that is changing is kept from its idle stop; a static one is not.
 - Watch only: the viewer sends no input. Escape closes it.
 - The viewer chrome is in the catalog and in `design/web`.
 
 ## Non-goals
 
 - Input and control (`bot-screen-rfb-input`, `bot-screen-takeover`).
-- A separate Mac window for the screen; the overlay covers the main window. No viewer in conversation windows or the quick panel.
+- A separate Mac window for the screen; the layer covers the main window. No viewer in conversation windows or the quick panel.
 - Live pictures in the card or the preview; they stay still frames.
 - Watching while the app is in the background.
 
@@ -50,7 +50,7 @@ None.
 ## Impact
 
 - `BotScreenRepository.observe`.
-- New `lib/src/bot_screen/viewer/`: `BotScreenViewerController` (observe, socket, close codes, reconnect, pause), `BotScreenViewerView` (plain model) and the presentation (page route, `BotScreenViewerOverlay`).
+- New `lib/src/bot_screen/viewer/`: `BotScreenViewerController` (observe, socket, close codes, reconnect, pause), `BotScreenViewerView` (plain model) and the presentation (page route, the layer route).
 - `lib/src/chat/chat_screen*.dart`: the viewer opener passed to the card's `onEnlarge` and the preview's `onTap`.
 - `test/gateway/gateway_contract_test.dart` is unchanged (it lists notifications and server requests only, and observe is neither).
 - Widgetbook use cases and `design/web` `BotScreenViewer` (`category: Screens`).

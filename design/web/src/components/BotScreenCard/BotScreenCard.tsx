@@ -88,7 +88,7 @@ export interface BotScreenCardProps {
   onCopyCommand?: () => void;
   /** Try Again, in `error`; hidden without it. */
   onRetry?: () => void;
-  /** Enlarge, over a `frame`. Leave it out: the app shows no Enlarge until the live viewer it opens exists. */
+  /** Enlarge, over a `frame`, and the picture itself: both open the live viewer (`BotScreenViewer`). Hidden without it. */
   onEnlarge?: () => void;
   /** Inherits the provider's platform. */
   platform?: Platform;
@@ -309,8 +309,10 @@ export function BotScreenCard({
           <>
             <div
               className="h-bot-screen__picture"
+              onClick={onEnlarge}
               style={{
                 aspectRatio: String(Math.min(3, Math.max(0.5, aspectRatio))),
+                cursor: onEnlarge ? "pointer" : undefined,
               }}
             >
               {frameSrc ? (
@@ -326,7 +328,11 @@ export function BotScreenCard({
                   icon="open_in_full"
                   label="Enlarge screen"
                   size={32}
-                  onClick={onEnlarge}
+                  onClick={(event) => {
+                    // The picture opens the viewer too; once is enough.
+                    event.stopPropagation();
+                    onEnlarge();
+                  }}
                 />
               ) : null}
             </div>

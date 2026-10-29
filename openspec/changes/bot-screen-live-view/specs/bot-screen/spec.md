@@ -18,7 +18,7 @@ To watch a screen the app SHALL call `display.observe` with `profile` on the gat
 
 ### Requirement: Stream endings
 
-The viewer SHALL handle the end of a stream as follows: a close the app sent (1000) needs nothing; 4000 SHALL observe again and reconnect as a watcher; 4001 SHALL show that the screen is off without retrying; 4401 SHALL observe again once and show an error if the next stream also ends with 4401; 1003 SHALL show a protocol error without retrying; an upgrade refused with HTTP 403 SHALL show that viewing is not allowed without retrying. Any other ending SHALL reopen the stream with a fresh ticket using full-jitter backoff from 300 ms to 15 s, at most 5 attempts, after which the viewer shows that the screen cannot be reached with Try Again.
+The viewer SHALL handle the end of a stream as follows: a close the app sent (1000) needs nothing; 4000 SHALL observe again and reconnect as a watcher; 4001 SHALL show that the screen is off without retrying; a close the server sent with 1000 or 1001 and no error SHALL read `display.status` and show that the screen is off when it is not running (the bridge closes this way when the screen stops), and otherwise be treated like any other ending; 4401 SHALL observe again once and show an error if the next stream also ends with 4401; 1003 SHALL show a protocol error without retrying; an upgrade refused with HTTP 403 SHALL show that viewing is not allowed without retrying. Any other ending SHALL reopen the stream with a fresh ticket using full-jitter backoff from 300 ms to 15 s, at most 5 attempts, after which the viewer shows that the screen cannot be reached with Try Again.
 
 #### Scenario: The ticket was spent
 
@@ -27,7 +27,7 @@ The viewer SHALL handle the end of a stream as follows: a close the app sent (10
 
 #### Scenario: The screen stops while watched
 
-- **WHEN** the stream closes with 4001
+- **WHEN** the stream closes with 4001, or with 1000 while the status says the screen is not running
 - **THEN** the viewer shows that the screen is off and does not reconnect
 
 #### Scenario: The phone loses Wi-Fi briefly
@@ -35,9 +35,18 @@ The viewer SHALL handle the end of a stream as follows: a close the app sent (10
 - **WHEN** the stream drops abnormally and the network returns within the attempts
 - **THEN** the viewer reconnects and the picture resumes without the user doing anything
 
+### Requirement: A stream that goes quiet
+
+The display socket SHALL ping every 15 seconds and give up connecting after 10, so that a link that went half-open ends the stream and is handled as any abnormal ending, and a proxy does not close the link of a screen that sends nothing.
+
+#### Scenario: The link goes half-open
+
+- **WHEN** the server stops answering without closing the socket
+- **THEN** the stream ends and the viewer reconnects with backoff
+
 ### Requirement: Viewer presentation
 
-Below 760 pt the viewer SHALL be a full-screen page that follows the device orientation and supports pinch to zoom and pan. From 760 pt it SHALL be a view covering the whole window, closed by its Close button. The header SHALL name the profile and who is in control, following the lease. While connecting or reconnecting the viewer SHALL say so over the last picture, dimmed.
+On a phone (shortest side under 600 pt, in either orientation) the viewer SHALL be a full-screen page that follows the device orientation and supports pinch to zoom and pan. On a larger window it SHALL be a view covering the whole window, closed by its Close button. Both SHALL be routes on the root navigator, so that a dialog or page opened later is drawn above the viewer, the chat below does not act on keys or menu commands, and Back closes it; Escape SHALL close either. The picture SHALL keep clear of system insets, and on macOS the header SHALL leave room for the traffic lights and move the window. The header SHALL name the profile and who is in control, following the lease. While connecting or reconnecting the viewer SHALL say so over the last picture, dimmed.
 
 #### Scenario: A phone in landscape
 
@@ -78,7 +87,7 @@ While the viewer is shown as a view over the window, pressing Escape SHALL close
 
 ### Requirement: Closing the stream when not visible
 
-The app SHALL close the stream when the viewer closes, when the app is not in the resumed state, when App Lock covers the app, on sign-out and on a change of the chat's profile, and SHALL observe again and reconnect when the viewer becomes visible again. Because an attached viewer keeps the server from stopping an idle screen, the app SHALL NOT keep a stream open for a viewer that is not visible.
+The app SHALL close the stream when the viewer closes, when the app is not in front (on a phone, not resumed; on a desktop, hidden or paused, or with no window), when App Lock covers the app, when another route covers the viewer, when the chat leaves the screen, on sign-out and on a change of the chat's profile, and SHALL observe again and reconnect when the viewer becomes visible again. A desktop window that is merely inactive keeps its stream. Because an attached viewer counts as use on the server and can keep a changing screen from its idle stop, the app SHALL NOT keep a stream open for a viewer that is not visible.
 
 #### Scenario: The app goes to the background
 
@@ -98,7 +107,7 @@ The app SHALL keep the framebuffer in memory only, SHALL NOT log, store or send 
 
 ### Requirement: Opening the screen from the preview
 
-Tapping or clicking the transcript preview SHALL open the screen viewer for the chat's profile: a full-screen page below 760 pt, a view covering the window from 760 pt.
+Tapping or clicking the transcript preview SHALL open the screen viewer for the chat's profile: a full-screen page on a phone, a view covering the window elsewhere.
 
 #### Scenario: The user taps the preview on a phone
 

@@ -19,6 +19,7 @@ export * from "./components/ToolCallGroup/ToolCallGroup";
 export * from "./components/SessionStatusCard/SessionStatusCard";
 export * from "./components/BotScreenCard/BotScreenCard";
 export * from "./components/BotScreenPreview/BotScreenPreview";
+export * from "./components/BotScreenViewer/BotScreenViewer";
 export * from "./components/ProcessOutputCard/ProcessOutputCard";
 export * from "./components/MoaProgressCard/MoaProgressCard";
 export * from "./components/TodoPlanCard/TodoPlanCard";

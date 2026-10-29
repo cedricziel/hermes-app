@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.dart'
+    show DisplaySocketOpener;
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -52,6 +54,7 @@ Future<void> pumpChatScreen(
   MacCommandRegistry? commands,
   VoiceRecorder? voiceRecorder,
   VoiceRecorder? voiceMessageRecorder,
+  DisplaySocketOpener? displaySocketOpener,
   ChatProfiles? chatProfiles,
   Widget Function(Widget app)? wrap,
   ThemeData? theme,
@@ -96,6 +99,7 @@ Future<void> pumpChatScreen(
           starterContext: starterContext,
           voiceRecorder: voiceRecorder,
           voiceMessageRecorder: voiceMessageRecorder,
+          displaySocketOpener: displaySocketOpener,
           chatProfiles: chatProfiles,
         ),
       ),

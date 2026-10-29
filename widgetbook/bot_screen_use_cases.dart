@@ -9,6 +9,7 @@ import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
     show ToolCall, ToolCallStatus;
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'bot_screen_fixture.dart';
@@ -254,6 +255,101 @@ WidgetbookNode botScreenNode() {
               ..._inToolCalls(model, name),
         ],
       ),
+    ],
+  );
+}
+
+/// The desktop the viewer draws, in place of the framebuffer.
+Widget _desktop() => Image.memory(
+  botScreenFixturePng(width: 320, height: 200),
+  fit: BoxFit.fill,
+  filterQuality: FilterQuality.none,
+  gaplessPlayback: true,
+);
+
+Widget _viewer(
+  BotScreenViewerPhase phase, {
+  BotScreenViewerPresentation presentation = BotScreenViewerPresentation.page,
+  bool picture = false,
+  double aspectRatio = 16 / 10,
+}) => fill(
+  BotScreenViewerView(
+    phase: phase,
+    profile: 'research',
+    picture: picture ? _desktop() : null,
+    aspectRatio: aspectRatio,
+    presentation: presentation,
+    onClose: () {},
+    onRetry: () {},
+    onStart: () {},
+  ),
+);
+
+WidgetbookNode botScreenViewerNode() {
+  final states = <(String, BotScreenViewerPhase, {bool picture, double ratio})>[
+    ('Connecting', BotScreenViewerPhase.connecting, picture: false, ratio: 1.6),
+    ('Live', BotScreenViewerPhase.live, picture: true, ratio: 1.6),
+    (
+      'Live, portrait screen',
+      BotScreenViewerPhase.live,
+      picture: true,
+      ratio: 0.75,
+    ),
+    (
+      'Reconnecting over the last picture',
+      BotScreenViewerPhase.reconnecting,
+      picture: true,
+      ratio: 1.6,
+    ),
+    (
+      'Reconnecting without a picture',
+      BotScreenViewerPhase.reconnecting,
+      picture: false,
+      ratio: 1.6,
+    ),
+    (
+      'Someone else in control',
+      BotScreenViewerPhase.blanked,
+      picture: false,
+      ratio: 1.6,
+    ),
+    ('Off', BotScreenViewerPhase.off, picture: false, ratio: 1.6),
+    (
+      'Viewing not allowed',
+      BotScreenViewerPhase.notAllowed,
+      picture: false,
+      ratio: 1.6,
+    ),
+    (
+      "Can't reach the screen",
+      BotScreenViewerPhase.unreachable,
+      picture: false,
+      ratio: 1.6,
+    ),
+    ('Stream failed', BotScreenViewerPhase.failed, picture: false, ratio: 1.6),
+  ];
+  return WidgetbookComponent(
+    name: 'Bot screen viewer',
+    useCases: [
+      for (final (name, phase, :picture, :ratio) in states)
+        ...onEachPlatform(
+          name,
+          (_) => _viewer(phase, picture: picture, aspectRatio: ratio),
+        ),
+      // The layer over a whole window, from 760 points.
+      for (final (name, phase, picture) in [
+        ('Live', BotScreenViewerPhase.live, true),
+        ('Someone else in control', BotScreenViewerPhase.blanked, false),
+        ('Off', BotScreenViewerPhase.off, false),
+      ])
+        ...onEachPlatform(
+          '$name, over the window',
+          (_) => _viewer(
+            phase,
+            presentation: BotScreenViewerPresentation.overlay,
+            picture: picture,
+          ),
+        ),
     ],
   );
 }

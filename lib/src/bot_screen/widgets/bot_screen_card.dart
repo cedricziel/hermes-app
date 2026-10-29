@@ -269,47 +269,52 @@ class _BotScreenCardState extends State<BotScreenCard> {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: AspectRatio(
-            aspectRatio: model.aspectRatio,
-            child: ColoredBox(
-              color: scheme.surfaceContainerHighest,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (bytes != null)
-                    Semantics(
-                      image: true,
-                      label: "Hermes's screen",
-                      child: Image.memory(
-                        bytes,
-                        fit: BoxFit.contain,
-                        gaplessPlayback: true,
-                        excludeFromSemantics: true,
-                        errorBuilder: (_, _, _) => const Center(
-                          child: BotScreenCaption('Picture unavailable'),
+          child: _Tappable(
+            onTap: widget.onEnlarge,
+            child: AspectRatio(
+              aspectRatio: model.aspectRatio,
+              child: ColoredBox(
+                color: scheme.surfaceContainerHighest,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (bytes != null)
+                      Semantics(
+                        image: true,
+                        label: "Hermes's screen",
+                        child: Image.memory(
+                          bytes,
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
+                          excludeFromSemantics: true,
+                          errorBuilder: (_, _, _) => const Center(
+                            child: BotScreenCaption('Picture unavailable'),
+                          ),
+                        ),
+                      )
+                    else
+                      const Center(
+                        child: BotScreenCaption(
+                          'Waiting for the first picture…',
                         ),
                       ),
-                    )
-                  else
-                    const Center(
-                      child: BotScreenCaption('Waiting for the first picture…'),
-                    ),
-                  if (widget.onEnlarge != null)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: NamedIconButton(
-                        label: 'Enlarge screen',
-                        icon: AppIcons.enlarge,
-                        iconSize: 18,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.black54,
-                          foregroundColor: Colors.white,
+                    if (widget.onEnlarge != null)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: NamedIconButton(
+                          label: 'Enlarge screen',
+                          icon: AppIcons.enlarge,
+                          iconSize: 18,
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black54,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: widget.onEnlarge,
                         ),
-                        onPressed: widget.onEnlarge,
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -353,6 +358,29 @@ class _BotScreenCardState extends State<BotScreenCard> {
     BotScreenFailure.timeout => 'Hermes did not answer in time.',
     BotScreenFailure.closed => 'The connection closed first.',
   };
+}
+
+/// Makes the picture itself open the viewer, for those who do not look for
+/// Enlarge. Enlarge is the named control, so this adds no semantics.
+class _Tappable extends StatelessWidget {
+  const _Tappable({required this.onTap, required this.child});
+
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final onTap = this.onTap;
+    if (onTap == null) return child;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: child,
+      ),
+    );
+  }
 }
 
 class _Header extends StatelessWidget {
