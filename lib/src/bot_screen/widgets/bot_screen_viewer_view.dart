@@ -8,7 +8,7 @@ import '../../widgets/named_icon_button.dart';
 import '../bot_screen_models.dart' show BotScreenViewerPhase;
 
 /// Where the viewer is shown: a full-screen page on a phone, or a layer over
-/// the whole window from 760 points.
+/// the whole window on a larger one.
 enum BotScreenViewerPresentation { page, overlay }
 
 final _darkThemes = <TargetPlatform, ThemeData>{};

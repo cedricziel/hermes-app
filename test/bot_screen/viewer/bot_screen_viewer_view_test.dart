@@ -155,7 +155,13 @@ void main() {
             onClose: () => closed++,
           ),
         );
-        await tester.tap(find.byTooltip('Close'));
+        // The theme animates to the new platform.
+        await tester.pump(const Duration(seconds: 1));
+        // The Mac names its Escape shortcut, even on a page.
+        final tooltip = platform == TargetPlatform.macOS
+            ? 'Close (Esc)'
+            : 'Close';
+        await tester.tap(find.byTooltip(tooltip));
       }
 
       expect(closed, TargetPlatform.values.length);

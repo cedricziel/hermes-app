@@ -213,7 +213,11 @@ class BotScreenViewerController extends ChangeNotifier {
     } else {
       _attempts = 0;
       _ticketRetried = false;
-      _connectNow();
+      // Starting tells the listeners, which a setter that runs while the tree
+      // builds must not do.
+      scheduleMicrotask(() {
+        if (!_hidden) _connectNow();
+      });
     }
   }
 

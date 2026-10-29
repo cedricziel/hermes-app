@@ -514,6 +514,23 @@ void main() {
       });
     });
 
+    test('returning tells its listeners after the setter, not inside it', () {
+      scenario(() {
+        handshake();
+        viewer.visible = false;
+        settle();
+        var told = 0;
+        viewer.addListener(() => told++);
+
+        viewer.visible = true;
+        expect(told, 0, reason: 'a setter can run while the tree builds');
+
+        settle();
+        expect(told, greaterThan(0));
+        expect(opened, hasLength(2));
+      });
+    });
+
     test('returning observes again with a new ticket', () {
       scenario(() {
         handshake();
