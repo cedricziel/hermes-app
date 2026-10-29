@@ -593,7 +593,12 @@ class BotScreenViewerController extends ChangeNotifier {
   /// Opens the stream again after a jittered, growing delay (at once with
   /// [immediate]), or gives up after [kViewerReconnectAttempts].
   void _retryLater({bool immediate = false}) {
-    if (_disposed || _hidden || _closing) return;
+    if (_disposed || _closing) return;
+    if (_hidden) {
+      // Opened again when the viewer can be seen (see `_syncVisible`).
+      _streamPaused = true;
+      return;
+    }
     if (_attempts >= kViewerReconnectAttempts) {
       _picture = null;
       _base = BotScreenViewerPhase.unreachable;

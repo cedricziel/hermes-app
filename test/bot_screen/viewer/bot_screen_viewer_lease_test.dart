@@ -553,6 +553,25 @@ void main() {
       });
     });
 
+    test('a stream that ends while covered is opened again once the cover '
+        'passes', () {
+      scenario(() {
+        takeOver();
+
+        viewer.unlocked = false;
+        settle();
+        channel.serverClose(1006);
+        settle();
+        async.elapse(const Duration(seconds: 1));
+        viewer.unlocked = true;
+        settle();
+
+        expect(channels, hasLength(2));
+        handshake();
+        expect(viewer.control, BotScreenControl.inControl);
+      });
+    });
+
     test('backgrounding during the grace closes at once', () {
       scenario(() {
         takeOver();

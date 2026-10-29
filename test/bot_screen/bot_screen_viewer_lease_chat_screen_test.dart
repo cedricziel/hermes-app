@@ -337,6 +337,25 @@ void main() {
       await serve(tester);
     }
 
+    testWidgets('a hand back that fails says so inside the viewer', (
+      tester,
+    ) async {
+      await openHeldBySomeone(tester);
+      gateway.handlers['display.lease.release'] = (_) =>
+          throw const FakeRpcError(5300, 'broken');
+
+      await tester.tap(
+        find.descendant(of: viewer, matching: find.text('Hand back to Hermes')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(AppDialogAction, 'Hand Back'));
+      await tester.pumpAndSettle();
+      await settle(tester);
+
+      expect(find.text("Couldn't hand control back to Hermes."), findsOne);
+      await finish(tester);
+    });
+
     testWidgets('the viewer offers Hand back to Hermes, asks first and then '
         'forces the release', (tester) async {
       await openHeldBySomeone(tester);

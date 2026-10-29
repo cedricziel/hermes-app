@@ -56,7 +56,9 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
     unawaited(widget.controller.handBack());
   }
 
-  void _forceHandBack() {
+  /// [context] is below the viewer's own messenger, so a failure is said
+  /// inside the viewer and not behind it.
+  void _forceHandBack(BuildContext context) {
     widget.breadcrumbs('bot_screen.force_handback.pressed');
     unawaited(confirmForceHandBack(context, widget.controller.forceHandBack));
   }
@@ -76,34 +78,41 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
     },
     child: Focus(
       autofocus: true,
-      child: ListenableBuilder(
-        listenable: widget.controller,
-        builder: (context, _) {
-          final controller = widget.controller;
-          final framebuffer = controller.framebuffer;
-          return BotScreenViewerView(
-            phase: controller.phase,
-            profile: widget.profile,
-            presentation: widget.presentation,
-            picture: framebuffer == null
-                ? null
-                : FramebufferPicture(
-                    framebuffer: framebuffer,
-                    revision: controller.revision,
-                  ),
-            aspectRatio: framebuffer == null
-                ? 16 / 10
-                : (framebuffer.width / framebuffer.height).clamp(0.5, 3.0),
-            control: controller.control,
-            canForce: controller.someoneElseInControl,
-            onClose: widget.onClose,
-            onRetry: controller.retry,
-            onStart: () => controller.startScreen(),
-            onHandBack: _handBack,
-            onForceHandBack: _forceHandBack,
-            onDismissLost: controller.dismissLost,
-          );
-        },
+      // The viewer is a route of its own, so it has a messenger of its own:
+      // a snackbar of the screen below would be hidden behind it.
+      child: ScaffoldMessenger(
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: ListenableBuilder(
+            listenable: widget.controller,
+            builder: (context, _) {
+              final controller = widget.controller;
+              final framebuffer = controller.framebuffer;
+              return BotScreenViewerView(
+                phase: controller.phase,
+                profile: widget.profile,
+                presentation: widget.presentation,
+                picture: framebuffer == null
+                    ? null
+                    : FramebufferPicture(
+                        framebuffer: framebuffer,
+                        revision: controller.revision,
+                      ),
+                aspectRatio: framebuffer == null
+                    ? 16 / 10
+                    : (framebuffer.width / framebuffer.height).clamp(0.5, 3.0),
+                control: controller.control,
+                canForce: controller.someoneElseInControl,
+                onClose: widget.onClose,
+                onRetry: controller.retry,
+                onStart: () => controller.startScreen(),
+                onHandBack: _handBack,
+                onForceHandBack: () => _forceHandBack(context),
+                onDismissLost: controller.dismissLost,
+              );
+            },
+          ),
+        ),
       ),
     ),
   );
