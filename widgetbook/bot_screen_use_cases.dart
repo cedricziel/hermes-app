@@ -5,6 +5,7 @@ import 'package:hermes_app/src/bot_screen/bot_screen_preview_model.dart';
 
 import 'package:hermes_app/src/bot_screen/install/install_state.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
+import 'package:hermes_app/src/bot_screen/widgets/force_hand_back.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
     show ToolCall, ToolCallStatus;
@@ -24,6 +25,7 @@ Widget _card(BotScreenCardModel model, {bool enlarge = false}) => frame(
     onCopyCommand: () {},
     onRetry: () {},
     onInstall: () {},
+    onForceHandBack: () {},
     onEnlarge: enlarge ? () {} : null,
   ),
   maxWidth: 380,
@@ -101,6 +103,11 @@ WidgetbookNode botScreenNode() {
     ),
     ('Waiting for the first picture', const BotScreenShowing(), enlarge: false),
     ('Someone else in control', const BotScreenControlled(), enlarge: false),
+    (
+      'Someone in control, Hand back to Hermes',
+      const BotScreenControlled(canForce: true),
+      enlarge: false,
+    ),
     ('You in control', const BotScreenControlled(byYou: true), enlarge: false),
     ('Off', const BotScreenOff(), enlarge: false),
     (
@@ -234,6 +241,17 @@ WidgetbookNode botScreenNode() {
         ],
       ),
       WidgetbookComponent(
+        name: 'Hand back confirmation',
+        useCases: onEachPlatform(
+          'Hand control back to Hermes',
+          (_) => fill(
+            Center(
+              child: ForceHandBackDialog(onCancel: () {}, onConfirm: () {}),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookComponent(
         name: 'Bot screen preview',
         useCases: [
           for (final (name, model) in previews)
@@ -272,6 +290,10 @@ Widget _viewer(
   BotScreenViewerPresentation presentation = BotScreenViewerPresentation.page,
   bool picture = false,
   double aspectRatio = 16 / 10,
+  BotScreenControl control = BotScreenControl.watching,
+  bool canForce = false,
+  bool actions = false,
+  String lostText = 'Someone else took control.',
 }) => fill(
   BotScreenViewerView(
     phase: phase,
@@ -279,9 +301,16 @@ Widget _viewer(
     picture: picture ? _desktop() : null,
     aspectRatio: aspectRatio,
     presentation: presentation,
+    control: control,
+    lostText: lostText,
+    canForce: canForce,
     onClose: () {},
     onRetry: () {},
     onStart: () {},
+    onTakeOver: actions ? () {} : null,
+    onHandBack: actions ? () {} : null,
+    onForceHandBack: actions ? () {} : null,
+    onDismissLost: actions ? () {} : null,
   ),
 );
 
@@ -336,6 +365,105 @@ WidgetbookNode botScreenViewerNode() {
           name,
           (_) => _viewer(phase, picture: picture, aspectRatio: ratio),
         ),
+      // Who is in control: Take over, in control, control lost, and the lease
+      // someone else holds.
+      for (final (name, phase, control, canForce, picture) in [
+        (
+          'Watching, Take over',
+          BotScreenViewerPhase.live,
+          BotScreenControl.watching,
+          false,
+          true,
+        ),
+        (
+          'Taking over',
+          BotScreenViewerPhase.live,
+          BotScreenControl.acquiring,
+          false,
+          true,
+        ),
+        (
+          'In control',
+          BotScreenViewerPhase.live,
+          BotScreenControl.inControl,
+          false,
+          true,
+        ),
+        (
+          'Handing back',
+          BotScreenViewerPhase.live,
+          BotScreenControl.releasing,
+          false,
+          true,
+        ),
+        (
+          'In control, reconnecting',
+          BotScreenViewerPhase.reconnecting,
+          BotScreenControl.inControl,
+          false,
+          true,
+        ),
+        (
+          'Lost control, Hermes has the screen',
+          BotScreenViewerPhase.live,
+          BotScreenControl.lost,
+          false,
+          true,
+        ),
+        (
+          'Lost control, someone else has the screen',
+          BotScreenViewerPhase.blanked,
+          BotScreenControl.lost,
+          true,
+          false,
+        ),
+        (
+          'Someone in control, Hand back to Hermes',
+          BotScreenViewerPhase.blanked,
+          BotScreenControl.watching,
+          true,
+          false,
+        ),
+      ])
+        ...onEachPlatform(
+          name,
+          (_) => _viewer(
+            phase,
+            control: control,
+            canForce: canForce,
+            picture: picture,
+            actions: true,
+          ),
+        ),
+      ...onEachPlatform(
+        'Lost control, Hermes took it back',
+        (_) => _viewer(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.lost,
+          picture: true,
+          actions: true,
+          lostText: 'Hermes took control back.',
+        ),
+      ),
+      ...onEachPlatform(
+        'In control, over the window',
+        (_) => _viewer(
+          BotScreenViewerPhase.live,
+          presentation: BotScreenViewerPresentation.overlay,
+          control: BotScreenControl.inControl,
+          picture: true,
+          actions: true,
+        ),
+      ),
+      ...onEachPlatform(
+        'Watching, Take over, over the window',
+        (_) => _viewer(
+          BotScreenViewerPhase.live,
+          presentation: BotScreenViewerPresentation.overlay,
+          picture: true,
+          actions: true,
+        ),
+      ),
       // The layer over a whole window, from 760 points.
       for (final (name, phase, picture) in [
         ('Live', BotScreenViewerPhase.live, true),

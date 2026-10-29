@@ -63,6 +63,7 @@ BotScreenViewerHandle showBotScreenViewer(
         controller: controller,
         profile: profile,
         presentation: presentation,
+        breadcrumbs: breadcrumbs,
         onClose: () {
           if (!route.isCurrent) return close();
           // The route slides away; the stream ends now.

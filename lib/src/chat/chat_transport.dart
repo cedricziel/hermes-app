@@ -631,6 +631,28 @@ abstract interface class GatewayRequester {
     Map<String, Object?> params, {
     required Duration timeout,
   });
+
+  /// [requestKeepingConnection], also saying which connection carried the call
+  /// (a token like `GatewayConnectionTransport.gatewayConnection`), for a call
+  /// whose meaning belongs to that connection.
+  Future<(Map<String, Object?>, Object)> requestKeepingConnectionOnClient(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  });
+
+  /// Like [requestKeepingConnection], but only over [connection] (a token from
+  /// `GatewayConnectionTransport.gatewayConnection` or the connection a call
+  /// reported). When that connection is no longer the current one it throws
+  /// `GatewayConnectionClosed` without opening another, for a call whose
+  /// meaning belongs to the connection that made the earlier one: a viewer id
+  /// is honoured only on the connection that minted it.
+  Future<Map<String, Object?>> requestOn(
+    Object connection,
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  });
 }
 
 /// Awaits protected persistence immediately before the prompt RPC.

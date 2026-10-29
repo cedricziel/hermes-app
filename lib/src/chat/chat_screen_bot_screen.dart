@@ -19,6 +19,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
         events: transport as GatewayConnectionTransport,
       );
     }
+    _screenAuth = _maybeRead<AuthController>();
     _screenLock = _maybeRead<AppLockController>()
       ?..addListener(_onBotScreenGates);
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
@@ -40,10 +41,12 @@ extension _ChatScreenBotScreen on _ChatScreenState {
     final telemetry = _screenTelemetry();
     final previous = _screen;
     // The viewer watches the screen that is being replaced.
-    _viewerHandle?.close();
+    _closeViewer('profile');
     _screenProfile = _chat.profile;
     final repository = _screenRepository = BotScreenRepository(
       gateway.requests.requestKeepingConnection,
+      connectionRpc: gateway.requests.requestKeepingConnectionOnClient,
+      pinnedRpc: gateway.requests.requestOn,
       telemetry: telemetry,
     );
     _screen = BotScreenController(
@@ -52,6 +55,7 @@ extension _ChatScreenBotScreen on _ChatScreenState {
       profile: _screenProfile,
       events: telemetry.events,
       installs: _maybeRead<BotScreenInstalls>(),
+      viewerIds: _viewerIds,
     );
     _syncBotScreenGates();
     if (previous != null) {
@@ -83,13 +87,34 @@ extension _ChatScreenBotScreen on _ChatScreenState {
     _screen
       ?..foreground = foreground
       ..unlocked = unlocked;
+    // A phone that is inactive (the notification shade, Control Center, the
+    // app switcher) is covered, not gone: the viewer keeps control through a
+    // glance and closes its stream only when the app really leaves.
+    final state = WidgetsBinding.instance.lifecycleState;
+    final left =
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached;
+    final phoneCovered =
+        state == AppLifecycleState.inactive &&
+        !(!kIsWeb && _desktopPlatforms.contains(defaultTargetPlatform));
     _viewer
-      ?..foreground = foreground
-      ..unlocked = unlocked;
+      ?..foreground = !left && widget.visible && !_windowless
+      ..unlocked = unlocked && !phoneCovered;
   }
 
-  /// Opens the live, watch-only viewer of the chat profile's screen, from the
-  /// Activity card (`source: card`) or the transcript preview (`preview`).
+  /// Closes the viewer, handing control back first when this device holds it.
+  /// [reason] is what the hand back is logged with: `close`, `profile`,
+  /// `sign_out` or `server`.
+  void _closeViewer(String reason) {
+    final handle = _viewerHandle;
+    if (handle == null) return;
+    _viewerCloseReason = reason;
+    handle.close();
+  }
+
+  /// Opens the live viewer of the chat profile's screen, from the Activity
+  /// card (`source: card`) or the transcript preview (`preview`).
   void _openViewer(String source) {
     final screen = _screen;
     final repository = _screenRepository;
@@ -122,14 +147,22 @@ extension _ChatScreenBotScreen on _ChatScreenState {
           _viewer = null;
           _viewerHandle = null;
         }
-        controller.dispose();
+        // Hands control back before it closes the stream and disposes.
+        unawaited(controller.shutDown(_viewerCloseReason));
+        _viewerCloseReason = 'close';
       },
     );
   }
 
   void _disposeBotScreen() {
     _screenLock?.removeListener(_onBotScreenGates);
-    _viewerHandle?.close();
+    // The screen is torn down because the user signed out or changed the
+    // server; a screen that is simply going away (the app ending) is a close.
+    _closeViewer(switch (_screenAuth?.state) {
+      HermesConnectionState.ready => 'close',
+      HermesConnectionState.needsServerUrl => 'server',
+      _ => 'sign_out',
+    });
     _screen?.dispose();
   }
 }

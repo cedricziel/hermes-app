@@ -15,6 +15,11 @@ class FakeDisplayChannel with StreamChannelMixin implements WebSocketChannel {
   final sent = <Object?>[];
   int? _closeCode;
   int? sentCloseCode;
+
+  /// Told the code when the client closes its end, as the bridge is, unless the
+  /// bridge ended the stream first.
+  void Function(int? code)? onClientClose;
+  var serverClosed = false;
   // The client closes it; a test that never does leaks nothing.
   // ignore: close_sinks
   late final _sink = _FakeSink(this);
@@ -34,6 +39,7 @@ class FakeDisplayChannel with StreamChannelMixin implements WebSocketChannel {
   void serverError() => _incoming.addError(const SocketException('reset'));
 
   Future<void> serverClose([int? code]) {
+    serverClosed = true;
     _closeCode = code;
     return _incoming.close();
   }
@@ -75,6 +81,7 @@ class _FakeSink implements WebSocketSink {
   @override
   Future close([int? closeCode, String? closeReason]) {
     _channel.sentCloseCode = closeCode;
+    if (!_channel.serverClosed) _channel.onClientClose?.call(closeCode);
     if (!_done.isCompleted) _done.complete();
     return _done.future;
   }

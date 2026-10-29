@@ -917,6 +917,7 @@ class HermesGatewayTransport
   /// [requestKeepingConnection], also saying which connection carried the
   /// call (the token `GatewayConnectionTransport.gatewayConnection` gives),
   /// for a call whose server request comes back on that connection alone.
+  @override
   Future<(Map<String, Object?>, Object)> requestKeepingConnectionOnClient(
     String method,
     Map<String, Object?> params, {
@@ -927,6 +928,27 @@ class HermesGatewayTransport
       await client.requestWithin(method, params, timeout: timeout),
       client,
     );
+  }
+
+  @override
+  Future<Map<String, Object?>> requestOn(
+    Object connection,
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) async {
+    final open = _connected();
+    if (_closed || open == null || !identical(open, connection)) {
+      throw const GatewayConnectionClosed();
+    }
+    // A socket the OS dropped while nothing watched it would fail this call
+    // only after its timeout; check one that went quiet first, as `_client`
+    // does, and drop a dead one.
+    if (open.isStale && !await _alive(open)) {
+      _drop(open);
+      throw const GatewayConnectionClosed();
+    }
+    return open.requestWithin(method, params, timeout: timeout);
   }
 
   @override

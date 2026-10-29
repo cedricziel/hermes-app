@@ -5,7 +5,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
-import '../bot_screen_models.dart' show BotScreenViewerPhase;
+import '../bot_screen_models.dart' show BotScreenControl, BotScreenViewerPhase;
 
 /// Where the viewer is shown: a full-screen page on a phone, or a layer over
 /// the whole window on a larger one.
@@ -22,11 +22,14 @@ ThemeData _darkTheme(TargetPlatform platform) => _darkThemes.putIfAbsent(
 /// The screen viewer: a header that names the profile and who is in control,
 /// and below it the live picture, or the reason there is none.
 ///
-/// It draws [phase] and nothing else, so it needs no controller. The picture
-/// is whatever [picture] draws, laid out at [aspectRatio], and can be zoomed
-/// and panned; the view reacts to no tap or click on it, because the viewer
-/// sends no input. [onStart] (Start Screen, when the screen is off) and
-/// [onRetry] (Try Again) are shown only when given.
+/// It draws [phase] and [control] and nothing else, so it needs no controller.
+/// The picture is whatever [picture] draws, laid out at [aspectRatio], and can
+/// be zoomed and panned. [onStart] (Start Screen, when the screen is off) and
+/// [onRetry] (Try Again) are shown only when given, and so are the actions
+/// that change who is in control: [onTakeOver] (while a live picture is only
+/// watched), [onHandBack] (while this device is in control),
+/// [onForceHandBack] (Hand back to Hermes, while someone else is in control
+/// and [canForce]) and [onDismissLost] (the notice that control was lost).
 class BotScreenViewerView extends StatelessWidget {
   const BotScreenViewerView({
     super.key,
@@ -35,9 +38,16 @@ class BotScreenViewerView extends StatelessWidget {
     this.picture,
     this.aspectRatio = 16 / 10,
     this.presentation = BotScreenViewerPresentation.page,
+    this.control = BotScreenControl.watching,
+    this.lostText = 'Someone else took control.',
+    this.canForce = false,
     this.onClose,
     this.onRetry,
     this.onStart,
+    this.onTakeOver,
+    this.onHandBack,
+    this.onForceHandBack,
+    this.onDismissLost,
   });
 
   final BotScreenViewerPhase phase;
@@ -47,17 +57,62 @@ class BotScreenViewerView extends StatelessWidget {
   final Widget? picture;
   final double aspectRatio;
   final BotScreenViewerPresentation presentation;
+
+  /// Who is driving: this device, or only watching.
+  final BotScreenControl control;
+
+  /// What the notice of lost control says ("Hermes took control back." when
+  /// the lease went back to Hermes).
+  final String lostText;
+
+  /// Whether the lease someone else holds can be handed back to Hermes from
+  /// here (a person holds it under a viewer id this app does not).
+  final bool canForce;
   final VoidCallback? onClose;
   final VoidCallback? onRetry;
   final VoidCallback? onStart;
+  final VoidCallback? onTakeOver;
+  final VoidCallback? onHandBack;
+  final VoidCallback? onForceHandBack;
+  final VoidCallback? onDismissLost;
+
+  bool get _live =>
+      phase == BotScreenViewerPhase.live ||
+      phase == BotScreenViewerPhase.reconnecting;
+
+  /// Whether this device is driving, a hand back on its way included.
+  bool get _inControl =>
+      (control == BotScreenControl.inControl ||
+          control == BotScreenControl.releasing) &&
+      _live;
 
   /// Who is in control, as far as the viewer knows.
   String? get _control => switch (phase) {
+    _ when _inControl => "You're in control",
     BotScreenViewerPhase.live ||
     BotScreenViewerPhase.reconnecting => 'Hermes is in control',
     BotScreenViewerPhase.blanked => 'Someone else is in control',
     _ => null,
   };
+
+  /// The header's action: Hand Back while in control, Take over while only
+  /// watching a live picture.
+  Widget? get _action {
+    if (control == BotScreenControl.releasing && _live) {
+      return const _HeaderAction(label: 'Handing back…', onPressed: null);
+    }
+    if (_inControl) {
+      return _HeaderAction(label: 'Hand Back', onPressed: onHandBack);
+    }
+    if (phase != BotScreenViewerPhase.live) return null;
+    if (control == BotScreenControl.acquiring) {
+      return const _HeaderAction(label: 'Taking over…', onPressed: null);
+    }
+    final takeOver = onTakeOver;
+    return takeOver == null
+        ? null
+        : _HeaderAction(label: 'Take over', onPressed: takeOver);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,9 +131,14 @@ class BotScreenViewerView extends StatelessWidget {
                 _Header(
                   profile: profile,
                   control: _control,
+                  inControl: _inControl,
+                  action: _action,
                   presentation: presentation,
                   onClose: onClose,
                 ),
+                if (control == BotScreenControl.lost &&
+                    (_live || phase == BotScreenViewerPhase.blanked))
+                  _Banner(text: lostText, onDismiss: onDismissLost),
                 Expanded(child: _body(context)),
               ],
             ),
@@ -105,13 +165,17 @@ class BotScreenViewerView extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             _Picture(aspectRatio: aspectRatio, child: drawn ? picture : null),
+            if (_inControl) const _ControlFrame(),
             if (drawn && phase == BotScreenViewerPhase.reconnecting)
               const IgnorePointer(child: ColoredBox(color: Colors.black54)),
             if (phase == BotScreenViewerPhase.blanked)
-              const _Notice(
+              _Notice(
                 icon: AppIcons.lock,
                 title: 'Someone else is in control',
                 text: 'The picture returns when Hermes has control again.',
+                action: canForce && onForceHandBack != null
+                    ? ('Hand back to Hermes', onForceHandBack!)
+                    : null,
               )
             else if (!drawn)
               const Center(child: _Busy('Connecting to the screen…'))
@@ -154,12 +218,19 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.profile,
     required this.control,
+    required this.inControl,
+    required this.action,
     required this.presentation,
     required this.onClose,
   });
 
   final String profile;
   final String? control;
+
+  /// Whether [control] says this device is in control, which it shows in the
+  /// frame's color.
+  final bool inControl;
+  final Widget? action;
   final BotScreenViewerPresentation presentation;
   final VoidCallback? onClose;
 
@@ -211,12 +282,15 @@ class _Header extends StatelessWidget {
                     control ?? 'Bot screen',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: inControl ? context.hermesColors.warning : muted,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
+          if (action != null) ...[const SizedBox(width: 8), action!],
           if (chrome == PlatformChrome.macos) close,
           const SizedBox(width: 8),
         ],
@@ -225,6 +299,77 @@ class _Header extends StatelessWidget {
     // A Mac window moves by its toolbar.
     return chrome == PlatformChrome.macos ? MacWindowDragArea(child: bar) : bar;
   }
+}
+
+/// A button in the header: Take over or Hand Back.
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = switch (platformChromeOf(context)) {
+      PlatformChrome.ios => kAppleMinTapTarget,
+      PlatformChrome.macos => 28.0,
+      PlatformChrome.material => 36.0,
+    };
+    return FilledButton.tonal(
+      style: FilledButton.styleFrom(
+        minimumSize: Size(0, height),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+      ),
+      onPressed: onPressed,
+      child: Text(label),
+    );
+  }
+}
+
+/// A line under the header that says something happened to control.
+class _Banner extends StatelessWidget {
+  const _Banner({required this.text, required this.onDismiss});
+
+  final String text;
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: ColoredBox(
+      color: Colors.white12,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Row(
+          children: [
+            Expanded(child: Text(text)),
+            if (onDismiss != null)
+              NamedIconButton(
+                label: 'Dismiss',
+                icon: AppIcons.close,
+                iconSize: 18,
+                onPressed: onDismiss,
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// The edge of the stage while this device is in control: it takes no
+/// pointer, so the picture below it keeps every gesture.
+class _ControlFrame extends StatelessWidget {
+  const _ControlFrame();
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: context.hermesColors.warning, width: 3),
+      ),
+    ),
+  );
 }
 
 /// The picture, kept in its aspect ratio and open to pinch, wheel and drag.

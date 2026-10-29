@@ -114,6 +114,144 @@ void main() {
     });
   });
 
+  group('a request pinned to one connection', () {
+    test(
+      'goes over that connection when it is still the current one',
+      () async {
+        final (_, connection) = await transport
+            .requestKeepingConnectionOnClient(
+              'display.status',
+              const {},
+              timeout: const Duration(seconds: 1),
+            );
+
+        final answer = await transport.requestOn(
+          connection,
+          'display.status',
+          const {'profile': 'work'},
+          timeout: const Duration(seconds: 1),
+        );
+
+        expect(answer['running'], isTrue);
+        expect(connects, 1);
+      },
+    );
+
+    test('throws closed without opening another connection when it is '
+        'gone', () async {
+      final (_, connection) = await transport.requestKeepingConnectionOnClient(
+        'display.status',
+        const {},
+        timeout: const Duration(seconds: 1),
+      );
+      gateway.drop();
+      await pumpEventQueue();
+
+      await expectLater(
+        transport.requestOn(
+          connection,
+          'display.status',
+          const {},
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsA(isA<GatewayConnectionClosed>()),
+      );
+      expect(connects, 1);
+    });
+
+    test(
+      'throws closed for an old connection once a new one is open',
+      () async {
+        final (_, old) = await transport.requestKeepingConnectionOnClient(
+          'display.status',
+          const {},
+          timeout: const Duration(seconds: 1),
+        );
+        gateway.drop();
+        await pumpEventQueue();
+        await transport.request('display.status');
+        expect(connects, 2);
+
+        await expectLater(
+          transport.requestOn(
+            old,
+            'display.status',
+            const {},
+            timeout: const Duration(seconds: 1),
+          ),
+          throwsA(isA<GatewayConnectionClosed>()),
+        );
+        expect(connects, 2);
+      },
+    );
+
+    test('a call that gets no answer leaves the connection open', () async {
+      final (_, connection) = await transport.requestKeepingConnectionOnClient(
+        'display.status',
+        const {},
+        timeout: const Duration(seconds: 1),
+      );
+      gateway.silent.add('display.lease.acquire');
+
+      await expectLater(
+        transport.requestOn(
+          connection,
+          'display.lease.acquire',
+          const {},
+          timeout: const Duration(milliseconds: 20),
+        ),
+        throwsA(isA<GatewayRequestTimeout>()),
+      );
+      expect((await transport.request('display.status'))['running'], isTrue);
+      expect(connects, 1);
+    });
+  });
+
+  test('a pinned request on a connection that went quiet and died is not '
+      'sent: it throws closed and drops it', () {
+    fakeAsync((async) {
+      final gateway = FakeGateway();
+      gateway.handlers['display.status'] = (_) => {'running': true};
+      var connects = 0;
+      final transport = HermesGatewayTransport(
+        connect: () async {
+          connects++;
+          return gateway.connect();
+        },
+      );
+      Object? connection;
+      transport
+          .requestKeepingConnectionOnClient(
+            'display.status',
+            const {},
+            timeout: const Duration(seconds: 1),
+          )
+          .then<void>((answer) {
+            connection = answer.$2;
+          });
+      async.flushMicrotasks();
+      async.elapse(const Duration(minutes: 2));
+      gateway.deaf = true;
+      Object? error;
+
+      transport
+          .requestOn(
+            connection!,
+            'display.status',
+            const {},
+            timeout: const Duration(seconds: 10),
+          )
+          .then<void>((_) {}, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 20));
+
+      expect(error, isA<GatewayConnectionClosed>());
+      expect(connects, 1);
+      expect(transport.gatewayConnection, isNull);
+      unawaited(transport.close());
+    });
+  });
+
   test('a display call that times out does not cut a reply that is '
       'streaming', () async {
     String? runtime;

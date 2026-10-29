@@ -31,6 +31,7 @@ import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
 import '../bot_screen/bot_screen_repository.dart';
+import '../bot_screen/bot_screen_viewer_ids.dart';
 import '../bot_screen/install/bot_screen_installs.dart';
 import '../bot_screen/rfb/display_socket.dart';
 import '../bot_screen/viewer/bot_screen_viewer_controller.dart';
@@ -263,9 +264,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   BotScreenRepository? _screenRepository;
   String? _screenProfile;
 
-  /// The live viewer while it is open, and how to close it.
+  /// The viewer ids the server minted for this app in this run, which tell a
+  /// lease that is this device's from someone else's.
+  final _viewerIds = BotScreenViewerIds();
+
+  /// The live viewer while it is open, how to close it, and why it is being
+  /// closed (the reason its hand back is logged with).
   BotScreenViewerController? _viewer;
   BotScreenViewerHandle? _viewerHandle;
+  var _viewerCloseReason = 'close';
+  AuthController? _screenAuth;
   ({GatewayRequester requests, GatewayConnectionTransport events})?
   _screenGateway;
   AppLockController? _screenLock;
@@ -690,7 +698,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (widget.visible != oldWidget.visible) {
       // The viewer is a route above the whole shell: it does not follow a
       // tab switch.
-      if (!widget.visible) _viewerHandle?.close();
+      if (!widget.visible) _closeViewer('close');
       _syncBotScreenGates();
       _updateActivePolling();
       WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());

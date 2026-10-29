@@ -310,6 +310,40 @@ final class SessionChatTransport
   });
 
   @override
+  Future<(Map<String, Object?>, Object)> requestKeepingConnectionOnClient(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) => _call((delegate) {
+    if (delegate is! GatewayRequester) {
+      throw UnsupportedError('Transport does not support gateway RPC');
+    }
+    return (delegate as GatewayRequester).requestKeepingConnectionOnClient(
+      method,
+      params,
+      timeout: timeout,
+    );
+  });
+
+  @override
+  Future<Map<String, Object?>> requestOn(
+    Object connection,
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) => _call((delegate) {
+    if (delegate is! GatewayRequester) {
+      throw UnsupportedError('Transport does not support gateway RPC');
+    }
+    return (delegate as GatewayRequester).requestOn(
+      connection,
+      method,
+      params,
+      timeout: timeout,
+    );
+  });
+
+  @override
   Future<List<SlashCommand>> slashCommands({
     String? threadId,
     String? profile,

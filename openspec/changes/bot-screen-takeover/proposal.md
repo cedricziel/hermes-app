@@ -66,7 +66,7 @@ None.
 
 ## Observability
 
-- Log events `bot_screen.takeover` (`outcome`: `acquired`, `refused`, `retried`, `error`), `bot_screen.handback` (`reason`: `button`, `close`, `sign_out`, `profile`, `server`, `force`, `error`) and `bot_screen.lost_control` (`cause`: `control_taken`, `other_holder`): outcomes worth counting. `bot_screen.paste_refused` (`reason`: `not_latin1`, `too_large`).
+- Log events `bot_screen.takeover` (`outcome`: `acquired`, `refused`, `retried`, `resumed` for the silent re-acquire after a reconnect, `error`), `bot_screen.handback` (`reason`: `button`, `close`, `sign_out`, `profile`, `server`, `force`, `error`) and `bot_screen.lost_control` (`cause`: `control_taken`, `other_holder`): outcomes worth counting. `bot_screen.paste_refused` (`reason`: `not_latin1`, `too_large`).
 - Span attributes `took_over` (bool) and `input_events` (bucketed count) on `bot_screen.stream`.
 - Breadcrumbs `bot_screen.takeover.pressed`, `bot_screen.handback.pressed`, `bot_screen.force_handback.pressed` and `bot_screen.input.mode` (`touch`, `trackpad`).
 - Never key names, text, coordinates, viewer ids or profile names.

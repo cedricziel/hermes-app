@@ -26,7 +26,17 @@ typedef DisplayRpc = Future<Map<String, Object?>> Function(
 
 /// [DisplayRpc] that also gives the connection that carried the call
 /// (`HermesGatewayTransport.requestKeepingConnectionOnClient`).
-typedef InstallRpc = Future<(Map<String, Object?>, Object)> Function(
+typedef ConnectionRpc = Future<(Map<String, Object?>, Object)> Function(
+  String method,
+  Map<String, Object?> params, {
+  required Duration timeout,
+});
+
+/// [DisplayRpc] over one given connection, failing with
+/// `GatewayConnectionClosed` when that is no longer the current one
+/// (`HermesGatewayTransport.requestOn`).
+typedef PinnedRpc = Future<Map<String, Object?>> Function(
+  Object connection,
   String method,
   Map<String, Object?> params, {
   required Duration timeout,
@@ -41,14 +51,19 @@ class BotScreenRepository {
     this._rpc, {
     this.telemetry = const ConnectionTelemetry(),
     this.timeout = kDisplayTimeout,
-    this.installRpc,
+    this.connectionRpc,
+    this.pinnedRpc,
   });
 
   final DisplayRpc _rpc;
 
-  /// What `display.install` goes through, to learn the connection it used;
-  /// without it the install's connection is unknown.
-  final InstallRpc? installRpc;
+  /// What `display.install` and `display.observe` go through, to learn the
+  /// connection they used; without it that connection is unknown.
+  final ConnectionRpc? connectionRpc;
+
+  /// What the lease calls go through, over the connection that minted the
+  /// viewer id. Without it they fail as closed instead of going unpinned.
+  final PinnedRpc? pinnedRpc;
   final ConnectionTelemetry telemetry;
   final Duration timeout;
   var _reportedUnsupported = false;
@@ -67,7 +82,6 @@ class BotScreenRepository {
   /// read failure, so it is not logged here.
   Future<BotScreenResult<BotScreenInstallStart>> install(String? profile) {
     Object? carrier;
-    final withClient = installRpc;
     return _call(
       'display.install',
       profile,
@@ -84,18 +98,24 @@ class BotScreenRepository {
         );
       },
       logFailures: false,
-      rpc: withClient == null
-          ? null
-          : (method, params, {required timeout}) async {
-              final (result, connection) = await withClient(
-                method,
-                params,
-                timeout: timeout,
-              );
-              carrier = connection;
-              return result;
-            },
+      rpc: _reporting((connection) => carrier = connection),
     );
+  }
+
+  /// [_rpc] through [connectionRpc], telling [record] which connection
+  /// answered; null without one.
+  DisplayRpc? _reporting(void Function(Object connection) record) {
+    final withClient = connectionRpc;
+    if (withClient == null) return null;
+    return (method, params, {required timeout}) async {
+      final (result, connection) = await withClient(
+        method,
+        params,
+        timeout: timeout,
+      );
+      record(connection);
+      return result;
+    };
   }
 
   /// Asks for a ticket to watch the screen's stream. [viewerId] is the id an
@@ -103,12 +123,88 @@ class BotScreenRepository {
   Future<BotScreenResult<BotScreenObservation>> observe(
     String? profile, {
     String? viewerId,
-  }) => _call(
-    'display.observe',
+  }) {
+    Object? carrier;
+    return _call(
+      'display.observe',
+      profile,
+      (result) => _observation(result, carrier),
+      extra: {'viewer_id': ?viewerId},
+      rpc: _reporting((connection) => carrier = connection),
+    );
+  }
+
+  /// Takes control for the viewer [viewerId], which [connection] minted, and
+  /// answers the lease that results. Last writer wins on the server: a lease
+  /// another viewer held is now this one's. A [BotScreenFailure.closed] or
+  /// [BotScreenFailure.mismatch] says the id no longer belongs to a live
+  /// connection, which an observe of the profile repairs.
+  Future<BotScreenResult<BotScreenLease>> acquire(
+    String? profile, {
+    required String viewerId,
+    required Object connection,
+    String? reason,
+  }) => _lease(
+    'display.lease.acquire',
     profile,
-    _observation,
-    extra: {'viewer_id': ?viewerId},
+    connection,
+    extra: {
+      'viewer_id': viewerId,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    },
   );
+
+  /// Gives control back to Hermes for the viewer [viewerId]. The server
+  /// ignores a release by a viewer that does not hold the lease and answers
+  /// the lease as it is, so read the holder of the answer.
+  Future<BotScreenResult<BotScreenLease>> release(
+    String? profile, {
+    required String viewerId,
+    required Object connection,
+  }) => _lease(
+    'display.lease.release',
+    profile,
+    connection,
+    extra: {'viewer_id': viewerId},
+  );
+
+  /// Gives control back to Hermes whoever holds it, with no viewer id. For a
+  /// lease no viewer of this app holds; it takes control away from a person.
+  Future<BotScreenResult<BotScreenLease>> forceRelease(String? profile) =>
+      _call(
+        'display.lease.release',
+        profile,
+        _leaseOf,
+        logFailures: false,
+        extra: const {'force': true},
+      );
+
+  Future<BotScreenResult<BotScreenLease>> _lease(
+    String method,
+    String? profile,
+    Object connection, {
+    required Map<String, Object?> extra,
+  }) {
+    final pinned = pinnedRpc;
+    return _call(
+      method,
+      profile,
+      _leaseOf,
+      logFailures: false,
+      extra: extra,
+      rpc: pinned == null
+          ? (_, _, {required timeout}) =>
+                Future.error(const GatewayConnectionClosed())
+          : (method, params, {required timeout}) =>
+                pinned(connection, method, params, timeout: timeout),
+    );
+  }
+
+  static BotScreenLease _leaseOf(Map<String, Object?> result) {
+    final lease = result['lease'];
+    if (lease is! Map) throw const FormatException('lease');
+    return BotScreenLease.fromJson(lease);
+  }
 
   /// One JPEG grab of the screen; read-only, it never changes the lease.
   /// [watchers] is how many surfaces share the poll this grab belongs to, for
@@ -163,6 +259,9 @@ class BotScreenRepository {
         if (method == 'display.status') _reportUnsupported();
         return BotScreenUnsupported();
       }
+      if (error.dataCode == 'viewer_mismatch') {
+        return failed(BotScreenFailure.mismatch, error.message);
+      }
       return failed(BotScreenFailure.display, error.message);
     } on FormatException {
       return failed(BotScreenFailure.display);
@@ -207,7 +306,10 @@ class BotScreenRepository {
     _quiet(() => telemetry.events('bot_screen.unsupported'));
   }
 
-  static BotScreenObservation _observation(Map<String, Object?> result) {
+  static BotScreenObservation _observation(
+    Map<String, Object?> result,
+    Object? connection,
+  ) {
     String text(String key) {
       final value = result[key];
       if (value is! String || value.isEmpty) throw FormatException(key);
@@ -219,6 +321,7 @@ class BotScreenRepository {
       path: text('path'),
       viewerId: text('viewer_id'),
       status: BotScreenStatus.fromJson(result),
+      connection: connection,
     );
   }
 

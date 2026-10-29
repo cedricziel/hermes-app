@@ -20,10 +20,12 @@ const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
 /// are the actions a state offers: [onStart] (Start Screen), [onInstall]
 /// (Install on Server, which also needs the model to allow it),
 /// [onCopyCommand] (Copy, for the install command), [onRetry] (Try Again) and
-/// [onEnlarge], whose absence hides Enlarge. [breadcrumbs] gets
-/// `bot_screen.card.shown` when the state changes (never per refreshed frame),
-/// `bot_screen.start.pressed` and `bot_screen.install.pressed`, with fixed
-/// words only.
+/// [onEnlarge], whose absence hides Enlarge, and [onForceHandBack] (Hand back
+/// to Hermes, offered while a lease nobody here holds keeps Hermes out; the
+/// caller confirms first). [breadcrumbs] gets `bot_screen.card.shown` when the
+/// state changes (never per refreshed frame), `bot_screen.start.pressed`,
+/// `bot_screen.install.pressed` and `bot_screen.force_handback.pressed`, with
+/// fixed words only.
 class BotScreenCard extends StatefulWidget {
   const BotScreenCard({
     super.key,
@@ -33,6 +35,7 @@ class BotScreenCard extends StatefulWidget {
     this.onCopyCommand,
     this.onRetry,
     this.onEnlarge,
+    this.onForceHandBack,
     this.breadcrumbs = Breadcrumbs.none,
     this.shown,
   });
@@ -43,6 +46,7 @@ class BotScreenCard extends StatefulWidget {
   final VoidCallback? onCopyCommand;
   final VoidCallback? onRetry;
   final VoidCallback? onEnlarge;
+  final VoidCallback? onForceHandBack;
   final Breadcrumbs breadcrumbs;
 
   /// Remembers the state last recorded, across cards, so a card mounting
@@ -87,6 +91,11 @@ class _BotScreenCardState extends State<BotScreenCard> {
   void _start() {
     widget.breadcrumbs('bot_screen.start.pressed');
     widget.onStart?.call();
+  }
+
+  void _forceHandBack() {
+    widget.breadcrumbs('bot_screen.force_handback.pressed');
+    widget.onForceHandBack?.call();
   }
 
   void _install() {
@@ -325,17 +334,35 @@ class _BotScreenCardState extends State<BotScreenCard> {
     );
   }
 
-  Widget _controlled(BuildContext context, BotScreenControlled model) => Row(
-    children: [
-      AppIcon(AppIcons.lock, size: 18, color: context.hermesColors.subtleText),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          model.byYou ? "You're in control" : 'Someone else is in control',
+  Widget _controlled(BuildContext context, BotScreenControlled model) {
+    final handBack = model.canForce && widget.onForceHandBack != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            AppIcon(
+              AppIcons.lock,
+              size: 18,
+              color: context.hermesColors.subtleText,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                model.byYou
+                    ? "You're in control"
+                    : 'Someone else is in control',
+              ),
+            ),
+          ],
         ),
-      ),
-    ],
-  );
+        if (handBack) ...[
+          const SizedBox(height: 8),
+          _action(context, 'Hand back to Hermes', _forceHandBack),
+        ],
+      ],
+    );
+  }
 
   Widget _action(BuildContext context, String label, VoidCallback onPressed) {
     final chrome = platformChromeOf(context);
@@ -354,7 +381,8 @@ class _BotScreenCardState extends State<BotScreenCard> {
   }
 
   static String _failureText(BotScreenFailure failure) => switch (failure) {
-    BotScreenFailure.display => 'Hermes could not start it.',
+    BotScreenFailure.display ||
+    BotScreenFailure.mismatch => 'Hermes could not start it.',
     BotScreenFailure.timeout => 'Hermes did not answer in time.',
     BotScreenFailure.closed => 'The connection closed first.',
   };

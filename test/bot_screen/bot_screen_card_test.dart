@@ -26,6 +26,7 @@ Future<void> pumpCard(
   VoidCallback? onCopyCommand,
   VoidCallback? onRetry,
   VoidCallback? onEnlarge,
+  VoidCallback? onForceHandBack,
   Breadcrumbs breadcrumbs = Breadcrumbs.none,
   BotScreenShown? shown,
   TargetPlatform platform = TargetPlatform.android,
@@ -41,6 +42,7 @@ Future<void> pumpCard(
           onCopyCommand: onCopyCommand,
           onRetry: onRetry,
           onEnlarge: onEnlarge,
+          onForceHandBack: onForceHandBack,
           breadcrumbs: breadcrumbs,
           shown: shown,
         ),
@@ -48,6 +50,10 @@ Future<void> pumpCard(
     ),
   ),
 );
+
+List<String> crumbs(BreadcrumbTrail trail) => [
+  for (final crumb in trail.recent) '${crumb.name} ${crumb.attributes}',
+];
 
 void main() {
   group('states', () {
@@ -342,10 +348,6 @@ void main() {
   });
 
   group('breadcrumbs', () {
-    List<String> crumbs(BreadcrumbTrail trail) => [
-      for (final crumb in trail.recent) '${crumb.name} ${crumb.attributes}',
-    ];
-
     testWidgets('record each state once, not each refreshed frame', (
       tester,
     ) async {
@@ -452,6 +454,62 @@ void main() {
     });
   });
 
+  group('handing back a lease nobody here holds', () {
+    testWidgets('someone in control offers Hand back to Hermes', (
+      tester,
+    ) async {
+      var handedBack = 0;
+      await pumpCard(
+        tester,
+        const BotScreenControlled(canForce: true),
+        onForceHandBack: () => handedBack++,
+      );
+
+      await tester.tap(find.text('Hand back to Hermes'));
+
+      expect(handedBack, 1);
+    });
+
+    testWidgets('records a breadcrumb with no words but the press', (
+      tester,
+    ) async {
+      final trail = BreadcrumbTrail();
+      await pumpCard(
+        tester,
+        const BotScreenControlled(canForce: true),
+        onForceHandBack: () {},
+        breadcrumbs: Breadcrumbs.of(trail),
+      );
+
+      await tester.tap(find.text('Hand back to Hermes'));
+
+      expect(crumbs(trail), [
+        'bot_screen.card.shown {state: controlled}',
+        'bot_screen.force_handback.pressed {}',
+      ]);
+    });
+
+    testWidgets('is not offered when this device is in control', (
+      tester,
+    ) async {
+      await pumpCard(
+        tester,
+        const BotScreenControlled(byYou: true),
+        onForceHandBack: () {},
+      );
+
+      expect(find.text('Hand back to Hermes'), findsNothing);
+      expect(find.text("You're in control"), findsOne);
+    });
+
+    testWidgets('is not offered without a handler', (tester) async {
+      await pumpCard(tester, const BotScreenControlled(canForce: true));
+
+      expect(find.text('Hand back to Hermes'), findsNothing);
+      expect(find.text('Someone else is in control'), findsOne);
+    });
+  });
+
   group('on each platform', () {
     for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
       testWidgets('builds every state on $platform', (tester) async {
@@ -464,11 +522,13 @@ void main() {
           const BotScreenReadFailed(),
           BotScreenShowing(bytes: _picture),
           const BotScreenControlled(),
+          const BotScreenControlled(canForce: true),
         ]) {
           await pumpCard(
             tester,
             model,
             platform: platform,
+            onForceHandBack: () {},
             onStart: () {},
             onCopyCommand: () {},
             onRetry: () {},
