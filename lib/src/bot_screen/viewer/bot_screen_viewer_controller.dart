@@ -11,6 +11,8 @@ import '../bot_screen_controller.dart';
 import '../bot_screen_models.dart';
 import '../bot_screen_repository.dart';
 import '../bot_screen_viewer_ids.dart';
+import '../input/screen_input.dart';
+import '../input/screen_paste.dart';
 import '../rfb/display_socket.dart';
 import '../rfb/rfb_client.dart';
 
@@ -74,8 +76,11 @@ class BotScreenViewerController extends ChangeNotifier {
     this.profile,
     this.telemetry = const ConnectionTelemetry(),
     this.coverGrace = kViewerCoverGrace,
+    this.readClipboard = readDeviceClipboard,
+    TargetPlatform? platform,
     Random? random,
-  }) : _random = random ?? Random();
+  }) : platform = platform ?? defaultTargetPlatform,
+       _random = random ?? Random();
 
   final BotScreenRepository repository;
   final BotScreenController screen;
@@ -87,6 +92,12 @@ class BotScreenViewerController extends ChangeNotifier {
 
   /// How long a cover may last, while in control, before the stream closes.
   final Duration coverGrace;
+
+  /// Reads the device clipboard's text, for Paste.
+  final Future<String?> Function() readClipboard;
+
+  /// The platform whose reserved keys apply.
+  final TargetPlatform platform;
   final Random _random;
 
   BotScreenWatch? _watch;
@@ -119,7 +130,11 @@ class BotScreenViewerController extends ChangeNotifier {
   var _closing = false;
   var _wasInControl = false;
   String? _lostCause;
-  var _tookOver = false;
+
+  /// What the open stream was used for, for its span.
+  var _use = _StreamUse();
+  ScreenInput? _input;
+  RfbClient? _inputClient;
   RfbClient? _client;
 
   /// The lease hash of the viewer id the open stream was ticketed with. The
@@ -190,6 +205,52 @@ class BotScreenViewerController extends ChangeNotifier {
   String get lostText => screen.status?.lease.holder == BotScreenHolder.agent
       ? 'Hermes took control back.'
       : 'Someone else took control.';
+
+  /// What the person in control sends input through, or null while this
+  /// device is not in control or the stream is not open. It belongs to the open
+  /// stream and goes with it (keys still held are released and the screen's
+  /// clipboard is cleared first), so ask again after a reconnect.
+  ScreenInput? get input {
+    final client = _client;
+    if (client == null || !inControl) return null;
+    if (_input == null || !identical(_inputClient, client)) {
+      _dropInput();
+      final use = _use;
+      _inputClient = client;
+      _input = ScreenInput(
+        client,
+        platform: platform,
+        readClipboard: readClipboard,
+        onEvent: () => use.inputEvents++,
+      );
+    }
+    return _input;
+  }
+
+  void _dropInput() {
+    _input?.dispose();
+    _input = null;
+    _inputClient = null;
+  }
+
+  /// Pastes the device clipboard onto the screen. A paste the screen cannot
+  /// take is logged by its reason alone, never the text.
+  Future<PasteOutcome> paste() async {
+    final input = this.input;
+    if (input == null) return PasteOutcome.closed;
+    final outcome = await input.paste.paste();
+    final reason = switch (outcome) {
+      PasteOutcome.notLatin1 => 'not_latin1',
+      PasteOutcome.tooLarge => 'too_large',
+      _ => null,
+    };
+    if (reason != null) {
+      _quiet(
+        () => telemetry.events('bot_screen.paste_refused', {'reason': reason}),
+      );
+    }
+    return outcome;
+  }
 
   /// Whether Take over can be offered: the picture shows, Hermes holds the
   /// lease and the viewer knows the connection its id belongs to.
@@ -296,7 +357,8 @@ class BotScreenViewerController extends ChangeNotifier {
     if (_wasInControl && !ours && !_releasing && !_closing) {
       _lose('other_holder');
     }
-    if (ours && _client != null) _tookOver = true;
+    if (ours && _client != null) _use.tookOver = true;
+    if (!ours) _dropInput();
     _wasInControl = ours && _lostCause == null;
   }
 
@@ -503,7 +565,7 @@ class BotScreenViewerController extends ChangeNotifier {
     }
     _connected = false;
     _delivered = false;
-    _tookOver = screen.inControlHere;
+    _use = _StreamUse()..tookOver = screen.inControlHere;
     final client = _client = RfbClient(channel);
     _streamViewerHash = BotScreenViewerIds.hashOf(observation.viewerId);
     _clientSpan = span;
@@ -543,11 +605,11 @@ class BotScreenViewerController extends ChangeNotifier {
       null => _connected ? 'decode' : 'handshake',
     };
     final span = _clientSpan;
-    final tookOver = _tookOver;
+    final use = _use;
     _forgetClient();
     void end(String outcome, String errorType) {
       _logFailure(step, errorType);
-      _endSpan(span, outcome, code: code, client: client, tookOver: tookOver);
+      _endSpan(span, outcome, code: code, client: client, use: use);
     }
 
     switch (code) {
@@ -574,7 +636,7 @@ class BotScreenViewerController extends ChangeNotifier {
       case 1000 || 1001 when failure == null:
         // The bridge closes this way when Xvnc's end of the stream is gone,
         // which is how a stopped screen shows.
-        unawaited(_closedByServer(run, client, ended, span, step, tookOver));
+        unawaited(_closedByServer(run, client, ended, span, step, use));
       case 1003:
         end('protocol', 'protocol');
         _picture = null;
@@ -594,7 +656,7 @@ class BotScreenViewerController extends ChangeNotifier {
     RfbEnded ended,
     Span? span,
     String step,
-    bool tookOver,
+    _StreamUse use,
   ) async {
     BotScreenResult<BotScreenStatus> status;
     try {
@@ -603,36 +665,18 @@ class BotScreenViewerController extends ChangeNotifier {
       status = const BotScreenFailed(BotScreenFailure.display);
     }
     if (_stale(run)) {
-      _endSpan(
-        span,
-        'closed',
-        code: ended.closeCode,
-        client: client,
-        tookOver: tookOver,
-      );
+      _endSpan(span, 'closed', code: ended.closeCode, client: client, use: use);
       return;
     }
     if (status case BotScreenOk(:final value) when !value.running) {
-      _endSpan(
-        span,
-        'gone',
-        code: ended.closeCode,
-        client: client,
-        tookOver: tookOver,
-      );
+      _endSpan(span, 'gone', code: ended.closeCode, client: client, use: use);
       _picture = null;
       _base = BotScreenViewerPhase.off;
       _notify();
       return;
     }
     _logFailure(step, 'closed');
-    _endSpan(
-      span,
-      'error',
-      code: ended.closeCode,
-      client: client,
-      tookOver: tookOver,
-    );
+    _endSpan(span, 'error', code: ended.closeCode, client: client, use: use);
     _retryLater();
   }
 
@@ -673,7 +717,8 @@ class BotScreenViewerController extends ChangeNotifier {
     _client = null;
     _streamViewerHash = null;
     _clientSpan = null;
-    _tookOver = false;
+    _use = _StreamUse();
+    _dropInput();
   }
 
   /// Closes the open stream, if any, as the app's own doing: with 1000, which
@@ -687,15 +732,9 @@ class BotScreenViewerController extends ChangeNotifier {
     final span = _clientSpan;
     final closeCode =
         code ?? (screen.inControlHere ? kCloseKeepingControl : 1000);
-    final tookOver = _tookOver;
+    final use = _use;
     _forgetClient();
-    _endSpan(
-      span,
-      'closed',
-      code: closeCode,
-      client: client,
-      tookOver: tookOver,
-    );
+    _endSpan(span, 'closed', code: closeCode, client: client, use: use);
     unawaited(client.close(closeCode).catchError((Object _) {}));
   }
 
@@ -726,12 +765,13 @@ class BotScreenViewerController extends ChangeNotifier {
     String outcome, {
     int? code,
     RfbClient? client,
-    bool tookOver = false,
+    _StreamUse? use,
   }) {
     if (span == null) return;
     _quiet(() {
       span.setAttribute('outcome', outcome);
-      span.setAttribute('took_over', tookOver);
+      span.setAttribute('took_over', use?.tookOver ?? false);
+      span.setAttribute('input_events', _eventsBucket(use?.inputEvents ?? 0));
       if (code != null) span.setAttribute('close_code', code);
       if (client != null) {
         final names = [
@@ -750,6 +790,14 @@ class BotScreenViewerController extends ChangeNotifier {
       span.end();
     });
   }
+
+  /// How many input events a stream sent, in a bucket: never which.
+  static String _eventsBucket(int events) => switch (events) {
+    0 => '0',
+    <= 10 => '1-10',
+    <= 100 => '11-100',
+    _ => '>100',
+  };
 
   static String _bucket(int kib) => switch (kib) {
     < 256 => '<256',
@@ -1014,3 +1062,9 @@ class BotScreenViewerController extends ChangeNotifier {
 /// How a lease call ended: it did what was asked, the connection or the id is
 /// no longer good and an observe repairs it, or it was refused.
 enum _Step { done, retry, refused }
+
+/// What one stream was used for, for its span.
+class _StreamUse {
+  var tookOver = false;
+  var inputEvents = 0;
+}

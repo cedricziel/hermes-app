@@ -894,6 +894,7 @@ void main() {
           'hermes.version': '0.22.0',
           'outcome': 'closed',
           'took_over': false,
+          'input_events': '0',
           'close_code': 1000,
           'encodings_used': 'raw',
           'kib_received': '<256',
