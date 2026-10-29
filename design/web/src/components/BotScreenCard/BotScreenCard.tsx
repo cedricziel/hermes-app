@@ -36,11 +36,7 @@ export type BotScreenStartFailure = "display" | "timeout" | "closed";
  * `may_still_run`.
  */
 export type BotScreenInstallResult =
-  | "refused"
-  | "cancelled"
-  | "no_sudo"
-  | "failed"
-  | "may_still_run";
+  "refused" | "cancelled" | "no_sudo" | "failed" | "may_still_run";
 
 export interface BotScreenCardProps {
   /**
@@ -80,6 +76,8 @@ export interface BotScreenCardProps {
   aspectRatio?: number;
   /** `controlled`: true says "You're in control", otherwise "Someone else is in control". */
   byYou?: boolean;
+  /** `controlled` by someone else: the lease is held under a viewer id this app does not hold (another device, or this one before the app restarted), so the card offers Hand back to Hermes (needs `onForceHandBack`). */
+  canForce?: boolean;
   /** Start Screen, in `off`; hidden without it. */
   onStart?: () => void;
   /** Install on Server, in `not_installed` with `canInstall`; hidden without it. */
@@ -88,6 +86,8 @@ export interface BotScreenCardProps {
   onCopyCommand?: () => void;
   /** Try Again, in `error`; hidden without it. */
   onRetry?: () => void;
+  /** Hand back to Hermes, in `controlled` with `canForce`; it takes control from whoever holds it, so the app asks first. Hidden without it. */
+  onForceHandBack?: () => void;
   /** Enlarge, over a `frame`, and the picture itself: both open the live viewer (`BotScreenViewer`). Hidden without it. */
   onEnlarge?: () => void;
   /** Inherits the provider's platform. */
@@ -127,11 +127,13 @@ export function BotScreenCard({
   frameSrc,
   aspectRatio = 16 / 10,
   byYou = false,
+  canForce = false,
   onStart,
   onInstall,
   onCopyCommand,
   onRetry,
   onEnlarge,
+  onForceHandBack,
   platform,
   device,
 }: BotScreenCardProps) {
@@ -340,12 +342,21 @@ export function BotScreenCard({
           </>
         ) : null}
         {state === "controlled" ? (
-          <div className="h-bot-screen__controlled">
-            <Icon name="lock_outline" size={18} />
-            <span>
-              {byYou ? "You're in control" : "Someone else is in control"}
-            </span>
-          </div>
+          <>
+            <div className="h-bot-screen__controlled">
+              <Icon name="lock_outline" size={18} />
+              <span>
+                {byYou ? "You're in control" : "Someone else is in control"}
+              </span>
+            </div>
+            {canForce && !byYou && onForceHandBack ? (
+              <div className="h-bot-screen__action">
+                <Button variant="filled" onClick={onForceHandBack}>
+                  Hand back to Hermes
+                </Button>
+              </div>
+            ) : null}
+          </>
         ) : null}
       </section>
     </PlatformScope>

@@ -5,6 +5,8 @@
   --h-fg: #fff;
   --h-muted: rgba(255, 255, 255, 0.6);
   --h-hover: rgba(255, 255, 255, 0.12);
+  /* The viewer is dark in both themes, so is the amber that says who drives. */
+  --h-warning: #fbbf24;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -59,6 +61,31 @@
   font-size: 12px;
   line-height: 16px;
   font-weight: 400;
+}
+
+.h-bot-viewer__subtitle--control {
+  color: var(--h-warning);
+}
+
+/* A line under the header: something happened to control. */
+.h-bot-viewer__banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding-left: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* The edge of the stage while this device is in control; it takes no pointer. */
+.h-bot-viewer__frame {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 3px solid var(--h-warning);
+  pointer-events: none;
 }
 
 .h-bot-viewer__stage {

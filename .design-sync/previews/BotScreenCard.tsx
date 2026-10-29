@@ -114,3 +114,21 @@ export const InstallMayStillRun = () => (
     </div>
   </HermesProvider>
 );
+
+/** A person holds the lease under a viewer id this app does not hold (another device, or this one before the app restarted): Hand back to Hermes, which the app asks to confirm first. */
+export const SomeoneInControlHandBackToHermes = () => (
+  <HermesProvider>
+    <div style={column}>
+      <BotScreenCard state="controlled" canForce onForceHandBack={() => {}} />
+    </div>
+  </HermesProvider>
+);
+
+/** This device holds the lease, so the card says so and offers nothing to force. */
+export const YouInControl = () => (
+  <HermesProvider>
+    <div style={column}>
+      <BotScreenCard state="controlled" byYou />
+    </div>
+  </HermesProvider>
+);
