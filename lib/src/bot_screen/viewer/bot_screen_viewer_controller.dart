@@ -121,6 +121,11 @@ class BotScreenViewerController extends ChangeNotifier {
   String? _lostCause;
   var _tookOver = false;
   RfbClient? _client;
+
+  /// The lease hash of the viewer id the open stream was ticketed with. The
+  /// server accepts input only on the stream of the id that holds the lease, so
+  /// `inControl` compares it on every read.
+  String? _streamViewerHash;
   StreamSubscription<RfbEvent>? _events;
   Timer? _retry;
 
@@ -138,6 +143,12 @@ class BotScreenViewerController extends ChangeNotifier {
     }
     if (someoneElseInControl) return BotScreenViewerPhase.blanked;
     if (!_leaseKnown) return BotScreenViewerPhase.connecting;
+    // The stream stays open through the grace period of a cover, but what is
+    // typed into the screen is not shown: a snapshot of a covered app (the
+    // app switcher) must not capture it.
+    if (!_unlocked && screen.inControlHere) {
+      return BotScreenViewerPhase.connecting;
+    }
     return base;
   }
 
@@ -156,17 +167,29 @@ class BotScreenViewerController extends ChangeNotifier {
 
   BotScreenViewerIds get _ids => screen.viewerIds;
 
-  /// Whether this device holds the lease: it names a viewer id of this app and
-  /// the viewer has not been told it lost control since.
-  bool get inControl => _lostCause == null && screen.inControlHere;
+  /// Whether this device holds the lease on the stream the viewer shows: the
+  /// lease names this stream's own viewer id (any id of this app while there is
+  /// no stream) and the viewer has not been told it lost control since. A
+  /// lease naming another id of this app is not driven from this stream.
+  bool get inControl {
+    if (_lostCause != null || !screen.inControlHere) return false;
+    final stream = _streamViewerHash;
+    return stream == null || screen.status?.lease.viewerHash == stream;
+  }
 
   /// Who is driving, as far as this viewer knows.
   BotScreenControl get control {
     if (_acquiring) return BotScreenControl.acquiring;
+    if (_releasing) return BotScreenControl.releasing;
     if (inControl) return BotScreenControl.inControl;
     if (_lostCause != null) return BotScreenControl.lost;
     return BotScreenControl.watching;
   }
+
+  /// What the notice of lost control says: who has the screen now.
+  String get lostText => screen.status?.lease.holder == BotScreenHolder.agent
+      ? 'Hermes took control back.'
+      : 'Someone else took control.';
 
   /// Whether Take over can be offered: the picture shows, Hermes holds the
   /// lease and the viewer knows the connection its id belongs to.
@@ -349,7 +372,7 @@ class BotScreenViewerController extends ChangeNotifier {
       switch (result) {
         case BotScreenOk(:final value):
           await _adopt(value);
-          if (_stale(run)) return;
+          if (_stale(run) || _closing) return;
           await _open(run, value);
         case BotScreenUnsupported():
           await _observeFailed(run, 'unsupported');
@@ -365,10 +388,17 @@ class BotScreenViewerController extends ChangeNotifier {
   }
 
   /// Takes what an observe answered: the viewer id and the connection that
-  /// minted it, and the status with its lease. A lease that names a viewer id
-  /// this app held on an earlier connection is taken over with the new id, so
-  /// a person in the middle of a login stays in control across a reconnect.
-  Future<void> _adopt(BotScreenObservation observation) async {
+  /// minted it, and the status with its lease. With [reacquire], a lease that
+  /// names a viewer id this app held on an earlier connection is taken over
+  /// with the new id, so a person in the middle of a login stays in control
+  /// across a reconnect; that is only for a viewer with no stream of its own
+  /// open, because the bridge answers the new holder by evicting the stream of
+  /// the old one. Nothing is taken while the viewer is shutting down.
+  Future<void> _adopt(
+    BotScreenObservation observation, {
+    bool reacquire = true,
+  }) async {
+    if (_closing || _disposed) return;
     final id = observation.viewerId;
     _viewerId = id;
     _connection = observation.connection;
@@ -385,7 +415,7 @@ class BotScreenViewerController extends ChangeNotifier {
       return;
     }
     final connection = observation.connection;
-    if (connection == null) return;
+    if (!reacquire || connection == null) return;
     var outcome = 'error';
     try {
       final result = await repository.acquire(
@@ -394,9 +424,14 @@ class BotScreenViewerController extends ChangeNotifier {
         connection: connection,
       );
       if (result case BotScreenOk(:final value)) {
+        if (_closing || _disposed) {
+          // Shut down meanwhile: what was just taken is not kept.
+          if (_holdsLease(value)) unawaited(_releaseQuietly(id, connection));
+          return;
+        }
         screen.adoptLease(value);
         _lostCause = null;
-        outcome = _holdsLease(value) ? 'retried' : 'refused';
+        outcome = _holdsLease(value) ? 'resumed' : 'refused';
       } else {
         outcome = 'refused';
       }
@@ -404,6 +439,15 @@ class BotScreenViewerController extends ChangeNotifier {
       outcome = 'error';
     }
     _logTakeover(outcome);
+  }
+
+  /// Gives the lease back without waiting for or reporting the answer.
+  Future<void> _releaseQuietly(String id, Object connection) async {
+    try {
+      await repository.release(profile, viewerId: id, connection: connection);
+    } on Object {
+      return;
+    }
   }
 
   /// Whether [lease] names a viewer id of this app.
@@ -426,6 +470,7 @@ class BotScreenViewerController extends ChangeNotifier {
   }
 
   Future<void> _open(int run, BotScreenObservation observation) async {
+    if (_closing || _disposed) return;
     final span = _startSpan();
     final WebSocketChannel channel;
     try {
@@ -451,7 +496,7 @@ class BotScreenViewerController extends ChangeNotifier {
       _retryLater();
       return;
     }
-    if (_stale(run)) {
+    if (_stale(run) || _closing) {
       _endSpan(span, 'closed', code: 1000);
       unawaited(_closeQuietly(channel));
       return;
@@ -460,6 +505,7 @@ class BotScreenViewerController extends ChangeNotifier {
     _delivered = false;
     _tookOver = screen.inControlHere;
     final client = _client = RfbClient(channel);
+    _streamViewerHash = BotScreenViewerIds.hashOf(observation.viewerId);
     _clientSpan = span;
     _events = client.events.listen((event) => _onEvent(run, client, event));
   }
@@ -507,7 +553,7 @@ class BotScreenViewerController extends ChangeNotifier {
     switch (code) {
       case 4000:
         // Another person took control from this viewer; watch again.
-        if (_wasInControl) _lose('control_taken');
+        if (_wasInControl && !_releasing && !_closing) _lose('control_taken');
         end('closed', 'control_taken');
         _retryLater(immediate: true);
       case 4001:
@@ -625,6 +671,7 @@ class BotScreenViewerController extends ChangeNotifier {
     unawaited(_events?.cancel());
     _events = null;
     _client = null;
+    _streamViewerHash = null;
     _clientSpan = null;
     _tookOver = false;
   }
@@ -730,17 +777,18 @@ class BotScreenViewerController extends ChangeNotifier {
       var step = await _acquire(id, connection);
       if (step == _Step.retry && !_disposed) {
         _logTakeover('retried');
-        final fresh = await _observeAgain();
+        final fresh = await _observeAgain(reacquire: false);
         if (fresh == null || fresh.connection == null) {
           step = _Step.refused;
+        } else if (_disposed || _closing || _stale(run)) {
+          step = _Step.refused;
         } else {
+          // The stream carries the old id: follow the new one, whatever the
+          // acquire answers, since the old id is of no use any more.
+          _run++;
+          _dropStream(code: 1000);
+          await _open(_run, fresh);
           step = await _acquire(fresh.viewerId, fresh.connection!);
-          if (step == _Step.done && !_disposed && !_stale(run)) {
-            // The stream carries the old id: follow the new one.
-            _run++;
-            _dropStream(code: 1000);
-            await _open(_run, fresh);
-          }
         }
       }
       outcome = step == _Step.done ? 'acquired' : 'refused';
@@ -775,10 +823,17 @@ class BotScreenViewerController extends ChangeNotifier {
     try {
       var step = await _release(id, connection);
       if (step == _Step.retry && !_disposed) {
-        final fresh = await _observeAgain();
-        step = fresh == null || fresh.connection == null
-            ? _Step.refused
-            : await _release(fresh.viewerId, fresh.connection!);
+        if (_client != null) {
+          // The id cannot be released over this connection, but the stream
+          // that holds the lease can end: the bridge takes a clean close of
+          // the holder's stream as its release.
+          step = await _releaseByClosing() ? _Step.done : _Step.refused;
+        } else if (!_closing) {
+          final fresh = await _observeAgain();
+          step = fresh == null || fresh.connection == null
+              ? _Step.refused
+              : await _release(fresh.viewerId, fresh.connection!);
+        }
       }
       done = step == _Step.done;
     } on Object {
@@ -831,7 +886,7 @@ class BotScreenViewerController extends ChangeNotifier {
   );
 
   Future<_Step> _release(String id, Object connection) async {
-    var result = await repository.release(
+    final result = await repository.release(
       profile,
       viewerId: id,
       connection: connection,
@@ -840,14 +895,44 @@ class BotScreenViewerController extends ChangeNotifier {
         when _holdsLease(value) &&
             value.viewerHash != BotScreenViewerIds.hashOf(id)) {
       // The lease names an id this app held before the connection changed,
-      // which no release by this id can free; it is this app's own.
-      result = await repository.forceRelease(profile);
+      // which no release by this id can free.
+      screen.adoptLease(value);
+      return _Step.retry;
     }
     return _stepOf(result, holding: false);
   }
 
+  /// Ends the open stream with 1000, which the bridge answers by handing the
+  /// lease back when the stream is its holder's, and answers whether the lease
+  /// is not this device's afterwards. While shutting down the answer is not
+  /// waited for (the gateway may be going away too) and the close counts as the
+  /// hand back; otherwise the viewer watches again on a new stream.
+  Future<bool> _releaseByClosing() async {
+    _dropStream(code: 1000);
+    if (_closing) return true;
+    var released = false;
+    for (var attempt = 0; attempt < 3 && !released; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+      if (_disposed) return false;
+      final status = await repository.status(profile);
+      if (status case BotScreenOk(:final value)) {
+        screen.adoptStatus(value);
+        released = !_holdsLease(value.lease);
+      }
+    }
+    if (!_disposed && !_closing) {
+      _attempts = 0;
+      _connectNow();
+    }
+    return released;
+  }
+
   /// How a lease call ended, taking the lease it answered. [holding] is
-  /// whether the call meant to leave this device holding it.
+  /// whether the call meant to leave this device holding it. A closed
+  /// connection, an id the server does not know and a call that got no answer
+  /// say the connection or the id is no longer good.
   _Step _stepOf(
     BotScreenResult<BotScreenLease> result, {
     required bool holding,
@@ -858,7 +943,8 @@ class BotScreenViewerController extends ChangeNotifier {
         return _holdsLease(value) == holding ? _Step.done : _Step.refused;
       case BotScreenFailed(:final kind)
           when kind == BotScreenFailure.closed ||
-              kind == BotScreenFailure.mismatch:
+              kind == BotScreenFailure.mismatch ||
+              kind == BotScreenFailure.timeout:
         return _Step.retry;
       case _:
         return _Step.refused;
@@ -866,12 +952,12 @@ class BotScreenViewerController extends ChangeNotifier {
   }
 
   /// Asks for a ticket again, which gives the id and the connection the
-  /// gateway has now. Null when that fails.
-  Future<BotScreenObservation?> _observeAgain() async {
+  /// gateway has now. Null when that fails. See [_adopt] for [reacquire].
+  Future<BotScreenObservation?> _observeAgain({bool reacquire = true}) async {
     final result = await repository.observe(profile, viewerId: _viewerId);
     if (_disposed) return null;
     if (result case BotScreenOk(:final value)) {
-      await _adopt(value);
+      await _adopt(value, reacquire: reacquire);
       return value;
     }
     return null;

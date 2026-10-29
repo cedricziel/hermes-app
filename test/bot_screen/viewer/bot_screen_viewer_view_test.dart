@@ -15,6 +15,7 @@ Widget _app(
   VoidCallback? onClose,
   BotScreenControl control = BotScreenControl.watching,
   bool canForce = false,
+  String lostText = 'Someone else took control.',
   String profile = 'research',
   VoidCallback? onTakeOver,
   VoidCallback? onHandBack,
@@ -32,6 +33,7 @@ Widget _app(
       onClose: onClose,
       control: control,
       canForce: canForce,
+      lostText: lostText,
       onTakeOver: onTakeOver,
       onHandBack: onHandBack,
       onForceHandBack: onForceHandBack,
@@ -270,6 +272,36 @@ void main() {
       await tester.tap(find.text('Take over'));
 
       expect((dismissed, tookOver), (1, 1));
+    });
+
+    testWidgets('the lost notice is worded from who has the screen, also '
+        'while the picture is blanked', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.blanked,
+          picture: false,
+          control: BotScreenControl.lost,
+          lostText: 'Hermes took control back.',
+        ),
+      );
+
+      expect(find.text('Hermes took control back.'), findsOne);
+      expect(find.text('Someone else took control.'), findsNothing);
+    });
+
+    testWidgets('a hand back on its way shows Handing back, disabled, and '
+        'still says this device is in control', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          BotScreenViewerPhase.live,
+          control: BotScreenControl.releasing,
+          onHandBack: () => fail('pressed'),
+        ),
+      );
+
+      expect(find.text("You're in control"), findsOne);
+      expect(find.text('Hand Back'), findsNothing);
+      await tester.tap(find.text('Handing back…'));
     });
 
     testWidgets('someone else in control offers Hand back to Hermes only '

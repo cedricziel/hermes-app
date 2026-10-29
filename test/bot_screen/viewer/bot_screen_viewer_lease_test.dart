@@ -104,7 +104,7 @@ void main() {
         repository: repository,
         screen: screen,
         openSocket: (path, ticket) async {
-          final next = FakeDisplayChannel();
+          final next = server.openStream(ticket);
           channels.add(next);
           return next;
         },
@@ -200,6 +200,53 @@ void main() {
       });
     });
 
+    test('a take over whose retry is refused still follows the new id with '
+        'its stream, so a later one holds the lease on the stream it uses', () {
+      scenario(() {
+        gateway.drop();
+        settle();
+        server.refuseAcquire = true;
+        unawaited(viewer.takeOver());
+        settle();
+        expect(viewer.control, BotScreenControl.watching);
+        handshake();
+        server.refuseAcquire = false;
+
+        unawaited(viewer.takeOver());
+        settle();
+
+        expect(viewer.control, BotScreenControl.inControl);
+        expect(server.openStreams, [server.holderId]);
+      });
+    });
+
+    test(
+      'in control means the stream\'s own id holds the lease: a lease naming '
+      'another id of this app is watching, which Take over repairs',
+      () {
+        scenario(() {
+          unawaited(viewer.takeOver());
+          settle();
+          expect(viewer.control, BotScreenControl.inControl);
+
+          // The lease now names another id of this app, not the stream's.
+          ids.add('viewer-other');
+          screen.adoptLease(
+            BotScreenLease(
+              holder: BotScreenHolder.human,
+              viewerHash: BotScreenViewerIds.hashOf('viewer-other'),
+              epoch: 99,
+            ),
+          );
+          settle();
+
+          expect(viewer.control, BotScreenControl.watching);
+          expect(viewer.canTakeOver, isTrue);
+          expect(viewer.phase, BotScreenViewerPhase.live);
+        });
+      },
+    );
+
     test('a viewer_mismatch observes again and retries once', () {
       scenario(() {
         server.forget(connects);
@@ -292,6 +339,19 @@ void main() {
       },
     );
 
+    test('says it is handing back until the answer comes', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        gateway.silent.add('display.lease.release');
+
+        unawaited(viewer.handBack());
+        settle();
+
+        expect(viewer.control, BotScreenControl.releasing);
+      });
+    });
+
     test('the stream stays open', () {
       scenario(() {
         unawaited(viewer.takeOver());
@@ -304,22 +364,47 @@ void main() {
       });
     });
 
-    test('a connection that changed under the lease takes it with the new id '
-        'first, then releases', () {
+    test('after the gateway connection changed, a hand back closes the stream '
+        'cleanly, which the bridge takes as a release, and watches again', () {
       scenario(() {
         unawaited(viewer.takeOver());
         settle();
+        final first = channel;
         gateway.drop();
         settle();
 
         unawaited(viewer.handBack());
         settle();
 
-        expect(server.mintedIds, ['viewer-1', 'viewer-2']);
-        expect(server.acquired, ['viewer-1', 'viewer-2']);
-        expect(server.released.last, 'viewer-2');
+        // The lease named an id the new connection cannot release, so the
+        // stream that holds it is closed instead of taking the lease again
+        // with a new id, which the bridge would answer by evicting the stream.
+        expect(server.acquired, ['viewer-1']);
+        expect(first.sentCloseCode, 1000);
         expect(server.holder, 'agent');
         expect(viewer.control, BotScreenControl.watching);
+        expect(count(logged, 'bot_screen.lost_control'), 0);
+        expect(logged.last, 'bot_screen.handback {reason: button}');
+        expect(channels, hasLength(2));
+        handshake();
+        expect(viewer.phase, BotScreenViewerPhase.live);
+        expect(viewer.control, BotScreenControl.watching);
+      });
+    });
+
+    test('a 4000 that arrives while handing back is not lost control', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        gateway.silent.add('display.lease.release');
+
+        unawaited(viewer.handBack());
+        settle();
+        channel.serverClose(4000);
+        settle();
+
+        expect(count(logged, 'bot_screen.lost_control'), 0);
+        expect(viewer.control, isNot(BotScreenControl.lost));
       });
     });
 
@@ -377,7 +462,7 @@ void main() {
 
         expect(viewer.control, BotScreenControl.lost);
         expect(viewer.phase, BotScreenViewerPhase.blanked);
-        expect(logged, [
+        expect(logged.where((e) => !e.startsWith('bot_screen.stream_failed')), [
           'bot_screen.takeover {outcome: acquired}',
           'bot_screen.lost_control {cause: other_holder}',
         ]);
@@ -421,6 +506,24 @@ void main() {
         unawaited(viewer.takeOver());
         settle();
         expect(viewer.control, BotScreenControl.inControl);
+      });
+    });
+
+    test('the notice says who has the screen now', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        server.giveToAgent();
+        settle();
+        expect(viewer.control, BotScreenControl.lost);
+        expect(viewer.lostText, 'Hermes took control back.');
+
+        unawaited(viewer.takeOver());
+        settle();
+        server.takeBy('someone-else');
+        settle();
+        expect(viewer.control, BotScreenControl.lost);
+        expect(viewer.lostText, 'Someone else took control.');
       });
     });
 
@@ -507,7 +610,7 @@ void main() {
         expect(server.holderId, 'viewer-2');
         handshake();
         expect(viewer.control, BotScreenControl.inControl);
-        expect(logged.last, 'bot_screen.takeover {outcome: retried}');
+        expect(logged.last, 'bot_screen.takeover {outcome: resumed}');
       });
     });
 
@@ -569,6 +672,30 @@ void main() {
         expect(channels, hasLength(2));
         handshake();
         expect(viewer.control, BotScreenControl.inControl);
+      });
+    });
+
+    test('the picture is hidden at once while covered, though the stream stays '
+        'open through the grace period', () {
+      scenario(() {
+        takeOver();
+        final first = channel;
+        expect(viewer.framebuffer, isNotNull);
+
+        viewer.unlocked = false;
+        settle();
+
+        expect(viewer.framebuffer, isNull);
+        expect(viewer.phase, BotScreenViewerPhase.connecting);
+        expect(first.sentCloseCode, isNull);
+
+        async.elapse(const Duration(seconds: 1));
+        viewer.unlocked = true;
+        settle();
+
+        expect(viewer.framebuffer, isNotNull);
+        expect(viewer.phase, BotScreenViewerPhase.live);
+        expect(channels, hasLength(1));
       });
     });
 
@@ -686,6 +813,75 @@ void main() {
         settle();
 
         expect(first.sentCloseCode, 1000);
+      });
+    });
+
+    test('after the gateway connection changed it closes the stream cleanly '
+        'and logs the reason, not lost control', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        final first = channel;
+        gateway.drop();
+        settle();
+
+        unawaited(viewer.shutDown('sign_out'));
+        settle();
+
+        expect(first.sentCloseCode, 1000);
+        expect(server.holder, 'agent');
+        expect(server.acquired, ['viewer-1']);
+        expect(count(logged, 'bot_screen.lost_control'), 0);
+        expect(logged.last, 'bot_screen.handback {reason: sign_out}');
+        expect(channels, hasLength(1));
+      });
+    });
+
+    test('the gateway closing at the same moment still logs the reason, since '
+        'the release was sent and the close frees the lease', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        final first = channel;
+
+        unawaited(viewer.shutDown('sign_out'));
+        unawaited(transport.close());
+        settle();
+
+        expect(first.sentCloseCode, 1000);
+        expect(server.holder, 'agent');
+        expect(logged.last, 'bot_screen.handback {reason: sign_out}');
+      });
+    });
+
+    test('a take over that was still being repeated when the viewer shut '
+        'down is released and opens no stream', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        gateway.drop();
+        settle();
+        viewer.foreground = false;
+        settle();
+        gateway.silent.add('display.lease.acquire');
+        viewer.foreground = true;
+        settle();
+        // The lease names the old id and the new one is being taken.
+        final acquire = gateway.requests.lastWhere(
+          (r) => r['method'] == 'display.lease.acquire',
+        );
+        expect((acquire['params'] as Map)['viewer_id'], server.mintedIds.last);
+        final streams = channels.length;
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+        server.takeBy(server.mintedIds.last);
+        gateway.replyTo(acquire, {'lease': server.lease});
+        settle();
+        async.elapse(const Duration(seconds: 5));
+
+        expect(channels, hasLength(streams));
+        expect(server.holder, 'agent');
       });
     });
 

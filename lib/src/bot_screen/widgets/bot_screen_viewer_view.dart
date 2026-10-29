@@ -39,6 +39,7 @@ class BotScreenViewerView extends StatelessWidget {
     this.aspectRatio = 16 / 10,
     this.presentation = BotScreenViewerPresentation.page,
     this.control = BotScreenControl.watching,
+    this.lostText = 'Someone else took control.',
     this.canForce = false,
     this.onClose,
     this.onRetry,
@@ -60,6 +61,10 @@ class BotScreenViewerView extends StatelessWidget {
   /// Who is driving: this device, or only watching.
   final BotScreenControl control;
 
+  /// What the notice of lost control says ("Hermes took control back." when
+  /// the lease went back to Hermes).
+  final String lostText;
+
   /// Whether the lease someone else holds can be handed back to Hermes from
   /// here (a person holds it under a viewer id this app does not).
   final bool canForce;
@@ -75,7 +80,11 @@ class BotScreenViewerView extends StatelessWidget {
       phase == BotScreenViewerPhase.live ||
       phase == BotScreenViewerPhase.reconnecting;
 
-  bool get _inControl => control == BotScreenControl.inControl && _live;
+  /// Whether this device is driving, a hand back on its way included.
+  bool get _inControl =>
+      (control == BotScreenControl.inControl ||
+          control == BotScreenControl.releasing) &&
+      _live;
 
   /// Who is in control, as far as the viewer knows.
   String? get _control => switch (phase) {
@@ -89,6 +98,9 @@ class BotScreenViewerView extends StatelessWidget {
   /// The header's action: Hand Back while in control, Take over while only
   /// watching a live picture.
   Widget? get _action {
+    if (control == BotScreenControl.releasing && _live) {
+      return const _HeaderAction(label: 'Handing back…', onPressed: null);
+    }
     if (_inControl) {
       return _HeaderAction(label: 'Hand Back', onPressed: onHandBack);
     }
@@ -124,11 +136,9 @@ class BotScreenViewerView extends StatelessWidget {
                   presentation: presentation,
                   onClose: onClose,
                 ),
-                if (control == BotScreenControl.lost && _live)
-                  _Banner(
-                    text: 'Someone else took control.',
-                    onDismiss: onDismissLost,
-                  ),
+                if (control == BotScreenControl.lost &&
+                    (_live || phase == BotScreenViewerPhase.blanked))
+                  _Banner(text: lostText, onDismiss: onDismissLost),
                 Expanded(child: _body(context)),
               ],
             ),
@@ -300,13 +310,14 @@ class _HeaderAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chrome = platformChromeOf(context);
+    final height = switch (platformChromeOf(context)) {
+      PlatformChrome.ios => kAppleMinTapTarget,
+      PlatformChrome.macos => 28.0,
+      PlatformChrome.material => 36.0,
+    };
     return FilledButton.tonal(
       style: FilledButton.styleFrom(
-        minimumSize: Size(
-          0,
-          chrome == PlatformChrome.ios ? kAppleMinTapTarget : 36,
-        ),
+        minimumSize: Size(0, height),
         padding: const EdgeInsets.symmetric(horizontal: 14),
       ),
       onPressed: onPressed,

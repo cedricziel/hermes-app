@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_viewer_ids.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -114,7 +116,7 @@ void main() {
       chatProfiles: profiles,
       displaySocketOpener: (path, ticket) async {
         tickets.add(ticket);
-        final channel = FakeDisplayChannel();
+        final channel = display.openStream(ticket);
         channels.add(channel);
         return channel;
       },
@@ -202,6 +204,12 @@ void main() {
     expect(viewer, findsOne);
     expect(channels.last.sentCloseCode, isNull);
     expect(crumbs(), contains('bot_screen.handback.pressed {}'));
+    // No breadcrumb names a viewer id or its hash.
+    expect(crumbs().join(' '), isNot(contains('viewer-1')));
+    expect(
+      crumbs().join(' '),
+      isNot(contains(BotScreenViewerIds.hashOf('viewer-1'))),
+    );
     await finish(tester);
   });
 
@@ -244,13 +252,21 @@ void main() {
   testWidgets('switching the chat\'s profile hands back before the stream '
       'closes', (tester) async {
     await openInControl(tester);
+    Object? closedAtRelease = 'not called';
+    final channel = channels.last;
+    final release = gateway.handlers['display.lease.release']!;
+    gateway.handlers['display.lease.release'] = (params) {
+      closedAtRelease = channel.sentCloseCode;
+      return release(params);
+    };
 
     await tester.runAsync(() => profiles.switchTo('work'));
     await settle(tester);
 
     expect(viewer, findsNothing);
     expect(display.released, ['viewer-1']);
-    expect(channels.last.sentCloseCode, 1000);
+    expect(closedAtRelease, isNull);
+    expect(channel.sentCloseCode, 1000);
     await finish(tester);
   });
 
@@ -258,13 +274,14 @@ void main() {
       'closes with 1000', (tester) async {
     await openInControl(tester);
 
+    // The gateway goes away in the same moment, as it does on sign-out.
     await tester.pumpWidget(const SizedBox());
+    unawaited(transport.close());
     await settle(tester);
 
     expect(display.released, ['viewer-1']);
     expect(display.holder, 'agent');
     expect(channels.last.sentCloseCode, 1000);
-    await tester.runAsync(transport.close);
   });
 
   testWidgets('the app going to the background closes with 4100 and keeps '

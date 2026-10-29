@@ -290,6 +290,10 @@ enum BotScreenControl {
   /// This device holds the lease and the viewer sends input.
   inControl,
 
+  /// A hand back is on its way to the server; the viewer still shows this
+  /// device in control until it answers.
+  releasing,
+
   /// This device was in control and no longer is: another person took the
   /// lease, or Hermes got it back. The viewer says so until it is dismissed or
   /// control is taken again.

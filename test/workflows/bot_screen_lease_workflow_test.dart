@@ -105,7 +105,7 @@ void main() {
           ),
           wrap: shots.frame,
           displaySocketOpener: (path, ticket) async =>
-              channel = FakeDisplayChannel(),
+              channel = display.openStream(ticket),
         );
         await openThread(tester, 'Book a table');
         await tester.tap(find.byKey(const Key('header-activity')));
