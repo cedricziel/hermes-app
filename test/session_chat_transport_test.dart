@@ -296,6 +296,22 @@ class _Delegate
   }
 
   @override
+  Future<(Map<String, Object?>, Object)> requestKeepingConnectionOnClient(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) async =>
+      (await requestKeepingConnection(method, params, timeout: timeout), this);
+
+  @override
+  Future<Map<String, Object?>> requestOn(
+    Object connection,
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  }) => requestKeepingConnection(method, params, timeout: timeout);
+
+  @override
   Future<Map<String, String>> activeStatuses({String? profile}) =>
       statuses.future;
 
