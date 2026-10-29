@@ -135,12 +135,18 @@ class BotScreenObservation {
     required this.path,
     required this.viewerId,
     required this.status,
+    this.connection,
   });
 
   final String ticket;
   final String path;
   final String viewerId;
   final BotScreenStatus status;
+
+  /// The gateway connection that minted [viewerId], when the repository could
+  /// tell. The server honours the id on that connection alone, so the lease
+  /// calls that name it go over it too.
+  final Object? connection;
 
   @override
   String toString() => 'BotScreenObservation()';
@@ -180,7 +186,11 @@ enum BotScreenFailure {
   timeout('timeout'),
 
   /// The connection closed or could not be opened.
-  closed('closed');
+  closed('closed'),
+
+  /// The server refused a lease call because the viewer id was not minted for
+  /// the connection that sent it (`data.code: viewer_mismatch`).
+  mismatch('viewer_mismatch');
 
   const BotScreenFailure(this.slug);
 
@@ -267,4 +277,21 @@ enum BotScreenViewerPhase {
   /// The stream ended for a reason retrying does not fix: a protocol error or
   /// a ticket that kept being refused.
   failed,
+}
+
+/// Who is driving the screen as far as this viewer is concerned.
+enum BotScreenControl {
+  /// The viewer only looks. Hermes, or someone else, holds the lease.
+  watching,
+
+  /// A take over is on its way to the server.
+  acquiring,
+
+  /// This device holds the lease and the viewer sends input.
+  inControl,
+
+  /// This device was in control and no longer is: another person took the
+  /// lease, or Hermes got it back. The viewer says so until it is dismissed or
+  /// control is taken again.
+  lost,
 }

@@ -339,6 +339,64 @@ void main() {
     });
   });
 
+  group('a lease nobody here holds', () {
+    test('someone else in control can be handed back to Hermes', () {
+      final model = _model(
+        status: _status(
+          lease: const BotScreenLease(
+            holder: BotScreenHolder.human,
+            viewerHash: 'other',
+          ),
+        ),
+        ownViewerHashes: const {'abc123'},
+      );
+
+      expect(
+        model,
+        isA<BotScreenControlled>().having((m) => m.canForce, 'canForce', true),
+      );
+    });
+
+    test('a lease with no hash can be handed back too', () {
+      final model = _model(
+        status: _status(
+          lease: const BotScreenLease(holder: BotScreenHolder.human),
+        ),
+      );
+
+      expect(
+        model,
+        isA<BotScreenControlled>().having((m) => m.canForce, 'canForce', true),
+      );
+    });
+
+    test('this device in control is not forced back from the card', () {
+      final model = _model(
+        status: _status(
+          lease: const BotScreenLease(
+            holder: BotScreenHolder.human,
+            viewerHash: 'abc123',
+          ),
+        ),
+        ownViewerHashes: const {'abc123'},
+      );
+
+      expect(
+        model,
+        isA<BotScreenControlled>().having((m) => m.canForce, 'canForce', false),
+      );
+    });
+
+    test('a suppressed frame with Hermes holding the lease offers nothing', () {
+      final model = _model(status: _status(), suppressed: true);
+
+      expect(
+        model,
+        isA<BotScreenControlled>().having((m) => m.canForce, 'canForce', false),
+      );
+    });
+  });
+
   group('whether the card is listed', () {
     test('a running screen is listed without any computer_use call', () {
       final model = _model(status: _status(), frame: _jpeg)!;

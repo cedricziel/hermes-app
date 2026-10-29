@@ -46,7 +46,7 @@ void main() {
     installs = BotScreenInstalls(
       repository: BotScreenRepository(
         transport.requestKeepingConnection,
-        installRpc: transport.requestKeepingConnectionOnClient,
+        connectionRpc: transport.requestKeepingConnectionOnClient,
       ),
       connectionEvents: transport.connectionEvents,
       registerServerRequestHandler: transport.registerServerRequestHandler,

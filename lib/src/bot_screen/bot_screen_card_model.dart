@@ -15,10 +15,7 @@ sealed class BotScreenCardModel {
   /// What the card shows for [controller]'s state, or null when there is
   /// nothing to say yet (no answer so far) or the server has no Bot Screen
   /// feature.
-  static BotScreenCardModel? from(
-    BotScreenController controller, {
-    Set<String> ownViewerHashes = const {},
-  }) => fromState(
+  static BotScreenCardModel? from(BotScreenController controller) => fromState(
     status: controller.status,
     unsupported: controller.unsupported,
     starting: controller.starting,
@@ -26,14 +23,14 @@ sealed class BotScreenCardModel {
     failure: controller.failure,
     frame: controller.frame,
     suppressed: controller.suppressed,
-    ownViewerHashes: ownViewerHashes,
+    ownViewerHashes: controller.viewerIds.hashes,
     install: controller.install,
     canInstall: controller.canInstall,
   );
 
   /// [from] over the controller's fields. [ownViewerHashes] are the lease
   /// hashes of the viewer ids this app holds, which tell "You're in control"
-  /// from someone else; the app holds none until `bot-screen-takeover`.
+  /// from someone else.
   /// [install] is what the install the app started for the profile is doing,
   /// and [canInstall] whether the app can start one at all.
   static BotScreenCardModel? fromState({
@@ -98,12 +95,9 @@ sealed class BotScreenCardModel {
     if (failure != null) return BotScreenReadFailed(screenRunning: true);
     final lease = status.lease;
     if (suppressed || lease.holder == BotScreenHolder.human) {
-      return BotScreenControlled(
-        byYou:
-            lease.holder == BotScreenHolder.human &&
-            lease.viewerHash != null &&
-            ownViewerHashes.contains(lease.viewerHash),
-      );
+      final byPerson = lease.holder == BotScreenHolder.human;
+      final byYou = byPerson && ownViewerHashes.contains(lease.viewerHash);
+      return BotScreenControlled(byYou: byYou, canForce: byPerson && !byYou);
     }
     return BotScreenShowing(
       bytes: frame,
@@ -224,9 +218,13 @@ final class BotScreenShowing extends BotScreenCardModel {
 }
 
 /// A person holds the lease, so no picture: [byYou] when it is this app's
-/// own viewer.
+/// own viewer. [canForce] says the lease can be handed back to Hermes from
+/// here: a person holds it under a viewer id this app does not (another
+/// device, or this one before the app restarted).
 final class BotScreenControlled extends BotScreenCardModel {
-  const BotScreenControlled({this.byYou = false}) : super(screenRunning: true);
+  const BotScreenControlled({this.byYou = false, this.canForce = false})
+    : super(screenRunning: true);
 
   final bool byYou;
+  final bool canForce;
 }

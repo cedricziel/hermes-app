@@ -14,6 +14,7 @@ import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -334,6 +335,76 @@ void main() {
     expect(find.text('Someone else is in control'), findsOne);
     expect(find.byType(Image), findsNothing);
     expect(screen!.frame, isNull);
+  });
+
+  group('handing back a lease nobody here holds', () {
+    Future<void> openHeldByAPerson(WidgetTester tester) async {
+      holder = 'human';
+      gateway.handlers['display.lease.release'] = (_) {
+        holder = 'agent';
+        return {
+          'lease': {'holder': 'agent', 'epoch': 2},
+        };
+      };
+      await openChat(tester);
+      await pumpPanel(tester);
+    }
+
+    final confirm = find.widgetWithText(AppDialogAction, 'Hand Back');
+
+    panelTest('asks first, and a cancel sends nothing', (tester) async {
+      await openHeldByAPerson(tester);
+
+      await tester.tap(find.text('Hand back to Hermes'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hand control back to Hermes?'), findsOne);
+      expect(find.textContaining('loses control'), findsOne);
+      await tester.tap(find.widgetWithText(AppDialogAction, 'Cancel'));
+      await tester.pumpAndSettle();
+      await settle(tester);
+
+      expect(calls('display.lease.release'), 0);
+      expect(find.text('Someone else is in control'), findsOne);
+    });
+
+    panelTest('confirming sends a forced release and shows Hermes in '
+        'control', (tester) async {
+      await openHeldByAPerson(tester);
+
+      await tester.tap(find.text('Hand back to Hermes'));
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      await settle(tester);
+
+      expect(gateway.requestOf('display.lease.release')['params'], {
+        'profile': 'work',
+        'force': true,
+      });
+      expect(find.text('Someone else is in control'), findsNothing);
+      expect(find.text('Hermes is in control'), findsOne);
+      expect([
+        for (final c in trail.recent) c.name,
+      ], contains('bot_screen.force_handback.pressed'));
+    });
+
+    panelTest('a refusal says so and leaves the card as it was', (
+      tester,
+    ) async {
+      await openHeldByAPerson(tester);
+      gateway.handlers['display.lease.release'] = (_) =>
+          throw const FakeRpcError(5300, 'broken');
+
+      await tester.tap(find.text('Hand back to Hermes'));
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      await settle(tester);
+
+      expect(find.text("Couldn't hand control back to Hermes."), findsOne);
+      expect(find.text('Someone else is in control'), findsOne);
+    });
   });
 
   panelTest('closing the panel stops the frame requests and drops the '

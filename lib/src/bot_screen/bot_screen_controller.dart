@@ -7,6 +7,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 import '../chat/gateway_connection_transport.dart';
 import 'bot_screen_models.dart';
 import 'bot_screen_repository.dart';
+import 'bot_screen_viewer_ids.dart';
 import 'install/bot_screen_installs.dart';
 import 'install/install_state.dart';
 
@@ -51,7 +52,8 @@ class BotScreenController extends ChangeNotifier {
     this.pollEvery = kFramePollInterval,
     this.events = noopAppEventLogger,
     this.installs,
-  }) {
+    BotScreenViewerIds? viewerIds,
+  }) : viewerIds = viewerIds ?? BotScreenViewerIds() {
     _events = connectionEvents.listen(
       _onConnectionEvent,
       onError: _onConnectionError,
@@ -76,6 +78,10 @@ class BotScreenController extends ChangeNotifier {
   /// The installs of the app, which hold this profile's install while the
   /// controller comes and goes; null offers no Install on Server.
   final BotScreenInstalls? installs;
+
+  /// The viewer ids this app holds, which tell a lease that is this device's
+  /// from one that is someone else's.
+  final BotScreenViewerIds viewerIds;
   late final StreamSubscription<GatewayConnectionEvent> _events;
 
   /// The card state last recorded as shown, for the card's breadcrumb.
@@ -121,6 +127,72 @@ class BotScreenController extends ChangeNotifier {
   var _disposed = false;
   Timer? _timer;
   Timer? _statusRetry;
+
+  /// Whether a person holds control and the lease names a viewer id of this
+  /// app: this device is in control.
+  bool get inControlHere {
+    final lease = status?.lease;
+    return lease != null &&
+        lease.holder == BotScreenHolder.human &&
+        viewerIds.holds(lease.viewerHash);
+  }
+
+  /// Whether a person other than this device holds control. A lease with no
+  /// hash, or one this app does not hold the id of (a person on another
+  /// device, or this device before the app restarted), counts as someone else.
+  bool get someoneElseInControl =>
+      status?.lease.holder == BotScreenHolder.human && !inControlHere;
+
+  /// Whether a forced hand back is on its way.
+  bool get handingBack => _handingBack;
+  var _handingBack = false;
+
+  /// Takes [lease], which an acquire or release answered, at once instead of
+  /// waiting for the broadcast, unless the status already holds a newer one.
+  /// Reads asked for before it are dropped as older.
+  void adoptLease(BotScreenLease lease) {
+    final current = status;
+    if (_disposed || current == null || lease.epoch < current.lease.epoch) {
+      return;
+    }
+    _broadcasts++;
+    _apply(current.withLease(lease));
+    _notify();
+  }
+
+  /// Gives control back to Hermes whoever holds it, with
+  /// `display.lease.release {force: true}`: for a lease no viewer of this app
+  /// holds, such as this device's before the app restarted. Answers whether
+  /// the lease is Hermes's now. The caller asks the user first.
+  Future<bool> forceHandBack() async {
+    if (_handingBack || _disposed) return false;
+    _handingBack = true;
+    _notify();
+    var handedBack = false;
+    try {
+      final result = await _repository.forceRelease(profile);
+      if (result case BotScreenOk(:final value)) {
+        adoptLease(value);
+        handedBack = value.holder == BotScreenHolder.agent;
+      }
+    } on Object {
+      handedBack = false;
+    }
+    _logHandBack(handedBack ? 'force' : 'error');
+    if (!_disposed) {
+      _handingBack = false;
+      _notify();
+    }
+    return handedBack;
+  }
+
+  void _logHandBack(String reason) {
+    try {
+      events('bot_screen.handback', {'reason': reason});
+    } on Object {
+      return;
+    }
+  }
 
   /// What the install of this profile, if the app started one, is doing or
   /// ended with.

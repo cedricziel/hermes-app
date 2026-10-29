@@ -256,7 +256,7 @@ void main() {
       };
       final withClient = BotScreenRepository(
         transport.requestKeepingConnection,
-        installRpc: transport.requestKeepingConnectionOnClient,
+        connectionRpc: transport.requestKeepingConnectionOnClient,
       );
 
       final started = await ok(withClient.install('work'));
@@ -357,6 +357,22 @@ void main() {
       },
     );
 
+    test('says which connection answered when it can', () async {
+      final withClient = BotScreenRepository(
+        transport.requestKeepingConnection,
+        connectionRpc: transport.requestKeepingConnectionOnClient,
+      );
+
+      final observation = await ok(withClient.observe('work'));
+      final without = await ok(repository.observe('work'));
+
+      expect(
+        identical(observation.connection, transport.gatewayConnection),
+        isTrue,
+      );
+      expect(without.connection, isNull);
+    });
+
     test('names the default profile and passes a viewer id along', () async {
       await repository.observe(null, viewerId: 'viewer-1');
 
@@ -402,6 +418,180 @@ void main() {
 
         expect((result as BotScreenFailed).kind, BotScreenFailure.display);
       }
+    });
+  });
+
+  group('the control lease', () {
+    late BotScreenRepository pinned;
+
+    Map<String, Object?> leaseOf(
+      String holder, {
+      String? hash,
+      int epoch = 5,
+    }) => {
+      'lease': {
+        'holder': holder,
+        'viewer_id': null,
+        'viewer_hash': hash,
+        'since': 2.0,
+        'reason': '',
+        'epoch': epoch,
+      },
+    };
+
+    setUp(() {
+      pinned = BotScreenRepository(
+        transport.requestKeepingConnection,
+        connectionRpc: transport.requestKeepingConnectionOnClient,
+        pinnedRpc: transport.requestOn,
+        timeout: const Duration(milliseconds: 50),
+      );
+      gateway.handlers['display.observe'] = (_) => {
+        'ticket': 't',
+        'path': '/api/display/ws',
+        'viewer_id': 'viewer-1',
+        ...statusJson(),
+      };
+    });
+
+    Future<Object> observedConnection() async =>
+        (await ok(pinned.observe('work'))).connection!;
+
+    test(
+      'acquire names the profile and the viewer id and reads the lease',
+      () async {
+        gateway.handlers['display.lease.acquire'] = (_) =>
+            leaseOf('human', hash: 'abcdef012345');
+        final connection = await observedConnection();
+
+        final lease = await ok(
+          pinned.acquire('work', viewerId: 'viewer-1', connection: connection),
+        );
+
+        expect(gateway.requestOf('display.lease.acquire')['params'], {
+          'profile': 'work',
+          'viewer_id': 'viewer-1',
+        });
+        expect(lease.holder, BotScreenHolder.human);
+        expect(lease.viewerHash, 'abcdef012345');
+        expect(lease.epoch, 5);
+      },
+    );
+
+    test('release names the profile and the viewer id', () async {
+      gateway.handlers['display.lease.release'] = (_) => leaseOf('agent');
+      final connection = await observedConnection();
+
+      final lease = await ok(
+        pinned.release('work', viewerId: 'viewer-1', connection: connection),
+      );
+
+      expect(gateway.requestOf('display.lease.release')['params'], {
+        'profile': 'work',
+        'viewer_id': 'viewer-1',
+      });
+      expect(lease.holder, BotScreenHolder.agent);
+    });
+
+    test('a connection that is gone fails closed and opens no other', () async {
+      final connection = await observedConnection();
+      gateway.drop();
+      await pumpEventQueue();
+
+      final result = await pinned.acquire(
+        'work',
+        viewerId: 'viewer-1',
+        connection: connection,
+      );
+
+      expect((result as BotScreenFailed).kind, BotScreenFailure.closed);
+      expect(gateway.methods, isNot(contains('display.lease.acquire')));
+      expect(connects, 1);
+    });
+
+    test('viewer_mismatch is its own failure', () async {
+      gateway.handlers['display.lease.acquire'] = (_) =>
+          throw const FakeRpcError(5300, 'not minted for this connection', {
+            'code': 'viewer_mismatch',
+          });
+      final connection = await observedConnection();
+
+      final result = await pinned.acquire(
+        'work',
+        viewerId: 'viewer-1',
+        connection: connection,
+      );
+
+      expect((result as BotScreenFailed).kind, BotScreenFailure.mismatch);
+    });
+
+    test('other refusals are display failures', () async {
+      gateway.handlers['display.lease.release'] = (_) =>
+          throw const FakeRpcError(5300, 'broken');
+      final connection = await observedConnection();
+
+      final result = await pinned.release(
+        'work',
+        viewerId: 'viewer-1',
+        connection: connection,
+      );
+
+      expect((result as BotScreenFailed).kind, BotScreenFailure.display);
+    });
+
+    test('an answer without a lease cannot be used', () async {
+      gateway.handlers['display.lease.acquire'] = (_) => <String, Object?>{};
+      final connection = await observedConnection();
+
+      final result = await pinned.acquire(
+        'work',
+        viewerId: 'viewer-1',
+        connection: connection,
+      );
+
+      expect((result as BotScreenFailed).kind, BotScreenFailure.display);
+    });
+
+    test('without a pinned request nothing is sent', () async {
+      final connection = await observedConnection();
+
+      final result = await repository.acquire(
+        'work',
+        viewerId: 'viewer-1',
+        connection: connection,
+      );
+
+      expect((result as BotScreenFailed).kind, BotScreenFailure.closed);
+      expect(gateway.methods, isNot(contains('display.lease.acquire')));
+    });
+
+    test('a forced release sends force and no viewer id', () async {
+      gateway.handlers['display.lease.release'] = (_) => leaseOf('agent');
+
+      final lease = await ok(pinned.forceRelease('work'));
+
+      expect(gateway.requestOf('display.lease.release')['params'], {
+        'profile': 'work',
+        'force': true,
+      });
+      expect(lease.holder, BotScreenHolder.agent);
+    });
+
+    test('failures of lease calls are not logged as read failures', () async {
+      final logged = <String>[];
+      final logging = BotScreenRepository(
+        transport.requestKeepingConnection,
+        pinnedRpc: transport.requestOn,
+        telemetry: ConnectionTelemetry(
+          events: (name, [attributes = const {}]) => logged.add(name),
+        ),
+      );
+      gateway.handlers['display.lease.release'] = (_) =>
+          throw const FakeRpcError(5300, 'broken');
+
+      await logging.forceRelease('work');
+
+      expect(logged, isEmpty);
     });
   });
 }

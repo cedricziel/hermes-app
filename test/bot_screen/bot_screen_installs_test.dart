@@ -80,7 +80,7 @@ void main() {
       BotScreenInstalls(
         repository: BotScreenRepository(
           transport.requestKeepingConnection,
-          installRpc: transport.requestKeepingConnectionOnClient,
+          connectionRpc: transport.requestKeepingConnectionOnClient,
           telemetry: telemetryOf(),
         ),
         connectionEvents: transport.connectionEvents,

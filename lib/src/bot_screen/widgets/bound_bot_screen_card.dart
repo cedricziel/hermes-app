@@ -7,6 +7,7 @@ import '../../telemetry/breadcrumbs.dart';
 import '../bot_screen_card_model.dart';
 import '../bot_screen_controller.dart';
 import 'bot_screen_card.dart';
+import 'force_hand_back.dart';
 
 /// What the last scan of a thread found, and what it was a scan of.
 class _ScreenScan {
@@ -73,6 +74,8 @@ class BoundBotScreenCard extends StatelessWidget {
       onInstall: controller.canInstall ? controller.startInstall : null,
       onRetry: controller.retry,
       onEnlarge: onEnlarge,
+      onForceHandBack: () =>
+          confirmForceHandBack(context, controller.forceHandBack),
       onCopyCommand: command == null
           ? null
           : () => Clipboard.setData(ClipboardData(text: command)),

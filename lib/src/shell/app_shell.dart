@@ -208,7 +208,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         repository: BotScreenRepository(
           gateway.requestKeepingConnection,
           telemetry: repositories.telemetry,
-          installRpc: gateway.requestKeepingConnectionOnClient,
+          connectionRpc: gateway.requestKeepingConnectionOnClient,
         ),
         connectionEvents: gateway.connectionEvents,
         registerServerRequestHandler: gateway.registerServerRequestHandler,
