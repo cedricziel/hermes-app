@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.74](https://github.com/cedricziel/hermes-app/compare/v0.1.73...v0.1.74) (2026-10-30)
+
+
+### Features
+
+* **bot-screen:** hold the screen's control lease ([#854](https://github.com/cedricziel/hermes-app/issues/854)) ([4a74e26](https://github.com/cedricziel/hermes-app/commit/4a74e267ebce89da6c9a05bfd95d2f838ca2803f))
+* **bot-screen:** install the desktop on the server ([#853](https://github.com/cedricziel/hermes-app/issues/853)) ([d43b805](https://github.com/cedricziel/hermes-app/commit/d43b8051feaa39b34683cc3bef45d9b6575a8f94))
+* **bot-screen:** preview the bot's screen in the transcript ([#851](https://github.com/cedricziel/hermes-app/issues/851)) ([9630d24](https://github.com/cedricziel/hermes-app/commit/9630d242f713a3431707df05e9b611c4e723ecc6))
+* **bot-screen:** send input over RFB ([#844](https://github.com/cedricziel/hermes-app/issues/844)) ([4363d96](https://github.com/cedricziel/hermes-app/commit/4363d967af5b8d8bb1b3fd0fc27e31db97741825))
+* **bot-screen:** show the bot's screen in the Activity panel ([#848](https://github.com/cedricziel/hermes-app/issues/848)) ([c971385](https://github.com/cedricziel/hermes-app/commit/c97138594fd902b9bc755f9d6876438d148d59eb))
+* **bot-screen:** take over and hand back the bot's screen ([#855](https://github.com/cedricziel/hermes-app/issues/855)) ([5f0917f](https://github.com/cedricziel/hermes-app/commit/5f0917f1a3cb7ac02a08af325fff91ef00578984))
+* **bot-screen:** watch the bot's screen live ([#852](https://github.com/cedricziel/hermes-app/issues/852)) ([ec9bfc5](https://github.com/cedricziel/hermes-app/commit/ec9bfc550f2a6299c1c3b07ebe4870552f1f1421))
+
+
+### Bug Fixes
+
+* **api:** end a request that outlasts an overall deadline ([#861](https://github.com/cedricziel/hermes-app/issues/861)) ([ff1f438](https://github.com/cedricziel/hermes-app/commit/ff1f43849532bff28e77462013e948c0204cdb33))
+* **macos:** register native channels even after the window is wrapped ([#850](https://github.com/cedricziel/hermes-app/issues/850)) ([84e3649](https://github.com/cedricziel/hermes-app/commit/84e3649a08b6c5dc2cf4ab416314aa659d07cafc))
+
 ## [0.1.73](https://github.com/cedricziel/hermes-app/compare/v0.1.72...v0.1.73) (2026-10-26)
 
 
