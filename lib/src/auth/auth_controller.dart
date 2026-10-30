@@ -1147,6 +1147,7 @@ class AuthController extends ChangeNotifier {
         )
         ..interceptors.addAll([
           RequestTimeoutInterceptor(),
+          RequestDeadlineInterceptor(),
           ..._interceptors,
           ?_connection.interceptor,
         ]);

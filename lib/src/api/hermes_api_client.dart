@@ -6,6 +6,7 @@ import 'package:hermes_api/hermes_api.dart';
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
+import 'request_timeout.dart';
 
 /// Thin typed wrapper around the Hermes dashboard REST API
 /// (`hermes_cli/web_server.py` + `hermes_cli/dashboard_auth/routes.py`).
@@ -105,7 +106,10 @@ class HermesApiClient {
     final response = await _dio.get<List<int>>(
       route,
       queryParameters: query,
-      options: Options(responseType: ResponseType.bytes),
+      options: Options(
+        responseType: ResponseType.bytes,
+        extra: requestDeadlineExtra(const Duration(minutes: 5)),
+      ),
     );
     final data = response.data;
     return data is Uint8List ? data : Uint8List.fromList(data ?? const []);

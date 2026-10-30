@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import '../api/hermes_api_client.dart';
+import '../api/request_timeout.dart';
 import '../models/model_provider_option.dart';
 import 'kanban_models.dart';
 
@@ -307,6 +308,7 @@ class KanbanRepository {
       taskId: taskId,
       file: MultipartFile.fromBytes(bytes, filename: filename),
       board: board,
+      extra: requestDeadlineExtra(const Duration(minutes: 5)),
     ),
   );
 
