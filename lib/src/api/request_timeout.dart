@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -23,87 +24,117 @@ class RequestTimeoutInterceptor extends Interceptor {
 }
 
 const _deadlineKey = 'hermes.requestDeadline';
-const _callerTokenKey = 'hermes.requestDeadline.callerToken';
-const _runningKey = 'hermes.requestDeadline.running';
 
 /// The `extra` that gives one request [deadline] in total, instead of the
-/// interceptor's default, for a body that is large by nature (an upload or a
+/// adapter's default, for a body that is large by nature (an upload or a
 /// file download).
 Map<String, Object> requestDeadlineExtra(Duration deadline) => {
   _deadlineKey: deadline,
 };
 
-/// Ends a request that takes longer than [deadline] from its start to its
-/// last byte, as a [DioExceptionType.receiveTimeout].
+/// Ends a request that takes longer than [deadline] from the moment it is
+/// sent to its last byte, as a [DioExceptionType.receiveTimeout].
 ///
 /// Dio's own timeouts do not do that: the connect timeout stops at the open
 /// socket, the receive timeout covers the headers and then only the gap
-/// between two chunks, and nothing bounds sending a body at all. A server that
+/// between two chunks, and nothing bounds sending a body. A server that
 /// trickles bytes, or a network that stalls mid-upload, would otherwise hold a
 /// request for as long as the connection lives.
 ///
-/// A request that widens its receive timeout ([receiveTimeoutExtra]) is
-/// given that and the connect timeout, never less than [deadline]. Place it
-/// after [RequestTimeoutInterceptor] and ahead of the interceptors whose
-/// `onError` should see the timeout.
-class RequestDeadlineInterceptor extends Interceptor {
-  RequestDeadlineInterceptor({this.deadline = const Duration(seconds: 60)});
+/// It wraps the adapter rather than sitting in the interceptor chain: only the
+/// adapter sees every request end, so the clock never outlives one, and it
+/// does not run while the session is being refreshed. A request that widens
+/// its receive timeout ([receiveTimeoutExtra]) is given that and the connect
+/// timeout, never less than [deadline].
+class RequestDeadlineAdapter implements HttpClientAdapter {
+  RequestDeadlineAdapter(
+    this._inner, {
+    this.deadline = const Duration(seconds: 60),
+  });
 
+  final HttpClientAdapter _inner;
   final Duration deadline;
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    // A retry (the session refresh sends the same options again) starts over
-    // with the caller's own token.
-    _stop(options);
-    final caller = options.extra.putIfAbsent(
-      _callerTokenKey,
-      () => options.cancelToken,
-    ) as CancelToken?;
-    final budget = _budget(options);
-    // A token of our own, so running out never cancels one the caller shares
-    // with other requests.
-    final token = CancelToken();
-    final timer = Timer(budget, () => token.cancel(_Expired(budget)));
-    unawaited(
-      caller?.whenCancel.then((e) {
-        timer.cancel();
-        token.cancel(e.error);
-      }),
-    );
-    options
-      ..cancelToken = token
-      ..extra[_runningKey] = timer;
-    handler.next(options);
-  }
-
-  @override
-  void onResponse(
-    Response<dynamic> response,
-    ResponseInterceptorHandler handler,
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
   ) {
-    _stop(response.requestOptions);
-    handler.next(response);
-  }
-
-  @override
-  void onError(DioException err, ErrorInterceptorHandler handler) {
-    _stop(err.requestOptions);
-    final reason = err.error;
-    handler.next(
-      err.type == DioExceptionType.cancel && reason is _Expired
-          ? DioException.receiveTimeout(
-              timeout: reason.budget,
-              requestOptions: err.requestOptions,
-            )
-          : err,
+    final budget = _budget(options);
+    final expired = Completer<void>();
+    final answer = Completer<ResponseBody>();
+    final timeout = DioException.receiveTimeout(
+      timeout: budget,
+      requestOptions: options,
     );
-  }
+    // Closed by the timer or when the source ends.
+    // ignore: close_sinks
+    StreamController<Uint8List>? body;
+    StreamSubscription<Uint8List>? source;
+    late final Timer timer;
 
-  static void _stop(RequestOptions options) {
-    if (options.extra.remove(_runningKey) case final Timer timer) {
-      timer.cancel();
-    }
+    timer = Timer(budget, () {
+      expired.complete();
+      if (!answer.isCompleted) {
+        answer.completeError(timeout);
+      } else if (body case final open? when !open.isClosed) {
+        unawaited(source?.cancel());
+        open
+          ..addError(timeout)
+          ..close();
+      }
+    });
+    // Whichever of the two ends the request, the inner adapter aborts it.
+    final abort = Future.any([?cancelFuture, expired.future]);
+    unawaited(cancelFuture?.whenComplete(timer.cancel));
+
+    _inner
+        .fetch(options, requestStream, abort)
+        .then(
+          (response) {
+            if (answer.isCompleted) {
+              // Already failed with the timeout: drop the late answer.
+              unawaited(response.stream.listen(null).cancel());
+              return;
+            }
+            final out = body = StreamController<Uint8List>(
+              onPause: () => source?.pause(),
+              onResume: () => source?.resume(),
+              onCancel: () {
+                timer.cancel();
+                return source?.cancel();
+              },
+            );
+            source = response.stream.listen(
+              out.add,
+              onError: (Object e, StackTrace s) {
+                timer.cancel();
+                out.addError(e, s);
+              },
+              onDone: () {
+                timer.cancel();
+                unawaited(out.close());
+              },
+              cancelOnError: true,
+            );
+            answer.complete(
+              ResponseBody(
+                out.stream,
+                response.statusCode,
+                statusMessage: response.statusMessage,
+                isRedirect: response.isRedirect,
+                redirects: response.redirects,
+                headers: response.headers,
+              )..extra = response.extra,
+            );
+          },
+          onError: (Object e, StackTrace s) {
+            timer.cancel();
+            if (!answer.isCompleted) answer.completeError(e, s);
+          },
+        );
+    return answer.future;
   }
 
   Duration _budget(RequestOptions options) {
@@ -113,11 +144,7 @@ class RequestDeadlineInterceptor extends Interceptor {
         (options.receiveTimeout ?? Duration.zero);
     return widened > deadline ? widened : deadline;
   }
-}
 
-/// What a request's token is cancelled with when its deadline passes.
-class _Expired {
-  const _Expired(this.budget);
-
-  final Duration budget;
+  @override
+  void close({bool force = false}) => _inner.close(force: force);
 }

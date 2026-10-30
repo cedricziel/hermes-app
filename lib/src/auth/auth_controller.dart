@@ -1137,20 +1137,22 @@ class AuthController extends ChangeNotifier {
     String baseUrl, {
     Duration connectTimeout = const Duration(seconds: 15),
     Duration receiveTimeout = const Duration(seconds: 30),
-  }) =>
-      Dio(
-          BaseOptions(
-            baseUrl: baseUrl,
-            connectTimeout: connectTimeout,
-            receiveTimeout: receiveTimeout,
-          ),
-        )
-        ..interceptors.addAll([
-          RequestTimeoutInterceptor(),
-          RequestDeadlineInterceptor(),
-          ..._interceptors,
-          ?_connection.interceptor,
-        ]);
+  }) {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: connectTimeout,
+        receiveTimeout: receiveTimeout,
+      ),
+    );
+    dio.httpClientAdapter = RequestDeadlineAdapter(dio.httpClientAdapter);
+    return dio
+      ..interceptors.addAll([
+        RequestTimeoutInterceptor(),
+        ..._interceptors,
+        ?_connection.interceptor,
+      ]);
+  }
 
   void _announceSignedOut({bool expired = false}) {
     _sessionExpired = expired;

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/request_timeout.dart';
 
@@ -33,9 +34,8 @@ void main() {
   group('request deadline', () {
     const deadline = Duration(milliseconds: 80);
 
-    Dio clientFor(FakeHermesServer server) =>
-        server.dio()
-          ..interceptors.add(RequestDeadlineInterceptor(deadline: deadline));
+    Dio clientFor(FakeHermesServer server) => server.dio()
+      ..httpClientAdapter = RequestDeadlineAdapter(server, deadline: deadline);
 
     FakeHermesServer stuckServer() {
       final never = Completer<FakeResponse>();
@@ -130,27 +130,15 @@ void main() {
                 receiveTimeout: const Duration(milliseconds: 200),
               ),
             )
-            ..interceptors.add(
-              RequestDeadlineInterceptor(
-                deadline: const Duration(milliseconds: 300),
-              ),
+            ..httpClientAdapter = RequestDeadlineAdapter(
+              IOHttpClientAdapter(),
+              deadline: const Duration(milliseconds: 300),
             );
 
       await expectLater(
         dio.get<String>('/'),
         dioError(DioExceptionType.receiveTimeout),
       );
-    });
-
-    test('running out does not cancel the caller\'s token', () async {
-      final token = CancelToken();
-
-      await expectLater(
-        clientFor(stuckServer()).get<Object>('/stuck', cancelToken: token),
-        dioError(DioExceptionType.receiveTimeout),
-      );
-
-      expect(token.isCancelled, isFalse);
     });
   });
 }

@@ -15,9 +15,9 @@ HermesApiClient windowApiClient(String baseUrl, WindowAuthHeaders headers) {
       receiveTimeout: const Duration(seconds: 30),
     ),
   );
+  dio.httpClientAdapter = RequestDeadlineAdapter(dio.httpClientAdapter);
   dio.interceptors.addAll([
     RequestTimeoutInterceptor(),
-    RequestDeadlineInterceptor(),
     WindowAuthInterceptor(dio, headers),
   ]);
   return HermesApiClient(dio);
