@@ -223,13 +223,15 @@ class ThreadHousekeeping {
   });
 
   /// Takes on what the dashboard now holds for [thread]: its title, pin and
-  /// last activity, changed elsewhere (another window).
+  /// last activity, changed elsewhere (another window). [fresh] is a single
+  /// session, whose read state can only add an unread the list missed.
   void adopt(ChatThread thread, ChatThread fresh) {
     thread
       ..title = fresh.title
       ..named = fresh.named
       ..pinned = fresh.pinned
       ..updatedAt = fresh.updatedAt;
+    if (fresh.unread) thread.unread = true;
     _sort();
   }
 

@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/content_column.dart';
-import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'memory_controller.dart';
 import 'memory_repository.dart';
+import 'memory_settings_controller.dart';
+import 'memory_proposals_controller.dart';
+import 'memory_proposals_screen.dart';
+import 'memory_usage.dart';
+import 'widgets/memory_entry_editor.dart';
+import 'widgets/memory_entry_list.dart';
+import 'widgets/memory_learning_section.dart';
+import 'widgets/memory_reset_dialog.dart';
+import 'widgets/memory_storage_section.dart';
+import 'widgets/memory_waiting_card.dart';
 
 class MemoryScreen extends StatefulWidget {
   const MemoryScreen({
@@ -13,17 +22,72 @@ class MemoryScreen extends StatefulWidget {
     required this.controller,
     this.profiles = const {},
     this.onProfile,
+    this.settings,
+    this.onOpenProviders,
+    this.proposals,
   });
   final MemoryController controller;
+
+  /// The changes Hermes waits on; the card and the inbox are left out without
+  /// it.
+  final MemoryProposalsController? proposals;
+
+  /// The profile's Learning settings; the section is left out without it.
+  final MemorySettingsController? settings;
+
+  /// Opens the Plugins screen's Providers tab for the profile named.
+  final ValueChanged<String>? onOpenProviders;
   final Map<String, String> profiles;
   final ValueChanged<String>? onProfile;
   @override
   State<MemoryScreen> createState() => _MemoryScreenState();
 }
 
-class _MemoryScreenState extends State<MemoryScreen> {
+class _MemoryScreenState extends State<MemoryScreen>
+    with SingleTickerProviderStateMixin {
   bool _allowPop = false;
+  bool _switching = false;
+  late final _tabs = TabController(length: MemoryTab.values.length, vsync: this)
+    ..addListener(_onTab);
   MemoryController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_syncTab);
+  }
+
+  @override
+  void dispose() {
+    controller.removeListener(_syncTab);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  void _syncTab() {
+    if (_tabs.index != controller.tab.index) _tabs.index = controller.tab.index;
+  }
+
+  Future<void> _onTab() async {
+    final next = MemoryTab.values[_tabs.index];
+    if (_switching || next == controller.tab) return;
+    _switching = true;
+    final leave = await _leave();
+    _switching = false;
+    if (!mounted) return;
+    if (leave) {
+      controller.selectTab(next);
+    } else {
+      _tabs.index = controller.tab.index;
+    }
+  }
+
+  String? _place() {
+    final open = controller.selected, position = controller.position;
+    if (open == null || position == null) return null;
+    return 'Entry ${position.index} of ${position.count} in '
+        '${open.tab.label} (${open.tab.file})';
+  }
 
   Future<bool> _leave() async {
     if (!controller.needsLeaveConfirmation) return true;
@@ -116,8 +180,33 @@ class _MemoryScreenState extends State<MemoryScreen> {
                     ),
                 ],
               ),
+        tabs: [for (final tab in MemoryTab.values) tab.label],
+        tabController: _tabs,
         body: MemoryView(
-          entries: controller.entries,
+          header: [
+            if (widget.proposals case final proposals?)
+              _WaitingCard(
+                proposals: proposals,
+                onOpen: () => openMemoryProposals(
+                  context,
+                  controller: proposals,
+                  settings: widget.settings,
+                ),
+              ),
+          ],
+          footer: widget.settings == null
+              ? const []
+              : [
+                  _LearningSection(controller: widget.settings!),
+                  _StorageSection(
+                    controller: widget.settings!,
+                    profile: controller.profile,
+                    onOpenProviders: widget.onOpenProviders,
+                  ),
+                ],
+          usage: controller.usageOf(controller.tab),
+          entries: controller.entriesIn(controller.tab),
+          place: _place(),
           selected: controller.selected,
           detail: controller.detail,
           loading: controller.loading,
@@ -145,6 +234,75 @@ class _MemoryScreenState extends State<MemoryScreen> {
   );
 }
 
+class _WaitingCard extends StatelessWidget {
+  const _WaitingCard({required this.proposals, required this.onOpen});
+  final MemoryProposalsController proposals;
+  final VoidCallback onOpen;
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: proposals,
+    builder: (context, _) {
+      final waiting = proposals.waiting ?? 0;
+      return waiting == 0
+          ? const SizedBox.shrink()
+          : MemoryWaitingCard(count: waiting, onTap: onOpen);
+    },
+  );
+}
+
+class _LearningSection extends StatelessWidget {
+  const _LearningSection({required this.controller});
+  final MemorySettingsController controller;
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) => MemoryLearningSection(
+      settings: controller.settings,
+      unreadable: controller.unreadable,
+      message: controller.message,
+      onChanged: controller.change,
+      onRetry: controller.load,
+    ),
+  );
+}
+
+class _StorageSection extends StatelessWidget {
+  const _StorageSection({
+    required this.controller,
+    required this.profile,
+    required this.onOpenProviders,
+  });
+  final MemorySettingsController controller;
+  final String? profile;
+  final ValueChanged<String>? onOpenProviders;
+
+  Future<void> _reset(BuildContext context, String profile) async {
+    final target = await showMemoryResetDialog(context, profile: profile);
+    if (target != null) await controller.reset(target);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final named = profile;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => MemoryStorageSection(
+        provider: controller.provider,
+        providerFailed: controller.providerFailed,
+        resetting: controller.resetting,
+        notice: controller.notice,
+        onOpenProviders: () {
+          if (named != null) onOpenProviders?.call(named);
+        },
+        onRetry: controller.loadProvider,
+        onReset: () {
+          if (named != null) _reset(context, named);
+        },
+      ),
+    );
+  }
+}
+
 class MemoryEditor extends StatelessWidget {
   const MemoryEditor({
     super.key,
@@ -157,65 +315,27 @@ class MemoryEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pending = controller.mutation == MemoryMutation.pending;
-    final blocked =
-        pending ||
-        controller.mutation == MemoryMutation.uncertain ||
-        controller.mutation == MemoryMutation.conflict;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (controller.editing)
-          TextFormField(
-            key: ValueKey(controller.detail),
-            initialValue: controller.draft,
-            enabled: !pending,
-            minLines: 4,
-            maxLines: null,
-            decoration: const InputDecoration(
-              labelText: 'Full memory content',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: controller.setDraft,
-          ),
-        if (controller.mutationMessage != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(controller.mutationMessage!),
-          ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (!controller.editing)
-              TextButton(
-                onPressed: blocked ? null : controller.beginEdit,
-                child: const Text('Edit'),
-              ),
-            if (controller.editing)
-              FilledButton(
-                onPressed: controller.canSave
-                    ? () => controller.mutate(delete: false)
-                    : null,
-                child: Text(pending ? 'Saving...' : 'Save'),
-              ),
-            if (controller.editing)
-              TextButton(
-                onPressed: pending ? null : onCancel,
-                child: const Text('Cancel edit'),
-              ),
-            TextButton(
-              onPressed: blocked ? null : onDelete,
-              child: const Text('Delete'),
-            ),
-            if (controller.mutation == MemoryMutation.uncertain)
-              TextButton(
-                onPressed: controller.reconcile,
-                child: const Text('Check current memories'),
-              ),
-          ],
-        ),
-        if (pending) const LinearProgressIndicator(),
-      ],
+    final uncertain = controller.mutation == MemoryMutation.uncertain;
+    return MemoryEntryEditor(
+      tab: controller.selected?.tab ?? controller.tab,
+      editing: controller.editing,
+      draft: controller.draft,
+      fieldKey: controller.detail,
+      left: controller.leftWithDraft,
+      message: controller.mutationMessage,
+      pending: pending,
+      blocked:
+          pending ||
+          uncertain ||
+          controller.mutation == MemoryMutation.conflict,
+      canSave: controller.canSave,
+      uncertain: uncertain,
+      onChanged: controller.setDraft,
+      onEdit: controller.beginEdit,
+      onSave: () => controller.mutate(delete: false),
+      onCancel: onCancel,
+      onDelete: onDelete,
+      onCheck: controller.reconcile,
     );
   }
 }
@@ -223,20 +343,36 @@ class MemoryEditor extends StatelessWidget {
 class MemoryView extends StatelessWidget {
   const MemoryView({
     super.key,
+    this.usage = const MemoryUsage(used: 0, entries: 0),
     this.entries = const [],
+    this.place,
     this.selected,
     this.detail,
     this.loading = false,
     this.failure,
     this.editor,
     this.showContent = true,
+    this.header = const [],
+    this.footer = const [],
     required this.onOpen,
     required this.onRefresh,
     required this.onBack,
   });
   final bool showContent;
   final Widget? editor;
+
+  /// Shown above the list of entries.
+  final List<Widget> header;
+
+  /// Shown under the list of entries.
+  final List<Widget> footer;
+  final MemoryUsage usage;
+
+  /// The entries of the file shown.
   final List<MemoryEntry> entries;
+
+  /// Where the open entry lives, such as "Entry 2 of 4 in About you (USER.md)".
+  final String? place;
   final MemoryEntry? selected;
   final MemoryDetail? detail;
   final bool loading;
@@ -270,6 +406,14 @@ class MemoryView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextButton(onPressed: onBack, child: const Text('All memories')),
+              if (place != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    place!,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
               const SizedBox(height: 12),
               if (showContent) SelectableText(opened.content),
               if (editor != null) ...[const SizedBox(height: 20), editor!],
@@ -278,33 +422,13 @@ class MemoryView extends StatelessWidget {
         ),
       );
     }
-    if (entries.isEmpty) {
-      return ContentColumn(
-        child: StateMessage(
-          title: 'No memories in this profile',
-          action: FilledButton(
-            onPressed: onRefresh,
-            child: const Text('Refresh'),
-          ),
-        ),
-      );
-    }
-    return GroupedListView(
-      children: [
-        GroupedSection(
-          children: [
-            for (final entry in entries)
-              GroupedRow(
-                title: entry.label,
-                subtitle: entry.sourceLabel,
-                onTap: () => onOpen(entry),
-              ),
-          ],
-        ),
-        GroupedSection(
-          children: [GroupedRow(title: 'Refresh', onTap: onRefresh)],
-        ),
-      ],
+    return MemoryEntryList(
+      usage: usage,
+      entries: [for (final entry in entries) entry.text],
+      onOpen: (index) => onOpen(entries[index]),
+      onRefresh: onRefresh,
+      header: header,
+      footer: footer,
     );
   }
 }

@@ -6,6 +6,10 @@ TestFlight shows the text as it is, so release-please's markdown (headings, bold
 scopes, links, and the trailing pull request and commit references) would reach
 testers as raw symbols. Links keep their text, the references are dropped, and
 the result is cut at a line to fit the 4000 characters TestFlight accepts.
+
+App Review rejects "What's New" text that mentions other platforms (guideline
+2.3.10), so lines about Android, Windows or Linux are left out, and a heading
+with nothing left under it goes too.
 """
 
 import re
@@ -22,6 +26,9 @@ _ITALIC = re.compile(r"\*(.+?)\*|(?<!\w)_(.+?)_(?!\w)")
 _CODE = re.compile(r"`([^`]*)`")
 _HEADING = re.compile(r"^#{1,6}\s+(.*)$")
 _BULLET = re.compile(r"^\s*[*+-]\s+")
+# "windows" alone is a Mac app's windows; the platform is "Windows" or the
+# release-please scope at the start of an entry.
+_OTHER_PLATFORM = re.compile(r"(?i:\b(?:android|linux)\b)|\bWindows\b|^windows:")
 
 
 def _inline(text: str) -> str:
@@ -32,28 +39,48 @@ def _inline(text: str) -> str:
     return _CODE.sub(r"\1", text).strip()
 
 
+class _Section:
+    def __init__(self, title):
+        self.title = title
+        self.lines = []
+        # A heading about another platform leaves out everything under it.
+        self.other_platform = title is not None and bool(_OTHER_PLATFORM.search(title))
+        self.left_out = False
+
+
 def plain(markdown: str) -> str:
-    lines: list[str] = []
+    # The first section has no heading: the text before any.
+    sections = [_Section(None)]
     blank = False
-    after_heading = False
     for raw in markdown.splitlines():
         if not raw.strip():
             blank = True
             continue
         heading = _HEADING.match(raw.strip())
         if heading:
+            sections.append(_Section(_inline(heading.group(1))))
+            blank = False
+            continue
+        section = sections[-1]
+        bullet = _BULLET.match(raw)
+        text = _inline(_BULLET.sub("", raw) if bullet else raw)
+        if section.other_platform or _OTHER_PLATFORM.search(text):
+            section.left_out = True
+            continue
+        if blank and section.lines:
+            section.lines.append("")
+        section.lines.append(f"- {text}" if bullet else text)
+        blank = False
+
+    lines: list[str] = []
+    for section in sections:
+        if section.other_platform or (section.left_out and not section.lines):
+            continue
+        if section.title is not None:
             if lines:
                 lines.append("")
-            lines.append(_inline(heading.group(1)))
-            blank = False
-            after_heading = True
-            continue
-        if blank and lines and not after_heading:
-            lines.append("")
-        text = _inline(raw)
-        lines.append(f"- {_inline(_BULLET.sub('', raw))}" if _BULLET.match(raw) else text)
-        blank = False
-        after_heading = False
+            lines.append(section.title)
+        lines.extend(section.lines)
 
     text = "\n".join(lines)
     if len(text) <= LIMIT:

@@ -23,6 +23,7 @@ enum ActivityKind {
   process(ActivityTier.working),
   moa(ActivityTier.working),
   resume(ActivityTier.working),
+  screen(ActivityTier.working),
   usage(ActivityTier.reference),
   sideResult(ActivityTier.reference),
   notice(ActivityTier.reference),

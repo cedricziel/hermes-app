@@ -1,0 +1,231 @@
+/* Black and white in both themes, like the image viewer and the app's own
+   Colors.black. The tokens are set here so the buttons and icons follow. */
+.h-bot-viewer {
+  --h-bg: #000;
+  --h-fg: #fff;
+  --h-muted: rgba(255, 255, 255, 0.6);
+  --h-hover: rgba(255, 255, 255, 0.12);
+  /* The viewer is dark in both themes, so is the amber that says who drives. */
+  --h-warning: #fbbf24;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--h-bg);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-bot-viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 56px;
+  padding: 0 8px 0 4px;
+}
+
+.h-bot-viewer--apple .h-bot-viewer__bar {
+  height: 44px;
+}
+
+.h-bot-viewer--apple.h-bot-viewer--mac .h-bot-viewer__bar {
+  height: 52px;
+}
+
+/* The layer covers the window's traffic lights. */
+.h-bot-viewer__lights {
+  flex-shrink: 0;
+  width: 78px;
+}
+
+.h-bot-viewer__title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+}
+
+.h-bot-viewer__title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-bot-viewer__subtitle {
+  color: var(--h-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.h-bot-viewer__subtitle--control {
+  color: var(--h-warning);
+}
+
+/* A line under the header: something happened to control. */
+.h-bot-viewer__banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding-left: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* The edge of the stage while this device is in control; it takes no pointer. */
+.h-bot-viewer__frame {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 3px solid var(--h-warning);
+  pointer-events: none;
+}
+
+.h-bot-viewer__stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  /* A short window scrolls a notice; children centre themselves with
+     `margin: auto`, which keeps the top of an overflowing one reachable. */
+  overflow: auto;
+}
+
+.h-bot-viewer__picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* The picture's box, at the screen's ratio, fitted inside the stage whichever
+   side is short and never stretched; the Trackpad cursor sits inside it. */
+.h-bot-viewer__screen {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.h-bot-viewer__screen img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* The cursor of Trackpad mode: a black arrow with a white edge. */
+.h-bot-viewer__cursor {
+  position: absolute;
+  width: 14px;
+  height: 20px;
+  background: #000;
+  clip-path: polygon(0 0, 0 85%, 30% 62%, 55% 100%, 75% 90%, 50% 55%, 100% 50%);
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+  pointer-events: none;
+}
+
+/* Paste and Send F8 under the header of a computer's viewer. */
+.h-bot-viewer__tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  overflow-x: auto;
+}
+
+/* The key bar of a touch device: scrolls sideways when it does not fit. */
+.h-bot-viewer__keys {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 6px;
+  overflow-x: auto;
+}
+
+.h-bot-viewer__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 38px;
+  min-height: 40px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--h-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.h-bot-viewer--apple .h-bot-viewer__key {
+  min-height: 44px;
+}
+
+.h-bot-viewer__key--on {
+  background: #fafafa;
+  color: #18181b;
+}
+
+.h-bot-viewer__dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.54);
+}
+
+.h-bot-viewer__busy {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.h-bot-viewer__stage > .h-bot-viewer__busy:only-child {
+  position: static;
+  margin: auto;
+}
+
+.h-bot-viewer__notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 360px;
+  margin: auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.h-bot-viewer__notice .h-icon {
+  margin-bottom: 6px;
+  color: var(--h-muted);
+}
+
+.h-bot-viewer__notice h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+
+.h-bot-viewer__notice p {
+  margin: 0;
+  color: var(--h-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.h-bot-viewer__notice .h-button {
+  margin-top: 10px;
+}

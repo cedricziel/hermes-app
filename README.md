@@ -180,6 +180,17 @@ Handoff transfers the dashboard address, profile, and chat ID. Drafts,
 attachments, queued messages, and unsaved chats remain on their source device.
 Hosted group rooms and browser continuation are not supported.
 
+## Receive messages from Hermes
+
+The optional [Hermes App messenger plugin](plugins/hermes-app/README.md) registers
+the app as a Hermes messaging destination. Install it on your Hermes server to
+let the agent and scheduled jobs send text into new, saved chats you can open
+and reply to. Delivery works while the app is disconnected. The app announces
+new messages with a notification on Android, iOS and macOS: within about a
+minute while it is open, and on iOS and Android when the system lets it check
+in the background. A closed or suspended app is not woken at once. The plugin
+guide covers setup and testing.
+
 ## The API client
 
 Most REST calls go through `packages/hermes_api`, a client generated from

@@ -353,6 +353,7 @@ final class ToolFinished extends ChatEvent {
     required this.name,
     this.id = '',
     this.failed = false,
+    this.warning = false,
     this.interrupted = false,
     this.result = '',
     this.resultData,
@@ -366,6 +367,10 @@ final class ToolFinished extends ChatEvent {
   final String id;
   final String name;
   final bool failed;
+
+  /// The call did not fail but did not do its work, as a memory that is
+  /// full.
+  final bool warning;
 
   /// The run was killed before it finished, as by stopping the reply.
   final bool interrupted;
@@ -617,6 +622,37 @@ abstract interface class GatewayRequester {
     String method, [
     Map<String, Object?> params = const {},
   ]);
+
+  /// Like [request], but a call that gets no answer within [timeout] throws
+  /// `GatewayRequestTimeout` instead of closing the connection that running
+  /// replies share.
+  Future<Map<String, Object?>> requestKeepingConnection(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  });
+
+  /// [requestKeepingConnection], also saying which connection carried the call
+  /// (a token like `GatewayConnectionTransport.gatewayConnection`), for a call
+  /// whose meaning belongs to that connection.
+  Future<(Map<String, Object?>, Object)> requestKeepingConnectionOnClient(
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  });
+
+  /// Like [requestKeepingConnection], but only over [connection] (a token from
+  /// `GatewayConnectionTransport.gatewayConnection` or the connection a call
+  /// reported). When that connection is no longer the current one it throws
+  /// `GatewayConnectionClosed` without opening another, for a call whose
+  /// meaning belongs to the connection that made the earlier one: a viewer id
+  /// is honoured only on the connection that minted it.
+  Future<Map<String, Object?>> requestOn(
+    Object connection,
+    String method,
+    Map<String, Object?> params, {
+    required Duration timeout,
+  });
 }
 
 /// Awaits protected persistence immediately before the prompt RPC.

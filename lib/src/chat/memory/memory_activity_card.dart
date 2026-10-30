@@ -15,6 +15,7 @@ class MemoryActivityCard extends StatelessWidget {
     this.reviewNotes = const [],
     this.earlierRecallsOmitted = false,
     this.initiallyOpen = false,
+    this.onOpenMemory,
   });
 
   /// Chronological, oldest first. Only the latest recall is shown collapsed.
@@ -22,6 +23,10 @@ class MemoryActivityCard extends StatelessWidget {
   final List<String> reviewNotes;
   final bool earlierRecallsOmitted;
   final bool initiallyOpen;
+
+  /// Opens the Memory screen of the chat's profile, offered under the review
+  /// notes; null leaves the link out.
+  final VoidCallback? onOpenMemory;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +108,14 @@ class MemoryActivityCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: SelectableText(note),
+                  ),
+                if (onOpenMemory case final open?)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton(
+                      onPressed: open,
+                      child: const Text('Memory'),
+                    ),
                   ),
               ],
             ],

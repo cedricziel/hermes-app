@@ -1701,6 +1701,38 @@ void main() {
       expect(accepted, isFalse);
     });
 
+    test('a registered handler leaves the approval, sudo and secret requests '
+        'on their own path', () async {
+      var handled = 0;
+      transport.registerServerRequestHandler('display.install.sudo', (
+        request,
+        connection,
+      ) async {
+        handled++;
+        return {'value': 'x'};
+      });
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-1', 'approval', sid, approvalParams);
+        g.serverRequest('srq-4', 'sudo', sid, {'command': 'apt install x'});
+        g.serverRequest('srq-5', 'secret', sid, {'env_var': 'KEY'});
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+      await pumpEventQueue();
+
+      expect(
+        events.whereType<ApprovalRequested>().single.request.requestId,
+        'srq-1',
+      );
+      expect(
+        events.whereType<UnsupportedRequested>().map((e) => e.request.kind),
+        [UnsupportedKind.sudo, UnsupportedKind.secret],
+      );
+      expect(handled, 0);
+      expect(gateway.responses, isEmpty);
+    });
+
     test('secret and sudo requests are shown and never answered', () async {
       gateway.turn = (g, sid) {
         g.serverRequest('srq-4', 'sudo', sid, {'command': 'apt install x'});

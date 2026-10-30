@@ -2,7 +2,9 @@
 
 ## Purpose
 Describes how the app lets the user manage the plugins of the connected Hermes dashboard: how the Plugins screen is reached, how installed plugins are listed and described, how one is enabled, disabled, updated, removed and hidden, and which backend routes this relies on. Later changes add the catalog, installing and the provider pickers to this same capability.
+
 ## Requirements
+
 ### Requirement: Plugins entry in the chat sidebar
 
 The system SHALL show a Plugins entry in the footer of the chat sidebar, after Profiles and Bots, that opens the Plugins screen. The entry SHALL be shown only while the app is connected to a dashboard.
@@ -144,6 +146,7 @@ The system SHALL open a plugin's details when its row is tapped: as a centered d
 
 - **WHEN** the user dismisses compact plugin details
 - **THEN** the plugin list remains open and the selected detail is cleared
+
 ### Requirement: Enabling and disabling a plugin
 
 The system SHALL let the user turn a plugin on or off from its details with a switch that reflects `runtime_status`: on for `enabled`, off otherwise. Turning it on SHALL call `POST /api/dashboard/agent-plugins/{name}/enable` and turning it off SHALL call `POST /api/dashboard/agent-plugins/{name}/disable`. The details SHALL say the change applies to new chats. While the call runs, the switch SHALL be disabled. When it succeeds, the list SHALL be reloaded and the switch SHALL show the state the server now reports. When the server refuses, the switch SHALL stay as it was and the user SHALL be told why: with the server's `detail` when it is a non-empty string, otherwise "Could not update this plugin".
@@ -384,6 +387,7 @@ The system SHALL open an entry's details when its row is tapped, as a centered d
 
 - **WHEN** the user dismisses catalog details while an installation remains pending
 - **THEN** duplicate install controls stay disabled while pending and the completed result is still reported on the plugin screen
+
 ### Requirement: Installing a catalog entry
 
 The system SHALL let the user install a catalog entry from its row or its details. The details SHALL carry an "Enable after install" switch, on by default. Installing SHALL call `POST /api/dashboard/agent-plugins/install` with the entry's name as `catalog_name`, an empty `identifier`, `enable` as the switch says, and `force` false. While it runs, that entry's Install control SHALL show progress and be disabled. The system SHALL NOT send the entry's repository or commit: the server resolves both.
@@ -487,12 +491,17 @@ The system SHALL read the catalog and install only through `GET /api/dashboard/p
 
 ### Requirement: Plugins screen has Installed, Catalog and Providers tabs
 
-The system SHALL show the Plugins screen with three tabs, Installed, Catalog and Providers, in that order, Installed selected when the screen opens. Each tab SHALL keep its own state (list, search text, open details, unsaved choices) while the user switches between them. The catalog SHALL NOT be requested until the Catalog tab has been opened for the first time, and the provider settings SHALL NOT be requested until the Providers tab has been opened for the first time.
+The system SHALL show the Plugins screen with three tabs, Installed, Catalog and Providers, in that order, Installed selected when the screen opens, except when it is opened from the Memory screen's provider row, which selects Providers. Each tab SHALL keep its own state (list, search text, open details, unsaved choices) while the user switches between them. The catalog SHALL NOT be requested until the Catalog tab has been opened for the first time, and the provider settings SHALL NOT be requested until the Providers tab has been opened for the first time.
 
 #### Scenario: Opens on Installed
 
 - **WHEN** the Plugins screen opens
 - **THEN** the Installed tab is selected and no catalog request and no provider request has been made
+
+#### Scenario: Opened from Memory
+
+- **WHEN** the user opens the Plugins screen from the Memory screen's provider row
+- **THEN** the Providers tab is selected, the provider settings are requested and the catalog is not
 
 #### Scenario: Catalog opened
 
@@ -638,4 +647,3 @@ The system SHALL read provider settings from the `providers` object of `GET /api
 
 - **WHEN** the dashboard has no sign-in and expects the session token header
 - **THEN** the provider calls carry it like the app's other requests
-

@@ -21,7 +21,10 @@ enum MessageStatus { sent, thinking, streaming, error }
 
 /// Where a tool call stands. [cancelled] is a call the reply stopped before
 /// it finished, or one the model began to write but never ran.
-enum ToolCallStatus { running, completed, error, cancelled }
+enum ToolCallStatus { running, completed, warning, error, cancelled }
+
+/// The tool whose calls drive the bot's own screen (the Bot Screen).
+const String kComputerUseTool = 'computer_use';
 
 /// A single tool invocation surfaced inline in an assistant message, e.g.
 /// Hermes running a shell command or a web search on the user's behalf.
@@ -669,6 +672,7 @@ class ChatThread {
     this.folderPath,
     this.remote = false,
     this.named = false,
+    this.unread = false,
     this.modelChoice,
     this.botContext,
     List<ChatMessage>? messages,
@@ -691,6 +695,10 @@ class ChatThread {
   /// opposed to one made from the prompt, a file name or the first message.
   /// Only a name may leave the app for a watch face.
   bool named;
+
+  /// Whether the dashboard holds this chat as unread: activity it has not
+  /// been opened for since, or a delivery the agent started for the user.
+  bool unread;
   final List<ChatMessage> messages;
 
   /// The model picked for this thread; null runs the profile's default.

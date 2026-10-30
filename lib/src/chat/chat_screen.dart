@@ -23,17 +23,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 
+import '../agent_messages/agent_message_watcher.dart' show AgentMessageFinds;
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
+import '../bot_screen/bot_screen_controller.dart';
+import '../bot_screen/bot_screen_repository.dart';
+import '../bot_screen/bot_screen_viewer_ids.dart';
+import '../bot_screen/install/bot_screen_installs.dart';
+import '../bot_screen/rfb/display_socket.dart';
+import '../bot_screen/takeover_setting.dart';
+import '../bot_screen/viewer/bot_screen_viewer_controller.dart';
+import '../bot_screen/viewer/bot_screen_viewer_presenter.dart';
 import '../handoff/handoff_controller.dart';
 import '../handoff/handoff_activity.dart';
 import '../messaging/messaging_screen.dart';
 import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../mcp/mcp_servers_screen.dart';
+import '../memory/memory_destination.dart';
+import '../memory/memory_proposal_session.dart';
+import '../memory/memory_proposals_repository.dart';
+import '../memory/memory_waiting_count.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/widgets/model_setup_dialog.dart';
 import '../live_activities/live_activities.dart';
@@ -54,6 +67,7 @@ import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
 import '../macos/dock/dock_menu_controller.dart';
+import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
 import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
@@ -113,6 +127,7 @@ part 'chat_screen_navigation.dart';
 part 'chat_screen_composer.dart';
 part 'chat_screen_layout.dart';
 part 'chat_screen_calls.dart';
+part 'chat_screen_bot_screen.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -147,6 +162,8 @@ class ChatScreen extends StatefulWidget {
     this.chatProfiles,
     this.voiceRecorder,
     this.voiceMessageRecorder,
+    this.displaySocketOpener,
+    this.takeoverSetting,
   });
 
   final HermesChatRepository? repository;
@@ -204,6 +221,14 @@ class ChatScreen extends StatefulWidget {
   /// Optional microphone override for draft audio attachments.
   final VoiceRecorder? voiceMessageRecorder;
 
+  /// Opens the Bot Screen's display stream; the connected dashboard's unless
+  /// a test supplies its own.
+  final DisplaySocketOpener? displaySocketOpener;
+
+  /// Whether to ask before taking over the Bot Screen; the signed-in
+  /// account's own unless a test supplies one.
+  final TakeoverSetting? takeoverSetting;
+
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
@@ -211,6 +236,11 @@ class ChatScreen extends StatefulWidget {
 /// Owns resources and lifecycle; private parts group feature behavior and layout.
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
+
+  /// How many staged memory changes wait in the chat's profile, for the
+  /// Memory entry; null without a dashboard connection.
+  MemoryWaitingCount? _memoryWaiting;
+  var _wasLoadingThreads = false;
   HandoffController? _handoff;
   DockMenuController? _dock;
   HermesProfilesRepository? _profiles;
@@ -234,6 +264,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesMcpRepository? _mcp;
   HermesModelsRepository? _models;
   HermesGatewayTransport? _ownedTransport;
+
+  /// The Bot Screen of the chat's profile, and what it was made for.
+  BotScreenController? _screen;
+  BotScreenRepository? _screenRepository;
+  String? _screenProfile;
+
+  /// The viewer ids the server minted for this app in this run, which tell a
+  /// lease that is this device's from someone else's.
+  final _viewerIds = BotScreenViewerIds();
+
+  /// The live viewer while it is open, how to close it, and why it is being
+  /// closed (the reason its hand back is logged with).
+  BotScreenViewerController? _viewer;
+  BotScreenViewerHandle? _viewerHandle;
+  var _viewerCloseReason = 'close';
+  AuthController? _screenAuth;
+  ({GatewayRequester requests, GatewayConnectionTransport events})?
+  _screenGateway;
+  AppLockController? _screenLock;
+  StreamSubscription<bool>? _windowlessChanges;
+  bool _windowless = false;
   SessionActivity? _sessionActivity;
   final _composerController = TextEditingController();
   VoiceCall? _voiceCall;
@@ -265,6 +316,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _foreground = true;
   bool _routeVisible = true;
   ChangeInvalidationBinding? _listChanges;
+  AgentMessageFinds? _finds;
 
   /// Whether the window is a Mac one, as of the last build.
   bool _mac = false;
@@ -308,6 +360,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
+    _finds = _maybeRead<AgentMessageFinds>()?..addListener(_onAgentMessages);
     final liveActivities = _maybeRead<LiveActivities?>();
     final appLock = _maybeRead<AppLockController>();
     _attention = AttentionNotifier(
@@ -396,10 +449,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
     )..addListener(_changed);
+    if (transport != null && _skills != null) {
+      _memoryWaiting = MemoryWaitingCount(
+        MemoryProposalsRepository(
+          MemoryProposalSession(transport),
+          telemetry: repositories?.telemetry ?? const ConnectionTelemetry(),
+        ),
+      )..addListener(_memoryWaitingChanged);
+    }
     if (auth != null &&
         transport is GatewayConnectionTransport &&
         _chat.repository != null) {
-      final repository = _chat.repository!;
       final changes = _listChanges = ChangeInvalidationBinding(
         source: transport as GatewayConnectionTransport,
         auth: auth,
@@ -409,40 +469,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
       var requestedGeneration = _chat.threadListGeneration;
       String? requestedProfile;
-      changes.controller.register<
-        ({int generation, String profile, ThreadPage page})
-      >(
-        InvalidationResource.sessions,
-        readSnapshot: (scope) async {
-          final generation = requestedGeneration = _chat.threadListGeneration;
-          final profile = requestedProfile = scope.profile!;
-          final count = _chat.threads.where((thread) => thread.remote).length;
-          final page = await repository.loadThreadPage(
-            limit: count > 50 ? count : 50,
-            profile: profile,
+      changes.controller
+          .register<({int generation, String profile, ThreadPage page})>(
+            InvalidationResource.sessions,
+            readSnapshot: (scope) async {
+              final generation = requestedGeneration =
+                  _chat.threadListGeneration;
+              final profile = requestedProfile = scope.profile!;
+              final page = await _chat.readThreadListPage(profile);
+              return (generation: generation, profile: profile, page: page);
+            },
+            snapshotIsCurrent: (snapshot) =>
+                _chat.active &&
+                snapshot.generation == _chat.threadListGeneration &&
+                snapshot.profile == _chat.profile &&
+                !_chat.threadListInvalidationBlocked,
+            applySnapshot: (snapshot) => _chat.applyInvalidatedThreads(
+              snapshot.page,
+              profile: snapshot.profile,
+              generation: snapshot.generation,
+            ),
+            onFailure: (_) {
+              final profile = requestedProfile;
+              if (profile != null) {
+                _chat.threadListInvalidationFailed(
+                  profile: profile,
+                  generation: requestedGeneration,
+                );
+              }
+            },
           );
-          return (generation: generation, profile: profile, page: page);
-        },
-        snapshotIsCurrent: (snapshot) =>
-            _chat.active &&
-            snapshot.generation == _chat.threadListGeneration &&
-            snapshot.profile == _chat.profile &&
-            !_chat.threadListInvalidationBlocked,
-        applySnapshot: (snapshot) => _chat.applyInvalidatedThreads(
-          snapshot.page,
-          profile: snapshot.profile,
-          generation: snapshot.generation,
-        ),
-        onFailure: (_) {
-          final profile = requestedProfile;
-          if (profile != null) {
-            _chat.threadListInvalidationFailed(
-              profile: profile,
-              generation: requestedGeneration,
-            );
-          }
-        },
-      );
       changes.controller.addListener(_invalidationsChanged);
       _syncListChanges();
     }
@@ -504,7 +560,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     _composerController.addListener(_onComposerText);
     if (_chat.repository != null) {
-      _chat.loadThreads();
+      unawaited(
+        _chat.loadThreads().then(
+          (_) => WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _focusComposerOnLaunch(),
+          ),
+        ),
+      );
       widget.chatProfiles?.attach(_chat.loadThreads);
     }
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
@@ -529,6 +591,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       unawaited(_voiceRecording?.cancel());
     });
     _dictation?.controller.addListener(_takeVoice);
+    _initBotScreen(transport);
   }
 
   void _recordingChanged() {
@@ -556,9 +619,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     blocked: _chat.threadListInvalidationBlocked,
   );
 
+  void _memoryWaitingChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _changed() {
     if (!mounted) return;
     _syncListChanges();
+    _syncBotScreen();
+    final loading = _chat.loadingThreads;
+    if (_wasLoadingThreads && !loading) {
+      unawaited(_memoryWaiting?.refresh(_chat.profile));
+    }
+    _wasLoadingThreads = loading;
     final thread = _chat.selectedThread;
     final owner = (_chat.profile, _chat.selectedId);
     final savedOwner = _draftOwners[thread];
@@ -629,6 +702,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     }
     if (widget.visible != oldWidget.visible) {
+      // The viewer is a route above the whole shell: it does not follow a
+      // tab switch.
+      if (!widget.visible) _closeViewer('close');
+      _syncBotScreenGates();
       _updateActivePolling();
       WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
     }
@@ -687,6 +764,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
+    _syncBotScreenGates();
     _updateActivePolling();
     if (state case AppLifecycleState.paused || AppLifecycleState.hidden) {
       _dictation?.controller.cancel();
@@ -696,11 +774,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat.forgetRunningReplies();
     unawaited(_dictation?.refresh());
     _chat.checkConnection();
+    unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
 
   @override
   void dispose() {
+    _disposeBotScreen();
+    _windowlessChanges?.cancel();
     _listChanges?.controller.removeListener(_invalidationsChanged);
     _listChanges?.dispose();
     _menuBar?.disconnect(_chat);
@@ -713,6 +794,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     widget.chatProfiles?.attach(null);
     widget.openRequests?.removeListener(_onOpenRequest);
+    _finds?.removeListener(_onAgentMessages);
     _share.removeListener(_onShared);
     _mainFocused?.cancel();
     _panelTookVoice?.cancel();
@@ -726,6 +808,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..dispose();
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
+    _memoryWaiting
+      ?..removeListener(_memoryWaitingChanged)
+      ..dispose();
     _ownedTransport?.close();
     _voiceRecording?.dispose();
     _dictation?.dispose();
@@ -745,6 +830,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _onOpenRequest({bool initial = false}) =>
       _ChatScreenExternalOpenings(this)._onOpenRequest(initial: initial);
   void _onShared() => _ChatScreenSharing(this)._onShared();
+  void _onBotScreenGates() => _ChatScreenBotScreen(this)._syncBotScreenGates();
+
+  void _onAgentMessages() {
+    if (_finds!.profiles.contains(_chat.profile)) {
+      unawaited(_chat.refreshThreadList());
+    }
+  }
+
   void _syncDock() => _ChatScreenWindows(this)._syncDock();
   void _advertise() => _ChatScreenWindows(this)._advertise();
 

@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use when cutting, checking or shipping a hermes-app release — merging the release-please PR, following the TestFlight and Linux builds, re-running a failed upload for an existing tag, or shipping the latest pre-release to App Review with combined release notes since the release marked Latest. Not for retaking screenshots (store-screenshots).
+description: Use when cutting, checking or shipping a hermes-app release — merging the release-please PR, following the TestFlight and download builds (macOS DMG, Linux, Android, Windows), re-running a failed upload for an existing tag, or shipping the latest pre-release to App Review with combined release notes since the release marked Latest. Not for retaking screenshots (store-screenshots).
 ---
 
 # Release hermes-app
@@ -9,8 +9,10 @@ A release goes through three steps, each started by a person:
 
 1. **Cut**: merge the release-please PR. The tag `vX.Y.Z` and a GitHub
    **pre-release** are created, and `release-please.yml` uploads the build to
-   TestFlight (iOS and macOS, external group "Public beta") and attaches the Linux
-   tar.gz and .deb (x86_64, arm64).
+   TestFlight (iOS and macOS, external group "Public beta") and attaches the
+   downloads: a notarized macOS DMG, the Linux tar.gz and .deb (x86_64, arm64),
+   an Android APK and AAB, and a Windows x64 zip (unsigned, so SmartScreen
+   warns on first launch).
 2. **Test**: testers use the TestFlight build.
 3. **Ship**: promote the pre-release to a full release. `app-store.yml` then
    submits that version's TestFlight build to App Review on iOS and macOS. It does
@@ -33,7 +35,8 @@ appear in the changelog). Don't edit `pubspec.yaml`'s version, the manifest or t
 changelog by hand. A pre-release keeps release-please's generated body. The
 notes are rewritten when the release ships (see below). TestFlight and App
 Store "What's New" are both read from that body (`scripts/plain_release_notes.py`
-removes the Markdown and cuts the text to 4000 characters).
+removes the Markdown, leaves out lines about Android, Windows or Linux, which
+App Review rejects under guideline 2.3.10, and cuts the text to 4000 characters).
 
 Merge the PR when `Analyze & test` is green. The PR is opened with
 `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
@@ -55,8 +58,25 @@ gets the same number.
 If an upload failed, rebuild one part of an existing tag without cutting a new one:
 
 ```bash
-gh workflow run release-please.yml -f tag=vX.Y.Z -f only=testflight   # or linux, or all
+gh workflow run release-please.yml -f tag=vX.Y.Z -f only=testflight   # or macos-dmg, linux, android, windows, all
 ```
+
+Tags cut before the DMG, Android and Windows jobs were added cannot build those
+parts: the Fastfile has no `mac dmg` lane there and Android has no signing config.
+
+### Signing the downloads
+
+- **Android**: `ANDROID_UPLOAD_KEYSTORE_BASE64` (a PKCS#12 keystore, alias
+  `upload`) and `ANDROID_UPLOAD_KEYSTORE_PASSWORD` (store and key). The job
+  fails without them rather than ship a debug-signed APK, because Android only
+  installs an update signed with the same key. The keystore's only backup is
+  the owner's 1Password item "Hermes App Android upload key"; losing it means
+  users of the GitHub APK must uninstall to update.
+- **macOS DMG**: match's `developer_id` certificate and profiles, notarized with
+  the `ASC_*` key. An API key cannot create a Developer ID certificate: the
+  account holder creates "Developer ID Application" in the developer portal,
+  runs `fastlane match import --type developer_id --platform macos`, then
+  `fastlane bootstrap_signing` for the profiles.
 
 The `flutter-ci` skill covers diagnosing a failed job.
 
@@ -68,13 +88,13 @@ that went to the store, because a pre-release is never marked Latest. Store user
 have seen none of the pre-releases since.
 
 ```bash
-gh release view --json tagName --jq .tagName      # Latest: the baseline
+gh release list --limit 50 --json tagName,isLatest --jq '.[]|select(.isLatest).tagName'   # Latest: the baseline
 gh release list --limit 20 --json tagName,isPrerelease --jq '[.[]|select(.isPrerelease)][0].tagName'   # newest pre-release: the target
 ```
 
 1. Read every release body from the one after Latest up to the
    target, for example with `gh release view <tag> --json body --jq .body`.
-   `git log --oneline <last-full>..<target>` fills gaps.
+   `git log --oneline <latest>..<target>` fills gaps.
 2. Write the combined notes with the `oss:release-notes` skill. App Store and
    TestFlight show plain text and stop at 4000 characters, so keep it well under
    that. Show the user the draft before you publish it.
@@ -111,7 +131,7 @@ Listing text lives in `fastlane/metadata/`. Screenshots are uploaded separately
 
 ## Where things are
 
-- `.github/workflows/release-please.yml`: release PR, TestFlight, Linux.
+- `.github/workflows/release-please.yml`: release PR, TestFlight, macOS DMG, Linux, Android, Windows.
 - `.github/workflows/app-store.yml`: App Review submission.
-- `fastlane/Fastfile`: lanes `ios release`, `mac release`, `submit`, `sync_metadata`.
+- `fastlane/Fastfile`: lanes `ios release`, `mac release`, `mac dmg`, `submit`, `sync_metadata`.
 - `release-please-config.json`, `.release-please-manifest.json`.

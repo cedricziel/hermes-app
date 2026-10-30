@@ -3,6 +3,8 @@ import 'messenger_identity_use_cases.dart';
 import 'reaction_use_cases.dart';
 import 'billing_verification_use_cases.dart';
 import 'change_invalidation_use_cases.dart';
+import 'memory_proposal_use_cases.dart';
+import 'memory_tool_use_cases.dart';
 import 'memory_use_cases.dart';
 import 'session_usage_use_cases.dart';
 import 'connector_operation_use_cases.dart';
@@ -53,6 +55,7 @@ import 'messaging_use_cases.dart';
 import 'skills_messaging_use_cases.dart';
 import 'skills_use_cases.dart';
 import 'state_message_use_cases.dart';
+import 'bot_screen_use_cases.dart';
 import 'busy_bar_use_cases.dart';
 import 'menu_bar_extra_use_cases.dart';
 import 'spotlight_use_cases.dart';
@@ -61,6 +64,7 @@ import 'bot_chat_use_cases.dart';
 import 'group_use_cases.dart';
 import 'state_use_cases.dart';
 import 'schedules_use_cases.dart';
+import 'sudo_password_use_cases.dart';
 import 'voice_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
@@ -72,6 +76,9 @@ final List<WidgetbookNode> directories = [
   sessionStateNode(),
   todoPlanNode(),
   activityPanelNode(),
+  botScreenNode(),
+  sudoPasswordPromptNode(),
+  botScreenViewerNode(),
   activityButtonNode(),
   moaProgressNode(),
   backgroundCheckStatusNode(),
@@ -94,6 +101,8 @@ final List<WidgetbookNode> directories = [
   dialogsNode(),
   chatNode(),
   memoryNode(),
+  memoryProposalsNode(),
+  memoryToolNode(),
   sessionUsageNode(),
   connectorOperationNode(),
   sideResultNode(),

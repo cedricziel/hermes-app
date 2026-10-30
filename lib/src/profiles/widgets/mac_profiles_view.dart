@@ -10,6 +10,11 @@ import 'profile_avatar.dart';
 /// What a profile's home holds, by the screen that manages it.
 enum ProfileSection {
   skills('Skills', 'What the agent knows how to do', AppIcons.sparkle),
+  memory(
+    'Memory',
+    'What Hermes remembers about you and your setup',
+    AppIcons.memory,
+  ),
   messaging('Messaging', 'Chat platforms the agent answers on', AppIcons.bot),
   plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
   mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),
@@ -32,6 +37,7 @@ class MacProfilesView extends StatelessWidget {
     required this.onSelect,
     required this.counts,
     required this.onOpen,
+    this.memoryWaiting,
   });
 
   final List<HermesProfile> profiles;
@@ -42,6 +48,9 @@ class MacProfilesView extends StatelessWidget {
   /// (still loading, or it could not be read) shows none.
   final Map<ProfileSection, int> counts;
   final ValueChanged<ProfileSection> onOpen;
+
+  /// How many staged memory changes wait in the selected profile.
+  final int? memoryWaiting;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +81,7 @@ class MacProfilesView extends StatelessWidget {
                   profile: profile,
                   counts: counts,
                   onOpen: onOpen,
+                  memoryWaiting: memoryWaiting,
                 ),
         ),
       ],
@@ -145,11 +155,15 @@ class MacProfileDetail extends StatelessWidget {
     required this.profile,
     required this.counts,
     required this.onOpen,
+    this.memoryWaiting,
   });
 
   final HermesProfile profile;
   final Map<ProfileSection, int> counts;
   final ValueChanged<ProfileSection> onOpen;
+
+  /// Shown for Memory in place of its entry count while changes wait.
+  final int? memoryWaiting;
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +222,10 @@ class MacProfileDetail extends StatelessWidget {
                 title: section.label,
                 subtitle: section.detail,
                 leading: GroupedTile(child: AppIcon(section.icon)),
-                value: counts[section]?.toString(),
+                value:
+                    section == ProfileSection.memory && (memoryWaiting ?? 0) > 0
+                    ? '$memoryWaiting waiting'
+                    : counts[section]?.toString(),
                 onTap: () => onOpen(section),
               ),
           ],

@@ -15,6 +15,7 @@ import '../background/running_replies.dart';
 import '../core/safe_notifier.dart';
 import '../bot_mode/bot_chat_context.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
+import '../memory/memory_decisions.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
 import '../models/model_options_state.dart';
@@ -454,6 +455,25 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   SideResultState? sideResultsIn(ChatThread thread) =>
       _ChatControllerSessionBinding(this)._sideResultsInImpl(thread);
 
+  final _memoryDecisions = <ChatThread, MemoryDecisions>{};
+
+  /// The staged memory writes of [thread], approved or rejected through its
+  /// session. They are dropped with the thread.
+  MemoryDecisions memoryDecisionsIn(ChatThread thread) =>
+      _memoryDecisions.putIfAbsent(
+        thread,
+        () => MemoryDecisions(
+          available: () => active && thread.remote && transport != null,
+          run: (command) async => (await transport!.runSlashCommand(
+            threadId: thread.id,
+            profile: _profile,
+            command: command,
+          )).output,
+          telemetry: usageTelemetry,
+          breadcrumbs: breadcrumbs,
+        ),
+      );
+
   final _processOutputs = <ChatThread, ProcessOutputState>{};
   ProcessOutputState? processOutputsIn(ChatThread thread) =>
       _ChatControllerSessionBinding(this)._processOutputsInImpl(thread);
@@ -680,6 +700,61 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// Reads the first page of [profile]'s chats, at least as many as the list
+  /// holds, so that a change merges into everything the user can see.
+  Future<ThreadPage> readThreadListPage(String profile) {
+    final count = _threads.where((thread) => thread.remote).length;
+    return repository!.loadThreadPage(
+      limit: count > 50 ? count : 50,
+      profile: profile,
+    );
+  }
+
+  /// Whether a [refreshThreadList] was asked for while the list could not
+  /// take it, and waits for the list to settle.
+  bool _listRefreshPending = false;
+
+  /// Reads the shown profile's chats again, for a chat that appeared on the
+  /// server, and merges them in without touching the open chat or any reply
+  /// in flight. While the list is loading or has pending changes it waits
+  /// and reads when they are done; a failed read leaves the list as it is.
+  Future<void> refreshThreadList() async {
+    final profile = _profile;
+    if (!active || repository == null || profile == null) return;
+    if (threadListInvalidationBlocked) {
+      _listRefreshPending = true;
+      return;
+    }
+    final generation = _loadGeneration;
+    try {
+      final page = await readThreadListPage(profile);
+      final applied = applyInvalidatedThreads(
+        page,
+        profile: profile,
+        generation: generation,
+      );
+      // A change that started during the read: wait for it and read again.
+      if (!applied &&
+          active &&
+          _profile == profile &&
+          generation == _loadGeneration &&
+          threadListInvalidationBlocked) {
+        _listRefreshPending = true;
+      }
+    } on Object {
+      // The next find, or opening the screen again, reads the list.
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    if (_listRefreshPending && !threadListInvalidationBlocked) {
+      _listRefreshPending = false;
+      unawaited(refreshThreadList());
+    }
+  }
+
   bool applyInvalidatedThreads(
     ThreadPage page, {
     required String profile,
@@ -703,6 +778,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ..named = fresh.named
           ..pinned = fresh.pinned
           ..updatedAt = fresh.updatedAt;
+        // The open chat was marked read when it opened; the list may be older.
+        if (thread.id != _selectedId) thread.unread = fresh.unread;
       }
       if (thread.remote) {
         _bound.add(thread);
@@ -967,6 +1044,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           : null;
       if (runningThread?.isReplying == true) {
         _selectedId = runningThread!.id;
+        _markRead(runningThread);
         notifyListeners();
         if (!current()) return false;
         onOpened?.call();
@@ -1008,7 +1086,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..addAll(page.messages);
       _unloaded.remove(selected.id);
       if (page.hasMore) _olderRows[selected.id] = page.rows;
+      if (thread.unread) selected.unread = true;
       _selectedId = selected.id;
+      _markRead(selected);
       await controllerFor(selected).setMessages(chatThreadToFlyer(selected));
       if (!current()) return false;
       notifyListeners();
@@ -1108,6 +1188,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _reactions.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
     _processOutputs.remove(thread)?.clear();
+    _memoryDecisions.remove(thread)?.dispose();
     _sessionStates.remove(thread);
     _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();
@@ -1250,6 +1331,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final load = repository != null ? _loadMessages(id) : Future<void>.value();
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (thread != null) {
+      _markRead(thread);
       unawaited(_restoreQueue(thread));
       final profile = _profile;
       unawaited(
@@ -1264,6 +1346,28 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     }
     unawaited(refreshActive());
+  }
+
+  /// Tells the dashboard [thread] was read, once per opening. A failure is
+  /// only logged and the chat counts as unread again, so the next opening
+  /// retries.
+  void _markRead(ChatThread thread) {
+    final repository = this.repository;
+    if (repository == null || !thread.remote || !thread.unread) return;
+    thread.unread = false;
+    unawaited(
+      repository
+          .markRead(thread.id, profile: _profile)
+          .then<void>(
+            (_) {},
+            onError: (Object e) {
+              thread.unread = true;
+              events('chat.mark_read_failed', {
+                'error_type': '${e.runtimeType}',
+              });
+            },
+          ),
+    );
   }
 
   /// Starts following [thread] once, so a turn running there that this client

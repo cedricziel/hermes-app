@@ -13,6 +13,9 @@ skill), not instead of it.
 
 Read the relevant feature scenarios in `scenarios/` alongside this procedure. Put verification steps for each feature in separate scenario files so independent changes do not edit the shared guide.
 
+For session restoration and OIDC refresh failures, follow the
+[auth session scenario](scenarios/auth-session.md).
+
 Backend state, runner bookkeeping, logs, and screenshots are checkout-scoped.
 Native macOS Debug storage is shared by worktrees using the same bundle ID.
 `HERMES_HOME` and `HERMES_SERVER_URL` isolate the backend connection, not app
@@ -60,6 +63,10 @@ queued dispatch, or notifier retirement.
 For Chats-first navigation, drafts and replies across Back, local profile
 recipients, and profile avatars, follow
 [the messenger Chats scenario](scenarios/messenger-chats.md).
+
+For the Memory screen, its settings, proposals and the memory tool card, follow [the Memory scenario](scenarios/memory.md).
+
+For the Bot Screen (the agent's own Linux desktop), a macOS backend can never show one; follow the `verify-bot-screen` skill, which runs a throwaway Linux Hermes in a container.
 
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
    Analyze and test print a long dependency-update block; read the last lines.
@@ -207,7 +214,7 @@ built, add `--skip-build` to the isolated command to avoid rebuilding them.
 - A send from the panel without typing: temporarily call `_send('…')` at the
   end of `QuickPanelScreen._onShown`, then look for the session in the
   throwaway home: `sqlite3 .dart_tool/hermes-dev/home/state.db "select id,
-  source from sessions"` shows it with source `hermes_app`, and `messages`
+source from sessions"` shows it with source `hermes_app`, and `messages`
   holds the prompt. The dashboard's REST routes need the page's session
   token, so `curl` answers 401. Don't commit the hack.
 - Check it over another app and over a full-screen app: `lsappinfo front`
@@ -521,6 +528,11 @@ registration; the same few lines in Python work) and add a server with `"auth":"
 provider, so the flow ends by Cancel or after Hermes' five minute timeout. A cancelled flow keeps the server's
 "already in progress" slot for a moment until Hermes' worker ends, so an immediate second start answers 409.
 
+Memory: the built-in files are `$HERMES_HOME/memories/USER.md` (About you) and `MEMORY.md` (Agent notes), entries
+joined by `"\n§\n"`; write them under `.dart_tool/hermes-dev/home` and the learning graph lists them. Limits are
+`memory.user_char_limit` (1375) and `memory.memory_char_limit` (2200) in the config. A file near its limit shows
+the warning bar; the memory tool's usage report after a save in a chat is the number to compare with.
+
 Screens behind a tap: press your way there with `scripts/ax.swift` (see
 "Through the accessibility tree"). If the control has no name, add a
 temporary change that opens the screen (a post-frame callback calling the `_open…` method) or
@@ -529,6 +541,27 @@ screenshot, then revert it. Check a diff before committing so none of it ships.
 
 The Kanban tab appears only because the backend lists the bundled `kanban`
 plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
+
+## Messages from Hermes
+
+A delivery needs the messenger plugin, which lives on the branch `origin/feat/hermes-app-messenger`
+(`git worktree add <scratch> origin/feat/hermes-app-messenger`; once it is merged it is
+`plugins/hermes-app` in this checkout). Enable it in the backend's throwaway home before
+`scripts/dev-backend.sh start`:
+
+```bash
+H="$PWD/.dart_tool/hermes-dev/home"
+mkdir -p "$H/plugins" && cp -R <scratch>/plugins/hermes-app "$H/plugins/"
+# config.yaml: platforms.hermes_app with enabled: true and the inbox home channel
+HERMES_HOME="$H" hermes plugins enable hermes-app
+scripts/dev-backend.sh start
+HERMES_HOME="$H" hermes send --to hermes_app:inbox --file msg.txt
+```
+
+The row appears in `GET /api/sessions?source=hermes_app` with an id starting `hermes-app-`, `message_count` 1 and
+`last_read_at` 0 (`unread: true`). In the app, the next minute's look posts the notification; a tap opens the
+chat and marks it read (`unread` false in the list). A background run needs the app suspended on a phone
+build; see "Background work".
 
 ## The watch app
 
@@ -551,17 +584,17 @@ simulator:
 - A temporary `integration_test/` file that builds `LiveActivities` on
   `PluginLiveActivityService` and calls `begin`/`onEvent` drives the real
   ActivityKit without a backend: `flutter test integration_test/<file> -d
-  <udid>`. Delete the file afterwards.
+<udid>`. Delete the file afterwards.
 - `xcrun simctl io <udid> screenshot` does not capture the Dynamic Island,
   and the simulator can't be locked. Check the outcome in the unified log
   instead: `xcrun simctl spawn <udid> log show --last 5m --predicate
-  'process == "HermesLiveActivity" OR (process == "Runner" AND eventMessage
-  CONTAINS "activity")'`. "Updating activity ... to state: active" is an
+'process == "HermesLiveActivity" OR (process == "Runner" AND eventMessage
+CONTAINS "activity")'`. "Updating activity ... to state: active" is an
   update, "Ending activity" an end, and WidgetKit's "Batch end ... success"
   from `HermesLiveActivity` a render. `Live Activity call failed` from Dart
   means a plugin call threw.
 - Sending the app to the background (`xcrun simctl launch <udid>
-  com.apple.Preferences`) suspends it within seconds, so Dart timers stop;
+com.apple.Preferences`) suspends it within seconds, so Dart timers stop;
   `xcrun simctl launch <udid> com.cedricziel.hermesApp` resumes it.
 
 ## Sign-in against a real server
@@ -611,6 +644,10 @@ model:
   websocket script without it sees the command blocked instead.
 - Hermes runs some agent-level tools (`todo_list`) without `tool.start` or
   `tool.complete`: only `tool.generating` arrives.
+- To see a memory write waiting for approval, add `memory:\n  write_approval: true` to the home's `config.yaml`; the model then has to
+  call the `memory` tool (`fake_tool_model.py` has no such turn yet), and `tool.complete` for a
+  successful call only arrives while the profile's tool progress display is
+  not off. Approve or Reject on the card runs `/memory approve|reject <id>`.
 
 ## On Linux (cloud containers)
 
@@ -771,7 +808,6 @@ Bash call. Once `$DIR` exists, only the `DIR=` and `export` lines are needed.
   latest-upstream experiments separate from the pinned advisory result.
 - Its API contract is `openapi/hermes-agent.openapi.json`.
 
-
 ## Call speech fallback
 
 Hermes' speak-stream `fallback` frame is distinct from an `error`. Current
@@ -829,7 +865,7 @@ the app says "No speech detected".
   put a logging TCP forwarder in front of it (a dozen lines of `asyncio` that
   forward bytes and write each `GET /path HTTP` line to a file; `socat` is not
   installed) and launch `flutter run -d macos
-  --dart-define=HERMES_SERVER_URL=http://127.0.0.1:<proxy port>` yourself:
+--dart-define=HERMES_SERVER_URL=http://127.0.0.1:<proxy port>` yourself:
   `dev-app.sh start` refuses a port the backend's pid doesn't listen on.
   Saving the engine and restarting caught a `voice-config` read made before
   the setting had loaded.
@@ -997,7 +1033,7 @@ it on the real window; a widget test only reaches the fake.
 - Do the same on a Kanban task attachment row in the inspector: double-click
   opens, Space and the menu preview, Save still opens the dialog. Open the same
   file twice: the second time makes no request (`GET
-  /api/plugins/kanban/attachments/{id}` once in the dev backend's log).
+/api/plugins/kanban/attachments/{id}` once in the dev backend's log).
 - Delete the file on the server and press Space: no panel, "This file is no
   longer available." on the card, and Space tries again.
 - Open the chat in a conversation window (Open in New Window) and repeat Space
@@ -1089,7 +1125,7 @@ run an intent nor tap, so use a simulator window (Simulator.app) or a device.
 - Each run must land in the app on the `hermes://` link the intent builds
   (`new`, `new?dictate=1`, `chat?profile=&id=`). Run it with the app killed to
   check the cold start. If a link does nothing, `xcrun simctl openurl booted
-  'hermes://new?dictate=1'` tells the intent (`OpenURLIntent`) apart from the
+'hermes://new?dictate=1'` tells the intent (`OpenURLIntent`) apart from the
   link handling.
 - After a chat is renamed, the new title should be spoken-matchable within a
   moment: the app calls `refreshShortcuts` on `hermes_app/intents` after each
@@ -1198,12 +1234,12 @@ Run `flutter test --concurrency=1 test/gateway/warning_mapper_test.dart test/gat
 
 In the isolated client, inspect a sticky notice and its expanded text, dismiss it, and verify that a keyed replacement does not retain an earlier expiry timer. A tool-risk finding must match both runtime session and tool ID, and redacted output must remain redacted. Observe ordinary reply settlement independently of notice display. Synthetic event injection is verification-only; never patch or drive a personal backend to produce these states.
 
-
 ## Session status and recovery cards
 
 Run `flutter test --concurrency=1 test/chat_session_state_test.dart test/gateway/session_state_mapper_test.dart test/gateway/session_state_transport_test.dart test/session_status_card_test.dart test/gateway/gateway_contract_test.dart` before native inspection. Control snapshots, transient waits, and hydration progress must leave ordinary reply settlement unchanged. A delayed read cannot overwrite a newer control event, and an optional read timeout cannot postpone the turn silence probe.
 
 In the isolated client, inspect compact and expanded goal, loop, and heartbeat details with reported counts. Clear a transient wait and check that persistent control remains visible. Show a hydration failure, reopen the session, and check that loaded history remains. Reclaim the owning runtime, check that pending requests expire and actions stop, then reopen and check that queued prompts stay paused until explicit review. Observe a session on an older gateway that refuses `session.control.read`; ordinary chat must remain usable. Synthetic event injection is verification-only and requires a disposable backend.
+
 ## Background request alert retry
 
 Run `flutter test --concurrency=1 test/local_notification_service_test.dart test/background/background_refresh_test.dart`. A posting result records OS acceptance of the attempt, not observed delivery. In the isolated client, leave a synthetic approval pending, simulate one native posting failure, then allow a later live check to post it. Verify that failed or denied attempts remain eligible and that accepted attempts save only the represented request marks. Interrupt after acceptance but before mark persistence; a later check must replace the same notification ID. Resolve the approval before a retry and verify that no stale request is announced. Keep App Lock text generic and use only disposable client state.

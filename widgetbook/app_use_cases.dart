@@ -75,6 +75,23 @@ Widget _withLiveActivities({required bool allowed}) {
   );
 }
 
+/// The notifications dialog with [change] applied to fresh settings: all
+/// notifications off, or only the messages from Hermes.
+Widget _notificationsWith(Future<void> Function(NotificationSettings) change) =>
+    Hosted<NotificationSettings>(
+      create: () async {
+        final settings = NotificationSettings();
+        await change(settings);
+        return settings;
+      },
+      dispose: (settings) => settings.dispose(),
+      builder: (_, settings) => withAppProviders(
+        CatalogAuth(),
+        _dialog(showNotificationsDialog),
+        notificationSettings: settings,
+      ),
+    );
+
 /// The notifications dialog after the system refused to show alerts.
 Widget _notificationsDenied() => Hosted<NotificationSettings>(
   create: () async {
@@ -366,6 +383,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
               onOpenProfiles: () {},
               onOpenMessaging: () {},
               onOpenSkills: () {},
+              onOpenMemory: () {},
               onOpenPlugins: () {},
               onOpenMcp: () {},
             ),
@@ -497,6 +515,24 @@ WidgetbookNode appNode() => WidgetbookFolder(
         ...onEachPlatform(
           'Notifications · permission denied',
           (_) => _notificationsDenied(),
+        ),
+        ...onEachPlatform(
+          'Notifications · off',
+          (_) => _notificationsWith((s) => s.setEnabled(false)),
+        ),
+        ...onEachPlatform(
+          'Notifications · messages from Hermes off',
+          (_) => _notificationsWith((s) => s.setAgentMessages(false)),
+        ),
+        WidgetbookUseCase(
+          name: 'Notifications · no messages row (Linux)',
+          builder: (context) => Theme(
+            data: Theme.of(context).copyWith(platform: TargetPlatform.linux),
+            child: withAppProviders(
+              CatalogAuth(),
+              _dialog(showNotificationsDialog),
+            ),
+          ),
         ),
         ...onEachPlatform(
           'Notifications · Live Activities',

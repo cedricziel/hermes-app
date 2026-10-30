@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
+import '../agent_messages/agent_message_watcher.dart';
 import '../api/hermes_repositories.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
@@ -18,6 +19,9 @@ import '../bot_mode/bot_mode_roster_repository.dart';
 import '../bot_mode/bot_mode_roster_screen.dart';
 import '../bot_mode/group_protocol/hermes_groups_repository.dart';
 import '../bot_mode/groups/group_chat_screen.dart';
+import '../bot_screen/bot_screen_repository.dart';
+import '../bot_screen/install/bot_screen_installs.dart';
+import '../bot_screen/widgets/sudo_password_prompt.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 
@@ -27,6 +31,7 @@ import '../deep_links/deep_link_listener.dart';
 import '../deep_links/deep_link_target.dart';
 import '../kanban/hermes_plugins_repository.dart';
 import '../macos/mac_app.dart';
+import '../macos/mac_window.dart';
 import '../macos/mac_commands.dart';
 import '../navigation/desktop_navigation_history.dart';
 import '../macos/mac_sidebar.dart';
@@ -34,6 +39,7 @@ import '../settings/account_actions.dart';
 import '../settings/settings_dialog.dart';
 import '../kanban/kanban_screen.dart';
 import '../telemetry/breadcrumbs.dart';
+import '../notifications/attention_notifier.dart' show appLockHidesRequests;
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../platform_hint/platform_hint_offer.dart';
@@ -66,7 +72,13 @@ enum _Destination { chat, bots, kanban, schedules, profiles }
 /// destination is first opened and stays alive behind Chat afterwards, so its
 /// filters and selection survive; it is dropped when the destination goes off.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.plugins, this.cron, this.kanbanBuilder});
+  const AppShell({
+    super.key,
+    this.plugins,
+    this.cron,
+    this.kanbanBuilder,
+    this.gatewayConnect,
+  });
 
   /// Overrides the repository built from the signed-in client.
   final HermesPluginsRepository? plugins;
@@ -76,6 +88,9 @@ class AppShell extends StatefulWidget {
 
   /// Overrides the Kanban page.
   final WidgetBuilder? kanbanBuilder;
+
+  /// Overrides how the gateway socket is opened.
+  final GatewayConnect? gatewayConnect;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -89,6 +104,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   HermesCronRepository? _cron;
   HermesProfilesRepository? _profiles;
   HermesGatewayTransport? _gateway;
+
+  /// The installs of the desktop on the server the user started, which go on
+  /// whatever page is up and ask for the sudo password over it.
+  BotScreenInstalls? _installs;
   BotModeRosterRepository? _botsRepository;
   BotModeChatRepository? _botChats;
   HermesGroupsRepository? _groups;
@@ -117,6 +136,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   final _opened = <_Destination>{};
   SchedulesController? _schedulesController;
   ScheduleWatcher? _watcher;
+  AgentMessageWatcher? _messages;
+  final _finds = AgentMessageFinds();
   StreamSubscription<bool>? _windowlessChanges;
   var _appForeground = true;
 
@@ -171,15 +192,29 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     auth?.addListener(_resumeExternalNavigation);
     if (repositories != null && auth?.baseUrl != null) {
       final telemetry = repositories.telemetry.gateway();
-      _gateway = HermesGatewayTransport(
-        connect: hermesGatewayConnect(
-          baseUrl: auth!.baseUrl!,
-          authRequired: auth.status?.authRequired ?? true,
-          api: repositories.api,
-          telemetry: telemetry,
-        ),
+      final gateway = _gateway = HermesGatewayTransport(
+        connect:
+            widget.gatewayConnect ??
+            hermesGatewayConnect(
+              baseUrl: auth!.baseUrl!,
+              authRequired: auth.status?.authRequired ?? true,
+              api: repositories.api,
+              telemetry: telemetry,
+            ),
         telemetry: telemetry,
         events: repositories.telemetry.events,
+      );
+      _installs = BotScreenInstalls(
+        repository: BotScreenRepository(
+          gateway.requestKeepingConnection,
+          telemetry: repositories.telemetry,
+          connectionRpc: gateway.requestKeepingConnectionOnClient,
+        ),
+        connectionEvents: gateway.connectionEvents,
+        registerServerRequestHandler: gateway.registerServerRequestHandler,
+        askPassword: _askSudoPassword,
+        host: Uri.tryParse(auth!.baseUrl!)?.host ?? 'your server',
+        telemetry: repositories.telemetry,
       );
       _botsRepository = BotModeRosterRepository(
         _gateway!.request,
@@ -193,6 +228,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         (_) => _offerHint(repositories, server),
       );
     }
+    _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
     if (service != null && settings != null && _cron != null) {
@@ -205,13 +241,31 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         account: () => accounts?.accountKey ?? '',
       )..paused = !_sessionAuthorized;
     }
+    if (agentMessagesSupported() &&
+        service != null &&
+        settings != null &&
+        repositories != null) {
+      final accounts = _maybeRead<AuthController>();
+      _messages = AgentMessageWatcher(
+        chat: repositories.chat,
+        profiles: repositories.profiles,
+        service: service,
+        settings: settings,
+        finds: _finds,
+        appLock: () => appLockHidesRequests(_appLock),
+        shownProfile: () => _chatProfiles?.current,
+        account: () => accounts?.accountKey ?? '',
+        breadcrumbs: _breadcrumbs,
+        events: repositories.telemetry.events,
+        paused: !_sessionAuthorized,
+      );
+    }
     WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
       _windowlessChanges = MacApp.windowlessChanges.listen(_onWindowless);
     }
     _detect();
     _deepLinks = _maybeRead<DeepLinks?>()?..addListener(_takeDeepLink);
-    _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
     // A link that came before this shell existed waited for sign-in.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _takeDeepLink(held: true),
@@ -229,6 +283,33 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       });
       unawaited(windows.restore());
     }
+  }
+
+  /// The sudo password of the Hermes host, asked over whatever page is up.
+  /// Nothing is asked once the session is gone; the answer is then a decline.
+  Future<String?> _askSudoPassword(
+    String host,
+    String profile,
+    Future<void> ended,
+  ) async {
+    if (!_authorizedOwner) return null;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      // The question would otherwise open on a window nobody can see.
+      try {
+        await (_windows?.showMainWindow() ?? MacWindow.orderFront());
+      } on Object {
+        // The question still goes on screen.
+      }
+      if (!_authorizedOwner) return null;
+    }
+    if (!mounted) return null;
+    return showSudoPasswordPrompt(
+      context,
+      host: host,
+      profile: profile,
+      ended: ended,
+      breadcrumbs: _breadcrumbs,
+    );
   }
 
   T? _maybeRead<T>() {
@@ -250,10 +331,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _windowlessChanges?.cancel();
     _windows?.currentProfile = null;
     _watcher?.dispose();
+    _messages?.dispose();
+    _finds.dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();
     _schedulesController?.dispose();
     _openRequests.dispose();
+    _installs?.dispose();
     _gateway?.close();
     super.dispose();
   }
@@ -267,7 +351,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     _appForeground = AppPresence.foreground(state);
     _syncSchedulesForeground();
-    if (state == AppLifecycleState.resumed) _detect();
+    if (state == AppLifecycleState.resumed) {
+      _installs?.resumed();
+      _detect();
+    }
   }
 
   void _onWindowless(bool windowless) {
@@ -448,6 +535,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _sessionAuthorized = authorized;
       _detection++;
       _watcher?.paused = !authorized;
+      _messages?.paused = !authorized;
       if (authorized) unawaited(_detect());
     }
     _navigationQueue?.resume();
@@ -736,7 +824,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final built = _build(context);
+    final built = ChangeNotifierProvider.value(
+      value: _finds,
+      child: switch (_installs) {
+        final installs? => ChangeNotifierProvider.value(
+          value: installs,
+          child: _build(context),
+        ),
+        null => _build(context),
+      },
+    );
     final chrome = platformChromeOf(context);
     if (!chrome.isApple) return built;
     final mac = chrome == PlatformChrome.macos;
@@ -780,7 +877,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         openRequests: _openRequests,
         onOpenJob: _openJob,
         navigation: navigation,
-        chatProfiles: mac ? _chatProfiles : null,
+        chatProfiles: _chatProfiles,
       ),
     );
     final destinations = [
@@ -842,6 +939,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             _Destination.profiles => MacProfilesPage(
               profiles: _chatProfiles!,
               changeSource: _gateway,
+              transport: _gateway,
             ),
           };
           if (!wide ||

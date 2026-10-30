@@ -1,14 +1,17 @@
 import 'package:hermes_app/src/auth/token_store.dart';
+import 'package:hermes_app/src/auth/session_mutex.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 
 /// A [TokenStore] that keeps the session in memory instead of the keychain.
 class MemoryTokenStore extends TokenStore {
-  MemoryTokenStore([this.session, this.copyOnRead = false]);
+  MemoryTokenStore([this.session, this.copyOnRead = false])
+    : super(mutex: MemorySessionMutex());
 
   HermesSession? session;
 
   /// Makes [write] fail, like a keychain that cannot be written.
   bool failWrites = false;
+  void Function(HermesSession)? onWrite;
 
   /// Makes [readState] report a keychain that cannot be read, like one that
   /// is locked before the first unlock.
@@ -42,6 +45,7 @@ class MemoryTokenStore extends TokenStore {
   Future<void> write(HermesSession next) async {
     if (failWrites) throw UnsupportedError('keychain unavailable');
     session = next;
+    onWrite?.call(next);
   }
 
   @override

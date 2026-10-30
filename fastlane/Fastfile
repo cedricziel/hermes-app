@@ -106,6 +106,28 @@ platform :mac do
   lane :release do |options|
     release_target(:mac, options)
   end
+
+  desc "Build a notarized Developer ID DMG for direct download (build/fastlane/Hermes-<version>.dmg)"
+  desc "  version:X.Y.Z  marketing version (default: pubspec.yaml)"
+  lane :dmg do |options|
+    built = build_target(:mac, options, signing: :developer_id)
+    api_key = load_app_store_connect_api_key
+
+    # Stapling the app as well as the DMG lets the copied app pass Gatekeeper
+    # offline.
+    notarize(package: built[:path], api_key: api_key)
+
+    dmg = File.join(FLUTTER_ROOT, OUTPUT_DIR, "Hermes-#{built[:version]}.dmg")
+    stage = File.join(FLUTTER_ROOT, OUTPUT_DIR, "dmg")
+    FileUtils.rm_rf([stage, dmg])
+    FileUtils.mkdir_p(stage)
+    sh("ditto", built[:path], File.join(stage, File.basename(built[:path])))
+    File.symlink("/Applications", File.join(stage, "Applications"))
+    sh("hdiutil", "create", "-volname", APP_NAME, "-srcfolder", stage, "-format", "UDZO", "-ov", dmg)
+    sh("codesign", "--sign", SIGNING.fetch(:developer_id)[:identity], "--timestamp", dmg)
+    notarize(package: dmg, api_key: api_key)
+    UI.success("Notarized #{dmg}")
+  end
 end
 
 desc "Register the bundle ID and check for the App Store Connect app record"
@@ -302,7 +324,7 @@ lane :submit do |options|
   end
 end
 
-desc "Create App Store signing certs and profiles for iOS and macOS via match (writes to the certificates repo)"
+desc "Create App Store signing certs and profiles for iOS and macOS, and the Mac's Developer ID profiles, via match (writes to the certificates repo)"
 desc "  force:true regenerates the profiles"
 lane :bootstrap_signing do |options|
   api_key = load_app_store_connect_api_key
@@ -324,24 +346,45 @@ lane :bootstrap_signing do |options|
     force: force,
     api_key: api_key
   )
+  # An API key cannot create a Developer ID certificate. The account holder
+  # creates "Developer ID Application" in the developer portal once and adds
+  # it with `fastlane match import --type developer_id --platform macos`;
+  # this then makes the profiles.
+  match(
+    type: "developer_id",
+    platform: "macos",
+    app_identifier: TARGETS.fetch(:mac)[:match_identifiers],
+    readonly: false,
+    force: force,
+    api_key: api_key
+  )
 end
 
-def build_target(key, options)
+# Signing for App Store builds and for Developer ID builds (the Mac's direct
+# download). Developer ID has no installer certificate: the DMG is signed with
+# the application one.
+SIGNING = {
+  app_store: { match_type: "appstore", identity: "Apple Distribution", export_method: "app-store" },
+  developer_id: { match_type: "developer_id", identity: "Developer ID Application", export_method: "developer-id" },
+}.freeze
+
+def build_target(key, options, signing: :app_store)
   t = TARGETS.fetch(key)
+  s = SIGNING.fetch(signing)
   api_key = load_app_store_connect_api_key
   version = marketing_version(options)
   build_number = commit_count_build_number
 
-  UI.header("#{APP_NAME} #{key} #{version} (#{build_number})")
+  UI.header("#{APP_NAME} #{key} #{version} (#{build_number}, #{signing})")
 
   match_params = {
-    type: "appstore",
+    type: s[:match_type],
     platform: t[:match_platform],
     app_identifier: t[:match_identifiers],
     readonly: is_ci,
     api_key: api_key
   }
-  match_params[:additional_cert_types] = ["mac_installer_distribution"] if key == :mac
+  match_params[:additional_cert_types] = ["mac_installer_distribution"] if key == :mac && signing == :app_store
   sync_code_signing(**match_params)
 
   update_code_signing_settings(
@@ -350,7 +393,7 @@ def build_target(key, options)
     build_configurations: ["Release"],
     use_automatic_signing: false,
     team_id: TEAM_ID,
-    code_sign_identity: "Apple Distribution",
+    code_sign_identity: s[:identity],
     bundle_identifier: APP_IDENTIFIER,
     profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
   )
@@ -362,7 +405,7 @@ def build_target(key, options)
       build_configurations: ["Release"],
       use_automatic_signing: false,
       team_id: TEAM_ID,
-      code_sign_identity: "Apple Distribution",
+      code_sign_identity: s[:identity],
       bundle_identifier: extension_identifier,
       profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(extension_identifier)
     )
@@ -394,12 +437,12 @@ def build_target(key, options)
       )
     end
 
-    build_app(
+    exported = build_app(
       workspace: t[:workspace],
       scheme: "Runner",
       configuration: "Release",
       destination: t[:destination],
-      export_method: "app-store",
+      export_method: s[:export_method],
       export_team_id: TEAM_ID,
       output_directory: OUTPUT_DIR,
       output_name: OUTPUT_NAME,
@@ -410,7 +453,7 @@ def build_target(key, options)
     File.write(entitlements, original_entitlements) if original_entitlements
   end
 
-  { version: version, build_number: build_number }
+  { version: version, build_number: build_number, path: exported }
 end
 
 def release_target(key, options)

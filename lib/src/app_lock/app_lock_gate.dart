@@ -20,9 +20,14 @@ class AppLockGate extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // Without tickers the covered app also offers no menu bar commands.
+        // And without focus, so what is typed on the lock screen cannot reach a
+        // field underneath (a password question left open).
         Offstage(
           offstage: covered,
-          child: TickerMode(enabled: !covered, child: child),
+          child: ExcludeFocus(
+            excluding: covered,
+            child: TickerMode(enabled: !covered, child: child),
+          ),
         ),
         if (covered) _LockScreen(onUnlock: lock.locked ? lock.unlock : null),
       ],

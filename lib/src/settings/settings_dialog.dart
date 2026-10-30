@@ -6,8 +6,6 @@ import '../app_lock/app_lock_dialog.dart';
 import '../auth/auth_controller.dart';
 import '../macos/menu_bar_extra/menu_bar_extra_settings.dart';
 import '../macos/menu_bar_extra/widgets/menu_bar_item_section.dart';
-import '../memory/memory_destination.dart';
-import '../api/hermes_repositories.dart';
 import '../notifications/notification_settings.dart';
 import '../notifications/notifications_dialog.dart';
 import '../quick_panel/global_shortcut.dart';
@@ -28,7 +26,6 @@ enum _Setting {
   dictation('Dictation'),
   spotlight('Spotlight'),
   appLock('App Lock'),
-  memory('Memory'),
   about('About Hermes'),
   changeServer('Change Server');
 
@@ -86,8 +83,6 @@ Future<void> showSettingsDialog(BuildContext context) async {
             children: [
               row(_Setting.appearance),
               row(_Setting.notifications),
-              if (HermesRepositories.maybeOf(context) != null)
-                row(_Setting.memory),
               if (DictationSettings.offered) row(_Setting.dictation),
               if (shortcut != null) QuickPanelShortcutRow(shortcut: shortcut),
               if (SpotlightSettings.offered) row(_Setting.spotlight),
@@ -121,10 +116,6 @@ Future<void> showSettingsDialog(BuildContext context) async {
       await showSpotlightDialog(context);
     case _Setting.appLock:
       await showAppLockDialog(context);
-    case _Setting.memory:
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const MemoryDestination()),
-      );
     case _Setting.about:
       await showAppAboutDialog(context);
     case _Setting.changeServer:

@@ -397,6 +397,30 @@ abstract final class AppIcons {
     Icons.cancel,
     CupertinoIcons.xmark_circle_fill,
   );
+  static const screen = AppIconSet(
+    Icons.desktop_windows_outlined,
+    CupertinoIcons.desktopcomputer,
+  );
+  static const enlarge = AppIconSet(
+    Icons.open_in_full,
+    CupertinoIcons.arrow_up_left_arrow_down_right,
+  );
+  static const keyboard = AppIconSet(
+    Icons.keyboard_outlined,
+    CupertinoIcons.keyboard,
+  );
+  static const paste = AppIconSet(
+    Icons.content_paste,
+    CupertinoIcons.doc_on_clipboard,
+  );
+  static const touch = AppIconSet(
+    Icons.touch_app_outlined,
+    CupertinoIcons.hand_draw,
+  );
+  static const pointer = AppIconSet(
+    Icons.mouse_outlined,
+    CupertinoIcons.cursor_rays,
+  );
 
   /// Every set by name, for the catalog and for tests.
   static const all = <String, AppIconSet>{
@@ -509,5 +533,11 @@ abstract final class AppIcons {
     'compose': compose,
     'share': share,
     'clearFilled': clearFilled,
+    'screen': screen,
+    'enlarge': enlarge,
+    'keyboard': keyboard,
+    'paste': paste,
+    'touch': touch,
+    'pointer': pointer,
   };
 }

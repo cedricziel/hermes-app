@@ -128,6 +128,33 @@ class AuthController extends ChangeNotifier {
   PageToken? _pageToken;
   HermesApiClient? _api;
   Future<HermesSession>? _refreshInFlight;
+  _PendingSessionWrite? _pendingSessionWrite;
+  Timer? _sessionWriteRetry;
+
+  Future<void> _persistPendingSession() => _mutateTokens(() async {
+    final pending = _pendingSessionWrite;
+    if (pending == null || _disposed) return;
+    try {
+      final written = await _tokenStore.replace(pending.expected, pending.next);
+      if (!identical(_pendingSessionWrite, pending) || _disposed) return;
+      _pendingSessionWrite = null;
+      _sessionWriteRetry?.cancel();
+      if (!written) await _adoptStored(pending.next);
+    } on Object catch (error) {
+      pending.errorType = error.runtimeType.toString();
+      if (!identical(_pendingSessionWrite, pending) || _disposed) return;
+      _sessionWriteRetry?.cancel();
+      _sessionWriteRetry = Timer(const Duration(seconds: 1), () {
+        unawaited(_persistPendingSession());
+      });
+    }
+  });
+
+  void _forgetPendingSession() {
+    _pendingSessionWrite = null;
+    _sessionWriteRetry?.cancel();
+  }
+
   int _ownerEpoch = 0;
   int _requestEpoch = 0;
   int _apiOwnerEpoch = -1;
@@ -319,10 +346,21 @@ class AuthController extends ChangeNotifier {
       return;
     }
 
-    final storedSession = _ignoreStoredSession
-        ? null
-        : await _tokenStore.read();
+    final stored = _ignoreStoredSession
+        ? const SessionEmpty()
+        : await _tokenStore.readState();
     if (stale()) return;
+    if (stored is SessionUnreadable) {
+      _protectedRequestsAllowed = false;
+      _errorMessage = 'Could not read your saved sign-in. Unlock your device and try again.';
+      _events('auth.session.restore_failed', {
+        'reason': 'keychain_unavailable',
+        'locked': stored.locked,
+      });
+      _setState(HermesConnectionState.connectionError);
+      return;
+    }
+    final storedSession = stored.session;
     // A session another dashboard minted is no use here. The address the
     // connect started from counts as well as the one it was redirected to:
     // a proxy that starts redirecting elsewhere is still the same dashboard.
@@ -601,6 +639,7 @@ class AuthController extends ChangeNotifier {
   Future<void> changeServer() => _depart(removeServer: true);
 
   void _retireClients(String reason) {
+    _forgetPendingSession();
     _protectedRequestsAllowed = false;
     _ownerEpoch++;
     _requestEpoch++;
@@ -641,7 +680,7 @@ class AuthController extends ChangeNotifier {
       _mutateTokens<void>(() async {
         if (!valid()) return;
         await _tokenStore.write(session);
-        if (!valid()) await _tokenStore.clear();
+        if (!valid()) await _tokenStore.replace(session, null);
       });
 
   Dio _buildAuthenticatedDio(String baseUrl, {required bool gated}) {
@@ -702,7 +741,10 @@ class AuthController extends ChangeNotifier {
             return handler.next(error);
           }
           if (options.extra['hermes_retried'] == true) {
-            await _handleSessionExpired('unauthorized_after_retry');
+            if (options.headers['Authorization'] ==
+                'Bearer ${session.accessToken}') {
+              await _handleSessionExpired('unauthorized_after_retry');
+            }
             return handler.next(error);
           }
           if (session.refreshToken.isEmpty) {
@@ -821,6 +863,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<String?> _ensureFreshAccessToken() async {
+    if (_pendingSessionWrite != null) await _persistPendingSession();
     final ownerEpoch = _ownerEpoch;
     final requestEpoch = _requestEpoch;
     final session = _session;
@@ -900,11 +943,14 @@ class AuthController extends ChangeNotifier {
             throw StateError('The session changed during the refresh');
           }
           _session = refreshed;
-          try {
-            await _writeTokens(refreshed, valid);
-          } on Object catch (error) {
+          _pendingSessionWrite = _PendingSessionWrite(
+            _pendingSessionWrite?.expected ?? current,
+            refreshed,
+          );
+          await _persistPendingSession();
+          if (_pendingSessionWrite != null) {
             _events('auth.session.store_failed', {
-              'error.type': error.runtimeType.toString(),
+              'error.type': _pendingSessionWrite!.errorType,
             });
           }
           if (!valid()) throw StateError('The session changed during refresh');
@@ -955,7 +1001,17 @@ class AuthController extends ChangeNotifier {
       if (current == null || !current.sameOwner(sent)) return null;
       // A caller rejected with the same token already took over a pair.
       if (current.refreshToken != sent.refreshToken) return current;
-      final adopted = await _adoptStored(sent);
+      // A rejected token may already have been rotated by another engine.
+      // Unreadable storage cannot establish that its replacement is absent.
+      final SessionRead stored;
+      try {
+        stored = await _tokenStore.readState(repair: false);
+      } on Object {
+        return null;
+      }
+      if (!valid()) return null;
+      if (stored is SessionUnreadable) return null;
+      final adopted = await _adoptStored(sent, snapshot: stored);
       if (!valid()) return null;
       if (adopted != null) return adopted;
     }
@@ -964,18 +1020,21 @@ class AuthController extends ChangeNotifier {
     if (current == null || !current.sameOwner(sent)) return null;
     if (current.refreshToken != sent.refreshToken) return current;
     await _handleSessionExpired('refresh_rejected');
-    return null;
+    return valid() ? _session : null;
   }
 
   /// Takes over the stored pair when it replaced [sent]: the same user on the
   /// same dashboard as this controller, received after [sent], while this
   /// controller still holds [sent]. Null otherwise.
-  Future<HermesSession?> _adoptStored(HermesSession sent) async {
+  Future<HermesSession?> _adoptStored(
+    HermesSession sent, {
+    SessionRead? snapshot,
+  }) async {
     final ownerEpoch = _ownerEpoch;
     final requestEpoch = _requestEpoch;
     final HermesSession? stored;
     try {
-      stored = await _tokenStore.read();
+      stored = (snapshot ?? await _tokenStore.readState(repair: false)).session;
     } on Object {
       return null;
     }
@@ -997,6 +1056,9 @@ class AuthController extends ChangeNotifier {
 
   Future<void> _handleSessionExpired(String cause) {
     if (_session == null) return Future.value();
+    final expected = _pendingSessionWrite?.expected ?? _session!;
+    final identity = _identity;
+    _forgetPendingSession();
     _sessionExpiryGeneration++;
     _events('auth.session.expired', {'cause': cause});
     _expiredOwner = _verifiedOwner;
@@ -1007,7 +1069,7 @@ class AuthController extends ChangeNotifier {
     _refreshInFlight = null;
     _session = null;
     _identity = null;
-    final expiry = _finishExpiry(requestEpoch);
+    final expiry = _finishExpiry(requestEpoch, expected, identity);
     _departureInFlight = expiry;
     notifyListeners();
     return expiry.whenComplete(() {
@@ -1024,8 +1086,39 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  Future<void> _finishExpiry(int requestEpoch) async {
-    final deletionFailed = !await _clearTokens();
+  Future<void> _finishExpiry(
+    int requestEpoch,
+    HermesSession expected,
+    HermesIdentity? identity,
+  ) async {
+    var deletionFailed = false;
+    try {
+      final removed = await _mutateTokens(
+        () => _tokenStore.replace(expected, null),
+      );
+      if (_disposed || requestEpoch != _requestEpoch) return;
+      if (!removed) {
+        final stored = (await _tokenStore.readState(repair: false)).session;
+        if (_disposed || requestEpoch != _requestEpoch) return;
+        if (stored != null &&
+            stored.sameOwner(expected) &&
+            stored.isNewerThan(expected)) {
+          _session = stored;
+          _identity = identity;
+          _sessionExpired = false;
+          _ignoreStoredSession = false;
+          _protectedRequestsAllowed = identity != null;
+          _setState(
+            identity == null
+                ? HermesConnectionState.connectionError
+                : HermesConnectionState.ready,
+          );
+          return;
+        }
+      }
+    } on Object {
+      deletionFailed = true;
+    }
     if (_disposed || requestEpoch != _requestEpoch) return;
     _ignoreStoredSession = deletionFailed;
     _errorMessage = deletionFailed
@@ -1065,6 +1158,7 @@ class AuthController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _forgetPendingSession();
     _disposed = true;
     _protectedRequestsAllowed = false;
     _ownerEpoch++;
@@ -1109,4 +1203,11 @@ String? normalizeServerUrl(String raw) {
   if (uri.scheme != 'http' && uri.scheme != 'https') return null;
   final path = uri.path.replaceAll(RegExp(r'/+$'), '');
   return uri.replace(path: path).toString();
+}
+
+class _PendingSessionWrite {
+  _PendingSessionWrite(this.expected, this.next);
+  String errorType = 'StateError';
+  final HermesSession expected;
+  final HermesSession next;
 }

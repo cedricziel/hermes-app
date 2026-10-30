@@ -204,23 +204,37 @@ class HeadlessHermes {
   /// The repositories the app's screens use.
   HermesRepositories get repositories => _connection.repositories;
 
-  /// The server's profile names; `[null]`, the server's default profile, when
-  /// they cannot be read. Throws once the session has failed, so that the run
+  Future<List<String?>>? _profileNames;
+
+  /// The server's profile names, read once per run; `[null]`, the server's
+  /// default profile, when they cannot be read, which is not kept: the next
+  /// call asks again. Throws once the session has failed, so that the run
   /// ends as signed out rather than with a default profile.
-  Future<List<String?>> profiles() async {
+  Future<List<String?>> profiles() => _profileNames ??= _readProfiles();
+
+  Future<List<String?>> _readProfiles() async {
     try {
       final names = [
         for (final profile in await repositories.profiles.list()) profile.name,
       ];
-      return names.isEmpty ? const [null] : names;
+      if (names.isEmpty) return _unread();
+      return names;
     } on Object {
       if (_connection.auth?.stopped.isCompleted ?? false) rethrow;
-      return const [null];
+      return _unread();
     }
+  }
+
+  List<String?> _unread() {
+    _profileNames = null;
+    return const [null];
   }
 
   /// A gateway transport on a socket of its own, closed when the run ends.
   HermesGatewayTransport transport() => _run._openTransport(_connection);
+
+  /// What is left until the run is cut off, counted from before it connected.
+  Duration get untilDeadline => _run._deadline.difference(DateTime.now());
 
   /// Adds [value] to the run's `background.task` span as [name]. Counts and
   /// flags only: the span never holds ids, titles or text.
@@ -684,26 +698,31 @@ class _HeadlessAuth {
 
     session = refreshed;
     await _writeBack(held, refreshed);
-    return refreshed;
+    return _over ? null : session;
   }
 
-  /// Stores [refreshed] unless storage no longer holds the pair [spent]
-  /// came from: the app may have rotated it or the user signed out since.
-  /// A storage that cannot be read is written anyway, since [spent] is gone
-  /// whatever it holds.
+  /// Compare and write under the same cross-engine lock as foreground
+  /// sign-in and sign-out. An unreadable store cannot authorize a write.
   Future<void> _writeBack(HermesSession spent, HermesSession refreshed) async {
-    final current = await _storedState();
-    if (current is SessionEmpty) return;
-    if (current is SessionFound &&
-        current.session.refreshToken != spent.refreshToken) {
-      return;
-    }
-    try {
-      await store.write(refreshed);
-    } on Object catch (error) {
-      events('auth.session.store_failed', {
-        'error.type': error.runtimeType.toString(),
-      });
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (await store.replace(spent, refreshed)) return;
+        final adopted = _newerStored(spent, await _stored());
+        if (adopted != null) {
+          session = adopted;
+        } else {
+          _stop(_Stop.unreachable);
+        }
+        return;
+      } on Object catch (error) {
+        if (attempt == 2) {
+          events('auth.session.store_failed', {
+            'error.type': error.runtimeType.toString(),
+          });
+          return;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
     }
   }
 

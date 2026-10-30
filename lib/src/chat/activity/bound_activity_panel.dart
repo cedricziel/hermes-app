@@ -1,5 +1,10 @@
+import 'package:flutter/material.dart' show MaterialPageRoute;
 import 'package:flutter/widgets.dart';
 
+import '../../bot_screen/bot_screen_card_model.dart';
+import '../../bot_screen/bot_screen_controller.dart';
+import '../../bot_screen/widgets/bound_bot_screen_card.dart';
+import '../../memory/memory_destination.dart';
 import '../chat_controller.dart';
 import '../chat_models.dart';
 import '../memory/memory_activity_card.dart';
@@ -19,17 +24,28 @@ import 'widgets/activity_panel.dart';
 
 /// The [ActivityPanel] of [thread] in [chat]: Working items under Now, the
 /// plan, and the For reference items under This session.
+///
+/// With a [screen] (the chat's profile's Bot Screen) the panel also lists the
+/// Bot screen card under Now, and asks the controller for frames while it is
+/// open. Surfaces that have no Bot Screen (conversation windows) pass none.
 class BoundActivityPanel extends StatelessWidget {
   const BoundActivityPanel({
     super.key,
     required this.chat,
     required this.thread,
+    this.screen,
+    this.onEnlargeScreen,
     this.onClose,
     this.scrollController,
   });
 
   final ChatController chat;
   final ChatThread? thread;
+  final BotScreenController? screen;
+
+  /// Opens the Bot screen's live viewer from the card; the card offers no
+  /// Enlarge without it.
+  final VoidCallback? onEnlargeScreen;
   final VoidCallback? onClose;
   final ScrollController? scrollController;
 
@@ -44,10 +60,24 @@ class BoundActivityPanel extends StatelessWidget {
     }
     // The chat replaces a thread's controllers when its session changes, so
     // they are looked up again on every chat change, then listened to.
-    return ListenableBuilder(
+    final panel = ListenableBuilder(
       listenable: chat,
       builder: (context, _) => _sections(context, t),
     );
+    final screen = this.screen;
+    return screen == null
+        ? panel
+        : BotScreenDemand(controller: screen, child: panel);
+  }
+
+  /// What the Bot screen card shows, or null when it is not listed.
+  BotScreenCardModel? _screenCard(ChatThread t) {
+    final controller = screen;
+    if (controller == null) return null;
+    final model = BotScreenCardModel.from(controller);
+    if (model == null) return null;
+    final used = !model.screenRunning && threadUsedScreen(t);
+    return model.listed(usedByChat: used) ? model : null;
   }
 
   Widget _sections(BuildContext context, ChatThread t) {
@@ -67,11 +97,13 @@ class BoundActivityPanel extends StatelessWidget {
         connection,
         sideResults,
         reactions,
+        ?screen,
       ]),
       builder: (context, _) {
         final state = chat.sessionStateIn(t);
         final processes = chat.processOutputsIn(t);
         final acknowledgement = reactions?.acknowledgement;
+        final screenModel = _screenCard(t);
         // The original review remains bound to its reply in the model. Its
         // presentation is reference activity, outside the transcript.
         final reviewNotes = t.messages.reversed
@@ -85,6 +117,13 @@ class BoundActivityPanel extends StatelessWidget {
           onClose: onClose,
           scrollController: scrollController,
           now: [
+            if (screenModel != null)
+              BoundBotScreenCard(
+                key: const Key('bot-screen-card'),
+                controller: screen!,
+                model: screenModel,
+                onEnlarge: onEnlargeScreen,
+              ),
             if (state != null &&
                 state.visible &&
                 sessionStateTier(state) == ActivityTier.working)
@@ -138,6 +177,14 @@ class BoundActivityPanel extends StatelessWidget {
                 recalls: state?.memoryRecalls ?? const [],
                 earlierRecallsOmitted: state?.earlierRecallsOmitted ?? false,
                 reviewNotes: reviewNotes,
+                onOpenMemory: chat.repository == null || chat.profile == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              MemoryDestination(profile: chat.profile),
+                        ),
+                      ),
               ),
             if (usage != null && usage.shown)
               SessionUsageCard(controller: usage),

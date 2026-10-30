@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../telemetry/breadcrumbs.dart';
 import 'memory_repository.dart';
+import 'memory_usage.dart';
 
 enum MemoryMutation { idle, pending, conflict, failed, uncertain }
 
@@ -13,6 +14,8 @@ class MemoryController extends ChangeNotifier {
   MemoryRepository? _repository;
   String? profile;
   List<MemoryEntry> entries = const [];
+  MemoryLimits limits = MemoryLimits.unknown;
+  MemoryTab tab = MemoryTab.aboutYou;
   MemoryEntry? selected;
   MemoryDetail? detail;
   MemoryFailure? failure;
@@ -31,6 +34,48 @@ class MemoryController extends ChangeNotifier {
       dirty &&
       draft?.trim().isNotEmpty == true &&
       (mutation == MemoryMutation.idle || mutation == MemoryMutation.failed);
+
+  List<MemoryEntry> entriesIn(MemoryTab tab) => [
+    for (final entry in entries)
+      if (entry.tab == tab) entry,
+  ];
+
+  MemoryUsage usageOf(MemoryTab tab) {
+    final inTab = entriesIn(tab);
+    return MemoryUsage.of(
+      inTab.map((entry) => entry.text),
+      limit: limits.of(tab),
+      lowerBound: inTab.any((entry) => entry.truncated),
+    );
+  }
+
+  /// The open entry's place in its file, counted from 1 in the order the
+  /// graph lists them; never read from the id, which stays opaque.
+  ({int index, int count})? get position {
+    final open = selected;
+    if (open == null) return null;
+    final inTab = entriesIn(open.tab);
+    final index = inTab.indexWhere((entry) => entry.id == open.id);
+    return index < 0 ? null : (index: index + 1, count: inTab.length);
+  }
+
+  /// What is left of the open entry's file with the draft in its place.
+  int? get leftWithDraft {
+    final open = selected, text = draft;
+    if (open == null || text == null || position == null) return null;
+    return usageOf(open.tab).leftWith(original: open.text, draft: text);
+  }
+
+  void selectTab(MemoryTab next) {
+    if (next == tab) return;
+    tab = next;
+    breadcrumbs('memory.tab', {'tab': next.slug});
+    if (selected == null) {
+      notifyListeners();
+    } else {
+      showList();
+    }
+  }
 
   void _clearEditor() {
     editing = false;
@@ -170,6 +215,8 @@ class MemoryController extends ChangeNotifier {
     _repository = repository;
     profile = nextProfile;
     entries = const [];
+    limits = MemoryLimits.unknown;
+    tab = MemoryTab.aboutYou;
     selected = null;
     detail = null;
     failure = null;
@@ -187,7 +234,19 @@ class MemoryController extends ChangeNotifier {
     selected = null;
     detail = null;
     breadcrumbs('memory.open', {'kind': 'list'});
-    await _run(() => repository.load(scope), (value) => entries = value);
+    await _run(
+      () async {
+        // A config that cannot be read leaves the list intact, without bars.
+        final limits = repository
+            .limits(scope)
+            .onError<MemoryFailure>((_, _) => MemoryLimits.unknown);
+        return (await repository.load(scope), await limits);
+      },
+      (value) {
+        entries = value.$1;
+        limits = value.$2;
+      },
+    );
   }
 
   Future<void> open(MemoryEntry entry) async {

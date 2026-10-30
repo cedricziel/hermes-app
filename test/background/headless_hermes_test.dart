@@ -218,6 +218,65 @@ void main() {
       expect(spanOutcome(), 'ok');
     });
 
+    test('reads the profile names once per run', () async {
+      final outcome = await run((hermes) async {
+        final first = await hermes.profiles();
+        final second = await hermes.profiles();
+        return [first, second];
+      });
+
+      expect((outcome as HeadlessDone).value, [
+        ['default', 'work'],
+        ['default', 'work'],
+      ]);
+      expect(dashboard.server.requestsTo('GET', '/api/profiles'), hasLength(1));
+    });
+
+    test('tries the profile names again after a fallback', () async {
+      dashboard.server.on('GET', '/api/profiles', {
+        'detail': 'down',
+      }, status: 500);
+
+      final outcome = await run((hermes) async {
+        final first = await hermes.profiles();
+        dashboard.server.on(
+          'GET',
+          '/api/profiles',
+          profileListBody([profileRow(name: 'default', isDefault: true)]),
+        );
+        final second = await hermes.profiles();
+        final third = await hermes.profiles();
+        return [first, second, third];
+      });
+
+      expect((outcome as HeadlessDone).value, [
+        [null],
+        ['default'],
+        ['default'],
+      ]);
+      expect(dashboard.server.requestsTo('GET', '/api/profiles'), hasLength(2));
+    });
+
+    test('rethrows a stopped session without asking again', () async {
+      store.session = _session(expiresAt: 1);
+      dashboard.refreshStatus = 401;
+      var thrown = 0;
+
+      await run((hermes) async {
+        for (var i = 0; i < 2; i++) {
+          try {
+            await hermes.profiles();
+          } on Object {
+            thrown++;
+          }
+        }
+        return const <String?>[];
+      });
+
+      expect(thrown, 2);
+      expect(dashboard.refreshes, 1);
+    });
+
     test('is signed out when no server is saved', () async {
       SharedPreferencesAsyncPlatform.instance =
           InMemorySharedPreferencesAsync.empty();
@@ -769,6 +828,42 @@ void main() {
 
         expect(outcome, isA<HeadlessDone<List<String?>>>());
         expect(store.session, same(fromApp));
+        expect(dashboard.refreshes, 1);
+      },
+    );
+
+    test(
+      'unreadable writeback never overwrites a replacement account',
+      () async {
+        store.session = _session(expiresAt: 1);
+        final replacement = HermesSession.fromStorageJson({
+          ..._session().toStorageJson(),
+          'userId': 'other',
+          'refreshToken': 'other-refresh',
+        });
+        store.beforeRead = (read) {
+          if (read == 2) {
+            store.session = replacement;
+            store.unreadable = true;
+          }
+        };
+        await run(readProfiles);
+        expect(store.session, same(replacement));
+        expect(store.writes, 0);
+      },
+    );
+
+    test(
+      'transient write failure retries the same pair without refreshing again',
+      () async {
+        store.session = _session(expiresAt: 1);
+        store.beforeRead = (read) {
+          if (read == 2) store.failWrites = true;
+          if (read == 3) store.failWrites = false;
+        };
+        await run(readProfiles);
+        expect(store.session?.refreshToken, 'refresh-2');
+        expect(store.writes, 2);
         expect(dashboard.refreshes, 1);
       },
     );

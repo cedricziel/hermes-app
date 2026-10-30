@@ -1,0 +1,172 @@
+"""Outbound-only platform: persist a delivery as a normal, replyable app chat.
+
+Both gateway and separate-process sends use SessionDB's public API, through
+the process-wide shared handle from ``hermes_state_registry`` (a private writer
+connection can corrupt pages when its close-time checkpoint races another
+writer's). No direct SQL, dashboard credentials, app listener, or changes to
+Hermes core are needed.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from pathlib import Path
+from uuid import uuid4
+
+from gateway.config import Platform
+from gateway.platforms.base import BasePlatformAdapter, SendResult
+from hermes_constants import get_hermes_home
+
+log = logging.getLogger(__name__)
+UNSUPPORTED_MEDIA = "Hermes App messenger currently accepts text only."
+MAX_MESSAGE_CHARS = 100_000
+
+
+def configured(config) -> bool:
+    return config.enabled is True
+
+
+def parse_target(target: str):
+    return ("inbox", None) if target == "inbox" else None
+
+
+_TITLE_ATTEMPTS = 20
+
+
+def _set_unique_title(db, session_id: str, title: str) -> None:
+    # Hermes enforces unique titles. Trying each name and catching the
+    # ValueError (rather than checking first) stays correct under concurrent
+    # sends.
+    limit = db.MAX_TITLE_LENGTH
+    suffixes = [""] + [f" ({n})" for n in range(2, _TITLE_ATTEMPTS + 1)]
+    for suffix in suffixes:
+        try:
+            db.set_auto_title(session_id, title[: limit - len(suffix)] + suffix, source="derived")
+            return
+        except ValueError:
+            continue
+    suffix = f" [{uuid4().hex[:8]}]"
+    db.set_auto_title(session_id, title[: limit - len(suffix)] + suffix, source="derived")
+
+
+def _derive_title(message: str) -> str:
+    lines = [line.strip() for line in message.splitlines() if line.strip()]
+    for line in lines:
+        text = line.lstrip("#>-* \t").strip()
+        if text:
+            return "Message: " + text[:70]
+    return "Message: " + lines[0][:70]
+
+
+def _with_media_note(message: str, dropped: int) -> str:
+    if not dropped:
+        return message
+    noun = "attachment was" if dropped == 1 else "attachments were"
+    return f"{message}\n\n({dropped} {noun} not delivered: Hermes App messages are text only.)"
+
+
+def _persist(home: Path, message: str) -> dict:
+    from hermes_state_registry import acquire
+
+    session_id = f"hermes-app-{uuid4().hex}"
+    title = _derive_title(message)
+    # A fresh session avoids editing a live agent's cached conversation and
+    # keeps repeated deliveries out of a transcript of consecutive assistants.
+    with acquire(home / "state.db") as db:
+        db.create_session(session_id, source="hermes_app")
+        try:
+            # The app treats a session with a message as a finished delivery, so
+            # the message is written last, after the unread flag and the title.
+            db.set_session_read(session_id, False)
+            _set_unique_title(db, session_id, title)
+            row_id = db.append_message(session_id, role="assistant", content=message)
+        except Exception:
+            # Never leave a visible empty/partially delivered chat on failure.
+            db.delete_session(session_id)
+            raise
+    return {
+        "success": True,
+        "platform": "hermes_app",
+        "chat_id": "inbox",
+        "session_id": session_id,
+        "message_id": str(row_id),
+    }
+
+
+async def _deliver(home, chat_id, message, *, thread_id=None, media_files=None):
+    if chat_id != "inbox" or thread_id:
+        return {"error": "Use hermes_app:inbox; existing chats and threads are not delivery targets."}
+    if not isinstance(message, str) or not message.strip():
+        return {"error": "A non-empty text message is required."}
+    if len(message) > MAX_MESSAGE_CHARS:
+        return {"error": f"Message is {len(message):,} characters; Hermes App accepts at most {MAX_MESSAGE_CHARS:,}."}
+    # The send engine hands MEDIA: attachments over separately. Failing the whole
+    # delivery would lose the text, so deliver it and say what was left out.
+    message = _with_media_note(message, len(media_files or ()))
+    try:
+        return await asyncio.to_thread(_persist, home, message)
+    except Exception as exc:
+        log.exception("Hermes App delivery could not be saved")
+        return {"error": f"Could not save the Hermes App message ({type(exc).__name__}); check the Hermes logs."}
+
+
+async def standalone_send(
+    pconfig, chat_id, message, *, thread_id=None, media_files=None, force_document=False,
+):
+    if not configured(pconfig):
+        return {"error": "Hermes App messaging is disabled in this profile."}
+    # Capture the profile before handing work to another thread. The canonical
+    # resolver honours context-local homes in multiplexed gateways.
+    home = get_hermes_home()
+    return await _deliver(home, chat_id, message, thread_id=thread_id, media_files=media_files)
+
+
+class HermesAppAdapter(BasePlatformAdapter):
+    # Hermes' delivery layer otherwise truncates long output (cron saves the
+    # rest to a file and appends a footer); the message is stored whole.
+    splits_long_messages = True
+
+    def __init__(self, config):
+        super().__init__(config=config, platform=Platform("hermes_app"))
+        self._home = get_hermes_home()
+
+    async def connect(self, *, is_reconnect=False):
+        if not configured(self.config):
+            return False
+        self._mark_connected()
+        return True
+
+    async def disconnect(self):
+        self._running = False
+        self._mark_disconnected()
+
+    async def send(self, chat_id, content, reply_to=None, metadata=None):
+        if not configured(self.config):
+            return SendResult(success=False, error="Hermes App messaging is disabled in this profile.")
+        result = await _deliver(
+            self._home, chat_id, content,
+            thread_id=(metadata or {}).get("thread_id"),
+        )
+        return SendResult(
+            success=result.get("success", False),
+            message_id=result.get("message_id"),
+            error=result.get("error"),
+        )
+
+    async def list_channels(self):
+        return [{"id": "inbox", "name": "Hermes App inbox", "type": "dm"}]
+
+    async def get_chat_info(self, chat_id):
+        if chat_id != "inbox":
+            raise ValueError("Unknown Hermes App inbox")
+        return {"chat_id": "inbox", "name": "Hermes App inbox", "type": "dm"}
+
+    async def send_image(self, *args, **kwargs):
+        return SendResult(success=False, error=UNSUPPORTED_MEDIA)
+
+    send_image_file = send_image
+    send_document = send_image
+    send_voice = send_image
+    send_video = send_image
+    send_animation = send_image

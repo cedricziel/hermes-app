@@ -1,5 +1,73 @@
 # Changelog
 
+## [0.1.73](https://github.com/cedricziel/hermes-app/compare/v0.1.72...v0.1.73) (2026-10-26)
+
+
+### Bug Fixes
+
+* **auth:** preserve sessions when refresh recovery cannot read keychain ([#845](https://github.com/cedricziel/hermes-app/issues/845)) ([f7ec132](https://github.com/cedricziel/hermes-app/commit/f7ec132fca4f9355e02c484da2171352525309a3))
+* **auth:** serialize session mutations and retry token persistence ([#847](https://github.com/cedricziel/hermes-app/issues/847)) ([6a8d3b3](https://github.com/cedricziel/hermes-app/commit/6a8d3b30c5fdd87b512efe562eaae586086df0c2))
+
+## [0.1.72](https://github.com/cedricziel/hermes-app/compare/v0.1.71...v0.1.72) (2026-10-25)
+
+
+### Features
+
+* **bot-screen:** add an RFB client for the bot's screen ([#842](https://github.com/cedricziel/hermes-app/issues/842)) ([5e193f1](https://github.com/cedricziel/hermes-app/commit/5e193f1e4710c59b112e93315a84c379a735813b))
+* **bot-screen:** read the bot's screen state over the gateway ([#841](https://github.com/cedricziel/hermes-app/issues/841)) ([1958cc0](https://github.com/cedricziel/hermes-app/commit/1958cc0f639cc300c295a77bf5a6f9d4d010e910))
+
+
+### Bug Fixes
+
+* **auth:** preserve valid OIDC sessions ([#843](https://github.com/cedricziel/hermes-app/issues/843)) ([85b9786](https://github.com/cedricziel/hermes-app/commit/85b9786fd8454ea4bcdfac97b356886bff09e68f))
+
+
+### Documentation
+
+* **memory:** record in-app verification ([#838](https://github.com/cedricziel/hermes-app/issues/838)) ([6311b39](https://github.com/cedricziel/hermes-app/commit/6311b39687a676c7536cb375d32ebd5561d11a45))
+* **openspec:** propose the Bot Screen changes ([#840](https://github.com/cedricziel/hermes-app/issues/840)) ([6f182bd](https://github.com/cedricziel/hermes-app/commit/6f182bde73d95dc9298b0a5c6c7bcd3e18b40126))
+
+## [0.1.71](https://github.com/cedricziel/hermes-app/compare/v0.1.70...v0.1.71) (2026-10-24)
+
+
+### Features
+
+* **background:** announce messages from Hermes ([#837](https://github.com/cedricziel/hermes-app/issues/837)) ([51026d2](https://github.com/cedricziel/hermes-app/commit/51026d2e2b886aaba580a905a68a0f24f9578711))
+* **chat:** add a Yesterday section to the Mac sidebar ([#817](https://github.com/cedricziel/hermes-app/issues/817)) ([2ff0695](https://github.com/cedricziel/hermes-app/commit/2ff0695c7fa720584888afaaf851c7274fe22e4f))
+* **chat:** mark opened chats read ([#818](https://github.com/cedricziel/hermes-app/issues/818)) ([f3221d9](https://github.com/cedricziel/hermes-app/commit/f3221d9587ab079526aec5c49eca485c925375bc))
+* **chat:** show memory saves, approvals and full memory in the tool card ([#825](https://github.com/cedricziel/hermes-app/issues/825)) ([39337ef](https://github.com/cedricziel/hermes-app/commit/39337efa3a78cda5daaa352a20f30a6f3d3d7613))
+* **memory:** add learning settings to the Memory screen ([#830](https://github.com/cedricziel/hermes-app/issues/830)) ([93cca56](https://github.com/cedricziel/hermes-app/commit/93cca56f982b60c28e54c6e3f7e33d82adde488a))
+* **memory:** add the waiting-for-you inbox ([#836](https://github.com/cedricziel/hermes-app/issues/836)) ([400dd53](https://github.com/cedricziel/hermes-app/commit/400dd53bc1300f8a8f8fd27b06981c13c97fdcbf))
+* **memory:** read and decide pending memory proposals ([#832](https://github.com/cedricziel/hermes-app/issues/832)) ([d9f5cb0](https://github.com/cedricziel/hermes-app/commit/d9f5cb0289753188e73d1a679bda70414766439b))
+* **memory:** read entry text and character limits per memory file ([#823](https://github.com/cedricziel/hermes-app/issues/823)) ([862014a](https://github.com/cedricziel/hermes-app/commit/862014a4b1fceb72e0698be16796890e1da13eae))
+* **memory:** show memory per file with its fill level ([#824](https://github.com/cedricziel/hermes-app/issues/824)) ([de07deb](https://github.com/cedricziel/hermes-app/commit/de07debd2a0e941cb109220ebeec009354d77416))
+* **memory:** show the memory provider and reset memory from the Memory screen ([#831](https://github.com/cedricziel/hermes-app/issues/831)) ([77b58bd](https://github.com/cedricziel/hermes-app/commit/77b58bd951e3d701715c1bf8e10900026cf9a0df))
+* **messaging:** add Hermes App messenger plugin ([#804](https://github.com/cedricziel/hermes-app/issues/804)) ([a1279f8](https://github.com/cedricziel/hermes-app/commit/a1279f8ea886262392932744be45f61bc7594571))
+* **navigation:** open Memory from the sidebar and the Profiles page ([#826](https://github.com/cedricziel/hermes-app/issues/826)) ([de9783d](https://github.com/cedricziel/hermes-app/commit/de9783df9ad0413fc5ba5a46f754035c135c9d1f))
+* **notifications:** add the Messages from Hermes setting ([#833](https://github.com/cedricziel/hermes-app/issues/833)) ([1b5f09e](https://github.com/cedricziel/hermes-app/commit/1b5f09e6c1a4573c9ba0fec22c4a762540f9d017))
+* **notifications:** announce messages from Hermes in the app ([#835](https://github.com/cedricziel/hermes-app/issues/835)) ([94eb412](https://github.com/cedricziel/hermes-app/commit/94eb412e8e3fba24c680c547770fc94b528d37af))
+* **notifications:** compose notifications for messages from Hermes ([#828](https://github.com/cedricziel/hermes-app/issues/828)) ([5404b36](https://github.com/cedricziel/hermes-app/commit/5404b36f46c116e277a690469e092354188320d2))
+* **notifications:** find new messages from Hermes ([#827](https://github.com/cedricziel/hermes-app/issues/827)) ([7aa2055](https://github.com/cedricziel/hermes-app/commit/7aa2055e05b9a7aed257a9d54cfd3c2847214ac2))
+* **notifications:** open the chat of a message from Hermes ([#829](https://github.com/cedricziel/hermes-app/issues/829)) ([cd8bab4](https://github.com/cedricziel/hermes-app/commit/cd8bab4ebc4a22dda4332ae77bffd053054f97f3))
+* **notifications:** watch for messages from Hermes ([#834](https://github.com/cedricziel/hermes-app/issues/834)) ([4b6e867](https://github.com/cedricziel/hermes-app/commit/4b6e867f5ed330dbb72c533379f58e3ae0915ec5))
+* **release:** attach macOS DMG, Android and Windows downloads to releases ([#820](https://github.com/cedricziel/hermes-app/issues/820)) ([0a34d9a](https://github.com/cedricziel/hermes-app/commit/0a34d9a7e75fbb1f50eae9527c9e8400433c711b))
+
+
+### Bug Fixes
+
+* **auth:** explain untrusted certificates and trust user CAs on Android ([#805](https://github.com/cedricziel/hermes-app/issues/805)) ([e880857](https://github.com/cedricziel/hermes-app/commit/e880857df35c43f2327c39da33a05f5f5faa62ef))
+* **chat:** focus the composer of the new chat the app opens on ([#814](https://github.com/cedricziel/hermes-app/issues/814)) ([5a8f196](https://github.com/cedricziel/hermes-app/commit/5a8f19671c8fe98da8f1f226bbf9af52c5abe455))
+* **chat:** mark read on every path that opens a chat ([#821](https://github.com/cedricziel/hermes-app/issues/821)) ([d8e33e4](https://github.com/cedricziel/hermes-app/commit/d8e33e464bc786787f09e6ee999d9e8b0c5aa0af))
+* **windows:** build the plugins that use the deprecated coroutine header ([#822](https://github.com/cedricziel/hermes-app/issues/822)) ([3ba69c2](https://github.com/cedricziel/hermes-app/commit/3ba69c2572f00773e5d737b580ce90539674dd7b))
+
+
+### Documentation
+
+* **design:** port the chat Activity panel and cards to the design recreation ([#807](https://github.com/cedricziel/hermes-app/issues/807)) ([2d1bb82](https://github.com/cedricziel/hermes-app/commit/2d1bb82d09466510171c9a725b4bd498f777f098))
+* **openspec:** propose agent-messages ([#816](https://github.com/cedricziel/hermes-app/issues/816)) ([b0ebdd2](https://github.com/cedricziel/hermes-app/commit/b0ebdd2b424c0c303b0236924fdea377e3a3c3e4))
+* **openspec:** propose memory hub changes ([#819](https://github.com/cedricziel/hermes-app/issues/819)) ([ebe6c8f](https://github.com/cedricziel/hermes-app/commit/ebe6c8fc47cc17308f3ad263bc944caace82628d))
+* **skills:** add a release skill ([#808](https://github.com/cedricziel/hermes-app/issues/808)) ([28d2287](https://github.com/cedricziel/hermes-app/commit/28d2287f8e8173bd65777ee6bac5b88229ef1918))
+
 ## [0.1.70](https://github.com/cedricziel/hermes-app/compare/v0.1.69...v0.1.70) (2026-10-19)
 
 

@@ -94,9 +94,9 @@ const notifications = <String, (Use, String)>{
   'projects.changed': (Use.notForThisApp, 'desktop projects'),
   'skin.changed': (Use.notForThisApp, 'TUI/desktop skin'),
   'setup.ready': (Use.notForThisApp, 'desktop free-tier setup'),
+  'onboarding.ended': (Use.notForThisApp, 'desktop onboarding'),
   'free_tier.challenge': (Use.notForThisApp, 'desktop free-tier setup'),
   'tip.show': (Use.notForThisApp, 'desktop tip bubble'),
-  'layout.apply': (Use.notForThisApp, 'desktop layout'),
   'pane.reveal': (Use.notForThisApp, 'desktop layout'),
   'preview.open': (Use.notForThisApp, 'desktop preview pane'),
   'preview.close': (Use.notForThisApp, 'desktop preview pane'),
@@ -113,10 +113,10 @@ const notifications = <String, (Use, String)>{
   'pet.changed': (Use.notForThisApp, 'desktop pet'),
   'pet.generate.progress': (Use.notForThisApp, 'desktop pet'),
   'pet.hatch.progress': (Use.notForThisApp, 'desktop pet'),
-  'display.status': (Use.notForThisApp, 'desktop Bot Screen'),
-  'display.lease': (Use.notForThisApp, 'desktop Bot Screen'),
-  'display.install.log': (Use.notForThisApp, 'desktop Bot Screen'),
-  'display.install.done': (Use.notForThisApp, 'desktop Bot Screen'),
+  'display.status': (Use.transport, 'Bot Screen state'),
+  'display.lease': (Use.transport, 'Bot Screen state'),
+  'display.install.log': (Use.transport, 'Bot Screen install progress'),
+  'display.install.done': (Use.transport, 'Bot Screen install result'),
   'bot_relay.outbox.pending': (Use.notForThisApp, 'desktop bot relay'),
 };
 
@@ -133,13 +133,21 @@ const legacy = {
   'sudo.expire',
 };
 
+/// The server requests a registered handler answers
+/// (`HermesGatewayTransport.registerServerRequestHandler`); the transport
+/// refuses them at once while nobody registered.
+const registeredRequests = <String, String>{
+  'display.install.sudo': 'Bot Screen install, the sudo password',
+};
+
 /// The server requests the transport refuses at once.
 const refusedRequests = <String, String>{
-  'display.install.sudo': 'desktop Bot Screen',
   'preview.act': 'desktop preview pane',
   'preview.read': 'desktop preview pane',
-  'setup_choose': 'desktop setup',
+  'setup_beat': 'desktop onboarding',
   'terminal.read': 'desktop terminal',
+  'theme.apply': 'desktop theme',
+  'theme.pick': 'desktop theme',
   'tour': 'desktop guided tour',
   'window.read': 'desktop window bridge',
 };
@@ -263,11 +271,17 @@ void main() {
   test('every server request in the contract is answered or refused', () {
     expect({
       ...handledServerRequests,
+      ...registeredRequests.keys,
       ...refusedRequests.keys,
     }, names('x-server-requests'));
-    expect(
-      handledServerRequests.intersection(refusedRequests.keys.toSet()),
-      isEmpty,
-    );
+    final registered = registeredRequests.keys.toSet();
+    final refused = refusedRequests.keys.toSet();
+    expect(handledServerRequests.intersection(registered), isEmpty);
+    expect(handledServerRequests.intersection(refused), isEmpty);
+    expect(registered.intersection(refused), isEmpty);
+  });
+
+  test('the registrable server requests are the registered ones', () {
+    expect(registrableServerRequests, registeredRequests.keys.toSet());
   });
 }

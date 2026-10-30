@@ -31,6 +31,12 @@ const replyFailedCategory = RequestCategory(
   placeholder: kReplyFailedBody,
 );
 
+/// A message a Hermes profile delivered; also the summary of several.
+const messageCategory = RequestCategory(
+  'hermes.message.new',
+  placeholder: kNewMessageBody,
+);
+
 const kAllowOnceAction = 'hermes.action.allow-once';
 const kAllowSessionAction = 'hermes.action.allow-session';
 const kAllowAlwaysAction = 'hermes.action.allow-always';
@@ -185,6 +191,7 @@ List<RequestCategory> staticRequestCategories() {
     _questionPlaceholder,
     replyReadyCategory,
     replyFailedCategory,
+    messageCategory,
   ];
 }
 

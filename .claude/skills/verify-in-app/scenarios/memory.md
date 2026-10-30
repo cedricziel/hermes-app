@@ -61,3 +61,108 @@ inspection; apply the dependent mutation change before these checks.
 6. Inspect `memory.mutate`, `memory.mutation_outcome`, `memory.edit.open`, and
    `memory.delete.confirm`. Content, opaque IDs, labels, profiles, and backend
    error strings must be absent. A telemetry failure must not break the action.
+
+## Verify waiting memory and skill changes
+
+Stage records by hand in the throwaway home; Hermes lists whatever is in
+`<HERMES_HOME>/pending/memory/` and `<HERMES_HOME>/pending/skills/`.
+`test/real_backend_contract_test.dart` ("staged memory and skill writes") has
+the record shapes. A record is `{id (8 hex), subsystem, action, summary,
+origin (foreground | background_review), created_at, payload}`; a replace,
+patch or remove needs `payload.matched_entry` to equal an entry of
+`memories/MEMORY.md` or `USER.md` (entries are separated by `\n§\n`) or
+approving fails with "Entry changed since it was staged".
+
+1. Stage a chat add, a chat replace (`summary` of `replace in memory: entry
+matching: X` + newline + `whole entry becomes: Y`), a background patch
+   (`origin: background_review`, `summary` of `background review consolidation
+(patch on memory): - patch span 'X' -> 'Y' (rest of the entry is kept)`), a
+   background remove and a skill `create`. Open Memory: the card reads "N
+   changes waiting for you" and opens Waiting for you with the right badges,
+   targets and origins; the replaced entry is struck through.
+2. In a window of 900 points or wider (macOS) and on an iPad simulator, the
+   list sits beside the first proposal's detail; on a phone, a row opens a
+   page. Approve one: "Saved to <target>", the list is read again and the file
+   on disk changed. Reject one: the file did not. A skill shows "Show changes".
+3. Change the entry a record is pinned to on disk, then approve it: Hermes'
+   "Entry changed since it was staged" shows and the record stays.
+4. Approve all and Reject all (asks first) decide exactly the listed ids: stage
+   one more record after the list was read and check it stays pending.
+5. The chat sidebar's Memory entry reads "Memory · N waiting" and the Mac
+   Profiles page "N waiting"; the chat list shows no new chat after reading.
+
+## Verify the Memory screen, settings, proposals and tool card on macOS
+
+Run on 2026-10-24 against Hermes `d923a5eb` with the temporary client fixture
+from the shared guide. Every step below was observed.
+
+### Seed the throwaway home before `dev-backend.sh start`
+
+- `config.yaml` with the scripted model block from "Scripted tool calls".
+- `memories/USER.md` with a few short entries and `memories/MEMORY.md` with
+  four entries of 525 characters (2,109 of 2,200: the Agent notes tab shows
+  "Full" and its warning). Entries are joined by `"\n§\n"`; the app counts
+  characters plus 3 per separator, the same number Hermes' memory tool
+  reports (`"usage": "6% — 94/1,375 chars"` matched "94 of 1,375").
+- A second profile without the CLI (which writes aliases to
+  `~/.local/bin`): create `profiles/work/config.yaml` (any identity marker
+  makes it a profile) and `profiles/work/memories/USER.md`. Leave its
+  `MEMORY.md` out to see the empty state.
+
+### What to look at
+
+1. Profiles page: Memory sits after Skills with the entry count (7 and 1);
+   opening it shows that profile in the subtitle. Settings… has no Memory row.
+2. Memory screen: About you / Agent notes tabs, "N entries", "X of Y
+   characters", the warning under the bar, "Nothing remembered yet" for an
+   empty tab. Open an entry: "Entry 3 of 4 in Agent notes (MEMORY.md)", Edit
+   shows a live count and "N left in Agent notes"; Save rewrites the file,
+   Delete entry asks "Permanently delete this memory?" and removes it.
+3. Learning: tap the switch itself (the row title does not toggle it on the
+   Mac) and diff `config.yaml` after each change: `memory.user_profile_enabled`,
+   `memory.write_approval`, `memory.nudge_interval` (Review chats) and
+   `display.memory_notifications` (`verbose` for With details). The other
+   profile's `config.yaml` must stay unchanged. Memory provider reads
+   "Built-in · MEMORY.md and USER.md" and opens Plugins on Providers. Reset
+   memory… > Reset about you deletes only that profile's `USER.md`.
+4. Proposals: stage records with the shapes above (a small Python script that
+   writes `<home>/pending/memory/<id8>.json` is enough; a replace or patch
+   needs `matched_entry` equal to a whole current entry). Profiles shows "N
+   waiting", Memory shows "N changes waiting for you". At 1,512 pt the list
+   sits beside the detail. Approve shows "Saved to Agent notes" and the file
+   changes; Reject shows "Rejected" and leaves it; editing the pinned entry on
+   disk first gives Hermes' "Entry changed since it was staged" and keeps the
+   record. Stage one more after the list was read: Approve all (no question)
+   and Reject all ("Reject all changes?", "Rejected 2 changes") leave it
+   pending. `state.db` gains no session from reading or deciding.
+5. Tool card: copy `scripts/fake_tool_model.py` to the scratchpad and add a
+   turn that calls `memory` with `{"action": "add", "target": "user",
+"content": …}` and one that adds an entry too big for `MEMORY.md`. With
+   `write_approval: true` the card shows "Not saved yet." with Reject and
+   Approve (also after reopening the chat); off, "Saved to memory · About
+   you · 6% full"; too big, the warning icon and "Agent notes are at 1,107 of
+   2,200 characters, so this entry did not fit." Turning Ask before saving
+   off on the Memory screen applies to the chat that is already open.
+
+### Pitfalls
+
+- Hermes' background review runs on the same scripted model: after a chat
+  turn it can stage its own copy of the write (`origin: background_review`),
+  and chat-staged records carry `origin: assistant_tool`, not `foreground`.
+- The first expansion of a tool card at the bottom of a chat collapses again:
+  the expand animation counts as quiet metric changes for
+  `BlankListWatchdog`, which remounts the list. A second tap within its 10 s
+  cooldown stays open. Seen only as that; reported, not fixed here.
+- A background review note (and the Activity panel's Memory link) needs a
+  `review.summary` that saved something; staged review writes send none.
+- Without Accessibility and Screen Recording for the terminal, a temporary
+  `lib/` file can register `ext.verify.*` service extensions (list visible
+  texts with their rects, tap by text or point with synthetic mouse events,
+  type into the focused field, render `renderViews.first.debugLayer` to PNG)
+  and a small `websockets` client in Hermes' venv can call them. Don't drive
+  frames by hand: timestamps out of step with the engine's break animations
+  (`elapsedInSeconds >= 0.0`).
+- `xcodebuild -resolvePackageDependencies` can hang on a keychain prompt
+  while SwiftPM downloads a binary artifact (`KeychainAuthorizationProvider`
+  in a `sample`). Running it once with `-packageAuthorizationProvider netrc`
+  fetches the artifacts; later `flutter build` and `flutter run` then pass.

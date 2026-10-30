@@ -13,6 +13,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
     _scaffoldKey.currentState?.closeDrawer();
   }
 
+  /// Puts the cursor in the composer of the new chat a window opens on, so
+  /// typing can start at once. A phone opens on the chat list, and focus that
+  /// something else took meanwhile stays where it is.
+  void _focusComposerOnLaunch() {
+    if (!mounted || !_showsWelcome || !(_wide || _mac || _detailOpen)) return;
+    if (_maybeRead<AppLockController>()?.covered ?? false) return;
+    final focused = FocusManager.instance.primaryFocus;
+    if (focused != null && focused is! FocusScopeNode) return;
+    _composerFocus.requestFocus();
+  }
+
   /// Opens the toolbar search of a Mac window and puts the cursor in it. A
   /// compact window shows the sidebar too, where the results go.
   void _beginSearch() {
@@ -58,11 +69,18 @@ extension _ChatScreenNavigation on _ChatScreenState {
     crumbs('chat.activity.opened', {'surface': 'sheet', 'source': source});
     final sheet = showKanbanDetentSheet(
       context,
-      (controller) => BoundActivityPanel(
-        chat: _chat,
-        thread: thread,
-        scrollController: controller,
-        onClose: () => Navigator.of(context).pop(),
+      (controller) => ListenableBuilder(
+        // The profile may change while the sheet is open, and with it the
+        // screen.
+        listenable: _chat,
+        builder: (_, _) => BoundActivityPanel(
+          chat: _chat,
+          thread: thread,
+          screen: _screen,
+          onEnlargeScreen: () => _openViewer('card'),
+          scrollController: controller,
+          onClose: () => Navigator.of(context).pop(),
+        ),
       ),
     );
     unawaited(
@@ -201,6 +219,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
     if (draft == null || !mounted) return;
     widget.onShowChat?.call();
     _rebuild(() => _appendToComposer(draft));
+  }
+
+  Future<void> _openMemory() async {
+    _closeDrawerIfNarrow();
+    await openMemory(
+      context,
+      from: MemoryEntryPoint.sidebar,
+      profile: _chat.profile,
+      transport: _chat.transport,
+    );
+    if (mounted) unawaited(_memoryWaiting?.refresh(_chat.profile));
   }
 
   void _openPlugins() {

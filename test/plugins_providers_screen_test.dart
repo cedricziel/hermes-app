@@ -61,7 +61,11 @@ void main() {
     server = FakeHermesServer()..on('GET', _hub, hub());
   });
 
-  Future<void> pump(WidgetTester tester, {double width = 400}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    double width = 400,
+    PluginsTab initialTab = PluginsTab.installed,
+  }) async {
     tester.view
       ..physicalSize = Size(width, 1400)
       ..devicePixelRatio = 1;
@@ -71,6 +75,7 @@ void main() {
         home: PluginsScreen(
           repository: HermesPluginManagerRepository(server.client().raw),
           events: (name, [attributes = const {}]) => events.add(name),
+          initialTab: initialTab,
         ),
       ),
     );
@@ -115,6 +120,7 @@ void main() {
         ['Installed', 'Catalog', 'Providers'],
       );
       expect(_tab('Providers'), findsOneWidget);
+      expect(find.text('Memory provider'), findsNothing);
       expect(server.requestsTo('GET', _hub), hasLength(1));
 
       await tester.tap(_tab('Providers'));
@@ -126,6 +132,19 @@ void main() {
       await tester.tap(_tab('Providers'));
       await tester.pumpAndSettle();
       expect(server.requestsTo('GET', _hub), hasLength(2));
+    });
+
+    testWidgets('opens on Providers when asked to, without the catalog', (
+      tester,
+    ) async {
+      await pump(tester, initialTab: PluginsTab.providers);
+
+      expect(find.text('Memory provider'), findsOneWidget);
+      expect(server.requestsTo('GET', _hub), hasLength(2));
+      expect(
+        server.requestsTo('GET', '/api/dashboard/plugins/catalog'),
+        isEmpty,
+      );
     });
 
     testWidgets('shows a spinner while it loads', (tester) async {

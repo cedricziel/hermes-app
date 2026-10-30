@@ -112,7 +112,7 @@ void main() {
     final schemas = (json['components'] as Map)['schemas'] as Map;
     expect(
       File('openrpc/HERMES_REF').readAsStringSync().trim(),
-      '71d34bad1045610252eda02ee79549436896e784',
+      'd923a5eb487a17c0a68801bba9ef0f56c81040a8',
     );
     expect((schemas['MoaReferencePayload'] as Map)['required'], [
       'label',

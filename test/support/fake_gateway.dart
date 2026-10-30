@@ -5,10 +5,13 @@ import 'package:stream_channel/stream_channel.dart';
 
 /// A JSON-RPC error a [FakeGateway.handlers] entry answers with.
 class FakeRpcError implements Exception {
-  const FakeRpcError(this.code, [this.message = 'error']);
+  const FakeRpcError(this.code, [this.message = 'error', this.data]);
 
   final int code;
   final String message;
+
+  /// The error's `data` member, when the gateway sends one.
+  final Object? data;
 }
 
 /// Plays the dashboard's side of the socket: answers each RPC the way the
@@ -277,7 +280,11 @@ class FakeGateway {
       } on FakeRpcError catch (error) {
         _send({
           'id': id,
-          'error': {'code': error.code, 'message': error.message},
+          'error': {
+            'code': error.code,
+            'message': error.message,
+            if (error.data != null) 'data': error.data,
+          },
         });
       }
       return;
