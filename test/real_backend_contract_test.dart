@@ -14,7 +14,8 @@ import 'package:hermes_api/hermes_api.dart'
         ProfileCreate,
         ProfileModelUpdate,
         RawConfigUpdate,
-        SessionRename;
+        SessionRename,
+        TTSSpeakRequest;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
@@ -49,6 +50,8 @@ import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
+import 'package:hermes_app/src/voice/synthesized_speech.dart';
+import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
 
 import 'support/attachment_fixtures.dart';
@@ -160,6 +163,33 @@ void main() {
         expect(stt['streaming'], isA<bool>());
       }
     }, skip: skip);
+
+    test(
+      'speak answers a data URL of audio, or fails without a provider',
+      () async {
+        final config = await client.raw
+            .getClientVoiceConfigApiAudioVoiceConfigGet();
+        final usable = VoiceSupport.fromJson(config.data).textToSpeech;
+        try {
+          final response = await client.raw.speakTextApiAudioSpeakPost(
+            tTSSpeakRequest: TTSSpeakRequest(text: 'Hello.'),
+          );
+          final body = response.data! as Map;
+          if (body['ok'] == true) {
+            // The shape Read aloud and voice calls decode.
+            final speech = SynthesizedSpeech.fromJson(body);
+            expect(speech.mimeType, startsWith('audio/'));
+            expect(speech.bytes, isNotEmpty);
+          } else {
+            expect(usable, isFalse, reason: 'voice-config said it can speak');
+          }
+        } on DioException catch (error) {
+          expect(error.response?.statusCode, greaterThanOrEqualTo(400));
+          if (usable) markTestSkipped('the TTS provider failed: $error');
+        }
+      },
+      skip: skip,
+    );
 
     test('a speech-to-text lease is taken and released', () async {
       final repository = HermesChatRepository(client.raw);

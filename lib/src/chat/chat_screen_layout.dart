@@ -101,81 +101,88 @@ extension _ChatScreenLayout on _ChatScreenState {
         final compactMessenger = !isWide && !_mac;
         final macSplit = isWide && _mac;
         final search = chat.search;
-        final threadView = boundChatThreadView(
-          chat: chat,
-          recipientChip: ProfileRecipientChip(
-            profile: _recipient,
-            state: _recipientState,
-            avatars: _avatars,
-            onTap:
-                selected == null ||
-                    !selected.remote && selected.messages.isEmpty
-                ? _changeRecipient
-                : null,
-            onRetry: _loadRecipients,
-            onSetup: _openProfiles,
-          ),
-          onSetupModel: _setupModel,
-          screen: _screen,
-          onOpenScreen: () => _openViewer('preview'),
-          thread: selected,
-          greetingName: context.select<AuthController, String?>(
-            (auth) => auth.identity?.displayName,
-          ),
-          sendTarget: () => (_chat.profile, _chat.selectedId),
-          composerController: _composerController,
-          composerFocus: _composerFocus,
-          dictation: _voiceCall?.ended == false ? null : _dictation?.controller,
-          voiceRecording: _voiceCall?.ended == false ? null : _voiceRecording,
-          attachments: _attachments,
-          attachmentSource: _attachmentSource,
-          onAddAttachments: _addAttachments,
-          onRemoveAttachment: (file) =>
-              _rebuild(() => _attachments.remove(file)),
-          onSend: _send,
-          slashCommands: _slashCommands,
-          commandRunning:
-              _slashSending || _queueSending || !_recipientSendAllowed,
-          starterPrompts: _showsWelcome ? _starterPrompts() : null,
-          onPickStarter: _pickStarter,
-          latestReply: _latestReply,
-          editable: true,
-          header: !isWide
-              ? null
-              : _mac
-              ? ListenableBuilder(
-                  listenable: search ?? const AlwaysStoppedAnimation(0),
-                  builder: (context, _) => MacChatToolbar(
+        final threadView = Provider<ReadAloud?>.value(
+          value: _readAloud,
+          child: boundChatThreadView(
+            chat: chat,
+            recipientChip: ProfileRecipientChip(
+              profile: _recipient,
+              state: _recipientState,
+              avatars: _avatars,
+              onTap:
+                  selected == null ||
+                      !selected.remote && selected.messages.isEmpty
+                  ? _changeRecipient
+                  : null,
+              onRetry: _loadRecipients,
+              onSetup: _openProfiles,
+            ),
+            onSetupModel: _setupModel,
+            screen: _screen,
+            onOpenScreen: () => _openViewer('preview'),
+            thread: selected,
+            greetingName: context.select<AuthController, String?>(
+              (auth) => auth.identity?.displayName,
+            ),
+            sendTarget: () => (_chat.profile, _chat.selectedId),
+            composerController: _composerController,
+            composerFocus: _composerFocus,
+            dictation: _voiceCall?.ended == false
+                ? null
+                : _dictation?.controller,
+            voiceRecording: _voiceCall?.ended == false ? null : _voiceRecording,
+            attachments: _attachments,
+            attachmentSource: _attachmentSource,
+            onAddAttachments: _addAttachments,
+            onRemoveAttachment: (file) =>
+                _rebuild(() => _attachments.remove(file)),
+            onSend: _send,
+            slashCommands: _slashCommands,
+            commandRunning:
+                _slashSending || _queueSending || !_recipientSendAllowed,
+            starterPrompts: _showsWelcome ? _starterPrompts() : null,
+            onPickStarter: _pickStarter,
+            latestReply: _latestReply,
+            editable: true,
+            header: !isWide
+                ? null
+                : _mac
+                ? ListenableBuilder(
+                    listenable: search ?? const AlwaysStoppedAnimation(0),
+                    builder: (context, _) => MacChatToolbar(
+                      avatar: _avatar(),
+                      title: bot?.title ?? selected?.title ?? 'Hermes',
+                      subtitle: _toolbarSubtitle(),
+                      onNewChat: _newThread,
+                      onShowConnection: _showConnection,
+                      activityOpen: _activityOpen,
+                      onToggleActivity: selected == null
+                          ? null
+                          : _toggleActivity,
+                      onCopyTranscript: selected == null
+                          ? null
+                          : () => _copyTranscript(selected),
+                      searchQuery: search?.query ?? '',
+                      searchActive: search?.active ?? false,
+                      searchFocus: _searchFocus,
+                      onSearchBegin: _beginSearch,
+                      onSearchChanged: search?.update ?? (_) {},
+                      onSearchSubmitted: search?.remember,
+                      onSearchEnd: search?.end ?? () {},
+                    ),
+                  )
+                : ChatHeader(
+                    thread: selected,
                     avatar: _avatar(),
-                    title: bot?.title ?? selected?.title ?? 'Hermes',
-                    subtitle: _toolbarSubtitle(),
-                    onNewChat: _newThread,
+                    displayTitle: bot?.title,
+                    housekeeping: chat.housekeeping,
                     onShowConnection: _showConnection,
+                    onNewChat: _newThread,
+                    callButton: _callButton,
                     activityOpen: _activityOpen,
                     onToggleActivity: selected == null ? null : _toggleActivity,
-                    onCopyTranscript: selected == null
-                        ? null
-                        : () => _copyTranscript(selected),
-                    searchQuery: search?.query ?? '',
-                    searchActive: search?.active ?? false,
-                    searchFocus: _searchFocus,
-                    onSearchBegin: _beginSearch,
-                    onSearchChanged: search?.update ?? (_) {},
-                    onSearchSubmitted: search?.remember,
-                    onSearchEnd: search?.end ?? () {},
                   ),
-                )
-              : ChatHeader(
-                  thread: selected,
-                  avatar: _avatar(),
-                  displayTitle: bot?.title,
-                  housekeeping: chat.housekeeping,
-                  onShowConnection: _showConnection,
-                  onNewChat: _newThread,
-                  callButton: _callButton,
-                  activityOpen: _activityOpen,
-                  onToggleActivity: selected == null ? null : _toggleActivity,
-                ),
+          ),
         );
 
         final content = isWide

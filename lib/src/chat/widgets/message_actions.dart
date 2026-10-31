@@ -40,12 +40,17 @@ class TurnActionStatus {
   int get hashCode => Object.hash(running, problem);
 }
 
+/// Where reading a reply aloud stands: [loading] while Hermes speaks it,
+/// [playing] while it plays. Either can be stopped.
+enum ReadAloudState { idle, loading, playing }
+
 /// The small row of actions under a finished reply — assistant-ui's action
 /// bar. Copy takes the reply's text; retry, when given, asks again, and edit
 /// takes the prompt back to change it. A reply the user [stopped] says so
 /// first, so it does not read as finished. While [status] has an action
 /// running, it takes the place of retry and edit; a [TurnActionStatus.problem]
-/// is said below the bar.
+/// is said below the bar. A non-null [readAloud] adds Read aloud after Copy,
+/// which [onReadAloud] starts and, while loading or playing, stops.
 class MessageActions extends StatefulWidget {
   const MessageActions({
     super.key,
@@ -55,6 +60,8 @@ class MessageActions extends StatefulWidget {
     this.onRetry,
     this.onEdit,
     this.status = TurnActionStatus.idle,
+    this.readAloud,
+    this.onReadAloud,
   });
 
   final String text;
@@ -65,6 +72,13 @@ class MessageActions extends StatefulWidget {
   final VoidCallback? onRetry;
   final VoidCallback? onEdit;
   final TurnActionStatus status;
+
+  /// Null hides Read aloud: the profile has no text to speech, or the reply
+  /// has nothing to say.
+  final ReadAloudState? readAloud;
+
+  /// Null disables Read aloud, for example during a voice call.
+  final VoidCallback? onReadAloud;
 
   @override
   State<MessageActions> createState() => _MessageActionsState();
@@ -95,6 +109,7 @@ class _MessageActionsState extends State<MessageActions> {
     if (!widget.showCopy &&
         widget.onRetry == null &&
         widget.onEdit == null &&
+        widget.readAloud == null &&
         !widget.stopped &&
         widget.status == TurnActionStatus.idle) {
       return const SizedBox.shrink();
@@ -102,7 +117,7 @@ class _MessageActionsState extends State<MessageActions> {
     final color = context.hermesColors.subtleText;
     final touch = platformChromeOf(context) == PlatformChrome.ios;
     final box = touch ? kAppleMinTapTarget : 32.0;
-    Widget action(String label, AppIconSet icon, VoidCallback onPressed) =>
+    Widget action(String label, AppIconSet icon, VoidCallback? onPressed) =>
         NamedIconButton(
           label: label,
           icon: icon,
@@ -132,6 +147,38 @@ class _MessageActionsState extends State<MessageActions> {
               _copied ? AppIcons.check : AppIcons.copyOutlined,
               _copy,
             ),
+          if (widget.readAloud case final state?)
+            switch (state) {
+              ReadAloudState.idle => action(
+                'Read aloud',
+                AppIcons.speaker,
+                widget.onReadAloud,
+              ),
+              ReadAloudState.playing => Semantics(
+                liveRegion: true,
+                child: action(
+                  'Stop reading',
+                  AppIcons.stop,
+                  widget.onReadAloud,
+                ),
+              ),
+              ReadAloudState.loading => Stack(
+                alignment: Alignment.center,
+                children: [
+                  action('Stop reading', AppIcons.stop, widget.onReadAloud),
+                  IgnorePointer(
+                    child: SizedBox.square(
+                      key: const Key('read-aloud-loading'),
+                      dimension: 24,
+                      child: CircularProgressIndicator.adaptive(
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation(color),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            },
           if (running != null)
             Flexible(
               child: Semantics(

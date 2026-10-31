@@ -18,7 +18,7 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
-import 'package:dio/dio.dart' show DioException;
+import 'package:dio/dio.dart' show CancelToken, DioException;
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
@@ -98,6 +98,8 @@ import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import '../voice/composer_dictation.dart';
+import '../voice/read_aloud.dart';
+import 'media/media_store.dart';
 import '../voice/voice_message_recording.dart';
 import '../voice/voice_recording_view.dart';
 import '../voice/dictation_settings.dart';
@@ -128,6 +130,7 @@ part 'chat_screen_composer.dart';
 part 'chat_screen_layout.dart';
 part 'chat_screen_calls.dart';
 part 'chat_screen_bot_screen.dart';
+part 'chat_screen_read_aloud.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -291,6 +294,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _callRouteOpen = false;
   bool _callHasEnded = true;
   ComposerDictation? _dictation;
+  ReadAloud? _readAloud;
+  ({String? profile})? _readAloudAsked;
+  int _readAloudEpoch = 0;
   VoiceMessageRecording? _voiceRecording;
   (String?, String?)? _recordingOwner;
   List<SlashCommand> _slashCommands = const [];
@@ -546,6 +552,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
       _voiceRecording!.addListener(_recordingChanged);
       unawaited(_dictation!.refresh());
+      _refreshReadAloud();
     }
     _handoff = _maybeRead<HandoffController>();
     _handoff?.bind((activity, valid) async {
@@ -665,6 +672,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _composerThread = thread;
     if (thread != null) _draftOwners[thread] = owner;
     _dictation?.followProfile();
+    _followReadAloudProfile();
     if (!_chat.loadingThreads) widget.chatProfiles?.showing(_chat.profile);
     _syncDock();
     setState(() {});
@@ -773,6 +781,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!_foreground) return;
     _chat.forgetRunningReplies();
     unawaited(_dictation?.refresh());
+    _refreshReadAloud();
     _chat.checkConnection();
     unawaited(_memoryWaiting?.refreshIfStale(_chat.profile));
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
@@ -843,6 +852,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   // State updates stay on the State instance, including those requested by parts.
   void _rebuild(VoidCallback update) => setState(update);
+  void _refreshReadAloud() =>
+      unawaited(_ChatScreenReadAloud(this)._refreshReadAloud());
+  void _followReadAloudProfile() {
+    if (_readAloudAsked?.profile != _chat.profile) _refreshReadAloud();
+  }
 
   @override
   Widget build(BuildContext context) => MacCommandScope(

@@ -30,6 +30,7 @@ import 'clarify_card.dart';
 import 'following_chat_list.dart';
 import 'message_actions.dart';
 import 'message_drag_grip.dart';
+import 'read_aloud_actions.dart';
 import '../starter_prompts.dart';
 import 'reasoning_block.dart';
 import 'review_summary_note.dart';
@@ -260,13 +261,19 @@ Widget _buildText(
   );
   if (isSentByMe || streaming) return draggable;
 
-  Widget actions(bool latest, TurnActionStatus status) => MessageActions(
+  Widget actions(bool latest, TurnActionStatus status) => ReadAloudActions(
+    messageId: message.id,
     text: message.text,
-    showCopy: message.text.isNotEmpty,
-    stopped: message.metadata?[kMetaStopped] == true,
-    onRetry: latest ? onRetry : null,
-    onEdit: latest ? onEdit : null,
-    status: status,
+    builder: (readAloud, onReadAloud) => MessageActions(
+      text: message.text,
+      showCopy: message.text.isNotEmpty,
+      stopped: message.metadata?[kMetaStopped] == true,
+      onRetry: latest ? onRetry : null,
+      onEdit: latest ? onEdit : null,
+      status: status,
+      readAloud: readAloud,
+      onReadAloud: onReadAloud,
+    ),
   );
   Widget below(bool latest) => !latest || turnActionStatus == null
       ? actions(latest, TurnActionStatus.idle)
