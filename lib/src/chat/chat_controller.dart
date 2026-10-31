@@ -1397,20 +1397,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Set<String> get activeThreads => Set.unmodifiable(_active);
 
   /// Asks the transport which sessions are mid-turn and marks their threads,
-  /// dropping ones whose turn ended.
-  Future<void> refreshActive() async {
+  /// dropping ones whose turn ended. False when the transport could not
+  /// say, so a poll can back off.
+  Future<bool> refreshActive() async {
     final transport = this.transport;
-    if (transport == null || !active) return;
+    if (transport == null || !active) return true;
     final generation = _loadGeneration;
     final refresh = ++_activeRefresh;
     final Map<String, String> statuses;
     try {
       statuses = await transport.activeStatuses();
     } on Object {
-      return;
+      return false;
     }
     if (!active || generation != _loadGeneration || refresh != _activeRefresh) {
-      return;
+      return true;
     }
     final working = <String>{
       for (final thread in _threads)
@@ -1427,11 +1428,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         }
       }
     }
-    if (!changed) return;
+    if (!changed) return true;
     _active
       ..clear()
       ..addAll(working);
     notifyListeners();
+    return true;
   }
 
   /// Loaded messages are keyed `<session>-<row id>`, so a count of the

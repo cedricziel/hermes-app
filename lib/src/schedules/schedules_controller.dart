@@ -10,6 +10,7 @@ import '../chat/gateway_connection_transport.dart';
 import '../chat/invalidation/change_invalidation_binding.dart';
 import '../chat/invalidation/change_signal.dart';
 
+import '../network/poll_backoff.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_cron_repository.dart';
 import 'schedule_models.dart';
@@ -117,6 +118,9 @@ class SchedulesController extends ChangeNotifier {
   bool _foreground = true;
   bool _invalidationVisible = true;
   Timer? _timer;
+
+  /// Skips timed refreshes while they keep failing.
+  final _backoff = PollBackoff();
   bool _disposed = false;
   bool _started = false;
   bool _refreshing = false;
@@ -313,8 +317,11 @@ class SchedulesController extends ChangeNotifier {
   void _syncTimer() {
     _timer?.cancel();
     _timer = null;
+    _backoff.reset();
     if (_active && _foreground && _canWork) {
-      _timer = Timer.periodic(refreshEvery, (_) => refresh());
+      _timer = Timer.periodic(refreshEvery, (_) {
+        if (_backoff.tick()) refresh();
+      });
     }
   }
 
@@ -353,6 +360,7 @@ class SchedulesController extends ChangeNotifier {
       if (!_currentActivity(epoch) || generation != _generation) return;
       final jobs = await repository.listJobs(profile: scope);
       if (!_currentActivity(epoch) || generation != _generation) return;
+      _backoff.succeeded();
       _jobs = [for (final job in jobs) _withPending(job)];
       _loaded = true;
       _loading = false;
@@ -360,6 +368,7 @@ class SchedulesController extends ChangeNotifier {
       if (_selectedKey != null && selected == null) _selectedKey = null;
     } on Object catch (e) {
       if (!_currentActivity(epoch) || generation != _generation) return;
+      _backoff.failed();
       _loading = false;
       _error = _describe(e);
     } finally {

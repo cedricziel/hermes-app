@@ -6,6 +6,7 @@ import 'package:flutter_otel/flutter_otel.dart';
 
 import '../background/background_alerts.dart' show kAlertLookupBudget;
 import '../chat/hermes_chat_repository.dart';
+import '../network/poll_backoff.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../profiles/hermes_profiles_repository.dart';
@@ -119,6 +120,13 @@ class AgentMessageWatcher with WidgetsBindingObserver {
 
   late bool _foreground;
   bool _wasOn = false;
+
+  /// Whether looks were wanted at the last [_sync], so that a change of an
+  /// unrelated setting does not restart them.
+  bool _syncedEnabled = false;
+
+  /// Skips minute ticks while the server cannot list its profiles.
+  final _backoff = PollBackoff();
   bool _paused;
   bool _disposed = false;
   Future<void>? _inflight;
@@ -163,21 +171,31 @@ class AgentMessageWatcher with WidgetsBindingObserver {
     final on = _switchOn;
     // Turning it on starts from a new record, so messages from the time it
     // was off are not announced.
-    if (on && !_wasOn) {
+    final restart = on && !_wasOn;
+    if (restart) {
       _invalidate(posts: true);
       _forgetRecord();
     }
     _wasOn = on;
+    // Any other setting (a mute, the permission) would otherwise look again
+    // at once.
+    if (!restart && _enabled == _syncedEnabled) return;
     _sync();
   }
 
   void _sync() {
     _timer?.cancel();
     _timer = null;
+    _syncedEnabled = _enabled;
     if (_disposed || _paused || !_supported || !_foreground || !_enabled) {
       return;
     }
-    _timer = Timer.periodic(interval, (_) => check());
+    // A change worth a look at once (back in front, signed in again) also
+    // ends a wait after failures.
+    _backoff.reset();
+    _timer = Timer.periodic(interval, (_) {
+      if (_backoff.tick()) check();
+    });
     check();
   }
 
@@ -228,9 +246,11 @@ class AgentMessageWatcher with WidgetsBindingObserver {
         if (names.isEmpty) throw StateError('no profiles');
       } on Object catch (error) {
         failure = error;
+        if (_current(epoch)) _backoff.failed();
         return;
       }
       if (!_current(epoch)) return;
+      _backoff.succeeded();
       await Future.wait([_forgetting, _writing]);
       if (!_current(epoch)) return;
       final account = _account();

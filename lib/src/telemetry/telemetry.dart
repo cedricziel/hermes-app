@@ -6,6 +6,8 @@ import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_otel_device_info/flutter_otel_device_info.dart';
 
 import 'breadcrumbs.dart';
+import 'burst_deduping_logger.dart';
+import 'suspension_marking_tracer.dart';
 import 'telemetry_config.dart';
 
 /// Owns the OpenTelemetry SDK for the app.
@@ -90,13 +92,15 @@ class KanbanEventsTracer extends MessagingConnectionTracer {
 }
 
 /// Traces and logs every request to the Hermes backend on [tracer] and
-/// [logger], each described with [serverAttributes].
+/// [logger], each described with [serverAttributes]. A burst of requests
+/// failing the same way (the network dropped) logs one record and a count
+/// ([BurstDedupingLogger]); each keeps its span.
 Interceptor httpInterceptor(
   Logger logger,
   Tracer? tracer, {
   Map<String, Object> serverAttributes = const {},
 }) => DioOTelInterceptor.privacy(
-  logger,
+  BurstDedupingLogger(logger),
   tracer: tracer,
   attributes: {...serverAttributes, 'peer.service': 'hermes-agent'},
 );
@@ -153,6 +157,9 @@ class Telemetry {
   // Room for a screen's worth of navigation and a reply or two between the
   // sign-in events and the crash.
   final _breadcrumbs = BreadcrumbTrail(capacity: 40);
+
+  /// Installed with the first connection, once the binding runs.
+  late final _suspensions = AppSuspensions.install();
 
   bool get enabled => _sdk != null;
 
@@ -222,13 +229,16 @@ class Telemetry {
     final sdk = _sdk;
     if (sdk == null) return const ConnectionTelemetry();
     final log = appEventLogger(sdk.getLogger());
+    // Requests and socket calls in flight when the app is paused end only
+    // after it comes back; their spans are marked so they can be told apart.
+    final tracer = SuspensionMarkingTracer(sdk.getTracer(), _suspensions);
     return ConnectionTelemetry(
       interceptor: httpInterceptor(
         sdk.getLogger(),
-        sdk.getTracer(),
+        tracer,
         serverAttributes: serverAttributes,
       ),
-      tracer: sdk.getTracer(),
+      tracer: tracer,
       serverAttributes: serverAttributes,
       events: _breadcrumbs.asAppEventLogger(
         serverAttributes.isEmpty

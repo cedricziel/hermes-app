@@ -51,6 +51,7 @@ import '../models/hermes_models_repository.dart';
 import '../models/widgets/model_setup_dialog.dart';
 import '../live_activities/live_activities.dart';
 import '../app_lock/app_lock_controller.dart';
+import '../network/poll_backoff.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -313,6 +314,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Timer? _activeRefreshTimer;
   MenuBarExtraLink? _menuBar;
   bool _activeRefreshInFlight = false;
+
+  /// Skips 5-second ticks while the server cannot say which chats run, at
+  /// most for a minute.
+  final _activeRefreshBackoff = PollBackoff(maxSkipped: 11);
   bool _foreground = true;
   bool _routeVisible = true;
   ChangeInvalidationBinding? _listChanges;
@@ -717,20 +722,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!_foreground || !widget.visible || !_routeVisible) {
       unawaited(_voiceRecording?.cancel());
     }
+    final wasPolling = _activeRefreshTimer?.isActive ?? false;
     _activeRefreshTimer?.cancel();
+    _activeRefreshTimer = null;
     if (!_foreground ||
         !widget.visible ||
         _chat.transport == null ||
         ModalRoute.of(context)?.isCurrent == false) {
       return;
     }
+    // Polling again after a pause (back in front, the chat shown again)
+    // tries at once rather than waiting out the failures before it.
+    if (!wasPolling) _activeRefreshBackoff.reset();
     _activeRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
-      if (_activeRefreshInFlight) return;
+      if (_activeRefreshInFlight || !_activeRefreshBackoff.tick()) return;
       _activeRefreshInFlight = true;
       try {
-        await _chat.refreshActive();
+        if (await _chat.refreshActive()) {
+          _activeRefreshBackoff.succeeded();
+        } else {
+          _activeRefreshBackoff.failed();
+        }
       } on Object {
-        return;
+        _activeRefreshBackoff.failed();
       } finally {
         _activeRefreshInFlight = false;
       }
