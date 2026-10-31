@@ -631,6 +631,40 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           ),
         ),
         _tool(
+          'Read aloud',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            readAloud: ReadAloudState.idle,
+            onReadAloud: () {},
+          ),
+        ),
+        _tool(
+          'Read aloud: preparing',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            readAloud: ReadAloudState.loading,
+            onReadAloud: () {},
+          ),
+        ),
+        _tool(
+          'Read aloud: playing',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            readAloud: ReadAloudState.playing,
+            onReadAloud: () {},
+          ),
+        ),
+        _tool(
+          'Read aloud: during a voice call',
+          const MessageActions(
+            text: 'The build finished.',
+            readAloud: ReadAloudState.idle,
+          ),
+        ),
+        _tool(
           'Retry only (failed reply)',
           MessageActions(text: 'Timed out', showCopy: false, onRetry: () {}),
         ),
