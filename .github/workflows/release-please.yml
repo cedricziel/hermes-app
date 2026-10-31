@@ -95,7 +95,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version-file: .fvmrc
           cache: true
 
       - run: flutter pub get
@@ -192,7 +192,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version-file: .fvmrc
           cache: true
 
       - run: flutter pub get
@@ -262,24 +262,16 @@ jobs:
       - uses: subosito/flutter-action@v2
         if: matrix.arch == 'x86_64'
         with:
-          channel: stable
+          flutter-version-file: .fvmrc
           cache: true
 
-      # Flutter publishes no stable Linux arm64 SDK, so build the current
-      # stable release from its git tag instead.
-      - name: Resolve the current stable Flutter version
-        if: matrix.arch != 'x86_64'
-        id: flutter
-        run: |
-          version=$(curl -fsSL https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json \
-            | jq -r '.current_release.stable as $hash | .releases[] | select(.hash == $hash and .channel == "stable") | .version')
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
+      # Flutter publishes no stable Linux arm64 SDK, so build the pinned
+      # release from its git tag instead.
       - uses: subosito/flutter-action@v2
         if: matrix.arch != 'x86_64'
         with:
           channel: master
-          flutter-version: ${{ steps.flutter.outputs.version }}
+          flutter-version-file: .fvmrc
           cache: true
 
       - run: flutter pub get
@@ -338,7 +330,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version-file: .fvmrc
           cache: true
 
       - run: flutter pub get
@@ -410,7 +402,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version-file: .fvmrc
           cache: true
 
       - run: flutter pub get
