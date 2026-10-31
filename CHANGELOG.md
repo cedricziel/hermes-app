@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.75](https://github.com/cedricziel/hermes-app/compare/v0.1.74...v0.1.75) (2026-10-31)
+
+
+### Features
+
+* **chat:** read replies aloud with Hermes text to speech ([#869](https://github.com/cedricziel/hermes-app/issues/869)) ([cdf2056](https://github.com/cedricziel/hermes-app/commit/cdf2056eb8f6058b901552bd3479531eec9d34d6))
+
+
+### Bug Fixes
+
+* **auth:** keep cleartext HTTP to local and tailnet hosts ([#870](https://github.com/cedricziel/hermes-app/issues/870)) ([b55277a](https://github.com/cedricziel/hermes-app/commit/b55277a79a79d230c6c1093f3e7da19a84ebbed4)), closes [#866](https://github.com/cedricziel/hermes-app/issues/866)
+* **auth:** open the sign-in page when the sheet refuses to start ([#863](https://github.com/cedricziel/hermes-app/issues/863)) ([1d7e3b8](https://github.com/cedricziel/hermes-app/commit/1d7e3b8d90d6eb71b639b7994b4e93ed4da06d67))
+* **chat:** keep a tapped tool group in view instead of jumping to the end ([#864](https://github.com/cedricziel/hermes-app/issues/864)) ([968e8f1](https://github.com/cedricziel/hermes-app/commit/968e8f1d52b374e8935d254297af50854094f19a))
+* **telemetry:** back off failing polls, fold log bursts, mark suspended spans ([#871](https://github.com/cedricziel/hermes-app/issues/871)) ([5b7e24c](https://github.com/cedricziel/hermes-app/commit/5b7e24c732c81f3305f6c9f66060e796657d364e))
+* **telemetry:** bump dart_otel_instrumentation_messaging to 0.1.3 ([#873](https://github.com/cedricziel/hermes-app/issues/873)) ([ab8ad51](https://github.com/cedricziel/hermes-app/commit/ab8ad5139df41151600d25d1de49e693b79419bb))
+
+
+### Documentation
+
+* **skills:** use the Latest release as the release notes baseline ([#813](https://github.com/cedricziel/hermes-app/issues/813)) ([072f2e0](https://github.com/cedricziel/hermes-app/commit/072f2e0176ea721342c37c511cae0852eeb15c50))
+
 ## [0.1.74](https://github.com/cedricziel/hermes-app/compare/v0.1.73...v0.1.74) (2026-10-30)
 
 
