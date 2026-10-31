@@ -11,6 +11,7 @@ on:
       - "test/**"
       - "pubspec.yaml"
       - "pubspec.lock"
+      - ".fvmrc"
       - "scripts/dev-backend.sh"
       - "scripts/hermes_contracts.py"
       - "scripts/test_hermes_contracts.py"
@@ -23,6 +24,7 @@ on:
       - "test/**"
       - "pubspec.yaml"
       - "pubspec.lock"
+      - ".fvmrc"
       - "scripts/dev-backend.sh"
       - "scripts/hermes_contracts.py"
       - "scripts/test_hermes_contracts.py"
@@ -60,7 +62,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version-file: .fvmrc
           cache: true
 
       - name: flutter pub get
