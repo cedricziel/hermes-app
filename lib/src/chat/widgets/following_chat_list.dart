@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' show ChatItem;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
@@ -5,6 +8,7 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart'
 
 import 'blank_list_watchdog.dart';
 import '../../voice/voice_playback_scope.dart';
+import '../../widgets/disclosure_toggled.dart';
 
 /// A [ChatAnimatedList] that stays at the bottom while its content grows,
 /// until the reader scrolls up, and follows again once they are back.
@@ -22,6 +26,15 @@ import '../../voice/voice_playback_scope.dart';
 /// the sliver's children, and paint fails a null check in
 /// `childMainAxisPosition`. Inserts take no time either, because an item
 /// removed while it animates in keeps its insert duration.
+///
+/// Opening or closing a disclosure in the list (a tool group, reasoning, a
+/// tool call's details; [DisclosureToggledNotification]) is followed only as
+/// far as its header stays in view. A reader at the bottom who opened a tool
+/// group above a long reply otherwise saw the list jump to the new end,
+/// carrying the header and the calls it opened out of view, as if the tap had
+/// done nothing. Following stops instead, so the group opens below its header,
+/// and scrolling back to the bottom follows again. A disclosure at the end
+/// (the live reasoning) still grows into view.
 ///
 /// While following a streaming reply it also arms [BlankListWatchdog]: if the
 /// list churns its metrics but paints no items, it has lost its sliver state
@@ -53,8 +66,18 @@ class _FollowingChatListState extends State<FollowingChatList> {
   /// Bumped when the watchdog recovers: remounts the list under a fresh key.
   var _generation = 0;
 
+  /// How long a toggled disclosure keeps its header from being followed away:
+  /// longer than an expansion tile's animation.
+  static const _toggleWindow = Duration(milliseconds: 500);
+
+  /// The disclosure the reader just opened or closed, until [_toggleWindow]
+  /// has passed.
+  BuildContext? _toggled;
+  Timer? _toggledTimer;
+
   @override
   void dispose() {
+    _toggledTimer?.cancel();
     _scroll.dispose();
     super.dispose();
   }
@@ -82,6 +105,12 @@ class _FollowingChatListState extends State<FollowingChatList> {
       };
 
   bool _onNotification(Notification notification) {
+    if (notification is DisclosureToggledNotification) {
+      _toggled = notification.context;
+      _toggledTimer?.cancel();
+      _toggledTimer = Timer(_toggleWindow, () => _toggled = null);
+      return false;
+    }
     // Code blocks and tool output scroll on their own; only the list counts.
     if (notification is ViewportNotificationMixin && notification.depth > 0) {
       return false;
@@ -117,6 +146,13 @@ class _FollowingChatListState extends State<FollowingChatList> {
     // it lays out the real items the end can move up by screens. iOS would
     // bounce back from there slowly, ignoring taps all the while.
     final position = _scroll.position;
+    if (_carriesToggledAway(position)) {
+      // The reader turned to that disclosure: it opens below its header,
+      // which stays where it was tapped.
+      _following = false;
+      _watchdog.disarm();
+      return;
+    }
     if (position.pixels != position.maxScrollExtent) {
       position.jumpTo(position.maxScrollExtent);
     }
@@ -127,6 +163,20 @@ class _FollowingChatListState extends State<FollowingChatList> {
     if (position.maxScrollExtent > 0 && _watchdog.onFollowingStep()) {
       _recover();
     }
+  }
+
+  /// Whether jumping to the end would scroll the header of the disclosure the
+  /// reader just toggled above the top of the list.
+  bool _carriesToggledAway(ScrollPosition position) {
+    final toggled = _toggled;
+    if (toggled == null || !toggled.mounted) return false;
+    final box = toggled.findRenderObject();
+    if (box == null || !box.attached) return false;
+    final viewport = RenderAbstractViewport.maybeOf(box);
+    if (viewport == null) return false;
+    // The scroll offset that puts the header at the top of the list.
+    final headerAtTop = viewport.getOffsetToReveal(box, 0).offset;
+    return position.maxScrollExtent > headerAtTop + 0.5;
   }
 
   void _recover() {

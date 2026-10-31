@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../widgets/disclosure_toggled.dart';
 import '../chat_models.dart';
 import '../tool_call_presentation.dart';
 import 'tool_call_card.dart';
@@ -111,7 +112,10 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
-            onTap: () => setState(() => _open = !_open),
+            onTap: () {
+              DisclosureToggledNotification.send(context);
+              setState(() => _open = !_open);
+            },
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: minTap),
               child: Align(

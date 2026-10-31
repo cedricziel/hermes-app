@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/disclosure_toggled.dart';
 import '../chat_models.dart';
 import 'tool_call_card.dart'
     show ToolCallStatusIcon, ToolCallTime, formatToolDuration;
@@ -69,7 +70,10 @@ class _SubagentGroupCardState extends State<SubagentGroupCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
-            onTap: () => setState(() => _open = !_open),
+            onTap: () {
+              DisclosureToggledNotification.send(context);
+              setState(() => _open = !_open);
+            },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               child: Row(

@@ -263,6 +263,44 @@ void main() {
     expect(distanceFromBottom(tester).abs(), lessThan(1));
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
+  testWidgets('opening a tool group at the bottom keeps its header in place', (
+    tester,
+  ) async {
+    final reply = await startReply(tester);
+    await streamLines(tester, reply, 30);
+    for (var i = 0; i < 14; i++) {
+      reply
+        ..emit(ToolStarted(name: 'terminal', id: 't$i', summary: 'step $i'))
+        ..emit(ToolFinished(name: 'terminal', id: 't$i'));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    reply
+      ..emit(const ReplyDelta('Here is what I found.'))
+      ..emit(const ReplyCompleted('Here is what I found.'))
+      ..finish();
+    await tester.pumpAndSettle();
+
+    // The reader is at the bottom, so the list is following.
+    expect(distanceFromBottom(tester), lessThan(1));
+    final header = find.text('Used 14 tools');
+    final before = tester.getTopLeft(header).dy;
+    final readingAt = transcript(tester).pixels;
+
+    await tester.tap(header);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      // No jump to the new end while the group opens.
+      expect(transcript(tester).pixels, readingAt);
+    }
+
+    expect(tester.getTopLeft(header).dy, moreOrLessEquals(before));
+    expect(distanceFromBottom(tester), greaterThan(100));
+
+    // Scrolling back to the bottom follows again.
+    await wheel(tester, 100000);
+    expect(distanceFromBottom(tester), lessThan(1));
+  });
+
   testWidgets('a long thread opens at its latest message', (tester) async {
     server.on(
       'GET',

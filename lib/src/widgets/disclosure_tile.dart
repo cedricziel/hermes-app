@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'disclosure_toggled.dart';
+
 /// An [ExpansionTile] whose header screen readers announce as a button that
 /// is open or closed.
 ///
@@ -59,7 +61,10 @@ class _DisclosureTileState extends State<DisclosureTile> {
 
   @override
   Widget build(BuildContext context) => ExpansionTile(
-    onExpansionChanged: widget.onExpansionChanged,
+    onExpansionChanged: (open) {
+      DisclosureToggledNotification.send(context);
+      widget.onExpansionChanged?.call(open);
+    },
     controller: _controller,
     enabled: widget.enabled,
     initiallyExpanded: widget.initiallyExpanded,
