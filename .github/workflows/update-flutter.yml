@@ -33,20 +33,37 @@ jobs:
       - name: Resolve the current stable release
         id: flutter
         run: |
-          latest=$(curl -fsSL https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json \
+          base=https://storage.googleapis.com/flutter_infra_release/releases
+          latest=$(curl -fsSL "$base/releases_linux.json" \
             | jq -r '.current_release.stable as $hash | .releases[] | select(.hash == $hash and .channel == "stable") | .version')
           if ! [[ "$latest" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Unexpected Flutter version: $latest" >&2
             exit 1
           fi
+          # Every runner installs the pin, so wait until macOS and Windows
+          # publish it too.
+          for os in macos windows; do
+            if ! curl -fsSL "$base/releases_$os.json" \
+                | jq -e --arg v "$latest" 'any(.releases[]; .channel == "stable" and .version == $v)' >/dev/null; then
+              echo "Flutter $latest is not published for $os yet."
+              exit 0
+            fi
+          done
           current=$(jq -r .flutter .fvmrc)
           echo "latest=$latest" >>"$GITHUB_OUTPUT"
           echo "current=$current" >>"$GITHUB_OUTPUT"
           # Only move forward: a pin set ahead of the manifest stays put.
-          if [ "$latest" != "$current" ] && \
-             [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -n1)" = "$latest" ]; then
-            echo "changed=true" >>"$GITHUB_OUTPUT"
+          if [ "$latest" = "$current" ] || \
+             [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -n1)" != "$latest" ]; then
+            exit 0
           fi
+          # An open bump PR that already holds this version needs no new push.
+          if git fetch --depth=1 origin "$BRANCH" 2>/dev/null && \
+             [ "$(git show FETCH_HEAD:.fvmrc | jq -r .flutter)" = "$latest" ]; then
+            echo "$BRANCH already updates to $latest."
+            exit 0
+          fi
+          echo "changed=true" >>"$GITHUB_OUTPUT"
 
       - name: Open or update the PR
         if: steps.flutter.outputs.changed == 'true'
@@ -64,8 +81,9 @@ jobs:
           git commit -m "chore(deps): update Flutter to $LATEST"
           git push --force origin "$BRANCH"
           body="Updates the pinned Flutter release from $CURRENT to $LATEST ([release notes](https://docs.flutter.dev/release/release-notes))."
-          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
-            gh pr edit "$BRANCH" --title "chore(deps): update Flutter to $LATEST" --body "$body"
+          pr=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "chore(deps): update Flutter to $LATEST" --body "$body"
           else
             gh pr create --head "$BRANCH" --title "chore(deps): update Flutter to $LATEST" --body "$body"
           fi
