@@ -96,4 +96,105 @@ void main() {
       isFalse,
     );
   });
+
+  test('a session that cannot start stops listening for dismissals', () async {
+    startAnswer = false;
+    var dismissed = 0;
+    await AuthSessionBrowser().open(
+      Uri.parse('https://hermes.test/'),
+      onDismissed: () => dismissed++,
+    );
+
+    await sendFromNative('dismissed');
+
+    expect(dismissed, 0);
+  });
+
+  test('a flow that ends late leaves a newer sheet alone', () async {
+    var olderDismissed = 0;
+    var newerDismissed = 0;
+    final older = AuthSessionBrowser();
+    await older.open(
+      Uri.parse('https://hermes.test/1'),
+      onDismissed: () => olderDismissed++,
+    );
+    final newer = AuthSessionBrowser();
+    await newer.open(
+      Uri.parse('https://hermes.test/2'),
+      onDismissed: () => newerDismissed++,
+    );
+
+    await older.close();
+    expect(calls.where((c) => c.method == 'cancel'), isEmpty);
+
+    await sendFromNative('dismissed');
+    expect(olderDismissed, 0);
+    expect(newerDismissed, 1);
+
+    await newer.close();
+    expect(calls.last.method, 'cancel');
+  });
+
+  group('FallbackSignInBrowser', () {
+    test('uses the sheet when it opens', () async {
+      final browser = FallbackSignInBrowser(
+        AuthSessionBrowser(),
+        _RecordingBrowser(),
+      );
+
+      expect(
+        await browser.open(
+          Uri.parse('https://hermes.test/'),
+          onDismissed: () {},
+        ),
+        isTrue,
+      );
+      expect(browser.fellBack, isFalse);
+      expect(
+        browser.finishedRedirect?.scheme,
+        AuthSessionBrowser.callbackScheme,
+      );
+
+      await browser.close();
+      expect(calls.last.method, 'cancel');
+    });
+
+    test('opens the fallback when the sheet is refused', () async {
+      startAnswer = false;
+      final fallback = _RecordingBrowser();
+      final browser = FallbackSignInBrowser(AuthSessionBrowser(), fallback);
+
+      expect(
+        await browser.open(
+          Uri.parse('https://hermes.test/'),
+          onDismissed: () {},
+        ),
+        isTrue,
+      );
+      expect(browser.fellBack, isTrue);
+      expect(fallback.opened, [Uri.parse('https://hermes.test/')]);
+      expect(browser.finishedRedirect, isNull);
+
+      await browser.close();
+      expect(fallback.closed, 1);
+      expect(calls.where((c) => c.method == 'cancel'), isEmpty);
+    });
+  });
+}
+
+class _RecordingBrowser implements SignInBrowser {
+  final opened = <Uri>[];
+  var closed = 0;
+
+  @override
+  Future<bool> open(Uri url, {required void Function() onDismissed}) async {
+    opened.add(url);
+    return true;
+  }
+
+  @override
+  Future<void> close() async => closed++;
+
+  @override
+  Uri? get finishedRedirect => null;
 }
