@@ -55,6 +55,7 @@ void main() {
 
     final span = spanNamed('prompt.submit send');
     expect(span.attributes['rpc.jsonrpc.error_code'], 4009);
+    expect(span.attributes['error.type'], '4009');
     expect(span.status, StatusCode.error);
   });
 
