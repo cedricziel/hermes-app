@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use when cutting, checking or shipping a hermes-app release — merging the release-please PR, following the TestFlight and download builds (macOS DMG, Linux, Android, Windows), re-running a failed upload for an existing tag, or shipping the latest pre-release to App Review with combined release notes since the last full release. Not for retaking screenshots (store-screenshots).
+description: Use when cutting, checking or shipping a hermes-app release — merging the release-please PR, following the TestFlight and download builds (macOS DMG, Linux, Android, Windows), re-running a failed upload for an existing tag, or shipping the latest pre-release to App Review with combined release notes since the release marked Latest. Not for retaking screenshots (store-screenshots).
 ---
 
 # Release hermes-app
@@ -82,18 +82,19 @@ The `flutter-ci` skill covers diagnosing a failed job.
 
 ## Ship to the App Store
 
-Ship the **latest pre-release** unless the user names a different tag. The notes
-cover everything since the **last full release**: store users got that version
-and have not seen any of the pre-releases since.
+Ship the newest **pre-release** unless the user names a different tag. The notes
+cover everything since the release GitHub marks **Latest**. That is the last one
+that went to the store, because a pre-release is never marked Latest. Store users
+have seen none of the pre-releases since.
 
 ```bash
-gh release list --limit 1 --exclude-pre-releases --json tagName --jq '.[0].tagName'           # last full release
-gh release list --limit 20 --json tagName,isPrerelease --jq '[.[]|select(.isPrerelease)][0].tagName'   # latest pre-release
+gh release list --limit 50 --json tagName,isLatest --jq '.[]|select(.isLatest).tagName'   # Latest: the baseline
+gh release list --limit 20 --json tagName,isPrerelease --jq '[.[]|select(.isPrerelease)][0].tagName'   # newest pre-release: the target
 ```
 
-1. Read every release body from the one after the last full release up to the
+1. Read every release body from the one after Latest up to the
    target, for example with `gh release view <tag> --json body --jq .body`.
-   `git log --oneline <last-full>..<target>` fills gaps.
+   `git log --oneline <latest>..<target>` fills gaps.
 2. Write the combined notes with the `oss:release-notes` skill. App Store and
    TestFlight show plain text and stop at 4000 characters, so keep it well under
    that. Show the user the draft before you publish it.
