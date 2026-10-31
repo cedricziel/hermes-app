@@ -135,6 +135,9 @@ Future<HermesSession> runNativeLogin(
   }
 
   unawaited(cancelled?.then((_) => cancel()));
+  if (signInBrowser is FallbackSignInBrowser) {
+    signInBrowser.abandoned = () => wasCancelled;
+  }
 
   try {
     final redirectUri = 'http://127.0.0.1:${server.port}/callback';

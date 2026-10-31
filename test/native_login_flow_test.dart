@@ -330,6 +330,38 @@ void main() {
     },
   );
 
+  test('does not open the fallback once the sign-in was cancelled', () async {
+    final cancel = Completer<void>();
+    var fallbackOpened = 0;
+    final browser = FallbackSignInBrowser(
+      _FakeBrowser(
+        onOpen: (_) async {
+          cancel.complete();
+          await Future<void>.delayed(Duration.zero);
+          return false;
+        },
+        onClose: () async {},
+      ),
+      _FakeBrowser(
+        onOpen: (_) async {
+          fallbackOpened++;
+          return true;
+        },
+        onClose: () async {},
+      ),
+    );
+
+    await expectLater(
+      runNativeLogin(
+        'http://hermes.test:9119',
+        browser: browser,
+        cancelled: cancel.future,
+      ),
+      throwsA(isA<NativeLoginCancelled>()),
+    );
+    expect(fallbackOpened, 0);
+  });
+
   test('fails as before when no browser could open', () async {
     await expectLater(
       runNativeLogin(

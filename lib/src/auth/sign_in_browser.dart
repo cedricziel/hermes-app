@@ -41,6 +41,12 @@ class FallbackSignInBrowser implements SignInBrowser {
   final SignInBrowser fallback;
   SignInBrowser? _used;
 
+  /// Whether the sign-in was abandoned. [open] then does not turn to
+  /// [fallback]: the external browser cannot be closed again.
+  bool Function() abandoned = _never;
+
+  static bool _never() => false;
+
   /// Whether [open] had to use [fallback].
   bool get fellBack => identical(_used, fallback);
 
@@ -48,6 +54,7 @@ class FallbackSignInBrowser implements SignInBrowser {
   Future<bool> open(Uri url, {required void Function() onDismissed}) async {
     _used = primary;
     if (await primary.open(url, onDismissed: onDismissed)) return true;
+    if (abandoned()) return false;
     _used = fallback;
     return fallback.open(url, onDismissed: onDismissed);
   }
