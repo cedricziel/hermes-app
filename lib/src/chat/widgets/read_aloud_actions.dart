@@ -11,7 +11,8 @@ import 'message_actions.dart' show ReadAloudState;
 /// Binds a reply's Read aloud to the [ReadAloud] the chat screen provides and
 /// the transcript's [VoicePlayback], and hands [builder] the plain state.
 /// Without either, or with nothing to say, the state is null and Read aloud
-/// is hidden. A voice call holds the audio, so Read aloud is disabled then.
+/// is hidden. A voice call holds the audio, so Read aloud is disabled then,
+/// as it is while another item loads.
 class ReadAloudActions extends StatelessWidget {
   const ReadAloudActions({
     super.key,
@@ -32,7 +33,7 @@ class ReadAloudActions extends StatelessWidget {
     if (readAloud == null || playback == null || speakableText(text).isEmpty) {
       return builder(null, null);
     }
-    final id = ReadAloud.playbackId(messageId);
+    final id = ReadAloud.playbackId(messageId, text);
     final active = playback.active == id;
     final state = !active
         ? ReadAloudState.idle
@@ -43,7 +44,8 @@ class ReadAloudActions extends StatelessWidget {
         : ReadAloudState.idle;
     return builder(
       state,
-      playback.blocked
+      // While another reply or voice message loads, the player takes nothing.
+      playback.blocked || playback.loading && !active
           ? null
           : () => unawaited(_pressed(context, readAloud, playback, state)),
     );
@@ -59,7 +61,9 @@ class ReadAloudActions extends StatelessWidget {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (state != ReadAloudState.idle) {
       breadcrumbs('chat.read_aloud', {'action': 'stop'});
-      // Stopping starts the reply over next time, unlike a voice message.
+      // Stopping starts the reply over next time, unlike a voice message,
+      // and abandons speech Hermes is still making.
+      readAloud.cancel();
       await playback.pause();
       if (state == ReadAloudState.playing) {
         await playback.seek(Duration.zero);
@@ -67,7 +71,7 @@ class ReadAloudActions extends StatelessWidget {
       return;
     }
     breadcrumbs('chat.read_aloud', {'action': 'start'});
-    final id = ReadAloud.playbackId(messageId);
+    final id = ReadAloud.playbackId(messageId, text);
     await playback.toggle(id, () => readAloud.fetch(text));
     if (playback.active == id && playback.error != null) {
       breadcrumbs('chat.read_aloud', {'action': 'failed'});

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -60,6 +61,25 @@ void main() {
       );
     });
 
+    test('reads code as written and only matching marks as emphasis', () {
+      expect(speakableText('Call `__init__` first'), 'Call __init__ first');
+      expect(
+        speakableText('Use `*` or `_` as wildcard'),
+        'Use * or _ as wildcard',
+      );
+      expect(speakableText('a *b_ c'), 'a *b_ c');
+      expect(
+        speakableText('```py\ndef __init__(self): **x**\n```'),
+        'def __init__(self): **x**',
+      );
+    });
+
+    test('links with parentheses, escapes and pipes outside tables', () {
+      expect(speakableText('see [docs](https://x/(a)) now'), 'see docs now');
+      expect(speakableText(r'Escaped \*stars\*'), 'Escaped *stars*');
+      expect(speakableText('a || b'), 'a || b');
+    });
+
     test('a reply of marks only has nothing to say', () {
       expect(speakableText('```\n```\n---'), isEmpty);
     });
@@ -99,10 +119,10 @@ void main() {
       final readAloud = ReadAloud(
         profile: 'work',
         store: store,
-        synthesize: (text) => repository.synthesize(
+        synthesize: (text, cancellation) => repository.synthesize(
           text,
           profile: 'work',
-          cancellation: CancelToken(),
+          cancellation: cancellation,
         ),
       );
 
@@ -114,6 +134,33 @@ void main() {
       final request = server.requestsTo('POST', '/api/audio/speak').single;
       expect(request.queryParameters['profile'], 'work');
       expect(jsonBody(request), {'text': 'The build passed.'});
+
+      // The same words again are not spoken again, nor are they after
+      // something else played in between.
+      expect((await readAloud.fetch('The build passed.')).path, file.path);
+      expect(server.requestsTo('POST', '/api/audio/speak'), hasLength(1));
+    });
+
+    test('cancel abandons speech Hermes is still making', () async {
+      final tokens = <CancelToken>[];
+      final readAloud = ReadAloud(
+        profile: null,
+        store: store,
+        synthesize: (text, cancellation) {
+          tokens.add(cancellation);
+          return Completer<SynthesizedSpeech>().future;
+        },
+      );
+      unawaited(readAloud.fetch('First.'));
+      await Future<void>.delayed(Duration.zero);
+      expect(tokens.single.isCancelled, isFalse);
+
+      unawaited(readAloud.fetch('Second.'));
+      await Future<void>.delayed(Duration.zero);
+      expect(tokens.first.isCancelled, isTrue, reason: 'a newer fetch wins');
+
+      readAloud.cancel();
+      expect(tokens.last.isCancelled, isTrue);
     });
 
     group('the action', () {
@@ -133,7 +180,7 @@ void main() {
       ReadAloud readAloud() => ReadAloud(
         profile: null,
         store: store,
-        synthesize: (text) async {
+        synthesize: (text, _) async {
           spoken.add(text);
           if (failSpeech) throw StateError('no provider');
           return SynthesizedSpeech(
@@ -257,7 +304,7 @@ void main() {
           value: ReadAloud(
             profile: null,
             store: store,
-            synthesize: (_) => throw UnimplementedError(),
+            synthesize: (_, _) => throw UnimplementedError(),
           ),
           child: MaterialApp(
             theme: buildHermesLightTheme(),

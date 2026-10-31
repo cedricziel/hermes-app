@@ -11,7 +11,8 @@ extension _ChatScreenReadAloud on _ChatScreenState {
     final profile = _chat.profile;
     _readAloudAsked = (profile: profile);
     final epoch = ++_readAloudEpoch;
-    if (_readAloud != null && _readAloud!.profile != profile) {
+    if (_readAloud case final old? when old.profile != profile) {
+      old.cancel();
       _rebuild(() => _readAloud = null);
     }
     final support = await repository.voiceSupport(profile: profile);
@@ -26,12 +27,14 @@ extension _ChatScreenReadAloud on _ChatScreenState {
         : ReadAloud(
             profile: profile,
             store: store,
-            synthesize: (text) => repository.synthesize(
+            synthesize: (text, cancellation) => repository.synthesize(
               text,
               profile: profile,
-              cancellation: CancelToken(),
+              cancellation: cancellation,
             ),
           );
-    if (!identical(next, _readAloud)) _rebuild(() => _readAloud = next);
+    if (identical(next, current)) return;
+    current?.cancel();
+    _rebuild(() => _readAloud = next);
   }
 }

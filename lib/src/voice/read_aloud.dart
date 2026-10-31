@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart' show sha256;
+import 'package:dio/dio.dart' show CancelToken;
 
 import '../chat/media/media_store.dart';
 import 'synthesized_speech.dart';
@@ -11,7 +13,8 @@ import 'synthesized_speech.dart';
 /// messages use, so a reply and a voice message never play at once.
 ///
 /// It exists only while `GET /api/audio/voice-config` says the profile can
-/// speak; the chat screen provides it to the transcript.
+/// speak; the chat screen provides it to the transcript and [cancel]s it when
+/// it replaces or drops it.
 class ReadAloud {
   ReadAloud({
     required this.profile,
@@ -21,23 +24,61 @@ class ReadAloud {
 
   final String? profile;
 
-  /// Hermes' speech for a text.
-  final Future<SynthesizedSpeech> Function(String text) synthesize;
+  /// Hermes' speech for a text; [cancellation] abandons the request.
+  final Future<SynthesizedSpeech> Function(
+    String text,
+    CancelToken cancellation,
+  )
+  synthesize;
   final MediaStore store;
 
-  /// The player id of message [messageId], apart from its attachments'.
-  static String playbackId(String messageId) => 'read-aloud:$messageId';
+  /// Audio already spoken in this run, by [_keyFor], so playing a reply again
+  /// asks the provider nothing.
+  final _spoken = <String, File>{};
+  static const _remembered = 50;
+  CancelToken? _pending;
 
-  /// The spoken [text] of a reply as an audio file.
+  /// The player id of message [messageId], apart from its attachments'. The
+  /// text is part of it, so a reply whose text changed is spoken again.
+  static String playbackId(String messageId, String text) =>
+      'read-aloud:$messageId:${_digest(speakableText(text))}';
+
+  /// The spoken [text] of a reply as an audio file. A newer fetch, or
+  /// [cancel], abandons the one before it.
   Future<File> fetch(String text) async {
-    final speech = await synthesize(speakableText(text));
-    final digest = sha256.convert(speech.bytes).toString();
-    return store.stageBytes(
-      'read-aloud:$digest',
-      'reply.${audioExtension(speech.mimeType)}',
-      speech.bytes,
-    );
+    final spoken = speakableText(text);
+    final key = _keyFor(spoken);
+    final known = _spoken.remove(key);
+    if (known != null && await known.exists()) return _spoken[key] = known;
+    _pending?.cancel();
+    final cancellation = _pending = CancelToken();
+    try {
+      final speech = await synthesize(spoken, cancellation);
+      final file = await store.stageBytes(
+        key,
+        'reply.${audioExtension(speech.mimeType)}',
+        speech.bytes,
+      );
+      _spoken[key] = file;
+      while (_spoken.length > _remembered) {
+        _spoken.remove(_spoken.keys.first);
+      }
+      return file;
+    } finally {
+      if (identical(_pending, cancellation)) _pending = null;
+    }
   }
+
+  /// Abandons a request still waiting for Hermes' speech.
+  void cancel() {
+    _pending?.cancel();
+    _pending = null;
+  }
+
+  String _keyFor(String spoken) => 'read-aloud:$profile:${_digest(spoken)}';
+
+  static String _digest(String text) =>
+      sha256.convert(utf8.encode(text)).toString().substring(0, 16);
 
   @override
   String toString() => 'ReadAloud';
@@ -55,9 +96,17 @@ String audioExtension(String mimeType) => switch (mimeType) {
   _ => 'audio',
 };
 
-final _fenceLine = RegExp(r'^ {0,3}(`{3,}|~{3,}).*(\n|$)', multiLine: true);
-final _image = RegExp(r'!\[([^\]]*)\]\([^)]*\)');
-final _link = RegExp(r'\[([^\]]+)\]\([^)]*\)');
+final _fenceBlock = RegExp(
+  r'^ {0,3}(`{3,}|~{3,})[^\n]*\n?([\s\S]*?)(?:^ {0,3}\1[ \t]*(?:\n|$)|(?![\s\S]))',
+  multiLine: true,
+);
+final _codeSpan = RegExp(r'(`+)(.+?)\1');
+final _escape = RegExp(r'\\([\\`*_{}\[\]()#+\-.!|>~])');
+final _escaped = RegExp('[-]');
+final _image = RegExp(
+  r'!\[([^\]]*)\]\((?:[^()\s]|\([^()]*\))*(?:\s+"[^"]*")?\)',
+);
+final _link = RegExp(r'\[([^\]]+)\]\((?:[^()\s]|\([^()]*\))*(?:\s+"[^"]*")?\)');
 final _heading = RegExp(r'^ {0,3}#{1,6}[ \t]+', multiLine: true);
 final _quote = RegExp(r'^[ \t]*>[ \t]?', multiLine: true);
 final _bullet = RegExp(
@@ -72,24 +121,59 @@ final _tableDelimiter = RegExp(
   r'^[ \t]*\|?[ \t]*:?-{3,}[-|: \t]*(\n|$)',
   multiLine: true,
 );
+final _tableRow = RegExp(r'^[ \t]*\|.*$', multiLine: true);
 final _strong = RegExp(r'(\*\*|__|~~)(.+?)\1');
-final _emphasis = RegExp(r'(?<![\w*])[*_]([^*_\n]+)[*_](?![\w*])');
+final _emphasis = RegExp(r'(?<![\w*])([*_])([^*_\n]+)\1(?![\w*])');
 final _blankLines = RegExp(r'\n{3,}');
 
 /// [markdown] as it should be heard: the words of links, emphasis, headings,
 /// lists, quotes and code without their marks, and no rules or table lines.
-String speakableText(String markdown) => markdown
-    .replaceAll(_fenceLine, '')
-    .replaceAll(_tableDelimiter, '')
-    .replaceAll(_rule, '')
+/// Code, fenced or inline, is read as it is written.
+String speakableText(String markdown) {
+  final out = StringBuffer();
+  var last = 0;
+  for (final block in _fenceBlock.allMatches(markdown)) {
+    out
+      ..write(_prose(markdown.substring(last, block.start)))
+      ..write(block[2]);
+    last = block.end;
+  }
+  out.write(_prose(markdown.substring(last)));
+  return out.toString().replaceAll(_blankLines, '\n\n').trim();
+}
+
+String _prose(String text) {
+  final lines = text
+      .replaceAll(_tableDelimiter, '')
+      .replaceAll(_rule, '')
+      .replaceAllMapped(_tableRow, (m) => m[0]!.replaceAll('|', ' '))
+      .replaceAll(_heading, '')
+      .replaceAll(_quote, '')
+      .replaceAllMapped(_bullet, (m) => m[1]!);
+  final out = StringBuffer();
+  var last = 0;
+  for (final span in _codeSpan.allMatches(lines)) {
+    out
+      ..write(_inline(lines.substring(last, span.start)))
+      ..write(span[2]);
+    last = span.end;
+  }
+  out.write(_inline(lines.substring(last)));
+  return out.toString();
+}
+
+/// Inline marks of prose without code; an escaped mark is read as itself.
+String _inline(String text) => text
+    .replaceAllMapped(
+      _escape,
+      (m) => String.fromCharCode(0xE000 + m[1]!.codeUnitAt(0)),
+    )
     .replaceAllMapped(_image, (m) => m[1]!)
     .replaceAllMapped(_link, (m) => m[1]!)
-    .replaceAll(_heading, '')
-    .replaceAll(_quote, '')
-    .replaceAllMapped(_bullet, (m) => m[1]!)
     .replaceAllMapped(_strong, (m) => m[2]!)
-    .replaceAllMapped(_emphasis, (m) => m[1]!)
+    .replaceAllMapped(_emphasis, (m) => m[2]!)
     .replaceAll('`', '')
-    .replaceAll('|', ' ')
-    .replaceAll(_blankLines, '\n\n')
-    .trim();
+    .replaceAllMapped(
+      _escaped,
+      (m) => String.fromCharCode(m[0]!.codeUnitAt(0) - 0xE000),
+    );

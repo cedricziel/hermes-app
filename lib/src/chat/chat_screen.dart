@@ -18,7 +18,7 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
-import 'package:dio/dio.dart' show CancelToken, DioException;
+import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
@@ -823,6 +823,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _ownedTransport?.close();
     _voiceRecording?.dispose();
     _dictation?.dispose();
+    _readAloud?.cancel();
     _sessionActivity?.dispose();
     _composerController.removeListener(_onComposerText);
     _composerController.dispose();
