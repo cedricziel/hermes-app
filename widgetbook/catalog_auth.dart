@@ -87,6 +87,7 @@ class CatalogAuth extends AuthController {
     bool remember = true,
     bool restoring = false,
     bool automatic = false,
+    bool allowCleartext = false,
   }) async {}
 
   @override

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/screens/widgets/cleartext_server_alert.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_sheet.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
@@ -48,6 +49,15 @@ WidgetbookNode adaptiveNode() => WidgetbookFolder(
             confirmLabel: 'Delete',
             destructive: true,
           ),
+        ),
+      ),
+    ),
+    WidgetbookComponent(
+      name: 'confirmCleartextServer',
+      useCases: _everywhere(
+        (_) => openOnShow(
+          (context) =>
+              confirmCleartextServer(context, host: 'hermes.example.com'),
         ),
       ),
     ),

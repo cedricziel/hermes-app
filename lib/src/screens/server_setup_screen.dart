@@ -4,9 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/connect_failure.dart';
+import '../auth/server_address.dart';
 import '../settings/report_bug_link.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
+import 'widgets/cleartext_server_alert.dart';
 import 'widgets/connection_setup_field.dart';
 
 final _vpnGuide = Uri.parse(
@@ -28,9 +30,10 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     text:
         widget.initialUrl ??
         context.read<AuthController>().savedServerUrl ??
-        'http://',
+        '',
   );
   String? _validationError;
+  bool _asking = false;
 
   @override
   void didUpdateWidget(ServerSetupScreen oldWidget) {
@@ -151,8 +154,8 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     child: CircularProgressIndicator.adaptive(strokeWidth: 2),
   );
 
-  void _submit(AuthController auth) {
-    if (auth.state == HermesConnectionState.connecting) return;
+  Future<void> _submit(AuthController auth) async {
+    if (auth.state == HermesConnectionState.connecting || _asking) return;
     setState(
       () => _validationError = _controller.text.trim().isEmpty
           ? 'Enter a URL'
@@ -160,6 +163,21 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     );
     if (_validationError != null) return;
     FocusScope.of(context).unfocus();
-    auth.connect(_controller.text);
+    final text = _controller.text;
+    final url = normalizeServerUrl(text);
+    var allowCleartext = false;
+    if (url != null && isCleartextToPublicHost(url)) {
+      _asking = true;
+      try {
+        allowCleartext = await confirmCleartextServer(
+          context,
+          host: Uri.parse(url).host,
+        );
+      } finally {
+        _asking = false;
+      }
+      if (!allowCleartext || !mounted) return;
+    }
+    await auth.connect(text, allowCleartext: allowCleartext);
   }
 }

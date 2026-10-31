@@ -160,7 +160,7 @@ void main() {
       ]);
 
       tokens.unreadable = false;
-      await controller.connect(_baseUrl);
+      await controller.connect(_baseUrl, allowCleartext: true);
 
       expect(controller.state, HermesConnectionState.ready);
       expect(controller.identity?.userId, 'u1');

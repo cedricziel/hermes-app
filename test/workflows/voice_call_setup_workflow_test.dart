@@ -105,7 +105,7 @@ void main() {
             ],
           );
           addTearDown(auth.dispose);
-          await tester.runAsync(() => auth.connect('http://hermes.example'));
+          await tester.runAsync(() => auth.connect('https://hermes.example'));
           expect(auth.state, HermesConnectionState.ready);
           final server = FakeHermesServer()
             ..on(
