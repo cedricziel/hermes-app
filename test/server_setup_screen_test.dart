@@ -242,6 +242,33 @@ void main() {
     );
   });
 
+  testWidgets('connects to a public http:// address once accepted', (
+    tester,
+  ) async {
+    final events = RecordedEvents();
+    final auth = AuthController(
+      tokenStore: MemoryTokenStore(),
+      telemetry: events.connection,
+    );
+    await tester.runAsync(auth.bootstrap);
+    await pumpSetup(tester, auth);
+
+    await tester.enterText(find.byType(TextField), 'http://hermes.invalid');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connect Anyway'));
+    await tester.pump();
+
+    expect(
+      events.named('auth.state').where((e) => e['state'] == 'connecting'),
+      hasLength(1),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 1)),
+    );
+    await tester.pump(const Duration(seconds: 10));
+  });
+
   testWidgets('connects to a LAN http:// address without asking', (
     tester,
   ) async {

@@ -20,6 +20,7 @@ import '../auth/account_key.dart';
 import '../auth/auth_controller.dart';
 import '../auth/native_login_flow.dart';
 import '../auth/page_token.dart';
+import '../auth/server_address.dart';
 import '../auth/token_store.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../chat/gateway/gateway_connection.dart';
@@ -480,7 +481,14 @@ class _Connection {
         run.client(typed, unconnected, receive: const Duration(seconds: 8)),
       ).probeStatus();
       status = probe.status;
-      normalized = probe.redirectedTo ?? typed;
+      final redirected = probe.redirectedTo;
+      if (redirected != null &&
+          redirectsToUnacceptedCleartext(typed, redirected)) {
+        // The stored tokens must not follow a redirect to cleartext across
+        // the internet, as AuthController.connect refuses it too.
+        return const _Opened.refused('unreachable');
+      }
+      normalized = redirected ?? typed;
     } on Object {
       return const _Opened.refused('unreachable');
     }

@@ -20,7 +20,13 @@ bool isLocalHost(String host) {
   final address = InternetAddress.tryParse(name.split('%').first);
   if (address != null) return _isLocalAddress(address);
 
+  // `134744072` or `0x08080808`: the resolver reads a bare number as an
+  // IPv4 address (8.8.8.8 here), which [InternetAddress.tryParse] does not.
+  if (RegExp(r'^(0x[0-9a-f]+|[0-9]+)$').hasMatch(name)) return false;
+
   if (name == 'localhost' || name.endsWith('.localhost')) return true;
+  // A `.ts.net` name served publicly (Tailscale Funnel) answers only over
+  // TLS, so http:// to one stays inside the tailnet.
   const suffixes = ['.local', '.lan', '.home.arpa', '.internal', '.ts.net'];
   if (suffixes.any(name.endsWith)) return true;
   // `hermes` or `nas`: a name without a dot resolves through the local
@@ -30,6 +36,8 @@ bool isLocalHost(String host) {
 
 bool _isLocalAddress(InternetAddress address) {
   final b = address.rawAddress;
+  // 0.0.0.0 and :: (what `--host 0.0.0.0` prints) reach this device.
+  if (b.every((x) => x == 0)) return true;
   if (address.type == InternetAddressType.IPv4) {
     return b[0] == 127 ||
         b[0] == 10 ||
@@ -58,4 +66,15 @@ bool isCleartextToPublicHost(String url) {
   final uri = Uri.tryParse(url);
   if (uri == null || uri.scheme != 'http' || uri.host.isEmpty) return false;
   return !isLocalHost(uri.host);
+}
+
+/// Whether a server answering [from] with a redirect to [to] moves the app
+/// to cleartext across the internet the user did not accept: to a public
+/// `http://` address when [from] was encrypted or local, or to another host
+/// than the public `http://` one the user accepted.
+bool redirectsToUnacceptedCleartext(String from, String to) {
+  if (!isCleartextToPublicHost(to)) return false;
+  if (!isCleartextToPublicHost(from)) return true;
+  final a = Uri.parse(from), b = Uri.parse(to);
+  return a.host.toLowerCase() != b.host.toLowerCase() || a.port != b.port;
 }

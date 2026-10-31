@@ -33,6 +33,9 @@ void main() {
       'hermes.tail1234.ts.net',
       'hermes',
       'HERMES.LOCAL',
+      'fe80::1%en0',
+      '0.0.0.0',
+      '::',
     ]) {
       test('$host is local', () => expect(isLocalHost(host), isTrue));
     }
@@ -46,6 +49,8 @@ void main() {
       '100.128.0.1',
       '2001:4860:4860::8888',
       '::ffff:8.8.8.8',
+      '134744072',
+      '0x08080808',
       '',
     ]) {
       test('"$host" is public', () => expect(isLocalHost(host), isFalse));
@@ -56,6 +61,8 @@ void main() {
     test('http:// to a public host', () {
       expect(isCleartextToPublicHost('http://hermes.example.com'), isTrue);
       expect(isCleartextToPublicHost('http://8.8.8.8:9119'), isTrue);
+      expect(isCleartextToPublicHost('HTTP://hermes.example.com'), isTrue);
+      expect(isCleartextToPublicHost('http://[::ffff:8.8.8.8]'), isTrue);
     });
 
     test('https:// or a local host is fine', () {
@@ -63,6 +70,49 @@ void main() {
       expect(isCleartextToPublicHost('http://192.168.1.20:9119'), isFalse);
       expect(isCleartextToPublicHost('http://100.101.102.103'), isFalse);
       expect(isCleartextToPublicHost('http://[fd7a:115c:a1e0::1]'), isFalse);
+    });
+  });
+
+  group('redirectsToUnacceptedCleartext', () {
+    test('refuses a move to public cleartext', () {
+      expect(
+        redirectsToUnacceptedCleartext(
+          'https://hermes.example.com',
+          'http://hermes.example.com',
+        ),
+        isTrue,
+      );
+      expect(
+        redirectsToUnacceptedCleartext(
+          'http://hermes.example.com',
+          'http://other.example.com',
+        ),
+        isTrue,
+      );
+    });
+
+    test('allows encrypted, local or the accepted address', () {
+      expect(
+        redirectsToUnacceptedCleartext(
+          'http://hermes.example.com',
+          'https://hermes.example.com',
+        ),
+        isFalse,
+      );
+      expect(
+        redirectsToUnacceptedCleartext(
+          'http://hermes.example.com',
+          'http://hermes.example.com/dash',
+        ),
+        isFalse,
+      );
+      expect(
+        redirectsToUnacceptedCleartext(
+          'http://192.168.1.20:9119',
+          'http://192.168.1.20:9119/dash',
+        ),
+        isFalse,
+      );
     });
   });
 
@@ -87,6 +137,8 @@ void main() {
       expect(normalizeServerUrl('hermes.local'), 'http://hermes.local');
       expect(normalizeServerUrl('100.64.0.7:9119'), 'http://100.64.0.7:9119');
       expect(normalizeServerUrl('[::1]:9119'), 'http://[::1]:9119');
+      expect(normalizeServerUrl('0.0.0.0:9119'), 'http://0.0.0.0:9119');
+      expect(normalizeServerUrl('134744072:9119'), 'https://134744072:9119');
     });
 
     test('keeps a typed scheme', () {

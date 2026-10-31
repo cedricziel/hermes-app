@@ -290,8 +290,7 @@ class AuthController extends ChangeNotifier {
       status = probe.status;
       final redirected = probe.redirectedTo;
       if (redirected != null &&
-          !isCleartextToPublicHost(normalized) &&
-          isCleartextToPublicHost(redirected)) {
+          redirectsToUnacceptedCleartext(normalized, redirected)) {
         // A redirect must not take an encrypted or local address to
         // cleartext across the internet behind the user's back.
         if (stale()) return;
