@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../widgets/disclosure_toggled.dart';
 import '../../widgets/named_icon_button.dart';
 
 /// A compact inline audio player. A matching TTS input can be revealed as a
@@ -171,7 +172,10 @@ class _VoiceMessageViewState extends State<VoiceMessageView> {
                         width: 44,
                         height: 44,
                       ),
-                      onPressed: () => setState(() => _expanded = !_expanded),
+                      onPressed: () {
+                        DisclosureToggledNotification.send(context);
+                        setState(() => _expanded = !_expanded);
+                      },
                     ),
                   ),
                 if (widget.onSave != null)

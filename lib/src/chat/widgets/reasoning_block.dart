@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../widgets/disclosure_toggled.dart';
 import 'thinking_indicator.dart' show formatThinkingElapsed;
 import 'thinking_shimmer.dart';
 
@@ -66,7 +67,10 @@ class _ReasoningBlockState extends State<ReasoningBlock> {
     super.dispose();
   }
 
-  void _toggle() => setState(() => _open = !_open);
+  void _toggle() {
+    DisclosureToggledNotification.send(context);
+    setState(() => _open = !_open);
+  }
 
   @override
   Widget build(BuildContext context) {
