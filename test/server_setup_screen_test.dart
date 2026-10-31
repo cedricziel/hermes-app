@@ -57,14 +57,14 @@ void main() {
   String fieldText(WidgetTester tester) =>
       tester.widget<TextField>(find.byType(TextField)).controller!.text;
 
-  testWidgets('starts as http:// on a first launch', (tester) async {
+  testWidgets('starts empty on a first launch', (tester) async {
     final auth = AuthController(tokenStore: MemoryTokenStore());
     await tester.runAsync(auth.bootstrap);
 
     await pumpSetup(tester, auth);
 
     expect(auth.state, HermesConnectionState.needsServerUrl);
-    expect(fieldText(tester), 'http://');
+    expect(fieldText(tester), isEmpty);
   });
 
   testWidgets('asks for a URL keyboard whose return key submits', (
@@ -209,6 +209,59 @@ void main() {
       events.named('auth.state').where((e) => e['state'] == 'connecting'),
       hasLength(1),
     );
+    await tester.runAsync(() => hanging.close(force: true));
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('asks before connecting to a public host over http://', (
+    tester,
+  ) async {
+    final events = RecordedEvents();
+    final auth = AuthController(
+      tokenStore: MemoryTokenStore(),
+      telemetry: events.connection,
+    );
+    await tester.runAsync(auth.bootstrap);
+    await pumpSetup(tester, auth);
+
+    await tester.enterText(find.byType(TextField), 'http://hermes.example.com');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connect without encryption?'), findsOneWidget);
+    expect(find.textContaining('hermes.example.com is not'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connect without encryption?'), findsNothing);
+    expect(auth.state, HermesConnectionState.needsServerUrl);
+    expect(
+      events.named('auth.state').where((e) => e['state'] == 'connecting'),
+      isEmpty,
+    );
+  });
+
+  testWidgets('connects to a LAN http:// address without asking', (
+    tester,
+  ) async {
+    final hanging = (await tester.runAsync(
+      () => HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+    ))!;
+    hanging.listen((_) {});
+    final auth = AuthController(tokenStore: MemoryTokenStore());
+    await tester.runAsync(auth.bootstrap);
+    await pumpSetup(tester, auth);
+
+    await tester.enterText(
+      find.byType(TextField),
+      'http://127.0.0.1:${hanging.port}',
+    );
+    await tester.tap(find.text('Connect'));
+    await tester.pump();
+
+    expect(find.text('Connect without encryption?'), findsNothing);
+    expect(auth.state, HermesConnectionState.connecting);
     await tester.runAsync(() => hanging.close(force: true));
     await tester.pump(const Duration(seconds: 10));
   });

@@ -6,6 +6,12 @@
     <!-- Face / fingerprint unlock for the optional app lock. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- usesCleartextTraffic stays on: Android's network security config
+         cannot allow cleartext by private IP range, and a LAN or tailnet
+         dashboard is usually plain http://. The app guards it instead
+         (lib/src/auth/server_address.dart): a schemeless public host is
+         tried over https://, and an http:// address of a public host is
+         only connected after the user accepts a warning. -->
     <application
         android:label="Hermes Companion"
         android:name="${applicationName}"

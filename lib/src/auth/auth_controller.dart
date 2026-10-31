@@ -16,6 +16,7 @@ import 'account_key.dart';
 import 'connect_failure.dart';
 import 'native_login_flow.dart';
 import 'page_token.dart';
+import 'server_address.dart';
 import 'token_store.dart';
 import 'verified_session_owner.dart';
 
@@ -237,11 +238,17 @@ class AuthController extends ChangeNotifier {
   /// Normalizes and connects to a dashboard base URL, then figures out
   /// whether sign-in is needed. A [restoring] connect (app launch) stays in
   /// [HermesConnectionState.initializing] instead of flashing the setup form.
+  ///
+  /// A typed `http://` address of a public host ([isCleartextToPublicHost])
+  /// is refused unless [allowCleartext] says the user accepted the warning;
+  /// the saved address (restoring, automatic retries, connecting to it
+  /// again) was chosen before.
   Future<void> connect(
     String rawUrl, {
     bool remember = true,
     bool restoring = false,
     bool automatic = false,
+    bool allowCleartext = false,
   }) async {
     final departure = _departureInFlight;
     if (departure != null) await departure;
@@ -252,6 +259,14 @@ class AuthController extends ChangeNotifier {
     if (typed == null) {
       _errorMessage =
           'Enter a valid http(s) URL, e.g. http://192.168.1.20:9119';
+      _setState(HermesConnectionState.connectionError);
+      return;
+    }
+    final saved = restoring || automatic || typed == _savedServerUrl;
+    if (!saved && !allowCleartext && isCleartextToPublicHost(typed)) {
+      _errorMessage = cleartextRefusedMessage;
+      _lastFailure = null;
+      _failedUrl = null;
       _setState(HermesConnectionState.connectionError);
       return;
     }
@@ -273,7 +288,18 @@ class AuthController extends ChangeNotifier {
     try {
       final probe = await HermesApiClient(probeDio).probeStatus();
       status = probe.status;
-      normalized = probe.redirectedTo ?? normalized;
+      final redirected = probe.redirectedTo;
+      if (redirected != null &&
+          !isCleartextToPublicHost(normalized) &&
+          isCleartextToPublicHost(redirected)) {
+        // A redirect must not take an encrypted or local address to
+        // cleartext across the internet behind the user's back.
+        if (stale()) return;
+        _errorMessage = cleartextRedirectMessage;
+        _setState(HermesConnectionState.connectionError);
+        return;
+      }
+      normalized = redirected ?? normalized;
     } on DioException catch (e) {
       if (stale()) return;
       _failConnect(
@@ -1193,13 +1219,29 @@ class AuthController extends ChangeNotifier {
   }
 }
 
-/// [raw] as a dashboard base URL (a scheme added when missing, no trailing
-/// slash), or null when it is not an http(s) address.
+/// Shown when a typed `http://` address of a public host reaches [connect]
+/// without the user accepting the warning.
+const cleartextRefusedMessage =
+    "This address isn't encrypted. Use https://, or confirm the warning to "
+    'connect over http://.';
+
+/// Shown when the server redirected the app to an unencrypted public address.
+const cleartextRedirectMessage =
+    'The server redirected to an unencrypted http:// address. Use its '
+    'https:// address instead.';
+
+/// [raw] as a dashboard base URL (no trailing slash), or null when it is not
+/// an http(s) address. A missing scheme becomes `http://` for a local,
+/// private or tailnet host ([isLocalHost]) and `https://` for any other, so
+/// a typed `hermes.example.com` never goes out unencrypted.
 String? normalizeServerUrl(String raw) {
   var value = raw.trim();
   if (value.isEmpty) return null;
   if (!value.contains('://')) {
-    value = 'http://$value';
+    final host = Uri.tryParse('http://$value')?.host ?? '';
+    value = host.isNotEmpty && isLocalHost(host)
+        ? 'http://$value'
+        : 'https://$value';
   }
   final uri = Uri.tryParse(value);
   if (uri == null || uri.host.isEmpty) return null;

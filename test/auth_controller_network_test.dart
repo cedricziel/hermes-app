@@ -90,7 +90,7 @@ void main() {
     test('records a lookup failure and keeps the message', () async {
       final auth = controller();
 
-      await auth.connect('http://hermes-nowhere.invalid');
+      await auth.connect('http://hermes-nowhere.invalid', allowCleartext: true);
 
       expect(auth.state, HermesConnectionState.connectionError);
       expect(
@@ -271,7 +271,7 @@ void main() {
 
       final port = await _closedPort();
       await auth.connect('http://127.0.0.1:$port');
-      await auth.connect('http://hermes-nowhere.invalid');
+      await auth.connect('http://hermes-nowhere.invalid', allowCleartext: true);
 
       final failures = events.named('auth.connect.failed');
       expect(failures, hasLength(2));
