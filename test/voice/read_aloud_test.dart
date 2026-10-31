@@ -74,6 +74,13 @@ void main() {
       );
     });
 
+    test('a longer fence closes a code block', () {
+      expect(
+        speakableText('```\nx = **1**\n````\nThen **bold** text.'),
+        'x = **1**\nThen bold text.',
+      );
+    });
+
     test('links with parentheses, escapes and pipes outside tables', () {
       expect(speakableText('see [docs](https://x/(a)) now'), 'see docs now');
       expect(speakableText(r'Escaped \*stars\*'), 'Escaped *stars*');

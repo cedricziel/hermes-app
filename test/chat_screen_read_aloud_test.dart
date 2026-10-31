@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
@@ -67,6 +68,19 @@ void main() {
     expect(find.byTooltip('Copy'), findsOneWidget);
     // Nothing is spoken until the user asks.
     expect(server.requestsTo('POST', '/api/audio/speak'), isEmpty);
+  });
+
+  testWidgets('a failed check on resume keeps Read aloud', (tester) async {
+    await pump(tester, {'mode': 'relay', 'reason': 'local provider'});
+    server.on('GET', '/api/audio/voice-config', {
+      'detail': 'down',
+    }, status: 503);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Read aloud'), findsOneWidget);
   });
 
   testWidgets('no Read aloud when text to speech is off', (tester) async {

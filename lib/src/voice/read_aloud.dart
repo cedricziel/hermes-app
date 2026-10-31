@@ -97,7 +97,7 @@ String audioExtension(String mimeType) => switch (mimeType) {
 };
 
 final _fenceBlock = RegExp(
-  r'^ {0,3}(`{3,}|~{3,})[^\n]*\n?([\s\S]*?)(?:^ {0,3}\1[ \t]*(?:\n|$)|(?![\s\S]))',
+  r'^ {0,3}(`{3,}|~{3,})[^\n]*\n?([\s\S]*?)(?:^ {0,3}\1(?:(?<=`)`*|(?<=~)~*)[ \t]*(?:\n|$)|(?![\s\S]))',
   multiLine: true,
 );
 final _codeSpan = RegExp(r'(`+)(.+?)\1');

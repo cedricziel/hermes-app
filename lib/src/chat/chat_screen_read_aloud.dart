@@ -15,7 +15,13 @@ extension _ChatScreenReadAloud on _ChatScreenState {
       old.cancel();
       _rebuild(() => _readAloud = null);
     }
-    final support = await repository.voiceSupport(profile: profile);
+    final VoiceSupport support;
+    try {
+      support = await repository.voiceConfiguration(profile: profile);
+    } on Object {
+      // Unknown, not unsupported: keep what is shown until the next check.
+      return;
+    }
     if (!mounted || epoch != _readAloudEpoch || _chat.profile != profile) {
       return;
     }

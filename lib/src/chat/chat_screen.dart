@@ -99,6 +99,7 @@ import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import '../voice/composer_dictation.dart';
 import '../voice/read_aloud.dart';
+import '../voice/voice_support.dart';
 import 'media/media_store.dart';
 import '../voice/voice_message_recording.dart';
 import '../voice/voice_recording_view.dart';
