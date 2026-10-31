@@ -293,6 +293,62 @@ void main() {
     },
   );
 
+  test(
+    'answers the external browser with a page when the sheet could not open',
+    () async {
+      HttpClientResponse? answer;
+      var sheetClosed = 0;
+      var tabClosed = 0;
+      final browser = FallbackSignInBrowser(
+        _FakeBrowser(
+          onOpen: (_) async => false,
+          onClose: () async => sheetClosed++,
+          finishedRedirect: Uri.parse('hermes-app-signin://signed-in'),
+        ),
+        _FakeBrowser(
+          onOpen: (url) async {
+            unawaited(_hitCallback(url).then((r) => answer = r));
+            return true;
+          },
+          onClose: () async => tabClosed++,
+        ),
+      );
+
+      final session = await runNativeLogin(
+        'http://hermes.test:9119',
+        httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
+          ..httpClientAdapter = _TokenAdapter(),
+        browser: browser,
+      );
+
+      expect(session.accessToken, 'at');
+      expect(browser.fellBack, isTrue);
+      expect(answer!.statusCode, HttpStatus.ok);
+      expect(answer!.headers.value(HttpHeaders.locationHeader), isNull);
+      expect(tabClosed, 1);
+      expect(sheetClosed, 0);
+    },
+  );
+
+  test('fails as before when no browser could open', () async {
+    await expectLater(
+      runNativeLogin(
+        'http://hermes.test:9119',
+        browser: FallbackSignInBrowser(
+          _FakeBrowser(onOpen: (_) async => false, onClose: () async {}),
+          _FakeBrowser(onOpen: (_) async => false, onClose: () async {}),
+        ),
+      ),
+      throwsA(
+        isA<NativeLoginException>().having(
+          (e) => e.reason,
+          'reason',
+          NativeLoginFailure.browserLaunch,
+        ),
+      ),
+    );
+  });
+
   test('stops waiting when the user closes the browser', () async {
     var closed = 0;
     late _FakeBrowser browser;

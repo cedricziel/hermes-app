@@ -152,7 +152,7 @@ Future<HermesSession> runNativeLogin(
     final callback = _awaitCallback(
       server,
       expectedState: state,
-      finishedRedirect: signInBrowser.finishedRedirect,
+      finishedRedirect: () => signInBrowser.finishedRedirect,
     ).whenComplete(() => reachedListener = true);
     callback.ignore();
 
@@ -281,17 +281,18 @@ bool _mayHaveReachedServer(DioException e) => switch (e.type) {
 Future<String> _awaitCallback(
   HttpServer server, {
   required String expectedState,
-  Uri? finishedRedirect,
+  required Uri? Function() finishedRedirect,
 }) async {
   await for (final request in server) {
     final params = request.uri.queryParameters;
     // Stray requests (favicon probes, etc.) carry neither.
     final isCallback =
         params.containsKey('code') || params.containsKey('error');
-    if (isCallback && finishedRedirect != null) {
+    final redirect = isCallback ? finishedRedirect() : null;
+    if (redirect != null) {
       request.response
         ..statusCode = HttpStatus.found
-        ..headers.set(HttpHeaders.locationHeader, finishedRedirect.toString());
+        ..headers.set(HttpHeaders.locationHeader, redirect.toString());
     } else {
       request.response
         ..statusCode = 200

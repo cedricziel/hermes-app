@@ -38,8 +38,10 @@ final class WebAuthSession: NSObject, ASWebAuthenticationPresentationContextProv
                 result(FlutterError(code: "bad_arguments", message: "start needs url and callbackScheme", details: nil))
                 return
             }
-            result(start(url: url, callbackScheme: scheme))
+            start(url: url, callbackScheme: scheme, retries: 1, result: result)
         case "cancel":
+            // Also ends a start still waiting to try again.
+            generation += 1
             close()
             result(nil)
         default:
@@ -47,7 +49,10 @@ final class WebAuthSession: NSObject, ASWebAuthenticationPresentationContextProv
         }
     }
 
-    private func start(url: URL, callbackScheme: String) -> Bool {
+    /// Answers `result` with whether the sheet is showing. AuthenticationServices
+    /// refuses a session while an earlier one is still closing, so a refused
+    /// start is tried again a moment later, `retries` times.
+    private func start(url: URL, callbackScheme: String, retries: Int, result: @escaping FlutterResult) {
         close()
         generation += 1
         let id = generation
@@ -64,11 +69,23 @@ final class WebAuthSession: NSObject, ASWebAuthenticationPresentationContextProv
         }
         session.presentationContextProvider = self
         self.session = session
-        guard session.start() else {
-            self.session = nil
-            return false
+        if session.start() {
+            result(true)
+            return
         }
-        return true
+        self.session = nil
+        guard retries > 0 else {
+            result(false)
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            // Cancelled, or replaced by a newer start, meanwhile.
+            guard let self, self.generation == id else {
+                result(false)
+                return
+            }
+            self.start(url: url, callbackScheme: callbackScheme, retries: retries - 1, result: result)
+        }
     }
 
     private func close() {
@@ -78,6 +95,11 @@ final class WebAuthSession: NSObject, ASWebAuthenticationPresentationContextProv
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        return NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first ?? ASPresentationAnchor()
+        // The sheet needs a window on screen. The hidden main window and the
+        // menu bar item's window are not.
+        return NSApp.keyWindow
+            ?? NSApp.mainWindow
+            ?? NSApp.windows.first { $0.isVisible && $0.canBecomeKey }
+            ?? ASPresentationAnchor()
     }
 }
