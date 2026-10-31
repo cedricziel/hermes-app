@@ -10,6 +10,15 @@ class _RecordingLogger extends Logger {
   void emit(LogRecord record) => records.add(record);
 }
 
+class _ThrowingAfterFirst extends Logger {
+  int calls = 0;
+
+  @override
+  void emit(LogRecord record) {
+    if (++calls > 1) throw StateError('shut down');
+  }
+}
+
 LogRecord _failed(String route, {String type = 'connectionError'}) => LogRecord(
   body: 'HTTP GET $route $type',
   severity: LogSeverity.error,
@@ -63,6 +72,30 @@ void main() {
       // A failure after the window logs again.
       logger.emit(_failed('/api/status'));
       expect(inner.records, hasLength(4));
+    });
+  });
+
+  test('an error status or a cancel always logs', () {
+    fakeAsync((async) {
+      final inner = _RecordingLogger();
+      BurstDedupingLogger(inner)
+        ..emit(_failed('/api/plugins', type: 'badResponse'))
+        ..emit(_failed('/api/sessions', type: 'badResponse'))
+        ..emit(_failed('/api/cron', type: 'cancel'))
+        ..emit(_failed('/api/cron', type: 'cancel'));
+      async.elapse(const Duration(seconds: 10));
+      expect(inner.records, hasLength(4));
+    });
+  });
+
+  test('a summary the logger refuses breaks nothing', () {
+    fakeAsync((async) {
+      final inner = _ThrowingAfterFirst();
+      BurstDedupingLogger(inner)
+        ..emit(_failed('/api/cron'))
+        ..emit(_failed('/api/status'));
+      async.elapse(const Duration(seconds: 10));
+      expect(inner.calls, 2);
     });
   });
 

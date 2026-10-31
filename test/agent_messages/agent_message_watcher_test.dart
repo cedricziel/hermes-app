@@ -1066,6 +1066,50 @@ void main() {
       // The timer would otherwise outlive the test.
       watcher!.dispose();
     });
+
+    testWidgets('backs off while the profiles cannot be listed', (
+      tester,
+    ) async {
+      server.on('GET', '/api/profiles', {}, status: 503);
+      int lookups() => server.requestsTo('GET', '/api/profiles').length;
+      Future<void> minutes(int n) async {
+        for (var i = 0; i < n; i++) {
+          await tester.pump(const Duration(minutes: 1));
+          await tester.pumpAndSettle();
+        }
+      }
+
+      await setUpWatcher();
+      await tester.pumpAndSettle();
+      expect(lookups(), 1);
+
+      await minutes(1);
+      expect(lookups(), 1);
+      await minutes(1);
+      expect(lookups(), 2);
+
+      profiles(['default', 'work']);
+      await minutes(3);
+      expect(lookups(), 2);
+      await minutes(1);
+      expect(lookups(), 3);
+      await minutes(1);
+      expect(lookups(), 4);
+
+      watcher!.dispose();
+    });
+
+    testWidgets('another setting changing does not look again', (tester) async {
+      await setUpWatcher();
+      await tester.pumpAndSettle();
+      expect(listings(), 2);
+
+      await settings.recordPermission(granted: true);
+      await tester.pumpAndSettle();
+      expect(listings(), 2);
+
+      watcher!.dispose();
+    });
   });
 }
 

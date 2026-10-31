@@ -23,15 +23,28 @@ class AppSuspensions with WidgetsBindingObserver {
 
   int _count = 0;
 
-  /// Pauses so far.
+  /// Pauses and returns from them so far.
   int get count => _count;
 
   @visibleForTesting
   void pause() => _count++;
 
+  AppLifecycleState? _last;
+
+  /// Moves when the app is paused and again when it comes back from it, so a
+  /// span started while the app was winding down, or while it ran in the
+  /// background, is marked too. A trip through `inactive` alone (Control
+  /// Center, a system alert) is not a suspension.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) _count++;
+    final last = _last;
+    _last = state;
+    if (state == AppLifecycleState.paused ||
+        (state == AppLifecycleState.resumed &&
+            (last == AppLifecycleState.paused ||
+                last == AppLifecycleState.hidden))) {
+      _count++;
+    }
   }
 }
 
