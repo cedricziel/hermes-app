@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../network/poll_backoff.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -135,6 +136,10 @@ class ScheduleWatcher with WidgetsBindingObserver {
   int _epoch = 0;
   Timer? _timer;
 
+  /// Skips minute ticks while looks keep failing (the server or network is
+  /// down), so a broken connection is not asked every minute.
+  final _backoff = PollBackoff();
+
   bool get _enabled =>
       settings.loaded && settings.enabled && settings.scheduleAlerts;
 
@@ -174,11 +179,12 @@ class ScheduleWatcher with WidgetsBindingObserver {
     final enabled = _enabled;
     // Turning it on starts from a new baseline, so runs from the time it was
     // off are not announced.
-    if (enabled != _wasEnabled) {
-      _invalidate();
-      _forgetBaseline();
-    }
+    if (enabled == _wasEnabled) return;
     _wasEnabled = enabled;
+    // Only a change of the switch restarts the looks: any other setting (a
+    // mute, the permission) would otherwise look again at once.
+    _invalidate();
+    _forgetBaseline();
     _sync();
   }
 
@@ -188,7 +194,12 @@ class ScheduleWatcher with WidgetsBindingObserver {
     if (_disposed || _paused || !_available || !_foreground || !_enabled) {
       return;
     }
-    _timer = Timer.periodic(interval, (_) => check());
+    // A change worth a look at once (back in front, signed in again) also
+    // ends a wait after failures.
+    _backoff.reset();
+    _timer = Timer.periodic(interval, (_) {
+      if (_backoff.tick()) check();
+    });
     check();
   }
 
@@ -216,8 +227,15 @@ class ScheduleWatcher with WidgetsBindingObserver {
 
   Future<void> _look(int epoch) async {
     try {
-      final jobs = await repository.listJobs(profile: 'all');
+      final List<CronJob> jobs;
+      try {
+        jobs = await repository.listJobs(profile: 'all');
+      } on Object {
+        if (_current(epoch)) _backoff.failed();
+        rethrow;
+      }
       if (!_current(epoch)) return;
+      _backoff.succeeded();
       await _forgetting;
       if (!_current(epoch)) return;
       final account = _account();

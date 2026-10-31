@@ -792,6 +792,85 @@ void main() {
       watcher.dispose();
     });
 
+    testWidgets('backs off while looks fail and is back on the minute after', (
+      tester,
+    ) async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final server = FakeHermesServer()
+        ..on('GET', '/api/cron/jobs', {}, status: 503);
+      final settings = NotificationSettings();
+      await settings.load();
+      final watcher = ScheduleWatcher(
+        repository: HermesCronRepository(server.client().raw),
+        service: FakeNotificationService(),
+        settings: settings,
+      );
+      int requests() =>
+          server.requests.where((r) => r.path == '/api/cron/jobs').length;
+      Future<void> minutes(int n) async {
+        for (var i = 0; i < n; i++) {
+          await tester.pump(const Duration(minutes: 1));
+          await tester.pumpAndSettle();
+        }
+      }
+
+      watcher.available = true;
+      await tester.pumpAndSettle();
+      expect(requests(), 1);
+
+      // One failure skips one tick, two skip three.
+      await minutes(1);
+      expect(requests(), 1);
+      await minutes(1);
+      expect(requests(), 2);
+      await minutes(3);
+      expect(requests(), 2);
+      await minutes(1);
+      expect(requests(), 3);
+
+      // Coming back to the front looks at once.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(requests(), 4);
+
+      server.on('GET', '/api/cron/jobs', [ran('2026-09-20T08:00:00+00:00')]);
+      await minutes(2);
+      expect(requests(), 5);
+      await minutes(1);
+      expect(requests(), 6);
+
+      watcher.dispose();
+    });
+
+    testWidgets('another setting changing does not look again', (tester) async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final server = FakeHermesServer()
+        ..on('GET', '/api/cron/jobs', [ran('2026-09-20T08:00:00+00:00')]);
+      final settings = NotificationSettings();
+      await settings.load();
+      final watcher = ScheduleWatcher(
+        repository: HermesCronRepository(server.client().raw),
+        service: FakeNotificationService(),
+        settings: settings,
+      );
+      int requests() =>
+          server.requests.where((r) => r.path == '/api/cron/jobs').length;
+
+      watcher.available = true;
+      await tester.pumpAndSettle();
+      expect(requests(), 1);
+
+      await settings.recordPermission(granted: true);
+      await tester.pumpAndSettle();
+      expect(requests(), 1);
+
+      watcher.dispose();
+    });
+
     group('on macOS', () {
       Future<(ScheduleWatcher, int Function())> watch(
         WidgetTester tester,
