@@ -90,6 +90,7 @@ class ChatThreadView extends StatelessWidget {
     this.onReopenSession,
     this.onRetry,
     this.onEdit,
+    this.onBranch,
     this.onLoadOlder,
     this.onAnswerApproval,
     this.onAnswerClarify,
@@ -146,6 +147,9 @@ class ChatThreadView extends StatelessWidget {
   final ValueListenable<TurnActionStatus>? turnActionStatus;
   final VoidCallback? onRetry;
   final VoidCallback? onEdit;
+
+  /// Copies the chat up to the reply of the given message id into a new one.
+  final ValueChanged<String>? onBranch;
   final Widget? modelPill;
 
   /// Shown above the thread in a wide layout.
@@ -196,6 +200,7 @@ class ChatThreadView extends StatelessWidget {
           turnActionStatus: turnActionStatus,
           onRetry: onRetry,
           onEdit: onEdit,
+          onBranch: onBranch,
           onLoadOlder: onLoadOlder,
           onAnswerApproval: onAnswerApproval,
           onAnswerClarify: onAnswerClarify,

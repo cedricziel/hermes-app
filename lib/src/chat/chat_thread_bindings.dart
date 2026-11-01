@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../bot_screen/bot_screen_controller.dart';
@@ -116,7 +118,8 @@ Widget? protectedQueueView(ChatController chat, ChatThread? t) =>
 /// [ChatThreadView] for [thread] of [chat], with the chat's answers,
 /// retries, paging and queue bound to [chat]. A null [thread] (a new chat)
 /// has none of them. Only the main window lets the last prompt be edited
-/// ([editable]) and offers [starterPrompts], slash commands and a [header].
+/// ([editable]), branches a chat into a new one ([branchable]) and offers
+/// [starterPrompts], slash commands and a [header].
 /// A [screen] shows the Bot screen's preview under a running `computer_use`
 /// call, and a tap on it calls [onOpenScreen].
 ChatThreadView boundChatThreadView({
@@ -134,6 +137,7 @@ ChatThreadView boundChatThreadView({
   required LatestReply latestReply,
   bool welcome = true,
   bool editable = false,
+  bool branchable = false,
   String? greetingName,
   Object? Function()? sendTarget,
   List<SlashCommand> slashCommands = const [],
@@ -216,6 +220,9 @@ ChatThreadView boundChatThreadView({
     onEdit: !editable || t == null || !chat.canEditLastPrompt(t)
         ? null
         : () => chat.editLastPrompt(t),
+    onBranch: !branchable || t == null || !chat.canBranch(t)
+        ? null
+        : (id) => unawaited(chat.branch(t, fromMessageId: id)),
     onLoadOlder: t == null || !chat.hasOlder(t.id)
         ? null
         : () => chat.loadOlder(t.id),

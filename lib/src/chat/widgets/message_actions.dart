@@ -12,7 +12,8 @@ import 'reply_error_note.dart';
 /// What the user asked to do with the last turn.
 enum TurnAction {
   retry('Trying again…'),
-  edit('Taking the prompt back…');
+  edit('Taking the prompt back…'),
+  branch('Branching…');
 
   const TurnAction(this.progress);
 
@@ -51,6 +52,7 @@ enum ReadAloudState { idle, loading, playing }
 /// running, it takes the place of retry and edit; a [TurnActionStatus.problem]
 /// is said below the bar. A non-null [readAloud] adds Read aloud after Copy,
 /// which [onReadAloud] starts and, while loading or playing, stops.
+/// [onBranch], when given, copies the chat up to this reply into a new one.
 class MessageActions extends StatefulWidget {
   const MessageActions({
     super.key,
@@ -59,6 +61,7 @@ class MessageActions extends StatefulWidget {
     this.stopped = false,
     this.onRetry,
     this.onEdit,
+    this.onBranch,
     this.status = TurnActionStatus.idle,
     this.readAloud,
     this.onReadAloud,
@@ -71,6 +74,7 @@ class MessageActions extends StatefulWidget {
   final bool stopped;
   final VoidCallback? onRetry;
   final VoidCallback? onEdit;
+  final VoidCallback? onBranch;
   final TurnActionStatus status;
 
   /// Null hides Read aloud: the profile has no text to speech, or the reply
@@ -109,6 +113,7 @@ class _MessageActionsState extends State<MessageActions> {
     if (!widget.showCopy &&
         widget.onRetry == null &&
         widget.onEdit == null &&
+        widget.onBranch == null &&
         widget.readAloud == null &&
         !widget.stopped &&
         widget.status == TurnActionStatus.idle) {
@@ -215,6 +220,8 @@ class _MessageActionsState extends State<MessageActions> {
               action('Try again', AppIcons.refresh, retry),
             if (widget.onEdit case final edit?)
               action('Edit prompt', AppIcons.edit, edit),
+            if (widget.onBranch case final branch?)
+              action('Branch in new chat', AppIcons.branch, branch),
           ],
         ],
       ),

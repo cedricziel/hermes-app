@@ -71,6 +71,10 @@ abstract final class AppIcons {
     CupertinoIcons.chevron_left,
   );
   static const refresh = AppIconSet(Icons.refresh, CupertinoIcons.refresh);
+  static const branch = AppIconSet(
+    Icons.call_split,
+    CupertinoIcons.arrow_branch,
+  );
   static const lock = AppIconSet(Icons.lock_outline, CupertinoIcons.lock);
   static const copy = AppIconSet(Icons.copy, CupertinoIcons.doc_on_doc);
   static const copyOutlined = AppIconSet(

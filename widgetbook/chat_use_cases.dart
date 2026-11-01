@@ -631,6 +631,29 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           ),
         ),
         _tool(
+          'Copy, retry, edit and branch',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            onEdit: () {},
+            onBranch: () {},
+          ),
+        ),
+        _tool(
+          'Earlier reply: copy and branch',
+          MessageActions(text: 'The build finished.', onBranch: () {}),
+        ),
+        _tool(
+          'Branching',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            onEdit: () {},
+            onBranch: () {},
+            status: const TurnActionStatus(running: TurnAction.branch),
+          ),
+        ),
+        _tool(
           'Read aloud',
           MessageActions(
             text: 'The build finished.',

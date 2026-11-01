@@ -199,6 +199,9 @@ class FakeGateway {
   /// it answers.
   bool undoRejectsIntent = false;
 
+  /// Whether `session.undo` fails in the branch `session.branch` made.
+  bool branchUndoFails = false;
+
   /// Attach calls that fail, by `<method> <file name>`: the JSON-RPC error
   /// code and message to answer with.
   final attachFailures = <String, (int, String)>{};
@@ -403,6 +406,34 @@ class FakeGateway {
         _send({
           'id': id,
           'result': {'status': interruptStatus},
+        });
+      case 'session.branch_whole' || 'session.branch'
+          when unknownMethods.contains(request['method']):
+        _send({
+          'id': id,
+          'error': {'code': -32601, 'message': 'unknown method'},
+        });
+      case 'session.branch_whole' || 'session.branch':
+        _send({
+          'id': id,
+          'result': {
+            'session_id': 'rt-branch',
+            'stored_session_id': 'stored-branch',
+            'title': 'Run failure #2',
+            'parent': params['session_id'],
+            'message_count': 4,
+            if (request['method'] == 'session.branch_whole')
+              'messages_omitted': true
+            else
+              'messages': const [],
+            'info': const {},
+          },
+        });
+      case 'session.undo'
+          when branchUndoFails && params['session_id'] == 'rt-branch':
+        _send({
+          'id': id,
+          'error': {'code': 5008, 'message': 'undo: disk full'},
         });
       case 'session.undo' when unknownMethods.contains('session.undo'):
         _send({

@@ -3430,6 +3430,49 @@ class HermesGatewayTransport
   }
 
   @override
+  Future<BranchedThread?> branchThread(
+    String threadId, {
+    String? profile,
+    int dropTurns = 0,
+  }) async {
+    final client = await _client();
+    final runtimeId = await _commandRuntime(client, threadId, profile);
+    Map<String, Object?>? result;
+    // `session.branch_whole` does not send the copied transcript back; a
+    // gateway older than it has `session.branch` only.
+    for (final method in const ['session.branch_whole', 'session.branch']) {
+      try {
+        result = await _call(client, method, {'session_id': runtimeId});
+        break;
+      } on GatewayRpcException catch (error) {
+        if (error.code != kGatewayMethodNotFound) rethrow;
+      }
+    }
+    if (result == null) return null;
+    final storedId = result['stored_session_id'];
+    final branchRuntime = result['session_id'];
+    if (storedId is! String || storedId.isEmpty || branchRuntime is! String) {
+      throw const FormatException('session.branch answered without an id');
+    }
+    final branch = BranchedThread(storedId);
+    // Hermes branches a whole conversation (its `count` counts rows the app
+    // cannot tell apart); the branch is cut back a prompt at a time, by the
+    // same rule that takes back a turn for Try again.
+    for (var turn = 0; turn < dropTurns; turn++) {
+      final Map<String, Object?> undone;
+      try {
+        undone = await _call(client, 'session.undo', {
+          'session_id': branchRuntime,
+        });
+      } on Object catch (error) {
+        throw BranchIncomplete(branch, error);
+      }
+      if (((undone['removed'] as num?)?.toInt() ?? 0) == 0) break;
+    }
+    return branch;
+  }
+
+  @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) async {
     final open = _awaiting[requestId];
     if (open == null) return false;

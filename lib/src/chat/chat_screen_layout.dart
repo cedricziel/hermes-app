@@ -144,6 +144,7 @@ extension _ChatScreenLayout on _ChatScreenState {
             onPickStarter: _pickStarter,
             latestReply: _latestReply,
             editable: true,
+            branchable: true,
             header: !isWide
                 ? null
                 : _mac
