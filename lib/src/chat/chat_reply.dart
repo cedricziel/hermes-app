@@ -191,7 +191,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       if (reasoning.trim().isNotEmpty &&
           reply.reasoning.isEmpty &&
           !reply.toolCalls.any((call) => call.reasoning.isNotEmpty)) {
-        reply.reasoning = reasoning.trim();
+        _placeCompletionReasoning(reply, reasoning.trim());
       }
       // A model that stops without writing text gets its reasoning returned
       // as the answer, which Hermes stores as reasoning only.
@@ -380,6 +380,25 @@ void _settleUnreported(ChatMessage reply, {required int before}) {
 
 /// Whether reply text streamed since the last tool call started, still
 /// being written or already sealed by a checkpoint.
+/// Hermes sends the turn's latest reasoning, which most providers attach to
+/// the step that called tools and leave off the final answer. So on a turn
+/// with tool calls it goes above the last step's calls (those after the last
+/// prose the model wrote between them), where the stored history puts it.
+void _placeCompletionReasoning(ChatMessage reply, String reasoning) {
+  final calls = reply.toolCalls;
+  if (calls.isEmpty) {
+    reply.reasoning = reasoning;
+    return;
+  }
+  var start = calls.length - 1;
+  while (start > 0 &&
+      !reply.sealedProse.any((p) => p.beforeToolCall == start)) {
+    start--;
+  }
+  reply.toolCalls = [...calls]
+    ..[start] = calls[start].copyWith(reasoning: reasoning);
+}
+
 bool _wroteSinceLastToolCall(ChatMessage reply) =>
     reply.content.isNotEmpty ||
     reply.sealedProse.any(

@@ -108,6 +108,29 @@ void main() {
     expect(reply.toolCalls.single.reasoning, 'Read the file.');
   });
 
+  test('unstreamed reasoning of a tool turn goes above the last step', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ToolStarted(id: 'c1', name: 'search'));
+    applyReplyEvent(reply, const ToolFinished(id: 'c1', name: 'search'));
+    applyReplyEvent(reply, const ReplyDelta('Found it, reading.'));
+    applyReplyEvent(reply, const ToolStarted(id: 'c2', name: 'read_file'));
+    applyReplyEvent(reply, const ToolStarted(id: 'c3', name: 'read_file'));
+    applyReplyEvent(reply, const ToolFinished(id: 'c2', name: 'read_file'));
+    applyReplyEvent(reply, const ToolFinished(id: 'c3', name: 'read_file'));
+    applyReplyEvent(
+      reply,
+      const ReplyCompleted('Done.', reasoning: 'Read both files.'),
+    );
+
+    expect(reply.reasoning, isEmpty);
+    expect(reply.toolCalls.map((c) => c.reasoning), [
+      '',
+      'Read both files.',
+      '',
+    ]);
+  });
+
   test('a reply that only repeats unstreamed reasoning keeps it as '
       'reasoning', () {
     final reply = _placeholder();

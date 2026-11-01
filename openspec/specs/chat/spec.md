@@ -918,7 +918,7 @@ The system SHALL show the model's reasoning, when there is any, as blocks in the
 #### Scenario: Reasoning sent with the completion
 
 - **WHEN** `message.complete` carries a `reasoning` string and no reasoning streamed during the turn, before or after any tool call
-- **THEN** it is shown as the reasoning after the last tool call, as a loaded thread would show it
+- **THEN** it is shown where a loaded thread shows it: above the calls of the turn's last tool step (the calls after the last text written between them) when the turn called tools, else above the text
 
 #### Scenario: A reply that shared no reasoning
 
