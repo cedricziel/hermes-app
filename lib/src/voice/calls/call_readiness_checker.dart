@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 
 import '../voice_support.dart';
 import 'call_readiness.dart';
+import 'call_telemetry.dart';
 
 class CallInput {
   const CallInput({required this.useDevice, this.installed = true});
@@ -19,6 +22,7 @@ class CallReadinessChecker {
     required this.isCurrent,
     this.beforeCheck,
     this.timeout = const Duration(seconds: 8),
+    this.events = noopAppEventLogger,
   });
   final Future<bool> Function() microphone;
   final Future<CallInput> Function() input;
@@ -28,8 +32,13 @@ class CallReadinessChecker {
   final bool Function() isCurrent;
   final Duration timeout;
 
+  /// Gets `voice_call.readiness` once per finished check: each check's
+  /// status and, for one that threw, the kind of error. Fixed words only.
+  final AppEventLogger events;
+
   Future<CallReadiness> check({void Function(CallReadiness)? onUpdate}) async {
     final checks = List.of(CallReadiness.checking.checks);
+    final errors = <CallCheckId, String>{};
     var device = false;
     CallReadiness report() =>
         CallReadiness(List.unmodifiable(checks), useDeviceSpeech: device);
@@ -52,7 +61,8 @@ class CallReadinessChecker {
           action: allowed ? null : CallSetupAction.microphone,
         ),
       );
-    } on Object {
+    } on Object catch (error) {
+      errors[CallCheckId.microphone] = callErrorKind(error);
       update(
         const CallCheck(
           CallCheckId.microphone,
@@ -80,7 +90,8 @@ class CallReadinessChecker {
           ),
         );
       }
-    } on Object {
+    } on Object catch (error) {
+      errors[CallCheckId.input] = callErrorKind(error);
       update(
         const CallCheck(
           CallCheckId.input,
@@ -126,6 +137,7 @@ class CallReadinessChecker {
         );
       }
     } on Object catch (error) {
+      errors[CallCheckId.output] = callErrorKind(error);
       final status = error is DioException ? error.response?.statusCode : null;
       final auth = status == 401 || status == 403;
       final old = status == 404 || status == 405;
@@ -173,7 +185,8 @@ class CallReadinessChecker {
             'The voice service is reachable.',
           ),
         );
-      } on Object {
+      } on Object catch (error) {
+        errors[CallCheckId.connection] = callErrorKind(error);
         update(
           const CallCheck(
             CallCheckId.connection,
@@ -184,6 +197,28 @@ class CallReadinessChecker {
         );
       }
     }
-    return report();
+    final result = report();
+    if (isCurrent()) _log(result, errors);
+    return result;
+  }
+
+  void _log(CallReadiness report, Map<CallCheckId, String> errors) {
+    try {
+      events('voice_call.readiness', {
+        'ready': report.ready,
+        'device_speech': report.useDeviceSpeech,
+        for (final check in report.checks)
+          check.id.name: switch (check.status) {
+            CallCheckStatus.checking => 'checking',
+            CallCheckStatus.ready => 'ready',
+            CallCheckStatus.needsSetup => 'needs_setup',
+            CallCheckStatus.unavailable => 'unavailable',
+          },
+        for (final MapEntry(:key, :value) in errors.entries)
+          '${key.name}_error': value,
+      });
+    } on Object {
+      // Telemetry must never break the app.
+    }
   }
 }

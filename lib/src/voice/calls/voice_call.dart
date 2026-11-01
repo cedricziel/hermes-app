@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:uuid/uuid.dart';
 
 import '../../chat/gateway/gateway_connection.dart';
@@ -11,6 +13,7 @@ import 'call_phase.dart';
 export 'call_phase.dart';
 import 'call_bridge.dart';
 import 'call_speech_stream.dart';
+import 'call_telemetry.dart';
 import 'voice_activity.dart';
 
 /// Owns one outgoing call, independent of the foreground route. Audio capture
@@ -25,6 +28,7 @@ class VoiceCall extends ChangeNotifier {
     required this.prepare,
     this.profile,
     this.speechFallback,
+    this.events = noopAppEventLogger,
   });
   final CallBridge bridge;
   final CallAgent agent;
@@ -33,6 +37,11 @@ class VoiceCall extends ChangeNotifier {
   final Future<void> Function() prepare;
   final String? profile;
   final CallSpeechFallback? speechFallback;
+
+  /// Gets `voice_call.connected` when CallKit hands over the audio and one
+  /// `voice_call.ended` (`outcome`, `reason`, `step`, `error_type`, buckets
+  /// of turns and duration). Fixed words only: never speech, text or ids.
+  final AppEventLogger events;
   final _vad = VoiceActivity();
   StreamSubscription<Map<String, Object?>>? _events;
   Timer? _clock;
@@ -46,6 +55,9 @@ class VoiceCall extends ChangeNotifier {
   bool _startedOnce = false;
   bool _nativeStarted = false;
   bool _waitingForInput = false;
+  bool _connectedOnce = false;
+  int _turns = 0;
+  int _fallbacks = 0;
   CallPhase phase = CallPhase.connecting;
   bool muted = false;
   bool speaker = false;
@@ -63,23 +75,30 @@ class VoiceCall extends ChangeNotifier {
     if (_startedOnce || _disposed) return;
     _startedOnce = true;
     final epoch = _epoch;
+    var step = 'prepare';
     try {
       await prepare().timeout(const Duration(seconds: 20));
       if (!_current(epoch)) return;
+      step = 'audio_focus';
       await VoiceAudioFocus.shared.acquire(this);
       if (!_current(epoch)) return;
       _events = bridge.events.listen(
         _event,
-        onError: (Object _) => unawaited(end('Call audio became unavailable.')),
+        onError: (Object error) => unawaited(
+          _end('native_events', 'Call audio became unavailable.', error),
+        ),
       );
       _nativeStarted = true;
+      step = 'native_start';
       await bridge.start(const Uuid().v4(), 'Hermes');
     } on CallPreparationException catch (failure) {
-      if (_current(epoch)) await end(failure.message);
-    } on Object {
+      if (_current(epoch)) await _end('prepare', failure.message);
+    } on Object catch (error) {
       if (_current(epoch)) {
-        await end(
+        await _end(
+          step,
           'Could not start the call. Check microphone access and your speech providers in Settings.',
+          error,
         );
       }
     }
@@ -91,12 +110,15 @@ class VoiceCall extends ChangeNotifier {
       case 'activated':
         if (_active) return;
         _active = true;
+        _connectedOnce = true;
+        _log('voice_call.connected');
         _started = DateTime.now();
         _lastPCM = _started;
         phase = CallPhase.listening;
         unawaited(
           bridge.connected().catchError(
-            (Object _) => end('Could not connect call audio.'),
+            (Object error) =>
+                _end('connect', 'Could not connect call audio.', error),
           ),
         );
         _clock = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -105,7 +127,10 @@ class VoiceCall extends ChangeNotifier {
               DateTime.now().difference(_lastPCM!) >
                   const Duration(seconds: 15)) {
             unawaited(
-              end('The microphone stopped. Start a new call to reconnect.'),
+              _end(
+                'microphone_stalled',
+                'The microphone stopped. Start a new call to reconnect.',
+              ),
             );
           }
           _notify();
@@ -140,11 +165,11 @@ class VoiceCall extends ChangeNotifier {
         route = event['name'] as String? ?? 'iPhone';
         speaker = event['speaker'] == true;
       case 'ended':
-        unawaited(end());
+        unawaited(_end('hang_up'));
       case 'deactivated':
-        unawaited(end('The call was interrupted.'));
+        unawaited(_end('interrupted', 'The call was interrupted.'));
       case 'error':
-        unawaited(end('Call audio became unavailable.'));
+        unawaited(_end('native_error', 'Call audio became unavailable.'));
     }
     _notify();
   }
@@ -176,6 +201,7 @@ class VoiceCall extends ChangeNotifier {
     phase = CallPhase.transcribing;
     _notify();
     CallSpeechStream? speech;
+    var step = 'transcribe';
     try {
       await _interruption;
       if (!_current(epoch) || muted) return;
@@ -192,12 +218,13 @@ class VoiceCall extends ChangeNotifier {
         r'^(?:hang up|end (?:the )?call)[.!?]?$',
         caseSensitive: false,
       ).hasMatch(text)) {
-        await end();
+        await _end('voice_hang_up');
         return;
       }
       caption = text;
       phase = CallPhase.thinking;
       _notify();
+      step = 'speech_open';
       speech = CallSpeechStream(
         connect: connect,
         output: bridge,
@@ -208,11 +235,14 @@ class VoiceCall extends ChangeNotifier {
             _notify();
           }
         },
-        onFailure: () {
+        onFailure: (error) {
           if (_current(epoch)) {
             unawaited(
-              end(
+              _end(
+                'speech',
                 'Hermes could not speak this reply. Check your speech provider and reconnect.',
+                error,
+                speech?.usedFallback == true ? 'speech_fallback' : step,
               ),
             );
           }
@@ -221,6 +251,7 @@ class VoiceCall extends ChangeNotifier {
       _speech = speech;
       await speech.open(profile);
       if (!_current(epoch)) return;
+      step = 'agent';
       await agent.reply(
         text,
         onText: (part) {
@@ -247,15 +278,23 @@ class VoiceCall extends ChangeNotifier {
       if (!speech.hasText) {
         speech.append('I have finished. You can see the details in the chat.');
       }
+      step = 'speech';
       await speech.finish();
+      if (speech.usedFallback) _fallbacks++;
       if (!_current(epoch)) return;
+      _turns++;
       _speech = null;
       phase = CallPhase.listening;
       _notify();
-    } on Object {
+    } on Object catch (error) {
       if (_current(epoch)) {
-        await end(
+        await _end(
+          'turn',
           'The conversation was interrupted. Your messages are saved in the chat.',
+          error,
+          speech?.usedFallback == true && step == 'speech'
+              ? 'speech_fallback'
+              : step,
         );
       }
     } finally {
@@ -269,8 +308,10 @@ class VoiceCall extends ChangeNotifier {
   Future<void> setMuted(bool value) async {
     try {
       await bridge.mute(value);
-    } on Object {
-      if (!ended) await end('Could not change microphone mute.');
+    } on Object catch (error) {
+      if (!ended) {
+        await _end('mute', 'Could not change microphone mute.', error);
+      }
     }
   }
 
@@ -282,8 +323,30 @@ class VoiceCall extends ChangeNotifier {
     }
   }
 
-  Future<void> end([String? failure]) async {
+  /// Ends the call; the app's own end (a changed chat, sign-out, the end
+  /// button). A [failure] is the text shown to the user.
+  Future<void> end([String? failure]) =>
+      _end(failure == null ? 'app' : 'app_failure', failure);
+
+  Future<void> _end(
+    String reason, [
+    String? failure,
+    Object? cause,
+    String? step,
+  ]) async {
     if (ended) return;
+    _log('voice_call.ended', {
+      'outcome': failure == null ? 'ended' : 'failed',
+      'reason': reason,
+      'step': ?step,
+      'error_type': ?(cause == null ? null : callErrorKind(cause)),
+      'connected': _connectedOnce,
+      'turns': callTurnsBucket(_turns),
+      'speech_fallbacks': callTurnsBucket(_fallbacks),
+      'duration': callDurationBucket(
+        _started == null ? null : DateTime.now().difference(_started!),
+      ),
+    });
     phase = failure == null ? CallPhase.ended : CallPhase.failed;
     error = failure;
     _active = false;
@@ -303,6 +366,14 @@ class VoiceCall extends ChangeNotifier {
       ?stopSpeech,
       agent.interrupt().catchError((Object _) {}),
     ]);
+  }
+
+  void _log(String name, [Map<String, Object> attributes = const {}]) {
+    try {
+      events(name, attributes);
+    } on Object {
+      // Telemetry must never break the app.
+    }
   }
 
   @override

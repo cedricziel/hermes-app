@@ -85,6 +85,20 @@ Ordinary voice-message playback pauses before CallKit starts and cannot change
 the audio session while a call owns it, including background pause and disposal.
 It can be resumed explicitly after the call ends.
 
+## Telemetry
+
+With telemetry on, a finished readiness check logs `voice_call.readiness`
+(each check's status and, for a check that threw, its error kind such as
+`timeout`, `http_502` or `upgrade_403`). A call logs `voice_call.connected`
+when CallKit activates its audio and exactly one `voice_call.ended` with
+`outcome` (ended or failed), `reason` (`hang_up`, `voice_hang_up`, `app`,
+`prepare`, `native_start`, `connect`, `microphone_stalled`, `interrupted`,
+`native_error`, `speech`, `turn`, `mute`), the failing `step` (`transcribe`,
+`speech_open`, `agent`, `speech`, `speech_fallback`), `error_type`, whether
+it ever connected, and buckets of turns, fallbacks and duration. Each
+`/api/audio/speak-stream` socket is traced like the gateway's. Nothing spoken,
+transcribed or replied, and no URL, ticket or id, is recorded.
+
 ## CarPlay
 
 The integration uses system call controls and car audio routing. There is no

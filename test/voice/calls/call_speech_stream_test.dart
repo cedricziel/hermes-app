@@ -64,7 +64,7 @@ void main() {
         final stream = CallSpeechStream(
           connect: ([_ = const {}]) async => socket.local,
           output: FakeCallBridge(),
-          onFailure: () => failures++,
+          onFailure: (_) => failures++,
         );
         await stream.open(null);
         socket.foreign.sink.add(frame);

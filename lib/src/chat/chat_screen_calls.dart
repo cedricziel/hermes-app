@@ -55,12 +55,19 @@ extension _ChatScreenCalls on _ChatScreenState {
           _recipientSendAllowed &&
           _chat.modelSendAllowed;
       bool current() => _callRouteOpen && ownerValid();
-      final connect = hermesMixedSocketConnect(
+      final telemetry = HermesRepositories.maybeOf(context)?.telemetry;
+      final events = telemetry?.events ?? noopAppEventLogger;
+      // A tracer per socket: each turn and the readiness probe open their own,
+      // and a tracer links its messages to the last upgrade it traced.
+      Future<StreamChannel<Object?>> connect([
+        Map<String, String> query = const {},
+      ]) => hermesMixedSocketConnect(
         baseUrl: baseUrl,
         authRequired: auth.status?.authRequired ?? true,
         api: api,
         path: '/api/audio/speak-stream',
-      );
+        telemetry: telemetry?.gateway(),
+      )(query);
       final checker = CallReadinessChecker(
         isCurrent: current,
         beforeCheck: () async {
@@ -84,6 +91,7 @@ extension _ChatScreenCalls on _ChatScreenState {
         },
         configuration: () => repository.voiceConfiguration(profile: profile),
         connection: () => probeCallSpeech(connect, profile, isCurrent: current),
+        events: events,
       );
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
@@ -127,6 +135,7 @@ extension _ChatScreenCalls on _ChatScreenState {
                 agent: agent,
                 profile: profile,
                 connect: connect,
+                events: events,
                 speechFallback: (text, speechProfile, cancellation) async {
                   if (!ownerValid() || cancellation.isCancelled) {
                     throw StateError('The call changed');
