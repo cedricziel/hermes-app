@@ -17,7 +17,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
-import 'support/pump_chat.dart' show openThread;
+import 'support/pump_chat.dart' show composerField, openThread;
 
 /// Branching a chat from one of its replies into a new chat.
 void main() {
@@ -161,6 +161,16 @@ void main() {
 
     expect(branch, findsNothing);
     expect(find.text('Branching…'), findsOneWidget);
+
+    await tester.enterText(composerField, 'One more thing');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.pump();
+    expect(transport.sends, isEmpty);
+    expect(
+      find.text('Wait for the branch to finish. Your draft was kept.'),
+      findsOneWidget,
+    );
 
     gate.complete();
     await settle(tester);

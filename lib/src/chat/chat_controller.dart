@@ -1533,6 +1533,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? displayText,
   }) {
     if (!active) return false;
+    // A prompt sent now could land in the copy after its turns were counted.
+    if (selected != null && _undoing[selected] == TurnAction.branch) {
+      report('Wait for the branch to finish. Your draft was kept.');
+      return false;
+    }
     if (_queueUnavailable.contains(selected)) {
       report(_queueMissingTarget);
       return false;
