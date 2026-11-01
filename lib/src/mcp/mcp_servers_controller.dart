@@ -220,7 +220,15 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
 
   Future<void> _fetch() async {
     final generation = ++_fetches;
-    final servers = await repository.loadServers(profile: _profile);
+    final List<HermesMcpServer> servers;
+    try {
+      servers = await repository.loadServers(profile: _profile);
+    } on Object {
+      // A later list or change has taken over; this failure says nothing
+      // about the list shown now.
+      if (generation != _fetches) return;
+      rethrow;
+    }
     // A later list answers for a later state; an older one must not win.
     if (disposed || generation != _fetches) return;
     _servers = servers;
@@ -381,6 +389,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
     try {
       await repository.setEnabled(name, enabled, profile: _profile);
+      _fetches++; // a list asked for before this change is out of date
       _servers = [
         for (final s in _servers ?? const <HermesMcpServer>[])
           s.name == name ? s.withEnabled(enabled) : s,
@@ -429,6 +438,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
     } on Object catch (e) {
       return _failure(e);
     }
+    _fetches++; // a list asked for before the removal is out of date
     _servers = _servers?.where((s) => s.name != name).toList();
     _tests.remove(name);
     notifyListeners();

@@ -101,6 +101,46 @@ void main() {
       list.complete((status: 200, body: mcpServerListBody([])));
     });
 
+    test('a list read before a removal does not bring it back', () async {
+      final list = Completer<FakeResponse>();
+      server
+        ..on(
+          'POST',
+          '/api/mcp/servers',
+          mcpServerRow(name: 'linear', url: 'https://a.test'),
+        )
+        ..on('DELETE', '/api/mcp/servers/linear', {'ok': true})
+        ..onRequest('GET', '/api/mcp/servers', (_) => list.future);
+      await controller.addServer(remote, review: approve);
+
+      await controller.remove(controller.serverNamed('linear')!);
+      list.complete((
+        status: 200,
+        body: mcpServerListBody([
+          mcpServerRow(name: 'linear', url: 'https://a.test'),
+        ]),
+      ));
+      await pumpEventQueue();
+
+      expect(controller.serverNamed('linear'), isNull);
+    });
+
+    test(
+      'an overtaken list that fails does not mark the list failed',
+      () async {
+        final stalled = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/mcp/servers', (_) => stalled.future);
+        await controller.replaceServers(const {}, {}, review: approve);
+
+        server.on('GET', '/api/mcp/servers', mcpServerListBody([]));
+        await controller.refresh();
+        stalled.complete((status: 500, body: {'detail': 'boom'}));
+        await pumpEventQueue();
+
+        expect(controller.failed, isFalse);
+      },
+    );
+
     test('keeps the added server when the list cannot be read', () async {
       server.on('GET', '/api/mcp/servers', {'detail': 'boom'}, status: 500);
 
