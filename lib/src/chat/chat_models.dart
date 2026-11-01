@@ -590,8 +590,9 @@ class ChatMessage {
   /// Live reasoning is separate from an answer that is still streaming.
   bool reasoningActive;
 
-  /// A live reply began with the waiting disclosure. Keep it after that phase,
-  /// even if this model never shares reasoning text. History does not invent it.
+  /// A live reply began with the waiting disclosure. It stays while the reply
+  /// runs, even if this model never shares reasoning text, and goes when the
+  /// reply ends without any, since history does not invent it.
   final bool thinkingStarted;
   final DateTime createdAt;
   MessageStatus status;

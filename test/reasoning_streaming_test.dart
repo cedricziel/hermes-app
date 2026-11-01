@@ -21,7 +21,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
   }
 
-  testWidgets('a waiting-only block stays honest and open after completion', (
+  testWidgets('a waiting-only block stays while the reply runs, then goes', (
     tester,
   ) async {
     final send = await start(tester);
@@ -34,9 +34,30 @@ void main() {
       ..emit(const ReplyCompleted('Here is the answer.'))
       ..finish();
     await tester.pumpAndSettle();
-    expect(find.text('Reasoning'), findsOneWidget);
-    expect(find.text('No reasoning text was provided.'), findsOneWidget);
+    expect(find.byType(ReasoningBlock), findsNothing);
+    expect(find.text('No reasoning text was provided.'), findsNothing);
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('reasoning that only came with the completion is shown', (
+    tester,
+  ) async {
+    final send = await start(tester);
+    send.emit(const ReplyDelta('Here is'));
+    await flush(tester);
+    send
+      ..emit(
+        const ReplyCompleted(
+          'Here is the answer.',
+          reasoning: 'Check the logs first.',
+        ),
+      )
+      ..finish();
+    await tester.pumpAndSettle();
+    expect(find.text('Reasoning'), findsOneWidget);
+    await tester.tap(find.byType(ReasoningBlock));
+    await tester.pumpAndSettle();
+    expect(find.text('Check the logs first.'), findsOneWidget);
   });
 
   testWidgets('an opened thinking block streams and remains after the answer', (

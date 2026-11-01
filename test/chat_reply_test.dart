@@ -68,6 +68,85 @@ void main() {
     expect(reply.status, MessageStatus.sent);
   });
 
+  test('reasoning sent only with the completion is kept', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReplyDelta('The answer'));
+    applyReplyEvent(
+      reply,
+      const ReplyCompleted('The answer.', reasoning: '  Check the logs.\n'),
+    );
+
+    expect(reply.reasoning, 'Check the logs.');
+    expect(reply.content, 'The answer.');
+  });
+
+  test('the completion\'s reasoning does not replace what streamed', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReasoningUpdated('Let me think.'));
+    applyReplyEvent(
+      reply,
+      const ReplyCompleted('Done.', reasoning: 'Let me think. More.'),
+    );
+
+    expect(reply.reasoning, 'Let me think.');
+  });
+
+  test('the completion\'s reasoning does not repeat a tool call\'s', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReasoningUpdated('Read the file.'));
+    applyReplyEvent(reply, const ToolStarted(id: 'c1', name: 'read_file'));
+    applyReplyEvent(reply, const ToolFinished(id: 'c1', name: 'read_file'));
+    applyReplyEvent(
+      reply,
+      const ReplyCompleted('Done.', reasoning: 'Read the file.'),
+    );
+
+    expect(reply.reasoning, isEmpty);
+    expect(reply.toolCalls.single.reasoning, 'Read the file.');
+  });
+
+  test('unstreamed reasoning of a tool turn goes above the last step', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ToolStarted(id: 'c1', name: 'search'));
+    applyReplyEvent(reply, const ToolFinished(id: 'c1', name: 'search'));
+    applyReplyEvent(reply, const ReplyDelta('Found it, reading.'));
+    applyReplyEvent(reply, const ToolStarted(id: 'c2', name: 'read_file'));
+    applyReplyEvent(reply, const ToolStarted(id: 'c3', name: 'read_file'));
+    applyReplyEvent(reply, const ToolFinished(id: 'c2', name: 'read_file'));
+    applyReplyEvent(reply, const ToolFinished(id: 'c3', name: 'read_file'));
+    applyReplyEvent(
+      reply,
+      const ReplyCompleted('Done.', reasoning: 'Read both files.'),
+    );
+
+    expect(reply.reasoning, isEmpty);
+    expect(reply.toolCalls.map((c) => c.reasoning), [
+      '',
+      'Read both files.',
+      '',
+    ]);
+  });
+
+  test('a reply that only repeats unstreamed reasoning keeps it as '
+      'reasoning', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(
+      reply,
+      const ReplyCompleted(
+        'I need to load it.',
+        reasoning: 'I need to load it.',
+      ),
+    );
+
+    expect(reply.content, isEmpty);
+    expect(reply.reasoning, 'I need to load it.');
+  });
+
   test('a fallback does not replace reasoning that streamed', () {
     final reply = _placeholder();
 

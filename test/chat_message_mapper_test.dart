@@ -770,12 +770,19 @@ void main() {
       final before = chatMessageToFlyer(m).map((f) => f.id).toList();
 
       m
+        ..content = 'do'
+        ..status = MessageStatus.streaming;
+      final streaming = chatMessageToFlyer(m).map((f) => f.id).toList();
+
+      m
         ..content = 'done'
         ..status = MessageStatus.sent;
       final after = chatMessageToFlyer(m).map((f) => f.id).toList();
 
       expect(before, ['m1-tool-0-reasoning']);
-      expect(after, ['m1-tool-0-reasoning', 'm1']);
+      expect(streaming, ['m1-tool-0-reasoning', 'm1']);
+      // A finished reply that shared no reasoning keeps no empty row.
+      expect(after, ['m1']);
     });
   });
 

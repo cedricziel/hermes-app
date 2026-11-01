@@ -159,6 +159,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       :final reused,
       :final partial,
       :final error,
+      :final reasoning,
     ):
       // A completion is the final word: it supersedes a held error and a
       // settle without a completion.
@@ -184,6 +185,14 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       final alreadyShown =
           (previewed || reused) && _isSealedOrStreamed(reply, text);
       if (text.isNotEmpty && !alreadyShown) reply.content = text;
+      // Reasoning that never streamed (display.show_reasoning off, or a
+      // provider that only reports it at the end) still comes with the
+      // completion, as it does in the stored history.
+      if (reasoning.trim().isNotEmpty &&
+          reply.reasoning.isEmpty &&
+          !reply.toolCalls.any((call) => call.reasoning.isNotEmpty)) {
+        _placeCompletionReasoning(reply, reasoning.trim());
+      }
       // A model that stops without writing text gets its reasoning returned
       // as the answer, which Hermes stores as reasoning only.
       if (reply.reasoning.isNotEmpty &&
@@ -371,6 +380,25 @@ void _settleUnreported(ChatMessage reply, {required int before}) {
 
 /// Whether reply text streamed since the last tool call started, still
 /// being written or already sealed by a checkpoint.
+/// Hermes sends the turn's latest reasoning, which most providers attach to
+/// the step that called tools and leave off the final answer. So on a turn
+/// with tool calls it goes above the last step's calls (those after the last
+/// prose the model wrote between them), where the stored history puts it.
+void _placeCompletionReasoning(ChatMessage reply, String reasoning) {
+  final calls = reply.toolCalls;
+  if (calls.isEmpty) {
+    reply.reasoning = reasoning;
+    return;
+  }
+  var start = calls.length - 1;
+  while (start > 0 &&
+      !reply.sealedProse.any((p) => p.beforeToolCall == start)) {
+    start--;
+  }
+  reply.toolCalls = [...calls]
+    ..[start] = calls[start].copyWith(reasoning: reasoning);
+}
+
 bool _wroteSinceLastToolCall(ChatMessage reply) =>
     reply.content.isNotEmpty ||
     reply.sealedProse.any(

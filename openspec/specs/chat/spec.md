@@ -915,6 +915,16 @@ The system SHALL show the model's reasoning, when there is any, as blocks in the
 - **AND WHEN** it sends `reasoning.available`, a preview of the reply text sent after the model answered
 - **THEN** its `text` is shown as that reasoning only when no reasoning and no reply text streamed since the last tool call, and never replaces reasoning that streamed
 
+#### Scenario: Reasoning sent with the completion
+
+- **WHEN** `message.complete` carries a `reasoning` string and no reasoning streamed during the turn, before or after any tool call
+- **THEN** it is shown where a loaded thread shows it: above the calls of the turn's last tool step (the calls after the last text written between them) when the turn called tools, else above the text
+
+#### Scenario: A reply that shared no reasoning
+
+- **WHEN** a live reply ends and no reasoning arrived during it or with its completion
+- **THEN** the waiting row it showed while pending is removed, so the reply has no reasoning block
+
 #### Scenario: A tool call ends a block of reasoning
 
 - **WHEN** a tool starts after reasoning arrived

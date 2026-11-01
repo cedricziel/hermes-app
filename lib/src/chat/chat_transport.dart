@@ -471,6 +471,7 @@ final class ReplyCompleted extends ChatEvent {
     this.transformed = false,
     this.partial = false,
     this.error,
+    this.reasoning = '',
     this.usage,
     this.usageMalformed = false,
     this.usageRuntimeId = '',
@@ -502,6 +503,11 @@ final class ReplyCompleted extends ChatEvent {
 
   /// Why the reply failed, when it did.
   final String? error;
+
+  /// The turn's latest reasoning, which Hermes sends with the completion
+  /// whatever its `display.show_reasoning` says and whether or not it
+  /// streamed. Empty when the model shared none.
+  final String reasoning;
 }
 
 /// Whether [event] shows that a turn is under way, as opposed to a report
