@@ -261,6 +261,30 @@ class FakeChatTransport implements ChatTransport, PromptAcknowledgement {
     return undoRemoved;
   }
 
+  /// Every [branchThread], as the thread, its profile and the turns dropped.
+  final branches = <(String, String?, int)>[];
+
+  /// What [branchThread] answers; null is a server that cannot branch.
+  BranchedThread? branchResult = const BranchedThread('branch-1');
+
+  /// Thrown by [branchThread] when set.
+  Object? branchError;
+
+  /// Holds [branchThread]'s answer until completed.
+  Completer<void>? branchGate;
+
+  @override
+  Future<BranchedThread?> branchThread(
+    String threadId, {
+    String? profile,
+    int dropTurns = 0,
+  }) async {
+    branches.add((threadId, profile, dropTurns));
+    await branchGate?.future;
+    if (branchError case final error?) throw error; // ignore: only_throw_errors
+    return branchResult;
+  }
+
   final skips = <(String, UnsupportedKind)>[];
 
   @override

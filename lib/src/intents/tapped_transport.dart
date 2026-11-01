@@ -131,6 +131,13 @@ class TappedTransport implements ChatTransport {
   }) => _inner.undoLastTurn(threadId, profile: profile, retry: retry);
 
   @override
+  Future<BranchedThread?> branchThread(
+    String threadId, {
+    String? profile,
+    int dropTurns = 0,
+  }) => _inner.branchThread(threadId, profile: profile, dropTurns: dropTurns);
+
+  @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) =>
       _inner.skipUnsupported(requestId, kind);
 

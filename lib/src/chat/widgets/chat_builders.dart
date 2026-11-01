@@ -72,7 +72,9 @@ typedef ScreenPreviewBuilder = Widget Function(ScreenPreviewRun run);
 /// A finished reply gets an action bar. [latestReplyId] names the one reply
 /// that can be asked again, and [onRetry] does it; while it is null nothing
 /// can. [onEdit] takes that reply's prompt back to change it, and
-/// [turnActionStatus] says while either runs or why it failed. The welcome
+/// [turnActionStatus] says while either runs or why it failed. [onBranch],
+/// given a reply's message id, copies the chat up to that reply into a new
+/// one; every finished reply offers it. The welcome
 /// view offers [starterPrompts], the generic ones when null, and hands a
 /// tapped one to [onPickPrompt].
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
@@ -86,6 +88,7 @@ Builders buildChatBuilders({
   ValueListenable<TurnActionStatus>? turnActionStatus,
   VoidCallback? onRetry,
   VoidCallback? onEdit,
+  ValueChanged<String>? onBranch,
   Future<void> Function()? onLoadOlder,
   Future<void> Function(String requestId, String choice)? onAnswerApproval,
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
@@ -121,6 +124,7 @@ Builders buildChatBuilders({
               turnActionStatus: turnActionStatus,
               onRetry: onRetry,
               onEdit: onEdit,
+              onBranch: onBranch,
               onLinkTap: onLinkTap,
             ),
     imageMessageBuilder: (
@@ -222,6 +226,7 @@ Widget _buildText(
   ValueListenable<TurnActionStatus>? turnActionStatus,
   VoidCallback? onRetry,
   VoidCallback? onEdit,
+  ValueChanged<String>? onBranch,
   void Function(String url, String title)? onLinkTap,
 }) {
   final scheme = Theme.of(context).colorScheme;
@@ -270,6 +275,7 @@ Widget _buildText(
       stopped: message.metadata?[kMetaStopped] == true,
       onRetry: latest ? onRetry : null,
       onEdit: latest ? onEdit : null,
+      onBranch: onBranch == null ? null : () => onBranch(message.id),
       status: status,
       readAloud: readAloud,
       onReadAloud: onReadAloud,

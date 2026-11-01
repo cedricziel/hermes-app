@@ -18,6 +18,7 @@ export '../thread_export.dart' show threadTranscript;
 enum ThreadAction {
   openInNewWindow,
   copyTranscript,
+  branch,
   rename,
   pin,
   archive,
@@ -27,12 +28,13 @@ enum ThreadAction {
 /// The menu of one thread as a Mac app lists it, with the shortcuts the menu
 /// bar gives them. Without [manageable] (a thread the dashboard does not
 /// hold) only copying the transcript is offered; "Open in New Window" only
-/// with [canOpenInNewWindow].
+/// with [canOpenInNewWindow], and "Branch in New Chat" only with [canBranch].
 List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
   required bool pinned,
   required bool manageable,
   bool canOpenInNewWindow = false,
   bool canonical = false,
+  bool canBranch = false,
 }) => [
   if (canOpenInNewWindow) ...[
     const AdaptiveMenuItem(
@@ -58,6 +60,11 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
     value: ThreadAction.copyTranscript,
     child: Text('Copy Transcript'),
   ),
+  if (manageable && canBranch && !canonical)
+    const AdaptiveMenuItem(
+      value: ThreadAction.branch,
+      child: Text('Branch in New Chat'),
+    ),
   if (manageable) ...[
     AdaptiveMenuItem(
       value: ThreadAction.archive,
@@ -147,6 +154,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
             canonical: _thread.isCanonicalBotChat,
             manageable: housekeeping != null,
             canOpenInNewWindow: widget.onOpenInNewWindow != null,
+            canBranch: housekeeping?.branch != null && _thread.remote,
           )
         else ...[
           if (widget.includeCopyTranscript) ...[
@@ -201,6 +209,8 @@ Future<void> runThreadAction(
       await _copyTranscript(context, thread, housekeeping);
     case (_, null):
       break;
+    case (ThreadAction.branch, final housekeeping?):
+      await housekeeping.branch?.call(thread);
     case (ThreadAction.rename, final housekeeping?):
       if (thread.isCanonicalBotChat) return;
       final title = await showAdaptiveDialog<String>(

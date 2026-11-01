@@ -172,6 +172,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         prepareDelete: _prepareQueueDeletion,
         history: _history,
         canWork: () => active,
+        branch: transport == null ? null : branch,
       );
       search = ThreadSearch(
         (query) => repository.searchThreads(query, profile: _profile),
@@ -1471,6 +1472,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> editLastPrompt(ChatThread thread) =>
       _ChatControllerCommands(this)._editLastPromptImpl(thread);
 
+  /// Whether [thread] can be copied into a new chat now.
+  bool canBranch(ChatThread thread) =>
+      _ChatControllerCommands(this)._canBranchImpl(thread);
+
+  /// Copies [thread] into a new chat of its profile and opens it. With
+  /// [fromMessageId] (a flyer message id) the copy ends with that message's
+  /// turn; without, it holds the whole chat. Hermes copies the prompts and
+  /// replies, not the tool calls in between.
+  Future<void> branch(ChatThread thread, {String? fromMessageId}) =>
+      _ChatControllerCommands(this)
+          ._branchImpl(thread, fromMessageId: fromMessageId);
+
   /// The retry or edit running on the last turn of [thread], or why the last
   /// one failed.
   TurnActionStatus turnActionStatus(ChatThread thread) =>
@@ -1520,6 +1533,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? displayText,
   }) {
     if (!active) return false;
+    // A prompt sent now could land in the copy after its turns were counted.
+    if (selected != null && _undoing[selected] == TurnAction.branch) {
+      report('Wait for the branch to finish. Your draft was kept.');
+      return false;
+    }
     if (_queueUnavailable.contains(selected)) {
       report(_queueMissingTarget);
       return false;

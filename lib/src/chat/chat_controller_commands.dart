@@ -270,6 +270,120 @@ extension _ChatControllerCommands on ChatController {
     onPrefill?.call(prompt);
   }
 
+  /// Whether [thread] can be copied into a new chat now: the server knows it
+  /// and nothing runs in it.
+  bool _canBranchImpl(ChatThread thread) =>
+      active &&
+      transport != null &&
+      _bound.contains(thread) &&
+      _sessionStates[thread]?.reclaimedReason == null &&
+      !_undoing.containsKey(thread) &&
+      !thread.isReplying &&
+      !_queues.containsKey(thread);
+
+  /// How many prompts Hermes holds after the message the flyer id [messageId]
+  /// belongs to, or null when [thread] has no such message. A command shown
+  /// only here and a prompt that failed are not Hermes' prompts.
+  int? _promptsAfter(ChatThread thread, String messageId) {
+    final index = thread.messages.lastIndexWhere(
+      (m) => m.id == messageId || messageId.startsWith('${m.id}-'),
+    );
+    if (index < 0) return null;
+    return thread.messages
+        .skip(index + 1)
+        .where(
+          (m) =>
+              m.role == ChatRole.user &&
+              m.status != MessageStatus.error &&
+              // A command run in this visit shows its text but was never a
+              // prompt; a stored row is one whatever it starts with.
+              (!m.id.contains('-local-') ||
+                  m.submittedText != null ||
+                  !m.content.startsWith('/')),
+        )
+        .length;
+  }
+
+  /// Copies [thread] into a new chat, up to and including the turn of the
+  /// message [fromMessageId] (a flyer id), or all of it when null, and opens
+  /// the copy.
+  Future<void> _branchImpl(ChatThread thread, {String? fromMessageId}) async {
+    if (!canBranch(thread)) {
+      // The Mac thread menu offers it for any chat of the list.
+      if (active && transport != null && thread.isReplying) {
+        report('Wait for the reply to finish, then branch the chat.');
+      }
+      return;
+    }
+    final dropTurns = fromMessageId == null
+        ? 0
+        : _promptsAfter(thread, fromMessageId);
+    if (dropTurns == null) return;
+    final epoch = _activityEpoch;
+    final generation = _sessionActionGeneration(thread);
+    final profile = _profile;
+    final from = fromMessageId == null || dropTurns == 0 ? 'end' : 'message';
+    _undoing[thread] = TurnAction.branch;
+    _turnProblems.remove(thread);
+    notifyListeners();
+    BranchedThread? branch;
+    Object? failure;
+    try {
+      branch = await transport!.branchThread(
+        thread.id,
+        profile: profile,
+        dropTurns: dropTurns,
+      );
+    } on BranchIncomplete catch (error) {
+      failure = error.cause;
+      // The copy holds turns it should not; it is not what was asked for.
+      unawaited(
+        repository
+            ?.deleteThread(error.thread.id, profile: profile)
+            .catchError((Object _) {}),
+      );
+    } on Object catch (error) {
+      failure = error;
+    } finally {
+      if (_currentActivity(epoch) &&
+          _sessionActionCurrent(thread, generation)) {
+        _undoing.remove(thread);
+        notifyListeners();
+      }
+    }
+    if (!_currentActivity(epoch) || _profile != profile) return;
+    if (failure != null) {
+      breadcrumbs('chat.branch', {'outcome': 'failed', 'from': from});
+      // Hermes refused, or answered what the app cannot use.
+      final answered =
+          failure is GatewayRpcException ||
+          failure is FormatException ||
+          failure is StateError;
+      final problem = answered
+          ? "Hermes couldn't branch the chat."
+          : "Couldn't reach Hermes to branch the chat. Check your connection.";
+      // Said under the chat's last reply when it is open, else as a note.
+      if (selectedThread != thread) {
+        report(problem);
+      } else if (_sessionActionCurrent(thread, generation)) {
+        _turnProblems[thread] = problem;
+        notifyListeners();
+      }
+      return;
+    }
+    if (branch == null) {
+      breadcrumbs('chat.branch', {'outcome': 'unsupported', 'from': from});
+      report("This Hermes server can't branch chats. Update Hermes to branch.");
+      return;
+    }
+    breadcrumbs('chat.branch', {'outcome': 'branched', 'from': from});
+    // Not in the loaded list yet: opening fetches it and puts it on top.
+    open(
+      NotificationTarget(threadId: branch.id, profile: profile),
+      fetchMissing: true,
+    );
+  }
+
   /// Says under the last reply why taking back its turn failed. The error
   /// itself is meant for developers, so only its kind goes to the crumb.
   void _failTurnAction(ChatThread thread, Object error, String action) {

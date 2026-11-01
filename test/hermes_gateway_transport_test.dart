@@ -2415,6 +2415,86 @@ void main() {
     });
   });
 
+  group('branching a chat', () {
+    test('copies the whole chat without echoing its transcript', () async {
+      final branch = await transport.branchThread('stored-2', profile: 'work');
+
+      expect(branch?.id, 'stored-branch');
+      expect(gateway.requestOf('session.resume')['params'], {
+        'session_id': 'stored-2',
+        'profile': 'work',
+        'source': 'hermes_app',
+      });
+      expect(gateway.requestOf('session.branch_whole')['params'], {
+        'session_id': 'rt-2',
+      });
+      expect(gateway.methods, isNot(contains('session.undo')));
+    });
+
+    test('takes back the turns after the branch point in the copy', () async {
+      await transport.branchThread('stored-2', dropTurns: 2);
+
+      expect(
+        gateway.requests
+            .where((r) => r['method'] == 'session.undo')
+            .map((r) => r['params']),
+        [
+          {'session_id': 'rt-branch'},
+          {'session_id': 'rt-branch'},
+        ],
+      );
+    });
+
+    test('a copy with fewer prompts than counted is incomplete', () async {
+      gateway.undoRemoved = 0;
+
+      await expectLater(
+        transport.branchThread('stored-2', dropTurns: 3),
+        throwsA(isA<BranchIncomplete>()),
+      );
+      expect(gateway.methods.where((m) => m == 'session.undo'), hasLength(1));
+    });
+
+    test("closes the copy's live session once it is cut back", () async {
+      await transport.branchThread('stored-2', dropTurns: 1);
+      await pumpEventQueue();
+
+      expect(gateway.requestOf('session.close')['params'], {
+        'session_id': 'rt-branch',
+      });
+    });
+
+    test('a gateway without branch_whole uses session.branch', () async {
+      gateway.unknownMethods.add('session.branch_whole');
+
+      final branch = await transport.branchThread('stored-2');
+
+      expect(branch?.id, 'stored-branch');
+      expect(gateway.requestOf('session.branch')['params'], {
+        'session_id': 'rt-2',
+      });
+    });
+
+    test('a gateway that cannot branch reports null', () async {
+      gateway.unknownMethods.addAll(['session.branch_whole', 'session.branch']);
+
+      expect(await transport.branchThread('stored-2'), isNull);
+    });
+
+    test('a copy whose turns cannot be taken back is incomplete', () async {
+      gateway.branchUndoFails = true;
+
+      await expectLater(
+        transport.branchThread('stored-2', dropTurns: 1),
+        throwsA(
+          isA<BranchIncomplete>()
+              .having((e) => e.thread.id, 'thread', 'stored-branch')
+              .having((e) => e.cause, 'cause', isA<GatewayRpcException>()),
+        ),
+      );
+    });
+  });
+
   group('stopping a reply', () {
     /// Starts a turn that never completes on its own, calls [stop] while it
     /// runs, then completes it.

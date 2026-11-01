@@ -3190,6 +3190,57 @@ approvals:
       timeout: const Timeout(Duration(minutes: 2)),
       skip: skip,
     );
+
+    test(
+      'a chat branches from an earlier reply into a new chat without the '
+      'turns after it, and keeps its own',
+      () async {
+        final repository = HermesChatRepository(client.raw);
+        final transport = connect();
+        List<String> prompts(List<ChatMessage> messages) => [
+          for (final m in messages)
+            if (m.role == ChatRole.user) m.content,
+        ];
+
+        final first = await transport
+            .send(profile: profile, text: 'First question.')
+            .toList();
+        final parent = (first.first as ThreadBound).threadId;
+        addTearDown(() => repository.deleteThread(parent, profile: profile));
+        await transport
+            .send(threadId: parent, profile: profile, text: 'Second question.')
+            .drain<void>();
+
+        final branch = await transport.branchThread(
+          parent,
+          profile: profile,
+          dropTurns: 1,
+        );
+        expect(branch, isNotNull);
+        addTearDown(
+          () => repository.deleteThread(branch!.id, profile: profile),
+        );
+
+        expect(branch!.id, isNot(parent));
+        expect(
+          prompts(await repository.loadMessages(branch.id, profile: profile)),
+          ['First question.'],
+        );
+        expect(
+          prompts(await repository.loadMessages(parent, profile: profile)),
+          ['First question.', 'Second question.'],
+        );
+
+        final whole = await transport.branchThread(parent, profile: profile);
+        addTearDown(() => repository.deleteThread(whole!.id, profile: profile));
+        expect(
+          prompts(await repository.loadMessages(whole!.id, profile: profile)),
+          ['First question.', 'Second question.'],
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
   });
 }
 

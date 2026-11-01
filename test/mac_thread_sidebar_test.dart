@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
@@ -21,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 
@@ -63,6 +66,7 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.macOS,
+    ChatTransport? transport,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -82,6 +86,7 @@ void main() {
           home: MacSidebarScope(
             child: ChatScreen(
               repository: HermesChatRepository(server.client().raw),
+              transport: transport,
             ),
           ),
         ),
@@ -206,6 +211,30 @@ void main() {
     expect(find.text('⇧⌘P'), findsOneWidget);
     expect(find.text('⌘⌫'), findsOneWidget);
     expect(find.text('Open in New Window'), findsNothing);
+    // This sidebar has no gateway to branch over.
+    expect(find.text('Branch in New Chat'), findsNothing);
+  });
+
+  testWidgets('Branch in New Chat copies a thread and opens the copy', (
+    tester,
+  ) async {
+    final transport = FakeChatTransport()
+      ..branchResult = const BranchedThread('s3');
+    await pump(tester, transport: transport);
+    await rightClick(tester, 's2');
+
+    await tester.tap(find.text('Branch in New Chat'));
+    await tester.pumpAndSettle();
+
+    expect(transport.branches, [('s2', null, 0)]);
+    expect(
+      tester
+          .widget<MacThreadRow>(
+            find.descendant(of: row('s3'), matching: find.byType(MacThreadRow)),
+          )
+          .selected,
+      isTrue,
+    );
   });
 
   testWidgets('a pinned thread offers Unpin', (tester) async {

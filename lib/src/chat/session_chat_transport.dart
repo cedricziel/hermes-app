@@ -512,6 +512,15 @@ final class SessionChatTransport
   }) => _call((d) => d.undoLastTurn(threadId, profile: profile, retry: retry));
 
   @override
+  Future<BranchedThread?> branchThread(
+    String threadId, {
+    String? profile,
+    int dropTurns = 0,
+  }) => _call(
+    (d) => d.branchThread(threadId, profile: profile, dropTurns: dropTurns),
+  );
+
+  @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) =>
       _call((d) => d.skipUnsupported(requestId, kind));
 }

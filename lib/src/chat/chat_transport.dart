@@ -613,6 +613,25 @@ final class QuestionAnswer extends OpenRequestAnswer {
   final bool multiSelect;
 }
 
+/// The chat a [ChatTransport.branchThread] made, by its stored id.
+class BranchedThread {
+  const BranchedThread(this.id);
+
+  final String id;
+}
+
+/// A branch was made, but taking its last turns back failed, so it holds more
+/// of the conversation than was asked for. [thread] is the branch.
+class BranchIncomplete implements Exception {
+  const BranchIncomplete(this.thread, this.cause);
+
+  final BranchedThread thread;
+  final Object cause;
+
+  @override
+  String toString() => 'BranchIncomplete(${cause.runtimeType})';
+}
+
 /// A transport that can say whether the server accepted the prompt of its
 /// latest [ChatTransport.send], however that send ended afterwards. A sender
 /// that must not ask twice (a question that cannot be repeated) reads it.
@@ -809,6 +828,19 @@ abstract interface class ChatTransport {
     String threadId, {
     String? profile,
     bool retry = false,
+  });
+
+  /// Copies the idle thread [threadId] into a new chat of the same profile
+  /// that keeps a link to it, and then drops the last [dropTurns] prompts of
+  /// the copy with everything after them, so the copy ends where the
+  /// conversation is to branch. Hermes copies the prompts and replies that
+  /// have text, not tool calls. Returns null when the server cannot branch;
+  /// throws [BranchIncomplete] when the copy exists but its turns could not
+  /// all be dropped, and anything else when the call itself fails.
+  Future<BranchedThread?> branchThread(
+    String threadId, {
+    String? profile,
+    int dropTurns = 0,
   });
 
   /// Skips a request the app cannot answer, a secret or a sudo password, by

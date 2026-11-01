@@ -23,6 +23,7 @@ class ThreadHousekeeping {
     required this.history,
     this.canWork,
     this.prepareDelete,
+    this.branch,
   });
 
   final HermesChatRepository repository;
@@ -35,6 +36,10 @@ class ThreadHousekeeping {
   final ValueChanged<String> report;
   final bool Function()? canWork;
   final Future<void> Function()? Function(ChatThread)? prepareDelete;
+
+  /// Copies a thread into a new chat and opens it; null where chats cannot
+  /// be branched.
+  final Future<void> Function(ChatThread thread)? branch;
 
   /// A thread left the list because it was archived or deleted.
   final ValueChanged<ChatThread> removed;
