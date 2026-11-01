@@ -164,6 +164,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
   final _tests = <String, McpTestState>{};
   final _startingSignIn = <String>{};
   final _signInNotes = <String, String>{};
+  var _fetches = 0;
 
   /// The profile the screen acts on; null when the dashboard has none.
   String? get profile => _profile;
@@ -218,14 +219,47 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
   }
 
   Future<void> _fetch() async {
+    final generation = ++_fetches;
     final servers = await repository.loadServers(profile: _profile);
-    if (disposed) return;
+    // A later list answers for a later state; an older one must not win.
+    if (disposed || generation != _fetches) return;
     _servers = servers;
     _tests.removeWhere((name, _) => servers.every((s) => s.name != name));
   }
 
   /// Lists the servers again, for a change made elsewhere such as an install.
   Future<void> refresh() => _reload();
+
+  /// Lists the servers again after a save without holding it up. A list that
+  /// cannot be read keeps the one shown, which already holds the change.
+  Future<void> _refreshQuietly() async {
+    try {
+      await _fetch();
+    } on Object {
+      return;
+    }
+    if (!disposed) notifyListeners();
+  }
+
+  static HermesMcpServer _summaryOf(McpNewServer server) => switch (server) {
+    McpNewRemoteServer(:final name, :final url, :final auth) => HermesMcpServer(
+      name: name,
+      transport: McpTransport.remote,
+      url: url,
+      auth: switch (auth) {
+        McpRemoteAuth.none => null,
+        McpRemoteAuth.bearerToken => 'header',
+        McpRemoteAuth.oauth => 'oauth',
+      },
+    ),
+    McpNewCommandServer(:final name, :final command, :final args) =>
+      HermesMcpServer(
+        name: name,
+        transport: McpTransport.command,
+        command: command,
+        args: args,
+      ),
+  };
 
   Future<void> _reload() async {
     try {
@@ -254,8 +288,14 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
           !await _confirm(review, [McpCommandReviewItem.of(server)])) {
         return const McpAddCancelled();
       }
-      await repository.addServer(server, profile: _profile);
-      await _reload();
+      final added = await repository.addServer(server, profile: _profile);
+      // Show the server at once and list the rest again behind it: Hermes
+      // can stall for a while after a config write, and the add is done.
+      _servers = [
+        ...?_servers?.where((s) => s.name != server.name),
+        added != null && added.name == server.name ? added : _summaryOf(server),
+      ]..sort((a, b) => a.name.compareTo(b.name));
+      unawaited(_refreshQuietly());
       return McpAdded(server.name);
     } on McpRefused catch (e) {
       return e.status == 409
@@ -314,7 +354,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
         return const McpReplaceCancelled();
       }
       await repository.replaceServers(snapshot, profile: _profile);
-      await _reload();
+      unawaited(_refreshQuietly());
       return const McpReplaced();
     } on McpRefused catch (e) {
       return McpReplaceRefused(e.problems);
