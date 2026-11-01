@@ -2445,12 +2445,23 @@ void main() {
       );
     });
 
-    test('stops taking turns back once there are none', () async {
+    test('a copy with fewer prompts than counted is incomplete', () async {
       gateway.undoRemoved = 0;
 
-      await transport.branchThread('stored-2', dropTurns: 3);
-
+      await expectLater(
+        transport.branchThread('stored-2', dropTurns: 3),
+        throwsA(isA<BranchIncomplete>()),
+      );
       expect(gateway.methods.where((m) => m == 'session.undo'), hasLength(1));
+    });
+
+    test("closes the copy's live session once it is cut back", () async {
+      await transport.branchThread('stored-2', dropTurns: 1);
+      await pumpEventQueue();
+
+      expect(gateway.requestOf('session.close')['params'], {
+        'session_id': 'rt-branch',
+      });
     });
 
     test('a gateway without branch_whole uses session.branch', () async {

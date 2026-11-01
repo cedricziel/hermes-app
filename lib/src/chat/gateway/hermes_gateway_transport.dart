@@ -3458,16 +3458,32 @@ class HermesGatewayTransport
     // Hermes branches a whole conversation (its `count` counts rows the app
     // cannot tell apart); the branch is cut back a prompt at a time, by the
     // same rule that takes back a turn for Try again.
-    for (var turn = 0; turn < dropTurns; turn++) {
-      final Map<String, Object?> undone;
-      try {
-        undone = await _call(client, 'session.undo', {
-          'session_id': branchRuntime,
-        });
-      } on Object catch (error) {
-        throw BranchIncomplete(branch, error);
+    try {
+      for (var turn = 0; turn < dropTurns; turn++) {
+        final Map<String, Object?> undone;
+        try {
+          undone = await _call(client, 'session.undo', {
+            'session_id': branchRuntime,
+          });
+        } on Object catch (error) {
+          throw BranchIncomplete(branch, error);
+        }
+        // Fewer prompts than counted: the copy no longer ends where asked.
+        if (((undone['removed'] as num?)?.toInt() ?? 0) == 0) {
+          throw BranchIncomplete(
+            branch,
+            StateError('nothing left to take back'),
+          );
+        }
       }
-      if (((undone['removed'] as num?)?.toInt() ?? 0) == 0) break;
+    } finally {
+      // Nothing here follows the copy's live session; opening the branch
+      // resumes it from its stored row.
+      unawaited(
+        _call(client, 'session.close', {
+          'session_id': branchRuntime,
+        }).then((_) {}, onError: (Object _) {}),
+      );
     }
     return branch;
   }

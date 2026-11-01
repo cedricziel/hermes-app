@@ -124,6 +124,28 @@ void main() {
     expect(inTranscript('It passed this time.'), findsNothing);
   });
 
+  chatTest(
+    'a stored prompt that starts with a slash still counts',
+    (tester) async {
+      await tester.tap(branch.first);
+      await settle(tester);
+
+      expect(transport.branches, [('s1', null, 1)]);
+    },
+    arrange: () {
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', [
+          messageRow(id: 1, role: 'user', content: 'Why did the run fail?'),
+          messageRow(id: 2, role: 'assistant', content: 'A connection reset.'),
+          messageRow(id: 3, role: 'user', content: '/srv/run.sh fails again'),
+          messageRow(id: 4, role: 'assistant', content: 'It passed this time.'),
+        ]),
+      );
+    },
+  );
+
   chatTest('the latest reply branches the whole chat', (tester) async {
     await tester.tap(branch.last);
     await settle(tester);

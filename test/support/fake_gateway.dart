@@ -429,6 +429,11 @@ class FakeGateway {
             'info': const {},
           },
         });
+      case 'session.close':
+        _send({
+          'id': id,
+          'result': {'closed': true},
+        });
       case 'session.undo'
           when branchUndoFails && params['session_id'] == 'rt-branch':
         _send({
