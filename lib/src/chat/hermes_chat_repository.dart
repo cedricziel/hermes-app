@@ -413,13 +413,29 @@ class HermesChatRepository {
         _ => null,
       };
       if (role == null) continue;
+      final displayKind = switch (row['display_kind']) {
+        final String kind when kind.isNotEmpty => kind,
+        _ => null,
+      };
+      // Model-facing scaffolding: a compaction handoff without a live ask, a
+      // recovery nudge. Hermes never shows it and never counts it as a turn.
+      if (role == ChatRole.user && displayKind == 'hidden') continue;
       final metadata = row['display_metadata'] is String
           ? _decode(row['display_metadata'] as String)
           : row['display_metadata'];
       final displayText = metadata is Map && metadata['display_text'] is String
           ? metadata['display_text'] as String
           : null;
-      final content = row['content'];
+      // A compaction carrier keeps the summary of everything before it in
+      // `content` and the user's own ask in `display_content`, and a steer
+      // keeps its marker there; only the words the user wrote are the prompt.
+      // A carrier with images keeps its ask as a list of parts.
+      final content = switch (row['display_content']) {
+        final Object shown
+            when role == ChatRole.user && (shown is String || shown is List) =>
+          shown,
+        _ => row['content'],
+      };
       // An assistant's own text is shown as it is; only what the user
       // attached is read back from reference lines.
       final stored = role == ChatRole.user || content is! String
@@ -444,6 +460,7 @@ class HermesChatRepository {
           role: role,
           content: before ? '' : stored.text,
           displayText: before ? null : displayText,
+          displayKind: displayKind,
           sealedProse: before && prose.trim().isNotEmpty
               ? [SealedProse(prose, beforeToolCall: 0)]
               : const [],
