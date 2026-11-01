@@ -222,7 +222,17 @@ void main() {
       await pumpEventQueue();
       expect(call.phase, CallPhase.failed);
       expect(ended(), containsPair('error_type', 'upgrade_403'));
-      expect(ended()['reason'], anyOf('speech', 'turn'));
+      expect(ended(), containsPair('reason', 'speech'));
+      expect(ended(), containsPair('step', 'speech_open'));
+    });
+
+    test('a prepare timeout is not blamed on audio focus', () async {
+      call.dispose();
+      logged.clear();
+      call = build(prepare: () async => throw TimeoutException('slow'));
+      await call.start();
+      expect(ended(), containsPair('reason', 'prepare'));
+      expect(ended(), containsPair('error_type', 'timeout'));
     });
 
     test(

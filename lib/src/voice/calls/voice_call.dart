@@ -75,9 +75,11 @@ class VoiceCall extends ChangeNotifier {
     if (_startedOnce || _disposed) return;
     _startedOnce = true;
     final epoch = _epoch;
+    var step = 'prepare';
     try {
       await prepare().timeout(const Duration(seconds: 20));
       if (!_current(epoch)) return;
+      step = 'audio_focus';
       await VoiceAudioFocus.shared.acquire(this);
       if (!_current(epoch)) return;
       _events = bridge.events.listen(
@@ -87,13 +89,14 @@ class VoiceCall extends ChangeNotifier {
         ),
       );
       _nativeStarted = true;
+      step = 'native_start';
       await bridge.start(const Uuid().v4(), 'Hermes');
     } on CallPreparationException catch (failure) {
       if (_current(epoch)) await _end('prepare', failure.message);
     } on Object catch (error) {
       if (_current(epoch)) {
         await _end(
-          _nativeStarted ? 'native_start' : 'audio_focus',
+          step,
           'Could not start the call. Check microphone access and your speech providers in Settings.',
           error,
         );
@@ -221,6 +224,7 @@ class VoiceCall extends ChangeNotifier {
       caption = text;
       phase = CallPhase.thinking;
       _notify();
+      step = 'speech_open';
       speech = CallSpeechStream(
         connect: connect,
         output: bridge,
@@ -238,14 +242,13 @@ class VoiceCall extends ChangeNotifier {
                 'speech',
                 'Hermes could not speak this reply. Check your speech provider and reconnect.',
                 error,
-                speech?.usedFallback == true ? 'speech_fallback' : 'speech',
+                speech?.usedFallback == true ? 'speech_fallback' : step,
               ),
             );
           }
         },
       );
       _speech = speech;
-      step = 'speech_open';
       await speech.open(profile);
       if (!_current(epoch)) return;
       step = 'agent';
