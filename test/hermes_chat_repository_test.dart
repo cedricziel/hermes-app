@@ -695,6 +695,12 @@ void main() {
           ),
           'display_content': 'And the tests?',
         },
+        {
+          ...messageRow(id: 6, role: 'user', content: '[CONTEXT COMPACTION] x'),
+          'display_content': [
+            {'type': 'text', 'text': 'And the docs?'},
+          ],
+        },
       ]);
 
       expect(messages.map((m) => (m.content, m.displayKind, m.isPrompt)), [
@@ -702,6 +708,7 @@ void main() {
         ('use the cache', 'steer', true),
         ('[System note: …]', 'auto_continue', false),
         ('And the tests?', null, true),
+        ('And the docs?', null, true),
       ]);
     });
 

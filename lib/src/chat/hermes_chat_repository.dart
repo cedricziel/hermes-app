@@ -429,9 +429,13 @@ class HermesChatRepository {
       // A compaction carrier keeps the summary of everything before it in
       // `content` and the user's own ask in `display_content`, and a steer
       // keeps its marker there; only the words the user wrote are the prompt.
-      final content = role == ChatRole.user && row['display_content'] is String
-          ? row['display_content']
-          : row['content'];
+      // A carrier with images keeps its ask as a list of parts.
+      final content = switch (row['display_content']) {
+        final Object shown
+            when role == ChatRole.user && (shown is String || shown is List) =>
+          shown,
+        _ => row['content'],
+      };
       // An assistant's own text is shown as it is; only what the user
       // attached is read back from reference lines.
       final stored = role == ChatRole.user || content is! String
