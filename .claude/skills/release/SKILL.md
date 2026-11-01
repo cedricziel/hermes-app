@@ -97,7 +97,9 @@ gh release list --limit 20 --json tagName,isPrerelease --jq '[.[]|select(.isPrer
    `git log --oneline <latest>..<target>` fills gaps.
 2. Write the combined notes with the `oss:release-notes` skill. App Store and
    TestFlight show plain text and stop at 4000 characters, so keep it well under
-   that. Show the user the draft before you publish it.
+   that. `scripts/plain_release_notes.py` drops every line that names Android,
+   Linux or Windows (guideline 2.3.10), so word iOS and macOS changes without
+   them and check its output. Show the user the draft before you publish it.
 3. Replace the target release's body:
    `gh release edit <target> --notes-file <file>`. Do this before you promote:
    `app-store.yml` reads "What's New" from the body when it runs.
@@ -115,6 +117,10 @@ gh run list --workflow app-store.yml --limit 3
 - A newer submission replaces an older version still waiting for review
   (`reject_if_possible`). The workflow's `concurrency` group keeps two submissions
   from running at the same time.
+- App Store Connect adds required age rating questions from time to time. A
+  submission failing with "You must provide a value for the attribute '<name>'"
+  needs that key in `fastlane/metadata/age_rating.json`; rerun by hand afterwards
+  (`dry_run=false`), since the release is already promoted.
 - Submission needs the `ASC_*`, `REVIEW_CONTACT_*` and `REVIEW_DEMO_*` secrets. The
   demo server must be up for App Review to sign in.
 
