@@ -50,9 +50,11 @@ jobs:
     env:
       TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
+      # No ref: a release event checks out its tag, and a manual run the
+      # branch it was started from, so a listing or age rating fix merged
+      # after the tag reaches a rerun. Nothing is built from the checkout;
+      # the version comes from TAG.
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ env.TAG }}
 
       - uses: ruby/setup-ruby@v1
         with:
