@@ -29,7 +29,10 @@ class CallSpeechStream {
     );
   }
   final void Function()? onAudio;
-  final void Function()? onFailure;
+  final void Function(Object error)? onFailure;
+
+  /// Whether the server asked for the `POST /api/audio/speak` fallback.
+  bool get usedFallback => _fallback;
   final CallSpeechFallback? fallback;
   bool hasText = false;
   final MixedSocketConnect connect;
@@ -214,7 +217,7 @@ class CallSpeechStream {
     _text.clear();
     if (!_done.isCompleted) _done.completeError(error, stack);
     unawaited(_close().catchError((Object _) {}));
-    onFailure?.call();
+    onFailure?.call(error);
   }
 
   Future<void> close() async {

@@ -26,7 +26,7 @@ void main() {
         final stream = CallSpeechStream(
           connect: ([_ = const {}]) async => socket.local,
           output: output,
-          onFailure: () => failures++,
+          onFailure: (_) => failures++,
           onAudio: () => audible++,
           fallback: (text, profile, cancellation) async {
             expect(profile, 'work');
@@ -79,7 +79,7 @@ void main() {
         final stream = CallSpeechStream(
           connect: ([_ = const {}]) async => socket.local,
           output: output,
-          onFailure: () => failures++,
+          onFailure: (_) => failures++,
           fallback: (_, _, token) {
             cancellation = token;
             return pending.future;
@@ -143,7 +143,7 @@ void main() {
       final stream = CallSpeechStream(
         connect: ([_ = const {}]) async => socket.local,
         output: FakeCallBridge(),
-        onFailure: () => failures++,
+        onFailure: (_) => failures++,
         fallback: (_, _, _) async => throw StateError('Speech unavailable'),
       );
       await stream.open(null);
