@@ -156,6 +156,72 @@ void main() {
     expect(inTranscript('Why did the run fail?'), findsOneWidget);
   });
 
+  chatTest(
+    'trying again after an interrupted turn resends the prompt, not the '
+    'note that resumed it',
+    (tester) async {
+      await tester.tap(tryAgain);
+      await tester.pump();
+
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(transport.undos, [('s1', true)]);
+      expect(transport.sends.single.text, 'Why did the run fail?');
+      // Hermes undoes from the real prompt, so the resumed turn goes too.
+      expect(inTranscript('Resumed reply.'), findsNothing);
+      expect(inTranscript('previous turn was interrupted'), findsNothing);
+      expect(inTranscript('Why did the run fail?'), findsOneWidget);
+    },
+    arrange: () => server.on(
+      'GET',
+      '/api/sessions/s1/messages',
+      messageListBody('s1', [
+        messageRow(id: 1, role: 'user', content: 'Why did the run fail?'),
+        messageRow(id: 2, role: 'assistant', content: 'Looking.'),
+        {
+          ...messageRow(
+            id: 3,
+            role: 'user',
+            content:
+                '[System note: Your previous turn was interrupted mid-run. '
+                'Continue it.] Why did the run fail?',
+          ),
+          'display_kind': 'auto_continue',
+        },
+        messageRow(id: 4, role: 'assistant', content: 'Resumed reply.'),
+      ]),
+    ),
+  );
+
+  chatTest(
+    'trying again after a compaction resends only the ask, not the summary',
+    (tester) async {
+      await tester.tap(tryAgain);
+      await tester.pump();
+
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(transport.sends.single.text, 'Why did the run fail?');
+    },
+    arrange: () => server.on(
+      'GET',
+      '/api/sessions/s1/messages',
+      messageListBody('s1', [
+        {
+          ...messageRow(
+            id: 1,
+            role: 'user',
+            content:
+                '[CONTEXT COMPACTION] Earlier we set up CI and fixed the '
+                'build.\n\nWhy did the run fail?',
+          ),
+          'display_content': 'Why did the run fail?',
+        },
+        messageRow(id: 2, role: 'assistant', content: 'A connection reset.'),
+      ]),
+    ),
+  );
+
   chatTest('no second undo while one is in flight', (tester) async {
     final gate = transport.undoGate = Completer<void>();
     await tester.tap(tryAgain);

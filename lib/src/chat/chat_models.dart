@@ -530,6 +530,9 @@ String fileNameOf(String path) => path
     .split(_pathSeparator)
     .lastWhere((part) => part.isNotEmpty, orElse: () => path);
 
+/// The `display_kind` of a user row that steered a running turn.
+const kSteerDisplayKind = 'steer';
+
 class ChatMessage {
   ChatMessage({
     required this.id,
@@ -538,6 +541,7 @@ class ChatMessage {
     this.canonicalRow,
     this.submittedText,
     this.displayText,
+    this.displayKind,
     required this.createdAt,
     this.status = MessageStatus.sent,
     this.toolCalls = const [],
@@ -566,6 +570,18 @@ class ChatMessage {
 
   /// Backend-provided transcript display text, separate from the original content.
   final String? displayText;
+
+  /// How Hermes types a stored row (`display_kind`): null for an ordinary
+  /// message, `steer` for words the user folded into a running turn, or a
+  /// kind Hermes wrote itself, such as `auto_continue` (the note that resumes
+  /// an interrupted turn) or `model_switch`.
+  final String? displayKind;
+
+  /// Whether this is a prompt the user wrote, the rows Hermes counts as turns
+  /// when it undoes one: a user message that Hermes did not type, or a steer.
+  bool get isPrompt =>
+      role == ChatRole.user &&
+      (displayKind == null || displayKind == kSteerDisplayKind);
 
   /// What the model reasoned after its last tool call, before answering, when
   /// the gateway shares it. Earlier reasoning belongs to [toolCalls].

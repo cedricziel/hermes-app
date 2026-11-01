@@ -671,6 +671,40 @@ void main() {
       return repository.loadMessages('s1');
     }
 
+    test('reads how Hermes typed a row and which rows are prompts', () async {
+      final messages = await load([
+        messageRow(id: 1, role: 'user', content: 'Fix the build'),
+        {
+          ...messageRow(id: 2, role: 'user', content: '[System: nudge]'),
+          'display_kind': 'hidden',
+        },
+        {
+          ...messageRow(id: 3, role: 'user', content: '<steer marker>'),
+          'display_kind': 'steer',
+          'display_content': 'use the cache',
+        },
+        {
+          ...messageRow(id: 4, role: 'user', content: '[System note: …]'),
+          'display_kind': 'auto_continue',
+        },
+        {
+          ...messageRow(
+            id: 5,
+            role: 'user',
+            content: '[CONTEXT COMPACTION] summary\n\nAnd the tests?',
+          ),
+          'display_content': 'And the tests?',
+        },
+      ]);
+
+      expect(messages.map((m) => (m.content, m.displayKind, m.isPrompt)), [
+        ('Fix the build', null, true),
+        ('use the cache', 'steer', true),
+        ('[System note: …]', 'auto_continue', false),
+        ('And the tests?', null, true),
+      ]);
+    });
+
     test('maps user and assistant rows to chat messages in order', () async {
       final messages = await load([
         messageRow(id: 1, role: 'user', content: 'Why did it fail?'),

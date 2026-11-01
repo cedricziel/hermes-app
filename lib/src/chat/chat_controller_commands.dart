@@ -167,10 +167,12 @@ extension _ChatControllerCommands on ChatController {
     }
   }
 
-  /// The last prompt of [thread], with or without text.
-  ChatMessage? _lastPrompt(ChatThread thread) => thread.messages.reversed
-      .where((m) => m.role == ChatRole.user)
-      .firstOrNull;
+  /// The last prompt of [thread], with or without text. A note Hermes wrote
+  /// as a user row, such as the one that resumes an interrupted turn, is not
+  /// one: Hermes does not undo it as a turn, and sending it again would run
+  /// that turn again.
+  ChatMessage? _lastPrompt(ChatThread thread) =>
+      thread.messages.reversed.where((m) => m.isPrompt).firstOrNull;
 
   /// The text of the last prompt of [thread], or null when it had none (it
   /// was only files) or there is no prompt.
@@ -321,9 +323,7 @@ extension _ChatControllerCommands on ChatController {
       return true;
     }
     if (removed == null) return false;
-    final start = thread.messages.lastIndexWhere(
-      (m) => m.role == ChatRole.user,
-    );
+    final start = thread.messages.lastIndexWhere((m) => m.isPrompt);
     if (start < 0) return true;
     thread.messages.removeRange(start, thread.messages.length);
     await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
