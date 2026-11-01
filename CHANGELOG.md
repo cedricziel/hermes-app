@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.76](https://github.com/cedricziel/hermes-app/compare/v0.1.75...v0.1.76) (2026-11-01)
+
+
+### Features
+
+* **chat:** branch a chat from a reply into a new chat ([#880](https://github.com/cedricziel/hermes-app/issues/880)) ([006dc11](https://github.com/cedricziel/hermes-app/commit/006dc116f418c83e5784c332c547c9d30204c059))
+
+
+### Bug Fixes
+
+* **chat:** show reasoning sent with the completion, drop empty blocks ([#876](https://github.com/cedricziel/hermes-app/issues/876)) ([5802ec9](https://github.com/cedricziel/hermes-app/commit/5802ec9f0fc32c2b0c6e923584e319aa9253efe1))
+* **chat:** try again resends only the last prompt the user wrote ([#875](https://github.com/cedricziel/hermes-app/issues/875)) ([06bf118](https://github.com/cedricziel/hermes-app/commit/06bf118c1eefdae18587d10a2e2ff485d60b91ba))
+* **ci:** read store metadata from the dispatched branch on manual App Store runs ([#879](https://github.com/cedricziel/hermes-app/issues/879)) ([208131b](https://github.com/cedricziel/hermes-app/commit/208131be4ade80d7ab6b40dae98ec38ed07477e5))
+* **mcp:** don't hold the Add spinner on the server list reload ([#881](https://github.com/cedricziel/hermes-app/issues/881)) ([ee1ac5b](https://github.com/cedricziel/hermes-app/commit/ee1ac5b2544e475dca3273ee8fef375d9815d4a1))
+* **release:** answer App Store Connect's social media age rating question ([#874](https://github.com/cedricziel/hermes-app/issues/874)) ([9565ef8](https://github.com/cedricziel/hermes-app/commit/9565ef85e6f15d29d59f64d4ff4ed9f09453e065))
+* **voice:** log why a voice call fails ([#878](https://github.com/cedricziel/hermes-app/issues/878)) ([c148404](https://github.com/cedricziel/hermes-app/commit/c148404bb4ad62898fd300f4150f228a494ccef8))
+
 ## [0.1.75](https://github.com/cedricziel/hermes-app/compare/v0.1.74...v0.1.75) (2026-10-31)
 
 
