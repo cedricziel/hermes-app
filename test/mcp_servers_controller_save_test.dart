@@ -444,6 +444,15 @@ void main() {
       expect(server.requestsTo('GET', '/api/mcp/servers').length, before + 1);
     });
 
+    test('offers to load the list again when it cannot be read', () async {
+      server.on('GET', '/api/mcp/servers', {'detail': 'boom'}, status: 500);
+
+      await controller.replaceServers(loaded, {}, review: approve);
+      await pumpEventQueue();
+
+      expect(controller.failed, isTrue);
+    });
+
     test('does not wait for the list to be read again', () async {
       final list = Completer<FakeResponse>();
       server.onRequest('GET', '/api/mcp/servers', (_) => list.future);

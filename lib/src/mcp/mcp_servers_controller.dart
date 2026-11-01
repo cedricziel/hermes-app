@@ -230,15 +230,20 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
   /// Lists the servers again, for a change made elsewhere such as an install.
   Future<void> refresh() => _reload();
 
-  /// Lists the servers again after a save without holding it up. A list that
-  /// cannot be read keeps the one shown, which already holds the change.
-  Future<void> _refreshQuietly() async {
-    try {
-      await _fetch();
-    } on Object {
-      return;
+  /// Lists the servers again after a save without holding it up. With
+  /// [keepOnFailure] a list that cannot be read keeps the one shown, which
+  /// already holds the change; otherwise the screen offers to load it again.
+  Future<void> _refreshQuietly({bool keepOnFailure = true}) async {
+    if (keepOnFailure) {
+      try {
+        await _fetch();
+      } on Object {
+        return;
+      }
+      if (!disposed) notifyListeners();
+    } else {
+      await _reload();
     }
-    if (!disposed) notifyListeners();
   }
 
   static HermesMcpServer _summaryOf(McpNewServer server) => switch (server) {
@@ -354,7 +359,9 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
         return const McpReplaceCancelled();
       }
       await repository.replaceServers(snapshot, profile: _profile);
-      unawaited(_refreshQuietly());
+      // The list shown no longer matches what was saved, so a list that
+      // cannot be read again says so instead of standing in for it.
+      unawaited(_refreshQuietly(keepOnFailure: false));
       return const McpReplaced();
     } on McpRefused catch (e) {
       return McpReplaceRefused(e.problems);
