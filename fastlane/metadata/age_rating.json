@@ -20,5 +20,6 @@
   "messagingAndChat": false,
   "userGeneratedContent": true,
   "parentalControls": false,
-  "ageAssurance": false
+  "ageAssurance": false,
+  "socialMedia": false
 }
