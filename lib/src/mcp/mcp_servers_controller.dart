@@ -164,6 +164,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
   final _tests = <String, McpTestState>{};
   final _startingSignIn = <String>{};
   final _signInNotes = <String, String>{};
+  var _fetches = 0;
 
   /// The profile the screen acts on; null when the dashboard has none.
   String? get profile => _profile;
@@ -218,14 +219,60 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
   }
 
   Future<void> _fetch() async {
-    final servers = await repository.loadServers(profile: _profile);
-    if (disposed) return;
+    final generation = ++_fetches;
+    final List<HermesMcpServer> servers;
+    try {
+      servers = await repository.loadServers(profile: _profile);
+    } on Object {
+      // A later list or change has taken over; this failure says nothing
+      // about the list shown now.
+      if (generation != _fetches) return;
+      rethrow;
+    }
+    // A later list answers for a later state; an older one must not win.
+    if (disposed || generation != _fetches) return;
     _servers = servers;
     _tests.removeWhere((name, _) => servers.every((s) => s.name != name));
   }
 
   /// Lists the servers again, for a change made elsewhere such as an install.
   Future<void> refresh() => _reload();
+
+  /// Lists the servers again after a save without holding it up. With
+  /// [keepOnFailure] a list that cannot be read keeps the one shown, which
+  /// already holds the change; otherwise the screen offers to load it again.
+  Future<void> _refreshQuietly({bool keepOnFailure = true}) async {
+    if (keepOnFailure) {
+      try {
+        await _fetch();
+      } on Object {
+        return;
+      }
+      if (!disposed) notifyListeners();
+    } else {
+      await _reload();
+    }
+  }
+
+  static HermesMcpServer _summaryOf(McpNewServer server) => switch (server) {
+    McpNewRemoteServer(:final name, :final url, :final auth) => HermesMcpServer(
+      name: name,
+      transport: McpTransport.remote,
+      url: url,
+      auth: switch (auth) {
+        McpRemoteAuth.none => null,
+        McpRemoteAuth.bearerToken => 'header',
+        McpRemoteAuth.oauth => 'oauth',
+      },
+    ),
+    McpNewCommandServer(:final name, :final command, :final args) =>
+      HermesMcpServer(
+        name: name,
+        transport: McpTransport.command,
+        command: command,
+        args: args,
+      ),
+  };
 
   Future<void> _reload() async {
     try {
@@ -254,8 +301,14 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
           !await _confirm(review, [McpCommandReviewItem.of(server)])) {
         return const McpAddCancelled();
       }
-      await repository.addServer(server, profile: _profile);
-      await _reload();
+      final added = await repository.addServer(server, profile: _profile);
+      // Show the server at once and list the rest again behind it: Hermes
+      // can stall for a while after a config write, and the add is done.
+      _servers = [
+        ...?_servers?.where((s) => s.name != server.name),
+        added != null && added.name == server.name ? added : _summaryOf(server),
+      ]..sort((a, b) => a.name.compareTo(b.name));
+      unawaited(_refreshQuietly());
       return McpAdded(server.name);
     } on McpRefused catch (e) {
       return e.status == 409
@@ -314,7 +367,9 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
         return const McpReplaceCancelled();
       }
       await repository.replaceServers(snapshot, profile: _profile);
-      await _reload();
+      // The list shown no longer matches what was saved, so a list that
+      // cannot be read again says so instead of standing in for it.
+      unawaited(_refreshQuietly(keepOnFailure: false));
       return const McpReplaced();
     } on McpRefused catch (e) {
       return McpReplaceRefused(e.problems);
@@ -334,6 +389,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
     try {
       await repository.setEnabled(name, enabled, profile: _profile);
+      _fetches++; // a list asked for before this change is out of date
       _servers = [
         for (final s in _servers ?? const <HermesMcpServer>[])
           s.name == name ? s.withEnabled(enabled) : s,
@@ -382,6 +438,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
     } on Object catch (e) {
       return _failure(e);
     }
+    _fetches++; // a list asked for before the removal is out of date
     _servers = _servers?.where((s) => s.name != name).toList();
     _tests.remove(name);
     notifyListeners();

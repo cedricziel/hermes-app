@@ -348,25 +348,34 @@ class HermesMcpRepository {
       _ => throw const FormatException('Unexpected MCP servers response'),
     };
     return [
-      for (final row in rows.whereType<Map<String, dynamic>>())
-        if (row['name'] case final String name when name.isNotEmpty)
-          HermesMcpServer(
-            name: name,
-            transport: _transport(row['transport']),
-            url: _text(row['url']),
-            command: _text(row['command']),
-            args: _texts(row['args']),
-            auth: _text(row['auth']),
-            enabled: row['enabled'] != false,
-          ),
+      for (final row in rows.whereType<Map<String, dynamic>>()) ?_serverOf(row),
     ];
+  }
+
+  static HermesMcpServer? _serverOf(Object? row) {
+    if (row is! Map) return null;
+    final name = row['name'];
+    if (name is! String || name.isEmpty) return null;
+    return HermesMcpServer(
+      name: name,
+      transport: _transport(row['transport']),
+      url: _text(row['url']),
+      command: _text(row['command']),
+      args: _texts(row['args']),
+      auth: _text(row['auth']),
+      enabled: row['enabled'] != false,
+    );
   }
 
   /// Adds [server] to the profile. Refusals (409 for a name that exists, 400
   /// with Hermes' reason, including a command it finds suspicious) surface as
   /// [McpRefused]. The request body can hold a token or environment values and
-  /// is not kept.
-  Future<void> addServer(McpNewServer server, {String? profile}) async {
+  /// is not kept. Returns the server as Hermes saved it, or null when its
+  /// answer does not describe one.
+  Future<HermesMcpServer?> addServer(
+    McpNewServer server, {
+    String? profile,
+  }) async {
     final body = switch (server) {
       // args and env are null on purpose: the model's default is an empty
       // list or map, which would be sent.
@@ -391,12 +400,13 @@ class HermesMcpRepository {
         env: server.env.isEmpty ? null : server.env,
       ),
     };
-    await _refusing(
+    final response = await _refusing(
       () => _api.addMcpServerApiMcpServersPost(
         mCPServerCreate: body,
         profile: profile,
       ),
     );
+    return _serverOf(response.data);
   }
 
   /// Replaces the profile's whole `mcp_servers` map with [servers]. Hermes

@@ -78,6 +78,79 @@ void main() {
       );
     });
 
+    test('does not wait for the list to be read again', () async {
+      // Hermes can stall after a config write (seen with an OAuth server):
+      // the add is done once the POST is answered.
+      final list = Completer<FakeResponse>();
+      server
+        ..on(
+          'POST',
+          '/api/mcp/servers',
+          mcpServerRow(name: 'linear', url: 'https://a.test'),
+        )
+        ..onRequest('GET', '/api/mcp/servers', (_) => list.future);
+
+      final outcome = await controller
+          .addServer(remote, review: approve)
+          .timeout(const Duration(seconds: 5));
+
+      expect(outcome, isA<McpAdded>());
+      expect(controller.isSaving, isFalse);
+      expect(controller.failed, isFalse);
+      expect(controller.serverNamed('linear')?.url, 'https://a.test');
+      list.complete((status: 200, body: mcpServerListBody([])));
+    });
+
+    test('a list read before a removal does not bring it back', () async {
+      final list = Completer<FakeResponse>();
+      server
+        ..on(
+          'POST',
+          '/api/mcp/servers',
+          mcpServerRow(name: 'linear', url: 'https://a.test'),
+        )
+        ..on('DELETE', '/api/mcp/servers/linear', {'ok': true})
+        ..onRequest('GET', '/api/mcp/servers', (_) => list.future);
+      await controller.addServer(remote, review: approve);
+
+      await controller.remove(controller.serverNamed('linear')!);
+      list.complete((
+        status: 200,
+        body: mcpServerListBody([
+          mcpServerRow(name: 'linear', url: 'https://a.test'),
+        ]),
+      ));
+      await pumpEventQueue();
+
+      expect(controller.serverNamed('linear'), isNull);
+    });
+
+    test(
+      'an overtaken list that fails does not mark the list failed',
+      () async {
+        final stalled = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/mcp/servers', (_) => stalled.future);
+        await controller.replaceServers(const {}, {}, review: approve);
+
+        server.on('GET', '/api/mcp/servers', mcpServerListBody([]));
+        await controller.refresh();
+        stalled.complete((status: 500, body: {'detail': 'boom'}));
+        await pumpEventQueue();
+
+        expect(controller.failed, isFalse);
+      },
+    );
+
+    test('keeps the added server when the list cannot be read', () async {
+      server.on('GET', '/api/mcp/servers', {'detail': 'boom'}, status: 500);
+
+      await controller.addServer(remote, review: approve);
+      await pumpEventQueue();
+
+      expect(controller.failed, isFalse);
+      expect(controller.serverNamed('linear'), isNotNull);
+    });
+
     test(
       'makes no request until the review of a command server is confirmed',
       () async {
@@ -406,8 +479,31 @@ void main() {
       final before = server.requestsTo('GET', '/api/mcp/servers').length;
 
       await controller.replaceServers(loaded, {}, review: approve);
+      await pumpEventQueue();
 
       expect(server.requestsTo('GET', '/api/mcp/servers').length, before + 1);
+    });
+
+    test('offers to load the list again when it cannot be read', () async {
+      server.on('GET', '/api/mcp/servers', {'detail': 'boom'}, status: 500);
+
+      await controller.replaceServers(loaded, {}, review: approve);
+      await pumpEventQueue();
+
+      expect(controller.failed, isTrue);
+    });
+
+    test('does not wait for the list to be read again', () async {
+      final list = Completer<FakeResponse>();
+      server.onRequest('GET', '/api/mcp/servers', (_) => list.future);
+
+      final outcome = await controller
+          .replaceServers(loaded, {}, review: approve)
+          .timeout(const Duration(seconds: 5));
+
+      expect(outcome, isA<McpReplaced>());
+      expect(controller.isSaving, isFalse);
+      list.complete((status: 200, body: mcpServerListBody([])));
     });
 
     test('changes nothing when the profile could not be learned', () async {
