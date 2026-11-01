@@ -120,7 +120,8 @@ gh run list --workflow app-store.yml --limit 3
 - App Store Connect adds required age rating questions from time to time. A
   submission failing with "You must provide a value for the attribute '<name>'"
   needs that key in `fastlane/metadata/age_rating.json`; rerun by hand afterwards
-  (`dry_run=false`), since the release is already promoted.
+  from `main` (`dry_run=false`), since the release is already promoted. A manual
+  run reads the listing and age rating from the branch it runs on, not the tag.
 - Submission needs the `ASC_*`, `REVIEW_CONTACT_*` and `REVIEW_DEMO_*` secrets. The
   demo server must be up for App Review to sign in.
 
