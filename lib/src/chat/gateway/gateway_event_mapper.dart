@@ -206,6 +206,7 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
       transformed: payload['response_transformed'] == true,
       partial: payload['partial'] == true,
       error: _nonEmpty(text('error')),
+      reasoning: text('reasoning'),
       usage: UsageSnapshot.decode(payload['usage']),
       usageMalformed:
           payload['usage'] != null &&

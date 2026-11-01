@@ -41,6 +41,10 @@ List<Message> chatMessageToFlyer(
             : null,
       );
   final thinking = m.status == MessageStatus.thinking;
+  // The waiting row stays while the reply runs, so it neither jumps nor
+  // closes under the user; once the reply ends a row with no reasoning is
+  // dropped, as the stored history never has one.
+  final keepEmptyReasoning = m.thinkingStarted && m.isPending;
   final showThinking =
       thinking &&
       !m.awaitingInput &&
@@ -136,7 +140,7 @@ List<Message> chatMessageToFlyer(
     for (final run in runs) ...[
       ...before(run.start),
       if (run.calls.first.reasoning.isNotEmpty ||
-          (run.start == 0 && m.thinkingStarted))
+          (run.start == 0 && keepEmptyReasoning))
         _reasoningMessage(
           '${m.id}-tool-${run.start}-reasoning',
           authorId,
@@ -168,7 +172,7 @@ List<Message> chatMessageToFlyer(
         metadata: {kMetaKind: kKindSubagents, kMetaSubagents: m.subagents},
       ),
     if (m.reasoning.isNotEmpty ||
-        (m.thinkingStarted &&
+        (keepEmptyReasoning &&
             m.toolCalls.isEmpty &&
             !thinking &&
             !m.awaitingInput))

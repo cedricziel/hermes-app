@@ -159,6 +159,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       :final reused,
       :final partial,
       :final error,
+      :final reasoning,
     ):
       // A completion is the final word: it supersedes a held error and a
       // settle without a completion.
@@ -184,6 +185,14 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       final alreadyShown =
           (previewed || reused) && _isSealedOrStreamed(reply, text);
       if (text.isNotEmpty && !alreadyShown) reply.content = text;
+      // Reasoning that never streamed (display.show_reasoning off, or a
+      // provider that only reports it at the end) still comes with the
+      // completion, as it does in the stored history.
+      if (reasoning.trim().isNotEmpty &&
+          reply.reasoning.isEmpty &&
+          !reply.toolCalls.any((call) => call.reasoning.isNotEmpty)) {
+        reply.reasoning = reasoning.trim();
+      }
       // A model that stops without writing text gets its reasoning returned
       // as the answer, which Hermes stores as reasoning only.
       if (reply.reasoning.isNotEmpty &&

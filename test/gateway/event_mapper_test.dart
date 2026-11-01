@@ -8,6 +8,18 @@ ChatEvent? map(String type, [Map<String, Object?> payload = const {}]) =>
 
 void main() {
   group('message.complete flags (3.1)', () {
+    test('the turn\'s reasoning comes with the completion', () {
+      final event = map('message.complete', {
+        'text': 'hi',
+        'status': 'complete',
+        'reasoning': 'Think first.',
+      }) as ReplyCompleted;
+      final none = map('message.complete', {'text': 'hi'}) as ReplyCompleted;
+
+      expect(event.reasoning, 'Think first.');
+      expect(none.reasoning, isEmpty);
+    });
+
     test('a complete reply with response_previewed maps to previewed', () {
       final event = map('message.complete', {
         'text': 'hi',
