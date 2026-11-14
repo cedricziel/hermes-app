@@ -54,7 +54,9 @@ class ServerCareRepository {
 
   final DefaultApi _api;
 
-  /// `GET /api/status`, for [profile]'s gateway.
+  /// `GET /api/status`, for [profile]'s gateway. The profile is always sent:
+  /// without it Hermes answers for whichever profile it has active, which may
+  /// not be the one the person is looking at.
   Future<CareResult<ServerStatus>> status({required String profile}) => _run(
     () => _api.getStatusApiStatusGet(profile: profile),
     ServerStatus.parse,

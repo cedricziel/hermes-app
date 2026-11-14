@@ -12,6 +12,7 @@ import '../platform_hint/platform_hint_repository.dart';
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../schedules/hermes_cron_repository.dart';
+import '../server_care/server_care_repository.dart';
 import '../skills/hermes_skills_hub_repository.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../telemetry/telemetry.dart';
@@ -32,7 +33,8 @@ class HermesRepositories {
       models = HermesModelsRepository(api.raw),
       cron = HermesCronRepository(api.raw),
       platformHint = PlatformHintRepository(api.raw),
-      kanban = KanbanRepository(api);
+      kanban = KanbanRepository(api),
+      serverCare = ServerCareRepository(api);
 
   final HermesApiClient api;
 
@@ -51,6 +53,7 @@ class HermesRepositories {
   final HermesCronRepository cron;
   final PlatformHintRepository platformHint;
   final KanbanRepository kanban;
+  final ServerCareRepository serverCare;
 
   /// Keeps [previous] while the API client is the same one.
   static HermesRepositories? forAuth(

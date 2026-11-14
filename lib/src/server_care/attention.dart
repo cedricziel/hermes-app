@@ -31,22 +31,31 @@ enum Attention {
 
   /// The ranking for a status read; [status] is null when the read failed
   /// because the server could not be reached.
-  static Attention of(ServerStatus? status) {
+  ///
+  /// While a gateway restart or start is running ([gatewayBusy]) the rows
+  /// about the gateway's own state are skipped: it is coming up, so "off" or
+  /// "stopped with an error" would offer the action that is already running.
+  static Attention of(ServerStatus? status, {bool gatewayBusy = false}) {
     if (status == null) return offline;
     if (status.storageCorrupt || status.storageOk == false) {
       return storageUnreadable;
     }
     final state = status.gatewayState;
-    if (state == GatewayState.startupFailed ||
-        (state == GatewayState.degraded && !status.gatewayRunning)) {
+    if (!gatewayBusy &&
+        (state == GatewayState.startupFailed ||
+            (state == GatewayState.degraded && !status.gatewayRunning))) {
       return gatewayFailed;
     }
-    if (status.gatewayHeartbeatStaleSeconds != null) return gatewayUnresponsive;
+    if (!gatewayBusy && status.gatewayHeartbeatStaleSeconds != null) {
+      return gatewayUnresponsive;
+    }
     final configured = status.platformsConfigured ?? 0;
     final connected = status.platformsConnected;
     // A stopped gateway with no channel configured is neutral: scheduled tasks
     // need it too, but that is not worth a mark.
-    if (!status.gatewayRunning && configured > 0) return gatewayOff;
+    if (!gatewayBusy && !status.gatewayRunning && configured > 0) {
+      return gatewayOff;
+    }
     if (status.disk.pressure == Pressure.critical) return diskCritical;
     if (status.memory.lastBootSuspectedOom) return unexpectedRestart;
     if (state == GatewayState.degraded ||
