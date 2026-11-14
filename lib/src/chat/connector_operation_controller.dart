@@ -165,17 +165,21 @@ class ConnectorOperationController extends ChangeNotifier {
     final remaining = operation.deadlineAt.difference(_now());
     if (operation.settled || remaining <= Duration.zero) return;
     final generation = _generation;
-    _timers[operation.key] = Timer(remaining, () {
-      if (_disposed || generation != _generation) return;
-      final latest = _state.find(operation.key) ?? operation;
-      if (_now().isBefore(latest.deadlineAt)) {
-        // Early by the clock the card reads: look again at the deadline.
-        _armDeadline(latest);
-        return;
-      }
-      _log('deadline');
-      notifyListeners();
-    });
+    // Rounded up: a timer that fires a hair early finds the deadline unpassed.
+    _timers[operation.key] = Timer(
+      remaining + const Duration(milliseconds: 1),
+      () {
+        if (_disposed || generation != _generation) return;
+        final latest = _state.find(operation.key) ?? operation;
+        if (_now().isBefore(latest.deadlineAt)) {
+          // Early by the clock the card reads: look again at the deadline.
+          _armDeadline(latest);
+          return;
+        }
+        _log('deadline');
+        notifyListeners();
+      },
+    );
   }
 
   bool awaitingFinalStatus(ConnectorOperationKey key) {

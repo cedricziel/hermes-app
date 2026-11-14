@@ -136,10 +136,12 @@ NeedsYouDockModel needsYouDockModel(
 }) {
   final thread = chat.selectedThread;
   final items = <NeedsYouItem>[];
+  // What each billing card shows, so a tap acts on that and on nothing newer.
+  final billing = <String, _ShownBilling>{};
   if (thread != null) {
     for (final entry in queue.entries) {
       final item = switch (entry.kind) {
-        NeedsYouKind.billing => _billing(chat, thread, entry),
+        NeedsYouKind.billing => _billing(chat, thread, entry, billing),
         NeedsYouKind.connector => _connector(chat, thread, entry),
         NeedsYouKind.reclaim ||
         NeedsYouKind.resume => _session(chat, thread, entry),
@@ -155,25 +157,23 @@ NeedsYouDockModel needsYouDockModel(
       if (index >= 0 && index < items.length) queue.showKey(items[index].id);
     },
     onCopy: (item) {
-      final billing = chat.billingVerificationIn(thread!);
-      final details = billing?.verification;
-      if (billing == null || details == null) return;
+      final shown = billing[item.id];
+      if (shown == null) return;
       unawaited(
-        billing.copyVerificationCode(
-          expectedDetails: details,
-          expectedGeneration: billing.generation,
+        shown.controller.copyVerificationCode(
+          expectedDetails: shown.details,
+          expectedGeneration: shown.generation,
         ),
       );
     },
     onOpen: (item, target) {
       if (item.kind == NeedsYouKind.billing) {
-        final billing = chat.billingVerificationIn(thread!);
-        final details = billing?.verification;
-        if (billing == null || details == null) return;
+        final shown = billing[item.id];
+        if (shown == null) return;
         unawaited(
-          billing.openVerification(
-            expectedDetails: details,
-            expectedGeneration: billing.generation,
+          shown.controller.openVerification(
+            expectedDetails: shown.details,
+            expectedGeneration: shown.generation,
           ),
         );
         return;
@@ -220,16 +220,25 @@ NeedsYouDockModel needsYouDockModel(
   return null;
 }
 
+class _ShownBilling {
+  const _ShownBilling(this.controller, this.details, this.generation);
+  final BillingVerificationController controller;
+  final BillingVerificationDetails details;
+  final int generation;
+}
+
 NeedsYouItem? _billing(
   ChatController chat,
   ChatThread thread,
   NeedsYouEntry entry,
+  Map<String, _ShownBilling> shown,
 ) {
   final BillingVerificationController? billing = chat.billingVerificationIn(
     thread,
   );
   final details = billing?.verification;
   if (billing == null || details == null) return null;
+  shown[entry.key] = _ShownBilling(billing, details, billing.generation);
   return NeedsYouItem(
     id: entry.key,
     kind: NeedsYouKind.billing,

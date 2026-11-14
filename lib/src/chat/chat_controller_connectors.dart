@@ -253,8 +253,10 @@ extension _ChatControllerConnectors on ChatController {
             if (!change.connected) {
               // Before anything is told, so no card sees a controller that
               // has lost its session and still acts.
-              for (final entry in _connectorBindings.entries) {
-                if (identical(entry.value.connection, change.connection)) {
+              // A copy: a listener told by suspend() may retire an owner.
+              for (final entry in _connectorBindings.entries.toList()) {
+                if (identical(entry.value.connection, change.connection) &&
+                    _connectorBindings[entry.key] == entry.value) {
                   _connectorOperations[entry.key]?.suspend();
                 }
               }

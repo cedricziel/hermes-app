@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/activity/bound_needs_you_dock.dart';
+import 'package:hermes_app/src/chat/activity/widgets/needs_you_models.dart';
 import 'package:hermes_app/src/chat/billing_verification_controller.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
@@ -109,6 +110,40 @@ void main() {
     gateway.requests.lastWhere((row) => row['method'] == 'billing.step_up'),
     result,
   );
+
+  test('a dock callback built for details A does nothing once B replaced '
+      'them', () async {
+    await open();
+    final thread = chat.selectedThread!;
+    final queue = needsYouQueueFor(chat);
+    addTearDown(queue.dispose);
+    details();
+    await pumpEventQueue();
+    final model = needsYouDockModel(chat, queue);
+    final shown = model.items.single;
+    expect((shown.body as BillingBodyModel).code, 'PRIVATE-CODE');
+
+    gateway.event('billing.step_up.verification', 'rt-1', {
+      'verification_url': 'https://billing.invalid/other',
+      'user_code': 'SECOND-CODE',
+    });
+    await pumpEventQueue();
+    expect(
+      chat.billingVerificationIn(thread)!.verification!.userCode,
+      'SECOND-CODE',
+    );
+
+    model.onCopy!(shown);
+    model.onOpen!(shown, null);
+    await pumpEventQueue();
+    expect(copied, isEmpty);
+    expect(opened, isEmpty);
+
+    final fresh = needsYouDockModel(chat, queue);
+    fresh.onCopy!(fresh.items.single);
+    await pumpEventQueue();
+    expect(copied, ['SECOND-CODE']);
+  });
 
   test('owned billing action remains explicit and active details cannot settle the foreground turn', () async {
     await open();
