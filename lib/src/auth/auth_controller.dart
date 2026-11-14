@@ -333,6 +333,36 @@ class AuthController extends ChangeNotifier {
     if (remember) {
       await _writeSavedServer(() async {
         if (stale()) return;
+        final previous =
+            normalizeServerUrl(_savedServerUrl ?? '') ??
+            normalizeServerUrl(_devServerUrl);
+        if (previous != normalized) {
+          // A session with no recorded minter is the saved address's; it
+          // keeps that address once the saved one moves on, or follows a
+          // same-host redirect of it. If that cannot be recorded, the saved
+          // address stays.
+          final minter =
+              previous != null &&
+                  sessionServes(
+                    previous,
+                    typed: typed,
+                    redirectedTo: normalized,
+                  )
+              ? normalized
+              : previous;
+          try {
+            // Only an unbound (or unreadable) session needs the lock.
+            final snapshot = await _tokenStore.readState(repair: false);
+            final held = snapshot.session;
+            if (snapshot is SessionUnreadable ||
+                (held != null && held.serverUrl == null)) {
+              await _tokenStore.recordMinter(minter);
+            }
+          } on Object {
+            return;
+          }
+          if (stale()) return;
+        }
         _savedServerUrl = normalized;
         await _prefs.setString(kSavedServerUrlKey, normalized);
       });
