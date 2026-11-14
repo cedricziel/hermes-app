@@ -30,7 +30,7 @@ void main() {
   ) async {
     await tester.pumpWidget(_german(const AppAboutDialog(version: '0.1.31')));
 
-    expect(find.text('Über'), findsOneWidget);
+    expect(find.text('Info'), findsOneWidget);
     expect(find.text('Fehler melden'), findsOneWidget);
     expect(find.text('Report a bug'), findsNothing);
   });
@@ -61,7 +61,7 @@ void main() {
 
     expect(find.text('Einstellungen'), findsOneWidget);
     expect(find.text('Erscheinungsbild'), findsOneWidget);
-    expect(find.text('Wie das System'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
     expect(find.text('Server wechseln'), findsOneWidget);
   });
 

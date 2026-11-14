@@ -16,6 +16,7 @@ flutter analyze
 flutter test
 flutter test test/auth_controller_refresh_test.dart          # one file
 flutter test --plain-name "some test name"                   # one test
+flutter gen-l10n                  # regenerate strings after an ARB edit, pull, rebase or merge (test/analyze don't)
 dart run tool/setup_git_hooks.dart  # installs the dart_pre_commit hook (format + analyze on staged Dart files); once per clone, shared by worktrees
 flutter run -d macos -t widgetbook/main.dart   # component catalog (Widgetbook); see the `component-catalog` skill
 ```
@@ -67,6 +68,7 @@ Before changing an area, read its file under `docs/architecture/` ([index](docs/
 - **Telemetry** (`lib/src/telemetry/`): off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set and must never break the app; server details are `hermes.*` span attributes, never resource attributes. [telemetry.md](docs/architecture/telemetry.md)
 - **macOS** (`lib/src/macos/`, `lib/src/windows/`, `lib/src/drag_out/`, `lib/src/quick_panel/`): menu bar commands come from `MacCommandScope`; don't add a key handler for a chord the menu owns; conversation windows hold no session. [macos.md](docs/architecture/macos.md)
 - **Native pieces** (`ios/`, `macos/` Runners, extensions, `ios/HermesSurfaceKit`): bundle IDs, BGTask registration and extension wiring. Traps: every macOS extension's Debug bundle ID must be prefixed with `com.cedricziel.hermesApp.dev`; `ios/ShareExtension` links `receive_sharing_intent` by a version-pinned path, so a plugin upgrade must be mirrored in `project.pbxproj`; renaming the `HermesLiveActivity` target would orphan its provisioning profile. [native.md](docs/architecture/native.md)
+- **Localization** (`lib/l10n/`, `l10n.yaml`): user-visible text goes in `lib/l10n/arb/app_en.arb` and `app_de.arb` under its area's `@@x-area-<dir>` anchor, read with `context.l10n`; never strings below the widget layer, never telemetry names, ids or server values; only `kReleasedLocales` is offered. [localization.md](docs/architecture/localization.md)
 
 **Privacy rules for every change.** Breadcrumbs, app event logs and feature spans carry fixed names, counts, flags and outcomes only: never message text, titles, profile names, server addresses, ids, tokens or passwords. Two deliberate exceptions, both bound for the operator's own SignalDB: the crash reporter logs uncaught errors with full message, stack trace and breadcrumbs, and spans and request logs describe their server with `hermes.*` attributes (version, install ID and the like). The surface snapshot, notifications, the Lock Screen and Siri never get content beyond what a notification body already allows, and App Lock blanks titles and text. Secrets (tokens, passwords, credentials typed into a screen) stay in secure storage or screen state and are never written to preferences or logs.
 

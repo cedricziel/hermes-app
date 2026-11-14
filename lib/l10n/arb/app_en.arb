@@ -31,6 +31,30 @@
 
   "@@x-area-chat": "",
 
+  "@@x-area-chat/activity": "",
+
+  "@@x-area-chat/attachments": "",
+
+  "@@x-area-chat/gateway": "",
+
+  "@@x-area-chat/invalidation": "",
+
+  "@@x-area-chat/media": "",
+
+  "@@x-area-chat/memory": "",
+
+  "@@x-area-chat/queue_storage": "",
+
+  "@@x-area-chat/reactions": "",
+
+  "@@x-area-chat/session_usage": "",
+
+  "@@x-area-chat/side_results": "",
+
+  "@@x-area-chat/todo_plan": "",
+
+  "@@x-area-chat/widgets": "",
+
   "@@x-area-core": "",
 
   "@@x-area-deep_links": "",
