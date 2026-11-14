@@ -274,6 +274,11 @@ class HermesChatRepository {
     profile: profile,
   );
 
+  static String? _stored(Object? value) {
+    if (value is! String || value.trim().isEmpty) return null;
+    return value;
+  }
+
   static ChatThread? _thread(Map<String, dynamic> row) {
     final id = row['id'];
     if (id is! String || id.isEmpty) return null;
@@ -283,6 +288,8 @@ class HermesChatRepository {
       updatedAt: _time(row['last_active'] ?? row['started_at']),
       pinned: row['pinned'] == true,
       folderPath: sessionFolderPath(row),
+      workingDirectory: _stored(row['cwd']),
+      branch: _stored(row['git_branch']),
       remote: true,
       named:
           row['title'] is String && (row['title'] as String).trim().isNotEmpty,
@@ -553,7 +560,7 @@ class HermesChatRepository {
   static String _preview(Map<String, Object?> args) {
     for (final key in const ['command', 'path', 'query', 'url', 'pattern']) {
       if (args[key] case final String value when value.trim().isNotEmpty) {
-        return value.trim();
+        return value;
       }
     }
     for (final value in args.values) {
