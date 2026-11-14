@@ -1353,7 +1353,7 @@
   "voiceCallFooterAndroid": "Der Anruf endet, wenn du Hermes verlässt.",
   "voiceCallFooterDesktop": "Der Anruf endet, wenn du Hermes ausblendest oder minimierst.",
   "voiceCallHintListening": "Sprich und mach dann eine Pause. Hermes sendet, was du gesagt hast.",
-  "voiceCallHintMuted": "Nichts wird aufgenommen oder gesendet. Hebe die Stummschaltung auf, um zu sprechen.",
+  "voiceCallHintMuted": "Hermes kann dich nicht hören. Hebe die Stummschaltung auf, um zu sprechen.",
   "voiceCallHintSending": "Hermes bereitet deine Worte vor. Beende den Anruf oder schalte stumm, um abzubrechen.",
   "voiceCallHintSpeakingPaused": "Das Mikrofon pausiert, während Hermes spricht. Tippe auf die Kugel, um zu unterbrechen.",
   "voiceCallHintSpeakingTalk": "Tippe auf die Kugel oder sprich einfach, um zu unterbrechen.",

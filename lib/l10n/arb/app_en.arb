@@ -6664,7 +6664,7 @@
   "@voiceCallHintListening": {
     "description": "Hint under the state word while listening."
   },
-  "voiceCallHintMuted": "Nothing is captured or sent. Unmute to talk.",
+  "voiceCallHintMuted": "Hermes can't hear you. Unmute to talk.",
   "@voiceCallHintMuted": {
     "description": "Hint under the state word while the microphone is muted."
   },

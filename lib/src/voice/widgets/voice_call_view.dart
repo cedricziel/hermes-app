@@ -34,7 +34,7 @@ class VoiceCallView extends StatelessWidget {
     this.onAskHermes,
     this.helpBusy = false,
     this.sending = false,
-    this.amplitude = 0,
+    this.amplitude,
     this.reduceMotion = false,
     this.showSpeaker = true,
     this.speakingHint = VoiceSpeakingHint.tapOrTalk,
@@ -64,8 +64,10 @@ class VoiceCallView extends StatelessWidget {
   /// the caller says so; until then [CallPhase.transcribing] reads as thinking.
   final bool sending;
 
-  /// The input level while listening, the output level while speaking.
-  final double amplitude;
+  /// The input level while listening, the output level while speaking. Null
+  /// draws no level rings: nothing feeds a level yet, and a ring that never
+  /// moves would only look like one that does.
+  final double? amplitude;
   final bool reduceMotion;
 
   /// Speaker routing exists on iOS and Android only.
@@ -154,145 +156,175 @@ class VoiceCallView extends StatelessWidget {
         '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
     final shown = error ?? caption;
     final connecting = phase == CallPhase.connecting;
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: onShowChat,
-                    icon: Icon(AppIcons.expandMore.of(context)),
-                    label: Text(l10n.voiceCallShowChat),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: VoiceOrb(
-                    state: orb,
-                    amplitude: amplitude,
-                    reduceMotion: reduceMotion,
-                    stoppedCheck: endedByUser,
-                    onTap: orb == VoiceOrbState.speaking ? onInterrupt : null,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    word,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (hint != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    hint,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Text(
-                  time,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                if (shown.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    shown,
-                    textAlign: TextAlign.center,
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontStyle: orb == VoiceOrbState.sending
-                          ? FontStyle.italic
-                          : null,
-                    ),
-                  ),
-                ],
-                if (notice != null) ...[const SizedBox(height: 16), notice!],
-                const SizedBox(height: 24),
-                if (!ended) ...[
-                  Text(
-                    route,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 28,
-                    runSpacing: 16,
-                    children: [
-                      _Control(
-                        label: muted
-                            ? l10n.voiceCallUnmute
-                            : l10n.voiceCallMute,
-                        icon: muted ? AppIcons.micOff : AppIcons.mic,
-                        selected: muted,
-                        onPressed: connecting ? null : onMute,
-                      ),
-                      if (showSpeaker)
-                        _Control(
-                          label: l10n.voiceCallSpeaker,
-                          icon: AppIcons.speaker,
-                          selected: speaker,
-                          onPressed: connecting ? null : onSpeaker,
-                        ),
-                      _Control(
-                        label: l10n.voiceCallEnd,
-                        icon: AppIcons.endCall,
-                        filled: true,
-                        onPressed: onEnd,
-                      ),
-                    ],
-                  ),
-                  if (footer != VoiceCallFooter.none) ...[
-                    const SizedBox(height: 24),
-                    VoiceCallFooterText(footer),
-                  ],
-                ] else ...[
-                  FilledButton(
-                    onPressed: onShowChat,
-                    child: Text(l10n.voiceCallBackToChat),
-                  ),
-                  if (error != null && onAskHermes != null) ...[
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: helpBusy ? null : onAskHermes,
-                      child: Text(l10n.voiceCallAskHermes),
-                    ),
-                  ],
-                  if (onStartNew != null) ...[
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: onStartNew,
-                      child: Text(l10n.voiceCallStartNew),
-                    ),
-                  ],
-                ],
-              ],
+    final top = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: onShowChat,
+            icon: Icon(AppIcons.expandMore.of(context)),
+            label: Text(l10n.voiceCallShowChat),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: VoiceOrb(
+            state: orb,
+            amplitude: amplitude,
+            reduceMotion: reduceMotion,
+            stoppedCheck: endedByUser,
+            onTap: orb == VoiceOrbState.speaking ? onInterrupt : null,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            word,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
             ),
+          ),
+        ),
+        if (hint != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            hint,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Text(
+          time,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        if (shown.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            shown,
+            textAlign: TextAlign.center,
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontStyle: orb == VoiceOrbState.sending ? FontStyle.italic : null,
+            ),
+          ),
+        ],
+        if (notice != null) ...[const SizedBox(height: 16), notice!],
+      ],
+    );
+    // The controls sit below the scrolling part, so a caption, a notice or a
+    // larger text size never moves End.
+    final bottom = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!ended) ...[
+          Text(
+            route,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 28,
+            runSpacing: 16,
+            children: [
+              _Control(
+                label: muted ? l10n.voiceCallUnmute : l10n.voiceCallMute,
+                icon: muted ? AppIcons.micOff : AppIcons.mic,
+                selected: muted,
+                onPressed: connecting ? null : onMute,
+              ),
+              if (showSpeaker)
+                _Control(
+                  label: l10n.voiceCallSpeaker,
+                  icon: AppIcons.speaker,
+                  selected: speaker,
+                  onPressed: connecting ? null : onSpeaker,
+                ),
+              _Control(
+                label: l10n.voiceCallEnd,
+                icon: AppIcons.endCall,
+                filled: true,
+                onPressed: onEnd,
+              ),
+            ],
+          ),
+          if (footer != VoiceCallFooter.none) ...[
+            const SizedBox(height: 24),
+            VoiceCallFooterText(footer),
+          ],
+        ] else ...[
+          FilledButton(
+            onPressed: onShowChat,
+            child: Text(l10n.voiceCallBackToChat),
+          ),
+          if (error != null && onAskHermes != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: helpBusy ? null : onAskHermes,
+              child: Text(l10n.voiceCallAskHermes),
+            ),
+          ],
+          if (onStartNew != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: onStartNew,
+              child: Text(l10n.voiceCallStartNew),
+            ),
+          ],
+        ],
+      ],
+    );
+    return SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // Under a scroll view of its own (the catalog) nothing bounds
+              // the height, so the controls simply follow the content.
+              if (!box.hasBoundedHeight) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [top, const SizedBox(height: 24), bottom],
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                      child: top,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                    child: bottom,
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
