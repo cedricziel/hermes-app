@@ -1,0 +1,378 @@
+{
+  "source_ref": "d923a5eb",
+  "note": "Recorded from a throwaway Hermes (GET /api/chat/workspaces, /api/fs/list, gateway complete.path, session.create, session.workspace.move) on a made-up folder; invented names, paths rewritten to /srv/demo and /home/demo. Source: hermes_cli/web_routers/chat_workspaces.py, tui_gateway.",
+  "cases": {
+    "catalog_with_project_and_scanned_repo": {
+      "request": "GET /api/chat/workspaces?profile=default&scan=1",
+      "note": "one project of two folders (made with hermes project create) and the repo the scan of desktop.repo_scan_roots found",
+      "status": 200,
+      "body": {
+        "projects": [
+          {
+            "id": "p_0a1b2c3d",
+            "slug": "demo-project",
+            "name": "Demo project",
+            "description": null,
+            "icon": null,
+            "color": null,
+            "board_slug": null,
+            "primary_path": "/srv/demo/proj",
+            "archived": false,
+            "created_at": 1790000000,
+            "folders": [
+              {
+                "path": "/srv/demo/proj",
+                "label": null,
+                "is_primary": true,
+                "added_at": 1790000000
+              },
+              {
+                "path": "/srv/demo/plain",
+                "label": null,
+                "is_primary": false,
+                "added_at": 1790000000
+              }
+            ]
+          }
+        ],
+        "repos": [
+          {
+            "root": "/srv/demo/proj",
+            "label": "proj",
+            "sessions": 0,
+            "last_active": 0.0
+          }
+        ],
+        "default_cwd": "/srv/demo/launch",
+        "home": "/home/demo",
+        "scan_enabled": true
+      }
+    },
+    "catalog_unknown_profile": {
+      "request": "GET /api/chat/workspaces?profile=ghost-profile",
+      "status": 404,
+      "body": {
+        "detail": "Profile 'ghost-profile' does not exist."
+      }
+    },
+    "fs_list_with_dot_entries": {
+      "request": "GET /api/fs/list",
+      "status": 200,
+      "body": {
+        "entries": [
+          {
+            "name": ".hiddendir",
+            "path": "/srv/demo/proj/.hiddendir",
+            "isDirectory": true
+          },
+          {
+            "name": "empty",
+            "path": "/srv/demo/proj/empty",
+            "isDirectory": true
+          },
+          {
+            "name": "real",
+            "path": "/srv/demo/proj/real",
+            "isDirectory": true
+          },
+          {
+            "name": "src",
+            "path": "/srv/demo/proj/src",
+            "isDirectory": true
+          },
+          {
+            "name": ".dotnote",
+            "path": "/srv/demo/proj/.dotnote",
+            "isDirectory": false
+          },
+          {
+            "name": "big.txt",
+            "path": "/srv/demo/proj/big.txt",
+            "isDirectory": false
+          },
+          {
+            "name": "blob.bin",
+            "path": "/srv/demo/proj/blob.bin",
+            "isDirectory": false
+          },
+          {
+            "name": "link",
+            "path": "/srv/demo/proj/link",
+            "isDirectory": false
+          },
+          {
+            "name": "README.md",
+            "path": "/srv/demo/proj/README.md",
+            "isDirectory": false
+          }
+        ]
+      }
+    },
+    "complete_abs": {
+      "rpc": "complete.path",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "items": [
+            {
+              "text": "../../../../srv/demo/proj/src/",
+              "display": "src/",
+              "meta": "dir"
+            }
+          ]
+        }
+      },
+      "note": "word: an absolute folder path plus a letter; text is relative to the completion folder, display is the name"
+    },
+    "complete_abs_dir": {
+      "rpc": "complete.path",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+          "items": [
+            {
+              "text": "../../../../srv/demo/proj/.dotnote",
+              "display": ".dotnote",
+              "meta": ""
+            },
+            {
+              "text": "../../../../srv/demo/proj/.env",
+              "display": ".env",
+              "meta": ""
+            },
+            {
+              "text": "../../../../srv/demo/proj/.git/",
+              "display": ".git/",
+              "meta": "dir"
+            },
+            {
+              "text": "../../../../srv/demo/proj/.hiddendir/",
+              "display": ".hiddendir/",
+              "meta": "dir"
+            },
+            {
+              "text": "../../../../srv/demo/proj/README.md",
+              "display": "README.md",
+              "meta": ""
+            },
+            {
+              "text": "../../../../srv/demo/proj/big.txt",
+              "display": "big.txt",
+              "meta": ""
+            },
+            {
+              "text": "../../../../srv/demo/proj/blob.bin",
+              "display": "blob.bin",
+              "meta": ""
+            },
+            {
+              "text": "../../../../srv/demo/proj/empty/",
+              "display": "empty/",
+              "meta": "dir"
+            },
+            {
+              "text": "../../../../srv/demo/proj/link/",
+              "display": "link/",
+              "meta": "dir"
+            },
+            {
+              "text": "../../../../srv/demo/proj/node_modules/",
+              "display": "node_modules/",
+              "meta": "dir"
+            },
+            {
+              "text": "../../../../srv/demo/proj/real/",
+              "display": "real/",
+              "meta": "dir"
+            },
+            {
+              "text": "../../../../srv/demo/proj/src/",
+              "display": "src/",
+              "meta": "dir"
+            }
+          ]
+        }
+      },
+      "note": "a word ending in / lists files and folders, hidden and secret names included"
+    },
+    "complete_missing": {
+      "rpc": "complete.path",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "items": []
+        }
+      }
+    },
+    "complete_empty": {
+      "rpc": "complete.path",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "items": []
+        }
+      }
+    },
+    "create_cwd": {
+      "rpc": "session.create",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "session_id": "a1b2c3d4",
+          "stored_session_id": "20260101_090000_a1b2c3",
+          "message_count": 0,
+          "messages": [],
+          "info": {
+            "model": "model-placeholder",
+            "tools": {},
+            "skills": {},
+            "cwd": "/srv/demo/proj",
+            "branch": "master",
+            "project": {
+              "id": "p_0a1b2c3d",
+              "slug": "demo-project",
+              "name": "Demo project",
+              "primary_path": "/srv/demo/proj"
+            },
+            "lazy": true,
+            "desktop_contract": 8,
+            "profile_name": "default"
+          }
+        }
+      }
+    },
+    "create_bad": {
+      "rpc": "session.create",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "result": {
+          "session_id": "a1b2c3d4",
+          "stored_session_id": "20260101_090000_a1b2c3",
+          "message_count": 0,
+          "messages": [],
+          "info": {
+            "model": "model-placeholder",
+            "tools": {},
+            "skills": {},
+            "cwd": "/srv/demo/launch",
+            "branch": "main",
+            "project": null,
+            "lazy": true,
+            "desktop_contract": 8,
+            "profile_name": "default"
+          }
+        }
+      },
+      "note": "a cwd that does not exist falls back to the launch folder with no error"
+    },
+    "create_none": {
+      "rpc": "session.create",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "result": {
+          "session_id": "a1b2c3d4",
+          "stored_session_id": "20260101_090000_a1b2c3",
+          "message_count": 0,
+          "messages": [],
+          "info": {
+            "model": "model-placeholder",
+            "tools": {},
+            "skills": {},
+            "cwd": "/srv/demo/launch",
+            "branch": "main",
+            "project": null,
+            "lazy": true,
+            "desktop_contract": 8,
+            "profile_name": "default"
+          }
+        }
+      },
+      "note": "a draft chat: info.cwd is the launch folder; the stored row appears with the first message"
+    },
+    "move_ok": {
+      "rpc": "session.workspace.move",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "result": {
+          "cwd": "/srv/demo/plain",
+          "branch": "",
+          "git_repo_root": ""
+        }
+      },
+      "note": "branch and git_repo_root are empty strings, not null, for a folder outside a repository"
+    },
+    "move_rel": {
+      "rpc": "session.workspace.move",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 9,
+        "error": {
+          "code": 4017,
+          "message": "working directory does not exist: plain"
+        }
+      },
+      "note": "a relative path is resolved against the dashboard folder"
+    },
+    "move_missing": {
+      "rpc": "session.workspace.move",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 10,
+        "error": {
+          "code": 4017,
+          "message": "working directory does not exist: /srv/demo/nope"
+        }
+      }
+    },
+    "move_unknown_session": {
+      "rpc": "session.workspace.move",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 11,
+        "error": {
+          "code": 4007,
+          "message": "session not found"
+        }
+      }
+    },
+    "move_bad_profile": {
+      "rpc": "session.workspace.move",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "error": {
+          "code": 4064,
+          "message": "Profile 'nope-profile' does not exist."
+        }
+      }
+    },
+    "session_read_draft": {
+      "request": "GET /api/sessions/{id}?profile=default",
+      "note": "a draft chat has no stored row yet",
+      "status": 404,
+      "body": {
+        "detail": "Session not found"
+      }
+    },
+    "catalog_named_profile": {
+      "request": "GET /api/chat/workspaces?profile=demo-profile",
+      "note": "default_cwd is the profile's own folder, not the launch folder fs/default-cwd answers",
+      "status": 200,
+      "body": {
+        "projects": [],
+        "repos": [],
+        "default_cwd": "/srv/hermes-home/profiles/demo-profile",
+        "home": "/home/demo",
+        "scan_enabled": true
+      }
+    }
+  }
+}

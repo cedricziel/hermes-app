@@ -650,6 +650,30 @@ step below is unverified unless it says otherwise.
 - With checkpoints off, an edited chat reads "off"; a server before
   `rollback.*` draws neither row (design notes, unverified here).
 
+## A chat's folder: projects, repos and a locked root
+
+Checked against Hermes `d923a5eb`. In the dev backend's own `HERMES_HOME`
+(never the real one), a project and a repo for the folder picker:
+
+```bash
+H="$PWD/.dart_tool/hermes-dev/home"; D=$(mktemp -d); mkdir -p "$D/app" "$D/docs" && git -C "$D/app" init -q
+printf 'desktop:\n  repo_scan_roots:\n    - %s\n' "$D" >> "$H/config.yaml"
+HERMES_HOME="$H" HOME="$H/../userhome" hermes project create "Demo" "$D/app" "$D/docs"
+```
+
+`GET /api/chat/workspaces?profile=default&scan=1` then lists the project (two
+folders, the first primary) and `$D/app` as a scanned repo; without `scan=1`
+the repo only shows once a chat has run in it. A project can also be made over
+the gateway (`projects.create`, `projects.delete`), as the contract test does.
+
+For the locked case start the backend with `HERMES_DASHBOARD_FILES_ROOT=$D`
+in its environment (`scripts/dev-backend.sh` passes it on): every `/api/fs/*`
+route except `default-cwd` and `git-root` answers 403 "Path is outside the
+managed read boundary" outside it, a secret name inside it too, and the
+dashboard's launch folder is outside, so the first list of a chat with no
+folder is that 403. The contract tests read `HERMES_DEV_FILES_ROOT` (the same
+folder) and `HERMES_DEV_HOME` (the state folder, for the live-database 409).
+
 ## Scripted tool calls
 
 Tool-call rendering (cards, groups, approvals inside a call, diffs, stop)
