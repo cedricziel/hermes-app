@@ -1213,6 +1213,45 @@ void main() {
         });
 
         test(
+          'a tap in the shape the Windows plugin reports opens its chat',
+          () async {
+            final taps = <NotificationTarget>[];
+            service.taps.listen(taps.add);
+            await service.post(reply);
+            final payload = plugin.posted.single.payload;
+
+            // The Windows plugin sets actionId to the payload for a body tap.
+            plugin.onResponse!(
+              NotificationResponse(
+                notificationResponseType:
+                    NotificationResponseType.selectedNotification,
+                payload: payload,
+                actionId: payload,
+              ),
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            expect(taps.single.threadId, 's1');
+          },
+        );
+
+        test('a launch by a Windows-shaped tap opens its chat', () async {
+          await service.post(reply);
+          final payload = plugin.posted.single.payload;
+          plugin.launchDetails = NotificationAppLaunchDetails(
+            true,
+            notificationResponse: NotificationResponse(
+              notificationResponseType:
+                  NotificationResponseType.selectedNotification,
+              payload: payload,
+              actionId: payload,
+            ),
+          );
+
+          expect((await service.launchTarget())!.threadId, 's1');
+        });
+
+        test(
           'withdrawing answerable ones survives a plugin that cannot list',
           () async {
             plugin.activeError = PlatformException(code: 'unpackaged');

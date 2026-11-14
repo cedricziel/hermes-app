@@ -252,6 +252,8 @@ class LocalNotificationService
         android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: darwin,
         macOS: darwin,
+        // Not localized: it is below the widget layer, and servers that
+        // show a default action label are rare.
         linux: const LinuxInitializationSettings(defaultActionName: 'Open'),
         windows: const WindowsInitializationSettings(
           appName: 'Hermes',
@@ -281,8 +283,14 @@ class LocalNotificationService
     if (target != null) _taps.add(target);
   }
 
-  /// A tap on the notification, or a button that opens the app.
+  /// A tap on the notification, or a button that opens the app. The Windows
+  /// plugin reports a body tap with the payload as its actionId, so the
+  /// response type decides, not the id.
   static bool _opensApp(NotificationResponse response) {
+    if (response.notificationResponseType ==
+        NotificationResponseType.selectedNotification) {
+      return true;
+    }
     final action = response.actionId;
     return action == null || action.isEmpty || action == kOpenAction;
   }

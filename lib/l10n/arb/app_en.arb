@@ -44,7 +44,7 @@
   "@appLockSetupApple": {
     "description": "Note shown on iOS and macOS when the device has no passcode or biometrics."
   },
-  "appLockSetupWindows": "Set up Windows Hello or a PIN in Windows settings under Accounts, Sign-in options, to use App Lock. This device does not offer one right now.",
+  "appLockSetupWindows": "Set up Windows Hello or a PIN in Windows settings under Accounts > Sign-in options to use App Lock. This device does not offer one right now.",
   "@appLockSetupWindows": {
     "description": "Note shown on Windows when Windows Hello is not set up."
   },
@@ -64,7 +64,7 @@
   "@appLockSwitchWindows": {
     "description": "Label of the App Lock switch on Windows."
   },
-  "appLockTitle": "App lock",
+  "appLockTitle": "App Lock",
   "@appLockTitle": {
     "description": "Title of the App Lock dialog."
   },

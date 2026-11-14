@@ -490,18 +490,21 @@ void main() {
     ]) {
       testWidgets('words itself for $platform', (tester) async {
         debugDefaultTargetPlatformOverride = platform;
-        authenticator.available = false;
-        final lock = (await tester.runAsync(relaunched))!;
+        try {
+          authenticator.available = false;
+          final lock = (await tester.runAsync(relaunched))!;
 
-        await openDialog(tester, lock);
+          await openDialog(tester, lock);
 
-        expect(find.text(switchText), findsOneWidget);
-        expect(find.textContaining(note), findsOneWidget);
-        if (platform == TargetPlatform.linux) {
-          expect(find.textContaining('Face ID'), findsNothing);
-          expect(find.textContaining('Windows Hello'), findsNothing);
+          expect(find.text(switchText), findsOneWidget);
+          expect(find.textContaining(note), findsOneWidget);
+          if (platform == TargetPlatform.linux) {
+            expect(find.textContaining('Face ID'), findsNothing);
+            expect(find.textContaining('Windows Hello'), findsNothing);
+          }
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
         }
-        debugDefaultTargetPlatformOverride = null;
       });
     }
   });
