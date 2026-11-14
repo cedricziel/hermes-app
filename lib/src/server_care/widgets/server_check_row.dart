@@ -25,6 +25,8 @@ class ServerCheckRow extends StatelessWidget {
     this.summary,
     this.ago,
     this.onTap,
+    this.selected = false,
+    this.chevron,
   });
 
   final ServerCheckRowState state;
@@ -35,6 +37,12 @@ class ServerCheckRow extends StatelessWidget {
   /// With [ServerCheckRowState.result]: "just now", "5 minutes ago".
   final String? ago;
   final VoidCallback? onTap;
+
+  /// Highlights the row whose page shows beside the list.
+  final bool selected;
+
+  /// False leaves the disclosure chevron out (a row beside its page).
+  final bool? chevron;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +61,8 @@ class ServerCheckRow extends StatelessWidget {
         _ => l10n.serverCareCheckRowSubtitle,
       },
       onTap: onTap,
+      selected: selected,
+      chevron: chevron,
     );
   }
 }

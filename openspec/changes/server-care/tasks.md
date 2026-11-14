@@ -64,6 +64,7 @@ Controller only; no UI beyond what tests need.
   *`server_care.opened` with only `source` in `test/server_care/server_screen_test.dart` and `server_care.usage.opened` with only `days` in `test/server_care/usage_page_test.dart`; the real sources `sidebar` and `menu` in `test/mac_profile_scope_test.dart`. The design's `banner` and `attention` sources have no call site yet.*
 - [ ] 3.6 Run `/simplify`, format, analyze and test, all passing.
   *Open: `/simplify` was not run as a separate step, and the full `flutter test` suite was not run. Done: `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and the touched tests pass (`test/server_care`, `test/l10n`, `test/app_shell_owner_test.dart`, `test/mac_profile_scope_test.dart`, `test/widgetbook_test.dart`).*
+- [x] 3.7 Wide layout: at `isWideLayout` (900 pt, 700 pt on an iPad) the Server screen shows the overview (340 pt) beside the selected page (`ServerSplitView`, `widgetbook/server_care_split_use_cases.dart`); nothing picked shows Usage, else the first page the server offers; narrower, pages push. Pages come from one table (`_destinations` in `server_screen.dart`), so a new page (the Server check) is one entry. Tests: `test/server_care/server_screen_wide_test.dart`, the `mac-wide` workflow.
 
 ## 4. PR 4 — `feat(server-care): restart and start the messaging gateway`
 

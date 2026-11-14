@@ -11,6 +11,7 @@ import '../theme/platform_chrome.dart';
 import '../auth/auth_controller.dart';
 import '../widgets/dialog_presentation.dart';
 import '../widgets/route_dismissal.dart';
+import '../widgets/settings_pane.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/settings_search_field.dart';
 import 'care_result.dart';
@@ -165,9 +166,16 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   }
 
   /// Removes this page's own route, never whatever is on top of it (the
-  /// Copy question, a menu).
+  /// Copy question, a menu). In a detail pane the page has no route: the pane
+  /// empties instead.
   void _leave() => WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (mounted) dismissRoute(context);
+    if (!mounted) return;
+    final pane = SettingsPane.maybeOf(context);
+    if (pane != null) {
+      pane.close();
+    } else {
+      dismissRoute(context);
+    }
   });
 
   void _tabChanged() {
@@ -191,15 +199,27 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       }
       return;
     }
+    final before = _careProfile;
     _careProfile = _care.profile;
     _stale();
+    // Beside the list the page leaves instead of following: the screen drops
+    // its pick on a switch, and a read for the new profile would be one nobody
+    // asked for. Only the first profile the page learns of is followed.
+    if (before != null && SettingsPane.maybeOf(context) != null) {
+      _controller.cover();
+      _leave();
+      return;
+    }
     _controller.setProfile(_careProfile);
   }
 
   @override
   void dispose() {
     _releaseSecure?.call();
-    _staleSignal.dispose();
+    // An open Copy question or menu goes with the page.
+    _staleSignal
+      ..fire()
+      ..dispose();
     _connection?.dispose();
     _appLock?.removeListener(_lockChanged);
     _care.removeListener(_followChatProfile);
