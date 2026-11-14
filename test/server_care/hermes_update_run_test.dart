@@ -4,8 +4,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
+import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 
 import '../support/fake_hermes_server.dart';
+import '../support/recorded_events.dart';
+import '../support/recording_tracer.dart';
 import 'server_care_fixtures.dart';
 
 const _html = '<html><body>Bad gateway</body></html>';
@@ -18,6 +23,8 @@ void main() {
   late DateTime clock;
   late HermesUpdateRun run;
   late int probes;
+  late RecordedEvents events;
+  late RecordingTracer tracer;
 
   /// Seconds since the test began, on the fake clock.
   int now() => clock.difference(t0).inSeconds;
@@ -71,16 +78,27 @@ void main() {
     });
   }
 
-  HermesUpdateRun build({Future<void> Function(Duration)? onDelay}) =>
-      HermesUpdateRun(
-        repository: ServerCareRepository(server.client()),
-        probeConnection: () async => probes++,
-        now: () => clock,
-        delay: (d) async {
-          clock = clock.add(d);
-          await onDelay?.call(d);
-        },
-      );
+  HermesUpdateRun build({
+    Future<void> Function(Duration)? onDelay,
+    Breadcrumbs crumbs = Breadcrumbs.none,
+    ConnectionTelemetry? telemetry,
+  }) => HermesUpdateRun(
+    repository: ServerCareRepository(server.client()),
+    probeConnection: () async => probes++,
+    breadcrumbs: crumbs,
+    telemetry:
+        telemetry ??
+        ConnectionTelemetry(
+          events: (name, [attributes = const {}]) => events(name, attributes),
+          tracer: tracer,
+          serverAttributes: const {'hermes.version': '0.22.2'},
+        ),
+    now: () => clock,
+    delay: (d) async {
+      clock = clock.add(d);
+      await onDelay?.call(d);
+    },
+  );
 
   setUp(() {
     server = FakeHermesServer()
@@ -89,6 +107,8 @@ void main() {
     t0 = DateTime(2026, 11, 14, 9);
     clock = t0;
     probes = 0;
+    events = RecordedEvents();
+    tracer = RecordingTracer();
     timeline();
     run = build();
   });
@@ -612,4 +632,118 @@ void main() {
     await pumpEventQueue();
     expect(server.requests.length, reads);
   });
+
+  group('telemetry', () {
+    test('a success after minutes carries buckets and nothing else', () async {
+      final crumbs = <(String, Map<String, Object>)>[];
+      run.dispose();
+      run = build(crumbs: Breadcrumbs.of(_Trail((n, a) => crumbs.add((n, a)))));
+      timeline(upAt: 4 * 60);
+      run.confirmed();
+      expect(crumbs.single.$1, 'server_care.update.confirmed');
+      expect(crumbs.single.$2, isEmpty);
+
+      await run.start();
+      expect(run.result, UpdateResult.success);
+      final span = tracer.spans.single;
+      expect(span.name, 'server_care.update');
+      expect(span.attributes, {
+        'hermes.version': '0.22.2',
+        'resumed_after_launch': false,
+        'outcome': 'success',
+        'phase_reached': 'verifying',
+        'came_back': true,
+        'duration': '3-10m',
+      });
+      expect(span.ended, isTrue);
+      expect(events.named('server_care.update_finished'), [
+        {'outcome': 'success', 'came_back': true, 'duration': '3-10m'},
+      ]);
+    });
+
+    test('no version, commit, action id, command or text leaks', () async {
+      server
+        ..on('GET', '/api/health', health('secretcommit', version: '9.9.9'))
+        ..on(
+          'GET',
+          '/api/actions/hermes-update/status',
+          action(exit: 1, lines: ['secret-line']),
+        )
+        ..on('GET', '/api/hermes/update/receipt', {
+          'summary': {'outcome': 'failed', 'action_id': 'a' * 32},
+        });
+      await run.start();
+      server.on('POST', '/api/hermes/update', {
+        'ok': false,
+        'error': 'docker_update_unsupported',
+        'message': 'secret message',
+        'update_command': 'secret command',
+      });
+      await run.start();
+      final all = [
+        for (final s in tracer.spans) s.attributes.toString(),
+        for (final e in events.named('server_care.update_finished'))
+          e.toString(),
+      ].join();
+      for (final secret in [
+        'secretcommit',
+        '9.9.9',
+        'secret',
+        'aaaaaaaa',
+        'work',
+      ]) {
+        expect(all, isNot(contains(secret)));
+      }
+      expect(tracer.spans.map((s) => s.attributes['outcome']), [
+        'failed',
+        'refused',
+      ]);
+    });
+
+    test('stale, not back and unknown have their own outcomes', () async {
+      server
+        ..on('GET', '/api/health', health(_old))
+        ..on('GET', '/api/actions/hermes-update/status', action(exit: 0));
+      await run.start();
+      expect(tracer.spans.last.attributes['outcome'], 'stale_server');
+      expect(tracer.spans.last.attributes['came_back'], false);
+
+      timeline(upAt: 60 * 60);
+      await run.start();
+      expect(tracer.spans.last.attributes['outcome'], 'not_back');
+      expect(tracer.spans.last.attributes['duration'], '>10m');
+
+      timeline(downAt: now() + 5, upAt: now() + 30);
+      server.on('GET', '/api/hermes/update/receipt', {
+        'detail': 'No update receipt found.',
+      }, status: 404);
+      run.dismiss();
+      await run.start();
+      expect(tracer.spans.last.attributes['outcome'], 'unknown');
+    });
+
+    test('a broken tracer does not break a run', () async {
+      run.dispose();
+      run = build(
+        telemetry: ConnectionTelemetry(
+          tracer: ThrowingTracer(),
+          events: (name, [attributes = const {}]) => throw StateError('x'),
+        ),
+      );
+      await run.start();
+      expect(run.result, UpdateResult.success);
+    });
+  });
+}
+
+class _Trail implements BreadcrumbTrail {
+  _Trail(this._record);
+  final void Function(String, Map<String, Object>) _record;
+
+  @override
+  void record(String name, [Map<String, Object>? attributes]) =>
+      _record(name, attributes ?? const {});
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }
