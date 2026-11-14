@@ -8,7 +8,7 @@ context: |
   and chats with the agent over the dashboard's /api/ws JSON-RPC socket.
   Language: artifacts are written in English.
   Conventions: conventional commits (release-please builds the changelog from them).
-  See CLAUDE.md for commands and architecture.
+  See CLAUDE.md for commands and the architecture map, docs/architecture/ for each area in full.
 
   Invariants every spec and design must respect:
   - Auth: concurrent 401s must not sign the user out; sign-in is never left spinning;

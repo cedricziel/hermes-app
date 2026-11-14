@@ -70,16 +70,26 @@ class _FakeBrowser implements SignInBrowser {
   Future<void> close() => onClose();
 }
 
-Future<HttpClientResponse> _hitCallback(
+Future<HttpClientResponse> _hitCallback(Uri authorizeUrl, {String? state}) =>
+    _hitListener(
+      authorizeUrl,
+      query: {
+        'code': 'auth-code',
+        'state': state ?? authorizeUrl.queryParameters['state']!,
+      },
+    );
+
+/// Sends [query] to the sign-in listener at [path] (the callback path by
+/// default), as any page in a browser on this device could.
+Future<HttpClientResponse> _hitListener(
   Uri authorizeUrl, {
-  String? state,
+  String? path,
+  required Map<String, String> query,
 }) async {
   final redirect = Uri.parse(authorizeUrl.queryParameters['redirect_uri']!);
   final callback = redirect.replace(
-    queryParameters: {
-      'code': 'auth-code',
-      'state': state ?? authorizeUrl.queryParameters['state']!,
-    },
+    path: path ?? redirect.path,
+    queryParameters: query,
   );
   final client = HttpClient();
   final request = await client.getUrl(callback);
@@ -130,33 +140,87 @@ void main() {
   });
 
   test(
-    'rejects a callback with a mismatched state and still closes the browser',
+    'ignores callbacks without the state it sent and waits for the real one',
     () async {
+      final adapter = _TokenAdapter();
+      final answers = <int>[];
       var closed = 0;
 
-      await expectLater(
-        runNativeLogin(
-          'http://hermes.test:9119',
-          httpClient: Dio()..httpClientAdapter = _TokenAdapter(),
-          browser: _FakeBrowser(
-            onOpen: (url) async {
-              unawaited(_hitCallback(url, state: 'forged'));
-              return true;
-            },
-            onClose: () async => closed++,
-          ),
+      final session = await runNativeLogin(
+        'http://hermes.test:9119',
+        httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
+          ..httpClientAdapter = adapter,
+        browser: _FakeBrowser(
+          onOpen: (url) async {
+            final state = url.queryParameters['state']!;
+            Future<void> hit(Map<String, String> query, {String? path}) async {
+              final answer = await _hitListener(url, path: path, query: query);
+              answers.add(answer.statusCode);
+            }
+
+            // Any page on this device can reach the listener.
+            unawaited(() async {
+              await hit({'code': 'forged', 'state': 'forged'});
+              await hit({'code': 'forged'});
+              await hit({'error': 'access_denied', 'state': 'forged'});
+              await hit({
+                'error': 'access_denied',
+                'error_description': 'Call this number',
+              });
+              await hit({'code': 'forged', 'state': state}, path: '/other');
+              await _hitCallback(url);
+            }());
+            return true;
+          },
+          onClose: () async => closed++,
         ),
-        throwsA(
-          isA<NativeLoginException>().having(
-            (e) => e.reason,
-            'reason',
-            NativeLoginFailure.stateMismatch,
-          ),
-        ),
+      ).timeout(const Duration(seconds: 5));
+
+      expect(session.accessToken, 'at');
+      expect(
+        (adapter.lastRequest!.data as Map<String, dynamic>)['code'],
+        'auth-code',
       );
+      expect(answers, [400, 400, 400, 400, 404]);
       expect(closed, 1);
     },
   );
+
+  test('fails with the error of a callback that carries its state', () async {
+    var closed = 0;
+
+    await expectLater(
+      runNativeLogin(
+        'http://hermes.test:9119',
+        httpClient: Dio()..httpClientAdapter = _TokenAdapter(),
+        browser: _FakeBrowser(
+          onOpen: (url) async {
+            unawaited(
+              _hitListener(
+                url,
+                query: {
+                  'error': 'access_denied',
+                  'state': url.queryParameters['state']!,
+                },
+              ),
+            );
+            return true;
+          },
+          onClose: () async => closed++,
+        ),
+      ),
+      throwsA(
+        isA<NativeLoginException>()
+            .having((e) => e.reason, 'reason', NativeLoginFailure.idpError)
+            .having(
+              (e) => e.message,
+              'message',
+              'Sign-in was rejected: access_denied',
+            ),
+      ),
+    );
+    expect(closed, 1);
+  });
 
   test(
     'fails with a readable message when the browser cannot be opened',
@@ -209,7 +273,15 @@ void main() {
           httpClient: Dio()..httpClientAdapter = _TokenAdapter(),
           browser: _FakeBrowser(
             onOpen: (url) async {
-              unawaited(_hitCallback(url, state: 'forged'));
+              unawaited(
+                _hitListener(
+                  url,
+                  query: {
+                    'error': 'access_denied',
+                    'state': url.queryParameters['state']!,
+                  },
+                ),
+              );
               return true;
             },
             onClose: () async => throw StateError('no web view is open'),

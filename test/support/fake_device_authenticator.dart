@@ -3,7 +3,8 @@ import 'package:hermes_app/src/app_lock/device_authenticator.dart';
 class FakeDeviceAuthenticator implements DeviceAuthenticator {
   FakeDeviceAuthenticator({this.available = true, this.succeeds = true});
 
-  bool available;
+  /// Null when the device could not tell.
+  bool? available;
   bool succeeds;
   final reasons = <String>[];
 
@@ -13,13 +14,19 @@ class FakeDeviceAuthenticator implements DeviceAuthenticator {
   /// When set, the prompt stays up until this completes.
   Future<bool>? answer;
 
-  @override
-  Future<bool> isAvailable() async => available;
+  /// Whether the prompt reports that the device cannot confirm anyone.
+  bool unavailable = false;
 
   @override
-  Future<bool> authenticate(String reason) async {
+  Future<bool?> isAvailable() async => available;
+
+  @override
+  Future<DeviceAuthResult> authenticate(String reason) async {
     reasons.add(reason);
     onAuthenticate?.call();
-    return answer ?? succeeds;
+    if (unavailable) return DeviceAuthResult.unavailable;
+    return await (answer ?? Future.value(succeeds))
+        ? DeviceAuthResult.confirmed
+        : DeviceAuthResult.failed;
   }
 }

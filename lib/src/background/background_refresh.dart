@@ -425,9 +425,17 @@ class OpenRequestsStep extends BackgroundStep {
     if (!context.notificationsOn || waiting.isEmpty) return 0;
     if (await context.isAppInFront()) return 0;
     final known = await context.announced.read();
+    // A chat's notification is replaced by the next one posted for it, so a
+    // chat whose announced approval is still open is left alone: its next
+    // approval is announced once the earlier one has been answered.
+    final showing = {
+      for (final w in waiting)
+        if (w.approval != null && known.contains(w.requestId))
+          (w.profile, w.key),
+    };
     final fresh = [
       for (final w in waiting)
-        if (_isNew(w, known)) w,
+        if (!showing.contains((w.profile, w.key)) && _isNew(w, known)) w,
     ];
     if (fresh.isEmpty) return 0;
     final lockOn = await context.appLockOn();
@@ -437,17 +445,18 @@ class OpenRequestsStep extends BackgroundStep {
     }
     var announced = 0;
     for (final requests in chats.values) {
+      // One notification per chat, with the first request's buttons; only
+      // that request is marked, so a later run announces the next one.
+      final request = requests.first;
       final result = await context.notifications.post(
-        _notification(requests.first, lockOn),
+        _notification(request, lockOn),
       );
       if (result.status == NotificationPostStatus.accepted) {
         accepted++;
         report();
         try {
-          await context.announced.add([
-            for (final request in requests) ..._marks(request),
-          ]);
-          announced += requests.length;
+          await context.announced.add(_marks(request));
+          announced++;
         } on Object catch (error) {
           marksFailed++;
           report();

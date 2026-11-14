@@ -23,9 +23,36 @@ abstract interface class SurfaceStorage {
   Future<void> reload(String kind);
 }
 
+/// Where a [SurfaceStorage] shared between processes keeps the snapshot time
+/// the widgets were last reloaded for (an ISO 8601 time, nothing else), so a
+/// background run keeps to the hourly reload rule the app keeps.
+abstract interface class SurfaceReloadMarkStorage {
+  Future<void> saveReloadedFor(String value);
+  Future<String?> loadReloadedFor();
+}
+
+/// The key of the time the widgets were last reloaded for.
+const kSurfaceReloadedForKey = 'hermes.surface.reloaded.v1';
+
 /// [SurfaceStorage] on the `home_widget` plugin: the App Group's
 /// `UserDefaults` on iOS, the plugin's preferences on Android.
-class HomeWidgetSurfaceStorage implements SurfaceStorage {
+class HomeWidgetSurfaceStorage
+    implements SurfaceStorage, SurfaceReloadMarkStorage {
+  @override
+  Future<void> saveReloadedFor(String value) async {
+    await HomeWidget.saveWidgetData<String>(
+      kSurfaceReloadedForKey,
+      value,
+      appGroupId: kSurfaceAppGroup,
+    );
+  }
+
+  @override
+  Future<String?> loadReloadedFor() => HomeWidget.getWidgetData<String>(
+    kSurfaceReloadedForKey,
+    appGroupId: kSurfaceAppGroup,
+  );
+
   @override
   Future<void> save(String json) async {
     await HomeWidget.saveWidgetData<String>(
@@ -83,7 +110,8 @@ class SurfaceSnapshotStore {
 
   /// The `updatedAt` of the snapshot the widgets were last reloaded for. The
   /// widgets hold that snapshot's stale entry, due six hours after it, until
-  /// the next reload; null before this run reloaded any.
+  /// the next reload; null before this store reloaded any. A storage that is
+  /// a [SurfaceReloadMarkStorage] also keeps it for other stores.
   DateTime? _reloadedFor;
 
   /// Writes run one after another, in the order they were asked for, so an
@@ -180,10 +208,13 @@ class SurfaceSnapshotStore {
     if (unchanged && !next.updatedAt.isAfter(written.updatedAt)) return written;
     final signedInChanged =
         written == null || written.signedIn != next.signedIn;
-    final reloadedFor = _reloadedFor;
+    final reloadedFor = unchanged ? await _lastReloadedFor() : null;
     final reload =
         !unchanged ||
         reloadedFor == null ||
+        // A mark from the future (a clock set back) must not hold reloads
+        // back for good.
+        next.updatedAt.isBefore(reloadedFor) ||
         next.updatedAt.difference(reloadedFor) >= kSurfaceRefreshReloadEvery;
     try {
       await _storage.save(next.encode());
@@ -199,10 +230,37 @@ class SurfaceSnapshotStore {
         for (final kind in widgetKinds)
           if (signedInChanged || !signedInOnlyKinds.contains(kind))
             _reload(kind),
+        _saveReloadedFor(next.updatedAt),
       ]);
     }
     if (!unchanged && !_writes.isClosed) _writes.add(next);
     return next;
+  }
+
+  /// The later of this store's last reload and the one stored by any store
+  /// (a background run's included); null when neither is known.
+  Future<DateTime?> _lastReloadedFor() async {
+    final inMemory = _reloadedFor;
+    DateTime? stored;
+    if (_storage case final SurfaceReloadMarkStorage marks) {
+      try {
+        stored = DateTime.tryParse(await marks.loadReloadedFor() ?? '');
+      } on Object {
+        // An unreadable mark only costs a reload.
+      }
+    }
+    if (inMemory == null || stored == null) return inMemory ?? stored;
+    return stored.isAfter(inMemory) ? stored : inMemory;
+  }
+
+  Future<void> _saveReloadedFor(DateTime updatedAt) async {
+    if (_storage case final SurfaceReloadMarkStorage marks) {
+      try {
+        await marks.saveReloadedFor(updatedAt.toUtc().toIso8601String());
+      } on Object {
+        // An unstored mark only costs a reload in the next process.
+      }
+    }
   }
 
   /// A widget that cannot be reloaded must not keep the others stale, and
