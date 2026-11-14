@@ -673,6 +673,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ModelOptionsState get modelOptionsState =>
       models == null ? ModelOptionsState.unsupported : _modelOptionsState;
 
+  /// The last state that was not a read in progress, which the welcome card
+  /// keeps showing while its options are read again.
+  ModelOptionsState _settledModelOptionsState = ModelOptionsState.loading;
+  ModelOptionsState get settledModelOptionsState => models == null
+      ? ModelOptionsState.unsupported
+      : _settledModelOptionsState;
+
   /// Whether the current model can be used without guessing configuration.
   bool get modelSendAllowed {
     final state = modelOptionsState;

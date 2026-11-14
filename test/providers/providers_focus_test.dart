@@ -4,6 +4,7 @@ import 'package:hermes_app/src/providers/provider_detail_pane.dart';
 import 'package:hermes_app/src/providers/providers_screen.dart';
 
 import 'fake_provider_backend.dart';
+import 'provider_fixtures.dart';
 import 'providers_screen_rig.dart';
 
 /// Where the screen starts when the chat opens it.
@@ -85,6 +86,26 @@ void main() {
     expect(find.byType(ProviderDetailPage), findsNothing);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Save'), findsOneWidget);
+  });
+
+  testWidgets('a custom endpoint is found by its custom: slug', (tester) async {
+    rig.backend
+      ..endpoints.add(
+        endpointRow(
+          'lab',
+          name: 'Lab server',
+          baseUrl: 'http://localhost:8000/v1',
+          model: 'example-model-a',
+          current: true,
+        ),
+      )
+      ..defaultProvider = 'custom:lab'
+      ..defaultModel = 'example-model-a';
+
+    await rig.pump(tester, focus: const ProvidersFocus.provider('custom:lab'));
+
+    expect(find.byType(ProviderDetailPage), findsOneWidget);
+    expect(find.text('Lab server'), findsWidgets);
   });
 
   testWidgets('an unknown provider falls back to "Add a provider"', (

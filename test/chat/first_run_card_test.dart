@@ -69,9 +69,8 @@ void main() {
       );
     });
 
-    test('loading, failed and unsupported states show no card', () {
+    test('failed and unsupported states show no card', () {
       for (final state in [
-        ModelOptionsState.loading,
         ModelOptionsState.failed,
         ModelOptionsState.unsupported,
       ]) {
@@ -87,6 +86,31 @@ void main() {
       }
     });
 
+    test('a read in progress keeps the card of the state before it', () {
+      final card = connectCardFor(
+        ModelOptionsState.loading,
+        const ModelOptions(warming: true),
+        profile: 'work',
+        settled: ModelOptionsState.incomplete,
+      );
+
+      expect(card?.kind, ConnectCardKind.loading);
+      expect(
+        connectCardFor(
+          ModelOptionsState.loading,
+          const ModelOptions(),
+          profile: 'work',
+          settled: ModelOptionsState.ready,
+        ),
+        isNull,
+      );
+      // The very first read has no earlier state and no options.
+      expect(
+        connectCardFor(ModelOptionsState.loading, null, profile: 'work'),
+        isNull,
+      );
+    });
+
     test('no options yet shows no card', () {
       expect(
         connectCardFor(ModelOptionsState.incomplete, null, profile: 'work'),
@@ -96,14 +120,16 @@ void main() {
   });
 
   group('isProviderReplyError', () {
-    test('recognises a rejected key, no credit and a missing key', () {
+    test('recognises a status or an explicit key problem', () {
       for (final message in [
         'HTTP 401: Incorrect API key provided: test-key-not-real',
         'Error code: 402 - insufficient credits',
-        'API call failed: Unauthorized',
-        'No API key found for provider example-a',
-        'Your account has exceeded its quota',
         'HTTP 403 Forbidden from the provider',
+        'HTTP 429: too many requests',
+        'No API key found for provider example-a',
+        'Invalid API key',
+        'Missing API key for example-a',
+        'The API key is invalid.',
       ]) {
         expect(isProviderReplyError(message), isTrue, reason: message);
       }
@@ -114,6 +140,12 @@ void main() {
         'Something went wrong. Try sending it again.',
         'The connection was lost.',
         'Tool terminal failed with exit code 401 lines',
+        'MCP server authentication failed',
+        'Authentication required for the example tool',
+        'Your account has exceeded its quota',
+        'Unauthorized',
+        'Rotate the api key in the config file',
+        'HTTP 500 from the example service',
         '',
       ]) {
         expect(isProviderReplyError(message), isFalse, reason: message);

@@ -9,14 +9,18 @@ import '../providers/widgets/provider_form_models.dart';
 /// another provider is ready and the state is [ModelOptionsState.ready]. With
 /// no provider usable ([ModelOptionsState.incomplete]) a connected provider
 /// that lists no models yet is "loading", anything else asks to connect. A
-/// state that is still loading, failed or unsupported shows no card: its
-/// options may be those of an earlier read.
+/// failed or unsupported state shows no card: its options may be those of an
+/// earlier read. While the options are read again ([ModelOptionsState.loading])
+/// the card of the [settled] state before stays, so a refresh never flashes
+/// the starter prompts.
 ConnectCardData? connectCardFor(
   ModelOptionsState state,
   ModelOptions? options, {
   required String profile,
+  ModelOptionsState settled = ModelOptionsState.loading,
 }) {
   if (options == null) return null;
+  if (state == ModelOptionsState.loading) state = settled;
   if (state != ModelOptionsState.ready &&
       state != ModelOptionsState.incomplete) {
     return null;
@@ -38,14 +42,16 @@ ConnectCardData? connectCardFor(
 }
 
 final _providerFailure = RegExp(
-  r'(\b(http|status|error code)[ :]*40[123]\b)|'
-  r'unauthori[sz]ed|api[ _-]?key|authentication|'
-  r'insufficient (credit|fund|balance|quota)|\bcredits?\b|\bquota\b|\bbilling\b',
+  r'\b(http|status|error code)[ :]*(401|402|403|429)\b|'
+  r'\b(invalid|incorrect|missing|expired|revoked|no)( \w+)? api[ _-]?key\b|'
+  r'\bapi[ _-]?key (is |was )?(invalid|incorrect|missing|expired|revoked)\b',
   caseSensitive: false,
 );
 
 /// Whether the error a reply failed with reads as the model provider
-/// refusing the request (a bad or missing key, no credit), which Model
-/// providers can fix. Hermes reports these as text, so this matches the words
-/// and status codes providers use; a failure it misses simply gets no action.
+/// refusing the request: an HTTP 401, 402, 403 or 429 status, or an invalid,
+/// incorrect or missing API key. Hermes reports these as text, so this is a
+/// match on words, kept narrow so that an MCP server's or a tool's failure
+/// does not offer Model providers; a provider failure it misses simply gets
+/// no action.
 bool isProviderReplyError(String message) => _providerFailure.hasMatch(message);

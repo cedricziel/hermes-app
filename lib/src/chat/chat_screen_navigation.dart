@@ -365,6 +365,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
             _chat.modelOptionsState,
             _chat.modelOptions,
             profile: _chat.profile ?? 'default',
+            settled: _chat.settledModelOptionsState,
           );
     if (data == null) return null;
     return ConnectModelCard(
@@ -378,11 +379,12 @@ extension _ChatScreenNavigation on _ChatScreenState {
     );
   }
 
-  /// A failed reply's "Check model providers": the default model's provider.
+  /// A failed reply's "Check model providers": the provider of the model the
+  /// chat picked, else the default model's.
   void _checkProviders() => _openProviders(
     ProvidersEntry.reply,
     focus: ProvidersFocus.providerOrAdd(
-      _chat.modelOptions?.current?.providerId,
+      _chat.modelChoice?.providerId ?? _chat.modelOptions?.current?.providerId,
     ),
   );
 

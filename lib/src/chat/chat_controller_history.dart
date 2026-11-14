@@ -367,6 +367,9 @@ extension _ChatControllerHistory on ChatController {
     final models = this.models;
     if (models == null) return;
     final request = ++_modelOptionsGeneration;
+    if (_modelOptionsState != ModelOptionsState.loading) {
+      _settledModelOptionsState = _modelOptionsState;
+    }
     _modelOptionsState = ModelOptionsState.loading;
     if (notifyLoading) notifyListeners();
     if (!active ||

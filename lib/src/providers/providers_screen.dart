@@ -248,13 +248,13 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
         case _FocusAdd():
           _scrollToAdd();
         case _FocusProvider(:final id):
-          final entry = _controller.catalog?.byId(id);
+          final entry = entryForSlug(_controller.catalog, id);
           if (entry == null) {
             _scrollToAdd();
           } else if (entry.connected) {
-            _select(id, wide: _wide);
+            _select(entry.id, wide: _wide);
           } else {
-            _add(id);
+            _add(entry.id);
           }
       }
     });

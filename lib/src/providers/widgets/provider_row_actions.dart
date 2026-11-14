@@ -66,6 +66,7 @@ class ProviderRowButton extends StatelessWidget {
               padding: padding,
               textStyle: textStyle,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.standard,
             ),
             child: child,
           )
@@ -79,6 +80,7 @@ class ProviderRowButton extends StatelessWidget {
               padding: padding,
               textStyle: textStyle,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.standard,
             ),
             child: child,
           )
@@ -91,6 +93,7 @@ class ProviderRowButton extends StatelessWidget {
               padding: padding,
               textStyle: textStyle,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.standard,
             ),
             child: child,
           );

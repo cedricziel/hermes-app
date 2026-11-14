@@ -149,12 +149,12 @@ void main() {
       expect(options.warming, isFalse);
     });
 
-    test('a row without the flag and without models is not warming', () {
+    test('a row without the flag is read like the ready ones: warming', () {
       expect(
         ModelOptions.fromJson({
           'providers': [row('example-a')],
         }).warming,
-        isFalse,
+        isTrue,
       );
     });
 
@@ -214,6 +214,60 @@ void main() {
       expect(ready.currentMissing, isFalse);
       expect(warming.currentMissing, isFalse);
       expect(warming.warming, isTrue);
+    });
+
+    test('a custom endpoint default is not missing, by slug or alias', () {
+      final bare = ModelOptions.fromJson({
+        'provider': 'custom:relay',
+        'model': 'example-model-a',
+        'providers': [
+          {
+            'slug': 'relay',
+            'authenticated': true,
+            'aliases': ['custom:relay'],
+            'models': ['example-model-a'],
+          },
+        ],
+      });
+      final bySlugOnly = ModelOptions.fromJson({
+        'provider': 'custom:relay',
+        'model': 'example-model-a',
+        'providers': [
+          row('relay', authenticated: true, models: ['example-model-a']),
+        ],
+      });
+      final other = ModelOptions.fromJson({
+        'provider': 'custom:relay',
+        'model': 'example-model-a',
+        'providers': [
+          {
+            'slug': 'lab',
+            'authenticated': true,
+            'aliases': ['custom:lab'],
+            'models': ['example-model-a'],
+          },
+        ],
+      });
+
+      expect(bare.currentMissing, isFalse);
+      expect(bySlugOnly.currentMissing, isFalse);
+      expect(other.currentMissing, isTrue);
+      // The same match finds the model, so sending is allowed.
+      expect(
+        bare.model(const ModelChoice('custom:relay', 'example-model-a')),
+        isNotNull,
+      );
+    });
+
+    test('the merged default "auto" is never a lost provider', () {
+      expect(
+        ModelOptions.fromJson({
+          'provider': 'auto',
+          'model': 'example-model-a',
+          'providers': <Object?>[],
+        }).currentMissing,
+        isFalse,
+      );
     });
 
     test('a fresh profile with no default is not missing anything', () {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -249,6 +251,42 @@ void main() {
       expect(find.byType(ProvidersScreen), findsNothing);
       expect(opened(), isEmpty);
       expect(find.text('What can you help me with?'), findsOneWidget);
+    });
+  });
+
+  group('while the options are read again', () {
+    testWidgets('the card stays and the starter prompts never show', (
+      tester,
+    ) async {
+      backend
+        ..keys['OPENROUTER_API_KEY'] = FakeProviderBackend.redact(_key)
+        ..modelsWarm = false;
+      await pump(tester);
+      expect(find.text('Hermes is loading your models'), findsOneWidget);
+
+      final held = Completer<FakeResponse>();
+      backend.server.onRequest('GET', '/api/model/options', (_) => held.future);
+      await tester.tap(find.text('Check again'));
+      await tester.pump();
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.text('What can you help me with?'), findsNothing);
+        expect(find.byType(ConnectModelCard), findsOneWidget);
+      }
+
+      held.complete((
+        status: 200,
+        body: {
+          'provider': '',
+          'model': '',
+          'providers': [
+            {'slug': 'openrouter', 'authenticated': true, 'models': []},
+          ],
+        },
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Hermes is loading your models'), findsOneWidget);
+      expect(find.text('What can you help me with?'), findsNothing);
     });
   });
 

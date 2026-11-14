@@ -64,15 +64,28 @@ class ModelOption {
       : kReasoningEfforts.sublist(1);
 }
 
+bool _namesProvider(String rowSlug, List<Object?> aliases, String slug) =>
+    slug == rowSlug || slug == 'custom:$rowSlug' || aliases.contains(slug);
+
 /// One authenticated provider from `GET /api/model/options` and its models.
 class ModelProviderOption {
   const ModelProviderOption({
     required this.id,
     this.label = '',
     this.models = const [],
+    this.aliases = const [],
   });
 
   final String id;
+
+  /// Other names the server gives this provider (a custom endpoint's row is
+  /// named by its bare key while its `custom:<key>` is what a model choice
+  /// carries).
+  final List<String> aliases;
+
+  /// Whether [slug], as a model choice or the configured default names it,
+  /// is this provider.
+  bool matches(String slug) => _namesProvider(id, aliases, slug);
   final String label;
   final List<ModelOption> models;
 
@@ -113,16 +126,25 @@ class ModelOptions {
       // Connected, yet left out above for listing no models.
       warming: maps.any(
         (row) =>
-            row['authenticated'] == true &&
+            row['authenticated'] != false &&
             row['slug'] is String &&
             (row['slug'] as String).isNotEmpty &&
             !readyIds.contains(row['slug']),
       ),
+      // "auto" is the merged default, not a provider a row can stand for.
       missing:
           choice != null &&
+              choice.providerId != 'auto' &&
               !maps.any(
                 (row) =>
-                    row['slug'] == choice.providerId &&
+                    row['slug'] is String &&
+                    _namesProvider(
+                      row['slug'] as String,
+                      row['aliases'] is List
+                          ? row['aliases'] as List
+                          : const [],
+                      choice.providerId,
+                    ) &&
                     row['authenticated'] != false,
               )
           ? choice
@@ -148,7 +170,7 @@ class ModelOptions {
 
   ModelOption? model(ModelChoice choice) {
     for (final provider in providers) {
-      if (provider.id != choice.providerId) continue;
+      if (!provider.matches(choice.providerId)) continue;
       for (final model in provider.models) {
         if (model.id == choice.modelId) return model;
       }
@@ -175,6 +197,11 @@ class ModelOptions {
       id: slug,
       label: name is String ? name : '',
       models: models,
+      aliases: [
+        if (row['aliases'] is List)
+          for (final alias in row['aliases'] as List)
+            if (alias is String) alias,
+      ],
     );
   }
 
