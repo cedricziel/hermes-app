@@ -14,7 +14,6 @@ import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import 'attention.dart';
 import 'care_result.dart';
-import 'connection_bound.dart';
 import 'gateway_actions.dart';
 import 'gateway_restart.dart';
 import 'hermes_update_run.dart';
@@ -72,9 +71,10 @@ Widget _carry(
     ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
     ChangeNotifierProvider<ServerCheckController>.value(value: check),
   ],
-  // A page outlives the shell on the root navigator: it goes when the
-  // connection it was opened for ends.
-  child: ConnectionBound(child: page),
+  // The page is removed with the connection by the app (see
+  // navigation/connection_pages.dart); what it holds is dropped by its own
+  // controller.
+  child: page,
 );
 
 /// Is Hermes OK, and what is it running on: a headline, then the Hermes

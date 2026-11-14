@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/navigation/connection_pages.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/replies_in_progress.dart';
@@ -405,6 +406,13 @@ void main() {
       run = HermesUpdateRun(repository: repositories.serverCare, care: care);
       addTearDown(run.dispose);
       replies = RepliesInProgress()..attach(() => 1);
+      // As in the app: every page above the home route goes when the
+      // connection ends (navigation/connection_pages.dart).
+      final pushedRoutes = PushedRoutes();
+      if (auth != null) {
+        final closer = ConnectionPageCloser(pushedRoutes)..bind(auth);
+        addTearDown(closer.dispose);
+      }
       await tester.pumpWidget(
         MultiProvider(
           providers: [
@@ -413,6 +421,7 @@ void main() {
               ChangeNotifierProvider<AuthController>.value(value: auth),
           ],
           child: MaterialApp(
+            navigatorObservers: [pushedRoutes],
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),

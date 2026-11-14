@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/navigation/connection_pages.dart';
 import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
@@ -75,6 +76,13 @@ void main() {
       onUnsupported: () => care.reportUnsupported(CarePart.check),
     );
     addTearDown(check.dispose);
+    // As in the app: every page above the home route goes when the
+    // connection ends (navigation/connection_pages.dart).
+    final pushedRoutes = PushedRoutes();
+    if (auth != null) {
+      final closer = ConnectionPageCloser(pushedRoutes)..bind(auth);
+      addTearDown(closer.dispose);
+    }
     // As in the app, the controller is provided below the root Navigator, so
     // a route the screen pushes must carry it along.
     await tester.pumpWidget(
@@ -86,6 +94,7 @@ void main() {
             ChangeNotifierProvider<AuthController>.value(value: auth),
         ],
         child: MaterialApp(
+          navigatorObservers: [pushedRoutes],
           locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -267,7 +276,10 @@ void main() {
 
     for (final (name, end) in <(String, void Function(_TestAuth))>[
       ('sign-out', (a) => a.move(state: HermesConnectionState.needsLogin)),
-      ('a server change', (a) => a.move(server: 'https://other.example')),
+      (
+        'a server change',
+        (a) => a.move(server: 'https://other.example', owner: 3),
+      ),
     ]) {
       testWidgets('$name removes the page from the screen', (tester) async {
         SharedPreferencesAsyncPlatform.instance =
@@ -905,19 +917,21 @@ void main() {
 class _TestAuth extends AuthController {
   var _state = HermesConnectionState.ready;
   String _server = 'https://hermes.example';
+  int _owner = 1;
 
   @override
   HermesConnectionState get state => _state;
   @override
   bool get protectedRequestsAllowed => true;
   @override
-  int get ownerGeneration => 1;
+  int get ownerGeneration => _owner;
   @override
   String? get baseUrl => _server;
 
-  void move({HermesConnectionState? state, String? server}) {
+  void move({HermesConnectionState? state, String? server, int? owner}) {
     _state = state ?? _state;
     _server = server ?? _server;
+    _owner = owner ?? _owner;
     notifyListeners();
   }
 }

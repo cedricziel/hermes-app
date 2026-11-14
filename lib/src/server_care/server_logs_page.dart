@@ -14,7 +14,7 @@ import '../widgets/route_dismissal.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/settings_search_field.dart';
 import 'care_result.dart';
-import 'connection_bound.dart';
+import 'connection_guard.dart';
 import 'secure_window.dart';
 import 'server_care_controller.dart';
 import 'server_care_repository.dart';
@@ -138,11 +138,11 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   }
 
   /// The connection this page was opened for ended: the lines go at once and
-  /// so does the page.
+  /// what the page opened closes. The page itself is removed by the app (see
+  /// navigation/connection_pages.dart).
   void _connectionEnded() {
     _stale();
     _controller.cover();
-    _leave();
   }
 
   /// What was asked or opened on this page no longer applies: closes the

@@ -1,16 +1,15 @@
-import 'package:flutter/widgets.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 
 import '../auth/auth_controller.dart';
-import '../widgets/route_dismissal.dart';
 
 /// Watches the connection a page was opened for and says when it ended: the
 /// session was signed out or expired, another account or server took over,
 /// or protected requests were closed.
 ///
-/// Pages are pushed on the root navigator, which outlives the shell, so
-/// nothing else removes them when the connection goes. A page that holds
-/// anything read with that session listens here and drops it.
+/// The app removes every page above the home route when the connection ends
+/// (`navigation/connection_pages.dart`), but that happens a frame later and
+/// does not tell the page: a page that holds anything read with that session
+/// listens here and drops it at once.
 ///
 /// An [AuthController] that was not ready when the page opened (a test, the
 /// catalog) only ends the connection by changing owner or server.
@@ -49,43 +48,4 @@ class ConnectionGuard {
   }
 
   void dispose() => _auth?.removeListener(_check);
-}
-
-/// Removes the page's own route when the connection it was opened for ends.
-class ConnectionBound extends StatefulWidget {
-  const ConnectionBound({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  State<ConnectionBound> createState() => _ConnectionBoundState();
-}
-
-class _ConnectionBoundState extends State<ConnectionBound> {
-  late final ConnectionGuard _guard;
-
-  @override
-  void initState() {
-    super.initState();
-    AuthController? auth;
-    try {
-      auth = context.read<AuthController>();
-    } on ProviderNotFoundException {
-      auth = null;
-    }
-    _guard = ConnectionGuard(auth, _ended);
-  }
-
-  void _ended() => WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (mounted) dismissRoute(context);
-  });
-
-  @override
-  void dispose() {
-    _guard.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }

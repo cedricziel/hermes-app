@@ -10,6 +10,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/navigation/connection_pages.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/server_care/server_logs_page.dart';
@@ -103,6 +104,13 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.runAsync(care.refresh);
     final page = pageOverride ?? ServerLogsPage(initialFile: file);
+    // As in the app: every page above the home route goes when the
+    // connection ends (navigation/connection_pages.dart).
+    final pushedRoutes = PushedRoutes();
+    if (auth != null) {
+      final closer = ConnectionPageCloser(pushedRoutes)..bind(auth);
+      addTearDown(closer.dispose);
+    }
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -117,6 +125,7 @@ void main() {
             ChangeNotifierProvider<AuthController>.value(value: auth),
         ],
         child: MaterialApp(
+          navigatorObservers: [pushedRoutes],
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
@@ -399,7 +408,10 @@ void main() {
         'session expiry',
         (a) => a.move(state: HermesConnectionState.needsLogin, allowed: false),
       ),
-      ('a server change', (a) => a.move(server: 'https://other.example')),
+      (
+        'a server change',
+        (a) => a.move(server: 'https://other.example', owner: 3),
+      ),
       ('another account', (a) => a.move(owner: 2)),
       ('protected requests closing', (a) => a.move(allowed: false)),
     ]) {
@@ -409,10 +421,16 @@ void main() {
         await pump(tester, pushed: true, auth: auth);
         expect(find.text('Telegram failed'), findsOneWidget);
         end(auth);
-        await tester.pumpAndSettle();
+        // The page that stays shows a loading skeleton, which never settles.
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump(const Duration(milliseconds: 600));
         expect(find.text('Telegram failed'), findsNothing);
-        expect(find.text('Logs'), findsNothing);
-        expect(find.text('open'), findsOneWidget);
+        // The app removes the page with the connection; protected requests
+        // closing alone is not a connection end for it, so there the page
+        // stays, empty.
+        final removed = name != 'protected requests closing';
+        expect(find.text('Logs'), removed ? findsNothing : findsWidgets);
+        expect(find.text('open'), removed ? findsOneWidget : findsNothing);
         // Nothing is read for a connection that is gone.
         expect(reads(), hasLength(1));
       });
@@ -490,7 +508,7 @@ void main() {
           (
             'a server change',
             true,
-            (t, a) async => a.move(server: 'https://other.example'),
+            (t, a) async => a.move(server: 'https://other.example', owner: 3),
           ),
           (
             'a profile switch',
