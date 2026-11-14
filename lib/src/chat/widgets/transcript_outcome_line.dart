@@ -64,7 +64,7 @@ class TranscriptOutcomeLine extends StatelessWidget {
             children: [
               if (!large) Expanded(child: hairline),
               Flexible(
-                flex: 4,
+                flex: 10,
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: large ? 0 : 12),
                   child: Text(
