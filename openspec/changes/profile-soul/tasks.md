@@ -1,14 +1,16 @@
 # Tasks
 
-Two PRs: the catalog PR first (`feat(profile-soul): Personality widgets in the catalog`, about 250 changed lines), then the screen PR (`feat(profile-soul): edit a profile's SOUL.md`, about 400). The design is in `docs/design-briefs/profile-soul.md`. Every behaviour task starts with a failing test. No OpenAPI change: both routes and `ProfileSoulUpdate` are already in the generated client.
+Two PRs: the catalog PR first (`feat(profile-soul): Personality widgets in the catalog`, about 250 changed lines), then the screen PR (`feat(profile-soul): edit a profile's SOUL.md`, about 400). The design is in `docs/design-briefs/profile-soul.md`. Status: Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC). No build starts before the canvas exists. Every behaviour task starts with a failing test. No OpenAPI change: both routes and `ProfileSoulUpdate` are already in the generated client.
 
 ## 1. PR 1: Catalog (widgets as plain-model use cases)
 
+- [ ] 1.0 Wait for the finished Design canvas (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB is incomplete); bring it and the brief in line before any task below starts.
 - [ ] 1.1 Add the ARB strings (en and de, `profiles` area) for every state, question and note in the brief; run `flutter gen-l10n`.
 - [ ] 1.2 Add `AppIcons.personality` (Material `face_outlined`, Cupertino `person_crop_circle`) and its entry in the icon use case.
-- [ ] 1.3 Build `SoulEditor` (multiline field with hint, read-only mode, count line, 20,000-character note, hardened input) in `lib/src/profiles/soul/widgets/`, with use cases for empty, not set yet, loaded, long, over 20,000, read-only, largest text, German; both themes, phone and desktop width.
+- [ ] 1.3 Build `SoulEditor` (multiline field with hint, read-only mode, count line, 20,000-character note, hardened input) in `lib/src/profiles/soul/widgets/`, with a filled field while editable and transparent while read-only, and use cases for empty, not set yet, loaded, long, over 20,000, read-only, largest text, German; both themes, phone and desktop width.
 - [ ] 1.4 Build `SoulStatusLine`, `SoulSaveActions` and `SoulChangedSheet` with use cases for each state in the brief (saved, not saved, error, saving, lost answer, checking, check failed, changed on the server with the server's text closed and open, file gone on the server).
-- [ ] 1.5 Add the Save and Discard questions as use cases of `showConfirmDialog` (normal, empty text, long profile name, Android).
+- [ ] 1.4a Make `AppBanner` stack its action under the text at the largest text size and in German (text at full width), with use cases.
+- [ ] 1.5 Add the Save and Discard questions as use cases of `showConfirmDialog` (normal, empty text, long profile name, Android with Cancel first and no filled default).
 - [ ] 1.6 `flutter test test/widgetbook_test.dart` passes; update `docs/architecture/settings-screens.md` with the new widgets.
 
 ## 2. PR 2: Personality screen

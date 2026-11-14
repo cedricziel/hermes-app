@@ -28,13 +28,13 @@ Profile list and per-profile destinations: `lib/src/profiles/` (`ChatProfiles`, 
 
 ## Decisions
 
-**Wording.** The screen is "Personality"; a footnote says it is Hermes' SOUL.md file. "Soul" is Hermes' word and means little to most people.
+**Wording.** The screen is "Personality"; a footnote says it is Hermes' SOUL.md file, the only place the file name appears (owner decision). "Soul" is Hermes' word and means little to most people.
 
 **Where it opens.** A Personality row right after Memory in the sidebar drawer and More section (the chat's profile), and a Personality section after Memory on the Mac Profiles page (the selected profile). Both pass the profile name into the path. The row is always shown; a route-missing 404 (detail not starting `Profile '`) or a 405 hides it for the rest of the connection.
 
 **Editor.** One multiline field, no autosave. Autocorrect, suggestions, smart quotes and smart dashes off (the text is instructions and Markdown). A count of characters sits under it. At 20,000 characters a note says "Hermes may shorten text this long when it builds a chat. The limit depends on your server's settings." It does not block, at any length: Hermes has no fixed ceiling (an explicit `context_file_max_chars` has none), so the app never locks the editor.
 
-**Dirty state.** Save and Revert are enabled only when the text differs from the last loaded or saved text. Leaving with unsaved changes asks "Discard changes?", default Keep editing. The text is never persisted, so a crash loses it; that is accepted over writing prompts to disk.
+**Dirty state.** Save and Revert are always visible and enabled only when the text differs from the last loaded or saved text. Leaving with unsaved changes asks "Discard changes?", default Keep editing. The text is never persisted, so a crash loses it; that is accepted over writing prompts to disk. App Lock drops unsaved edits at once, with no grace period and nothing kept in memory (owner decision).
 
 **Save question.** Always asked, on every save, because it replaces the whole file. Title "Replace the personality of <profile>?" (the profile name is shown, never logged). Body: "New chats use it. Chats already running usually keep the old one; Bot Chats may pick it up." For empty text: "Hermes will use its default personality. Chats already running usually keep the old one; Bot Chats may pick it up." (Bot Chat sessions rebuild when the file's hash changes; see Server surface.) After a Check that found the earlier text, the question adds "An earlier save may still be pending on the server." Buttons Cancel (default) and Replace.
 
@@ -54,7 +54,7 @@ Recorded where the controller calls the repository. None holds text, titles, pro
 
 ## Design pass
 
-Written without a Claude Design canvas; the full record is `docs/design-briefs/profile-soul.md`. Decisions that change behaviour:
+Status: Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC). The full record is `docs/design-briefs/profile-soul.md`; a Design canvas is started and incomplete (https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB, private, partly published), so no build starts before it exists. Decisions that change behaviour:
 
 - **Check outcomes.** After a lost answer, Check reads the file and compares it with the text that was sent, not the editor. Equal to the sent text (the file exists and its content matches; a missing file never confirms, even when both texts are empty): Saved, the baseline becomes that text and edits made since stay dirty. Equal to the old baseline: the screen says "The server still has the earlier text. Your text is still here." and keeps the text (no conflict question, since nothing changed on the server). It is not a definite failure, because a timed-out PUT can still land later; the next Save asks again with the extra pending-save line. Anything else: the changed-on-server question.
 - **Unconfirmed save that landed.** Save after a lost answer still reads first; if the server's text equals the text about to be sent it reports Saved and moves the baseline without a PUT.
@@ -65,4 +65,5 @@ Written without a Claude Design canvas; the full record is `docs/design-briefs/p
 - **No locked state.** The proposal's "too long to edit" state does not exist; the editor stays editable at any length.
 - **Changed-on-server is a sheet** (dialog on wide windows) holding the server's text behind a disclosure; if the file is gone on the server, it says so.
 - **Mac Profiles page** asks the Discard question when the selected profile or section changes while dirty.
+- **Layout and chrome.** The editor is a filled field (surface-high token) while editable and transparent while read-only; it follows the grouped list's width (about 600 pt on a Mac, 640 pt on an iPad). The `AppBanner` action stacks under the text at the largest text size and in German. Material confirmations are two text buttons, Cancel first, through `showConfirmDialog(cancelIsDefault: true)`. The changed-on-server sheet caps the server's text box at 40% of the height, with Copy. The save error banner is title "Couldn't save" with detail "Hermes reported a problem. Nothing was changed on the server."; the failed-check banner is "Couldn't confirm" with "Check again".
 - **Input hardening.** The editor turns off autocorrect, suggestions, smart punctuation, autofill, keyboard learning and restoration.

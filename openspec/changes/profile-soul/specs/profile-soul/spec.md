@@ -45,7 +45,7 @@ The screen SHALL show the server's text in an editor, or an empty editor with "N
 
 ### Requirement: Editing never saves by itself
 
-Text SHALL change nothing on the server until the user confirms a save. The text SHALL stay only in screen state: never in preferences, drafts, logs or telemetry, and dropped on sign-out, server change and App Lock. Leaving with unsaved changes SHALL ask first, defaulting to Keep editing.
+Text SHALL change nothing on the server until the user confirms a save. The text SHALL stay only in screen state: never in preferences, drafts, logs or telemetry, and dropped on sign-out, server change and App Lock at once, with no grace period. Leaving with unsaved changes SHALL ask first, defaulting to Keep editing.
 
 #### Scenario: Leaving with changes
 

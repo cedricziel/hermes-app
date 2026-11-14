@@ -2,9 +2,11 @@
 
 Change: `openspec/changes/profile-soul/`. Read its design.md for the server facts and the save and conflict rules; this brief is the visual and copy pass.
 
-## Design (done)
+Status: Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC)
 
-No Claude Design canvas was built for this change. The pass was written from the Hermes App design system README, the shared widgets under `lib/src/widgets/`, the Tools and Server care briefs and the change's own design.md. There is no canvas link and no artboard list; when a canvas is wanted later, build it from this brief and bring the two in line.
+## Design
+
+The pass was written from the Hermes App design system README, the shared widgets under `lib/src/widgets/`, the Tools and Server care briefs and the change's own design.md. A Claude Design canvas was started and is incomplete (private, partly published: https://claude.ai/artifact/P2oqCBdLmdviWpGWmZmRjB). It is not finished and is not the record; this brief is. Local canvas renders settled the findings folded in below. No build starts before the canvas exists; when it is done, bring it and this brief in line.
 
 Screens and states decided (all in light and dark, phone and desktop width, largest text, German):
 
@@ -15,17 +17,17 @@ Screens and states decided (all in light and dark, phone and desktop width, larg
 Decisions, one line each:
 
 - Wording: "Personality" everywhere; the footnote under the editor says "This is the SOUL.md file Hermes reads for this profile." and is the only place the file name appears.
-- One screen, one editor. The text field fills the page under a short header; there is no preview, no Markdown toolbar and no separate read mode.
-- Save is a text action in the bar (iOS and Material) or a toolbar button (Mac), disabled while the text equals the baseline. There is no filled button on the phone page: the keyboard covers anything pinned to the bottom, and a bar action stays reachable. Revert is a quiet text button under the count line, enabled only when dirty.
+- One screen, one editor. The text field fills the page under a short header; the editor area is a filled field (surface-high token) while editable and transparent while read-only (saving, checking). The design-system card border is about 1.2:1 against the page in both themes, too weak to mark a field, so the fill carries it; there is no preview, no Markdown toolbar and no separate read mode.
+- Save is a text action in the bar (iOS and Material) or a toolbar button (Mac), disabled while the text equals the baseline. There is no filled button on the phone page: the keyboard covers anything pinned to the bottom, and a bar action stays reachable. Revert is a quiet text button under the count line. Save and Revert are always visible and disabled while clean, never hidden.
 - On the Mac Profiles section and at desktop width, Save (filled) and Revert (outlined) sit together under the editor, since there is no keyboard to cover them and the section has no bar action.
 - Revert asks the same "Discard changes?" question as leaving; it never discards silently.
 - The count reads "1,240 characters" with the locale's grouping, under the editor's trailing edge, announced politely after typing stops (not per key).
 - The 20,000-character note is an info line under the count with an icon, not a banner: "Hermes may shorten text this long when it builds a chat. The limit depends on your server's settings." It appears at 20,000 and stays; nothing locks at any length. The proposal's "too long to edit" state does not exist (see "Corrections").
 - File not set yet and empty file look the same (empty editor, hint text) and differ only by one info line: an empty file adds "Hermes uses its default personality while this is empty." A missing file shows "No personality set yet." Saving either creates or replaces the file.
 - While saving or checking, the editor is read-only and Save shows a spinner in place of its label. Edits cannot race the baseline.
-- The save question is the platform alert: Cancel first and default, Replace plain (never filled, never red). Android: two text buttons, Cancel first. The title names the profile; a 64-character name wraps.
-- "Changed on the server" is a sheet (a dialog on a Mac and wide windows, through `showAdaptiveSheet`), not an alert, because it can hold the server's text. The server's version is closed behind a "Show server's version" disclosure row; opened, it is a selectable, read-only text box (max 40% of the screen, scrolls) with a Copy button. Keep editing is the filled, default button; Replace anyway is a plain text button under it.
-- A lost answer is a warning banner above the editor ("Couldn't confirm the save") with a Check action; the text stays in the editor. Saved is never shown while it is unconfirmed. The bar's Save stays enabled and asks again before any new request.
+- The save question is the platform alert: Cancel first and default, Replace plain (never filled, never red). Material: two text buttons, Cancel first; the design-system AlertDialog draws the default action filled on Material and is never used with a filled default (in the app, `showConfirmDialog(cancelIsDefault: true)` is the call). The title names the profile; a 64-character name wraps.
+- "Changed on the server" is a sheet (a dialog on a Mac and wide windows, through `showAdaptiveSheet`), not an alert, because it can hold the server's text. The server's version is closed behind a "Show server's version" disclosure row; opened, it is a selectable, read-only text box (capped at 40% of the height, scrolls) with a Copy button. Keep editing is the filled, default button; Replace anyway is a plain text button under it.
+- A lost answer is a warning banner above the editor ("Couldn't confirm the save") with a Check action. At the largest text size and in German the banner's action stacks under the text (the design-system Banner squeezes the text into a narrow column); `AppBanner` in the app must do the same, with the text at full width; the text stays in the editor. Saved is never shown while it is unconfirmed. The bar's Save stays enabled and asks again before any new request.
 - Check running: the banner swaps its action for a spinner and "Checking…". It ends within 10 s with "Couldn't confirm" and Check again. Nothing is resent.
 - Check outcomes are compared with the text that was sent, not the editor (the user may have kept typing in the lost-answer state): equal to the sent text is "Saved" (success line) only when the file exists (`exists: true`) and its content equals the sent text, so a missing file never confirms a save, even when both texts are empty; then the baseline moves to it and later edits stay dirty. Equal to the old baseline (same existence and content) is "The server still has the earlier text. Your text is still here." with Save as the bar action. This is not a definite failure: the route has no write precondition, so a timed-out PUT may still land later and replace newer text. The next Save therefore asks the Save question again with one extra line, "An earlier save may still be pending on the server.", and the usual check read runs before any PUT; anything else opens the "Changed on the server" sheet. This splits design.md's "otherwise the conflict question" in two (see "Corrections").
 - Both requests of a save are bounded: the check read and the PUT each give up after 10 s (a controller-level timeout, as `kFilesAnswerTimeout` does in the Files controller). A timed-out check read is "Couldn't check the server first, so nothing was sent."; a timed-out PUT is the lost-answer state.
@@ -33,14 +35,14 @@ Decisions, one line each:
 - App Lock while a check or PUT is in flight: the request finishes, its outcome is discarded, and after the unlock the screen reloads the server's text.
 - Errors never show the response body. Fixed lines per case: read failed, save failed (400, 422, 500), offline, nothing sent because the check failed.
 - Leaving with unsaved changes asks "Discard changes?" with Keep editing as default. On the Mac Profiles page the same question is asked when the selected profile or section changes while dirty, and on closing the window.
-- Unsaved text is dropped on sign-out, server change and App Lock (spec). After an unlock the screen reloads from the server and says nothing about the lost edits beyond what the lock screen already shows (see "Open questions").
+- Unsaved text is dropped on sign-out, server change and App Lock (spec), at once: there is no grace period and nothing is kept in memory while locked (owner decision). After an unlock the screen reloads from the server and says nothing about the lost edits beyond what the lock screen already shows.
 - Text input is plain: no autocorrect, suggestions, smart quotes or dashes, no autofill, no keyboard learning on Android, no spell-check squiggles, no restoration id. The font is the body font at the user's text size, not monospace.
 - The profile is bound to the screen when it opens; the title names it ("Personality", subtitle "work"). A chat-profile switch behind it changes nothing.
 
 Copy added by the design (English; German in the ARB, see "German"):
 
 - Title "Personality"; subtitle "<profile>"; sidebar and Mac row label "Personality".
-- Footnote "This is the SOUL.md file Hermes reads for this profile. It tells Hermes who it is and how to talk." (one sentence in the German too; the file name is a literal).
+- Footnote "This is the SOUL.md file Hermes reads for this profile. It tells Hermes who it is and how to talk." (one sentence in the German too; the file name is a literal). "SOUL.md" appears nowhere else (owner decision).
 - Hint text "Describe who Hermes is and how it should talk."
 - "No personality set yet." and "Hermes uses its default personality while this is empty."
 - "<N> characters" / "1 character".
@@ -49,8 +51,8 @@ Copy added by the design (English; German in the ARB, see "German"):
 - Discard question: title "Discard changes?", body "Your edits to the personality of <profile> haven't been saved.", buttons "Keep editing", "Discard".
 - Changed sheet: title "Changed on the server", body "This file changed since you opened it. Replacing it will lose those changes.", rows "Show server's version", "Copy", buttons "Keep editing", "Replace anyway". If the server's file is now gone: "The file was removed on the server." and the server's version reads "No personality set."
 - Saved line "Saved. New chats use it." Not-saved line "The server still has the earlier text. Your text is still here."
-- Lost answer banner: title "Couldn't confirm the save", detail "It may have gone through. Your text is still here.", action "Check". Checking: "Checking…". After 10 s: "Couldn't confirm" with "Check".
-- Errors: "Couldn't read the personality file on the server." (read failed), "Couldn't save. Hermes reported a problem. Nothing was changed on the server." (400, 422, 500), "Couldn't check the server first, so nothing was sent." with Try again (the second read failed), and offline "You're offline." with "Couldn't load the personality." on load.
+- Lost answer banner: title "Couldn't confirm the save", detail "It may have gone through. Your text is still here.", action "Check". Checking: "Checking…". After 10 s: title "Couldn't confirm" with action "Check again".
+- Errors: "Couldn't read the personality file on the server." (read failed); the save error banner has title "Couldn't save" and detail "Hermes reported a problem. Nothing was changed on the server." (400, 422, 500); "Couldn't check the server first, so nothing was sent." with Try again (the second read failed), and offline "You're offline." with "Couldn't load the personality." on load.
 - Profile gone: `StateMessage` "This profile no longer exists." detail "It may have been deleted on the server." no action.
 - Old server: `StateMessage` "This server doesn't offer personality settings." detail "Updating Hermes on the server adds them." outlined Back.
 
@@ -62,6 +64,8 @@ New components needed, each a plain-model widget in `lib/src/profiles/soul/widge
 | `SoulStatusLine`   | one line under the count: saved, not saved, error, with icon and words       | the row error/warning line of `GroupedRow`; `AppBanner` for the bigger states               |
 | `SoulChangedSheet` | the "Changed on the server" body: text, disclosure, copy, two buttons        | `ToolsetConfirmDialog` and `showAdaptiveSheet`                                              |
 | `SoulSaveActions`  | Save and Revert as bar actions (phone) or buttons (wide)                     | `NamedIconButton`, `toolsButtonStyle`                                                       |
+
+The canvas has none of these four in the design system, so they are drawn as one-off boards. Also missing from the design system and needed for the canvas: a Banner with a stacked action (text at full width, action below at the largest text size and in German), a Mac Profiles page Personality row (the design-system `MacProfilesPage` has a fixed section list), and Memory among the More entries (the Personality row sits after it). The sidebar icon is Material `face` in the canvas.
 
 The save and discard questions use `showConfirmDialog` with `cancelIsDefault: true` and `filled: false`; no new widget. The banner is `AppBanner` (warning, error, neutral). Missing, gone and old-server states are `StateMessage`. A new icon is needed for the entry rows: add `AppIcons.personality` (Material `face_outlined`, Cupertino `person_crop_circle`).
 
@@ -88,7 +92,7 @@ Two facts the design must not blur:
 
 - iPhone: sidebar drawer, Personality row right after Memory (same row look and `AppIcons` pattern, no count). It pushes the screen; Back returns to the chat; leaving with unsaved changes asks first. The More section on a phone holds the same row for the chat's profile.
 - Android: the same; the system back gesture and the bar's back button both go through the Discard question when dirty. Material bar and dialogs.
-- iPad and wide windows (900 pt and up): the screen is pushed into the content column, not a two-pane; the editor is capped at 720 pt wide and centred, Save and Revert sit under it.
+- iPad and wide windows (900 pt and up): the screen is pushed into the content column, not a two-pane; the editor follows the grouped list's width (about 600 pt on a Mac, 640 pt on an iPad), not 720, and is centred; Save and Revert sit under it.
 - Mac: Personality is a section after Memory in the Profiles page's section list for the selected profile, with the detail line "Who Hermes is and how it talks" (German draft: "Wer Hermes ist und wie es spricht"), as the other `ProfileSection`s have one. The pane is the editor with Save (filled) and Revert (outlined) under it, the count and notes between. Changing profile or section while dirty asks "Discard changes?". The proposal adds no Mac sidebar row; the Profiles page is the Mac entry. The Personality pane offers a File > Save command (`MacCommand.save`, ⌘S, a new entry in `menuLayout`) through its `MacCommandScope`; it opens the Save question and is disabled while clean or busy. View > Back (⌘[) comes from the scaffold as on other pages; no key handler is added for either chord.
 - Windows and Linux: as Mac for pointer sizes, as iPad for navigation.
 
@@ -105,7 +109,7 @@ Order, top to bottom:
 5. Revert (quiet text button, left) on the phone.
 6. Footnote "This is the SOUL.md file Hermes reads for this profile…" in a grouped footer.
 
-The one primary action is Save. Revert is secondary and appears only when there is something to revert. Nothing here is destructive in the sense of a red button: the destructive step is the Replace in the question, which is plain.
+The one primary action is Save. Revert is secondary, always visible and disabled while clean. Nothing here is destructive in the sense of a red button: the destructive step is the Replace in the question, which is plain.
 
 States:
 
@@ -126,9 +130,9 @@ States:
 - 401: the existing sign-in path; the screen shows nothing of its own.
 - Changed on the server: the sheet above; nothing is sent until Replace anyway.
 - App Lock: see "Privacy".
-- Wide layout: editor capped at 720 pt, centred; the footnote under it; Save and Revert under the editor on the right, not in the bar on Mac.
+- Wide layout: editor at the grouped list's width (about 600 pt on a Mac, 640 pt on an iPad), centred; the footnote under it; Save and Revert under the editor on the right, not in the bar on Mac.
 
-Hierarchy at the largest text: the bar title truncates, the subtitle (profile name) may wrap to two lines under it; the editor keeps at least 12 lines of height and the page scrolls; count, note, status and Revert stack and wrap. Nothing is capped.
+Hierarchy at the largest text: the bar title truncates ("Personal…" beside the "Chat" back label) and the profile subtitle stays, wrapping to two lines if needed; the editor keeps at least 12 lines of height and the page scrolls; count, note, status and Revert stack and wrap. Nothing is capped.
 
 ## Confirmations and the changed sheet
 
@@ -154,7 +158,7 @@ Longer strings and risks: "Persönlichkeit" in the bar and sidebar row (fits, bu
 ## Privacy
 
 - The text lives only in the screen's state. It is never in preferences, drafts, `restorationId`, logs, spans or breadcrumbs, and the keyboard's learning is off.
-- Under App Lock, titles and text are blanked: while locked the screen shows the lock cover, not the editor, and the bar title and profile name are not drawn in the app switcher. After an unlock the state is reloaded from the server; edits that were not saved are gone (spec).
+- Under App Lock, titles and text are blanked: while locked the screen shows the lock cover, not the editor, and the bar title and profile name are not drawn in the app switcher. After an unlock the state is reloaded from the server; edits that were not saved are gone at once, with no grace period (spec, owner decision).
 - No content beyond what a notification body already allows leaves the screen: the server's text in the changed sheet is shown and copyable by the user only.
 - The profile name is shown on screen and never logged. Errors show fixed lines, never the response body (it can hold paths).
 - Telemetry names are fixed (design.md "Observability").
@@ -163,8 +167,8 @@ Longer strings and risks: "Persönlichkeit" in the bar and sidebar row (fits, bu
 ## Platform differences
 
 - iPhone: pushed page, bar Save, alert questions, a bottom sheet for the changed state, the keyboard resizes the editor and the page scrolls.
-- Android: Material bar, two-text-button dialogs, a Material bottom sheet, back gesture asks to discard.
-- iPad and Windows/Linux wide: pushed page with a 720 pt editor and buttons under it; sheets become dialogs.
+- Android: Material bar, two-text-button dialogs (Cancel first), a Material bottom sheet, back gesture asks to discard.
+- iPad and Windows/Linux wide: pushed page with the editor at the list's width and buttons under it; sheets become dialogs.
 - Mac: Profiles section, toolbar-less editor with buttons under it, hover states on buttons, File > Save (⌘S) from the pane's `MacCommandScope`, dialogs not sheets.
 
 ## Spec scenario coverage
@@ -191,8 +195,8 @@ Longer strings and risks: "Persönlichkeit" in the bar and sidebar row (fits, bu
 
 ## Open questions for the owner
 
-1. App Lock drops unsaved edits (spec). On a long text typed over several minutes, locking the app after a short absence loses it. Should a locked screen keep the text in memory for a short grace period (never on disk), or is dropping it the rule? The brief follows the spec: drop.
-2. A very long text (hundreds of thousands of characters) may make a Flutter text field slow. Should the editor degrade (for example, plain scrolling without the count updating per key) past a size, or is that left until it is seen in practice? No limit is added.
-3. The ARB wording of the footnote names "SOUL.md". Is it right to show the file name at all for people who never use the dashboard? The brief keeps it once, in the footnote, so the dashboard's users recognise it.
-4. Should the Mac Profiles page also show a one-line preview of the personality in its section list? The brief says no (it would read the file for every profile and show the user's text in a list); say if it is wanted.
-5. `AppIcons.personality` is a new icon pair; confirm `face_outlined` and `person_crop_circle` or name another.
+Decided and removed: App Lock drops unsaved edits at once, with no grace period; "SOUL.md" appears only in the footnote.
+
+1. A very long text (hundreds of thousands of characters) may make a Flutter text field slow. Should the editor degrade (for example, plain scrolling without the count updating per key) past a size, or is that left until it is seen in practice? No limit is added.
+2. Should the Mac Profiles page also show a one-line preview of the personality in its section list? The brief says no (it would read the file for every profile and show the user's text in a list); say if it is wanted.
+3. `AppIcons.personality` is a new icon pair; confirm `face_outlined` and `person_crop_circle` or name another. The canvas draws Material `face`.
