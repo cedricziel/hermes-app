@@ -36,3 +36,24 @@ example, media_kit's NativePlayer property API). Keep that implementation
 behind a conditional import/export with a matching browser stub; a runtime
 platform check alone cannot fix missing-method compilation errors. Validate
 with `scripts/build-widgetbook.sh` locally or the catalog build in CI.
+
+## Which jobs run
+
+`ci.yml` starts with a `Changes` job. On a pull request it diffs the merge
+commit against its base (`HEAD^1`) and outputs `code` (anything besides
+`docs/**`, `openspec/**`, `.claude/skills/**` and `*.md`) and `watch` (anything
+under `ios/HermesWatch`, `ios/HermesSurfaceKit` or `ci.yml`). Push to main and
+`workflow_dispatch` set both to true. The shards, coverage and all platform
+builds need `code`; `Test watch core` needs `watch`. `Analyze & test` expects
+`success` from a job that was needed and `skipped` from one that was not, so a
+docs-only PR is green with the shards skipped, while a failed or cancelled job
+still fails it. A skipped build or test on a PR is therefore normal, not a
+missing check. If a test starts reading a file under a docs-only path, remove
+that path from the `case` in the `Changes` job.
+
+Only pull-request runs are cancelled by a newer push (`cancel-in-progress` is
+conditional in `ci.yml`, `messenger-plugin.yml`, `real-backend-contract.yml`
+and `verify-hermes-api-client.yml`). On main a run in progress finishes and a
+queued one is replaced by the newer one, so main's latest finished run is the
+one to read. `widgetbook.yml` still cancels on main: a Pages deploy is
+superseded by the next one.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_otel/flutter_otel.dart'
@@ -179,6 +180,100 @@ void main() {
       controller.board!.columns.firstWhere((c) => c.name == 'todo').tasks,
       hasLength(1),
     );
+  });
+
+  test('an older refetch answering last does not replace a newer', () async {
+    serveBoard([kanbanTaskRow(id: 't1', status: 'todo')]);
+    await controller.start();
+
+    final older = Completer<void>();
+    var calls = 0;
+    server.onRequest('GET', '/api/plugins/kanban/board', (_) async {
+      if (++calls == 1) {
+        await older.future;
+        return (
+          status: 200,
+          body: kanbanBoardBody([kanbanTaskRow(id: 't1', status: 'todo')]),
+        );
+      }
+      return (
+        status: 200,
+        body: kanbanBoardBody([kanbanTaskRow(id: 't1', status: 'done')]),
+      );
+    });
+    final first = controller.refresh();
+    await until(() => calls == 1);
+    await controller.refresh();
+    older.complete();
+    await first;
+
+    expect(
+      controller.board!.columns.firstWhere((c) => c.name == 'done').tasks,
+      hasLength(1),
+    );
+    expect(controller.loading, isFalse);
+  });
+
+  group('an older refetch that succeeds and a newer one that fails', () {
+    late Completer<void> older;
+    late Completer<void> newer;
+
+    setUp(() {
+      older = Completer<void>();
+      newer = Completer<void>();
+      var calls = 0;
+      server.onRequest('GET', '/api/plugins/kanban/board', (_) async {
+        if (++calls == 1) {
+          await older.future;
+          return (
+            status: 200,
+            body: kanbanBoardBody([kanbanTaskRow(id: 't1', status: 'todo')]),
+          );
+        }
+        await newer.future;
+        return (status: 500, body: {'detail': 'x'});
+      });
+    });
+
+    Future<void> run({required bool olderFirst}) async {
+      final first = controller.refresh();
+      await until(
+        () => server.requestsTo('GET', '/api/plugins/kanban/board').isNotEmpty,
+      );
+      final second = controller.refresh();
+      await until(
+        () => server.requestsTo('GET', '/api/plugins/kanban/board').length == 2,
+      );
+      if (olderFirst) {
+        older.complete();
+        await first;
+        newer.complete();
+        await second;
+      } else {
+        newer.complete();
+        await second;
+        older.complete();
+        await first;
+      }
+    }
+
+    test('older first: the board stays, marked stale', () async {
+      await run(olderFirst: true);
+
+      expect(controller.board, isNotNull);
+      expect(controller.refreshFailed, isTrue);
+      expect(controller.loading, isFalse);
+      expect(connects, hasLength(1));
+    });
+
+    test('newer first: the board that arrives later is shown', () async {
+      await run(olderFirst: false);
+
+      expect(controller.board, isNotNull);
+      expect(controller.error, isNull);
+      expect(controller.loading, isFalse);
+      expect(connects, hasLength(1));
+    });
   });
 
   test('previewMove ignores unknown tasks and columns', () async {

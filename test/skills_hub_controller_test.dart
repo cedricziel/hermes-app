@@ -125,6 +125,28 @@ void main() {
       expect(c.status, HubStatus.ready);
     });
 
+    test('typing and clearing a query while it loads still loads', () async {
+      final gate = Completer<void>();
+      server.onRequest('GET', '/api/skills/hub/official', (_) async {
+        await gate.future;
+        return (
+          status: 200,
+          body: {
+            'skills': [hubSkillRow(name: 'web-research', source: 'official')],
+          },
+        );
+      });
+      final c = hub();
+      final loading = c.load();
+      c.setQuery('scr');
+      c.setQuery('');
+      gate.complete();
+      await loading;
+
+      expect(c.status, HubStatus.ready);
+      expect(c.official.map((s) => s.name), ['web-research']);
+    });
+
     test('a server without the hub is told so', () async {
       server = FakeHermesServer();
       final c = SkillsHubController(
@@ -192,6 +214,28 @@ void main() {
       await until(() => c.results.isNotEmpty && !c.searching);
 
       expect(c.results.map((s) => s.name), ['new-one']);
+    });
+
+    test('a reset during a search does not leave it searching', () async {
+      final gate = Completer<FakeResponse>();
+      server.onRequest('GET', '/api/skills/hub/search', (_) => gate.future);
+      final c = hub(debounce: Duration.zero);
+      await c.load();
+      c.setQuery('scrape');
+      await until(
+        () => server.requestsTo('GET', '/api/skills/hub/search').isNotEmpty,
+      );
+      expect(c.searching, isTrue);
+
+      server.on('GET', '/api/skills/hub/official', {
+        'detail': 'x',
+      }, status: 502);
+      await c.reset();
+      gate.complete((status: 200, body: {'results': []}));
+      await pumpEventQueue();
+
+      expect(c.status, HubStatus.failed);
+      expect(c.searching, isFalse);
     });
 
     test('clearing the text goes back to the featured list', () async {
