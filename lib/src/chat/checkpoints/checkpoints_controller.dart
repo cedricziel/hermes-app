@@ -45,6 +45,7 @@ class RestoreIntent {
     required this.agentWorking,
     required this.filesDiffer,
     required this.epoch,
+    required this.turnEpoch,
   });
 
   final ActionScope scope;
@@ -63,7 +64,7 @@ class RestoreIntent {
   /// How many files differ, when read from this checkpoint's changes since
   /// the last turn ended; null reads "some".
   final int? filesDiffer;
-  final int epoch;
+  final int epoch, turnEpoch;
   var _used = false;
 
   bool get isFull => filePath == null;
@@ -132,6 +133,10 @@ class CheckpointsController extends ChangeNotifier {
 
   ActionScope? _scope;
   int _epoch = 0, _listGeneration = 0, _changesGeneration = 0;
+
+  /// Bumped only by [clear] and [dispose]: a restore that settles after one
+  /// of them touches neither the chat nor this controller.
+  int _clearEpoch = 0;
 
   /// Counts turns that ended, so a file count read before the last turn is
   /// not trusted.
@@ -265,6 +270,7 @@ class CheckpointsController extends ChangeNotifier {
     if (_disposed) return;
     _scope = null;
     _epoch++;
+    _clearEpoch++;
     _listGeneration++;
     _changesGeneration++;
     _list = null;
@@ -300,7 +306,13 @@ class CheckpointsController extends ChangeNotifier {
   /// this resumes it, as sending would, and lists.
   Future<void> openResuming() async {
     final scope = _scope, source = transport;
-    if (_disposed || _locked || scope == null || source == null) return;
+    if (_disposed ||
+        _locked ||
+        !_connected ||
+        scope == null ||
+        source == null) {
+      return;
+    }
     if (scope.binding != null) return refresh();
     await _load(
       () => source.listCheckpointsResuming(
@@ -462,6 +474,7 @@ class CheckpointsController extends ChangeNotifier {
       agentWorking: filePath != null && bridge.isReplying(),
       filesDiffer: trusted ? known.files.length : null,
       epoch: _epoch,
+      turnEpoch: _turnEpoch,
     );
   }
 
@@ -489,6 +502,8 @@ class CheckpointsController extends ChangeNotifier {
       'scope': intent.isFull ? 'all' : 'file',
     });
     final before = {for (final c in checkpoints) c.hash};
+    final clearEpoch = _clearEpoch;
+    bool live() => !_disposed && clearEpoch == _clearEpoch;
     final span = telemetry.start('chat.checkpoints.restore');
     CheckpointRestore result;
     try {
@@ -502,13 +517,13 @@ class CheckpointsController extends ChangeNotifier {
       result = const RestoreMayHaveHappened();
     }
     try {
-      final outcome = await _settle(intent, result, before);
+      final outcome = await _settle(intent, result, before, live);
       telemetry.finish(span, {
         'scope': intent.isFull ? 'all' : 'file',
         'outcome': outcome.kind.name,
         'history_removed': ActionTelemetry.bucket(outcome.historyRemoved),
       });
-      if (!_disposed) _outcome = outcome;
+      if (live()) _outcome = outcome;
     } finally {
       _restoring = false;
       // Send is held until the restore settles: success, failure or a lost
@@ -518,42 +533,66 @@ class CheckpointsController extends ChangeNotifier {
     }
   }
 
+  /// Turns [result] into an outcome. While [live] says this controller was
+  /// not cleared or disposed meanwhile, it also re-reads the list and the
+  /// chat; otherwise it touches neither (a sign-out keeps nothing, and the
+  /// old prompt never reaches a composer).
   Future<RestoreOutcome> _settle(
     RestoreIntent intent,
     CheckpointRestore result,
     Set<String> before,
+    bool Function() live,
   ) async {
+    Future<bool> relist() async => live() && await _relist();
+    Future<bool> refetch() async => live() && await _refetchChat();
+
     switch (result) {
       case Restored(:final historyRemoved):
-        final listed = await _relist();
-        // After one file the Changes page comes back, re-read.
-        if (!intent.isFull && listed) await openChanges(intent.hash);
-        await _refetchChat();
-        final added = listed
+        final listed = await relist();
+        // After one file the Changes page comes back, re-read, if it is
+        // still showing and the checkpoint is still listed.
+        if (!intent.isFull &&
+            listed &&
+            live() &&
+            _panelOpen &&
+            checkpoints.any((c) => c.hash == intent.hash)) {
+          await openChanges(intent.hash);
+        }
+        final refetched = await refetch();
+        final added = listed && live()
             ? _addedSafetyCheckpoint(intent.hash, before)
             : null;
         var notRemoved = false;
         final quote = intent.quote;
-        if (intent.isFull && historyRemoved > 0 && quote != null) {
-          if (bridge.chatHolds(quote)) {
+        // Only a re-read chat can say whether the quoted message is gone.
+        if (intent.isFull &&
+            historyRemoved > 0 &&
+            quote != null &&
+            refetched &&
+            live()) {
+          if (_chatHolds(quote)) {
             notRemoved = true;
           } else {
             bridge.handBackToComposer(quote.text);
           }
         }
+        // N counts only when read since the last turn ended, checked now.
+        final trusted = intent.turnEpoch == _turnEpoch;
         return RestoreOutcome(
           RestoreOutcomeKind.restored,
-          filesRestored: intent.isFull ? intent.filesDiffer : 1,
+          filesRestored: intent.isFull
+              ? (trusted ? intent.filesDiffer : null)
+              : 1,
           historyRemoved: historyRemoved,
           safetyCheckpoint: added,
           lastMessageNotRemoved: notRemoved,
         );
       case RestoredHistoryNotRewound():
-        await _relist();
-        await _refetchChat();
+        await relist();
+        await refetch();
         return const RestoreOutcome(RestoreOutcomeKind.historyNotRewound);
       case RestoreRefused(:final kind):
-        if (kind == CheckpointFailureKind.notFound) await _relist();
+        if (kind == CheckpointFailureKind.notFound) await relist();
         return RestoreOutcome(RestoreOutcomeKind.refused, refusal: kind);
       case RestoreBusy(:final reason):
         return RestoreOutcome(
@@ -562,23 +601,25 @@ class CheckpointsController extends ChangeNotifier {
               : RestoreOutcomeKind.busyReplying,
         );
       case RestoreMayHaveHappened():
-        await _relist();
-        await _refetchChat();
+        await relist();
+        await refetch();
         return const RestoreOutcome(RestoreOutcomeKind.mayHaveHappened);
       case RestoreUnsupported():
         return const RestoreOutcome(RestoreOutcomeKind.unsupported);
       case RestoreFailed(:final kind, :final filesPossiblyChanged):
         if (kind == CheckpointFailureKind.sessionGone) {
-          try {
-            await bridge.reestablishSession();
-          } on Object {
-            // The user is asked to try again either way.
+          if (live()) {
+            try {
+              await bridge.reestablishSession();
+            } on Object {
+              // The user is asked to try again either way.
+            }
           }
           return const RestoreOutcome(RestoreOutcomeKind.sessionGone);
         }
         if (filesPossiblyChanged) {
-          await _relist();
-          await _refetchChat();
+          await relist();
+          await refetch();
         }
         return RestoreOutcome(
           filesPossiblyChanged
@@ -589,12 +630,25 @@ class CheckpointsController extends ChangeNotifier {
     }
   }
 
+  bool _chatHolds(PromptQuote quote) {
+    try {
+      return bridge.chatHolds(quote);
+    } on Object {
+      // Unknown: leave the composer alone.
+      return true;
+    }
+  }
+
   /// A new hash, absent before the restore, whose reason is a safety
-  /// checkpoint "restoring to" the first characters of the restored hash. An
-  /// older "Before a restore" row at the top does not count.
-  bool _addedSafetyCheckpoint(String restored, Set<String> before) {
+  /// checkpoint "restoring to" the first eight characters of the restored
+  /// hash. An older "Before a restore" row at the top does not count. Null
+  /// (unknown) under App Lock, which hides the list.
+  bool? _addedSafetyCheckpoint(String restored, Set<String> before) {
+    if (_locked) return null;
+    final list = _list;
+    if (list is! CheckpointsOn) return null;
     final prefix = restored.toLowerCase();
-    return checkpoints.any(
+    return list.checkpoints.any(
       (c) =>
           !before.contains(c.hash) &&
           c.reason == CheckpointReason.beforeRestore &&
@@ -603,21 +657,32 @@ class CheckpointsController extends ChangeNotifier {
     );
   }
 
-  /// Re-reads the list; false when it could not be read.
+  /// Re-reads the list; false when it was not read. Under App Lock or while
+  /// disconnected the kept list is left alone.
   Future<bool> _relist() async {
     final binding = _scope?.binding, source = transport;
-    if (_disposed || binding == null || source == null) return false;
+    if (_disposed ||
+        _locked ||
+        !_connected ||
+        binding == null ||
+        source == null) {
+      return false;
+    }
     // The diff of a restored checkpoint is stale.
+    _changesGeneration++;
     _changes = null;
+    _loadingChanges = false;
     await _load(() => source.listCheckpoints(binding));
     return _list is CheckpointsOn;
   }
 
-  Future<void> _refetchChat() async {
+  /// Re-reads the chat; false when that failed.
+  Future<bool> _refetchChat() async {
     try {
       await bridge.refetchChat();
+      return true;
     } on Object {
-      // The chat stays as it was.
+      return false;
     }
   }
 
@@ -641,6 +706,7 @@ class CheckpointsController extends ChangeNotifier {
     if (_sendHeld) _setSendHeld(false);
     _disposed = true;
     _epoch++;
+    _clearEpoch++;
     _listGeneration++;
     _changesGeneration++;
     _list = null;

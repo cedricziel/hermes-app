@@ -589,6 +589,127 @@ void main() {
     });
   });
 
+  group('a restore that settles after the chat state changed', () {
+    test('sign-out mid-restore keeps nothing, hands nothing back and still releases Send', () async {
+      final s = _Setup();
+      s.chat.quote = const PromptQuote(
+        messageId: 'm1',
+        text: 'my secret prompt',
+      );
+      await s.openWithChanges();
+      s.transport
+        ..restore = const Restored(historyRemoved: 1)
+        ..restoreGate = Completer<void>();
+      final pending = s.controller.confirmRestore(
+        s.controller.beginRestore(_h1)!,
+      );
+      await Future<void>.delayed(Duration.zero);
+      s.controller.clear();
+      s.transport.restoreGate!.complete();
+      await pending;
+      expect(s.chat.handedBack, isEmpty);
+      expect(s.chat.refetches, 0);
+      expect(s.controller.outcome, isNull);
+      expect(s.controller.restoring, isFalse);
+      expect(s.chat.held, [true, false]);
+    });
+
+    test('App Lock mid-restore does not claim "no new checkpoint"', () async {
+      final s = _Setup();
+      await s.openWithChanges();
+      s.transport
+        ..restore = const Restored(historyRemoved: 1)
+        ..restoreGate = Completer<void>();
+      final pending = s.controller.confirmRestore(
+        s.controller.beginRestore(_h1)!,
+      );
+      await Future<void>.delayed(Duration.zero);
+      s.controller.setLocked(true);
+      s.transport.restoreGate!.complete();
+      await pending;
+      expect(s.controller.outcome!.kind, RestoreOutcomeKind.restored);
+      expect(s.controller.outcome!.safetyCheckpoint, isNull);
+    });
+
+    test('a disconnect mid-restore keeps the list instead of replacing it with a failure', () async {
+      final s = _Setup();
+      await s.openWithChanges();
+      s.transport
+        ..restore = const RestoreMayHaveHappened()
+        ..restoreGate = Completer<void>();
+      final pending = s.controller.confirmRestore(
+        s.controller.beginRestore(_h1)!,
+      );
+      await Future<void>.delayed(Duration.zero);
+      s.controller.disconnected();
+      s.transport.restoreGate!.complete();
+      await pending;
+      expect(s.controller.outcome!.kind, RestoreOutcomeKind.mayHaveHappened);
+      expect(s.controller.checkpoints, hasLength(2));
+      expect(s.controller.notUpToDate, isTrue);
+    });
+
+    test('a chat that could not be re-read is not claimed to have lost the message', () async {
+      final s = _Setup();
+      final failing = FakeChatBridge()
+        ..quote = const PromptQuote(messageId: 'm1', text: 'x')
+        ..quoteStillThere = true;
+      final controller = CheckpointsController(
+        transport: s.transport,
+        bridge: ChatActionBridge(
+          isReplying: () => false,
+          refetchChat: () async => throw StateError('offline'),
+          lastPrompt: () => failing.quote,
+          chatHolds: (_) => true,
+          handBackToComposer: failing.handedBack.add,
+        ),
+      )..bind(fakeScope());
+      addTearDown(controller.dispose);
+      s.transport
+        ..list = CheckpointsOn([_cp(_h1)])
+        ..restore = const Restored(historyRemoved: 1);
+      await controller.panelOpened();
+      await controller.confirmRestore(controller.beginRestore(_h1)!);
+      expect(controller.outcome!.lastMessageNotRemoved, isFalse);
+      expect(failing.handedBack, isEmpty);
+    });
+
+    test(
+      'a turn that ended while the confirmation was open takes the count away',
+      () async {
+        final s = _Setup();
+        await s.openWithChanges();
+        final intent = s.controller.beginRestore(_h1)!;
+        expect(intent.filesDiffer, 1);
+        await s.controller.turnEnded();
+        await s.controller.confirmRestore(intent);
+        expect(s.controller.outcome!.filesRestored, isNull);
+      },
+    );
+
+    test('the Changes page is not re-read after a file restore once the panel was closed', () async {
+      final s = _Setup();
+      await s.openWithChanges();
+      s.transport.restoreGate = Completer<void>();
+      final pending = s.controller.confirmRestore(
+        s.controller.beginRestore(_h1, filePath: 'a.txt')!,
+      );
+      await Future<void>.delayed(Duration.zero);
+      s.controller.panelClosed();
+      s.transport.restoreGate!.complete();
+      await pending;
+      expect(s.controller.changes, isNull);
+      expect(s.transport.count('changes'), 1);
+    });
+
+    test('opening a stored chat on purpose needs a connection', () async {
+      final s = _Setup(live: false);
+      s.controller.disconnected();
+      await s.controller.openResuming();
+      expect(s.transport.calls, isEmpty);
+    });
+  });
+
   group('records carry fixed words only', () {
     test('no span, breadcrumb or log holds a path, hash, reason, message or server text', () async {
       final tracer = RecordingTracer();

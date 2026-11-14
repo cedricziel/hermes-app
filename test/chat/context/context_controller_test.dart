@@ -500,6 +500,43 @@ void main() {
     });
   });
 
+  group('a compress that settles after the chat state changed', () {
+    test('sign-out mid-compress keeps nothing and re-reads nothing', () async {
+      final s = _Setup()..controller.updateUsage(_usage(90));
+      s.transport
+        ..compress = const Compressed(beforeMessages: 4, afterMessages: 2)
+        ..compressGate = Completer<void>();
+      final pending = s.controller.confirmCompress(
+        s.controller.beginCompress()!,
+      );
+      await Future<void>.delayed(Duration.zero);
+      s.controller.clear();
+      s.transport.compressGate!.complete();
+      await pending;
+      expect(s.controller.outcome, isNull);
+      expect(s.controller.compressing, isFalse);
+      expect(s.chat.refetches, 0);
+      expect(s.chat.usageReads, 0);
+    });
+
+    test('a pending compress does not stay "compressing" after sign-out or a rebind', () async {
+      final s = _Setup();
+      s.transport.compress = const CompressPending();
+      await s.controller.confirmCompress(s.controller.beginCompress()!);
+      expect(s.controller.compressing, isTrue);
+      s.controller.bind(fakeScope(thread: 'stored-2'));
+      expect(s.controller.compressing, isFalse);
+
+      final t = _Setup();
+      t.transport.compress = const CompressPending();
+      await t.controller.confirmCompress(t.controller.beginCompress()!);
+      t.controller.clear();
+      expect(t.controller.compressing, isFalse);
+      await t.controller.sessionSettled();
+      expect(t.chat.refetches, 0);
+    });
+  });
+
   group('records carry fixed words only', () {
     test('a failing compress with a focus records the outcome and whether a focus was set, nothing else', () async {
       final tracer = RecordingTracer();
@@ -520,7 +557,7 @@ void main() {
       s.transport.breakdown = const BreakdownFailed(
         CheckpointFailureKind.other,
       );
-      await s.controller.openDetails(from: 'suggestion');
+      await s.controller.openDetails(from: ContextOpenFrom.suggestion);
       await s.controller.confirmCompress(
         s.controller.beginCompress()!,
         focus: 'keep the hunter2 credentials',

@@ -8,6 +8,9 @@ import '../checkpoints/checkpoints_transport.dart';
 import '../session_usage/usage_snapshot.dart';
 import 'context_models.dart';
 
+/// Where the user opened the Context details from.
+enum ContextOpenFrom { row, suggestion, menu }
+
 /// How full the window is, for the row's wording and emphasis.
 enum ContextLevel { normal, nearlyFull, critical, full }
 
@@ -94,6 +97,10 @@ class ContextController extends ChangeNotifier {
 
   ActionScope? _scope;
   int _epoch = 0, _breakdownGeneration = 0;
+
+  /// Bumped only by [clear] and [dispose]: a compress that settles after one
+  /// of them keeps and re-reads nothing.
+  int _clearEpoch = 0;
   UsageSnapshot? _usage;
   bool _connected = true, _locked = false, _disposed = false;
   bool _detailsOpen = false;
@@ -199,6 +206,7 @@ class ContextController extends ChangeNotifier {
     _breakdownFailed = false;
     _breakdownSupported = true;
     _intent = null;
+    _pendingRemote = false;
     _connected = true;
     _readFailures.clear();
     _notify();
@@ -250,6 +258,8 @@ class ContextController extends ChangeNotifier {
     if (_disposed) return;
     _scope = null;
     _epoch++;
+    _clearEpoch++;
+    _pendingRemote = false;
     _breakdownGeneration++;
     _usage = null;
     _breakdown = null;
@@ -265,10 +275,10 @@ class ContextController extends ChangeNotifier {
 
   // -- reads ----------------------------------------------------------------
 
-  Future<void> openDetails({String from = 'row'}) async {
+  Future<void> openDetails({ContextOpenFrom from = ContextOpenFrom.row}) async {
     if (_disposed || _locked) return;
-    telemetry.crumb('chat.context.opened', {'from': from});
-    if (from == 'suggestion') {
+    telemetry.crumb('chat.context.opened', {'from': from.name});
+    if (from == ContextOpenFrom.suggestion) {
       telemetry.crumb('chat.context.suggestion', {'action': 'accepted'});
     }
     _detailsOpen = true;
@@ -298,7 +308,7 @@ class ContextController extends ChangeNotifier {
 
   /// A compute-host compress reported it has settled.
   Future<void> sessionSettled() async {
-    if (_disposed || !_pendingRemote) return;
+    if (_disposed || _scope == null || !_pendingRemote) return;
     _pendingRemote = false;
     _notify();
     await _rereadAfterCompress();
@@ -416,6 +426,7 @@ class ContextController extends ChangeNotifier {
     _outcome = null;
     _notify();
     telemetry.crumb('chat.context.compress_confirmed');
+    final clearEpoch = _clearEpoch;
     final span = telemetry.start('chat.context.compress');
     CompressionResult result;
     try {
@@ -439,7 +450,12 @@ class ContextController extends ChangeNotifier {
         'after': ActionTelemetry.bucket(n),
     });
     _compressing = false;
-    if (_disposed) return;
+    // Cleared or disposed meanwhile (sign-out, profile switch): nothing is
+    // kept and nothing is re-read.
+    if (_disposed || clearEpoch != _clearEpoch) {
+      _notify();
+      return;
+    }
     _outcome = outcome;
     if (result is CompressUnsupported) _compressSupported = false;
     if (result is CompressPending) _pendingRemote = true;
@@ -524,6 +540,7 @@ class ContextController extends ChangeNotifier {
     _disposed = true;
     _breakdownGeneration++;
     _epoch++;
+    _clearEpoch++;
     _breakdown = null;
     _usage = null;
     super.dispose();
