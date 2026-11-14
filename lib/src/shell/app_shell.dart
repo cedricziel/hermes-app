@@ -62,6 +62,15 @@ import 'shell_navigation.dart';
 import '../widgets/route_dismissal.dart';
 import '../widgets/root_navigation_queue.dart';
 
+part 'app_shell_deep_links.dart';
+part 'app_shell_navigation.dart';
+part 'app_shell_platform_hint.dart';
+part 'app_shell_detection.dart';
+part 'app_shell_watchers.dart';
+part 'app_shell_bots.dart';
+part 'app_shell_sudo_prompt.dart';
+part 'app_shell_profiles.dart';
+
 enum _Destination { chat, bots, kanban, schedules, profiles }
 
 /// Top-level navigation between Chat and the destinations the server offers:
@@ -285,32 +294,43 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
-  /// The sudo password of the Hermes host, asked over whatever page is up.
-  /// Nothing is asked once the session is gone; the answer is then a decline.
-  Future<String?> _askSudoPassword(
-    String host,
-    String profile,
-    Future<void> ended,
-  ) async {
-    if (!_authorizedOwner) return null;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
-      // The question would otherwise open on a window nobody can see.
-      try {
-        await (_windows?.showMainWindow() ?? MacWindow.orderFront());
-      } on Object {
-        // The question still goes on screen.
-      }
-      if (!_authorizedOwner) return null;
+  // Listener tear-offs must stay on the State: an extension method tear-off
+  // is a new closure each time, so removeListener would never match.
+  void _resumeExternalNavigation() {
+    final authorized = _authorizedOwner;
+    if (authorized != _sessionAuthorized) {
+      _sessionAuthorized = authorized;
+      _detection++;
+      _watcher?.paused = !authorized;
+      _messages?.paused = !authorized;
+      if (authorized) unawaited(_detect());
     }
-    if (!mounted) return null;
-    return showSudoPasswordPrompt(
-      context,
-      host: host,
-      profile: profile,
-      ended: ended,
-      breadcrumbs: _breadcrumbs,
-    );
+    _navigationQueue?.resume();
   }
+
+  /// Takes the waiting link, unless App Lock covers the app: the shell stays
+  /// mounted under the lock screen, and a link must not start anything (a
+  /// chat, the microphone) before the user is back.
+  void _takeDeepLink({bool held = false}) {
+    final deepLinks = _deepLinks;
+    if (deepLinks == null) {
+      if (!(_appLock?.covered ?? false)) _navigationQueue?.resume();
+      return;
+    }
+    if (_appLock?.covered ?? false) {
+      _lockHeld = _lockHeld || deepLinks.pending != null;
+      return;
+    }
+    final waited = held || _lockHeld;
+    if (deepLinks.take() case final link?) {
+      _lockHeld = false;
+      _openDeepLink(link, waited: waited);
+    }
+    _releaseWaitingLink();
+    _navigationQueue?.resume();
+  }
+
+  void _rebuild(VoidCallback update) => setState(update);
 
   T? _maybeRead<T>() {
     try {
@@ -357,412 +377,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
-  void _onWindowless(bool windowless) {
-    _windowless = windowless;
-    // The last window closing is what a crash report should show.
-    if (windowless) _breadcrumbs('app.lifecycle', {'state': 'windowless'});
-    _syncSchedulesForeground();
-  }
-
-  void _syncSchedulesForeground() =>
-      _schedulesController?.foreground = _appForeground && !_windowless;
-
-  /// Puts Chat in front. The chat asks for this when a notification tap or
-  /// shared content lands there while another page is on screen. Screens
-  /// pushed over that page (a task, board management, a job) are dismissed
-  /// too, or the user would stay on them; so are pages pushed over Chat
-  /// itself (Skills, Plugins), which would hide the new content.
-  void _showChat() {
-    DesktopNavigationHistoryScope.maybeOf(context)?.clear();
-    Navigator.of(context).popUntil((route) => route.isFirst);
-    if (_current == _Destination.chat) return;
-    _select(_Destination.chat, cancelHandoff: false);
-  }
-
-  /// Asks once per sign-in or start whether to add the app's hint to the
-  /// profiles that need it.
-  Future<void> _offerHint(
-    HermesRepositories repositories,
-    String server,
-  ) async {
-    if (!mounted) return;
-    final offer = PlatformHintOffer(
-      repository: repositories.platformHint,
-      profileList: repositories.profiles,
-      server: server,
-      breadcrumbs: _breadcrumbs,
-    );
-    try {
-      if (await offer.check() && mounted) {
-        await showPlatformHintPrompt(context, offer);
-      }
-    } finally {
-      offer.dispose();
-    }
-  }
-
-  Future<void> _detect() async {
-    if (!_authorizedOwner) return;
-    final detection = ++_detection;
-    final bool? kanban;
-    final bool? schedules;
-    try {
-      (kanban, schedules) = await (
-        _plugins?.kanbanStatus() ?? Future<bool?>.value(false),
-        _cron?.availability() ?? Future<bool?>.value(false),
-      ).wait;
-    } on Object {
-      // Neither answered; links for a tab keep waiting for the next check.
-      return;
-    }
-    if (!_authorizedOwner || detection != _detection) return;
-    _kanbanKnown = kanban != null;
-    _schedulesKnown = schedules != null;
-    _applyDetection(kanban ?? false, schedules ?? false);
-  }
-
-  void _applyDetection(bool kanban, bool schedules) {
-    if (kanban != _kanban || schedules != _schedules) {
-      setState(() {
-        _kanban = kanban;
-        _schedules = schedules;
-        if (!kanban) _drop(_Destination.kanban);
-        if (!schedules) _drop(_Destination.schedules);
-      });
-      // An answer that could not be had says nothing about the routes, and
-      // the watcher forgets what it saw when they are gone.
-      if (_schedulesKnown) _watcher?.available = schedules;
-      _syncSchedules();
-    }
-    final pending = _pendingJob;
-    if (_schedulesKnown && pending != null) {
-      _pendingJob = null;
-      _openJob(pending);
-    }
-    _releaseWaitingLink();
-  }
-
-  /// Opens the link that waited for a check, unless App Lock covers the app;
-  /// the lock's own change brings it back here.
-  void _releaseWaitingLink() {
-    if (_appLock?.covered ?? false) return;
-    if (_waitingLink case final waiting?) {
-      _waitingLink = null;
-      _openDeepLink(waiting, waited: true);
-    }
-  }
-
-  /// Forgets a destination that went off, so it is not rebuilt, or reloaded,
-  /// by coming back on.
-  void _drop(_Destination destination) {
-    _opened.remove(destination);
-    if (_current == destination) {
-      _current = _Destination.chat;
-      _breadcrumbs('nav.destination', {'destination': 'chat', 'gone': true});
-    }
-    if (destination == _Destination.schedules) {
-      final controller = _schedulesController;
-      _schedulesController = null;
-      // The page still listens until this frame is built.
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => controller?.dispose(),
-      );
-    }
-  }
-
   var _shareEntry = 0;
   var _shareEntryValid = false;
 
-  void _selectByUser(_Destination destination) {
-    _shareEntryValid = destination == _Destination.chat;
-    if (destination == _Destination.chat) {
-      setState(() => _shareEntry++);
-    }
-    _select(destination);
-  }
-
-  void _recoverShared(VoidCallback action, int entry) {
-    if (!mounted || !_shareEntryValid || entry != _shareEntry) return;
-    _queueExternalNavigation(action);
-  }
-
-  void _select(_Destination destination, {bool cancelHandoff = true}) {
-    if (cancelHandoff) _maybeRead<HandoffController>()?.cancel();
-    _sidebar.closeOverlay();
-    if (_current == destination) return;
-    DesktopNavigationHistoryScope.maybeOf(context)?.clear();
-    _breadcrumbs('nav.destination', {'destination': destination.name});
-    setState(() {
-      _current = destination;
-      _opened.add(destination);
-      if (destination == _Destination.schedules) _ensureSchedules();
-    });
-    _syncSchedules();
-  }
-
-  void _ensureSchedules() {
-    final cron = _cron;
-    if (cron == null || _schedulesController != null) return;
-    _schedulesController = SchedulesController(
-      repository: cron,
-      profiles: _profiles,
-      prefs: SharedPreferencesAsync(),
-      changeSource: _gateway,
-      auth: _auth,
-      events:
-          HermesRepositories.maybeOf(context)?.telemetry.events ??
-          noopAppEventLogger,
-    );
-  }
-
-  void _syncSchedules() {
-    final inFront = _current == _Destination.schedules;
-    _schedulesController?.active = inFront;
-    _watcher?.schedulesInFront = inFront;
-  }
-
-  RootNavigationQueue get _externalNavigation =>
-      _navigationQueue ??= RootNavigationQueue(
-        navigator: Navigator.of(context),
-        root: ModalRoute.of(context)!,
-        history: DesktopNavigationHistoryScope.maybeOf(context),
-        canNavigate: () => _authorizedOwner && !(_appLock?.covered ?? false),
-      );
-
-  void _resumeExternalNavigation() {
-    final authorized = _authorizedOwner;
-    if (authorized != _sessionAuthorized) {
-      _sessionAuthorized = authorized;
-      _detection++;
-      _watcher?.paused = !authorized;
-      _messages?.paused = !authorized;
-      if (authorized) unawaited(_detect());
-    }
-    _navigationQueue?.resume();
-  }
-
-  void _queueExternalNavigation(VoidCallback action, [bool isLaunch = false]) {
-    if (!mounted || (isLaunch && !_externalNavigation.canAcceptLaunch)) return;
-    _beginExternalNavigation();
-    _externalNavigation.request((_) {
-      if (mounted) action();
-    }, isLaunch: isLaunch);
-  }
-
-  int _beginExternalNavigation() {
-    _shareEntryValid = false;
-    _waitingLink = null;
-    _pendingJob = null;
-    return ++_externalIntentRevision;
-  }
-
-  void _openJob(NotificationTarget target) =>
-      _queueExternalNavigation(() => _openJobAtRoot(target));
-
-  void _openJobAtRoot(NotificationTarget target) {
-    if (!_schedulesKnown) {
-      _pendingJob = target;
-      return;
-    }
-    if (!_schedules) {
-      _breadcrumbs('nav.notification.ignored', {
-        'kind': 'job',
-        'reason': 'unavailable',
-      });
-      return;
-    }
-    _select(_Destination.schedules);
-    _schedulesController?.requestOpen(
-      target.jobId ?? '',
-      profile: target.profile,
-    );
-  }
-
-  /// Takes the waiting link, unless App Lock covers the app: the shell stays
-  /// mounted under the lock screen, and a link must not start anything (a
-  /// chat, the microphone) before the user is back.
-  void _takeDeepLink({bool held = false}) {
-    final deepLinks = _deepLinks;
-    if (deepLinks == null) {
-      if (!(_appLock?.covered ?? false)) _navigationQueue?.resume();
-      return;
-    }
-    if (_appLock?.covered ?? false) {
-      _lockHeld = _lockHeld || deepLinks.pending != null;
-      return;
-    }
-    final waited = held || _lockHeld;
-    if (deepLinks.take() case final link?) {
-      _lockHeld = false;
-      _openDeepLink(link, waited: waited);
-    }
-    _releaseWaitingLink();
-    _navigationQueue?.resume();
-  }
-
-  /// Shows what a `hermes://` link names. Screens pushed over the page are
-  /// closed first. Kanban and Schedules links wait for the server check that
-  /// concerns them, and are ignored by a server that answered it lacks the
-  /// tab. The breadcrumbs hold the kind and flags only, never the link.
-  void _openDeepLink(PendingDeepLink link, {required bool waited}) {
-    _beginExternalNavigation();
-    final known = switch (link.target) {
-      OpenKanban() => _kanbanKnown,
-      OpenSchedules() => _schedulesKnown,
-      _ => true,
-    };
-    final offered = switch (link.target) {
-      OpenKanban() => _kanban,
-      OpenSchedules() => _schedules,
-      _ => true,
-    };
-    if (!known || !offered) {
-      _externalNavigation.cancel();
-      _applyDeepLink(link, waited: waited);
-      return;
-    }
-    _waitingLink = null;
-    _externalNavigation.request((guarded) {
-      if (!mounted) return;
-      if (_appLock?.covered ?? false) {
-        _waitingLink = link;
-        return;
-      }
-      _applyDeepLink(link, waited: waited || guarded);
-    });
-  }
-
-  void _applyDeepLink(PendingDeepLink link, {required bool waited}) {
-    _waitingLink = null;
-    final target = link.target;
-    void opened() => _breadcrumbs('deeplink.opened', {
-      'kind': target.kind,
-      'cold': link.cold,
-      'waited': waited,
-    });
-    bool available({required bool known, required bool offered}) {
-      if (!known) {
-        _waitingLink = link;
-        return false;
-      }
-      if (!offered) {
-        _breadcrumbs('deeplink.ignored', {'reason': 'unavailable'});
-        return false;
-      }
-      return true;
-    }
-
-    switch (target) {
-      case OpenChat(:final profile, :final threadId, :final prompt):
-        opened();
-        _openRequests.request(
-          NotificationTarget(threadId: threadId, profile: profile),
-          prompt: prompt,
-          fromLink: true,
-        );
-        _showChat();
-      case NewChat(:final profile, :final dictate, :final prompt):
-        opened();
-        _openRequests.requestNew(
-          profile: profile,
-          prompt: prompt,
-          dictate: dictate,
-        );
-        _showChat();
-      case OpenRequests():
-        opened();
-        _openRequests.requestOldestPending();
-        _showChat();
-      case OpenKanban():
-        if (!available(known: _kanbanKnown, offered: _kanban)) return;
-        opened();
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        _select(_Destination.kanban);
-      case OpenSchedules(:final profile, :final jobId):
-        if (!available(known: _schedulesKnown, offered: _schedules)) return;
-        opened();
-        if (jobId != null) {
-          _openJob(NotificationTarget.job(jobId: jobId, profile: profile));
-        } else {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-          _select(_Destination.schedules);
-        }
-    }
-  }
-
-  void _openRun(CronRun run, CronJob job) {
-    _queueExternalNavigation(() {
-      _openRequests.request(
-        NotificationTarget(
-          threadId: run.sessionId,
-          profile: run.profile ?? job.profile,
-        ),
-      );
-      _showChat();
-    });
-  }
-
   void _openMenu() => _scaffoldKey.currentState?.openDrawer();
-
-  Future<void> _openBot(BotModeBot bot) async {
-    if (!_authorizedOwner) return;
-    final version = ++_botOpenVersion;
-    final intent = _beginExternalNavigation();
-    final owner = _auth?.ownerGeneration;
-    _externalNavigation.cancel();
-    bool current() =>
-        _authorizedOwner &&
-        _auth?.ownerGeneration == owner &&
-        version == _botOpenVersion &&
-        intent == _externalIntentRevision;
-    try {
-      final roster = await _botsRepository!.load();
-      if (!current()) return;
-      final currentBot = roster.bots.singleWhere(
-        (candidate) => candidate.identity == bot.identity,
-      );
-      final chat = await _botChats!.open(currentBot);
-      if (!current()) return;
-      _externalNavigation.request((_) {
-        if (!current()) return;
-        _openRequests.request(
-          NotificationTarget(threadId: chat.storedId, profile: chat.profile),
-          bot: BotChatContext(
-            bot: currentBot,
-            rootId: chat.rootId,
-            storedId: chat.storedId,
-            peers: roster.bots,
-            protocolEnabled: roster.supported,
-          ),
-        );
-        if (current()) _showChat();
-      });
-    } on Object {
-      if (mounted && current()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open the bot chat. Retry from Bots.'),
-          ),
-        );
-      }
-    }
-  }
-
-  void _openGroup(GroupRoom room) {
-    final groups = _groups;
-    if (groups == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (routeContext) => GroupChatScreen(
-          repository: groups,
-          room: room,
-          onDisbanded: () {
-            dismissRoute(routeContext);
-          },
-        ),
-      ),
-    );
-  }
 
   static const Map<_Destination, ShellDestination> _labels = {
     _Destination.chat: (
@@ -797,30 +415,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       caption: null,
     ),
   };
-
-  Future<void> _switchProfile(String name) async {
-    final switched = await _chatProfiles?.switchTo(name) ?? false;
-    if (switched || !mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Could not switch profile')));
-  }
-
-  /// The profile switcher above the destinations of a Mac sidebar.
-  Widget? _profileSwitcher() {
-    final profiles = _chatProfiles;
-    if (profiles == null) return null;
-    return ListenableBuilder(
-      listenable: profiles,
-      builder: (context, _) => MacProfileSwitcher(
-        profiles: profiles.profiles,
-        current: profiles.current,
-        onSwitch: _switchProfile,
-        onNewProfile: () => createProfile(context, profiles.create),
-        onManage: () => _select(_Destination.profiles),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
