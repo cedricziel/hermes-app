@@ -1,11 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/chat/connector_operation_controller.dart'
+    show ConnectorAnswer;
 import 'package:hermes_app/src/chat/connector_operation_state.dart';
 import 'package:hermes_app/src/chat/widgets/connector_operation_card.dart';
 
 import 'connector_fixtures.dart';
 
 void main() {
+  testWidgets('the answer lines of the card follow the language', (
+    tester,
+  ) async {
+    Future<void> pump(Locale locale, ConnectorAnswer answer) =>
+        tester.pumpWidget(
+          MaterialApp(
+            locale: locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: ConnectorOperationCard(
+                operation: ConnectorOperationSnapshot.fromUpdate(
+                  connectionUpdateFixture,
+                )!,
+                initiallyOpen: true,
+                answer: answer,
+              ),
+            ),
+          ),
+        );
+    await pump(const Locale('de'), ConnectorAnswer.refused);
+    expect(find.text('Der Server hat deine Antwort abgelehnt.'), findsOne);
+    await pump(const Locale('en'), ConnectorAnswer.unconfirmed);
+    expect(find.textContaining("Couldn't confirm your answer"), findsOne);
+  });
+
   testWidgets(
     'connector details show reported state and browser destination before explicit action',
     (tester) async {

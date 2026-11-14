@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/disclosure_tile.dart';
+import '../../../l10n/l10n.dart';
+import '../connector_operation_controller.dart' show ConnectorAnswer;
 import '../connector_operation_state.dart';
 
 class ConnectorOperationCard extends StatelessWidget {
@@ -12,6 +14,7 @@ class ConnectorOperationCard extends StatelessWidget {
     this.awaitingFinalStatus = false,
     this.pending = false,
     this.error,
+    this.answer = ConnectorAnswer.idle,
     this.canOpen,
     this.canSkip,
     this.onOpen,
@@ -23,6 +26,9 @@ class ConnectorOperationCard extends StatelessWidget {
   final ConnectorOperationSnapshot operation;
   final bool initiallyOpen, awaitingFinalStatus, pending, readOnly;
   final String? error;
+
+  /// Where the user's last answer stands; its words are localized here.
+  final ConnectorAnswer answer;
   final bool Function(String)? canOpen, canSkip;
   final ValueChanged<String>? onOpen, onSkip;
   final VoidCallback? onContinue, onDetails;
@@ -53,6 +59,7 @@ class ConnectorOperationCard extends StatelessWidget {
             readOnly: readOnly,
             enabled: enabled,
             error: error,
+            answer: answer,
             canOpen: canOpen,
             canSkip: canSkip,
             onOpen: onOpen,
@@ -75,6 +82,7 @@ class ConnectorOperationBody extends StatelessWidget {
     required this.enabled,
     this.readOnly = false,
     this.error,
+    this.answer = ConnectorAnswer.idle,
     this.canOpen,
     this.canSkip,
     this.onOpen,
@@ -85,6 +93,9 @@ class ConnectorOperationBody extends StatelessWidget {
   final ConnectorOperationSnapshot operation;
   final bool enabled, readOnly;
   final String? error;
+
+  /// Where the user's last answer stands; its words are localized here.
+  final ConnectorAnswer answer;
   final bool Function(String)? canOpen, canSkip;
   final ValueChanged<String>? onOpen, onSkip;
   final VoidCallback? onContinue;
@@ -143,6 +154,10 @@ class ConnectorOperationBody extends StatelessWidget {
             ),
           ),
         if (error case final text?) Text(text),
+        if (answer == ConnectorAnswer.unconfirmed)
+          Text(context.l10n.chatActivityNeedsYouUnconfirmedNotice),
+        if (answer == ConnectorAnswer.refused)
+          Text(context.l10n.chatActivityNeedsYouRefusedNotice),
         if (operation.settledBy case final reason?) Text('Settlement: $reason'),
         if (!readOnly && onContinue != null)
           Align(

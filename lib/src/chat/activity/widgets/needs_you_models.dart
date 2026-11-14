@@ -45,6 +45,7 @@ class ConnectorTargetModel {
     required this.status,
     this.detail,
     this.openable = false,
+    this.skippable = false,
   });
 
   /// Server text, shown as it comes.
@@ -54,6 +55,9 @@ class ConnectorTargetModel {
   /// Server text, shown as it comes.
   final String? detail;
   final bool openable;
+
+  /// Whether this target can be skipped.
+  final bool skippable;
 }
 
 class ConnectorBodyModel extends NeedsYouBodyModel {
@@ -130,5 +134,8 @@ class NeedsYouDockModel {
   /// Opens the browser; [target] names the connector target, null for a
   /// billing page or the only target.
   final void Function(NeedsYouItem item, String? target)? onOpen;
-  final NeedsYouItemCallback? onSkip, onContinue, onReopen;
+  final NeedsYouItemCallback? onContinue, onReopen;
+
+  /// Skips [target], a connector target.
+  final void Function(NeedsYouItem item, String target)? onSkip;
 }
