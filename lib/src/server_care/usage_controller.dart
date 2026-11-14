@@ -21,6 +21,7 @@ class UsageController extends ChangeNotifier with SafeNotifier {
     String? profile,
     DateTime Function()? today,
     this.onUnsupported,
+    this.lookupFailed,
   }) : _today = today ?? DateTime.now,
        // A named parameter cannot be a private initializing formal.
        // ignore: prefer_initializing_formals
@@ -33,6 +34,9 @@ class UsageController extends ChangeNotifier with SafeNotifier {
 
   /// Called when the server answered that it has no usage route.
   final VoidCallback? onUnsupported;
+
+  /// Whether looking up the profile failed.
+  final bool Function()? lookupFailed;
 
   // The last window and metric, kept for the rest of the app run so that
   // reopening the page does not reset them. They are a view preference, not
@@ -83,7 +87,15 @@ class UsageController extends ChangeNotifier with SafeNotifier {
   /// profile is known.
   Future<void> load() async {
     final profile = _profile;
-    if (disposed || profile == null) return;
+    if (disposed) return;
+    if (profile == null) {
+      // Wait for a profile; if looking one up failed, say so, with a retry.
+      final failed = lookupFailed?.call() ?? false;
+      _loading = !failed;
+      _failure = failed ? CareFailureKind.offline : null;
+      notifyListeners();
+      return;
+    }
     final generation = ++_generation;
     final window = _window;
     _loading = true;
@@ -145,6 +157,16 @@ class UsageController extends ChangeNotifier with SafeNotifier {
     _loading = false;
     notifyListeners();
     load();
+  }
+
+  /// The newest day with any use, or null; the chart starts on it rather than
+  /// on an empty today.
+  int? get latestDataIndex {
+    final days = _report?.days ?? const <UsageDay>[];
+    for (var i = days.length - 1; i >= 0; i--) {
+      if (days[i].tokens > 0 || days[i].sessions > 0) return i;
+    }
+    return null;
   }
 
   /// One bar per day of the window, in the chosen metric.

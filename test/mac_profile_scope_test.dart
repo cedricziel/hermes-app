@@ -452,6 +452,13 @@ void main() {
       expect(inSidebar(find.text('Needs attention')), findsNothing);
     });
 
+    testWidgets('a server without the status route has no Server row or menu '
+        'item', (tester) async {
+      server.on('GET', '/api/status', {'detail': 'Not Found'}, status: 404);
+      await pump(tester, lock: await loadedLock(tester));
+      expect(inSidebar(find.text('Server')), findsNothing);
+    });
+
     testWidgets('opening Server shows the headline from the status', (
       tester,
     ) async {

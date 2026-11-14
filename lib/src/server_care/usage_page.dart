@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import '../api/hermes_repositories.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/app_icons.dart';
-import '../widgets/adaptive_tab_bar.dart';
-import '../widgets/grouped_form.dart';
+import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
@@ -14,6 +13,7 @@ import 'server_care_controller.dart';
 import 'usage_controller.dart';
 import 'widgets/loading_skeleton.dart';
 import 'widgets/usage_chart.dart';
+import 'widgets/usage_controls.dart';
 import 'widgets/usage_day_list.dart';
 import 'widgets/usage_model_list.dart';
 import 'widgets/usage_totals_card.dart';
@@ -55,6 +55,7 @@ class _UsagePageState extends State<UsagePage> {
       repository: HermesRepositories.of(context).serverCare,
       profile: _careProfile,
       onUnsupported: _usageMissing,
+      lookupFailed: () => _care.profileLookupFailed,
     );
     _care.addListener(_followChatProfile);
     Breadcrumbs crumbs;
@@ -70,7 +71,13 @@ class _UsagePageState extends State<UsagePage> {
 
   /// The chat switched profile while the page was open.
   void _followChatProfile() {
-    if (_care.profile == _careProfile) return;
+    if (_care.profile == _careProfile) {
+      // Looking up the profile just failed: show it, with a retry.
+      if (_care.profile == null && _care.profileLookupFailed) {
+        _controller.load();
+      }
+      return;
+    }
     _careProfile = _care.profile;
     _controller.setProfile(_careProfile);
   }
@@ -104,6 +111,14 @@ class _UsagePageState extends State<UsagePage> {
       subtitle: _controller.profile,
       subtitleMenu: _profileMenu(),
       previousTitle: 'Server',
+      actions: [
+        SettingsBarAction(
+          key: const Key('usage-refresh'),
+          label: 'Refresh',
+          icon: AppIcons.refresh,
+          onPressed: _controller.loading ? null : _controller.load,
+        ),
+      ],
       body: _body(context),
     ),
   );
@@ -115,66 +130,84 @@ class _UsagePageState extends State<UsagePage> {
       final state = _failureState(context);
       if (state != null) return state;
     }
-    return RefreshIndicator(
-      onRefresh: c.load,
-      child: GroupedListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          _Controls(controller: c),
-          if (report == null)
-            const _Skeleton()
-          else if (report.isEmpty)
-            SizedBox(
-              height: 280,
-              child: StateMessage(
-                icon: AppIcons.info,
-                title: 'No usage in the last ${c.window.days} days',
-                detail:
-                    'Usage appears here after Hermes answers a chat, a '
-                    'message or a scheduled task.',
+    final list = GroupedListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        UsageControls(
+          window: c.window,
+          metric: c.metric,
+          onWindow: c.setWindow,
+          onMetric: c.setMetric,
+        ),
+        // A refresh that failed leaves the last answer up, and says so.
+        if (report != null && c.failure != null)
+          const GroupedSection(
+            children: [
+              GroupedRow(
+                title: "Couldn't refresh usage",
+                warning: 'Showing the last answer. Try again in a moment.',
+                titleMaxLines: null,
               ),
-            )
-          else ...[
-            const SizedBox(height: 12),
-            UsageTotalsCard(
-              metric: c.metric,
-              window: c.window,
-              tokens: report.totals.tokens,
-              estimatedCost: report.totals.estimatedCost,
-              conversations: report.totals.sessions,
-              inputTokens: report.totals.inputTokens,
-              outputTokens: report.totals.outputTokens,
-              cacheReadTokens: report.totals.cacheReadTokens,
-              billedCost: report.totals.actualCost > 0
-                  ? report.totals.actualCost
-                  : null,
+            ],
+          ),
+        if (report == null)
+          const _Skeleton()
+        else if (report.isEmpty)
+          SizedBox(
+            height: 280,
+            child: StateMessage(
+              icon: AppIcons.info,
+              title: 'No usage in the last ${c.window.days} days',
+              detail:
+                  'Usage appears here after Hermes answers a chat, a '
+                  'message or a scheduled task.',
             ),
-            if (_asTable)
-              UsageDayList(key: ValueKey(c.revision), days: c.dayEntries)
-            else
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: UsageChart(
-                  key: ValueKey((c.revision, c.window, c.metric)),
-                  days: c.chartDays,
-                  metric: c.metric,
-                  window: c.window,
-                ),
+          )
+        else ...[
+          const SizedBox(height: 12),
+          UsageTotalsCard(
+            metric: c.metric,
+            window: c.window,
+            tokens: report.totals.tokens,
+            estimatedCost: report.totals.estimatedCost,
+            conversations: report.totals.sessions,
+            inputTokens: report.totals.inputTokens,
+            outputTokens: report.totals.outputTokens,
+            cacheReadTokens: report.totals.cacheReadTokens,
+            billedCost: report.totals.actualCost > 0
+                ? report.totals.actualCost
+                : null,
+          ),
+          if (_asTable)
+            UsageDayList(key: ValueKey(c.revision), days: c.dayEntries)
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: UsageChart(
+                key: ValueKey((c.revision, c.window, c.metric)),
+                days: c.chartDays,
+                initialSelectedIndex: c.latestDataIndex,
+                metric: c.metric,
+                window: c.window,
               ),
-            GroupedSection(
-              children: [
-                GroupedSwitchRow(
-                  title: 'Show as table',
-                  value: _asTable,
-                  onChanged: (v) => setState(() => _asTable = v),
-                ),
-              ],
             ),
-            UsageModelList(models: c.modelEntries, footer: kUsageFooter),
-          ],
+          GroupedSection(
+            children: [
+              GroupedSwitchRow(
+                title: 'Show as table',
+                value: _asTable,
+                onChanged: (v) => setState(() => _asTable = v),
+              ),
+            ],
+          ),
+          UsageModelList(models: c.modelEntries, footer: kUsageFooter),
         ],
-      ),
+      ],
     );
+    // The Mac has the Refresh button; a pull is for touch.
+    return platformChromeOf(context) == PlatformChrome.macos
+        ? list
+        : RefreshIndicator(onRefresh: c.load, child: list);
   }
 
   /// The whole-page states for a read that gave nothing to show.
@@ -189,8 +222,10 @@ class _UsagePageState extends State<UsagePage> {
     }
     final failure = c.failure;
     if (failure == null) return null;
+    // Without a profile, trying again means looking the profile up again;
+    // only a tap does that, never the page by itself.
     final retry = FilledButton(
-      onPressed: c.load,
+      onPressed: c.profile == null ? _care.refresh : c.load,
       child: const Text('Try again'),
     );
     return switch (failure) {
@@ -228,66 +263,6 @@ class _UsagePageState extends State<UsagePage> {
 
 /// The window and metric choices: stacked on a phone, side by side from a
 /// desktop width.
-class _Controls extends StatelessWidget {
-  const _Controls({required this.controller});
-
-  final UsageController controller;
-
-  static const _windows = {
-    UsageChartWindow.days7: '7 days',
-    UsageChartWindow.days30: '30 days',
-    UsageChartWindow.days90: '90 days',
-  };
-  static const _metrics = {
-    UsageChartMetric.tokens: 'Tokens',
-    UsageChartMetric.cost: 'Estimated cost',
-  };
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) {
-      if (box.maxWidth >= 600) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: PillSegmentedControl<UsageChartWindow>(
-                  value: controller.window,
-                  segments: _windows,
-                  onChanged: controller.setWindow,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: PillSegmentedControl<UsageChartMetric>(
-                  value: controller.metric,
-                  segments: _metrics,
-                  onChanged: controller.setMetric,
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-      return GroupedSection(
-        children: [
-          GroupedSegmentedRow<UsageChartWindow>(
-            value: controller.window,
-            segments: _windows,
-            onChanged: controller.setWindow,
-          ),
-          GroupedSegmentedRow<UsageChartMetric>(
-            value: controller.metric,
-            segments: _metrics,
-            onChanged: controller.setMetric,
-          ),
-        ],
-      );
-    },
-  );
-}
-
 class _Skeleton extends StatelessWidget {
   const _Skeleton();
 

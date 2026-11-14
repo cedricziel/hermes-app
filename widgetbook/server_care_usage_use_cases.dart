@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/server_care/widgets/loading_skeleton.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
+import 'package:hermes_app/src/server_care/widgets/usage_controls.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_day_list.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_model_list.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_totals_card.dart';
@@ -206,7 +207,41 @@ Widget _loaded({
 
 const _chartIcon = AppIconSet(Icons.bar_chart, CupertinoIcons.chart_bar);
 
+/// The window and metric switches, which keep their own selection.
+class _ControlsDemo extends StatefulWidget {
+  const _ControlsDemo();
+
+  @override
+  State<_ControlsDemo> createState() => _ControlsDemoState();
+}
+
+class _ControlsDemoState extends State<_ControlsDemo> {
+  var _window = UsageChartWindow.days30;
+  var _metric = UsageChartMetric.tokens;
+
+  @override
+  Widget build(BuildContext context) => UsageControls(
+    window: _window,
+    metric: _metric,
+    onWindow: (w) => setState(() => _window = w),
+    onMetric: (m) => setState(() => _metric = m),
+  );
+}
+
 List<WidgetbookNode> serverCareUsageNodes() => [
+  WidgetbookComponent(
+    name: 'UsageControls',
+    useCases: [
+      WidgetbookUseCase(
+        name: 'Window and metric',
+        builder: (_) => frame(const _ControlsDemo(), maxWidth: 640),
+      ),
+      WidgetbookUseCase(
+        name: 'Largest text',
+        builder: (_) => _largest(frame(const _ControlsDemo(), maxWidth: 640)),
+      ),
+    ],
+  ),
   WidgetbookComponent(
     name: 'UsageChart',
     useCases: [

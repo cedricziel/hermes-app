@@ -81,8 +81,19 @@ class _ServerScreenState extends State<ServerScreen> {
     await Future.wait([care.refresh(), _update.check()]);
   }
 
-  void _open(Widget page) =>
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  /// Pushed routes sit above the shell's provider, so the controller goes
+  /// with them.
+  void _open(Widget page) {
+    final care = context.read<ServerCareController>();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChangeNotifierProvider<ServerCareController>.value(
+          value: care,
+          child: page,
+        ),
+      ),
+    );
+  }
 
   String? _subtitle(ServerCareController care) {
     final profile = care.profile;
@@ -110,7 +121,6 @@ class _ServerScreenState extends State<ServerScreen> {
           key: const Key('server-refresh'),
           label: 'Refresh',
           icon: AppIcons.refresh,
-          shortcut: mac ? '⌘R' : null,
           onPressed: care.loading ? null : _refresh,
         ),
       ],
@@ -120,9 +130,9 @@ class _ServerScreenState extends State<ServerScreen> {
 
   List<Widget> _children(BuildContext context, ServerCareController care) {
     final status = care.status;
-    // Offline hides what the status said earlier: it may be out of date.
-    final showStatus =
-        status != null && care.failure != CareFailureKind.offline;
+    // A failed read hides what the status said earlier: it may be out of
+    // date.
+    final showStatus = status != null && care.failure == null;
     return [
       _headline(care),
       if (showStatus || !care.supported) ..._hermes(care, status),
@@ -154,7 +164,11 @@ class _ServerScreenState extends State<ServerScreen> {
     final status = care.status;
     final attention = care.attention;
     final retry = ServerStatusButton(label: 'Try again', onPressed: _refresh);
-    if (attention == null) {
+    // A read that failed for any reason but a missing connection says so
+    // instead of keeping an older, cheerful answer.
+    final failed =
+        care.failure != null && care.failure != CareFailureKind.offline;
+    if (attention == null || failed || care.profileLookupFailed) {
       if (!care.supported) {
         return const ServerStatusCard(
           tone: ServerStatusTone.info,
@@ -162,7 +176,7 @@ class _ServerScreenState extends State<ServerScreen> {
           detail: 'Update Hermes on the server to see more here.',
         );
       }
-      if (care.failure != null) {
+      if (care.failure != null || care.profileLookupFailed) {
         return ServerStatusCard(
           tone: ServerStatusTone.warning,
           title: "Couldn't read Hermes' status",
@@ -240,8 +254,8 @@ class _ServerScreenState extends State<ServerScreen> {
         ServerStatusTone.healthy,
         'Everything looks good',
         switch (status?.version) {
-          final v? => 'Hermes $v · checked just now',
-          null => 'Checked just now',
+          final v? => 'Hermes $v',
+          null => null,
         },
       ),
     };
@@ -327,7 +341,9 @@ class _ServerScreenState extends State<ServerScreen> {
             "app don't depend on it.",
         children: [
           CareValueRow(title: 'State', value: state),
-          if (configured > 0 && connected != null)
+          // While the gateway is off, how many channels are connected says
+          // nothing a person can use next to "Off".
+          if (status.gatewayRunning && configured > 0 && connected != null)
             CareValueRow(
               title: 'Channels',
               value: '$connected of $configured connected',

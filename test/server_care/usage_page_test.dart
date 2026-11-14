@@ -43,11 +43,12 @@ void main() {
     WidgetTester tester, {
     double width = 400,
     bool settle = true,
+    bool readStatus = true,
   }) async {
     tester.view.physicalSize = Size(width, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.runAsync(care.refresh);
+    if (readStatus) await tester.runAsync(care.refresh);
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -225,5 +226,57 @@ void main() {
     for (final secret in ['default', 'work', '<model id>', '876', '1.2']) {
       expect(all, isNot(contains(secret)));
     }
+  });
+
+  testWidgets('the chart starts on the newest day that has use', (
+    tester,
+  ) async {
+    await pump(tester);
+    // 12 Nov is the newest day with tokens in the fixture; today is empty.
+    expect(find.textContaining('12 Nov · '), findsOneWidget);
+    expect(find.textContaining('0 tokens · 0 conversations'), findsNothing);
+  });
+
+  testWidgets('a failed refresh keeps the report and says so', (tester) async {
+    await pump(tester);
+    expect(find.text("Couldn't refresh usage"), findsNothing);
+    server.on('GET', '/api/analytics/usage', {}, status: 500);
+    await tester.tap(find.byKey(const Key('usage-refresh')));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text("Couldn't refresh usage"), findsOneWidget);
+    expect(find.byType(UsageChart), findsOneWidget);
+  });
+
+  testWidgets('with no profile and no way to learn one it ends with a retry', (
+    tester,
+  ) async {
+    care.dispose();
+    care = ServerCareController(
+      repository: ServerCareRepository(server.client()),
+    );
+    var lookups = 0;
+    final answer = Completer<void>();
+    care.lookUpProfile = () async {
+      lookups++;
+      if (lookups == 1) await answer.future;
+      care.profileLookupEnded(found: false);
+    };
+    final first = care.refresh();
+    await pump(tester, settle: false, readStatus: false);
+    // A skeleton while the lookup is still going.
+    expect(find.byType(LoadingSkeleton), findsOneWidget);
+    answer.complete();
+    await first;
+    await tester.pump();
+    await tester.pump();
+    expect(find.text("Can't reach Hermes"), findsOneWidget);
+    // Only a tap tries again.
+    expect(lookups, 1);
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(lookups, 2);
   });
 }

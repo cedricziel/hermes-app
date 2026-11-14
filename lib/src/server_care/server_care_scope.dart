@@ -8,7 +8,9 @@ import 'server_care_controller.dart';
 /// a widget built without one (a test, the catalog) shows no mark.
 ServerAttentionMark serverAttentionMarkOf(BuildContext context) {
   try {
-    return context.watch<ServerCareController>().mark;
+    return context.select<ServerCareController, ServerAttentionMark>(
+      (care) => care.mark,
+    );
   } on ProviderNotFoundException {
     return ServerAttentionMark.none;
   }

@@ -51,6 +51,7 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   DateTime? _lastRead;
   int _generation = 0;
   bool _missedWhileCovered = false;
+  bool _profileLookupFailed = false;
   final _reportedUnsupported = <CarePart>{};
 
   /// The chat's profile this controller reads for; null until one is known.
@@ -59,6 +60,22 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   /// Whether the server has the route of [part], as far as it is known: true
   /// until a read of it was answered with a missing route.
   bool offers(CarePart part) => !_reportedUnsupported.contains(part);
+
+  /// Whether no profile is known and looking one up failed: the status cannot
+  /// be read until it is tried again.
+  bool get profileLookupFailed => _profileLookupFailed && _profile == null;
+
+  /// Set by the shell: looks up the server's default profile again. A read
+  /// asked for while no profile is known does this instead.
+  Future<void> Function()? lookUpProfile;
+
+  /// The shell's lookup of the default profile ended without a name.
+  void profileLookupEnded({required bool found}) {
+    final failed = !found && _profile == null;
+    if (failed == _profileLookupFailed) return;
+    _profileLookupFailed = failed;
+    notifyListeners();
+  }
 
   /// The last status read, kept while a later read fails.
   ServerStatus? get status => _status;
@@ -125,7 +142,17 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   /// Reads the status now.
   Future<void> refresh() async {
     final profile = _profile;
-    if (disposed || profile == null) return;
+    if (disposed) return;
+    if (profile == null) {
+      // Nothing can be read before a profile is known; try to learn one.
+      final lookUp = lookUpProfile;
+      if (lookUp != null) {
+        _profileLookupFailed = false;
+        notifyListeners();
+        await lookUp();
+      }
+      return;
+    }
     if (covered?.call() ?? false) {
       // A read that was running is dropped below; do not leave it spinning.
       // The one that is skipped is made up for on unlock.

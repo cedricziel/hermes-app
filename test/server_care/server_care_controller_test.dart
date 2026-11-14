@@ -71,6 +71,29 @@ void main() {
     await pumpEventQueue();
   });
 
+  test('with no profile a read asks the shell to look one up, and a failed '
+      'lookup is a state with a retry', () async {
+    controller.dispose();
+    controller = build(profile: null);
+    var lookups = 0;
+    controller.lookUpProfile = () async {
+      lookups++;
+      controller.profileLookupEnded(found: false);
+    };
+    expect(controller.profileLookupFailed, isFalse);
+    await controller.refresh();
+    expect(lookups, 1);
+    expect(controller.profileLookupFailed, isTrue);
+    expect(reads(), 0);
+    // Trying again clears the state until the lookup ends again.
+    await controller.refresh();
+    expect(lookups, 2);
+    controller.profileChanged('work');
+    await pumpEventQueue();
+    expect(controller.profileLookupFailed, isFalse);
+    expect(reads(), 1);
+  });
+
   test('every status read names its profile', () async {
     await controller.refresh();
     controller.profileChanged('work');

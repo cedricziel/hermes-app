@@ -38,16 +38,20 @@ void main() {
       profile: 'default',
     );
     addTearDown(care.dispose);
+    // As in the app, the controller is provided below the root Navigator, so
+    // a route the screen pushes must carry it along.
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           Provider<HermesRepositories>.value(value: repositories),
-          ChangeNotifierProvider<ServerCareController>.value(value: care),
           Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
-          home: const ServerScreen(source: 'test'),
+          home: ChangeNotifierProvider<ServerCareController>.value(
+            value: care,
+            child: const ServerScreen(source: 'test'),
+          ),
         ),
       ),
     );
@@ -64,7 +68,8 @@ void main() {
     testWidgets('says everything looks good', (tester) async {
       await pump(tester);
       expect(find.text('Everything looks good'), findsOneWidget);
-      expect(find.text('Hermes 0.22.2 · checked just now'), findsOneWidget);
+      expect(find.text('Hermes 0.22.2'), findsOneWidget);
+      expect(find.textContaining('checked just now'), findsNothing);
       expect(find.text('default · 2 profiles'), findsOneWidget);
       expect(find.text('Released 2 Nov 2026'), findsOneWidget);
     });
@@ -74,6 +79,8 @@ void main() {
       await pump(tester);
       expect(find.text('The messaging gateway is off'), findsOneWidget);
       expect(find.text('Off'), findsOneWidget);
+      // How many channels are connected says nothing beside "Off".
+      expect(find.text('Channels'), findsNothing);
       // No restart or start action in this screen yet.
       expect(find.text('Start gateway'), findsNothing);
     });
@@ -167,6 +174,42 @@ void main() {
             .any((r) => r.queryParameters['force'].toString() == 'true'),
         isTrue,
       );
+    });
+  });
+
+  group('pages it opens', () {
+    testWidgets('Usage and Update open with the controller above them', (
+      tester,
+    ) async {
+      server.on('GET', '/api/analytics/usage', usage30());
+      await pump(tester);
+      await tester.tap(find.text('Usage'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(tester.takeException(), isNull);
+      expect(find.text('Tokens'), findsWidgets);
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Updates'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Hermes is up to date'), findsOneWidget);
+    });
+  });
+
+  group('a failed read', () {
+    testWidgets('does not keep an older cheerful headline', (tester) async {
+      await pump(tester);
+      expect(find.text('Everything looks good'), findsOneWidget);
+      server.on('GET', '/api/status', {}, status: 500);
+      await tester.runAsync(care.refresh);
+      await tester.pumpAndSettle();
+      expect(find.text('Everything looks good'), findsNothing);
+      expect(find.text("Couldn't read Hermes' status"), findsOneWidget);
+      expect(find.text('Messaging gateway'), findsNothing);
     });
   });
 

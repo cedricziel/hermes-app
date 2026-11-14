@@ -245,12 +245,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
     if (repositories != null) {
-      _serverCare = ServerCareController(
+      final care = _serverCare = ServerCareController(
         repository: repositories.serverCare,
         telemetry: repositories.telemetry,
         covered: () => _appLock?.covered ?? false,
       );
       _chatProfiles?.addListener(_followServerCareProfile);
+      care.lookUpProfile = _resolveServerCareProfile;
+      care.addListener(_careSupportChanged);
       _appLock?.addListener(_readServerCareAfterUnlock);
       // The chat reports its profile after its threads load, and not at all
       // when it works in the server's default, so the default is resolved by
@@ -351,6 +353,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _rebuild(VoidCallback update) => setState(update);
 
+  /// Whether the server has a status route, as last seen: the Mac sidebar
+  /// lists Server only while it does.
+  bool _careSupported = true;
+
+  void _careSupportChanged() {
+    final supported = _serverCare?.supported ?? true;
+    if (supported == _careSupported || !mounted) return;
+    setState(() => _careSupported = supported);
+  }
+
   /// The server's own default profile, by name; null until read.
   String? _defaultProfile;
 
@@ -364,7 +376,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     } on Object {
       // The chat's own report is then what names the profile.
     }
-    if (mounted) _followServerCareProfile();
+    if (!mounted) return;
+    _followServerCareProfile();
+    _serverCare?.profileLookupEnded(
+      found: (_chatProfiles?.current ?? _defaultProfile) != null,
+    );
   }
 
   void _followServerCareProfile() =>
@@ -398,7 +414,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _finds.dispose();
     _chatProfiles?.removeListener(_followServerCareProfile);
     _appLock?.removeListener(_readServerCareAfterUnlock);
-    _serverCare?.dispose();
+    _serverCare
+      ?..removeListener(_careSupportChanged)
+      ..dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();
     _schedulesController?.dispose();
@@ -549,7 +567,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (_kanban) _Destination.kanban,
       if (_schedules) _Destination.schedules,
       if (mac && _chatProfiles != null) _Destination.profiles,
-      if (mac && _serverCare != null) _Destination.server,
+      if (mac && _serverCare != null && _careSupported) _Destination.server,
     ];
     if (destinations.length == 1) return chat();
 
