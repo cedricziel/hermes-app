@@ -1376,6 +1376,31 @@ Against a real backend, only the throwaway dashboard from `scripts/dev-backend.s
 
 Goals, tool names, output and notes must never appear in breadcrumbs, spans or logs; the privacy test in `test/chat/subagents/bound_activity_panel_agents_test.dart` checks this for breadcrumbs and app events, and `subagent_repository_test.dart` checks the `subagent.rpc` span; `Exported telemetry` above shows how to read what was exported.
 
+## Server care: restart, update, check
+
+The Server screen (`docs/architecture/app-shell.md`, "Server care") needs a
+throwaway backend from `scripts/dev-backend.sh`, never the real `~/.hermes`.
+Device-free first: `flutter test test/server_care test/workflows/server_care_workflow_test.dart`
+and look at `build/workflow_screenshots/server-care-*`.
+
+1. Restart: open Server, press Restart gateway. The question comes first
+   (Cancel sends nothing); confirm and watch the headline and the row go
+   Restarting, Waiting, Running again. Exactly one `POST /api/gateway/restart`
+   in the backend log. With the gateway off, Start gateway asks nothing.
+2. Update: the backend must be a git checkout behind its remote (clone
+   hermes-agent, reset it a few commits back, point `dev-backend.sh` at it).
+   Updates shows "Update available"; Update Hermes asks first. Watch the four
+   steps, the dashboard restart (the banner above every destination), and the
+   receipt outcome. Leave the page and relaunch the app mid-update: it
+   resumes within an hour. Note whether the bearer session survives the
+   restart (design.md, task 7.3).
+3. Check: Run a check opens the page and runs `hermes doctor` (read-only). Break
+   something in the throwaway `HERMES_HOME` (a bad token in `config.yaml`) to see
+   problems, fixes and the copy button. The result stays when you leave the
+   page and goes on lock, sign-out, server change and profile switch.
+4. Logs and check output can hold paths: on Android the window is secure and
+   on iOS the app switcher shows a blank page while either page is up.
+
 ## Background request alert retry
 
 Run `flutter test --concurrency=1 test/local_notification_service_test.dart test/background/background_refresh_test.dart`. A posting result records OS acceptance of the attempt, not observed delivery. In the isolated client, leave a synthetic approval pending, simulate one native posting failure, then allow a later live check to post it. Verify that failed or denied attempts remain eligible and that accepted attempts save only the represented request marks. Interrupt after acceptance but before mark persistence; a later check must replace the same notification ID. Resolve the approval before a retry and verify that no stale request is announced. Keep App Lock text generic and use only disposable client state.
