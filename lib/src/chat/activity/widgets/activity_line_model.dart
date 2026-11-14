@@ -9,11 +9,21 @@ class ActivityLineCounter {
   const ActivityLineCounter({
     required this.kind,
     required this.text,
+    required this.compactText,
     required this.label,
   });
 
   final ActivityCounterKind kind;
-  final String text, label;
+
+  /// The chip's words and number, such as "1 running".
+  final String text;
+
+  /// The number alone, such as "1", for when the sentence needs the room. The
+  /// icon names what is counted, and [label] says it in full.
+  final String compactText;
+
+  /// What a screen reader speaks.
+  final String label;
 }
 
 /// What the activity line shows. The [sentence] is already in words: the
@@ -75,16 +85,19 @@ ActivityLineCounter _counter(AppLocalizations l10n, WorkingCounter counter) {
     WorkingCounterKind.plan => ActivityLineCounter(
       kind: ActivityCounterKind.plan,
       text: l10n.chatActivityLinePlanCounter(value, total),
+      compactText: l10n.chatActivityLinePlanCounter(value, total),
       label: l10n.chatActivityLinePlanCounterLabel(value, total),
     ),
     WorkingCounterKind.processes => ActivityLineCounter(
       kind: ActivityCounterKind.processes,
       text: l10n.chatActivityLineProcessesCounter(value),
+      compactText: '$value',
       label: l10n.chatActivityLineProcessesCounterLabel(value),
     ),
     WorkingCounterKind.references => ActivityLineCounter(
       kind: ActivityCounterKind.references,
       text: l10n.chatActivityLineReferencesCounter(value, total),
+      compactText: l10n.chatActivityLineReferencesCounter(value, total),
       label: l10n.chatActivityLineReferencesCounterLabel(value, total),
     ),
   };

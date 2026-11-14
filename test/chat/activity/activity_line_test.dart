@@ -50,11 +50,13 @@ ActivityLineModel _model({
           ActivityLineCounter(
             kind: ActivityCounterKind.plan,
             text: '2/5',
+            compactText: '2/5',
             label: 'plan 2 of 5',
           ),
           ActivityLineCounter(
             kind: ActivityCounterKind.processes,
             text: '1 running',
+            compactText: '1',
             label: '1 process running',
           ),
         ]
@@ -151,6 +153,120 @@ void main() {
     expect(opened, 0);
     await tester.pump(const Duration(milliseconds: 300));
     handle.dispose();
+  });
+
+  group('counters make room for the sentence', () {
+    // The test font is wide: this sentence needs more than the words of the
+    // chips leave at 390 pt, and less than their numbers do.
+    final long = _model(sentence: 'Checking it');
+
+    testWidgets('keep their words while the sentence fits', (tester) async {
+      await _pump(
+        tester,
+        ActivityLine(
+          model: _model(sentence: 'Hi'),
+          onOpen: () {},
+        ),
+      );
+      expect(find.text('1 running'), findsOneWidget);
+      expect(find.text('2/5'), findsOneWidget);
+    });
+
+    testWidgets('go compact, icon and number, when it does not', (
+      tester,
+    ) async {
+      await _pump(tester, ActivityLine(model: long, onOpen: () {}));
+      expect(find.text('1 running'), findsNothing);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2/5'), findsOneWidget);
+      expect(find.byKey(const Key('activity-chip-processes')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('fall back to the one that changed last', (tester) async {
+      await _pump(tester, ActivityLine(model: long, onOpen: () {}), width: 250);
+      expect(find.byKey(const Key('activity-chip-plan')), findsOneWidget);
+      expect(find.byKey(const Key('activity-chip-processes')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('keep the full meaning in the name', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, ActivityLine(model: long, onOpen: () {}));
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel(RegExp('^Hermes is working')))
+            .label,
+        contains('plan 2 of 5, 1 process running'),
+      );
+      handle.dispose();
+    });
+
+    for (final width in [280.0, 320.0, 360.0]) {
+      testWidgets('long German counters do not overflow at $width pt', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          ActivityLine(
+            model: ActivityLineModel(
+              sentence:
+                  'Prüft die Quartalszahlen und schreibt die Zusammenfassung',
+              counters: const [
+                ActivityLineCounter(
+                  kind: ActivityCounterKind.processes,
+                  text: '12 laufen',
+                  compactText: '12',
+                  label: '12 Prozesse laufen',
+                ),
+                ActivityLineCounter(
+                  kind: ActivityCounterKind.plan,
+                  text: '12/15',
+                  compactText: '12/15',
+                  label: 'Plan 12 von 15',
+                ),
+              ],
+            ),
+            onOpen: () {},
+          ),
+          width: width,
+          locale: const Locale('de'),
+        );
+        expect(tester.takeException(), isNull);
+        final sentence = tester.getSize(
+          find.byKey(const Key('activity-line-sentence')),
+        );
+        expect(sentence.width, greaterThan(100));
+      });
+    }
+  });
+
+  testWidgets('the sentence may use two lines from text scale 2', (
+    tester,
+  ) async {
+    Text sentence() =>
+        tester.widget<Text>(find.byKey(const Key('activity-line-sentence')));
+    await _pump(
+      tester,
+      ActivityLine(model: _model(), onOpen: () {}),
+      scale: 1.5,
+    );
+    expect(sentence().maxLines, 1);
+    final oneLine = _lineSize(tester).height;
+    await _pump(tester, ActivityLine(model: _model(), onOpen: () {}), scale: 2);
+    expect(sentence().maxLines, 2);
+    expect(_lineSize(tester).height, greaterThan(oneLine));
+    final constant = _lineSize(tester).height;
+    await _pump(
+      tester,
+      ActivityLine(
+        model: _model(sentence: 'word ' * 30),
+        onOpen: () {},
+      ),
+      scale: 2,
+    );
+    expect(_lineSize(tester).height, constant);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('is a 44 pt target on Apple and 48 dp on Material', (
@@ -360,20 +476,20 @@ void main() {
         tester,
         subtitle(status: 'Ship the weekly digest by Friday', busy: true),
         platform: TargetPlatform.macOS,
-        width: 240,
+        width: 400,
       );
       final lead = tester.getSize(find.byKey(const Key('mac-subtitle-lead')));
       final status = tester.getSize(
         find.byKey(const Key('mac-subtitle-status')),
       );
-      expect(status.width, lessThan(120));
-      expect(lead.width + status.width, lessThanOrEqualTo(240));
+      expect(status.width, lessThan(200));
+      expect(lead.width + status.width, lessThanOrEqualTo(400));
       // The lead is as wide as its text: nothing of it was cut.
       await _pump(
         tester,
         subtitle(status: 'x', busy: true),
         platform: TargetPlatform.macOS,
-        width: 240,
+        width: 400,
       );
       expect(
         tester.getSize(find.byKey(const Key('mac-subtitle-lead'))).width,
@@ -381,14 +497,31 @@ void main() {
       );
     });
 
-    testWidgets('does not overflow in a very narrow space', (tester) async {
-      await _pump(
-        tester,
-        subtitle(status: 'Ship the weekly digest', busy: true),
-        platform: TargetPlatform.macOS,
-        width: 60,
-      );
-      expect(tester.takeException(), isNull);
-    });
+    for (final width in [0.0, 10.0, 60.0, 110.0]) {
+      testWidgets('does not overflow or dangle at $width px', (tester) async {
+        await _pump(
+          tester,
+          subtitle(status: 'Ship the weekly digest', busy: true),
+          platform: TargetPlatform.macOS,
+          width: width,
+        );
+        expect(tester.takeException(), isNull);
+        final statusShown = find
+            .byKey(const Key('mac-subtitle-status'))
+            .evaluate()
+            .isNotEmpty;
+        // A spinner or a trailing separator only appears with a status.
+        expect(
+          find.byKey(const Key('working-indicator')).evaluate().isNotEmpty,
+          statusShown,
+        );
+        if (!statusShown) {
+          final lead = find.byKey(const Key('mac-subtitle-lead'));
+          if (lead.evaluate().isNotEmpty) {
+            expect(tester.widget<Text>(lead).data, isNot(endsWith(' · ')));
+          }
+        }
+      });
+    }
   });
 }

@@ -107,37 +107,102 @@ class _Line extends StatelessWidget {
     final twoRows =
         scaler.scale(_kSentenceSize) / _kSentenceSize >=
         kActivityLineTwoRowScale;
+    // From text scale 2 the sentence may use two lines, so a long one is not
+    // cut to a few words; the height is that of two lines at that scale.
+    final sentenceLines = scaler.scale(_kSentenceSize) / _kSentenceSize >= 2
+        ? 2
+        : 1;
     final sentenceLine = scaler.scale(_kSentenceSize) * 1.3;
     final chipLine = scaler.scale(_kChipSize) * 1.25 + 6;
     final minHeight = platformChromeOf(context).isApple
         ? kAppleMinTapTarget
         : 48.0;
     final natural = twoRows
-        ? _kPadding * 2 + sentenceLine + 4 + chipLine
+        ? _kPadding * 2 + sentenceLine * sentenceLines + 4 + chipLine
         : _kPadding * 2 + sentenceLine;
     final height = natural < minHeight ? minHeight : natural;
 
-    final sentence = Text(
-      model.sentence,
-      key: const Key('activity-line-sentence'),
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.ellipsis,
-      style: theme.textTheme.bodyMedium?.copyWith(
+    final sentenceStyle = DefaultTextStyle.of(context).style.merge(
+      theme.textTheme.bodyMedium?.copyWith(
         fontSize: _kSentenceSize,
         height: 1.3,
         color: theme.colorScheme.onSurface,
       ),
     );
+    final sentence = Text(
+      model.sentence,
+      key: const Key('activity-line-sentence'),
+      maxLines: sentenceLines,
+      softWrap: sentenceLines > 1,
+      overflow: TextOverflow.ellipsis,
+      style: sentenceStyle,
+    );
     final indicatorSize = scaler.scale(16).clamp(16.0, 24.0);
-    final indicator = model.busy
-        ? WorkingIndicator(size: indicatorSize)
-        : SizedBox(width: indicatorSize);
-    final chips = [
-      for (final counter in model.counters)
-        _ActivityCounterChip(counter: counter),
-    ];
+    final indicator = SizedBox(
+      width: indicatorSize,
+      height: sentenceLine,
+      child: model.busy
+          ? Center(child: WorkingIndicator(size: indicatorSize))
+          : null,
+    );
     final spoken = [for (final counter in model.counters) counter.label];
+
+    Widget body() {
+      if (twoRows) {
+        final chips = [
+          for (final counter in model.counters)
+            _ActivityCounterChip(counter: counter),
+        ];
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                indicator,
+                const SizedBox(width: 10),
+                Expanded(child: sentence),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: EdgeInsets.only(left: indicatorSize + 10),
+              child: SizedBox(
+                height: chipLine,
+                // A counter is scaled down to fit rather than cut when the
+                // text size leaves too little width.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(children: _spaced(chips)),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+      return LayoutBuilder(
+        builder: (context, box) {
+          final chips = _fitChips(
+            context,
+            model.counters,
+            sentence: model.sentence,
+            sentenceStyle: sentenceStyle,
+            room: box.maxWidth - indicatorSize - 10,
+          );
+          return Row(
+            children: [
+              indicator,
+              const SizedBox(width: 10),
+              Expanded(child: sentence),
+              if (chips.isNotEmpty) const SizedBox(width: _kChipsGap),
+              ..._spaced(chips),
+            ],
+          );
+        },
+      );
+    }
 
     return Semantics(
       container: true,
@@ -163,46 +228,7 @@ class _Line extends StatelessWidget {
                 height: height,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: twoRows
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                indicator,
-                                const SizedBox(width: 10),
-                                Expanded(child: sentence),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Padding(
-                              padding: EdgeInsets.only(
-                                left: indicatorSize + 10,
-                              ),
-                              child: SizedBox(
-                                height: chipLine,
-                                // A counter is scaled down to fit rather than
-                                // cut when the text size leaves too little
-                                // width.
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Row(children: _spaced(chips)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            indicator,
-                            const SizedBox(width: 10),
-                            Expanded(child: sentence),
-                            if (chips.isNotEmpty) const SizedBox(width: 8),
-                            ..._spaced(chips),
-                          ],
-                        ),
+                  child: Align(alignment: Alignment.centerLeft, child: body()),
                 ),
               ),
             ),
@@ -212,6 +238,78 @@ class _Line extends StatelessWidget {
     );
   }
 }
+
+const double _kChipsGap = 8;
+const double _kBetweenChips = 6;
+
+/// The chips for one row, so the sentence stays readable beside them: all with
+/// their words when the whole sentence still fits, else all compact (icon and
+/// number), else only the one that changed last (the first), words first, then
+/// compact. The last resort is used when nothing fits.
+List<Widget> _fitChips(
+  BuildContext context,
+  List<ActivityLineCounter> counters, {
+  required String sentence,
+  required TextStyle sentenceStyle,
+  required double room,
+}) {
+  if (counters.isEmpty) return const [];
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  final chipStyle = _chipStyle(context);
+
+  double measure(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  // Icon, gap, horizontal padding and border of a chip, besides its text.
+  final chrome = scaler.scale(13) + 3 + 14 + 2;
+  double widthOf(List<(ActivityLineCounter, bool)> chips) =>
+      _kChipsGap +
+      _kBetweenChips * (chips.length - 1) +
+      [
+        for (final (counter, compact) in chips)
+          chrome +
+              measure(compact ? counter.compactText : counter.text, chipStyle),
+      ].fold(0.0, (sum, width) => sum + width);
+
+  final first = counters.first;
+  final options = [
+    [for (final counter in counters) (counter, false)],
+    [for (final counter in counters) (counter, true)],
+    if (counters.length > 1) ...[
+      [(first, false)],
+      [(first, true)],
+    ],
+  ];
+  final sentenceWidth = measure(sentence, sentenceStyle).ceilToDouble();
+  final pick = options.firstWhere(
+    (option) => sentenceWidth + widthOf(option) <= room,
+    orElse: () => options.last,
+  );
+  return [
+    for (final (counter, compact) in pick)
+      _ActivityCounterChip(counter: counter, compact: compact),
+  ];
+}
+
+TextStyle _chipStyle(BuildContext context) =>
+    DefaultTextStyle.of(context).style.merge(
+      TextStyle(
+        fontSize: _kChipSize,
+        height: 1.25,
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+    );
 
 List<Widget> _spaced(List<Widget> chips) => [
   for (var i = 0; i < chips.length; i++) ...[
@@ -223,9 +321,12 @@ List<Widget> _spaced(List<Widget> chips) => [
 /// A small rounded chip: an icon naming what is counted and the count. Private
 /// to the line, plain markup on tokens.
 class _ActivityCounterChip extends StatelessWidget {
-  const _ActivityCounterChip({required this.counter});
+  const _ActivityCounterChip({required this.counter, this.compact = false});
 
   final ActivityLineCounter counter;
+
+  /// Icon and number only.
+  final bool compact;
 
   static AppIconSet _icon(ActivityCounterKind kind) => switch (kind) {
     ActivityCounterKind.plan => AppIcons.checklist,
@@ -238,15 +339,10 @@ class _ActivityCounterChip extends StatelessWidget {
     final theme = Theme.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     final text = Text(
-      counter.text,
+      compact ? counter.compactText : counter.text,
       maxLines: 1,
       softWrap: false,
-      style: TextStyle(
-        fontSize: _kChipSize,
-        height: 1.25,
-        fontWeight: FontWeight.w600,
-        color: theme.colorScheme.onSurface,
-      ),
+      style: _chipStyle(context),
     );
     final chip = DecoratedBox(
       key: Key('activity-chip-${counter.kind.name}'),

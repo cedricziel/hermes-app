@@ -119,6 +119,35 @@ Widget _still(Widget child) => Builder(
   ),
 );
 
+/// A short, a medium and a long sentence, each with the same two counters, to
+/// show the chips giving way: words, then icon and number, then one chip.
+Widget _roomSteps(BuildContext context, {bool german = false}) {
+  WorkingSummary goal(String text) =>
+      WorkingSummary(sentence: _sentence(WorkingSentenceKind.goal, text: text));
+  final counters = [_processes, _plan];
+  final (short, medium, long) = german
+      ? (
+          'Notizen sortieren',
+          'Zahlen prüfen',
+          'Prüft die Quartalszahlen und schreibt die Zusammenfassung für das Team',
+        )
+      : ('Recalled 5 memories', _goal, _longSentence);
+  return _column([
+    (
+      'The sentence fits: counters keep their words',
+      _line(context, _with(goal(short), counters)),
+    ),
+    (
+      'Tight: icon and number only',
+      _line(context, _with(goal(medium), counters)),
+    ),
+    (
+      'Still tight: only the chip that changed last',
+      _line(context, _with(goal(long), counters)),
+    ),
+  ]);
+}
+
 /// A toggle that shows and hides the line, to see it fold in and out.
 class _Appearing extends StatefulWidget {
   const _Appearing();
@@ -196,6 +225,25 @@ WidgetbookNode activityLineNode() => WidgetbookComponent(
       ),
     ).where((use) => !use.name.contains('Mac')),
     ...onEachPlatform(
+      'Sentence before counters',
+      (_) => _at(390, Builder(builder: (context) => _roomSteps(context))),
+    ).where((use) => !use.name.contains('Mac')),
+    ...onEachPlatform(
+      'German, 320 pt',
+      (_) => _at(
+        320,
+        Builder(
+          builder: (context) => Localizations.override(
+            context: context,
+            locale: const Locale('de'),
+            child: Builder(
+              builder: (context) => _roomSteps(context, german: true),
+            ),
+          ),
+        ),
+      ),
+    ).where((use) => !use.name.contains('Mac')),
+    ...onEachPlatform(
       'Long sentence',
       (_) => _at(
         390,
@@ -255,6 +303,18 @@ WidgetbookNode activityLineNode() => WidgetbookComponent(
                   _line(context, _with(_sources[0].$2, [_plan, _processes])),
                 ),
                 ('No counters', _line(context, _sources[1].$2)),
+                (
+                  'Long sentence',
+                  _line(
+                    context,
+                    WorkingSummary(
+                      sentence: _sentence(
+                        WorkingSentenceKind.goal,
+                        text: _longSentence,
+                      ),
+                    ),
+                  ),
+                ),
               ]),
             ),
           ),
@@ -314,9 +374,8 @@ Widget _subtitle(
 }) => Builder(
   builder: (context) => Theme(
     data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: SizedBox(
+    child: frame(
+      SizedBox(
         width: width,
         child: MacToolbarSubtitle(
           profile: profile,
@@ -325,6 +384,7 @@ Widget _subtitle(
           busy: busy,
         ),
       ),
+      maxWidth: width,
     ),
   ),
 );
@@ -405,6 +465,11 @@ WidgetbookNode macToolbarSubtitleNode() => WidgetbookComponent(
       name: 'Long goal, narrow',
       builder: (_) => _subtitle(240, status: _goal, busy: true),
     ),
+    for (final width in [0.0, 10.0])
+      WidgetbookUseCase(
+        name: 'No room, ${width.toInt()} px',
+        builder: (_) => _subtitle(width, status: _goal, busy: true),
+      ),
     WidgetbookUseCase(
       name: 'Too narrow for profile and model',
       builder: (_) => _subtitle(110, status: _goal, busy: true),
