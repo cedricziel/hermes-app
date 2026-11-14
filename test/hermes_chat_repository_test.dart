@@ -57,7 +57,7 @@ void main() {
 
       final threads = await repository.loadThreads();
 
-      expect(threads.map((t) => t.cwd), [
+      expect(threads.map((t) => t.workingDirectory), [
         '/srv/project/app',
         '/srv/other/',
         null,

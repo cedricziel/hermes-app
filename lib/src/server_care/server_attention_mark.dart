@@ -20,22 +20,6 @@ enum ServerAttentionMark {
     return attention?.needsAttention ?? false ? needsAttention : none;
   }
 
-  /// The Mac sidebar row's caption; null when there is nothing to say.
-  String? get caption => switch (this) {
-    none => null,
-    needsAttention => 'Needs attention',
-    updating => 'Updating…',
-    restarting => 'Restarting…',
-  };
-
-  /// The account button's accessible label.
-  String get accountLabel =>
-      this == needsAttention ? 'Account, server needs attention' : 'Account';
-
-  /// The account menu's "Server" item.
-  String get menuLabel =>
-      this == needsAttention ? 'Server · needs attention' : 'Server';
-
   /// Whether the warning dot is drawn on the avatar and the menu row.
   bool get showsDot => this == needsAttention;
 }

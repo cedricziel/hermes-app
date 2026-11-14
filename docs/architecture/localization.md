@@ -437,13 +437,18 @@ The rest of the app moves in PRs split by area, so they can run in parallel:
 
 ## Platform notes
 
+Done: `CFBundleLocalizations` in `ios/Runner/Info.plist` and
+`macos/Runner/Info.plist` lists exactly the languages in `kReleasedLocales`
+(today `en`), so iOS and macOS offer the app in those languages and nothing
+else. Both lists must follow `kReleasedLocales`: releasing a locale means
+adding its tag to both plists in the same PR.
+`test/l10n/bundle_localizations_test.dart` parses both and fails on drift.
+Still open: the extension bundles (share extensions, `HermesLiveActivity`,
+the watch app and its complications), which need the same entry once they
+carry translated native strings.
+
 Not done yet, and needed before a translation is released:
 
-- `CFBundleLocalizations` in `ios/Runner/Info.plist`, `macos/Runner/Info.plist`
-  and the extension bundles (share extension, `HermesLiveActivity`, the watch
-  app and its complications), so iOS and macOS offer the app in those
-  languages. Until then Apple platforms may stay English even after a locale
-  is released.
 - Android's per-app language setting (`android/app/src/main/res/xml/locales_config.xml`
   and `android:localeConfig` in the manifest).
 - Native strings that Dart never sends: the Swift widgets' gallery names and

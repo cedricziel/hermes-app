@@ -203,4 +203,15 @@ void main() {
     );
     handle.dispose();
   });
+
+  testWidgets('an outcome without a version leaves the sentence out', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const UpdateOutcomeCard(kind: UpdateOutcomeKind.success),
+    );
+    expect(find.textContaining('null'), findsNothing);
+    expect(find.textContaining('Now running'), findsNothing);
+  });
 }

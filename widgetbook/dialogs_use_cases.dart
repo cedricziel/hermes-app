@@ -98,8 +98,10 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
         ),
         _open(
           'Something went wrong',
-          (context) =>
-              runKanbanAction(context, () async => throw StateError('x')),
+          (context) => runKanbanAction(
+            context,
+            () async => throw const FormatException('x'),
+          ),
         ),
       ],
     ),

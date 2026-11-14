@@ -500,7 +500,12 @@ Widget _menuRow({required bool attention}) => frame(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _menuItem(const Text('Connection details')),
-          _menuItem(ServerMenuItemLabel(needsAttention: attention)),
+          _menuItem(
+            ServerMenuItemLabel(
+              label: attention ? 'Server · needs attention' : 'Server',
+              needsAttention: attention,
+            ),
+          ),
           _menuItem(const Text('About')),
         ],
       ),

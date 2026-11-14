@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:home_widget/home_widget.dart';
@@ -16,12 +18,15 @@ class WidgetUsageReporter {
     this.events = noopAppEventLogger,
     SharedPreferencesAsync? prefs,
     DateTime Function()? clock,
-  }) : _prefs = prefs ?? SharedPreferencesAsync(),
+    List<String>? androidKinds,
+  }) : _androidKinds = androidKinds ?? kAndroidWidgetKinds,
+       _prefs = prefs ?? SharedPreferencesAsync(),
        _clock = clock ?? DateTime.now;
 
   final AppEventLogger events;
   final SharedPreferencesAsync _prefs;
   final DateTime Function() _clock;
+  final List<String> _androidKinds;
 
   /// Logs `widgets.installed` unless it did within the last 24 hours. Never
   /// throws; a plugin that fails is tried again on the next start.
@@ -37,10 +42,20 @@ class WidgetUsageReporter {
         return;
       }
       final counts = <String, int>{};
+      final platform = defaultTargetPlatform;
+      final known = platform == TargetPlatform.android
+          ? _androidKinds
+          : kSurfaceWidgetKinds;
       for (final widget in await HomeWidget.getInstalledWidgets()) {
-        final kind = widget.iOSKind;
-        if (!kSurfaceWidgetKinds.contains(kind)) continue;
-        final key = '$kind/${widget.iOSFamily}';
+        // Android reports the provider's short class name (`.HermesBoard`).
+        final (kind, family) = platform == TargetPlatform.android
+            ? (
+                widget.androidClassName?.replaceFirst(RegExp(r'^\.'), ''),
+                'android',
+              )
+            : (widget.iOSKind, widget.iOSFamily);
+        if (!known.contains(kind)) continue;
+        final key = '$kind/$family';
         counts[key] = (counts[key] ?? 0) + 1;
       }
       final kinds = counts.keys.toList()..sort();

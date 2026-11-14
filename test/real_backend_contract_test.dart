@@ -8,11 +8,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
     show
         CronJobCreate,
+        CustomEndpointUpdate,
+        EnvVarUpdate,
         MCPCatalogInstall,
         MCPServerCreate,
         MoaConfigPayload,
         ProfileCreate,
-        ProfileModelUpdate,
         RawConfigUpdate,
         SessionRename,
         TTSSpeakRequest;
@@ -27,7 +28,10 @@ import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
+import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
+import 'package:hermes_app/src/chat/subagents/agent_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -47,6 +51,8 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/providers/provider_results.dart';
+import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
@@ -58,9 +64,13 @@ import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
+import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
+import 'package:hermes_app/src/tools/tools_models.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
+import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
+import 'package:hermes_app/src/workspaces/workspace_models.dart';
 
 import 'support/attachment_fixtures.dart';
 
@@ -92,6 +102,9 @@ import 'support/attachment_fixtures.dart';
 /// the whole `mcp_servers` map back unchanged. The catalog test installs `context7`
 /// (no credentials, no build) and removes it, and the sign-in test starts and
 /// cancels a flow against a minimal OAuth provider on the loopback interface.
+/// The model provider tests only read the five list routes and call both
+/// validate routes with an empty value; they save no key, start no sign-in and
+/// remove nothing.
 /// The media tests write throwaway files under the backend's `images` folder
 /// and the system temp directory, so they need a backend on this machine, and
 /// delete them after. The scripted-model tests create a throwaway profile
@@ -585,20 +598,14 @@ void main() {
       return;
     }
 
-    final raw = await client.raw
-        .updateProfileModelEndpointApiProfilesNameModelPut(
-          name: Uri.encodeComponent(profile),
-          profileModelUpdate: ProfileModelUpdate(
-            provider: current.providerId,
-            model: current.modelId,
-          ),
-        );
+    final warning = await HermesModelsRepository(client.raw)
+        .assignMain(current, profile: profile);
 
-    expect(raw.data, {
-      'ok': true,
-      'provider': current.providerId,
-      'model': current.modelId,
-    });
+    expect(warning, isNull);
+    final after = (await HermesModelsRepository(
+      client.raw,
+    ).load(profile: profile)).current;
+    expect(after, current);
   }, skip: skip);
 
   test('the app hint is saved per profile without touching the rest', () async {
@@ -691,6 +698,164 @@ void main() {
 
     expect(bots, isNotEmpty);
     expect(bots.every((b) => b.name.isNotEmpty), isTrue);
+  }, skip: skip);
+
+  group('model providers (read only)', () {
+    // Reads the five list routes and calls both validate routes with an empty
+    // value, so nothing reaches a provider or an endpoint. No key is saved,
+    // no sign-in started and nothing removed here.
+    Map<String, dynamic> object(Object? body, String route) {
+      expect(body, isA<Map<String, dynamic>>(), reason: route);
+      return body! as Map<String, dynamic>;
+    }
+
+    test(
+      'model options with the unconfigured rows carry the provider fields',
+      () async {
+        final body = object(
+          (await client.raw.getModelOptionsApiModelOptionsGet(
+            profile: 'default',
+            includeUnconfigured: true,
+          )).data,
+          'options',
+        );
+        expect(body['model'], anyOf(isNull, isA<String>()));
+        expect(body['provider'], anyOf(isNull, isA<String>()));
+        final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+        expect(rows, isNotEmpty);
+        for (final row in rows) {
+          expect(row['slug'], isA<String>());
+          expect(row['name'], anyOf(isNull, isA<String>()));
+          expect(row['authenticated'], anyOf(isNull, isA<bool>()));
+          expect(row['is_current'], anyOf(isNull, isA<bool>()));
+          expect(row['models'], anyOf(isNull, isA<List<dynamic>>()));
+          if (row['authenticated'] == false) {
+            expect(row['auth_type'], anyOf(isNull, isA<String>()));
+            expect(row['key_env'], anyOf(isNull, isA<String>()));
+          }
+        }
+      },
+    );
+
+    test('env variables carry the provider key fields', () async {
+      final body = object(
+        (await client.raw.getEnvVarsApiEnvGet(profile: 'default')).data,
+        'env',
+      );
+      final providerKeys = body.values.cast<Map<String, dynamic>>().where(
+        (row) => row['category'] == 'provider',
+      );
+      expect(providerKeys, isNotEmpty);
+      for (final row in providerKeys) {
+        expect(row['provider'], isA<String>());
+        expect(row['is_set'], isA<bool>());
+        expect(row['is_password'], isA<bool>());
+        expect(row['provider_primary'], anyOf(isNull, isA<bool>()));
+        expect(row['url'], anyOf(isNull, isA<String>()));
+        expect(row['redacted_value'], anyOf(isNull, isA<String>()));
+      }
+    });
+
+    test('OAuth providers carry their flow and status', () async {
+      final body = object(
+        (await client.raw.listOauthProvidersApiProvidersOauthGet(
+          profile: 'default',
+        )).data,
+        'oauth',
+      );
+      final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+      expect(rows, isNotEmpty);
+      for (final row in rows) {
+        expect(row['id'], isA<String>());
+        expect(row['flow'], anyOf('device_code', 'external'));
+        expect(row['disconnectable'], isA<bool>());
+        expect((row['status']! as Map)['logged_in'], isA<bool>());
+      }
+    });
+
+    test('custom endpoints carry the endpoint fields', () async {
+      final body = object(
+        (await client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: 'default',
+        )).data,
+        'endpoints',
+      );
+      for (final row
+          in (body['endpoints']! as List).cast<Map<String, dynamic>>()) {
+        expect(row['id'], isA<String>());
+        expect(row['base_url'], isA<String>());
+        expect(row['has_api_key'], isA<bool>());
+        expect(row['is_current'], anyOf(isNull, isA<bool>()));
+      }
+    });
+
+    test('the credential pool carries source and auth type', () async {
+      final body = object(
+        (await client.raw.listCredentialPoolApiCredentialsPoolGet(
+          profile: 'default',
+        )).data,
+        'pool',
+      );
+      for (final group
+          in (body['providers']! as List).cast<Map<String, dynamic>>()) {
+        expect(group['provider'], isA<String>());
+        for (final entry
+            in (group['entries']! as List).cast<Map<String, dynamic>>()) {
+          expect(entry['source'], anyOf(isNull, isA<String>()));
+          expect(entry['auth_type'], anyOf(isNull, isA<String>()));
+        }
+      }
+    });
+
+    test('the five routes load and merge without a skipped row', () async {
+      final snapshot = await ProvidersRepository(client.raw).load('default');
+      expect(snapshot, isA<ProvidersLoaded>());
+      final loaded = snapshot as ProvidersLoaded;
+      for (final source in ProviderSource.values) {
+        expect(loaded.state(source), isA<SourceOk>(), reason: source.name);
+      }
+      expect(loaded.catalog.skippedRows, 0);
+      expect(loaded.catalog.entries, isNotEmpty);
+    });
+
+    test('the provider key check answers its three fields, or refuses an '
+        'empty value', () async {
+      final response = await client.raw
+          .validateProviderCredentialApiProvidersValidatePost(
+            envVarUpdate: EnvVarUpdate(key: 'OPENROUTER_API_KEY', value: ''),
+            validateStatus: (_) => true,
+          );
+      if (response.statusCode == 200) {
+        final body = object(response.data, 'validate');
+        expect(body['ok'], isA<bool>());
+        expect(body['reachable'], isA<bool>());
+        expect(body['message'], anyOf(isNull, isA<String>()));
+      } else {
+        expect(response.statusCode, lessThan(500));
+      }
+    });
+
+    test('the endpoint check answers its fields, or refuses an empty '
+        'address', () async {
+      final response = await client.raw
+          .validateCustomEndpointApiProvidersCustomEndpointsValidatePost(
+            customEndpointUpdate: CustomEndpointUpdate(
+              name: '',
+              baseUrl: '',
+              model: '',
+            ),
+            validateStatus: (_) => true,
+          );
+      if (response.statusCode == 200) {
+        final body = object(response.data, 'endpoint validate');
+        expect(body['ok'], isA<bool>());
+        expect(body['reachable'], isA<bool>());
+        expect(body['models'], anyOf(isNull, isA<List<dynamic>>()));
+        expect(body['resolved_base_url'], anyOf(isNull, isA<String>()));
+      } else {
+        expect(response.statusCode, lessThan(500));
+      }
+    });
   }, skip: skip);
 
   group('plugins', () {
@@ -1042,6 +1207,192 @@ void main() {
     }, skip: skip);
   });
 
+  // The request bodies below were written from the design (read from the
+  // Hermes source), not recorded from a live backend: no `hermes` binary was
+  // available when they were written. Run them against a throwaway backend
+  // and fix the shapes the first run corrects. They write only to a folder
+  // they create in the system temp directory and to chats they create, which
+  // the backend keeps until its home is thrown away. Set
+  // `HERMES_DEV_FILES_ROOT` to the folder the backend was started with via
+  // `HERMES_DASHBOARD_FILES_ROOT` to check the read boundary too.
+  group('working directory (no model call)', () {
+    late GatewayRpcClient rpc;
+    late HermesWorkspacesRepository workspaces;
+    late Directory root;
+    late String inner;
+    final filesRoot = Platform.environment['HERMES_DEV_FILES_ROOT'];
+
+    Map<String, Object?> infoOf(Map<String, Object?> created) =>
+        (created['info'] as Map).cast<String, Object?>();
+
+    Future<Map<String, Object?>> create(Map<String, Object?> extra) async {
+      final created = await rpc.request('session.create', {
+        'profile': 'default',
+        'source': 'hermes_app',
+        ...extra,
+      });
+      addTearDown(
+        () => rpc
+            .request('session.close', {'session_id': created['session_id']})
+            .then((_) {}, onError: (Object _) {}),
+      );
+      return created;
+    }
+
+    setUp(() async {
+      if (url == null) return;
+      rpc = GatewayRpcClient(
+        await hermesGatewayConnect(
+          baseUrl: url,
+          authRequired: false,
+          api: client,
+        )(),
+      );
+      addTearDown(rpc.close);
+      workspaces = HermesWorkspacesRepository(client.raw, rpc.requestWithin);
+      // Under the files root when one is set, so fs/list is not refused for
+      // the folders these tests create. The server reports resolved paths,
+      // so expectations use the resolved ones too (a temp dir can be a
+      // symlink, as on macOS).
+      final parent = filesRoot == null
+          ? Directory.systemTemp
+          : Directory(filesRoot);
+      final made = await parent.createTemp('hermes-workdir-');
+      addTearDown(() => made.delete(recursive: true));
+      root = Directory(made.resolveSymbolicLinksSync());
+      inner = (await Directory('${root.path}/inner').create()).path;
+      await File('${root.path}/note.txt').writeAsString('x');
+    });
+
+    T value<T>(WorkspacesResult<T> result) => switch (result) {
+      WorkspacesOk(:final value) => value,
+      _ => fail('expected a value, got $result'),
+    };
+
+    void failedWith<T>(WorkspacesResult<T> result, WorkspacesFailure kind) =>
+        expect(
+          result,
+          isA<WorkspacesFailed<T>>().having((f) => f.kind, 'kind', kind),
+        );
+
+    test('the workspaces catalog has the fields the app reads', () async {
+      final raw = (await client.raw.getChatWorkspacesApiChatWorkspacesGet(
+        profile: 'default',
+      )).data!;
+      final body = (raw as Map).cast<String, Object?>();
+      expect(body['projects'], isA<List<Object?>>());
+      expect(body['repos'], isA<List<Object?>>());
+      expect(body['default_cwd'], anyOf(isNull, isA<String>()));
+      expect(body['home'], anyOf(isNull, isA<String>()));
+      expect(body['scan_enabled'], isA<bool>());
+
+      value(await workspaces.catalog(profile: 'default'));
+      failedWith(
+        await workspaces.catalog(profile: 'contract-check-missing'),
+        WorkspacesFailure.unknownProfile,
+      );
+    }, skip: skip);
+
+    test('fs/list lists the folders of a temp directory and reports a bad '
+        'one in a 200 with error', () async {
+      final listing = value(await workspaces.listFolders(root.path));
+      expect(listing.folders.map((f) => f.name), ['inner']);
+
+      final raw = (await client.raw.fsListApiFsListGet(
+        path: '${root.path}/missing',
+        profile: 'default',
+      )).data!;
+      expect((raw as Map)['error'], 'ENOENT');
+      failedWith(
+        await workspaces.listFolders('${root.path}/missing'),
+        WorkspacesFailure.notFound,
+      );
+      failedWith(
+        await workspaces.listFolders('${root.path}/note.txt'),
+        WorkspacesFailure.notADirectory,
+      );
+    }, skip: skip);
+
+    test('complete.path with an absolute word lists folders', () async {
+      final got = value(await workspaces.complete('${root.path}/in'));
+      expect(got.folders.map((s) => s.text), ['${root.path}/inner/']);
+    }, skip: skip);
+
+    test('a chat created with cwd and cwd_explicit runs there, and a bad cwd '
+        'falls back', () async {
+      final created = await create({'cwd': root.path, 'cwd_explicit': true});
+      expect(infoOf(created)['cwd'], root.resolveSymbolicLinksSync());
+
+      final bad = '${root.path}/does-not-exist';
+      final fell = await create({'cwd': bad, 'cwd_explicit': true});
+      expect(infoOf(fell)['cwd'], isNot(bad));
+    }, skip: skip);
+
+    test('a draft chat can be moved, a relative path is refused, and it has '
+        'no stored row yet', () async {
+      final created = await create({'cwd': root.path, 'cwd_explicit': true});
+      final stored = created['stored_session_id'] as String;
+
+      expect(value(await workspaces.moveWorkspace(stored, inner)).cwd, inner);
+      // A draft has no stored row until its first message (the server moves
+      // it live: "A draft has no row yet; the live re-home still applies"),
+      // so the stored chat reads as gone, not as a chat in the new folder.
+      failedWith(
+        await workspaces.sessionFolder(stored),
+        WorkspacesFailure.sessionGone,
+      );
+
+      // Not through the repository, which would refuse it without asking.
+      await expectLater(
+        rpc.request('session.workspace.move', {
+          'session_key': stored,
+          'cwd': 'inner',
+          'profile': 'default',
+        }),
+        throwsA(isA<GatewayRpcException>()),
+      );
+      failedWith(
+        await workspaces.moveWorkspace(stored, '${root.path}/missing'),
+        WorkspacesFailure.notFound,
+      );
+    }, skip: skip);
+
+    test('a hermes_app chat created with no cwd stores the folder it '
+        'reports', () async {
+      final created = await create({});
+      final reported = infoOf(created)['cwd'];
+      expect(reported, anyOf(isNull, isA<String>()));
+      final folder = await workspaces.sessionFolder(
+        created['stored_session_id'] as String,
+      );
+      if (reported is String && folder is WorkspacesOk<SessionFolder>) {
+        expect(folder.value.cwd, reported);
+      }
+    }, skip: skip);
+
+    test('with the files root set, outside answers 403 with the boundary '
+        'detail and inside lists', () async {
+      final base = filesRoot!;
+      final outside = Directory(base).parent.path;
+      try {
+        await client.raw.fsListApiFsListGet(path: outside, profile: 'default');
+        fail('expected a 403 outside the files root');
+      } on DioException catch (e) {
+        expect(e.response?.statusCode, 403);
+        final detail = (e.response?.data as Map)['detail'] as String;
+        expect(
+          detail.toLowerCase(),
+          contains('path is outside the managed read boundary'),
+        );
+      }
+      value(await workspaces.listFolders(base));
+      failedWith(
+        await workspaces.listFolders(outside),
+        WorkspacesFailure.outsideBoundary,
+      );
+    }, skip: skip ?? (filesRoot == null ? 'set HERMES_DEV_FILES_ROOT' : null));
+  });
+
   group('attachments over the gateway (no model call)', () {
     late GatewayRpcClient rpc;
     late String sessionId;
@@ -1060,6 +1411,22 @@ void main() {
           (await rpc.request('session.create', const {}))['session_id']
               as String;
     });
+
+    test('subagent.list answers rows the app parses, for a session with none '
+        '(read-only: nothing is stopped or steered)', () async {
+      final answer = await rpc.request('subagent.list', {
+        'session_id': sessionId,
+      });
+      final list = parseAgentList(answer);
+      expect(list, isNotNull);
+      expect(list!.agents, isEmpty);
+      expect(list.delegations, isEmpty);
+      // A runtime id this connection does not hold is refused, not listed.
+      await expectLater(
+        rpc.request('subagent.list', {'session_id': 'not-a-session'}),
+        throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', 4001)),
+      );
+    }, skip: skip);
 
     const liveStatuses = {
       'idle',
@@ -3030,6 +3397,108 @@ void main() {
     }, skip: skip);
   });
 
+  group('tools (read only: nothing is switched, saved or installed)', () {
+    late HermesToolsRepository tools;
+
+    setUp(() => tools = HermesToolsRepository(client.raw, profile: 'default'));
+
+    T value<T>(ToolsResult<T> result) {
+      expect(result, isA<ToolsOk<T>>());
+      return (result as ToolsOk<T>).value;
+    }
+
+    test('the list has the fields the app reads, and "available" still '
+        'copies "enabled"', () async {
+      final response = await client.raw.getToolsetsApiToolsToolsetsGet(
+        profile: 'default',
+      );
+      final raw = response.data! as List<dynamic>;
+      for (final row in raw.whereType<Map<String, dynamic>>()) {
+        expect(row['name'], isA<String>());
+        expect(row['enabled'], isA<bool>());
+        expect(row['configured'], isA<bool>());
+        expect(row['platform'], isA<String>());
+        expect(row['available'], row['enabled'], reason: '${row['name']}');
+      }
+
+      final list = value(await tools.list());
+
+      expect(list.skipped, 0);
+      expect(list.toolsets, isNotEmpty);
+      expect(list.toolsets.map((t) => t.name), contains('terminal'));
+    });
+
+    test('a toolset with a provider matrix reads its providers', () async {
+      final list = value(await tools.list());
+      final name = list.toolsets
+          .map((t) => t.name)
+          .firstWhere(
+            (n) => n == 'web',
+            orElse: () => list.toolsets.first.name,
+          );
+
+      final config = value(await tools.config(name));
+
+      expect(config.skipped, 0);
+      if (config.hasCategory) {
+        expect(config.providers, isNotEmpty);
+        for (final provider in config.providers) {
+          expect(provider.name, isNotEmpty);
+          for (final env in provider.envVars) {
+            expect(env.key, isNotEmpty);
+          }
+        }
+      }
+    });
+
+    test('a toolset without a catalog says so', () async {
+      final models = value(await tools.models('web'));
+
+      expect(models.hasModels, isFalse);
+    });
+
+    test('the terminal backends name an active one', () async {
+      final backends = value(await tools.terminalBackends());
+
+      expect(backends.skipped, 0);
+      expect(backends.backends, isNotEmpty);
+      expect(backends.backends.map((b) => b.name), contains('local'));
+    });
+
+    test('the computer use status answers, and a missing permission is '
+        'only ever null or a bool', () async {
+      final status = value(await tools.computerUseStatus());
+
+      final raw =
+          (await client.raw.getComputerUseStatusApiToolsComputerUseStatusGet(
+                profile: 'default',
+              )).data!
+              as Map<String, dynamic>;
+      for (final key in ['accessibility', 'screen_recording', 'ready']) {
+        expect(raw[key], anyOf(isNull, isA<bool>()), reason: key);
+      }
+      expect(status.platform, isNotNull);
+      if (!status.installed) expect(status.canOfferGrant, isFalse);
+    });
+
+    test('an unknown toolset is refused with a 400, not a 404', () async {
+      final result = await tools.config(
+        'no_such_toolset_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      expect(result, isA<ToolsRefused<ToolsetConfig>>());
+    });
+
+    test('a profile that does not exist is told apart from a missing '
+        'route', () async {
+      final gone = tools.forProfile(
+        'contract-missing-${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      expect(await gone.list(), isA<ToolsProfileGone<ToolsetList>>());
+    });
+  }, skip: skip);
+
   group('requests scoped to a second profile (no model call)', () {
     final profile = 'contract-scope-${DateTime.now().millisecondsSinceEpoch}';
     late HermesPluginManagerRepository plugins;
@@ -3430,6 +3899,52 @@ approvals:
           prompts(await repository.loadMessages(whole!.id, profile: profile)),
           ['First question.', 'Second question.'],
         );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'checkpoints and the context breakdown answer in the shapes the app '
+      'reads (reads only: nothing is restored or compressed)',
+      () async {
+        final repository = HermesChatRepository(client.raw);
+        final transport = connect();
+        final events = await transport
+            .send(profile: profile, text: 'Contract check.')
+            .toList();
+        final thread = (events.first as ThreadBound).threadId;
+        addTearDown(() => repository.deleteThread(thread, profile: profile));
+        final binding = transport.ownedSessionFor(thread, profile: profile)!;
+
+        // Checkpoints are off unless the backend turned them on; an old
+        // backend has no `rollback.*`. Neither is a failure.
+        final list = await transport.listCheckpoints(binding);
+        expect(list, isNot(isA<CheckpointsFailed>()));
+        if (list is CheckpointsOn && list.checkpoints.isNotEmpty) {
+          expect(list.checkpoints.first.hash, hasLength(greaterThan(6)));
+          expect(
+            await transport.checkpointChanges(
+              binding,
+              list.checkpoints.first.hash,
+            ),
+            isNot(isA<ChangesFailed>()),
+          );
+        }
+
+        final breakdown = await transport.contextBreakdown(binding);
+        expect(breakdown, isNot(isA<BreakdownFailed>()));
+        if (breakdown is Breakdown) {
+          final percent = breakdown.percent;
+          if (percent != null) expect(percent, inInclusiveRange(0, 100));
+          expect(
+            breakdown.categories.map((c) => c.tokens),
+            orderedEquals(
+              breakdown.categories.map((c) => c.tokens).toList()
+                ..sort((a, b) => b.compareTo(a)),
+            ),
+          );
+        }
       },
       timeout: const Timeout(Duration(minutes: 2)),
       skip: skip,

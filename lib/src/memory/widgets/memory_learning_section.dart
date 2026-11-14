@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../mcp/mcp_banner.dart';
+import '../../widgets/app_banner.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/grouped_list.dart';
 import '../memory_settings.dart';
@@ -74,8 +74,8 @@ class MemoryLearningSection extends StatelessWidget {
         if (message != null)
           Padding(
             padding: const EdgeInsets.only(top: 16),
-            child: McpBanner(
-              tone: McpTone.error,
+            child: AppBanner(
+              tone: AppBannerTone.error,
               icon: AppIcons.error,
               title: message!,
             ),
@@ -89,6 +89,7 @@ class MemoryLearningSection extends StatelessWidget {
           children: [
             if (current == null)
               GroupedRow(
+                wrapWhenStacked: true,
                 title: unreadable
                     ? "Couldn't read the memory settings"
                     : 'Reading the memory settings',
@@ -112,11 +113,13 @@ class MemoryLearningSection extends StatelessWidget {
                 current.writeApproval,
               ),
               GroupedRow(
+                wrapWhenStacked: true,
                 title: MemorySetting.reviewInterval.label,
                 value: intervalLabel(current.reviewInterval),
                 onTap: () => _pickInterval(context, current.reviewInterval),
               ),
               GroupedRow(
+                wrapWhenStacked: true,
                 title: MemorySetting.updatesInChat.label,
                 value: reportLabel(current.updatesInChat),
                 onTap: () => _pickReport(context, current.updatesInChat),
