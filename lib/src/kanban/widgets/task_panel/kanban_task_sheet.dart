@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/hermes_theme.dart';
+
 /// Room a sheet's grabber takes above its content.
 const double kKanbanGrabberBand = 17;
 
@@ -30,8 +32,9 @@ Future<void> showKanbanFormSheet(BuildContext context, Widget panel) =>
       context: context,
       builder: (_) => Dialog(
         clipBehavior: Clip.antiAlias,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(_kSheetRadius)),
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(_kSheetRadius)),
+          side: hermesOverlayEdge(Theme.of(context).colorScheme),
         ),
         child: KanbanFormSheetFrame(child: panel),
       ),
@@ -57,10 +60,11 @@ class KanbanDetentSheet extends StatelessWidget {
       key: const Key('kanbanTaskSheet'),
       color: Theme.of(context).colorScheme.surface,
       clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(_kSheetRadius),
         ),
+        side: hermesOverlayEdge(Theme.of(context).colorScheme),
       ),
       child: Stack(
         children: [
