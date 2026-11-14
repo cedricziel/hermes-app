@@ -374,6 +374,9 @@ class MediaStore {
         : QuickLookToggle.failed;
   }
 
+  /// Closes the Quick Look panel, as a page does that opened it.
+  Future<void> closeQuickLook() => _quietly(_quickLook.close);
+
   Future<bool> open(File file) => _actions.open(file.path);
 
   Future<bool> save(String name, Uint8List bytes) => _actions.save(name, bytes);

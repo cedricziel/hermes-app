@@ -28,6 +28,7 @@ import 'screens/server_setup_screen.dart';
 import 'settings/theme_controller.dart';
 import 'shell/app_shell.dart';
 import 'theme/hermes_theme.dart';
+import 'theme/material_ui_bridge.dart';
 
 class HermesApp extends StatefulWidget {
   /// Prompts to update when [updateChecker] finds a newer release. Left off in
@@ -166,35 +167,40 @@ class _HermesAppState extends State<HermesApp> {
       navigatorObservers: [_handoffObserver, _history],
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: [
+        ...AppLocalizations.localizationsDelegates,
+        ...kMaterialUiLocalizationsDelegates,
+      ],
       supportedLocales: kReleasedLocales,
       theme: widget.lightTheme ?? buildHermesLightTheme(),
       darkTheme: widget.darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-      builder: (context, child) => MenuBarExtraHost(
-        navigatorKey: _navigatorKey,
-        child: MacMenuBar(
+      builder: (context, child) => MaterialUiThemeScope(
+        child: MenuBarExtraHost(
           navigatorKey: _navigatorKey,
-          child: ConversationWindowsMenu(
-            child: DesktopNavigationHistoryScope(
-              history: _history,
-              child: Builder(
-                builder: (context) {
-                  final content = MacWindowChrome(
-                    child: AppLockGate(
-                      child: DockMenuGate(child: HandoffGate(child: child!)),
-                    ),
-                  );
-                  return switch (Theme.of(context).platform) {
-                    TargetPlatform.macOS ||
-                    TargetPlatform.windows ||
-                    TargetPlatform.linux => DesktopNavigationCommands(
-                      history: _history,
-                      child: content,
-                    ),
-                    _ => content,
-                  };
-                },
+          child: MacMenuBar(
+            navigatorKey: _navigatorKey,
+            child: ConversationWindowsMenu(
+              child: DesktopNavigationHistoryScope(
+                history: _history,
+                child: Builder(
+                  builder: (context) {
+                    final content = MacWindowChrome(
+                      child: AppLockGate(
+                        child: DockMenuGate(child: HandoffGate(child: child!)),
+                      ),
+                    );
+                    return switch (Theme.of(context).platform) {
+                      TargetPlatform.macOS ||
+                      TargetPlatform.windows ||
+                      TargetPlatform.linux => DesktopNavigationCommands(
+                        history: _history,
+                        child: content,
+                      ),
+                      _ => content,
+                    };
+                  },
+                ),
               ),
             ),
           ),

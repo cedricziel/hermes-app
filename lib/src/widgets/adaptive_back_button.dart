@@ -46,4 +46,16 @@ class AdaptiveBackButton extends StatelessWidget {
 /// The `AppBar.leadingWidth` that leaves room for the iOS label, or null for
 /// the default.
 double? adaptiveBackLeadingWidth(BuildContext context) =>
-    platformChromeOf(context) == PlatformChrome.ios ? 120 : null;
+    platformChromeOf(context) == PlatformChrome.ios
+    ? scaledLeadingWidth(context, 120)
+    : null;
+
+/// [base] widened with the text size, so a bar label such as "Cancel" or the
+/// back button's title is not cut at the largest sizes, up to half the
+/// window's width.
+double scaledLeadingWidth(BuildContext context, double base) {
+  final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+  final room = MediaQuery.sizeOf(context).width * 0.5;
+  final wanted = base * (scale > 1 ? scale : 1);
+  return wanted < room ? wanted : (room > base ? room : base);
+}

@@ -9,8 +9,12 @@ enum FilesFailure {
   /// 404, ENOENT, or a missing folder on an SSH workspace.
   missing,
 
-  /// 403, EACCES, or the boundary of a locked deployment.
+  /// 403 or EACCES.
   notAllowed,
+
+  /// 403 "outside the managed read boundary": a locked deployment that
+  /// shares one fixed folder, which this one is not in.
+  fixedFolder,
 
   /// 400 for a directory or something that is not a regular file, or
   /// ENOTDIR for a file asked for as a folder.
@@ -69,7 +73,9 @@ FilesFailure filesFailureForStatus(
           ? FilesFailure.notAFile
           : FilesFailure.badRequest;
     case 403:
-      return FilesFailure.notAllowed;
+      return (detail ?? '').toLowerCase().contains('managed read boundary')
+          ? FilesFailure.fixedFolder
+          : FilesFailure.notAllowed;
     case 404:
       return (detail ?? '').startsWith("Profile '")
           ? FilesFailure.badRequest

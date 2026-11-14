@@ -1,7 +1,13 @@
-/// The `subagent.*` methods the app calls. A caller cannot name any other, so
-/// nothing here can reach a call that stops or changes more than one agent.
-const kAgentReadMethods = {'subagent.list', 'subagent.tail'};
-const kAgentActionMethods = {'subagent.interrupt', 'subagent.steer'};
+/// The `subagent.*` and `process.*` methods the app calls. A caller cannot
+/// name any other, so nothing here can reach a call that stops or changes
+/// more than one agent or program: `process.stop` (every program of the
+/// server) is deliberately absent.
+const kAgentReadMethods = {'subagent.list', 'subagent.tail', 'process.list'};
+const kAgentActionMethods = {
+  'subagent.interrupt',
+  'subagent.steer',
+  'process.kill',
+};
 
 /// Calls on a chat's live session that only the connection holding it may
 /// make. The transport adds `session_id` itself, so a caller never addresses

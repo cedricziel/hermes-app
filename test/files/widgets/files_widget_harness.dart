@@ -22,15 +22,17 @@ Future<void> pumpFiles(
     ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  // Built for [platform], so a Mac gets the compact density a real Mac build
+  // has: `copyWith(platform:)` would leave the density of the test host.
   final base = brightness == Brightness.dark
-      ? buildHermesDarkTheme()
-      : buildHermesLightTheme();
+      ? buildHermesDarkTheme(platform: platform)
+      : buildHermesLightTheme(platform: platform);
   await tester.pumpWidget(
     MaterialApp(
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: base.copyWith(platform: platform),
+      theme: base,
       builder: (context, app) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
           textScaler: TextScaler.linear(textScale),

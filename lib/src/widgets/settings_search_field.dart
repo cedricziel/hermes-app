@@ -119,22 +119,27 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
           AppIcon(AppIcons.search, size: ios ? 18 : 22, color: muted),
           SizedBox(width: ios ? 6 : 12),
           Expanded(
-            child: TextField(
-              key: const Key('settings-search-field'),
-              controller: _text,
-              onChanged: search.onChanged,
-              textInputAction: TextInputAction.search,
-              textAlignVertical: TextAlignVertical.center,
-              style: TextStyle(fontSize: fontSize),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintText: search.hint,
-                hintStyle: TextStyle(fontSize: fontSize, color: muted),
+            // The placeholder is gone once there is text, so the field is
+            // named explicitly.
+            child: Semantics(
+              label: search.hint,
+              child: TextField(
+                key: const Key('settings-search-field'),
+                controller: _text,
+                onChanged: search.onChanged,
+                textInputAction: TextInputAction.search,
+                textAlignVertical: TextAlignVertical.center,
+                style: TextStyle(fontSize: fontSize),
+                decoration: InputDecoration(
+                  isCollapsed: true,
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: search.hint,
+                  hintStyle: TextStyle(fontSize: fontSize, color: muted),
+                ),
               ),
             ),
           ),
