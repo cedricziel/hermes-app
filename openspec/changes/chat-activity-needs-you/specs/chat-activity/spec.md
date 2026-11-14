@@ -60,7 +60,7 @@ After Skip or Continue the card SHALL disable both, show "Sending your answer…
 
 ### Requirement: Needs-you items stay while the connection is lost
 
-While the gateway connection is lost and reconnecting, an item that was Needs-you SHALL stay on the card with its server actions (Skip, Continue, Open on a connector, Reopen) disabled and the line "Offline. These actions come back when you're connected." Copy code SHALL stay available. The item SHALL leave for every retirement its own capability defines, and the app SHALL NOT offer an action on authority it no longer holds.
+While the gateway connection is lost and reconnecting, an item that was Needs-you SHALL stay on the card with its server actions (Skip, Continue, Open on a connector, Reopen) disabled and the line "Offline. These actions come back when you're connected." Copy code and the billing Open verification page SHALL stay available while the details are held. The item SHALL leave for every retirement its own capability defines, and the app SHALL NOT offer an action on authority it no longer holds.
 
 #### Scenario: The network drops with a sign-in waiting
 

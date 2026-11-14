@@ -37,7 +37,12 @@ The Bot screen card, Needs-you items and For reference items SHALL NOT feed the 
 
 ### Requirement: The line shows only reported counters
 
-The line SHALL show counters at its trailing side when their values are known: the plan's completed and total tasks while a task is open, the number of running processes, and mixture-of-agents references done and total. Counters SHALL use only reported values and SHALL be left out when unknown.
+The line SHALL show at most two counters at its trailing side, the most recently changed first, when their values are known: the plan's completed and total tasks while a task is open, the number of running processes, and mixture-of-agents references done and total. Counters not shown SHALL stay in the Activity panel. Counters SHALL use only reported values and SHALL be left out when unknown.
+
+#### Scenario: Three counters are known
+
+- **WHEN** a plan, a process and mixture-of-agents progress all report values
+- **THEN** the line shows the two that changed last and the panel shows all three
 
 #### Scenario: A counter is unknown
 
@@ -51,7 +56,7 @@ The line SHALL be at least 44 pt tall on Apple platforms and 48 dp on Material a
 #### Scenario: The largest text size
 
 - **WHEN** the text size is the largest and the sentence is long
-- **THEN** the line shows the sentence on one row and the counters on a second row without cutting a counter
+- **THEN** the line shows the sentence on one row and its counters on a second row without cutting a counter
 
 ### Requirement: macOS shows Working activity in the toolbar
 

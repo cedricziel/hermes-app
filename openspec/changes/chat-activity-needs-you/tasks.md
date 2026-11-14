@@ -4,7 +4,7 @@ Two PRs, in order, each about 500 changed lines or fewer. Every behaviour task s
 
 ## 1. PR 1: `feat(chat): dock items that need you above the composer`
 
-- [x] 1.1 Claude Design pass: CANVAS_URL (private; ask its owner for access); decisions, corrections and copy in `docs/design-briefs/chat-activity.md` ("Design (done)"), which the widgets below follow.
+- [x] 1.1 Claude Design pass: https://claude.ai/artifact/MrNWUNUAZWggxjbatmPNWM (private; ask its owner for access); decisions, corrections and copy in `docs/design-briefs/chat-activity.md` ("Design (done)"), which the widgets below follow.
 - [ ] 1.2 Extract the details parts of `BillingVerificationCard` and `ConnectorOperationCard` into body widgets the cards still use (own `refactor(chat)` commit); verify the existing card and transport tests pass unchanged.
 - [ ] 1.3 Build these plain-model widgets in `lib/src/chat/activity/widgets/` (models and callbacks only, no controller), each with Widgetbook use cases in `widgetbook/needs_you_dock_use_cases.dart` before any screen uses it, in both themes, at phone, iPad and desktop width, with Apple and Material chrome and at the largest text size; verify `flutter test test/widgetbook_test.dart` passes.
   - `NeedsYouDock` (`NeedsYouDockModel`: items, shown index, callbacks): header (kind icon, title, "1 of N" with Previous and Next), a scrolling body capped at 40% of the height left, action row. Use cases: billing (valid and invalid URL), connector with one and three targets and a deadline, reclaimed, restore failed, "1 of 3" and "2 of 3", answer states (sending, unconfirmed), offline, keyboard open on a small phone, every kind at the largest text size, dark.

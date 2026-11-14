@@ -4,7 +4,7 @@ Two PRs, in order, each about 500 changed lines or fewer. Every behaviour task s
 
 ## 1. PR 1: `feat(chat): summarize working activity`
 
-- [x] 1.1 Claude Design pass: CANVAS_URL (private; ask its owner for access); decisions, corrections and copy in `docs/design-briefs/chat-activity.md` ("Design (done)"), which the widgets below follow.
+- [x] 1.1 Claude Design pass: https://claude.ai/artifact/MrNWUNUAZWggxjbatmPNWM (private; ask its owner for access); decisions, corrections and copy in `docs/design-briefs/chat-activity.md` ("Design (done)"), which the widgets below follow.
 - [ ] 1.2 Write failing unit tests for `WorkingSummary`: the newest sentence wins across status, process, mixture-of-agents, resume and control sources; clearing the newest falls back to the next active one; a plan with an open task and nothing else reads "Working on the plan"; counters use only reported values and are left out when unknown; the plan counter is dropped when every task is done; the Bot screen, usage and Needs-you items never feed it; nothing working yields null.
 - [ ] 1.3 Implement `WorkingSummary` in `lib/src/chat/activity/` and verify 1.2 passes.
 - [ ] 1.4 Build these plain-model widgets in `lib/src/chat/activity/widgets/` (models and callbacks only, no controller), each with Widgetbook use cases in `widgetbook/activity_line_use_cases.dart` before any screen uses it, in both themes, at phone, iPad and desktop width, with Apple and Material chrome and at the largest text size; verify `flutter test test/widgetbook_test.dart` passes.
