@@ -176,12 +176,13 @@ void main() {
     },
   );
 
-  test('only the four subagent methods can be called, each as a read or an '
-      'action', () async {
+  test('only the agent and program methods can be called, each as a read '
+      'or an action; process.stop never', () async {
     await attach();
     final before = gateway.requests.length;
     for (final method in [
       'process.stop',
+      'process.kill',
       'delegation.pause',
       'subagent.steer',
     ]) {
@@ -196,7 +197,7 @@ void main() {
         reason: method,
       );
     }
-    for (final method in ['process.stop', 'subagent.list']) {
+    for (final method in ['process.stop', 'process.list', 'subagent.list']) {
       expect(
         () => transport.act(
           'stored-1',
@@ -209,6 +210,61 @@ void main() {
       );
     }
     expect(gateway.requests, hasLength(before));
+    expect(kAgentReadMethods, isNot(contains('process.stop')));
+    expect(kAgentActionMethods, isNot(contains('process.stop')));
+  });
+
+  test(
+    'process.list is a read of the attached session and never resumes',
+    () async {
+      gateway.handlers['process.list'] = (_) => {'processes': []};
+      expect(
+        await transport.readAttached(
+          'stored-1',
+          profile: 'work',
+          method: 'process.list',
+          timeout: timeout,
+        ),
+        isNull,
+      );
+      expect(sent(gateway, 'process.list'), isEmpty);
+      await attach();
+      final answer = await transport.readAttached(
+        'stored-1',
+        profile: 'work',
+        method: 'process.list',
+        params: {'profile': 'work'},
+        timeout: timeout,
+      );
+      expect(answer, {'processes': []});
+      expect(
+        paramsOf(sent(gateway, 'process.list').single)['session_id'],
+        'rt-1',
+      );
+      expect(sent(gateway, 'session.resume'), isEmpty);
+    },
+  );
+
+  test('process.kill is an action: it attaches first and sends once with the '
+      'runtime id', () async {
+    gateway.handlers['session.resume'] = (_) => {
+      'session_id': 'rt-7',
+      'stored_session_id': 'stored-1',
+    };
+    gateway.handlers['process.kill'] = (_) => {'status': 'killed'};
+    final answer = await transport.act(
+      'stored-1',
+      profile: 'work',
+      method: 'process.kill',
+      params: {'process_id': 'proc_1'},
+      timeout: timeout,
+    );
+    expect(answer, {'status': 'killed'});
+    final kill = paramsOf(sent(gateway, 'process.kill').single);
+    expect(kill['session_id'], 'rt-7');
+    expect(kill['process_id'], 'proc_1');
+    expect(sent(gateway, 'session.resume'), hasLength(1));
+    expect(sent(gateway, 'process.stop'), isEmpty);
   });
 
   test('a read cut off by the connection closing is not returned', () async {

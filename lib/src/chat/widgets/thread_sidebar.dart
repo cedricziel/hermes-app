@@ -77,6 +77,8 @@ class ThreadSidebar extends StatelessWidget {
     this.memoryWaiting,
     this.onOpenPlugins,
     this.onOpenMcp,
+    this.onOpenProviders,
+    this.onOpenTools,
     this.onOpenHelperModels,
     this.onOpenInNewWindow,
     this.searchProfile,
@@ -110,6 +112,10 @@ class ThreadSidebar extends StatelessWidget {
   final int? memoryWaiting;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
+  final VoidCallback? onOpenProviders;
+
+  /// Opens Tools; the entry shows only while the server offers them.
+  final VoidCallback? onOpenTools;
   final VoidCallback? onOpenHelperModels;
 
   /// Opens a server-backed thread in a window of its own, from its Mac
@@ -240,6 +246,14 @@ class ThreadSidebar extends StatelessWidget {
                     (AppIcons.extension, 'Plugins', onOpenPlugins!),
                   if (onOpenMcp != null)
                     (AppIcons.power, 'MCP servers', onOpenMcp!),
+                  if (onOpenProviders != null)
+                    (
+                      AppIcons.hub,
+                      context.l10n.providersListTitle,
+                      onOpenProviders!,
+                    ),
+                  if (onOpenTools != null)
+                    (AppIcons.wrench, context.l10n.toolsTitle, onOpenTools!),
                   if (onOpenHelperModels != null)
                     (AppIcons.tune, 'Helper models', onOpenHelperModels!),
                 ],
@@ -426,7 +440,8 @@ class SidebarAction extends StatelessWidget {
   }
 }
 
-/// Profiles, skills, memory, messaging, plugins, MCP servers and helper models
+/// Profiles, skills, memory, messaging, plugins, MCP servers, tools and helper
+/// models
 /// behind one row, so the thread list keeps the height.
 class _MoreSection extends StatefulWidget {
   const _MoreSection({required this.entries});

@@ -6,6 +6,7 @@ import 'package:hermes_api/hermes_api.dart';
 
 import '../telemetry/telemetry.dart';
 import 'tools_models.dart';
+import 'tools_write.dart' show quietly;
 
 /// Why a call to the tools routes did not give an answer.
 enum ToolsFailure {
@@ -103,7 +104,7 @@ class HermesToolsRepository {
 
   Future<ToolsResult<ToolsetList>> list() async {
     Span? span;
-    _quiet(
+    quietly(
       () => span = telemetry.tracer?.startSpan(
         'tools.list',
         attributes: telemetry.serverAttributes,
@@ -118,7 +119,7 @@ class HermesToolsRepository {
       if (result case ToolsOk(:final value)) _noteSkipped(value.skipped);
       return result;
     } finally {
-      _quiet(() {
+      quietly(() {
         if (result case ToolsOk(:final value)) {
           span?.setAttribute('count', value.toolsets.length);
         }
@@ -290,7 +291,9 @@ class HermesToolsRepository {
 
   void _noteSkipped(int skipped) {
     if (skipped == 0) return;
-    _quiet(() => telemetry.events('tools.parse_lenient', {'skipped': skipped}));
+    quietly(
+      () => telemetry.events('tools.parse_lenient', {'skipped': skipped}),
+    );
   }
 
   Future<ToolsResult<T>> _call<T>(
@@ -353,13 +356,5 @@ class HermesToolsRepository {
       return text.isEmpty ? null : text;
     }
     return null;
-  }
-
-  static void _quiet(void Function() action) {
-    try {
-      action();
-    } on Object {
-      return;
-    }
   }
 }

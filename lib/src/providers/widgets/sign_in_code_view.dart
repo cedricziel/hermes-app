@@ -190,7 +190,7 @@ class _SignInCodeViewState extends State<SignInCodeView> {
               0,
             ),
             child: Align(
-              alignment: mac ? Alignment.center : Alignment.topCenter,
+              alignment: mac ? Alignment.centerRight : Alignment.topCenter,
               child: ProviderRowButton(
                 label: _copied
                     ? l10n.providersSignInCopied

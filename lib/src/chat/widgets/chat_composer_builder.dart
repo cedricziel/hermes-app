@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
+import '../../theme/material_ui_bridge.dart';
 import '../../bot_mode/bot_chat_context.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
@@ -87,7 +88,7 @@ WidgetBuilder buildChatComposer({
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ViewBuilder(
+          ViewMetricsBuilder(
             // The keyboard is not in the Scaffold body's own MediaQuery,
             // which has consumed it, so ask the view.
             builder: (context, media) =>
@@ -100,18 +101,18 @@ WidgetBuilder buildChatComposer({
   );
 }
 
-/// Builds with the view's own metrics, the keyboard included, and again when
-/// they change.
-class _ViewBuilder extends StatefulWidget {
-  const _ViewBuilder({required this.builder});
+/// Builds with the view's own metrics, the keyboard included (a Scaffold body
+/// has consumed it from its own `MediaQuery`), and again when they change.
+class ViewMetricsBuilder extends StatefulWidget {
+  const ViewMetricsBuilder({super.key, required this.builder});
 
   final Widget Function(BuildContext context, MediaQueryData media) builder;
 
   @override
-  State<_ViewBuilder> createState() => _ViewBuilderState();
+  State<ViewMetricsBuilder> createState() => _ViewMetricsBuilderState();
 }
 
-class _ViewBuilderState extends State<_ViewBuilder>
+class _ViewMetricsBuilderState extends State<ViewMetricsBuilder>
     with WidgetsBindingObserver {
   @override
   void initState() {
@@ -232,22 +233,11 @@ class FlyerMaterialScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Localizations.override(
       context: context,
       delegates: const [mui.DefaultMaterialLocalizations.delegate],
       child: mui.Theme(
-        data: mui.ThemeData(
-          colorScheme:
-              mui.ColorScheme.fromSeed(
-                seedColor: scheme.primary,
-                brightness: scheme.brightness,
-              ).copyWith(
-                primary: scheme.primary,
-                surface: scheme.surface,
-                onSurface: scheme.onSurface,
-              ),
-        ),
+        data: buildMaterialUiTheme(Theme.of(context).colorScheme),
         child: mui.Material(type: mui.MaterialType.transparency, child: child),
       ),
     );

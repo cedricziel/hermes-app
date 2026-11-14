@@ -84,8 +84,13 @@ class ServerCareRepository {
 
   /// `POST /api/hermes/update`. Destructive: tests against a real backend
   /// never call it.
-  Future<CareResult<UpdateStart>> startUpdate() =>
-      _run(() => _api.updateHermesApiHermesUpdatePost(), UpdateStart.parse);
+  Future<CareResult<UpdateStart>> startUpdate() => _run(
+    () => _api.updateHermesApiHermesUpdatePost(),
+    UpdateStart.parse,
+    // A page answered a POST that changes something: the answer is lost,
+    // the update may have started.
+    pageMeansMissing: false,
+  );
 
   /// `GET /api/actions/{name}/status`.
   Future<CareResult<ActionStatus>> actionStatus(

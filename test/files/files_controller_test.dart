@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_app/src/chat/media/media_actions.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/files/files_controller.dart';
@@ -12,7 +12,9 @@ import 'package:hermes_app/src/files/files_failure.dart';
 import 'package:hermes_app/src/files/files_models.dart';
 import 'package:hermes_app/src/files/files_state.dart';
 import 'package:hermes_app/src/files/files_telemetry.dart';
+import 'package:hermes_app/src/files/files_view_models.dart';
 import 'package:hermes_app/src/files/server_path.dart';
+import 'package:hermes_app/src/files/widgets/files_browser_view.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
@@ -20,6 +22,7 @@ import '../support/attachment_fixtures.dart';
 import '../support/fake_files_source.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
+import '../support/fake_quick_look.dart';
 import '../support/recording_tracer.dart';
 
 const _mb = 1024 * 1024;
@@ -49,6 +52,7 @@ void main() {
   late FakeFilesSource source;
   late Directory cache;
   late FakeMediaActions actions;
+  late FakeQuickLook quickLook;
   late MediaStore media;
   late BreadcrumbTrail trail;
   late RecordingTracer tracer;
@@ -76,10 +80,12 @@ void main() {
     source = FakeFilesSource();
     cache = tempDir('files_controller');
     actions = FakeMediaActions();
+    quickLook = FakeQuickLook();
     media = MediaStore(
       source: HermesMediaSource(() => FakeHermesServer().client()),
       cacheDirectory: () async => cache,
       actions: actions,
+      quickLook: quickLook,
     );
     trail = BreadcrumbTrail();
     tracer = RecordingTracer();
@@ -1124,17 +1130,6 @@ void main() {
         expect(everything(), isNot(contains('export')));
       },
     );
-
-    test('a file too large to save says so', () async {
-      actions.saveError = const SaveTooLargeException();
-      await build().start();
-      await controller.select(controller.entries.single);
-      await controller.save();
-      expect(
-        (controller.preview as PreviewFailed).kind,
-        FilesFailure.saveUnavailable,
-      );
-    });
   });
 
   group('unknown-length copies', () {
@@ -1327,6 +1322,203 @@ void main() {
       expect(folders.where((n) => n.startsWith('s')), hasLength(1));
       await media.wipeSecretCopies();
       expect(cached(), hasLength(1));
+    });
+  });
+
+  group('quick look and drag out', () {
+    test('quick look downloads the selected file and shows it', () async {
+      folder([file('/srv/p/spec.pdf')]);
+      source.downloads['/srv/p/spec.pdf'] = writes([1, 2], length: 2);
+      await build().start();
+      await controller.select(controller.entries.single);
+      await controller.quickLook();
+
+      expect(quickLook.shown, endsWith('spec.pdf'));
+      expect(controller.preview, isA<PreviewDetails>());
+    });
+
+    test('a secret file asks before quick look fetches anything', () async {
+      folder([file('/srv/p/.env')]);
+      source.downloads['/srv/p/.env'] = writes([1], length: 1);
+      await build().start();
+      controller.toggleHidden();
+      await controller.select(controller.entries.single);
+      expect(controller.preview, isA<PreviewConfirmSecret>());
+      await controller.quickLook();
+      expect(source.count('download'), 0);
+      expect(quickLook.previewed, isEmpty);
+    });
+
+    test('a drag stages the file without touching the preview', () async {
+      folder([file('/srv/p/a.zip'), file('/srv/p/b.txt')]);
+      source.downloads['/srv/p/a.zip'] = writes([9, 9, 9], length: 3);
+      await build().start();
+
+      final drag = controller.beginDrag(controller.entries.first)!;
+      final staged = await drag.file();
+
+      expect(staged!.readAsBytesSync(), [9, 9, 9]);
+      expect(controller.preview, isA<PreviewIdle>());
+      expect(controller.selected, isNull);
+    });
+
+    test('a secret file or a folder is offered no drag at all', () async {
+      folder([file('/srv/p/.env'), folderEntry('/srv/p/sub')]);
+      await build().start();
+      controller.toggleHidden();
+      expect(controller.beginDrag(controller.entries[0]), isNull);
+      expect(controller.beginDrag(controller.entries[1]), isNull);
+      expect(source.count('download'), 0);
+    });
+
+    test('a failed drag download is not tried a second time', () async {
+      folder([file('/srv/p/a.zip')]);
+      source.downloads['/srv/p/a.zip'] = (sink, t, l, p) =>
+          failed(FilesFailure.unreachable);
+      await build().start();
+      final drag = controller.beginDrag(controller.entries.single)!;
+
+      expect(await drag.file(), isNull);
+      expect(await drag.file(), isNull);
+      expect(source.count('download'), 1);
+    });
+
+    test('closing the page cancels a drag in flight', () async {
+      folder([file('/srv/p/a.zip')]);
+      final gate = Completer<void>();
+      CancelToken? token;
+      final hold = holds(gate);
+      source.downloads['/srv/p/a.zip'] = (sink, t, l, p) {
+        token = t;
+        return hold(sink, t, l, p);
+      };
+      await build().start();
+      final drag = controller.beginDrag(controller.entries.single)!;
+      final pending = drag.file();
+      await until(() => token != null);
+
+      controller.cancelAll();
+
+      expect(token!.isCancelled, isTrue);
+      expect(await pending, isNull);
+    });
+
+    test('a drag of a file of 50 MB or more is declined', () async {
+      folder([file('/srv/p/a.zip')]);
+      source.downloads['/srv/p/a.zip'] = (sink, t, allowLarge, p) async =>
+          FilesOk(
+            FsDownload(
+              bytes: 0,
+              contentLength: 60 * _mb,
+              declined: !allowLarge,
+            ),
+          );
+      await build().start();
+
+      final drag = controller.beginDrag(controller.entries.single)!;
+      expect(await drag.file(), isNull);
+    });
+
+    test('a drag is judged by its own size, not the selected file', () async {
+      folder([file('/srv/p/a.zip'), file('/srv/p/b.txt')]);
+      source.texts['/srv/p/b.txt'] = () =>
+          ok(const FsTextFile(text: 'x', byteSize: 1000));
+      source.downloads['/srv/p/a.zip'] = (sink, t, l, p) async {
+        sink.add([1, 2]);
+        return const FilesOk(FsDownload(bytes: 2));
+      };
+      await build().start();
+      await controller.select(controller.entries.last);
+
+      final drag = controller.beginDrag(controller.entries.first)!;
+
+      expect(await drag.file(), isNotNull, reason: 'b.txt is 1000, a.zip 2');
+    });
+
+    test('closing the page closes the Quick Look panel it opened', () async {
+      folder([file('/srv/p/spec.pdf')]);
+      source.downloads['/srv/p/spec.pdf'] = writes([1], length: 1);
+      await build().start();
+      await controller.select(controller.entries.single);
+      await controller.quickLook();
+      expect(quickLook.shown, isNotNull);
+      final closes = quickLook.closes;
+
+      controller.dispose();
+      await until(() => quickLook.closes > closes);
+    });
+
+    test('a page that never showed Quick Look does not close it', () async {
+      folder([file('/srv/p/spec.pdf')]);
+      await build().start();
+      controller.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(quickLook.closes, 0);
+    });
+
+    test('giving a drag up does not cancel the preview download', () async {
+      folder([file('/srv/p/a.zip')]);
+      final gate = Completer<void>();
+      final tokens = <CancelToken?>[];
+      final hold = holds(gate);
+      source.downloads['/srv/p/a.zip'] = (sink, t, l, p) {
+        tokens.add(t);
+        return hold(sink, t, l, p);
+      };
+      await build().start();
+      await controller.select(controller.entries.single);
+      final saving = controller.save();
+      await until(() => tokens.length == 1);
+      final drag = controller.beginDrag(controller.entries.single)!;
+      final dragged = drag.file();
+      await until(() => tokens.length == 2);
+
+      drag.cancel();
+      await dragged;
+
+      expect(tokens[0]!.isCancelled, isFalse, reason: 'the preview download');
+      expect(tokens[1]!.isCancelled, isTrue);
+      gate.complete();
+      await saving;
+      expect(actions.savedFiles, hasLength(1));
+    });
+
+    test('a finished drag is forgotten', () async {
+      folder([file('/srv/p/a.zip')]);
+      source.downloads['/srv/p/a.zip'] = writes([1], length: 1);
+      await build().start();
+      final drag = controller.beginDrag(controller.entries.single)!;
+      expect(controller.activeDrags, 1);
+
+      await drag.file();
+
+      expect(controller.activeDrags, 0);
+    });
+
+    test('folders come first, a file sent first or not', () async {
+      folder([
+        file('/srv/p/a.txt'),
+        folderEntry('/srv/p/z'),
+        file('/srv/p/b.txt'),
+        folderEntry('/srv/p/m'),
+      ]);
+      await build().start();
+
+      final rows = (folderViewStateOf(controller) as FolderViewReady).rows;
+
+      expect(rows.map((r) => r.name), ['z', 'm', 'a.txt', 'b.txt']);
+    });
+
+    test('each question has its own serial', () async {
+      folder([file('/srv/p/a.pem'), file('/srv/p/b.pem')]);
+      await build().start();
+      await controller.select(controller.entries[0]);
+      final first = controller.questionSerial;
+      controller.declineSecret();
+      await controller.select(controller.entries[1]);
+
+      expect(controller.preview, isA<PreviewConfirmSecret>());
+      expect(controller.questionSerial, isNot(first));
     });
   });
 }

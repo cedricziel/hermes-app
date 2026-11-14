@@ -19,6 +19,7 @@ enum MacCommand {
   forward,
   toggleSidebar,
   toggleInspector,
+  showFiles,
   find,
   pinThread,
   renameThread,

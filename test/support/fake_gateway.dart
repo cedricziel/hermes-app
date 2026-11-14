@@ -541,6 +541,24 @@ class FakeGateway {
           'id': id,
           'result': {'detached': true, 'count': queuedImages.length},
         });
+      case 'subagent.list' when !unknownMethods.contains('subagent.list'):
+        // A gateway that has the call and lists nothing, unless a test
+        // answers it through [handlers].
+        _send({
+          'id': id,
+          'result': {'subagents': [], 'delegations': []},
+        });
+      case 'process.list' when !unknownMethods.contains('process.list'):
+        // The same for the session's programs.
+        _send({
+          'id': id,
+          'result': {'processes': []},
+        });
+      case 'process.list' || 'subagent.list':
+        _send({
+          'id': id,
+          'error': {'code': -32601, 'message': 'unknown method'},
+        });
       case 'prompt.submit' when rejectSubmit:
         _send({
           'id': id,

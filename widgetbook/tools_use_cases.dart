@@ -5,6 +5,7 @@ import 'package:hermes_app/src/tools/toolset_copy.dart';
 import 'package:hermes_app/src/tools/toolset_risk.dart';
 import 'package:hermes_app/src/tools/widgets/risk_note.dart';
 import 'package:hermes_app/src/tools/widgets/status_chip.dart';
+import 'package:hermes_app/src/tools/widgets/toolset_detail_body.dart';
 import 'package:hermes_app/src/tools/widgets/toolset_header.dart';
 import 'package:hermes_app/src/tools/widgets/toolset_row.dart';
 import 'package:hermes_app/src/tools/widgets/tools_list_footer.dart';
@@ -14,6 +15,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'tools_setup_use_cases.dart';
 
 Widget _at(double scale, Widget Function() child) => Builder(
   builder: (context) => MediaQuery(
@@ -635,6 +637,131 @@ WidgetbookNode _listComponent() => WidgetbookComponent(
   ],
 );
 
+/// A toolset's details as the screen builds them, over the sentence and risk
+/// tables.
+Widget _detail(
+  BuildContext context,
+  String name, {
+  bool enabled = false,
+  bool needsSetup = false,
+  ToolsetHeaderPhase phase = ToolsetHeaderPhase.idle,
+  String? where,
+  List<String> tools = const ['web_search', 'web_extract'],
+  String? error,
+  bool unconfirmed = false,
+  bool showTryAgain = false,
+  bool note = false,
+  bool namesOpen = false,
+  String? label,
+  String? sentence,
+}) {
+  final l10n = context.l10n;
+  return Scaffold(
+    body: ToolsetDetailBody(
+      view: ToolsetDetailView(
+        name: label ?? toolsetLabel(l10n, name),
+        sentence: sentence ?? toolsetSentence(l10n, name) ?? '',
+        enabled: enabled,
+        needsSetup: needsSetup,
+        phase: phase,
+        where: where ?? l10n.toolsWhereCli,
+        risk: toolsetRisk(name),
+        tools: tools,
+        error: error,
+        unconfirmed: unconfirmed,
+        showTryAgain: showTryAgain,
+      ),
+      onChanged: (_) {},
+      onTryAgain: _noop,
+      namesOpen: namesOpen,
+      note: note
+          ? AppBanner(
+              tone: AppBannerTone.success,
+              title: l10n.toolsAppliedTitle,
+              detail: l10n.toolsAppliedDetail,
+            )
+          : null,
+    ),
+  );
+}
+
+WidgetbookNode _detailComponent() => WidgetbookComponent(
+  name: 'ToolsetDetailBody',
+  useCases: [
+    WidgetbookUseCase(
+      name: 'Terminal, on (risk note, asks first)',
+      builder: (c) => _detail(
+        c,
+        'terminal',
+        enabled: true,
+        tools: ['terminal', 'process', 'read_process_log', 'kill_process'],
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Terminal, names open',
+      builder: (c) => _detail(
+        c,
+        'terminal',
+        enabled: true,
+        namesOpen: true,
+        tools: ['terminal', 'process', 'read_process_log', 'kill_process'],
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Web, off, needs setup',
+      builder: (c) => _detail(c, 'web', needsSetup: true),
+    ),
+    WidgetbookUseCase(
+      name: 'Files, on (explains only)',
+      builder: (c) => _detail(c, 'file', enabled: true),
+    ),
+    WidgetbookUseCase(
+      name: 'Plugin toolset on one platform',
+      builder: (c) => _detail(
+        c,
+        'acme_digest',
+        label: 'Acme digest',
+        sentence: 'Summarize the team channel every morning.',
+        where: c.l10n.toolsWherePlatform('Discord'),
+        tools: ['digest_post'],
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Saving',
+      builder: (c) =>
+          _detail(c, 'memory', enabled: true, phase: ToolsetHeaderPhase.saving),
+    ),
+    WidgetbookUseCase(
+      name: 'Failed, rolled back',
+      builder: (c) => _detail(
+        c,
+        'memory',
+        error: c.l10n.toolsErrorFailed(toolsetLabel(c.l10n, 'memory')),
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Answer lost, couldn\'t confirm (pull to refresh)',
+      builder: (c) => _detail(c, 'memory', unconfirmed: true),
+    ),
+    WidgetbookUseCase(
+      name: 'Answer lost, couldn\'t confirm (Try again)',
+      builder: (c) =>
+          _detail(c, 'memory', unconfirmed: true, showTryAgain: true),
+    ),
+    WidgetbookUseCase(
+      name: 'After a change, with the note',
+      builder: (c) => _detail(c, 'memory', enabled: true, note: true),
+    ),
+    WidgetbookUseCase(
+      name: 'Computer use, largest text',
+      builder: (c) => _at(
+        3,
+        () => _detail(c, 'computer_use', enabled: true, needsSetup: true),
+      ),
+    ),
+  ],
+);
+
 WidgetbookNode toolsNode() => WidgetbookFolder(
   name: 'Tools',
   children: [
@@ -643,5 +770,7 @@ WidgetbookNode toolsNode() => WidgetbookFolder(
     _riskComponent(),
     _chipComponent(),
     _listComponent(),
+    _detailComponent(),
+    ...toolsSetupComponents(),
   ],
 );

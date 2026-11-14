@@ -118,27 +118,35 @@ typedef ToolsGroups = ({
 /// [confirm]. The optimistic position starts after that. A write whose
 /// answer is lost is never sent again; the list is read instead.
 ///
+/// [initial] is a list the shell already read for this profile: shown at once
+/// as the first data, and [load] still reads it again.
+///
 /// The controller holds no text: the screen words each state.
 class ToolsController extends ChangeNotifier with SafeNotifier {
   ToolsController(
     HermesToolsRepository repository, {
     this.telemetry = const ConnectionTelemetry(),
     this.checkTimeout = kToolsCheckTimeout,
-  }) : _repository = repository;
+    List<Toolset> initial = const [],
+  }) : _repository = repository,
+       _toolsets = initial,
+       _hasLoaded = initial.isNotEmpty,
+       _state = initial.isEmpty ? ToolsLoadState.loading : ToolsLoadState.ready;
 
   HermesToolsRepository _repository;
   final ConnectionTelemetry telemetry;
   final Duration checkTimeout;
 
   var _epoch = 0;
-  var _toolsets = const <Toolset>[];
-  var _state = ToolsLoadState.loading;
-  var _hasLoaded = false;
+  List<Toolset> _toolsets;
+  ToolsLoadState _state;
+  bool _hasLoaded;
   final _rows = <String, ToolsRowState>{};
   final _installSteps = <String, bool>{};
   final _queued = <String, bool>{};
   ToolsConfirmation? _confirmation;
   String? _postSetupStarted;
+  String? _postSetupToolset;
   var _changed = false;
   var _toolVanished = false;
 
@@ -158,6 +166,9 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
   /// The install step Hermes started because a switch turned a toolset on,
   /// until [clearPostSetupStarted].
   String? get postSetupStarted => _postSetupStarted;
+
+  /// The toolset whose switch started that install.
+  String? get postSetupToolset => _postSetupToolset;
 
   /// True after a switch succeeded: chats pick the change up from the next
   /// one on.
@@ -217,6 +228,7 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
     _queued.clear();
     _confirmation = null;
     _postSetupStarted = null;
+    _postSetupToolset = null;
     _changed = false;
     _toolVanished = false;
     notifyListeners();
@@ -224,6 +236,7 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
 
   void clearPostSetupStarted() {
     _postSetupStarted = null;
+    _postSetupToolset = null;
     notifyListeners();
   }
 
@@ -380,7 +393,10 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
       case ToolsOk(:final value):
         _changed = true;
         final started = value.postSetupStarted;
-        if (started != null) _postSetupStarted = started;
+        if (started != null) {
+          _postSetupStarted = started;
+          _postSetupToolset = name;
+        }
         await _readBack(epoch, name, saved: value.enabled);
       case ToolsRefused(:final detail):
         if (detail != null && detail.startsWith('Unknown toolset')) {

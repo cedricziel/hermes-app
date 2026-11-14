@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
 import 'package:hermes_app/src/chat/activity/widgets/needs_you_dock.dart';
 import 'package:hermes_app/src/chat/chat_session_state.dart'
     show ResumeProgress;
@@ -551,6 +552,29 @@ void main() {
     expect(dock.bottom, lessThanOrEqualTo(540));
     expect(dock.top, greaterThan(0));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the expanded panel shows no working line or status', (
+    tester,
+  ) async {
+    await pump(tester);
+    await show(tester);
+    final send = await ask(tester, 'What is due today?');
+    send
+      ..emit(const ThreadBound('s9'))
+      ..emit(const ReplyStarted())
+      ..emit(
+        const SessionWaitUpdated(
+          'process',
+          'Waiting for background process',
+          runtimeId: 'rt-1',
+        ),
+      );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(ActivityLine), findsNothing);
+    expect(find.text('Waiting for background process'), findsNothing);
+    expect(find.byKey(const Key('mac-subtitle-status')), findsNothing);
   });
 
   testWidgets('the compact panel has no dock', (tester) async {

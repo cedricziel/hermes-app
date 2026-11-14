@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_window.dart';
@@ -159,6 +160,9 @@ class SettingsSubtitleMenu<T> {
   }
 }
 
+/// The height of the Mac "Cancel" button of a dialog.
+const kMacCancelHeight = 28.0;
+
 /// A settings page (Skills, Plugins, MCP servers…) with its platform's bar:
 ///
 /// - iOS: a 44 point bar with a back chevron, the title centered over the
@@ -183,6 +187,8 @@ class SettingsScaffold extends StatelessWidget {
     this.search,
     this.formAction,
     this.cancel = false,
+    this.macCancel = false,
+    this.shrinkTitle = false,
     required this.body,
   });
 
@@ -207,6 +213,13 @@ class SettingsScaffold extends StatelessWidget {
   /// Leads with Cancel (iOS) or a close button (Material) instead of back,
   /// for a form; the Mac keeps its back button.
   final bool cancel;
+
+  /// A Mac form in a dialog leads with a "Cancel" text button instead of
+  /// the back chevron of a pushed page.
+  final bool macCancel;
+
+  /// A bar title that does not fit shrinks instead of ending in an ellipsis.
+  final bool shrinkTitle;
   final Widget body;
 
   @override
@@ -246,7 +259,25 @@ class SettingsScaffold extends StatelessWidget {
               // A page pushed over the whole window sits under the title bar.
               clearTrafficLights:
                   MacWindow.enabled && MediaQuery.paddingOf(context).top > 0,
-              leading: canPop
+              leading: macCancel
+                  ? TextButton(
+                      key: const Key('settings-cancel'),
+                      onPressed: back,
+                      style: TextButton.styleFrom(
+                        // A Mac control is 28 pt tall.
+                        minimumSize: const Size(0, kMacCancelHeight),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        textStyle: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                      child: Text(context.l10n.widgetsCancel),
+                    )
+                  : canPop
                   ? MacToolbarButton(
                       key: const Key('settings-back'),
                       label: 'Back',
@@ -336,7 +367,7 @@ class SettingsScaffold extends StatelessWidget {
         automaticallyImplyLeading: false,
         leading: cancel ? _cancelButton(context, ios) : leading,
         leadingWidth: cancel
-            ? (ios ? 88 : null)
+            ? (ios ? scaledLeadingWidth(context, 88) : null)
             : back
             ? adaptiveBackLeadingWidth(context)
             : null,
@@ -345,6 +376,7 @@ class SettingsScaffold extends StatelessWidget {
           subtitle: subtitle,
           subtitleMenu: subtitleMenu,
           ios: ios,
+          shrinkTitle: shrinkTitle,
         ),
         actions: [
           for (final action in actions) _phoneAction(context, action, ios),
@@ -387,7 +419,7 @@ class SettingsScaffold extends StatelessWidget {
         fontSize: 17,
         fontWeight: FontWeight.w400,
       ),
-      child: const Text('Cancel'),
+      child: Text(context.l10n.widgetsCancel),
     );
   }
 
@@ -437,12 +469,16 @@ class SettingsBarTitle extends StatelessWidget {
     this.subtitle,
     this.subtitleMenu,
     required this.ios,
+    this.shrinkTitle = false,
   });
 
   final String title;
   final String? subtitle;
   final SettingsSubtitleMenu<Object?>? subtitleMenu;
   final bool ios;
+
+  /// A title that does not fit shrinks instead of being cut with an ellipsis.
+  final bool shrinkTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -454,17 +490,32 @@ class SettingsBarTitle extends StatelessWidget {
           ? CrossAxisAlignment.center
           : CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: ios ? 17 : 18,
-            fontWeight: FontWeight.w600,
-            height: 1.2,
-            color: onSurface,
+        if (shrinkTitle)
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              title,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: ios ? 17 : 18,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+                color: onSurface,
+              ),
+            ),
+          )
+        else
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: ios ? 17 : 18,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+              color: onSurface,
+            ),
           ),
-        ),
         if (subtitle != null) _subtitle(context, subtitle),
       ],
     );

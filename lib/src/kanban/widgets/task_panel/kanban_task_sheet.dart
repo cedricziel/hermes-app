@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/hermes_theme.dart';
+
 /// Room a sheet's grabber takes above its content.
 const double kKanbanGrabberBand = 17;
 
@@ -10,15 +12,21 @@ const double _kFormSheetHeight = 720;
 /// An iOS-style sheet: opens half way, drags up to full height, and a swipe
 /// down past the medium detent dismisses it. [builder] gets the controller
 /// the content's scroll view must use for the drag to work.
+///
+/// [sheet] lets the caller move the sheet, for example to its full height.
 Future<void> showKanbanDetentSheet(
   BuildContext context,
-  Widget Function(ScrollController controller) builder,
-) => showModalBottomSheet<void>(
+  Widget Function(ScrollController controller) builder, {
+  DraggableScrollableController? sheet,
+}) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: Colors.transparent,
-  builder: (context) => KanbanDetentSheet(builder: builder),
+  // Its own plain shape: the theme's would draw a second edge round the
+  // transparent layer, and KanbanDetentSheet draws the one that shows.
+  shape: const RoundedRectangleBorder(),
+  builder: (context) => KanbanDetentSheet(builder: builder, controller: sheet),
 );
 
 /// A centred sheet with the iOS corner radius, for iPad and desktop widths.
@@ -27,8 +35,9 @@ Future<void> showKanbanFormSheet(BuildContext context, Widget panel) =>
       context: context,
       builder: (_) => Dialog(
         clipBehavior: Clip.antiAlias,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(_kSheetRadius)),
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(_kSheetRadius)),
+          side: hermesOverlayEdge(Theme.of(context).colorScheme),
         ),
         child: KanbanFormSheetFrame(child: panel),
       ),
@@ -37,12 +46,14 @@ Future<void> showKanbanFormSheet(BuildContext context, Widget panel) =>
 /// The chrome of the phone sheet: detents, corner radius and grabber around
 /// content built by [builder].
 class KanbanDetentSheet extends StatelessWidget {
-  const KanbanDetentSheet({super.key, required this.builder});
+  const KanbanDetentSheet({super.key, required this.builder, this.controller});
 
   final Widget Function(ScrollController controller) builder;
+  final DraggableScrollableController? controller;
 
   @override
   Widget build(BuildContext context) => DraggableScrollableSheet(
+    controller: controller,
     expand: false,
     initialChildSize: 0.5,
     minChildSize: 0,
@@ -52,10 +63,11 @@ class KanbanDetentSheet extends StatelessWidget {
       key: const Key('kanbanTaskSheet'),
       color: Theme.of(context).colorScheme.surface,
       clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(_kSheetRadius),
         ),
+        side: hermesOverlayEdge(Theme.of(context).colorScheme),
       ),
       child: Stack(
         children: [

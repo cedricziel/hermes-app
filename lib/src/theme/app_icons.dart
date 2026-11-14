@@ -75,6 +75,10 @@ abstract final class AppIcons {
     Icons.call_split,
     CupertinoIcons.arrow_branch,
   );
+  static const folder = AppIconSet(
+    Icons.folder_outlined,
+    CupertinoIcons.folder,
+  );
   static const lock = AppIconSet(Icons.lock_outline, CupertinoIcons.lock);
   static const copy = AppIconSet(Icons.copy, CupertinoIcons.doc_on_doc);
   static const copyOutlined = AppIconSet(
@@ -283,6 +287,7 @@ abstract final class AppIcons {
     CupertinoIcons.pin,
   );
   static const power = AppIconSet(Icons.power_outlined, CupertinoIcons.power);
+  static const wrench = AppIconSet(Icons.build_outlined, CupertinoIcons.wrench);
   static const photoLibrary = AppIconSet(
     Icons.photo_library_outlined,
     CupertinoIcons.photo_on_rectangle,
@@ -448,6 +453,22 @@ abstract final class AppIcons {
   static const key = AppIconSet(Icons.key_outlined, CupertinoIcons.lock);
   static const cloud = AppIconSet(Icons.cloud_outlined, CupertinoIcons.cloud);
 
+  /// A cross in a filled circle: a check that failed.
+  static const crossCircleFilled = AppIconSet(
+    Icons.cancel,
+    CupertinoIcons.xmark_circle_fill,
+  );
+
+  /// A question mark in a filled circle: a check that could not tell.
+  static const questionCircleFilled = AppIconSet(
+    Icons.help,
+    CupertinoIcons.question_circle_fill,
+  );
+  static const lockOpen = AppIconSet(
+    Icons.lock_open_outlined,
+    CupertinoIcons.lock_open,
+  );
+
   /// Every set by name, for the catalog and for tests.
   static const all = <String, AppIconSet>{
     'error': error,
@@ -462,6 +483,7 @@ abstract final class AppIcons {
     'chevronRight': chevronRight,
     'chevronLeft': chevronLeft,
     'refresh': refresh,
+    'folder': folder,
     'lock': lock,
     'copy': copy,
     'copyOutlined': copyOutlined,
@@ -572,5 +594,8 @@ abstract final class AppIcons {
     'warningFilled': warningFilled,
     'key': key,
     'cloud': cloud,
+    'crossCircleFilled': crossCircleFilled,
+    'questionCircleFilled': questionCircleFilled,
+    'lockOpen': lockOpen,
   };
 }

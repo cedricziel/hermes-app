@@ -46,7 +46,7 @@ The setup form of the WhatsApp platform SHALL show a "Link WhatsApp" button abov
 
 ### Requirement: Progress and polling
 
-After start the screen SHALL poll the status every 2 seconds while it is on screen and the app is in front, and SHALL show the stage: Installing, Starting, Waiting for a scan, Linked. Polling SHALL stop on a final status and when the screen closes.
+After start the screen SHALL poll the status every 2 seconds only while it is on screen, the app is in front and App Lock is unlocked, and SHALL show the stage: Installing, Starting, Waiting for a scan, Linked. Polling SHALL stop on a final status and when the screen closes. When polling resumes after a pause, a line SHALL say it was paused until the next answer.
 
 #### Scenario: Server installs packages
 
@@ -56,7 +56,12 @@ After start the screen SHALL poll the status every 2 seconds while it is on scre
 #### Scenario: App in background
 
 - **WHEN** the app leaves the foreground
-- **THEN** polling pauses, the QR is hidden and polling resumes on return
+- **THEN** polling pauses and the QR is hidden; on return, once unlocked, polling resumes and a line says polling was paused and is resuming
+
+#### Scenario: App Lock
+
+- **WHEN** App Lock locks, or the app returns while locked
+- **THEN** nothing polls; once unlocked a line says polling was paused and resumes, and polling resumes
 
 ### Requirement: QR code
 
@@ -76,6 +81,11 @@ When `qr_payload` is present the screen SHALL render it as a QR code with the ti
 
 - **WHEN** App Lock locks, or the lifecycle leaves `resumed`
 - **THEN** the code is replaced by "Hidden"; on a handset it shows again only after the "Show QR code" tap, on a tablet or computer when the app is unlocked and in front
+
+#### Scenario: Desktop focus
+
+- **WHEN** a desktop window (macOS, Windows, Linux) loses focus
+- **THEN** the code is hidden at once, and shows again when the window is focused, in front and unlocked
 
 ### Requirement: Handset flow
 

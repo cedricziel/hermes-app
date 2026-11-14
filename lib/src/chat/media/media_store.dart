@@ -21,7 +21,7 @@ const mediaCacheMaxAge = Duration(hours: 24);
 /// controls (U+202A to U+202E, U+2066 to U+2069) that make `fdp.exe` read as
 /// `exe.pdf`.
 final _unsafeInName = RegExp(
-  r'[\x00-\x1f:*?"<>|/\\\u202a-\u202e\u2066-\u2069]',
+  r'[\x00-\x1f:*?"<>|/\\\u202a-\u202e\u2066-\u2069\u200e\u200f\u061c]',
 );
 
 /// A key starting with this holds a copy the user was warned about (a file
@@ -31,6 +31,13 @@ const kSecretCopyKeyPrefix = 'fs-secret:';
 
 const _secretFolderMark = 's';
 
+/// A key starting with this holds a file of the Files page. Its folder is
+/// marked too, so [MediaStore.clearFileDownloads] can delete them all without
+/// touching the chat's attachments.
+const kFilesCopyKeyPrefix = 'fs:';
+
+const _filesFolderMark = 'x';
+
 /// Keeps what the chat fetched from the server for files the agent sent:
 /// images in memory, other files in the app's cache directory. Nothing is
 /// fetched twice, and [clear] removes all of it.
@@ -38,12 +45,21 @@ class MediaStore {
   MediaStore({
     required this._source,
     required this._cacheDirectory,
-    this._actions = const PlatformMediaActions(),
+    MediaActions? actions,
     this._quickLook = const NoQuickLook(),
     this._imageBudget = 32 * 1024 * 1024,
-  });
+    Future<void> Function(Directory folder)? deleteFolder,
+  }) : _actions = actions ?? PlatformMediaActions(),
+       _deleteFolder = deleteFolder ?? _deleteRecursively;
 
   final MediaSource _source;
+
+  /// Removes a cache folder; replaceable so a test can make it fail.
+  final Future<void> Function(Directory folder) _deleteFolder;
+
+  /// Folders a lock cleanup could not delete (a file another app holds open
+  /// on Windows), tried again at the next sweep.
+  final _undeleted = <String>{};
   final Future<Directory> Function() _cacheDirectory;
   final MediaActions _actions;
   final QuickLook _quickLook;
@@ -63,6 +79,11 @@ class MediaStore {
 
   /// Bumped by [clear], so a fetch that finishes afterwards keeps nothing.
   var _generation = 0;
+
+  /// Bumped by [clearFileDownloads] and [clear]: ends only Files downloads,
+  /// so an attachment or audio downloading when App Lock locks is unharmed.
+  var _filesGeneration = 0;
+  var _partCounter = 0;
   var _previewRequest = 0;
   StreamSubscription<void>? _signOut;
 
@@ -201,7 +222,9 @@ class MediaStore {
     String name,
     Future<void> Function(File part) fill,
   ) async {
-    final generation = _generation;
+    final files = _isFilesKey(key);
+    int current() => files ? _filesGeneration : _generation;
+    final generation = current();
     File? part;
     Object? fillFailure;
     try {
@@ -217,14 +240,14 @@ class MediaStore {
       // Written aside and renamed, so a half-written file is never taken for
       // a downloaded one. The name is this store's own, since every engine
       // has a store over the same folder.
-      part = File('${target.path}.$_partSuffix.part');
+      part = File('${target.path}.$_partSuffix-${_partCounter++}.part');
       try {
         await fill(part);
       } on Object catch (e) {
         fillFailure = e;
         rethrow;
       }
-      if (generation != _generation) {
+      if (generation != current()) {
         throw const MediaFetchException(MediaFailure.failed);
       }
       await part.rename(target.path);
@@ -239,15 +262,19 @@ class MediaStore {
       if (e is MediaFetchException || identical(e, fillFailure)) rethrow;
       throw const MediaFetchException(MediaFailure.failed);
     } finally {
-      if (generation == _generation) unawaited(_fileFetches.remove(key));
+      if (generation == current()) unawaited(_fileFetches.remove(key));
     }
   }
 
+  static bool _isFilesKey(String key) =>
+      key.startsWith(kFilesCopyKeyPrefix) ||
+      key.startsWith(kSecretCopyKeyPrefix);
+
   static String _folderOf(String key) {
     final hash = sha256.convert(utf8.encode(key)).toString().substring(0, 16);
-    return key.startsWith(kSecretCopyKeyPrefix)
-        ? '$_secretFolderMark$hash'
-        : hash;
+    if (key.startsWith(kSecretCopyKeyPrefix)) return '$_secretFolderMark$hash';
+    if (key.startsWith(kFilesCopyKeyPrefix)) return '$_filesFolderMark$hash';
+    return hash;
   }
 
   /// Deletes every copy staged under a [kSecretCopyKeyPrefix] key, such as
@@ -262,6 +289,67 @@ class MediaStore {
       await _quietly(() async {
         await entry.delete(recursive: true);
       });
+    }
+  });
+
+  /// Deletes every file the Files page downloaded, secret copies included, and
+  /// closes the Quick Look panel. Run when App Lock locks. A download still
+  /// running ends without leaving a file; chat attachments and audio, and
+  /// their downloads in flight, are untouched.
+  Future<void> clearFileDownloads() async {
+    _filesGeneration++;
+    await _quietly(_quickLook.close);
+    _fileFetches.removeWhere((key, _) => _isFilesKey(key));
+    await _quietly(() async {
+      final root = await _root();
+      if (!await root.exists()) return;
+      await for (final entry in root.list()) {
+        if (entry is! Directory) continue;
+        final name = entry.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
+        if (!name.startsWith(_filesFolderMark) &&
+            !name.startsWith(_secretFolderMark)) {
+          continue;
+        }
+        await _deleteOrRemember(entry);
+      }
+    });
+    await _retryUndeleted();
+  }
+
+  Future<void> _deleteOrRemember(Directory folder) async {
+    try {
+      await _deleteFolder(folder);
+      _undeleted.remove(folder.path);
+    } on Object {
+      _undeleted.add(folder.path);
+    }
+  }
+
+  /// Deletes the folders an earlier cleanup could not.
+  Future<void> _retryUndeleted() async {
+    for (final path in [..._undeleted]) {
+      final folder = Directory(path);
+      if (await _quietlyExists(folder)) {
+        await _deleteOrRemember(folder);
+      } else {
+        _undeleted.remove(path);
+      }
+    }
+  }
+
+  /// Deletes every Files download a previous run left (a lock cleanup that
+  /// could not delete one, an app killed on the page). Best effort; run at
+  /// launch, when nothing can be using them.
+  Future<void> wipeFileDownloads() => _quietly(() async {
+    final root = await _root();
+    if (!await root.exists()) return;
+    await for (final entry in root.list()) {
+      if (entry is! Directory) continue;
+      final name = entry.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
+      if (name.startsWith(_filesFolderMark) ||
+          name.startsWith(_secretFolderMark)) {
+        await _deleteOrRemember(entry);
+      }
     }
   });
 
@@ -286,6 +374,9 @@ class MediaStore {
         : QuickLookToggle.failed;
   }
 
+  /// Closes the Quick Look panel, as a page does that opened it.
+  Future<void> closeQuickLook() => _quietly(_quickLook.close);
+
   Future<bool> open(File file) => _actions.open(file.path);
 
   Future<bool> save(String name, Uint8List bytes) => _actions.save(name, bytes);
@@ -298,6 +389,7 @@ class MediaStore {
   /// run, and forgets the images.
   Future<void> clear() async {
     _generation++;
+    _filesGeneration++;
     await _quietly(_quickLook.close);
     _images.clear();
     _imageBytes = 0;
@@ -316,6 +408,7 @@ class MediaStore {
   /// before the sweep started, a folder asked for meanwhile is skipped, and a
   /// file's date is looked at again just before it is deleted.
   Future<void> sweep(Duration maxAge) {
+    unawaited(_retryUndeleted());
     final cutoff = DateTime.now().subtract(maxAge);
     _sweeping = true;
     return _quietly(() async {
@@ -363,10 +456,48 @@ class MediaStore {
 
 /// The last part of [name], with what a file system rejects taken out, so a
 /// name from the server can only land inside its own folder.
-String _safeName(String name) {
+String _safeName(String name) => stagedFileName(name);
+
+const _windowsDevices = {
+  'CON',
+  'PRN',
+  'AUX',
+  'NUL',
+  'COM1',
+  'COM2',
+  'COM3',
+  'COM4',
+  'COM5',
+  'COM6',
+  'COM7',
+  'COM8',
+  'COM9',
+  'COM\u00b9',
+  'COM\u00b2',
+  'COM\u00b3',
+  'LPT1',
+  'LPT2',
+  'LPT3',
+  'LPT4',
+  'LPT5',
+  'LPT6',
+  'LPT7',
+  'LPT8',
+  'LPT9',
+  'LPT\u00b9',
+  'LPT\u00b2',
+  'LPT\u00b3',
+};
+
+/// The name a file called [name] by the server is staged under, and so the
+/// name it is opened, shared and saved by.
+String stagedFileName(String name) {
   final clean = fileNameOf(name).replaceAll(_unsafeInName, '_').trim();
   if (clean.isEmpty || clean == '.' || clean == '..') return 'file';
-  return _shortened(clean);
+  final short = _shortened(clean);
+  // Windows reads CON, NUL, COM1… as devices, with or without an extension.
+  final device = short.split('.').first.trimRight().toUpperCase();
+  return _windowsDevices.contains(device) ? '_$short' : short;
 }
 
 /// [name] cut to a length a file system takes (255 bytes, with the suffix of
@@ -382,7 +513,22 @@ String _shortened(String name) {
   while (utf8.encode(base).length + utf8.encode(extension).length > limit) {
     base = base.substring(0, base.length - 1);
   }
-  return '$base$extension';
+  // Cut in the middle of a name, what stays must not end in something that
+  // reads as an extension (`x….exe.aaaa` cut after `.exe`).
+  if (extension.isEmpty) base = base.replaceAll('.', '_');
+  return '${base.trimRight()}$extension';
+}
+
+Future<void> _deleteRecursively(Directory folder) async {
+  if (await folder.exists()) await folder.delete(recursive: true);
+}
+
+Future<bool> _quietlyExists(Directory folder) async {
+  try {
+    return await folder.exists();
+  } on Object {
+    return false;
+  }
 }
 
 Future<void> _quietly(Future<void> Function() action) async {

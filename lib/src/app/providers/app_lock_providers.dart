@@ -3,6 +3,8 @@ import 'package:provider/single_child_widget.dart';
 
 import '../../app_lock/app_lock_controller.dart';
 import '../../auth/auth_controller.dart';
+import '../../chat/media/files_lock_cleanup.dart';
+import '../../chat/media/media_store.dart';
 import '../../chat/queue_storage/durable_queue_store.dart';
 import '../../chat/queue_storage/queue_persistence.dart';
 import '../../telemetry/telemetry.dart';
@@ -12,6 +14,15 @@ List<SingleChildWidget> appLockProviders(Telemetry telemetry) => [
   ChangeNotifierProvider(
     lazy: false,
     create: (_) => AppLockController()..load(),
+  ),
+  // What Files downloaded goes the moment the app locks.
+  Provider<FilesLockCleanup>(
+    lazy: false,
+    create: (context) => FilesLockCleanup(
+      context.read<AppLockController>(),
+      context.read<MediaStore?>(),
+    ),
+    dispose: (_, cleanup) => cleanup.dispose(),
   ),
   ChangeNotifierProvider<QueuePersistence>(
     lazy: false,

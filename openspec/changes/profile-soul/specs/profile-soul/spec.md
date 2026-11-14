@@ -18,11 +18,11 @@ The feature SHALL use only `GET /api/profiles/{name}/soul` and `PUT /api/profile
 #### Scenario: Old server
 
 - **WHEN** the server answers 404 whose detail does not start with "Profile '", or answers 405
-- **THEN** the Personality entries are hidden for the rest of the connection and no error is shown
+- **THEN** the Personality entries are hidden for the rest of the connection, and an open screen shows only the neutral "This server doesn't offer personality settings." with Back
 
 ### Requirement: Entry points
 
-The app SHALL open Personality from a row after Memory in the chat sidebar (the chat's profile) and from a section after Memory on the Mac Profiles page (the selected profile). It SHALL never use the server's active profile.
+The app SHALL open Personality from a row after Memory in the chat sidebar (the chat's profile) and from a section row after Memory on the Mac Profiles page (the selected profile), as a pushed page with a back bar on every platform. It SHALL never use the server's active profile.
 
 #### Scenario: Phone
 
@@ -31,7 +31,7 @@ The app SHALL open Personality from a row after Memory in the chat sidebar (the 
 
 ### Requirement: Showing the text
 
-The screen SHALL show the server's text in an editor, or an empty editor with "No personality set yet" when `exists` is false, and SHALL show loading, offline, not-found and failed states with Try again.
+The screen SHALL show the server's text in an editor, or an empty editor with "No personality set yet" when `exists` is false, and SHALL show loading, offline, not-found and failed states, with Try again for offline and failed and Back for not-found.
 
 #### Scenario: File missing versus empty
 
@@ -45,7 +45,7 @@ The screen SHALL show the server's text in an editor, or an empty editor with "N
 
 ### Requirement: Editing never saves by itself
 
-Text SHALL change nothing on the server until the user confirms a save. The text SHALL stay only in screen state: never in preferences, drafts, logs or telemetry, and dropped on sign-out, server change and App Lock. Leaving with unsaved changes SHALL ask first, defaulting to Keep editing.
+Text SHALL change nothing on the server until the user confirms a save. The text SHALL stay only in screen state: never in preferences, drafts, logs or telemetry, and dropped on sign-out, server change and App Lock at once, with no grace period. Leaving with unsaved changes SHALL ask first, defaulting to Keep editing.
 
 #### Scenario: Leaving with changes
 
@@ -54,7 +54,7 @@ Text SHALL change nothing on the server until the user confirms a save. The text
 
 ### Requirement: Save is confirmed
 
-Save SHALL ask before sending, with Cancel as the default: it replaces the whole file, new chats use it and running chats keep the old text. Empty text SHALL say Hermes will use its default personality.
+Save SHALL ask before sending, with Cancel as the default: it replaces the whole file, new chats use it and running chats usually keep the old text (Bot Chats may pick it up). Empty text SHALL say Hermes will use its default personality.
 
 #### Scenario: Cancel
 
@@ -68,7 +68,7 @@ Save SHALL ask before sending, with Cancel as the default: it replaces the whole
 
 ### Requirement: Changed-on-server check
 
-Before a confirmed save the app SHALL read the file again and send only when it equals what the screen last loaded or saved. Otherwise it SHALL send nothing and offer Show server's version, Keep editing (default) and Replace anyway. A failed check SHALL send nothing.
+Before a confirmed save the app SHALL read the file again and send only when it equals what the screen last loaded or saved. Otherwise it SHALL send nothing and offer Show server's version, Keep editing (default) and Replace anyway. A failed check SHALL send nothing, and the check read and the PUT SHALL each give up after 10 s.
 
 #### Scenario: Someone else saved
 
@@ -82,7 +82,7 @@ Before a confirmed save the app SHALL read the file again and send only when it 
 
 ### Requirement: A lost answer is not a save
 
-If the save's answer is lost or lacks `ok: true`, the app SHALL say the save could not be confirmed, keep the text, resend nothing and not show Saved. A user-tapped Check SHALL read the file and report Saved only when it equals the editor's text.
+If the save's answer is lost or lacks `ok: true`, the app SHALL say the save could not be confirmed, keep the text, resend nothing and not show Saved. A user-tapped Check SHALL read the file and report Saved only when the file exists and equals the text that was sent.
 
 #### Scenario: Timeout on save
 
@@ -91,8 +91,8 @@ If the save's answer is lost or lacks `ok: true`, the app SHALL say the save cou
 
 #### Scenario: Check finds it saved
 
-- **WHEN** the user taps Check and the server's text equals the editor's text
-- **THEN** the screen shows Saved and treats that text as the loaded text
+- **WHEN** the user taps Check and the server's text equals the text that was sent
+- **THEN** the screen shows Saved and treats the sent text as the loaded text; later edits stay unsaved
 
 ### Requirement: Size guidance
 

@@ -452,6 +452,10 @@
     "description": "Warning line on the Needs-you card when no confirmation of an answer arrived in time."
   },
 
+  "chatActivityProcessesOmitted": "Earlier process cards omitted.",
+  "@chatActivityProcessesOmitted": {
+    "description": "Note under the process output cards in the Activity panel when older cards were dropped."
+  },
   "@@x-area-chat/attachments": "",
 
   "@@x-area-chat/checkpoints": "",
@@ -1933,9 +1937,17 @@
       }
     }
   },
+  "filesDragFallbackName": "File",
+  "@filesDragFallbackName": {
+    "description": "Name given to a file dragged out of the window when its own name cannot be used."
+  },
   "filesDragTooltip": "Drag to Finder",
   "@filesDragTooltip": {
     "description": "Hover text of the file tile in a Mac preview header, which can be dragged out of the window."
+  },
+  "filesEntryLabel": "Files",
+  "@filesEntryLabel": {
+    "description": "Name of the Files page in the Activity panel row, the chat header menu and the title when the folder has no name."
   },
   "filesFailureBusy": "This file is open in a database right now. Try again in a moment.",
   "@filesFailureBusy": {
@@ -2100,6 +2112,10 @@
   "filesPickEmpty": "No folders in here.",
   "@filesPickEmpty": {
     "description": "Shown in the folder picker when a folder holds no subfolders."
+  },
+  "filesPreviewLoading": "Opening file…",
+  "@filesPreviewLoading": {
+    "description": "Screen reader label while a text file is read and no progress is known."
   },
   "filesPreviewTypeSize": "{type} · {size}",
   "@filesPreviewTypeSize": {
@@ -2325,6 +2341,14 @@
   "providersAccountsFailed": "Account sign-in isn't available right now.",
   "@providersAccountsFailed": {
     "description": "Warning banner above the recommended providers when the account sign-in list could not be read."
+  },
+  "providersAddAction": "Add provider",
+  "@providersAddAction": {
+    "description": "Label of the toolbar button that scrolls to the providers to add."
+  },
+  "providersAddActionMac": "Add Provider",
+  "@providersAddActionMac": {
+    "description": "Label of the Mac toolbar button that scrolls to the providers to add, in title case."
   },
   "providersAddHeading": "Add a provider",
   "@providersAddHeading": {
@@ -2646,6 +2670,10 @@
         "format": "decimalPattern"
       }
     }
+  },
+  "providersDetailPlaceholder": "Pick one in the list to connect it.",
+  "@providersDetailPlaceholder": {
+    "description": "Text of the pane beside the providers list while nothing is connected."
   },
   "providersDetailReplaceKey": "Replace key",
   "@providersDetailReplaceKey": {
@@ -3075,6 +3103,10 @@
   "@providersKeysFailed": {
     "description": "Warning banner above the connected providers when the saved keys could not be read."
   },
+  "providersLinkFailed": "Couldn't open the link.",
+  "@providersLinkFailed": {
+    "description": "Shown when the browser could not be opened for a provider's page."
+  },
   "providersListTitle": "Model providers",
   "@providersListTitle": {
     "description": "Title of the model providers screen."
@@ -3121,6 +3153,10 @@
       }
     }
   },
+  "providersProfileSectionDetail": "Keys, sign-ins and endpoints",
+  "@providersProfileSectionDetail": {
+    "description": "Detail line of the Model providers section on the Mac Profiles page."
+  },
   "providersRecommendedHeader": "Recommended",
   "@providersRecommendedHeader": {
     "description": "Header of the group of providers Hermes suggests first."
@@ -3128,6 +3164,14 @@
   "providersRemoveKey": "Remove key",
   "@providersRemoveKey": {
     "description": "Red row on a provider's detail that removes its saved key after asking."
+  },
+  "providersRemoveRefusedFallback": "Hermes couldn't remove this.",
+  "@providersRemoveRefusedFallback": {
+    "description": "Shown when Hermes refused to remove a key, sign-in or endpoint and gave no reason."
+  },
+  "providersRemoveUnknown": "Couldn't tell whether it was removed. The list shows what Hermes has now.",
+  "@providersRemoveUnknown": {
+    "description": "Shown when the answer to a removal was lost and the list was read again."
   },
   "providersReplyCheckProviders": "Check model providers",
   "@providersReplyCheckProviders": {
@@ -4223,6 +4267,38 @@
   "@serverCareUpdateCommandHeader": {
     "description": "Header over the command to run on the server, on the Update page."
   },
+  "serverCareUpdateConfirmAction": "Update",
+  "@serverCareUpdateConfirmAction": {
+    "description": "Confirm button of the update question. Plain, not filled: the update restarts Hermes."
+  },
+  "serverCareUpdateConfirmConversations": "{count, plural, =1{1 conversation on messaging channels will stop.} other{{count} conversations on messaging channels will stop.}}",
+  "@serverCareUpdateConfirmConversations": {
+    "description": "Line of the update question when conversations on messaging channels are running now (the status's active agents).",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareUpdateConfirmReplies": "{count, plural, =1{1 reply in this app is still running and will stop.} other{{count} replies in this app are still running and will stop.}}",
+  "@serverCareUpdateConfirmReplies": {
+    "description": "Line of the update question when replies in this app are running now.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
+  "serverCareUpdateConfirmRestarts": "Hermes restarts during the update, usually for a few minutes. Chats pause until it's back.",
+  "@serverCareUpdateConfirmRestarts": {
+    "description": "First line of the update question."
+  },
+  "serverCareUpdateConfirmTitle": "Update Hermes now?",
+  "@serverCareUpdateConfirmTitle": {
+    "description": "Title of the update question."
+  },
   "serverCareUpdateCouldntCheck": "Couldn't check",
   "@serverCareUpdateCouldntCheck": {
     "description": "Value of the Updates row when the check failed."
@@ -4240,6 +4316,10 @@
         "example": "0.22.0"
       }
     }
+  },
+  "serverCareUpdateNotStartedUnauthorized": "Hermes isn't accepting this sign-in right now, so the update wasn't started. Sign in again, then try again.",
+  "@serverCareUpdateNotStartedUnauthorized": {
+    "description": "Message of the refused page when the update request itself was refused with this sign-in, so nothing was started."
   },
   "serverCareUpdateNow": "Update Hermes",
   "@serverCareUpdateNow": {
@@ -4285,6 +4365,14 @@
   "@serverCareUpdateOutcomeNotBackTitle": {
     "description": "Title of the result card when Hermes has not come back after the update."
   },
+  "serverCareUpdateOutcomeNotConfirmedHint": "It has been running for a long time. Check again to read its result.",
+  "@serverCareUpdateOutcomeNotConfirmedHint": {
+    "description": "Body of the result card when the update has said it is running for a long time and the app cannot tell whether it finished."
+  },
+  "serverCareUpdateOutcomeNotConfirmedTitle": "The app can't tell whether the update finished",
+  "@serverCareUpdateOutcomeNotConfirmedTitle": {
+    "description": "Title of the result card when the update has been running for a long time and may still be going."
+  },
   "serverCareUpdateOutcomeNowRunning": "Now running {version}.",
   "@serverCareUpdateOutcomeNowRunning": {
     "description": "Body of the result card; version is the one Hermes runs now.",
@@ -4321,6 +4409,14 @@
       }
     }
   },
+  "serverCareUpdateOutcomeUnauthorizedHint": "Hermes isn't accepting this sign-in right now, so the app can't read the result. The update may still be going.",
+  "@serverCareUpdateOutcomeUnauthorizedHint": {
+    "description": "Body of the result card when the update's status was refused with this sign-in."
+  },
+  "serverCareUpdateOutcomeUnauthorizedTitle": "The app can't read the update's result",
+  "@serverCareUpdateOutcomeUnauthorizedTitle": {
+    "description": "Title of the result card when the update's status was refused with this sign-in."
+  },
   "serverCareUpdatePageTitle": "Update",
   "@serverCareUpdatePageTitle": {
     "description": "Title of the Update page."
@@ -4338,6 +4434,10 @@
         "example": "0.22.0"
       }
     }
+  },
+  "serverCareUpdateRowUpdating": "Updating…",
+  "@serverCareUpdateRowUpdating": {
+    "description": "Value of the Updates row on the Server screen while an update runs."
   },
   "serverCareUpdateStepChecking": "Checking the result",
   "@serverCareUpdateStepChecking": {
@@ -4970,6 +5070,34 @@
       }
     }
   },
+  "toolsAppliedDetail": "A chat that is already open keeps the tools it started with.",
+  "@toolsAppliedDetail": {
+    "description": "Second line of the note shown after a tool was switched on or off."
+  },
+  "toolsAppliedTitle": "Applies from your next chat.",
+  "@toolsAppliedTitle": {
+    "description": "First line of the note shown after a tool was switched on or off."
+  },
+  "toolsBackendCommandsFail": "Commands will fail until this is set up on your server.",
+  "@toolsBackendCommandsFail": {
+    "description": "Warning under a picked terminal backend that is not ready."
+  },
+  "toolsBackendsFooter": "Applies from your next chat. Settings for Docker, SSH and the others are changed on your server.",
+  "@toolsBackendsFooter": {
+    "description": "Footer of the section that picks where the Terminal tool runs commands."
+  },
+  "toolsBackendsHeader": "Where commands run",
+  "@toolsBackendsHeader": {
+    "description": "Header of the section that picks where the Terminal tool runs commands (local, Docker, SSH and so on)."
+  },
+  "toolsBackendsLoadFailed": "Couldn't read where commands run.",
+  "@toolsBackendsLoadFailed": {
+    "description": "Error line when the list of terminal backends could not be read. Shown with a Try again button."
+  },
+  "toolsBackendsLoading": "Checking where commands can run…",
+  "@toolsBackendsLoading": {
+    "description": "Shown with a spinner while the terminal backends are read."
+  },
   "toolsBannerInstallerDetail": "Hermes started an installer on your server. Applies from your next chat.",
   "@toolsBannerInstallerDetail": {
     "description": "Detail of the banner shown after switching on a tool started an installer on the server."
@@ -5024,6 +5152,18 @@
   "@toolsChipReady": {
     "description": "Status badge: the provider or backend works now. Keep it short."
   },
+  "toolsConfirmAllowAction": "Allow access",
+  "@toolsConfirmAllowAction": {
+    "description": "Confirming button of the question before the permission window opens on the server's Mac."
+  },
+  "toolsConfirmAllowBody": "A permission window will open on the computer that runs Hermes. Someone there has to approve it.",
+  "@toolsConfirmAllowBody": {
+    "description": "Body of the question before the macOS permission grant starts on the server."
+  },
+  "toolsConfirmAllowTitle": "Allow access on the server's Mac?",
+  "@toolsConfirmAllowTitle": {
+    "description": "Title of the question before the macOS permission grant starts on the server."
+  },
   "toolsConfirmApplies": "It applies to the profile \"{profile}\".",
   "@toolsConfirmApplies": {
     "description": "Sentence in a confirmation question: which profile the change applies to.",
@@ -5072,9 +5212,33 @@
       }
     }
   },
+  "toolsConfirmInstallStepAction": "Install",
+  "@toolsConfirmInstallStepAction": {
+    "description": "Confirming button of the question before an install step runs on the server."
+  },
+  "toolsConfirmInstallStepBody": "Hermes will run an installer on the server. It may download software.",
+  "@toolsConfirmInstallStepBody": {
+    "description": "Body of the question before an install step runs on the server."
+  },
   "toolsConfirmInstallTitle": "Install on your server?",
   "@toolsConfirmInstallTitle": {
     "description": "Title of the question asked before switching on a tool that may start an installer on the server."
+  },
+  "toolsConfirmInstallsExtra": "It may also run an installer on the server.",
+  "@toolsConfirmInstallsExtra": {
+    "description": "Sentence added to the question before switching on a tool whose setup has an install step: the switch may start an installer on the server."
+  },
+  "toolsConfirmLocalBody": "Commands will run on the same machine as Hermes, with full access to that machine's files, not in a container.",
+  "@toolsConfirmLocalBody": {
+    "description": "Body of the question before the Local terminal backend is picked."
+  },
+  "toolsConfirmLocalTitle": "Run commands directly on your server?",
+  "@toolsConfirmLocalTitle": {
+    "description": "Title of the question before the Local terminal backend is picked."
+  },
+  "toolsConfirmLocalUse": "Use local",
+  "@toolsConfirmLocalUse": {
+    "description": "Confirming button of the question before the Local terminal backend is picked."
   },
   "toolsConfirmOffActions": "Switching it off stops new actions. It doesn't undo what they did.",
   "@toolsConfirmOffActions": {
@@ -5084,6 +5248,10 @@
   "@toolsConfirmOffCommands": {
     "description": "Last sentences of a confirmation question for tools that run commands or programs."
   },
+  "toolsConfirmSwitchOn": "Switch on",
+  "@toolsConfirmSwitchOn": {
+    "description": "Confirming button of the questions asked before a tool is switched on."
+  },
   "toolsConfirmTerminalLead": "It can run commands on the machine where Hermes runs.",
   "@toolsConfirmTerminalLead": {
     "description": "First sentence of the question asked before the terminal tool is switched on."
@@ -5091,6 +5259,46 @@
   "toolsConfirmTerminalTitle": "Let Hermes run commands?",
   "@toolsConfirmTerminalTitle": {
     "description": "Title of the question asked before the terminal tool is switched on."
+  },
+  "toolsDifferenceMcpTerm": "MCP servers:",
+  "@toolsDifferenceMcpTerm": {
+    "description": "Bold term at the start of a paragraph in the What's the difference sheet; keep the colon."
+  },
+  "toolsDifferenceMcpText": "outside programs or services that give Hermes extra tools.",
+  "@toolsDifferenceMcpText": {
+    "description": "Explanation after the term MCP servers in the What's the difference sheet. Starts lower case: it follows the term."
+  },
+  "toolsDifferencePluginsTerm": "Plugins:",
+  "@toolsDifferencePluginsTerm": {
+    "description": "Bold term at the start of a paragraph in the What's the difference sheet; keep the colon."
+  },
+  "toolsDifferencePluginsText": "add-ons installed on the server. Some bring their own tools.",
+  "@toolsDifferencePluginsText": {
+    "description": "Explanation after the term Plugins in the What's the difference sheet. Starts lower case: it follows the term."
+  },
+  "toolsDifferenceSkillsTerm": "Skills:",
+  "@toolsDifferenceSkillsTerm": {
+    "description": "Bold term at the start of a paragraph in the What's the difference sheet; keep the colon."
+  },
+  "toolsDifferenceSkillsText": "written instructions Hermes follows for a kind of job.",
+  "@toolsDifferenceSkillsText": {
+    "description": "Explanation after the term Skills in the What's the difference sheet. Starts lower case: it follows the term."
+  },
+  "toolsDifferenceTitle": "Tools, skills, plugins and MCP servers",
+  "@toolsDifferenceTitle": {
+    "description": "Title of the What's the difference sheet."
+  },
+  "toolsDifferenceToolsTerm": "Tools:",
+  "@toolsDifferenceToolsTerm": {
+    "description": "Bold term at the start of a paragraph in the What's the difference sheet; keep the colon."
+  },
+  "toolsDifferenceToolsText": "what Hermes can do by itself, such as run commands, search the web or make images. You switch them on or off here.",
+  "@toolsDifferenceToolsText": {
+    "description": "Explanation after the term Tools in the What's the difference sheet. Starts lower case: it follows the term."
+  },
+  "toolsDone": "Done",
+  "@toolsDone": {
+    "description": "Button that closes a sheet of the Tools screens."
   },
   "toolsEmptyDetail": "Tools Hermes offers for this profile will show here.",
   "@toolsEmptyDetail": {
@@ -5139,6 +5347,156 @@
   "toolsHeaderOnNeedsSetup": "On · needs setup",
   "@toolsHeaderOnNeedsSetup": {
     "description": "State line in a tool's detail header: the tool is on but has not been set up."
+  },
+  "toolsInsideHelper": "These are the names you see on tool cards in a chat.",
+  "@toolsInsideHelper": {
+    "description": "Helper line under the list of a tool's action names in its details."
+  },
+  "toolsInsideTitle": "What's inside ({count})",
+  "@toolsInsideTitle": {
+    "description": "Collapsed section of a tool's details that lists its action names. The number is how many there are.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "toolsInstallAgain": "Run the install step again",
+  "@toolsInstallAgain": {
+    "description": "Quiet button that runs a provider's install step again, under Advanced."
+  },
+  "toolsInstallAnotherRunning": "Another install is running",
+  "@toolsInstallAnotherRunning": {
+    "description": "Label of the disabled install button while another install runs on the server."
+  },
+  "toolsInstallButton": "Install on server",
+  "@toolsInstallButton": {
+    "description": "Button that runs a provider's install step on the Hermes server."
+  },
+  "toolsInstallDone": "Installed.",
+  "@toolsInstallDone": {
+    "description": "Shown when an install on the server finished."
+  },
+  "toolsInstallFailed": "The install didn't finish.",
+  "@toolsInstallFailed": {
+    "description": "Error line when an install on the server failed."
+  },
+  "toolsInstallFailedNothing": "Nothing changed on your server. The last lines from the installer:",
+  "@toolsInstallFailedNothing": {
+    "description": "Sentence after a failed install, introducing the installer's last lines."
+  },
+  "toolsInstallHeader": "Install on server",
+  "@toolsInstallHeader": {
+    "description": "Header of the section that shows an install running on the server."
+  },
+  "toolsInstallHelper": "Needed before this works. The app asks first.",
+  "@toolsInstallHelper": {
+    "description": "Helper under the Install on server button."
+  },
+  "toolsInstallLeave": "You can leave this screen. The install keeps going.",
+  "@toolsInstallLeave": {
+    "description": "Muted line while an install runs on the server."
+  },
+  "toolsInstallRunning": "Installing on your server…",
+  "@toolsInstallRunning": {
+    "description": "Title while an install runs on the server, next to a spinner."
+  },
+  "toolsInstallStartedBySwitch": "Hermes is installing the driver on your server.",
+  "@toolsInstallStartedBySwitch": {
+    "description": "Title while an install that switching a tool on started runs on the server."
+  },
+  "toolsInstallUnknown": "Couldn't tell whether it finished.",
+  "@toolsInstallUnknown": {
+    "description": "Shown when the app lost track of an install and could not read how it ended."
+  },
+  "toolsKeyAlreadySet": "Already set",
+  "@toolsKeyAlreadySet": {
+    "description": "Shown under a key's name when the server already has a value for it. The value is never shown."
+  },
+  "toolsKeyChecking": "May have saved. Checking…",
+  "@toolsKeyChecking": {
+    "description": "Shown with a spinner in place of Save when the answer to saving a key was lost."
+  },
+  "toolsKeyFailed": "Couldn't save the key. Try again.",
+  "@toolsKeyFailed": {
+    "description": "Error under a key field when saving failed. The typed value stays in the field."
+  },
+  "toolsKeyGet": "Get a key",
+  "@toolsKeyGet": {
+    "description": "Link that opens the page where an API key can be obtained."
+  },
+  "toolsKeyGetNamed": "Get a key for {label}",
+  "@toolsKeyGetNamed": {
+    "description": "Accessibility label of the Get a key link, naming the key it is for.",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "Firecrawl API key"
+      }
+    }
+  },
+  "toolsKeyHeader": "Key for {provider}",
+  "@toolsKeyHeader": {
+    "description": "Header of the section with a provider's key fields.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Firecrawl"
+      }
+    }
+  },
+  "toolsKeyHelper": "Saved on your server for {profile}. The app doesn't keep it.",
+  "@toolsKeyHelper": {
+    "description": "Helper under the key fields: where the key goes and that the app does not keep it.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "toolsKeyNotSaved": "The key wasn't saved. Paste it again.",
+  "@toolsKeyNotSaved": {
+    "description": "Shown when asking the server again showed that a key was not saved."
+  },
+  "toolsKeyRemoveHint": "To remove a key, edit it on your server.",
+  "@toolsKeyRemoveHint": {
+    "description": "Quiet line under the key form: the app cannot remove a key."
+  },
+  "toolsKeyReplace": "Replace",
+  "@toolsKeyReplace": {
+    "description": "Button next to a key that is already set; it shows the field to type a new one. Keep it short."
+  },
+  "toolsKeyReplaceNamed": "Replace {label}",
+  "@toolsKeyReplaceNamed": {
+    "description": "Accessibility label of the Replace button, naming the key.",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "Firecrawl API key"
+      }
+    }
+  },
+  "toolsKeySave": "Save",
+  "@toolsKeySave": {
+    "description": "The one filled button of the key form."
+  },
+  "toolsKeySaved": "Saved.",
+  "@toolsKeySaved": {
+    "description": "Title of the banner after a key was saved."
+  },
+  "toolsKeySavedDetail": "Applies from your next chat.",
+  "@toolsKeySavedDetail": {
+    "description": "Detail of the banner after a key was saved."
+  },
+  "toolsKeySaving": "Saving…",
+  "@toolsKeySaving": {
+    "description": "Label of the Save button while the key is being sent."
+  },
+  "toolsKeyUnconfirmed": "Couldn't confirm. Pull to refresh.",
+  "@toolsKeyUnconfirmed": {
+    "description": "Shown when the app could not find out whether a key was saved."
   },
   "toolsLabelBrowser": "Browser",
   "@toolsLabelBrowser": {
@@ -5244,6 +5602,24 @@
   "@toolsLoading": {
     "description": "Shown with a spinner while the tools list loads."
   },
+  "toolsModelDefault": "Default",
+  "@toolsModelDefault": {
+    "description": "Muted word after the name of a provider's default model."
+  },
+  "toolsModelFooter": "Prices come from the provider, {provider}, as it gives them. Applies from your next chat.",
+  "@toolsModelFooter": {
+    "description": "Footer of the model picker for image and video generation.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "FAL"
+      }
+    }
+  },
+  "toolsModelTitle": "Model",
+  "@toolsModelTitle": {
+    "description": "Title of the model picker for image and video generation."
+  },
   "toolsNeedsSetup": "Needs setup",
   "@toolsNeedsSetup": {
     "description": "Status badge, list section header and a row's state line: the tool has not been set up yet, or its status is unknown."
@@ -5255,6 +5631,130 @@
   "toolsOldServerTitle": "This server doesn't offer tools settings.",
   "@toolsOldServerTitle": {
     "description": "Title of the state shown when the Hermes server is too old to have tools settings."
+  },
+  "toolsProfileDetail": "What Hermes can do by itself",
+  "@toolsProfileDetail": {
+    "description": "Second line of the Tools row on the Mac Profiles page."
+  },
+  "toolsProfileGone": "This profile no longer exists.",
+  "@toolsProfileGone": {
+    "description": "Message on the Tools screen when the server answers that its profile was deleted."
+  },
+  "toolsProfilesCount": "{on} of {total} on",
+  "@toolsProfilesCount": {
+    "description": "Value of the Tools row on the Mac Profiles page: how many of the profile's tools are switched on.",
+    "placeholders": {
+      "on": {
+        "type": "int",
+        "example": "5"
+      },
+      "total": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "toolsProviderFromHermes": "From Hermes: {text}",
+  "@toolsProviderFromHermes": {
+    "description": "Note on a provider or backend: Hermes' own words, shown as given.",
+    "placeholders": {
+      "text": {
+        "type": "String",
+        "example": "Docker isn't running"
+      }
+    }
+  },
+  "toolsProviderNeedsSignInNote": "This needs a sign-in to Nous Portal on your server. The app can't do that for you.",
+  "@toolsProviderNeedsSignInNote": {
+    "description": "Note on a provider that needs a sign-in on the Hermes server."
+  },
+  "toolsReadinessAccessibility": "Accessibility",
+  "@toolsReadinessAccessibility": {
+    "description": "Row label in the Computer use readiness section: the macOS accessibility permission."
+  },
+  "toolsReadinessAllowAccess": "Allow access",
+  "@toolsReadinessAllowAccess": {
+    "description": "Button that opens the macOS permission window on the server's Mac."
+  },
+  "toolsReadinessAllowHelper": "A permission window opens on the Mac that runs Hermes. Someone there has to approve it.",
+  "@toolsReadinessAllowHelper": {
+    "description": "Helper under the Allow access button."
+  },
+  "toolsReadinessAllowed": "Allowed",
+  "@toolsReadinessAllowed": {
+    "description": "Value of a permission row that is granted."
+  },
+  "toolsReadinessCouldntTell": "Couldn't tell",
+  "@toolsReadinessCouldntTell": {
+    "description": "Value of a readiness row when the server could not say."
+  },
+  "toolsReadinessDetails": "Details",
+  "@toolsReadinessDetails": {
+    "description": "Last row of the readiness section: opens the checks Hermes ran."
+  },
+  "toolsReadinessDriver": "Driver",
+  "@toolsReadinessDriver": {
+    "description": "Row label in the Computer use readiness section: the software that controls the computer."
+  },
+  "toolsReadinessHeader": "Readiness",
+  "@toolsReadinessHeader": {
+    "description": "Header of the Computer use readiness section."
+  },
+  "toolsReadinessInstalled": "Installed",
+  "@toolsReadinessInstalled": {
+    "description": "Value of the Driver row when the driver is installed."
+  },
+  "toolsReadinessNo": "No",
+  "@toolsReadinessNo": {
+    "description": "Value of the Ready row when Computer use is not ready."
+  },
+  "toolsReadinessNotAllowed": "Not allowed",
+  "@toolsReadinessNotAllowed": {
+    "description": "Value of a permission row that is not granted."
+  },
+  "toolsReadinessNotInstalled": "Not installed",
+  "@toolsReadinessNotInstalled": {
+    "description": "Value of the Driver row when the driver is missing."
+  },
+  "toolsReadinessOpenScreen": "Open the bot's screen",
+  "@toolsReadinessOpenScreen": {
+    "description": "Row that opens the live view of the profile's bot screen."
+  },
+  "toolsReadinessReady": "Ready",
+  "@toolsReadinessReady": {
+    "description": "Row label in the Computer use readiness section: whether Computer use can work now."
+  },
+  "toolsReadinessScreenRecording": "Screen recording",
+  "@toolsReadinessScreenRecording": {
+    "description": "Row label in the Computer use readiness section: the macOS screen recording permission."
+  },
+  "toolsReadinessServerSystem": "Server system",
+  "@toolsReadinessServerSystem": {
+    "description": "Row label in the Computer use readiness section: the operating system of the Hermes server."
+  },
+  "toolsReadinessSystemNotSupported": "{system}, not supported",
+  "@toolsReadinessSystemNotSupported": {
+    "description": "Value of the Server system row when Computer use does not support the server's system.",
+    "placeholders": {
+      "system": {
+        "type": "String",
+        "example": "macOS"
+      }
+    }
+  },
+  "toolsReadinessSystemSupported": "{system}, supported",
+  "@toolsReadinessSystemSupported": {
+    "description": "Value of the Server system row when Computer use supports the server's system.",
+    "placeholders": {
+      "system": {
+        "type": "String",
+        "example": "macOS"
+      }
+    }
+  },
+  "toolsReadinessYes": "Yes",
+  "@toolsReadinessYes": {
+    "description": "Value of the Ready row when Computer use is ready."
   },
   "toolsRiskActOnItsOwnSentence": "Hermes can start work later, or hand it to helper agents, without you watching each step.",
   "@toolsRiskActOnItsOwnSentence": {
@@ -5424,6 +5924,56 @@
   "@toolsSentenceXSearch": {
     "description": "One plain sentence under the name of the built-in tool \"X search\" in the tools list; sentence case, no full stop needed beyond the one given."
   },
+  "toolsSetupAdvancedFooter": "Most people use one provider for both.",
+  "@toolsSetupAdvancedFooter": {
+    "description": "Footer of the Advanced part of Web setup, where search and extract get different providers."
+  },
+  "toolsSetupAdvancedTitle": "Use different providers for search and extract",
+  "@toolsSetupAdvancedTitle": {
+    "description": "Last row of the Web Set up section; opens the choices for search and for extract."
+  },
+  "toolsSetupExtractHeader": "Extract",
+  "@toolsSetupExtractHeader": {
+    "description": "Header of the provider choice for reading pages (extract) in Web's Advanced part."
+  },
+  "toolsSetupFooter": "Hermes uses the one you choose. Applies from your next chat.",
+  "@toolsSetupFooter": {
+    "description": "Footer of the Set up section that lists a tool's providers."
+  },
+  "toolsSetupHeader": "Set up",
+  "@toolsSetupHeader": {
+    "description": "Header of the section where a tool's provider and keys are set."
+  },
+  "toolsSetupLoadFailed": "Couldn't load setup.",
+  "@toolsSetupLoadFailed": {
+    "description": "Error line when a tool's providers could not be read. Shown with a Try again button."
+  },
+  "toolsSetupLoading": "Loading setup…",
+  "@toolsSetupLoading": {
+    "description": "Shown with a spinner while a tool's providers are read."
+  },
+  "toolsSetupNothing": "Nothing to set up.",
+  "@toolsSetupNothing": {
+    "description": "Shown when a tool has no providers or keys to set."
+  },
+  "toolsSetupSearchHeader": "Search",
+  "@toolsSetupSearchHeader": {
+    "description": "Header of the provider choice for searching the web in Web's Advanced part."
+  },
+  "toolsSubtitle": "{profile} · {count} on",
+  "@toolsSubtitle": {
+    "description": "Line under the title of the Tools screen: the profile's name and how many tools are switched on.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
   "toolsSwitchLabel": "{name}, {state, select, on{on} other{off}}",
   "@toolsSwitchLabel": {
     "description": "Accessibility label of a tool's switch: the tool's name and whether it is on or off.",
@@ -5450,9 +6000,35 @@
       }
     }
   },
+  "toolsTitle": "Tools",
+  "@toolsTitle": {
+    "description": "Title of the Tools screen and its entry in the sidebar: what Hermes can do by itself, such as run commands or search the web."
+  },
   "toolsTryAgain": "Try again",
   "@toolsTryAgain": {
     "description": "Button that repeats a failed load or a change of a tool."
+  },
+  "toolsVanished": "That tool is no longer on this server.",
+  "@toolsVanished": {
+    "description": "Banner on the Tools screen when a tool that was switched has gone from the server."
+  },
+  "toolsWhereCli": "Used in your chats in this app and in the terminal.",
+  "@toolsWhereCli": {
+    "description": "In a tool's details: where a tool for the usual platform applies."
+  },
+  "toolsWhereHeader": "Where it applies",
+  "@toolsWhereHeader": {
+    "description": "Heading in a tool's details above the line that says in which chats it applies."
+  },
+  "toolsWherePlatform": "Used in {platform} chats only.",
+  "@toolsWherePlatform": {
+    "description": "In a tool's details: the tool only applies to chats on one platform. The placeholder is that platform's name as Hermes gives it.",
+    "placeholders": {
+      "platform": {
+        "type": "String",
+        "example": "Discord"
+      }
+    }
   },
 
   "@@x-area-update": "",
@@ -5462,6 +6038,10 @@
   "@@x-area-watch": "",
 
   "@@x-area-widgets": "",
+  "widgetsCancel": "Cancel",
+  "@widgetsCancel": {
+    "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+  },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {
     "description": "Muted line under a secret field, announced to screen readers, with how many characters were typed. The count is never stored.",
@@ -5490,6 +6070,516 @@
   },
 
   "@@x-area-windows": "",
+
+  "@@x-area-workspaces": "",
+  "workspacesBrowseBack": "Choose",
+  "@workspacesBrowseBack": {
+    "description": "Label of the back button on the Browse and Type a path pages; it leads back to the folder picker, whose title is \"Choose a folder\". Keep it to one word."
+  },
+  "workspacesBrowseCouldntOpen": "Couldn't open this folder",
+  "@workspacesBrowseCouldntOpen": {
+    "description": "Title of the Browse page when the folder is not readable. No full stop: the line under it explains."
+  },
+  "workspacesBrowseEmpty": "No folders here.",
+  "@workspacesBrowseEmpty": {
+    "description": "Browse page: the folder has no subfolders."
+  },
+  "workspacesBrowseMissing": "This folder doesn't exist on your server.",
+  "@workspacesBrowseMissing": {
+    "description": "Browse page: the folder is gone."
+  },
+  "workspacesBrowseMissingDetail": "It may have been moved or deleted. Go back up one folder.",
+  "@workspacesBrowseMissingDetail": {
+    "description": "Browse page, under the message that the folder does not exist."
+  },
+  "workspacesBrowseNotAllowedDetail": "Hermes isn't allowed to read it.",
+  "@workspacesBrowseNotAllowedDetail": {
+    "description": "Browse page, under \"Couldn't open this folder\": the server does not let Hermes read the folder."
+  },
+  "workspacesBrowseOpening": "Opening {name}…",
+  "@workspacesBrowseOpening": {
+    "description": "Browse page while a folder is being read; announced to screen readers.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "code"
+      }
+    }
+  },
+  "workspacesBrowseOutside": "This folder is outside what this server lets you browse",
+  "@workspacesBrowseOutside": {
+    "description": "Title of the Browse page when a level is above the part of the server the app may browse. No full stop: the line under it explains."
+  },
+  "workspacesBrowseOutsideDetail": "Go back up, or type a path instead.",
+  "@workspacesBrowseOutsideDetail": {
+    "description": "Browse page, under the message that the folder is outside what the server lets you browse."
+  },
+  "workspacesBrowseTitle": "Browse folders",
+  "@workspacesBrowseTitle": {
+    "description": "Title of the page that lists the folders of the server one level at a time."
+  },
+  "workspacesBrowseUnreachable": "Couldn't open this folder.",
+  "@workspacesBrowseUnreachable": {
+    "description": "Browse page: the connection dropped or the server did not answer in time."
+  },
+  "workspacesBrowseUnreachableDetail": "Check your connection, then try again.",
+  "@workspacesBrowseUnreachableDetail": {
+    "description": "Browse page, under \"Couldn't open this folder.\" when there was no answer."
+  },
+  "workspacesBrowseUp": "Back up one folder",
+  "@workspacesBrowseUp": {
+    "description": "Row of the Browse page that goes to the folder above; its subtitle is that folder's name."
+  },
+  "workspacesBrowseUse": "Use “{name}”",
+  "@workspacesBrowseUse": {
+    "description": "Button of the Browse page that picks the folder being shown; the name is that folder's.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "code"
+      }
+    }
+  },
+  "workspacesCheckAgain": "Check again",
+  "@workspacesCheckAgain": {
+    "description": "Button that reads a folder or a chat's folder from the server again after a check had no answer. Nothing is sent a second time."
+  },
+  "workspacesConfirmAction": "Change folder",
+  "@workspacesConfirmAction": {
+    "description": "Plain (not filled, not red) action of the confirmation that moves a chat to another folder."
+  },
+  "workspacesConfirmBody": "Hermes will read files, edit them and run commands in {folder} for new messages. Nothing is moved or deleted. Files already written stay where they are.",
+  "@workspacesConfirmBody": {
+    "description": "Body of the confirmation that moves a chat to another folder. The path of the folder follows on its own line.",
+    "placeholders": {
+      "folder": {
+        "type": "String",
+        "example": "demo"
+      }
+    }
+  },
+  "workspacesConfirmTitle": "Change the folder for this chat?",
+  "@workspacesConfirmTitle": {
+    "description": "Title of the confirmation that moves a chat to another folder."
+  },
+  "workspacesDetailsBranch": "Branch",
+  "@workspacesDetailsBranch": {
+    "description": "Label of the row that shows the git branch of the chat's folder."
+  },
+  "workspacesDetailsChange": "Change folder…",
+  "@workspacesDetailsChange": {
+    "description": "Button of the working-folder details that opens the folder picker. The ellipsis means it asks first."
+  },
+  "workspacesDetailsFolder": "Folder",
+  "@workspacesDetailsFolder": {
+    "description": "Label of the row that shows the name of the chat's folder."
+  },
+  "workspacesDetailsFootnote": "Hermes runs commands and edits files in this folder.",
+  "@workspacesDetailsFootnote": {
+    "description": "Footnote of the working-folder details."
+  },
+  "workspacesDetailsFootnoteWindow": "Hermes runs commands and edits files in this folder. To change it, use the main window.",
+  "@workspacesDetailsFootnoteWindow": {
+    "description": "Footnote of the working-folder details in a conversation window, which cannot change the folder."
+  },
+  "workspacesDetailsPath": "Path",
+  "@workspacesDetailsPath": {
+    "description": "Label of the row that shows the full path of the chat's folder on the server."
+  },
+  "workspacesDetailsProject": "Project",
+  "@workspacesDetailsProject": {
+    "description": "Label of the row that shows the Hermes project the chat's folder belongs to."
+  },
+  "workspacesDetailsTitle": "Working folder",
+  "@workspacesDetailsTitle": {
+    "description": "Title of the sheet that shows where a chat runs."
+  },
+  "workspacesElsewhereLocked": "This server only lets you browse its own folders. Choose a project or type a path.",
+  "@workspacesElsewhereLocked": {
+    "description": "Footer of the \"Somewhere else\" section when the server does not let the app browse; Browse is hidden then."
+  },
+  "workspacesElsewhereOffline": "You're offline. Browse and Type need your server.",
+  "@workspacesElsewhereOffline": {
+    "description": "Footer of the \"Somewhere else\" section while offline; the two rows are disabled and this is their reason."
+  },
+  "workspacesHomeFolderNote": "This is your server's home folder, which holds many projects.",
+  "@workspacesHomeFolderNote": {
+    "description": "Warning under a folder that is the server's home folder or the root: a chat there can touch a lot."
+  },
+  "workspacesLabelBranch": "branch {branch}",
+  "@workspacesLabelBranch": {
+    "description": "Part of the screen-reader label of a folder: its git branch.",
+    "placeholders": {
+      "branch": {
+        "type": "String",
+        "example": "main"
+      }
+    }
+  },
+  "workspacesLabelFolder": "Folder: {name}",
+  "@workspacesLabelFolder": {
+    "description": "Start of the screen-reader label of a folder: its name.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "demo"
+      }
+    }
+  },
+  "workspacesLabelProject": "project {project}",
+  "@workspacesLabelProject": {
+    "description": "Part of the screen-reader label of a folder: the Hermes project it belongs to.",
+    "placeholders": {
+      "project": {
+        "type": "String",
+        "example": "Demo"
+      }
+    }
+  },
+  "workspacesMayNotWork": "Hermes may not be able to work here.",
+  "@workspacesMayNotWork": {
+    "description": "Warning above a \"Use\" button for a folder the server may not let Hermes read."
+  },
+  "workspacesMetaChats": "{count, plural, =1{1 chat} other{{count} chats}}",
+  "@workspacesMetaChats": {
+    "description": "Meta text of a recent folder in the picker: how many chats ran in it.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "workspacesMetaCurrent": "Current",
+  "@workspacesMetaCurrent": {
+    "description": "Meta text of the picker row that is the folder the chat runs in now."
+  },
+  "workspacesMetaNew": "New",
+  "@workspacesMetaNew": {
+    "description": "Meta text of a folder the scan has just found."
+  },
+  "workspacesMismatchChoose": "Choose another folder",
+  "@workspacesMismatchChoose": {
+    "description": "Button of the notice that Hermes started in another folder; it opens the folder picker."
+  },
+  "workspacesMismatchDetail": "The folder may not exist on your server.",
+  "@workspacesMismatchDetail": {
+    "description": "Second sentence of the notice that Hermes started in another folder than the one picked."
+  },
+  "workspacesMismatchDetailProfile": "The folder may not exist on your server, or this profile may use its own folder.",
+  "@workspacesMismatchDetailProfile": {
+    "description": "Second sentence of the same notice when the chat was created again without asking for the folder, so the profile may have chosen its own."
+  },
+  "workspacesMismatchTitle": "Hermes started in {started} instead of {picked}.",
+  "@workspacesMismatchTitle": {
+    "description": "Bold first sentence of the notice shown when Hermes started a chat in another folder than the one picked. Both are folder names.",
+    "placeholders": {
+      "started": {
+        "type": "String",
+        "example": "me"
+      },
+      "picked": {
+        "type": "String",
+        "example": "other"
+      }
+    }
+  },
+  "workspacesMoveChanged": "Folder changed to {folder}.",
+  "@workspacesMoveChanged": {
+    "description": "Success banner after a chat's folder was moved; the name comes from the server's answer.",
+    "placeholders": {
+      "folder": {
+        "type": "String",
+        "example": "other"
+      }
+    }
+  },
+  "workspacesMoveChangedDetail": "New messages run there. Earlier messages and files stay where they were.",
+  "@workspacesMoveChangedDetail": {
+    "description": "Second line of the banner after a chat's folder was moved."
+  },
+  "workspacesMoveChanging": "Changing the folder to {folder}…",
+  "@workspacesMoveChanging": {
+    "description": "Banner while a chat's folder is being moved.",
+    "placeholders": {
+      "folder": {
+        "type": "String",
+        "example": "other"
+      }
+    }
+  },
+  "workspacesMoveChatGone": "This chat no longer exists on your server.",
+  "@workspacesMoveChatGone": {
+    "description": "Banner when the server says the chat to move is gone."
+  },
+  "workspacesMoveFolderMissing": "That folder doesn't exist on your server.",
+  "@workspacesMoveFolderMissing": {
+    "description": "Banner when the server refuses to move a chat because the folder does not exist."
+  },
+  "workspacesMoveLost": "Couldn't change the folder. Checking…",
+  "@workspacesMoveLost": {
+    "description": "Banner when the answer to a move was lost or the server failed; the app reads the chat's folder again."
+  },
+  "workspacesMoveLostDetail": "Hermes didn't answer, so the app is reading which folder this chat uses now. Nothing is sent again.",
+  "@workspacesMoveLostDetail": {
+    "description": "Second line of the banner above when the connection dropped."
+  },
+  "workspacesMoveLostSlow": "Hermes hasn't answered for 10 seconds, so the app is reading which folder this chat uses now. Nothing is sent again.",
+  "@workspacesMoveLostSlow": {
+    "description": "Second line of the banner above when there was no answer for 10 seconds."
+  },
+  "workspacesMoveNotChanged": "The folder wasn't changed. Try again.",
+  "@workspacesMoveNotChanged": {
+    "description": "Error banner when reading the chat again shows that its folder did not change."
+  },
+  "workspacesMoveNothingChanged": "Nothing was changed.",
+  "@workspacesMoveNothingChanged": {
+    "description": "Second line of the banners that say the chat or its profile is gone."
+  },
+  "workspacesMoveProfileGone": "This chat's profile no longer exists on your server.",
+  "@workspacesMoveProfileGone": {
+    "description": "Banner when the server says the chat's profile is gone."
+  },
+  "workspacesMoveSendHeld": "New messages wait until this is done.",
+  "@workspacesMoveSendHeld": {
+    "description": "Second line of the banner while a folder is being moved: sending is held."
+  },
+  "workspacesMoveStillRuns": "This chat still runs in {folder}.",
+  "@workspacesMoveStillRuns": {
+    "description": "Second line of the banner when the new folder does not exist; the folder is the old one.",
+    "placeholders": {
+      "folder": {
+        "type": "String",
+        "example": "api"
+      }
+    }
+  },
+  "workspacesMoveUnconfirmed": "Couldn't confirm the change",
+  "@workspacesMoveUnconfirmed": {
+    "description": "Title of the warning when reading the chat again also had no answer. No full stop: the line under it explains."
+  },
+  "workspacesMoveUnconfirmedDetail": "This chat may already run in {folder}. Check again before you change it.",
+  "@workspacesMoveUnconfirmedDetail": {
+    "description": "Second line of the warning above; the folder is the one the chat was moved to.",
+    "placeholders": {
+      "folder": {
+        "type": "String",
+        "example": "other"
+      }
+    }
+  },
+  "workspacesOnYourServer": "on your server",
+  "@workspacesOnYourServer": {
+    "description": "Said after every path to show it is a folder on the Hermes server, never a file on this device. It follows a middle dot."
+  },
+  "workspacesPathLabel": "{path} on your server",
+  "@workspacesPathLabel": {
+    "description": "Screen-reader label of a path on the server.",
+    "placeholders": {
+      "path": {
+        "type": "String",
+        "example": "/home/me/code/demo"
+      }
+    }
+  },
+  "workspacesPickerBrowse": "Browse folders on your server",
+  "@workspacesPickerBrowse": {
+    "description": "Row of the folder picker that opens the Browse page."
+  },
+  "workspacesPickerEmpty": "No projects or recent folders yet. Browse your server or type a path.",
+  "@workspacesPickerEmpty": {
+    "description": "Folder picker when the server knows no projects and no recent folders."
+  },
+  "workspacesPickerLoading": "Loading projects…",
+  "@workspacesPickerLoading": {
+    "description": "Accessible label of the skeleton rows while the picker loads the projects."
+  },
+  "workspacesPickerMore": "More",
+  "@workspacesPickerMore": {
+    "description": "Accessible name of the picker's More menu."
+  },
+  "workspacesPickerNoMatch": "No projects or folders match “{query}”",
+  "@workspacesPickerNoMatch": {
+    "description": "Folder picker when the search matches nothing.",
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "zzz"
+      }
+    }
+  },
+  "workspacesPickerOffline": "You're offline. Connect to choose a folder on your server.",
+  "@workspacesPickerOffline": {
+    "description": "Banner at the top of the folder picker while offline."
+  },
+  "workspacesPickerProjectsFailed": "Couldn't load your projects. You can still browse or type a path.",
+  "@workspacesPickerProjectsFailed": {
+    "description": "Banner of the folder picker when the projects could not be read or took longer than 10 seconds."
+  },
+  "workspacesPickerScan": "Look for projects on your server",
+  "@workspacesPickerScan": {
+    "description": "Item of the picker's More menu that scans the server for repositories."
+  },
+  "workspacesPickerSearchHint": "Search projects and folders",
+  "@workspacesPickerSearchHint": {
+    "description": "Placeholder and accessible label of the picker's search field."
+  },
+  "workspacesPickerSubtitle": "On your server",
+  "@workspacesPickerSubtitle": {
+    "description": "Subtitle of the folder pages: the folders are on the Hermes server."
+  },
+  "workspacesPickerTitle": "Choose a folder",
+  "@workspacesPickerTitle": {
+    "description": "Title of the folder picker."
+  },
+  "workspacesPickerType": "Type a path",
+  "@workspacesPickerType": {
+    "description": "Row of the folder picker that opens the page where you type a path."
+  },
+  "workspacesPickerUnknownProfile": "This profile no longer exists on your server.",
+  "@workspacesPickerUnknownProfile": {
+    "description": "Folder picker when the chat's profile is gone."
+  },
+  "workspacesPickerUnknownProfileDetail": "Pick another profile for this chat.",
+  "@workspacesPickerUnknownProfileDetail": {
+    "description": "Second line under the message above."
+  },
+  "workspacesReasonChanging": "Changing the folder…",
+  "@workspacesReasonChanging": {
+    "description": "Reason shown next to the disabled \"Change folder…\" button while a move runs."
+  },
+  "workspacesReasonChecking": "Checking the folder…",
+  "@workspacesReasonChecking": {
+    "description": "Reason shown next to the disabled \"Change folder…\" button while the app reads the chat's folder again."
+  },
+  "workspacesReasonOffline": "You're offline.",
+  "@workspacesReasonOffline": {
+    "description": "Reason shown next to the disabled \"Change folder…\" button while offline."
+  },
+  "workspacesReasonReplying": "Wait for the reply to finish.",
+  "@workspacesReasonReplying": {
+    "description": "Reason shown next to the disabled \"Change folder…\" button while Hermes replies."
+  },
+  "workspacesRowLookingUp": "Looking up your folder…",
+  "@workspacesRowLookingUp": {
+    "description": "Row above the composer of a new chat while the server's default folder is looked up."
+  },
+  "workspacesRowOffline": "Offline",
+  "@workspacesRowOffline": {
+    "description": "Shown next to the last known folder when the device is offline."
+  },
+  "workspacesRowRunsIn": "Runs in {name}",
+  "@workspacesRowRunsIn": {
+    "description": "Row above the composer of a new chat: the folder the chat will run in. The name is shown in bold, wherever it sits in the sentence.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "demo"
+      }
+    }
+  },
+  "workspacesRowServerDefaultFolder": "Runs in the server's default folder",
+  "@workspacesRowServerDefaultFolder": {
+    "description": "Row above the composer when the default folder could not be looked up in time; no path is shown."
+  },
+  "workspacesScanFound": "{count, plural, =1{Found 1 new folder.} other{Found {count} new folders.}}",
+  "@workspacesScanFound": {
+    "description": "Message after the scan found folders.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "workspacesScanNothingNew": "No new folders found.",
+  "@workspacesScanNothingNew": {
+    "description": "Message after the scan found nothing."
+  },
+  "workspacesScanNothingToScan": "No folders to scan. Scan folders are set on the server.",
+  "@workspacesScanNothingToScan": {
+    "description": "Message when the profile has no scan folders, so no scan was sent."
+  },
+  "workspacesScanTooSlow": "Couldn't finish looking for projects. Try again.",
+  "@workspacesScanTooSlow": {
+    "description": "Message when the scan had no answer for 10 seconds."
+  },
+  "workspacesSectionElsewhere": "Somewhere else",
+  "@workspacesSectionElsewhere": {
+    "description": "Header of the picker section with Browse and Type a path."
+  },
+  "workspacesSectionProjects": "Projects",
+  "@workspacesSectionProjects": {
+    "description": "Header of the picker section with the Hermes projects."
+  },
+  "workspacesSectionRecent": "Recent",
+  "@workspacesSectionRecent": {
+    "description": "Header of the picker section with recent folders."
+  },
+  "workspacesTagServerDefault": "Server default",
+  "@workspacesTagServerDefault": {
+    "description": "Tag and meta text that says the folder is the one the server uses when none is picked."
+  },
+  "workspacesTryAgain": "Try again",
+  "@workspacesTryAgain": {
+    "description": "Button that repeats a failed read or move."
+  },
+  "workspacesTypeCannotCheck": "This server doesn't let the app check folders. If Hermes starts somewhere else, the chat says so.",
+  "@workspacesTypeCannotCheck": {
+    "description": "Note under the Type a path field when the server does not allow checking a folder."
+  },
+  "workspacesTypeChecking": "Checking…",
+  "@workspacesTypeChecking": {
+    "description": "Note under the Type a path field while the folder is checked."
+  },
+  "workspacesTypeClear": "Clear",
+  "@workspacesTypeClear": {
+    "description": "Accessible name of the button that empties the Type a path field."
+  },
+  "workspacesTypeCouldntCheck": "Couldn't check this folder.",
+  "@workspacesTypeCouldntCheck": {
+    "description": "Error under the Type a path field when the check had no answer for 10 seconds."
+  },
+  "workspacesTypeFound": "Folder found.",
+  "@workspacesTypeFound": {
+    "description": "Note under the Type a path field when the folder exists."
+  },
+  "workspacesTypeHint": "/home/you/code/project",
+  "@workspacesTypeHint": {
+    "description": "Placeholder of the Type a path field: an example path on a Linux server."
+  },
+  "workspacesTypeKeepTyping": "Keep typing to narrow the list.",
+  "@workspacesTypeKeepTyping": {
+    "description": "Shown when the server returned its maximum of suggestions, so a folder may be missing."
+  },
+  "workspacesTypeLabel": "Folder on your server",
+  "@workspacesTypeLabel": {
+    "description": "Label of the Type a path field. Never a file on the device."
+  },
+  "workspacesTypeMissing": "This folder doesn't exist on your server.",
+  "@workspacesTypeMissing": {
+    "description": "Error under the Type a path field when the folder does not exist."
+  },
+  "workspacesTypeNoFolders": "No folders start with this.",
+  "@workspacesTypeNoFolders": {
+    "description": "Note under the Type a path field when nothing matches the typed text."
+  },
+  "workspacesTypeNotAllowed": "Hermes isn't allowed to read this folder.",
+  "@workspacesTypeNotAllowed": {
+    "description": "Note under the Type a path field when the folder exists but cannot be read."
+  },
+  "workspacesTypeRelative": "Start with / or ~",
+  "@workspacesTypeRelative": {
+    "description": "Error under the Type a path field when the text is not an absolute path."
+  },
+  "workspacesTypeTitle": "Type a path",
+  "@workspacesTypeTitle": {
+    "description": "Title of the page where you type a folder path."
+  },
+  "workspacesTypeUse": "Use this folder",
+  "@workspacesTypeUse": {
+    "description": "Button of the Type a path page that picks the typed folder."
+  },
 
   "@@x-end": ""
 }

@@ -1,6 +1,6 @@
 # Design brief: chat activity line and Needs-you dock
 
-Changes: `openspec/changes/chat-activity-line/` and `openspec/changes/chat-activity-needs-you/`. Read their design.md files for the facts and states; this brief is what the catalog and screen work need.
+Changes: `openspec/changes/archive/2026-11-14-chat-activity-line/` and `openspec/changes/archive/2026-11-14-chat-activity-needs-you/`. Read their design.md files for the facts and states; this brief is what the catalog and screen work need.
 
 ## Design (done)
 

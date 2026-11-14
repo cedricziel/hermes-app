@@ -4,10 +4,11 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../chat/media/media_actions.dart' show SaveTooLargeException;
 import '../chat/media/media_store.dart';
+import '../chat/media/quick_look.dart' show QuickLookToggle;
 import 'files_failure.dart';
 import 'files_models.dart';
+import 'files_platform_policy.dart';
 import 'files_preview_kind.dart';
 import 'files_source.dart';
 import 'files_state.dart';
@@ -46,7 +47,9 @@ class FilesController extends ChangeNotifier {
     FilesTelemetry? telemetry,
     this._answerTimeout = kFilesAnswerTimeout,
     this._share,
-  }) : _telemetry = telemetry ?? FilesTelemetry();
+    FilesPlatformPolicy? policy,
+  }) : _telemetry = telemetry ?? FilesTelemetry(),
+       _policy = policy ?? FilesPlatformPolicy();
 
   final FilesSource _source;
   final MediaStore _media;
@@ -56,6 +59,7 @@ class FilesController extends ChangeNotifier {
   final FilesTelemetry _telemetry;
   final Duration _answerTimeout;
   final Future<void> Function(File file)? _share;
+  final FilesPlatformPolicy _policy;
 
   var _closed = false;
   var _disposed = false;
@@ -86,6 +90,17 @@ class FilesController extends ChangeNotifier {
   PreviewState? _resting;
   var _acting = false;
   int? _knownSize;
+
+  /// Counts the questions asked, so a screen shows each one once however
+  /// often the same state is set.
+  var _questionSerial = 0;
+
+  /// Paths the user said to download although they are large.
+  final _largeOk = <String>{};
+
+  /// Drags under way, cancelled with the page.
+  final _drags = <FilesDrag>[];
+  var _quickLookOpened = false;
   Future<void> Function()? _pending;
 
   /// Paths the user said Continue for, whose cached copy goes when their
@@ -266,6 +281,10 @@ class FilesController extends ChangeNotifier {
   /// refused without a request.
   Future<void> openFolder(FsEntry entry) => _go(entry.path);
 
+  /// Opens an ancestor of the folder shown, as a path-bar segment asks. One
+  /// outside the highest folder is refused without a request.
+  Future<void> openPath(ServerPath path) => _go(path);
+
   /// Goes to the parent folder, unless [canGoUp] is false.
   Future<void> up() {
     final parent = _folder?.parent;
@@ -408,6 +427,7 @@ class FilesController extends ChangeNotifier {
     if (!isSecret(entry) || _secretOk.contains(entry.path.value)) return false;
     _pending = then;
     _telemetry.secretWarned();
+    _questionSerial++;
     _setPreview(const PreviewConfirmSecret());
     return true;
   }
@@ -443,6 +463,8 @@ class FilesController extends ChangeNotifier {
       return Future.value();
     }
     _pending = null;
+    final entry = _selected;
+    if (entry != null) _largeOk.add(entry.path.value);
     return next();
   }
 
@@ -537,6 +559,7 @@ class FilesController extends ChangeNotifier {
           bytes: bytes,
         );
         _pending = () => _showImage(entry, ++_fileGen, allowLarge: true);
+        _questionSerial++;
         _setPreview(PreviewConfirmSize(bytes));
       case _FetchFailed(kind: FilesFailure.notAFile):
         _telemetry.endPreview(span, image, FilesPreviewOutcome.failed);
@@ -566,27 +589,88 @@ class FilesController extends ChangeNotifier {
 
   Future<void> save() => _act(FileAction.save);
 
-  Future<void> openWith() => _act(FileAction.openWith);
+  /// Whether Open with… may be offered for [entry]. Never for a file that
+  /// Windows would run.
+  bool canOpenWith(FsEntry entry) => _policy.canOpenWith(entry.path.name);
+
+  Future<void> openWith() {
+    final entry = _selected;
+    if (entry == null || !canOpenWith(entry)) return Future.value();
+    return _act(FileAction.openWith);
+  }
 
   Future<void> shareFile() => _act(FileAction.share);
 
-  Future<void> _act(FileAction action, {bool allowLarge = false}) async {
+  /// Shows the selected file in the system's Quick Look panel (macOS). With
+  /// [toggle] the panel closes instead when it already shows the file.
+  Future<void> quickLook({bool toggle = false}) =>
+      _act(FileAction.quickLook, toggle: toggle);
+
+  String? _savedName;
+
+  /// The name of the file a Save just kept, returned once so the screen says
+  /// so a single time.
+  String? takeSavedName() {
+    final name = _savedName;
+    _savedName = null;
+    return name;
+  }
+
+  /// Drags still under way.
+  @visibleForTesting
+  int get activeDrags => _drags.length;
+
+  /// Changes with every question the page asks (secret or size).
+  int get questionSerial => _questionSerial;
+
+  /// The selected file's size once a header or `read-text` said.
+  int? get knownSize => _knownSize;
+
+  /// Whether [entry] may be dragged out: a file, and not one whose name looks
+  /// secret that the user has not said Continue for.
+  bool canDrag(FsEntry entry) =>
+      !_closed &&
+      !entry.isDirectory &&
+      (!isSecret(entry) || _secretOk.contains(entry.path.value));
+
+  /// A drag of [entry] out of the window, or null when [canDrag] says no.
+  /// The file is downloaded only when [FilesDrag.file] is asked for, once; the
+  /// preview is not touched. A file of 50 MB or more is not downloaded unless
+  /// the user already said so for it. [cancelAll] and [FilesDrag.cancel] stop
+  /// the download.
+  FilesDrag? beginDrag(FsEntry entry) {
+    if (!canDrag(entry)) return null;
+    final drag = FilesDrag._(this, entry);
+    _drags.add(drag);
+    return drag;
+  }
+
+  Future<void> _act(
+    FileAction action, {
+    bool allowLarge = false,
+    bool toggle = false,
+  }) async {
     final entry = _selected;
     // A second tap while a read or download runs would drop the preview it
     // is about to return to.
     if (_closed || entry == null || _acting || _preview is PreviewLoading) {
       return;
     }
-    if (_askSecret(entry, () => _act(action))) return;
+    if (_askSecret(entry, () => _act(action, toggle: toggle))) return;
     _acting = true;
     try {
-      await _actOn(action, entry, allowLarge);
+      await _actOn(action, entry, allowLarge, toggle);
     } finally {
       _acting = false;
     }
   }
 
-  Future<void> _actOn(FileAction action, FsEntry entry, bool allowLarge) async {
+  Future<void> _actOn(
+    FileAction action,
+    FsEntry entry,
+    bool allowLarge,
+    bool toggle,
+  ) async {
     final resting =
         _resting ??
         switch (_preview) {
@@ -606,11 +690,12 @@ class FilesController extends ChangeNotifier {
       case _Fetched(:final file):
         _resting = null;
         _setPreview(resting);
-        final failure = await _finish(action, entry, file);
+        final failure = await _finish(action, entry, file, toggle);
         if (_gone(gen, _fileGen)) return;
         if (failure != null) _setPreview(PreviewFailed(failure));
       case _Declined(:final bytes):
-        _pending = () => _act(action, allowLarge: true);
+        _pending = () => _act(action, allowLarge: true, toggle: toggle);
+        _questionSerial++;
         _setPreview(PreviewConfirmSize(bytes));
       case _FetchFailed(kind: FilesFailure.cancelled):
         _resting = null;
@@ -628,20 +713,43 @@ class FilesController extends ChangeNotifier {
     FileAction action,
     FsEntry entry,
     File file,
+    bool toggle,
   ) async {
     try {
+      if (action == FileAction.quickLook) {
+        final shown = await _media.showQuickLook(file, toggle: toggle);
+        if (shown == QuickLookToggle.shown) _quickLookOpened = true;
+        return shown == QuickLookToggle.failed ? FilesFailure.unreadable : null;
+      }
       final done = switch (action) {
-        FileAction.save => await _media.saveFile(entry.path.name, file),
-        FileAction.openWith => await _media.open(file),
+        FileAction.save => await _media.saveFile(
+          file.uri.pathSegments.last,
+          file,
+        ),
+        FileAction.openWith => await _openMarked(file),
         FileAction.share => await _shared(file),
+        FileAction.quickLook => false,
       };
-      if (done) _telemetry.saved(action.slug);
+      if (done) {
+        _telemetry.saved(action.slug);
+        if (action == FileAction.save) _savedName = entry.path.name;
+      }
       return null;
-    } on SaveTooLargeException {
-      return FilesFailure.saveUnavailable;
     } on Object {
       return FilesFailure.unreadable;
     }
+  }
+
+  /// Opens [file] after marking it as downloaded; a file that cannot be
+  /// marked is not opened.
+  Future<bool> _openMarked(File file) async {
+    // The file is opened by its staged name, which can differ from the one
+    // the server sent.
+    if (!_policy.canOpenWith(file.uri.pathSegments.last)) {
+      throw const FileSystemException('not opened');
+    }
+    await _policy.markDownloaded(file);
+    return _media.open(file);
   }
 
   Future<bool> _shared(File file) async {
@@ -720,6 +828,13 @@ class FilesController extends ChangeNotifier {
     _listToken?.cancel();
     _gitToken?.cancel();
     _fileToken?.cancel();
+    for (final drag in _drags) {
+      drag.cancel();
+    }
+    _drags.clear();
+    // The panel this page opened goes with it.
+    if (_quickLookOpened) unawaited(_media.closeQuickLook());
+    _quickLookOpened = false;
     _pending = null;
     for (final path in _secretOk) {
       unawaited(_media.evict(_keyOf(path)));
@@ -743,16 +858,21 @@ class FilesController extends ChangeNotifier {
 
   // -- Plumbing --------------------------------------------------------------
 
-  String _key(ServerPath path) => _keyOf(path.value);
+  String _key(ServerPath path, {bool drag = false}) =>
+      _keyOf(path.value, drag: drag);
 
   /// A copy of a file whose name looks secret goes under a key the next
   /// launch wipes, in case the app is killed before this page deletes it.
-  String _keyOf(String path) {
+  ///
+  /// A drag has a key of its own: the store shares one download per key, so a
+  /// drag given up would otherwise cancel the preview's download of the same
+  /// file.
+  String _keyOf(String path, {bool drag = false}) {
     final secret = ServerPath.tryParse(path);
     final prefix = secret != null && SecretNames.looksSecret(secret)
         ? kSecretCopyKeyPrefix
-        : 'fs:';
-    return '$prefix$_profile:$path';
+        : kFilesCopyKeyPrefix;
+    return '$prefix${drag ? 'drag:' : ''}$_profile:$path';
   }
 
   /// Streams [entry] into the cache and says how it went. A fetch of the same
@@ -777,7 +897,13 @@ class FilesController extends ChangeNotifier {
         return const _FetchFailed(FilesFailure.cancelled);
       }
     }
-    final run = _run(entry, key, gen, allowLarge: allowLarge);
+    final run = _run(
+      entry,
+      key,
+      gen,
+      allowLarge: allowLarge,
+      expectedSize: _knownSize,
+    );
     final tracked = run.then<void>((_) {});
     _fetches[key] = tracked;
     unawaited(
@@ -793,8 +919,10 @@ class FilesController extends ChangeNotifier {
     String key,
     int gen, {
     required bool allowLarge,
+    CancelToken? fetchToken,
+    int? expectedSize,
   }) async {
-    final token = _newFileToken();
+    final token = fetchToken ?? _newFileToken();
     var ran = false;
     int? length;
     try {
@@ -808,7 +936,7 @@ class FilesController extends ChangeNotifier {
           cancelToken: token,
           allowLarge: allowLarge,
           onProgress: (received, total) {
-            if (!_gone(gen, _fileGen)) {
+            if (fetchToken == null && !_gone(gen, _fileGen)) {
               _setPreview(PreviewLoading(received: received, total: total));
             }
           },
@@ -819,7 +947,7 @@ class FilesController extends ChangeNotifier {
             if (value.declined) {
               throw _Stop(_Declined(value.contentLength ?? 0));
             }
-            final expected = _knownSize;
+            final expected = expectedSize;
             if (length == null && expected != null && value.bytes < expected) {
               throw const _Stop(_FetchFailed(FilesFailure.unreadable));
             }
@@ -830,6 +958,11 @@ class FilesController extends ChangeNotifier {
         }
       });
       if (ran && length == null) _unverified.add(key);
+      try {
+        await _policy.markDownloaded(file);
+      } on Object {
+        // Opening the file marks it again and fails if that cannot be done.
+      }
       if (_closed) {
         // Ended while it finished: nothing of it may stay behind.
         if (_unverified.remove(key) || _secretOk.contains(entry.path.value)) {
@@ -924,4 +1057,36 @@ class _Stop implements Exception {
   const _Stop(this.result);
 
   final _Fetch result;
+}
+
+/// One drag of a file out of the window. It downloads at most once: a failure
+/// stays a failure for this drag.
+class FilesDrag {
+  FilesDrag._(this._controller, this._entry);
+
+  final FilesController _controller;
+  final FsEntry _entry;
+  final _token = CancelToken();
+  Future<File?>? _file;
+
+  /// The staged copy, or null when the download failed, was cancelled or
+  /// needs the size question.
+  Future<File?> file() => _file ??= _stage().whenComplete(() {
+    _controller._drags.remove(this);
+  });
+
+  Future<File?> _stage() async {
+    final c = _controller;
+    final result = await c._run(
+      _entry,
+      c._key(_entry.path, drag: true),
+      c._fileGen,
+      allowLarge: c._largeOk.contains(_entry.path.value),
+      fetchToken: _token,
+    );
+    return result is _Fetched ? result.file : null;
+  }
+
+  /// The receiver gave up waiting.
+  void cancel() => _token.cancel();
 }

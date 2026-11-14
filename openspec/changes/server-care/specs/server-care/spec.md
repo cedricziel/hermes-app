@@ -191,6 +191,11 @@ After confirmation the app SHALL send `POST /api/hermes/update` once, follow the
 - **WHEN** `/api/health` has not answered for 15 minutes
 - **THEN** the page says Hermes hasn't come back and may need to be started on the server, and offers Keep waiting and Dismiss
 
+#### Scenario: Running for a long time
+
+- **WHEN** the update's action still reports `running` after 30 minutes
+- **THEN** the page reads "The app can't tell whether the update finished", does not say Hermes is back, and offers Check again and Dismiss
+
 ### Requirement: Update survives leaving the screen
 
 An update's progress SHALL continue when the user leaves the Server screen, and SHALL be resumed after the app restarts within one hour. The action id, start time and the version and commit before it SHALL be kept in preferences under the account key until the update is resolved, sign-out or a server change.

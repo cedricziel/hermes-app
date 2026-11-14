@@ -23,7 +23,8 @@ import 'chat_builders.dart';
 import 'memory_tool_body.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/voice_message_recording.dart';
-import '../activity/widgets/needs_you_dock.dart' show NeedsYouDockBuilder;
+import '../activity/widgets/needs_you_dock.dart'
+    show NeedsYouDockBuilder, needsYouCompactFor;
 import 'chat_composer_builder.dart';
 import 'message_actions.dart' show TurnActionStatus;
 import '../reactions/reaction_state.dart';
@@ -65,6 +66,7 @@ class ChatThreadView extends StatelessWidget {
     this.turnActionStatus,
     this.modelPill,
     this.header,
+    this.activityLine,
     this.dock,
     this.reactionsFor,
     this.onReactionDetails,
@@ -84,9 +86,15 @@ class ChatThreadView extends StatelessWidget {
     this.greetingName,
     this.welcome = true,
     this.screenPreview,
+    this.onShowAgentDetails,
   });
 
   final ChatThread? thread;
+
+  /// The activity line, drawn under the header (and its divider) above a Bot
+  /// Chat banner; it is a plain widget that folds away by itself. Null draws
+  /// none.
+  final Widget? activityLine;
 
   /// The Needs-you dock, built inside the composer's box so it sits directly
   /// above the composer, moves with it and is part of the height the
@@ -164,6 +172,10 @@ class ChatThreadView extends StatelessWidget {
   /// window that holds no screen.
   final ScreenPreviewBuilder? screenPreview;
 
+  /// Opens an agent's details in the Activity panel from the reply's agent
+  /// card; none where the chat has no panel (the quick panel).
+  final ValueChanged<String>? onShowAgentDetails;
+
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -185,6 +197,7 @@ class ChatThreadView extends StatelessWidget {
           reactionsFor: reactionsFor,
           onReactionDetails: onReactionDetails,
           screenPreview: screenPreview,
+          onShowAgentDetails: onShowAgentDetails,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,
@@ -222,6 +235,13 @@ class ChatThreadView extends StatelessWidget {
           if (platformChromeOf(context) != PlatformChrome.macos)
             const Divider(height: 1),
         ],
+        // The line gives way while the keyboard leaves a small phone little
+        // room, as the Needs-you card collapses then.
+        if (activityLine case final line?)
+          ViewMetricsBuilder(
+            builder: (context, media) =>
+                needsYouCompactFor(media) ? const SizedBox.shrink() : line,
+          ),
         if (botContext case final bot?) BotChatBanner(context: bot),
         Expanded(
           child: AttachmentSurface(

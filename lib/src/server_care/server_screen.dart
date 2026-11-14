@@ -16,6 +16,8 @@ import 'attention.dart';
 import 'care_result.dart';
 import 'gateway_actions.dart';
 import 'gateway_restart.dart';
+import 'hermes_update_run.dart';
+import 'replies_in_progress.dart';
 import 'server_care_controller.dart';
 import 'server_status.dart';
 import 'update_check_controller.dart';
@@ -31,21 +33,31 @@ Future<void> showServerScreen(BuildContext context, {required String source}) {
   // The pushed route sits above the shell's provider, so it is passed on.
   final care = context.read<ServerCareController>();
   final run = context.read<GatewayRestart>();
+  final update = context.read<HermesUpdateRun>();
+  final replies = maybeRepliesInProgress(context);
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => _carry(care, run, ServerScreen(source: source)),
+      builder: (_) =>
+          _carry(care, run, update, replies, ServerScreen(source: source)),
     ),
   );
 }
 
-Widget _carry(ServerCareController care, GatewayRestart run, Widget page) =>
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<ServerCareController>.value(value: care),
-        ChangeNotifierProvider<GatewayRestart>.value(value: run),
-      ],
-      child: page,
-    );
+Widget _carry(
+  ServerCareController care,
+  GatewayRestart run,
+  HermesUpdateRun update,
+  RepliesInProgress? replies,
+  Widget page,
+) => MultiProvider(
+  providers: [
+    if (replies != null) Provider<RepliesInProgress>.value(value: replies),
+    ChangeNotifierProvider<ServerCareController>.value(value: care),
+    ChangeNotifierProvider<GatewayRestart>.value(value: run),
+    ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
+  ],
+  child: page,
+);
 
 /// Is Hermes OK, and what is it running on: a headline, then the Hermes
 /// version and updates, the messaging gateway, the machine, and the tools.
@@ -61,6 +73,8 @@ class ServerScreen extends StatefulWidget {
 class _ServerScreenState extends State<ServerScreen> {
   late final UpdateCheckController _update;
   late final GatewayRestart _run;
+  late final HermesUpdateRun _updateRun;
+  bool _updateWasBusy = false;
   Timer? _doneTimer;
 
   @override
@@ -68,6 +82,9 @@ class _ServerScreenState extends State<ServerScreen> {
     super.initState();
     final care = context.read<ServerCareController>();
     _run = context.read<GatewayRestart>()..addListener(_runChanged);
+    _updateRun = context.read<HermesUpdateRun>();
+    _updateWasBusy = _updateRun.busy;
+    _updateRun.addListener(_updateRunChanged);
     Breadcrumbs crumbs;
     try {
       crumbs = context.read<Breadcrumbs>();
@@ -96,6 +113,7 @@ class _ServerScreenState extends State<ServerScreen> {
   void dispose() {
     _doneTimer?.cancel();
     _run.removeListener(_runChanged);
+    _updateRun.removeListener(_updateRunChanged);
     _update.dispose();
     super.dispose();
   }
@@ -113,6 +131,14 @@ class _ServerScreenState extends State<ServerScreen> {
         if (_run.phase == GatewayPhase.done) _run.dismiss();
       });
     }
+  }
+
+  /// An update that ended leaves the check stale: ask again.
+  void _updateRunChanged() {
+    final busy = _updateRun.busy;
+    final ended = _updateWasBusy && !busy && mounted;
+    _updateWasBusy = busy;
+    if (ended) _update.check(force: true);
   }
 
   /// The run belongs to the profile shown; one for another profile says
@@ -135,8 +161,13 @@ class _ServerScreenState extends State<ServerScreen> {
   void _open(Widget page) {
     final care = context.read<ServerCareController>();
     final run = context.read<GatewayRestart>();
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => _carry(care, run, page)));
+    final update = context.read<HermesUpdateRun>();
+    final replies = maybeRepliesInProgress(context);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _carry(care, run, update, replies, page),
+      ),
+    );
   }
 
   String? _subtitle(AppLocalizations l10n, ServerCareController care) {
@@ -153,6 +184,7 @@ class _ServerScreenState extends State<ServerScreen> {
     final care = context.watch<ServerCareController>();
     // The rows read the run's state; the screen rebuilds with it.
     context.watch<GatewayRestart>();
+    context.watch<HermesUpdateRun>();
     final l10n = context.l10n;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final body = ListenableBuilder(
@@ -379,7 +411,9 @@ class _ServerScreenState extends State<ServerScreen> {
   ) {
     final version = status?.version;
     final released = _released(l10n, status?.releaseDate);
-    final update = _updateRow(l10n, fallbackVersion: version);
+    final update = _updateRun.busy
+        ? (value: l10n.serverCareUpdateRowUpdating, subtitle: null)
+        : _updateRow(l10n, fallbackVersion: version);
     final rows = [
       if (version != null)
         CareValueRow(

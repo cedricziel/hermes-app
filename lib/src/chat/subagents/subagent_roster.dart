@@ -6,10 +6,13 @@ import 'package:flutter_otel/flutter_otel.dart'
 
 import '../../network/poll_backoff.dart';
 import '../chat_models.dart';
+import '../process_output_state.dart';
 import 'agent_detail_host.dart';
 import 'agent_models.dart';
 import 'roster_row.dart';
 import 'agent_work_result.dart';
+import 'process_models.dart';
+import 'process_stop_controller.dart';
 import 'subagent_repository.dart';
 
 /// What the roster needs to know about the app around it.
@@ -23,6 +26,30 @@ abstract interface class RosterEnvironment {
 
   /// Whether App Lock is off.
   bool get unlocked;
+}
+
+/// The chat's program cards, which the roster fills from `process.list`.
+/// They belong to the chat's session as it is attached now; an answer for an
+/// attachment that is gone changes nothing.
+abstract interface class ProgramCards {
+  /// Fires when a card changed outside the roster: a frame, a new
+  /// attachment.
+  Listenable get cardChanges;
+
+  /// The attachment [threadId]'s session holds on the current connection,
+  /// or null when it holds none.
+  Object? attachmentOf(String threadId);
+
+  /// The cards of [threadId] under [attachment], created with [create] when
+  /// there are none yet; null when [attachment] is not the session's now.
+  ProcessOutputState? cardsFor(
+    String threadId,
+    Object attachment, {
+    bool create = false,
+  });
+
+  /// Says the roster changed a card.
+  void cardsChanged();
 }
 
 /// How often the list is read while an agent runs and the roster is shown.
@@ -64,6 +91,7 @@ class SubagentRoster extends ChangeNotifier {
     required this.profile,
     required this._repository,
     required this._env,
+    this.programs,
     this.events = noopAppEventLogger,
   }) {
     _env.changes.addListener(_onEnvironment);
@@ -76,6 +104,15 @@ class SubagentRoster extends ChangeNotifier {
   final String? profile;
   final AppEventLogger events;
   final SubagentRepository _repository;
+
+  /// The chat's program cards; without them `process.list` is never read.
+  final ProgramCards? programs;
+
+  /// The calls on this chat's agents, for a detail's own controller.
+  SubagentRepository get repository => _repository;
+
+  /// The token of the connection the roster reads on now, or null offline.
+  Object? get connection => _env.connection;
   final RosterEnvironment _env;
 
   final _rows = <String, RosterRow>{};
@@ -94,6 +131,23 @@ class SubagentRoster extends ChangeNotifier {
   /// session was not theirs to read (4001).
   Object? _unsupportedOn, _blockedOn;
   var _loggedUnsupported = false;
+
+  /// The same, for `process.list`, which the server may lack while it has
+  /// `subagent.list`.
+  Object? _programsUnsupportedOn, _programsBlockedOn;
+  var _loggedProgramsUnsupported = false;
+  var _programsListed = false;
+  Future<AgentWorkResult<ProcessList>>? _programsInFlight;
+
+  /// Both lists share one backoff. Each read belongs to the round that
+  /// started it, and a round counts its failures once, also when another
+  /// round starts while its reads are out.
+  var _rounds = 0;
+  int? _failedRound;
+
+  /// Cards the list has been read for once without naming them (a child
+  /// agent's program may live under another session): not read for again.
+  final _programsLookedFor = <String>{};
 
   /// Whether the last list answer was malformed or failed (for tests and the
   /// panel's quiet state).
@@ -142,7 +196,7 @@ class SubagentRoster extends ChangeNotifier {
       _backoff.reset();
       _timer = Timer.periodic(kRosterEvery, (_) => _tick());
       scheduleMicrotask(() {
-        if (_demand > 0 && _gatesOpen) unawaited(_read());
+        if (_demand > 0) _round(agents: true, programs: true);
       });
     }
     return RosterWatch._(() {
@@ -152,22 +206,78 @@ class SubagentRoster extends ChangeNotifier {
     });
   }
 
-  bool get _gatesOpen =>
+  bool get _shownAndAllowed =>
       !_disposed &&
       _demand > 0 &&
       _env.foreground &&
       _env.unlocked &&
-      _env.connection != null &&
+      _env.connection != null;
+
+  bool get _gatesOpen =>
+      _shownAndAllowed &&
       !identical(_unsupportedOn, _env.connection) &&
       !identical(_blockedOn, _env.connection);
 
+  bool get _programGatesOpen =>
+      programs != null &&
+      _shownAndAllowed &&
+      !identical(_programsUnsupportedOn, _env.connection) &&
+      !identical(_programsBlockedOn, _env.connection);
+
   bool get _anyActive => _rows.values.any((row) => row.active);
+
+  bool get _anyProgramRunning =>
+      _programCards?.cards.any((card) => card.running) ?? false;
+
+  /// A card frames opened that no list read has looked for yet: a program
+  /// that started after the last read.
+  bool get _anyProgramUnlooked =>
+      _programCards?.cards.any(
+        (card) =>
+            !card.listed &&
+            !card.closed &&
+            !_programsLookedFor.contains(card.processId),
+      ) ??
+      false;
+
+  /// Failures counted by the backoff in a row (for tests).
+  @visibleForTesting
+  int get backoffFailures => _backoff.failures;
+
+  ProcessOutputState? get _programCards {
+    final cards = programs;
+    final attachment = cards?.attachmentOf(threadId);
+    return attachment == null ? null : cards!.cardsFor(threadId, attachment);
+  }
 
   void _tick() {
     // Until one read has answered, a chat with no frame rows still needs
     // reading: its agents may have started from another client.
-    if (!_gatesOpen || !(_anyActive || !_listed) || !_backoff.tick()) return;
-    unawaited(_read());
+    final agents = _gatesOpen && (_anyActive || !_listed);
+    final programs =
+        _programGatesOpen &&
+        (_anyProgramRunning || !_programsListed || _anyProgramUnlooked);
+    if (!(agents || programs) || !_backoff.tick()) return;
+    _round(agents: agents, programs: programs);
+  }
+
+  /// One round of reads on the shared timer and backoff.
+  void _round({required bool agents, required bool programs}) {
+    final round = ++_rounds;
+    if (agents && _gatesOpen) unawaited(_read(round: round));
+    if (programs && _programGatesOpen) {
+      unawaited(_readPrograms(round: round));
+    }
+  }
+
+  void _readFailed(int round) {
+    if (_failedRound == round) return;
+    _failedRound = round;
+    _backoff.failed();
+  }
+
+  void _readSucceeded(int round) {
+    if (_failedRound != round) _backoff.succeeded();
   }
 
   /// The chat's stored id changed (a new chat got its first one). Rows from
@@ -176,17 +286,29 @@ class SubagentRoster extends ChangeNotifier {
     if (_disposed || this.threadId == threadId) return;
     this.threadId = threadId;
     _generation++;
-    _inFlight = null;
-    _listed = false;
-    _blockedOn = null;
+    _inFlight = _programsInFlight = null;
+    _listed = _programsListed = false;
+    _blockedOn = _programsBlockedOn = null;
+    _programsLookedFor.clear();
   }
 
   /// The session now holds the connection (an action attached it), so list
-  /// reads may start again after a 4001.
+  /// reads may start again after a 4001. Its program cards belong to the new
+  /// attachment: what the last attachment's reads learned does not apply, so
+  /// the programs are read again.
   void markAttached() {
-    if (_blockedOn == null) return;
-    _blockedOn = null;
-    if (_gatesOpen) unawaited(_read());
+    if (_disposed) return;
+    final agents = _blockedOn != null;
+    _blockedOn = _programsBlockedOn = null;
+    _programsListed = false;
+    _programsLookedFor.clear();
+    // A read still out answers for the old attachment and changes nothing.
+    _programsInFlight = null;
+    if (agents) _round(agents: true, programs: false);
+    // The caller adopts the new attachment for the cards after this call.
+    scheduleMicrotask(() {
+      if (!_disposed) _round(agents: false, programs: true);
+    });
   }
 
   /// Reads the list now, after any read already in flight, and answers what
@@ -195,20 +317,26 @@ class SubagentRoster extends ChangeNotifier {
     final pending = _inFlight;
     if (pending != null) await pending;
     if (_disposed) return const WorkLost();
-    return _read(force: true);
+    return _read(force: true, round: ++_rounds);
   }
 
-  Future<AgentWorkResult<AgentList>> _read({bool force = false}) {
+  Future<AgentWorkResult<AgentList>> _read({
+    bool force = false,
+    required int round,
+  }) {
     final running = _inFlight;
     if (!force && running != null) return running;
     late final Future<AgentWorkResult<AgentList>> read;
-    read = _readOnce(force: force).whenComplete(() {
+    read = _readOnce(force: force, round: round).whenComplete(() {
       if (identical(_inFlight, read)) _inFlight = null;
     });
     return _inFlight = read;
   }
 
-  Future<AgentWorkResult<AgentList>> _readOnce({required bool force}) async {
+  Future<AgentWorkResult<AgentList>> _readOnce({
+    required bool force,
+    required int round,
+  }) async {
     final connection = _env.connection;
     // A forced read (the re-read after a stop) skips the demand and the
     // backoff, not the rules about the background, App Lock, a missing
@@ -236,7 +364,7 @@ class SubagentRoster extends ChangeNotifier {
         _listed = true;
         _blockedOn = null;
         _lastReadFailed = false;
-        _backoff.succeeded();
+        _readSucceeded(round);
         _changed();
         return WorkOk(value);
       case WorkNotAttached():
@@ -257,14 +385,114 @@ class SubagentRoster extends ChangeNotifier {
         return const WorkFailed(WorkFailureKind.notOwned);
       case WorkFailed(:final kind):
         _lastReadFailed = true;
-        _backoff.failed();
+        _readFailed(round);
         return WorkFailed(kind);
       case WorkLost():
         _lastReadFailed = true;
-        _backoff.failed();
+        _readFailed(round);
         return const WorkLost();
     }
   }
+
+  // ---- programs -------------------------------------------------------
+
+  /// Reads `process.list` now, after any read already in flight, and
+  /// answers what it came to. Used for the re-read after a lost kill.
+  Future<AgentWorkResult<ProcessList>> readProgramsNow() async {
+    final pending = _programsInFlight;
+    if (pending != null) await pending;
+    if (_disposed) return const WorkLost();
+    return _readPrograms(force: true, round: ++_rounds);
+  }
+
+  Future<AgentWorkResult<ProcessList>> _readPrograms({
+    bool force = false,
+    required int round,
+  }) {
+    final running = _programsInFlight;
+    if (!force && running != null) return running;
+    late final Future<AgentWorkResult<ProcessList>> read;
+    read = _readProgramsOnce(force: force, round: round).whenComplete(() {
+      if (identical(_programsInFlight, read)) _programsInFlight = null;
+    });
+    return _programsInFlight = read;
+  }
+
+  Future<AgentWorkResult<ProcessList>> _readProgramsOnce({
+    required bool force,
+    required int round,
+  }) async {
+    final cards = programs, connection = _env.connection;
+    if (cards == null ||
+        _disposed ||
+        connection == null ||
+        !_env.foreground ||
+        !_env.unlocked ||
+        identical(_programsUnsupportedOn, connection) ||
+        (!force && identical(_programsBlockedOn, connection))) {
+      return const WorkLost();
+    }
+    // Reads stay attached-only: resuming to list would start an agent build.
+    final attachment = cards.attachmentOf(threadId);
+    if (attachment == null) return const WorkNotAttached();
+    final generation = _generation;
+    // The cards this read looks for; a later card is looked for by a later
+    // read.
+    final held = cards.cardsFor(threadId, attachment);
+    final lookedFor = [
+      for (final card in held?.cards ?? const <ProcessOutput>[]) card.processId,
+    ];
+    // A kill answered while the read is out is newer than its answer.
+    final since = held?.generation ?? 0;
+    final result = await _repository.processList(threadId, profile: profile);
+    if (_disposed ||
+        generation != _generation ||
+        !identical(connection, _env.connection)) {
+      return const WorkLost();
+    }
+    switch (result) {
+      case WorkOk(:final value):
+        // The session may have been attached anew while the read ran: the
+        // answer was about the attachment it started on.
+        final state = cards.cardsFor(threadId, attachment, create: true);
+        if (state == null) return const WorkLost();
+        state.applyList(value, attachment: attachment, since: since);
+        _programsListed = true;
+        _programsLookedFor.addAll(lookedFor);
+        _programsBlockedOn = null;
+        _readSucceeded(round);
+        cards.cardsChanged();
+        _changed();
+        return WorkOk(value);
+      case WorkNotAttached():
+        return const WorkNotAttached();
+      case WorkUnsupported():
+        // No list means no way to know a program still runs: cards stay as
+        // the frames left them, without Stop.
+        _programsUnsupportedOn = connection;
+        if (!_loggedProgramsUnsupported) {
+          _loggedProgramsUnsupported = true;
+          _log('subagent.unsupported', {'method': 'process_list'});
+        }
+        return const WorkUnsupported();
+      case WorkFailed(kind: WorkFailureKind.notOwned):
+        _programsBlockedOn = connection;
+        return const WorkFailed(WorkFailureKind.notOwned);
+      case WorkFailed(:final kind):
+        // 5032 (the agent is still starting) and 5010 land here: quiet, on
+        // the backoff.
+        _readFailed(round);
+        return WorkFailed(kind);
+      case WorkLost():
+        _readFailed(round);
+        return const WorkLost();
+    }
+  }
+
+  /// A host for the stop of program [processId], for
+  /// `ProcessStopController`; null without program cards.
+  ProcessStopHost? programHostFor(String processId) =>
+      programs == null ? null : _ProgramHost(this, processId);
 
   void _apply(AgentList list, int startSeq) {
     final listedIds = <String>{};
@@ -408,13 +636,15 @@ class SubagentRoster extends ChangeNotifier {
       _seenConnection = connection;
       _generation++;
       _unsupportedOn = _blockedOn = null;
-      _loggedUnsupported = false;
-      _listed = false;
-      _inFlight = null;
+      _programsUnsupportedOn = _programsBlockedOn = null;
+      _loggedUnsupported = _loggedProgramsUnsupported = false;
+      _listed = _programsListed = false;
+      _inFlight = _programsInFlight = null;
+      _programsLookedFor.clear();
       _backoff.reset();
     }
     notifyListeners();
-    if (_gatesOpen && _inFlight == null) unawaited(_read());
+    _round(agents: _inFlight == null, programs: _programsInFlight == null);
   }
 
   void _changed() {
@@ -433,8 +663,9 @@ class SubagentRoster extends ChangeNotifier {
   /// and a chat or profile that is no longer this one.
   void clear() {
     _generation++;
-    _inFlight = null;
-    _listed = false;
+    _inFlight = _programsInFlight = null;
+    _listed = _programsListed = false;
+    _programsLookedFor.clear();
     _rows.clear();
     _delegations.clear();
     _lastReadFailed = false;
@@ -516,5 +747,52 @@ class _RosterHost implements AgentDetailHost {
       summary: row.summary,
       error: row.error,
     );
+  }
+}
+
+class _ProgramHost implements ProcessStopHost {
+  _ProgramHost(this._roster, this._id);
+  final SubagentRoster _roster;
+  final String _id;
+
+  @override
+  late final Listenable changes = Listenable.merge([
+    _roster,
+    _roster.programs!.cardChanges,
+  ]);
+
+  @override
+  ProcessOutput? get card => _roster._programCards?.card(_id);
+
+  @override
+  bool get online => _roster._env.connection != null;
+
+  @override
+  Future<AgentWorkResult<ListedProcess?>> rereadList() async {
+    final result = await _roster.readProgramsNow();
+    return switch (result) {
+      WorkOk(:final value) => WorkOk(
+        value.processes.where((process) => process.id == _id).firstOrNull,
+      ),
+      WorkNotAttached() => const WorkNotAttached(),
+      WorkUnsupported() => const WorkUnsupported(),
+      WorkLost() => const WorkLost(),
+      WorkFailed(:final kind) => WorkFailed(kind),
+    };
+  }
+
+  @override
+  Object? get attachment => _roster.programs!.attachmentOf(_roster.threadId);
+
+  @override
+  void applyKill(ProcessKill answer, {required Object? attachment}) {
+    final cards = _roster.programs!;
+    final state = attachment == null
+        ? null
+        : cards.cardsFor(_roster.threadId, attachment);
+    if (_roster._disposed || attachment == null || state == null) return;
+    state.applyKill(_id, answer, attachment: attachment);
+    cards.cardsChanged();
+    _roster._changed();
   }
 }

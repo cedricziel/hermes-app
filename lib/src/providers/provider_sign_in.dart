@@ -120,6 +120,13 @@ class ProviderSignIn extends ChangeNotifier {
   /// Two polls in a row failed: "Can't reach your server. Still waiting…".
   bool get offline => _offline;
 
+  /// How long the code lasts, in whole minutes from when it was issued; null
+  /// before there is a code.
+  int? get lifetimeMinutes {
+    final seconds = _session?.expiresIn;
+    return seconds == null ? null : (seconds / 60).ceil();
+  }
+
   /// Starts (or starts again after a refusal or an end) the sign-in.
   Future<void> start() async {
     if (_closed || (pending && _run > 0)) return;

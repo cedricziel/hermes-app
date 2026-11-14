@@ -19,6 +19,17 @@ import '../../support/fake_attachment_source.dart';
 import '../../support/fake_gateway.dart';
 import '../../support/fake_hermes_server.dart';
 
+/// A widget test that, once its body is done, lets the panel's read of the
+/// chat's agents (made when it opens or the chat changes) land, so no request
+/// is left in flight.
+void panelTest(String name, Future<void> Function(WidgetTester) body) =>
+    testWidgets(name, (tester) async {
+      await body(tester);
+      await tester.pump();
+      await tester.runAsync(pumpEventQueue);
+      await tester.pump();
+    });
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late FakeGateway gateway;
@@ -135,7 +146,7 @@ void main() {
     matching: finder,
   );
 
-  testWidgets(
+  panelTest(
     'recall events go to This session, survive clears and stay with their chat',
     (tester) async {
       await tester.runAsync(() async {
@@ -164,7 +175,7 @@ void main() {
     },
   );
 
-  testWidgets('finished status and process logs stay in the inspector', (
+  panelTest('finished status and process logs stay in the inspector', (
     tester,
   ) async {
     await tester.runAsync(() async {
@@ -185,10 +196,97 @@ void main() {
     expect(inStrip(find.byType(ProcessOutputCard)), findsNothing);
     expect(inPanel(find.byType(SessionStatusCard)), findsOneWidget);
     expect(inPanel(find.byType(ProcessOutputCard)), findsOneWidget);
-    expect(inPanel(find.text('NOW')), findsNothing);
   });
 
-  testWidgets('Verify billing access is offered only under This session', (
+  panelTest('process output and its omission note are under Now, not This '
+      'session', (tester) async {
+    await tester.runAsync(() async {
+      await open('stored-1');
+      gateway.event('status.update', 'rt-1', {
+        'kind': 'lifecycle',
+        'text': '🧠 robot-notes — recalled 5 memories',
+      });
+      for (var i = 0; i < 17; i++) {
+        gateway.event('agent.terminal.output', 'rt-1', {
+          'process_id': 'worker-$i',
+          'chunk': 'line $i',
+        });
+      }
+      await pumpEventQueue();
+    });
+    await pumpChat(tester);
+    final now = tester.getTopLeft(inPanel(find.text('NOW'))).dy;
+    final session = tester.getTopLeft(inPanel(find.text('THIS SESSION'))).dy;
+    expect(session, greaterThan(now));
+    final cards = tester
+        .widgetList<ProcessOutputCard>(inPanel(find.byType(ProcessOutputCard)))
+        .length;
+    expect(cards, 16);
+    for (final card in tester.elementList(
+      inPanel(find.byType(ProcessOutputCard)),
+    )) {
+      final y = tester.getTopLeft(find.byWidget(card.widget)).dy;
+      expect(y, inExclusiveRange(now, session));
+    }
+    final note = tester.getTopLeft(
+      inPanel(find.text('Earlier process cards omitted.')),
+    );
+    expect(note.dy, inExclusiveRange(now, session));
+    expect(inPanel(find.byType(MemoryActivityCard)), findsOneWidget);
+  });
+
+  testWidgets('closed process cards and a status of a finished turn are '
+      'under This session, not Now', (tester) async {
+    await tester.runAsync(() async {
+      await open('stored-1');
+      chat.submit('Start', const []);
+      await pumpEventQueue();
+      gateway.event('status.update', 'rt-1', {
+        'kind': 'process',
+        'text': 'Waiting for background process',
+      });
+      gateway.event('agent.terminal.output', 'rt-1', {
+        'process_id': 'done',
+        'chunk': 'finished',
+      });
+      gateway.event('terminal.close', 'rt-1', {'process_id': 'done'});
+      gateway.event('agent.terminal.output', 'rt-1', {
+        'process_id': 'open',
+        'chunk': 'running',
+      });
+      await pumpEventQueue();
+    });
+    await pumpChat(tester);
+    double y(Finder f) => tester.getTopLeft(inPanel(f)).dy;
+    // During the turn: the wait and the open card are Now; the closed card
+    // is history.
+    expect(inPanel(find.byType(SessionStatusCard)), findsOneWidget);
+    final now = y(find.text('NOW')), session = y(find.text('THIS SESSION'));
+    expect(y(find.byType(SessionStatusCard)), inExclusiveRange(now, session));
+    final running = find.byKey(const ValueKey('open'));
+    final done = find.byKey(const ValueKey('done'));
+    expect(y(running), inExclusiveRange(now, session));
+    expect(y(done), greaterThan(session));
+
+    await tester.runAsync(() async {
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'Done',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+    });
+    await tester.pump();
+    // After it: the old wait is for reference; the card that never closed
+    // stays under Now (the backend sends no exit).
+    final session2 = y(find.text('THIS SESSION'));
+    expect(y(find.byType(SessionStatusCard)), greaterThan(session2));
+    expect(y(done), greaterThan(session2));
+    expect(y(running), lessThan(session2));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 30));
+  });
+
+  panelTest('Verify billing access is offered only under This session', (
     tester,
   ) async {
     await tester.runAsync(() => open('stored-1'));
@@ -198,7 +296,7 @@ void main() {
     expect(inPanel(find.byType(BillingVerificationCard)), findsOneWidget);
   });
 
-  testWidgets('billing the server does not offer leaves the panel', (
+  panelTest('billing the server does not offer leaves the panel', (
     tester,
   ) async {
     await tester.runAsync(() async {
@@ -212,7 +310,7 @@ void main() {
     expect(find.byType(BillingVerificationCard), findsNothing);
   });
 
-  testWidgets('a side answer goes to the panel and stays with its own chat', (
+  panelTest('a side answer goes to the panel and stays with its own chat', (
     tester,
   ) async {
     await tester.runAsync(() async {
