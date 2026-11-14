@@ -404,6 +404,11 @@ Every control SHALL be at least 44 points (48 dp on Android) high, every state S
 - **WHEN** the 90-day window is shown at the largest accessibility text size on a phone
 - **THEN** each bar keeps a tap target at least 44 points (48 dp) wide, the chart scrolls sideways (starting at the newest day) instead of shrinking the targets, and the table remains available
 
+#### Scenario: Thirty days on a phone
+
+- **WHEN** the 30-day window is shown on a phone
+- **THEN** all 30 bars fit the width without scrolling, pressing and dragging across the chart selects the nearest bar and shows its value above the chart, and each day stays reachable through its semantics node and the table
+
 ### Requirement: Telemetry
 
 Server care SHALL record only fixed names, enums, counts and buckets: spans for each request and run, outcome log events and breadcrumbs for user steps. It SHALL NOT record log lines, search text, check output, commands, messages from Hermes, profile names, model ids, action ids, URLs or paths.

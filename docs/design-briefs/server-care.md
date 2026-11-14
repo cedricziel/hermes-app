@@ -2,6 +2,34 @@
 
 Change: `openspec/changes/server-care/`. Read its design.md for the server facts and the state machines; this brief is what the visual design pass needs.
 
+## Design (done)
+
+Claude Design canvas "Hermes: Server care", built on the Hermes App design system: https://claude.ai/artifact/7AKZUSYGPHvvmU97dAWrAx (private; ask its owner for access). 29 artboards: the Server screen on iPhone (healthy, update available, needs attention, unreachable, dark, largest text), the account menu with the attention mark, iPad (overview beside Usage), Mac window, Android; the Update page in every phase listed below; the gateway confirmation, restarting and row outcomes; Logs (lines, empty, no match, loading); Server check (problems, all passed); Usage (chart, table, empty). Where this brief and the canvas differ, the sections below have been brought in line with the canvas.
+
+Decisions taken in the design pass:
+
+- Headline: a card with a 40 pt round icon tile (surface-high), the sentence (17 pt semibold), the second line (muted) and at most one button. A button that fixes something (Try again, Run a check, Restart gateway, Start gateway) is filled; Show logs is outlined. Healthy has no button. During a gateway restart the headline keeps its sentence and drops its button; progress shows only on the gateway row.
+- An update alone is not an attention state (design.md's Attention table): with an update available the headline stays "Everything looks good" and the Updates row carries "Update available" and "12 changes".
+- Unreachable: only Tools and Connection details are shown under the headline; the sections that need the status are hidden, not drawn empty.
+- A value that does not fit half the row moves to the subtitle: Disk is value "38 GB free", subtitle "62% used"; the gateway State "Running, some channels offline" is the subtitle with no value. (`GroupedRow` cuts a value at half the row.)
+- Gateway action row: link-coloured text with a leading restart icon on iOS and Material, never red; on the Mac a plain row. Its outcome lines use the row's error or warning line, with compact outlined Show logs and Try again under them.
+- Attention mark: a 10 pt filled circle in the warning colour with a 2 pt ring in the surface colour, at the avatar's bottom right; the menu row "Server · needs attention" ends with the same dot. Neither is a target.
+- Update page: the status card (title, body, full-width primary button, then the restart note in muted footnote text) comes before "What's new"; change rows are not tappable. Outcomes are a centred 48 pt icon, title and body, then the buttons stacked full width (filled first, text second). In "updated, old server still running" the versions are two rows, "Running now" and "Installed", under the body "Restart Hermes on the server to finish."
+- Progress: one card titled "Updating…" with the four steps; the running step's label is semibold; "Show details" is the card's last row.
+- Restart banner: surface-high strip under the bar, info icon, text, chevron; the ready state uses the success icon and a 44 pt close button.
+- Logs: the level choice is a pill menu button under the search field (not the search field's filter menu), so the chosen level stays visible. Level chips are a neutral pill with a coloured icon and the word in the text colour. Day headers are sticky. Continuation lines are indented behind a left rule.
+- Server check: summary card like the headline, with Run again outlined. Problem and warning rows have a coloured icon labelled "Problem" or "Warning". Commands in "Things to fix" sit in a surface-high box with a text Copy button.
+- Usage chart: the selected bar is the primary colour, the others the muted colour (both pass 3:1 as graphics). The window and metric controls are two segmented controls stacked on a phone and side by side at desktop width.
+
+Corrections where this brief did not work:
+
+- Gridline labels: daily values, not window totals, so "400K", "800K", "1.2M" tokens (as design.md has it), not "4M", "8M".
+- Tap targets: 30 bars at 44 pt need about 1,320 pt. The 7- and 30-day windows fit the phone's width; a bar is picked by press and drag (the nearest bar follows the finger), arrow keys move between bars on desktop, and the per-day semantics and "Show as table" are the accessible path. Only 90 days scrolls sideways (44 pt targets, opening at the newest day).
+- Example numbers: one consistent set. 30 days: 8.4M tokens, $12.40 estimated, 112 conversations; 12 Nov 812K tokens, $1.20, 9 conversations; the highest day 5 Nov at 1.2M. ("$3.42" for 812K did not fit the total.)
+- Menu position: "Server" after "Connection details" and before "About" (this brief and design.md agree once both are read).
+
+Copy added by the design: "Show 20 more days" (table, below the first 10 days), section headers "By day" (table) and "Command" (cannot apply here), rows "Running now" and "Installed" (old server still running).
+
 ## Who and why
 
 The person who installed Hermes on their own machine and uses the app as its remote. They come here when something seems wrong ("the Telegram bot stopped answering", "my scheduled task didn't run", "is there an update?") or now and then to see what Hermes costs. They are on a phone more often than not, maybe away from home. They know what Hermes is; they may not know what a gateway, a receipt or a doctor is, so the words below avoid those where we can.
@@ -54,12 +82,12 @@ Hierarchy, top to bottom:
    - Row "Version" · value "0.22.2" · subtitle "Released 2 Nov 2026".
    - Row "Updates" · value one of "Up to date", "Update available", "Checking…", "Couldn't check" · subtitle "12 changes" when behind · chevron → Update page. While an update runs: value "Updating…" with a `BusyBar` under the row.
 3. **Section "Messaging gateway"** (footer: "Runs your messaging channels and scheduled tasks. Chats in this app don't depend on it.")
-   - Row "State" · value in words: "Running", "Starting", "Running, some channels offline", "Draining", "Off", "Failed to start", "Not responding".
+   - Row "State" · value in words: "Running", "Starting", "Running, some channels offline", "Draining", "Off", "Failed to start", "Not responding". A state too long for half the row ("Running, some channels offline") is the subtitle instead.
    - Row "Channels" · "1 of 2 connected" (hidden when none are configured).
    - Row "Shared with" · "default, work" (only for a shared gateway).
    - Action row: "Restart gateway" (or "Start gateway" when off), tinted as a button, not destructive red (it asks first). States in the row during a restart: "Restarting…" (BusyBar), "Waiting for the gateway…", "Running again" (checkmark, 4 s), "The gateway didn't restart" (error line, buttons Show logs, Try again), "The gateway hasn't come back yet" (warning line, Show logs), Hermes' refusal text as an error line.
 4. **Section "Server"**
-   - Row "Disk" · "8.4 GB free · 91% used" with a warning line when elevated or critical.
+   - Row "Disk" · value "8.4 GB free" · subtitle "91% used", with a warning line when elevated or critical.
    - Row "Memory" · "OK", "Getting low", "Low", hidden when unknown.
    - Row "Session store" · "OK" or "Can't be read" (error line).
 5. **Section "Tools"**
@@ -191,8 +219,8 @@ Controls: window segments "7 days", "30 days" (default), "90 days"; metric segme
 Hierarchy:
 
 1. **Totals card**: big number "8.4M tokens" (or "$12.40 estimated"), line "Last 30 days · 112 conversations". Under it in small text: "Input 7.9M · Output 520K · Cache reads 3.1M". With cost: "Billed $10.02" when Hermes reports billed cost.
-2. **Chart**: vertical bars, one per day, the accent colour, 2 pt corner radius, zero days as a 1 pt baseline tick. Three horizontal gridlines labelled in units ("4M", "8M" tokens; "$1", "$2"). X labels: start of each week (7 and 30 days), each month (90 days); at accessibility text sizes the x labels go and the y labels shorten. Selected bar: a label above the chart "12 Nov · 812K tokens · 9 conversations" (stays in place, no floating tooltip covering bars). Height 180 pt phone, 240 pt desktop. Each bar's tap target is at least 44 pt (48 dp) wide, wider than the bar when needed; when the window's bars cannot all fit at that width (90 days on a phone, or any window at the largest text size) the chart scrolls sideways and opens at the newest day, with the summary and table unchanged. No entrance animation when reduced motion is on; otherwise bars rise once, 200 ms.
-3. Switch row "Show as table" (`GroupedSwitchRow`): replaces the chart with rows "12 Nov · 812K tokens · $3.42 · 9 conversations".
+2. **Chart**: vertical bars, one per day, the accent colour, 2 pt corner radius, zero days as a 1 pt baseline tick. Three horizontal gridlines labelled in units ("400K", "800K", "1.2M" tokens; "$1", "$2"); the selected bar is the primary colour, the others the muted colour. X labels: start of each week (7 and 30 days), each month (90 days); at accessibility text sizes the x labels go and the y labels shorten. Selected bar: a label above the chart "12 Nov · 812K tokens · 9 conversations" (stays in place, no floating tooltip covering bars). Height 180 pt phone, 240 pt desktop. The 7- and 30-day windows fit the width: a bar is picked by press and drag across the chart (the nearest bar is selected and the label follows), arrow keys move between bars on desktop, and the per-day semantics and the table are the accessible path. The 90-day window scrolls sideways with each bar's tap target at least 44 pt (48 dp) wide and opens at the newest day, with the summary and table unchanged. No entrance animation when reduced motion is on; otherwise bars rise once, 200 ms.
+3. Switch row "Show as table" (`GroupedSwitchRow`): replaces the chart with a "By day" section, newest first: title "12 Nov", subtitle "812K tokens · $1.20 · 9 conversations"; the first 10 days, then "Show 20 more days".
 4. **Section "By model"**: rows sorted by tokens: title the model id as Hermes reports it, subtitle "790K tokens · $3.30 · 8 conversations", trailing "92%", a thin proportion bar under the subtitle (decorative).
 5. Footer: "Days follow the server's time zone. Conversations count chats, messaging and scheduled tasks. Costs are estimates in US dollars."
 
