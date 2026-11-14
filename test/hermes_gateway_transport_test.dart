@@ -75,6 +75,23 @@ void main() {
     },
   );
 
+  test(
+    'a slash answer with fields of another type reads them as absent',
+    () async {
+      gateway.slashResult = {
+        'output': 7,
+        'notice': ['x'],
+        'display': 1,
+      };
+      final result = await transport.runSlashCommand(
+        threadId: 'stored-3',
+        command: '/help',
+      );
+      expect(result.output, '');
+      expect(result.display, isNull);
+    },
+  );
+
   test('a skill command falls back to dispatch and returns a prompt', () async {
     gateway.slashNeedsDispatch = true;
     gateway.slashResult = {'type': 'skill', 'message': 'Use this skill'};

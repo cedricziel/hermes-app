@@ -12,8 +12,13 @@
          (lib/src/auth/server_address.dart): a schemeless public host is
          tried over https://, and an http:// address of a public host is
          only connected after the user accepts a warning. -->
+    <!-- Auto Backup stays on, minus the surface snapshot's preferences (chat
+         titles and snippets for the widgets); see res/xml/backup_rules.xml
+         (Android 11 and older) and data_extraction_rules.xml (12 and newer). -->
     <application
         android:label="Hermes Companion"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

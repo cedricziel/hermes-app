@@ -80,6 +80,7 @@ Future<void> showSettingsDialog(BuildContext context) async {
     context: context,
     builder: (context) {
       GroupedRow row(_Setting setting) => GroupedRow(
+        wrapWhenStacked: true,
         key: ValueKey('setting-${setting.name}'),
         title: setting.label(l10n),
         value: values[setting],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals_controller.dart';
@@ -117,8 +118,8 @@ void main() {
     testWidgets('is hidden while the changes could not be read', (
       tester,
     ) async {
-      transport.script['/memory pending'] = StateError('socket');
-      transport.script['/skills pending'] = StateError('socket');
+      transport.script['/memory pending'] = const GatewayConnectionClosed();
+      transport.script['/skills pending'] = const GatewayConnectionClosed();
       await pumpMemory(tester);
       expect(find.byKey(const Key('memory-waiting-card')), findsNothing);
       expect(find.text('User preference'), findsOneWidget);

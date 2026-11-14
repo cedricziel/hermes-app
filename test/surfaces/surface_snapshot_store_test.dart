@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
@@ -40,6 +41,9 @@ void main() {
     late Object? Function(MethodCall call) answer;
 
     setUp(() {
+      // flutter test runs as Android; the default kinds are the iOS ones.
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       calls = [];
       answer = (_) => true;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -100,6 +104,35 @@ void main() {
         ],
       );
     });
+
+    test('asks the plugin for each kind under both platform names', () async {
+      await SurfaceSnapshotStore(widgetKinds: const ['Recent'])
+          .write(snapshot());
+
+      expect(calls.singleWhere((c) => c.method == 'updateWidget').arguments, {
+        'name': null,
+        'ios': 'Recent',
+        'android': 'Recent',
+        'qualifiedAndroidName': null,
+      });
+    });
+
+    test(
+      'on Android, asks for no reload while no kind has a provider',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        final events = RecordedEvents();
+        answer = (call) => call.method == 'updateWidget'
+            ? throw PlatformException(code: '-3')
+            : null;
+
+        await SurfaceSnapshotStore(events: events.call).write(snapshot());
+
+        expect(calls.where((c) => c.method == 'updateWidget'), isEmpty);
+        expect(events.named('widgets.reload_failed'), isEmpty);
+      },
+    );
 
     test('reads what was saved', () async {
       answer = (call) =>
