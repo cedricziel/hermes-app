@@ -68,6 +68,8 @@ extension _ChatControllerCommands on ChatController {
             modelChoice: _newChatModel,
           );
       if (selected == null) {
+        // The command made the session without the pick for the next chat.
+        _workspace.pending = null;
         _threads.insert(0, thread);
         _selectedId ??= thread.id;
       } else if (!selected.remote) {

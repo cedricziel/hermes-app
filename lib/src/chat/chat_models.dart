@@ -10,6 +10,7 @@ import 'reactions/reaction_state.dart';
 
 import '../models/model_provider_option.dart';
 import '../bot_mode/bot_chat_context.dart';
+import '../workspaces/workspace_models.dart' show WorkspaceChoice;
 import 'chat_warning_state.dart';
 import 'tool_label.dart';
 
@@ -709,14 +710,18 @@ class ChatThread {
   String title;
   DateTime updatedAt;
   bool pinned;
-  final String? folderPath;
+  String? folderPath;
 
   /// The folder the chat runs in as the server stored it (`cwd`), unlike
   /// [folderPath], which is the git root when there is one.
-  final String? workingDirectory;
+  String? workingDirectory;
 
   /// The git branch stored with the chat (`git_branch`), when known.
-  final String? branch;
+  String? branch;
+
+  /// The folder picked for this chat before it exists, kept in memory and
+  /// dropped once the chat is created. Never stored.
+  WorkspaceChoice? workspaceChoice;
 
   /// Whether the Hermes dashboard holds this thread, as opposed to a local
   /// draft or mock data.

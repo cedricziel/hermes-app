@@ -1594,7 +1594,9 @@ void main() {
         events,
         emitsInOrder([
           isA<ThreadBound>(),
-          emitsError(isA<AttachmentException>()),
+          // The real server reports where it started the chat (`info.cwd`),
+          // so a WorkspaceBound may come before the refusal.
+          emitsThrough(emitsError(isA<AttachmentException>())),
         ]),
       );
     }, skip: skip);

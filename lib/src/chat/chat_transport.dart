@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '../models/model_provider_option.dart';
+import '../workspaces/workspace_models.dart';
 import 'chat_models.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
@@ -165,6 +166,31 @@ final class ThreadBound extends ChatEvent {
   const ThreadBound(this.threadId);
 
   final String threadId;
+}
+
+/// Where Hermes started the session [ThreadBound] named: `info.cwd`,
+/// `info.branch` and `info.project` of `session.create`. Only a new chat
+/// reports it. Paths stay in memory; nothing here is logged.
+final class WorkspaceBound extends ChatEvent {
+  const WorkspaceBound({
+    required this.cwd,
+    this.branch,
+    this.project,
+    this.gitRepoRoot,
+    this.retriedWithoutExplicit = false,
+  });
+
+  final String cwd;
+
+  /// `info.git_repo_root` when the server reports it.
+  final String? gitRepoRoot;
+  final String? branch;
+  final WorkspaceProjectRef? project;
+
+  /// Whether the create was sent again without `cwd_explicit` because the
+  /// server did not know the flag, so a named profile may have kept its own
+  /// folder.
+  final bool retriedWithoutExplicit;
 }
 
 /// Acceptance of the submitted prompt, without proof of its final answer.
@@ -726,6 +752,9 @@ abstract interface class ChatTransport {
   ///
   /// [queued] asks Hermes to queue this message behind a turn still running
   /// in the thread, rather than let it redirect that turn.
+  ///
+  /// [workspace] is the folder picked for a new chat. It is sent only when
+  /// [threadId] is null; a resumed thread keeps the folder it has.
   Stream<ChatEvent> send({
     String? threadId,
     String? profile,
@@ -733,6 +762,7 @@ abstract interface class ChatTransport {
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+    WorkspaceChoice? workspace,
   });
 
   /// The turns Hermes starts on its own in [threadId] after the reply of the
