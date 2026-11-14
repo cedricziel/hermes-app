@@ -67,6 +67,12 @@ void main() {
         'output': 'listening on 4173\n',
       };
     };
+    // The panel's checkpoints and context rows: an older server without
+    // them, so they stay out of the way.
+    for (final method in ['rollback.list', 'session.context_breakdown']) {
+      gateway.handlers[method] = (_) =>
+          throw const FakeRpcError(-32601, 'unknown method');
+    }
     transport = HermesGatewayTransport(connect: gateway.connect);
     final server = FakeHermesServer()
       ..on(
@@ -118,6 +124,7 @@ void main() {
     String command = _command,
     bool listed = true,
     bool readOnly = false,
+    bool ownNavigator = false,
   }) async {
     await tester.runAsync(() async {
       await chat.loadThreads('work');
@@ -150,6 +157,9 @@ void main() {
                       chat: chat,
                       thread: chat.selectedThread,
                       readOnly: readOnly || panel.value == 'readOnly',
+                      // As the chat screen draws it: inside the panel's own
+                      // navigator, with checkpoints and context.
+                      checkpointsAndContext: ownNavigator,
                     ),
             ),
           ),
@@ -400,5 +410,64 @@ void main() {
       expect(seen, isNot(contains(secret)), reason: secret);
     }
     await finish(tester);
+  });
+
+  group('inside the panel\'s own navigator', () {
+    /// The navigator a dialog was pushed on.
+    NavigatorState navigatorOf(WidgetTester tester, Finder finder) =>
+        Navigator.of(tester.element(finder));
+
+    testWidgets('the confirmation is shown over the app, on the root '
+        'navigator, and Confirm sends one kill', (tester) async {
+      await arrange(tester, ownNavigator: true);
+      final inner = navigatorOf(tester, find.byType(ProcessOutputCard));
+      final root = Navigator.of(
+        tester.element(find.byType(ProcessOutputCard)),
+        rootNavigator: true,
+      );
+      expect(identical(inner, root), isFalse, reason: 'the panel has its own');
+      await pressStop(tester);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        identical(navigatorOf(tester, find.byType(AlertDialog)), root),
+        isTrue,
+      );
+      await tester.tap(dialogText('Stop program'));
+      await settle(tester);
+      expect(calls('process.kill'), hasLength(1));
+      expect(find.text('Stopped'), findsWidgets);
+      await finish(tester);
+    });
+
+    testWidgets('the program exiting closes the confirmation with no kill', (
+      tester,
+    ) async {
+      await arrange(tester, ownNavigator: true);
+      await pressStop(tester);
+      programs['proc_dev'] = {
+        ...programs['proc_dev']!,
+        'status': 'exited',
+        'exit_code': 0,
+      };
+      await nextRead(tester);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(calls('process.kill'), isEmpty);
+      await finish(tester);
+    });
+
+    testWidgets('hiding the panel closes the confirmation with no kill', (
+      tester,
+    ) async {
+      await arrange(tester, ownNavigator: true);
+      await pressStop(tester);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      panel.value = 'hidden';
+      await settle(tester);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(calls('process.kill'), isEmpty);
+      await finish(tester);
+    });
   });
 }

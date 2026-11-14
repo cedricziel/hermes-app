@@ -83,22 +83,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  Future<void> pumpCard(WidgetTester tester) async {
+  Future<void> pumpCard(WidgetTester tester, {bool nested = false}) async {
     roster.watch();
+    final card = ListenableBuilder(
+      listenable: Listenable.merge([roster, cards]),
+      builder: (context, _) => SingleChildScrollView(
+        child: BoundProcessCard(
+          key: const ValueKey('proc_dev'),
+          chat: chat,
+          output: cards.state.card('proc_dev')!,
+          roster: roster,
+        ),
+      ),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ListenableBuilder(
-            listenable: Listenable.merge([roster, cards]),
-            builder: (context, _) => SingleChildScrollView(
-              child: BoundProcessCard(
-                key: const ValueKey('proc_dev'),
-                chat: chat,
-                output: cards.state.card('proc_dev')!,
-                roster: roster,
-              ),
-            ),
-          ),
+          // The chat screen's panel has a navigator of its own.
+          body: nested
+              ? Navigator(
+                  onGenerateRoute: (_) =>
+                      MaterialPageRoute<void>(builder: (_) => card),
+                )
+              : card,
         ),
       ),
     );
@@ -144,46 +151,50 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('a chat id that changes while the confirmation is open sends '
-      'no kill', (tester) async {
-    await pumpCard(tester);
-    await pressStop(tester);
-    expect(find.byType(AlertDialog), findsOneWidget);
-    // Compression rotates the id; the roster follows it without notifying.
-    roster.retarget('chat-new');
-    if (find.byType(AlertDialog).evaluate().isNotEmpty) {
+  for (final nested in [false, true]) {
+    testWidgets('a chat id that changes while the confirmation is open sends '
+        'no kill${nested ? ' (inside a navigator of its own)' : ''}', (
+      tester,
+    ) async {
+      await pumpCard(tester, nested: nested);
+      await pressStop(tester);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      // Compression rotates the id; the roster follows it without notifying.
+      roster.retarget('chat-new');
+      if (find.byType(AlertDialog).evaluate().isNotEmpty) {
+        await tester.tap(dialogText('Stop program'));
+      }
+      await settle(tester);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(kills(), isEmpty);
+      await finish(tester);
+    });
+
+    testWidgets('"This server can\'t stop programs." goes with the connection '
+        'that said it', (tester) async {
+      transport.agentAnswer = (call) => call.method == 'process.kill'
+          ? throw const GatewayRpcException(kGatewayMethodNotFound, 'x')
+          : {
+              'processes': [
+                {
+                  'session_id': 'proc_dev',
+                  'command': 'npm run dev',
+                  'status': 'running',
+                },
+              ],
+            };
+      await pumpCard(tester);
+      await pressStop(tester);
       await tester.tap(dialogText('Stop program'));
-    }
-    await settle(tester);
-    expect(find.byType(AlertDialog), findsNothing);
-    expect(kills(), isEmpty);
-    await finish(tester);
-  });
+      await settle(tester);
+      expect(find.text("This server can't stop programs."), findsOneWidget);
+      expect(stop(), findsNothing);
 
-  testWidgets('"This server can\'t stop programs." goes with the connection '
-      'that said it', (tester) async {
-    transport.agentAnswer = (call) => call.method == 'process.kill'
-        ? throw const GatewayRpcException(kGatewayMethodNotFound, 'x')
-        : {
-            'processes': [
-              {
-                'session_id': 'proc_dev',
-                'command': 'npm run dev',
-                'status': 'running',
-              },
-            ],
-          };
-    await pumpCard(tester);
-    await pressStop(tester);
-    await tester.tap(dialogText('Stop program'));
-    await settle(tester);
-    expect(find.text("This server can't stop programs."), findsOneWidget);
-    expect(stop(), findsNothing);
-
-    env.update(() => env.connection = Object());
-    await settle(tester);
-    expect(find.text("This server can't stop programs."), findsNothing);
-    expect(stop(), findsOneWidget);
-    await finish(tester);
-  });
+      env.update(() => env.connection = Object());
+      await settle(tester);
+      expect(find.text("This server can't stop programs."), findsNothing);
+      expect(stop(), findsOneWidget);
+      await finish(tester);
+    });
+  }
 }
