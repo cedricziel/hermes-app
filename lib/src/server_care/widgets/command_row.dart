@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/platform_chrome.dart';
 
 /// A shell command in a surface-high box, in monospace and selectable, with a
@@ -42,6 +43,7 @@ class _CommandRowState extends State<CommandRow> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final minTarget = platformChromeOf(context) == PlatformChrome.material
         ? 48.0
         : kAppleMinTapTarget;
@@ -72,7 +74,9 @@ class _CommandRowState extends State<CommandRow> {
             Semantics(
               button: true,
               liveRegion: _copied,
-              label: _copied ? 'Command copied' : 'Copy',
+              label: _copied
+                  ? l10n.serverCareCommandCopied
+                  : l10n.serverCareCommandCopy,
               onTap: _copy,
               excludeSemantics: true,
               child: TextButton(
@@ -80,7 +84,11 @@ class _CommandRowState extends State<CommandRow> {
                 style: TextButton.styleFrom(
                   minimumSize: Size(minTarget, minTarget),
                 ),
-                child: Text(_copied ? 'Copied' : 'Copy'),
+                child: Text(
+                  _copied
+                      ? l10n.serverCareCommandCopiedButton
+                      : l10n.serverCareCommandCopy,
+                ),
               ),
             ),
           ],

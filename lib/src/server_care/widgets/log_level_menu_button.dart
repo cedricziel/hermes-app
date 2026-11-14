@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/adaptive_popup_menu_button.dart';
 
 enum LogLevelFilter {
-  all('All levels'),
-  warnings('Warnings and errors'),
-  errors('Errors only');
+  all,
+  warnings,
+  errors;
 
-  const LogLevelFilter(this.label);
-
-  final String label;
+  String label(AppLocalizations l10n) => switch (this) {
+    all => l10n.serverCareLogLevelFilterAll,
+    warnings => l10n.serverCareLogLevelFilterWarnings,
+    errors => l10n.serverCareLogLevelFilterErrors,
+  };
 }
 
 /// A pill under the search field that shows the chosen level and opens a menu
@@ -30,13 +33,14 @@ class LogLevelMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final minHeight = platformChromeOf(context) == PlatformChrome.material
         ? 48.0
         : kAppleMinTapTarget;
     return MergeSemantics(
       child: Semantics(
         button: true,
-        label: 'Level, ${value.label}',
+        label: l10n.serverCareLogLevelMenuLabel(value.label(l10n)),
         child: AdaptivePopupMenuButton<LogLevelFilter>(
           tooltip: '',
           position: PopupMenuPosition.under,
@@ -46,7 +50,7 @@ class LogLevelMenuButton extends StatelessWidget {
               CheckedPopupMenuItem<LogLevelFilter>(
                 value: option,
                 checked: option == value,
-                child: Text(option.label),
+                child: Text(option.label(l10n)),
               ),
           ],
           child: ExcludeSemantics(
@@ -64,7 +68,7 @@ class LogLevelMenuButton extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          value.label,
+                          value.label(l10n),
                           style: TextStyle(color: scheme.onSurface),
                         ),
                       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/widgets/loading_skeleton.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_controls.dart';
@@ -25,6 +26,15 @@ const _thirtyDayConversations = [
   1, 3, 3, 3, 3, 2, 0, 1, 3, 3, //
   3, 5, 18, 8, 6, 3, 0, 8, 9, 9,
 ];
+
+/// The model list with the footer the page shows, read from the catalog's
+/// locale.
+Widget _modelList() => Builder(
+  builder: (context) => UsageModelList(
+    models: _models,
+    footer: context.l10n.serverCareUsageFooter,
+  ),
+);
 
 /// Dollars per token that make 812K tokens cost $1.20.
 const _dollarsPerToken = 1.2 / 812000;
@@ -189,13 +199,13 @@ class _LoadedPageState extends State<_LoadedPage> {
       GroupedSection(
         children: [
           GroupedSwitchRow(
-            title: 'Show as table',
+            title: context.l10n.serverCareUsageShowAsTable,
             value: _table,
             onChanged: (v) => setState(() => _table = v),
           ),
         ],
       ),
-      UsageModelList(models: _models, footer: kUsageFooter),
+      _modelList(),
     ],
   );
 }
@@ -352,15 +362,10 @@ List<WidgetbookNode> serverCareUsageNodes() => [
   WidgetbookComponent(
     name: 'UsageModelList',
     useCases: [
-      ...onEachPlatform(
-        'Three models',
-        (_) => frame(UsageModelList(models: _models, footer: kUsageFooter)),
-      ),
+      ...onEachPlatform('Three models', (_) => frame(_modelList())),
       WidgetbookUseCase(
         name: 'Largest text',
-        builder: (_) => _largest(
-          frame(UsageModelList(models: _models, footer: kUsageFooter)),
-        ),
+        builder: (_) => _largest(frame(_modelList())),
       ),
     ],
   ),
