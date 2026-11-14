@@ -535,6 +535,24 @@ void main() {
       expect(checkpoints.outcome?.lastMessageNotRemoved, isTrue);
     });
 
+    test('a prompt sent in this visit (local id) still counts as held after '
+        'the re-read gave it a server id', () async {
+      final (opened, checkpoints) = await listed();
+      final index = opened.messages.indexWhere((m) => m.isPrompt);
+      final prompt = opened.messages[index];
+      opened.messages[index] = ChatMessage(
+        id: 'stored-1-local-77',
+        role: prompt.role,
+        createdAt: prompt.createdAt,
+        content: prompt.content,
+      );
+      source.fake.restore = const Restored(historyRemoved: 1);
+      // The re-read still holds the same prompt, now under its server id.
+      await checkpoints.confirmRestore(checkpoints.beginRestore(_hash)!);
+      expect(drafts, isEmpty);
+      expect(checkpoints.outcome?.lastMessageNotRemoved, isTrue);
+    });
+
     test('a re-read that fails leaves the composer alone', () async {
       final (_, checkpoints) = await listed();
       source.fake.restore = const Restored(historyRemoved: 1);

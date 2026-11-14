@@ -161,7 +161,14 @@ extension _ChatControllerCheckpoints on ChatController {
     chatHolds: (quote) {
       final thread = _threadOf(actions);
       if (thread == null) throw StateError('The chat is gone');
-      return thread.messages.any((m) => m.id == quote.messageId);
+      // A prompt sent in this visit has a local id that the re-read replaces,
+      // so the same prompt text also counts as the message still being there.
+      // Wrong only in the safe direction: the text is then not handed back.
+      return thread.messages.any(
+        (m) =>
+            m.id == quote.messageId ||
+            (m.isPrompt && (m.submittedText ?? m.content) == quote.text),
+      );
     },
     handBackToComposer: (text) => _handBack(actions, text),
     hasEditToolCall: () {
