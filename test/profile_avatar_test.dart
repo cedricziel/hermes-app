@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profile_avatar_repository.dart';
 import 'package:hermes_app/src/profiles/widgets/profile_avatar.dart';
@@ -63,6 +64,33 @@ void main() {
       expect(await unsupported.load('writer'), isNull);
     },
   );
+
+  test('a read that did not reach the server is tried again', () async {
+    var calls = 0;
+    final repository = _repository((_, _) async {
+      if (++calls == 1) throw TimeoutException('gateway');
+      return _asset();
+    });
+    addTearDown(repository.dispose);
+
+    expect(await repository.load('writer'), isNull);
+    expect(await repository.load('writer'), base64Decode(_png));
+    expect(await repository.load('writer'), base64Decode(_png));
+    expect(calls, 2);
+  });
+
+  test('a refusal the gateway answered is kept', () async {
+    var calls = 0;
+    final repository = _repository((_, _) async {
+      calls++;
+      throw const GatewayRpcException(-32601, 'method not found');
+    });
+    addTearDown(repository.dispose);
+
+    expect(await repository.load('writer'), isNull);
+    expect(await repository.load('writer'), isNull);
+    expect(calls, 1);
+  });
 
   test(
     'account disposal rejects pending results and releases cached bytes',
