@@ -101,6 +101,7 @@ class HermesFilesRepository implements FilesSource {
             ? const FilesFailed(FilesFailure.unreadable)
             : FilesOk(parsed);
       },
+      path: path,
     );
   }
 
@@ -122,9 +123,11 @@ class HermesFilesRepository implements FilesSource {
         cancelToken: cancelToken,
       ),
       _parseListing,
+      path: path,
     );
     switch (result) {
       case FilesOk(:final value):
+        if (!_listed.any(path.isWithin)) _listed.add(path);
         _telemetry.endList(span, null, entries: value.entries.length);
       case FilesFailed(:final kind):
         _telemetry.endList(span, kind);
@@ -152,6 +155,7 @@ class HermesFilesRepository implements FilesSource {
       ),
       _parseText,
       fileRoute: true,
+      path: path,
     );
   }
 
@@ -203,7 +207,7 @@ class HermesFilesRepository implements FilesSource {
       );
       return FilesOk(done);
     } on FsDownloadException catch (error) {
-      final kind = error.kind;
+      final kind = _insideRoot(error.kind, path);
       _telemetry.endDownload(
         span,
         kind == FilesFailure.cancelled
@@ -217,6 +221,22 @@ class HermesFilesRepository implements FilesSource {
     }
   }
 
+  /// Folders that listed successfully: the server's own boundary holds them.
+  final _listed = <ServerPath>[];
+
+  /// A boundary 403 for [path] inside a folder known to be within the
+  /// server's boundary is not the boundary: the server refused that file
+  /// itself (a secret name, say). [highestFolder] is no evidence, since a git
+  /// root above the files root can be the highest folder.
+  FilesFailure _insideRoot(FilesFailure kind, ServerPath? path) {
+    if (kind == FilesFailure.fixedFolder &&
+        path != null &&
+        _listed.any(path.isWithin)) {
+      return FilesFailure.notAllowed;
+    }
+    return kind;
+  }
+
   bool _outside(ServerPath path) {
     final highest = highestFolder;
     return highest != null && !path.isWithin(highest);
@@ -227,13 +247,17 @@ class HermesFilesRepository implements FilesSource {
     FilesResult<T> Function(Object? body) parse, {
     bool fileRoute = false,
     bool unsupportedOnMissing = false,
+    ServerPath? path,
   }) async {
     try {
       final response = await request();
       return parse(response.data);
     } on DioException catch (error) {
       final status = error.response?.statusCode;
-      final kind = filesFailureForDio(error, fileRoute: fileRoute);
+      final kind = _insideRoot(
+        filesFailureForDio(error, fileRoute: fileRoute),
+        path,
+      );
       if (unsupportedOnMissing &&
           (status == 405 || (status == 404 && kind == FilesFailure.missing))) {
         return const FilesUnsupported();

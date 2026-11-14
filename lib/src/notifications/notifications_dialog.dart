@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../agent_messages/agent_message_watcher.dart'
     show agentMessagesSupported;
 import '../live_activities/live_activities.dart';
@@ -45,6 +46,12 @@ Future<void> showNotificationsDialog(BuildContext context) {
 bool answersFromNotification(TargetPlatform platform) =>
     platform != TargetPlatform.windows && platform != TargetPlatform.linux;
 
+/// Whether a finished reply's notification has a Reply button: iPhone, iPad
+/// and Mac.
+@visibleForTesting
+bool repliesFromNotification(TargetPlatform platform) =>
+    platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+
 class _NotificationsDialog extends StatelessWidget {
   const _NotificationsDialog({this.liveActivities, this.checks});
   final BackgroundCheckController? checks;
@@ -73,6 +80,7 @@ class _NotificationsDialog extends StatelessWidget {
                     'questions show the command or the question and can be '
                     'answered from the notification; the text stays hidden on '
                     'a locked screen when the system hides previews there.'
+                    '${repliesFromNotification(platform) ? ' ${context.l10n.notificationsReplyFootnote}' : ''}'
               : 'When a reply finishes or Hermes needs you, while the app is '
                     'not in front. Replies show a preview. Approvals and '
                     'questions only say that Hermes needs you; open the app '

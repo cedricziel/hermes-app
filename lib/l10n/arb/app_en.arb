@@ -2521,6 +2521,10 @@
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsReplyFootnote": "On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on.",
+  "@notificationsReplyFootnote": {
+    "description": "Last sentence of the footer under the Notify me switch, shown on iOS and macOS: a finished reply's notification has a Reply button, and it is not offered while App Lock is on."
+  },
 
   "@@x-area-platform_hint": "",
 
@@ -6648,6 +6652,286 @@
   "@@x-area-update": "",
 
   "@@x-area-voice": "",
+  "voiceCallAskHermes": "Ask Hermes for help",
+  "@voiceCallAskHermes": {
+    "description": "Button after a failed call that sends a help request to the chat."
+  },
+  "voiceCallBackToChat": "Back to chat",
+  "@voiceCallBackToChat": {
+    "description": "Button after the call stopped that returns to the chat."
+  },
+  "voiceCallEnd": "End call",
+  "@voiceCallEnd": {
+    "description": "Label of the round control that ends the call; also the accessible name of the End action in the Hands-free strip."
+  },
+  "voiceCallFooterAndroid": "The call ends if you leave Hermes.",
+  "@voiceCallFooterAndroid": {
+    "description": "Footnote on Android: leaving the app ends the call."
+  },
+  "voiceCallFooterDesktop": "The call ends if you hide or minimise Hermes.",
+  "@voiceCallFooterDesktop": {
+    "description": "Footnote on desktop: hiding or minimising the app window ends the call."
+  },
+  "voiceCallHintListening": "Speak, then pause. Hermes sends what you said.",
+  "@voiceCallHintListening": {
+    "description": "Hint under the state word while listening."
+  },
+  "voiceCallHintMuted": "Hermes can't hear you. Unmute to talk.",
+  "@voiceCallHintMuted": {
+    "description": "Hint under the state word while the microphone is muted."
+  },
+  "voiceCallHintSending": "Hermes is getting your words ready. End or mute now to cancel.",
+  "@voiceCallHintSending": {
+    "description": "Hint under the state word while the words are being prepared; End or Mute still cancels the send."
+  },
+  "voiceCallHintSpeakingPaused": "Microphone paused while Hermes speaks. Tap the orb to interrupt.",
+  "@voiceCallHintSpeakingPaused": {
+    "description": "Hint while Hermes speaks on desktop, where the microphone is paused. The orb is the round button in the middle of the screen."
+  },
+  "voiceCallHintSpeakingTalk": "Tap the orb, or just talk, to interrupt.",
+  "@voiceCallHintSpeakingTalk": {
+    "description": "Hint while Hermes speaks, on phones where speaking over the reply interrupts it. The orb is the round button in the middle of the screen."
+  },
+  "voiceCallHintSpeakingTalkOnly": "Just talk to interrupt.",
+  "@voiceCallHintSpeakingTalkOnly": {
+    "description": "Hint while Hermes speaks when speaking over the reply interrupts it but the orb is not tappable."
+  },
+  "voiceCallHintSpeakingTap": "Tap the orb to interrupt.",
+  "@voiceCallHintSpeakingTap": {
+    "description": "Hint while Hermes speaks, where only a tap interrupts. The orb is the round button in the middle of the screen."
+  },
+  "voiceCallHintThinking": "Hermes is working on your request.",
+  "@voiceCallHintThinking": {
+    "description": "Hint under the state word while Hermes works on the request."
+  },
+  "voiceCallHintWaiting": "Hermes needs your answer (an approval or a question). Answer in the chat. Capture is paused; speaking does nothing.",
+  "@voiceCallHintWaiting": {
+    "description": "Hint under the state word while Hermes waits for an approval or an answer that is given in the chat."
+  },
+  "voiceCallHintWaitingNeutral": "Hermes needs your input in chat.",
+  "@voiceCallHintWaitingNeutral": {
+    "description": "Hint under the state word while Hermes waits for an answer in the chat and the microphone stays open."
+  },
+  "voiceCallMute": "Mute",
+  "@voiceCallMute": {
+    "description": "Label of the round control that mutes the microphone."
+  },
+  "voiceCallShowChat": "Show chat",
+  "@voiceCallShowChat": {
+    "description": "Button on the call screen that leaves the call screen without ending the call."
+  },
+  "voiceCallSpeaker": "Speaker",
+  "@voiceCallSpeaker": {
+    "description": "Label of the round control that routes the call audio to the loudspeaker."
+  },
+  "voiceCallStartNew": "Start a new call",
+  "@voiceCallStartNew": {
+    "description": "Button after the call stopped that reopens the start screen."
+  },
+  "voiceCallStateConnecting": "Connecting…",
+  "@voiceCallStateConnecting": {
+    "description": "State word under the orb while the call is being set up."
+  },
+  "voiceCallStateEnded": "Call ended",
+  "@voiceCallStateEnded": {
+    "description": "State word under the orb after the user ended the call."
+  },
+  "voiceCallStateInterrupted": "Call interrupted",
+  "@voiceCallStateInterrupted": {
+    "description": "State word under the orb after the call failed or was interrupted."
+  },
+  "voiceCallStateListening": "Listening",
+  "@voiceCallStateListening": {
+    "description": "State word under the orb while the microphone is open and Hermes waits for the user to speak."
+  },
+  "voiceCallStateMuted": "Muted",
+  "@voiceCallStateMuted": {
+    "description": "State word under the orb while the microphone is muted."
+  },
+  "voiceCallStateSending": "Sending",
+  "@voiceCallStateSending": {
+    "description": "State word under the orb while the user's words are being prepared for Hermes."
+  },
+  "voiceCallStateSpeaking": "Speaking",
+  "@voiceCallStateSpeaking": {
+    "description": "State word under the orb while Hermes speaks its reply."
+  },
+  "voiceCallStateStopped": "Stopped",
+  "@voiceCallStateStopped": {
+    "description": "State word under the orb after the call stopped on its own or failed."
+  },
+  "voiceCallStateThinking": "Thinking",
+  "@voiceCallStateThinking": {
+    "description": "State word under the orb while Hermes works on the request."
+  },
+  "voiceCallStateWaiting": "Waiting for you",
+  "@voiceCallStateWaiting": {
+    "description": "State word under the orb while Hermes needs an answer in the chat."
+  },
+  "voiceCallUnmute": "Unmute",
+  "@voiceCallUnmute": {
+    "description": "Label of the round control that unmutes the microphone."
+  },
+  "voiceConsentSentence": "Hermes sends each thing you say after a pause, without you pressing send. It can use its tools to act on it.",
+  "@voiceConsentSentence": {
+    "description": "Sentence in the consent card on the call start screen explaining that speech is sent automatically."
+  },
+  "voiceConsentSwitch": "Send what I say automatically",
+  "@voiceConsentSwitch": {
+    "description": "Title of the consent switch on the call start screen."
+  },
+  "voiceConsentSwitchSubtitle": "Off again for the next call",
+  "@voiceConsentSwitchSubtitle": {
+    "description": "Subtitle of the consent switch: the choice is not remembered."
+  },
+  "voiceNoticeEndedDetail": "Every turn of this call is in the chat.",
+  "@voiceNoticeEndedDetail": {
+    "description": "Detail of the notice after the user ended the call."
+  },
+  "voiceNoticeEndedTitle": "The microphone is closed.",
+  "@voiceNoticeEndedTitle": {
+    "description": "Title of the notice after the user ended the call."
+  },
+  "voiceNoticeIdleDetail": "The microphone is closed.",
+  "@voiceNoticeIdleDetail": {
+    "description": "Detail of the notice after a call stopped because of silence."
+  },
+  "voiceNoticeIdleTitle": "No one spoke for 5 minutes.",
+  "@voiceNoticeIdleTitle": {
+    "description": "Title of the notice after a call stopped because of silence."
+  },
+  "voiceNoticeInterruptedDetail": "Another call or app took the audio. The microphone is closed. Your earlier turns are in the chat.",
+  "@voiceNoticeInterruptedDetail": {
+    "description": "Detail of the notice after another call or app took the audio."
+  },
+  "voiceNoticeInterruptedTitle": "The call was interrupted.",
+  "@voiceNoticeInterruptedTitle": {
+    "description": "Title of the notice after another call or app took the audio."
+  },
+  "voiceNoticeLeftDetail": "You left Hermes, so the microphone was closed. Your turns are in the chat.",
+  "@voiceNoticeLeftDetail": {
+    "description": "Detail of the notice after the user left the app during a call."
+  },
+  "voiceNoticeLeftTitle": "The call ended.",
+  "@voiceNoticeLeftTitle": {
+    "description": "Title of the notice after the user left the app during a call."
+  },
+  "voiceNoticeRouteTitle": "Audio route changed. Please repeat if needed. Nothing was sent.",
+  "@voiceNoticeRouteTitle": {
+    "description": "Notice in a call when the audio device changed during a turn."
+  },
+  "voiceNoticeSpeechFailedDetail": "Check your speech provider on the server. The reply is in the chat.",
+  "@voiceNoticeSpeechFailedDetail": {
+    "description": "Detail of the notice after speech output failed and the call ended."
+  },
+  "voiceNoticeSpeechFailedTitle": "Hermes could not speak this reply.",
+  "@voiceNoticeSpeechFailedTitle": {
+    "description": "Title of the notice after speech output failed and the call ended."
+  },
+  "voiceNoticeTranscriptionTitle": "Couldn't hear that. Nothing was sent.",
+  "@voiceNoticeTranscriptionTitle": {
+    "description": "Notice in a call when a spoken turn could not be transcribed."
+  },
+  "voiceOrbInterrupt": "Interrupt the assistant",
+  "@voiceOrbInterrupt": {
+    "description": "Accessible name of the orb while Hermes speaks; tapping it interrupts the reply."
+  },
+  "voiceSetupAllowMicrophone": "Allow microphone",
+  "@voiceSetupAllowMicrophone": {
+    "description": "Button that asks for microphone permission."
+  },
+  "voiceSetupAskHermes": "Ask Hermes to set this up",
+  "@voiceSetupAskHermes": {
+    "description": "Button that sends a setup request to the chat."
+  },
+  "voiceSetupAskHermesNote": "Sends a setup request in this chat. Hermes will ask before changing your server.",
+  "@voiceSetupAskHermesNote": {
+    "description": "Note under the button that asks Hermes to set up voice calls."
+  },
+  "voiceSetupCancel": "Cancel",
+  "@voiceSetupCancel": {
+    "description": "Button on the call start screen that closes it without starting a call."
+  },
+  "voiceSetupCheckAgain": "Check again",
+  "@voiceSetupCheckAgain": {
+    "description": "Button that repeats the checks."
+  },
+  "voiceSetupChecking": "Getting your call ready",
+  "@voiceSetupChecking": {
+    "description": "Heading of the call start screen while the checks run."
+  },
+  "voiceSetupCheckingBody": "Checking this device and your Hermes speech settings.",
+  "@voiceSetupCheckingBody": {
+    "description": "Text under the heading while the checks run."
+  },
+  "voiceSetupConsentNeeded": "Turn on the switch to start. Nothing is recorded until you do.",
+  "@voiceSetupConsentNeeded": {
+    "description": "Note under the disabled Start call button."
+  },
+  "voiceSetupDictationInstead": "Use dictation instead",
+  "@voiceSetupDictationInstead": {
+    "description": "Text button under Start call that leaves the call screen to dictate in the chat."
+  },
+  "voiceSetupEndAnytime": "You can end the call at any moment.",
+  "@voiceSetupEndAnytime": {
+    "description": "Note under the enabled Start call button."
+  },
+  "voiceSetupGptLive": "This profile uses GPT-Live on the web. This app uses the standard voice chat: it listens, sends, then speaks.",
+  "@voiceSetupGptLive": {
+    "description": "Note on the call start screen for a profile that uses GPT-Live; calls in this app use the standard voice chat instead."
+  },
+  "voiceSetupNotReady": "Set up voice calls",
+  "@voiceSetupNotReady": {
+    "description": "Heading of the call start screen when a check needs attention."
+  },
+  "voiceSetupNotReadyBody": "A few things need attention before you can call Hermes.",
+  "@voiceSetupNotReadyBody": {
+    "description": "Text under the heading when a check needs attention."
+  },
+  "voiceSetupOpenDictation": "Open Dictation settings",
+  "@voiceSetupOpenDictation": {
+    "description": "Button that opens the system dictation settings."
+  },
+  "voiceSetupOpenSystemSettings": "Open iOS Settings",
+  "@voiceSetupOpenSystemSettings": {
+    "description": "Button that opens the system settings after microphone access was denied."
+  },
+  "voiceSetupReady": "Ready to call",
+  "@voiceSetupReady": {
+    "description": "Heading of the call start screen when every check passed."
+  },
+  "voiceSetupReadyBody": "Talk to Hermes without using your hands. Your microphone is closed until you start.",
+  "@voiceSetupReadyBody": {
+    "description": "Text under the heading when every check passed."
+  },
+  "voiceSetupStart": "Start call",
+  "@voiceSetupStart": {
+    "description": "Filled button that starts the call."
+  },
+  "voiceStripEnd": "End",
+  "@voiceStripEnd": {
+    "description": "Short label of the End action in the Hands-free strip."
+  },
+  "voiceStripMicMuted": "microphone muted",
+  "@voiceStripMicMuted": {
+    "description": "Second half of the Hands-free strip: the user muted the microphone."
+  },
+  "voiceStripMicOpen": "microphone open",
+  "@voiceStripMicOpen": {
+    "description": "Second half of the Hands-free strip: the microphone is open. It follows a middle dot after 'Hands-free on'."
+  },
+  "voiceStripMicOpening": "microphone opening",
+  "@voiceStripMicOpening": {
+    "description": "Second half of the Hands-free strip: the microphone is being opened."
+  },
+  "voiceStripMicPaused": "microphone paused",
+  "@voiceStripMicPaused": {
+    "description": "Second half of the Hands-free strip: capture is paused, for example while Hermes speaks."
+  },
+  "voiceStripOn": "Hands-free on",
+  "@voiceStripOn": {
+    "description": "Label of the always-visible strip while a hands-free call is running."
+  },
 
   "@@x-area-watch": "",
 

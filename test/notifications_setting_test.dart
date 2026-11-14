@@ -227,8 +227,34 @@ void main() {
         expect(find.textContaining(background), findsNothing);
         expect(find.textContaining('open the app to answer'), findsOneWidget);
         expect(find.textContaining('can be answered from'), findsNothing);
+        expect(
+          find.textContaining('you can reply to a finished'),
+          findsNothing,
+        );
       });
     }
+
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+      testWidgets('says a finished reply can be answered on $platform', (
+        tester,
+      ) async {
+        await openOn(tester, platform);
+
+        expect(
+          find.textContaining(
+            'On iPhone, iPad and Mac you can reply to a finished reply from '
+            'its notification. Not while App Lock is on.',
+          ),
+          findsOneWidget,
+        );
+      });
+    }
+
+    testWidgets('says nothing of replying on Android', (tester) async {
+      await openOn(tester, TargetPlatform.android);
+
+      expect(find.textContaining('you can reply to a finished'), findsNothing);
+    });
 
     for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
       testWidgets('mentions the background check on $platform', (tester) async {

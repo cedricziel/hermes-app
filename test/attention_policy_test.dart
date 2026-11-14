@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -148,6 +149,77 @@ void main() {
       expect(n.body, kReplyFailedBody);
       expect(n.category, same(replyFailedCategory));
     });
+
+    group('with someone signed in', () {
+      AttentionNotification signedIn({
+        String threadId = 't1',
+        bool failed = false,
+        bool appLock = false,
+        String? accountKey = 'acct',
+        TargetPlatform platform = TargetPlatform.iOS,
+      }) => replyReadyNotification(
+        threadId: threadId,
+        title: 'Release notes',
+        text: '**Done** with it.',
+        profile: 'work',
+        failed: failed,
+        appLock: appLock,
+        accountKey: accountKey,
+        platform: platform,
+      );
+
+      test('a completed reply in a chat offers Reply', () {
+        final n = signedIn();
+
+        expect(n.category, same(replyReadyActionCategory));
+        expect(n.body, 'Done with it.');
+        expect(n.request, isNull);
+        expect(n.timeSensitive, isFalse);
+        expect(jsonDecode(notificationPayload(n)), {
+          't': 't1',
+          'p': 'work',
+          'y': 1,
+          'n': 'Release notes',
+          'a': accountHashFor('acct'),
+        });
+      });
+
+      test('only iOS and macOS offer it', () {
+        expect(
+          signedIn(platform: TargetPlatform.macOS).category,
+          same(replyReadyActionCategory),
+        );
+        final plain = note();
+        for (final platform in [
+          TargetPlatform.android,
+          TargetPlatform.windows,
+          TargetPlatform.linux,
+          TargetPlatform.fuchsia,
+        ]) {
+          final n = signedIn(platform: platform);
+          expect(n.category, same(replyReadyCategory), reason: '$platform');
+          expect(n.offersReply, isFalse);
+          expect(n.accountHash, isNull);
+          expect(notificationPayload(n), notificationPayload(plain));
+        }
+      });
+
+      test('every other case keeps the plain category and payload', () {
+        for (final n in [
+          signedIn(accountKey: null),
+          signedIn(appLock: true),
+          signedIn(failed: true),
+          signedIn(threadId: ''),
+        ]) {
+          expect(n.category?.actions, isEmpty);
+          expect(jsonDecode(notificationPayload(n)), isNot(contains('y')));
+          expect(jsonDecode(notificationPayload(n)), isNot(contains('a')));
+          expect(jsonDecode(notificationPayload(n)), isNot(contains('n')));
+        }
+        expect(signedIn(appLock: true).category, same(replyReadyCategory));
+        expect(signedIn(failed: true).category, same(replyFailedCategory));
+      });
+    });
   });
 
   group('what is said', () {
@@ -160,6 +232,53 @@ void main() {
       expect(n.category?.placeholder, kReplyReadyBody);
       expect(n.category?.actions, isEmpty);
       expect(n.timeSensitive, isFalse);
+    });
+
+    test('a finished reply offers Reply only for a signed-in account', () {
+      AttentionNotification? reply({
+        String? accountKey,
+        bool appLock = false,
+        TargetPlatform platform = TargetPlatform.iOS,
+        ChatEvent event = const ReplyCompleted('Done.'),
+      }) => attentionFor(
+        event: event,
+        thread: _thread(),
+        appFocused: false,
+        selectedThreadId: null,
+        enabled: true,
+        profile: 'work',
+        appLock: appLock,
+        accountKey: accountKey,
+        platform: platform,
+      );
+
+      expect(
+        reply(accountKey: 'acct')!.category,
+        same(replyReadyActionCategory),
+      );
+      expect(
+        reply(accountKey: 'acct', platform: TargetPlatform.android)!.category,
+        same(replyReadyCategory),
+      );
+      expect(reply()!.category, same(replyReadyCategory));
+      expect(
+        reply(accountKey: 'acct', appLock: true)!.category,
+        same(replyReadyCategory),
+      );
+      expect(
+        reply(
+          accountKey: 'acct',
+          event: const ReplyCompleted('Done.', failed: true),
+        )!.category,
+        same(replyFailedCategory),
+      );
+      expect(
+        reply(
+          accountKey: 'acct',
+          event: const ReplyCompleted('Done.', stopped: true),
+        ),
+        isNull,
+      );
     });
 
     test('App Lock keeps completed replies generic', () {

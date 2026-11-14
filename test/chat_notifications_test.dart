@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -8,6 +10,8 @@ import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
+import 'package:hermes_app/src/notifications/request_notifications.dart'
+    show replyReadyCategory;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -126,6 +130,41 @@ void main() {
     expect(n.title, 'Run failure');
     expect(n.body, 'Nothing new.');
   });
+
+  /// The notification a reply gets on iOS from the chat screen with its
+  /// default, signed-out controller.
+  Future<AttentionNotification> announcedOnIos(WidgetTester tester) async {
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.runAsync(settings.load);
+    await pumpChatScreen(
+      tester,
+      server: server,
+      transport: transport,
+      providers: [
+        ChangeNotifierProvider<NotificationSettings>.value(value: settings),
+        Provider<NotificationService>.value(value: service),
+      ],
+    );
+    final turn = await send(tester, 'Any news?')
+      ..emit(const ThreadBound('s1'));
+    await tester.pump();
+    leaveTheApp(tester);
+    // Only while the reply is announced: the composer looks different on iOS.
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    await finish(tester, turn, 'Nothing new.');
+    debugDefaultTargetPlatformOverride = null;
+    return service.shown.single;
+  }
+
+  testWidgets(
+    'a finished reply offers no Reply on iOS while nobody is signed in',
+    (tester) async {
+      final n = await announcedOnIos(tester);
+
+      expect(n.category, same(replyReadyCategory));
+      expect(n.accountHash, isNull);
+    },
+  );
 
   testWidgets('nothing is said while the app is focused on that thread', (
     tester,

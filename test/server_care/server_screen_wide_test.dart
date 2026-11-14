@@ -672,6 +672,43 @@ void main() {
     });
   });
 
+  group('the disclosure chevron', () {
+    // The rows that open a page: beside it they are a selection, not a push.
+    final overviewRows = ['Usage', 'Logs', 'Updates', 'Run a check'];
+
+    int chevronsIn(WidgetTester tester, String row) => find
+        .descendant(
+          of: find.widgetWithText(GroupedRow, row),
+          matching: find.byKey(const Key('grouped-row-chevron')),
+        )
+        .evaluate()
+        .length;
+
+    test('rows beside their page have none', (tester) async {
+      await pump(tester);
+      for (final row in overviewRows) {
+        expect(
+          find.widgetWithText(GroupedRow, row),
+          findsOneWidget,
+          reason: row,
+        );
+        expect(chevronsIn(tester, row), 0, reason: row);
+      }
+    });
+
+    test('the same rows show it when the window is narrow', (tester) async {
+      await pump(tester, width: 420);
+      for (final row in overviewRows) {
+        expect(
+          find.widgetWithText(GroupedRow, row),
+          findsOneWidget,
+          reason: row,
+        );
+        expect(chevronsIn(tester, row), 1, reason: row);
+      }
+    });
+  });
+
   group('on a narrow window', () {
     test('a page still pushes and the list stays whole', (tester) async {
       await pump(tester, width: 420);
@@ -774,6 +811,41 @@ void main() {
       expect(secureCalls, [true, false]);
     });
 
+    test('a finished check is still shown when its page is rebuilt, with no '
+        'second run', (tester) async {
+      server
+        ..on('POST', '/api/ops/doctor', {
+          'ok': true,
+          'pid': 1,
+          'name': 'doctor',
+        })
+        ..on('GET', '/api/actions/doctor/status', {
+          'name': 'doctor',
+          'running': false,
+          'exit_code': 1,
+          'lines': [
+            '=== doctor started 2026-11-14 09:00:00 ===',
+            ...doctorProblems,
+          ],
+        });
+      await pump(tester);
+      await select(tester, 'Run a check');
+      check.run(profile: 'default').ignore();
+      await settle(tester);
+      expect(find.text('1 problem and 1 warning'), findsOneWidget);
+      // The pane is torn down by narrowing and built again by widening; the
+      // pick is dropped on the way.
+      await resize(tester, 420);
+      await resize(tester, 1000);
+      expect(find.byType(ServerCheckPage), findsNothing);
+      // Picking Check again builds a new page, which reads the result the
+      // shell's controller kept.
+      await select(tester, 'Run a check');
+      expect(find.byType(ServerCheckPage), findsOneWidget);
+      expect(find.text('1 problem and 1 warning'), findsOneWidget);
+      expect(server.requestsTo('POST', '/api/ops/doctor'), hasLength(1));
+    });
+
     test('a pick does not come back on another profile', (tester) async {
       await pump(tester);
       await select(tester, 'Logs');
@@ -843,6 +915,47 @@ void main() {
       await resize(tester, 1000);
       expect(find.byType(UsagePage), findsOneWidget);
     });
+
+    for (final (name, close) in <(String, Future<void> Function(WidgetTester))>[
+      (
+        'App Lock covering the app',
+        (t) async {
+          await t.runAsync(() => lock.setEnabled(true));
+          t.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+          await t.pump();
+          expect(lock.covered, isTrue);
+        },
+      ),
+      (
+        'narrowing the window',
+        (t) async {
+          t.view.physicalSize = const Size(420, 1600);
+          await t.pumpAndSettle();
+        },
+      ),
+      ('a profile switch', (t) async => care.profileChanged('work')),
+    ]) {
+      test('closing the pane by $name with the Copy question open throws '
+          'nothing', (tester) async {
+        await pump(tester);
+        await select(tester, 'Logs');
+        await tester.tap(find.byKey(const Key('logs-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Copy shown lines'));
+        await tester.pumpAndSettle();
+        expect(find.text('Copy these log lines?'), findsOneWidget);
+        await close(tester);
+        // A covered page shows a pulsing placeholder: it never settles.
+        for (var i = 0; i < 4; i++) {
+          await tester.pump(const Duration(milliseconds: 300));
+        }
+        expect(find.text('Copy these log lines?'), findsNothing);
+        if (!name.startsWith('App Lock')) {
+          expect(find.byType(ServerLogsPage), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     test('a pick made before the profile is known survives its arrival', (
       tester,

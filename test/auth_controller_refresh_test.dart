@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/native_login_flow.dart';
 import 'package:hermes_app/src/auth/session_activity.dart';
+import 'package:hermes_app/src/notifications/attention_notifier.dart'
+    show signedInAccountKey;
 import 'package:hermes_app/src/models/auth_provider_info.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1020,6 +1022,31 @@ void main() {
         await request;
       };
     }
+
+    test('is not signed in for a notification while sign-out clears', () async {
+      slowStore = _SlowClearTokenStore(_session());
+      controller = AuthController(
+        tokenStore: slowStore,
+        devServerUrl: dashboard.url,
+        telemetry: events.connection,
+      );
+      await controller.bootstrap();
+      expect(controller.state, HermesConnectionState.ready);
+      expect(signedInAccountKey(controller), controller.accountKey);
+      expect(signedInAccountKey(controller), isNotNull);
+
+      final leaving = controller.signOut();
+      await slowStore.clearStarted.future;
+
+      // Still ready, with the server set, while the tokens clear.
+      expect(controller.state, HermesConnectionState.ready);
+      expect(controller.accountKey, isNotNull);
+      expect(signedInAccountKey(controller), isNull);
+
+      slowStore.releaseClear();
+      await leaving;
+      expect(signedInAccountKey(controller), isNull);
+    });
 
     test('does not write the tokens back after sign-out', () async {
       final finish = await startSlowClear(() => controller.signOut());
