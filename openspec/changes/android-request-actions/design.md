@@ -8,7 +8,7 @@ iOS and macOS already answer requests from notification buttons (`request_notifi
 
 ## Decisions
 
-**Same eligibility as iOS.** An approval with at least one known choice and a single question are answerable; several questions, an approval with no known choice, and secret, sudo, vault and unsupported requests are not. Not answerable, App Lock on, or App Lock not yet loaded: generic body, no actions, default visibility, unchanged.
+**Same eligibility as iOS, plus a visible body.** An approval with at least one known choice and a single question are answerable, and on Android only when the body shows what is asked: a request posted by the background refresh, which never reads the command and posts the generic body, gets no buttons on Android, so nobody approves a command they never saw; several questions, an approval with no known choice, and secret, sudo, vault and unsupported requests are not. Not answerable, App Lock on, or App Lock not yet loaded: generic body, no actions, default visibility, unchanged.
 
 **Lock screen: secret visibility.** The plugin cannot set a public version (`setPublicVersion`) nor `setAuthenticationRequired` on an action. With `private` visibility a lock screen set to show all content would show the command and working buttons, while iOS requires authentication for its actions. `secret` hides the notification, text and actions until the device is unlocked, which is the closest equivalent. The cost: no "Waiting for your approval" hint on the lock screen; the user sees the notification after unlocking. Accepted.
 
@@ -18,7 +18,7 @@ iOS and macOS already answer requests from notification buttons (`request_notifi
 
 **Removal.** An answering action sets `cancelNotification` so the notification goes when tapped; "Other…" and "Open" show the user interface and open the chat. After a failure the follow-up is posted again, so nothing is lost.
 
-**App Lock.** Turning it on cancels the answerable request notifications on Android as on iOS and macOS. An action used while App Lock is on sends nothing and posts "Open Hermes to answer.".
+**App Lock.** Turning it on cancels the answerable request notifications on Android as on iOS and macOS. The plugin returns no payload for active notifications on Android, so answerable ones are posted with the tag `hermes.request` and withdrawn by that tag. Android keys a notification by tag and id, so a post for a chat first cancels the other variant (tagged or not) of the chat's id, keeping one notification per chat. An action used while App Lock is on sends nothing and posts "Open Hermes to answer.".
 
 **Manifest.** The plugin's `ActionBroadcastReceiver` is declared with `android:exported="false"`.
 
@@ -32,4 +32,5 @@ iOS and macOS already answer requests from notification buttons (`request_notifi
 
 - [Not verified on a device] No Android device in CI; CI builds the release APK only. Manual check on an emulator is left to the author.
 - [Secret visibility] Users whose lock screen hides notifications already see nothing; users who allow content lose the hint. Accepted for the privacy.
-- [OEM background limits] An aggressive OEM may kill the background isolate before 25 s; the user then sees no follow-up. The request stays answerable in the app.
+- [Process kept alive] The plugin's `ActionBroadcastReceiver` cancels the notification, starts its engine and returns without `goAsync()`, a foreground service or a WorkManager job. When the app is in the background, Android (14+ freezes cached processes) or an aggressive OEM may freeze or kill the process before the answer is sent; the notification is already gone and no follow-up is posted. The request stays answerable in the app. Not measured on a device. Follow-up if it shows: hand the answer to an expedited one-off WorkManager task (`workmanager` is already a dependency). A process started only for the broadcast skips the 3 s wait for the app's port, which exists only on iOS.
+- [Wear OS] `secret` visibility affects the phone's lock screen only; a paired Wear OS watch may show the bridged body and actions, as an Apple Watch mirrors the iOS notification. The plugin cannot set `setLocalOnly`. Accepted, like the watch mirroring on iOS.
