@@ -216,10 +216,12 @@ class _ServerScreenState extends State<ServerScreen> {
     final status = care.status;
     final attention = care.attention;
     // While a restart or start runs, the headline says so, with no button.
-    if (_run.busy && _runIsHere(care)) {
+    // care.gatewayBusy outlasts the run by the final status read, so the
+    // headline does not flip to the old state in that gap.
+    if ((_run.busy || care.gatewayBusy) && _runIsHere(care)) {
       return ServerStatusCard(
         tone: ServerStatusTone.loading,
-        title: _run.action == GatewayAction.start
+        title: (_run.action ?? _run.lastAction) == GatewayAction.start
             ? l10n.serverCareGatewayHeadlineStarting
             : l10n.serverCareGatewayHeadlineRestarting,
       );
