@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/theme/app_icons.dart';
+
+import '../theme/app_icons.dart';
 
 /// A small label in a rounded box: what a row is, where it came from or what
 /// state it is in.

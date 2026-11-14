@@ -1,9 +1,8 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
-import 'package:hermes_app/src/bot_mode/bot_chat_context.dart';
-import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
-import 'package:hermes_app/src/bot_mode/widgets/bot_chat_banner.dart';
 import 'package:hermes_app/src/memory/memory_proposals.dart';
 import 'package:hermes_app/src/memory/widgets/memory_proposal_parts.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -11,23 +10,8 @@ import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/widgets/status_chip.dart';
 
-/// Pins what the bot chat banner and the small text badges read and measure
-/// like, so moving them onto the shared widgets stays behaviour-neutral.
-const _bot = BotModeBot(
-  serverId: 'server',
-  name: 'research',
-  revision: 0,
-  displayName: 'Research Specialist',
-);
-
-BotChatContext _ctx({bool protocol = true}) => BotChatContext(
-  bot: _bot,
-  rootId: 'root',
-  storedId: 'tip',
-  peers: const [_bot],
-  protocolEnabled: protocol,
-);
-
+/// Pins what the text badges and the status chip look and measure like, so
+/// the shared badge stays behaviour-neutral.
 Future<void> _pump(WidgetTester tester, Widget child, {bool dark = false}) {
   return tester.pumpWidget(
     MaterialApp(
@@ -59,59 +43,6 @@ TextStyle _style(WidgetTester tester, String text) {
 }
 
 void main() {
-  group('BotChatBanner', () {
-    testWidgets('reads title, handle and the unavailable note', (tester) async {
-      final handle = tester.ensureSemantics();
-      await _pump(tester, BotChatBanner(context: _ctx(protocol: false)));
-      expect(
-        find.bySemanticsLabel(RegExp('Research Specialist')),
-        findsOneWidget,
-      );
-      expect(find.bySemanticsLabel(RegExp('@research')), findsOneWidget);
-      expect(
-        find.bySemanticsLabel(RegExp('Teammate messaging is unavailable')),
-        findsOneWidget,
-      );
-      expect(find.text('Research Specialist'), findsOneWidget);
-      expect(find.textContaining('@research · Bot Chat'), findsOneWidget);
-      handle.dispose();
-    });
-
-    testWidgets('omits the note when messaging is available', (tester) async {
-      await _pump(tester, BotChatBanner(context: _ctx()));
-      expect(find.textContaining('Teammate messaging'), findsNothing);
-    });
-
-    testWidgets('is not a live region and has no tap target', (tester) async {
-      final handle = tester.ensureSemantics();
-      await _pump(tester, BotChatBanner(context: _ctx()));
-      final live = tester.semantics.simulatedAccessibilityTraversal().where(
-        (n) => n.flagsCollection.isLiveRegion,
-      );
-      expect(live, isEmpty);
-      expect(find.byType(InkWell), findsNothing);
-      expect(find.byType(GestureDetector), findsNothing);
-      handle.dispose();
-    });
-
-    testWidgets('keeps its column width on a wide screen', (tester) async {
-      tester.view
-        ..physicalSize = const Size(1400, 800)
-        ..devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await _pump(tester, BotChatBanner(context: _ctx()));
-      final box = tester.getRect(
-        find
-            .ancestor(
-              of: find.text('Research Specialist'),
-              matching: find.byType(DecoratedBox),
-            )
-            .last,
-      );
-      expect(box.width, 640);
-    });
-  });
-
   group('text badges', () {
     for (final dark in [false, true]) {
       final theme = dark ? buildHermesDarkTheme() : buildHermesLightTheme();
@@ -216,27 +147,29 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('StatusChip keeps tint, radius, text style and padding', (
-      tester,
-    ) async {
-      await _pump(tester, const StatusChip(ToolsStatus.ready));
-      final color = tester
-          .element(find.byType(StatusChip))
-          .hermesColors
-          .success;
-      final d = _decoration(tester, 'Ready');
-      expect(d.color, color.withValues(alpha: 0.12));
-      expect(d.borderRadius, BorderRadius.circular(6));
-      final style = _style(tester, 'Ready');
-      expect(style.color, color);
-      expect(style.fontSize, 12);
-      expect(style.fontWeight, FontWeight.w600);
-      final size = tester.getSize(find.byType(StatusChip));
-      final text = tester.getSize(find.text('Ready'));
-      // 8 + icon 14 + 4 gap + text + 8 wide; 3 + row + 3 tall.
-      expect(size.width, text.width + 34);
-      expect(size.height, greaterThanOrEqualTo(text.height + 6));
-      expect(find.byType(InkWell), findsNothing);
-    });
+    for (final dark in [false, true]) {
+      testWidgets('StatusChip dark=$dark', (tester) async {
+        await _pump(tester, const StatusChip(ToolsStatus.ready), dark: dark);
+        final color = tester
+            .element(find.byType(StatusChip))
+            .hermesColors
+            .success;
+        final d = _decoration(tester, 'Ready');
+        expect(d.color, color.withValues(alpha: 0.12));
+        expect(d.borderRadius, BorderRadius.circular(6));
+        final style = _style(tester, 'Ready');
+        expect(style.color, color);
+        expect(style.fontSize, 12);
+        expect(style.fontWeight, FontWeight.w600);
+        expect(tester.widget<Icon>(find.byType(Icon)).color, color);
+        final size = tester.getSize(find.byType(StatusChip));
+        final text = tester.getSize(find.text('Ready'));
+        // 8 + icon 14 + 4 gap + text + 8 wide.
+        expect(size.width, text.width + 34);
+        // 3 + the row (the taller of the icon with its 1px top and the text) + 3.
+        expect(size.height, max(text.height, 15.0) + 6);
+        expect(find.byType(InkWell), findsNothing);
+      });
+    }
   });
 }

@@ -9,8 +9,7 @@ enum AppBannerTone { success, warning, error, neutral }
 ///
 /// The status is told by the icon and by the words of the title, never by
 /// colour alone. The banner is a polite live region, so a screen reader
-/// announces one that appears or changes without taking focus (unless
-/// [liveRegion] is off). It takes plain
+/// announces one that appears or changes without taking focus. It takes plain
 /// values only: no controller and no lookups beyond the theme.
 class AppBanner extends StatelessWidget {
   const AppBanner({
@@ -20,7 +19,6 @@ class AppBanner extends StatelessWidget {
     required this.title,
     this.detail = '',
     this.action,
-    this.liveRegion = true,
   });
 
   final AppBannerTone tone;
@@ -30,10 +28,6 @@ class AppBanner extends StatelessWidget {
   final String title;
   final String detail;
   final Widget? action;
-
-  /// Whether a screen reader announces the banner when it appears or
-  /// changes. Turn it off for a note that is part of the page from the start.
-  final bool liveRegion;
 
   static AppIconSet defaultIcon(AppBannerTone tone) => switch (tone) {
     AppBannerTone.success => AppIcons.checkCircle,
@@ -77,7 +71,7 @@ class AppBanner extends StatelessWidget {
     // banner appears; the action keeps its own node so it stays focusable.
     return Semantics(
       container: true,
-      liveRegion: liveRegion,
+      liveRegion: true,
       label: detail.isEmpty ? title : '$title. $detail',
       child: Container(
         padding: const EdgeInsets.all(12),
