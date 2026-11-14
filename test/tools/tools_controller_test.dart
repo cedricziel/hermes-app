@@ -58,6 +58,35 @@ void main() {
 
   tearDown(() => controller.dispose());
 
+  test('a setup write of a toolset disables its switch and drops a request '
+      'made behind it', () async {
+    controller.setSetupBusy('todo', busy: true);
+    expect(controller.switchLocked('todo'), isTrue);
+    expect(controller.switchLocked('terminal'), isFalse);
+
+    await controller.requestSwitch('todo', enabled: true);
+
+    expect(puts(), isEmpty);
+    expect(controller.rowState('todo').phase, ToolsRowPhase.idle);
+    controller.setSetupBusy('todo', busy: false);
+    expect(controller.switchLocked('todo'), isFalse);
+  });
+
+  test('only a toolset whose switch succeeded counts as changed', () async {
+    server.on('PUT', '/api/tools/toolsets/todo', {
+      'ok': true,
+      'name': 'todo',
+      'enabled': true,
+    });
+    await controller.requestSwitch('todo', enabled: true);
+    await controller.requestSwitch('terminal', enabled: true);
+    controller.cancel();
+
+    expect(controller.changedSinceOpen, isTrue);
+    expect(controller.changedToolset('todo'), isTrue);
+    expect(controller.changedToolset('terminal'), isFalse);
+  });
+
   test('groups rows by what works and keeps the server order', () {
     final groups = controller.groups;
 

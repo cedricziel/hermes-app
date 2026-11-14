@@ -114,7 +114,8 @@ extension _ChatScreenBotScreen on _ChatScreenState {
   }
 
   /// Opens the live viewer of the chat profile's screen, from the Activity
-  /// card (`source: card`) or the transcript preview (`preview`).
+  /// card (`source: card`), the transcript preview (`preview`) or the
+  /// Computer use details of the Tools screen (`tools`).
   void _openViewer(String source) {
     final screen = _screen;
     final repository = _screenRepository;

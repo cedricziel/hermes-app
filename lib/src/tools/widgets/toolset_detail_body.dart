@@ -24,6 +24,7 @@ class ToolsetDetailView {
     this.error,
     this.unconfirmed = false,
     this.showTryAgain = false,
+    this.locked = false,
   });
 
   final String name;
@@ -54,6 +55,9 @@ class ToolsetDetailView {
 
   /// With [unconfirmed]: offer Try again, where there is no pull to refresh.
   final bool showTryAgain;
+
+  /// A setup write of this toolset is out: the switch is disabled.
+  final bool locked;
 }
 
 /// One toolset's details as the Tools screen shows them: the header with its
@@ -72,6 +76,7 @@ class ToolsetDetailBody extends StatelessWidget {
     this.note,
     this.setup = const [],
     this.namesOpen = false,
+    this.physics,
   });
 
   final ToolsetDetailView view;
@@ -84,6 +89,10 @@ class ToolsetDetailBody extends StatelessWidget {
 
   /// Starts with the tool names open (the catalog and tests).
   final bool namesOpen;
+
+  /// The list's scroll physics; always scrollable where the details are
+  /// pulled to refresh.
+  final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +109,7 @@ class ToolsetDetailBody extends StatelessWidget {
       color: scheme.onSurface,
     );
     return GroupedListView(
+      physics: physics,
       children: [
         if (note != null)
           Padding(padding: const EdgeInsets.only(top: 12), child: note),
@@ -111,6 +121,7 @@ class ToolsetDetailBody extends StatelessWidget {
             enabled: view.enabled,
             needsSetup: view.needsSetup,
             phase: view.phase,
+            locked: view.locked,
             onChanged: onChanged,
           ),
         ),
