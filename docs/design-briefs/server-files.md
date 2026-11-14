@@ -38,18 +38,20 @@ For the visual design pass. Read `openspec/changes/server-files/design.md` for w
 **States and copy**
 
 - Loading: skeleton rows and the label "Loading folder…".
-- Empty: icon folder, title "Nothing here yet", body "Files the agent writes in this folder appear here.", action "Refresh". If hidden files exist: body adds "Hidden files are not shown." and the action "Show hidden files".
+- Empty: icon folder, title "Nothing here yet", body "Files the agent writes in this folder appear here.", action "Refresh". If hidden files exist: body adds "Hidden files are not shown." and the action "Show".
 - Long list: after 2,000 rows a footer "Showing the first 2,000 of 5,310."
 - Unreachable: "Can't reach your Hermes server." action "Try again".
-- Folder gone: "This folder no longer exists." action "Go up".
+- Folder gone: "This folder no longer exists." action "Up".
 - No permission: "Hermes can't read this folder."
+- Workspace down (503): "Can't reach this profile's workspace." action "Try again"
+- Outside folder: "This folder is outside this chat's folder."
 - Fixed-folder deployment: "Hermes only shares files from a fixed folder on this server."
 - Offline: same as unreachable; files already downloaded still open.
 
 **Platform differences**
 
 - iPhone: full page, Back returns to the previous folder, then to the chat. Large title off (the path bar needs the room).
-- iPad (700 pt and up) and desktop (900 pt and up): list on the left, preview on the right; with nothing selected the right pane says "Select a file to preview it."
+- iPad (700 pt and up) and desktop (900 pt and up): list on the left, preview on the right; with nothing selected the right pane says "Select a file to preview it." (also a spec scenario)
 - Mac: Mac toolbar, keyboard (arrows, Enter to open, ⌘↑ up, Space Quick Look, ⌘R refresh), rows are Quick Look targets and drag out to Finder.
 - Android: Material bar, system back goes up one folder, then closes the page.
 
@@ -59,7 +61,7 @@ For the visual design pass. Read `openspec/changes/server-files/design.md` for w
 
 **Hierarchy:** (1) the content; (2) the file's name and size; (3) Save and Share.
 
-Header: name (two lines at most, extension kept), then "Python · 1.8 KB" (type word, size; size appears once known). Actions in the bar or toolbar: Save, Share (iOS and Android only), and a menu with Open with…, Reload, and Copy name. Save is the one primary action (filled on the other-file screen).
+Header: name (two lines at most, extension kept), then "Python · 1.8 KB" (type word, size; size appears once known). Actions in the bar or toolbar: Save, Share (iOS and Android only), and a menu with Open with… and Reload. The page menu also has "About this list" (why build folders and config.yaml are missing). Save is the one primary action (filled on the other-file screen).
 
 By kind:
 
@@ -67,14 +69,14 @@ By kind:
 - **Markdown**: rendered, with a segmented control Rendered / Source.
 - **Image**: fitted, pinch and pan, double tap to zoom; a checkerboard under transparency; background follows the theme.
 - **PDF**: no inline render. Centered document icon, name, "PDF document · 2.4 MB", primary button "Open". On iOS and Mac it opens Quick Look; on others the system viewer.
-- **Other file**: icon by type, name, "ZIP archive · 12 MB" (size once the headers are known; before that "Checking size…"), primary "Save", secondary "Open with…" and, on phones, "Share". Nothing downloads until one is pressed.
+- **Other file**: icon by type, name, "ZIP archive" (no size until the user presses an action), primary "Save", secondary "Open with…" and, on phones, "Share". Nothing downloads until one is pressed.
 
 **States and copy**
 
 - Downloading: progress bar with "Downloading… 14 of 30 MB" and a Cancel button. Unknown length: no bar, "Downloaded 12 MB". Respects reduced motion (no animated shimmer).
-- Size question (alert on Mac and iPad, bottom sheet on phones): title "Download this file?", body "This file is 212 MB.", buttons "Download" and "Cancel".
-- Secret question (alert on all): title "Show this file?", body "This file may contain passwords or keys.", buttons "Show" and "Cancel". Cancel leaves the list as it was.
-- Failures (in the content area, with an icon and one action): "Hermes doesn't share this file.", "This file no longer exists.", "This file is in use by Hermes right now. Try again in a moment." (action "Try again"), "This file is too large to open here.", "This isn't a regular file.", "Couldn't open this file." (action "Try again").
+- Size question (alert on Mac and iPad, bottom sheet on phones): message "This file is 212 MB. Download it anyway?", buttons "Download" and "Cancel".
+- Secret question (alert on all): message "This file may contain passwords or keys. Show it anyway?", buttons "Show" and "Cancel". Cancel leaves the list as it was.
+- Failures (in the content area, with an icon and one action): "Hermes doesn't share this file.", "This file no longer exists.", "This file is open in a database right now. Try again in a moment." (action "Try again"), "This file is too large to open here.", "This item can't be opened as a file.", "Couldn't open this file." (action "Try again").
 - Cancelled: back to the file's details with no error text.
 
 **Platform differences**

@@ -12,7 +12,7 @@ The app SHALL offer a Files page for a chat from the Activity panel's "This sess
 #### Scenario: New chat without a session
 
 - **WHEN** the user opens Files in a new chat that has not been sent yet
-- **THEN** the page lists the folder `GET /api/fs/default-cwd` returned for the chat's profile
+- **THEN** the page lists the folder `GET /api/fs/default-cwd` returned
 
 #### Scenario: Go into a folder and back
 
@@ -21,8 +21,18 @@ The app SHALL offer a Files page for a chat from the Activity panel's "This sess
 
 #### Scenario: Symlink to a folder
 
-- **WHEN** an entry is listed with `isDirectory: false` and opening it answers 400 "Path points to a directory"
-- **THEN** the page lists that path as a folder instead of showing an error
+- **WHEN** an entry is listed with `isDirectory: false` and opening it answers 400 ("Path points to a directory", or "Only regular files can be read" on SSH)
+- **THEN** the page tries it once as a folder, and shows "This folder is outside this chat's folder." without further requests when its path is not within the highest folder
+
+#### Scenario: Resolved start
+
+- **WHEN** the stored `cwd` is `/tmp/p` and the server lists entries under `/private/tmp/p`
+- **THEN** the entries are shown, because the highest folder is the one the server resolved
+
+#### Scenario: Local profile without its own folder
+
+- **WHEN** a new chat on a local profile gets the dashboard's folder from `default-cwd`
+- **THEN** the page says "Working folder of the server" above the list
 
 ### Requirement: Highest folder
 
@@ -100,6 +110,11 @@ A text file (a known extension, or a `language` the server names) SHALL be read 
 
 An image file (png, jpg, jpeg, gif, webp, bmp, svg) SHALL be downloaded to the cache and shown with pinch and pan, decoded at the size drawn. A PDF SHALL be downloaded and opened in Quick Look on iOS and macOS, and in the system's viewer elsewhere; its preview screen SHALL show the name, "PDF document", the size and the primary action Open. A file that finished downloading SHALL NOT download again until sign-out unless the user chooses Reload.
 
+#### Scenario: SVG
+
+- **WHEN** the user opens `logo.svg`
+- **THEN** its text is shown with the Source view, since the app has no SVG renderer
+
 #### Scenario: Image
 
 - **WHEN** the user opens `chart.png`
@@ -157,6 +172,21 @@ A download SHALL be written to disk as a stream, never held whole in memory, SHA
 - **WHEN** the headers of `video.mov` say 212 MB
 - **THEN** the app asks "This file is 212 MB. Download it anyway?" and downloads only after Download
 
+#### Scenario: Incomplete SSH download
+
+- **WHEN** an SSH download ends with zero bytes for a file whose size was known to be above zero, or with a connection error
+- **THEN** it is a failure, the partial file is deleted and it is not cached as complete
+
+#### Scenario: Session ends mid-download
+
+- **WHEN** the session expires and refresh fails during a download
+- **THEN** the download is cancelled, the partial file deleted and the app's normal sign-in flow takes over
+
+#### Scenario: Refresh during a download
+
+- **WHEN** the user refreshes the folder while a file downloads
+- **THEN** the download continues
+
 #### Scenario: Unknown length
 
 - **WHEN** the server sends no `Content-Length` (an SSH workspace)
@@ -189,12 +219,42 @@ The page SHALL show a labelled loading state, an empty state with the one action
 #### Scenario: File failures
 
 - **WHEN** a file cannot be read
-- **THEN** the page says, by status, 403 "Hermes doesn't share this file.", 404 "This file no longer exists.", 409 "This file is in use by Hermes right now. Try again in a moment.", 413 "This file is too large to open here.", 400 "This isn't a regular file.", otherwise "Couldn't open this file." with Try again
+- **THEN** the page says, by status, 403 "Hermes doesn't share this file.", 404 "This file no longer exists.", 409 "This file is open in a database right now. Try again in a moment.", 413 "This file is too large to open here.", 400 "This item can't be opened as a file.", otherwise "Couldn't open this file." with Try again
 
 #### Scenario: Error code in a 200
 
 - **WHEN** `GET /api/fs/list` answers 200 with `{"entries": [], "error": "EACCES"}`
 - **THEN** the page shows "Hermes can't read this folder.", not an empty folder
+
+#### Scenario: Workspace down
+
+- **WHEN** a profile's SSH workspace answers 503
+- **THEN** the page says "Can't reach this profile's workspace." with Try again
+
+#### Scenario: Git root fails
+
+- **WHEN** `git-root` fails or answers null
+- **THEN** the working folder is the highest folder
+
+#### Scenario: Large folder
+
+- **WHEN** a folder has 5,310 entries
+- **THEN** the first 2,000 are shown with "Showing the first 2,000 of 5,310."
+
+#### Scenario: Nothing selected
+
+- **WHEN** the wide layout has no file selected
+- **THEN** the preview pane says "Select a file to preview it."
+
+#### Scenario: Too large for text preview
+
+- **WHEN** `read-text` answers 413
+- **THEN** the file shows as an other file with Save
+
+#### Scenario: Hidden by Hermes
+
+- **WHEN** the user opens the page menu's About this list
+- **THEN** it says Hermes does not show build folders, config.yaml and similar files
 
 #### Scenario: Offline
 
@@ -243,6 +303,11 @@ While App Lock covers the app, no file name, list or preview SHALL be visible, a
 - **WHEN** App Lock locks the app while a file is open in Quick Look
 - **THEN** the panel closes and the lock screen is shown
 
+#### Scenario: Lock mid-download
+
+- **WHEN** App Lock locks the app while a file downloads
+- **THEN** the download continues hidden and the preview is shown again only after unlock
+
 #### Scenario: Hostile name
 
 - **WHEN** a listing contains a file named `../../x`
@@ -275,6 +340,11 @@ Every row, action and toggle SHALL be at least 44 pt (Apple) or 48 dp (Android) 
 
 - **WHEN** the system text size is the largest accessibility size
 - **THEN** rows grow, names wrap and no action is cut off
+
+#### Scenario: Dialogs and path bar
+
+- **WHEN** the size or secret question opens, or the path bar is focused
+- **THEN** the question is announced with its buttons, and each path segment is read as "<name>, folder, go to"
 
 #### Scenario: Screen reader
 
