@@ -5,6 +5,7 @@ import 'package:hermes_app/src/chat/chat_open_requests.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
+import 'package:hermes_app/src/notifications/request_notifications.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -43,7 +44,7 @@ void main() {
       );
   });
 
-  Future<void> pumpChat(WidgetTester tester) async {
+  Future<void> pumpChat(WidgetTester tester, {AuthController? auth}) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -51,7 +52,7 @@ void main() {
       MultiProvider(
         providers: [
           ChangeNotifierProvider<AuthController>(
-            create: (_) => AuthController(),
+            create: (_) => auth ?? AuthController(),
           ),
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(FakeShareInbox()),
@@ -139,4 +140,56 @@ void main() {
     expect(opened, isEmpty);
     expect(find.text('What is C++?'), findsOneWidget);
   });
+
+  group('a tap on a reply that was not sent', () {
+    NotificationTarget draft({String account = 'acct'}) =>
+        NotificationTarget.draft(
+          threadId: 'recent',
+          draft: 'Try again',
+          accountHash: accountHashFor(account),
+          profile: 'work',
+        );
+
+    testWidgets('puts the text in the composer of its chat, sending nothing', (
+      tester,
+    ) async {
+      await pumpChat(tester, auth: _Account('acct'));
+
+      service.tapTarget(draft());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsOneWidget);
+      expect(find.text('Could not open that chat.'), findsNothing);
+      expect(shown, greaterThan(0));
+    });
+
+    testWidgets('puts nothing anywhere in another account', (tester) async {
+      await pumpChat(tester, auth: _Account('other'));
+
+      service.tapTarget(draft());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsNothing);
+      expect(find.text('Could not open that chat.'), findsOneWidget);
+    });
+
+    testWidgets('puts nothing anywhere when nobody is signed in', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+
+      service.tapTarget(draft());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Try again'), findsNothing);
+      expect(find.text('Could not open that chat.'), findsOneWidget);
+    });
+  });
+}
+
+class _Account extends AuthController {
+  _Account(this._key);
+  final String _key;
+  @override
+  String? get accountKey => _key;
 }

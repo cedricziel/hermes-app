@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/notifications/local_notification_service.dart'
+    show notificationPayload;
+import 'package:hermes_app/src/notifications/request_notifications.dart';
 
 ChatThread _thread([String id = 't1']) =>
     ChatThread(id: id, title: 'Release notes', updatedAt: DateTime(2026));
@@ -101,6 +106,47 @@ void main() {
       const family = '👨‍👩‍👧‍👦';
 
       expect(replyPreview(family * 120), family * 120);
+    });
+  });
+
+  group('replyReadyNotification', () {
+    AttentionNotification note({
+      String text = '**Done** with it.',
+      bool failed = false,
+      bool appLock = false,
+    }) => replyReadyNotification(
+      threadId: 't1',
+      title: 'Release notes',
+      text: text,
+      profile: 'work',
+      failed: failed,
+      appLock: appLock,
+    );
+
+    test('a finished reply shows its preview under its chat', () {
+      final n = note();
+
+      expect(n.threadId, 't1');
+      expect(n.profile, 'work');
+      expect(n.title, 'Release notes');
+      expect(n.body, 'Done with it.');
+      expect(n.bodyIsPlainText, isTrue);
+      expect(n.category, same(replyReadyCategory));
+      expect(n.request, isNull);
+      expect(jsonDecode(notificationPayload(n)), {'t': 't1', 'p': 'work'});
+    });
+
+    test('App Lock and an empty reply stay generic', () {
+      expect(note(appLock: true).body, kReplyReadyBody);
+      expect(note(text: '').body, kReplyReadyBody);
+      expect(note(appLock: true).category, same(replyReadyCategory));
+    });
+
+    test('a failed reply has its own words and category', () {
+      final n = note(failed: true);
+
+      expect(n.body, kReplyFailedBody);
+      expect(n.category, same(replyFailedCategory));
     });
   });
 
