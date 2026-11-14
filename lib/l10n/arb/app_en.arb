@@ -322,6 +322,398 @@
 
   "@@x-area-chat/side_results": "",
 
+  "@@x-area-chat/subagents": "",
+  "chatSubagentsActionShowDetails": "Show details",
+  "@chatSubagentsActionShowDetails": {
+    "description": "Custom action and swipe or long-press item that opens an agent's details."
+  },
+  "chatSubagentsActionStopAgent": "Stop agent",
+  "@chatSubagentsActionStopAgent": {
+    "description": "Custom action and swipe item that asks whether to stop an agent."
+  },
+  "chatSubagentsBannerAgentEnded": "That agent has ended.",
+  "@chatSubagentsBannerAgentEnded": {
+    "description": "Banner when the agent ended while the stop confirmation was open."
+  },
+  "chatSubagentsBannerAlreadyFinished": "This agent had already finished.",
+  "@chatSubagentsBannerAlreadyFinished": {
+    "description": "Banner when a re-read showed the agent had ended before the stop."
+  },
+  "chatSubagentsBannerCheckingDetail": "Checking…",
+  "@chatSubagentsBannerCheckingDetail": {
+    "description": "Detail of the banner while the app re-reads the list."
+  },
+  "chatSubagentsBannerCheckingTitle": "Couldn't confirm the stop.",
+  "@chatSubagentsBannerCheckingTitle": {
+    "description": "Title of the banner while the app re-reads the list after a lost answer."
+  },
+  "chatSubagentsBannerNotControllable": "Hermes doesn't let this device stop or redirect this agent. It keeps running.",
+  "@chatSubagentsBannerNotControllable": {
+    "description": "Banner for a running agent the server lists but does not let this device control."
+  },
+  "chatSubagentsBannerNoteFailedTitle": "Couldn't send the note.",
+  "@chatSubagentsBannerNoteFailedTitle": {
+    "description": "Title of the banner when sending a note failed."
+  },
+  "chatSubagentsBannerNoteLostDetail": "Sending it again may deliver it twice.",
+  "@chatSubagentsBannerNoteLostDetail": {
+    "description": "Detail of the banner when the answer to a note was lost."
+  },
+  "chatSubagentsBannerNoteLostTitle": "Couldn't confirm the note was sent.",
+  "@chatSubagentsBannerNoteLostTitle": {
+    "description": "Title of the banner when the answer to a note was lost."
+  },
+  "chatSubagentsBannerNoteMissedDetail": "It had finished first.",
+  "@chatSubagentsBannerNoteMissedDetail": {
+    "description": "Detail of the banner when Hermes says the note arrived too late."
+  },
+  "chatSubagentsBannerNoteMissedTitle": "Your note didn't reach the agent.",
+  "@chatSubagentsBannerNoteMissedTitle": {
+    "description": "Title of the banner when Hermes says the note arrived too late."
+  },
+  "chatSubagentsBannerNoteRejected": "This agent isn't taking notes now.",
+  "@chatSubagentsBannerNoteRejected": {
+    "description": "Banner when the server refused the note."
+  },
+  "chatSubagentsBannerNoteUnsupported": "This server can't take notes for agents.",
+  "@chatSubagentsBannerNoteUnsupported": {
+    "description": "Banner when the server has no steer call."
+  },
+  "chatSubagentsBannerOffline": "You're offline. This is the last output read. Stop and notes work again once Hermes is back.",
+  "@chatSubagentsBannerOffline": {
+    "description": "Banner while there is no connection to Hermes."
+  },
+  "chatSubagentsBannerSentDetail": "The agent gets it after its current step.",
+  "@chatSubagentsBannerSentDetail": {
+    "description": "Detail of the banner once a note was queued."
+  },
+  "chatSubagentsBannerSentTitle": "Sent.",
+  "@chatSubagentsBannerSentTitle": {
+    "description": "Title of the banner once a note was queued."
+  },
+  "chatSubagentsBannerStopFailedTitle": "Couldn't stop the agent.",
+  "@chatSubagentsBannerStopFailedTitle": {
+    "description": "Title of the banner when the stop failed."
+  },
+  "chatSubagentsBannerStopUnsupported": "This server can't stop agents.",
+  "@chatSubagentsBannerStopUnsupported": {
+    "description": "Banner when the server has no stop call."
+  },
+  "chatSubagentsBannerStoppingDetail": "A tool that is running may be cut off.",
+  "@chatSubagentsBannerStoppingDetail": {
+    "description": "Detail of the banner once the server accepted the stop."
+  },
+  "chatSubagentsBannerStoppingTitle": "Stopping…",
+  "@chatSubagentsBannerStoppingTitle": {
+    "description": "Title of the banner once the server accepted the stop."
+  },
+  "chatSubagentsBannerTryAgain": "Try again.",
+  "@chatSubagentsBannerTryAgain": {
+    "description": "Detail of a banner after a failure the user may retry."
+  },
+  "chatSubagentsBannerUnconfirmedDetail": "It may still be running.",
+  "@chatSubagentsBannerUnconfirmedDetail": {
+    "description": "Detail of the banner when the stop could not be confirmed; the user may try again."
+  },
+  "chatSubagentsConfirmCancel": "Cancel",
+  "@chatSubagentsConfirmCancel": {
+    "description": "Cancel button of the stop confirmation."
+  },
+  "chatSubagentsConfirmMessage": "{goal}\n\nIt stops as soon as it can, along with any agents it started. A tool that is running may be cut off. What it already did stays, and the reply goes on without the rest. Programs it started keep running.",
+  "@chatSubagentsConfirmMessage": {
+    "description": "Message of the stop confirmation. {goal} is the agent's goal cut to one line.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsConfirmTitle": "Stop this agent?",
+  "@chatSubagentsConfirmTitle": {
+    "description": "Title of the confirmation before an agent is stopped."
+  },
+  "chatSubagentsDelivered": "What it delivered",
+  "@chatSubagentsDelivered": {
+    "description": "Title of the section with the agent's final summary."
+  },
+  "chatSubagentsDetailBack": "Activity",
+  "@chatSubagentsDetailBack": {
+    "description": "Label of the back control of an agent's detail on Apple platforms."
+  },
+  "chatSubagentsDetailBackTooltip": "Back to Activity",
+  "@chatSubagentsDetailBackTooltip": {
+    "description": "Accessible name of the back control of an agent's detail."
+  },
+  "chatSubagentsDetailClose": "Close",
+  "@chatSubagentsDetailClose": {
+    "description": "Accessible name of the close control of an agent's detail in a sheet."
+  },
+  "chatSubagentsDetailTitle": "Agent",
+  "@chatSubagentsDetailTitle": {
+    "description": "Title of an agent's detail."
+  },
+  "chatSubagentsEarlierNotShown": "{count, plural, =1{1 earlier agent not shown} other{{count} earlier agents not shown}}",
+  "@chatSubagentsEarlierNotShown": {
+    "description": "Line under the ended agents when older ones are left out. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSubagentsEndedFailed": "This agent failed. Stop and notes no longer apply.",
+  "@chatSubagentsEndedFailed": {
+    "description": "Line under the facts of a failed agent."
+  },
+  "chatSubagentsEndedFinished": "This agent has finished. Stop and notes no longer apply.",
+  "@chatSubagentsEndedFinished": {
+    "description": "Line under the facts of a finished agent."
+  },
+  "chatSubagentsEndedStopped": "This agent was stopped.",
+  "@chatSubagentsEndedStopped": {
+    "description": "Line under the facts of a stopped agent."
+  },
+  "chatSubagentsEndedUnknown": "This agent is no longer running.",
+  "@chatSubagentsEndedUnknown": {
+    "description": "Line under the facts of an agent that ended with no known result."
+  },
+  "chatSubagentsMenuShowDetails": "Show Details",
+  "@chatSubagentsMenuShowDetails": {
+    "description": "Mac context menu item that opens an agent's details."
+  },
+  "chatSubagentsMenuStopAgent": "Stop Agent…",
+  "@chatSubagentsMenuStopAgent": {
+    "description": "Mac context menu item that asks whether to stop an agent."
+  },
+  "chatSubagentsNoteCopy": "Copy",
+  "@chatSubagentsNoteCopy": {
+    "description": "Button that copies the unsent note."
+  },
+  "chatSubagentsNoteCounter": "{count} / {limit}",
+  "@chatSubagentsNoteCounter": {
+    "description": "Character counter of the note field. {count} is the length, {limit} the most allowed.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "limit": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatSubagentsNoteHelper": "Goes only to this agent, after the step it's on. It isn't added to the chat. Notes aren't kept once you close this.",
+  "@chatSubagentsNoteHelper": {
+    "description": "Helper text under the note field."
+  },
+  "chatSubagentsNoteLabel": "Note to this agent",
+  "@chatSubagentsNoteLabel": {
+    "description": "Screen-reader name of the note field."
+  },
+  "chatSubagentsNoteNotSent": "Not sent",
+  "@chatSubagentsNoteNotSent": {
+    "description": "Heading of typed text that can no longer be sent."
+  },
+  "chatSubagentsNotePlaceholder": "Tell this agent what to do differently",
+  "@chatSubagentsNotePlaceholder": {
+    "description": "Placeholder of the note field."
+  },
+  "chatSubagentsNoteSend": "Send to agent",
+  "@chatSubagentsNoteSend": {
+    "description": "Button that sends the note to the agent."
+  },
+  "chatSubagentsNoteSending": "Sending…",
+  "@chatSubagentsNoteSending": {
+    "description": "Label of the send button while the note is on its way."
+  },
+  "chatSubagentsNoteTitle": "Redirect this agent",
+  "@chatSubagentsNoteTitle": {
+    "description": "Title of the section where the user writes a note to one agent."
+  },
+  "chatSubagentsNoteTo": "To: {goal}",
+  "@chatSubagentsNoteTo": {
+    "description": "Line naming the agent a note goes to. {goal} is the agent's goal.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsNotesSent": "Your notes",
+  "@chatSubagentsNotesSent": {
+    "description": "Title of the list of notes sent to this agent while the detail stays open."
+  },
+  "chatSubagentsOutputJump": "Jump to latest",
+  "@chatSubagentsOutputJump": {
+    "description": "Button that shows the newest output and resumes following it."
+  },
+  "chatSubagentsOutputLabel": "Agent output",
+  "@chatSubagentsOutputLabel": {
+    "description": "Screen-reader name of the output text area."
+  },
+  "chatSubagentsOutputLoading": "Reading output…",
+  "@chatSubagentsOutputLoading": {
+    "description": "Shown while the first read of an agent's output is pending."
+  },
+  "chatSubagentsOutputNever": "Output isn't available here.",
+  "@chatSubagentsOutputNever": {
+    "description": "Shown when an agent's output stays unavailable long after it started."
+  },
+  "chatSubagentsOutputNone": "No output yet",
+  "@chatSubagentsOutputNone": {
+    "description": "Shown when a running agent has printed nothing yet."
+  },
+  "chatSubagentsOutputPaused": "Paused",
+  "@chatSubagentsOutputPaused": {
+    "description": "Pill over the output while a selection or scroll position holds the refresh."
+  },
+  "chatSubagentsOutputRefreshFailed": "Couldn't refresh the output.",
+  "@chatSubagentsOutputRefreshFailed": {
+    "description": "Line under the output when a refresh failed; the last text stays."
+  },
+  "chatSubagentsOutputTitle": "Recent output",
+  "@chatSubagentsOutputTitle": {
+    "description": "Title of the section that shows what a running agent printed lately."
+  },
+  "chatSubagentsOutputTitleLast": "Last output",
+  "@chatSubagentsOutputTitleLast": {
+    "description": "Title of the output section once the agent ended; the text no longer refreshes."
+  },
+  "chatSubagentsOutputTruncated": "Showing the latest output",
+  "@chatSubagentsOutputTruncated": {
+    "description": "Note under the output title when only the end of the output is shown."
+  },
+  "chatSubagentsRowCurrent": "{tool} · {preview}",
+  "@chatSubagentsRowCurrent": {
+    "description": "Third line of a running agent row: the tool it uses now and what it does with it.",
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      },
+      "preview": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowLine": "{state} · {time}",
+  "@chatSubagentsRowLine": {
+    "description": "Second line of an agent row without tool count: the state word and the run time.",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowLineTools": "{state} · {time} · {tools}",
+  "@chatSubagentsRowLineTools": {
+    "description": "Second line of an agent row: the state word, the run time and the tools used.",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "tools": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowSemantics": "{goal}, {state}, {tools}, {time}",
+  "@chatSubagentsRowSemantics": {
+    "description": "Screen-reader label of an agent row: goal, state, tools used and run time.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      },
+      "tools": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowSemanticsNoTools": "{goal}, {state}, {time}",
+  "@chatSubagentsRowSemanticsNoTools": {
+    "description": "Screen-reader label of an agent row that has used no tool yet.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSubagentsRowShowDetailsHint": "Shows details in Activity",
+  "@chatSubagentsRowShowDetailsHint": {
+    "description": "Screen-reader hint of a row that opens an agent's details in the Activity panel."
+  },
+  "chatSubagentsStartedByAgent": "Started by another agent",
+  "@chatSubagentsStartedByAgent": {
+    "description": "Fact line of an agent that another agent delegated to."
+  },
+  "chatSubagentsStateEnded": "Ended",
+  "@chatSubagentsStateEnded": {
+    "description": "State word of an agent that is no longer running without a known result."
+  },
+  "chatSubagentsStateFailed": "Failed",
+  "@chatSubagentsStateFailed": {
+    "description": "State word of an agent whose work failed."
+  },
+  "chatSubagentsStateFinished": "Finished",
+  "@chatSubagentsStateFinished": {
+    "description": "State word of an agent that completed."
+  },
+  "chatSubagentsStateRunning": "Running",
+  "@chatSubagentsStateRunning": {
+    "description": "State word of an agent that is working."
+  },
+  "chatSubagentsStateStarting": "Starting",
+  "@chatSubagentsStateStarting": {
+    "description": "State word of an agent that was just delegated and has not begun."
+  },
+  "chatSubagentsStateStopped": "Stopped",
+  "@chatSubagentsStateStopped": {
+    "description": "State word of an agent the user stopped."
+  },
+  "chatSubagentsStopBusy": "Stopping…",
+  "@chatSubagentsStopBusy": {
+    "description": "Label of the stop button while the stop is in flight."
+  },
+  "chatSubagentsStopButton": "Stop agent",
+  "@chatSubagentsStopButton": {
+    "description": "Button that asks whether to stop the agent, and the confirmation's destructive button."
+  },
+  "chatSubagentsStopFootnote": "Programs it started keep running.",
+  "@chatSubagentsStopFootnote": {
+    "description": "Line under the stop button."
+  },
+  "chatSubagentsToolCount": "{count, plural, =1{1 tool} other{{count} tools}}",
+  "@chatSubagentsToolCount": {
+    "description": "How many tools an agent has used. {count} is the number.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatSubagentsWentWrong": "What went wrong",
+  "@chatSubagentsWentWrong": {
+    "description": "Title of the section with a failed delegation's error."
+  },
+
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
