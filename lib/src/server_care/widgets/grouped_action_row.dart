@@ -72,7 +72,7 @@ class GroupedActionRow extends StatelessWidget {
     final status = this.status;
     final working = status?.phase == GroupedActionPhase.working;
     final done = status?.phase == GroupedActionPhase.done;
-    final accent = mac ? scheme.onSurface : scheme.primary;
+    final accent = mac ? scheme.onSurface : colors.link;
     final shownTitle = (working || done) ? status!.text : title;
     final leadingColor = done ? colors.success : accent;
     final leading = done ? AppIcons.checkCircle : icon;

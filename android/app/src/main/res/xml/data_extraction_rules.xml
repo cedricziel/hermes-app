@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and newer: the same exclusion for cloud backup and for
+     device-to-device transfer. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="HomeWidgetPreferences.xml"/>
+        <exclude domain="sharedpref" path="InternalHomeWidgetPreferences.xml"/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="HomeWidgetPreferences.xml"/>
+        <exclude domain="sharedpref" path="InternalHomeWidgetPreferences.xml"/>
+    </device-transfer>
+</data-extraction-rules>

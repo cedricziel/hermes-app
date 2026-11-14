@@ -1,3 +1,5 @@
+import '../context/context_models.dart' show ContextSource, parseContextSource;
+
 class UsageSnapshot {
   const UsageSnapshot({
     this.model,
@@ -11,6 +13,7 @@ class UsageSnapshot {
     this.contextMax,
     this.contextPercent,
     this.contextEstimated,
+    this.contextSource,
     this.costUsd,
     this.costStatus,
   });
@@ -19,6 +22,9 @@ class UsageSnapshot {
   final int? input, output, reasoning, total, calls, compressions;
   final int? contextUsed, contextMax, contextPercent;
   final bool? contextEstimated;
+
+  /// Where `context_used` came from; null when the server did not say.
+  final ContextSource? contextSource;
   final num? costUsd;
   final String? costStatus;
 
@@ -48,6 +54,10 @@ class UsageSnapshot {
       contextEstimated: value['context_estimated'] is bool
           ? value['context_estimated'] as bool
           : null,
+      contextSource: switch (parseContextSource(value['context_source'])) {
+        ContextSource.unknown => null,
+        final source => source,
+      },
       costUsd: cost is num && cost.isFinite && cost >= 0 ? cost : null,
       costStatus: text('cost_status'),
     );

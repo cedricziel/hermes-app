@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
-import 'package:hermes_app/src/server_care/widgets/command_row.dart';
-import 'package:hermes_app/src/server_care/widgets/loading_skeleton.dart';
+import 'package:hermes_app/src/widgets/command_row.dart';
+import 'package:hermes_app/src/widgets/loading_skeleton.dart';
 import 'package:hermes_app/src/server_care/widgets/log_level_chip.dart';
 import 'package:hermes_app/src/server_care/widgets/log_level_menu_button.dart';
 import 'package:hermes_app/src/server_care/widgets/log_line_tile.dart';
@@ -18,11 +18,6 @@ import 'frame.dart';
 /// setting would show it.
 Widget _largest(BuildContext context, Widget child) => MediaQuery(
   data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(2)),
-  child: child,
-);
-
-Widget _reduceMotion(BuildContext context, Widget child) => MediaQuery(
-  data: MediaQuery.of(context).copyWith(disableAnimations: true),
   child: child,
 );
 
@@ -393,7 +388,7 @@ List<WidgetbookNode> serverCareUpdateLogsNodes() => [
     ],
   ),
   WidgetbookComponent(
-    name: 'CommandRow',
+    name: 'Command in the update page',
     useCases: [
       WidgetbookUseCase(
         name: 'Cannot apply section',
@@ -421,23 +416,6 @@ List<WidgetbookNode> serverCareUpdateLogsNodes() => [
               _CommandBox(command: 'hermes tools install browser'),
             ],
           ),
-        ),
-      ),
-      ...onEachPlatform(
-        'Long command',
-        (_) => frame(
-          const CommandRow(
-            command:
-                'curl -fsSL https://example.invalid/install.sh | '
-                'bash -s -- --upgrade --channel stable',
-          ),
-        ),
-      ),
-      WidgetbookUseCase(
-        name: 'Largest text',
-        builder: (context) => _largest(
-          context,
-          frame(const CommandRow(command: 'hermes update --yes')),
         ),
       ),
     ],
@@ -667,22 +645,6 @@ List<WidgetbookNode> serverCareUpdateLogsNodes() => [
               ),
             ),
           ),
-        ),
-      ),
-    ],
-  ),
-  WidgetbookComponent(
-    name: 'LoadingSkeleton',
-    useCases: [
-      WidgetbookUseCase(
-        name: 'Default',
-        builder: (_) => frame(const LoadingSkeleton(label: 'Loading logs')),
-      ),
-      WidgetbookUseCase(
-        name: 'Reduce Motion',
-        builder: (context) => _reduceMotion(
-          context,
-          frame(const LoadingSkeleton(label: 'Loading logs', lines: 5)),
         ),
       ),
     ],

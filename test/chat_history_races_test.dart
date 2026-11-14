@@ -637,6 +637,60 @@ void main() {
     expect(contents('s1'), ['Hi', '/undo', 'Undid']);
   });
 
+  test('listing the chats again keeps the turn that is running', () async {
+    page(history());
+    await open();
+    await pumpEventQueue();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    send.emit(const ReplyDelta('Par'));
+    await pumpEventQueue();
+    final running = thread('s1');
+
+    await chat.loadThreads('work');
+    await pumpEventQueue();
+
+    expect(chat.threads.where((t) => t.id == 's1'), hasLength(1));
+    expect(identical(thread('s1'), running), isTrue);
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Par']);
+    expect(chat.selectedThread, same(running));
+    send
+      ..emit(const ReplyCompleted('Partial'))
+      ..finish();
+    await sent;
+    await pumpEventQueue();
+    expect(contents('s1').last, 'Partial');
+  });
+
+  test('a prompt sent into an untitled chat before its page lands does not '
+      'retitle it', () async {
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([
+        sessionRow(
+          id: 's1',
+          preview: 'Earlier question',
+          lastActive: 1780000100,
+        ),
+      ]),
+    );
+    final gate = Completer<void>();
+    gatePage(gate, history);
+    await open();
+    final title = thread('s1').title;
+
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+
+    expect(thread('s1').title, title);
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+    expect(thread('s1').title, title);
+  });
+
   test('a prompt sent into a chat stays in it when another is opened while '
       'its page loads', () async {
     final gate = Completer<void>();

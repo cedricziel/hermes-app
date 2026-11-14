@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_otel/flutter_otel.dart' show StatusCode;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals.dart';
 import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
@@ -66,7 +67,7 @@ void main() {
     });
 
     test('a kind that fails leaves the other readable', () async {
-      transport.script['/memory pending'] = StateError('socket');
+      transport.script['/memory pending'] = const GatewayConnectionClosed();
       transport.script['/skills pending'] = skillsPending;
       final snapshot = await repository.load('work');
       expect(snapshot.memory.status, ProposalReadStatus.failed);
@@ -109,10 +110,11 @@ void main() {
     });
 
     test('a failure is traced and rethrown', () async {
-      transport.script['/skills diff cc000001'] = StateError('socket');
+      transport.script['/skills diff cc000001'] =
+          const GatewayConnectionClosed();
       await expectLater(
         repository.diff('work', 'cc000001'),
-        throwsA(isA<StateError>()),
+        throwsA(isA<GatewayConnectionClosed>()),
       );
       expect(tracer.spans.single.name, 'memory.proposals.diff');
       expect(tracer.spans.single.attributes['outcome'], 'failed');
@@ -123,7 +125,7 @@ void main() {
   group('telemetry', () {
     test('a read is one span per kind with counts only', () async {
       transport.script['/memory pending'] = mixedMemoryPending;
-      transport.script['/skills pending'] = StateError('private socket text');
+      transport.script['/skills pending'] = const GatewayConnectionClosed();
       await repository.load('private-profile');
       final spans = tracer.spans;
       expect(spans.map((s) => s.name), everyElement('memory.proposals.fetch'));

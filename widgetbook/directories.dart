@@ -14,6 +14,7 @@ import 'agent_warning_use_cases.dart';
 import 'session_state_use_cases.dart';
 import 'todo_plan_use_cases.dart';
 import 'activity_panel_use_cases.dart';
+import 'needs_you_dock_use_cases.dart';
 import 'moa_progress_use_cases.dart';
 import 'background_check_status_use_cases.dart';
 import 'queue_recovery_use_cases.dart';
@@ -40,6 +41,8 @@ import 'mac_sidebar_use_cases.dart';
 import 'mac_toolbar_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
 import 'mcp_use_cases.dart';
+import 'secret_field_use_cases.dart';
+import 'shared_widgets_use_cases.dart';
 import 'app_banner_use_cases.dart';
 import 'model_use_cases.dart';
 import 'palette_use_cases.dart';
@@ -85,6 +88,9 @@ final List<WidgetbookNode> directories = [
   sudoPasswordPromptNode(),
   botScreenViewerNode(),
   activityButtonNode(),
+  needsYouDockNode(),
+  needsYouBodiesNode(),
+  activityWaitingMarkerNode(),
   moaProgressNode(),
   backgroundCheckStatusNode(),
   queueRecoveryNode(),
@@ -142,6 +148,8 @@ final List<WidgetbookNode> directories = [
   pluginsNode(),
   pluginsScreensNode(),
   appBannerNode(),
+  secretFieldNode(),
+  sharedWidgetsNode(),
   mcpNode(),
   mcpScreensNode(),
   settingsScreensNode(),

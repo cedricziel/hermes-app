@@ -9,7 +9,7 @@ import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/server_care/usage_controller.dart';
 import 'package:hermes_app/src/server_care/usage_page.dart';
-import 'package:hermes_app/src/server_care/widgets/loading_skeleton.dart';
+import 'package:hermes_app/src/widgets/loading_skeleton.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_day_list.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';

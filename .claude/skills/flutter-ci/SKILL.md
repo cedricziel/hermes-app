@@ -51,6 +51,23 @@ still fails it. A skipped build or test on a PR is therefore normal, not a
 missing check. If a test starts reading a file under a docs-only path, remove
 that path from the `case` in the `Changes` job.
 
+`Changes` also outputs `builds`, which the five platform builds need besides
+`code`. On a pull request it is true when a changed file is under `android/`,
+`ios/`, `macos/`, `linux/`, `windows/`, `web/`, `assets/`, `fastlane/`,
+or `packages/` (except `packages/hermes_api/lib/`), is any
+`pubspec.yaml` or `pubspec.lock`, `.fvmrc`, `scripts/package-linux.sh`,
+`design/icon-512.png` (which that script copies) or `ci.yml`. Dart under `lib/`
+and `test/`, ARB files, `analysis_options.yaml` and `l10n.yaml` do not trigger
+builds. Analyze and the tests cover them, but release-mode problems a Dart-only
+change can cause (icon tree shaking on a non-const `IconData`, AOT-only or
+conditional-import problems, a platform-only plugin call) are caught on main's
+run only, since push to main and `workflow_dispatch` build everything. The
+native audio test (`test/voice/native_voice_player_test.dart`, real libmpv)
+runs for every code PR in its own job, `Test native audio (Linux)`, which
+`Analyze & test` does not wait for. When a build starts to read a
+new path (a script it calls, a new asset folder), add it to the `builds` case in
+the `Changes` job, or PRs that touch only that path will skip the build.
+
 Only pull-request runs are cancelled by a newer push (`cancel-in-progress` is
 conditional in `ci.yml`, `messenger-plugin.yml`, `real-backend-contract.yml`
 and `verify-hermes-api-client.yml`). On main a run in progress finishes and a

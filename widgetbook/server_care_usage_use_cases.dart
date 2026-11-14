@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/l10n/l10n.dart';
-import 'package:hermes_app/src/server_care/widgets/loading_skeleton.dart';
+import 'package:hermes_app/src/widgets/loading_skeleton.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_controls.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_day_list.dart';

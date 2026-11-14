@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../l10n/l10n.dart';
-import '../../theme/platform_chrome.dart';
+import '../../l10n/l10n.dart';
+import '../theme/platform_chrome.dart';
 
 /// A shell command in a surface-high box, in monospace and selectable, with a
 /// Copy button. Copying announces "Command copied" to screen readers and, for
