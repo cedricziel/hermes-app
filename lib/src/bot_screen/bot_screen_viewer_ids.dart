@@ -28,6 +28,15 @@ class BotScreenViewerIds {
     _latest = id;
   }
 
+  /// Forgets [id] after a release for it did not get through: the lease it may
+  /// still hold then names no id of this app, so it reads as someone else's and
+  /// the card offers Hand back to Hermes instead of the next viewer resuming it
+  /// without asking. Nothing is stored.
+  void forget(String id) {
+    _hashes.remove(hashOf(id));
+    if (_latest == id) _latest = null;
+  }
+
   /// The id added last, for the next observe to ask for: the server keeps it
   /// when the same connection minted it and mints another otherwise.
   String? get latest => _latest;

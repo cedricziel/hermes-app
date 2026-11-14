@@ -922,14 +922,25 @@ class BotScreenViewerController extends ChangeNotifier {
     _coverTimer = null;
     _dropInput();
     if (screen.inControlHere) {
+      var released = false;
       try {
-        await handBack(reason: reason)
+        released = await handBack(reason: reason)
             .timeout(kViewerReleaseBudget, onTimeout: () => false);
       } on Object {
         // The close below hands the lease back as well.
       }
+      if (!released) _forgetIds();
     }
     dispose();
+  }
+
+  /// Drops the ids this viewer used from the app's set after a release that did
+  /// not get through, so a lease that may still be held reads as someone
+  /// else's on the next open and Hand back to Hermes is offered.
+  void _forgetIds() {
+    final latest = _ids.latest, own = _viewerId;
+    if (own != null) _ids.forget(own);
+    if (latest != null) _ids.forget(latest);
   }
 
   /// Forgets the notice that this device lost control.

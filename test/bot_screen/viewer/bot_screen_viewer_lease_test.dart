@@ -1023,6 +1023,23 @@ void main() {
       });
     });
 
+    test('a release that did not get through leaves no id of this app naming '
+        'the lease, so the next open offers Hand back instead of resuming', () {
+      scenario(() {
+        pausedOnDeadConnection();
+        gateway.silent.add('display.lease.release');
+
+        unawaited(viewer.shutDown('sign_out'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(server.holderId, 'viewer-2');
+        expect(ids.holds(BotScreenViewerIds.hashOf('viewer-2')), isFalse);
+        expect(ids.holds(BotScreenViewerIds.hashOf('viewer-1')), isFalse);
+      });
+    });
+
     test('while watching it only closes', () {
       scenario(() {
         final first = channel;
