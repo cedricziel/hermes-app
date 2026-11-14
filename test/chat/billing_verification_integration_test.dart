@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/chat/activity/bound_needs_you_dock.dart';
 import 'package:hermes_app/src/chat/billing_verification_controller.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
@@ -452,12 +454,16 @@ void main() {
       });
       final composer = TextEditingController(),
           focus = FocusNode(),
-          latest = LatestReply();
+          latest = LatestReply(),
+          queue = needsYouQueueFor(chat);
       addTearDown(composer.dispose);
       addTearDown(focus.dispose);
       addTearDown(latest.dispose);
+      addTearDown(queue.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: chatWithActivity(
               chat,
@@ -472,6 +478,7 @@ void main() {
                 onRemoveAttachment: (_) {},
                 onSend: (_) {},
                 latestReply: latest,
+                needsYou: queue,
               ),
             ),
           ),
@@ -488,15 +495,12 @@ void main() {
         await pumpEventQueue();
       });
       await tester.pump();
-      final disclosure = find.descendant(
-        of: find.byType(BillingVerificationCard),
-        matching: find.byType(ExpansionTile),
-      );
-      await tester.ensureVisible(disclosure);
-      await tester.tap(disclosure);
-      await tester.pumpAndSettle();
+      // The details dock above the composer, not in the panel.
+      expect(find.byKey(const Key('needs-you-dock')), findsOneWidget);
+      expect(find.byType(BillingVerificationCard), findsNothing);
       expect(find.text('PRIVATE-CODE'), findsOneWidget);
       expect(find.text('Copy code'), findsOneWidget);
+      expect(find.text('Open verification page'), findsOneWidget);
       expect(tester.takeException(), isNull);
       lock.setCovered(true);
       await tester.pump();
