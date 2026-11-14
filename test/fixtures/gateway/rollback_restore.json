@@ -1,82 +1,123 @@
 {
   "source_ref": "d923a5eb",
-  "note": "Invented content in the shapes of the Hermes gateway handlers and tests named in openspec/changes/chat-checkpoints-and-context/design.md. No real paths, hashes or messages.",
+  "note": "Recorded from a throwaway Hermes (see source_ref) on a scripted model, then scrubbed: invented paths, hashes and times. Cases marked invented could not be reached over the RPC and stay hand-built.",
   "source": "tui_gateway/methods_tools.py::rollback.restore, tools/checkpoint_manager.py",
   "cases": {
     "success_history_removed": {
       "result": {
         "success": true,
         "restored_to": "1a2b3c4d",
-        "reason": "before write_file",
-        "directory": "/srv/example/project",
-        "history_removed": 3
-      }
+        "reason": "before patch",
+        "directory": "/srv/demo/project",
+        "history_removed": 6
+      },
+      "source": "recorded"
+    },
+    "success_file": {
+      "result": {
+        "success": true,
+        "restored_to": "1a2b3c4d",
+        "reason": "before patch",
+        "directory": "/srv/demo/project",
+        "file": "notes.md"
+      },
+      "source": "recorded"
     },
     "no_checkpoints": {
       "result": {
         "success": false,
         "error": "No checkpoints exist for this directory"
-      }
+      },
+      "source": "recorded"
     },
     "not_found": {
       "result": {
         "success": false,
-        "error": "Checkpoint '5e6f7a8b' not found"
-      }
+        "error": "Checkpoint 'deadbeefdeadbeef' not found",
+        "debug": "fatal: Not a valid object name deadbeefdeadbeef"
+      },
+      "source": "recorded"
     },
     "path_escapes": {
       "result": {
         "success": false,
-        "error": "File path escapes the working directory via traversal"
-      }
+        "error": "File path escapes the working directory via traversal: '../x'"
+      },
+      "source": "recorded"
+    },
+    "absolute_path": {
+      "result": {
+        "success": false,
+        "error": "File path must be relative, got absolute path: '/etc/passwd'"
+      },
+      "source": "recorded"
     },
     "matched_no_files": {
       "result": {
         "success": false,
         "error": "Restore selection matched no files in checkpoint: notes/missing.md"
-      }
+      },
+      "source": "invented: the RPC restores with git checkout, so a name the checkpoint lacks is a git error (restore_failed)"
     },
     "nested_repositories": {
       "result": {
         "success": false,
-        "error": "Checkpoint contains nested git repositories that were not captured (vendor/lib); rollback was not performed"
-      }
+        "error": "Checkpoint contains nested git repositories that were not captured (vendor/lib); rollback was not performed",
+        "nested_repositories": [
+          "vendor/lib"
+        ]
+      },
+      "source": "recorded"
     },
     "restore_failed": {
       "result": {
         "success": false,
-        "error": "Restore failed: error: pathspec did not match"
-      }
+        "error": "Restore failed: error: pathspec 'missing.md' did not match any file(s) known to git",
+        "debug": "error: pathspec 'missing.md' did not match any file(s) known to git"
+      },
+      "source": "recorded"
     },
     "store_busy": {
       "result": {
         "success": false,
         "error": "checkpoint store is busy: /srv/example/store"
-      }
+      },
+      "source": "invented: needs a second process holding the checkpoint store lock"
     },
     "container": {
       "result": {
         "success": false,
         "error": "Checkpoints are not taken for terminal.backend=docker: file paths belong to the container, not this host."
-      }
+      },
+      "source": "recorded"
     },
     "busy_4009": {
       "error": {
         "code": 4009,
-        "message": "session busy — a reply is running"
-      }
+        "message": "session busy — Hermes is still replying. Stop the current reply first (Stop button, or Ctrl+C in a terminal), then run /rollback restore."
+      },
+      "source": "recorded"
+    },
+    "hash_required_4014": {
+      "error": {
+        "code": 4014,
+        "message": "hash required"
+      },
+      "source": "recorded"
     },
     "history_not_rewound_5021": {
       "error": {
         "code": 5021,
         "message": "checkpoint restored, but session history rewind failed: database is locked"
-      }
+      },
+      "source": "invented: needs the history rewind to raise"
     },
     "failed_5021": {
       "error": {
         "code": 5021,
         "message": "rollback failed: unexpected error"
-      }
+      },
+      "source": "invented: needs an unexpected exception inside the restore"
     }
   }
 }

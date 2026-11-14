@@ -473,8 +473,12 @@ void main() {
         ) as CompressBusy).reason,
         CheckpointBusyReason.compressing,
       );
-      gateway.handlers['session.compress'] = (_) =>
-          throw const FakeRpcError(4009, 'session busy — agent running');
+      // The reply wording names /compress too; it is still a reply.
+      gateway.handlers['session.compress'] = (_) => throw const FakeRpcError(
+        4009,
+        'session busy — Hermes is still replying. Stop the current reply '
+        'first (Stop button, or Ctrl+C in a terminal), then run /compress.',
+      );
       expect(
         (await transport.compressSession(
           'stored-1',

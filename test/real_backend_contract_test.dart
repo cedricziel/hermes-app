@@ -117,6 +117,14 @@ import 'support/attachment_fixtures.dart';
 /// backend fails ("Named profile home does not exist") until it restarts.
 /// The server files tests only read: they list, read and download files in
 /// the folder the dashboard runs in, and write nothing on the backend.
+/// The checkpoint and context tests run a scripted model on the default
+/// profile (and put its config back); they write throwaway folders under the
+/// system temp directory, and with `HERMES_DEV_CHECKPOINTS=1` (the backend
+/// started with `HERMES_TUI_CHECKPOINTS=1`) they restore files there. They
+/// need a fresh backend, and `HERMES_DEV_HOME` for the memory and
+/// first-checkpoint checks. `HERMES_DEV_RECORD=<dir>` writes their raw answers
+/// to `recorded-on.json` or `recorded-off.json` there, for refreshing
+/// `test/fixtures/gateway/` after scrubbing.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -3980,6 +3988,1257 @@ approvals:
       skip: skip,
     );
   });
+
+  // The checkpoint and context tests run a scripted model on the default
+  // profile: Hermes writes a chat's checkpoints into the HERMES_HOME of the
+  // profile it runs in but `rollback.*` reads the server's own, so a chat of
+  // another profile lists none (found at this backend revision). The
+  // `file checkpoints` tests need a backend started with
+  // `HERMES_TUI_CHECKPOINTS=1` and `HERMES_DEV_CHECKPOINTS=1` here; without it
+  // the `checkpoints off` test runs instead. Run them against a fresh backend.
+  final checkpointsOn = Platform.environment['HERMES_DEV_CHECKPOINTS'] == '1';
+  final onSkip =
+      skip ??
+      (checkpointsOn
+          ? null
+          : 'set HERMES_DEV_CHECKPOINTS=1 and start the backend with '
+                'HERMES_TUI_CHECKPOINTS=1');
+  final offSkip =
+      skip ?? (checkpointsOn ? 'checkpoints are on in this backend' : null);
+  final devHome = Platform.environment['HERMES_DEV_HOME'];
+
+  group('file checkpoints and context on a scripted model (no paid model call)', () {
+    late HttpServer model;
+    late String originalYaml;
+    final control = _ScriptControl();
+    final longNote = [
+      for (var i = 0; i < 400; i++) 'line $i of the long invented note',
+    ].join('\n');
+    final recorded = <String, Object?>{};
+
+    late _GatewayTap tap;
+    late Directory scratch;
+    late String sid;
+
+    /// The scripted model for the default profile, plus [extra] config.
+    Future<void> setConfig(String extra) =>
+        client.raw.updateConfigRawApiConfigRawPut(
+          rawConfigUpdate: RawConfigUpdate(
+            yamlText:
+                '''
+model:
+  default: "scripted"
+  provider: "custom"
+  base_url: "http://127.0.0.1:${model.port}/v1"
+  api_key: "scripted"
+  context_length: 131072
+$extra''',
+          ),
+        );
+
+    /// A throwaway project folder the chats work in.
+    Future<Directory> makeScratch() async {
+      final made = await Directory.systemTemp.createTemp('hermes-ckpt-');
+      addTearDown(() => made.delete(recursive: true));
+      final dir = Directory(made.resolveSymbolicLinksSync());
+      File('${dir.path}/package.json').writeAsStringSync('{}');
+      File('${dir.path}/notes.md')
+          .writeAsStringSync('# Plan\nWater the beans\n');
+      File('${dir.path}/garden.txt').writeAsStringSync('tomatoes: 4\n');
+      return dir;
+    }
+
+    Future<String> open({String? cwd}) async {
+      final created = await tap.rpc.request('session.create', {
+        'profile': 'default',
+        'source': 'hermes_app',
+        'cwd': cwd ?? scratch.path,
+        'cwd_explicit': true,
+      });
+      final id = created['session_id'] as String;
+      addTearDown(
+        () => tap.rpc
+            .request('session.close', {'session_id': id})
+            .then((_) {}, onError: (Object _) {}),
+      );
+      return id;
+    }
+
+    setUpAll(() async {
+      if (url == null) return;
+      model = await _serveScriptedModel(
+        control: control,
+        scripts: {
+          'Edit one': [
+            [
+              {
+                'name': 'read_file',
+                'args': {'path': 'notes.md'},
+              },
+            ],
+            [
+              {
+                'name': 'patch',
+                'args': {
+                  'path': 'notes.md',
+                  'old_string': 'Water the beans',
+                  'new_string': 'Water the beans twice\nPlant the onions',
+                },
+              },
+            ],
+          ],
+          'Edit two': [
+            [
+              {
+                'name': 'patch',
+                'args': {
+                  'path': 'notes.md',
+                  'old_string': 'Plant the onions',
+                  'new_string': 'Plant the leeks',
+                },
+              },
+            ],
+            [
+              {
+                'name': 'write_file',
+                'args': {'path': 'long.md', 'content': longNote},
+              },
+            ],
+          ],
+          'Many reads': [
+            for (var step = 0; step < 4; step++)
+              [
+                for (var i = 0; i < 3; i++)
+                  {
+                    'name': 'read_file',
+                    'args': {
+                      'path': 'notes.md',
+                      'offset': step * 3 + i + 1,
+                      'limit': 1,
+                    },
+                  },
+              ],
+          ],
+          'Edit slow': [
+            [
+              {
+                'name': 'terminal',
+                'args': {'command': 'sleep 6'},
+              },
+            ],
+          ],
+        },
+      );
+      originalYaml =
+          ((await client.raw.getConfigRawApiConfigRawGet()).data!
+                  as Map)['yaml']
+              as String;
+      await setConfig('');
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      final dir = Platform.environment['HERMES_DEV_RECORD'];
+      if (dir != null) {
+        File('$dir/recorded-${checkpointsOn ? 'on' : 'off'}.json')
+            .writeAsStringSync(
+              const JsonEncoder.withIndent('  ').convert(recorded),
+            );
+      }
+      // A fresh home's config is only comments, which the dashboard refuses
+      // to save back; an empty mapping is the same configuration.
+      final hadSettings = originalYaml
+          .split('\n')
+          .any((l) => l.trim().isNotEmpty && !l.trimLeft().startsWith('#'));
+      await client.raw.updateConfigRawApiConfigRawPut(
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText: hadSettings ? originalYaml : '{}\n',
+        ),
+      );
+      await model.close(force: true);
+    });
+
+    setUp(() async {
+      if (url == null) return;
+      tap = _GatewayTap(
+        GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url,
+            authRequired: false,
+            api: client,
+          )(),
+        ),
+      );
+      addTearDown(tap.close);
+      scratch = await makeScratch();
+      control
+        ..failSummaries = false
+        ..failStatus = HttpStatus.internalServerError
+        ..summaryDelay = Duration.zero
+        ..summary = 'Earlier turns: files were written and answered.'
+        ..sideCalls.clear();
+      sid = await open();
+    });
+
+    int completed(String id) =>
+        tap.eventsOf(id).where((e) => e.type == 'message.complete').length;
+
+    Future<void> turn(String text, {String? on}) async {
+      final id = on ?? sid;
+      final before = completed(id);
+      await tap.rpc.request('prompt.submit', {'session_id': id, 'text': text});
+      await tap.until(
+        () => completed(id) > before && tap.idleAfterComplete(id),
+        'the turn "$text" to finish',
+      );
+    }
+
+    /// The raw answer of [method], or `{'error': {code, message}}`, kept under
+    /// [rec] for the fixtures when `HERMES_DEV_RECORD` is set.
+    Future<Map<String, Object?>> ask(
+      String method, {
+      Map<String, Object?> params = const {},
+      String? on,
+      String? rec,
+    }) async {
+      Map<String, Object?> out;
+      try {
+        out = {
+          'result': await tap.rpc.request(method, {
+            'session_id': on ?? sid,
+            'profile': 'default',
+            ...params,
+          }),
+        };
+      } on GatewayRpcException catch (e) {
+        out = {
+          'error': {'code': e.code, 'message': e.message},
+        };
+      }
+      if (rec != null) recorded[rec] = out;
+      return out;
+    }
+
+    Map<String, Object?> ok(Map<String, Object?> answer) {
+      expect(answer, contains('result'), reason: '$answer');
+      return (answer['result']! as Map).cast<String, Object?>();
+    }
+
+    ({int code, String message}) refused(Map<String, Object?> answer) {
+      expect(answer, contains('error'), reason: '$answer');
+      final error = (answer['error']! as Map).cast<String, Object?>();
+      return (
+        code: error['code']! as int,
+        message: error['message']! as String,
+      );
+    }
+
+    Future<List<Map<String, Object?>>> rows({String? on, String? rec}) async {
+      final list = ok(await ask('rollback.list', on: on, rec: rec));
+      expect(list['enabled'], isTrue);
+      return [
+        for (final row in list['checkpoints']! as List)
+          (row as Map).cast<String, Object?>(),
+      ];
+    }
+
+    test('a folder that was never checkpointed has nothing to list, diff or '
+        'restore', () async {
+      final bare = await makeScratch();
+      final id = await open(cwd: bare.path);
+      expect(await rows(on: id, rec: 'list_empty'), isEmpty);
+
+      final diff = ok(
+        await ask(
+          'rollback.diff',
+          params: {'hash': 'abc12345'},
+          on: id,
+          rec: 'diff_empty_failure',
+        ),
+      );
+      expect(diff['stat'], '');
+      expect(diff['diff'], '');
+
+      // The very first checkpoint of a backend creates the store; before
+      // it every restore says so, after it an unknown hash is "not found".
+      final storeMade =
+          devHome != null &&
+          File('$devHome/checkpoints/store/HEAD').existsSync();
+      for (final params in [
+        {'hash': 'abc12345'},
+        {'hash': 'abc12345', 'file_path': 'notes.md'},
+      ]) {
+        final answer = ok(
+          await ask(
+            'rollback.restore',
+            params: params,
+            on: id,
+            rec: params.length == 1 ? 'restore_bare_full' : 'restore_bare_file',
+          ),
+        );
+        expect(answer['success'], isFalse);
+        expect(
+          answer['error'],
+          devHome != null && !storeMade
+              ? 'No checkpoints exist for this directory'
+              : anyOf(
+                  'No checkpoints exist for this directory',
+                  "Checkpoint 'abc12345' not found",
+                ),
+        );
+      }
+    }, skip: onSkip);
+
+    test(
+      'two edit turns leave checkpoints at each model step, newest first, '
+      'and a diff reads against the working tree',
+      () async {
+        await turn('Edit one');
+        final one = await rows(rec: 'list_one');
+        expect(one, hasLength(1));
+        expect(
+          one.single.keys,
+          unorderedEquals(['hash', 'timestamp', 'message']),
+        );
+        expect(one.single['hash'], matches(RegExp(r'^[0-9a-f]{40}$')));
+        expect(one.single['message'], 'before patch');
+        expect(
+          DateTime.tryParse(one.single['timestamp']! as String),
+          isNotNull,
+        );
+
+        final small = ok(
+          await ask(
+            'rollback.diff',
+            params: {'hash': one.single['hash']},
+            rec: 'diff_normal',
+          ),
+        );
+        expect(small.keys, containsAll(['stat', 'diff']));
+        expect(small['stat'], contains('notes.md'));
+        expect(small['stat'], contains('1 file changed'));
+        expect(small['diff'] as String, startsWith('diff --git a/notes.md'));
+        expect((small['diff'] as String).length, lessThan(4000));
+        expect(small['rendered'], anyOf(isNull, isA<String>()));
+
+        await turn('Edit two');
+        // One checkpoint per model step that writes a file, not per turn: the
+        // patch and the later write_file of the second turn each made one.
+        final three = await rows(rec: 'list_three');
+        expect(three.map((r) => r['message']), [
+          'before write_file',
+          'before patch',
+          'before patch',
+        ]);
+        expect(three.last['hash'], one.single['hash']);
+
+        final cut = ok(
+          await ask(
+            'rollback.diff',
+            params: {'hash': three.last['hash']},
+            rec: 'diff_cut',
+          ),
+        );
+        expect(cut['diff'] as String, hasLength(4000));
+        expect(cut['stat'], contains('long.md'));
+        expect(cut['stat'], contains('notes.md'));
+        expect(cut['stat'], contains('2 files changed'));
+
+        // Only the file the newest checkpoint lacks: long.md, 400 lines.
+        final newest = ok(
+          await ask('rollback.diff', params: {'hash': three.first['hash']}),
+        );
+        expect(newest['stat'], isNot(contains('notes.md')));
+        expect(newest['stat'], contains('1 file changed, 400 insertions(+)'));
+
+        // A 1-based index is read as a position in the list.
+        final byIndex = ok(await ask('rollback.diff', params: {'hash': '1'}));
+        expect(byIndex['diff'], newest['diff']);
+        final tooFar = refused(
+          await ask(
+            'rollback.diff',
+            params: {'hash': '9'},
+            rec: 'diff_bad_index',
+          ),
+        );
+        expect(tooFar.code, 5022);
+        expect(tooFar.message, 'Invalid checkpoint number. Use 1-3.');
+
+        // The engine swallows a bad hash into an empty diff.
+        final bad = ok(
+          await ask('rollback.diff', params: {'hash': 'deadbeefdeadbeef'}),
+        );
+        expect(bad, {'stat': '', 'diff': ''});
+        expect(refused(await ask('rollback.diff', rec: 'diff_hash_required')), (
+          code: 4014,
+          message: 'hash required',
+        ));
+
+        // The list belongs to the folder: a second chat in it sees it all.
+        final other = await open();
+        expect(
+          (await rows(on: other)).map((r) => r['hash']),
+          three.map((r) => r['hash']),
+        );
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'restoring one file brings it back, leaves the chat alone and saves '
+      'the state it replaced',
+      () async {
+        await turn('Edit one');
+        await turn('Edit two');
+        final before = await rows();
+        final oldest = before.last['hash']! as String;
+        final historyBefore = ok(await ask('session.history'))['count'];
+
+        final restored = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': oldest, 'file_path': 'notes.md'},
+            rec: 'restore_file',
+          ),
+        );
+        expect(restored['success'], isTrue);
+        expect(restored['restored_to'], oldest.substring(0, 8));
+        expect(restored['reason'], 'before patch');
+        expect(restored['file'], 'notes.md');
+        expect(restored['directory'], scratch.path);
+        expect(restored, isNot(contains('history_removed')));
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          '# Plan\nWater the beans\n',
+        );
+        expect(File('${scratch.path}/long.md').existsSync(), isTrue);
+        expect(ok(await ask('session.history'))['count'], historyBefore);
+
+        final after = await rows(rec: 'list_after_restore');
+        expect(after, hasLength(before.length + 1));
+        expect(
+          after.first['message'],
+          'pre-rollback snapshot (restoring to ${oldest.substring(0, 8)})',
+        );
+        expect(
+          after.skip(1).map((r) => r['hash']),
+          before.map((r) => r['hash']),
+        );
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'restoring everything also removes the last turn from the chat',
+      () async {
+        await turn('Edit one');
+        await turn('Edit two');
+        final oldest = (await rows()).last['hash']! as String;
+        final historyBefore = ok(await ask('session.history'))['count'] as int;
+
+        final restored = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': oldest},
+            rec: 'restore_full',
+          ),
+        );
+        expect(restored['success'], isTrue);
+        expect(restored['restored_to'], oldest.substring(0, 8));
+        expect(restored['directory'], scratch.path);
+        final removed = restored['history_removed'];
+        expect(removed, isA<int>());
+        expect(removed as int, greaterThan(0));
+        expect(
+          ok(await ask('session.history'))['count'],
+          historyBefore - removed,
+        );
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          '# Plan\nWater the beans\n',
+        );
+        // Files created after the checkpoint stay.
+        expect(File('${scratch.path}/long.md').existsSync(), isTrue);
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'a restore that cannot run answers success false with a reason',
+      () async {
+        await turn('Edit one');
+        final hash = (await rows()).single['hash']! as String;
+
+        Future<String> error(Map<String, Object?> params, String rec) async {
+          final answer = ok(
+            await ask('rollback.restore', params: params, rec: rec),
+          );
+          expect(answer['success'], isFalse);
+          return answer['error']! as String;
+        }
+
+        expect(
+          await error({'hash': 'deadbeefdeadbeef'}, 'restore_not_found'),
+          "Checkpoint 'deadbeefdeadbeef' not found",
+        );
+        expect(
+          await error({
+            'hash': hash,
+            'file_path': '../x',
+          }, 'restore_path_escapes'),
+          startsWith('File path escapes the working directory via traversal'),
+        );
+        expect(
+          await error({
+            'hash': hash,
+            'file_path': '/etc/passwd',
+          }, 'restore_absolute_path'),
+          startsWith('File path must be relative'),
+        );
+        // The RPC restores with git checkout, so a name the checkpoint lacks is
+        // a git error, not "matched no files".
+        expect(
+          await error({
+            'hash': hash,
+            'file_path': 'missing.md',
+          }, 'restore_failed'),
+          startsWith('Restore failed: error: pathspec'),
+        );
+        expect(
+          refused(await ask('rollback.restore', rec: 'restore_hash_required')),
+          (code: 4014, message: 'hash required'),
+        );
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          contains('Water the beans twice'),
+        );
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'a nested repository is named in the reason, blocks a full restore '
+      'and not a one-file restore',
+      () async {
+        final nested = Directory('${scratch.path}/vendor/lib')
+          ..createSync(recursive: true);
+        File('${nested.path}/a.txt').writeAsStringSync('x\n');
+        for (final args in [
+          ['init', '-q'],
+          ['add', '.'],
+          [
+            '-c',
+            'user.name=Demo',
+            '-c',
+            'user.email=demo@example.invalid',
+            'commit',
+            '-q',
+            '-m',
+            'init',
+          ],
+        ]) {
+          final run = await Process.run('git', ['-C', nested.path, ...args]);
+          expect(run.exitCode, 0, reason: '${run.stderr}');
+        }
+        await turn('Edit one');
+        final list = await rows(rec: 'list_nested');
+        expect(
+          list.single['message'],
+          'before patch [nested git repos not captured: vendor/lib]',
+        );
+        final hash = list.single['hash']! as String;
+
+        final full = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash},
+            rec: 'restore_nested',
+          ),
+        );
+        expect(full['success'], isFalse);
+        expect(
+          full['error'],
+          'Checkpoint contains nested git repositories that were not '
+          'captured (vendor/lib); rollback was not performed',
+        );
+        expect(full['nested_repositories'], ['vendor/lib']);
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          contains('Water the beans twice'),
+        );
+
+        final file = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash, 'file_path': 'notes.md'},
+          ),
+        );
+        expect(file['success'], isTrue);
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'while a reply runs a full restore and a compress answer 4009, a '
+      'one-file restore does not, and the breakdown still reads',
+      () async {
+        await turn('Edit one');
+        final hash = (await rows()).single['hash']! as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Edit slow',
+        });
+        await tap.until(
+          () =>
+              tap.types(sid).contains('tool.start') &&
+              tap
+                  .eventsOf(sid)
+                  .any(
+                    (e) =>
+                        e.type == 'tool.start' &&
+                        e.payload['name'] == 'terminal',
+                  ),
+          'the slow command to start',
+        );
+        final full = refused(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash},
+            rec: 'restore_busy',
+          ),
+        );
+        expect(full.code, 4009);
+        expect(full.message, startsWith('session busy'));
+        final compress = refused(
+          await ask('session.compress', rec: 'compress_busy_replying'),
+        );
+        expect(compress.code, 4009);
+        expect(compress.message, startsWith('session busy'));
+
+        final file = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash, 'file_path': 'notes.md'},
+          ),
+        );
+        expect(file['success'], isTrue);
+        expect(
+          ok(await ask('session.context_breakdown')),
+          contains('categories'),
+        );
+        await tap.until(
+          () => completed(sid) > 1 && tap.idleAfterComplete(sid),
+          'the slow turn to end',
+        );
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'with checkpoints off, edits leave nothing and every call says so',
+      () async {
+        await turn('Edit one');
+        final list = ok(await ask('rollback.list', rec: 'list_off'));
+        expect(list, {'enabled': false, 'checkpoints': <Object?>[]});
+        if (devHome != null) {
+          expect(File('$devHome/checkpoints/store/HEAD').existsSync(), isFalse);
+        }
+        final diff = await ask(
+          'rollback.diff',
+          params: {'hash': 'abc12345'},
+          rec: 'diff_off',
+        );
+        final restore = await ask(
+          'rollback.restore',
+          params: {'hash': 'abc12345', 'file_path': 'notes.md'},
+          rec: 'restore_off',
+        );
+        // What the server answers with the feature off, recorded as it is.
+        expect(diff, anyOf(contains('result'), contains('error')));
+        expect(restore, anyOf(contains('result'), contains('error')));
+        expect(
+          File('${scratch.path}/notes.md').readAsStringSync(),
+          contains('Water the beans twice'),
+        );
+      },
+      skip: offSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'the context breakdown is empty before the agent is built and lists '
+      'the categories that hold something afterwards',
+      () async {
+        final early = ok(
+          await ask('session.context_breakdown', rec: 'breakdown_early'),
+        );
+        expect(early['categories'], isEmpty);
+        expect(early['estimated_total'], 0);
+        expect(early['context_used'], 0);
+        expect(early['context_percent'], 0);
+
+        await turn('Say hi');
+        final breakdown = ok(
+          await ask('session.context_breakdown', rec: 'breakdown_four'),
+        );
+        final categories = [
+          for (final c in breakdown['categories']! as List)
+            (c as Map).cast<String, Object?>(),
+        ];
+        for (final c in categories) {
+          expect(c['id'], isA<String>());
+          expect(c['label'], isA<String>());
+          expect(c['color'], isA<String>());
+          expect(c['tokens'], isA<int>());
+        }
+        // A bare profile fills four of the eight; the rest are dropped at 0.
+        expect(categories.map((c) => c['id']), [
+          'system_prompt',
+          'tool_definitions',
+          'subagent_definitions',
+          'conversation',
+        ]);
+        expect(breakdown['context_max'], 131072);
+        expect(breakdown['model'], 'scripted');
+        expect(breakdown['context_source'], isA<String>());
+        expect(breakdown['context_estimated'], isA<bool>());
+        expect(breakdown['estimated_total'], isA<int>());
+        expect(breakdown['context_percent'], inInclusiveRange(0, 100));
+        for (final file in breakdown['context_files']! as List) {
+          expect(
+            (file as Map).keys,
+            containsAll([
+              'label',
+              'path',
+              'chars',
+              'est_tokens',
+              'loaded',
+              'status',
+            ]),
+          );
+        }
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'rules, memory and MCP tools add their own categories',
+      () async {
+        final mcp = await _serveMinimalMcp();
+        addTearDown(() => mcp.close(force: true));
+        final memories = Directory('$devHome/memories')
+          ..createSync(recursive: true);
+        final hadMemory = File('${memories.path}/MEMORY.md').existsSync();
+        File('${memories.path}/MEMORY.md')
+            .writeAsStringSync('The demo garden has six tomato plants.\n');
+        addTearDown(() {
+          if (!hadMemory) File('${memories.path}/MEMORY.md').deleteSync();
+        });
+        File('${scratch.path}/AGENTS.md').writeAsStringSync(
+          '# Rules\nAlways water the beans before planting the onions.\n',
+        );
+        addTearDown(() => setConfig(''));
+        // Tool search would defer the MCP tools out of the request.
+        await setConfig(
+          'tools:\n  tool_search:\n    enabled: "off"\n'
+          'mcp_servers:\n  contract-check-ctx:\n'
+          '    url: "http://127.0.0.1:${mcp.port}/mcp"\n',
+        );
+
+        Map<String, Object?>? last;
+        final deadline = DateTime.now().add(const Duration(seconds: 40));
+        while (DateTime.now().isBefore(deadline)) {
+          final id = await open();
+          await turn('Say hi', on: id);
+          last = ok(
+            await ask(
+              'session.context_breakdown',
+              on: id,
+              rec: 'breakdown_seven',
+            ),
+          );
+          final ids = [
+            for (final c in last['categories']! as List) (c as Map)['id'],
+          ];
+          if (ids.contains('mcp')) break;
+          await Future<void>.delayed(const Duration(seconds: 2));
+        }
+        final ids = [
+          for (final c in last!['categories']! as List) (c as Map)['id'],
+        ];
+        // The skills index never showed up here (see the task notes).
+        expect(
+          ids,
+          containsAll([
+            'system_prompt',
+            'tool_definitions',
+            'rules',
+            'mcp',
+            'subagent_definitions',
+            'memory',
+            'conversation',
+          ]),
+        );
+        final files = [
+          for (final f in last['context_files']! as List) (f as Map)['label'],
+        ];
+        expect(files, contains('AGENTS.md'));
+      },
+      skip: skip ?? (devHome == null ? 'set HERMES_DEV_HOME' : null),
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    group('compress', () {
+      Future<String> longChat({int turns = 2, String suffix = ''}) async {
+        final id = await open();
+        for (var i = 0; i < turns; i++) {
+          await turn('Many reads $i$suffix', on: id);
+        }
+        return id;
+      }
+
+      test(
+        'too few messages is a no-op, with or without any',
+        () async {
+          final none = ok(
+            await ask('session.compress', rec: 'compress_noop_empty'),
+          );
+          expect(none['status'], 'compressed');
+          expect(none['removed'], 0);
+          expect(none['summary'], containsPair('noop', true));
+          expect(
+            (none['summary']! as Map)['headline'],
+            'No changes from compression: 0 messages',
+          );
+          await turn('Say hi');
+          final two = ok(await ask('session.compress', rec: 'compress_noop'));
+          expect(two['before_messages'], 2);
+          expect(two['after_messages'], 2);
+          expect(two['summary'], containsPair('noop', true));
+          expect(
+            (two['summary']! as Map)['headline'],
+            'No changes from compression: 2 messages',
+          );
+          expect(
+            (two['summary']! as Map)['token_line'],
+            matches(
+              RegExp(r'^Approx request size: ~[\d,]+ tokens \(unchanged\)$'),
+            ),
+          );
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 3)),
+      );
+
+      test(
+        'a long chat compresses in place: status updates, the summary, a '
+        'usage that drops, and the compacted rows kept for include_compacted',
+        () async {
+          final created = await tap.rpc.request('session.create', {
+            'profile': 'default',
+            'source': 'hermes_app',
+            'cwd': scratch.path,
+            'cwd_explicit': true,
+          });
+          final id = created['session_id'] as String;
+          final stored = created['stored_session_id'] as String;
+          addTearDown(
+            () => tap.rpc
+                .request('session.close', {'session_id': id})
+                .then((_) {}, onError: (Object _) {}),
+          );
+          // 91% of the 131,072-token window, as the provider reports it.
+          await turn('Many reads 0 [[tokens=120000]]', on: id);
+          await turn('Many reads 1 [[tokens=120000]]', on: id);
+          final usage = ok(
+            await ask('session.usage', on: id, rec: 'usage_high'),
+          );
+          expect(usage['context_percent'], inInclusiveRange(85, 100));
+          expect(usage['context_max'], 131072);
+          final pushed = [
+            for (final e in tap.eventsOf(id))
+              if (e.type == 'session.usage' || e.type == 'message.complete')
+                ((e.payload['usage'] as Map?)?['context_percent']),
+          ].whereType<int>();
+          expect(pushed.any((p) => p >= 85), isTrue);
+          final breakdown = ok(
+            await ask(
+              'session.context_breakdown',
+              on: id,
+              rec: 'breakdown_high',
+            ),
+          );
+          expect(breakdown['context_percent'], inInclusiveRange(85, 100));
+          final historyBefore = ok(
+            await ask('session.history', on: id),
+          )['count'];
+          final statusBefore = tap.eventsOf(id).length;
+
+          final answer = ok(
+            await ask(
+              'session.compress',
+              params: {'focus_topic': 'the garden notes'},
+              on: id,
+              rec: 'compress_compressed',
+            ),
+          );
+          expect(answer['status'], 'compressed');
+          expect(answer['removed'], greaterThan(0));
+          expect(answer['before_messages'], historyBefore);
+          expect(answer['after_messages'], lessThan(historyBefore as int));
+          expect(answer['before_tokens'], isA<int>());
+          expect(answer['after_tokens'], isA<int>());
+          final summary = (answer['summary']! as Map).cast<String, Object?>();
+          expect(summary['noop'], isFalse);
+          expect(summary['aborted'], isFalse);
+          expect(summary['refused_would_grow'], isFalse);
+          expect(summary['fallback_used'], isFalse);
+          expect(
+            summary['headline'],
+            'Compressed: $historyBefore → ${answer['after_messages']} messages',
+          );
+          expect(
+            summary['token_line'],
+            matches(RegExp(r'^Approx request size: ~[\d,]+ → ~[\d,]+ tokens$')),
+          );
+          expect(answer['messages'], isA<List<Object?>>());
+          expect(answer['info'], isA<Map<String, Object?>>());
+          expect((answer['usage']! as Map)['compressions'], 1);
+
+          // The focus reaches the summarizer.
+          expect(
+            control.sideCalls.any((c) => c.contains('summarization agent')),
+            isTrue,
+          );
+          // Hermes pins `compressing`, reports its own compaction progress
+          // and ends with a plain `status` whose text is `ready`.
+          final statuses = [
+            for (final e in tap.eventsOf(id).skip(statusBefore))
+              if (e.type == 'status.update')
+                (kind: e.payload['kind'], text: e.payload['text']),
+          ];
+          recorded['status_updates'] = [
+            for (final s in statuses) {'kind': s.kind, 'text': s.text},
+          ];
+          expect(statuses.first.kind, 'compressing');
+          expect(statuses.last, (kind: 'status', text: 'ready'));
+          expect(statuses.map((s) => s.kind), contains('compacted'));
+
+          // Right after, the provider's anchor is gone: no context figure
+          // until the next turn, and the breakdown is a local estimate.
+          final after = ok(
+            await ask('session.usage', on: id, rec: 'usage_after'),
+          );
+          expect(after, isNot(contains('context_used')));
+          expect(after['compressions'], 1);
+          final local = ok(
+            await ask(
+              'session.context_breakdown',
+              on: id,
+              rec: 'breakdown_after',
+            ),
+          );
+          expect(local['context_source'], 'local_estimate');
+          expect(local['context_percent'], lessThan(85));
+
+          await turn('Say hi', on: id);
+          final next = ok(await ask('session.usage', on: id));
+          expect(next['context_percent'], lessThan(85));
+
+          // In place: the same stored chat, its default view the compressed
+          // one, the replaced rows only with include_compacted.
+          Future<int> count(bool compacted) async {
+            final response = await client.raw
+                .getSessionMessagesApiSessionsSessionIdMessagesGet(
+                  sessionId: stored,
+                  includeCompacted: compacted,
+                );
+            final data = response.data;
+            final list = data is Map ? data['messages'] ?? data['items'] : data;
+            return (list! as List).length;
+          }
+
+          final compressed = await count(false);
+          final everything = await count(true);
+          expect(compressed, lessThan(everything));
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 4)),
+      );
+
+      test(
+        'a second compress while one runs answers 4009',
+        () async {
+          final id = await longChat();
+          control.summaryDelay = const Duration(seconds: 4);
+          final first = ask('session.compress', on: id);
+          await Future<void>.delayed(const Duration(seconds: 1));
+          final second = refused(
+            await ask(
+              'session.compress',
+              on: id,
+              rec: 'compress_busy_compressing',
+            ),
+          );
+          expect(second.code, 4009);
+          expect(second.message, contains('/compress is running'));
+          // A prompt sent meanwhile is queued, not refused.
+          final prompt = ok(
+            await ask(
+              'prompt.submit',
+              params: {'text': 'Say hi'},
+              on: id,
+              rec: 'prompt_while_compressing',
+            ),
+          );
+          expect(prompt['status'], 'queued');
+          expect(ok(await first)['status'], 'compressed');
+          await tap.until(() => tap.idleAfterComplete(id), 'the queued prompt');
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 4)),
+      );
+
+      test(
+        'a summary that cannot be written aborts, one that is empty aborts, '
+        'one that is larger is refused',
+        () async {
+          var id = await longChat();
+          control
+            ..failSummaries = true
+            ..failStatus = HttpStatus.unauthorized;
+          final denied = ok(
+            await ask('session.compress', on: id, rec: 'compress_aborted'),
+          );
+          control.failSummaries = false;
+          expect(denied['status'], 'aborted');
+          expect(denied['removed'], 0);
+          expect(denied['before_messages'], denied['after_messages']);
+          expect(denied['summary'], containsPair('aborted', true));
+          expect((denied['summary']! as Map)['note'], contains('Reason:'));
+
+          id = await longChat();
+          control.summary = '';
+          final empty = ok(await ask('session.compress', on: id));
+          expect(empty['status'], 'aborted');
+          expect(empty['summary'], containsPair('aborted', true));
+
+          id = await longChat();
+          control.summary = 'x' * 200000;
+          final grown = ok(
+            await ask(
+              'session.compress',
+              on: id,
+              rec: 'compress_refused_would_grow',
+            ),
+          );
+          expect(grown['status'], 'compressed');
+          expect(grown['removed'], 0);
+          expect(grown['summary'], containsPair('refused_would_grow', true));
+          expect(grown['summary'], containsPair('noop', true));
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 5)),
+      );
+
+      test(
+        'a failing summary on a short chat is refused with the fallback '
+        'flagged',
+        () async {
+          final id = await longChat(turns: 1);
+          control.failSummaries = true;
+          final answer = ok(
+            await ask(
+              'session.compress',
+              on: id,
+              rec: 'compress_fallback_refused',
+            ),
+          );
+          expect(answer['status'], 'compressed');
+          expect(answer['removed'], 0);
+          final summary = (answer['summary']! as Map).cast<String, Object?>();
+          expect(summary['refused_would_grow'], isTrue);
+          expect(summary['fallback_used'], isTrue);
+          expect(summary['note'], contains('Reason:'));
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 3)),
+      );
+    });
+
+    test(
+      'the app reads the real answers: list, changes, restore, breakdown and '
+      'compress through the gateway transport',
+      () async {
+        final transport = HermesGatewayTransport(
+          connect: hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          ),
+        );
+        addTearDown(transport.close);
+        final workspace = WorkspaceChoice(path: scratch.path);
+        Future<String> send(String text, [String? thread]) async {
+          final events = await transport
+              .send(
+                profile: 'default',
+                text: text,
+                threadId: thread,
+                workspace: workspace,
+              )
+              .toList();
+          return thread ?? events.whereType<ThreadBound>().first.threadId;
+        }
+
+        final thread = await send('Edit one');
+        addTearDown(
+          () =>
+              HermesChatRepository(client.raw)
+                  .deleteThread(thread, profile: 'default'),
+        );
+        final binding = transport.ownedSessionFor(thread, profile: 'default')!;
+
+        final early = await transport.contextBreakdown(binding);
+        expect(early, isA<Breakdown>());
+        final breakdown = early as Breakdown;
+        expect(breakdown.categories, isNotEmpty);
+        expect(breakdown.max, 131072);
+        expect(breakdown.model, 'scripted');
+        final sizes = breakdown.categories.map((c) => c.tokens).toList();
+        expect(
+          sizes,
+          orderedEquals(<int>[...sizes]..sort((a, b) => b.compareTo(a))),
+        );
+
+        if (checkpointsOn) {
+          await send('Edit two', thread);
+          final list = await transport.listCheckpoints(binding);
+          expect(list, isA<CheckpointsOn>());
+          final on = list as CheckpointsOn;
+          expect(on.checkpoints, hasLength(3));
+          expect(on.checkpoints.map((c) => c.reason), [
+            CheckpointReason.beforeEdit,
+            CheckpointReason.beforeEdit,
+            CheckpointReason.beforeEdit,
+          ]);
+          expect(on.checkpoints.every((c) => c.timestamp != null), isTrue);
+
+          final changes = await transport.checkpointChanges(
+            binding,
+            on.checkpoints.last.hash,
+          );
+          expect(changes, isA<Changes>());
+          final files = (changes as Changes).files;
+          expect(
+            files.map((f) => f.path),
+            unorderedEquals(['long.md', 'notes.md']),
+          );
+          expect(changes.truncated, isTrue);
+          expect(files.every((f) => f.restorable), isTrue);
+          expect(
+            files.firstWhere((f) => f.path == 'notes.md').changes,
+            isNotNull,
+          );
+
+          final one = await transport.restoreCheckpoint(
+            thread,
+            profile: 'default',
+            hash: on.checkpoints.last.hash,
+            filePath: 'notes.md',
+          );
+          expect(one, isA<Restored>());
+          expect((one as Restored).historyRemoved, 0);
+
+          final all = await transport.restoreCheckpoint(
+            thread,
+            profile: 'default',
+            hash: on.checkpoints.last.hash,
+          );
+          expect(all, isA<Restored>());
+          expect((all as Restored).historyRemoved, greaterThan(0));
+
+          final snapshots =
+              ((await transport.listCheckpoints(binding)) as CheckpointsOn)
+                  .checkpoints
+                  .where((c) => c.reason == CheckpointReason.beforeRestore)
+                  .toList();
+          expect(snapshots, isNotEmpty);
+          expect(
+            snapshots.map((c) => c.restoredFrom),
+            everyElement(on.checkpoints.last.hash.substring(0, 8)),
+          );
+        } else {
+          expect(
+            await transport.listCheckpoints(binding),
+            isA<CheckpointsOff>(),
+          );
+        }
+
+        await send('Many reads a', thread);
+        await send('Many reads b', thread);
+        final compressed = await transport.compressSession(
+          thread,
+          profile: 'default',
+          focus: 'the garden notes',
+        );
+        expect(compressed, isA<Compressed>());
+        expect((compressed as Compressed).beforeMessages, isNotNull);
+        expect(compressed.afterMessages, lessThan(compressed.beforeMessages!));
+        expect(compressed.fallbackUsed, isFalse);
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 6)),
+    );
+
+    // Last: Hermes keeps the terminal backend of the first docker session in
+    // its environment for the life of the process, so later chats of this
+    // backend would not be checkpointed.
+    test(
+      'a container backend lists, but refuses a diff with 5022 and a restore '
+      'with success false',
+      () async {
+        await turn('Edit one');
+        final hash = (await rows()).single['hash']! as String;
+        addTearDown(() => setConfig(''));
+        await setConfig('terminal:\n  backend: docker\n');
+        final id = await open();
+        expect(await rows(on: id), hasLength(greaterThanOrEqualTo(1)));
+        const refusal =
+            'Checkpoints are not taken for terminal.backend=docker: file '
+            'paths belong to the container, not this host.';
+        expect(
+          refused(
+            await ask(
+              'rollback.diff',
+              params: {'hash': hash},
+              on: id,
+              rec: 'diff_container',
+            ),
+          ),
+          (code: 5022, message: refusal),
+        );
+        final restore = ok(
+          await ask(
+            'rollback.restore',
+            params: {'hash': hash},
+            on: id,
+            rec: 'restore_container',
+          ),
+        );
+        expect(restore, {'success': false, 'error': refusal});
+      },
+      skip: onSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+  });
 }
 
 /// Just enough of an OAuth provider for Hermes to start a sign-in against: an
@@ -4110,10 +5369,40 @@ Future<HttpServer> _serveMinimalMcp() async {
   return server;
 }
 
+/// What a scripted model does next, and what it was asked, for the tests that
+/// change it between turns.
+class _ScriptControl {
+  /// Answer Hermes' own summary calls (no tools) with a server error, so a
+  /// compression cannot write its summary.
+  bool failSummaries = false;
+
+  /// The HTTP status a failing summary call answers with.
+  int failStatus = HttpStatus.internalServerError;
+
+  /// What the model answers a summary call with.
+  String summary = 'Earlier turns: files were written and answered.';
+
+  /// How long a summary call waits before it answers.
+  Duration summaryDelay = Duration.zero;
+
+  /// The first 200 characters of the last message of each request that
+  /// carried no tools, in order.
+  final sideCalls = <String>[];
+}
+
 /// An OpenAI-compatible model that answers a prompt containing "Clean up"
-/// with one terminal call running [command], and anything else, including the
-/// call's result and Hermes' own side calls, with a plain line.
-Future<HttpServer> _serveScriptedModel({required String command}) async {
+/// with one terminal call running [command], a prompt containing a key of
+/// [scripts] with that key's steps (each a list of tool calls,
+/// `{'name': …, 'args': {…}}`, answered one step per model request of the
+/// turn), and anything else, including the call's result and Hermes' own side calls,
+/// with a plain line. A `[[tokens=N]]` in the newest user message makes the
+/// answer report N prompt tokens, which is what Hermes anchors its context
+/// meter to.
+Future<HttpServer> _serveScriptedModel({
+  String? command,
+  Map<String, List<List<Map<String, Object?>>>> scripts = const {},
+  _ScriptControl? control,
+}) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
     final response = request.response;
@@ -4135,27 +5424,82 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
     ) as Map<String, dynamic>;
     final messages = (body['messages'] as List).cast<Map<String, dynamic>>();
     final last = messages.last;
-    final callTool =
-        body['tools'] != null &&
-        last['role'] == 'user' &&
-        jsonEncode(last['content']).contains('Clean up');
+    final lastText = jsonEncode(last['content']);
+    final userAt = messages.lastIndexWhere((m) => m['role'] == 'user');
+    final stepsDone = messages
+        .skip(userAt + 1)
+        .where((m) => m['role'] == 'assistant')
+        .length;
+    final userTurn = body['tools'] != null && userAt >= 0;
+    final userText = userAt < 0 ? '' : jsonEncode(messages[userAt]['content']);
+    if (body['tools'] == null) {
+      final head = lastText.length > 200
+          ? lastText.substring(0, 200)
+          : lastText;
+      control?.sideCalls.add(head);
+      if (control != null && control.summaryDelay > Duration.zero) {
+        await Future<void>.delayed(control.summaryDelay);
+      }
+      if (control != null && control.failSummaries) {
+        response.statusCode = control.failStatus;
+        response.headers.contentType = ContentType.json;
+        response.write(
+          jsonEncode({
+            'error': {'message': 'scripted failure'},
+          }),
+        );
+        await response.close();
+        return;
+      }
+    }
+    var scripted = <Map<String, Object?>>[];
+    if (userTurn) {
+      if (command != null &&
+          last['role'] == 'user' &&
+          userText.contains('Clean up')) {
+        scripted = [
+          {
+            'name': 'terminal',
+            'args': {'command': command},
+          },
+        ];
+      }
+      for (final MapEntry(:key, :value) in scripts.entries) {
+        if (userText.contains(key) && stepsDone < value.length) {
+          scripted = value[stepsDone];
+        }
+      }
+    }
+    final callTool = scripted.isNotEmpty;
     final calls = [
-      if (callTool)
+      for (final (i, call) in scripted.indexed)
         {
-          'id': 'call_scripted',
+          'id': 'call_scripted_$i',
           'type': 'function',
           'function': {
-            'name': 'terminal',
-            'arguments': jsonEncode({'command': command}),
+            'name': call['name'],
+            'arguments': jsonEncode(call['args']),
           },
         },
     ];
-    final content = callTool ? null : 'Done.';
+    final content = callTool
+        ? null
+        : body['tools'] == null
+        ? control?.summary ?? 'Done.'
+        : 'Done.';
     final finish = callTool ? 'tool_calls' : 'stop';
-    const usage = {
-      'prompt_tokens': 10,
+    final newestUser = messages.lastWhere(
+      (m) => m['role'] == 'user',
+      orElse: () => const {},
+    );
+    final tokens = RegExp(r'\[\[tokens=(\d+)\]\]')
+        .firstMatch(jsonEncode(newestUser['content']))
+        ?.group(1);
+    final promptTokens = tokens == null ? 10 : int.parse(tokens);
+    final usage = {
+      'prompt_tokens': promptTokens,
       'completion_tokens': 10,
-      'total_tokens': 20,
+      'total_tokens': promptTokens + 10,
     };
     if (body['stream'] != true) {
       response.headers.contentType = ContentType.json;

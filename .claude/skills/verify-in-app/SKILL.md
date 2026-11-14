@@ -625,28 +625,31 @@ For the Activity panel's checkpoint and context rows. Only the throwaway dev
 backend (`scripts/dev-backend.sh`): never the real `~/.hermes`, and never
 `hermes dashboard --stop`. A restore writes real files and a compress calls a
 helper model, so the chat's folder is a throwaway and the model scripted or
-local; never a real project. Nobody has run these steps end to end: every
-step below is unverified unless it says otherwise.
+local; never a real project. The backend half is run by
+`test/real_backend_contract_test.dart` (group "file checkpoints and context on
+a scripted model"); the app half has not been driven by hand.
 
-- Checkpoints are off by default (`checkpoints.enabled: false`, from the
-  design notes of the change). Turn them on in the throwaway home's
-  `config.yaml` before `dev-backend.sh start`:
-
-  ```yaml
-  checkpoints:
-    enabled: true
-  ```
-
-- Unverified: the design notes say the environment variable
-  `HERMES_TUI_CHECKPOINTS` overrides the config for gateway sessions.
-  `dev-backend.sh` does not set it; the script starts `hermes` from your
-  shell, so `HERMES_TUI_CHECKPOINTS=1 scripts/dev-backend.sh start` should
-  pass it on.
-- Unverified: a checkpoint is made before a file tool or a terminal command
-  runs, so the patch turn of `scripts/fake_tool_model.py` should give one, and
-  a second turn a second.
-- With checkpoints off, an edited chat reads "off"; a server before
-  `rollback.*` draws neither row (design notes, unverified here).
+- Checkpoints are off by default (`checkpoints.enabled: false`); with them off
+  `rollback.list` answers `enabled:false`. Verified: start the backend with
+  `HERMES_TUI_CHECKPOINTS=1` in its environment (`HERMES_TUI_CHECKPOINTS=1
+  scripts/dev-backend.sh start`; the variable wins over the config). Setting
+  `checkpoints.enabled: true` in the throwaway home's `config.yaml` is the
+  documented alternative and was not tried. To run the contract group:
+  `HERMES_DEV_CHECKPOINTS=1 HERMES_DEV_HOME=<home> HERMES_DEV_URL=<url> flutter
+  test test/real_backend_contract_test.dart --plain-name 'file checkpoints and
+  context'`, against a fresh backend each time (the container test leaves the
+  process on a docker terminal backend).
+- Use the **default** profile. A chat of another profile writes its
+  checkpoints into that profile's folder but the list reads the server's own
+  home, so it always looks empty.
+- Checkpoints come at most once per folder per model step, before a
+  `write_file`, `patch` or destructive `terminal` command, so a turn with two
+  edit steps leaves two. Hermes refuses to overwrite or patch a file the chat
+  has not read first, so a scripted edit turn reads the file in an earlier
+  step (the contract test does).
+- With checkpoints off an edited chat lists nothing and a restore answers
+  "No checkpoints exist for this directory"; a server before `rollback.*`
+  draws neither row (design notes, not run: needs an older Hermes).
 
 ## Scripted tool calls
 
