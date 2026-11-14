@@ -119,6 +119,7 @@ class MemoryStorageSection extends StatelessWidget {
   Widget _providerRow(MemoryProviderStatus status) {
     final builtin = status.state == MemoryProviderState.builtin;
     return GroupedRow(
+      wrapWhenStacked: true,
       title: 'Memory provider',
       value: builtin ? null : status.name,
       subtitle: builtin

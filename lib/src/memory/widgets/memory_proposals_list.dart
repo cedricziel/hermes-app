@@ -162,6 +162,7 @@ class MemoryProposalsList extends StatelessWidget {
       GroupedSection(
         children: [
           GroupedRow(
+            wrapWhenStacked: true,
             title: title,
             subtitle: detail,
             subtitleMaxLines: 6,
