@@ -12,6 +12,7 @@ String restoreRefusalText(
   RestoreRefusal.locked => l10n.chatCheckpointsChangesReasonLocked,
   RestoreRefusal.replying => l10n.chatCheckpointsChangesReasonReplying,
   RestoreRefusal.restoring => l10n.chatCheckpointsChangesReasonRestoring,
+  RestoreRefusal.folderMoving => l10n.workspacesReasonChanging,
   RestoreRefusal.fileNotOffered =>
     l10n.chatCheckpointsChangesReasonFileNotOffered,
 };

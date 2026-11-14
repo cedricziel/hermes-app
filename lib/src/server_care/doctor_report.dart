@@ -97,15 +97,18 @@ class DoctorReport {
   static List<String> leftover(List<String> lines, DoctorReport report) {
     final fixes = report.fixes.toSet();
     final out = <String>[];
+    var afterFound = false;
     for (final raw in lines) {
       final line = clean(raw);
       final text = line.trim();
-      if (text.isEmpty ||
-          _rule.hasMatch(text) ||
-          _chatter.hasMatch(text) ||
-          _found.hasMatch(text)) {
+      if (text.isEmpty || _rule.hasMatch(text) || _chatter.hasMatch(text)) {
         continue;
       }
+      if (_found.hasMatch(text)) {
+        afterFound = true;
+        continue;
+      }
+      if (afterFound && _tip.hasMatch(text)) continue;
       final fix = _numbered.firstMatch(line)?.group(1);
       if (fix != null && fixes.contains(fix)) continue;
       out.add(text);
@@ -117,13 +120,17 @@ class DoctorReport {
   static final _found = RegExp(r'Found \d+ issue', caseSensitive: false);
   static final _numbered = RegExp(r'^\s*\d+\.\s+(.*\S)\s*$');
 
-  /// Lines that say nothing about the setup: the progress line of the
-  /// connectivity checks and the closing tip about `hermes doctor --fix`,
-  /// which the page explains itself (the app never runs it).
+  /// The progress line of the connectivity checks, which says nothing about
+  /// the setup.
   static final _chatter = RegExp(
-    r'^(Tip:|Running \d+ .*checks?\b)',
+    r'^Running \d+ (connectivity )?checks?\b',
     caseSensitive: false,
   );
+
+  /// The closing tip about `hermes doctor --fix`, which the page explains
+  /// itself (the app never runs it). Dropped only after the "Found N
+  /// issue(s)" line: a `Tip:` line inside a section is output to show.
+  static final _tip = RegExp(r'^Tip:', caseSensitive: false);
   static final _rule = RegExp(r'^[\s─━═\-=_*│|┌┐└┘├┤┬┴┼╔╗╚╝╠╣╦╩╬+]+$');
 
   /// Reads the lines of a doctor run: only those after the last
@@ -166,6 +173,7 @@ class DoctorReport {
         inFixes = true;
         continue;
       }
+      if (inFixes && _tip.hasMatch(text)) continue;
       if (inFixes) {
         final m = _numbered.firstMatch(line);
         if (m != null) {

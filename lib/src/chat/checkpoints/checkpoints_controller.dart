@@ -402,6 +402,7 @@ class CheckpointsController extends ChangeNotifier {
     if (_locked) return RestoreRefusal.locked;
     if (!_connected) return RestoreRefusal.disconnected;
     if (_restoring) return RestoreRefusal.restoring;
+    if (bridge.moveHolds()) return RestoreRefusal.folderMoving;
     if (filePath == null && bridge.isReplying()) return RestoreRefusal.replying;
     return null;
   }

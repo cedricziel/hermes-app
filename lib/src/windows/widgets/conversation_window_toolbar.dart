@@ -24,6 +24,7 @@ class ConversationWindowToolbar extends StatelessWidget {
     this.activityOpen = false,
     this.activityWaiting = 0,
     this.onToggleActivity,
+    this.folderButton,
   });
 
   final String title;
@@ -50,6 +51,10 @@ class ConversationWindowToolbar extends StatelessWidget {
   /// Shows or hides the Activity inspector; null while no chat is open.
   final VoidCallback? onToggleActivity;
 
+  /// The titled folder button that opens the folder's details (read only: a
+  /// window holds no session to change it with).
+  final Widget? folderButton;
+
   @override
   Widget build(BuildContext context) {
     final onShare = this.onShare;
@@ -66,6 +71,10 @@ class ConversationWindowToolbar extends StatelessWidget {
                 subtitleBuilder: subtitleBuilder,
               ),
             ),
+            if (folderButton case final button?) ...[
+              button,
+              const SizedBox(width: 4),
+            ],
             MacToolbarButton(
               label: 'Show in Main Window',
               icon: AppIcons.sidebar,

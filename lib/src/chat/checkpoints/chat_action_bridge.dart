@@ -40,6 +40,7 @@ class ChatActionBridge {
     this.chatHolds = _noHolds,
     this.handBackToComposer = _noText,
     this.hasEditToolCall = _noEdits,
+    this.moveHolds = _noEdits,
     this.reestablishSession = _noFuture,
   });
 
@@ -63,6 +64,11 @@ class ChatActionBridge {
 
   /// Puts [text] in the composer, unsent, under any existing draft.
   final void Function(String text) handBackToComposer;
+
+  /// Whether a move of the chat's working folder is being settled. Checkpoints
+  /// belong to a working directory, so no restore, of one file or all, starts
+  /// then.
+  final bool Function() moveHolds;
 
   /// Whether the chat ran an edit tool call.
   final bool Function() hasEditToolCall;

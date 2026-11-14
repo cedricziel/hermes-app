@@ -599,6 +599,45 @@ void main() {
       handle.dispose();
     });
 
+    testWidgets('opening Server from the Mac sidebar says so in its '
+        'breadcrumb', (tester) async {
+      statusWithGatewayOff();
+      final trail = BreadcrumbTrail();
+      await pump(tester, trail: trail, lock: await loadedLock(tester));
+      await tester.tap(inSidebar(find.text('Server')));
+      await tester.pumpAndSettle();
+      expect(
+        [
+          for (final c in trail.recent)
+            if (c.name == 'server_care.opened') '${c.attributes}',
+        ],
+        ['{source: sidebar}'],
+      );
+    });
+
+    testWidgets('opening Server from the account menu says so in its '
+        'breadcrumb', (tester) async {
+      statusWithGatewayOff();
+      final trail = BreadcrumbTrail();
+      await pump(
+        tester,
+        platform: TargetPlatform.android,
+        trail: trail,
+        lock: await loadedLock(tester),
+      );
+      await tester.tap(find.byTooltip('Account'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Server · needs attention'));
+      await tester.pumpAndSettle();
+      expect(
+        [
+          for (final c in trail.recent)
+            if (c.name == 'server_care.opened') '${c.attributes}',
+        ],
+        ['{source: menu}'],
+      );
+    });
+
     testWidgets('the account menu says only Server while the server is fine', (
       tester,
     ) async {
