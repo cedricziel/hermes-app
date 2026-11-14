@@ -21,7 +21,7 @@ enum NativeLoginFailure {
 }
 
 /// Raised when the native login flow fails for a reason the user should see
-/// (timeout, state mismatch, IdP error, browser launch failure, ...).
+/// (timeout, IdP error, browser launch failure, ...).
 class NativeLoginException implements Exception {
   NativeLoginException(
     this.message, {
@@ -300,7 +300,11 @@ Future<String> _awaitCallback(
       request.response.statusCode = request.uri.path != '/callback'
           ? HttpStatus.notFound
           : HttpStatus.badRequest;
-      await request.response.close();
+      try {
+        await request.response.close();
+      } on Object {
+        // A client that went away must not end the sign-in.
+      }
       continue;
     }
     final redirect = isCallback ? finishedRedirect() : null;
@@ -314,9 +318,15 @@ Future<String> _awaitCallback(
         ..headers.contentType = ContentType.html
         ..write(_doneHtml);
     }
+    if (!isCallback) {
+      try {
+        await request.response.close();
+      } on Object {
+        // As above: a stray request must not end the sign-in.
+      }
+      continue;
+    }
     await request.response.close();
-
-    if (!isCallback) continue;
 
     final error = params['error'];
     if (error != null) {

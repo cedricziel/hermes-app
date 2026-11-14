@@ -685,10 +685,10 @@ void main() {
           ..close();
       });
       final saved = 'http://127.0.0.1:${front.port}';
+      await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
       store = MemoryTokenStore(_session(serverUrl: legacy ? null : saved));
       controller = AuthController(
         tokenStore: store,
-        devServerUrl: saved,
         telemetry: events.connection,
       );
 
@@ -699,6 +699,12 @@ void main() {
       expect(dashboard.authRequests, 0);
       expect(dashboard.refreshCalls, 0);
       expect(store.session?.refreshToken, 'refresh-1');
+      // The next launch starts at the redirected address, not the old one.
+      expect(controller.savedServerUrl, elsewhere);
+      expect(
+        await SharedPreferencesAsync().getString(kSavedServerUrlKey),
+        elsewhere,
+      );
     });
   }
 

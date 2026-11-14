@@ -348,8 +348,14 @@ void main() {
     test('is signed out when another dashboard minted the session', () async {
       store.session = _session(serverUrl: 'http://other.test');
 
-      expect(await run(readProfiles), isA<HeadlessSignedOut<List<String?>>>());
+      final outcome = await run(readProfiles);
+
+      expect(outcome, isA<HeadlessSignedOut<List<String?>>>());
+      final signedOut = outcome as HeadlessSignedOut<List<String?>>;
+      expect(signedOut.reason, SignedOutReason.otherServer);
+      expect(signedOut.nothingStored, isFalse);
       expect(dashboard.server.requestsTo('GET', '/api/profiles'), isEmpty);
+      expect(spanOutcome(), 'other_server');
     });
 
     for (final (minted, session) in [
@@ -392,6 +398,9 @@ void main() {
         );
 
         expect(outcome, isA<HeadlessSignedOut<List<String?>>>());
+        final signedOut = outcome as HeadlessSignedOut<List<String?>>;
+        expect(signedOut.reason, SignedOutReason.otherServer);
+        expect(signedOut.nothingStored, isFalse);
         expect(dashboard.server.requestsTo('GET', '/api/profiles'), isEmpty);
         expect(store.session, same(session));
       });
