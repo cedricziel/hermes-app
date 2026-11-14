@@ -133,6 +133,15 @@ A running program's card SHALL offer Stop program when `process.list` is support
 - **WHEN** `process.kill` answers `killed` with the program's whole recent output and the card already holds that output from frames
 - **THEN** the card's output is unchanged
 
+### Requirement: A program stop check ends
+
+After a lost `process.kill` answer, a successful re-read that shows the program exited or gone SHALL show that state. A re-read that still shows it running, fails or times out, no answer within 10 seconds, or losing the connection SHALL show "Couldn't confirm the stop. It may still be running." and offer Stop program again, which asks for confirmation again.
+
+#### Scenario: The re-read still shows it running
+
+- **WHEN** a kill's answer was lost and the re-read `process.list` shows the program running
+- **THEN** the card says "Couldn't confirm the stop. It may still be running." and Stop program can be pressed again; pressing it asks again, and nothing was resent
+
 ### Requirement: Program commands and output stay private
 
 Program commands, working directories and output SHALL NOT be written to logs, telemetry, preferences, files or any system surface. The log event `process.stop` SHALL carry only `outcome` (`killed`, `already_exited`, `not_found`, `unconfirmed`, `error`), and the breadcrumb `process.stop.pressed` no attribute.
