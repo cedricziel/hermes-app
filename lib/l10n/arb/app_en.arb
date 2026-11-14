@@ -717,6 +717,88 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsProgramConfirmCancel": "Cancel",
+  "@chatWidgetsProgramConfirmCancel": {
+    "description": "Cancel button of the program stop confirmation."
+  },
+  "chatWidgetsProgramConfirmMessage": "Hermes ends {command}. Its output so far stays here, and the agent won't be told it finished.",
+  "@chatWidgetsProgramConfirmMessage": {
+    "description": "Message of the program stop confirmation. {command} is the command cut to one line.",
+    "placeholders": {
+      "command": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsProgramConfirmTitle": "Stop this program?",
+  "@chatWidgetsProgramConfirmTitle": {
+    "description": "Title of the confirmation before a background program is stopped."
+  },
+  "chatWidgetsProgramEarlierOmitted": "Earlier output omitted",
+  "@chatWidgetsProgramEarlierOmitted": {
+    "description": "Line above the text of a program card first filled from the list, which holds only the end of the output."
+  },
+  "chatWidgetsProgramLine": "{state} · {time}",
+  "@chatWidgetsProgramLine": {
+    "description": "Second line of a background program card: the state and the run time.",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsProgramOutcomeAlreadyEnded": "It had already ended.",
+  "@chatWidgetsProgramOutcomeAlreadyEnded": {
+    "description": "Banner when the program had ended before the stop."
+  },
+  "chatWidgetsProgramOutcomeFailed": "Couldn't stop the program.",
+  "@chatWidgetsProgramOutcomeFailed": {
+    "description": "Title of the banner when stopping a program failed."
+  },
+  "chatWidgetsProgramOutcomeNotListed": "This program is no longer listed.",
+  "@chatWidgetsProgramOutcomeNotListed": {
+    "description": "Banner when Hermes no longer knows the program."
+  },
+  "chatWidgetsProgramOutcomeStopped": "Stopped",
+  "@chatWidgetsProgramOutcomeStopped": {
+    "description": "Banner once a program was stopped."
+  },
+  "chatWidgetsProgramStateClosed": "Closed",
+  "@chatWidgetsProgramStateClosed": {
+    "description": "State word of a program card Hermes has no list entry for, once its terminal closed."
+  },
+  "chatWidgetsProgramStateEnded": "Ended",
+  "@chatWidgetsProgramStateEnded": {
+    "description": "State word of a background program that ended without a known code."
+  },
+  "chatWidgetsProgramStateExited": "Exited with code {code}",
+  "@chatWidgetsProgramStateExited": {
+    "description": "State of a background program that ended on its own. {code} is its exit code, which may be 0.",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsProgramStateRunning": "Running",
+  "@chatWidgetsProgramStateRunning": {
+    "description": "State word of a background program that is running."
+  },
+  "chatWidgetsProgramStateStopped": "Stopped",
+  "@chatWidgetsProgramStateStopped": {
+    "description": "State word of a background program Hermes ended on request."
+  },
+  "chatWidgetsProgramStopBusy": "Stopping…",
+  "@chatWidgetsProgramStopBusy": {
+    "description": "Label of the stop button while the stop is in flight."
+  },
+  "chatWidgetsProgramStopButton": "Stop program",
+  "@chatWidgetsProgramStopButton": {
+    "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
+  },
 
   "@@x-area-core": "",
 
