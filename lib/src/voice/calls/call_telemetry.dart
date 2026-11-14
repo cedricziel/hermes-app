@@ -77,3 +77,28 @@ String callDurationBucket(Duration? duration) => switch (duration) {
   final d when d < const Duration(minutes: 5) => '1-5m',
   _ => '>5m',
 };
+
+/// Latency in coarse buckets, so a log shows where a turn is slow without
+/// saying exactly how long anyone waited. Null is a stage that never ran.
+String callLatencyBucket(Duration? duration) => switch (duration) {
+  null => 'none',
+  final d when d < const Duration(milliseconds: 500) => '<0.5s',
+  final d when d < const Duration(seconds: 1) => '0.5-1s',
+  final d when d < const Duration(seconds: 2) => '1-2s',
+  final d when d < const Duration(seconds: 5) => '2-5s',
+  final d when d < const Duration(seconds: 10) => '5-10s',
+  final d when d < const Duration(seconds: 30) => '10-30s',
+  _ => '>30s',
+};
+
+/// Whether a failed speech open may pass by itself: a 5xx on the ticket or
+/// the upgrade, or a socket error. Auth and routing refusals (401, 403, 404,
+/// 405) and anything unknown are not retried, and neither is a timeout: the
+/// user has already waited that long, so the fallback speaks instead.
+bool isTransientSpeechOpenError(Object error) {
+  final kind = callErrorKind(error);
+  return switch (kind) {
+    'socket' || 'websocket' || 'tls' || 'dio_connectionError' => true,
+    _ => RegExp(r'^(http|upgrade)_5\d\d$').hasMatch(kind),
+  };
+}
