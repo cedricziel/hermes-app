@@ -4,6 +4,7 @@ import 'package:cupertino_ui/cupertino_ui.dart' as cui;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/update/github_release_store.dart';
@@ -94,6 +95,7 @@ void main() {
       String tag, {
       bool bridged = true,
       Brightness brightness = Brightness.light,
+      Locale locale = const Locale('en'),
     }) async {
       final upgrader = Upgrader(
         client: _client(200, {'tag_name': tag, 'html_url': _releasePage}),
@@ -112,10 +114,10 @@ void main() {
           themeMode: brightness == Brightness.dark
               ? ThemeMode.dark
               : ThemeMode.light,
+          locale: locale,
+          supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+            ...AppLocalizations.localizationsDelegates,
             if (bridged) ...kMaterialUiLocalizationsDelegates,
           ],
           builder: (context, child) =>
@@ -143,6 +145,17 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.text('UPDATE NOW'), findsOneWidget);
+      }, variant: TargetPlatformVariant.all());
+    }
+
+    for (final locale in AppLocalizations.supportedLocales) {
+      testWidgets('prompts under the app delegates in ${locale.languageCode}', (
+        tester,
+      ) async {
+        await pump(tester, 'v0.2.0', locale: locale);
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(mui.AlertDialog), findsOneWidget);
       }, variant: TargetPlatformVariant.all());
     }
 
