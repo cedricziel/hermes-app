@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart' show Span;
 
 import '../core/safe_notifier.dart';
+import '../telemetry/telemetry.dart';
 import 'care_result.dart';
 import 'log_line.dart';
 import 'server_care_repository.dart';
@@ -22,6 +24,7 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
     required this.repository,
     String? profile,
     CareLogFile file = CareLogFile.errors,
+    this.telemetry = const ConnectionTelemetry(),
     this.debounce = defaultDebounce,
     this.covered,
     this.onUnsupported,
@@ -40,6 +43,7 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
   static const olderLines = 500;
 
   final ServerCareRepository repository;
+  final ConnectionTelemetry telemetry;
   final Duration debounce;
 
   /// Whether App Lock covers the app; nothing is read then.
@@ -126,38 +130,87 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
     final generation = ++_generation;
     _loading = true;
     notifyListeners();
-    final result = await repository.logs(
-      profile: profile,
-      file: _file,
-      lines: _lines,
-      level: switch (_level) {
-        LogLevelFilter.all => null,
-        LogLevelFilter.warnings => 'WARNING',
-        LogLevelFilter.errors => 'ERROR',
-      },
-      search: _search.trim().isEmpty ? null : _search.trim(),
+    final level = switch (_level) {
+      LogLevelFilter.all => null,
+      LogLevelFilter.warnings => 'WARNING',
+      LogLevelFilter.errors => 'ERROR',
+    };
+    final search = _search.trim().isEmpty ? null : _search.trim();
+    // Fixed names and flags only: never the search, the profile or a line.
+    Span? span;
+    _quiet(
+      () => span = telemetry.tracer?.startSpan(
+        'server_care.logs.fetch',
+        attributes: {
+          ...telemetry.serverAttributes,
+          'file': _file.name,
+          'level': switch (_level) {
+            LogLevelFilter.all => 'all',
+            LogLevelFilter.warnings => 'warning',
+            LogLevelFilter.errors => 'error',
+          },
+          'filtered': search != null,
+        },
+      ),
     );
-    if (generation != _generation || disposed) return;
-    _loading = false;
-    _answered = true;
-    switch (result) {
-      case CareOk(:final value):
-        _entries = value.reversed.toList(growable: false);
-        _rawCount = value.fold<int>(0, (n, e) => n + 1 + e.continuation.length);
-        _failure = null;
-        _failureMessage = null;
-        _unsupported = false;
-      case CareUnsupported():
-        _drop();
-        _unsupported = true;
-        onUnsupported?.call();
-      case CareFailed(:final kind, :final message):
-        // Lines of an earlier answer would be for other choices.
-        _drop();
-        _failure = kind;
-        _failureMessage = message;
+    var outcome = 'obsolete';
+    var count = 0;
+    try {
+      final result = await repository.logs(
+        profile: profile,
+        file: _file,
+        lines: _lines,
+        level: level,
+        search: search,
+      );
+      if (generation != _generation || disposed) return;
+      _loading = false;
+      _answered = true;
+      switch (result) {
+        case CareOk(:final value):
+          _entries = value.reversed.toList(growable: false);
+          _rawCount = value.fold<int>(
+            0,
+            (n, e) => n + 1 + e.continuation.length,
+          );
+          count = _rawCount;
+          _failure = null;
+          _failureMessage = null;
+          _unsupported = false;
+          outcome = 'success';
+        case CareUnsupported():
+          _drop();
+          _unsupported = true;
+          outcome = 'unsupported';
+          onUnsupported?.call();
+        case CareFailed(:final kind, :final message):
+          // Lines of an earlier answer would be for other choices.
+          _drop();
+          _failure = kind;
+          _failureMessage = message;
+          outcome = kind.name;
+      }
+      notifyListeners();
+    } finally {
+      _quiet(() => span?.setAttribute('lines', _linesBucket(count)));
+      _quiet(() => span?.setAttribute('outcome', outcome));
+      _quiet(() => span?.end());
     }
-    notifyListeners();
+  }
+
+  static String _linesBucket(int count) => switch (count) {
+    0 => '0',
+    <= 50 => '1-50',
+    <= 200 => '51-200',
+    _ => '>200',
+  };
+
+  static void _quiet(void Function() action) {
+    try {
+      action();
+    } on Object {
+      return;
+    }
   }
 
   void setFile(CareLogFile file) {

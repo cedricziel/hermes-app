@@ -59,6 +59,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       repository: HermesRepositories.of(context).serverCare,
       profile: _careProfile,
       file: widget.initialFile,
+      telemetry: HermesRepositories.of(context).telemetry,
       covered: () => _appLock?.covered ?? false,
       onUnsupported: _logsMissing,
       lookupFailed: () => _care.profileLookupFailed,

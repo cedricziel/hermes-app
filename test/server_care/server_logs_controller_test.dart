@@ -6,9 +6,12 @@ import 'package:hermes_app/src/server_care/care_result.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/server_care/server_logs_controller.dart';
 import 'package:hermes_app/src/server_care/widgets/log_level_menu_button.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/recorded_events.dart';
+import '../support/recording_tracer.dart';
 import 'server_care_fixtures.dart';
 
 void main() {
@@ -17,10 +20,18 @@ void main() {
   var unsupported = 0;
   var covered = false;
 
+  late RecordingTracer tracer;
+  late RecordedEvents events;
+
   ServerLogsController build({String? profile = 'default'}) =>
       ServerLogsController(
         repository: ServerCareRepository(server.client()),
         profile: profile,
+        telemetry: ConnectionTelemetry(
+          events: (name, [attributes = const {}]) => events(name, attributes),
+          tracer: tracer,
+          serverAttributes: const {'hermes.version': '0.22.2'},
+        ),
         covered: () => covered,
         onUnsupported: () => unsupported++,
       );
@@ -28,6 +39,8 @@ void main() {
   setUp(() {
     unsupported = 0;
     covered = false;
+    tracer = RecordingTracer();
+    events = RecordedEvents();
     server = FakeHermesServer()
       ..on('GET', '/api/logs', {'file': 'errors', 'lines': logsErrors});
     controller = build();
@@ -301,6 +314,100 @@ void main() {
       await controller.load();
       controller.setSearch('secret');
       expect((await SharedPreferences.getInstance()).getKeys(), isEmpty);
+    });
+  });
+
+  group('telemetry', () {
+    test('a read is one span with only fixed attributes', () async {
+      await controller.load();
+      final span = tracer.spans.single;
+      expect(span.name, 'server_care.logs.fetch');
+      expect(span.attributes, {
+        'hermes.version': '0.22.2',
+        'file': 'errors',
+        'level': 'all',
+        'filtered': false,
+        'lines': '1-50',
+        'outcome': 'success',
+      });
+      expect(span.ended, isTrue);
+    });
+
+    test('a search is only a flag, never its text', () async {
+      controller.dispose();
+      controller = ServerLogsController(
+        repository: ServerCareRepository(server.client()),
+        profile: 'secret-profile',
+        debounce: Duration.zero,
+        telemetry: ConnectionTelemetry(tracer: tracer, events: events.call),
+      );
+      controller.setFile(CareLogFile.gateway);
+      controller.setLevel(LogLevelFilter.errors);
+      controller.setSearch('my-secret-search');
+      await pumpEventQueue();
+      final span = tracer.spans.last;
+      expect(span.attributes['filtered'], isTrue);
+      expect(span.attributes['file'], 'gateway');
+      expect(span.attributes['level'], 'error');
+      for (final s in tracer.spans) {
+        expect(s.attributes.values.join(' '), isNot(contains('secret')));
+      }
+      expect(events.named('server_care.logs.fetch'), isEmpty);
+    });
+
+    test('lines are counted in buckets, tracebacks included', () async {
+      for (final (count, bucket) in [
+        (0, '0'),
+        (1, '1-50'),
+        (50, '1-50'),
+        (51, '51-200'),
+        (200, '51-200'),
+        (201, '>200'),
+      ]) {
+        server.on('GET', '/api/logs', {
+          'lines': [
+            for (var i = 0; i < count; i++)
+              '2026-11-14 09:12:03,114 INFO a.b: line $i',
+          ],
+        });
+        await controller.load();
+        expect(tracer.spans.last.attributes['lines'], bucket, reason: '$count');
+      }
+    });
+
+    test('the outcome is the kind of failure, or unsupported', () async {
+      server.on('GET', '/api/logs', {'detail': 'x'}, status: 400);
+      await controller.load();
+      expect(tracer.spans.last.attributes['outcome'], 'refused');
+      expect(tracer.spans.last.attributes['lines'], '0');
+      server.on('GET', '/api/logs', {'detail': 'Not Found'}, status: 404);
+      await controller.load();
+      expect(tracer.spans.last.attributes['outcome'], 'unsupported');
+    });
+
+    test('an answer that was replaced ends its span as obsolete', () async {
+      final slow = Completer<void>();
+      server.onRequest('GET', '/api/logs', (_) async {
+        await slow.future;
+        return (status: 200, body: {'lines': logsErrors});
+      });
+      final first = controller.load();
+      controller.cover();
+      slow.complete();
+      await first;
+      expect(tracer.spans.single.attributes['outcome'], 'obsolete');
+      expect(tracer.spans.single.ended, isTrue);
+    });
+
+    test('a failing tracer never breaks a read', () async {
+      controller.dispose();
+      controller = ServerLogsController(
+        repository: ServerCareRepository(server.client()),
+        profile: 'default',
+        telemetry: ConnectionTelemetry(tracer: ThrowingTracer()),
+      );
+      await controller.load();
+      expect(controller.entries, hasLength(2));
     });
   });
 }
