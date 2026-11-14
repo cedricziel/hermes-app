@@ -15,7 +15,7 @@ A **Personality** screen for one profile: the profile's SOUL.md in a plain text 
 - Before sending, the app reads the file again. If it changed on the server since the screen loaded, the user chooses between keeping their text and replacing the server's.
 - Hermes has no version or etag, so this check narrows the window but cannot close it (design.md, "Conflicts").
 
-Delivery: one PR (see tasks.md).
+Delivery: two PRs, the catalog widgets first, then the screen (see tasks.md).
 
 ## Non-goals
 
@@ -39,7 +39,7 @@ Fixed names, enums and buckets only: never the text, the profile name or an erro
 
 Claude Design covers, each in light and dark, at the largest text, on phone and desktop width:
 
-- Personality screen - states: loading, loaded, file not set yet, empty file, long text (over 20,000 characters), too long to edit, offline, not found, unsaved changes, saving, saved, lost answer, wide layout.
+- Personality screen - states: loading, loaded, file not set yet, empty file, long text (over 20,000 characters; never locked), offline, not found, unsaved changes, saving, saved, lost answer, wide layout.
 - Save question - states: normal, empty text, with the chat-already-running note.
 - Changed on the server - states: sheet or alert, server's text shown read-only.
 - Discard changes question.

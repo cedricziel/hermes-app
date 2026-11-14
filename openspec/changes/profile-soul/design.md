@@ -20,7 +20,7 @@ Both routes are in `openapi/hermes-agent.openapi.json` (`/api/profiles/{name}/so
 - **Other writers**: the Bots sheet, the agent's own file tools (gated by Hermes' protected-file approval), a shell or editor on the host, and `hermes profile update` for a distribution-owned SOUL.md (`load_soul_md` also treats that file as untrusted and may block it in the prompt; the route does not say so).
 - **Conflicts**: no version, etag, mtime or hash in either response and no precondition on PUT. It is last write wins.
 
-Could not verify: no backend was run for this note, so the 422 body, the plain-text 500 and the BOM and surrogate behaviour come from reading the code. Tasks 1.1 records them from `scripts/dev-backend.sh`.
+Could not verify: no backend was run for this note, so the 422 body, the plain-text 500 and the BOM and surrogate behaviour come from reading the code. Task 2.1 records them from `scripts/dev-backend.sh`.
 
 ## What the app has
 
@@ -52,3 +52,15 @@ Recorded where the controller calls the repository. None holds text, titles, pro
 - Log event `profile_soul.saved` with `outcome` in `saved`, `conflict_kept`, `conflict_replaced`, `failed`, `unconfirmed`, plus `empty`.
 - Breadcrumbs `profile_soul.opened` (`source`: `sidebar`, `profiles_page`) and `profile_soul.save.confirmed`.
 
+## Design pass
+
+Written without a Claude Design canvas; the full record is `docs/design-briefs/profile-soul.md`. Decisions that change behaviour:
+
+- **Check outcomes split.** After a lost answer, Check reads the file. Equal to the editor's text: Saved, the baseline moves. Equal to the old baseline: the save never landed, the screen says "The save didn't go through" and keeps the text (no conflict question, since nothing changed on the server). Anything else: the changed-on-server question. This refines "Lost answer" above; the spec's scenarios hold.
+- **Read-only while busy.** The editor is read-only while the check read and the PUT run, so the baseline cannot race the text.
+- **Revert asks.** Revert and every leave (back, Mac profile or section change, window close) ask "Discard changes?", default Keep editing.
+- **Read failure shows no editor.** A failed or 500 read never shows an empty editor, so the user cannot save over a file the app could not read.
+- **No locked state.** The proposal's "too long to edit" state does not exist; the editor stays editable at any length.
+- **Changed-on-server is a sheet** (dialog on wide windows) holding the server's text behind a disclosure; if the file is gone on the server, it says so.
+- **Mac Profiles page** asks the Discard question when the selected profile or section changes while dirty.
+- **Input hardening.** The editor turns off autocorrect, suggestions, smart punctuation, autofill, keyboard learning and restoration.
