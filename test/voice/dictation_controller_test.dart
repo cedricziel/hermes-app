@@ -361,6 +361,105 @@ void main() {
     expect(leases().map((l) => l['active']), [true, false]);
   });
 
+  group('a throwing microphone', () {
+    test(
+      'stop ends in failed once, sending nothing, with no async error',
+      () async {
+        final failing = _StopFailingRecorder(Completer<void>()..complete());
+        recorder = failing;
+        final errors = <Object>[];
+        await runZonedGuarded(() async {
+          try {
+            final dictation = controller(support: _uploadOnly);
+            addTearDown(dictation.dispose);
+            await dictation.start();
+            failing.speak([1, 2, 3]);
+            await pumpEventQueue();
+
+            await dictation.stop();
+            await pumpEventQueue();
+
+            expect(dictation.phase, DictationPhase.failed);
+            expect(dictation.lastOutcome, 'failed');
+            expect(
+              trail.recent.where((b) => b.name == 'voice.dictation.ended'),
+              hasLength(1),
+            );
+            expect(inserted, isEmpty);
+            expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+            expect(leases().map((l) => l['active']), [true, false]);
+          } on Object catch (e) {
+            errors.add(e);
+          }
+        }, (error, _) => errors.add(error));
+        expect(errors, isEmpty);
+      },
+    );
+
+    test(
+      'cancel while recording still ends idle, with no async error',
+      () async {
+        final failing = _StopFailingRecorder(Completer<void>()..complete());
+        recorder = failing;
+        final errors = <Object>[];
+        await runZonedGuarded(() async {
+          try {
+            final dictation = controller(support: _uploadOnly);
+            addTearDown(dictation.dispose);
+            await dictation.start();
+
+            await dictation.cancel();
+            await pumpEventQueue();
+
+            expect(dictation.phase, DictationPhase.idle);
+            expect(dictation.lastOutcome, 'cancelled');
+            expect(inserted, isEmpty);
+            expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+          } on Object catch (e) {
+            errors.add(e);
+          }
+        }, (error, _) => errors.add(error));
+        expect(errors, isEmpty);
+      },
+    );
+
+    test('a recorder whose start throws is stopped', () async {
+      final failing = _StartFailingRecorder();
+      recorder = failing;
+      final dictation = controller(support: _uploadOnly);
+      addTearDown(dictation.dispose);
+
+      await dictation.start();
+      await pumpEventQueue();
+
+      expect(dictation.phase, DictationPhase.failed);
+      expect(failing.stops, greaterThan(0));
+      expect(inserted, isEmpty);
+    });
+
+    test(
+      'a superseded run whose listen throws still closes the microphone',
+      () async {
+        final gate = Completer<void>();
+        final listened = _GatedListenedRecorder(gate);
+        recorder = listened;
+        final dictation = controller(support: _uploadOnly);
+        addTearDown(dictation.dispose);
+        final starting = dictation.start();
+        await pumpEventQueue();
+        await dictation.cancel();
+
+        gate.complete();
+        await starting;
+        await pumpEventQueue();
+
+        expect(listened.stops, greaterThan(0));
+        expect(dictation.phase, DictationPhase.idle);
+        expect(inserted, isEmpty);
+      },
+    );
+  });
+
   test('stops by itself after five minutes', () {
     fakeAsync((async) {
       final dictation = controller(support: _uploadOnly);
@@ -1012,5 +1111,25 @@ class _ListenedStreamRecorder extends FakeVoiceRecorder {
     // controller's own listen throws.
     stream.listen((_) {});
     return stream;
+  }
+}
+
+class _StartFailingRecorder extends FakeVoiceRecorder {
+  @override
+  Future<Stream<Uint8List>> start({required int sampleRate}) async {
+    starts++;
+    throw PlatformException(code: 'start');
+  }
+}
+
+class _GatedListenedRecorder extends _ListenedStreamRecorder {
+  _GatedListenedRecorder(this.gate);
+
+  final Completer<void> gate;
+
+  @override
+  Future<Stream<Uint8List>> start({required int sampleRate}) async {
+    await gate.future;
+    return super.start(sampleRate: sampleRate);
   }
 }
