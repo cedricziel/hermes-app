@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
 import '../models/widgets/model_picker.dart';
 import '../theme/app_icons.dart';
+import '../widgets/adaptive_dialog.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import 'hermes_profiles_repository.dart';
@@ -107,15 +109,42 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     final choice = picked;
     if (!mounted || choice == null) return;
     if (current != null && choice.sameModel(current)) return;
-    try {
-      await _repository.setModel(profile.name, choice);
-    } on Object {
-      if (mounted) _say('Could not change the default model');
-      return;
-    }
-    if (!mounted) return;
+    if (!await _save(models, profile, choice) || !mounted) return;
     _say('New chats in ${profile.label} use ${choice.modelId}');
     await _load();
+  }
+
+  /// Saves [choice] as the default model of [profile]. When Hermes asks first
+  /// because the model is expensive, the person is asked and the same request
+  /// is sent again with the confirmation; declining saves nothing.
+  Future<bool> _save(
+    HermesModelsRepository models,
+    HermesProfile profile,
+    ModelChoice choice,
+  ) async {
+    var confirmed = false;
+    while (true) {
+      final String? warning;
+      try {
+        warning = await models.assignMain(
+          choice,
+          profile: profile.name,
+          confirmExpensive: confirmed,
+        );
+      } on Object {
+        if (mounted) _say('Could not change the default model');
+        return false;
+      }
+      if (warning == null) return true;
+      if (!mounted || confirmed) return false;
+      confirmed = await showConfirmDialog(
+        context,
+        title: context.l10n.settingsHelperModelsConfirmTitle,
+        message: warning,
+        confirmLabel: context.l10n.settingsHelperModelsConfirmAction,
+      );
+      if (!confirmed) return false;
+    }
   }
 
   String? get _shownInChat => _chatProfile ?? _overview?.current;

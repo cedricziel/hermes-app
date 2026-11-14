@@ -315,7 +315,7 @@ void main() {
       ],
     };
     final changeWork = find.byKey(const Key('profile-model-work'));
-    const put = '/api/profiles/work/model';
+    const set = '/api/model/set';
 
     setUp(() {
       server
@@ -325,8 +325,9 @@ void main() {
           workOptions,
           query: {'profile': 'work'},
         )
-        ..on('PUT', put, {
+        ..on('POST', set, {
           'ok': true,
+          'scope': 'main',
           'provider': 'openrouter',
           'model': 'gpt-5',
         });
@@ -357,10 +358,18 @@ void main() {
       await tester.tap(find.text('gpt-5'));
       await tester.pumpAndSettle();
 
-      expect(jsonBody(server.requestsTo('PUT', put).single), {
-        'provider': 'openrouter',
-        'model': 'gpt-5',
-      });
+      final request = server.requestsTo('POST', set).single;
+      expect(request.queryParameters, {'profile': 'work'});
+      expect(
+        jsonBody(request),
+        allOf(
+          containsPair('scope', 'main'),
+          containsPair('provider', 'openrouter'),
+          containsPair('model', 'gpt-5'),
+          containsPair('confirm_expensive_model', false),
+        ),
+      );
+      expect(server.requestsTo('PUT', '/api/profiles/work/model'), isEmpty);
       expect(server.requestsTo('GET', '/api/profiles').length, loads + 1);
       expect(
         find.text('New chats in Work assistant use gpt-5'),
@@ -377,11 +386,11 @@ void main() {
       await tester.tap(find.text('claude-opus-4'));
       await tester.pumpAndSettle();
 
-      expect(server.requestsTo('PUT', put), isEmpty);
+      expect(server.requestsTo('POST', set), isEmpty);
     });
 
     testWidgets('says so when the server refuses the model', (tester) async {
-      server.on('PUT', put, {'detail': 'not configured'}, status: 400);
+      server.on('POST', set, {'detail': 'not configured'}, status: 400);
       await pumpProfiles(tester);
 
       await tester.tap(changeWork);
@@ -390,6 +399,76 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Could not change the default model'), findsOneWidget);
+    });
+
+    group('an expensive model', () {
+      void askFirst() => server.onRequest('POST', set, (request) {
+        final confirmed =
+            (jsonBody(request)! as Map)['confirm_expensive_model'] == true;
+        return confirmed
+            ? (
+                status: 200,
+                body: {'ok': true, 'scope': 'main', 'model': 'gpt-5'},
+              )
+            : (
+                status: 200,
+                body: {
+                  'ok': false,
+                  'scope': 'main',
+                  'confirm_required': true,
+                  'confirm_message': 'gpt-5 costs \$120 per million tokens.',
+                },
+              );
+      });
+
+      testWidgets('is saved once the person confirms', (tester) async {
+        askFirst();
+        await pumpProfiles(tester);
+
+        await tester.tap(changeWork);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('gpt-5'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Use this model?'), findsOneWidget);
+        expect(
+          find.text('gpt-5 costs \$120 per million tokens.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('New chats in Work assistant use gpt-5'),
+          findsNothing,
+        );
+
+        await tester.tap(find.text('Use it'));
+        await tester.pumpAndSettle();
+
+        final bodies = [
+          for (final r in server.requestsTo('POST', set))
+            (jsonBody(r)! as Map)['confirm_expensive_model'],
+        ];
+        expect(bodies, [false, true]);
+        expect(
+          find.text('New chats in Work assistant use gpt-5'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('saves nothing when the person declines', (tester) async {
+        askFirst();
+        await pumpProfiles(tester);
+
+        await tester.tap(changeWork);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('gpt-5'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+
+        expect(server.requestsTo('POST', set), hasLength(1));
+        expect(find.textContaining('use gpt-5'), findsNothing);
+        expect(find.text('Could not change the default model'), findsNothing);
+      });
     });
 
     testWidgets('says so when the models cannot be loaded', (tester) async {
