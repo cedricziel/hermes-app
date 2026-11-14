@@ -2,7 +2,7 @@
 
 ### Requirement: Files page for a chat
 
-The app SHALL offer a Files page for a chat from the Activity panel's "This session" section, the chat header's menu and, on macOS, View > Show Files, and SHALL NOT add a top-level tab. The page SHALL list the chat's working folder (the stored session's `cwd`, else `GET /api/fs/default-cwd`) with the chat's profile as `profile` on every request, folders first, with a path bar and an Up action.
+The app SHALL offer a Files page for a chat from the Activity panel's "This session" section, the chat header's menu and, on macOS, View > Show Files, and SHALL NOT add a top-level tab. The page SHALL list the chat's working folder (the stored session's `cwd`, else `GET /api/fs/default-cwd`) with the chat's profile as `profile` on every request except the availability probe (see Old servers), folders first, with a path bar and an Up action.
 
 #### Scenario: Open from a chat
 
@@ -70,11 +70,11 @@ The page SHALL NOT go above the chat's git root (`GET /api/fs/git-root`), or abo
 
 ### Requirement: Hidden files and secrets
 
-Names starting with a dot SHALL be hidden until the user turns on "Show hidden files", for that visit only. A file whose name looks like a secret (the list in design.md, matched case-insensitively) SHALL be listed with a lock icon and SHALL ask "This file may contain passwords or keys. Show it anyway?" before any request for its content, on every profile, because Hermes skips its own check for text previews on an SSH workspace. Nothing SHALL be requested by focus, hover or selection alone.
+Names starting with a dot SHALL be hidden until the user turns on "Show hidden files", for that visit only. A file whose name looks like a secret (the list in design.md, matched case-insensitively) SHALL be listed with a lock icon and the words "May contain secrets", and SHALL ask, in an alert titled with the file's name, "This file may contain passwords or keys. Continue anyway?" with "Cancel" (the default) and "Continue" before any request for its content: before a preview, Save, Share and Open with…, on every profile, because Hermes skips its own check for text previews on an SSH workspace. Nothing SHALL be requested by focus, hover or selection alone.
 
 #### Scenario: Secret-looking names
 
-- **WHEN** the folder holds `.env`, `.envrc`, `.netrc`, `.npmrc`, `.pypirc`, `.git-credentials`, `credentials.json`, `key.pem`, `id_rsa`, `vault.kdbx`, `api_token.txt` or a file under `.ssh/`, in any letter case
+- **WHEN** the folder holds `.env`, `.envrc`, `.netrc`, `.npmrc`, `.pypirc`, `.git-credentials`, `credentials.json`, `key.pem`, `id_rsa`, `vault.kdbx`, `api_token.txt`, `.htpasswd`, `.pgpass`, `AuthKey.p8`, `release.jks`, `upload.keystore`, `office.ovpn`, `terraform.tfstate`, `prod.tfvars`, `kubeconfig`, `.docker/config.json` or a file under `.ssh/`, in any letter case
 - **THEN** each is treated as secret-looking
 
 #### Scenario: Hidden files off
@@ -85,11 +85,16 @@ Names starting with a dot SHALL be hidden until the user turns on "Show hidden f
 #### Scenario: Secret file
 
 - **WHEN** the user taps `.env.local` with hidden files shown
-- **THEN** the question appears as an alert titled ".env.local" with Cancel as the default, and nothing is requested until the user chooses Show; Cancel requests nothing
+- **THEN** the question appears as an alert titled ".env.local" with Cancel as the default, and nothing is requested until the user chooses Continue; Cancel requests nothing
+
+#### Scenario: Secret file saved
+
+- **WHEN** the user chooses Save, Share or Open with… on `id_rsa`
+- **THEN** the same question is asked first, and nothing is downloaded until Continue
 
 #### Scenario: Server refuses
 
-- **WHEN** the user chooses Show and Hermes answers 403 "Access to sensitive files is not allowed"
+- **WHEN** the user chooses Continue and Hermes answers 403 "Access to sensitive files is not allowed"
 - **THEN** the page says "Hermes doesn't share this file."
 
 ### Requirement: Text, code and Markdown preview
@@ -116,9 +121,33 @@ A text file (a known extension, or a `language` the server names) SHALL be read 
 - **WHEN** a file named `data.txt` comes back with `binary: true`
 - **THEN** it is shown as an other file with Save and Open with…
 
+### Requirement: Inert Markdown and markup
+
+A rendered Markdown file SHALL NOT fetch anything from the network: an image element SHALL show its alt text, or "Image not loaded" when it has none. A link SHALL open only after a confirmation that names its host ("Open example.com?" with Cancel and Open), through the app's link handler (`markdown_links.dart`). Relative links and relative images SHALL be inert. HTML in Markdown, and HTML and SVG files, SHALL be shown as text, never as active content.
+
+#### Scenario: Remote image in Markdown
+
+- **WHEN** `report.md` contains `![chart](https://example.com/c.png)`
+- **THEN** the rendered view shows "chart" in place of the image and no request is made to example.com
+
+#### Scenario: Link in Markdown
+
+- **WHEN** the user taps a link to `https://example.com/page` in a rendered file
+- **THEN** a confirmation names "example.com" and the link opens only after Open
+
+#### Scenario: Relative link
+
+- **WHEN** a rendered file links to `./notes.md` or shows `![](img/a.png)`
+- **THEN** the link does nothing and the image shows its alt text or "Image not loaded"
+
+#### Scenario: HTML file
+
+- **WHEN** the user opens `page.html` or `logo.svg`
+- **THEN** its source is shown as text and nothing in it runs or loads
+
 ### Requirement: Image and PDF preview
 
-An image file (png, jpg, jpeg, gif, webp, bmp, svg) SHALL be downloaded to the cache and shown with pinch and pan, decoded at the size drawn. A PDF SHALL be downloaded and opened in Quick Look on iOS and macOS, and in the system's viewer elsewhere; its preview screen SHALL show the name, "PDF document", the size and the primary action Open. A file that finished downloading SHALL NOT download again until sign-out unless the user chooses Reload.
+An image file (png, jpg, jpeg, gif, webp, bmp, svg) SHALL be downloaded to the cache and shown with pinch and pan, decoded at the size drawn. A PDF SHALL be downloaded and opened in Quick Look on iOS and macOS, and in the system's viewer elsewhere; its preview screen SHALL show the name, "PDF document", the size and the primary action Open. A file that finished downloading SHALL NOT download again until sign-out or App Lock unless the user chooses Reload, except on an SSH workspace, where it downloads again on each open.
 
 #### Scenario: SVG
 
@@ -139,6 +168,15 @@ An image file (png, jpg, jpeg, gif, webp, bmp, svg) SHALL be downloaded to the c
 
 - **WHEN** the user chooses Reload on a file the agent has rewritten
 - **THEN** the cached copy is deleted and the file downloads again
+
+### Requirement: Refresh and Reload without a gesture
+
+Refreshing the folder and reloading a file SHALL each have a path that is not a gesture on every platform: Refresh in the folder's … menu (and the Mac toolbar, ⌘R), Reload in the preview's menu. Pull to refresh SHALL be an extra on touch, never the only way.
+
+#### Scenario: Reload on iPhone
+
+- **WHEN** the user opens the preview's … menu on an iPhone
+- **THEN** it offers Reload, under a first line with the file's full name
 
 ### Requirement: Other files
 
@@ -234,7 +272,7 @@ The page SHALL show a labelled loading state, an empty state with the one action
 #### Scenario: File failures
 
 - **WHEN** a file cannot be read
-- **THEN** the page says, by status, 403 "Hermes doesn't share this file.", 404 "This file no longer exists.", 409 "This file is open in a database right now. Try again in a moment.", 400 "This item can't be opened as a file.", otherwise "Couldn't open this file." with Try again
+- **THEN** the page says, by status, 403 "Hermes doesn't share this file.", 404 "This file no longer exists.", 409 (from `read-text` or `download`) "This file is open in a database right now. Try again in a moment.", 400 "This item can't be opened as a file.", otherwise "Couldn't open this file." with Try again
 
 #### Scenario: Error code in a 200
 
@@ -269,7 +307,7 @@ The page SHALL show a labelled loading state, an empty state with the one action
 #### Scenario: Hidden by Hermes
 
 - **WHEN** the user opens the page menu's About this list
-- **THEN** it says Hermes does not show build folders, config.yaml and similar files
+- **THEN** it says Hermes leaves out build folders, config.yaml and similar files, and that Show hidden files shows names starting with a dot but not these
 
 #### Scenario: Offline
 
@@ -280,6 +318,16 @@ The page SHALL show a labelled loading state, an empty state with the one action
 
 - **WHEN** a folder was listed and a later refresh cannot reach the server
 - **THEN** the list stays under a banner "Can't reach your Hermes server." / "This list may be out of date." with Try again, and a file already downloaded still opens
+
+#### Scenario: Missing folder on an SSH workspace
+
+- **WHEN** `GET /api/fs/list` answers 404 for a folder on an SSH workspace
+- **THEN** the page says "This folder no longer exists.", as for a 200 with ENOENT
+
+#### Scenario: Folder or profile not accepted
+
+- **WHEN** `GET /api/fs/list` answers 400, or a profile-scoped call answers 400 (invalid profile name) or 404 "Profile '…' does not exist."
+- **THEN** the page says "Hermes can't open this folder." with "The server didn't accept this folder or this chat's profile." and no action
 
 #### Scenario: Gone at the top
 
@@ -293,7 +341,7 @@ The page SHALL show a labelled loading state, an empty state with the one action
 
 ### Requirement: Old servers
 
-Files SHALL appear only when the server has the `/api/fs` routes. The first `GET /api/fs/default-cwd` of a connection SHALL decide: a 404 or 405 means unsupported, and the Files row, menu item and menu command SHALL NOT be shown and no error SHALL be shown. The result SHALL be logged once per connection. Any other failure SHALL NOT hide the feature.
+Files SHALL appear only when the server has the `/api/fs` routes. The first `GET /api/fs/default-cwd` of a connection, sent without `profile` (a missing profile also answers 404), SHALL decide: a 404 or 405 means unsupported, and the Files row, menu item and menu command SHALL NOT be shown and no error SHALL be shown. The result SHALL be logged once per connection. Any other failure SHALL NOT hide the feature.
 
 #### Scenario: Server without the routes
 
@@ -321,7 +369,7 @@ The page SHALL belong to one chat and one profile. Switching the chat's profile,
 
 ### Requirement: App Lock and cached files
 
-While App Lock covers the app, no file name, list or preview SHALL be visible, and the Quick Look panel opened from Files SHALL close. Files downloaded for Files SHALL live in the `MediaStore` cache under the sanitizing rule of other downloads, SHALL be deleted on sign-out, and SHALL be removed by the 24-hour sweep at launch. Names from the server SHALL NOT be able to leave the cache folder.
+While App Lock covers the app, no file name, list or preview SHALL be visible, and the Quick Look panel opened from Files SHALL close. Files downloaded for Files SHALL live in the `MediaStore` cache in the application cache directory (not indexed by Spotlight, not backed up) under the sanitizing rule of other downloads. A file fetched after the secret question SHALL be deleted when its preview closes. All Files downloads SHALL be deleted on sign-out and when App Lock locks; other cached files are removed by the 24-hour sweep at launch, as today. Names from the server SHALL NOT be able to leave the cache folder.
 
 #### Scenario: Lock while previewing
 
@@ -331,12 +379,26 @@ While App Lock covers the app, no file name, list or preview SHALL be visible, a
 #### Scenario: Lock mid-download
 
 - **WHEN** App Lock locks the app while a file downloads
-- **THEN** the download continues hidden and the preview is shown again only after unlock
+- **THEN** the download is cancelled, its partial file and every other Files download are deleted, and after unlock the file is fetched again when opened
+
+#### Scenario: Secret file closed
+
+- **WHEN** the user closes the preview of `.env.local` after Continue
+- **THEN** its cached copy is deleted
 
 #### Scenario: Hostile name
 
 - **WHEN** a listing contains a file named `../../x`
 - **THEN** it is staged under its safe name inside the cache folder
+
+### Requirement: Preview covered in the app switcher
+
+While a Files preview is on screen and the app becomes inactive, the preview SHALL be covered by a blank surface showing only the file type's icon, whether or not App Lock is on, and uncovered when the app is active again.
+
+#### Scenario: App switcher
+
+- **WHEN** the user opens the app switcher while `analysis.py` is shown
+- **THEN** the switcher's snapshot shows a blank surface with the code icon and no file name or content
 
 ### Requirement: Layouts and platform behaviour
 
@@ -359,17 +421,22 @@ On a phone the list SHALL be one page with the preview pushed over it. On iPad a
 
 ### Requirement: Accessibility
 
-Every row, action and toggle SHALL be at least 44 pt (Apple) or 48 dp (Android) high, read as "<name>, folder" or "<name>, file" with "may contain secrets" where it applies, with no meaning carried by colour or icon alone. Text SHALL scale to the largest accessibility size, contrast SHALL meet WCAG AA in both themes including code colours, progress and failures SHALL be announced, and reduced motion SHALL remove the list-to-preview transition.
+Every touch row, action and toggle SHALL be at least 44 pt (iOS, iPadOS) or 48 dp (Android) high. On macOS, where rows are pointer targets, file rows SHALL be 32 pt and every other target at least 28 pt. Rows SHALL read as "<name>, folder" or "<name>, file" with "may contain secrets" where it applies (the text equivalent of the lock), with no meaning carried by colour or icon alone. Each path-bar segment SHALL be a keyboard-focusable button whose label is its full path. Text SHALL scale to the largest accessibility size: names wrap at word boundaries and break inside a word only when nothing else fits, and buttons scale with the text. Contrast SHALL meet WCAG AA in both themes including code colours, progress and failures SHALL be announced, and reduced motion SHALL remove the list-to-preview transition and the spinner's animation.
 
 #### Scenario: Large text
 
 - **WHEN** the system text size is the largest accessibility size
-- **THEN** rows grow, names wrap and no action is cut off
+- **THEN** rows grow, names wrap at word boundaries (".env.local" and "api_token.txt" stay whole when the lock can move under them), buttons scale and no action is cut off
+
+#### Scenario: Reduced motion
+
+- **WHEN** the system asks for reduced motion
+- **THEN** the preview appears without a transition and the loading and download spinners are still
 
 #### Scenario: Dialogs and path bar
 
 - **WHEN** the size or secret question opens, or the path bar is focused
-- **THEN** the question is announced with its buttons, and each path segment is read as "<name>, folder, go to"
+- **THEN** the question is announced with its buttons, and each path segment is a focusable button read as its full path, for example "/srv/projects/hermes-report/reports, folder, go to"
 
 #### Scenario: Screen reader
 
@@ -378,7 +445,12 @@ Every row, action and toggle SHALL be at least 44 pt (Apple) or 48 dp (Android) 
 
 ### Requirement: Observability
 
-The feature SHALL record the spans, log events and breadcrumbs listed in design.md and SHALL NOT put a path, file or folder name, profile, `cwd`, server address or file content in any of them. Telemetry SHALL never throw into the page.
+The feature SHALL record the spans, log events and breadcrumbs listed in design.md and SHALL NOT put a path, file or folder name, profile, `cwd`, server address or file content in any of them. Telemetry SHALL never throw into the page. Files SHALL catch request exceptions and map them to a failure kind without the request's URI, so no span, log, breadcrumb, crash report or thrown message carries the request URL or a path from its query.
+
+#### Scenario: Failed request
+
+- **WHEN** `GET /api/fs/read-text?path=/srv/p/.env` fails with a Dio exception
+- **THEN** the page gets a failure kind, and nothing recorded or rethrown contains the URL or `/srv/p/.env`
 
 #### Scenario: A download
 
