@@ -136,6 +136,138 @@
       }
     }
   },
+  "chatActivityLineAsking": "{count, plural, =1{Asking 1 model} other{Asking {count} models}}",
+  "@chatActivityLineAsking": {
+    "description": "Activity line sentence while a mixture-of-agents turn collects answers from several models. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineAskingUnknown": "Asking models",
+  "@chatActivityLineAskingUnknown": {
+    "description": "Activity line sentence while a mixture-of-agents turn collects answers and the number of models is not known."
+  },
+  "chatActivityLineCombining": "Combining answers",
+  "@chatActivityLineCombining": {
+    "description": "Activity line sentence while a mixture-of-agents turn combines the models' answers."
+  },
+  "chatActivityLineLabel": "Hermes is working: {sentence}. Opens activity.",
+  "@chatActivityLineLabel": {
+    "description": "Accessible name of the activity line without counters. {sentence} is what Hermes is doing.",
+    "placeholders": {
+      "sentence": {
+        "type": "String",
+        "example": "Running 2 processes"
+      }
+    }
+  },
+  "chatActivityLineLabelCounters": "Hermes is working: {sentence}, {counters}. Opens activity.",
+  "@chatActivityLineLabelCounters": {
+    "description": "Accessible name of the activity line with counters. {sentence} is what Hermes is doing, {counters} the spoken counters joined by commas.",
+    "placeholders": {
+      "sentence": {
+        "type": "String",
+        "example": "Running 2 processes"
+      },
+      "counters": {
+        "type": "String",
+        "example": "plan 2 of 5, 1 process running"
+      }
+    }
+  },
+  "chatActivityLinePlan": "Working on the plan",
+  "@chatActivityLinePlan": {
+    "description": "Activity line sentence while a plan has an open task and nothing else reports what Hermes is doing."
+  },
+  "chatActivityLinePlanCounter": "{done}/{total}",
+  "@chatActivityLinePlanCounter": {
+    "description": "Counter chip on the activity line: plan tasks done out of all tasks.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "2"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLinePlanCounterLabel": "plan {done} of {total}",
+  "@chatActivityLinePlanCounterLabel": {
+    "description": "Spoken form of the plan counter on the activity line.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "2"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineProcesses": "{count, plural, =1{Process running} other{Running {count} processes}}",
+  "@chatActivityLineProcesses": {
+    "description": "Activity line sentence while background processes run. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineProcessesCounter": "{count, plural, =1{1 running} other{{count} running}}",
+  "@chatActivityLineProcessesCounter": {
+    "description": "Counter chip on the activity line: how many background processes run.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineProcessesCounterLabel": "{count, plural, =1{1 process running} other{{count} processes running}}",
+  "@chatActivityLineProcessesCounterLabel": {
+    "description": "Spoken form of the processes counter on the activity line.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineReferencesCounter": "{done}/{total}",
+  "@chatActivityLineReferencesCounter": {
+    "description": "Counter chip on the activity line: models that have answered out of all asked in a mixture-of-agents turn.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineReferencesCounterLabel": "{done} of {total} models answered",
+  "@chatActivityLineReferencesCounterLabel": {
+    "description": "Spoken form of the models counter on the activity line.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineRestoring": "Restoring the chat…",
+  "@chatActivityLineRestoring": {
+    "description": "Activity line sentence while a chat is being restored on the server."
+  },
   "chatActivityNeedsYouBillingCopy": "Copy code",
   "@chatActivityNeedsYouBillingCopy": {
     "description": "Button on the Needs-you card that copies the billing verification code."
@@ -843,6 +975,446 @@
   "@@x-area-plugins": "",
 
   "@@x-area-profiles": "",
+
+  "@@x-area-providers": "",
+  "providersAccountsFailed": "Account sign-in isn't available right now.",
+  "@providersAccountsFailed": {
+    "description": "Warning banner above the recommended providers when the account sign-in list could not be read."
+  },
+  "providersAddHeading": "Add a provider",
+  "@providersAddHeading": {
+    "description": "Heading of the part of the model providers list that offers providers not yet connected."
+  },
+  "providersApiTypeAnthropicMessages": "Anthropic Messages",
+  "@providersApiTypeAnthropicMessages": {
+    "description": "How a custom endpoint talks to its server: the Anthropic Messages API. A protocol name; usually not translated."
+  },
+  "providersApiTypeAutomatic": "Automatic",
+  "@providersApiTypeAutomatic": {
+    "description": "API type of a custom endpoint when Hermes picks the protocol itself."
+  },
+  "providersApiTypeChatCompletions": "Chat Completions",
+  "@providersApiTypeChatCompletions": {
+    "description": "How a custom endpoint talks to its server: the Chat Completions API. A protocol name; usually not translated."
+  },
+  "providersApiTypeResponses": "Responses",
+  "@providersApiTypeResponses": {
+    "description": "How a custom endpoint talks to its server: the Responses API. A protocol name; usually not translated."
+  },
+  "providersConnectedCount": "{count} connected",
+  "@providersConnectedCount": {
+    "description": "Part of the model providers screen subtitle after the profile name, such as 'work · 2 connected'.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "providersConnectedHeader": "Connected",
+  "@providersConnectedHeader": {
+    "description": "Header of the group of model providers that are connected."
+  },
+  "providersCustomEndpointHint": "vLLM, llama.cpp, Ollama and more",
+  "@providersCustomEndpointHint": {
+    "description": "Subtitle of the row that adds a custom endpoint; product names stay as they are."
+  },
+  "providersCustomEndpointTitle": "Custom endpoint",
+  "@providersCustomEndpointTitle": {
+    "description": "Row that adds a model server the person runs themselves, and the title of such a provider."
+  },
+  "providersDefaultBadge": "Default",
+  "@providersDefaultBadge": {
+    "description": "Word next to a provider that serves the default model. Never shown as a colour alone."
+  },
+  "providersDefaultModelFooter": "Used for new chats in {profile}. A chat can still pick another model.",
+  "@providersDefaultModelFooter": {
+    "description": "Note under the default model row of the model providers list.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersDefaultModelHeader": "Default model",
+  "@providersDefaultModelHeader": {
+    "description": "Header of the group that shows the model new chats use."
+  },
+  "providersDeleteEndpoint": "Delete endpoint",
+  "@providersDeleteEndpoint": {
+    "description": "Red row on a custom endpoint's detail that deletes it after asking."
+  },
+  "providersDetailAccountChatGpt": "ChatGPT subscription",
+  "@providersDetailAccountChatGpt": {
+    "description": "Subtitle of the signed-in row of a ChatGPT account sign-in."
+  },
+  "providersDetailAccountNous": "Nous Portal account",
+  "@providersDetailAccountNous": {
+    "description": "Subtitle of the signed-in row of a Nous Portal sign-in."
+  },
+  "providersDetailAddedOnServer": "Added on the server",
+  "@providersDetailAddedOnServer": {
+    "description": "Subtitle of a saved key that someone added by hand on the Hermes server."
+  },
+  "providersDetailCantRemove": "Hermes can't remove this sign-in from the app. Run this on your server:",
+  "@providersDetailCantRemove": {
+    "description": "Note above a command the person runs on their server to remove a sign-in."
+  },
+  "providersDetailChange": "Change",
+  "@providersDetailChange": {
+    "description": "Text button on the default model row of a provider's detail."
+  },
+  "providersDetailChangeSemantics": "Change default model",
+  "@providersDetailChangeSemantics": {
+    "description": "Accessibility label of the Change button on the default model row."
+  },
+  "providersDetailCredentialsHeader": "Credentials",
+  "@providersDetailCredentialsHeader": {
+    "description": "Header of the group of a provider's keys and sign-ins."
+  },
+  "providersDetailDefaultFooter": "New chats in {profile} use this model.",
+  "@providersDetailDefaultFooter": {
+    "description": "Note under the default model row of a provider's detail.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersDetailEdit": "Edit",
+  "@providersDetailEdit": {
+    "description": "Bar button on a custom endpoint's detail that opens its form."
+  },
+  "providersDetailManageOnServer": "Manage this key on your server with hermes auth.",
+  "@providersDetailManageOnServer": {
+    "description": "Note under a key that was added on the server. 'hermes auth' is a command and stays as it is."
+  },
+  "providersDetailModelsHeader": "{count, plural, =1{1 model} other{{count} models}}",
+  "@providersDetailModelsHeader": {
+    "description": "Header of the group that lists the models a provider offers.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "providersDetailReplaceKey": "Replace key",
+  "@providersDetailReplaceKey": {
+    "description": "Button on a saved API key's row that opens the form to paste a new key."
+  },
+  "providersDetailReplaceKeySemantics": "Replace key for {provider}",
+  "@providersDetailReplaceKeySemantics": {
+    "description": "Accessibility label of the Replace key button, naming the provider.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersDetailSavedKey": "Saved key",
+  "@providersDetailSavedKey": {
+    "description": "Row of a key added on the server when no characters of it are known."
+  },
+  "providersDetailSavedKeyEnding": "Saved key ending in {characters}",
+  "@providersDetailSavedKeyEnding": {
+    "description": "Row of a key added on the server. Also read by screen readers, with the characters spaced out.",
+    "placeholders": {
+      "characters": {
+        "type": "String",
+        "example": "7890"
+      }
+    }
+  },
+  "providersDetailShowAll": "Show all {count}",
+  "@providersDetailShowAll": {
+    "description": "Row that expands a provider's model list to every model.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "providersDetailShowFewer": "Show fewer",
+  "@providersDetailShowFewer": {
+    "description": "Row that collapses a provider's long model list again."
+  },
+  "providersDetailSignedIn": "Signed in",
+  "@providersDetailSignedIn": {
+    "description": "Title of the row for an account sign-in in a provider's credentials."
+  },
+  "providersDetailStatusConnectedOnServer": "Connected with a key added on the server",
+  "@providersDetailStatusConnectedOnServer": {
+    "description": "First line of a provider's detail when the only credential was added by hand on the server."
+  },
+  "providersDetailStatusEndpoint": "Custom endpoint",
+  "@providersDetailStatusEndpoint": {
+    "description": "First line of a custom endpoint's detail."
+  },
+  "providersDetailStatusKey": "Connected with an API key",
+  "@providersDetailStatusKey": {
+    "description": "First line of a provider's detail when an API key is saved."
+  },
+  "providersDetailStatusNone": "Not connected",
+  "@providersDetailStatusNone": {
+    "description": "First line of a provider's detail when it has no credential."
+  },
+  "providersDetailStatusSignedIn": "Signed in",
+  "@providersDetailStatusSignedIn": {
+    "description": "First line of a provider's detail when an account is signed in and Hermes gave no email."
+  },
+  "providersDetailStatusSignedInAs": "Signed in as {email}",
+  "@providersDetailStatusSignedInAs": {
+    "description": "First line of a provider's detail when an account is signed in.",
+    "placeholders": {
+      "email": {
+        "type": "String",
+        "example": "ada@example.com"
+      }
+    }
+  },
+  "providersDetailStillConnected": "{count, plural, =1{Still connected through 1 other saved credential.} other{Still connected through {count} other saved credentials.}}",
+  "@providersDetailStillConnected": {
+    "description": "Note on a provider's detail after a removal left other credentials in place.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "providersEmptyDetail": "Connect one so {profile} can answer. Keys you add here are used by the {profile} profile only.",
+  "@providersEmptyDetail": {
+    "description": "Body of the message shown when no model provider is connected. The profile name appears twice.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersEmptyTitle": "No model provider yet",
+  "@providersEmptyTitle": {
+    "description": "Title of the message shown when the profile has no connected model provider."
+  },
+  "providersEndpointAddress": "Address",
+  "@providersEndpointAddress": {
+    "description": "Label of a custom endpoint's web address on its detail."
+  },
+  "providersEndpointApiType": "API type",
+  "@providersEndpointApiType": {
+    "description": "Label of the protocol a custom endpoint uses, on its detail."
+  },
+  "providersEndpointKey": "API key",
+  "@providersEndpointKey": {
+    "description": "Label of a custom endpoint's key on its detail."
+  },
+  "providersEndpointKeyNone": "None",
+  "@providersEndpointKeyNone": {
+    "description": "Value of a custom endpoint's key row when it has no key."
+  },
+  "providersEndpointKeySaved": "Saved",
+  "@providersEndpointKeySaved": {
+    "description": "Value of a custom endpoint's key row when a key is saved. The key is never shown."
+  },
+  "providersEndpointsFailed": "Custom endpoints couldn't be read.",
+  "@providersEndpointsFailed": {
+    "description": "Warning banner above the custom endpoint entry when the endpoints could not be read."
+  },
+  "providersKeysFailed": "Saved keys couldn't be read. You can still add a key.",
+  "@providersKeysFailed": {
+    "description": "Warning banner above the connected providers when the saved keys could not be read."
+  },
+  "providersListTitle": "Model providers",
+  "@providersListTitle": {
+    "description": "Title of the model providers screen."
+  },
+  "providersLoadFailedDetail": "Something went wrong on your Hermes server.",
+  "@providersLoadFailedDetail": {
+    "description": "Body of the load failure message when Hermes gave no reason of its own."
+  },
+  "providersLoadFailedTitle": "Couldn't load providers",
+  "@providersLoadFailedTitle": {
+    "description": "Title of the message shown when the provider list failed to load."
+  },
+  "providersLoadingLabel": "Loading providers",
+  "@providersLoadingLabel": {
+    "description": "Accessibility label of the placeholder rows while the provider list loads."
+  },
+  "providersMoreHeader": "More providers",
+  "@providersMoreHeader": {
+    "description": "Header of the alphabetical group of providers that can be added."
+  },
+  "providersOfflineBannerDetail": "Showing what was last loaded. Check your connection or VPN.",
+  "@providersOfflineBannerDetail": {
+    "description": "Detail of the warning banner above a list that could not be refreshed."
+  },
+  "providersOfflineStateDetail": "Check your connection or VPN, then try again.",
+  "@providersOfflineStateDetail": {
+    "description": "Body of the message shown when the server cannot be reached and nothing was loaded yet."
+  },
+  "providersOfflineTitle": "Can't reach your Hermes server",
+  "@providersOfflineTitle": {
+    "description": "Title of the offline message and of the warning banner above an older list."
+  },
+  "providersPrivacyFooter": "Keys and sign-ins are saved on your Hermes server for the {profile} profile only. They are never stored on this device.",
+  "@providersPrivacyFooter": {
+    "description": "Note at the end of the model providers list.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersRecommendedHeader": "Recommended",
+  "@providersRecommendedHeader": {
+    "description": "Header of the group of providers Hermes suggests first."
+  },
+  "providersRemoveKey": "Remove key",
+  "@providersRemoveKey": {
+    "description": "Red row on a provider's detail that removes its saved key after asking."
+  },
+  "providersRestartDetail": "It was updated. Models can't change until it restarts.",
+  "@providersRestartDetail": {
+    "description": "Detail of the banner shown when the server asks for a restart."
+  },
+  "providersRestartTitle": "Your Hermes server needs a restart",
+  "@providersRestartTitle": {
+    "description": "Title of the banner shown when the server asks for a restart."
+  },
+  "providersRowConnected": "Connected",
+  "@providersRowConnected": {
+    "description": "Subtitle of a connected provider when the server does not tell how."
+  },
+  "providersRowContinue": "Continue",
+  "@providersRowContinue": {
+    "description": "Outlined button on a provider waiting for sign-in that reopens the sign-in step."
+  },
+  "providersRowContinueSemantics": "Continue sign-in to {provider}",
+  "@providersRowContinueSemantics": {
+    "description": "Accessibility label of the Continue button of a pending sign-in.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "ChatGPT"
+      }
+    }
+  },
+  "providersRowEndpoint": "Custom endpoint · {host}",
+  "@providersRowEndpoint": {
+    "description": "Subtitle of a custom endpoint in the list, with the host of its address.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "models.example.net"
+      }
+    }
+  },
+  "providersRowKeyEnding": "API key ending in {characters}",
+  "@providersRowKeyEnding": {
+    "description": "Subtitle of a provider connected with a key. Also read by screen readers, with the characters spaced out.",
+    "placeholders": {
+      "characters": {
+        "type": "String",
+        "example": "4f2a"
+      }
+    }
+  },
+  "providersRowKeySaved": "API key saved",
+  "@providersRowKeySaved": {
+    "description": "Subtitle of a provider whose key is saved when no characters of it are known."
+  },
+  "providersRowOfferAccount": "Sign in with your account",
+  "@providersRowOfferAccount": {
+    "description": "Subtitle of a provider that connects by signing in to an account."
+  },
+  "providersRowOfferKey": "API key",
+  "@providersRowOfferKey": {
+    "description": "Subtitle of a provider that connects with an API key."
+  },
+  "providersRowOfferOnServer": "Set up on your server",
+  "@providersRowOfferOnServer": {
+    "description": "Subtitle of a provider that is set up with a command on the Hermes server."
+  },
+  "providersRowSemantics": "{provider}, {state}",
+  "@providersRowSemantics": {
+    "description": "Accessibility label of a provider row: its name and how it is connected.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      },
+      "state": {
+        "type": "String",
+        "example": "API key ending in 4 f 2 a"
+      }
+    }
+  },
+  "providersRowSemanticsDefault": "{provider}, {state}, default model",
+  "@providersRowSemanticsDefault": {
+    "description": "Accessibility label of a provider row that serves the default model.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      },
+      "state": {
+        "type": "String",
+        "example": "API key ending in 4 f 2 a"
+      }
+    }
+  },
+  "providersRowSignedIn": "Signed in",
+  "@providersRowSignedIn": {
+    "description": "Subtitle of a provider connected with an account."
+  },
+  "providersRowSignedInAs": "Signed in as {email}",
+  "@providersRowSignedInAs": {
+    "description": "Subtitle of a provider connected with an account when Hermes reports the email.",
+    "placeholders": {
+      "email": {
+        "type": "String",
+        "example": "ada@example.com"
+      }
+    }
+  },
+  "providersRowStop": "Stop",
+  "@providersRowStop": {
+    "description": "Text button on a provider waiting for sign-in that cancels it after asking."
+  },
+  "providersRowStopSemantics": "Cancel sign-in to {provider}",
+  "@providersRowStopSemantics": {
+    "description": "Accessibility label of the Stop button of a pending sign-in.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "ChatGPT"
+      }
+    }
+  },
+  "providersRowWaiting": "Waiting for sign-in…",
+  "@providersRowWaiting": {
+    "description": "Subtitle of a provider whose account sign-in has started and is not finished."
+  },
+  "providersSearchHint": "Search providers",
+  "@providersSearchHint": {
+    "description": "Placeholder of the field that filters the providers that can be added."
+  },
+  "providersSearchNoMatch": "No provider matches your search.",
+  "@providersSearchNoMatch": {
+    "description": "Row shown when the search filters out every provider."
+  },
+  "providersSignOut": "Sign out",
+  "@providersSignOut": {
+    "description": "Red row on a provider's detail that signs the account out after asking."
+  },
+  "providersTryAgain": "Try again",
+  "@providersTryAgain": {
+    "description": "Button that reads the providers again."
+  },
 
   "@@x-area-quick_actions": "",
 
