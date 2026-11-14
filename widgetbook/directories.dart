@@ -1,3 +1,5 @@
+import 'files_use_cases.dart';
+import 'tools_use_cases.dart';
 import 'voice_call_use_cases.dart';
 import 'messenger_identity_use_cases.dart';
 import 'reaction_use_cases.dart';
@@ -10,6 +12,12 @@ import 'session_usage_use_cases.dart';
 import 'connector_operation_use_cases.dart';
 import 'side_result_use_cases.dart';
 import 'process_output_use_cases.dart';
+import 'agent_row_use_cases.dart';
+import 'agent_output_use_cases.dart';
+import 'agent_note_use_cases.dart';
+import 'agent_detail_use_cases.dart';
+import 'agent_confirm_use_cases.dart';
+import 'subagent_card_use_cases.dart';
 import 'agent_warning_use_cases.dart';
 import 'session_state_use_cases.dart';
 import 'todo_plan_use_cases.dart';
@@ -78,11 +86,13 @@ import 'schedules_use_cases.dart';
 import 'sudo_password_use_cases.dart';
 import 'voice_use_cases.dart';
 import 'grouped_row_use_cases.dart';
+import 'server_care_gateway_use_cases.dart';
 import 'server_care_status_use_cases.dart';
 import 'server_care_update_logs_use_cases.dart';
 import 'server_care_usage_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
+  filesNode(),
   voiceCallNode(),
   messengerIdentityNode(),
   reactionNode(),
@@ -110,6 +120,7 @@ final List<WidgetbookNode> directories = [
   busyBarNode(),
   groupedRowValueNode(),
   ...serverCareStatusNodes(),
+  ...serverCareGatewayNodes(),
   ...serverCareUpdateLogsNodes(),
   ...serverCareUsageNodes(),
   platformHintNode(),
@@ -136,6 +147,12 @@ final List<WidgetbookNode> directories = [
   connectorOperationNode(),
   sideResultNode(),
   processOutputNode(),
+  agentRowNode(),
+  agentOutputNode(),
+  agentNoteNode(),
+  agentDetailNode(),
+  agentConfirmNode(),
+  subagentCardNode(),
   billingVerificationNode(),
   chatSuggestionsNode(),
   chatThreadNode(),
@@ -168,4 +185,5 @@ final List<WidgetbookNode> directories = [
   mcpNode(),
   mcpScreensNode(),
   settingsScreensNode(),
+  toolsNode(),
 ];

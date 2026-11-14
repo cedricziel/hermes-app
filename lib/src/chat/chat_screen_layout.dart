@@ -120,6 +120,7 @@ extension _ChatScreenLayout on _ChatScreenState {
             onSetupModel: _setupModel,
             screen: _screen,
             onOpenScreen: () => _openViewer('preview'),
+            needsYou: _needsYou,
             thread: selected,
             draftHandedBack: _ChatScreenCheckpoints(this)._showsHandBack,
             greetingName: context.select<AuthController, String?>(
@@ -158,6 +159,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                       onNewChat: _newThread,
                       onShowConnection: _showConnection,
                       activityOpen: _activityOpen,
+                      activityWaiting: _needsYou.count,
                       onToggleActivity: selected == null
                           ? null
                           : _toggleActivity,
@@ -182,6 +184,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                     onNewChat: _newThread,
                     callButton: _callButton,
                     activityOpen: _activityOpen,
+                    activityWaiting: _needsYou.count,
                     onToggleActivity: selected == null ? null : _toggleActivity,
                   ),
           ),
@@ -241,7 +244,11 @@ extension _ChatScreenLayout on _ChatScreenState {
                         includeCopyTranscript: true,
                       ),
                     if (selected != null)
-                      ActivityButton(open: false, onPressed: _toggleActivity),
+                      ActivityButton(
+                        open: false,
+                        waiting: _needsYou.count,
+                        onPressed: _toggleActivity,
+                      ),
                     NewChatButton(onPressed: _newThread),
                   ],
                 ),

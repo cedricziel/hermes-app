@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
@@ -24,19 +23,10 @@ import 'chat_builders.dart';
 import 'memory_tool_body.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/voice_message_recording.dart';
+import '../activity/widgets/needs_you_dock.dart' show NeedsYouDockBuilder;
 import 'chat_composer_builder.dart';
 import 'message_actions.dart' show TurnActionStatus;
-import '../chat_session_state.dart';
-import 'session_status_card.dart';
-import '../todo_plan/todo_plan_state.dart';
-import '../connector_operation_controller.dart';
-import 'connector_operation_cards.dart';
-import '../activity/activity_tier.dart';
-import '../billing_verification_controller.dart';
-import 'billing_verification_card.dart';
 import '../reactions/reaction_state.dart';
-import '../moa_progress_state.dart';
-import '../process_output_state.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -75,19 +65,10 @@ class ChatThreadView extends StatelessWidget {
     this.turnActionStatus,
     this.modelPill,
     this.header,
-    this.sessionState,
-    this.connectorOperations,
-    this.billingVerification,
-    this.todoPlan,
+    this.dock,
     this.reactionsFor,
     this.onReactionDetails,
-    this.moaProgress = const [],
-    this.onMoaDetails,
-    this.processOutputs,
-    this.onProcessOutputDetails,
     this.memoryDecisions,
-    this.onSessionDetails,
-    this.onReopenSession,
     this.onRetry,
     this.onEdit,
     this.onBranch,
@@ -108,21 +89,16 @@ class ChatThreadView extends StatelessWidget {
   });
 
   final ChatThread? thread;
-  final ChatSessionState? sessionState;
-  final ConnectorOperationController? connectorOperations;
-  final BillingVerificationController? billingVerification;
-  final TodoPlanState? todoPlan;
+
+  /// The Needs-you dock, built inside the composer's box so it sits directly
+  /// above the composer, moves with it and is part of the height the
+  /// transcript clears. Null shows none.
+  final NeedsYouDockBuilder? dock;
   final List<ReportedReaction>? Function(DurableReactionRow row)? reactionsFor;
   final VoidCallback? onReactionDetails;
-  final List<MoaProgress> moaProgress;
-  final VoidCallback? onMoaDetails;
-  final ProcessOutputState? processOutputs;
 
   /// Approves and rejects the staged memory writes the chat's cards show.
   final MemoryDecisions? memoryDecisions;
-  final VoidCallback? onProcessOutputDetails;
-  final VoidCallback? onSessionDetails;
-  final VoidCallback? onReopenSession;
   final BotChatContext? botContext;
   final InMemoryChatController chatController;
   final TextEditingController composerController;
@@ -238,6 +214,7 @@ class ChatThreadView extends StatelessWidget {
             sendTarget: sendTarget,
             sendHeld: sendHeld,
             draftHandedBack: draftHandedBack,
+            dock: dock,
           ),
         );
     // copyWith takes a null builder as "none", so only the panel's case
@@ -248,97 +225,38 @@ class ChatThreadView extends StatelessWidget {
             emptyChatListBuilder: (_) => const SizedBox.shrink(),
           );
 
-    List<Widget> activity() => [
-      if (connectorOperations case final operations?)
-        if (connectorOperationCards(operations, tier: ActivityTier.needsYou)
-            case final cards when cards.isNotEmpty)
-          ConstrainedBox(
-            key: ObjectKey(operations),
-            constraints: const BoxConstraints(maxHeight: 260),
-            child: SingleChildScrollView(child: Column(children: cards)),
-          ),
-      if (billingVerification case final billing?
-          when billing.supported &&
-              billingTier(billing) == ActivityTier.needsYou)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 240),
-          child: SingleChildScrollView(
-            child: BillingVerificationCard(
-              key: ObjectKey(billing),
-              controller: billing,
-            ),
-          ),
-        ),
-      if (sessionState case final state?
-          when state.visible &&
-              sessionStateTier(state) == ActivityTier.needsYou)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 180),
-          child: SingleChildScrollView(
-            child: SessionStatusCard(
-              state: state,
-              onDetails: onSessionDetails,
-              onReopen: onReopenSession,
-            ),
-          ),
-        ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) => Column(
-        children: [
-          if (header case final header?) ...[
-            header,
-            if (platformChromeOf(context) != PlatformChrome.macos)
-              const Divider(height: 1),
-          ],
-          if (botContext case final bot?) BotChatBanner(context: bot),
-          // Cards come and go with their controllers, not with this view.
-          ListenableBuilder(
-            listenable: Listenable.merge([
-              billingVerification,
-              connectorOperations,
-              todoPlan,
-            ]),
-            builder: (context, _) {
-              final cards = activity();
-              if (cards.isEmpty) return const SizedBox.shrink();
-              return ConstrainedBox(
-                key: const Key('chat-activity-strip'),
-                constraints: BoxConstraints(
-                  maxHeight: constraints.hasBoundedHeight
-                      ? math.min(280.0, constraints.maxHeight * 0.4)
-                      : 280,
+    return Column(
+      children: [
+        if (header case final header?) ...[
+          header,
+          if (platformChromeOf(context) != PlatformChrome.macos)
+            const Divider(height: 1),
+        ],
+        if (botContext case final bot?) BotChatBanner(context: bot),
+        Expanded(
+          child: AttachmentSurface(
+            source: attachmentSource,
+            onAdd: onAddAttachments,
+            builder: (context, openAttachMenu) => Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: kChatColumnMaxWidth,
                 ),
-                child: SingleChildScrollView(child: Column(children: cards)),
-              );
-            },
-          ),
-          Expanded(
-            child: AttachmentSurface(
-              source: attachmentSource,
-              onAdd: onAddAttachments,
-              builder: (context, openAttachMenu) => Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: kChatColumnMaxWidth,
-                  ),
-                  child: SizedBox.expand(
-                    child: MemoryDecisionsScope(
-                      decisions: memoryDecisions,
-                      child: FlyerMaterialScope(
-                        child: Chat(
-                          // The controller too: after a profile switch the
-                          // same id names another thread.
-                          key: ValueKey((thread?.id, chatController)),
-                          chatController: chatController,
-                          currentUserId: kUserAuthorId,
-                          resolveUser: (id) async => User(id: id),
-                          onMessageSend: onSend,
-                          onAttachmentTap: openAttachMenu,
-                          theme: buildChatTheme(Theme.of(context)),
-                          builders: shown,
-                        ),
+                child: SizedBox.expand(
+                  child: MemoryDecisionsScope(
+                    decisions: memoryDecisions,
+                    child: FlyerMaterialScope(
+                      child: Chat(
+                        // The controller too: after a profile switch the
+                        // same id names another thread.
+                        key: ValueKey((thread?.id, chatController)),
+                        chatController: chatController,
+                        currentUserId: kUserAuthorId,
+                        resolveUser: (id) async => User(id: id),
+                        onMessageSend: onSend,
+                        onAttachmentTap: openAttachMenu,
+                        theme: buildChatTheme(Theme.of(context)),
+                        builders: shown,
                       ),
                     ),
                   ),
@@ -346,8 +264,8 @@ class ChatThreadView extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

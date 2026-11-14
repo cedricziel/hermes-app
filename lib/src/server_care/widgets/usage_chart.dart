@@ -319,6 +319,7 @@ class _UsageChartState extends State<UsageChart>
           xLabelScaler: axisScaler,
           barColor: muted,
           selectedColor: scheme.primary,
+          outlineColor: scheme.onSurface,
           gridColor: scheme.outlineVariant,
           baselineColor: scheme.outline,
           onPick: _select,
@@ -482,6 +483,7 @@ class UsageChartPlotPainter extends CustomPainter {
     required this.xLabelScaler,
     required this.barColor,
     required this.selectedColor,
+    required this.outlineColor,
     required this.gridColor,
     required this.baselineColor,
     required this.onPick,
@@ -500,6 +502,7 @@ class UsageChartPlotPainter extends CustomPainter {
   final TextScaler xLabelScaler;
   final Color barColor;
   final Color selectedColor;
+  final Color outlineColor;
   final Color gridColor;
   final Color baselineColor;
   final ValueChanged<int> onPick;
@@ -541,6 +544,27 @@ class UsageChartPlotPainter extends CustomPainter {
       );
     }
 
+    // The selected day's column is outlined, so it reads at a glance even
+    // when its own bar is short or empty, and without relying on colour: the
+    // 2 px line is the text colour, far above 3:1 on the plot in both themes.
+    if (selected >= 0 && selected < values.length) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            selected * slot + 1,
+            topPad - 1,
+            slot - 2,
+            plotHeight + 2,
+          ),
+          const Radius.circular(4),
+        ),
+        Paint()
+          ..color = outlineColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
+
     for (final MapEntry(key: i, value: text) in xLabels.entries) {
       final tp = _text(text, xLabelStyle, xLabelScaler);
       final x = (i * slot + slot / 2 - tp.width / 2)
@@ -563,6 +587,7 @@ class UsageChartPlotPainter extends CustomPainter {
       old.xLabelScaler != xLabelScaler ||
       old.barColor != barColor ||
       old.selectedColor != selectedColor ||
+      old.outlineColor != outlineColor ||
       old.gridColor != gridColor ||
       old.baselineColor != baselineColor;
 

@@ -46,14 +46,19 @@ ActivityTier connectorTier(
 }) {
   if (connectionWide || operation.settled) return ActivityTier.reference;
   final key = operation.key;
+  // What it offers, not what it can do this instant: an answer in flight
+  // keeps the operation here.
   final actionable =
-      controller.canRespond(key) ||
+      controller.offersRespond(key) ||
       operation.targets.any(
         (target) =>
-            controller.canOpen(key, target.name) ||
-            controller.canSkip(key, target.name),
+            controller.offersOpen(key, target.name) ||
+            controller.offersSkip(key, target.name),
       );
-  return actionable ? ActivityTier.needsYou : ActivityTier.reference;
+  // A display-only operation (the connection is lost) waits until the
+  // reconnect restores its actions or the operation ends.
+  final waiting = controller.displayOnly && controller.stillOpen(key);
+  return actionable || waiting ? ActivityTier.needsYou : ActivityTier.reference;
 }
 
 ActivityTier billingTier(BillingVerificationController controller) =>

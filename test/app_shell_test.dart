@@ -26,6 +26,7 @@ import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
+import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/skills/skill_editor_screen.dart';
@@ -2456,6 +2457,42 @@ void main() {
       await tester.pumpAndSettle();
       expect(lock.covered, isFalse);
       expect(statusReads(), 1);
+    });
+
+    testWidgets('a failed gateway run forgets its text while App Lock covers '
+        'the app', (tester) async {
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+        await lock.load();
+        await lock.setEnabled(true);
+        await lock.unlock();
+      });
+      addTearDown(lock.dispose);
+      server.on('POST', '/api/gateway/restart', {
+        'detail': 'needs root on the host',
+      }, status: 500);
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        lock: lock,
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      final run = tester
+          .element(find.byType(Scaffold).first)
+          .read<GatewayRestart>();
+      await tester.runAsync(
+        () => run.run(GatewayAction.restart, profile: 'default'),
+      );
+      expect(run.phase, GatewayPhase.failed);
+      expect(run.message, 'needs root on the host');
+
+      lock.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await tester.pump();
+      expect(lock.covered, isTrue);
+      expect(run.phase, GatewayPhase.failed);
+      expect(run.message, isNull);
     });
   });
 }

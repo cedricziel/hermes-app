@@ -623,6 +623,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ConnectorOperationController? get connectionOperations =>
       _ChatControllerConnectors(this)._connectionOperationsImpl;
 
+  /// The time the chat's deadlines are read against.
+  DateTime get clockNow => _clock();
+
   void processOutputDetailsOpened() =>
       _ChatControllerSessionBinding(this)._processOutputDetailsOpenedImpl();
 

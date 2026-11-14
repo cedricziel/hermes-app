@@ -73,9 +73,9 @@ While the gateway connection is lost and its scope is not retired, a connector s
 - **THEN** the card stays with Skip, Continue and Open disabled and the Offline line
 - **AND** after the reconnect restores the operation the actions are offered again
 
-### Requirement: Billing details and Reopen follow the connection
+### Requirement: Billing details follow the connection, Reopen reconnects
 
-Billing verification details SHALL leave the card when the connection is lost. Reopen SHALL be disabled while offline. Every item SHALL leave for the retirements its capability defines.
+Billing verification details SHALL leave the card when the connection is lost. Reopen SHALL stay available while the connection is lost, because selecting the chat reconnects it. Every item SHALL leave for the retirements its capability defines.
 
 #### Scenario: The network drops with billing details shown
 

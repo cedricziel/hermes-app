@@ -10,6 +10,7 @@ import '../slash_command.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/dictation_view.dart';
 import '../../voice/voice_message_recording.dart';
+import '../activity/widgets/needs_you_dock.dart';
 import 'chat_composer.dart';
 
 /// Builds the Hermes [ChatComposer] for flutter_chat_ui's `Chat`, in place of
@@ -35,6 +36,7 @@ WidgetBuilder buildChatComposer({
   Object? Function()? sendTarget,
   bool sendHeld = false,
   bool draftHandedBack = false,
+  NeedsYouDockBuilder? dock,
 }) {
   Widget composer(
     ValueChanged<String> onSend,
@@ -63,25 +65,78 @@ WidgetBuilder buildChatComposer({
     draftHandedBack: draftHandedBack,
   );
   return (context) => _ComposerSlot(
-    builder: (onSend, onAttach) => ListenableBuilder(
-      listenable: Listenable.merge([dictation, voiceRecording]),
-      builder: (context, _) => composer(
-        onSend,
-        onAttach,
-        dictation?.available == true && voiceRecording?.busy != true
-            ? DictationView.of(
-                dictation!,
-                onSend: () => sendAfterDictation(
-                  dictation,
-                  controller,
-                  onSend,
-                  sendTarget,
-                ),
-              )
-            : null,
-      ),
-    ),
+    builder: (onSend, onAttach) {
+      final bar = ListenableBuilder(
+        listenable: Listenable.merge([dictation, voiceRecording]),
+        builder: (context, _) => composer(
+          onSend,
+          onAttach,
+          dictation?.available == true && voiceRecording?.busy != true
+              ? DictationView.of(
+                  dictation!,
+                  onSend: () => sendAfterDictation(
+                    dictation,
+                    controller,
+                    onSend,
+                    sendTarget,
+                  ),
+                )
+              : null,
+        ),
+      );
+      if (dock == null) return bar;
+      // The dock shares the composer's box, so the height reported for the
+      // transcript's padding includes it.
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ViewBuilder(
+            // The keyboard is not in the Scaffold body's own MediaQuery,
+            // which has consumed it, so ask the view.
+            builder: (context, media) =>
+                dock(context, needsYouCompactFor(media)),
+          ),
+          bar,
+        ],
+      );
+    },
   );
+}
+
+/// Builds with the view's own metrics, the keyboard included, and again when
+/// they change.
+class _ViewBuilder extends StatefulWidget {
+  const _ViewBuilder({required this.builder});
+
+  final Widget Function(BuildContext context, MediaQueryData media) builder;
+
+  @override
+  State<_ViewBuilder> createState() => _ViewBuilderState();
+}
+
+class _ViewBuilderState extends State<_ViewBuilder>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.builder(context, MediaQueryData.fromView(View.of(context)));
 }
 
 /// Ends [dictation] and sends the draft once its transcript is in place.
