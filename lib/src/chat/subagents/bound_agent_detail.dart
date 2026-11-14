@@ -53,12 +53,17 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
   RosterWatch? _watch;
   Timer? _clock;
   final _noteField = TextEditingController();
+  final _focus = FocusNode(debugLabel: 'agent-detail');
   final _ended = ValueNotifier(false);
   var _asking = false;
 
   @override
   void initState() {
     super.initState();
+    // Escape goes back from the detail, also where an overlay holds focus.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
     final roster = widget.roster;
     if (!widget.readOnly) {
       _watch = roster.watch();
@@ -128,6 +133,7 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
     _controller?.dispose();
     _watch?.close();
     _noteField.dispose();
+    _focus.dispose();
     _ended.dispose();
     widget.chat.breadcrumbs('subagent.detail.closed');
     super.dispose();
@@ -163,6 +169,7 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
           ),
         },
         child: Focus(
+          focusNode: _focus,
           autofocus: true,
           child: AgentDetailView(
             model: model,

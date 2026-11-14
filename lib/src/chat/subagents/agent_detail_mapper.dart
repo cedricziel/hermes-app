@@ -37,7 +37,22 @@ AgentDetailModel agentDetailModel({
   );
   // A failed background delegation has no live agent, and a detail that
   // cannot reach the session (a conversation window) only describes.
-  if (row.delegationOnly || readOnly || controller == null) return base;
+  if (row.delegationOnly) return base;
+  // A window that holds no session says so and offers no Stop or note.
+  if (readOnly) {
+    return AgentDetailModel(
+      goal: base.goal,
+      state: base.state,
+      runTime: base.runTime,
+      toolCount: base.toolCount,
+      currentTool: base.currentTool,
+      startedByAgent: base.startedByAgent,
+      delivered: base.delivered,
+      error: base.error,
+      stop: AgentStopStatus.notControllable,
+    );
+  }
+  if (controller == null) return base;
 
   final tail = controller.tailPhase;
   final output = tail == TailPhase.unsupported
