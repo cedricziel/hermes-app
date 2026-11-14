@@ -10,8 +10,9 @@ import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
 
 /// Dart timers stop while iOS suspends the app, so a poll that is waiting for
-/// its timer reads again at once when the app returns. Nothing is resent, and
-/// nothing is read while App Lock covers the app.
+/// its timer reads again at once when the app returns. Nothing is resent.
+/// While App Lock covers the app only the early wake is held back (it is owed
+/// until `appUnlocked`); the poll's own timer still reads, as before.
 void main() {
   late FakeHermesServer server;
   late DateTime clock;
@@ -101,8 +102,8 @@ void main() {
       expect(gateway.busy, isTrue);
     });
 
-    test('reads nothing while App Lock covers the app, and once it '
-        'lifts', () async {
+    test('a resume under App Lock wakes nothing; the unlock wakes '
+        'once', () async {
       serve();
       unawaited(gateway.run(GatewayAction.restart, profile: 'work'));
       await pumpEventQueue();
@@ -112,10 +113,24 @@ void main() {
       await pumpEventQueue();
       expect(statusReads(), before);
       covered = false;
-      gateway.appResumed();
+      gateway.appUnlocked();
       await pumpEventQueue();
-      expect(statusReads(), greaterThan(before));
+      expect(statusReads(), before + 1);
       expect(posts(), 1);
+      // The owed wake was spent: a second unlock wakes nothing.
+      gateway.appUnlocked();
+      await pumpEventQueue();
+      expect(statusReads(), before + 1);
+    });
+
+    test('an unlock with no resume owed wakes nothing', () async {
+      serve();
+      unawaited(gateway.run(GatewayAction.restart, profile: 'work'));
+      await pumpEventQueue();
+      final before = statusReads();
+      gateway.appUnlocked();
+      await pumpEventQueue();
+      expect(statusReads(), before);
     });
 
     test('a resume with no run does nothing', () async {
@@ -197,8 +212,8 @@ void main() {
       expect(posts(), 1);
     });
 
-    test('reads nothing while App Lock covers the app, and once it '
-        'lifts', () async {
+    test('a resume under App Lock wakes nothing; the unlock wakes '
+        'once', () async {
       serve();
       unawaited(update.start());
       await pumpEventQueue();
@@ -208,10 +223,24 @@ void main() {
       await pumpEventQueue();
       expect(statusReads(), before);
       covered = false;
-      update.appResumed();
+      update.appUnlocked();
       await pumpEventQueue();
-      expect(statusReads(), greaterThan(before));
+      expect(statusReads(), before + 1);
       expect(posts(), 1);
+      // The owed wake was spent: a second unlock wakes nothing.
+      update.appUnlocked();
+      await pumpEventQueue();
+      expect(statusReads(), before + 1);
+    });
+
+    test('an unlock with no resume owed wakes nothing', () async {
+      serve();
+      unawaited(update.start());
+      await pumpEventQueue();
+      final before = statusReads();
+      update.appUnlocked();
+      await pumpEventQueue();
+      expect(statusReads(), before);
     });
 
     test('a resume with no run does nothing', () async {
@@ -219,6 +248,14 @@ void main() {
       update.appResumed();
       await pumpEventQueue();
       expect(statusReads(), 0);
+    });
+
+    test('disposing frees a waiting run', () async {
+      serve();
+      final run = update.start();
+      await pumpEventQueue();
+      update.dispose();
+      await run.timeout(const Duration(seconds: 2));
     });
   });
 }
