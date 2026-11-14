@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/providers/widgets/model_provider_row.dart';
+import 'package:hermes_app/src/providers/widgets/provider_detail_frame.dart';
 import 'package:hermes_app/src/providers/widgets/provider_detail_view.dart';
 import 'package:hermes_app/src/providers/widgets/provider_list_view.dart';
 import 'package:hermes_app/src/providers/widgets/provider_view_models.dart';
@@ -639,12 +640,42 @@ WidgetbookComponent _detailComponent() => WidgetbookComponent(
   ],
 );
 
+WidgetbookComponent _detailFrameComponent() => WidgetbookComponent(
+  name: 'Detail pane beside the list',
+  useCases: [
+    ...onEachPlatform(
+      'Header with the provider name',
+      (_) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ProviderDetailHeader(name: 'OpenRouter'),
+          Expanded(child: _detailView(_openRouterDetail)),
+        ],
+      ),
+    ),
+    _case(
+      'Header with a long name, largest text',
+      (_) => scaled(
+        3,
+        const ProviderDetailHeader(
+          name: 'A custom endpoint with a rather long name',
+        ),
+      ),
+    ),
+    ...onEachPlatform(
+      'Nothing connected yet',
+      (_) => const ProviderDetailPlaceholder(),
+    ),
+  ],
+);
+
 WidgetbookNode providerSetupNode() => WidgetbookFolder(
   name: 'Model providers',
   children: [
     _listComponent(),
     _rowComponent(),
     _detailComponent(),
+    _detailFrameComponent(),
     ...providerFormComponents(),
   ],
 );

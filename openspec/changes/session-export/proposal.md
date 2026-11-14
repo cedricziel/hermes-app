@@ -6,7 +6,7 @@ A chat in the app can only leave it as text: Copy Transcript and the Mac drag-ou
 
 ## What Changes
 
-An **Export chat as JSON…** action for a chat the server holds. The user chooses it, reads one confirmation (the file holds everything Hermes stored for the chat, which can include secrets), the app fetches the file, checks that it is complete JSON, and hands it to the system save panel (macOS, Windows, Linux) or Files and the Android picker (iOS, Android). The action sits in the chat header menu, the sidebar row menu, the Mac Chat menu and the conversation window's menu, next to Copy Transcript.
+An **Export chat as JSON…** action for a chat the server holds. The user chooses it, reads one confirmation (the file holds everything Hermes stored for the chat, which can include secrets), the app fetches the file, checks that it is complete JSON, and hands it to the system save panel (macOS, Windows, Linux) or Files and the Android picker (iOS, Android). The action sits in the chat header menu, the Mac sidebar row menu, the Chat menu of the Mac and iPad menu bars and the conversation window's menu, next to Copy Transcript.
 
 ## Non-goals
 
@@ -17,7 +17,7 @@ An **Export chat as JSON…** action for a chat the server holds. The user choos
 
 ## Security and privacy impact
 
-The file can hold the system prompt, tool output, file paths, user and chat ids and anything the agent read. It is held in memory only until the user picks where to save it, never cached, copied, logged or sent to telemetry. The user chooses the place; nothing is written silently.
+The file can hold the system prompt, tool output, file paths, user and chat ids and anything the agent read. It is held in memory only until the user picks where to save it, never cached by the app, copied, logged or sent to telemetry; the platform plugin's temporary export copy on iOS is deleted when the sheet returns. The user chooses the place; nothing is written silently.
 
 ## Observability
 
@@ -29,6 +29,6 @@ The file can hold the system prompt, tool output, file paths, user and chat ids 
 
 - Export confirmation (alert on phone and desktop, Cancel default) - default, largest text, dark.
 - Export progress ("Preparing the export…", Cancel, size unknown) - loading, cancel, dark, large text, phone and desktop.
-- Export failures (not found, server cannot export, profile missing, store unreadable, timed out or lost, incomplete file, offline) - one message each, Try again where it helps.
+- Export failures (not found, server cannot export, profile missing, profile invalid, store unreadable, timed out or lost, incomplete file, offline, other error) - one message each, Try again where it helps.
 - Saved and cancelled feedback - snack bar after save; nothing after cancel.
-- Menu rows ("Export Chat as JSON…") in the header menu, sidebar menu, Mac Chat menu and conversation window menu - enabled, hidden for local chats, busy.
+- Menu rows ("Export Chat as JSON…") in the header menu, Mac sidebar menu, Mac and iPad Chat menu and conversation window menu - enabled, hidden for local chats, busy.

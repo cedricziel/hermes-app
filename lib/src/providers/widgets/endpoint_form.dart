@@ -296,6 +296,7 @@ class _EndpointFormState extends State<EndpointForm> {
             ),
             divider,
             GroupedTextFieldRow(
+              labelWidth: _labelWidth,
               label: l10n.providersEndpointModelLabel,
               hint: l10n.providersEndpointModelHint,
               controller: widget.modelController,
@@ -356,7 +357,22 @@ class _EndpointFormState extends State<EndpointForm> {
       };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      _labelWidth = groupedLabelWidth(context, [
+        context.l10n.providersEndpointNameLabel,
+        context.l10n.providersEndpointAddress,
+        context.l10n.providersEndpointKey,
+        context.l10n.providersEndpointModelLabel,
+      ], available: box.maxWidth);
+      return _form(context);
+    },
+  );
+
+  /// The label column all four fields share, so they start at the same x.
+  double _labelWidth = 0;
+
+  Widget _form(BuildContext context) {
     final l10n = context.l10n;
     final data = widget.data;
     final issue = data.issue;
@@ -380,6 +396,7 @@ class _EndpointFormState extends State<EndpointForm> {
         GroupedSection(
           children: [
             GroupedTextFieldRow(
+              labelWidth: _labelWidth,
               label: l10n.providersEndpointNameLabel,
               hint: l10n.providersEndpointNameHint,
               controller: widget.nameController,
@@ -395,6 +412,7 @@ class _EndpointFormState extends State<EndpointForm> {
         GroupedSection(
           children: [
             GroupedTextFieldRow(
+              labelWidth: _labelWidth,
               label: l10n.providersEndpointAddress,
               hint: l10n.providersEndpointAddressHint,
               controller: widget.addressController,
@@ -414,6 +432,7 @@ class _EndpointFormState extends State<EndpointForm> {
         GroupedSection(
           children: [
             SecretFieldRow(
+              labelWidth: _labelWidth,
               label: l10n.providersEndpointKey,
               hint: data.editing && data.hasSavedKey
                   ? l10n.providersEndpointKeySavedHint
