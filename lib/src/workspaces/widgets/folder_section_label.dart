@@ -16,7 +16,7 @@ class FolderSectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isServerPath(label)) {
-      return PathCutText(label, style: style);
+      return PathCutText(label, style: style, monospace: false);
     }
     return Text(
       label,

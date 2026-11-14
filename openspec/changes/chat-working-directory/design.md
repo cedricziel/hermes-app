@@ -121,6 +121,9 @@ A search field filters projects and repos on the device when the project and rec
 - On the Mac "Change Folder…" is shown disabled while the chat replies and hidden only when the server lacks `session.workspace.move`.
 - Largest text: nothing is capped. At accessibility sizes the header's folder line moves out of the bar into a full-width row under it, paths wrap in full instead of being cut, and detail rows stack label over value.
 - Paths are cut in the middle everywhere they are cut (row, picker rows, folder section headers that show a path), with "· on your server" kept; the full path is always in the semantics label and the details.
+- The picker's rows and the typed-path suggestions show the bare path, not "· on your server": the sheet's subtitle already says "On your server" and every row is a server folder. Every other place a path stands alone (row, details, confirmation) keeps the suffix.
+- The scan's outcome is a line under the list (an inline bar that is announced when it appears), not a snackbar: the picker is its own sheet, so a toast over the chat would sit behind it. The host clears it.
+- "· on your server" is set with non-breaking spaces, so a wrapped path moves the whole suffix to the next line.
 
 **Why not `session.cwd.set` (decided).** It requires the runtime session id (the app resumes lazily and holds none for an idle chat), refuses a running session with `4009`, and for a stored chat the next `session.resume` reads the stored `cwd` anyway, which `workspace.move` writes.
 

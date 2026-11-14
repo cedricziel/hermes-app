@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../files/widgets/files_metrics.dart';
@@ -38,36 +40,52 @@ class WorkspaceUseBar extends StatelessWidget {
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(context).height * 0.5,
           ),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              metrics.gutter,
-              12,
-              metrics.gutter,
-              12,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (note != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: GroupedStatusLine(
-                      icon: AppIcons.warning,
-                      text: note!,
-                      color: colors.warning,
-                      size: metrics.subtitleSize,
-                      scaleIcon: true,
-                      liveRegion: true,
+          // The same centred column as the lists above it.
+          child: LayoutBuilder(
+            builder: (context, box) => SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                math.max(metrics.gutter, (box.maxWidth - metrics.maxWidth) / 2),
+                12,
+                math.max(metrics.gutter, (box.maxWidth - metrics.maxWidth) / 2),
+                12,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (note != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: GroupedStatusLine(
+                        icon: AppIcons.warning,
+                        text: note!,
+                        color: colors.warning,
+                        size: metrics.subtitleSize,
+                        scaleIcon: true,
+                        liveRegion: true,
+                      ),
                     ),
-                  ),
-                FilledButton(
-                  key: const Key('folder-browser-use'),
-                  onPressed: onPressed,
-                  style: FilesMetrics.of(context).buttonStyle(fullWidth: true),
-                  child: Text(label, textAlign: TextAlign.center),
-                ),
-              ],
+                  // A Mac button keeps its own width, at the end of the column.
+                  if (FilesMetrics.of(context).pointer)
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: FilledButton(
+                        key: const Key('folder-browser-use'),
+                        onPressed: onPressed,
+                        style: FilesMetrics.of(context).buttonStyle(),
+                        child: Text(label, textAlign: TextAlign.center),
+                      ),
+                    )
+                  else
+                    FilledButton(
+                      key: const Key('folder-browser-use'),
+                      onPressed: onPressed,
+                      style: FilesMetrics.of(context)
+                          .buttonStyle(fullWidth: true),
+                      child: Text(label, textAlign: TextAlign.center),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

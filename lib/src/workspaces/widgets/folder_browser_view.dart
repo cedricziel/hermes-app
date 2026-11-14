@@ -106,9 +106,13 @@ class FolderBrowserView extends StatelessWidget {
           Expanded(child: _content(context, name)),
           WorkspaceUseBar(
             label: l10n.workspacesBrowseUse(name),
-            note: level == FolderBrowserLevel.notAllowed
-                ? l10n.workspacesMayNotWork
-                : null,
+            // A disabled "Use" says why, next to the button.
+            note: switch (level) {
+              FolderBrowserLevel.notAllowed => l10n.workspacesMayNotWork,
+              FolderBrowserLevel.missing => l10n.workspacesBrowseMissing,
+              FolderBrowserLevel.outside => l10n.workspacesBrowseOutside,
+              _ => null,
+            },
             onPressed: canUse ? onUse : null,
           ),
         ],
@@ -193,9 +197,12 @@ class FolderBrowserView extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: LoadingSkeleton(
-                label: l10n.workspacesBrowseOpening(name),
-                lines: 5,
+              // The row above already announces "Opening …".
+              child: ExcludeSemantics(
+                child: LoadingSkeleton(
+                  label: l10n.workspacesBrowseOpening(name),
+                  lines: 5,
+                ),
               ),
             ),
           ],

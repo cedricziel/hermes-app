@@ -55,7 +55,7 @@ void main() {
         final text = tester.widget<Text>(find.byType(Text).first);
         final shown = text.textSpan!.toPlainText();
         expect(shown, contains('…'));
-        expect(shown, endsWith(' · on your server'));
+        expect(shown, endsWith(' ${serverPathSuffix('on your server')}'));
         await tester.longPress(find.byType(PathCutText));
         await tester.pump(const Duration(seconds: 1));
         expect(find.text(_long), findsOneWidget);
@@ -81,7 +81,7 @@ void main() {
         textScale: 3,
       );
       expect(find.text(_long), findsOneWidget);
-      expect(find.text('· on your server'), findsOneWidget);
+      expect(find.text(serverPathSuffix('on your server')), findsOneWidget);
     });
 
     test('elidePathMiddle keeps the last folder and fits', () {
@@ -110,7 +110,13 @@ void main() {
       expect(find.textContaining('Runs in'), findsOneWidget);
       expect(find.text('main'), findsOneWidget);
       expect(find.text('Server default'), findsOneWidget);
-      expect(find.textContaining('on your server'), findsOneWidget);
+      expect(
+        find.textContaining(
+          serverPathSuffix('on your server'),
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
       expect(
         find.bySemanticsLabel(
           'Folder: demo, $_demo on your server, branch main, Server default',
@@ -150,7 +156,13 @@ void main() {
         ),
       );
       expect(find.text("Runs in the server's default folder"), findsOneWidget);
-      expect(find.textContaining('on your server'), findsNothing);
+      expect(
+        find.textContaining(
+          serverPathSuffix('on your server'),
+          findRichText: true,
+        ),
+        findsNothing,
+      );
       await tester.tap(find.byType(InkWell));
       expect(taps, 1);
     });
@@ -188,7 +200,13 @@ void main() {
       );
       expect(find.textContaining('Läuft in'), findsOneWidget);
       expect(find.text('Serverstandard'), findsOneWidget);
-      expect(find.textContaining('auf deinem Server'), findsOneWidget);
+      expect(
+        find.textContaining(
+          serverPathSuffix('auf deinem Server'),
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Mac row is 36 pt; nothing overflows at 3x', (tester) async {
@@ -316,7 +334,8 @@ void main() {
         expect(find.text(reason), findsOneWidget);
         final button = find.byKey(const Key('working-directory-change'));
         expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
-        expect(tester.getSemantics(button).hint, reason);
+        // The reason is in the name: a hint never reaches VoiceOver on macOS.
+        expect(tester.getSemantics(button).label, contains(reason));
       });
     }
 

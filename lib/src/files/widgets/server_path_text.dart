@@ -4,6 +4,11 @@ import '../../../l10n/l10n.dart';
 import '../server_path.dart';
 import 'files_metrics.dart';
 
+/// "· on your server" as one unit that never breaks inside: the spaces are
+/// non-breaking, so a wrapped path moves the whole suffix to the next line.
+String serverPathSuffix(String onYourServer) =>
+    '·\u00A0${onYourServer.replaceAll(' ', '\u00A0')}';
+
 /// The font a server path is set in.
 const String kServerPathFont = 'monospace';
 
@@ -15,7 +20,10 @@ const String kServerPathFont = 'monospace';
 String elidePathMiddle(String path, bool Function(String) fits) {
   if (fits(path)) return path;
   final chars = path.characters.toList();
-  final last = path.lastIndexOf('/', path.length > 1 ? path.length - 2 : 0);
+  final last = path.lastIndexOf(
+    RegExp(r'[/\\]'),
+    path.length > 1 ? path.length - 2 : 0,
+  );
   final lastSegment = last < 0
       ? chars.length ~/ 2
       : path.substring(last).characters.length;
@@ -52,6 +60,7 @@ class PathCutText extends StatelessWidget {
     this.suffix,
     this.suffixStyle,
     this.tooltip = true,
+    this.monospace = true,
   });
 
   final String path;
@@ -64,10 +73,15 @@ class PathCutText extends StatelessWidget {
   /// Whether a long press shows the full path.
   final bool tooltip;
 
+  /// Set the path in the monospace font. A heading keeps its own font.
+  final bool monospace;
+
   @override
   Widget build(BuildContext context) {
     final base = DefaultTextStyle.of(context).style;
-    final pathStyle = base.merge(style).copyWith(fontFamily: kServerPathFont);
+    final pathStyle = monospace
+        ? base.merge(style).copyWith(fontFamily: kServerPathFont)
+        : base.merge(style);
     final tailStyle = base.merge(suffixStyle ?? style);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
@@ -157,10 +171,10 @@ class ServerPathText extends StatelessWidget {
     final large = isLargeText(context);
     final wrapped = wrap ?? large;
     final base = DefaultTextStyle.of(context).style.merge(style);
-    final suffix = l10n.workspacesOnYourServer;
+    final suffix = serverPathSuffix(l10n.workspacesOnYourServer);
     final Widget text;
     if (!wrapped) {
-      text = PathCutText(path, style: style, suffix: ' · $suffix');
+      text = PathCutText(path, style: style, suffix: ' $suffix');
     } else {
       final pathText = Text(
         path,
@@ -171,7 +185,7 @@ class ServerPathText extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             selectable ? SelectionArea(child: pathText) : pathText,
-            Text('· $suffix', style: base),
+            Text(suffix, style: base),
           ],
         );
       } else {
@@ -188,11 +202,11 @@ class ServerPathText extends StatelessWidget {
                   alignment: PlaceholderAlignment.baseline,
                   baseline: TextBaseline.alphabetic,
                   child: SelectionContainer.disabled(
-                    child: Text(' · $suffix', style: base),
+                    child: Text(' $suffix', style: base),
                   ),
                 )
               else
-                TextSpan(text: ' · $suffix', style: base),
+                TextSpan(text: ' $suffix', style: base),
             ],
           ),
         );

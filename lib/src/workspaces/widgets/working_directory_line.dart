@@ -62,6 +62,9 @@ class WorkingDirectoryLine extends StatelessWidget {
       if (offline) l10n.workspacesRowOffline,
     ];
     final line = Row(
+      crossAxisAlignment: below
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       mainAxisSize: below ? MainAxisSize.max : MainAxisSize.min,
       children: [
         ExcludeSemantics(

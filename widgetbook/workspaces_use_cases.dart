@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoMenuAnchor;
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart';
 import 'package:hermes_app/src/chat/widgets/thread_grouping_controls.dart';
@@ -394,18 +395,22 @@ class _SelectPathOnShowState extends State<_SelectPathOnShow> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      void visit(Element element) {
-        if (element is StatefulElement &&
-            element.state is SelectableRegionState) {
-          (element.state as SelectableRegionState).selectAll();
-          return;
-        }
-        element.visitChildren(visit);
-      }
-
-      (context as Element).visitChildren(visit);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _select());
     });
+  }
+
+  void _select() {
+    if (!mounted) return;
+    void visit(Element element) {
+      if (element is StatefulElement &&
+          element.state is SelectableRegionState) {
+        (element.state as SelectableRegionState).selectAll();
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    (context as Element).visitChildren(visit);
   }
 
   @override
@@ -656,29 +661,32 @@ Widget _picker({
   int found = 0,
   WorkspacePickerRow serverDefault = _defaultRow,
   double? width,
-}) => fill(
-  WorkspacePickerView(
-    selectedId: selected,
-    serverDefault: serverDefault,
-    projects: projects,
-    recent: recent,
-    catalog: catalog,
-    offline: offline,
-    browseLocked: locked,
-    query: query,
-    scanAvailable: scan,
-    scanning: scanning,
-    scanOutcome: outcome,
-    scanFound: found,
-    onPick: (_) {},
-    onBrowse: () {},
-    onType: () {},
-    onTryAgain: () {},
-    onQueryChanged: (_) {},
-    onScan: () {},
-    onCancel: () {},
+}) => Align(
+  alignment: Alignment.topLeft,
+  child: ConstrainedBox(
+    constraints: BoxConstraints(maxWidth: width ?? double.infinity),
+    child: WorkspacePickerView(
+      selectedId: selected,
+      serverDefault: serverDefault,
+      projects: projects,
+      recent: recent,
+      catalog: catalog,
+      offline: offline,
+      browseLocked: locked,
+      query: query,
+      scanAvailable: scan,
+      scanning: scanning,
+      scanOutcome: outcome,
+      scanFound: found,
+      onPick: (_) {},
+      onBrowse: () {},
+      onType: () {},
+      onTryAgain: () {},
+      onQueryChanged: (_) {},
+      onScan: () {},
+      onCancel: () {},
+    ),
   ),
-  width: width,
 );
 
 /// Opens the first popup menu on show, so the catalog and a screenshot show it.
@@ -695,22 +703,34 @@ class _OpenMenuOnShowState extends State<_OpenMenuOnShow> {
   @override
   void initState() {
     super.initState();
+    // Two frames: the menu's button exists after the first, and its route can
+    // open once the page is laid out.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      PopupMenuButtonState<dynamic>? found;
-      void visit(Element element) {
-        if (found != null) return;
-        if (element is StatefulElement &&
-            element.state is PopupMenuButtonState) {
-          found = element.state as PopupMenuButtonState<dynamic>;
-          return;
-        }
-        element.visitChildren(visit);
-      }
-
-      (context as Element).visitChildren(visit);
-      found?.showButtonMenu();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _open());
     });
+  }
+
+  void _open() {
+    if (!mounted) return;
+    var opened = false;
+    void visit(Element element) {
+      if (opened) return;
+      final widget = element.widget;
+      // iOS draws a pull-down menu, elsewhere a popup menu.
+      if (widget is CupertinoMenuAnchor && widget.controller != null) {
+        widget.controller!.open();
+        opened = true;
+        return;
+      }
+      if (element is StatefulElement && element.state is PopupMenuButtonState) {
+        (element.state as PopupMenuButtonState<dynamic>).showButtonMenu();
+        opened = true;
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    (context as Element).visitChildren(visit);
   }
 
   @override
@@ -881,7 +901,8 @@ WidgetbookComponent _pickerComponent() => WidgetbookComponent(
         selected: 'long-recent',
       ),
     ),
-    ...onEachPlatform('Ready', (_) => _picker(scan: true)),
+    // The dialog's own width on a Mac and a wide window.
+    ...onEachPlatform('Ready', (_) => _picker(scan: true, width: 480)),
     ...onEachPlatform(
       'Offline',
       (_) => _picker(offline: true, projects: const [], recent: const []),
@@ -1210,7 +1231,7 @@ WidgetbookComponent _mismatchComponent() => WidgetbookComponent(
     ...onEachPlatform('Default', (_) => _mismatch()),
     _case('German', (_) => _german(_mismatch(profile: true))),
     _case('Text 2x', (_) => _scaled(2, _mismatch(profile: true))),
-    _case('Largest text (3x)', (_) => _scaled(3, _mismatch(profile: true))),
+    _case('Largest text (3x)', (_) => _scaled(3, _mismatch())),
     _case(
       'Long names',
       (_) => frame(

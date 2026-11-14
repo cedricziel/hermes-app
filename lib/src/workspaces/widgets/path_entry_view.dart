@@ -151,56 +151,57 @@ class _PathEntryViewState extends State<PathEntryView> {
       _ => null,
     };
     final Widget? helper = check == PathEntryCheck.checking
-        ? Row(
-            children: [
-              const FilesSpinner(size: 14),
-              const SizedBox(width: 8),
-              Flexible(child: Text(l10n.workspacesTypeChecking)),
-            ],
+        ? Semantics(
+            liveRegion: true,
+            child: Row(
+              children: [
+                const FilesSpinner(size: 14),
+                const SizedBox(width: 8),
+                Flexible(child: Text(l10n.workspacesTypeChecking)),
+              ],
+            ),
           )
         : info == null
         ? null
-        : Text(info);
+        : Semantics(liveRegion: true, child: Text(info));
     final field = Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: Semantics(
-        container: true,
-        liveRegion: true,
-        child: TextField(
-          key: const Key('path-entry-field'),
-          controller: _controller,
-          autofocus: widget.autofocus,
-          keyboardType: TextInputType.url,
-          autocorrect: false,
-          enableSuggestions: false,
-          textCapitalization: TextCapitalization.none,
-          textInputAction: TextInputAction.done,
-          onChanged: widget.onChanged,
-          onSubmitted: (_) => _submit(),
-          style: TextStyle(
-            fontFamily: kServerPathFont,
-            fontSize: metrics.titleSize,
-          ),
-          decoration: InputDecoration(
-            labelText: l10n.workspacesTypeLabel,
-            hintText: l10n.workspacesTypeHint,
-            hintStyle: TextStyle(fontFamily: kServerPathFont, color: muted),
-            border: const OutlineInputBorder(),
-            helper: helper,
-            helperMaxLines: 6,
-            error: error == null ? null : Text(error),
-            errorMaxLines: 6,
-            suffixIcon: typed
-                ? NamedIconButton(
-                    key: const Key('path-entry-clear'),
-                    label: l10n.workspacesTypeClear,
-                    icon: AppIcons.clearFilled,
-                    iconSize: 20,
-                    style: files.iconButtonStyle(),
-                    onPressed: () => widget.onChanged?.call(''),
-                  )
-                : null,
-          ),
+      child: TextField(
+        key: const Key('path-entry-field'),
+        controller: _controller,
+        autofocus: widget.autofocus,
+        keyboardType: TextInputType.url,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.none,
+        textInputAction: TextInputAction.done,
+        onChanged: widget.onChanged,
+        onSubmitted: (_) => _submit(),
+        style: TextStyle(
+          fontFamily: kServerPathFont,
+          fontSize: metrics.titleSize,
+        ),
+        decoration: InputDecoration(
+          labelText: l10n.workspacesTypeLabel,
+          hintText: l10n.workspacesTypeHint,
+          hintStyle: TextStyle(fontFamily: kServerPathFont, color: muted),
+          border: const OutlineInputBorder(),
+          helper: helper,
+          helperMaxLines: 6,
+          error: error == null
+              ? null
+              : Semantics(liveRegion: true, child: Text(error)),
+          errorMaxLines: 6,
+          suffixIcon: typed
+              ? NamedIconButton(
+                  key: const Key('path-entry-clear'),
+                  label: l10n.workspacesTypeClear,
+                  icon: AppIcons.clearFilled,
+                  iconSize: 20,
+                  style: files.iconButtonStyle(),
+                  onPressed: () => widget.onChanged?.call(''),
+                )
+              : null,
         ),
       ),
     );

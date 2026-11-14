@@ -157,6 +157,6 @@ enum _ChipKind { branch, outlined, tinted }
 double workspaceTarget(BuildContext context) => FilesMetrics.of(context).target;
 
 /// A glyph's size: it grows with the text, but not as far as the text does
-/// (at most 1.5 times), as the glyphs of the Files rows do.
+/// (at most twice), so a glyph stays beside its text at the largest sizes.
 double workspaceGlyphSize(BuildContext context, double size) =>
-    size * textScaleOf(context).clamp(1.0, 1.5);
+    size * textScaleOf(context).clamp(1.0, 2.0);

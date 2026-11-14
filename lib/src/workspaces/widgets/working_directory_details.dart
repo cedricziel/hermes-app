@@ -111,7 +111,11 @@ class WorkingDirectoryDetails extends StatelessWidget {
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final banner = _banner(context, l10n);
     final reason = _reason(l10n);
-    final showButton = canChange && !conversationWindow;
+    // A chat or profile the server no longer has cannot be moved at all.
+    final gone =
+        move.phase == WorkspaceMovePhase.chatGone ||
+        move.phase == WorkspaceMovePhase.profileGone;
+    final showButton = canChange && !conversationWindow && !gone;
     final busy = move.inFlight;
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
@@ -187,9 +191,16 @@ class WorkingDirectoryDetails extends StatelessWidget {
           ),
           if (showButton) ...[
             const SizedBox(height: 16),
+            // The reason is part of the label: a hint never reaches VoiceOver
+            // on macOS.
             MergeSemantics(
               child: Semantics(
-                hint: reason,
+                button: true,
+                enabled: reason == null,
+                label: reason == null
+                    ? l10n.workspacesDetailsChange
+                    : '${l10n.workspacesDetailsChange}. $reason',
+                excludeSemantics: true,
                 child: OutlinedButton(
                   key: const Key('working-directory-change'),
                   onPressed: reason == null ? onChange : null,
@@ -368,11 +379,17 @@ class _DetailRow extends StatelessWidget {
       child: Semantics(
         label: label,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: metrics.rowMinHeight),
+          constraints: BoxConstraints(
+            minHeight: FilesMetrics.of(context).pointer
+                ? 32
+                : metrics.rowMinHeight,
+          ),
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: metrics.rowPadding,
-              vertical: metrics.rowVerticalPadding + 2,
+              vertical:
+                  metrics.rowVerticalPadding +
+                  (FilesMetrics.of(context).pointer ? 0 : 2),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

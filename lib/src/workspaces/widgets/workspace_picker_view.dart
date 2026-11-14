@@ -237,6 +237,11 @@ class WorkspacePickerView extends StatelessWidget {
     return _ScanToast(
       key: const Key('workspace-scan-toast'),
       text: text,
+      icon: switch (outcome) {
+        WorkspacePickerScanOutcome.found => AppIcons.checkCircle,
+        WorkspacePickerScanOutcome.tooSlow => AppIcons.warning,
+        _ => AppIcons.info,
+      },
       warning: outcome == WorkspacePickerScanOutcome.tooSlow,
     );
   }
@@ -245,9 +250,15 @@ class WorkspacePickerView extends StatelessWidget {
 /// The scan's outcome, under the list: an icon and words, announced when it
 /// appears.
 class _ScanToast extends StatelessWidget {
-  const _ScanToast({super.key, required this.text, required this.warning});
+  const _ScanToast({
+    super.key,
+    required this.text,
+    required this.icon,
+    required this.warning,
+  });
 
   final String text;
+  final AppIconSet icon;
   final bool warning;
 
   @override
@@ -287,7 +298,7 @@ class _ScanToast extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 1),
                       child: AppIcon(
-                        warning ? AppIcons.warning : AppIcons.checkCircle,
+                        icon,
                         size: workspaceGlyphSize(
                           context,
                           metrics.subtitleSize + 2,
@@ -411,7 +422,7 @@ class _PickerList extends StatelessWidget {
                     if (catalog == WorkspacePickerCatalog.loading)
                       ..._loadingSection(context),
                     if (catalog == WorkspacePickerCatalog.ready) ...[
-                      if (empty)
+                      if (empty && !view.offline)
                         _box(
                           _Note(
                             filtering
@@ -507,6 +518,7 @@ class _PickerList extends StatelessWidget {
           icon: AppIcons.folder,
           title: l10n.workspacesPickerBrowse,
           enabled: !disabled,
+          reason: footer,
           onTap: view.onBrowse,
         ),
       _ActionRow(
@@ -517,6 +529,7 @@ class _PickerList extends StatelessWidget {
         ),
         title: l10n.workspacesPickerType,
         enabled: !disabled,
+        reason: footer,
         onTap: view.onType,
       ),
     ];
@@ -678,6 +691,7 @@ class _ActionRow extends StatelessWidget {
     required this.title,
     required this.enabled,
     required this.onTap,
+    this.reason,
   });
 
   final AppIconSet icon;
@@ -685,16 +699,30 @@ class _ActionRow extends StatelessWidget {
   final bool enabled;
   final VoidCallback? onTap;
 
+  /// Why the row is disabled; read as part of its name, since a hint does not
+  /// reach VoiceOver on macOS.
+  final String? reason;
+
   @override
-  Widget build(BuildContext context) => Opacity(
-    opacity: enabled ? 1 : 0.5,
-    child: GroupedRow(
-      title: title,
-      titleMaxLines: isLargeText(context) ? null : 1,
-      leading: AppIcon(icon),
-      chevron: true,
-      enabled: enabled,
-      onTap: onTap ?? () {},
-    ),
-  );
+  Widget build(BuildContext context) {
+    final row = Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: GroupedRow(
+        title: title,
+        titleMaxLines: isLargeText(context) ? null : 1,
+        leading: AppIcon(icon),
+        chevron: true,
+        enabled: enabled,
+        onTap: onTap ?? () {},
+      ),
+    );
+    if (enabled || reason == null) return row;
+    return Semantics(
+      button: true,
+      enabled: false,
+      label: '$title. $reason',
+      excludeSemantics: true,
+      child: row,
+    );
+  }
 }

@@ -7,6 +7,7 @@ import '../../files/widgets/server_path_text.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../widgets/loading_skeleton.dart';
 import 'workspace_widget_support.dart';
 
 /// What the row above a new chat's composer is doing.
@@ -262,27 +263,19 @@ class WorkingDirectoryRow extends StatelessWidget {
   }
 }
 
-/// A grey bar where the path will be. Drawn on the on-surface colour, not
-/// with `LoadingSkeleton`, whose fill is the row's own in the dark theme.
+/// The skeleton of the path: the shared [LoadingSkeleton] in the on-surface
+/// colour, since its default fill is the row's own in the dark theme.
 class _SkeletonPath extends StatelessWidget {
   const _SkeletonPath();
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 6, bottom: 2),
-    child: ExcludeSemantics(
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: 0.65,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.onSurface
-                .withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: const SizedBox(height: 12),
-        ),
-      ),
+  Widget build(BuildContext context) => FractionallySizedBox(
+    alignment: Alignment.centerLeft,
+    widthFactor: 0.65,
+    child: LoadingSkeleton(
+      label: context.l10n.workspacesRowLookingUp,
+      lines: 1,
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.14),
     ),
   );
 }

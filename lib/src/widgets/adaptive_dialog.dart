@@ -35,6 +35,8 @@ class AppAlertDialog extends StatelessWidget {
         title: title,
         content: content,
         actions: actions,
+        // Stacked at a large text size, the actions line up at the end.
+        actionsOverflowAlignment: OverflowBarAlignment.end,
         backgroundColor: backgroundColor,
         scrollable: scrollable,
       );

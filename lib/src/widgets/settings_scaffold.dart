@@ -336,7 +336,7 @@ class SettingsScaffold extends StatelessWidget {
         automaticallyImplyLeading: false,
         leading: cancel ? _cancelButton(context, ios) : leading,
         leadingWidth: cancel
-            ? (ios ? 88 : null)
+            ? (ios ? scaledLeadingWidth(context, 88) : null)
             : back
             ? adaptiveBackLeadingWidth(context)
             : null,
