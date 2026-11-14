@@ -27,7 +27,8 @@ class ConversationWindowToolbar extends StatelessWidget {
   final String title;
   final String? subtitle;
 
-  /// Replaces the drawn [subtitle], e.g. with a `MacToolbarSubtitle`.
+  /// Wraps the drawn [subtitle], e.g. to draw a `MacToolbarSubtitle` instead.
+  /// It runs only while [subtitle] is not null.
   final Widget Function(BuildContext context, Widget subtitle)? subtitleBuilder;
   final bool pinned;
   final VoidCallback? onShowInMain;
