@@ -73,15 +73,50 @@ A pause of 0.9 s sends an utterance, or the profile's `voice.silence_duration`
 reads the profile's `voice` keys once with `include_defaults=false`, so a key the
 profile never set is absent and the app's own default applies.
 
-**Sending** lasts from the end of speech until the words are handed to the chat.
-End or mute in that time sends nothing (a mute counts when it is requested, not
-when the system confirms it). After the send the prompt stays in the chat and End
-stops this turn's reply. Transcripts are filtered in one order, the first match
+**Sending** lasts from the end of speech until the prompt is about to be written
+to Hermes (`prompt.submit`). End, mute or an approval before that sends nothing,
+also while the persisted queue is read and while the session is opened or
+resumed (a mute counts when it is requested, not when the system confirms it).
+After the write the prompt stays in the chat and End stops this turn's reply.
+Transcripts are filtered in one order, the first match
 decides: empty, an echo of the reply just spoken (a seam until the portable
 bridge ships), a Whisper invention (the filter is a port of Hermes'
 `is_whisper_hallucination`: "Thank you.", "Bye", "you", "the end", subtitle
 credits and short repeats; a lone "ok" counts too, as in Hermes), a stop
 phrase, else it is sent. A dropped transcript says nothing.
+
+**What happens to a spoken turn.** The chat decides, and the call says so:
+
+- Hermes is still answering, or a queue (paused ones included) holds prompts:
+  "Hermes is still answering. Nothing was sent." A call never joins a queue and
+  never sends a queued prompt.
+- The persisted queue could not be read, the model, a branch or a restore does
+  not allow a send now: "Couldn't send. Nothing was sent." The call goes on
+  listening.
+- The chat's session was taken back or its profile is not confirmed: the call
+  ends.
+- Hermes answers `queued`, `steered` or `redirected` (its own busy-input mode;
+  the call never asks to queue): the call stops waiting at once, says "Hermes
+  will answer your words after its current reply.", "Hermes took your words into
+  its current reply." or "Hermes is adjusting its current reply to your words."
+  and listens. The reply, if any, is in the chat and is not spoken.
+- Hermes takes the words as the stop phrase of its own voice mode (`voice_stopped`,
+  for a typed prompt too): no turn runs, no message is left in the chat, and a
+  running call ends (telemetry reason `voice_stopped`).
+
+**Voice model and the interrupted note.** A spoken turn is sent with
+`voice_turn: true`, so Hermes runs it on the profile's `voice_chat` model route
+(the Voice model row of the start screen). When the user cut the previous reply
+off, the turn also carries `interrupted: true` and Hermes adds a note to the
+model's message that the user interrupted its previous spoken reply. The flag is
+sent on the first spoken turn after the user cut off speech (orb tap, or
+speaking over the reply) and only while the thread is settled: no reply pending
+and the session reported idle. It stays pending across a turn that was refused,
+dropped or echoed, and is cleared by the first turn that reaches the server
+(whatever Hermes answers), by mute, a route change, a typed message in the chat
+and after 120 seconds. Hermes keeps one process-wide latch for 120 seconds, so a
+flag that went unused could mark another session's turn; the app therefore sends
+it sparingly (an upstream request is open for a per-turn note).
 
 **Stopping.** End, mute (stops capture without ending the call), the platform's
 hang-up and a stop phrase end or silence the call. A stop phrase is the whole
@@ -166,8 +201,10 @@ cards remain in the chat and require the existing user interaction.
   (`ActiveCallRegistry`) tells the shell strip and the App Lock cover what the
   call is doing (a fixed state, never words) and offers End.
 - This is Hermes' chained STT → agent → TTS conversation, not the separately
-  configured GPT-Live/WebRTC service. Prompt text is not augmented with hidden
-  system instructions, and the normal selected model remains in use.
+  configured GPT-Live/WebRTC service. A spoken turn runs on the profile's
+  `voice_chat` model route (the selected chat model is used where that route
+  follows it), and a turn after a cut-off reply carries Hermes' `interrupted`
+  note; the app adds nothing else to the words.
 - The iOS app declares `audio` and `voip` in `UIBackgroundModes`. `audio` keeps
   an active conversation running; CallKit requires `voip` to start a call. There
   is still no PushKit registration, incoming call, or microphone use before
@@ -200,16 +237,26 @@ The call shipped first without these rules. This version changes it:
   ignored, and a route change no longer cancels a pending approval.
 - **Also visible:** the five-minute idle end, capture pausing while Waiting for
   you, silent drops of invented transcripts, tones and haptics, the
-  Hands-free strip, and a turn spoken while a reply runs being dropped (a
-  later change says "Hermes is still answering" instead of ending the call).
+  Hands-free strip, and a turn spoken while a reply runs being dropped
+  ("Hermes is still answering. Nothing was sent.") instead of ending the call.
 - **Telemetry:** the reason `voice_hang_up` is now `stop_phrase`; `background`,
   `idle`, `transcription` and `focus_lost` are new.
 - **Strings:** the call views read from the ARB files (English and German).
 
-Still to come with later changes: sending voice turns on the profile's
-`voice_chat` model route and the `interrupted` note (which end "no hidden
-instructions" for calls), calls on Android and desktop, and the turn list and
-"Speak replies" switch.
+- **Voice model route and `interrupted` note:** a spoken turn is sent with
+  `voice_turn`, so Hermes runs it on the profile's `voice_chat` model route
+  instead of only the chat's model, and after a cut-off reply `interrupted`
+  adds a note to the model's message. "No hidden system instructions" no longer
+  holds literally for calls: the note is Hermes' own, and the app adds none.
+- **Sending** now lasts until `prompt.submit` is written, and End during the
+  session resume sends nothing (before, a prompt could still go out after End).
+- **Refusals** say "Hermes is still answering. Nothing was sent." (only when
+  that is the reason) or "Couldn't send. Nothing was sent." and the call goes
+  on; a lost session or profile ends it. A stop phrase Hermes catches ends the
+  call (`voice_stopped`).
+
+Still to come with later changes: calls on Android and desktop, and the turn
+list and "Speak replies" switch.
 
 ## Telemetry
 
@@ -220,8 +267,10 @@ when CallKit activates its audio and exactly one `voice_call.ended` with
 `outcome` (ended or failed), `reason` (`hang_up`, `stop_phrase`, `app`,
 `app_failure`, `prepare`, `native_start`, `connect`, `microphone_stalled`,
 `interrupted`, `focus_lost`, `native_error`, `speech`, `turn`, `mute`,
-`background`, `idle`, `transcription`), the failing `step` (`transcribe`,
-`speech_open`, `agent`, `speech`, `speech_fallback`), `error_type`, whether
+`background`, `idle`, `transcription`, `voice_stopped`), the failing `step` (`transcribe`,
+`speech_open`, `agent`, `speech`, `speech_fallback`), `error_type` (also
+`session_reclaimed` and `profile_not_confirmed` for a turn the chat refused
+that ends the call), whether
 it ever connected, and buckets of turns, fallbacks and duration.
 A native failure's `voice_call.ended` carries `step` set to the native code
 (`start_request`, `start_action`, `activation_timeout`, `audio_start`,
