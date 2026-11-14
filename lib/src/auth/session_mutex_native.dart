@@ -6,22 +6,29 @@ import 'package:sqlite3/sqlite3.dart';
 
 import 'session_mutex.dart';
 
-SessionMutex createSessionMutex() => SqliteSessionMutex();
+SessionMutex createSessionMutex({String name = 'session-lock'}) =>
+    SqliteSessionMutex(name: name);
 
 /// SQLite's connection-level write lock also excludes other Flutter engines
 /// in this process (unlike POSIX process-scoped file locks). The database holds
 /// no credentials. Each operation owns a connection and releases it on error.
 class SqliteSessionMutex implements SessionMutex {
-  SqliteSessionMutex({this.path, this.timeout = const Duration(seconds: 3)});
+  SqliteSessionMutex({
+    this.path,
+    this.name = 'session-lock',
+    this.timeout = const Duration(seconds: 3),
+  });
 
   final String? path;
+
+  /// Names the lock file, so an unrelated store can have its own lock.
+  final String name;
   final Duration timeout;
 
   @override
   Future<T> run<T>(Future<T> Function() body) async {
     final location =
-        path ??
-        '${(await getApplicationSupportDirectory()).path}/session-lock.sqlite';
+        path ?? '${(await getApplicationSupportDirectory()).path}/$name.sqlite';
     await File(location).parent.create(recursive: true);
     final db = sqlite3.open(location);
     var acquired = false;

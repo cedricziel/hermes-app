@@ -12,6 +12,9 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_lock/app_lock_controller.dart';
+import '../auth/session_mutex.dart';
+import '../auth/session_mutex_stub.dart'
+    if (dart.library.io) '../auth/session_mutex_native.dart';
 import '../chat/chat_models.dart';
 import '../chat/gateway/gateway_rpc_client.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
@@ -163,10 +166,21 @@ abstract class BackgroundStep {
 /// showed in front may be announced once more, and that notification
 /// replaces the chat's earlier one.
 class AnnouncedRequests {
-  AnnouncedRequests({SharedPreferencesAsync? prefs})
-    : _prefs = prefs ?? SharedPreferencesAsync();
+  AnnouncedRequests({SharedPreferencesAsync? prefs, SessionMutex? mutex})
+    : _prefs = prefs ?? SharedPreferencesAsync(),
+      _mutex = mutex ?? MemorySessionMutex();
+
+  /// For runs in separate isolates: marks are merged under a lock file
+  /// shared by every engine of the app. It is its own file (not the session
+  /// lock, which sign-in and refresh wait on) and holds no marks.
+  AnnouncedRequests.shared({SharedPreferencesAsync? prefs})
+    : this(
+        prefs: prefs,
+        mutex: createSessionMutex(name: 'announced-lock'),
+      );
 
   final SharedPreferencesAsync _prefs;
+  final SessionMutex _mutex;
 
   final _remembered = <String>{};
 
@@ -186,9 +200,13 @@ class AnnouncedRequests {
   }
 
   @visibleForTesting
-  Future<void> persist(Set<String> added) async {
+  Future<void> persist(Set<String> added) => _mutex.run(() async {
+    // Read, merge and write under one cross-isolate lock, and never write
+    // after a failed read: that would replace the stored marks with only
+    // this run's.
+    final stored = await _prefs.getStringList(_announcedKey) ?? const [];
     final kept = [
-      for (final id in await _read())
+      for (final id in stored)
         if (!added.contains(id)) id,
       ...added,
     ];
@@ -198,7 +216,7 @@ class AnnouncedRequests {
           ? kept.sublist(kept.length - kMaxAnnouncedRequests)
           : kept,
     );
-  }
+  });
 
   Future<List<String>> _read() async {
     try {
@@ -437,8 +455,9 @@ class OpenRequestsStep extends BackgroundStep {
       for (final w in waiting)
         if (!showing.contains((w.profile, w.key)) && _isNew(w, known)) w,
     ];
-    // The marks of a request still open are put back last, so newer
-    // announcements do not trim them and announce the request a second time.
+    // The marks of a request still open are put back to the newest end, so
+    // older, unrelated marks are trimmed before them and the request is not
+    // announced a second time.
     final open = {
       for (final w in waiting)
         for (final mark in [w.requestId, 'a:${w.waitKey}', 'g:${w.waitKey}'])
@@ -458,10 +477,10 @@ class OpenRequestsStep extends BackgroundStep {
       }
     }
 
-    if (fresh.isEmpty) {
-      await renew();
-      return 0;
-    }
+    // Renewed before the new marks are written: when the store is full the
+    // oldest entries go, which must not be the marks this run just wrote.
+    await renew();
+    if (fresh.isEmpty) return 0;
     final lockOn = await context.appLockOn();
     final chats = <(String?, String), List<_Waiting>>{};
     for (final w in fresh) {
@@ -499,7 +518,6 @@ class OpenRequestsStep extends BackgroundStep {
         );
       }
     }
-    await renew();
     return announced;
   }
 
@@ -655,7 +673,7 @@ Future<HeadlessOutcome<void>> runBackgroundRefresh({
             await (deps.notificationsEnabled ?? _notificationsEnabled)(),
         notifications:
             deps.notifications ?? LocalNotificationService(background: true),
-        announced: deps.announced ?? AnnouncedRequests(),
+        announced: deps.announced ?? AnnouncedRequests.shared(),
         appLockOn: deps.appLockOn ?? AppLockController.savedEnabled,
         inFront: deps.appInFront ?? appInFront,
         request: deps.request,

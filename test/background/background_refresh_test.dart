@@ -962,6 +962,34 @@ void main() {
       expect(await announced.read(), contains('r1'));
     });
 
+    test('renewing a full store does not push out this run\'s new mark', () async {
+      sessions = {
+        'work': [for (var i = 0; i < 200; i++) _session('chat-$i')],
+      };
+      await refresh();
+      expect(await announced.read(), hasLength(kMaxAnnouncedRequests));
+
+      sessions = {
+        'work': [
+          for (var i = 0; i < 200; i++) _session('chat-$i'),
+          _session('fresh'),
+        ],
+      };
+      await refresh();
+
+      final kept = await announced.read();
+      expect(kept.where((id) => id.contains('fresh')), isNotEmpty);
+      final shown = notifications.shown.length;
+
+      await refresh();
+
+      // 201 requests cannot all be remembered; the new one is not the one lost.
+      expect(
+        notifications.shown.skip(shown).where((n) => n.threadId == 'fresh'),
+        isEmpty,
+      );
+    });
+
     test('remembers the newest 200 ids', () async {
       await announced.add([for (var i = 0; i < 195; i++) 'old-$i']);
       sessions = {
