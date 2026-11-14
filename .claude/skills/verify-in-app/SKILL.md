@@ -740,6 +740,52 @@ model:
   `ws://<host>/api/ws?token=<session token>`, then `session.create`,
   `prompt.submit`, and read `event` messages until `message.complete`.
 
+## A server with no model provider
+
+The first-run flow (welcome card "Connect a model to start chatting", the
+composer's "Set up a model", Model providers) needs a backend whose profile has
+no usable model. This was written from the scripts and the specs without a
+`hermes` on the machine, so every step marked "unverified" is still to be
+confirmed on a real backend (task 7.1 of `openspec/changes/provider-setup`).
+
+- `scripts/dev-backend.sh` has no switch for it and needs none: a first
+  `start` runs `hermes dashboard --isolated` on an empty `.dart_tool/hermes-dev/home`
+  with no `config.yaml`, which should be a profile with no provider (unverified). Delete that
+  directory (`stop` first) to get back to it after you connected something.
+  Do not write the "A local model" or "Scripted tool calls" config.
+- The backend inherits this shell's environment, so a provider key in it
+  (`OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, a Copilot or
+  Nous token) makes the profile look connected and the card never shows. Start
+  it with those variables removed: `env -u OPENROUTER_API_KEY -u ANTHROPIC_API_KEY
+  -u OPENAI_API_KEY scripts/dev-backend.sh start` (unverified; `GET
+  /api/model/options` answering `providers: []` and `provider: ""` is the check).
+- "Reconnect" needs a default model whose provider has no key: write
+  `model: {default: "<model>", provider: "openrouter"}` to the home's
+  `config.yaml` and start without `OPENROUTER_API_KEY`. The chat's options then
+  carry `provider: "openrouter"` and no row for it (unverified).
+- "Hermes is loading your models" shows only while a connected provider lists
+  no models yet; it is a timing window, not something to stage. The workflow
+  test drives it with `FakeProviderBackend.modelsWarm = false`.
+- Without an account, a key is checked by Hermes against the provider, so use
+  the path that needs none: Model providers, Custom endpoint, address
+  `http://127.0.0.1:18555/v1` with `scripts/fake_tool_model.py` running (it
+  answers `/v1/models`, so "models found" shows), then make it the default
+  (unverified). A made-up key (`test-key-not-real`) for a hosted provider
+  makes Hermes call that provider to check it, so only use it on a machine
+  that may reach the internet; what Hermes answers is not recorded yet.
+- A sign-in (ChatGPT or Codex, Nous Portal) contacts the provider's portal for
+  its code, which an offline or sandboxed backend cannot do: the sheet then
+  shows "Couldn't start the sign-in" with "Try again", which is the one
+  sign-in state to see against a real backend without an account. Approved,
+  declined, expired and failed are driven in
+  `test/workflows/providers_workflow_test.dart` and
+  `test/workflows/provider_first_run_workflow_test.dart` with
+  `FakeProviderBackend.pollAnswer`; nothing here can approve at a real portal.
+- After any of these, `GET /api/model/options?profile=<name>` and
+  `GET /api/env?profile=<name>` show what was saved (key previews are
+  `«redacted:abcd...wxyz»`; the full key never comes back). Never paste a real key
+  into the app on a machine whose screenshots or logs leave it.
+
 ## A reply across a dropped socket
 
 Check the reconnect path by cutting the app's websocket mid-reply while the

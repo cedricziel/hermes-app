@@ -163,6 +163,8 @@ extension _ChatScreenLayout on _ChatScreenState {
             commandRunning:
                 _slashSending || _queueSending || !_recipientSendAllowed,
             starterPrompts: _showsWelcome ? _starterPrompts() : null,
+            welcomeCard: _showsWelcome ? _welcomeCard() : null,
+            onCheckProviders: _providersOffered ? _checkProviders : null,
             onPickStarter: _pickStarter,
             latestReply: _latestReply,
             editable: true,
