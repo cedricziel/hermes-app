@@ -34,19 +34,25 @@ extension _ChatScreenCheckpoints on _ChatScreenState {
   /// and it opens the same confirmation as the Context details page.
   MacCommandHandler _compress() {
     final thread = _chat.selectedThread;
-    final entry = widget.onCompressConversation;
+    final entry =
+        widget.onCompressConversation ??
+        (BuildContext context, ContextController controller) =>
+            confirmCompressFlow(
+              context,
+              controller: controller,
+              changes: _chat,
+            );
     // Without a menu bar nothing here asks for a controller.
     final controller =
         thread == null ||
             !thread.remote ||
-            entry == null ||
             MacCommandScope.registryOf(context) == null
         ? null
         : _chat.contextIn(thread);
     _followMenuContext(controller);
     return MacCommandHandler(
       controller != null && controller.canCompress
-          ? () => unawaited(entry!(context, controller))
+          ? () => unawaited(entry(context, controller))
           : null,
       title: context.l10n.macosCompressConversation,
     );

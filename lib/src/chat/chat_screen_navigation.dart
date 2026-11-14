@@ -80,6 +80,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
           onEnlargeScreen: () => _openViewer('card'),
           scrollController: controller,
           onClose: () => Navigator.of(context).pop(),
+          checkpointsAndContext: true,
         ),
       ),
     );

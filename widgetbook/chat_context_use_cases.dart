@@ -3,6 +3,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/context/context_state.dart';
 import 'package:hermes_app/src/chat/context/widgets/compress_confirmation.dart';
+import 'package:hermes_app/src/chat/context/widgets/compress_conversation_action.dart';
 import 'package:hermes_app/src/chat/context/widgets/compress_outcome_note.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_category_list.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_format.dart';
@@ -120,6 +121,15 @@ Widget _confirmation({
   advancedInitiallyOpen: open,
   onConfirm: (_) {},
   onCancel: () {},
+);
+
+Widget _action({CompressRefusal? refusal, bool overLimit = false}) => frame(
+  maxWidth: 380,
+  CompressConversationAction(
+    refusal: refusal,
+    overLimit: overLimit,
+    onCompress: () {},
+  ),
 );
 
 WidgetbookUseCase _note(String name, CompressOutcome outcome) =>
@@ -263,6 +273,33 @@ WidgetbookFolder chatContextNode() => WidgetbookFolder(
           name: 'Largest text',
           builder: (context) =>
               _scaled(context, 3, _categories(ContextCategoryListState.loaded)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'CompressConversationAction',
+      useCases: [
+        ...onEachPlatform('Ready', (_) => _action()),
+        WidgetbookUseCase(
+          name: 'Reply running',
+          builder: (_) => _action(refusal: CompressRefusal.replying),
+        ),
+        WidgetbookUseCase(
+          name: 'Disconnected',
+          builder: (_) => _action(refusal: CompressRefusal.disconnected),
+        ),
+        WidgetbookUseCase(
+          name: 'Compressing',
+          builder: (_) => _action(refusal: CompressRefusal.compressing),
+        ),
+        WidgetbookUseCase(
+          name: 'Not available',
+          builder: (_) => _action(refusal: CompressRefusal.unavailable),
+        ),
+        ...onEachPlatform('Over the window', (_) => _action(overLimit: true)),
+        WidgetbookUseCase(
+          name: 'Largest text, over the window',
+          builder: (context) => _scaled(context, 3, _action(overLimit: true)),
         ),
       ],
     ),

@@ -51,11 +51,15 @@ class ChangedFilesList extends StatelessWidget {
     required this.files,
     this.truncated = false,
     this.onOpen,
+    this.selectedPath,
   });
 
   final List<ChangedFile> files;
   final bool truncated;
   final ValueChanged<ChangedFile>? onOpen;
+
+  /// The file whose diff shows beside the list, highlighted.
+  final String? selectedPath;
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +100,7 @@ class ChangedFilesList extends StatelessWidget {
                 key: ValueKey(file.path),
                 file: file,
                 truncated: truncated,
+                selected: file.path == selectedPath,
                 onTap: open == null ? null : () => open(file),
               ),
           ],
@@ -111,11 +116,13 @@ class _FileRow extends StatelessWidget {
     required this.file,
     required this.truncated,
     required this.onTap,
+    this.selected = false,
   });
 
   final ChangedFile file;
   final bool truncated;
   final VoidCallback? onTap;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +146,7 @@ class _FileRow extends StatelessWidget {
         : details;
     return Semantics(
       button: onTap != null,
+      selected: selected,
       excludeSemantics: true,
       label: spoken == null
           ? name
@@ -151,6 +159,7 @@ class _FileRow extends StatelessWidget {
         titleMaxLines: null,
         subtitle: subtitle,
         subtitleMaxLines: null,
+        selected: selected,
         onTap: onTap,
       ),
     );

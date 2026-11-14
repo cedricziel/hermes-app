@@ -564,14 +564,19 @@ void main() {
       expect(compressOn(), isTrue);
     });
 
-    testWidgets('no item without a confirmation to open or a server that '
-        'compresses', (tester) async {
+    testWidgets('without a custom entry the item uses the shared '
+        'confirmation flow, and only once the chat can compress', (
+      tester,
+    ) async {
       await pump(tester, withEntry: false);
       await openThread(tester, 'Token refresh');
+      // No live session yet: nothing to compress.
+      expect(compressOn(), isFalse);
       source.own('s1');
       await tester.pumpAndSettle();
-      expect(compressOn(), isFalse);
-      expect(commands.invoke(MacCommand.compress), isFalse);
+      expect(compressOn(), isTrue);
+      // Nothing is sent until the user confirms.
+      expect(source.fake.compressRequests, isEmpty);
     });
 
     testWidgets('a plain transport offers nothing to compress', (tester) async {

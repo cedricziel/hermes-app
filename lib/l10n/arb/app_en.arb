@@ -832,6 +832,137 @@
   "@chatCheckpointsOutcomeTryAgain": {
     "description": "Button on a restore outcome note that asks for the restore again, behind a new confirmation."
   },
+  "chatCheckpointsPageChangesSubtitle": "Since {time} · {reason}",
+  "@chatCheckpointsPageChangesSubtitle": {
+    "description": "Subtitle of the Changes page: when the checkpoint was taken (a relative time such as “12 min ago”, or a bare date such as “3 November”) and why.",
+    "placeholders": {
+      "time": {
+        "type": "String",
+        "example": "12 min ago"
+      },
+      "reason": {
+        "type": "String",
+        "example": "Before editing a file"
+      }
+    }
+  },
+  "chatCheckpointsPageChangesTitle": "Changes",
+  "@chatCheckpointsPageChangesTitle": {
+    "description": "Title of the page that lists the files that differ from a checkpoint."
+  },
+  "chatCheckpointsPageFileNext": "Next file",
+  "@chatCheckpointsPageFileNext": {
+    "description": "Accessibility label of the button that shows the next changed file."
+  },
+  "chatCheckpointsPageFilePrevious": "Previous file",
+  "@chatCheckpointsPageFilePrevious": {
+    "description": "Accessibility label of the button that shows the previous changed file."
+  },
+  "chatCheckpointsPageRefresh": "Refresh",
+  "@chatCheckpointsPageRefresh": {
+    "description": "Bar button of the File checkpoints page that reads the list again."
+  },
+  "chatCheckpointsPageRestoring": "Restoring files…",
+  "@chatCheckpointsPageRestoring": {
+    "description": "Working line in the Activity panel while a restore from a checkpoint runs."
+  },
+  "chatCheckpointsPageRowCount": "File checkpoints · {count}",
+  "@chatCheckpointsPageRowCount": {
+    "description": "Activity panel row: the chat's file checkpoints and how many there are.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsPageRowFailed": "Couldn't read checkpoints",
+  "@chatCheckpointsPageRowFailed": {
+    "description": "Error line of the File checkpoints row when the list could not be read."
+  },
+  "chatCheckpointsPageRowNotChecked": "Not checked yet",
+  "@chatCheckpointsPageRowNotChecked": {
+    "description": "Subtitle of the File checkpoints row of a stored chat whose checkpoints were not read yet; opening the row reads them."
+  },
+  "chatCheckpointsPageRowOff": "File checkpoints are off",
+  "@chatCheckpointsPageRowOff": {
+    "description": "Title of the File checkpoints row when the server has them switched off."
+  },
+  "chatCheckpointsPageRowOffHint": "See how to turn them on",
+  "@chatCheckpointsPageRowOffHint": {
+    "description": "Subtitle of the File checkpoints row when they are off; the row opens the explanation."
+  },
+  "chatCheckpointsPageRowSubtitle": "Restore files Hermes changed",
+  "@chatCheckpointsPageRowSubtitle": {
+    "description": "Subtitle of the File checkpoints row; keep it to one line."
+  },
+  "chatCheckpointsPageTimeDate": "on {date}",
+  "@chatCheckpointsPageTimeDate": {
+    "description": "When a checkpoint was taken, more than a week ago; also read inside sentences such as “goes back to how it was on 3 November”.",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "3 November"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeDays": "{count, plural, =1{1 day ago} other{{count} days ago}}",
+  "@chatCheckpointsPageTimeDays": {
+    "description": "When a checkpoint was taken, in days; also read inside sentences.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeExact": "{date} at {time}",
+  "@chatCheckpointsPageTimeExact": {
+    "description": "The exact time of a checkpoint, read by a screen reader.",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "14 November 2026"
+      },
+      "time": {
+        "type": "String",
+        "example": "10:40"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeHours": "{count} h ago",
+  "@chatCheckpointsPageTimeHours": {
+    "description": "When a checkpoint was taken, in hours; also read inside sentences.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeJustNow": "just now",
+  "@chatCheckpointsPageTimeJustNow": {
+    "description": "When a checkpoint was taken, under a minute ago; also read inside sentences, so it starts in lower case."
+  },
+  "chatCheckpointsPageTimeMinutes": "{count} min ago",
+  "@chatCheckpointsPageTimeMinutes": {
+    "description": "When a checkpoint was taken, in minutes; also read inside sentences.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeUnknown": "at an unknown time",
+  "@chatCheckpointsPageTimeUnknown": {
+    "description": "Read inside a confirmation sentence when the checkpoint's time is not known: “goes back to how it was at an unknown time”."
+  },
+  "chatCheckpointsPageTimeYesterday": "yesterday",
+  "@chatCheckpointsPageTimeYesterday": {
+    "description": "When a checkpoint was taken; also read inside sentences, so it starts in lower case."
+  },
+  "chatCheckpointsPageTitle": "File checkpoints",
+  "@chatCheckpointsPageTitle": {
+    "description": "Title of the checkpoint page, and of the Activity panel row that opens it."
+  },
   "chatCheckpointsRestoreAllConfirm": "Restore all files",
   "@chatCheckpointsRestoreAllConfirm": {
     "description": "Destructive button of the Restore all files confirmation."
@@ -1251,6 +1382,34 @@
   "chatContextOutcomeWouldNotShrink": "Compressing wouldn't make this chat smaller.",
   "@chatContextOutcomeWouldNotShrink": {
     "description": "Note when compressing would not reduce the chat."
+  },
+  "chatContextPageCompress": "Compress conversation…",
+  "@chatContextPageCompress": {
+    "description": "Outlined button on the Context page that asks to compress the conversation."
+  },
+  "chatContextPageCompressCaption": "Older messages are replaced by a short summary.",
+  "@chatContextPageCompressCaption": {
+    "description": "Caption under the Compress conversation button."
+  },
+  "chatContextPageCompressCompressing": "Hermes is compressing this chat.",
+  "@chatContextPageCompressCompressing": {
+    "description": "Caption under the disabled Compress conversation button while a compress runs."
+  },
+  "chatContextPageCompressDisconnected": "Reconnect to compress.",
+  "@chatContextPageCompressDisconnected": {
+    "description": "Caption under the disabled Compress conversation button while the connection is lost."
+  },
+  "chatContextPageCompressReplying": "Wait for the reply to finish.",
+  "@chatContextPageCompressReplying": {
+    "description": "Caption under the disabled Compress conversation button while the chat replies."
+  },
+  "chatContextPageCompressUnavailable": "This chat can't be compressed right now.",
+  "@chatContextPageCompressUnavailable": {
+    "description": "Caption under the disabled Compress conversation button when the server or the chat cannot compress."
+  },
+  "chatContextPageOverLimit": "Hermes usually compresses by itself before this. Compressing now makes room.",
+  "@chatContextPageOverLimit": {
+    "description": "Note on the Context page when more is used than the window holds."
   },
   "chatContextPercent": "{percent}%",
   "@chatContextPercent": {
