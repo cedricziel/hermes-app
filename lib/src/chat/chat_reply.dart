@@ -271,6 +271,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         NoticeShown() ||
         NoticeCleared() ||
         ThreadBound() ||
+        WorkspaceBound() ||
         ThreadTitled() ||
         PromptFolded() ||
         PromptAcknowledged() ||

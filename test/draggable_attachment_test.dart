@@ -22,6 +22,7 @@ import 'support/attachment_fixtures.dart';
 import 'support/fake_drag_out_source.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
+import 'support/wait_until.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -315,12 +316,11 @@ void main() {
 
     await tester.runAsync(() => tester.tap(find.text('report.pdf')));
     // The download writes a real file, so wait for it in real time.
-    for (var i = 0; i < 20 && actions.opened.isEmpty; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 50)),
-      );
-      await tester.pump();
-    }
+    await waitUntil(
+      tester,
+      () => actions.opened.isNotEmpty,
+      reason: 'the downloaded file to be opened',
+    );
 
     expect(server.requestsTo('GET', '/api/files/download'), hasLength(1));
     expect(actions.opened, hasLength(1));

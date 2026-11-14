@@ -425,6 +425,8 @@ extension _ChatControllerQueues on ChatController {
 
   void _drainQueue(ChatThread thread) {
     if (!active || _queueUnavailable.contains(thread)) return;
+    // A move of the folder is being settled: the queue goes on after it.
+    if (_moveHolds(thread)) return;
     if (_sessionStates[thread]?.reclaimedReason != null ||
         _reclaimedQueueReview.contains(thread)) {
       return;
@@ -562,7 +564,7 @@ extension _ChatControllerQueues on ChatController {
     ChatThread thread,
     QueuedPrompt prompt,
   ) async {
-    if (!_queueDispatching.add(thread)) return;
+    if (_moveHolds(thread) || !_queueDispatching.add(thread)) return;
     final scope = prompt.scope;
     final profile = _profile;
     final generation = _loadGeneration;

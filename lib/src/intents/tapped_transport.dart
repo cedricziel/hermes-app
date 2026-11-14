@@ -5,6 +5,7 @@ import '../chat/chat_models.dart'
 import '../chat/chat_transport.dart';
 import '../chat/slash_command.dart';
 import '../models/model_provider_option.dart';
+import '../workspaces/workspace_models.dart' show WorkspaceChoice;
 
 /// A [ChatTransport] that tells [onEvent] about each event of its sends
 /// before the sender sees it, and otherwise is [_inner].
@@ -22,6 +23,7 @@ class TappedTransport implements ChatTransport {
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+    WorkspaceChoice? workspace,
   }) => _inner
       .send(
         threadId: threadId,
@@ -30,6 +32,7 @@ class TappedTransport implements ChatTransport {
         attachments: attachments,
         model: model,
         queued: queued,
+        workspace: workspace,
       )
       .map((event) {
         onEvent(event);
