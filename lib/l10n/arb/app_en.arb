@@ -5070,6 +5070,14 @@
       }
     }
   },
+  "toolsAppliedDetail": "A chat that is already open keeps the tools it started with.",
+  "@toolsAppliedDetail": {
+    "description": "Second line of the note shown after a tool was switched on or off."
+  },
+  "toolsAppliedTitle": "Applies from your next chat.",
+  "@toolsAppliedTitle": {
+    "description": "First line of the note shown after a tool was switched on or off."
+  },
   "toolsBackendCommandsFail": "Commands will fail until this is set up on your server.",
   "@toolsBackendCommandsFail": {
     "description": "Warning under a picked terminal backend that is not ready."
@@ -5216,6 +5224,10 @@
   "@toolsConfirmInstallTitle": {
     "description": "Title of the question asked before switching on a tool that may start an installer on the server."
   },
+  "toolsConfirmInstallsExtra": "It may also run an installer on the server.",
+  "@toolsConfirmInstallsExtra": {
+    "description": "Sentence added to the question before switching on a tool whose setup has an install step: the switch may start an installer on the server."
+  },
   "toolsConfirmLocalBody": "Commands will run on the same machine as Hermes, with full access to that machine's files, not in a container.",
   "@toolsConfirmLocalBody": {
     "description": "Body of the question before the Local terminal backend is picked."
@@ -5335,6 +5347,20 @@
   "toolsHeaderOnNeedsSetup": "On · needs setup",
   "@toolsHeaderOnNeedsSetup": {
     "description": "State line in a tool's detail header: the tool is on but has not been set up."
+  },
+  "toolsInsideHelper": "These are the names you see on tool cards in a chat.",
+  "@toolsInsideHelper": {
+    "description": "Helper line under the list of a tool's action names in its details."
+  },
+  "toolsInsideTitle": "What's inside ({count})",
+  "@toolsInsideTitle": {
+    "description": "Collapsed section of a tool's details that lists its action names. The number is how many there are.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
   },
   "toolsInstallAgain": "Run the install step again",
   "@toolsInstallAgain": {
@@ -5605,6 +5631,28 @@
   "toolsOldServerTitle": "This server doesn't offer tools settings.",
   "@toolsOldServerTitle": {
     "description": "Title of the state shown when the Hermes server is too old to have tools settings."
+  },
+  "toolsProfileDetail": "What Hermes can do by itself",
+  "@toolsProfileDetail": {
+    "description": "Second line of the Tools row on the Mac Profiles page."
+  },
+  "toolsProfileGone": "This profile no longer exists.",
+  "@toolsProfileGone": {
+    "description": "Message on the Tools screen when the server answers that its profile was deleted."
+  },
+  "toolsProfilesCount": "{on} of {total} on",
+  "@toolsProfilesCount": {
+    "description": "Value of the Tools row on the Mac Profiles page: how many of the profile's tools are switched on.",
+    "placeholders": {
+      "on": {
+        "type": "int",
+        "example": "5"
+      },
+      "total": {
+        "type": "int",
+        "example": "12"
+      }
+    }
   },
   "toolsProviderFromHermes": "From Hermes: {text}",
   "@toolsProviderFromHermes": {
@@ -5912,6 +5960,20 @@
   "@toolsSetupSearchHeader": {
     "description": "Header of the provider choice for searching the web in Web's Advanced part."
   },
+  "toolsSubtitle": "{profile} · {count} on",
+  "@toolsSubtitle": {
+    "description": "Line under the title of the Tools screen: the profile's name and how many tools are switched on.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
   "toolsSwitchLabel": "{name}, {state, select, on{on} other{off}}",
   "@toolsSwitchLabel": {
     "description": "Accessibility label of a tool's switch: the tool's name and whether it is on or off.",
@@ -5938,9 +6000,35 @@
       }
     }
   },
+  "toolsTitle": "Tools",
+  "@toolsTitle": {
+    "description": "Title of the Tools screen and its entry in the sidebar: what Hermes can do by itself, such as run commands or search the web."
+  },
   "toolsTryAgain": "Try again",
   "@toolsTryAgain": {
     "description": "Button that repeats a failed load or a change of a tool."
+  },
+  "toolsVanished": "That tool is no longer on this server.",
+  "@toolsVanished": {
+    "description": "Banner on the Tools screen when a tool that was switched has gone from the server."
+  },
+  "toolsWhereCli": "Used in your chats in this app and in the terminal.",
+  "@toolsWhereCli": {
+    "description": "In a tool's details: where a tool for the usual platform applies."
+  },
+  "toolsWhereHeader": "Where it applies",
+  "@toolsWhereHeader": {
+    "description": "Heading in a tool's details above the line that says in which chats it applies."
+  },
+  "toolsWherePlatform": "Used in {platform} chats only.",
+  "@toolsWherePlatform": {
+    "description": "In a tool's details: the tool only applies to chats on one platform. The placeholder is that platform's name as Hermes gives it.",
+    "placeholders": {
+      "platform": {
+        "type": "String",
+        "example": "Discord"
+      }
+    }
   },
 
   "@@x-area-update": "",

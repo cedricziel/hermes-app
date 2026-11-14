@@ -106,6 +106,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           onOpenProviders: _providersOffered
               ? () => _openProviders(ProvidersEntry.sidebar)
               : null,
+          onOpenTools: _toolsOffered ? _openTools : null,
           onOpenHelperModels: _models == null ? null : _openHelperModels,
         );
 
@@ -379,6 +380,12 @@ extension _ChatScreenLayout on _ChatScreenState {
                                 label: context.l10n.providersListTitle,
                                 onTap: () =>
                                     _openProviders(ProvidersEntry.drawer),
+                              ),
+                            if (_toolsOffered)
+                              SidebarAction(
+                                icon: AppIcons.wrench,
+                                label: context.l10n.toolsTitle,
+                                onTap: _openTools,
                               ),
                             if (_models != null)
                               SidebarAction(

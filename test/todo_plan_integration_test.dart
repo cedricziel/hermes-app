@@ -146,9 +146,12 @@ void main() {
     expect(find.text('Implement the change'), findsOneWidget);
     expect(find.byType(Checkbox), findsNothing);
     await settleActivityPanel(tester);
-    // The panel's own read of the chat's agents is not the plan's.
+    // The panel's own reads of the chat's agents and programs are not the
+    // plan's.
     expect(
-      gateway.methods.where((method) => method != 'subagent.list'),
+      gateway.methods.where(
+        (method) => method != 'subagent.list' && method != 'process.list',
+      ),
       hasLength(methods),
     );
   });

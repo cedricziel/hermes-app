@@ -52,11 +52,38 @@ void main() {
     );
   });
 
-  test('computer use adds the driver sentence and says actions', () {
-    final q = toolsetConfirmQuestion(en, 'computer_use', 'work')!;
-    expect(q.title, 'Let Hermes control a computer?');
-    expect(q.body, contains('It may also install a driver on the server.'));
-    expect(q.body, contains('stops new actions'));
+  test('computer use says actions, and adds the driver sentence only when '
+      'an install step exists', () {
+    final plain = toolsetConfirmQuestion(en, 'computer_use', 'work')!;
+    final installing = toolsetConfirmQuestion(
+      en,
+      'computer_use',
+      'work',
+      installsSoftware: true,
+    )!;
+
+    expect(plain.title, 'Let Hermes control a computer?');
+    expect(plain.body, isNot(contains('install a driver')));
+    expect(plain.body, contains('stops new actions'));
+    expect(
+      installing.body,
+      contains('It may also install a driver on the server.'),
+    );
+  });
+
+  test('another confirm-level toolset with an install step says so', () {
+    for (final name in ['terminal', 'code_execution', 'browser']) {
+      expect(
+        toolsetConfirmQuestion(en, name, 'work')!.body,
+        isNot(contains('installer')),
+        reason: name,
+      );
+      expect(
+        toolsetConfirmQuestion(en, name, 'work', installsSoftware: true)!.body,
+        contains('It may also run an installer on the server.'),
+        reason: name,
+      );
+    }
   });
 
   test('every confirm-level toolset has a question, others none', () {
