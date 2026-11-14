@@ -10,8 +10,10 @@ import '../theme/platform_chrome.dart';
 /// The touch target is 44 pt on iOS and iPadOS, 48 dp on Material and 28 pt on
 /// a Mac. [onPressed] null draws it disabled; [busy] shows a spinner beside
 /// the label and ignores presses until the work ends. The label is the
-/// button's accessible name. It takes plain values: the confirmation that
-/// makes the action safe belongs to the caller.
+/// button's accessible name. A busy button announces nothing by itself, so
+/// the caller changes the label while it works, for example to "Stopping".
+/// It takes plain values: the confirmation that makes the action safe belongs
+/// to the caller.
 class DestructiveTintButton extends StatelessWidget {
   const DestructiveTintButton({
     super.key,
@@ -42,9 +44,7 @@ class DestructiveTintButton extends StatelessWidget {
       minimumSize: WidgetStatePropertyAll(Size(0, minHeight)),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(chrome.isApple ? 8 : 10),
-        ),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       foregroundColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.disabled) && !busy
@@ -56,6 +56,13 @@ class DestructiveTintButton extends StatelessWidget {
             ? scheme.onSurface.withValues(alpha: 0.06)
             : error.withValues(alpha: 0.12),
       ),
+      // A light overlay keeps the label above 4.5:1 while hovered, focused or
+      // pressed.
+      overlayColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? null
+            : error.withValues(alpha: 0.06),
+      ),
       side: WidgetStateProperty.resolveWith(
         (states) => BorderSide(
           color: states.contains(WidgetState.disabled) && !busy
@@ -64,29 +71,24 @@ class DestructiveTintButton extends StatelessWidget {
         ),
       ),
     );
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: label,
-      onTap: enabled ? onPressed : null,
-      excludeSemantics: true,
-      child: OutlinedButton(
-        onPressed: enabled ? onPressed : null,
-        style: style,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (busy)
-              SizedBox.square(
+    return OutlinedButton(
+      onPressed: enabled ? onPressed : null,
+      style: style,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (busy)
+            ExcludeSemantics(
+              child: SizedBox.square(
                 dimension: 16,
                 child: CircularProgressIndicator(strokeWidth: 2, color: error),
-              )
-            else if (icon != null)
-              AppIcon(icon!, size: 18),
-            if (busy || icon != null) const SizedBox(width: 8),
-            Flexible(child: Text(label, textAlign: TextAlign.center)),
-          ],
-        ),
+              ),
+            )
+          else if (icon != null)
+            ExcludeSemantics(child: AppIcon(icon!, size: 18)),
+          if (busy || icon != null) const SizedBox(width: 8),
+          Flexible(child: Text(label, textAlign: TextAlign.center)),
+        ],
       ),
     );
   }

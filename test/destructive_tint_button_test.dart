@@ -85,12 +85,23 @@ void main() {
       final tint = style.backgroundColor!.resolve({})!;
       final label = style.foregroundColor!.resolve({})!;
       for (final surface in [scheme.surface, scaffoldColor(context)]) {
-        final shown = Color.alphaBlend(tint, surface);
-        expect(
-          _luminanceContrast(label, shown),
-          greaterThanOrEqualTo(4.5),
-          reason: 'on $surface',
-        );
+        for (final state in [
+          <WidgetState>{},
+          {WidgetState.hovered},
+          {WidgetState.focused},
+          {WidgetState.pressed},
+        ]) {
+          final overlay = style.overlayColor!.resolve(state)!;
+          final shown = Color.alphaBlend(
+            overlay,
+            Color.alphaBlend(tint, surface),
+          );
+          expect(
+            _luminanceContrast(label, shown),
+            greaterThanOrEqualTo(4.5),
+            reason: 'on $surface, $state',
+          );
+        }
       }
     });
   }
@@ -111,11 +122,9 @@ void main() {
       );
       // The theme change animates; the platform flips at its midpoint.
       await tester.pumpAndSettle();
-      expect(
-        tester.getSize(find.byType(OutlinedButton)).height,
-        greaterThanOrEqualTo(height),
-        reason: '$platform',
-      );
+      final shown = tester.getSize(find.byType(OutlinedButton)).height;
+      expect(shown, greaterThanOrEqualTo(height), reason: '$platform');
+      expect(shown, lessThanOrEqualTo(height + 4), reason: '$platform');
     }
   });
 
@@ -174,6 +183,7 @@ void main() {
     );
     expect(find.byType(Icon), findsOneWidget);
     expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(OutlinedButton)).height, greaterThan(70));
   });
 }
 
