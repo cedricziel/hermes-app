@@ -367,6 +367,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   SessionActivity? _sessionActivity;
   final _composerController = TextEditingController();
   VoiceCall? _voiceCall;
+
+  /// Where [_voiceCall] was announced, so this screen lets go of it on dispose.
+  ActiveCallRegistry? _callRegistry;
   bool _callRouteOpen = false;
   bool _callHasEnded = true;
   ComposerDictation? _dictation;
@@ -961,6 +964,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _attention.dispose();
     _sessionActivity?.removeListener(_callOwnerChanged);
     _voiceCall?.removeListener(_callChanged);
+    // A disposed call tells nobody that it ended; the registry ends it first
+    // and keeps what the shell's strip still has to say. It acts only on the
+    // call this screen attached, never on a newer screen's.
+    if (_voiceCall case final call? when _callRegistry != null) {
+      unawaited(_callRegistry!.release(call));
+    }
     _voiceCall?.dispose();
     _menuContext?.removeListener(_menuContextChanged);
     _needsYou.dispose();

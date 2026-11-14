@@ -31,6 +31,10 @@ extension _ChatScreenCalls on _ChatScreenState {
   Future<void> _openVoiceCall() async {
     if (_callRouteOpen || !_canCall) return;
     _callRouteOpen = true;
+    // Read before the first await: the finally below runs after the route
+    // closed, when this screen may be gone. The mark is closed by this
+    // screen only, never by one that replaced it.
+    final registry = _maybeRead<ActiveCallRegistry>()?..screenOpened(this);
     final breadcrumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
     breadcrumbs('voice_call.opened');
     try {
@@ -172,7 +176,8 @@ extension _ChatScreenCalls on _ChatScreenState {
                       ),
               );
               _voiceCall = created;
-              _maybeRead<ActiveCallRegistry>()?.attach(created);
+              registry?.attach(created);
+              _callRegistry = registry;
               breadcrumbs('voice_call.ready', {
                 'device_speech': readiness.useDeviceSpeech,
               });
@@ -186,6 +191,7 @@ extension _ChatScreenCalls on _ChatScreenState {
         ),
       );
     } finally {
+      registry?.screenClosed(this);
       _callRouteOpen = false;
       if (mounted) _rebuild(() {});
     }

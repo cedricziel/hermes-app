@@ -4,7 +4,16 @@ import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 
 /// What the microphone is doing while a hands-free call runs.
-enum HandsFreeMicrophone { open, paused, muted, opening }
+enum HandsFreeMicrophone {
+  open,
+  paused,
+  muted,
+  opening,
+
+  /// The call ended without confirming that the microphone closed. The strip
+  /// says so in one phrase in place of "Hands-free on".
+  mayBeOpen,
+}
 
 /// The pill that keeps a running microphone in sight: a dot, "Hands-free on"
 /// and, after a middle dot, what the microphone is doing. The words carry the
@@ -32,9 +41,11 @@ class HandsFreeStrip extends StatelessWidget {
       HandsFreeMicrophone.paused => l10n.voiceStripMicPaused,
       HandsFreeMicrophone.muted => l10n.voiceStripMicMuted,
       HandsFreeMicrophone.opening => l10n.voiceStripMicOpening,
+      HandsFreeMicrophone.mayBeOpen => l10n.voiceStripMicMayBeOpen,
     };
+    final unconfirmed = microphone == HandsFreeMicrophone.mayBeOpen;
     final large = MediaQuery.textScalerOf(context).scale(1) >= _largeText;
-    final spoken = '${l10n.voiceStripOn}, $second';
+    final spoken = unconfirmed ? second : '${l10n.voiceStripOn}, $second';
     final style = theme.textTheme.labelLarge?.copyWith(
       color: colors.onSurface,
       fontWeight: FontWeight.w600,
@@ -63,8 +74,10 @@ class HandsFreeStrip extends StatelessWidget {
                         child: Text.rich(
                           TextSpan(
                             children: [
-                              TextSpan(text: l10n.voiceStripOn),
-                              if (!large)
+                              TextSpan(
+                                text: unconfirmed ? second : l10n.voiceStripOn,
+                              ),
+                              if (!large && !unconfirmed)
                                 TextSpan(
                                   text: ' · $second',
                                   style: style?.copyWith(
@@ -144,6 +157,11 @@ class _Dot extends StatelessWidget {
           AppIcons.pause.of(context),
           size: size,
           color: colors.onSurfaceVariant,
+        ),
+        HandsFreeMicrophone.mayBeOpen => Icon(
+          AppIcons.warning.of(context),
+          size: size,
+          color: colors.error,
         ),
         HandsFreeMicrophone.opening => Center(
           child: DecoratedBox(

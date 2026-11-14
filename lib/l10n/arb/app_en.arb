@@ -6912,6 +6912,10 @@
   "@voiceStripEnd": {
     "description": "Short label of the End action in the Hands-free strip."
   },
+  "voiceStripMicMayBeOpen": "Microphone may still be open",
+  "@voiceStripMicMayBeOpen": {
+    "description": "The whole Hands-free strip after a call ended without confirming that the microphone closed. It replaces 'Hands-free on', so it stays whole at large text."
+  },
   "voiceStripMicMuted": "microphone muted",
   "@voiceStripMicMuted": {
     "description": "Second half of the Hands-free strip: the user muted the microphone."
