@@ -52,17 +52,23 @@ void main() {
     },
   );
 
-  test('counts a return from hidden that never paused', () {
+  test('does not count a window that was only hidden, as on a desktop '
+      'whose process keeps running', () {
     final suspensions = AppSuspensions.manual();
+    final inner = RecordingTracer();
+    final tracer = SuspensionMarkingTracer(inner, suspensions);
     void go(AppLifecycleState state) =>
         suspensions.didChangeAppLifecycleState(state);
 
+    final span = tracer.startSpan('HTTP GET');
     go(AppLifecycleState.inactive);
     go(AppLifecycleState.hidden);
     go(AppLifecycleState.inactive);
     go(AppLifecycleState.resumed);
+    span.end();
 
-    expect(suspensions.count, 1);
+    expect(suspensions.count, 0);
+    expect(inner.spans.single.attributes['app.suspended'], isNull);
   });
 
   testWidgets('marks a span started in the background and ended after the '
