@@ -922,6 +922,7 @@ class BotScreenViewerController extends ChangeNotifier {
     _coverTimer = null;
     _dropInput();
     if (screen.inControlHere) {
+      if (_viewerId case final id?) _ids.retire(id);
       var released = false;
       try {
         released = await handBack(reason: reason)
@@ -992,7 +993,10 @@ class BotScreenViewerController extends ChangeNotifier {
     final hash = BotScreenViewerIds.hashOf(id);
     // Past the budget the id is not added: a failed release then leaves a lease
     // that names no id of this app.
-    if (!_disposed) _remember(id);
+    if (!_disposed) {
+      _remember(id);
+      _ids.retire(id);
+    }
     final lease = fresh.status.lease;
     if (_holdsLease(lease) && lease.viewerHash != hash) {
       if (_disposed) return _Step.refused;
@@ -1110,6 +1114,7 @@ class BotScreenViewerController extends ChangeNotifier {
     for (final id in _mine) {
       _ids.letGo(id, forget: _forgetOnDispose);
     }
+    if (_forgetOnDispose && _mine.isNotEmpty) screen.viewerIdsChanged();
     _mine.clear();
     _run++;
     _retry?.cancel();

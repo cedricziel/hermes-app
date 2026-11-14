@@ -43,6 +43,8 @@ void main() {
   late BotScreenController screen;
   late BotScreenViewerController viewer;
   late BotScreenViewerIds ids;
+  late BotScreenRepository repository;
+  late ConnectionTelemetry telemetry;
   late RecordingTracer tracer;
   late List<String> logged;
   late int connects;
@@ -88,12 +90,12 @@ void main() {
           return gateway.connect();
         },
       );
-      final telemetry = ConnectionTelemetry(
+      telemetry = ConnectionTelemetry(
         tracer: tracer,
         events: (name, [attributes = const {}]) =>
             logged.add('$name $attributes'),
       );
-      final repository = BotScreenRepository(
+      repository = BotScreenRepository(
         transport.requestKeepingConnection,
         connectionRpc: transport.requestKeepingConnectionOnClient,
         pinnedRpc: transport.requestOn,
@@ -1002,6 +1004,34 @@ void main() {
       });
     });
 
+    test('paused on a dead connection, an observe answered after the budget '
+        'adds no id to the app\'s set', () {
+      scenario(() {
+        pausedOnDeadConnection();
+        gateway.silent.add('display.observe');
+
+        unawaited(viewer.shutDown('sign_out'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+        final observe = gateway.requests.lastWhere(
+          (r) => r['method'] == 'display.observe',
+        );
+        gateway.silent.remove('display.observe');
+        gateway.replyTo(
+          observe,
+          gateway.handlers['display.observe']!(
+            observe['params'] as Map<String, Object?>,
+          ) as Map<String, Object?>,
+        );
+        settle();
+
+        expect(server.mintedIds.last, 'viewer-2');
+        expect(ids.holds(BotScreenViewerIds.hashOf('viewer-2')), isFalse);
+        expect(ids.holds(BotScreenViewerIds.hashOf('viewer-1')), isFalse);
+      });
+    });
+
     test('paused on a dead connection, a release that gets no answer after '
         'the new id took the lease still closes within the budget and logs an '
         'error', () {
@@ -1039,6 +1069,80 @@ void main() {
         expect(ids.holds(BotScreenViewerIds.hashOf('viewer-1')), isFalse);
         expect(screen.inControlHere, isFalse);
         expect(screen.someoneElseInControl, isTrue);
+      });
+    });
+
+    test('letting the ids go tells the screen, so an open card stops saying '
+        'this device is in control', () {
+      scenario(() {
+        pausedOnDeadConnection();
+        gateway.silent.add('display.lease.release');
+        final inControlAtNotify = <bool>[];
+        screen.addListener(() => inControlAtNotify.add(screen.inControlHere));
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(screen.inControlHere, isFalse);
+        expect(inControlAtNotify, isNotEmpty);
+        expect(inControlAtNotify.last, isFalse);
+      });
+    });
+
+    test('a viewer opened while the closing one still has its release on its '
+        'way is not freed by that release', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        gateway.silent.add('display.lease.release');
+        unawaited(viewer.shutDown('close'));
+        settle();
+        async.elapse(const Duration(milliseconds: 500));
+        final release = gateway.requests.lastWhere(
+          (r) => r['method'] == 'display.lease.release',
+        );
+        final otherScreen = BotScreenController(
+          repository,
+          transport.connectionEvents,
+          profile: 'work',
+          viewerIds: ids,
+          events: telemetry.events,
+        );
+        final other = BotScreenViewerController(
+          repository: repository,
+          screen: otherScreen,
+          openSocket: (path, ticket) async {
+            final next = server.openStream(ticket);
+            channels.add(next);
+            return next;
+          },
+          profile: 'work',
+          random: _Fixed(),
+          telemetry: telemetry,
+          platform: TargetPlatform.macOS,
+        );
+        try {
+          other.start();
+          settle();
+          handshake();
+
+          // The first viewer's release reaches the server only now.
+          final id =
+              (release['params'] as Map<String, Object?>)['viewer_id']
+                  as String?;
+          server.released.add(id);
+          if (server.holderId == id) server.giveToAgent();
+          async.elapse(kViewerReleaseBudget);
+          settle();
+
+          expect(server.holder, 'human');
+          expect(otherScreen.inControlHere, isTrue);
+        } finally {
+          other.dispose();
+          otherScreen.dispose();
+        }
       });
     });
 

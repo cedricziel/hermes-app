@@ -51,11 +51,23 @@ class BotScreenViewerIds {
     if (!forget) return;
     _hashes.remove(hash);
     if (_latest == id) _latest = null;
+    _retired.remove(hash);
   }
 
+  /// Marks [id] as being given back by a viewer that is shutting down, so that
+  /// [latest] no longer offers it: a viewer opened meanwhile would share it, and
+  /// the closing viewer's release would then free the lease that viewer took.
+  void retire(String id) => _retired.add(hashOf(id));
+
+  final _retired = <String>{};
+
   /// The id added last, for the next observe to ask for: the server keeps it
-  /// when the same connection minted it and mints another otherwise.
-  String? get latest => _latest;
+  /// when the same connection minted it and mints another otherwise. Null when
+  /// that id is being given back (see [retire]).
+  String? get latest {
+    final id = _latest;
+    return id == null || _retired.contains(hashOf(id)) ? null : id;
+  }
 
   /// Whether [hash], a lease's `viewer_hash`, names an id held here.
   bool holds(String? hash) => hash != null && _hashes.contains(hash);
