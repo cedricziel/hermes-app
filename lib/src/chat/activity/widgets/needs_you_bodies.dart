@@ -16,12 +16,19 @@ bool needsYouLargeText(BuildContext context) =>
 
 /// The look of the card's outlined buttons: a border that shows on the card in
 /// both themes (the theme's own outline is as dark as the card in dark mode).
-ButtonStyle needsYouOutlinedStyle(BuildContext context) =>
-    OutlinedButton.styleFrom(
-      side: BorderSide(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+ButtonStyle needsYouOutlinedStyle(BuildContext context) {
+  final onSurface = Theme.of(context).colorScheme.onSurface;
+  return OutlinedButton.styleFrom().copyWith(
+    // A disabled button dims its border with its label.
+    side: WidgetStateProperty.resolveWith(
+      (states) => BorderSide(
+        color: onSurface.withValues(
+          alpha: states.contains(WidgetState.disabled) ? 0.12 : 0.4,
+        ),
       ),
-    );
+    ),
+  );
+}
 
 /// A plain warning line: icon and words in the warning colour, never colour
 /// alone. Not a banner; it sits in the card it belongs to.
@@ -168,10 +175,23 @@ class BillingNeedsYouBody extends StatelessWidget {
 /// One service a sign-in waits on: its name, where it stands and, when
 /// [onOpen] is given, its own Open button.
 class _TargetRow extends StatelessWidget {
-  const _TargetRow({required this.target, this.onOpen});
+  const _TargetRow({
+    required this.target,
+    this.onOpen,
+    this.onSkip,
+    this.showSkip = false,
+  });
 
   final ConnectorTargetModel target;
   final VoidCallback? onOpen;
+
+  /// Adds this target's own Skip, under it; null when the card's action row
+  /// carries the only Skip.
+  final VoidCallback? onSkip;
+
+  /// Whether the target's own Skip is drawn; it is disabled without
+  /// [onSkip].
+  final bool showSkip;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +203,7 @@ class _TargetRow extends StatelessWidget {
       ConnectorTargetStatus.failed => (AppIcons.warning, colors.warning),
     };
     final large = needsYouLargeText(context);
+    final skip = target.skippable && showSkip;
     final row = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,7 +251,7 @@ class _TargetRow extends StatelessWidget {
             ],
           ),
         ),
-        if (target.openable && !large)
+        if (target.openable && !large && !skip)
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: OutlinedButton(
@@ -241,6 +262,35 @@ class _TargetRow extends StatelessWidget {
           ),
       ],
     );
+    if (skip) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [Expanded(child: row)],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            children: [
+              TextButton(
+                key: Key('needs-you-skip-${target.name}'),
+                onPressed: onSkip,
+                child: Text(context.l10n.chatActivityNeedsYouConnectorSkip),
+              ),
+              if (target.openable)
+                OutlinedButton(
+                  style: needsYouOutlinedStyle(context),
+                  onPressed: onOpen,
+                  child: Text(context.l10n.chatActivityNeedsYouConnectorOpen),
+                ),
+            ],
+          ),
+        ],
+      );
+    }
     if (!large || !target.openable) return row;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -269,10 +319,19 @@ class ConnectorNeedsYouBody extends StatelessWidget {
     required this.model,
     this.onOpen,
     this.openEnabled = true,
+    this.onSkip,
+    this.skipEnabled = true,
   });
 
   final ConnectorBodyModel model;
   final ValueChanged<String>? onOpen;
+
+  /// Adds a Skip to each skippable target; null leaves the only Skip to the
+  /// dock's action row.
+  final ValueChanged<String>? onSkip;
+
+  /// Whether the per-target Skip buttons can run.
+  final bool skipEnabled;
 
   /// Whether the per-target Open buttons can run.
   final bool openEnabled;
@@ -291,9 +350,14 @@ class ConnectorNeedsYouBody extends StatelessWidget {
               status: target.status,
               detail: target.detail,
               openable: target.openable && onOpen != null,
+              skippable: target.skippable,
             ),
             onOpen: openEnabled && onOpen != null
                 ? () => onOpen!(target.name)
+                : null,
+            showSkip: onSkip != null,
+            onSkip: onSkip != null && skipEnabled
+                ? () => onSkip!(target.name)
                 : null,
           ),
         ],

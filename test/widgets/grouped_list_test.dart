@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 
@@ -439,5 +440,123 @@ void main() {
     );
     expect(tester.getSize(find.byType(GroupedSection)).width, 600);
     expect(tester.getTopLeft(find.byType(GroupedSection)).dx, 300);
+  });
+
+  testWidgets('details sit under the other lines inside the row', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.iOS,
+        const GroupedSection(
+          children: [
+            GroupedRow(
+              title: 'Row',
+              subtitle: 'Sub',
+              error: 'Broke',
+              details: [Text('Extra one'), Text('Extra two')],
+            ),
+          ],
+        ),
+      ),
+    );
+    double y(String t) => tester.getTopLeft(find.text(t)).dy;
+    expect(y('Broke'), lessThan(y('Extra one')));
+    expect(y('Extra one'), lessThan(y('Extra two')));
+  });
+
+  testWidgets('titleWeight overrides the title weight only', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.iOS,
+        const GroupedSection(
+          children: [
+            GroupedRow(title: 'Heavy', titleWeight: FontWeight.w700),
+            GroupedRow(title: 'Plain'),
+          ],
+        ),
+      ),
+    );
+    FontWeight? weight(String t) => tester
+        .widget<RichText>(
+          find
+              .descendant(
+                of: find.ancestor(
+                  of: find.text(t),
+                  matching: find.byType(GroupedRow),
+                ),
+                matching: find.byType(RichText),
+              )
+              .first,
+        )
+        .text
+        .style
+        ?.fontWeight;
+    expect(weight('Heavy'), FontWeight.w700);
+    expect(weight('Plain'), isNot(FontWeight.w700));
+  });
+
+  testWidgets('trailingBelow puts a separate trailing control under the text '
+      'and keeps it a separate node', (tester) async {
+    final handle = tester.ensureSemantics();
+    var opened = 0;
+    var pressed = 0;
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.iOS,
+        GroupedSection(
+          children: [
+            GroupedRow(
+              title: 'Row',
+              subtitle: 'Sub',
+              onTap: () => opened++,
+              separateTrailing: true,
+              trailingBelow: true,
+              trailing: TextButton(
+                onPressed: () => pressed++,
+                child: const Text('Act'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(
+      tester.getTopLeft(find.text('Act')).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(find.text('Sub')).dy),
+    );
+    await tester.tap(find.text('Act'));
+    await tester.tap(find.text('Row'));
+    expect(pressed, 1);
+    expect(opened, 1);
+    expect(tester.getSemantics(find.text('Row')).label, isNot(contains('Act')));
+    handle.dispose();
+  });
+
+  testWidgets('a status line keeps its icon size unless asked to scale it', (
+    tester,
+  ) async {
+    Future<double> iconSize(bool scale) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(3)),
+            child: Scaffold(
+              body: GroupedStatusLine(
+                icon: AppIcons.warning,
+                text: 'x',
+                color: Colors.red,
+                size: 15,
+                scaleIcon: scale,
+              ),
+            ),
+          ),
+        ),
+      );
+      return tester.getSize(find.byType(Icon)).width;
+    }
+
+    expect(await iconSize(false), 15);
+    expect(await iconSize(true), 45);
   });
 }
