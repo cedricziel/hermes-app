@@ -49,7 +49,7 @@ Scheduled passes go through `maybe_run_curator`, gated by `should_run_now` (enab
 - `lib/src/skills/curator/curator_status.dart`: `CuratorStatus.parse(Object?)`, never throws.
 - `lib/src/skills/curator/hermes_curator_repository.dart`: three methods through `authController.api!.raw`; a call answers a result type, never throws. Run and pause are never retried.
 - `lib/src/skills/curator/curator_controller.dart`: state per profile (idle, running, finished, failed, unknown); polls `curator-run` status every 2 s, backs off to 5 s, stops after 15 minutes ("Still running on the server" with Check status); one run at a time.
-- `lib/src/skills/widgets/`: `CuratorSection`, `CuratorRunConfirmation`, `CuratorRunProgress`, plain models and callbacks, Widgetbook first.
+- `lib/src/skills/widgets/`: `CuratorSection` and `CuratorRunConfirmation`, plain models and callbacks, Widgetbook first. The run progress is the extended `GroupedActionRow` inside the section, not a widget of its own.
 - The confirmation reads `curator.consolidate` and `curator.prune_builtins` from `GET /api/config?profile=` (already used by the memory and MCP repositories), leniently; unreadable means the "may also merge and rewrite" and "may include bundled skills" wording.
 - Entry: a section at the top of the installed-skills list in `SkillsScreen` (`lib/src/skills/skills_screen.dart`), for the profile it shows. No new screen, no new route.
 
@@ -58,7 +58,7 @@ Scheduled passes go through `maybe_run_curator`, gated by `should_run_now` (enab
 | Signal | Where | Attributes |
 | --- | --- | --- |
 | span `skills_curator.run` | `CuratorController`, POST to end | `outcome` (done, failed, unknown, timed_out), `trigger_lost` |
-| log `skills_curator.run_finished` | `CuratorController` | `outcome`, `archived_lines` (count of output lines naming an archive) |
+| log `skills_curator.run_finished` | `CuratorController` | `outcome`, `archived` (the number parsed from Hermes' `archived=N` line; absent when no such line is found) |
 | breadcrumb `skills_curator.run.confirmed` | confirmation | none |
 | breadcrumb `skills_curator.paused` | switch | `paused` |
 
@@ -73,6 +73,26 @@ Spans carry the connection's `hermes.*` attributes. None holds a skill name, out
 - **Run never offered when `enabled` is false:** the child would only exit 1.
 - **No dry run.** Not reachable through the route.
 
+## Design pass
+
+Status: Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC).
+
+The brief is `docs/design-briefs/skills-curator.md`; the design record is written and reviewed, with no canvas yet: the design tool was not run, no build starts before the canvas exists, and the design system README was not read (the decisions come from the merged briefs and the existing widgets). Decisions that change behaviour:
+
+- The section shows on the Installed tab only while no search text or filter is active (decided by the owner), or on the only list when the server has no hub.
+- Output lines are shown only when a run ends, not while it goes, in a closed "Show output" tile (last 30 lines, not selectable, a footnote that the log is shared by every profile). They are blank under App Lock and while the app is inactive on a phone.
+- A run's result stays until the next run or until the person leaves the list (closes the screen or switches profile); no Dismiss button (decided).
+- The restore command is `hermes curator restore <name> -p <profile>` with both placeholders left for the person to fill in and a line telling them to add their profile; no profile name goes to the clipboard (decided).
+- The installed skills list is read again when a run ends, because archived skills leave it.
+- Following a run stops when the screen closes; the pass keeps going on the server. Reopening shows the last run time only, plus one read of the action status's `running` flag (no lines): while it is true Run now is disabled with "A pass is running on this server" and a Check status action. Check status that finds a run restarts polling with a new 15-minute limit.
+- Every request that gets no answer within 10 s, or whose connection drops after it was sent, ends in "Couldn't confirm" wording (a lost answer to a pause or run, never "Can't reach Hermes", which is only for a request that never left the device); only reads (status, action status) are repeated, by Try again or Check status. Polling that fails for 10 s shows "Couldn't confirm how the pass is going."
+- The result never says "nothing changed": Hermes' output does carry counts (per the Hermes source `auto: checked=N stale=N archived=N reactivated=N`, `curator: auto: ... | no changes; llm: ...`), but lines can be missing or reworded and a consolidating pass can change more than its prune counts show. "The pass finished" shows only when `running` is false and the log has a start header after this app's POST: a newer `last_run_at` alone reads "A pass started at <time>" and, unless `running` is false, "Couldn't confirm it finished", because Hermes saves `last_run_at` right after the prune step, before consolidation.
+- "Last ran" reads "Last pass or first check" with a footnote, because Hermes also sets `last_run_at` the first time it sees a profile (first-seen seeding), without a pass.
+- `enabled` null counts as on; any other unknown field reads "Unknown".
+- Run now is a `GroupedActionRow`, disabled while a pass is running or may be running (running, elsewhere, lost answer, progress lost, 15 minutes, stopped, unconfirmed check) until a read shows `running` false; after a pass ended it returns as "Run again"; the confirmation is an adaptive sheet with Cancel first and default, and Run now outlined, not red, not filled.
+
+Client additions: `OutputLinesTile` extracted from `UpdateDetailsDisclosure` (`update_step_list.dart`; it has no line cap, footnote or blank mode today, and the lines are not selectable); `GroupedActionRow` moves to `lib/src/widgets/` and is extended (a subtitle slot, a neutral line with a Check status button, a "Run again" label, a Mac leading spinner while working, wrapping lines and a stacked mode at large text); a new `AppIcons.wifiOff` for the offline banner; the confirmation body scrolls with its buttons pinned; the open output box is capped (320 pt or 40 percent of the window) with an inner scroll and shows "Hidden while the app is locked or away" when blanked; blanking output while the app is inactive on a phone is new (no helper exists; App Lock blanking is free via `AppLockGate`). Status codes: PUT 400, 422 and 500 are section errors with Try again; PUT 404 `Profile '` adds a pause state (the switch stays, the profile list reloads). The section sits above the `StateMessage` in the Skills screen's empty and failed states, above the spinner while loading, and is hidden when skills are unsupported; a server with no hub has no tabs.
+
 ## Risks
 
 - [Output lines include skill names] -> shown on screen only, under App Lock blanking.
@@ -82,5 +102,5 @@ Spans carry the connection's `hermes.*` attributes. None holds a skill name, out
 
 ## Open questions
 
-1. Ask Hermes to return `last_run_summary`, `last_report_path` and `run_count` from `GET /api/curator` and to expose restore. Recommendation: raise upstream; until then the app shows only what it can. Show last run's report when it exists.
+1. Ask Hermes to return `last_run_summary`, `last_report_path` and `run_count` from `GET /api/curator` and to expose restore and rollback. Recommendation: raise upstream; until then the app shows only what it can. Show last run's report when it exists. (The restore command's profile is decided: see Design pass.)
 2. Should Run now be offered at all while consolidation is on? Recommendation: yes with the stronger wording; revisit when restore exists.

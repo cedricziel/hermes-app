@@ -51,10 +51,10 @@ Six PRs, each about 500 changed lines or fewer with tests, merged in order. No A
 
 ## 5. PR 5 — `feat(providers): model providers screen`
 
-- [ ] 5.1 Write failing screen tests, then add `ProvidersScreen` over `ProviderSetupController`: list beside detail from 900 pt and on a full-screen iPad, pushed detail below; forms through `showAdaptiveSheet` (dialogs on macOS, never a bottom sheet); Escape closes a form and Return submits it on desktop; pull to refresh on iOS and Android only. Verified by `flutter test test/providers/providers_screen_test.dart`.
-- [ ] 5.2 Write failing navigation tests, then add the "Model providers" sidebar and drawer action before "Helper models" (shown only while model discovery is supported) and `ProfileSection.providers` on the Mac Profiles page with "<N> connected", each opening the screen for the right profile, plus the `providers.opened` breadcrumb with `source`. Verified by the navigation tests.
-- [ ] 5.3 Write failing tests that `providers.connect.started` and `providers.remove.confirmed` carry only `method` and `kind`; then add them. Verified by the telemetry test.
-- [ ] 5.4 Write failing tests that sign-out and a server change close the screen, stop following sign-ins without cancelling them, and drop typed keys; then make them pass. Verified by `test/providers/providers_lifecycle_test.dart`.
+- [x] 5.1 Write failing screen tests, then add `ProvidersScreen` over `ProviderSetupController`: list beside detail from 900 pt and on a full-screen iPad, pushed detail below; forms through `showAdaptiveSheet` (dialogs on macOS, never a bottom sheet); Escape closes a form and Return submits it on desktop; pull to refresh on iOS and Android only. Verified by `flutter test test/providers/providers_screen_test.dart`.
+- [x] 5.2 Write failing navigation tests, then add the "Model providers" sidebar and drawer action before "Helper models" (shown only while model discovery is supported) and `ProfileSection.providers` on the Mac Profiles page with "<N> connected", each opening the screen for the right profile, plus the `providers.opened` breadcrumb with `source`. Verified by the navigation tests.
+- [x] 5.3 Write failing tests that `providers.connect.started` and `providers.remove.confirmed` carry only `method` and `kind`; then add them. Verified by the telemetry test.
+- [x] 5.4 Write failing tests that sign-out and a server change close the screen, stop following sign-ins without cancelling them, and drop typed keys; then make them pass. Verified by `test/providers/providers_lifecycle_test.dart`.
 - [ ] 5.5 Run `/simplify`, then format, analyze and test, all passing.
 
 ## 6. PR 6 — `feat(chat): lead a server without a model to provider setup`
@@ -73,4 +73,5 @@ These checks need a device or simulator the delivery environment does not have.
 - [ ] 7.2 iPhone simulator: paste a key, tap Show, go to the app switcher and confirm the field is obscured in the snapshot; start a ChatGPT/Codex or Nous sign-in, leave for Safari, return and see it complete; the largest accessibility text size on the sign-in step; VoiceOver reads rows and the code as specified.
 - [ ] 7.3 Android emulator: the key field uses the password keyboard variation with no suggestions; TalkBack order; 48 dp targets.
 - [ ] 7.4 iPad simulator full screen and Split View: list beside detail at full width, pushed detail in a narrow split.
+- [ ] 7.6 Screen on a device (PR B): the page sheet on an iPhone and the full-screen dialog on an Android phone, Escape and Return in a real Mac dialog, pull to refresh, Command R, App Lock locking while a key is typed, and a sign-in left pending while the app is backgrounded.
 - [ ] 7.5 Against a real backend (a delivery environment with `hermes`), before the screen ships: confirm that `POST /api/model/set` accepts `custom:<id>` as the provider after a custom endpoint is saved, that the managed local-runtime row is the one the parser drops (slug `llamacpp`, `auth_type: local`, `source: local-runtime`) and that OpenAI's slug is `openai-api`; record the answers in design.md's Risks, with task 1.1's fixtures.

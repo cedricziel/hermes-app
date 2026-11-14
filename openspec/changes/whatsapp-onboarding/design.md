@@ -53,7 +53,7 @@ Requires `connected`, else 409 "WhatsApp setup is not connected yet." Unknown or
 
 ### Not verified
 
-Baileys' QR interval; the exact text a failing bridge sends; behaviour on Windows hosts (`windows_hide_flags` exists); no live run was made (needs Node and a phone). The fixtures task records the shapes from `scripts/dev-backend.sh`, with the bridge replaced by a stub where Node is absent.
+Baileys' QR interval; the exact text a failing bridge sends; behaviour on Windows hosts (`windows_hide_flags` exists); no live run was made (needs Node and a phone). The fixtures task (2.1) records the shapes from `scripts/dev-backend.sh`, with the bridge replaced by a stub where Node is absent.
 
 ## The phone question
 
@@ -61,8 +61,8 @@ WhatsApp links a device when the phone that holds the account scans the QR. On a
 
 ## Decisions
 
-- The QR payload and pairing id are secrets by the "Secret fields" rule in `docs/architecture/settings-screens.md`, adapted: they are never typed, so no Show/Hide field; the code is hidden on handsets until tapped, and hidden again when the lifecycle leaves `resumed` or App Lock locks, and dropped on close. After such a hide a handset needs the tap again; a tablet or computer shows the code again when the app is in front and unlocked. No Copy button, no share sheet, no preferences, no state restoration.
-- The request span path contains the pairing id. `DioOTelInterceptor.privacy` (`lib/src/telemetry/telemetry.dart`) is not verified to template paths: task 1 adds a test, and if the id reaches a span the repository records its own spans with the fixed route.
+- The QR payload and pairing id are secrets by the "Secret fields" rule in `docs/architecture/settings-screens.md`, adapted: they are never typed, so no Show/Hide field; the code is hidden on handsets until tapped, and hidden again when the lifecycle leaves `resumed`, App Lock locks, or (decided by the owner) a desktop window loses focus, and dropped on close. After such a hide a handset needs the tap again; a tablet or computer shows the code again when the app is in front, focused and unlocked. No Copy button, no share sheet, no preferences, no state restoration.
+- The request span path contains the pairing id. `DioOTelInterceptor.privacy` (`lib/src/telemetry/telemetry.dart`) is not verified to template paths: task 2.4 adds a test, and if the id reaches a span the repository records its own spans with the fixed route.
 - Start, Finish and Cancel are user actions only. Nothing starts on opening the setup form; "Link WhatsApp" is a button.
 - Finish shows a confirmation: "Save the WhatsApp setup and ask the messaging gateway to restart? Conversations on messaging channels will be interrupted." Buttons: Cancel (the default) and Save and restart.
 - A lost answer on start: the screen says it does not know whether a pairing began and offers Start again (which supersedes any earlier one). A lost answer on Finish: "Could not confirm the setup was saved." with Check, which reads `GET /api/messaging/platforms?profile=`; apply is never resent, because the record is gone once it succeeds (a resend would 404). A 404 on apply: the record is gone (dropped 900 s after start, a dashboard restart, or an apply that already succeeded). The screen says the setup is no longer on the server and the settings may not be saved, and offers Start again.
@@ -72,3 +72,22 @@ WhatsApp links a device when the phone that holds the account scans the QR. On a
 ## Observability
 
 Spans: `whatsapp.pair.start`, `whatsapp.pair.apply` (they cross the network; attributes `outcome`, `restart`). Log events through `AppEventLogger`: `whatsapp.pair.ended` with `status`, `whatsapp.pair.unavailable` (a route-missing 404 or a 405 on start from an old server, once per connection). Breadcrumbs: `whatsapp.pair.opened`, `whatsapp.pair.qr_shown`, `whatsapp.pair.applied`. None holds the QR, an id, a number, a name, a path, an error text or a profile.
+
+## Design pass
+
+Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC).
+
+No Claude Design canvas exists yet; the brief `docs/design-briefs/whatsapp-onboarding.md` was written from the design system README, the merged briefs and the shared widgets, and reviewed. No build starts before the canvas exists. Decisions that change behaviour:
+
+- One pushed screen whose body follows the phase, like the Telegram screen; Finish closes both screens to the Messaging list, which shows a banner with the outcome (success when a restart was requested and `needs_restart` is false, warning otherwise; never "restarted").
+- Polling (decided by the owner) runs only while the app is in front and App Lock is unlocked. On return while locked nothing polls; once unlocked a line says polling was paused and is resuming, and it goes at the next answer. A countdown that ran out while paused ends locally on return. On unlock a handset needs the "Show QR code" tap again.
+- The countdown is the setup's 600 s ("Setup closes in 8:42"), not the code's rotation, which is not verified. A last-minute warning is shown; it is announced at 60, 30 and 10 seconds left only.
+- A failed poll keeps the last state and adds an offline or unreachable banner ("This code may be out of date."); polling continues every 2 s.
+- While apply is in flight (at most 10 s) the route cannot be popped (system back and the iOS swipe included) and no Cancel is sent; the Mac back chord goes through `MacCommandScope` and is disabled, never a key handler. Leaving after the lost-apply state sends nothing new; the `DELETE` is not sent either: the record is most likely gone, `DELETE` is idempotent but would not unlink anything, and a surviving record is dropped by the server after 900 s. After 10 s with no answer the lost-answer state shows, and Check ends within 10 s with "Couldn't confirm".
+- Start again returns to the setup form with the earlier mode and numbers.
+- The QR tile is black on white in both themes and does not scale with text size.
+- Desktop (decided by the owner): the code is hidden whenever the window loses focus, not only on App Lock or minimise. The catalog keeps a use case for the desktop hidden state.
+
+## Follow-ups outside this change
+
+- Android: block screenshots and screen recording of the QR with `FLAG_SECURE` while the code is shown. Decided by the owner as not part of this change (it needs native work, and the proposal says no native change). Roadmap candidate only; `docs/roadmap.md` is updated by the orchestrator, not here.

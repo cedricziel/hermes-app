@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../l10n/l10n.dart';
 import '../voice/calls/call_bridge.dart';
 import '../voice/calls/call_audio_decoder.dart';
 import '../voice/calls/call_agent.dart';
@@ -53,7 +52,9 @@ import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
 import '../memory/memory_proposals_repository.dart';
 import '../memory/memory_waiting_count.dart';
+import '../../l10n/l10n.dart';
 import '../models/hermes_models_repository.dart';
+import '../models/model_options_state.dart';
 import '../models/widgets/model_setup_dialog.dart';
 import '../live_activities/live_activities.dart';
 import '../app_lock/app_lock_controller.dart';
@@ -69,6 +70,8 @@ import 'invalidation/change_invalidation_binding.dart';
 import 'invalidation/change_signal.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
+import '../providers/providers_repository.dart';
+import '../providers/providers_screen.dart';
 import '../settings/helper_models_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
@@ -120,6 +123,7 @@ import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
+import 'activity/bound_activity_line.dart';
 import 'activity/bound_activity_panel.dart';
 import 'activity/bound_needs_you_dock.dart';
 import 'activity/needs_you_queue.dart';
@@ -160,6 +164,7 @@ class ChatScreen extends StatefulWidget {
     this.transport,
     this.profiles,
     this.models,
+    this.providers,
     this.messaging,
     this.skills,
     this.plugins,
@@ -187,6 +192,10 @@ class ChatScreen extends StatefulWidget {
   final ChatTransport? transport;
   final HermesProfilesRepository? profiles;
   final HermesModelsRepository? models;
+
+  /// Reads and changes the model providers of the chat's profile; the Model
+  /// providers entries are absent without it.
+  final ProvidersRepository? providers;
   final HermesMessagingRepository? messaging;
   final HermesSkillsRepository? skills;
   final HermesPluginManagerRepository? plugins;
@@ -300,6 +309,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesToolsRepository? _tools;
   ToolsAvailability? _toolsAvailability;
   HermesModelsRepository? _models;
+  ProvidersRepository? _providers;
   HermesGatewayTransport? _ownedTransport;
 
   /// The Bot Screen of the chat's profile, and what it was made for.
@@ -433,6 +443,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         widget.toolsAvailability ?? _maybeRead<ToolsAvailability>();
     _toolsAvailability?.addListener(_toolsAvailabilityChanged);
     _models = widget.models ?? repositories?.models;
+    _providers = widget.providers ?? repositories?.providers;
     _starterLoader =
         widget.starterContext ??
         (repositories == null ? null : StarterContextLoader(repositories));

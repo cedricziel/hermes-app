@@ -71,9 +71,18 @@ void main() {
         }
         expect(find.text('1 queued · Done!'), findsOneWidget);
         expect(find.text('Hermes is replying…'), findsNothing);
+        // The status is the activity line's sentence, in one line, and
+        // nowhere else.
         expect(
           find.textContaining('Background Process Finished'),
-          findsNothing,
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('activity-line')),
+            matching: find.textContaining('Background Process Finished'),
+          ),
+          findsOneWidget,
         );
         expect(find.byKey(const Key('chat-activity-strip')), findsNothing);
         expect(find.bySemanticsLabel('Stop response'), findsOneWidget);
@@ -94,7 +103,10 @@ void main() {
           await tester.pump(const Duration(milliseconds: 100));
         }
         expect(
-          find.textContaining('Background Process Finished'),
+          find.descendant(
+            of: find.byKey(const Key('activity-panel')),
+            matching: find.textContaining('Background Process Finished'),
+          ),
           findsOneWidget,
         );
         await shots.capture(tester, 'activity');

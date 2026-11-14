@@ -16,6 +16,8 @@ import '../memory/memory_proposals_repository.dart';
 import '../memory/memory_repository.dart';
 import '../plugins/installed_plugin.dart';
 import '../plugins/plugins_screen.dart';
+import '../providers/provider_results.dart';
+import '../providers/providers_screen.dart';
 import '../settings/helper_models_screen.dart';
 import '../skills/skills_screen.dart';
 import '../theme/app_icons.dart';
@@ -69,6 +71,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   ToolsAvailability? _availability;
   final _toolsReading = <String>{};
   int _generation = 0;
+
+  /// False once the server answered 404 to its model options.
+  var _providersOffered = true;
 
   ChatProfiles get _profiles => widget.profiles;
 
@@ -189,6 +194,17 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                 .slots
                 .length,
       ),
+      count(ProfileSection.providers, () async {
+        final snapshot = await repositories.providers.load(name);
+        if (snapshot is ProvidersUnsupported) {
+          // An older Hermes without model options: no such section.
+          if (mounted && _providersOffered) {
+            setState(() => _providersOffered = false);
+          }
+        }
+        if (snapshot is! ProvidersLoaded) throw StateError('not loaded');
+        return snapshot.catalog.connected.length;
+      }),
       count(
         ProfileSection.messaging,
         () async => (await repositories.messaging.forProfile(name).load())
@@ -248,6 +264,11 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         profiles: repositories.profiles,
         profile: name,
       ),
+      ProfileSection.providers => ProvidersScreen(
+        repository: repositories.providers,
+        profile: name,
+        entry: ProvidersEntry.profiles,
+      ),
       ProfileSection.tools => ToolsScreen(
         repository: repositories.tools.forProfile(name),
         availability: _availability,
@@ -270,6 +291,10 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     }
     await Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => page));
+    // Connecting or removing a provider changes the count the row shows.
+    if (section == ProfileSection.providers && mounted) {
+      unawaited(_loadCounts(name));
+    }
     // Switches made on the Tools screen change the count.
     if (mounted && section == ProfileSection.tools) {
       unawaited(_loadTools(name, _generation));
@@ -316,9 +341,13 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     onSelect: _select,
                     counts: _counts[_selected] ?? const {},
                     memoryWaiting: _waiting[_selected],
-                    toolsOffered: _availability?.offered ?? false,
                     toolsCount: _tools[_selected],
                     onOpen: _open,
+                    hiddenSections: {
+                      if (!_providersOffered) ProfileSection.providers,
+                      if (!(_availability?.offered ?? false))
+                        ProfileSection.tools,
+                    },
                   ),
           ),
         ],

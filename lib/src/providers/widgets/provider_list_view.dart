@@ -52,6 +52,9 @@ class ProviderListView extends StatelessWidget {
     this.onRetryKeys,
     this.onRetryAccounts,
     this.onRetryEndpoints,
+    this.scrollController,
+    this.scrollPhysics,
+    this.addHeadingKey,
   });
 
   final ProviderListData data;
@@ -76,6 +79,14 @@ class ProviderListView extends StatelessWidget {
   final VoidCallback? onRetryKeys;
   final VoidCallback? onRetryAccounts;
   final VoidCallback? onRetryEndpoints;
+
+  /// The list's scroll controller, and its physics: the screen passes
+  /// always-scrollable physics where it pulls to refresh.
+  final ScrollController? scrollController;
+  final ScrollPhysics? scrollPhysics;
+
+  /// Put on the "Add a provider" heading, so the screen can scroll to it.
+  final Key? addHeadingKey;
 
   @override
   Widget build(BuildContext context) {
@@ -158,6 +169,7 @@ class ProviderListView extends StatelessWidget {
         onSelect == null ? null : () => onSelect!(row.id),
     };
     return ModelProviderRow(
+      key: row.id.isEmpty ? null : ValueKey('provider-row-${row.id}'),
       provider: row,
       selected: row.id == selectedId && !row.isPending,
       onTap: onTap,
@@ -189,6 +201,8 @@ class ProviderListView extends StatelessWidget {
         more.isEmpty &&
         !showEndpoint;
     return GroupedListView(
+      controller: scrollController,
+      physics: scrollPhysics,
       children: [
         if (data.restartRequired)
           _banner(
@@ -248,6 +262,7 @@ class ProviderListView extends StatelessWidget {
             0,
           ),
           child: Semantics(
+            key: addHeadingKey,
             header: true,
             child: Text(
               l10n.providersAddHeading,

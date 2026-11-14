@@ -192,11 +192,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
   );
 
   /// "profile · model" under the chat's title, leaving out what is unknown.
-  String? _toolbarSubtitle() {
-    final model = (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
-    final parts = [?_chat.profile, ?model];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
+  String? _toolbarModelId() =>
+      (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
 
   void _selectThread(String id) {
     _showDetail();
@@ -326,6 +323,33 @@ extension _ChatScreenNavigation on _ChatScreenState {
     );
     // Switches made there change what the entry and the count know.
     if (mounted) unawaited(availability?.refresh(tools.profile));
+  }
+
+  /// Whether the Model providers entries show: the server answers the
+  /// model options the screen reads (a 404 there means an older Hermes).
+  bool get _providersOffered =>
+      _providers != null &&
+      _chat.modelOptionsState != ModelOptionsState.unsupported;
+
+  void _openProviders(ProvidersEntry source) {
+    final providers = _providers;
+    if (providers == null) return;
+    _closeDrawerIfNarrow();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => ProvidersScreen(
+              repository: providers,
+              profile: _chat.profile,
+              entry: source,
+              // The pill and the welcome view follow what the screen did.
+              onChanged: () => unawaited(_chat.refreshModelOptions()),
+            ),
+          ),
+        )
+        .then((_) {
+          if (mounted) unawaited(_chat.refreshModelOptions());
+        });
   }
 
   void _openHelperModels() {

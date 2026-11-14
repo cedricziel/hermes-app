@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/hermes_theme.dart';
+
 /// Room a sheet's grabber takes above its content.
 const double kKanbanGrabberBand = 17;
 
@@ -21,6 +23,9 @@ Future<void> showKanbanDetentSheet(
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: Colors.transparent,
+  // Its own plain shape: the theme's would draw a second edge round the
+  // transparent layer, and KanbanDetentSheet draws the one that shows.
+  shape: const RoundedRectangleBorder(),
   builder: (context) => KanbanDetentSheet(builder: builder, controller: sheet),
 );
 
@@ -30,8 +35,9 @@ Future<void> showKanbanFormSheet(BuildContext context, Widget panel) =>
       context: context,
       builder: (_) => Dialog(
         clipBehavior: Clip.antiAlias,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(_kSheetRadius)),
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(_kSheetRadius)),
+          side: hermesOverlayEdge(Theme.of(context).colorScheme),
         ),
         child: KanbanFormSheetFrame(child: panel),
       ),
@@ -57,10 +63,11 @@ class KanbanDetentSheet extends StatelessWidget {
       key: const Key('kanbanTaskSheet'),
       color: Theme.of(context).colorScheme.surface,
       clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(_kSheetRadius),
         ),
+        side: hermesOverlayEdge(Theme.of(context).colorScheme),
       ),
       child: Stack(
         children: [

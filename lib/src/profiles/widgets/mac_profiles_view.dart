@@ -20,8 +20,12 @@ enum ProfileSection {
   plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
   mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),
 
-  /// Listed only while the server offers Tools. The strings here are never
-  /// shown: the view takes this row's title and detail from the localizations.
+  /// Worded through l10n where it is drawn; the English here is a fallback.
+  providers('Model providers', 'Keys, sign-ins and endpoints', AppIcons.hub),
+
+  /// Hidden through `hiddenSections` unless the server offers Tools. These
+  /// strings are never shown: the view takes the title and detail from the
+  /// localizations.
   tools('Tools', 'What Hermes can do by itself', AppIcons.wrench),
   helperModels('Helper models', 'Models for side tasks', AppIcons.tune);
 
@@ -43,7 +47,7 @@ class MacProfilesView extends StatelessWidget {
     required this.counts,
     required this.onOpen,
     this.memoryWaiting,
-    this.toolsOffered = false,
+    this.hiddenSections = const {},
     this.toolsCount,
   });
 
@@ -59,8 +63,8 @@ class MacProfilesView extends StatelessWidget {
   /// How many staged memory changes wait in the selected profile.
   final int? memoryWaiting;
 
-  /// Whether the server offers Tools, which is when the row shows.
-  final bool toolsOffered;
+  /// Sections this server does not offer.
+  final Set<ProfileSection> hiddenSections;
 
   /// How many of the selected profile's tools are on, and how many there are;
   /// none while unread.
@@ -96,7 +100,7 @@ class MacProfilesView extends StatelessWidget {
                   counts: counts,
                   onOpen: onOpen,
                   memoryWaiting: memoryWaiting,
-                  toolsOffered: toolsOffered,
+                  hiddenSections: hiddenSections,
                   toolsCount: toolsCount,
                 ),
         ),
@@ -172,7 +176,7 @@ class MacProfileDetail extends StatelessWidget {
     required this.counts,
     required this.onOpen,
     this.memoryWaiting,
-    this.toolsOffered = false,
+    this.hiddenSections = const {},
     this.toolsCount,
   });
 
@@ -182,9 +186,9 @@ class MacProfileDetail extends StatelessWidget {
 
   /// Shown for Memory in place of its entry count while changes wait.
   final int? memoryWaiting;
+  final Set<ProfileSection> hiddenSections;
 
-  /// Whether the Tools row shows, and its "5 of 12 on" value.
-  final bool toolsOffered;
+  /// The Tools row's "5 of 12 on" value.
   final ({int on, int total})? toolsCount;
 
   @override
@@ -240,20 +244,27 @@ class MacProfileDetail extends StatelessWidget {
               'sign-in are shared.',
           children: [
             for (final section in ProfileSection.values)
-              if (section != ProfileSection.tools || toolsOffered)
+              if (!hiddenSections.contains(section))
                 GroupedRow(
                   wrapWhenStacked: true,
                   key: ValueKey('profile-section-${section.name}'),
-                  title: section == ProfileSection.tools
-                      ? l10n.toolsTitle
-                      : section.label,
-                  subtitle: section == ProfileSection.tools
-                      ? l10n.toolsProfileDetail
-                      : section.detail,
+                  title: switch (section) {
+                    ProfileSection.providers => l10n.providersListTitle,
+                    ProfileSection.tools => l10n.toolsTitle,
+                    _ => section.label,
+                  },
+                  subtitle: switch (section) {
+                    ProfileSection.providers =>
+                      l10n.providersProfileSectionDetail,
+                    ProfileSection.tools => l10n.toolsProfileDetail,
+                    _ => section.detail,
+                  },
                   leading: GroupedTile(child: AppIcon(section.icon)),
                   value: switch (section) {
                     ProfileSection.memory when (memoryWaiting ?? 0) > 0 =>
                       '$memoryWaiting waiting',
+                    ProfileSection.providers when counts[section] != null =>
+                      l10n.providersConnectedCount(counts[section]!),
                     ProfileSection.tools => switch (toolsCount) {
                       (:final on, :final total) => l10n.toolsProfilesCount(
                         on,

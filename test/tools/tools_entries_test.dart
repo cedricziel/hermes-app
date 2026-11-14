@@ -36,6 +36,11 @@ void main() {
       ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'))
       ..on('GET', '/api/sessions', sessionListBody([]))
       ..on('GET', '/api/mcp/servers', mcpServerListBody([]))
+      ..on('GET', '/api/model/options', {
+        'model': 'hermes-4',
+        'provider': 'nous',
+        'providers': <Object?>[],
+      })
       ..on('GET', '/api/model/auxiliary', {
         'tasks': <Object?>[],
         'main': {'provider': 'nous', 'model': 'hermes-4'},
@@ -87,7 +92,12 @@ void main() {
       final helpers = tester
           .getTopLeft(inSidebar(find.text('Helper models')))
           .dy;
-      expect(tools, greaterThan(mcp));
+      final providers = tester
+          .getTopLeft(inSidebar(find.text('Model providers')))
+          .dy;
+      // MCP servers, Model providers, Tools, Helper models.
+      expect(providers, greaterThan(mcp));
+      expect(tools, greaterThan(providers));
       expect(tools, lessThan(helpers));
     });
 
@@ -277,9 +287,14 @@ void main() {
     });
   });
 
-  test('Tools sits between MCP servers and Helper models in the sections', () {
-    final names = ProfileSection.values.map((s) => s.name).toList();
-    expect(names.indexOf('tools'), names.indexOf('mcp') + 1);
-    expect(names.indexOf('helperModels'), names.indexOf('tools') + 1);
-  });
+  test(
+    'Tools sits after Model providers and before Helper models in the sections',
+    () {
+      final names = ProfileSection.values.map((s) => s.name).toList();
+      // After MCP servers and Model providers.
+      expect(names.indexOf('tools'), names.indexOf('providers') + 1);
+      expect(names.indexOf('providers'), names.indexOf('mcp') + 1);
+      expect(names.indexOf('helperModels'), names.indexOf('tools') + 1);
+    },
+  );
 }

@@ -77,6 +77,7 @@ class ThreadSidebar extends StatelessWidget {
     this.memoryWaiting,
     this.onOpenPlugins,
     this.onOpenMcp,
+    this.onOpenProviders,
     this.onOpenTools,
     this.onOpenHelperModels,
     this.onOpenInNewWindow,
@@ -111,6 +112,7 @@ class ThreadSidebar extends StatelessWidget {
   final int? memoryWaiting;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
+  final VoidCallback? onOpenProviders;
 
   /// Opens Tools; the entry shows only while the server offers them.
   final VoidCallback? onOpenTools;
@@ -244,6 +246,12 @@ class ThreadSidebar extends StatelessWidget {
                     (AppIcons.extension, 'Plugins', onOpenPlugins!),
                   if (onOpenMcp != null)
                     (AppIcons.power, 'MCP servers', onOpenMcp!),
+                  if (onOpenProviders != null)
+                    (
+                      AppIcons.hub,
+                      context.l10n.providersListTitle,
+                      onOpenProviders!,
+                    ),
                   if (onOpenTools != null)
                     (AppIcons.wrench, context.l10n.toolsTitle, onOpenTools!),
                   if (onOpenHelperModels != null)
