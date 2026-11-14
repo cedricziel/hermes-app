@@ -73,7 +73,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array><string>$(PRODUCT_BUNDLE_IDENTIFIER).refresh</string></array>
 	<key>UIBackgroundModes</key>
-	<array><string>fetch</string><string>audio</string></array>
+	<array><string>fetch</string><string>audio</string><string>voip</string></array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
