@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.1.77](https://github.com/cedricziel/hermes-app/compare/v0.1.76...v0.1.77) (2026-11-14)
+
+
+### Features
+
+* **l10n:** add localization scaffolding with English and German for settings ([#919](https://github.com/cedricziel/hermes-app/issues/919)) ([8b0e672](https://github.com/cedricziel/hermes-app/commit/8b0e672ba1296f984e6a14f3f2982ebece8d9598))
+* **notifications:** answer agent requests from Android notifications ([#914](https://github.com/cedricziel/hermes-app/issues/914)) ([d3f5b18](https://github.com/cedricziel/hermes-app/commit/d3f5b180627d65cb3476888dff235ba5c58fbed9))
+* **server-care:** read server status, updates, logs, checks and usage ([#935](https://github.com/cedricziel/hermes-app/issues/935)) ([c87ae05](https://github.com/cedricziel/hermes-app/commit/c87ae05a39151f7edd65c0c41ed785d0a2105ddc))
+
+
+### Bug Fixes
+
+* **auth:** harden the sign-in listener and keep stored sessions on their host ([#908](https://github.com/cedricziel/hermes-app/issues/908)) ([d3886ff](https://github.com/cedricziel/hermes-app/commit/d3886ffcb483ef74d3c812f392e998c9b1f0d5ab))
+* background request alerts, widget reload budget, suspension marks and App Lock check ([#906](https://github.com/cedricziel/hermes-app/issues/906)) ([87b2ad3](https://github.com/cedricziel/hermes-app/commit/87b2ad30c20be2d5fca075e849e12198e06f31f4))
+* **background:** renew the marks of requests that stay open ([#934](https://github.com/cedricziel/hermes-app/issues/934)) ([bcd6f56](https://github.com/cedricziel/hermes-app/commit/bcd6f5693dcb3585b4c5d858a5a2dd5286d66518))
+* **bot-screen:** keep the control lease consistent across shut down, take over retries and old broadcasts ([#905](https://github.com/cedricziel/hermes-app/issues/905)) ([fe94515](https://github.com/cedricziel/hermes-app/commit/fe945158f265a1e6a9e17417d969ff5b7cdbf3b0))
+* **bot-screen:** offer Hand back after a release that missed the shut-down budget ([#933](https://github.com/cedricziel/hermes-app/issues/933)) ([3f90121](https://github.com/cedricziel/hermes-app/commit/3f90121397fcf6aa8386f824a485ae3ad503e72d))
+* **chat:** keep history in order when pages race a send or a refresh ([#902](https://github.com/cedricziel/hermes-app/issues/902)) ([297342d](https://github.com/cedricziel/hermes-app/commit/297342d2d5b520241632f38c44382779110b59d0))
+* **chat:** show a prompt once when its receipt follows the page ([#937](https://github.com/cedricziel/hermes-app/issues/937)) ([d7fe56d](https://github.com/cedricziel/hermes-app/commit/d7fe56d5d4d97fa094adc8cbc1da5b2945ddd820))
+* early window calls, an unawaited panel toggle and malformed native arguments ([#911](https://github.com/cedricziel/hermes-app/issues/911)) ([1939a51](https://github.com/cedricziel/hermes-app/commit/1939a51910a4be9036651663fb625706c99c574b))
+* **gateway:** keep live streaming/resuming turns and settle oddly shaped answers ([#897](https://github.com/cedricziel/hermes-app/issues/897)) ([c7f83cb](https://github.com/cedricziel/hermes-app/commit/c7f83cb37a6a32febc35cfa0460a5050d129f667))
+* **schedules:** save edits of past one-shot jobs and keep mutes on incomplete listings ([#900](https://github.com/cedricziel/hermes-app/issues/900)) ([427ba73](https://github.com/cedricziel/hermes-app/commit/427ba73a7639fcee1eba3e159c889f479ed562ca))
+* settle controller state races in skills, kanban, memory settings and avatars ([#901](https://github.com/cedricziel/hermes-app/issues/901)) ([fc2c2e6](https://github.com/cedricziel/hermes-app/commit/fc2c2e6f373dad97f41a2b9cc1dac4db35624ea1))
+* **skills:** keep toggles and their rollback value across a list reload ([#930](https://github.com/cedricziel/hermes-app/issues/930)) ([b7f49d6](https://github.com/cedricziel/hermes-app/commit/b7f49d6e5626b9da7c6873e5f5d26a6d05f04fe5))
+* **surfaces:** record the widget reload time only after a reload succeeded ([#932](https://github.com/cedricziel/hermes-app/issues/932)) ([4d923cb](https://github.com/cedricziel/hermes-app/commit/4d923cbd1e6a27b627a33c511b3ac21b056bc9bb))
+* **telemetry:** name failed snapshot sources, stop counting time-outs as errors, mark failed proposal reads ([#896](https://github.com/cedricziel/hermes-app/issues/896)) ([50f416a](https://github.com/cedricziel/hermes-app/commit/50f416a107d2ee225b994f1837c39d81173ae050))
+* **voice:** guard dictation start against a throwing connector ([#931](https://github.com/cedricziel/hermes-app/issues/931)) ([6dff6f5](https://github.com/cedricziel/hermes-app/commit/6dff6f5126df61d46ed8589b5c770ee58a5ae362))
+* **voice:** handle platform errors, late sockets and double notices ([#904](https://github.com/cedricziel/hermes-app/issues/904)) ([1f40a83](https://github.com/cedricziel/hermes-app/commit/1f40a832e3079bcebb49721a6f047dacdeaf0e2e))
+
+
+### Documentation
+
+* add the roadmap and what the agent run taught the rollout skill ([#909](https://github.com/cedricziel/hermes-app/issues/909)) ([6524e6f](https://github.com/cedricziel/hermes-app/commit/6524e6fb9dc8f227d0aa7b26a655426b610567ec))
+* move architecture detail out of CLAUDE.md ([#899](https://github.com/cedricziel/hermes-app/issues/899)) ([cffded7](https://github.com/cedricziel/hermes-app/commit/cffded7d83ef4851702688cbb29ecabe97bbd78f))
+* **openspec:** archive implemented changes and list what is open ([#903](https://github.com/cedricziel/hermes-app/issues/903)) ([0cf08af](https://github.com/cedricziel/hermes-app/commit/0cf08af3b97451613bc38c1d1b93848f586d6511))
+* **openspec:** propose chat checkpoints and context ([#921](https://github.com/cedricziel/hermes-app/issues/921)) ([1e1c1a0](https://github.com/cedricziel/hermes-app/commit/1e1c1a0bcf6ad8f5bb224670e3887d8fed7123e1))
+* **openspec:** propose chat working directory ([#922](https://github.com/cedricziel/hermes-app/issues/922)) ([ad2e75b](https://github.com/cedricziel/hermes-app/commit/ad2e75b02a8462aee5749e57cef5b3470d83f6b1))
+* **openspec:** propose provider setup ([#913](https://github.com/cedricziel/hermes-app/issues/913)) ([40c2a67](https://github.com/cedricziel/hermes-app/commit/40c2a67b778e9dd1e3c266596a1f1470ca7dd370))
+* **openspec:** propose server care ([#915](https://github.com/cedricziel/hermes-app/issues/915)) ([3491731](https://github.com/cedricziel/hermes-app/commit/34917317edf4e2baba7681a1940cb64cf001b029))
+* **openspec:** propose server files (browse and open what the agent wrote) ([#917](https://github.com/cedricziel/hermes-app/issues/917)) ([71a856a](https://github.com/cedricziel/hermes-app/commit/71a856afaa1f0d52519df726c92770acbde1e9d0))
+* **openspec:** propose subagent control ([#912](https://github.com/cedricziel/hermes-app/issues/912)) ([0e4fa51](https://github.com/cedricziel/hermes-app/commit/0e4fa513cb121cda3a80854fe387db1464a2cc6b))
+* **openspec:** propose toolsets ([#920](https://github.com/cedricziel/hermes-app/issues/920)) ([16941c9](https://github.com/cedricziel/hermes-app/commit/16941c9bff48586cf3388330afc3a1198634c986))
+* **openspec:** record the Server care design and its decisions ([#927](https://github.com/cedricziel/hermes-app/issues/927)) ([f2b17c6](https://github.com/cedricziel/hermes-app/commit/f2b17c6985fe9f6d5f9dd44d41602e91b14a8125))
+* **roadmap:** record merged work and what the work itself turned up ([#916](https://github.com/cedricziel/hermes-app/issues/916)) ([d392b7a](https://github.com/cedricziel/hermes-app/commit/d392b7aa2b9d0ca646e143c7aba4436ccb73c452))
+* **roadmap:** record the merged fixes and what their reviews left open ([#940](https://github.com/cedricziel/hermes-app/issues/940)) ([fec24ee](https://github.com/cedricziel/hermes-app/commit/fec24ee89d0536fbeca7ded077868dea9862b392))
+* **roadmap:** record the merged proposals, [#901](https://github.com/cedricziel/hermes-app/issues/901), [#914](https://github.com/cedricziel/hermes-app/issues/914) and the CI changes ([#929](https://github.com/cedricziel/hermes-app/issues/929)) ([bc7d6c6](https://github.com/cedricziel/hermes-app/commit/bc7d6c64b130ce1dbddcbd45e73cfa2c16abeaf3))
+
 ## [0.1.76](https://github.com/cedricziel/hermes-app/compare/v0.1.75...v0.1.76) (2026-11-09)
 
 
