@@ -50,6 +50,7 @@ class CareValueRow extends StatelessWidget {
     this.warning,
     this.error,
     this.onTap,
+    this.selected = false,
   });
 
   final String title;
@@ -58,6 +59,9 @@ class CareValueRow extends StatelessWidget {
   final String? warning;
   final String? error;
   final VoidCallback? onTap;
+
+  /// Highlights the row whose page shows beside the list.
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +90,7 @@ class CareValueRow extends StatelessWidget {
           warning: warning,
           error: error,
           onTap: onTap,
+          selected: selected,
         );
       },
     );

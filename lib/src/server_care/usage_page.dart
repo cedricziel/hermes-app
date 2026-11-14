@@ -7,6 +7,7 @@ import '../telemetry/breadcrumbs.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/settings_pane.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'care_result.dart';
@@ -43,7 +44,14 @@ class _UsagePageState extends State<UsagePage> {
   void _usageMissing() {
     _care.reportUnsupported(CarePart.usage);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) Navigator.of(context).maybePop();
+      if (!mounted) return;
+      // In a detail pane there is no route to pop: the pane empties.
+      final pane = SettingsPane.maybeOf(context);
+      if (pane != null) {
+        pane.close();
+      } else {
+        Navigator.of(context).maybePop();
+      }
     });
   }
 

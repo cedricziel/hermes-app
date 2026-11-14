@@ -9,6 +9,7 @@ import '../api/hermes_repositories.dart';
 import '../settings/account_actions.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/app_icons.dart';
+import '../theme/breakpoints.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_action_row.dart';
 import '../widgets/grouped_list.dart';
@@ -31,6 +32,7 @@ import 'usage_page.dart';
 import 'widgets/care_row_value.dart';
 import 'widgets/server_check_body.dart' show checkSummary;
 import 'widgets/server_check_row.dart';
+import 'widgets/server_split_view.dart';
 import 'widgets/server_status_card.dart';
 
 /// Pushes the Server screen as a settings page. [source] says where the
@@ -77,6 +79,39 @@ Widget _carry(
   child: page,
 );
 
+/// The pages the Server screen opens, in the order the first one offered is
+/// shown by default on a wide window. A page is added here and in
+/// [_ServerScreenState._destinations]; nothing else knows the list.
+enum _Page { usage, update, logs, check }
+
+/// A page to show, and what it opens on. Equal requests are the same page, so
+/// asking again for the one on screen keeps it.
+///
+/// [run] is zero, or the number of a request that starts a check as the page
+/// opens; each such request has its own, so asking again opens a new page.
+typedef _Request = ({_Page page, CareLogFile? file, String? profile, int run});
+
+_Request _plain(_Page page) => (page: page, file: null, profile: null, run: 0);
+
+class _Destination {
+  const _Destination(
+    this.page, {
+    required this.offered,
+    required this.build,
+    this.byDefault = true,
+  });
+
+  final _Page page;
+
+  /// Whether the pane may open on it by itself. A page that reads something
+  /// private (Logs) opens only when the person picks it.
+  final bool byDefault;
+
+  /// Whether the server has what the page reads.
+  final bool Function() offered;
+  final Widget Function(_Request request) build;
+}
+
 /// Is Hermes OK, and what is it running on: a headline, then the Hermes
 /// version and updates, the messaging gateway, the machine, and the tools.
 class ServerScreen extends StatefulWidget {
@@ -94,6 +129,17 @@ class _ServerScreenState extends State<ServerScreen> {
   late final HermesUpdateRun _updateRun;
   bool _updateWasBusy = false;
   Timer? _doneTimer;
+
+  /// Whether the screen shows its pages beside the list; set by the layout.
+  bool _wide = false;
+
+  /// The page the person picked on a wide window; null shows the default.
+  _Request? _picked;
+
+  /// The last run request a page was built for, so a page rebuilt later (the
+  /// screen shown again, the window widened) does not start another check.
+  int _runBuilt = 0;
+  int _runCount = 0;
 
   @override
   void initState() {
@@ -189,13 +235,97 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
 
+  late final List<_Destination> _destinations = [
+    _Destination(
+      _Page.usage,
+      offered: () =>
+          context.read<ServerCareController>().offers(CarePart.usage),
+      build: (_) => UsagePage(
+        onRunCheck: context.read<ServerCareController>().offers(CarePart.check)
+            ? () => _showCheck(run: true)
+            : null,
+      ),
+    ),
+    _Destination(
+      _Page.update,
+      offered: () => _update.supported,
+      build: (_) {
+        // As on the pushed page: a failed status read hides its version.
+        final care = context.read<ServerCareController>();
+        return UpdatePage(
+          controller: _update,
+          version: care.failure == null ? care.status?.version : null,
+        );
+      },
+    ),
+    _Destination(
+      _Page.logs,
+      offered: () => context.read<ServerCareController>().offers(CarePart.logs),
+      byDefault: false,
+      build: (r) => ServerLogsPage(
+        initialFile: r.file ?? CareLogFile.errors,
+        profile: r.profile,
+      ),
+    ),
+    _Destination(
+      _Page.check,
+      offered: () =>
+          context.read<ServerCareController>().offers(CarePart.check),
+      byDefault: false,
+      build: (r) {
+        final run = r.run != 0 && r.run != _runBuilt;
+        _runBuilt = r.run;
+        return ServerCheckPage(runOnOpen: run);
+      },
+    ),
+  ];
+
+  _Destination _destination(_Page page) =>
+      _destinations.firstWhere((d) => d.page == page);
+
+  /// The page beside the list: the one picked while the server still offers
+  /// it, else the first offered one that may open by itself (Usage, then
+  /// Update, never Logs), else none.
+  _Request? _shown() {
+    final picked = _picked;
+    if (picked != null && _destination(picked.page).offered()) return picked;
+    for (final d in _destinations) {
+      if (d.byDefault && d.offered()) {
+        return _plain(d.page);
+      }
+    }
+    return null;
+  }
+
+  /// Shows [request]: beside the list on a wide window, else on its own route.
+  void _show(_Request request) {
+    if (!_wide) return _open(_destination(request.page).build(request));
+    if (_picked != request) setState(() => _picked = request);
+  }
+
+  /// A row of the overview: keeps the page of that kind that is on screen.
+  void _showPage(_Page page) {
+    if (_wide && _shown()?.page == page) return;
+    _show(_plain(page));
+  }
+
+  /// A page with nothing left to show: the pane falls back to the default.
+  void _closePane() {
+    if (mounted && _picked != null) setState(() => _picked = null);
+  }
+
   /// Opens the Logs page on [file], if the server has the route.
   void _showLogs(CareLogFile file, {String? profile}) =>
-      _open(ServerLogsPage(initialFile: file, profile: profile));
+      _show((page: _Page.logs, file: file, profile: profile, run: 0));
 
   /// Opens the Server check page. [run] starts a check as it opens (the
   /// buttons that offer one); the row that shows the last result does not.
-  void _showCheck({bool run = false}) => _open(ServerCheckPage(runOnOpen: run));
+  void _showCheck({bool run = false}) => _show((
+    page: _Page.check,
+    file: null,
+    profile: null,
+    run: run ? ++_runCount : 0,
+  ));
 
   String? _subtitle(AppLocalizations l10n, ServerCareController care) {
     final profile = care.profile;
@@ -213,6 +343,40 @@ class _ServerScreenState extends State<ServerScreen> {
     context.watch<GatewayRestart>();
     context.watch<HermesUpdateRun>();
     context.watch<ServerCheckController>();
+    // Whether the server has an update check decides which page is offered.
+    return ListenableBuilder(
+      listenable: _update,
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, box) {
+          final wide = isWideLayout(context, width: box.maxWidth);
+          _wide = wide;
+          final overview = _overview(context, care);
+          if (!wide) return overview;
+          final shown = _shown();
+          // A destination the shell keeps alive behind the visible one builds
+          // no page, so a Logs page lets go of its lines and the window.
+          final visible =
+              Visibility.of(context) && TickerMode.valuesOf(context).enabled;
+          return ServerSplitView(
+            list: overview,
+            detail: !visible
+                ? const SizedBox.shrink()
+                : shown == null
+                ? null
+                // A page of another request is another element: the old one
+                // is disposed and lets go of what it holds.
+                : KeyedSubtree(
+                    key: ValueKey(shown),
+                    child: _destination(shown.page).build(shown),
+                  ),
+            onClose: _closePane,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _overview(BuildContext context, ServerCareController care) {
     final l10n = context.l10n;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final body = ListenableBuilder(
@@ -243,11 +407,12 @@ class _ServerScreenState extends State<ServerScreen> {
     // A failed read hides what the status said earlier: it may be out of
     // date.
     final showStatus = status != null && care.failure == null;
+    final shown = _wide ? _shown()?.page : null;
     return [
       _headline(l10n, care),
       // The update check does not depend on the status, so its row stays
       // when the status could not be read.
-      ..._hermes(l10n, care, showStatus ? status : null),
+      ..._hermes(l10n, care, showStatus ? status : null, shown),
       if (showStatus) ..._gateway(l10n, status),
       if (showStatus) ..._machine(l10n, status),
       if (care.offers(CarePart.usage) ||
@@ -260,21 +425,18 @@ class _ServerScreenState extends State<ServerScreen> {
               GroupedRow(
                 title: l10n.serverCareUsageTitle,
                 subtitle: l10n.serverCareUsageRowSubtitle,
-                onTap: () => _open(
-                  UsagePage(
-                    onRunCheck: care.offers(CarePart.check)
-                        ? () => _showCheck(run: true)
-                        : null,
-                  ),
-                ),
+                selected: shown == _Page.usage,
+                onTap: () => _showPage(_Page.usage),
               ),
             if (care.offers(CarePart.logs))
               GroupedRow(
                 title: l10n.serverCareLogsTitle,
                 subtitle: l10n.serverCareLogsRowSubtitle,
-                onTap: () => _showLogs(CareLogFile.errors),
+                selected: shown == _Page.logs,
+                onTap: () => _showPage(_Page.logs),
               ),
-            if (care.offers(CarePart.check)) _checkRow(l10n),
+            if (care.offers(CarePart.check))
+              _checkRow(l10n, selected: shown == _Page.check),
           ],
         ),
       GroupedSection(
@@ -290,7 +452,7 @@ class _ServerScreenState extends State<ServerScreen> {
 
   /// "Run a check", with what the last one found and when, or that one is
   /// running now.
-  Widget _checkRow(AppLocalizations l10n) {
+  Widget _checkRow(AppLocalizations l10n, {required bool selected}) {
     final check = context.read<ServerCheckController>();
     final report = check.report;
     final at = check.finishedAt;
@@ -298,10 +460,15 @@ class _ServerScreenState extends State<ServerScreen> {
       return ServerCheckRow(
         state: ServerCheckRowState.running,
         onTap: _showCheck,
+        selected: selected,
       );
     }
     if (check.phase != CheckPhase.finished || report == null || at == null) {
-      return ServerCheckRow(state: ServerCheckRowState.idle, onTap: _showCheck);
+      return ServerCheckRow(
+        state: ServerCheckRowState.idle,
+        onTap: _showCheck,
+        selected: selected,
+      );
     }
     return ServerCheckRow(
       state: ServerCheckRowState.result,
@@ -312,6 +479,7 @@ class _ServerScreenState extends State<ServerScreen> {
           : l10n.serverCareCheckSummaryUnreadable,
       ago: elapsedText(l10n, elapsedSince(at, DateTime.now())),
       onTap: _showCheck,
+      selected: selected,
     );
   }
 
@@ -498,6 +666,7 @@ class _ServerScreenState extends State<ServerScreen> {
     AppLocalizations l10n,
     ServerCareController care,
     ServerStatus? status,
+    _Page? shown,
   ) {
     final version = status?.version;
     final released = _released(l10n, status?.releaseDate);
@@ -516,7 +685,8 @@ class _ServerScreenState extends State<ServerScreen> {
           title: l10n.serverCareUpdatesRow,
           value: update.value,
           subtitle: update.subtitle,
-          onTap: () => _open(UpdatePage(controller: _update, version: version)),
+          selected: shown == _Page.update,
+          onTap: () => _showPage(_Page.update),
         ),
     ];
     return rows.isEmpty

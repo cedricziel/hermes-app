@@ -48,6 +48,7 @@ Controller only; no UI beyond what tests need.
 - [ ] 3.4 Write failing screen tests: the account menu item "Server" after "Connection details" (with "· needs attention"), the Mac sidebar row after Profiles with its caption, the Server screen's parts hidden on 404, Check now sends `force=true`, the Usage page's window and metric switches and its profile menu, the 503 state's Run a check. Then wire the screen (`lib/src/server_care/server_screen.dart`) into `thread_sidebar.dart`, `app_shell.dart` and `mac_source_list.dart`.
 - [ ] 3.5 Write a failing test for the breadcrumbs `server_care.opened` (`source`) and `server_care.usage.opened` (`days`). Then add them.
 - [ ] 3.6 Run `/simplify`, format, analyze and test, all passing.
+- [x] 3.7 Wide layout: at `isWideLayout` (900 pt, 700 pt on an iPad) the Server screen shows the overview (340 pt) beside the selected page (`ServerSplitView`, `widgetbook/server_care_split_use_cases.dart`); nothing picked shows Usage, else the first page the server offers; narrower, pages push. Pages come from one table (`_destinations` in `server_screen.dart`), so a new page (the Server check) is one entry. Tests: `test/server_care/server_screen_wide_test.dart`, the `mac-wide` workflow.
 
 ## 4. PR 4 — `feat(server-care): restart and start the messaging gateway`
 

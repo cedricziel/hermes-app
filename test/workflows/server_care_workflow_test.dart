@@ -8,6 +8,9 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
+import 'package:hermes_app/src/server_care/server_logs_page.dart';
+import 'package:hermes_app/src/server_care/update_page.dart';
+import 'package:hermes_app/src/server_care/usage_page.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -587,6 +590,59 @@ void main() {
       await openUsage(tester, shots);
       await back(tester);
       await logsAndCheck(tester, shots);
+      await letSocketsIdle(tester);
+    });
+  }
+
+  // A window wide enough for the Server screen to show its list beside the
+  // selected page.
+  for (final (name, brightness) in [
+    ('mac-wide', Brightness.light),
+    ('mac-wide-dark', Brightness.dark),
+  ]) {
+    testWidgets('$name: the list beside Usage, Updates and Logs', (
+      tester,
+    ) async {
+      server.on('GET', '/api/logs', {'file': 'errors', 'lines': logsErrors});
+      final shots = ScreenshotRecorder('server-care-$name');
+      await pumpShell(
+        tester,
+        shots,
+        size: const Size(1500, 800),
+        platform: TargetPlatform.macOS,
+        brightness: brightness,
+      );
+      await tester.tap(find.text('Server').first);
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'usage-default');
+      expect(find.text('The messaging gateway is off'), findsOneWidget);
+      expect(find.byType(UsagePage), findsOneWidget);
+
+      await tester.tap(find.text('Updates'));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'update');
+      expect(find.byType(UpdatePage), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.text('Logs'),
+        300,
+        scrollable: find
+            .ancestor(
+              of: find.text('Messaging gateway'),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.ensureVisible(find.text('Logs'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Logs'));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'logs');
+      expect(find.byType(ServerLogsPage), findsOneWidget);
+      expect(find.byType(UpdatePage), findsNothing);
       await letSocketsIdle(tester);
     });
   }

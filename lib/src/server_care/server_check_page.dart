@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../widgets/route_dismissal.dart';
+import '../widgets/settings_pane.dart';
 import '../widgets/settings_scaffold.dart';
 import 'doctor_report.dart';
 import 'secure_window.dart';
@@ -182,7 +183,13 @@ class _ServerCheckPageState extends State<ServerCheckPage> {
       if (!mounted) return;
       _care.reportUnsupported(CarePart.check);
       _check.dismiss();
-      dismissRoute(context);
+      // In a detail pane there is no route of its own: the pane empties.
+      final pane = SettingsPane.maybeOf(context);
+      if (pane != null) {
+        pane.close();
+      } else {
+        dismissRoute(context);
+      }
     });
   }
 
