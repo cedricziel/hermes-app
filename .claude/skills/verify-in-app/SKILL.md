@@ -1091,6 +1091,42 @@ it on the real window; a widget test only reaches the fake.
 - Relaunch after leaving a file in the cache for more than a day (set its mtime
   back with `touch -t`): it is gone after launch.
 
+## Verify Server files (the Files page)
+
+Seed a throwaway folder under the isolated `HERMES_HOME`'s parent, never a real
+one, and start a chat in it (the chat's `cwd`):
+
+```bash
+mkdir -p "$DEMO/field-notes/reports" "$DEMO/field-notes/empty"
+printf 'API_KEY=not-real\n' > "$DEMO/field-notes/.env"
+printf '# Notes\n\nSome **text**.\n' > "$DEMO/field-notes/README.md"
+ln -s "$DEMO/field-notes/reports" "$DEMO/field-notes/linked-reports"
+dd if=/dev/zero of="$DEMO/field-notes/big.bin" bs=1m count=60   # 60 MB
+cp some-image.png "$DEMO/field-notes/chart.png"                 # any image
+```
+
+Open Files from the Activity panel's "This session" row, the chat header menu
+and, on a Mac, View > Show Files (⇧⌘F). Check:
+
+- The list shows folders first; `.env` is hidden until "Show hidden files" in
+  the … menu, then shows a lock and "May contain secrets". Opening it asks
+  "Continue anyway?" with Cancel the default; Cancel requests nothing (look at
+  the dev backend's log: no `read-text`). Continue shows it and closing the
+  preview deletes its copy under `hermes_media`.
+- The symlink lists as a file at first and opens as a folder after one 400.
+- `big.bin` asks "This file is 60 MB. Download it anyway?" on Save; Cancel
+  leaves no `.part` file in the cache. Save of a larger file copies by path
+  (no memory growth in Activity Monitor).
+- The image previews; README.md renders and has a Rendered / Source switch;
+  its link asks before opening.
+- A Mac: click a row (focus), Space (Quick Look), drag a row to Finder (the
+  file is downloaded first), ⌘↑ goes up, ⌘R refreshes, Show Files with another
+  chat in front opens that chat's folder; close the page by switching chats.
+- App Lock on: lock the app with the preview open; the page and the Quick Look
+  panel close and the cache holds no Files download after unlock.
+- Point the app at a server without `/api/fs` (stub answering 404): no Files
+  row, no menu item, View > Show Files disabled, no error.
+
 ## Verify a `hermes://` link
 
 Open the link the way another app would, with the app running and with it

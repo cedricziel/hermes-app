@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
+import '../workspaces/widgets/folder_section_label.dart';
 
 /// The height of a row in a Mac sidebar.
 const double kMacSourceListRowHeight = 28;
@@ -182,10 +183,8 @@ class _MacSidebarSectionHeaderState extends State<MacSidebarSectionHeader> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: FolderSectionLabel(
                     widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: macSectionHeaderStyle(context),
                   ),
                 ),

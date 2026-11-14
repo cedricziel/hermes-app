@@ -6,6 +6,7 @@ import '../../macos/mac_source_list.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_popup_menu_button.dart';
+import '../../workspaces/widgets/folder_section_label.dart';
 import '../thread_list_preferences.dart';
 
 class ThreadGroupingMenu extends StatelessWidget {
@@ -75,10 +76,8 @@ class ThreadSectionHeader extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
+                child: FolderSectionLabel(
                   label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -129,7 +128,10 @@ class ThreadSectionHeading extends StatelessWidget {
         child: onToggle == null
             ? Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(label, style: macSectionHeaderStyle(context)),
+                child: FolderSectionLabel(
+                  label,
+                  style: macSectionHeaderStyle(context),
+                ),
               )
             : platformChromeOf(context) == PlatformChrome.macos
             ? MacSidebarSectionHeader(

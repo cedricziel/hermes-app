@@ -32,6 +32,7 @@ import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/subagents/agent_models.dart';
+import 'package:hermes_app/src/chat/subagents/process_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -1427,6 +1428,33 @@ void main() {
         throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', 4001)),
       );
     }, skip: skip);
+
+    test(
+      'process.list answers rows the app parses, for a session with none '
+      '(read-only: nothing is killed, and process.stop is never sent)',
+      () async {
+        // `process.list` waits for the session's agent; 5032 says it is still
+        // starting, which the app reads as a quiet failed read.
+        Map<String, Object?>? answer;
+        try {
+          answer = await rpc.request('process.list', {'session_id': sessionId});
+        } on GatewayRpcException catch (error) {
+          expect(error.code, 5032);
+        }
+        if (answer != null) {
+          final list = parseProcessList(answer);
+          expect(list, isNotNull);
+          expect(list!.processes, isEmpty);
+        }
+        await expectLater(
+          rpc.request('process.list', {'session_id': 'not-a-session'}),
+          throwsA(
+            isA<GatewayRpcException>().having((e) => e.code, 'code', 4001),
+          ),
+        );
+      },
+      skip: skip,
+    );
 
     const liveStatuses = {
       'idle',

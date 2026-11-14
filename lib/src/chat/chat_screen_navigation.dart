@@ -134,7 +134,10 @@ extension _ChatScreenNavigation on _ChatScreenState {
   }
 
   /// What the menu bar's File and Chat menus do here.
-  Map<MacCommand, MacCommandHandler> _menuCommands({required bool ios}) {
+  Map<MacCommand, MacCommandHandler> _menuCommands({
+    required bool ios,
+    required bool files,
+  }) {
     final thread = _chat.selectedThread;
     final housekeeping = _chat.housekeeping;
     final managed = thread != null && thread.remote && housekeeping != null;
@@ -181,7 +184,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
       MacCommand.deleteThread: MacCommandHandler(
         on(ThreadAction.delete, when: managed),
       ),
+      // Disabled while the server has no Files, or no chat is open.
+      MacCommand.showFiles: MacCommandHandler(
+        files && thread != null ? () => _showFiles(FilesOpenedFrom.menu) : null,
+      ),
     };
+  }
+
+  /// Opens the Files page of the chat in front.
+  void _showFiles(FilesOpenedFrom from) {
+    _closeDrawerIfNarrow();
+    unawaited(openFiles(context, _chat, from: from));
   }
 
   void _copyTranscript(ChatThread thread) => runThreadAction(
@@ -299,6 +312,37 @@ extension _ChatScreenNavigation on _ChatScreenState {
             McpServersScreen(repository: _mcp!, profiles: _profiles),
       ),
     );
+  }
+
+  /// Whether the Tools entry shows: the server has answered a list.
+  bool get _toolsOffered =>
+      _tools != null && (_toolsAvailability?.offered ?? false);
+
+  Future<void> _openTools() async {
+    _closeDrawerIfNarrow();
+    final availability = _toolsAvailability;
+    // A chat on the server's default profile names none: use the profile the
+    // list was last asked for.
+    final profile =
+        _chat.profile ??
+        availability?.requestedProfile ??
+        availability?.profile;
+    final tools = profile == null ? null : _tools?.forProfile(profile);
+    if (tools == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ToolsScreen(
+          repository: tools,
+          availability: availability,
+          // A deleted profile: read the list of profiles again.
+          onProfileGone: _profiles == null
+              ? null
+              : () => unawaited(_loadRecipients()),
+        ),
+      ),
+    );
+    // Switches made there change what the entry and the count know.
+    if (mounted) unawaited(availability?.refresh(tools.profile));
   }
 
   /// Whether the Model providers entries show: the server answers the

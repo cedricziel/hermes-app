@@ -163,11 +163,6 @@ class SettingsSubtitleMenu<T> {
 /// The height of the Mac "Cancel" button of a dialog.
 const kMacCancelHeight = 28.0;
 
-/// Room for the iOS "Cancel" in the bar: it grows with the text size, so
-/// "Cancel" and "Abbrechen" are not clipped at the largest sizes.
-double _cancelWidth(BuildContext context) =>
-    112 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
-
 /// A settings page (Skills, Plugins, MCP servers…) with its platform's bar:
 ///
 /// - iOS: a 44 point bar with a back chevron, the title centered over the
@@ -372,7 +367,7 @@ class SettingsScaffold extends StatelessWidget {
         automaticallyImplyLeading: false,
         leading: cancel ? _cancelButton(context, ios) : leading,
         leadingWidth: cancel
-            ? (ios ? _cancelWidth(context) : null)
+            ? (ios ? scaledLeadingWidth(context, 88) : null)
             : back
             ? adaptiveBackLeadingWidth(context)
             : null,

@@ -94,7 +94,8 @@ class PreviewFailed extends PreviewState {
 enum FileAction {
   save('save'),
   share('share'),
-  openWith('open_with');
+  openWith('open_with'),
+  quickLook('quick_look');
 
   const FileAction(this.slug);
 

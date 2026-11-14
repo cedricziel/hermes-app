@@ -64,6 +64,7 @@ extension _ChatControllerSessionState on ChatController {
       case SessionControlUnavailable():
         outcome = 'unavailable';
       case SessionWaitUpdated(:final kind, :final text):
+        final before = state.recallWaits[kind] ?? state.waits[kind];
         if (state.recordMemoryRecall(text)) {
           state.waits.remove(kind);
           state.recallWaits[kind] = text;
@@ -81,7 +82,14 @@ extension _ChatControllerSessionState on ChatController {
         if (after == null) {
           state.waitAt.remove(kind);
         } else {
-          state.waitAt[kind] = _workingSource.next();
+          final stamp = state.waitAt[kind];
+          // Stamp only when a value changes: the same text again in the same
+          // turn keeps its place among the other sources.
+          final repeated =
+              stamp != null &&
+              before == after &&
+              _workingSource.stampIsInCurrentTurn(thread, stamp);
+          if (!repeated) state.waitAt[kind] = _workingSource.next();
         }
       case SessionResumeProgress(:final progress):
         state.resume = progress;

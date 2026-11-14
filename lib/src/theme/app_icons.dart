@@ -75,6 +75,10 @@ abstract final class AppIcons {
     Icons.call_split,
     CupertinoIcons.arrow_branch,
   );
+  static const folder = AppIconSet(
+    Icons.folder_outlined,
+    CupertinoIcons.folder,
+  );
   static const lock = AppIconSet(Icons.lock_outline, CupertinoIcons.lock);
   static const copy = AppIconSet(Icons.copy, CupertinoIcons.doc_on_doc);
   static const copyOutlined = AppIconSet(
@@ -283,6 +287,7 @@ abstract final class AppIcons {
     CupertinoIcons.pin,
   );
   static const power = AppIconSet(Icons.power_outlined, CupertinoIcons.power);
+  static const wrench = AppIconSet(Icons.build_outlined, CupertinoIcons.wrench);
   static const photoLibrary = AppIconSet(
     Icons.photo_library_outlined,
     CupertinoIcons.photo_on_rectangle,
@@ -478,6 +483,7 @@ abstract final class AppIcons {
     'chevronRight': chevronRight,
     'chevronLeft': chevronLeft,
     'refresh': refresh,
+    'folder': folder,
     'lock': lock,
     'copy': copy,
     'copyOutlined': copyOutlined,
