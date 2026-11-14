@@ -352,6 +352,8 @@ class ConnectorOperationController extends ChangeNotifier {
   /// Notes that the answer to [key] was refused or left unconfirmed, and logs
   /// the outcome. The words are the widget layer's (`answerFor`).
   void _report(ConnectorOperationKey key, ConnectorAnswer answer) {
+    // A late settlement may have ended the operation meanwhile.
+    if (_state.find(key)?.settled ?? false) return;
     _answers[key] = answer;
     _log(answer.name);
   }

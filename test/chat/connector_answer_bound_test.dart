@@ -308,4 +308,35 @@ void main() {
       slow.dispose();
     });
   });
+
+  test('a refusal after a late settlement writes no line on the settled '
+      'operation', () {
+    inFakeAsync((async) {
+      continueOn();
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 10));
+      continueOn();
+      async.flushMicrotasks();
+      replies.first.complete({'status': 'ok', 'settled': true});
+      async.flushMicrotasks();
+      expect(controller.operations.single.settled, isTrue);
+      replies.last.complete({'status': 'denied', 'settled': false});
+      async.flushMicrotasks();
+      expect(controller.answerFor(operation.key), ConnectorAnswer.idle);
+      expect(outcomes, ['unconfirmed']);
+    });
+  });
+
+  test('a late ok that settled nothing leaves the pending answer alone', () {
+    inFakeAsync((async) {
+      continueOn();
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 10));
+      continueOn();
+      async.flushMicrotasks();
+      replies.first.complete({'status': 'ok', 'settled': false});
+      async.flushMicrotasks();
+      expect(controller.answerFor(operation.key), ConnectorAnswer.sending);
+    });
+  });
 }

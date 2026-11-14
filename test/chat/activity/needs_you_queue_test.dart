@@ -2,6 +2,8 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/activity/bound_needs_you_dock.dart'
+    show dockShownIndex;
 import 'package:hermes_app/src/chat/activity/needs_you_queue.dart';
 import 'package:hermes_app/src/chat/activity/widgets/needs_you_models.dart';
 import 'package:hermes_app/src/chat/billing_verification_controller.dart';
@@ -159,6 +161,17 @@ void main() {
     expect(rig.queue.shown, 2);
     rig.queue.showKey(keys[1]);
     expect(rig.queue.entries[rig.queue.shown].kind, NeedsYouKind.billing);
+  });
+
+  test('the dock highlights the shown item by key when an earlier entry is '
+      'left out of it', () {
+    rig.connect('op-1');
+    rig.verify();
+    rig.connect('op-2');
+    rig.queue.show(1);
+    final ids = [for (final e in rig.queue.entries) e.key]..removeAt(0);
+    expect(dockShownIndex(rig.queue, ids), 0);
+    expect(dockShownIndex(rig.queue, const []), 0);
   });
 
   test('the shown item keeps the card while an earlier one leaves', () {

@@ -127,6 +127,16 @@ class _BoundNeedsYouDockState extends State<BoundNeedsYouDock> {
   );
 }
 
+/// The index in the dock's [ids] of the item the queue shows: by key, since
+/// the dock leaves out an item whose source is gone and its list is shorter.
+int dockShownIndex(NeedsYouQueue queue, List<String> ids) {
+  if (ids.isEmpty) return 0;
+  final entries = queue.entries;
+  final key = queue.shown < entries.length ? entries[queue.shown].key : null;
+  final at = ids.indexOf(key ?? '');
+  return at >= 0 ? at : queue.shown.clamp(0, ids.length - 1);
+}
+
 /// The model of the dock for [queue]'s items, read from [chat]'s controllers
 /// now. Items whose source has gone are left out.
 NeedsYouDockModel needsYouDockModel(
@@ -151,7 +161,7 @@ NeedsYouDockModel needsYouDockModel(
   }
   return NeedsYouDockModel(
     items: items,
-    shown: items.isEmpty ? 0 : queue.shown.clamp(0, items.length - 1),
+    shown: dockShownIndex(queue, [for (final item in items) item.id]),
     compact: compact,
     onShow: (index) {
       if (index >= 0 && index < items.length) queue.showKey(items[index].id);
