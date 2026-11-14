@@ -62,6 +62,7 @@ ThemeData buildHermesLightTheme({TargetPlatform? platform}) {
     subtleText: const Color(0xFF6B6B74),
     success: const Color(0xFF166534),
     warning: const Color(0xFF92400E),
+    link: const Color(0xFF1D4ED8),
     platform: platform,
   );
 }
@@ -88,6 +89,7 @@ ThemeData buildHermesDarkTheme({TargetPlatform? platform}) {
     subtleText: HermesColors.zinc400,
     success: const Color(0xFF4ADE80),
     warning: const Color(0xFFFBBF24),
+    link: const Color(0xFF60A5FA),
     platform: platform,
   );
 }
@@ -99,6 +101,7 @@ ThemeData _buildTheme({
   required Color subtleText,
   required Color success,
   required Color warning,
+  required Color link,
   TargetPlatform? platform,
 }) {
   final target = platform ?? defaultTargetPlatform;
@@ -141,6 +144,7 @@ ThemeData _buildTheme({
         subtleText: subtleText,
         success: success,
         warning: warning,
+        link: link,
       ),
     ],
     appBarTheme: AppBarTheme(
@@ -241,14 +245,15 @@ ThemeData _buildTheme({
 
 /// Chat-specific colors that don't map onto [ColorScheme]'s fixed roles
 /// (a distinct sidebar tint, a de-emphasized "muted" text color used for
-/// timestamps and hints throughout the thread view, and the status colors for
-/// something that went well or needs a look).
+/// timestamps and hints throughout the thread view, the status colors for
+/// something that went well or needs a look, and the link colour).
 class HermesChatColors extends ThemeExtension<HermesChatColors> {
   const HermesChatColors({
     required this.sidebar,
     required this.subtleText,
     required this.success,
     required this.warning,
+    required this.link,
   });
 
   final Color sidebar;
@@ -256,18 +261,25 @@ class HermesChatColors extends ThemeExtension<HermesChatColors> {
   final Color success;
   final Color warning;
 
+  /// Text and icons that read as a link or as information: the one hue in an
+  /// otherwise neutral palette, because `colorScheme.primary` is near-black
+  /// (near-white in dark) and does not look like a link.
+  final Color link;
+
   @override
   HermesChatColors copyWith({
     Color? sidebar,
     Color? subtleText,
     Color? success,
     Color? warning,
+    Color? link,
   }) {
     return HermesChatColors(
       sidebar: sidebar ?? this.sidebar,
       subtleText: subtleText ?? this.subtleText,
       success: success ?? this.success,
       warning: warning ?? this.warning,
+      link: link ?? this.link,
     );
   }
 
@@ -279,6 +291,7 @@ class HermesChatColors extends ThemeExtension<HermesChatColors> {
       subtleText: Color.lerp(subtleText, other.subtleText, t)!,
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
+      link: Color.lerp(link, other.link, t)!,
     );
   }
 }
