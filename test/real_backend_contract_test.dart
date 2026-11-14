@@ -28,6 +28,7 @@ import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
+import 'package:hermes_app/src/chat/subagents/agent_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -1054,6 +1055,22 @@ void main() {
           (await rpc.request('session.create', const {}))['session_id']
               as String;
     });
+
+    test('subagent.list answers rows the app parses, for a session with none '
+        '(read-only: nothing is stopped or steered)', () async {
+      final answer = await rpc.request('subagent.list', {
+        'session_id': sessionId,
+      });
+      final list = parseAgentList(answer);
+      expect(list, isNotNull);
+      expect(list!.agents, isEmpty);
+      expect(list.delegations, isEmpty);
+      // A runtime id this connection does not hold is refused, not listed.
+      await expectLater(
+        rpc.request('subagent.list', {'session_id': 'not-a-session'}),
+        throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', 4001)),
+      );
+    }, skip: skip);
 
     const liveStatuses = {
       'idle',
