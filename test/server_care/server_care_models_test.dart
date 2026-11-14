@@ -356,6 +356,24 @@ void main() {
       );
     });
 
+    test('the window ends at the newest day the server sent when that is later '
+        'than the device date', () {
+      // The server's calendar day can be ahead of the device's.
+      final r = UsageReport.parse(
+        usage30(),
+        days: 7,
+        today: DateTime(2026, 11, 11),
+      )!;
+      expect(r.days, hasLength(7));
+      expect(r.days.last.day, DateTime.utc(2026, 11, 12));
+      expect(r.days.first.day, DateTime.utc(2026, 11, 6));
+      expect(r.totals.tokens, 877500);
+      expect(
+        r.days.firstWhere((d) => d.day == DateTime.utc(2026, 11, 12)).tokens,
+        876000,
+      );
+    });
+
     test('totals come from the server; tokens are input plus output', () {
       final r = UsageReport.parse(usage30(), days: 30, today: today)!;
       expect(r.totals.tokens, 877500);

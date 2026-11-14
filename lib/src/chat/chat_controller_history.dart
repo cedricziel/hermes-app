@@ -186,6 +186,7 @@ extension _ChatControllerHistory on ChatController {
       if (switched) {
         _modelOptions = null;
         _newChatModel = null;
+        _ChatControllerWorkspace(this)._workspaceProfileSwitched();
         search?.clear();
       }
       _carryReplies();
@@ -194,6 +195,7 @@ extension _ChatControllerHistory on ChatController {
           (message) => message.isPending && entry.value.contains(message),
         );
       }
+      if (switched) _ChatControllerSubagents(this)._clearSubagents();
       _profile = profile;
       breadcrumbs('chat.threads.loaded', {
         'switched': switched,
@@ -520,14 +522,28 @@ extension _ChatControllerHistory on ChatController {
     return merged;
   }
 
+  /// Why Hermes stores a candidate answer and goes on with the turn: a stop
+  /// gate (verify-on-stop, the `pre_verify` hook) keeps the answer as an
+  /// assistant row and nudges the model again. The kanban guard's value is
+  /// listed defensively: Hermes does not store its candidate. A turn that
+  /// ended on such a row (budget spent, interrupted) looks the same, so a
+  /// failed turn then keeps its error copy until the chat is read again.
+  static const _continuingFinishReasons = {
+    'verification_required',
+    'verify_hook_continue',
+    'kanban_terminal_required',
+  };
+
   /// Whether a stored [turn] ends on the final answer: an assistant row with
-  /// text and no tool calls. A row that only calls tools belongs to a turn
-  /// that may still be running.
+  /// text, no tool calls, and not a checkpoint a stop gate wrote mid-turn. A
+  /// row that only calls tools or is such a checkpoint belongs to a turn that
+  /// may still be running.
   bool _endsAnswered(List<ChatMessage> turn) => switch (turn.lastOrNull) {
     final ChatMessage last =>
       last.role == ChatRole.assistant &&
           last.toolCalls.isEmpty &&
-          last.content.trim().isNotEmpty,
+          last.content.trim().isNotEmpty &&
+          !_continuingFinishReasons.contains(last.finishReason),
     null => false,
   };
 
@@ -731,7 +747,8 @@ extension _ChatControllerHistory on ChatController {
       notifyListeners();
       if (stale()) return;
       await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a history re-read');
       // Keeps what it shows; the next refresh or open reads it again.
     }
   }

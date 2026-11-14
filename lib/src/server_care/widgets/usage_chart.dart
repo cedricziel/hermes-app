@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/busy_bar.dart';
 import 'usage_format.dart';
@@ -14,16 +15,13 @@ enum UsageChartMetric { tokens, cost }
 
 /// The window a chart shows. Only [days90] scrolls sideways.
 enum UsageChartWindow {
-  days7(7, 'last 7 days'),
-  days30(30, 'last 30 days'),
-  days90(90, 'last 90 days');
+  days7(7),
+  days30(30),
+  days90(90);
 
-  const UsageChartWindow(this.days, this.phrase);
+  const UsageChartWindow(this.days);
 
   final int days;
-
-  /// "last 30 days", for sentences.
-  final String phrase;
 
   bool get scrolls => this == days90;
 }
@@ -53,38 +51,36 @@ double usageChartHeightFor(double width) =>
 bool _isAccessibilityTextScale(TextScaler scaler) =>
     scaler.scale(16) / 16 >= 1.5;
 
-String _valueText(UsageChartMetric metric, double value) =>
+String _valueText(AppLocalizations l10n, UsageChartMetric metric, double v) =>
     metric == UsageChartMetric.tokens
-    ? formatTokens(value)
-    : formatDollars(value);
+    ? formatTokens(l10n, v)
+    : formatDollars(l10n, v);
 
-String _valueSpoken(UsageChartMetric metric, double value) =>
+String _valueSpoken(AppLocalizations l10n, UsageChartMetric metric, double v) =>
     metric == UsageChartMetric.tokens
-    ? formatTokensSpoken(value)
-    : formatDollars(value);
+    ? formatTokensSpoken(l10n, v)
+    : formatDollars(l10n, v);
 
 String _summary(
+  AppLocalizations l10n,
   List<UsageChartDay> days,
   UsageChartMetric metric,
   UsageChartWindow window,
 ) {
-  final title = metric == UsageChartMetric.tokens
-      ? 'Tokens per day'
-      : 'Estimated cost per day';
-  final head = '$title, ${window.phrase}.';
+  final head = l10n.serverCareUsageChartHead(
+    metric.name,
+    l10n.serverCareUsageLastDays(window.days),
+  );
   final total = days.fold<double>(0, (sum, d) => sum + d.value);
-  if (total <= 0) return '$head No usage.';
+  if (total <= 0) return '$head ${l10n.serverCareUsageChartNoUsage}';
   var top = days.first;
   for (final d in days) {
     if (d.value > top.value) top = d;
   }
-  final totalText = metric == UsageChartMetric.tokens
-      ? formatCompactSpoken(total)
-      : formatDollars(total);
-  final topText = metric == UsageChartMetric.tokens
-      ? formatCompactSpoken(top.value)
-      : formatDollars(top.value);
-  return '$head Total $totalText. Highest $topText on ${formatDayLong(top.day)}.';
+  String spoken(double v) => metric == UsageChartMetric.tokens
+      ? formatCompactSpoken(l10n, v)
+      : formatDollars(l10n, v);
+  return '$head ${l10n.serverCareUsageChartTotalHighest(spoken(total), spoken(top.value), formatDayLong(l10n, top.day))}';
 }
 
 /// A vertical bar chart of one value per day, drawn in-repo so its
@@ -172,9 +168,13 @@ class _UsageChartState extends State<UsageChart>
 
   void _select(int index, {bool reveal = false}) {
     final next = _clamp(index);
-    if (next == _selected || widget.days.isEmpty) return;
-    setState(() => _selected = next);
-    widget.onSelected?.call(next);
+    if (widget.days.isEmpty) return;
+    if (next != _selected) {
+      setState(() => _selected = next);
+      widget.onSelected?.call(next);
+    }
+    // Also for the bar that is already selected: it may have been scrolled
+    // off screen since.
     if (reveal) _revealSelected();
   }
 
@@ -223,6 +223,7 @@ class _UsageChartState extends State<UsageChart>
   Widget build(BuildContext context) {
     final days = widget.days;
     if (days.isEmpty) return const SizedBox.shrink();
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final muted = context.hermesColors.subtleText;
@@ -243,8 +244,9 @@ class _UsageChartState extends State<UsageChart>
       fallback: metric == UsageChartMetric.tokens ? 400000 : 0.6,
     );
     final axisMax = step * 3;
-    String yText(double v) =>
-        metric == UsageChartMetric.tokens ? formatCompact(v) : formatDollars(v);
+    String yText(double v) => metric == UsageChartMetric.tokens
+        ? formatCompact(l10n, v)
+        : formatDollars(l10n, v);
     // A tiny maximum can round several gridlines to the same text; showing
     // a label twice says nothing, so a repeat is left blank.
     final yLabels = <String>[];
@@ -265,14 +267,17 @@ class _UsageChartState extends State<UsageChart>
 
     final selectedDay = days[_selected];
     final selectedText = [
-      formatDayShort(selectedDay.day),
-      _valueText(metric, selectedDay.value),
-      formatConversations(selectedDay.conversations),
+      formatDayShort(l10n, selectedDay.day),
+      _valueText(l10n, metric, selectedDay.value),
+      formatConversations(l10n, selectedDay.conversations),
     ].join(' · ');
     final labels = [
       for (final d in days)
-        '${formatDayLong(d.day)}: ${_valueSpoken(metric, d.value)}, '
-            '${formatConversations(d.conversations)}',
+        l10n.serverCareUsageChartBar(
+          formatDayLong(l10n, d.day),
+          _valueSpoken(l10n, metric, d.value),
+          formatConversations(l10n, d.conversations),
+        ),
     ];
 
     return LayoutBuilder(
@@ -293,9 +298,9 @@ class _UsageChartState extends State<UsageChart>
           for (var i = 0; i < days.length; i++) {
             final d = days[i].day;
             if (window == UsageChartWindow.days90) {
-              if (d.day == 1) xLabels[i] = formatMonthShort(d);
+              if (d.day == 1) xLabels[i] = formatMonthShort(l10n, d);
             } else if (d.weekday == DateTime.monday) {
-              xLabels[i] = formatDayShort(d);
+              xLabels[i] = formatDayShort(l10n, d);
             }
           }
         }
@@ -381,7 +386,7 @@ class _UsageChartState extends State<UsageChart>
               child: Semantics(
                 container: true,
                 explicitChildNodes: true,
-                label: _summary(days, metric, window),
+                label: _summary(l10n, days, metric, window),
                 child: DecoratedBox(
                   position: DecorationPosition.foreground,
                   decoration: BoxDecoration(

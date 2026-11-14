@@ -134,9 +134,8 @@ class ProvidersController extends ChangeNotifier with SafeNotifier {
       notifyListeners();
     }
     _events('plugins.providers.save.${result.ok ? 'ok' : 'error'}', {
-      if (memory != null)
-        'memory.provider': memory.isEmpty ? 'builtin' : memory,
-      'context.engine': ?context,
+      if (memory != null) 'memory.changed': true,
+      if (context != null) 'context.changed': true,
     });
     if (result.ok) await refresh();
     notifyListeners();

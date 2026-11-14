@@ -1,44 +1,76 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/disclosure_tile.dart';
 import '../../widgets/grouped_list.dart';
 
 enum UpdateStepState {
-  pending('Waiting'),
-  running('In progress'),
-  done('Done'),
-  failed('Failed');
-
-  const UpdateStepState(this.word);
+  pending,
+  running,
+  done,
+  failed;
 
   /// What a screen reader says for the state; the icon alone never carries it.
-  final String word;
+  String word(AppLocalizations l10n) => switch (this) {
+    pending => l10n.serverCareUpdateStepStateWaiting,
+    running => l10n.serverCareUpdateStepStateInProgress,
+    done => l10n.serverCareUpdateStepStateDone,
+    failed => l10n.serverCareUpdateStepStateFailed,
+  };
 }
 
+/// The four steps of an update, worded by the widget.
+enum UpdateStepKind { starting, installing, restarting, checking }
+
 class UpdateStep {
-  const UpdateStep({required this.label, required this.state, this.subtitle});
+  /// A step with its own words, already in the reader's language.
+  const UpdateStep({
+    required String this.label,
+    required this.state,
+    this.subtitle,
+  }) : kind = null;
 
   const UpdateStep.starting(this.state)
-    : label = 'Starting the update',
+    : kind = UpdateStepKind.starting,
+      label = null,
       subtitle = null;
 
   const UpdateStep.installing(this.state)
-    : label = 'Downloading and installing',
+    : kind = UpdateStepKind.installing,
+      label = null,
       subtitle = null;
 
   const UpdateStep.restarting(this.state)
-    : label = 'Restarting Hermes',
-      subtitle = "Chats continue when it's back.";
-
-  const UpdateStep.checking(this.state)
-    : label = 'Checking the result',
+    : kind = UpdateStepKind.restarting,
+      label = null,
       subtitle = null;
 
-  final String label;
+  const UpdateStep.checking(this.state)
+    : kind = UpdateStepKind.checking,
+      label = null,
+      subtitle = null;
+
+  final UpdateStepKind? kind;
+  final String? label;
   final String? subtitle;
   final UpdateStepState state;
+
+  String labelOf(AppLocalizations l10n) =>
+      label ??
+      switch (kind!) {
+        UpdateStepKind.starting => l10n.serverCareUpdateStepStarting,
+        UpdateStepKind.installing => l10n.serverCareUpdateStepInstalling,
+        UpdateStepKind.restarting => l10n.serverCareUpdateStepRestarting,
+        UpdateStepKind.checking => l10n.serverCareUpdateStepChecking,
+      };
+
+  String? subtitleOf(AppLocalizations l10n) =>
+      subtitle ??
+      (kind == UpdateStepKind.restarting
+          ? l10n.serverCareUpdateStepRestartingNote
+          : null);
 }
 
 /// The card shown while an update runs: a title, one row per step (icon and
@@ -49,7 +81,7 @@ class UpdateStepList extends StatelessWidget {
     super.key,
     required this.steps,
     this.detailLines = const [],
-    this.title = 'Updating…',
+    this.title,
     this.detailsInitiallyOpen = false,
   });
 
@@ -57,7 +89,9 @@ class UpdateStepList extends StatelessWidget {
 
   /// Held in memory only; the disclosure is left out when empty.
   final List<String> detailLines;
-  final String title;
+
+  /// Defaults to "Updating…".
+  final String? title;
   final bool detailsInitiallyOpen;
 
   @override
@@ -66,7 +100,7 @@ class UpdateStepList extends StatelessWidget {
     return GroupedSection(
       dividerIndent: metrics.indentAfterLeading,
       children: [
-        _CardTitle(title: title),
+        _CardTitle(title: title ?? context.l10n.serverCareUpdateStepListTitle),
         for (final step in steps) _StepRow(step: step),
         if (detailLines.isNotEmpty)
           UpdateDetailsDisclosure(
@@ -121,7 +155,10 @@ class _StepRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final colors = context.hermesColors;
     final running = step.state == UpdateStepState.running;
-    final subtitle = step.subtitle;
+    final l10n = context.l10n;
+    final subtitle = step.subtitleOf(l10n);
+    final label = step.labelOf(l10n);
+    final stateWord = step.state.word(l10n);
     final icon = switch (step.state) {
       UpdateStepState.pending => AppIcon(
         AppIcons.radioOff,
@@ -152,9 +189,9 @@ class _StepRow extends StatelessWidget {
     };
     return Semantics(
       container: true,
-      label:
-          '${step.label}, ${step.state.word}'
-          '${subtitle == null ? '' : '. $subtitle'}',
+      label: subtitle == null
+          ? l10n.serverCareUpdateStepLabelState(label, stateWord)
+          : l10n.serverCareUpdateStepLabelStateNote(label, stateWord, subtitle),
       child: ExcludeSemantics(
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: metrics.rowMinHeight),
@@ -173,7 +210,7 @@ class _StepRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        step.label,
+                        label,
                         style: TextStyle(
                           fontSize: metrics.titleSize,
                           fontWeight: running
@@ -185,7 +222,7 @@ class _StepRow extends StatelessWidget {
                       // A failure is said in words as well as by its icon.
                       if (step.state == UpdateStepState.failed)
                         Text(
-                          UpdateStepState.failed.word,
+                          stateWord,
                           style: TextStyle(
                             fontSize: metrics.subtitleSize,
                             fontWeight: FontWeight.w600,
@@ -241,7 +278,7 @@ class UpdateDetailsDisclosure extends StatelessWidget {
         metrics.rowPadding,
       ),
       title: Text(
-        'Show details',
+        context.l10n.serverCareUpdateDetailsShow,
         style: TextStyle(fontSize: metrics.titleSize),
       ),
       children: [

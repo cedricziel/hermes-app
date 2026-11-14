@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../widgets/busy_bar.dart';
+import 'busy_bar.dart';
 
 /// Line-shaped blocks standing in for rows that are loading. The whole thing
 /// is one node for screen readers, named [label]; the blocks are decorative.

@@ -22,7 +22,8 @@ extension _ChatScreenComposer on _ChatScreenState {
             _rebuild(() => _slashCommands = commands);
           }
         })
-        .catchError((Object _) {
+        .catchError((Object error, StackTrace stack) {
+          reportBug(error, stack, 'the slash command list');
           if (mounted &&
               _slashContext == contextKey &&
               _slashFetchGeneration == generation) {

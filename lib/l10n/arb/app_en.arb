@@ -20,6 +20,58 @@
   "@@x-area-api": "",
 
   "@@x-area-app_lock": "",
+  "appLockFooterAndroid": "Hermes asks for your fingerprint, face or screen lock when you open it and when you come back to it.",
+  "@appLockFooterAndroid": {
+    "description": "Explains App Lock on Android, under its switch."
+  },
+  "appLockFooterApple": "Hermes asks for Face ID, Touch ID or your device passcode when you open it and when you come back to it.",
+  "@appLockFooterApple": {
+    "description": "Explains App Lock on iOS and macOS, under its switch."
+  },
+  "appLockFooterLinux": "App Lock would ask your system to confirm it is you when you open Hermes.",
+  "@appLockFooterLinux": {
+    "description": "Explains App Lock on Linux, under its switch."
+  },
+  "appLockFooterWindows": "Hermes asks for Windows Hello (face, fingerprint or PIN) when you open it and when you come back to it.",
+  "@appLockFooterWindows": {
+    "description": "Explains App Lock on Windows, under its switch."
+  },
+  "appLockSetupAndroid": "Set up a screen lock or fingerprint in system settings to use App Lock. This device does not offer one right now.",
+  "@appLockSetupAndroid": {
+    "description": "Note shown on Android when the device has no screen lock or biometrics."
+  },
+  "appLockSetupApple": "Set up Face ID, Touch ID or a passcode in system settings to use App Lock. This device does not offer one right now.",
+  "@appLockSetupApple": {
+    "description": "Note shown on iOS and macOS when the device has no passcode or biometrics."
+  },
+  "appLockSetupWindows": "Set up Windows Hello or a PIN in Windows settings under Accounts > Sign-in options to use App Lock. This device does not offer one right now.",
+  "@appLockSetupWindows": {
+    "description": "Note shown on Windows when Windows Hello is not set up."
+  },
+  "appLockSwitchAndroid": "Require fingerprint or screen lock",
+  "@appLockSwitchAndroid": {
+    "description": "Label of the App Lock switch on Android."
+  },
+  "appLockSwitchApple": "Require Face ID or Touch ID",
+  "@appLockSwitchApple": {
+    "description": "Label of the App Lock switch on iOS and macOS."
+  },
+  "appLockSwitchLinux": "Require system unlock",
+  "@appLockSwitchLinux": {
+    "description": "Label of the App Lock switch on Linux, where it stays off."
+  },
+  "appLockSwitchWindows": "Require Windows Hello",
+  "@appLockSwitchWindows": {
+    "description": "Label of the App Lock switch on Windows."
+  },
+  "appLockTitle": "App Lock",
+  "@appLockTitle": {
+    "description": "Title of the App Lock dialog."
+  },
+  "appLockUnavailableLinux": "App Lock is not available on Linux: there is no system prompt Hermes can use to confirm it is you.",
+  "@appLockUnavailableLinux": {
+    "description": "Note shown on Linux, where App Lock cannot be turned on."
+  },
 
   "@@x-area-auth": "",
 
@@ -32,6 +84,225 @@
   "@@x-area-chat": "",
 
   "@@x-area-chat/activity": "",
+  "chatActivityButtonHide": "Hide activity",
+  "@chatActivityButtonHide": {
+    "description": "Accessibility label and tooltip of the Activity button while the Activity panel is open."
+  },
+  "chatActivityButtonHideWaiting": "{count, plural, =1{Hide activity, 1 needs you} other{Hide activity, {count} need you}}",
+  "@chatActivityButtonHideWaiting": {
+    "description": "Label of the Activity button while the panel is open and requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityButtonShow": "Activity",
+  "@chatActivityButtonShow": {
+    "description": "Accessibility label and tooltip of the button that opens the Activity panel."
+  },
+  "chatActivityButtonWaiting": "{count, plural, =1{Activity, 1 needs you} other{Activity, {count} need you}}",
+  "@chatActivityButtonWaiting": {
+    "description": "Accessibility label of the Activity button while requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityInspectorHide": "Hide Inspector",
+  "@chatActivityInspectorHide": {
+    "description": "Mac toolbar button that closes the Activity inspector; macOS View menu wording."
+  },
+  "chatActivityInspectorHideWaiting": "{count, plural, =1{Hide Inspector, 1 needs you} other{Hide Inspector, {count} need you}}",
+  "@chatActivityInspectorHideWaiting": {
+    "description": "Mac toolbar button label that closes the Activity inspector while requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityInspectorShow": "Show Inspector",
+  "@chatActivityInspectorShow": {
+    "description": "Mac toolbar button that opens the Activity inspector; macOS View menu wording."
+  },
+  "chatActivityInspectorShowWaiting": "{count, plural, =1{Show Inspector, 1 needs you} other{Show Inspector, {count} need you}}",
+  "@chatActivityInspectorShowWaiting": {
+    "description": "Mac toolbar button label that opens the Activity inspector while requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityNeedsYouBillingCopy": "Copy code",
+  "@chatActivityNeedsYouBillingCopy": {
+    "description": "Button on the Needs-you card that copies the billing verification code."
+  },
+  "chatActivityNeedsYouBillingIntro": "Verify this request on your billing page, then come back. Enter this code there:",
+  "@chatActivityNeedsYouBillingIntro": {
+    "description": "Body text of the Needs-you card for billing verification; the code follows it."
+  },
+  "chatActivityNeedsYouBillingOpen": "Open verification page",
+  "@chatActivityNeedsYouBillingOpen": {
+    "description": "Button on the Needs-you card that opens the billing verification page in the browser."
+  },
+  "chatActivityNeedsYouBillingTitle": "Billing access needs approval",
+  "@chatActivityNeedsYouBillingTitle": {
+    "description": "Title of the Needs-you card for a billing verification request. Wraps to two lines."
+  },
+  "chatActivityNeedsYouCodeLabel": "Verification code",
+  "@chatActivityNeedsYouCodeLabel": {
+    "description": "Accessibility label of the box that shows the billing verification code; the code itself is read after it."
+  },
+  "chatActivityNeedsYouConnectManyTitle": "Connect {count} services to continue",
+  "@chatActivityNeedsYouConnectManyTitle": {
+    "description": "Title of the Needs-you card when several services wait for a sign-in. {count} is how many (two or more).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityNeedsYouConnectTitle": "Connect {name} to continue",
+  "@chatActivityNeedsYouConnectTitle": {
+    "description": "Title of the Needs-you card when one service waits for a sign-in. {name} is the service's name as the server reports it.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Notion"
+      }
+    }
+  },
+  "chatActivityNeedsYouConnectorContinue": "Continue",
+  "@chatActivityNeedsYouConnectorContinue": {
+    "description": "Button on the Needs-you card that tells the agent to go on without waiting for the sign-in. Keep it short."
+  },
+  "chatActivityNeedsYouConnectorOpen": "Open",
+  "@chatActivityNeedsYouConnectorOpen": {
+    "description": "Button on the Needs-you card that opens a service's sign-in page in the browser. Keep it short."
+  },
+  "chatActivityNeedsYouConnectorSkip": "Skip",
+  "@chatActivityNeedsYouConnectorSkip": {
+    "description": "Button on the Needs-you card that skips a service's sign-in. Keep it short."
+  },
+  "chatActivityNeedsYouDockLabel": "{count, plural, =1{1 request needs you} other{{count} requests need you}}",
+  "@chatActivityNeedsYouDockLabel": {
+    "description": "Accessibility label of the Needs-you card above the composer. {count} is how many requests wait.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityNeedsYouExpires": "Expires in {minutes} min",
+  "@chatActivityNeedsYouExpires": {
+    "description": "Line on the Needs-you card saying how long a sign-in stays open. {minutes} is whole minutes, rounded up.",
+    "placeholders": {
+      "minutes": {
+        "type": "int",
+        "example": "4"
+      }
+    }
+  },
+  "chatActivityNeedsYouExpiresSoon": "Expires in under a minute",
+  "@chatActivityNeedsYouExpiresSoon": {
+    "description": "Line on the Needs-you card when a sign-in has less than a minute left."
+  },
+  "chatActivityNeedsYouLinkUnavailable": "This link can't be opened here.",
+  "@chatActivityNeedsYouLinkUnavailable": {
+    "description": "Line on the billing Needs-you card when the verification link is not a safe web address, so Open is disabled."
+  },
+  "chatActivityNeedsYouNext": "Next request",
+  "@chatActivityNeedsYouNext": {
+    "description": "Accessibility label and tooltip of the button that shows the next request on the Needs-you card."
+  },
+  "chatActivityNeedsYouOfflineNotice": "Offline. These actions come back when you're connected.",
+  "@chatActivityNeedsYouOfflineNotice": {
+    "description": "Warning line on the Needs-you card while the connection is lost and its buttons are disabled."
+  },
+  "chatActivityNeedsYouOpensHost": "Opens {host}",
+  "@chatActivityNeedsYouOpensHost": {
+    "description": "Line on the billing Needs-you card naming the website the verification page is on. {host} is a host name.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "verify.example.com"
+      }
+    }
+  },
+  "chatActivityNeedsYouPosition": "{position} of {count}",
+  "@chatActivityNeedsYouPosition": {
+    "description": "Position of the shown request on the Needs-you card when several wait.",
+    "placeholders": {
+      "position": {
+        "type": "int",
+        "example": "1"
+      },
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "chatActivityNeedsYouPrevious": "Previous request",
+  "@chatActivityNeedsYouPrevious": {
+    "description": "Accessibility label and tooltip of the button that shows the previous request on the Needs-you card."
+  },
+  "chatActivityNeedsYouReclaimBody": "This chat was opened on another device.",
+  "@chatActivityNeedsYouReclaimBody": {
+    "description": "Body of the Needs-you card for a chat another device took over."
+  },
+  "chatActivityNeedsYouReclaimTitle": "Session opened elsewhere",
+  "@chatActivityNeedsYouReclaimTitle": {
+    "description": "Title of the Needs-you card for a chat another device took over."
+  },
+  "chatActivityNeedsYouRefusedNotice": "The server refused your answer.",
+  "@chatActivityNeedsYouRefusedNotice": {
+    "description": "Warning line on the Needs-you card when the server answered a response with a refusal."
+  },
+  "chatActivityNeedsYouReopen": "Reopen session",
+  "@chatActivityNeedsYouReopen": {
+    "description": "Button on the Needs-you card that reopens a chat that was taken over or could not be restored."
+  },
+  "chatActivityNeedsYouResumeBody": "Your history is still available. Reopen to try restoring this chat.",
+  "@chatActivityNeedsYouResumeBody": {
+    "description": "Body of the Needs-you card for a chat whose restore failed."
+  },
+  "chatActivityNeedsYouResumeTitle": "This chat couldn't be restored",
+  "@chatActivityNeedsYouResumeTitle": {
+    "description": "Title of the Needs-you card for a chat whose restore failed."
+  },
+  "chatActivityNeedsYouSendingNotice": "Sending your answer…",
+  "@chatActivityNeedsYouSendingNotice": {
+    "description": "Line on the Needs-you card while an answer is on its way."
+  },
+  "chatActivityNeedsYouSignInsWaiting": "{count, plural, =1{1 sign-in waiting} other{{count} sign-ins waiting}}",
+  "@chatActivityNeedsYouSignInsWaiting": {
+    "description": "Summary line of the collapsed Needs-you card. {count} is how many sign-ins wait.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityNeedsYouTargetFailed": "Couldn't sign in",
+  "@chatActivityNeedsYouTargetFailed": {
+    "description": "State of one service on the Needs-you card: the sign-in failed."
+  },
+  "chatActivityNeedsYouTargetSignedIn": "Signed in",
+  "@chatActivityNeedsYouTargetSignedIn": {
+    "description": "State of one service on the Needs-you card: the sign-in is done."
+  },
+  "chatActivityNeedsYouTargetWaiting": "Waiting for sign-in",
+  "@chatActivityNeedsYouTargetWaiting": {
+    "description": "State of one service on the Needs-you card: it waits for the user to sign in."
+  },
+  "chatActivityNeedsYouUnconfirmedNotice": "Couldn't confirm your answer. It may have gone through; check before trying again.",
+  "@chatActivityNeedsYouUnconfirmedNotice": {
+    "description": "Warning line on the Needs-you card when no confirmation of an answer arrived in time."
+  },
 
   "@@x-area-chat/attachments": "",
 
@@ -98,6 +369,1078 @@
   "@@x-area-schedules": "",
 
   "@@x-area-screens": "",
+
+  "@@x-area-server_care": "",
+  "serverCareAccountButtonLabel": "Account",
+  "@serverCareAccountButtonLabel": {
+    "description": "Accessibility label of the account button in the sidebar."
+  },
+  "serverCareAccountButtonLabelNeedsAttention": "Account, server needs attention",
+  "@serverCareAccountButtonLabelNeedsAttention": {
+    "description": "Accessibility label of the account button while the Server screen has a problem to show; says what the warning dot means."
+  },
+  "serverCareAgoDays": "{count, plural, =1{1 day ago} other{{count} days ago}}",
+  "@serverCareAgoDays": {
+    "description": "Byline of a commit in the update's change list: how long ago it was made.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareAgoHours": "{count, plural, =1{1 hour ago} other{{count} hours ago}}",
+  "@serverCareAgoHours": {
+    "description": "How long ago the last update check was, in hours. Fills the sentence 'Checked ...'.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareAgoJustNow": "just now",
+  "@serverCareAgoJustNow": {
+    "description": "How long ago the last update check was, when it was under a minute. Lower case; fills the sentence 'Checked ...'."
+  },
+  "serverCareAgoMinutes": "{count, plural, =1{1 minute ago} other{{count} minutes ago}}",
+  "@serverCareAgoMinutes": {
+    "description": "How long ago the last update check was, in minutes. Fills the sentence 'Checked ...'.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "serverCareAgoToday": "today",
+  "@serverCareAgoToday": {
+    "description": "Byline of a commit in the update's change list: it was made today. Lower case."
+  },
+  "serverCareChannelsConnected": "{connected} of {configured} connected",
+  "@serverCareChannelsConnected": {
+    "description": "Value of the Channels row: messaging channels that are connected out of those configured.",
+    "placeholders": {
+      "connected": {
+        "type": "int",
+        "example": "2"
+      },
+      "configured": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareChannelsRow": "Channels",
+  "@serverCareChannelsRow": {
+    "description": "Row label on the Server screen: the gateway's messaging channels (Telegram, Discord and the like)."
+  },
+  "serverCareCheckNow": "Check now",
+  "@serverCareCheckNow": {
+    "description": "Bar button on the Update page that asks the server whether an update exists. Also its accessibility label."
+  },
+  "serverCareCommandCopied": "Command copied",
+  "@serverCareCommandCopied": {
+    "description": "Screen reader announcement after the command was copied."
+  },
+  "serverCareCommandCopiedButton": "Copied",
+  "@serverCareCommandCopiedButton": {
+    "description": "Label of the copy button for a moment after the command was copied."
+  },
+  "serverCareCommandCopy": "Copy",
+  "@serverCareCommandCopy": {
+    "description": "Button that copies a shell command."
+  },
+  "serverCareConnectionDetails": "Connection details",
+  "@serverCareConnectionDetails": {
+    "description": "Row on the Server screen that opens the connection details."
+  },
+  "serverCareDiskFree": "{free} free",
+  "@serverCareDiskFree": {
+    "description": "Value of the Disk row: free space on the server's disk.",
+    "placeholders": {
+      "free": {
+        "type": "String",
+        "example": "8.4 GB"
+      }
+    }
+  },
+  "serverCareDiskPercentUsed": "{percent}% used",
+  "@serverCareDiskPercentUsed": {
+    "description": "Subtitle of the Disk row: share of the disk in use.",
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "example": "62"
+      }
+    }
+  },
+  "serverCareDiskRow": "Disk",
+  "@serverCareDiskRow": {
+    "description": "Row label on the Server screen: the server's disk."
+  },
+  "serverCareDiskWarningCritical": "Disk is almost full. Hermes may stop saving chats.",
+  "@serverCareDiskWarningCritical": {
+    "description": "Warning under the Disk row when the disk is almost full."
+  },
+  "serverCareDiskWarningLow": "Disk space is getting low.",
+  "@serverCareDiskWarningLow": {
+    "description": "Warning under the Disk row when free space is getting low."
+  },
+  "serverCareFailureOffline": "Can't reach Hermes.",
+  "@serverCareFailureOffline": {
+    "description": "Message on the Update page when the update check could not reach the server. Ends with a period."
+  },
+  "serverCareFailureUpdateCheck": "Couldn't check for updates. Try again later.",
+  "@serverCareFailureUpdateCheck": {
+    "description": "Message on the Update page when the update check failed for any other reason."
+  },
+  "serverCareGatewayFooter": "Runs your messaging channels and scheduled tasks. Chats in this app don't depend on it.",
+  "@serverCareGatewayFooter": {
+    "description": "Footer under the messaging gateway section of the Server screen."
+  },
+  "serverCareGatewayHeader": "Messaging gateway",
+  "@serverCareGatewayHeader": {
+    "description": "Section header on the Server screen: the Hermes process that runs messaging channels and scheduled tasks."
+  },
+  "serverCareGatewaySharedWith": "Shared with",
+  "@serverCareGatewaySharedWith": {
+    "description": "Row label: the other profiles that use the same gateway. The value is a list of profile names."
+  },
+  "serverCareGatewayStateDegraded": "Running, some channels offline",
+  "@serverCareGatewayStateDegraded": {
+    "description": "Gateway state value: running, but some messaging channels are not connected."
+  },
+  "serverCareGatewayStateDraining": "Draining",
+  "@serverCareGatewayStateDraining": {
+    "description": "Gateway state value: finishing current work before stopping."
+  },
+  "serverCareGatewayStateFailed": "Failed to start",
+  "@serverCareGatewayStateFailed": {
+    "description": "Gateway state value: it did not come up."
+  },
+  "serverCareGatewayStateNotResponding": "Not responding",
+  "@serverCareGatewayStateNotResponding": {
+    "description": "Gateway state value: its heartbeat is stale."
+  },
+  "serverCareGatewayStateOff": "Off",
+  "@serverCareGatewayStateOff": {
+    "description": "Gateway state value: stopped."
+  },
+  "serverCareGatewayStateRow": "State",
+  "@serverCareGatewayStateRow": {
+    "description": "Row label: the gateway's state."
+  },
+  "serverCareGatewayStateRunning": "Running",
+  "@serverCareGatewayStateRunning": {
+    "description": "Gateway state value: up and running."
+  },
+  "serverCareGatewayStateStarting": "Starting",
+  "@serverCareGatewayStateStarting": {
+    "description": "Gateway state value: coming up."
+  },
+  "serverCareGatewayStateUnknown": "Unknown",
+  "@serverCareGatewayStateUnknown": {
+    "description": "Gateway state value when the server did not say."
+  },
+  "serverCareHeadlineAllGood": "Everything looks good",
+  "@serverCareHeadlineAllGood": {
+    "description": "Headline of the Server screen when nothing needs attention."
+  },
+  "serverCareHeadlineAllGoodDetail": "Hermes {version}",
+  "@serverCareHeadlineAllGoodDetail": {
+    "description": "Detail under the all-good headline: the product name and the server's version.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.23.1"
+      }
+    }
+  },
+  "serverCareHeadlineChannelsOffline": "Some messaging channels are offline",
+  "@serverCareHeadlineChannelsOffline": {
+    "description": "Headline when some messaging channels are not connected and the count is unknown."
+  },
+  "serverCareHeadlineChannelsOfflineCount": "{offline} of {configured} messaging channels are offline",
+  "@serverCareHeadlineChannelsOfflineCount": {
+    "description": "Headline when a known number of the configured messaging channels is not connected.",
+    "placeholders": {
+      "offline": {
+        "type": "int",
+        "example": "1"
+      },
+      "configured": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareHeadlineChecking": "Checking Hermes…",
+  "@serverCareHeadlineChecking": {
+    "description": "Headline while the first status read is running."
+  },
+  "serverCareHeadlineDiskCritical": "Disk almost full: {free} free",
+  "@serverCareHeadlineDiskCritical": {
+    "description": "Headline when the server's disk is almost full.",
+    "placeholders": {
+      "free": {
+        "type": "String",
+        "example": "512 MB"
+      }
+    }
+  },
+  "serverCareHeadlineDiskCriticalDetail": "Hermes may stop saving chats. Free up space on the server.",
+  "@serverCareHeadlineDiskCriticalDetail": {
+    "description": "Detail under the disk-almost-full headline."
+  },
+  "serverCareHeadlineDiskCriticalUnknown": "Disk almost full: little free",
+  "@serverCareHeadlineDiskCriticalUnknown": {
+    "description": "Headline when the disk is almost full and the free space is not known."
+  },
+  "serverCareHeadlineDiskLow": "Disk space is getting low: {free} free",
+  "@serverCareHeadlineDiskLow": {
+    "description": "Headline when the server's disk is getting low.",
+    "placeholders": {
+      "free": {
+        "type": "String",
+        "example": "8.4 GB"
+      }
+    }
+  },
+  "serverCareHeadlineDiskLowUnknown": "Disk space is getting low: little free",
+  "@serverCareHeadlineDiskLowUnknown": {
+    "description": "Headline when the disk is getting low and the free space is not known."
+  },
+  "serverCareHeadlineGatewayFailed": "The messaging gateway stopped with an error",
+  "@serverCareHeadlineGatewayFailed": {
+    "description": "Headline when the gateway crashed or failed to start."
+  },
+  "serverCareHeadlineGatewayFailedDetail": "Messaging channels and scheduled tasks are paused.",
+  "@serverCareHeadlineGatewayFailedDetail": {
+    "description": "Detail under the gateway-failed headline."
+  },
+  "serverCareHeadlineGatewayOff": "The messaging gateway is off",
+  "@serverCareHeadlineGatewayOff": {
+    "description": "Headline when the gateway is stopped but channels are configured."
+  },
+  "serverCareHeadlineGatewayOffDetail": "Messaging channels and scheduled tasks don't run while it's off.",
+  "@serverCareHeadlineGatewayOffDetail": {
+    "description": "Detail under the gateway-off headline."
+  },
+  "serverCareHeadlineGatewayStale": "It's running but hasn't checked in.",
+  "@serverCareHeadlineGatewayStale": {
+    "description": "Detail under the gateway-unresponsive headline when the time since its last heartbeat is unknown."
+  },
+  "serverCareHeadlineGatewayStaleFor": "{minutes, plural, =1{It's running but hasn't checked in for 1 minute.} other{It's running but hasn't checked in for {minutes} minutes.}}",
+  "@serverCareHeadlineGatewayStaleFor": {
+    "description": "Detail under the gateway-unresponsive headline: how long since its last heartbeat.",
+    "placeholders": {
+      "minutes": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareHeadlineGatewayUnresponsive": "The messaging gateway isn't responding",
+  "@serverCareHeadlineGatewayUnresponsive": {
+    "description": "Headline when the gateway process runs but its heartbeat is stale."
+  },
+  "serverCareHeadlineMemoryLow": "Memory is low on the server",
+  "@serverCareHeadlineMemoryLow": {
+    "description": "Headline when the server is short of memory."
+  },
+  "serverCareHeadlineOffline": "Can't reach Hermes",
+  "@serverCareHeadlineOffline": {
+    "description": "Headline when the server cannot be reached. Also the title of the Usage page's offline state."
+  },
+  "serverCareHeadlineOfflineDetail": "Check that the server is on and that you're connected to its network.",
+  "@serverCareHeadlineOfflineDetail": {
+    "description": "Detail under the can't-reach headline."
+  },
+  "serverCareHeadlineReadFailed": "Couldn't read Hermes' status",
+  "@serverCareHeadlineReadFailed": {
+    "description": "Headline when the status read failed for a reason other than a missing connection."
+  },
+  "serverCareHeadlineReadFailedDetail": "Try again in a moment.",
+  "@serverCareHeadlineReadFailedDetail": {
+    "description": "Detail under the status-read-failed headline."
+  },
+  "serverCareHeadlineRestarted": "Hermes restarted unexpectedly, probably out of memory",
+  "@serverCareHeadlineRestarted": {
+    "description": "Headline when the last boot followed a suspected out-of-memory kill."
+  },
+  "serverCareHeadlineStorageUnreadable": "Hermes can't read its session store",
+  "@serverCareHeadlineStorageUnreadable": {
+    "description": "Headline when the session database is corrupt or unreadable."
+  },
+  "serverCareHeadlineUnsupported": "This server can't report its status",
+  "@serverCareHeadlineUnsupported": {
+    "description": "Headline when the server has no status route."
+  },
+  "serverCareHeadlineUnsupportedDetail": "Update Hermes on the server to see more here.",
+  "@serverCareHeadlineUnsupportedDetail": {
+    "description": "Detail under the unsupported-server headline."
+  },
+  "serverCareLogLevelCritical": "Critical",
+  "@serverCareLogLevelCritical": {
+    "description": "Name of the critical log level, in a log line's chip."
+  },
+  "serverCareLogLevelDebug": "Debug",
+  "@serverCareLogLevelDebug": {
+    "description": "Name of the debug log level, in a log line's chip."
+  },
+  "serverCareLogLevelError": "Error",
+  "@serverCareLogLevelError": {
+    "description": "Name of the error log level, in a log line's chip."
+  },
+  "serverCareLogLevelFilterAll": "All levels",
+  "@serverCareLogLevelFilterAll": {
+    "description": "Log level filter choice that shows every line."
+  },
+  "serverCareLogLevelFilterErrors": "Errors only",
+  "@serverCareLogLevelFilterErrors": {
+    "description": "Log level filter choice that shows errors and critical lines only."
+  },
+  "serverCareLogLevelFilterWarnings": "Warnings and errors",
+  "@serverCareLogLevelFilterWarnings": {
+    "description": "Log level filter choice that shows warnings, errors and critical lines."
+  },
+  "serverCareLogLevelInfo": "Info",
+  "@serverCareLogLevelInfo": {
+    "description": "Name of the info log level, in a log line's chip."
+  },
+  "serverCareLogLevelMenuLabel": "Level, {value}",
+  "@serverCareLogLevelMenuLabel": {
+    "description": "Screen reader label of the log level filter button; value is the chosen filter.",
+    "placeholders": {
+      "value": {
+        "type": "String",
+        "example": "All levels"
+      }
+    }
+  },
+  "serverCareLogLevelWarning": "Warning",
+  "@serverCareLogLevelWarning": {
+    "description": "Name of the warning log level, in a log line's chip."
+  },
+  "serverCareLogShowMoreLines": "{count, plural, =1{Show 1 more line} other{Show {count} more lines}}",
+  "@serverCareLogShowMoreLines": {
+    "description": "Button that unfolds the rest of a log entry's continuation lines, such as a traceback.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "serverCareMachineHeader": "Server",
+  "@serverCareMachineHeader": {
+    "description": "Section header on the Server screen for the machine (disk, memory, session store)."
+  },
+  "serverCareMemoryGettingLow": "Getting low",
+  "@serverCareMemoryGettingLow": {
+    "description": "Memory row value: memory pressure is elevated."
+  },
+  "serverCareMemoryLow": "Low",
+  "@serverCareMemoryLow": {
+    "description": "Memory row value: memory pressure is critical."
+  },
+  "serverCareMemoryRow": "Memory",
+  "@serverCareMemoryRow": {
+    "description": "Row label: the server's memory."
+  },
+  "serverCareMenuItemNeedsAttention": "Server · needs attention",
+  "@serverCareMenuItemNeedsAttention": {
+    "description": "The account menu's Server entry while the server has a problem to show; a warning dot follows it."
+  },
+  "serverCareOk": "OK",
+  "@serverCareOk": {
+    "description": "Row value: nothing is wrong (memory, session store)."
+  },
+  "serverCareProfile": "Profile",
+  "@serverCareProfile": {
+    "description": "Label of the profile picker in the Usage page's subtitle."
+  },
+  "serverCareProfilesSubtitle": "{profile} · {count, plural, =1{1 profile} other{{count} profiles}}",
+  "@serverCareProfilesSubtitle": {
+    "description": "Subtitle of the Server screen: the profile it reads for and how many profiles the server has.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "default"
+      },
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareRefresh": "Refresh",
+  "@serverCareRefresh": {
+    "description": "Bar button on the Server and Usage screens that reads again. Also its accessibility label."
+  },
+  "serverCareReleased": "Released {date}",
+  "@serverCareReleased": {
+    "description": "Subtitle of the Version row: when this Hermes version was released.",
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "d MMM y",
+        "isCustomDateFormat": "true",
+        "example": "12 Nov 2026"
+      }
+    }
+  },
+  "serverCareRestartBannerClose": "Close",
+  "@serverCareRestartBannerClose": {
+    "description": "Tooltip of the button that closes the 'Hermes is ready' banner."
+  },
+  "serverCareRestartBannerReady": "Hermes {version} is ready",
+  "@serverCareRestartBannerReady": {
+    "description": "Banner shown once Hermes is back after an update.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.23.0"
+      }
+    }
+  },
+  "serverCareRestartBannerRestarting": "Hermes is restarting after the update. Chats continue when it's back.",
+  "@serverCareRestartBannerRestarting": {
+    "description": "Banner under the app bar while Hermes restarts after an update."
+  },
+  "serverCareSessionStoreRow": "Session store",
+  "@serverCareSessionStoreRow": {
+    "description": "Row label: Hermes' database of chats."
+  },
+  "serverCareSessionStoreUnreadable": "Can't be read",
+  "@serverCareSessionStoreUnreadable": {
+    "description": "Session store row value when the database cannot be read."
+  },
+  "serverCareSidebarCaptionNeedsAttention": "Needs attention",
+  "@serverCareSidebarCaptionNeedsAttention": {
+    "description": "Caption after the Server row of the Mac sidebar when there is a problem; keep it short."
+  },
+  "serverCareSidebarCaptionRestarting": "Restarting…",
+  "@serverCareSidebarCaptionRestarting": {
+    "description": "Caption after the Server row of the Mac sidebar while the server restarts; keep it short."
+  },
+  "serverCareSidebarCaptionUpdating": "Updating…",
+  "@serverCareSidebarCaptionUpdating": {
+    "description": "Caption after the Server row of the Mac sidebar while an update runs; keep it short."
+  },
+  "serverCareStorageMissingDetail": "Chats and usage may be missing until it's repaired.",
+  "@serverCareStorageMissingDetail": {
+    "description": "Detail when the session store cannot be read; 'it' is the session store."
+  },
+  "serverCareTitle": "Server",
+  "@serverCareTitle": {
+    "description": "Name of the Server screen, shown as its title, as the navigation entry and as the back label of its sub-pages."
+  },
+  "serverCareToolsHeader": "Tools",
+  "@serverCareToolsHeader": {
+    "description": "Section header on the Server screen for tools such as Usage."
+  },
+  "serverCareTryAgain": "Try again",
+  "@serverCareTryAgain": {
+    "description": "Button that repeats a failed read."
+  },
+  "serverCareUpdateAvailable": "Update available",
+  "@serverCareUpdateAvailable": {
+    "description": "Value of the Updates row when a newer Hermes exists."
+  },
+  "serverCareUpdateBodyChangesSince": "{changes} since your version ({version}).",
+  "@serverCareUpdateBodyChangesSince": {
+    "description": "Body of the Update page's status card; changes is the count, such as '12 changes'.",
+    "placeholders": {
+      "changes": {
+        "type": "String",
+        "example": "12 changes"
+      },
+      "version": {
+        "type": "String",
+        "example": "0.22.0"
+      }
+    }
+  },
+  "serverCareUpdateBodyUpToDate": "Version {version}. Checked {checkedAgo}.",
+  "@serverCareUpdateBodyUpToDate": {
+    "description": "Body of the Update page's status card when Hermes is current; checkedAgo is such as 'just now' or '2 hours ago'.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.23.0"
+      },
+      "checkedAgo": {
+        "type": "String",
+        "example": "2 hours ago"
+      }
+    }
+  },
+  "serverCareUpdateChanges": "{count, plural, =1{1 change} other{{count} changes}}",
+  "@serverCareUpdateChanges": {
+    "description": "Subtitle of the Updates row: how many changes the update brings.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "serverCareUpdateCheckFailed": "Couldn't check for updates.",
+  "@serverCareUpdateCheckFailed": {
+    "description": "Message on the Update page when the server answered the check without a usable result."
+  },
+  "serverCareUpdateChecking": "Checking…",
+  "@serverCareUpdateChecking": {
+    "description": "Value of the Updates row while a check runs."
+  },
+  "serverCareUpdateCommandHeader": "Command",
+  "@serverCareUpdateCommandHeader": {
+    "description": "Header over the command to run on the server, on the Update page."
+  },
+  "serverCareUpdateCouldntCheck": "Couldn't check",
+  "@serverCareUpdateCouldntCheck": {
+    "description": "Value of the Updates row when the check failed."
+  },
+  "serverCareUpdateDetailsShow": "Show details",
+  "@serverCareUpdateDetailsShow": {
+    "description": "Row that opens the last lines Hermes wrote during an update."
+  },
+  "serverCareUpdateMoveTo": "Move to {version}",
+  "@serverCareUpdateMoveTo": {
+    "description": "Button that moves a build newer than the stable release back to the stable one.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.22.0"
+      }
+    }
+  },
+  "serverCareUpdateNow": "Update Hermes",
+  "@serverCareUpdateNow": {
+    "description": "Button that starts the update."
+  },
+  "serverCareUpdateOnServer": "Update Hermes on the server.",
+  "@serverCareUpdateOnServer": {
+    "description": "Message on the Update page when the app cannot apply the update and Hermes gave no text of its own."
+  },
+  "serverCareUpdateOutcomeBackNotConfirmedTitle": "Hermes is back, but the app can't confirm the update",
+  "@serverCareUpdateOutcomeBackNotConfirmedTitle": {
+    "description": "Title of the result card when Hermes answers again but the new version could not be confirmed."
+  },
+  "serverCareUpdateOutcomeCheckAgain": "Check again",
+  "@serverCareUpdateOutcomeCheckAgain": {
+    "description": "Button on the result card that checks the server's version again."
+  },
+  "serverCareUpdateOutcomeDismiss": "Dismiss",
+  "@serverCareUpdateOutcomeDismiss": {
+    "description": "Button on the result card that closes it when Hermes has not come back."
+  },
+  "serverCareUpdateOutcomeDone": "Done",
+  "@serverCareUpdateOutcomeDone": {
+    "description": "Button that closes the update's result card."
+  },
+  "serverCareUpdateOutcomeFailedTitle": "The update didn't finish",
+  "@serverCareUpdateOutcomeFailedTitle": {
+    "description": "Title of the result card when the update failed."
+  },
+  "serverCareUpdateOutcomeInstalled": "Installed",
+  "@serverCareUpdateOutcomeInstalled": {
+    "description": "Row label for the installed version on the result card, when the server still runs the old one."
+  },
+  "serverCareUpdateOutcomeKeepWaiting": "Keep waiting",
+  "@serverCareUpdateOutcomeKeepWaiting": {
+    "description": "Button on the result card that waits longer for Hermes to come back."
+  },
+  "serverCareUpdateOutcomeNotBackHint": "If you started Hermes by hand, it may need to be started again on the server.",
+  "@serverCareUpdateOutcomeNotBackHint": {
+    "description": "Body of the result card when Hermes has not come back after the update."
+  },
+  "serverCareUpdateOutcomeNotBackTitle": "Hermes hasn't come back yet",
+  "@serverCareUpdateOutcomeNotBackTitle": {
+    "description": "Title of the result card when Hermes has not come back after the update."
+  },
+  "serverCareUpdateOutcomeNowRunning": "Now running {version}.",
+  "@serverCareUpdateOutcomeNowRunning": {
+    "description": "Body of the result card; version is the one Hermes runs now.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.23.0"
+      }
+    }
+  },
+  "serverCareUpdateOutcomeOldServerTitle": "Hermes updated, but the server is still running the old version",
+  "@serverCareUpdateOutcomeOldServerTitle": {
+    "description": "Title of the result card when the new version is installed but the old one still runs."
+  },
+  "serverCareUpdateOutcomePartialTitle": "Hermes updated, with one thing left to do",
+  "@serverCareUpdateOutcomePartialTitle": {
+    "description": "Title of the result card when the update worked and some follow-up remains."
+  },
+  "serverCareUpdateOutcomeRestartToFinish": "Restart Hermes on the server to finish.",
+  "@serverCareUpdateOutcomeRestartToFinish": {
+    "description": "Body of the result card when the server must be restarted by hand."
+  },
+  "serverCareUpdateOutcomeRunningNow": "Running now",
+  "@serverCareUpdateOutcomeRunningNow": {
+    "description": "Row label for the version that runs now, on the result card."
+  },
+  "serverCareUpdateOutcomeStillRunning": "Hermes is still running {version}.",
+  "@serverCareUpdateOutcomeStillRunning": {
+    "description": "Body of the failed result card; version is the one Hermes still runs.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.22.0"
+      }
+    }
+  },
+  "serverCareUpdatePageTitle": "Update",
+  "@serverCareUpdatePageTitle": {
+    "description": "Title of the Update page."
+  },
+  "serverCareUpdateRestartNote": "Hermes restarts during the update. It usually takes a few minutes.",
+  "@serverCareUpdateRestartNote": {
+    "description": "Note under the update button."
+  },
+  "serverCareUpdateRollbackWarning": "This build is newer than stable release v{version}. Updating moves it back to that release.",
+  "@serverCareUpdateRollbackWarning": {
+    "description": "Warning on the Update page when the server runs a build newer than the stable release.",
+    "placeholders": {
+      "version": {
+        "type": "String",
+        "example": "0.22.0"
+      }
+    }
+  },
+  "serverCareUpdateStepChecking": "Checking the result",
+  "@serverCareUpdateStepChecking": {
+    "description": "Name of the last step of a running update."
+  },
+  "serverCareUpdateStepInstalling": "Downloading and installing",
+  "@serverCareUpdateStepInstalling": {
+    "description": "Name of the second step of a running update."
+  },
+  "serverCareUpdateStepLabelState": "{label}, {state}",
+  "@serverCareUpdateStepLabelState": {
+    "description": "Screen reader label of an update step: its name and state.",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "Restarting Hermes"
+      },
+      "state": {
+        "type": "String",
+        "example": "In progress"
+      }
+    }
+  },
+  "serverCareUpdateStepLabelStateNote": "{label}, {state}. {note}",
+  "@serverCareUpdateStepLabelStateNote": {
+    "description": "Screen reader label of an update step that has a note under it.",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "Restarting Hermes"
+      },
+      "state": {
+        "type": "String",
+        "example": "Waiting"
+      },
+      "note": {
+        "type": "String",
+        "example": "Chats continue when it's back."
+      }
+    }
+  },
+  "serverCareUpdateStepListTitle": "Updating…",
+  "@serverCareUpdateStepListTitle": {
+    "description": "Title of the card that shows the update's steps."
+  },
+  "serverCareUpdateStepRestarting": "Restarting Hermes",
+  "@serverCareUpdateStepRestarting": {
+    "description": "Name of the third step of a running update."
+  },
+  "serverCareUpdateStepRestartingNote": "Chats continue when it's back.",
+  "@serverCareUpdateStepRestartingNote": {
+    "description": "Note under the restart step."
+  },
+  "serverCareUpdateStepStarting": "Starting the update",
+  "@serverCareUpdateStepStarting": {
+    "description": "Name of the first step of a running update."
+  },
+  "serverCareUpdateStepStateDone": "Done",
+  "@serverCareUpdateStepStateDone": {
+    "description": "State of an update step that finished. Read by screen readers."
+  },
+  "serverCareUpdateStepStateFailed": "Failed",
+  "@serverCareUpdateStepStateFailed": {
+    "description": "State of an update step that failed. Shown and read by screen readers."
+  },
+  "serverCareUpdateStepStateInProgress": "In progress",
+  "@serverCareUpdateStepStateInProgress": {
+    "description": "State of the update step that runs now. Read by screen readers."
+  },
+  "serverCareUpdateStepStateWaiting": "Waiting",
+  "@serverCareUpdateStepStateWaiting": {
+    "description": "State of an update step that has not begun. Read by screen readers."
+  },
+  "serverCareUpdateTitleChecking": "Checking for updates…",
+  "@serverCareUpdateTitleChecking": {
+    "description": "Title of the Update page's status card while a check runs."
+  },
+  "serverCareUpdateTitleOnServer": "Update Hermes on the server",
+  "@serverCareUpdateTitleOnServer": {
+    "description": "Title of the Update page's status card when the app cannot apply the update."
+  },
+  "serverCareUpdateTitleUpToDate": "Hermes is up to date",
+  "@serverCareUpdateTitleUpToDate": {
+    "description": "Title of the Update page's status card and of the result card when Hermes is current."
+  },
+  "serverCareUpdateUpToDate": "Up to date",
+  "@serverCareUpdateUpToDate": {
+    "description": "Value of the Updates row when Hermes is current."
+  },
+  "serverCareUpdateWhatsNew": "What's new",
+  "@serverCareUpdateWhatsNew": {
+    "description": "Header of the list of changes an update brings."
+  },
+  "serverCareUpdatesRow": "Updates",
+  "@serverCareUpdatesRow": {
+    "description": "Row label on the Server screen that opens the Update page."
+  },
+  "serverCareUsageBilled": "Billed {amount}",
+  "@serverCareUsageBilled": {
+    "description": "Usage totals line: what the provider billed for the window; the amount is a formatted dollar value.",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "$12.40"
+      }
+    }
+  },
+  "serverCareUsageByDay": "By day",
+  "@serverCareUsageByDay": {
+    "description": "Header of the Usage page's table of days."
+  },
+  "serverCareUsageByModel": "By model",
+  "@serverCareUsageByModel": {
+    "description": "Header of the Usage page's list of models."
+  },
+  "serverCareUsageChartBar": "{day}: {value}, {conversations}",
+  "@serverCareUsageChartBar": {
+    "description": "Screen reader label of one day's bar in the usage chart.",
+    "placeholders": {
+      "day": {
+        "type": "String",
+        "example": "12 November"
+      },
+      "value": {
+        "type": "String",
+        "example": "812 thousand tokens"
+      },
+      "conversations": {
+        "type": "String",
+        "example": "9 conversations"
+      }
+    }
+  },
+  "serverCareUsageChartHead": "{metric, select, tokens{Tokens per day} other{Estimated cost per day}}, {period}.",
+  "@serverCareUsageChartHead": {
+    "description": "First sentence of the usage chart's screen reader summary: what it shows and over which period.",
+    "placeholders": {
+      "metric": {
+        "type": "String",
+        "example": "tokens"
+      },
+      "period": {
+        "type": "String",
+        "example": "last 30 days"
+      }
+    }
+  },
+  "serverCareUsageChartNoUsage": "No usage.",
+  "@serverCareUsageChartNoUsage": {
+    "description": "Last sentence of the usage chart's screen reader summary when no day has any usage."
+  },
+  "serverCareUsageChartTotalHighest": "Total {total}. Highest {highest} on {day}.",
+  "@serverCareUsageChartTotalHighest": {
+    "description": "Rest of the usage chart's screen reader summary: the window's total and its highest day.",
+    "placeholders": {
+      "total": {
+        "type": "String",
+        "example": "8.4 million"
+      },
+      "highest": {
+        "type": "String",
+        "example": "1.2 million"
+      },
+      "day": {
+        "type": "String",
+        "example": "5 November"
+      }
+    }
+  },
+  "serverCareUsageConversations": "{count, plural, =1{1 conversation} other{{count} conversations}}",
+  "@serverCareUsageConversations": {
+    "description": "How many conversations a day, a model or the window held.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "9"
+      }
+    }
+  },
+  "serverCareUsageDayLong": "{day} {month}",
+  "@serverCareUsageDayLong": {
+    "description": "A day with the month spelled out, for screen readers. Both placeholders are the same date.",
+    "placeholders": {
+      "day": {
+        "type": "DateTime",
+        "format": "d"
+      },
+      "month": {
+        "type": "DateTime",
+        "format": "MMMM"
+      }
+    }
+  },
+  "serverCareUsageDayShort": "{day} {month}",
+  "@serverCareUsageDayShort": {
+    "description": "A day with the month abbreviated, in the usage table and chart. Both placeholders are the same date.",
+    "placeholders": {
+      "day": {
+        "type": "DateTime",
+        "format": "d"
+      },
+      "month": {
+        "type": "DateTime",
+        "format": "MMM"
+      }
+    }
+  },
+  "serverCareUsageEmptyDetail": "Usage appears here after Hermes answers a chat, a message or a scheduled task.",
+  "@serverCareUsageEmptyDetail": {
+    "description": "Detail of the Usage page's empty state."
+  },
+  "serverCareUsageEmptyTitle": "{days, plural, =1{No usage in the last day} other{No usage in the last {days} days}}",
+  "@serverCareUsageEmptyTitle": {
+    "description": "Title of the Usage page's empty state.",
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "30"
+      }
+    }
+  },
+  "serverCareUsageEstimatedAmount": "{amount} estimated",
+  "@serverCareUsageEstimatedAmount": {
+    "description": "The window's estimated cost as the big number of the usage totals.",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "$12.40"
+      }
+    }
+  },
+  "serverCareUsageFailedDetail": "Hermes did not answer as expected.",
+  "@serverCareUsageFailedDetail": {
+    "description": "Detail of the Usage page's error state for an unexpected answer."
+  },
+  "serverCareUsageFailedTitle": "Usage can't be loaded",
+  "@serverCareUsageFailedTitle": {
+    "description": "Title of the Usage page's error state, and of the one for a refused read."
+  },
+  "serverCareUsageFooter": "Days follow the server's time zone. Conversations count chats, messaging and scheduled tasks. Costs are estimates in US dollars.",
+  "@serverCareUsageFooter": {
+    "description": "Footnote under the Usage page's per-model list."
+  },
+  "serverCareUsageLastDays": "{days, plural, =1{last day} other{last {days} days}}",
+  "@serverCareUsageLastDays": {
+    "description": "The period a chart covers, lower case, inside a sentence for screen readers.",
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "30"
+      }
+    }
+  },
+  "serverCareUsageLoading": "Loading usage",
+  "@serverCareUsageLoading": {
+    "description": "Accessibility label of the Usage page's loading skeleton."
+  },
+  "serverCareUsageMetricCost": "Estimated cost",
+  "@serverCareUsageMetricCost": {
+    "description": "Usage metric choice: cost in dollars, estimated by Hermes."
+  },
+  "serverCareUsageMetricTokens": "Tokens",
+  "@serverCareUsageMetricTokens": {
+    "description": "Usage metric choice: tokens used."
+  },
+  "serverCareUsageModelSpoken": "{model}, {tokens}, {cost}, {conversations}, {share} of tokens",
+  "@serverCareUsageModelSpoken": {
+    "description": "Screen reader label of one model row in the usage list. The model name is Hermes' own text.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "claude-sonnet-5"
+      },
+      "tokens": {
+        "type": "String",
+        "example": "812 thousand tokens"
+      },
+      "cost": {
+        "type": "String",
+        "example": "$12.40"
+      },
+      "conversations": {
+        "type": "String",
+        "example": "9 conversations"
+      },
+      "share": {
+        "type": "String",
+        "example": "92%"
+      }
+    }
+  },
+  "serverCareUsagePartsSpoken": "Input {input}, output {output}, cache reads {cache}",
+  "@serverCareUsagePartsSpoken": {
+    "description": "Screen reader form of the usage totals' parts line; the values are spoken numbers.",
+    "placeholders": {
+      "input": {
+        "type": "String",
+        "example": "1.2 million"
+      },
+      "output": {
+        "type": "String",
+        "example": "812 thousand"
+      },
+      "cache": {
+        "type": "String",
+        "example": "4 million"
+      }
+    }
+  },
+  "serverCareUsagePartsText": "Input {input} · Output {output} · Cache reads {cache}",
+  "@serverCareUsagePartsText": {
+    "description": "Usage totals line: the token parts of the window, as compact numbers.",
+    "placeholders": {
+      "input": {
+        "type": "String",
+        "example": "1.2M"
+      },
+      "output": {
+        "type": "String",
+        "example": "812K"
+      },
+      "cache": {
+        "type": "String",
+        "example": "4M"
+      }
+    }
+  },
+  "serverCareUsagePeriodLast": "{days, plural, =1{Last day} other{Last {days} days}}",
+  "@serverCareUsagePeriodLast": {
+    "description": "The period the usage totals cover, at the start of a line.",
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "30"
+      }
+    }
+  },
+  "serverCareUsageRefreshFailed": "Couldn't refresh usage",
+  "@serverCareUsageRefreshFailed": {
+    "description": "Row title when a refresh failed and the last answer stays up."
+  },
+  "serverCareUsageRefreshFailedDetail": "Showing the last answer. Try again in a moment.",
+  "@serverCareUsageRefreshFailedDetail": {
+    "description": "Warning under the refresh-failed row."
+  },
+  "serverCareUsageRowSubtitle": "Tokens and cost by day and model",
+  "@serverCareUsageRowSubtitle": {
+    "description": "Subtitle of the Usage row on the Server screen."
+  },
+  "serverCareUsageRunCheck": "Run a check",
+  "@serverCareUsageRunCheck": {
+    "description": "Button in the Usage page's store-unreadable state that opens the server check."
+  },
+  "serverCareUsageShareLessThanOne": "<{percent}",
+  "@serverCareUsageShareLessThanOne": {
+    "description": "A model's share of tokens that is not zero but would round to it; the percent is 1% formatted for the locale.",
+    "placeholders": {
+      "percent": {
+        "type": "String",
+        "example": "1%"
+      }
+    }
+  },
+  "serverCareUsageShowAsTable": "Show as table",
+  "@serverCareUsageShowAsTable": {
+    "description": "Switch on the Usage page that swaps the chart for a table."
+  },
+  "serverCareUsageShowMoreDays": "{count, plural, =1{Show 1 more day} other{Show {count} more days}}",
+  "@serverCareUsageShowMoreDays": {
+    "description": "Button under the usage table that reveals more days.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "20"
+      }
+    }
+  },
+  "serverCareUsageStoreUnreadableDetail": "The server's session store needs repair.",
+  "@serverCareUsageStoreUnreadableDetail": {
+    "description": "Detail of the Usage page's store-unreadable state."
+  },
+  "serverCareUsageStoreUnreadableTitle": "Usage can't be read",
+  "@serverCareUsageStoreUnreadableTitle": {
+    "description": "Title of the Usage page's store-unreadable state."
+  },
+  "serverCareUsageTitle": "Usage",
+  "@serverCareUsageTitle": {
+    "description": "Title of the Usage page and of its row on the Server screen: tokens and cost."
+  },
+  "serverCareUsageTokens": "{count, plural, =1{{amount} token} other{{amount} tokens}}",
+  "@serverCareUsageTokens": {
+    "description": "A token count: the amount is already formatted (compact or spoken), the count only picks the plural.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "812000"
+      },
+      "amount": {
+        "type": "String",
+        "example": "812K"
+      }
+    }
+  },
+  "serverCareUsageUnavailableDetail": "This Hermes server doesn't report usage.",
+  "@serverCareUsageUnavailableDetail": {
+    "description": "Detail of the Usage page's unsupported state."
+  },
+  "serverCareUsageUnavailableTitle": "Usage isn't available",
+  "@serverCareUsageUnavailableTitle": {
+    "description": "Title of the Usage page's unsupported state."
+  },
+  "serverCareUsageWindowDays": "{days, plural, =1{1 day} other{{days} days}}",
+  "@serverCareUsageWindowDays": {
+    "description": "Usage window choice, a segment of a switch; keep it short.",
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "example": "30"
+      }
+    }
+  },
+  "serverCareVersionRow": "Version",
+  "@serverCareVersionRow": {
+    "description": "Row label: the Hermes version the server runs."
+  },
 
   "@@x-area-settings": "",
   "settingsAboutHermes": "About Hermes",

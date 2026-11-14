@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/server_care/widgets/loading_skeleton.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/widgets/loading_skeleton.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
+import 'package:hermes_app/src/server_care/widgets/usage_controls.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_day_list.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_model_list.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_totals_card.dart';
@@ -24,6 +26,15 @@ const _thirtyDayConversations = [
   1, 3, 3, 3, 3, 2, 0, 1, 3, 3, //
   3, 5, 18, 8, 6, 3, 0, 8, 9, 9,
 ];
+
+/// The model list with the footer the page shows, read from the catalog's
+/// locale.
+Widget _modelList() => Builder(
+  builder: (context) => UsageModelList(
+    models: _models,
+    footer: context.l10n.serverCareUsageFooter,
+  ),
+);
 
 /// Dollars per token that make 812K tokens cost $1.20.
 const _dollarsPerToken = 1.2 / 812000;
@@ -188,13 +199,13 @@ class _LoadedPageState extends State<_LoadedPage> {
       GroupedSection(
         children: [
           GroupedSwitchRow(
-            title: 'Show as table',
+            title: context.l10n.serverCareUsageShowAsTable,
             value: _table,
             onChanged: (v) => setState(() => _table = v),
           ),
         ],
       ),
-      UsageModelList(models: _models, footer: kUsageFooter),
+      _modelList(),
     ],
   );
 }
@@ -206,7 +217,41 @@ Widget _loaded({
 
 const _chartIcon = AppIconSet(Icons.bar_chart, CupertinoIcons.chart_bar);
 
+/// The window and metric switches, which keep their own selection.
+class _ControlsDemo extends StatefulWidget {
+  const _ControlsDemo();
+
+  @override
+  State<_ControlsDemo> createState() => _ControlsDemoState();
+}
+
+class _ControlsDemoState extends State<_ControlsDemo> {
+  var _window = UsageChartWindow.days30;
+  var _metric = UsageChartMetric.tokens;
+
+  @override
+  Widget build(BuildContext context) => UsageControls(
+    window: _window,
+    metric: _metric,
+    onWindow: (w) => setState(() => _window = w),
+    onMetric: (m) => setState(() => _metric = m),
+  );
+}
+
 List<WidgetbookNode> serverCareUsageNodes() => [
+  WidgetbookComponent(
+    name: 'UsageControls',
+    useCases: [
+      WidgetbookUseCase(
+        name: 'Window and metric',
+        builder: (_) => frame(const _ControlsDemo(), maxWidth: 640),
+      ),
+      WidgetbookUseCase(
+        name: 'Largest text',
+        builder: (_) => _largest(frame(const _ControlsDemo(), maxWidth: 640)),
+      ),
+    ],
+  ),
   WidgetbookComponent(
     name: 'UsageChart',
     useCases: [
@@ -317,15 +362,10 @@ List<WidgetbookNode> serverCareUsageNodes() => [
   WidgetbookComponent(
     name: 'UsageModelList',
     useCases: [
-      ...onEachPlatform(
-        'Three models',
-        (_) => frame(UsageModelList(models: _models, footer: kUsageFooter)),
-      ),
+      ...onEachPlatform('Three models', (_) => frame(_modelList())),
       WidgetbookUseCase(
         name: 'Largest text',
-        builder: (_) => _largest(
-          frame(UsageModelList(models: _models, footer: kUsageFooter)),
-        ),
+        builder: (_) => _largest(frame(_modelList())),
       ),
     ],
   ),

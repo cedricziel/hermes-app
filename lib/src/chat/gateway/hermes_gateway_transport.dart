@@ -11,6 +11,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import '../../api/session_source.dart';
 import '../../models/model_provider_option.dart';
+import '../../workspaces/workspace_models.dart';
 import '../chat_models.dart';
 import '../checkpoints/checkpoint_models.dart';
 import '../checkpoints/checkpoints_transport.dart';
@@ -398,6 +399,7 @@ class HermesGatewayTransport
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+    WorkspaceChoice? workspace,
   }) => _send(
     threadId: threadId,
     profile: profile,
@@ -405,6 +407,7 @@ class HermesGatewayTransport
     attachments: attachments,
     model: model,
     queued: queued,
+    workspace: workspace,
   );
 
   @override
@@ -460,7 +463,8 @@ class HermesGatewayTransport
       result = await _call(client, 'session.active_list', {
         'profile': ?profile,
       });
-    } on Object {
+    } on Exception {
+      // Offline or an older server: no statuses. A bug is not hidden.
       return const {};
     }
     return _statusesOf(result);

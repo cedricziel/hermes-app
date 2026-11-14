@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/busy_bar.dart';
@@ -52,7 +53,10 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
   @override
   void didUpdateWidget(ServerRestartBanner old) {
     super.didUpdateWidget(old);
-    if (old._ready != widget._ready) _arm();
+    if (old._ready != widget._ready ||
+        old.onAutoDismiss != widget.onAutoDismiss) {
+      _arm();
+    }
   }
 
   void _arm() {
@@ -74,20 +78,20 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
     final scheme = Theme.of(context).colorScheme;
     final colors = context.hermesColors;
     final ready = widget._ready;
+    final l10n = context.l10n;
     final text = ready
-        ? 'Hermes ${widget.version} is ready'
-        : 'Hermes is restarting after the update. Chats continue when '
-              "it's back.";
+        ? l10n.serverCareRestartBannerReady(widget.version!)
+        : l10n.serverCareRestartBannerRestarting;
     final textStyle = TextStyle(fontSize: 14, color: scheme.onSurface);
     final icon = ExcludeSemantics(
       child: AppIcon(
         ready ? AppIcons.checkCircle : AppIcons.info,
         size: 20,
-        color: ready ? colors.success : scheme.primary,
+        color: ready ? colors.success : colors.link,
       ),
     );
     final background = Color.alphaBlend(
-      scheme.primary.withValues(alpha: 0.06),
+      colors.link.withValues(alpha: 0.08),
       scheme.surfaceContainerHighest,
     );
     return Semantics(
@@ -110,7 +114,7 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Close',
+                      tooltip: l10n.serverCareRestartBannerClose,
                       constraints: const BoxConstraints(
                         minWidth: 44,
                         minHeight: 44,

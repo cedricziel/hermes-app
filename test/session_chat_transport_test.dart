@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/session_chat_transport.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
+import 'package:hermes_app/src/workspaces/workspace_models.dart';
 
 void main() {
   final unavailable = isA<SessionTransportUnavailable>();
@@ -323,6 +324,7 @@ class _Delegate
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+    WorkspaceChoice? workspace,
   }) => sendStream ?? sendController.stream;
 
   @override

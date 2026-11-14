@@ -601,6 +601,21 @@ void main() {
       },
     );
 
+    test('is told when the chat reported its folder but the prompt was not accepted', () async {
+      final run = ask('Hello', within: const Duration(milliseconds: 20));
+      final send = await sent();
+      send
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const WorkspaceBound(cwd: '/home/me/code/demo'));
+      await run.answer;
+
+      send.finish();
+      await run.finished;
+
+      expect(notifications.shown.single.body, kAskNotSentBody);
+      expect(await running.read(), isEmpty);
+    });
+
     test('carries at most 4000 characters of the question', () async {
       final run = ask('é' * 5000, within: Duration.zero);
       await sent();

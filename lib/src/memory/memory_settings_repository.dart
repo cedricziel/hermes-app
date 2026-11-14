@@ -6,6 +6,7 @@ import '../telemetry/telemetry.dart';
 import 'memory_provider.dart';
 import 'memory_repository.dart';
 import 'memory_settings.dart';
+import '../telemetry/report_bug.dart';
 
 /// The memory settings of a profile, its provider and its reset, on the
 /// generated config and memory calls. Spans and logs carry fixed slugs and
@@ -25,7 +26,8 @@ class MemorySettingsRepository {
       final data = (await _api.getConfigApiConfigGet(profile: profile)).data;
       if (data is! Map) throw MemoryFailure.malformed;
       return MemorySettings.fromConfig(data);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportBug(error, stack, 'the memory settings');
       final failure = error is MemoryFailure ? error : MemoryFailure.transport;
       outcome = failure.name;
       throw failure;
@@ -88,7 +90,8 @@ class MemorySettingsRepository {
       final status = _provider(active, providers);
       _quiet(() => span?.setAttribute('provider_status', status.state.wire));
       return status;
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportBug(error, stack, 'the memory settings');
       final failure = error is MemoryFailure ? error : MemoryFailure.transport;
       outcome = failure.name;
       throw failure;

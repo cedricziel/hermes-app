@@ -107,6 +107,7 @@ class DiscoverTab extends StatelessWidget {
   }
 
   Widget _row(HubSkill skill) => GroupedRow(
+    wrapWhenStacked: true,
     key: ValueKey('hub-${skill.identifier}'),
     title: skill.name,
     subtitle: [

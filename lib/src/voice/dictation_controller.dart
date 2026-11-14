@@ -14,6 +14,7 @@ import 'transcribe_stream.dart';
 import 'voice_recorder.dart';
 import 'voice_support.dart';
 import 'wav.dart';
+import '../telemetry/report_bug.dart';
 
 /// Where a dictation is.
 enum DictationPhase {
@@ -464,7 +465,8 @@ class DictationController extends ChangeNotifier {
         profile: _profile,
         timeout: HermesChatRepository.transcribeTimeout(clip.length),
       );
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a dictation upload');
       return null;
     }
   }
