@@ -159,6 +159,55 @@ void main() {
     );
   });
 
+  test('a child that exits 0 after the 30 s wait counts as finished', () async {
+    var reads = 0;
+    server.onRequest(
+      'GET',
+      '/api/actions/gateway-restart/status',
+      (_) => (
+        status: 200,
+        body: action('gateway-restart', running: reads++ < 25, exit: 0),
+      ),
+    );
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.phase, GatewayPhase.done);
+  });
+
+  test(
+    'a lost answer, a running child, then a non-zero exit fails the run',
+    () async {
+      server.onRequest('POST', '/api/gateway/restart', (r) {
+        throw DioException.connectionError(
+          requestOptions: r,
+          reason: 'dropped',
+        );
+      });
+      var reads = 0;
+      server.onRequest(
+        'GET',
+        '/api/actions/gateway-restart/status',
+        (_) => (
+          status: 200,
+          body: reads++ == 0
+              ? action('gateway-restart', running: true)
+              : action('gateway-restart', exit: 1, lines: ['needs root']),
+        ),
+      );
+      await gateway.run(GatewayAction.restart, profile: 'work');
+      expect(gateway.phase, GatewayPhase.failed);
+      expect(gateway.failure, GatewayFailure.exited);
+      expect(gateway.message, 'needs root');
+      expect(posts('restart'), 1);
+    },
+  );
+
+  test('a press after the outcome starts a new run', () async {
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.busy, isFalse);
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(posts('restart'), 2);
+  });
+
   test(
     'a start with a child still running is done once the gateway runs',
     () async {

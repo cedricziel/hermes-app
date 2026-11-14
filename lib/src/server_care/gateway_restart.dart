@@ -94,14 +94,13 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     bool shared = false,
   }) {
     final running = _running;
-    if (running != null) return running;
+    if (running != null && busy) return running;
     if (disposed) return Future.value();
     dismiss();
-    final done = _execute(
-      action,
-      profile,
-      shared,
-    ).whenComplete(() => _running = null);
+    late final Future<void> done;
+    done = _execute(action, profile, shared).whenComplete(() {
+      if (identical(_running, done)) _running = null;
+    });
     _running = done;
     return done;
   }
@@ -278,6 +277,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       started,
       returnWindow,
       sawDown: sawDown || exitedClean,
+      watch: name,
     );
   }
 
@@ -286,8 +286,9 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   ///
   /// The action status keeps the answer of an earlier run until a new one
   /// starts and its start header is cut off by the parser, so only a child
-  /// that is running now counts as the run's own: it hands over to the usual
-  /// wait. A non-zero exit is not trusted here.
+  /// that is running now counts as the run's own: it hands over to the wait
+  /// for the gateway, which keeps reading that child's action. An exit code
+  /// seen before such a child is not trusted here.
   Future<String?> _settleLostAnswer(
     CareAction name,
     String profile,
@@ -301,7 +302,13 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       if (disposed) return null;
       if (action case CareOk(:final value)) {
         if (value.running) {
-          return _awaitReturn(profile, started, returnWindow, sawDown: sawDown);
+          return _awaitReturn(
+            profile,
+            started,
+            returnWindow,
+            sawDown: sawDown,
+            watch: name,
+          );
         }
       }
       final gateway = await _repository.status(profile: profile);
@@ -319,14 +326,29 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     }
   }
 
+  /// Reads the gateway until it runs again. With [watch] the action of a
+  /// child this run saw running is read too, until the gateway was seen down:
+  /// its exit 0 counts as the restart finished, a non-zero exit fails the run.
   Future<String?> _awaitReturn(
     String profile,
     DateTime from,
     Duration window, {
     required bool sawDown,
+    CareAction? watch,
   }) async {
     _enter(GatewayPhase.returning);
     while (true) {
+      if (watch != null && !sawDown) {
+        final action = await _repository.actionStatus(watch, lines: 40);
+        if (disposed) return null;
+        if (action case CareOk(:final value) when !value.running) {
+          final code = value.exitCode;
+          if (code != null && code != 0) {
+            return _fail(GatewayFailure.exited, _tail(value.lines));
+          }
+          if (code == 0) sawDown = true;
+        }
+      }
       final gateway = await _repository.status(profile: profile);
       if (disposed) return null;
       if (gateway case CareOk(:final value)) {
