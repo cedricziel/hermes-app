@@ -340,7 +340,19 @@ extension _ChatControllerHistory on ChatController {
       if (!active || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return;
-      thread.messages.addAll(page.messages);
+      if (thread.messages.isNotEmpty) {
+        // Sent into after an earlier read failed: the page holds those turns
+        // now, so it replaces them, unless a reply is still streaming in.
+        if (thread.isReplying) {
+          _unloaded.add(id);
+          return;
+        }
+        final failed = _failedTurn(thread, page.messages);
+        thread.messages
+          ..clear()
+          ..addAll(failed);
+      }
+      thread.messages.insertAll(0, page.messages);
       _reactionHistory(thread);
       if (page.hasMore) _olderRows[id] = page.rows;
       notifyListeners();
@@ -397,6 +409,13 @@ extension _ChatControllerHistory on ChatController {
     final offset = _olderRows[id];
     if (offset == null) return;
     final generation = _loadGeneration;
+    // The oldest message held. A read of the chat's newest page meanwhile
+    // replaces it, and the offset no longer counts from that page.
+    final oldest = _threads
+        .where((t) => t.id == id)
+        .firstOrNull
+        ?.messages
+        .firstOrNull;
     try {
       final page = await repository!.loadMessagePage(
         id,
@@ -405,7 +424,11 @@ extension _ChatControllerHistory on ChatController {
       );
       if (!active || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
-      if (thread == null) return;
+      if (thread == null ||
+          _olderRows[id] != offset ||
+          !identical(thread.messages.firstOrNull, oldest)) {
+        return;
+      }
       final held = {for (final m in thread.messages) m.id};
       final older = [
         for (final m in page.messages)

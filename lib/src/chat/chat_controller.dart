@@ -1558,6 +1558,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             _queueRemoving.contains(selected))) {
       return false;
     }
+    // The prompt belongs after the history being read, so it waits for it.
+    if (selected != null) {
+      final firstPage = _loadingMessages[selected.id];
+      if (firstPage != null) {
+        return firstPage.then<bool>(
+          (_) => _threads.contains(selected)
+              ? _submitTo(selected, typed, files, displayText: displayText)
+              : false,
+        );
+      }
+    }
     if (selected != null &&
         queueStore != null &&
         scopedProfile &&
