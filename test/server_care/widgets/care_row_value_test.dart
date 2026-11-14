@@ -121,26 +121,23 @@ void main() {
       );
     });
 
-    testWidgets('stacks the value under the title at accessibility sizes', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _host(
-          const CareValueRow(
-            title: 'Disk',
-            value: '38 GB free',
-            subtitle: '62% used',
+    testWidgets(
+      'a value that no longer fits at large text joins the subtitle',
+      (tester) async {
+        await tester.pumpWidget(
+          _host(
+            const CareValueRow(
+              title: 'Disk',
+              value: '38 GB free',
+              subtitle: '62% used',
+            ),
+            scale: 2,
           ),
-          scale: 2,
-        ),
-      );
-      final disk = tester.getTopLeft(find.text('Disk'));
-      final value = tester.getTopLeft(find.text('38 GB free'));
-      final used = tester.getTopLeft(find.text('62% used'));
-      expect(value.dx, disk.dx);
-      expect(value.dy, greaterThan(disk.dy));
-      expect(used.dy, greaterThan(value.dy));
-      expect(tester.takeException(), isNull);
-    });
+        );
+        expect(find.text('38 GB free · 62% used'), findsOneWidget);
+        expect(find.text('38 GB free'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

@@ -64,23 +64,19 @@ class CareValueRow extends StatelessWidget {
     final metrics = GroupedMetrics.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
-    final stacked = groupedRowStacksAt(context);
     return LayoutBuilder(
       builder: (context, box) {
-        // Stacked rows show the value under the title at full width.
-        final text = stacked
-            ? (value: value, subtitle: subtitle)
-            : careRowText(
-                value: value,
-                subtitle: subtitle,
-                maxValueWidth: careRowValueWidth(
-                  box.maxWidth - 2 * metrics.rowPadding,
-                ),
-                style: DefaultTextStyle.of(context).style
-                    .merge(TextStyle(fontSize: metrics.subtitleSize)),
-                textScaler: scaler,
-                textDirection: direction,
-              );
+        final text = careRowText(
+          value: value,
+          subtitle: subtitle,
+          maxValueWidth: careRowValueWidth(
+            box.maxWidth - 2 * metrics.rowPadding,
+          ),
+          style: DefaultTextStyle.of(context).style
+              .merge(TextStyle(fontSize: metrics.subtitleSize)),
+          textScaler: scaler,
+          textDirection: direction,
+        );
         return GroupedRow(
           title: title,
           titleMaxLines: null,
