@@ -249,7 +249,7 @@ void main() {
   group('telemetry', () {
     setUp(() => controller.load());
 
-    test('logs a catalog install with the catalog name only', () async {
+    test('logs a catalog install without the plugin name', () async {
       server.on('POST', install, {'ok': true, 'plugin_name': 'snap'});
       await controller.installFromCatalog('snapcompact');
       server.on('POST', install, {'detail': 'x'}, status: 400);
@@ -260,7 +260,7 @@ void main() {
         'plugins.install.error',
       ]);
       for (final (_, attributes) in events) {
-        expect(attributes, {'plugin.name': 'snapcompact'});
+        expect(attributes, isEmpty);
       }
     });
 

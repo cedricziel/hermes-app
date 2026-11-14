@@ -472,6 +472,10 @@ class HermesChatRepository {
           content: before ? '' : stored.text,
           displayText: before ? null : displayText,
           displayKind: displayKind,
+          finishReason: switch (row['finish_reason']) {
+            final String reason when reason.isNotEmpty => reason,
+            _ => null,
+          },
           sealedProse: before && prose.trim().isNotEmpty
               ? [SealedProse(prose, beforeToolCall: 0)]
               : const [],
