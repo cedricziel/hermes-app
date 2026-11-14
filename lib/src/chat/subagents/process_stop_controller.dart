@@ -28,8 +28,13 @@ abstract interface class ProcessStopHost {
   /// failed read.
   Future<AgentWorkResult<ListedProcess?>> rereadList();
 
-  /// Puts a `process.kill` answer on the card.
-  void applyKill(ProcessKill answer);
+  /// The attachment the program's card belongs to now; null when the
+  /// session holds none. Captured when the kill is sent.
+  Object? get attachment;
+
+  /// Puts a `process.kill` answer on the card, unless the card no longer
+  /// belongs to [attachment], the one the kill was sent under.
+  void applyKill(ProcessKill answer, {required Object? attachment});
 }
 
 enum ProcessStopPhase {
@@ -142,6 +147,7 @@ class ProcessStopController extends ChangeNotifier {
       return;
     }
     _set(ProcessStopPhase.sending);
+    final attachment = _host.attachment;
     final result = await _repository.processKill(
       key.threadId,
       key.processId,
@@ -150,7 +156,7 @@ class ProcessStopController extends ChangeNotifier {
     if (_disposed) return;
     switch (result) {
       case WorkOk(:final value):
-        _host.applyKill(value);
+        _host.applyKill(value, attachment: attachment);
         final (phase, outcome) = switch (value.outcome) {
           KillOutcome.killed => (ProcessStopPhase.killed, 'killed'),
           KillOutcome.alreadyExited => (

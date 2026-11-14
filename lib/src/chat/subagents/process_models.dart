@@ -76,9 +76,14 @@ final class ListedProcess {
     this.completionReason,
     this.uptime,
     this.outputTail,
+    this.unknownStatus = false,
   });
 
   final String id;
+
+  /// The row's status was a word the app does not know: the program reads
+  /// as ended whatever its code, so a code never claims a clean exit.
+  final bool unknownStatus;
 
   /// As Hermes gave it, already cut to 200 characters there.
   final String? command;
@@ -90,11 +95,13 @@ final class ListedProcess {
   /// The last [kProcessTailChars] characters of the output.
   final String? outputTail;
 
-  ProgramStatus get status => programStatusOf(
-    running: running,
-    completionReason: completionReason,
-    exitCode: exitCode,
-  );
+  ProgramStatus get status => unknownStatus
+      ? ProgramStatus.ended
+      : programStatusOf(
+          running: running,
+          completionReason: completionReason,
+          exitCode: exitCode,
+        );
 
   @override
   String toString() => 'ListedProcess($status)';
@@ -153,8 +160,11 @@ ProcessList? parseProcessList(Map<String, Object?> result) {
       ListedProcess(
         id: id,
         command: readString(row['command']),
-        // The schema's default is running; any other word is an end.
+        // The schema's default is running; any other word is an end, and
+        // only `exited` is one the app knows.
         running: status == null || status == 'running',
+        unknownStatus:
+            status != null && status != 'running' && status != 'exited',
         exitCode: readInt(row['exit_code']),
         completionReason: readString(row['completion_reason']),
         uptime: uptime == null

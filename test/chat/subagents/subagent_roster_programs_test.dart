@@ -226,6 +226,27 @@ void main() {
       expect(r.cards.state.card('p'), isNotNull);
     });
 
+    rig('a new attachment on the same connection reads its cards at once', (
+      async,
+      r,
+    ) {
+      r.cards.frame('p', 'out');
+      r.roster.watch();
+      async.flushMicrotasks();
+      expect(r.programReads, 1);
+      // 'p' was looked for once and the list did not name it.
+      async.elapse(const Duration(seconds: 30));
+      expect(r.programReads, 1);
+      r.cards.reattach();
+      r.cards.frame('p', 'other session');
+      r.listPrograms([program('p', command: 'npm run dev')]);
+      r.roster.markAttached();
+      async.flushMicrotasks();
+      expect(r.programReads, 2);
+      expect(r.agentReads, 1, reason: 'agents were not blocked');
+      expect(r.cards.state.card('p')!.command, 'npm run dev');
+    });
+
     rig('5032 is a quiet failed read on the backoff', (async, r) {
       r.cards.frame('p', 'out');
       r.listPrograms([program('p', command: 'first')]);
@@ -463,13 +484,75 @@ void main() {
       final host = r.roster.programHostFor('p')!;
       var heard = 0;
       host.changes.addListener(() => heard++);
-      host.applyKill(parseProcessKill({...killKilled, 'output': 'tail'})!);
+      host.applyKill(
+        parseProcessKill({...killKilled, 'output': 'tail'})!,
+        attachment: host.attachment,
+      );
       expect(host.card!.status, ProgramStatus.stopped);
       expect(host.card!.text, 'tail');
       expect(heard, greaterThan(0));
       expect(host.online, isTrue);
       r.env.update(() => r.env.connection = null);
       expect(host.online, isFalse);
+    });
+
+    ProcessStopController stopFor(Rig r, String id) => ProcessStopController(
+      key: ProcessKey(
+        threadId: r.roster.threadId,
+        profile: r.roster.profile,
+        connection: r.roster.connection!,
+        processId: id,
+      ),
+      repository: r.roster.repository,
+      host: r.roster.programHostFor(id)!,
+    );
+
+    rig('a list answer sent before a confirmed kill keeps the card '
+        'Stopped', (async, r) {
+      r.cards.frame('p', 'out');
+      r.listPrograms([program('p')]);
+      r.roster.watch();
+      async.flushMicrotasks();
+      final stop = stopFor(r, 'p');
+      final gate = Completer<Map<String, Object?>>();
+      r.programs = (_) => gate.future;
+      async.elapse(const Duration(seconds: 5));
+      stop.startStop();
+      unawaited(stop.confirmStop());
+      async.flushMicrotasks();
+      expect(r.cards.state.card('p')!.status, ProgramStatus.stopped);
+      gate.complete({
+        'processes': [program('p')],
+      });
+      async.flushMicrotasks();
+      expect(r.cards.state.card('p')!.status, ProgramStatus.stopped);
+      stop.dispose();
+    });
+
+    rig('a kill answer for a replaced attachment leaves the new card as it '
+        'is', (async, r) {
+      r.cards.frame('p', 'out');
+      r.listPrograms([program('p')]);
+      r.roster.watch();
+      async.flushMicrotasks();
+      final stop = stopFor(r, 'p');
+      final gate = Completer<Map<String, Object?>>();
+      r.kill = (_) => gate.future;
+      stop.startStop();
+      unawaited(stop.confirmStop());
+      async.flushMicrotasks();
+      r.cards.reattach();
+      r.cards.frame('p', 'new session');
+      r.cards.state.applyList(
+        parseProcessList({
+          'processes': [program('p')],
+        })!,
+        attachment: r.cards.attachment!,
+      );
+      gate.complete(killKilled);
+      async.flushMicrotasks();
+      expect(r.cards.state.card('p')!.status, ProgramStatus.running);
+      stop.dispose();
     });
 
     rig('no program cards, no stop host', (async, r) {

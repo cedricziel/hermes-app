@@ -48,7 +48,11 @@ class FakeProgramHost extends ChangeNotifier implements ProcessStopHost {
   }
 
   @override
-  void applyKill(ProcessKill answer) => kills.add(answer);
+  Object? attachment = Object();
+
+  @override
+  void applyKill(ProcessKill answer, {required Object? attachment}) =>
+      kills.add(answer);
 
   void update(void Function() change) {
     change();

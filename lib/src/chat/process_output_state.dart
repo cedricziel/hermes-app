@@ -133,54 +133,81 @@ class ProcessOutputState {
         : ProcessOutputOutcome.applied;
   }
 
+  /// Counts confirmed kill answers. A list read captures it when it is sent
+  /// and passes it to [applyList] as `since`.
+  int get generation => _generation;
+  var _generation = 0;
+
+  /// The [generation] at which each program's kill answer was applied. Kept
+  /// when a card is evicted, so an older list cannot bring it back running.
+  final _settledAt = <String, int>{};
+
   /// Merges a `process.list` answer by id. A listed program's card gets its
-  /// command and state; `output_tail` only seeds a card with no text. Only a
-  /// running program without a card gets one, so finished programs never
-  /// take a card's slot. A running card the list no longer has reads as
-  /// ended.
+  /// command and state; `output_tail` only seeds a card with no text. Cards
+  /// already held are merged first, then only running programs without a
+  /// card get one, so finished programs never take a card's slot and a row
+  /// that ends a card frees its slot for a later one. A running card the
+  /// list no longer has reads as ended. With [since], the [generation] the
+  /// read was sent at, a row for a program whose kill was answered after
+  /// that is older than the card and is skipped.
   ProcessOutputOutcome applyList(
     ProcessList list, {
     required Object attachment,
+    int? since,
   }) {
     if (_attachment != attachment) return ProcessOutputOutcome.stale;
-    var evicted = false;
-    final listed = <String>{};
+    bool outdated(String id) => since != null && (_settledAt[id] ?? -1) > since;
+    final listed = {for (final process in list.processes) process.id};
+    final added = <ListedProcess>[];
     for (final process in list.processes) {
-      listed.add(process.id);
-      var card = _cards[process.id];
+      final card = _cards[process.id];
       if (card == null) {
-        // A program the frames never named takes a free slot or a finished
-        // card's, never a running card's: that would drop frame output and
-        // churn on the next read.
-        if (!process.running ||
-            (_cards.length >= maxCards && !_cards.values.any(_finished))) {
-          continue;
-        }
-        evicted = _makeRoom() || evicted;
-        card = ProcessOutput(processId: process.id);
+        if (process.running) added.add(process);
+        continue;
       }
-      final tail = process.outputTail;
-      _cards[process.id] = _seed(
-        card._with(
-          status: process.status,
-          command: process.command,
-          exitCode: process.exitCode,
-          completionReason: process.completionReason,
-          uptime: process.uptime,
-        ),
-        tail,
-        // Hermes keeps the last 4,000 characters: a tail that long was cut.
-        cut: tail != null && tail.runes.length >= kProcessTailChars,
-      );
+      if (outdated(process.id)) continue;
+      _cards[process.id] = _merge(card, process);
     }
     for (final MapEntry(:key, :value) in _cards.entries.toList()) {
       if (value.running && !listed.contains(key)) {
         _cards[key] = value._with(status: ProgramStatus.ended);
       }
     }
+    var evicted = false;
+    for (final process in added) {
+      // A program the frames never named takes a free slot or a finished
+      // card's, never a running card's: that would drop frame output and
+      // churn on the next read.
+      if (outdated(process.id) ||
+          _cards.containsKey(process.id) ||
+          (_cards.length >= maxCards && !_cards.values.any(_finished))) {
+        continue;
+      }
+      evicted = _makeRoom() || evicted;
+      _cards[process.id] = _merge(
+        ProcessOutput(processId: process.id),
+        process,
+      );
+    }
     return evicted
         ? ProcessOutputOutcome.evicted
         : ProcessOutputOutcome.applied;
+  }
+
+  ProcessOutput _merge(ProcessOutput card, ListedProcess process) {
+    final tail = process.outputTail;
+    return _seed(
+      card._with(
+        status: process.status,
+        command: process.command,
+        exitCode: process.exitCode,
+        completionReason: process.completionReason,
+        uptime: process.uptime,
+      ),
+      tail,
+      // Hermes keeps the last 4,000 characters: a tail that long was cut.
+      cut: tail != null && tail.runes.length >= kProcessTailChars,
+    );
   }
 
   /// Merges a `process.kill` answer into its card; never adds one. Its
@@ -194,9 +221,13 @@ class ProcessOutputState {
     if (_attachment != attachment) return ProcessOutputOutcome.stale;
     final card = _cards[processId];
     if (card == null) return ProcessOutputOutcome.ignored;
+    if (answer.outcome == KillOutcome.error) {
+      return ProcessOutputOutcome.ignored;
+    }
+    _settledAt[processId] = ++_generation;
     switch (answer.outcome) {
       case KillOutcome.error:
-        return ProcessOutputOutcome.ignored;
+        break;
       case KillOutcome.notFound:
         if (card.running) {
           _cards[processId] = card._with(status: ProgramStatus.ended);
@@ -263,6 +294,7 @@ class ProcessOutputState {
 
   void clear() {
     _cards.clear();
+    _settledAt.clear();
     omittedCards = false;
     _attachment = null;
   }

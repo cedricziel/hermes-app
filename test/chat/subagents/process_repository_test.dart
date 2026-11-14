@@ -108,7 +108,12 @@ void main() {
       expect(of({'status': 'exited', 'exit_code': 0}), ProgramStatus.exited);
       expect(of({'status': 'exited'}), ProgramStatus.ended);
       expect(of({'status': 'zombie'}), ProgramStatus.ended);
-      expect(of({'status': 'zombie', 'exit_code': 1}), ProgramStatus.exited);
+      expect(
+        of({'status': 'zombie', 'exit_code': 1}),
+        ProgramStatus.ended,
+        reason: 'an unknown status never reads as a clean exit',
+      );
+      expect(of({'status': 'zombie', 'exit_code': 0}), ProgramStatus.ended);
     });
 
     test('keeps the command as given', () {

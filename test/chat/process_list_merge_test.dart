@@ -223,6 +223,39 @@ void main() {
     expect(state.omittedCards, isFalse);
   });
 
+  test('a running program after an exited row takes the slot that row '
+      'frees', () {
+    for (var i = 0; i < ProcessOutputState.maxCards; i++) {
+      frame('$i', 'out');
+    }
+    state.applyList(
+      list([row('new'), row('5', status: 'exited', exit: 0)]),
+      attachment: attachment,
+    );
+    expect(state.cards, hasLength(ProcessOutputState.maxCards));
+    expect(state.card('new'), isNotNull);
+    expect(state.card('5'), isNull);
+    expect(state.omittedCards, isTrue);
+  });
+
+  test('a list read sent before a confirmed kill does not bring the card '
+      'back to running', () {
+    frame('p', 'out');
+    state.applyList(list([row('p')]), attachment: attachment);
+    final sent = state.generation;
+    state.applyKill('p', parseProcessKill(killKilled)!, attachment: attachment);
+    state.applyList(list([row('p')]), attachment: attachment, since: sent);
+    expect(infoOf('p')!.status, ProcessCardStatus.stopped);
+    // A read sent after the kill is current.
+    final later = state.generation;
+    state.applyList(
+      list([row('p', status: 'exited', exit: -15, reason: 'killed')]),
+      attachment: attachment,
+      since: later,
+    );
+    expect(state.card('p')!.exitCode, -15);
+  });
+
   group('kill answers', () {
     test('killed reads Stopped and its output is not appended to a card '
         'with output', () {

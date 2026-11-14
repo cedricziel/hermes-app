@@ -293,11 +293,22 @@ class SubagentRoster extends ChangeNotifier {
   }
 
   /// The session now holds the connection (an action attached it), so list
-  /// reads may start again after a 4001.
+  /// reads may start again after a 4001. Its program cards belong to the new
+  /// attachment: what the last attachment's reads learned does not apply, so
+  /// the programs are read again.
   void markAttached() {
-    final agents = _blockedOn != null, programs = _programsBlockedOn != null;
+    if (_disposed) return;
+    final agents = _blockedOn != null;
     _blockedOn = _programsBlockedOn = null;
-    if (agents || programs) _round(agents: agents, programs: programs);
+    _programsListed = false;
+    _programsLookedFor.clear();
+    // A read still out answers for the old attachment and changes nothing.
+    _programsInFlight = null;
+    if (agents) _round(agents: true, programs: false);
+    // The caller adopts the new attachment for the cards after this call.
+    scheduleMicrotask(() {
+      if (!_disposed) _round(agents: false, programs: true);
+    });
   }
 
   /// Reads the list now, after any read already in flight, and answers what
@@ -427,12 +438,12 @@ class SubagentRoster extends ChangeNotifier {
     final generation = _generation;
     // The cards this read looks for; a later card is looked for by a later
     // read.
+    final held = cards.cardsFor(threadId, attachment);
     final lookedFor = [
-      for (final card
-          in cards.cardsFor(threadId, attachment)?.cards ??
-              const <ProcessOutput>[])
-        card.processId,
+      for (final card in held?.cards ?? const <ProcessOutput>[]) card.processId,
     ];
+    // A kill answered while the read is out is newer than its answer.
+    final since = held?.generation ?? 0;
     final result = await _repository.processList(threadId, profile: profile);
     if (_disposed ||
         generation != _generation ||
@@ -445,7 +456,7 @@ class SubagentRoster extends ChangeNotifier {
         // answer was about the attachment it started on.
         final state = cards.cardsFor(threadId, attachment, create: true);
         if (state == null) return const WorkLost();
-        state.applyList(value, attachment: attachment);
+        state.applyList(value, attachment: attachment, since: since);
         _programsListed = true;
         _programsLookedFor.addAll(lookedFor);
         _programsBlockedOn = null;
@@ -771,9 +782,11 @@ class _ProgramHost implements ProcessStopHost {
   }
 
   @override
-  void applyKill(ProcessKill answer) {
+  Object? get attachment => _roster.programs!.attachmentOf(_roster.threadId);
+
+  @override
+  void applyKill(ProcessKill answer, {required Object? attachment}) {
     final cards = _roster.programs!;
-    final attachment = cards.attachmentOf(_roster.threadId);
     final state = attachment == null
         ? null
         : cards.cardsFor(_roster.threadId, attachment);
