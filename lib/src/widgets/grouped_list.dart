@@ -275,7 +275,9 @@ class GroupedSection extends StatelessWidget {
 /// version), a [subtitle] (one line unless [subtitleMaxLines] says more) and
 /// [warning] and [error] lines under it, which wrap, and at the
 /// trailing edge a muted [value] with a disclosure chevron, or [trailing]
-/// (a switch) in their place.
+/// (a switch) in their place. Above the default text size, a [value] that
+/// would not fit beside the title (or would squeeze it) sits under it instead,
+/// ahead of the subtitle, and the title and subtitle wrap.
 class GroupedRow extends StatelessWidget {
   const GroupedRow({
     super.key,
@@ -359,6 +361,43 @@ class GroupedRow extends StatelessWidget {
   /// Draws the title in the error colour, for a row such as "Remove".
   final bool destructive;
 
+  /// Whether the [value] goes under the title in a row [width] wide. Only
+  /// above the default text size, where a value that fits beside the title
+  /// stays there; at the default size a long value is cut at half the row, as
+  /// it always was.
+  bool _stacksValue(
+    BuildContext context,
+    double width,
+    GroupedMetrics metrics,
+  ) {
+    final value = this.value;
+    if (value == null || trailing != null) return false;
+    final scaler = MediaQuery.textScalerOf(context);
+    if (scaler.scale(metrics.titleSize) <= metrics.titleSize) return false;
+    final direction = Directionality.of(context);
+    // Called from under the row's Material, so this is the style the row's
+    // text is drawn in.
+    final base = DefaultTextStyle.of(context).style;
+    double measure(String text, double size, {int? maxLines}) => (TextPainter(
+      text: TextSpan(
+        text: text,
+        style: base.merge(TextStyle(fontSize: size)),
+      ),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: maxLines,
+    )..layout()).width;
+    final valueWidth = measure(value, metrics.subtitleSize, maxLines: 1) + 8;
+    // Room beside the title: the row less its leading, chevron and gaps.
+    var room = width;
+    if (leading != null) room -= metrics.leadingSize + metrics.leadingGap;
+    if (chevron ?? (onTap != null)) room -= 26;
+    final titleNeeds = measure(title, metrics.titleSize);
+    // The title keeps at least its own width, or a third of the row.
+    final titleMin = titleNeeds < width / 3 ? titleNeeds : width / 3;
+    return valueWidth > width / 2 || room - valueWidth < titleMin;
+  }
+
   @override
   Widget build(BuildContext context) {
     final metrics = GroupedMetrics.of(context);
@@ -390,7 +429,7 @@ class GroupedRow extends StatelessWidget {
       fontSize: metrics.titleSize,
       color: destructive ? scheme.error : scheme.onSurface,
     );
-    Widget row({double? valueWidth}) => Row(
+    Widget row({double? valueWidth, bool stacked = false}) => Row(
       children: [
         if (leading != null) ...[
           IconTheme.merge(
@@ -420,17 +459,28 @@ class GroupedRow extends StatelessWidget {
                         ),
                     ],
                   ),
-                  maxLines: titleMaxLines,
-                  overflow: titleMaxLines == null
+                  maxLines: stacked ? null : titleMaxLines,
+                  overflow: titleMaxLines == null || stacked
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
                   style: titleStyle,
                 ),
+                if (stacked)
+                  // Set apart from the subtitle under it: the value is the
+                  // row's answer, so it is darker and heavier.
+                  Text(
+                    value!,
+                    style: TextStyle(
+                      fontSize: metrics.subtitleSize + 1,
+                      fontWeight: FontWeight.w500,
+                      color: scheme.onSurface,
+                    ),
+                  ),
                 if (subtitle != null)
                   Text(
                     subtitle,
-                    maxLines: subtitleMaxLines,
-                    overflow: subtitleMaxLines == null
+                    maxLines: stacked ? null : subtitleMaxLines,
+                    overflow: subtitleMaxLines == null || stacked
                         ? null
                         : TextOverflow.ellipsis,
                     style: TextStyle(
@@ -469,7 +519,7 @@ class GroupedRow extends StatelessWidget {
             ),
           ),
         ),
-        if (value != null)
+        if (value != null && !stacked)
           // At most half the row, so a long value cannot push the
           // title out.
           ConstrainedBox(
@@ -509,7 +559,10 @@ class GroupedRow extends StatelessWidget {
         child: value == null
             ? row()
             : LayoutBuilder(
-                builder: (context, box) => row(valueWidth: box.maxWidth / 2),
+                builder: (context, box) => row(
+                  valueWidth: box.maxWidth / 2,
+                  stacked: _stacksValue(context, box.maxWidth, metrics),
+                ),
               ),
       ),
     );
