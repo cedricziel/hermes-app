@@ -444,8 +444,11 @@ extension _ChatControllerStreaming on ChatController {
     }
     var announced = event;
     switch (event) {
+      case WorkspaceBound():
+        _workspaceBoundImpl(thread, event);
       case ThreadBound(:final threadId):
         _bindThread(thread, threadId);
+        _workspaceCreated(thread);
         _syncTodo(thread, profile);
         _syncOwnedSession(thread, profile);
         _syncConnector(thread, profile);

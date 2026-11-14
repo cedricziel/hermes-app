@@ -12,7 +12,16 @@ usually works. If its output is empty, fetch the individual job's logs with the
 GitHub connector. Filter for failed test markers and Expected/Actual output;
 telemetry tests deliberately print exceptions and are not necessarily failures.
 
-`scripts/test-shard.sh <index> 4` reproduces the file partition. Shard 0 is the
+On GitHub Actions `flutter test` uses the `github` reporter, which folds each
+failure into a collapsed group and ends with only "N tests passed, 1 failed."
+So a failed shard runs a `List failed tests` step (`scripts/summarize_test_failures.py`,
+fed by `--file-reporter json:build/test-report.json`) that prints every failing
+test with its file and error, adds an annotation per failure and writes them to
+the job summary. Read that step first.
+
+`scripts/test-shard.sh <index> 4` reproduces the file partition. CI's split and
+a local one match only when run on the same tree, since adding or removing a
+test file moves the rest. Shard 0 is the
 catalog; the other files are sorted and distributed round-robin. Adding a test
 file can move existing tests between shards. Start with the failing file before
 running a full shard.
