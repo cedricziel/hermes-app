@@ -12,6 +12,9 @@ import 'package:stream_channel/stream_channel.dart';
 import '../../api/session_source.dart';
 import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
+import '../checkpoints/checkpoint_models.dart';
+import '../checkpoints/checkpoints_transport.dart';
+import '../context/context_models.dart';
 import '../chat_transport.dart';
 import '../chat_session_state.dart';
 import '../owned_session_transport.dart';
@@ -19,6 +22,7 @@ import '../gateway_connection_transport.dart';
 import '../connector_operation_transport.dart';
 import '../connector_operation_state.dart';
 import '../billing_verification_transport.dart';
+import '../agent_work_transport.dart';
 import '../slash_command.dart';
 import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
@@ -35,6 +39,8 @@ part 'hermes_gateway_transport_reconnect.dart';
 part 'hermes_gateway_transport_follow_ups.dart';
 part 'hermes_gateway_transport_requests.dart';
 part 'hermes_gateway_transport_branching.dart';
+part 'hermes_gateway_transport_agent_work.dart';
+part 'hermes_gateway_transport_checkpoints.dart';
 part 'hermes_gateway_transport_connection.dart';
 
 /// Opens the dashboard's `/api/ws` socket, credentials included.
@@ -122,7 +128,10 @@ class HermesGatewayTransport
         ConnectorOperationTransport,
         GatewayConnectionTransport,
         QueueSubmissionTransport,
-        BillingVerificationTransport {
+        BillingVerificationTransport,
+        AgentWorkTransport,
+        CheckpointsTransport,
+        ContextTransport {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
@@ -131,6 +140,8 @@ class HermesGatewayTransport
     this.probeTimeout = const Duration(seconds: 10),
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
+    this.readTimeout = const Duration(seconds: 10),
+    this.longTimeout = const Duration(seconds: 90),
     Random? random,
     this._sleep = _delay,
   }) : _random = random ?? Random();
@@ -152,6 +163,14 @@ class HermesGatewayTransport
   /// How long opening a session or submitting a prompt may go unanswered
   /// before the connection is given up on.
   final Duration requestTimeout;
+
+  /// How long a checkpoint or context read may go unanswered; the connection
+  /// stays open.
+  final Duration readTimeout;
+
+  /// How long a checkpoint diff, a restore or a compress may go unanswered
+  /// before it is reported as possibly done.
+  final Duration longTimeout;
 
   /// How long a connection may take to answer [checkConnection].
   final Duration probeTimeout;
@@ -217,6 +236,9 @@ class HermesGatewayTransport
   final _modelOf = <_ThreadOwner, ModelChoice>{};
 
   final _ownedBindings = <_ThreadOwner, OwnedSessionBinding>{};
+
+  /// The resumes agent actions wait on, so two at once attach a session once.
+  final _agentResumes = <_ThreadOwner, Future<(GatewayRpcClient, String)>>{};
   final _ownedSessions = StreamController<OwnedSessionChange>.broadcast(
     sync: true,
   );
@@ -265,6 +287,36 @@ class HermesGatewayTransport
     OwnedSessionBinding binding,
     String method,
   ) => _readOwnedSession(binding, method);
+
+  @override
+  Future<Map<String, Object?>?> readAttached(
+    String threadId, {
+    String? profile,
+    required String method,
+    Map<String, Object?> params = const {},
+    required Duration timeout,
+  }) => _readAttached(
+    threadId,
+    profile: profile,
+    method: method,
+    params: params,
+    timeout: timeout,
+  );
+
+  @override
+  Future<Map<String, Object?>> act(
+    String threadId, {
+    String? profile,
+    required String method,
+    Map<String, Object?> params = const {},
+    required Duration timeout,
+  }) => _actOnAgent(
+    threadId,
+    profile: profile,
+    method: method,
+    params: params,
+    timeout: timeout,
+  );
 
   /// Shared authenticated RPC for profile and Bot Mode repositories.
   @override
@@ -500,6 +552,41 @@ class HermesGatewayTransport
     String? profile,
     int dropTurns = 0,
   }) => _branchThread(threadId, profile: profile, dropTurns: dropTurns);
+
+  @override
+  Future<CheckpointList> listCheckpoints(OwnedSessionBinding binding) =>
+      _listCheckpoints(binding);
+
+  @override
+  Future<CheckpointList> listCheckpointsResuming(
+    String threadId, {
+    String? profile,
+  }) => _listCheckpointsResuming(threadId, profile);
+
+  @override
+  Future<CheckpointChanges> checkpointChanges(
+    OwnedSessionBinding binding,
+    String hash,
+  ) => _checkpointChanges(binding, hash);
+
+  @override
+  Future<CheckpointRestore> restoreCheckpoint(
+    String threadId, {
+    String? profile,
+    required String hash,
+    String? filePath,
+  }) => _restoreCheckpoint(threadId, profile, hash, filePath);
+
+  @override
+  Future<ContextBreakdown> contextBreakdown(OwnedSessionBinding binding) =>
+      _contextBreakdown(binding);
+
+  @override
+  Future<CompressionResult> compressSession(
+    String threadId, {
+    String? profile,
+    String? focus,
+  }) => _compressSession(threadId, profile, focus);
 
   @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) =>

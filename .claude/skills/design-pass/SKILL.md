@@ -217,7 +217,8 @@ the brief with its reason.
   `NamedIconButton`, `NamedPopupMenuButton`, `AdaptiveTabBar`,
   `AdaptiveDialog` and `AdaptiveSheet`, `AdaptivePickers`,
   `AdaptiveBackButton`, `SettingsSearchField`, `ContentColumn`,
-  `InspectorLayout`, `RowActions`. Run `ls lib/src/widgets/` for the current
+  `InspectorLayout`, `RowActions`, `AppBanner` (the "Banner" of the wave 4
+  design records; Material owns the name `Banner`). Run `ls lib/src/widgets/` for the current
   list. A new piece goes under "New components needed" and gets built once.
 
 ## Record it
