@@ -103,6 +103,7 @@ part 'chat_controller_session_binding.dart';
 part 'chat_controller_session_state.dart';
 part 'chat_controller_streaming.dart';
 part 'chat_controller_surfaces.dart';
+part 'chat_controller_voice.dart';
 part 'chat_controller_workspace.dart';
 part 'chat_controller_working.dart';
 
@@ -1816,6 +1817,34 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     return _submitTo(selectedThread, typed, files);
   }
+
+  /// Sends [text] as a turn spoken in a call, in the selected thread, or says
+  /// why not (a [VoiceTurnRefusal]) after sending and queueing nothing. It
+  /// never joins a queue, paused or not, and never triggers a queued send.
+  /// Waits for the persisted queue to be read first.
+  ///
+  /// [wanted] is the call's still-wanted check (not ended, not muted, no
+  /// approval waiting, consent kept). It is asked again after the restore, right
+  /// before the send, and by the transport right before `prompt.submit` is
+  /// written: a no there sends nothing and reports [VoiceTurnAnswer.withdrawn].
+  ///
+  /// [interrupted] says the user cut off the previous spoken reply. It goes
+  /// out only when the thread is settled. [onSubmitting] runs once, just
+  /// before `prompt.submit` is written. [onAnswer] reports what Hermes
+  /// answered. Null is returned once the turn was handed to the transport.
+  Future<VoiceTurnRefusal?> submitVoiceTurn(
+    String text, {
+    required bool Function() wanted,
+    bool interrupted = false,
+    void Function()? onSubmitting,
+    void Function(VoiceTurnAnswer answer)? onAnswer,
+  }) => _submitVoiceTurnImpl(
+    text,
+    wanted: wanted,
+    interrupted: interrupted,
+    onSubmitting: onSubmitting,
+    onAnswer: onAnswer,
+  );
 
   FutureOr<bool> _submitTo(
     ChatThread? selected,

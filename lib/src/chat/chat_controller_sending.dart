@@ -11,6 +11,7 @@ extension _ChatControllerSending on ChatController {
     List<ChatAttachment>? readyAttachments,
     List<OutgoingAttachment>? readyOutgoing,
     _ProtectedQueuedSend? protectedSend,
+    _VoiceTurn? voice,
   }) {
     if (protectedSend != null &&
         (selected == null || !_bound.contains(selected))) {
@@ -89,6 +90,7 @@ extension _ChatControllerSending on ChatController {
       createdAt: DateTime.now(),
       attachments: attachments,
     );
+    voice?.prior = _sentPrompts[thread];
     _sentPrompts[thread] = userMessage;
     if (protectedSend == null) {
       thread.messages.add(userMessage);
@@ -127,6 +129,7 @@ extension _ChatControllerSending on ChatController {
         submittedUser: userMessage,
         protectedSend: protectedSend,
         deferredUser: protectedSend == null ? null : userMessage,
+        voice: voice,
       );
       if (!_currentActivity(epoch)) return false;
       unawaited(_attention.askForPermission());
@@ -207,6 +210,7 @@ extension _ChatControllerSending on ChatController {
     required ChatMessage submittedUser,
     _ProtectedQueuedSend? protectedSend,
     ChatMessage? deferredUser,
+    _VoiceTurn? voice,
   }) {
     _beginMoaTurn(thread, reply);
     final epoch = _activityEpoch;
@@ -220,8 +224,12 @@ extension _ChatControllerSending on ChatController {
     var stopped = false;
     var folded = false;
     var settled = false;
+    // Set when a spoken turn left no trace: it was withdrawn before it was
+    // written, or Hermes took it as a stop phrase. Fixed words, for telemetry.
+    String? withdrawn;
     final own = _OwnTurn();
     String outcome(Object? error) {
+      if (withdrawn != null) return withdrawn!;
       if (error != null || reply.isPending && !folded) return 'failed';
       if (folded) return 'folded';
       if (stopped) return 'stopped';
@@ -261,7 +269,15 @@ extension _ChatControllerSending on ChatController {
         announceFailure: !reply.isPending,
       );
       if (!_currentActivity(epoch)) return;
-      if (folded) {
+      if (withdrawn != null) {
+        _abandon(thread);
+        // Nothing ran, so the queue (a typed prompt may have joined it while
+        // this turn was being opened) goes on as after any turn that ended.
+        if (_turnEnded(thread)) {
+          _drainQueue(thread);
+        }
+        notifyListeners();
+      } else if (folded) {
         // The prompt went into the turn already running, whose events follow
         // on the thread's follow-ups.
         if (error == null) {
@@ -344,6 +360,10 @@ extension _ChatControllerSending on ChatController {
         model: thread.modelChoice,
         queued: queued,
         workspace: _choiceForSend(thread, threadId),
+        voiceTurn: voice != null,
+        interrupted: voice?.interrupted ?? false,
+        authorize: voice?.wanted,
+        onSubmitting: voice?.onSubmitting,
       );
     } else {
       stream = (transport as QueueSubmissionTransport).sendQueued(
@@ -422,6 +442,25 @@ extension _ChatControllerSending on ChatController {
           }
           return;
         }
+        if (protectedSend == null &&
+            event is PromptAccepted &&
+            event.status == PromptAccepted.voiceStopped) {
+          // Hermes took the words as a stop phrase, typed or spoken: no turn
+          // runs, so neither the prompt nor its placeholder is shown.
+          withdrawn = 'voice_stopped';
+          voice?.answer(VoiceTurnAnswer.voiceStopped);
+          _dropUnsentTurn(thread, submittedUser, reply, voice?.prior);
+          return;
+        }
+        if (voice != null && event is PromptAccepted) {
+          voice.answer(switch (event.status) {
+            'queued' => VoiceTurnAnswer.queued,
+            'steered' => VoiceTurnAnswer.steered,
+            'redirected' => VoiceTurnAnswer.redirected,
+            _ => VoiceTurnAnswer.started,
+          });
+          return;
+        }
         if (event is PromptAccepted &&
             protectedSend != null &&
             PromptAccepted.allowedStatuses.contains(event.status)) {
@@ -474,7 +513,15 @@ extension _ChatControllerSending on ChatController {
         }
         _onReplyEvent(thread, reply, event, profile);
       },
-      onError: end,
+      onError: (Object error) {
+        if (voice != null && error is PromptNotSent) {
+          if (!_currentActivity(epoch)) return;
+          withdrawn = 'not_sent';
+          voice.answer(VoiceTurnAnswer.withdrawn);
+          _dropUnsentTurn(thread, submittedUser, reply, voice.prior);
+        }
+        end(error);
+      },
       onDone: end,
       cancelOnError: true,
     );

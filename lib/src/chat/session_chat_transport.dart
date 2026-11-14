@@ -375,6 +375,9 @@ final class SessionChatTransport
     bool queued = false,
     WorkspaceChoice? workspace,
     void Function()? onSubmitting,
+    bool voiceTurn = false,
+    bool interrupted = false,
+    bool Function()? authorize,
   }) => _stream((d) {
     _acknowledgement = d is PromptAcknowledgement
         ? d as PromptAcknowledgement
@@ -388,6 +391,9 @@ final class SessionChatTransport
       queued: queued,
       workspace: workspace,
       onSubmitting: onSubmitting,
+      voiceTurn: voiceTurn,
+      interrupted: interrupted,
+      authorize: authorize,
     );
   });
 
