@@ -99,7 +99,7 @@ void main() {
     final state = chat.sessionStateIn(thread)!;
     // Before, `compressing` stayed as a wait nothing cleared.
     expect(state.waits.keys, ['ready', 'goal']);
-    expect(reply.activity, 'Compressing the conversation…');
+    expect(reply.activityKind, ReplyStatusKind.compressing);
     send
       ..emit(frame('compressing', ''))
       ..emit(frame('compacted', 'Compacted'))
