@@ -68,7 +68,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
       );
       if (mounted) setState(() => _content = text);
     } on Object catch (e, stack) {
-      reportBug(e, stack, 'a skill');
+      reportBug(e, stack, 'a skill detail');
       if (mounted) setState(() => _failed = true);
     }
   }

@@ -11,6 +11,7 @@ import 'package:pasteboard/pasteboard.dart';
 
 import '../../share/shared_item.dart';
 import 'attachment_source.dart';
+import '../../telemetry/report_bug.dart';
 
 const _cameraUnavailable =
     'The camera is not available. Check that Hermes may use it in Settings.';
@@ -133,7 +134,10 @@ class PluginAttachmentSource implements AttachmentSource {
       final (image, paths) = await _desktopClipboard();
       if (image != null) return [await _pastedImage(image)];
       return paths.map(sharedFileFromPath).toList();
-    } on Exception {
+    } on Object catch (e, stack) {
+      // Paste has no other fallback to lose, so the keypress stays quiet; a
+      // bug is still reported.
+      reportBug(e, stack, 'a clipboard paste');
       return const [];
     }
   }

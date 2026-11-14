@@ -347,15 +347,20 @@ void main() {
     });
 
     test(
-      'a bug while reading the clipboard is not hidden as nothing',
+      'a bug while reading the clipboard is reported, and reads nothing',
       () async {
+        final previous = FlutterError.onError;
+        final reported = <FlutterErrorDetails>[];
+        FlutterError.onError = reported.add;
+        addTearDown(() => FlutterError.onError = previous);
         final source = PluginAttachmentSource(
           platform: TargetPlatform.macOS,
           clipboardImage: () async => throw StateError('bug'),
           clipboardFiles: () async => const [],
         );
 
-        await expectLater(source.pasted(), throwsStateError);
+        expect(await source.pasted(), isEmpty);
+        expect(reported.single.exception, isA<StateError>());
       },
     );
 

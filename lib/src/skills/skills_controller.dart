@@ -174,7 +174,7 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
       if (overview == null) return;
       _profiles = overview.profiles;
     } on Object catch (e, stack) {
-      reportBug(e, stack, 'the skills list');
+      reportBug(e, stack, 'the skills profiles');
       _profiles = const [];
     }
     notifyListeners();
@@ -298,7 +298,7 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
       _log(op, 'rejected');
       return e.message;
     } on Object catch (e, stack) {
-      reportBug(e, stack, 'the skills list');
+      reportBug(e, stack, 'a skill change');
       _log(op, 'error');
       return 'Could not reach the server';
     }

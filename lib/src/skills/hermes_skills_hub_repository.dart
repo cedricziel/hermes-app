@@ -161,7 +161,7 @@ class HermesSkillsHubRepository {
         )).data,
       );
     } on Object catch (e, stack) {
-      reportBug(e, stack, 'a skill');
+      reportBug(e, stack, 'the skills hub sources');
       // The catalog is still useful without the featured list.
     }
     final installed = sources?.installed ?? const <String>{};

@@ -51,7 +51,7 @@ class SkillJob extends ChangeNotifier with SafeNotifier {
       _finish(JobState.failed, error: e.message);
       return;
     } on Object catch (e, stack) {
-      reportBug(e, stack, 'a skill');
+      reportBug(e, stack, 'a skill job');
       _finish(JobState.failed, error: 'Could not start the job');
       return;
     }
