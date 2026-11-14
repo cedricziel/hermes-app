@@ -1,4 +1,5 @@
 import 'files_use_cases.dart';
+import 'tools_use_cases.dart';
 import 'voice_call_use_cases.dart';
 import 'messenger_identity_use_cases.dart';
 import 'reaction_use_cases.dart';
@@ -182,4 +183,5 @@ final List<WidgetbookNode> directories = [
   mcpNode(),
   mcpScreensNode(),
   settingsScreensNode(),
+  toolsNode(),
 ];
