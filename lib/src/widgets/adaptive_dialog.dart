@@ -13,16 +13,12 @@ class AppAlertDialog extends StatelessWidget {
     this.title,
     this.content,
     this.actions = const [],
-    this.backgroundColor,
     this.scrollable = false,
   });
 
   final Widget? title;
   final Widget? content;
   final List<Widget> actions;
-
-  /// The surface of the Material dialog; null keeps the theme's.
-  final Color? backgroundColor;
 
   /// Puts the title and the content in one scrolling region with the actions
   /// outside it, so a long text at the largest text size cannot push the
@@ -38,7 +34,6 @@ class AppAlertDialog extends StatelessWidget {
         actions: actions,
         // Stacked at a large text size, the actions line up at the end.
         actionsOverflowAlignment: OverflowBarAlignment.end,
-        backgroundColor: backgroundColor,
         scrollable: scrollable,
       );
     }

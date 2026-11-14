@@ -36,6 +36,7 @@ class SecretFieldRow extends StatefulWidget {
     this.onSubmitted,
     this.textInputAction,
     this.initiallyShown = false,
+    this.labelWidth,
   });
 
   final String label;
@@ -62,6 +63,9 @@ class SecretFieldRow extends StatefulWidget {
   /// Starts with the value shown. Only the catalog sets it, to draw that
   /// state; a screen leaves it false, since a shown value is never restored.
   final bool initiallyShown;
+
+  /// See [GroupedTextFieldRow.labelWidth].
+  final double? labelWidth;
 
   @override
   State<SecretFieldRow> createState() => _SecretFieldRowState();
@@ -136,28 +140,35 @@ class _SecretFieldRowState extends State<SecretFieldRow>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GroupedTextFieldRow(
-          label: widget.label,
-          hint: widget.hint,
-          controller: widget.controller,
-          focusNode: widget.focusNode,
-          enabled: widget.enabled,
-          obscureText: !_shown || widget.busy,
-          maxLines: 1,
-          autocorrect: false,
-          enableSuggestions: false,
-          enableIMEPersonalizedLearning: false,
-          // Null turns autofill off; an empty list would still opt in.
-          autofillHints: null,
-          smartDashesType: SmartDashesType.disabled,
-          smartQuotesType: SmartQuotesType.disabled,
-          keyboardType: android ? TextInputType.visiblePassword : null,
-          textCapitalization: TextCapitalization.none,
-          textInputAction: widget.textInputAction,
-          errorText: widget.errorText,
-          onChanged: widget.onChanged,
-          onSubmitted: widget.onSubmitted,
-          trailing: _toggle(context),
+        LayoutBuilder(
+          builder: (context, box) => GroupedTextFieldRow(
+            label: widget.label,
+            hint: widget.hint,
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            enabled: widget.enabled,
+            obscureText: !_shown || widget.busy,
+            maxLines: 1,
+            autocorrect: false,
+            enableSuggestions: false,
+            enableIMEPersonalizedLearning: false,
+            // Null turns autofill off; an empty list would still opt in.
+            autofillHints: null,
+            smartDashesType: SmartDashesType.disabled,
+            smartQuotesType: SmartQuotesType.disabled,
+            keyboardType: android ? TextInputType.visiblePassword : null,
+            textCapitalization: TextCapitalization.none,
+            textInputAction: widget.textInputAction,
+            errorText: widget.errorText,
+            onChanged: widget.onChanged,
+            onSubmitted: widget.onSubmitted,
+            trailing: _toggle(context),
+            labelWidth:
+                widget.labelWidth ??
+                groupedLabelWidth(context, [
+                  widget.label,
+                ], available: box.maxWidth),
+          ),
         ),
         ListenableBuilder(
           listenable: widget.controller,

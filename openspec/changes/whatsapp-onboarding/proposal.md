@@ -2,7 +2,7 @@
 
 ## Why
 
-The Bots screen can switch WhatsApp on and take its settings, but the account has to be linked first, and only the web dashboard does that: it starts a bridge on the server, shows a QR code and waits for a scan. The app already pairs Telegram this way (`profiles-and-bots`). WhatsApp has the same routes and nothing in the app uses them.
+The Messaging screen can switch WhatsApp on and take its settings, but the account has to be linked first, and only the web dashboard does that: it starts a bridge on the server, shows a QR code and waits for a scan. The app already pairs Telegram this way (`profiles-and-bots`). WhatsApp has the same routes and nothing in the app uses them.
 
 ## What Changes
 
@@ -36,7 +36,7 @@ None. `profiles-and-bots` gains a sibling entry point only.
 - Platforms: all but watchOS. No native change.
 - Security and privacy: the QR payload and the pairing id are credentials. They live in screen state only: never logged, in a span, a breadcrumb, preferences, the clipboard (no Copy button) or a screenshot-friendly cache, and cleared when the screen closes. When App Lock locks or the app leaves the foreground the code is hidden: on a handset it needs the "Show QR code" tap again, on a tablet or computer it returns on unlock or return. The linked account's name and number are shown to the user and never recorded.
 - Observability: span `whatsapp.pair.start` (`outcome`) and `whatsapp.pair.apply` (`outcome`, `restart` requested | not_requested); log events `whatsapp.pair.ended` (`status` connected | error | expired | cancelled | superseded) and `whatsapp.pair.unavailable`; breadcrumbs `whatsapp.pair.opened`, `whatsapp.pair.qr_shown`, `whatsapp.pair.applied`. Fixed words only.
-- Delivery: one PR.
+- Delivery: two PRs, the catalog widgets first, then the screen.
 
 ## Design pass
 

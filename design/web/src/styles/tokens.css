@@ -37,6 +37,9 @@
   --h-hover: rgba(24, 24, 27, 0.06);
   --h-pressed: rgba(24, 24, 27, 0.1);
   --h-scrim: rgba(0, 0, 0, 0.32);
+  /* Dialog and sheet surface and 1px edge. Light needs no edge. Dark must not use zinc800 here: idle field outlines and unselected segments are zinc800 and would vanish. */
+  --h-overlay-surface: var(--h-surface);
+  --h-overlay-edge: transparent;
   --h-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   /* Apple system red and orange (swipe actions, the action sheet) and the elevated fill of its Cancel. */
   --h-apple-red: #ff3b30;
@@ -89,6 +92,8 @@
   --h-hover: rgba(250, 250, 250, 0.08);
   --h-pressed: rgba(250, 250, 250, 0.12);
   --h-scrim: rgba(0, 0, 0, 0.6);
+  --h-overlay-surface: var(--h-zinc-900);
+  --h-overlay-edge: var(--h-zinc-500);
   --h-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   --h-apple-red: #ff453a;
   --h-apple-orange: #ff9f0a;

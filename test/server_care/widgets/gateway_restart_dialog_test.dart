@@ -135,44 +135,49 @@ void main() {
     );
   });
 
-  testWidgets('on Material dark the dialog surface is not the scaffold black', (
-    tester,
-  ) async {
-    answer = null;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildHermesDarkTheme(platform: TargetPlatform.android),
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () => showAppDialog<bool>(
-                context: context,
-                builder: (_) => const GatewayRestartDialog(
-                  title: 'T',
-                  lines: ['L'],
-                  confirmLabel: 'Restart',
-                  cancelLabel: 'Cancel',
+  testWidgets(
+    'on Material dark the dialog takes the overlay surface and edge from the theme',
+    (tester) async {
+      answer = null;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesDarkTheme(platform: TargetPlatform.android),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showAppDialog<bool>(
+                  context: context,
+                  builder: (_) => const GatewayRestartDialog(
+                    title: 'T',
+                    lines: ['L'],
+                    confirmLabel: 'Restart',
+                    cancelLabel: 'Cancel',
+                  ),
                 ),
+                child: const Text('ask'),
               ),
-              child: const Text('ask'),
             ),
           ),
         ),
-      ),
-    );
-    await tester.tap(find.text('ask'));
-    await tester.pumpAndSettle();
-    final material = tester.widget<Material>(
-      find
-          .descendant(
-            of: find.byType(AlertDialog),
-            matching: find.byType(Material),
-          )
-          .first,
-    );
-    final scaffold = Theme.of(tester.element(find.byType(AlertDialog)))
-        .scaffoldBackgroundColor;
-    expect(material.color, isNot(scaffold));
-    expect(material.color, HermesColors.zinc800);
-  });
+      );
+      await tester.tap(find.text('ask'));
+      await tester.pumpAndSettle();
+      final material = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byType(AlertDialog),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      final scaffold = Theme.of(tester.element(find.byType(AlertDialog)))
+          .scaffoldBackgroundColor;
+      expect(material.color, isNot(scaffold));
+      expect(material.color, HermesColors.zinc900);
+      expect(
+        (material.shape! as RoundedRectangleBorder).side.color,
+        HermesColors.zinc500,
+      );
+    },
+  );
 }

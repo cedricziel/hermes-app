@@ -95,9 +95,18 @@ extension _ChatScreenLayout on _ChatScreenState {
           memoryWaiting: _memoryWaiting?.waiting,
           onOpenPlugins: _plugins == null ? null : _openPlugins,
           onOpenMcp: _mcp == null ? null : _openMcp,
+          onOpenProviders: _providersOffered
+              ? () => _openProviders(ProvidersEntry.sidebar)
+              : null,
           onOpenHelperModels: _models == null ? null : _openHelperModels,
         );
 
+        final toolbar = workingToolbarSubtitle(
+          chat,
+          selected,
+          profile: chat.profile,
+          model: _toolbarModelId(),
+        );
         final compactMessenger = !isWide && !_mac;
         final macSplit = isWide && _mac;
         final search = chat.search;
@@ -122,6 +131,12 @@ extension _ChatScreenLayout on _ChatScreenState {
             onOpenScreen: () => _openViewer('preview'),
             onShowAgentDetails: _showAgentDetails,
             needsYou: _needsYou,
+            // The inspector lists the same items, so it replaces the line
+            // (a phone's sheet covers the chat, so there the line stays); the
+            // Mac toolbar's subtitle takes its place on macOS.
+            onOpenActivity: _mac || (isWide && _activityOpen)
+                ? null
+                : () => _toggleActivity(source: 'line'),
             thread: selected,
             greetingName: context.select<AuthController, String?>(
               (auth) => auth.identity?.displayName,
@@ -155,7 +170,8 @@ extension _ChatScreenLayout on _ChatScreenState {
                     builder: (context, _) => MacChatToolbar(
                       avatar: _avatar(),
                       title: bot?.title ?? selected?.title ?? 'Hermes',
-                      subtitle: _toolbarSubtitle(),
+                      subtitle: toolbar.subtitle,
+                      subtitleBuilder: toolbar.subtitleBuilder,
                       onNewChat: _newThread,
                       onShowConnection: _showConnection,
                       activityOpen: _activityOpen,
@@ -321,6 +337,13 @@ extension _ChatScreenLayout on _ChatScreenState {
                                 icon: AppIcons.power,
                                 label: 'MCP servers',
                                 onTap: _openMcp,
+                              ),
+                            if (_providersOffered)
+                              SidebarAction(
+                                icon: AppIcons.hub,
+                                label: context.l10n.providersListTitle,
+                                onTap: () =>
+                                    _openProviders(ProvidersEntry.drawer),
                               ),
                             if (_models != null)
                               SidebarAction(
