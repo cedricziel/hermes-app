@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/app_badge.dart';
 import '../memory_proposals.dart';
 
 /// What Hermes would do, in a small tinted label.
@@ -20,22 +21,11 @@ class ProposalBadge extends StatelessWidget {
       ProposalAction.skill => scheme.primary,
       ProposalAction.change => colors.subtleText,
     };
-    return Container(
-      constraints: const BoxConstraints(minWidth: 64),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        action.label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return AppBadge.tinted(
+      label: action.label,
+      color: color,
+      minWidth: 64,
+      verticalPadding: 2,
     );
   }
 }

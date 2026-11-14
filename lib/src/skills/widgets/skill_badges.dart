@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/app_badge.dart';
 import '../hermes_skills_repository.dart';
 
 String skillSourceLabel(SkillSource source) => switch (source) {
@@ -23,21 +24,13 @@ class TrustBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = switch (level) {
-      'builtin' => scheme.primaryContainer,
-      'trusted' => scheme.secondaryContainer,
-      _ => scheme.surfaceContainerHighest,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        trustLabel(level),
-        style: Theme.of(context).textTheme.labelSmall,
-      ),
+    return AppBadge.filled(
+      label: trustLabel(level),
+      fill: switch (level) {
+        'builtin' => scheme.primaryContainer,
+        'trusted' => scheme.secondaryContainer,
+        _ => scheme.surfaceContainerHighest,
+      },
     );
   }
 }
@@ -48,18 +41,8 @@ class SourceBadge extends StatelessWidget {
   final SkillSource source;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        skillSourceLabel(source),
-        style: Theme.of(context).textTheme.labelSmall,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AppBadge.filled(
+    label: skillSourceLabel(source),
+    fill: Theme.of(context).colorScheme.surfaceContainerHighest,
+  );
 }
