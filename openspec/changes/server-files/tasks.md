@@ -66,6 +66,10 @@ If PR 1 passes about 500 lines, split it after 1.4 (repository) and 1.5 (streami
 - The test for `filesAvailabilityProvider` uses the real provider definition, not the whole `authProviders` list (which needs a signed-in `AuthController`).
 - The new chat header item shows only for a chat the dashboard holds (`ThreadActionsButton`); a draft is reached through the Activity row and the Mac menu.
 
+## 6. Follow-up — draft start folder and boundary 403
+
+- [x] 6.1 A draft chat starts at the catalog's `default_cwd` (`ChatController.draftWorkingDirectory`) before `fs/default-cwd`; a boundary 403 inside a folder that already listed is `notAllowed` (`HermesFilesRepository._insideRoot`).
+
 ## Roadmap (not done in this change)
 
 - The dark `showConfirmDialog` surface barely differs from the scrim (a shared theme issue, seen in the Files workflow screenshots).

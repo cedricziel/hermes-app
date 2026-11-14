@@ -3,12 +3,15 @@ import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
+import 'package:hermes_app/src/chat/widgets/chat_header.dart'
+    show NewChatButton;
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/files/files_availability.dart';
 import 'package:hermes_app/src/files/files_screen.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/menu_layout.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
+import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:provider/provider.dart';
 
 import '../support/attachment_fixtures.dart';
@@ -57,6 +60,7 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     MacCommandRegistry? commands,
+    bool withWorkspaces = false,
     TargetPlatform? platform,
     Size size = const Size(1400, 900),
   }) async {
@@ -69,6 +73,12 @@ void main() {
       server: server,
       transport: FakeChatTransport(),
       commands: commands,
+      workspaces: withWorkspaces
+          ? HermesWorkspacesRepository(
+              server.client().raw,
+              (method, params, {required timeout}) async => {},
+            )
+          : null,
       platform: platform,
       size: size,
       providers: [
@@ -133,6 +143,98 @@ void main() {
       expect(find.text('a.txt'), findsOneWidget);
       final opened = trail.recent.singleWhere((c) => c.name == 'files.opened');
       expect(opened.attributes, {'source': 'activity'});
+    });
+
+    testWidgets('a new chat opens at the catalog folder of its profile', (
+      tester,
+    ) async {
+      server
+        ..on('GET', '/api/chat/workspaces', {
+          'projects': [],
+          'repos': [],
+          'default_cwd': '/srv/catalog',
+          'home': '/home/me',
+          'scan_enabled': false,
+        })
+        ..on(
+          'GET',
+          '/api/fs/git-root',
+          {'root': null},
+          query: {'path': '/srv/catalog', 'profile': 'default'},
+        )
+        ..on(
+          'GET',
+          '/api/fs/list',
+          {
+            'entries': [
+              {
+                'name': 'only-here.txt',
+                'path': '/srv/catalog/only-here.txt',
+                'isDirectory': false,
+              },
+            ],
+          },
+          query: {'path': '/srv/catalog', 'profile': 'default'},
+        );
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pump(tester, commands: commands, withWorkspaces: true);
+      await probeAndSettle(tester);
+      await tester.tap(find.byType(NewChatButton).first);
+      await probeAndSettle(tester);
+
+      expect(commands.invoke(MacCommand.showFiles), isTrue);
+      await probeAndSettle(tester);
+
+      expect(find.text('only-here.txt'), findsOneWidget);
+    });
+
+    testWidgets('a stored chat without a folder keeps the server default', (
+      tester,
+    ) async {
+      server
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 's1', title: 'Field notes')]),
+        )
+        ..on('GET', '/api/chat/workspaces', {
+          'projects': [],
+          'repos': [],
+          'default_cwd': '/srv/catalog',
+          'home': '/home/me',
+          'scan_enabled': false,
+        })
+        ..on(
+          'GET',
+          '/api/fs/git-root',
+          {'root': null},
+          query: {'path': '/elsewhere', 'profile': 'default'},
+        )
+        ..on(
+          'GET',
+          '/api/fs/list',
+          {
+            'entries': [
+              {
+                'name': 'server-default.txt',
+                'path': '/elsewhere/server-default.txt',
+                'isDirectory': false,
+              },
+            ],
+          },
+          query: {'path': '/elsewhere', 'profile': 'default'},
+        );
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pump(tester, commands: commands, withWorkspaces: true);
+      await openThread(tester, 'Field notes');
+      await probeAndSettle(tester);
+
+      expect(commands.invoke(MacCommand.showFiles), isTrue);
+      await probeAndSettle(tester);
+
+      expect(find.text('server-default.txt'), findsOneWidget);
     });
 
     testWidgets('the chat header menu has a Files item', (tester) async {
