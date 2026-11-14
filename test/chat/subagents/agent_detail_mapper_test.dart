@@ -302,6 +302,41 @@ void main() {
       expect(h.model.output!.truncated, isFalse);
     });
 
+    flow('held text keeps its own truncation warning through a refresh', (
+      async,
+      h,
+    ) {
+      async.flushMicrotasks();
+      expect(h.model.output!.truncated, isFalse);
+      h.controller.setReaderHolding(true);
+      h.transport.agentAnswer = (_) => tail('partial\nnewer', truncated: true);
+      async.elapse(kTailEvery);
+      async.flushMicrotasks();
+      expect(h.model.output!.text, 'output');
+      expect(h.model.output!.truncated, isFalse, reason: 'held text is whole');
+      h.controller.jumpToLatest();
+      expect(h.model.output!.text, 'newer');
+      expect(h.model.output!.truncated, isTrue);
+    });
+
+    test(
+      'an ended agent that was never read is "none", not loading forever',
+      () {
+        fakeAsync((async) {
+          final h = MapperHarness(
+            row: RosterRow(
+              id: 'a1',
+              order: 0,
+              goal: _goal,
+              state: AgentState.finished,
+            ),
+          );
+          expect(h.model.output!.status, AgentOutputStatus.none);
+          h.controller.dispose();
+        });
+      },
+    );
+
     flow('a failed refresh keeps the text and flags it', (async, h) {
       async.flushMicrotasks();
       h.transport.agentAnswer = (_) =>

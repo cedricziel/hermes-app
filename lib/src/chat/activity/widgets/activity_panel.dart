@@ -114,7 +114,8 @@ class ActivityPanel extends StatelessWidget {
             offstage: detail != null,
             // The sheet's growing animation runs on this list's scrollable, so
             // its tickers stay on while a detail covers it.
-            child: list,
+            // Offstage hides the list but keeps its focus targets.
+            child: ExcludeFocus(excluding: detail != null, child: list),
           ),
         ),
         if (detail != null) Positioned.fill(child: detail),

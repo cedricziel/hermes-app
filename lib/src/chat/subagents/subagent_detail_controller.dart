@@ -121,6 +121,9 @@ class SubagentDetailController extends ChangeNotifier {
   var _answered = false;
   var _available = false;
   var _truncated = false;
+
+  /// The cut flag of the held text, so a refresh never changes its warning.
+  var _shownTruncated = false;
   var _refreshFailed = false;
   var _tailUnsupported = false;
 
@@ -135,6 +138,7 @@ class SubagentDetailController extends ChangeNotifier {
     if (_disposed || _holding == holding) return;
     _holding = holding;
     _shown = holding ? _latest : null;
+    _shownTruncated = _truncated;
     notifyListeners();
   }
 
@@ -146,7 +150,8 @@ class SubagentDetailController extends ChangeNotifier {
   }
 
   /// Only the end of the output is held (Hermes or this app cut its start).
-  bool get tailTruncated => _truncated && tail.isNotEmpty;
+  bool get tailTruncated =>
+      (_shown != null ? _shownTruncated : _truncated) && tail.isNotEmpty;
 
   /// The last read failed after output was shown: "Couldn't refresh the
   /// output."

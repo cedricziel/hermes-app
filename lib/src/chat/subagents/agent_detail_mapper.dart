@@ -60,7 +60,9 @@ AgentDetailModel agentDetailModel({
       : AgentOutputModel(
           text: controller.tail,
           status: switch (tail) {
-            TailPhase.loading => AgentOutputStatus.loading,
+            // An ended agent is never read again: unanswered is no output.
+            TailPhase.loading when row.active => AgentOutputStatus.loading,
+            TailPhase.loading => AgentOutputStatus.none,
             TailPhase.ready => AgentOutputStatus.ready,
             TailPhase.noOutput => AgentOutputStatus.none,
             TailPhase.neverAvailable => AgentOutputStatus.never,

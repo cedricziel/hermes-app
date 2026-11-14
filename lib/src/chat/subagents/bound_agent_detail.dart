@@ -70,7 +70,6 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
     });
     final roster = widget.roster;
     if (!widget.readOnly) {
-      _watch = roster.watch();
       _controller = SubagentDetailController(
         key: widget.agent,
         repository: roster.repository,
@@ -95,6 +94,22 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
         widget.onStopAsked?.call();
         _controller?.startStop();
       });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The list is read only while the panel is shown, as the panel's own
+    // demand: a covered detail holds no watch.
+    if (widget.readOnly) return;
+    final visible =
+        Visibility.of(context) && TickerMode.valuesOf(context).enabled;
+    if (visible) {
+      _watch ??= widget.roster.watch();
+    } else {
+      _watch?.close();
+      _watch = null;
     }
   }
 
