@@ -24,9 +24,14 @@ Two PRs, in order, each about 500 changed lines or fewer. Every behaviour task s
 ## 3. Docs and skills
 
 - [x] 3.1 Update `docs/architecture/chat.md` (the activity paragraph: line, toolbar subtitle, process output in Now) and the Chat paragraph of `CLAUDE.md` if it needs it, the `component-catalog` skill if it lists changed cards, and refresh the chat workflow screenshots per the `workflow-screenshots` skill.
-- [ ] 3.2 After this change is merged, archive the `chat-activity-*` changes in order (needs-you, line) so the `chat-activity` spec builds up correctly.
+- [x] 3.2 After this change is merged, archive the `chat-activity-*` changes in order (needs-you, line) so the `chat-activity` spec builds up correctly.
 
 ## 4. Verify
 
-- [ ] 4.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
-- [ ] 4.2 Run the `verify-in-app` loop on macOS against a dev backend with a scripted turn that recalls memory and runs a plan: confirm the toolbar subtitle shows the status, the inspector lists details, and nothing stacks above the transcript; screenshot it. Phone and Material layouts are covered by the workflow tests; say so if no device was run.
+- [x] 4.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
+
+## Not verified on a device
+
+These checks had not been run when the change was archived. The implementation and its tests are in the repository; see docs/roadmap.md.
+
+- 4.2 Run the `verify-in-app` loop on macOS against `scripts/dev-backend.sh` with a scripted turn that recalls memory and runs a plan: confirm the toolbar subtitle shows the status, the inspector lists details, and nothing stacks above the transcript; screenshot it.
