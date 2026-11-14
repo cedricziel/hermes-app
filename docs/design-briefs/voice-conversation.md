@@ -19,14 +19,14 @@ Decisions taken in the design pass:
 
 - **One orb, five jobs.** A 112 pt circle (surface-high, 2 pt foreground ring) holding a 48 pt icon per state: spinner, mic, struck mic, up arrow, three dots, speaker, chat bubble, stop square. Two rings behind it scale with the input or output level (amplitude 0-1) and are static under reduce-motion. The orb is the interrupt button only while speaking ("Interrupt the assistant"); in every other state it is not a target.
 - **Words and icons carry state.** The state word (22 pt semibold, `role=status`) sits under the orb with a one-line hint. Colour is never the only signal: the recording dot is next to the words "Hands-free on", muted is a grey dot plus "microphone muted", problems use the warning triangle plus a word.
-- **The Hands-free strip** is a pill under the top bar: dot, "Hands-free on", "· microphone open | paused | muted | opening". It is also in the chat header when the call screen is closed, with a 44 pt End action, so a running microphone is never out of sight. At 2x text it keeps the dot and "Hands-free on" and drops the second half.
-- **Sending is its own state** (up arrow, the words in italics, "End or mute now to cancel"). It is the last moment to cancel by End or mute; after the submit the reply belongs to the chat.
+- **The Hands-free strip** is a pill under the top bar: dot, "Hands-free on", "· microphone open | paused | muted | opening". It lives in the app shell (every screen, not only the chat header) with a 44 pt End action while the call screen is closed, so a running microphone is never out of sight: the strip lives in the app shell under the platform bar on every screen. At 2x text it keeps the dot and "Hands-free on" and drops the second half.
+- **Sending is its own state** (up arrow, the words in italics, "End or mute now to cancel"). It is the last moment to cancel by End or mute; Sending ends when the prompt is submitted; after that the prompt is in the chat and only End (which stops the reply) remains.
 - **Consent sits in a bordered card** above the checks: the sentence about what happens, then the `SwitchRow` "Send what I say automatically" with the subtitle "Off again for the next call". Start call is the filled button and stays disabled until the switch is on; "Use dictation instead" is the text button under it. Not-ready screens have no consent row to act on, only the fix actions.
 - **Controls**: Mute, Speaker (iOS and Android only) and End call as 56 pt circles with a label under each (44 pt minimum met); End is the filled dark circle, never red. The Mac dialog drops Speaker. "Speak replies" is a `SwitchRow` under the controls; with it off the hint reads "Replies are not spoken. The answer will be in the chat."
 - **Last two turns** are two plain lines (You, Hermes), not bubbles, under the hint. The live caption of a turn being sent replaces them.
-- **Stopped** shows the orb with a stop square (or a check after a plain End), the word "Stopped" and one notice card; "Back to chat" is filled, "Start a new call" outlined. The strip is gone because the microphone is closed.
+- **Stopped** shows the orb with a stop square (or a check after a plain End), the word "Stopped" and one notice card; "Back to chat" is filled, "Start a new call" outlined (it reopens the start screen with the switch off). The strip is gone because the microphone is closed.
 - **Notices**: an info or warning icon, a bold sentence, then muted detail. Copy below.
-- **Desktop**: a 480 pt dialog centred over the dimmed chat from 760 pt; no sheet on the Mac; Escape ends the call. While Hermes speaks the strip says "microphone paused" and the hint tells the user to tap the orb.
+- **Desktop**: a 480 pt dialog centred over the dimmed chat from 760 pt; no sheet on the Mac; Escape and "Show chat" close the dialog and the call keeps running; the shell strip has End. While Hermes speaks the strip says "microphone paused" and the hint tells the user to tap the orb.
 - **Large text**: the start screen's body must scroll, with the consent switch and Start call pinned at the bottom (the canvas shows the overflow at 2x; library controls do not scale on the canvas, so check them in the catalog).
 
 Corrections where this brief or the first draft did not work:
@@ -36,13 +36,22 @@ Corrections where this brief or the first draft did not work:
 - "Sending" needed a state of its own so End and mute have a visible last moment.
 - At 2x text the Hands-free strip wrapped to three lines; it now drops its second half.
 
+After review:
+
+- Sending ends at submit; the hint no longer promises a cancel after it. Mute is re-checked just before the submit.
+- Waiting for you pauses capture ("microphone paused" in the strip) and ignores speech: nothing is interrupted or sent.
+- A voice turn is never queued; two notices cover "still answering" and "Hermes was busy".
+- The strip lives in the app shell; Escape and "Show chat" leave the dialog without ending the call; the Mac uses a dialog, not a sheet.
+- Scope: the turn list, the "Speak replies" switch and the tones are the last PR and can be cut; the safety rules do not depend on them.
+- Desktop lock is not observed (a stated limit); the 5-minute idle limit bounds it.
+
 Copy added by the design:
 
 - Start: "Ready to call", "Talk to Hermes without using your hands. Your microphone is closed until you start.", "Hermes sends each thing you say after a pause, without you pressing send. It can use its tools to act on it.", "Send what I say automatically", "Off again for the next call", "Turn on the switch to start. Nothing is recorded until you do.", "You can end the call at any moment.", "The call ends if you leave Hermes." (Android and desktop), "The call ends if you hide or minimise Hermes." (desktop call page).
 - GPT-Live: "This profile uses GPT-Live on the web. This app uses the standard voice chat: it listens, sends, then speaks."
 - Checks: "Voice model · The voice chat model follows your main model." and "Hermes speech · Your server has no text-to-speech provider with credentials."
-- States: "Connecting…", "Listening", "Muted", "Sending", "Thinking", "Speaking", "Waiting for you", "Stopped", "Call ended"; hints "Speak, then pause. Hermes sends what you said.", "Nothing is captured or sent. Unmute to talk.", "Sending what you said. End or mute now to cancel.", "Hermes is working on your request.", "Tap the orb, or just talk, to interrupt.", "Microphone paused while Hermes speaks. Tap the orb to interrupt.", "Hermes asks to approve a command. Answer in the chat; saying yes does not approve it."
-- Notices: "Couldn't hear that. Nothing was sent.", "Audio route changed. Please repeat if needed. Nothing was sent.", "The call was interrupted. Another call or app took the audio. The microphone is closed. Your earlier turns are in the chat.", "The call ended. You left Hermes, so the microphone was closed. Your turns are in the chat.", "No one spoke for 5 minutes. The microphone is closed.", "The microphone is closed. Every turn of this call is in the chat.", "Hermes could not speak this reply. Check your speech provider on the server. The reply is in the chat."
+- States: "Connecting…", "Listening", "Muted", "Sending", "Thinking", "Speaking", "Waiting for you", "Stopped", "Call ended"; hints "Speak, then pause. Hermes sends what you said.", "Nothing is captured or sent. Unmute to talk.", "Hermes is getting your words ready. End or mute now to cancel.", "Hermes is working on your request.", "Tap the orb, or just talk, to interrupt.", "Microphone paused while Hermes speaks. Tap the orb to interrupt.", "Hermes asks to approve a command. Answer in the chat. Capture is paused; saying yes does nothing."
+- Notices (the first two are not drawn on the canvas): "Hermes is still answering. Nothing was sent.", "Hermes was busy. Your words are in the chat.", "Couldn't hear that. Nothing was sent.", "Audio route changed. Please repeat if needed. Nothing was sent.", "The call was interrupted. Another call or app took the audio. The microphone is closed. Your earlier turns are in the chat.", "The call ended. You left Hermes, so the microphone was closed. Your turns are in the chat.", "No one spoke for 5 minutes. The microphone is closed.", "The microphone is closed. Every turn of this call is in the chat.", "Hermes could not speak this reply. Check your speech provider on the server. The reply is in the chat."
 - Tones (no copy): rising on listening, a soft tick on sent, falling on stopped.
 
 What the canvas could not show: the tones, haptics, screen-reader announcements and reduce-motion; they are in design.md and need a device.
@@ -72,7 +81,7 @@ Someone who wants to talk to their agent while their hands are busy: walking, co
 ## Navigation
 
 - Entry: the chat header's "Start voice call" (phone icon) on every platform that passes availability; "Return to call" while one runs. No composer toggle.
-- Phone: full-screen route (shipped), "Show chat" leaves it without ending the call. Wide: 480 pt dialog. Mac: window-modal dialog, Escape ends.
+- Phone: full-screen route (shipped), "Show chat" leaves it without ending the call. Wide: 480 pt dialog. Mac: a dialog (no sheet); Escape closes it and the call keeps running.
 - End returns to the chat; the thread holds every turn.
 
 ## Accessibility

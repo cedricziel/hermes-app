@@ -8,13 +8,16 @@ Since this change was first written, iOS got a native voice call that is not spe
 
 - **Reuse the shipped loop.** `VoiceCall`, `VoiceActivity`, `CallSpeechStream` and `ChatCallAgent` stay the one implementation. `CallBridge`, today `AppleCallBridge`, becomes the platform audio seam (capture, playback, mute, route, end). A portable bridge for Android, macOS, Windows and Linux is built on `record` (capture) and `flutter_soloud` (PCM playback), with `audio_session` (already a dependency) on Android.
 - **Hands-free consent, per call.** The start screen asks the user to turn on "Send what I say automatically" before the microphone opens. It is never remembered. Without it there is no call; dictation is offered instead.
+- **Migration of the shipped iOS call.** Consent, the stop list, transcription-failure and speech-failure handling, the `voice_chat` readiness row and the model route change for iOS users; design.md's "Migration (iOS)" lists each, and `docs/voice-calls.md` is updated in the same PR.
 - **State you can see and hear.** One orb, a state word with an icon, a "Hands-free on" strip with a recording dot, tones for listening, sent and ended, haptics on mobile and screen-reader announcements.
-- **Stop at any moment.** End, mute, stop phrases (the profile's `voice.stop_phrases` or the built-in list), and the platform's hang-up. End or mute before a turn was submitted sends nothing.
+- **Stop at any moment.** End, mute, stop phrases (the profile's `voice.stop_phrases`, with Hermes' default `["stop"]` counted as unset so the built-in list applies) and the platform's hang-up. End or mute before `submit` is called sends nothing; a voice turn is never queued.
+- **False turns.** Whisper's silence hallucinations are dropped; on desktop capture pauses during tones and speech, and an echo guard checks the first transcript after playback.
+- **Waiting for you.** While the agent waits for an approval, capture pauses and speech neither interrupts nor sends.
 - **Failed transcription sends nothing.** The turn is dropped with "Couldn't hear that. Nothing was sent."; two in a row end the call. (Today a failure ends the call at once.)
 - **Interruptions and exits.** A system interruption ends the call; a route change drops the turn being heard and resumes. Background and lock end the call except on iOS, where the system call keeps the audio alive. Five minutes without speech end it. The microphone is closed first on every exit.
-- **Voice turns are marked** (`prompt.submit` with `voice_turn: true`, and `interrupted: true` after a barge-in), so Hermes runs them on the `voice_chat` model route. Availability needs that slot to resolve (`GET /api/model/auxiliary`) as well as speech-to-text and text-to-speech (`GET /api/audio/voice-config`).
+- **Voice turns are marked** (`prompt.submit` with `voice_turn: true`, and `interrupted: true` after a barge-in), so Hermes runs them on the `voice_chat` model route. The header button depends only on platform and chat state; the start screen's checks cover speech-to-text, text-to-speech (`GET /api/audio/voice-config`), audio output and the `voice_chat` slot (`GET /api/model/auxiliary`; a failed read is a warning).
 - **Call screen additions:** the last two turns, a "Speak replies" switch (on by default), tap the orb to interrupt, and the stopped and failed notices.
-- **Entry point:** the header's "Start voice call" button that iOS has today, on every platform that passes the availability rule. No composer toggle.
+- **Entry point:** the header's "Start voice call" button that iOS has today, on every platform. No composer toggle. A "Hands-free on" strip with End shows in the app shell on every screen while the microphone is open.
 
 ## Capabilities
 
@@ -24,13 +27,13 @@ Since this change was first written, iOS got a native voice call that is not spe
 
 ### Modified Capabilities
 
-- `chat`: a submitted prompt can be marked as a voice turn and as interrupting the previous reply.
+- `chat`: `prompt.submit` carries `voice_turn` and `interrupted` on spoken turns (modified backend contract, never queued), and the answer statuses and `voice_stopped` are handled.
 
 ## Impact
 
 - Code: `lib/src/voice/calls/` gains consent, the stop-phrase matcher, the echo guard, tones, the idle limit, a transcription-failure path and the portable bridge (`record` plus `flutter_soloud`). `ChatController.submit` and `ChatTransport.send` gain `voiceTurn` and `interrupted`. Widgets in `lib/src/voice/widgets/`: `VoiceOrb` and the extended call view, start view and notices.
-- Dependencies: `flutter_soloud` (new; streaming PCM on all five platforms). `record` and `audio_session` are already in `pubspec.yaml`.
-- Native: Android needs `MODIFY_AUDIO_SETTINGS`; Linux builds miniaudio (CI may need `libasound2-dev`; the `.deb` gains `libasound2 | libasound2t64`). iOS needs no change. No new permission beyond dictation's.
+- Dependencies: `flutter_soloud` (new, the only one; justified in design.md decision 12: streaming PCM on all five platforms, never initialised on iOS or in conversation windows). `record` and `audio_session` are already in `pubspec.yaml`; stop phrases need no Unicode package.
+- Native: Android needs `MODIFY_AUDIO_SETTINGS`; Linux builds miniaudio (CI may need `libasound2-dev`; the release-please x86_64 and arm64 packages gain `libasound2 | libasound2t64`). iOS needs no change. No new permission beyond dictation's.
 - API: no OpenAPI or OpenRPC change. At the pinned ref (`d923a5e`) `prompt.submit` already takes `voice_turn` and `interrupted` and answers `voice_stopped`; the generated client has `speak`, `tts-lease`, `voice-live/status` and `model/auxiliary`; `speak-stream` is a socket opened like `/api/ws`.
 
 ## Non-goals
