@@ -79,4 +79,7 @@ class HandoffNavigationObserver extends NavigatorObserver {
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
       _changed(previousRoute);
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _changed(previousRoute);
 }

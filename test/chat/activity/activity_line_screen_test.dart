@@ -161,10 +161,13 @@ void main() {
       await tester.tap(line);
       await tester.pump(const Duration(milliseconds: 400));
       expect(inspector, findsOneWidget);
-      // Opening from the line records one crumb, and no text of the sentence
-      // is in any breadcrumb.
+      // Opening from the line records one activity crumb, and no text of the
+      // sentence is in any breadcrumb. (The panel's rows record their own.)
       expect(
-        [for (final c in trail.recent.skip(before)) c.name],
+        [
+          for (final c in trail.recent.skip(before))
+            if (c.name.startsWith('chat.activity.')) c.name,
+        ],
         ['chat.activity.opened'],
       );
       expect(

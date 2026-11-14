@@ -27,7 +27,13 @@ enum ActivityKind {
   usage(ActivityTier.reference),
   sideResult(ActivityTier.reference),
   notice(ActivityTier.reference),
-  acknowledgement(ActivityTier.reference);
+  acknowledgement(ActivityTier.reference),
+
+  /// The Context row: how full the window is, at any percentage.
+  context(ActivityTier.reference),
+
+  /// The File checkpoints row, also while a restore runs.
+  checkpoints(ActivityTier.reference);
 
   const ActivityKind(this.tier);
   final ActivityTier tier;

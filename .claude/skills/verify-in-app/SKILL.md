@@ -619,6 +619,35 @@ works; its credentials are in the `hermes-demo` app config on hive).
 - Sign out at the end (account row, then "Sign out") so the demo token does
   not stay in the login keychain.
 
+## File checkpoints and context
+
+For the Activity panel's checkpoint and context rows. Only the throwaway dev
+backend (`scripts/dev-backend.sh`): never the real `~/.hermes`, and never
+`hermes dashboard --stop`. A restore writes real files and a compress calls a
+helper model, so the chat's folder is a throwaway and the model scripted or
+local; never a real project. Nobody has run these steps end to end: every
+step below is unverified unless it says otherwise.
+
+- Checkpoints are off by default (`checkpoints.enabled: false`, from the
+  design notes of the change). Turn them on in the throwaway home's
+  `config.yaml` before `dev-backend.sh start`:
+
+  ```yaml
+  checkpoints:
+    enabled: true
+  ```
+
+- Unverified: the design notes say the environment variable
+  `HERMES_TUI_CHECKPOINTS` overrides the config for gateway sessions.
+  `dev-backend.sh` does not set it; the script starts `hermes` from your
+  shell, so `HERMES_TUI_CHECKPOINTS=1 scripts/dev-backend.sh start` should
+  pass it on.
+- Unverified: a checkpoint is made before a file tool or a terminal command
+  runs, so the patch turn of `scripts/fake_tool_model.py` should give one, and
+  a second turn a second.
+- With checkpoints off, an edited chat reads "off"; a server before
+  `rollback.*` draws neither row (design notes, unverified here).
+
 ## Scripted tool calls
 
 Tool-call rendering (cards, groups, approvals inside a call, diffs, stop)

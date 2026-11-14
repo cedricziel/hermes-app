@@ -1,4 +1,5 @@
 import 'files_use_cases.dart';
+import 'server_care_logs_use_cases.dart';
 import 'workspaces_use_cases.dart';
 import 'tools_use_cases.dart';
 import 'voice_call_use_cases.dart';
@@ -31,6 +32,7 @@ import 'queue_recovery_use_cases.dart';
 import 'chat_checkpoints_use_cases.dart';
 import 'chat_checkpoint_restore_use_cases.dart';
 import 'chat_context_use_cases.dart';
+import 'chat_send_hold_use_cases.dart';
 import 'transcript_outcome_line_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
@@ -124,6 +126,7 @@ final List<WidgetbookNode> directories = [
   ...serverCareStatusNodes(),
   ...serverCareGatewayNodes(),
   ...serverCareUpdateLogsNodes(),
+  ...serverCareLogsNodes(),
   ...serverCareUpdateRunNodes(),
   ...serverCareUsageNodes(),
   platformHintNode(),
@@ -146,6 +149,7 @@ final List<WidgetbookNode> directories = [
   chatCheckpointsNode(),
   chatCheckpointRestoreNode(),
   transcriptOutcomeLineNode(),
+  chatSendHoldNode(),
   connectorOperationNode(),
   sideResultNode(),
   processOutputNode(),

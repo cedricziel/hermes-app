@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/care_result.dart';
+import 'package:hermes_app/src/server_care/log_line.dart';
+import 'package:hermes_app/src/server_care/usage_report.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/server_care/update_receipt.dart';
 
@@ -51,6 +53,46 @@ void main() {
         isTrue,
       );
     });
+
+    test(
+      'logs: a 404 with a Hermes detail is a refusal, a bare one is missing',
+      () async {
+        server.on('GET', '/api/logs', {
+          'detail': 'Unknown profile',
+        }, status: 404);
+        final refused = await repo.logs(profile: 'x');
+        expect(
+          refused,
+          isA<CareFailed<List<LogLine>>>().having(
+            (f) => f.message,
+            'message',
+            'Unknown profile',
+          ),
+        );
+        server.on('GET', '/api/logs', {'detail': 'Not Found'}, status: 404);
+        expect(
+          await repo.logs(profile: 'x'),
+          isA<CareUnsupported<List<LogLine>>>(),
+        );
+        server.on('GET', '/api/logs', {}, status: 405);
+        expect(
+          await repo.logs(profile: 'x'),
+          isA<CareUnsupported<List<LogLine>>>(),
+        );
+        // Other routes keep their reading: a 404 is a missing route.
+        server.on('GET', '/api/analytics/usage', {
+          'detail': 'Unknown profile',
+        }, status: 404);
+        expect(
+          await repo.usage(
+            profile: 'x',
+            days: 7,
+            today: DateTime(2026, 11, 14),
+          ),
+          isA<CareUnsupported<UsageReport>>(),
+        );
+      },
+    );
 
     test('logs send file, lines, level, search and profile', () async {
       server.on('GET', '/api/logs', {'file': 'errors', 'lines': logsErrors});

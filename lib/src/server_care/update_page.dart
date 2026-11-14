@@ -6,6 +6,7 @@ import '../api/hermes_repositories.dart';
 import '../theme/app_icons.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
+import 'connection_bound.dart';
 import 'hermes_update_run.dart';
 import 'replies_in_progress.dart';
 import 'server_care_controller.dart';
@@ -80,7 +81,9 @@ Future<void> showUpdatePage(BuildContext context) {
           if (replies != null)
             Provider<RepliesInProgress>.value(value: replies),
         ],
-        child: const UpdatePage(),
+        // On the root navigator the page outlives the shell: it goes when
+        // the connection ends. The run is the shell's and is not touched.
+        child: const ConnectionBound(child: UpdatePage()),
       ),
     ),
   );
