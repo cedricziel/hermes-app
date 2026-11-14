@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/widgets/secret_field_row.dart';
 
 Widget _host(Widget child, {TargetPlatform platform = TargetPlatform.iOS}) =>
@@ -182,7 +183,7 @@ void main() {
     expect(field.autocorrect, isFalse);
     expect(field.enableSuggestions, isFalse);
     expect(field.enableIMEPersonalizedLearning, isFalse);
-    expect(field.autofillHints, isEmpty);
+    expect(field.autofillHints, isNull);
     expect(field.smartDashesType, SmartDashesType.disabled);
     expect(field.smartQuotesType, SmartQuotesType.disabled);
     expect(field.maxLines, 1);
@@ -277,5 +278,21 @@ void main() {
       debugPrint = original;
     }
     expect(lines.join(), isNot(contains('sk-very-secret')));
+  });
+
+  testWidgets('a trailing control shows on every Apple layout', (tester) async {
+    for (final lines in [1, 3]) {
+      await tester.pumpWidget(
+        _host(
+          GroupedTextFieldRow(
+            label: 'Notes',
+            controller: controller,
+            maxLines: lines,
+            trailing: const Text('END'),
+          ),
+        ),
+      );
+      expect(find.text('END'), findsOneWidget, reason: 'maxLines $lines');
+    }
   });
 }

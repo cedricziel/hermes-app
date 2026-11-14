@@ -293,7 +293,8 @@ class GroupedTextFieldRow extends StatelessWidget {
   /// A control at the end of the row, such as a Show/Hide button.
   final Widget? trailing;
 
-  /// What the platform may autofill; an empty list turns autofill off.
+  /// What the platform may autofill. Null, the default, turns autofill off;
+  /// any list, even an empty one, opts the field in.
   final Iterable<String>? autofillHints;
   final SmartDashesType? smartDashesType;
   final SmartQuotesType? smartQuotesType;
@@ -380,7 +381,17 @@ class GroupedTextFieldRow extends StatelessWidget {
         ],
       );
     } else if (apple) {
-      content = Semantics(label: label, child: field);
+      content = trailing == null
+          ? Semantics(label: label, child: field)
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Semantics(label: label, child: field),
+                ),
+                trailing!,
+              ],
+            );
     } else {
       content = field;
     }

@@ -142,7 +142,8 @@ class _SecretFieldRowState extends State<SecretFieldRow>
           autocorrect: false,
           enableSuggestions: false,
           enableIMEPersonalizedLearning: false,
-          autofillHints: const <String>[],
+          // Null turns autofill off; an empty list would still opt in.
+          autofillHints: null,
           smartDashesType: SmartDashesType.disabled,
           smartQuotesType: SmartQuotesType.disabled,
           keyboardType: android ? TextInputType.visiblePassword : null,
