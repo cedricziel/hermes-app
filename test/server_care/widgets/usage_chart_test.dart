@@ -292,4 +292,20 @@ void main() {
 
     expect(scrollable.position.pixels, 0);
   });
+
+  testWidgets('the selected day has a tinted column behind its bar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(_chart()));
+    await tester.pumpAndSettle();
+    final primary = Theme.of(tester.element(find.byType(UsageChart)))
+        .colorScheme
+        .primary;
+    final plot = find.byWidgetPredicate(
+      (w) => w is CustomPaint && w.painter is UsageChartPlotPainter,
+    );
+    final box = tester.renderObject<RenderBox>(plot);
+    // One full-height tint, drawn before the bars, for the selected slot only.
+    expect(box, paints..rect(color: primary.withValues(alpha: 0.12)));
+  });
 }

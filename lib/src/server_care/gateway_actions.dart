@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
-import '../widgets/adaptive_dialog.dart';
+import '../widgets/dialog_presentation.dart';
 import 'gateway_restart.dart';
 import 'server_care_controller.dart';
 import 'server_status.dart';
+import 'widgets/gateway_restart_dialog.dart';
 import 'widgets/grouped_action_row.dart';
 
 /// The lines of the restart confirmation, from what the status says: the app's
@@ -44,16 +45,19 @@ Future<void> runGatewayAction(
   if (run.busy && run.profile != profile) return;
   if (!run.busy && action == GatewayAction.restart) {
     final shared = (care.status?.gatewaySharedWith.length ?? 0) > 1;
-    final confirmed = await showConfirmDialog(
-      context,
-      title: l10n.serverCareGatewayConfirmRestartTitle,
-      message: gatewayConfirmationLines(l10n, care.status).join('\n\n'),
-      confirmLabel: shared
-          ? l10n.serverCareGatewayConfirmRestartAll
-          : l10n.serverCareGatewayConfirmRestart,
-      cancelLabel: l10n.serverCareCancel,
-      filled: false,
-    );
+    final confirmed =
+        await showAppDialog<bool>(
+          context: context,
+          builder: (_) => GatewayRestartDialog(
+            title: l10n.serverCareGatewayConfirmRestartTitle,
+            lines: gatewayConfirmationLines(l10n, care.status),
+            confirmLabel: shared
+                ? l10n.serverCareGatewayConfirmRestartAll
+                : l10n.serverCareGatewayConfirmRestart,
+            cancelLabel: l10n.serverCareCancel,
+          ),
+        ) ??
+        false;
     if (!confirmed || !context.mounted) return;
     // The question described this profile's gateway; if the chat moved on
     // while it was open, nothing is sent for another one.

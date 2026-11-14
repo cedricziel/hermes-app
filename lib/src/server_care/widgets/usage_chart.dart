@@ -522,6 +522,15 @@ class UsageChartPlotPainter extends CustomPainter {
         ..strokeWidth = 1,
     );
 
+    // The selected day's whole column is tinted, so it reads at a glance
+    // even when its own bar is short or empty.
+    if (selected >= 0 && selected < values.length) {
+      canvas.drawRect(
+        Rect.fromLTWH(selected * slot, topPad, slot, plotHeight),
+        Paint()..color = selectedColor.withValues(alpha: 0.12),
+      );
+    }
+
     final barWidth = (slot * 0.62).clamp(2.0, 24.0).toDouble();
     final grow = Curves.easeOut.transform(rise.value);
     for (var i = 0; i < values.length; i++) {

@@ -163,6 +163,186 @@ void main() {
     });
   }
 
+  Map<String, dynamic> gatewayStatus({
+    required bool running,
+    String? state,
+    Object? shared,
+  }) => {
+    ...statusHealthy(),
+    'gateway_running': running,
+    'gateway_state': state ?? (running ? 'running' : 'stopped'),
+    'active_agents': running ? 2 : 0,
+    'gateway_shared_with': ?shared,
+  };
+
+  Map<String, dynamic> action(String name, {required bool running}) => {
+    'name': name,
+    'running': running,
+    'exit_code': running ? null : 0,
+    'pid': 1,
+    'lines': ['=== $name started 2026-11-14 09:00:00 ===', 'ok'],
+  };
+
+  Future<void> openServer(WidgetTester tester) async {
+    await tester.tap(findAppIcon(AppIcons.menu).first);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.tap(find.byTooltip('Account'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.ensureVisible(find.textContaining('Server'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.textContaining('Server').first);
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+  }
+
+  /// Runs the fake clock and the fake server until [text] is on screen.
+  Future<void> until(WidgetTester tester, String text) async {
+    for (var i = 0; i < 40 && find.text(text).evaluate().isEmpty; i++) {
+      await answered(tester);
+      await tester.pump(const Duration(seconds: 2));
+    }
+    await answered(tester);
+  }
+
+  testWidgets('phone: restart the gateway, with the question, to done', (
+    tester,
+  ) async {
+    final shots = ScreenshotRecorder('server-care-gateway-restart');
+    server
+      ..on('GET', '/api/status', {
+        ...gatewayStatus(running: true, shared: ['default', 'work']),
+        'disk': {'pressure': 'elevated', 'free_mb': 8600, 'used_percent': 91.0},
+      })
+      ..on('POST', '/api/gateway/restart', {
+        'ok': true,
+        'pid': 1,
+        'name': 'gateway-restart',
+      })
+      ..on(
+        'GET',
+        '/api/actions/gateway-restart/status',
+        action('gateway-restart', running: true),
+      );
+    await pumpShell(
+      tester,
+      shots,
+      size: const Size(390, 844),
+      platform: TargetPlatform.android,
+      brightness: Brightness.light,
+    );
+    await openServer(tester);
+    await tester.scrollUntilVisible(
+      find.text('Restart gateway'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await shots.capture(tester, 'gateway-idle');
+
+    await tester.tap(find.text('Restart gateway'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
+    await shots.capture(tester, 'question');
+    expect(find.text('Restart the messaging gateway?'), findsOneWidget);
+    expect(find.textContaining('This gateway is shared'), findsOneWidget);
+    // Two text buttons, Cancel first; nothing is filled.
+    expect(find.byType(FilledButton), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Cancel')).dx,
+      lessThan(tester.getTopLeft(find.text('Restart for all')).dx),
+    );
+    await tester.tap(find.text('Restart for all'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+    expect(server.requestsTo('POST', '/api/gateway/restart'), hasLength(1));
+    // The child runs and the gateway is down: progress in the headline and
+    // the row.
+    server.on(
+      'GET',
+      '/api/status',
+      gatewayStatus(
+        running: false,
+        state: 'starting',
+        shared: ['default', 'work'],
+      ),
+    );
+    await answered(tester);
+    await tester.pump(const Duration(seconds: 2));
+    await answered(tester);
+    await shots.capture(tester, 'restarting');
+    expect(find.text('Waiting for the gateway…'), findsOneWidget);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 1200));
+    await tester.pump(const Duration(milliseconds: 600));
+    await shots.capture(tester, 'restarting-headline');
+    expect(find.text('Restarting the messaging gateway…'), findsOneWidget);
+
+    // It comes back.
+    server
+      ..on(
+        'GET',
+        '/api/actions/gateway-restart/status',
+        action('gateway-restart', running: false),
+      )
+      ..on(
+        'GET',
+        '/api/status',
+        gatewayStatus(running: true, shared: ['default', 'work']),
+      );
+    await until(tester, 'Running again');
+    await shots.capture(tester, 'done');
+    expect(find.text('Running again'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 6));
+    await letSocketsIdle(tester);
+  });
+
+  testWidgets('phone: start a gateway that is off, no question', (
+    tester,
+  ) async {
+    final shots = ScreenshotRecorder('server-care-gateway-start');
+    server
+      ..on('POST', '/api/gateway/start', {
+        'ok': true,
+        'pid': 2,
+        'name': 'gateway-start',
+      })
+      ..on(
+        'GET',
+        '/api/actions/gateway-start/status',
+        action('gateway-start', running: true),
+      );
+    await pumpShell(
+      tester,
+      shots,
+      size: const Size(390, 844),
+      platform: TargetPlatform.android,
+      brightness: Brightness.light,
+    );
+    await openServer(tester);
+    await shots.capture(tester, 'off');
+    await tester.tap(find.text('Start gateway').first);
+    await tester.pump(const Duration(milliseconds: 600));
+    await answered(tester);
+    expect(find.text('Restart the messaging gateway?'), findsNothing);
+    expect(server.requestsTo('POST', '/api/gateway/start'), hasLength(1));
+    await tester.pump(const Duration(seconds: 2));
+    await answered(tester);
+    await shots.capture(tester, 'starting');
+    expect(find.text('Starting the messaging gateway…'), findsOneWidget);
+
+    server
+      ..on(
+        'GET',
+        '/api/actions/gateway-start/status',
+        action('gateway-start', running: false),
+      )
+      ..on('GET', '/api/status', gatewayStatus(running: true));
+    await until(tester, 'Running again');
+    await shots.capture(tester, 'done');
+    await tester.pump(const Duration(seconds: 6));
+    await letSocketsIdle(tester);
+  });
+
   for (final (name, brightness) in [
     ('mac', Brightness.light),
     ('mac-dark', Brightness.dark),
