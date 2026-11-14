@@ -217,8 +217,12 @@ void main() {
       activities.dispose();
     });
     await tester.runAsync(chat.loadThreads);
-    chat.select('s1');
-    chat.submit('Any news?', const []);
+    // The send waits for the chat's first page, which the fake server
+    // answers outside the fake clock.
+    await tester.runAsync(() async {
+      chat.select('s1');
+      await chat.submit('Any news?', const []);
+    });
     await tester.pump();
     expect(service.running, hasLength(1));
 
