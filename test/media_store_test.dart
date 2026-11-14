@@ -294,6 +294,38 @@ void main() {
     });
   });
 
+  group('clearFileDownloads', () {
+    test(
+      'deletes Files downloads and secret copies, keeps attachments',
+      () async {
+        final store = newStore();
+        await store.stage('fs:work:/a.txt', 'a.txt', () async => pdf);
+        await store.stage('fs-secret:work:/.env', '.env', () async => pdf);
+        final kept = await store.stage('chat:1', 'b.pdf', () async => pdf);
+        final closesBefore = quickLook.closes;
+
+        await store.clearFileDownloads();
+
+        expect(filesUnder(cache).map((f) => f.path), [kept.path]);
+        expect(quickLook.closes, closesBefore + 1);
+      },
+    );
+
+    test('a Files download in flight leaves nothing behind', () async {
+      final store = newStore();
+      final gate = Completer<void>();
+      final pending = store.stage('fs:work:/a.txt', 'a.txt', () async {
+        await gate.future;
+        return pdf;
+      });
+      final failed = expectLater(pending, throwsA(anything));
+      await store.clearFileDownloads();
+      gate.complete();
+      await failed;
+      expect(filesUnder(cache), isEmpty);
+    });
+  });
+
   group('stage', () {
     test('shares the folder rule and the in-flight fetch with file', () async {
       final gate = Completer<void>();

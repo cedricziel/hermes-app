@@ -31,6 +31,13 @@ const kSecretCopyKeyPrefix = 'fs-secret:';
 
 const _secretFolderMark = 's';
 
+/// A key starting with this holds a file of the Files page. Its folder is
+/// marked too, so [MediaStore.clearFileDownloads] can delete them all without
+/// touching the chat's attachments.
+const kFilesCopyKeyPrefix = 'fs:';
+
+const _filesFolderMark = 'x';
+
 /// Keeps what the chat fetched from the server for files the agent sent:
 /// images in memory, other files in the app's cache directory. Nothing is
 /// fetched twice, and [clear] removes all of it.
@@ -245,9 +252,9 @@ class MediaStore {
 
   static String _folderOf(String key) {
     final hash = sha256.convert(utf8.encode(key)).toString().substring(0, 16);
-    return key.startsWith(kSecretCopyKeyPrefix)
-        ? '$_secretFolderMark$hash'
-        : hash;
+    if (key.startsWith(kSecretCopyKeyPrefix)) return '$_secretFolderMark$hash';
+    if (key.startsWith(kFilesCopyKeyPrefix)) return '$_filesFolderMark$hash';
+    return hash;
   }
 
   /// Deletes every copy staged under a [kSecretCopyKeyPrefix] key, such as
@@ -264,6 +271,34 @@ class MediaStore {
       });
     }
   });
+
+  /// Deletes every file the Files page downloaded, secret copies included, and
+  /// closes the Quick Look panel. Run when App Lock locks. A download still
+  /// running ends without leaving a file; chat attachments stay.
+  Future<void> clearFileDownloads() async {
+    _generation++;
+    await _quietly(_quickLook.close);
+    _fileFetches.removeWhere(
+      (key, _) =>
+          key.startsWith(kFilesCopyKeyPrefix) ||
+          key.startsWith(kSecretCopyKeyPrefix),
+    );
+    await _quietly(() async {
+      final root = await _root();
+      if (!await root.exists()) return;
+      await for (final entry in root.list()) {
+        if (entry is! Directory) continue;
+        final name = entry.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
+        if (!name.startsWith(_filesFolderMark) &&
+            !name.startsWith(_secretFolderMark)) {
+          continue;
+        }
+        await _quietly(() async {
+          await entry.delete(recursive: true);
+        });
+      }
+    });
+  }
 
   /// Captures a preview intent before staging starts. A newer preview or a
   /// session clear invalidates it, so a late download cannot replace what the
