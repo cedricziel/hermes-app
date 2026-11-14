@@ -467,9 +467,34 @@ void main() {
       await refresh();
 
       expect(notifications.shown, hasLength(1));
-      expect(await announced.read(), containsAll(['r1', 'r2']));
-      expect(taskSpan().attributes['requests.new'], 2);
+      expect(notifications.shown.single.request?.requestId, 'r1');
+      final known = await announced.read();
+      expect(known, contains('r1'));
+      expect(known, isNot(contains('r2')));
+      expect(taskSpan().attributes['requests.new'], 1);
     });
+
+    test(
+      'announces the next approval of a chat once the first is answered',
+      () async {
+        sessions = {
+          'work': [_session('chat-a')],
+        };
+        approvals = {
+          'rt-chat-a': [_approval('r1'), _approval('r2')],
+        };
+        await refresh();
+        approvals = {
+          'rt-chat-a': [_approval('r2')],
+        };
+
+        await refresh();
+        await refresh();
+
+        expect(notifications.shown, hasLength(2));
+        expect(notifications.shown.last.request?.requestId, 'r2');
+      },
+    );
 
     test('names an unnamed chat generically', () async {
       sessions = {
@@ -607,7 +632,8 @@ void main() {
       },
     );
 
-    test('announces a second approval of the same turn', () async {
+    test('keeps the first approval\'s notification while it is open, '
+        'and announces a second one of the same turn after it', () async {
       sessions = {
         'work': [_session('chat-a')],
       };
@@ -621,7 +647,33 @@ void main() {
 
       await refresh();
 
+      expect(notifications.shown, hasLength(1));
+      expect(notifications.shown.single.request?.requestId, 'r1');
+
+      approvals = {
+        'rt-chat-a': [_approval('r2')],
+      };
+      await refresh();
+
       expect(notifications.shown, hasLength(2));
+      expect(notifications.shown.last.request?.requestId, 'r2');
+    });
+
+    test('does not replace an open approval\'s notification with the next '
+        'one of the chat', () async {
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1'), _approval('r2')],
+      };
+
+      await refresh();
+      await refresh();
+
+      expect(notifications.shown, hasLength(1));
+      expect(notifications.shown.single.request?.requestId, 'r1');
+      expect(await announced.read(), isNot(contains('r2')));
     });
 
     test(
@@ -880,10 +932,10 @@ void main() {
     test('remembers the newest 200 ids', () async {
       await announced.add([for (var i = 0; i < 195; i++) 'old-$i']);
       sessions = {
-        'work': [_session('chat-a')],
+        'work': [for (var i = 0; i < 10; i++) _session('chat-$i')],
       };
       approvals = {
-        'rt-chat-a': [for (var i = 0; i < 10; i++) _approval('new-$i')],
+        for (var i = 0; i < 10; i++) 'rt-chat-$i': [_approval('new-$i')],
       };
 
       await refresh();

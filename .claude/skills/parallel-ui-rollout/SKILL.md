@@ -11,6 +11,11 @@ the rework.
 
 ## Before launching
 
+- **Install the pre-commit hook in every clone.** Each agent runs
+  `dart run tool/setup_git_hooks.dart` before its first commit, cloud sessions
+  included, and fixes a failing hook instead of bypassing it (no `--no-verify`,
+  no `core.hooksPath`, no config edit). Its `outdated` check makes dependency
+  updates part of normal work.
 - **Shared pieces first, alone.** Build the shared widgets (or their React
   copies in `design/web`) in one PR, merge it, and only then launch the screen
   agents with that PR's API notes. Parallel agents that each invent a group row
