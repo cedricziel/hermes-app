@@ -14,5 +14,5 @@
 ## 3. Verification
 
 - [ ] 3.1 Add isolated real-backend conformance for canonical creation/materialization, compression lineage, local bot delivery and resume; include multiple profile names and a competing creator without accessing real user profiles.
-- [ ] 3.2 Update README/CLAUDE.md and stale project skills with canonical chat behavior; keep `feat(bots)` near 500 changed lines through existing renderer reuse, splitting optional presentation additions before implementation.
+- [x] 3.2 Update README/CLAUDE.md and stale project skills with canonical chat behavior; keep `feat(bots)` near 500 changed lines through existing renderer reuse, splitting optional presentation additions before implementation.
 - [ ] 3.3 Run `dart format`, `flutter analyze`, `flutter test`, the component catalog and bot chat workflow screenshots; inspect images and complete verify-in-app for profile ownership, resume, handoff and retirement before marking UI/connection tasks done.

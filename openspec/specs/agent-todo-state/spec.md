@@ -26,7 +26,7 @@ The app SHALL decode task text and status only from item fields verified against
 
 ### Requirement: Resume restores available plan state
 
-The app SHALL seed the current plan from session.resume.todo_state and then apply later revisions from the same runtime. A new runtime generation SHALL reset revision comparison. Missing todo_state on a newly adopted binding SHALL mean unavailable rather than prove that no plan exists. A missing or older resume snapshot SHALL preserve a newer live plan already accepted on the same confirmed connection, runtime, and profile binding. A truncated replay SHALL use the existing resume state refresh instead of reconstructing tasks from tool prose.
+The app SHALL seed the current plan from session.resume.todo_state and then apply later revisions from the same runtime. A new runtime generation SHALL reset revision comparison. Missing todo_state on a newly adopted binding SHALL mean unavailable rather than prove that no plan exists. An unavailable plan SHALL draw nothing: the app SHALL NOT show an "unavailable" plan row, and SHALL NOT present it as an empty plan. A missing or older resume snapshot SHALL preserve a newer live plan already accepted on the same confirmed connection, runtime, and profile binding. A truncated replay SHALL use the existing resume state refresh instead of reconstructing tasks from tool prose.
 
 #### Scenario: The runtime restarts with a lower revision
 
@@ -37,6 +37,12 @@ The app SHALL seed the current plan from session.resume.todo_state and then appl
 
 - **WHEN** a live revision 6 has already been accepted and a resume on that same confirmed binding omits todo_state
 - **THEN** revision 6 remains visible
+
+#### Scenario: A chat never received plan state
+
+- **WHEN** a chat is attached, resume omits todo_state and no todo.updated has arrived
+- **THEN** no plan row is drawn
+- **AND** a later todo.updated with tasks shows the plan
 
 ### Requirement: Existing backend contract and compatibility
 

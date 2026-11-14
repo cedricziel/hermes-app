@@ -73,24 +73,24 @@ Start with warnings, session state, notification retry, and advisory contract al
 
 | Work | Proposal | Dependencies and boundaries |
 | --- | --- | --- |
-| Important warnings and notices | [Warnings](../openspec/changes/agent-visibility-warnings/proposal.md) | In-app risk and credit warnings; OS delivery stays with the existing notification system. |
-| Running-task state and recovery | [Session state](../openspec/changes/agent-visibility-session-state/proposal.md) | Goal, loop, heartbeat, takeover, and resume progress. No unsupported control actions. |
-| Backend compatibility evidence | [Advisory contract alignment](../openspec/changes/backend-contract-advisory-alignment/proposal.md) | Match committed REST and gateway provenance; retain advisory checks and free scripted tests. |
-| Retrying request alerts | [Request alert retry](../openspec/changes/mobile-reliability-request-alert-retry/proposal.md) | Record announcement after OS acceptance; supersedes the pending background-refresh ordering rule. |
-| Protecting queued prompts | [Durable queue store](../openspec/changes/mobile-reliability-durable-queue-store/proposal.md) | Encrypted records and attachment copies; separate local ownership from backend-accepted prompts. |
-| Recovering queued prompts | [Queue recovery](../openspec/changes/mobile-reliability-queue-recovery/proposal.md) | Requires durable store. Recovery stays paused; uncertain submissions never resend automatically. |
-| Explaining background delivery | [Background status](../openspec/changes/mobile-reliability-background-status/proposal.md) | Permission, availability, and last-check outcomes. No delivery-time guarantee. |
-| Understanding session consumption | [Session usage](../openspec/changes/agent-inspection-session-usage/proposal.md) | Session totals and server-supplied cost. No inferred per-turn usage. |
-| Inspecting learned memory | [Learned-memory inspection](../openspec/changes/agent-inspection-learned-memory/proposal.md) | Existing profile-scoped learning APIs; verify untyped response shapes with matching fixtures. |
-| Editing and deleting learned memory | [Learned-memory mutations](../openspec/changes/agent-inspection-memory-mutations/proposal.md) | Requires inspection. Only memory nodes; permanent deletion and uncertain outcomes must be explicit. |
-| Agent todo lists | [Todo state](../openspec/changes/agent-visibility-todo-state/proposal.md) | Verified snapshot fields and scoped resume restoration. |
-| Background and side answers | [Side results](../openspec/changes/agent-visibility-side-results/proposal.md) | Keep side results distinct from the foreground reply. |
-| Background process output | [Process output](../openspec/changes/agent-visibility-process-output/proposal.md) | Bound retained output. A closed terminal does not establish process success. |
-| Advisor and aggregation progress | [MoA progress](../openspec/changes/agent-visibility-moa-progress/proposal.md) | Render only supported progress and reference output. |
-| Connector operation progress | [Connector operations](../openspec/changes/agent-visibility-connector-operations/proposal.md) | Supported browser handoff and pending-operation recovery; no new connector APIs. |
-| Device verification | [Billing verification](../openspec/changes/agent-visibility-billing-verification/proposal.md) | Existing verification flow only. Returning from a browser does not prove success. |
-| Keeping lists current | [Change invalidation](../openspec/changes/agent-visibility-change-invalidation/proposal.md) | Refresh affected sessions, schedules, messaging, and pairing without treating broadcasts as list content. |
-| Agent reactions | [Read-only reactions](../openspec/changes/agent-visibility-reactions/proposal.md) | Preserve verified message identity; never guess a target message. |
+| Important warnings and notices | [Warnings](../openspec/changes/archive/2026-10-14-agent-visibility-warnings/proposal.md) | In-app risk and credit warnings; OS delivery stays with the existing notification system. |
+| Running-task state and recovery | [Session state](../openspec/changes/archive/2026-10-14-agent-visibility-session-state/proposal.md) | Goal, loop, heartbeat, takeover, and resume progress. No unsupported control actions. |
+| Backend compatibility evidence | [Advisory contract alignment](../openspec/changes/archive/2026-10-14-backend-contract-advisory-alignment/proposal.md) | Match committed REST and gateway provenance; retain advisory checks and free scripted tests. |
+| Retrying request alerts | [Request alert retry](../openspec/changes/archive/2026-10-14-mobile-reliability-request-alert-retry/proposal.md) | Record announcement after OS acceptance; supersedes the pending background-refresh ordering rule. |
+| Protecting queued prompts | [Durable queue store](../openspec/changes/archive/2026-10-14-mobile-reliability-durable-queue-store/proposal.md) | Encrypted records and attachment copies; separate local ownership from backend-accepted prompts. |
+| Recovering queued prompts | [Queue recovery](../openspec/changes/archive/2026-10-14-mobile-reliability-queue-recovery/proposal.md) | Requires durable store. Recovery stays paused; uncertain submissions never resend automatically. |
+| Explaining background delivery | [Background status](../openspec/changes/archive/2026-10-14-mobile-reliability-background-status/proposal.md) | Permission, availability, and last-check outcomes. No delivery-time guarantee. |
+| Understanding session consumption | [Session usage](../openspec/changes/archive/2026-10-14-agent-inspection-session-usage/proposal.md) | Session totals and server-supplied cost. No inferred per-turn usage. |
+| Inspecting learned memory | [Learned-memory inspection](../openspec/changes/archive/2026-10-14-agent-inspection-learned-memory/proposal.md) | Existing profile-scoped learning APIs; verify untyped response shapes with matching fixtures. |
+| Editing and deleting learned memory | [Learned-memory mutations](../openspec/changes/archive/2026-10-14-agent-inspection-memory-mutations/proposal.md) | Requires inspection. Only memory nodes; permanent deletion and uncertain outcomes must be explicit. |
+| Agent todo lists | [Todo state](../openspec/changes/archive/2026-10-14-agent-visibility-todo-state/proposal.md) | Verified snapshot fields and scoped resume restoration. |
+| Background and side answers | [Side results](../openspec/changes/archive/2026-10-14-agent-visibility-side-results/proposal.md) | Keep side results distinct from the foreground reply. |
+| Background process output | [Process output](../openspec/changes/archive/2026-10-14-agent-visibility-process-output/proposal.md) | Bound retained output. A closed terminal does not establish process success. |
+| Advisor and aggregation progress | [MoA progress](../openspec/changes/archive/2026-10-14-agent-visibility-moa-progress/proposal.md) | Render only supported progress and reference output. |
+| Connector operation progress | [Connector operations](../openspec/changes/archive/2026-10-14-agent-visibility-connector-operations/proposal.md) | Supported browser handoff and pending-operation recovery; no new connector APIs. |
+| Device verification | [Billing verification](../openspec/changes/archive/2026-10-14-agent-visibility-billing-verification/proposal.md) | Existing verification flow only. Returning from a browser does not prove success. |
+| Keeping lists current | [Change invalidation](../openspec/changes/archive/2026-10-14-agent-visibility-change-invalidation/proposal.md) | Refresh affected sessions, schedules, messaging, and pairing without treating broadcasts as list content. |
+| Agent reactions | [Read-only reactions](../openspec/changes/archive/2026-10-14-agent-visibility-reactions/proposal.md) | Preserve verified message identity; never guess a target message. |
 
 ## Existing coverage and app-only limits
 

@@ -32,33 +32,48 @@ The system SHALL list the profiles of the connected dashboard, marking the activ
 
 ### Requirement: Switching profile
 
-The system SHALL let the user choose a profile, SHALL make it the dashboard's active (sticky default) profile when it is not already, and SHALL move the chat to that profile's threads.
+The system SHALL let the user select a profile for chatting locally without changing the dashboard's active profile, terminal default, or stored profile configuration. The local recipient and the server active profile SHALL be presented as distinct values. This behavior SHALL apply to profile pickers, profile pages, and new-message recipients on every Flutter platform. Only a separately labelled and explicitly invoked terminal-default action SHALL change the server active profile.
 
 #### Scenario: Choosing another profile
 
-- **WHEN** the user taps a profile that is not active
-- **THEN** the dashboard is asked to make it the active profile, the chat reloads its thread list for that profile, and the list of profiles is refreshed
+- **WHEN** the user chooses a profile different from the server active profile for chatting
+- **THEN** the app loads that profile's chats with explicit profile scope and sends no request to change the active profile or profile configuration
 
 #### Scenario: Choosing the active profile when the chat shows another
 
-- **WHEN** the user taps the active profile while the chat shows a different one
-- **THEN** no request to change the active profile is sent, and the chat reloads its thread list for the tapped profile
+- **WHEN** the user chooses the server active profile while the chat shows a different profile
+- **THEN** the app changes its local chat scope without changing the server active profile
 
 #### Scenario: Choosing the profile already in use
 
-- **WHEN** the user taps the profile that is both active and shown in the chat
-- **THEN** nothing is sent and the chat is not reloaded
+- **WHEN** the user chooses the profile already shown in the chat
+- **THEN** selection sends no mutation and does not reload the chat
 
 #### Scenario: Switch is rejected
 
-- **WHEN** the dashboard refuses the change of active profile
-- **THEN** the user is told "Could not switch profile", the old profile stays active, and the chat is not changed
+- **WHEN** loading the selected profile fails or the profile is no longer available
+- **THEN** the app shows a recoverable error and sends no message under a fallback profile
 
 #### Scenario: The chat and the CLI default differ
 
-- **WHEN** the profile shown in the chat differs from the active profile (for example after `hermes profile use` on the server)
-- **THEN** a notice "The chat shows X. The CLI default is Y." is shown at the top of the list
-- **AND** when the chat has no profile of its own, the profile the dashboard is scoped to is taken as the one shown
+- **WHEN** the profile shown in the chat differs from the server active profile
+- **THEN** the app keeps the local selection and distinguishes the chat recipient from the CLI default without synchronizing either value to the other
+
+#### Scenario: Explicit terminal-default action
+
+- **WHEN** the user explicitly invokes a separately labelled terminal-default action
+- **THEN** only that action may call POST /api/profiles/active and ordinary messaging does not invoke it implicitly
+
+#### Scenario: Profile-scoped backend contract
+
+- **WHEN** the user lists, creates, resumes, or sends a conversation for a selected profile
+- **THEN** the app uses the existing profile-scoped REST session contracts and authenticated /api/ws session.create and session.resume methods with their existing profile arguments and response shapes
+- **AND** no new endpoint, response field, or minimum Hermes Agent version beyond the app's existing contracts is required
+
+#### Scenario: Reconnect preserves recipient
+
+- **WHEN** a conversation reconnects after another client changes the server active profile
+- **THEN** the conversation resumes with its original explicit profile and leaves the new server default unchanged
 
 ### Requirement: Chat scoped to a profile
 
@@ -282,14 +297,24 @@ On macOS the sidebar SHALL show the profile the chat works in as a card at its t
 
 ### Requirement: Profiles page on macOS
 
-On macOS the sidebar SHALL have a Profiles destination under Schedules, opening a page with the toolbar title "Profiles", the subtitle "N profiles on <server host>" and a New Profile button. The page SHALL list the profiles in a 220 point column (avatar, name, description) and show the selected one's home: its name, its home directory, and a card of what it holds (Skills, Messaging, Plugins, MCP servers, Helper models), each with a count and opening the screen that manages it, scoped to that profile where the screen supports one. Counts SHALL be read when a profile is selected; a count that cannot be read SHALL show nothing rather than 0. Messaging SHALL count the platforms switched on in that profile, read with `GET /api/messaging/platforms?profile=<name>`, and SHALL open the Messaging screen for that profile. Plugins SHALL count the plugins switched on in that profile, read with `GET /api/dashboard/plugins/hub?profile=<name>`, and SHALL open the Plugins screen for that profile. A footnote SHALL say that everything listed lives in the profile's home directory, that chats, schedules, memory and API keys are per profile too, and that Kanban and sign-in are shared.
+On macOS the sidebar SHALL have a Profiles destination under Schedules, opening a page with the toolbar title "Profiles", the subtitle "N profiles on <server host>" and a New Profile button. The page SHALL list the profiles in a 220 point column (avatar, name, description) and show the selected one's home: its name, its home directory, and a card of what it holds (Skills, Memory, Messaging, Plugins, MCP servers, Helper models), each with a count and opening the screen that manages it, scoped to that profile where the screen supports one. Counts SHALL be read when a profile is selected; a count that cannot be read SHALL show nothing rather than 0. Memory SHALL count the profile's memory entries, read with `GET /api/learning/graph?profile=<name>` (nodes of `kind: memory`), and SHALL open the Memory screen for that profile. Messaging SHALL count the platforms switched on in that profile, read with `GET /api/messaging/platforms?profile=<name>`, and SHALL open the Messaging screen for that profile. Plugins SHALL count the plugins switched on in that profile, read with `GET /api/dashboard/plugins/hub?profile=<name>`, and SHALL open the Plugins screen for that profile. A footnote SHALL say that everything listed lives in the profile's home directory, that chats, schedules, memory and API keys are per profile too, and that Kanban and sign-in are shared.
 
-The per-profile management entries of the chat sidebar (Profiles, Skills, Messaging, Plugins, MCP servers, Helper models) SHALL not be shown on macOS; other platforms SHALL keep them.
+The per-profile management entries of the chat sidebar (Profiles, Skills, Memory, Messaging, Plugins, MCP servers, Helper models) SHALL not be shown on macOS; other platforms SHALL keep them.
 
 #### Scenario: Counts of another profile
 
 - **WHEN** the user selects "work" on the Profiles page and its helper models cannot be read
 - **THEN** Skills and MCP servers show their counts, Helper models shows none, and Messaging and Plugins count what is switched on in "work"
+
+#### Scenario: Memory of the selected profile
+
+- **WHEN** the user selects "work", whose graph lists three memory nodes, and clicks Memory
+- **THEN** the Memory row, directly after Skills, shows 3, and the Memory screen opens on "work"
+
+#### Scenario: Memory count unreadable
+
+- **WHEN** the graph request for the selected profile fails
+- **THEN** the Memory row shows no count and still opens the Memory screen
 
 ### Requirement: Creating a profile
 
