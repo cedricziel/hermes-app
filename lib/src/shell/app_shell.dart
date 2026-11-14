@@ -413,14 +413,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     });
   }
 
-  /// The connection is read again once an update ended, as after any connect;
-  /// a shell that is gone (or about to be) has nothing to refresh.
+  /// What an update that finished may have changed on the server: whether it
+  /// has Kanban and Schedules. It never touches `AuthController`: a connect
+  /// would swap the shell for the setup screen if it failed, and replace the
+  /// client the repositories hold. The status itself is read again by the run
+  /// through the care controller. A refusal changed nothing, so it reads
+  /// nothing.
   Future<void> _probeConnection() async {
-    final auth = _auth;
-    final url = auth?.baseUrl;
-    if (auth == null || url == null || !_authorizedOwner) return;
-    await auth.connect(url, restoring: true, remember: false, automatic: true);
-    if (mounted) unawaited(_detect());
+    final phase = _updateRun?.phase;
+    if (phase != UpdatePhase.finished && phase != UpdatePhase.staleServer) {
+      return;
+    }
+    if (mounted) await _detect();
   }
 
   /// The care controller and the Mac sidebar say "Updating…" while it runs.

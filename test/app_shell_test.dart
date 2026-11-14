@@ -340,6 +340,27 @@ void main() {
       await stop(tester, run);
     });
 
+    testWidgets('a failing re-check after the update leaves the shell and '
+        'the result alone', (tester) async {
+      final run = await pumpWithRun(tester);
+      await startRestarting(tester, run);
+      // Nothing the shell asks afterwards is answered.
+      server
+        ..onRequest('GET', '/api/dashboard/plugins', (o) {
+          throw DioException.connectionError(requestOptions: o, reason: 'down');
+        })
+        ..on('GET', '/api/status', {'detail': 'down'}, status: 500);
+      stage = 'up';
+      for (var i = 0; i < 6 && run.phase != UpdatePhase.finished; i++) {
+        await tester.pump(const Duration(seconds: 2));
+      }
+      await tester.pump(const Duration(seconds: 1));
+      expect(run.result, UpdateResult.success);
+      expect(find.byType(AppShell), findsOneWidget);
+      expect(find.text('Hermes 0.23.0 is ready'), findsOneWidget);
+      await stop(tester, run);
+    });
+
     testWidgets('a sign-out drops the update and the banner goes', (
       tester,
     ) async {

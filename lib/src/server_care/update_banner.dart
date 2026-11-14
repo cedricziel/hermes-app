@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../macos/mac_window.dart';
-import '../theme/platform_chrome.dart';
 import 'hermes_update_run.dart';
 import 'widgets/server_restart_banner.dart';
 
@@ -67,6 +65,10 @@ class _UpdateBannerLayerState extends State<UpdateBannerLayer> {
   Widget build(BuildContext context) {
     final run = _run!;
     final version = run.postVersion ?? run.versionNow;
+    // The window's own inset: the status bar, a notch or the Mac title bar
+    // (which `MacWindowChrome` reports as top padding). The banner paints
+    // through it.
+    final inset = MediaQuery.paddingOf(context).top;
     final ready =
         _sawBanner &&
         !_readyClosed &&
@@ -74,26 +76,21 @@ class _UpdateBannerLayerState extends State<UpdateBannerLayer> {
         run.result == UpdateResult.success &&
         version != null;
     final Widget? banner = run.showsBanner
-        ? ServerRestartBanner.restarting(onTap: widget.onOpen)
+        ? ServerRestartBanner.restarting(onTap: widget.onOpen, topInset: inset)
         : ready
         ? ServerRestartBanner.ready(
             key: const ValueKey('ready'),
             version: version,
             onClose: _closeReady,
             onAutoDismiss: _closeReady,
+            topInset: inset,
           )
         : null;
-    // The Mac window's content runs under its hidden title bar.
-    final mac = platformChromeOf(context) == PlatformChrome.macos;
     // One structure with or without the banner, and the child under a global
     // key: the whole shell must keep its state when the banner comes and goes.
     return Column(
       children: [
-        if (banner != null)
-          Padding(
-            padding: EdgeInsets.only(top: mac ? MacWindow.titlebarHeight : 0),
-            child: SafeArea(bottom: false, child: banner),
-          ),
+        ?banner,
         Expanded(
           // The banner took the top inset, so the page below adds none.
           child: MediaQuery.removePadding(

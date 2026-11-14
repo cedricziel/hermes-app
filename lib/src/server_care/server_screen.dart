@@ -17,6 +17,7 @@ import 'care_result.dart';
 import 'gateway_actions.dart';
 import 'gateway_restart.dart';
 import 'hermes_update_run.dart';
+import 'replies_in_progress.dart';
 import 'server_care_controller.dart';
 import 'server_status.dart';
 import 'update_check_controller.dart';
@@ -33,9 +34,11 @@ Future<void> showServerScreen(BuildContext context, {required String source}) {
   final care = context.read<ServerCareController>();
   final run = context.read<GatewayRestart>();
   final update = context.read<HermesUpdateRun>();
+  final replies = maybeRepliesInProgress(context);
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => _carry(care, run, update, ServerScreen(source: source)),
+      builder: (_) =>
+          _carry(care, run, update, replies, ServerScreen(source: source)),
     ),
   );
 }
@@ -44,9 +47,11 @@ Widget _carry(
   ServerCareController care,
   GatewayRestart run,
   HermesUpdateRun update,
+  RepliesInProgress? replies,
   Widget page,
 ) => MultiProvider(
   providers: [
+    if (replies != null) Provider<RepliesInProgress>.value(value: replies),
     ChangeNotifierProvider<ServerCareController>.value(value: care),
     ChangeNotifierProvider<GatewayRestart>.value(value: run),
     ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
@@ -157,8 +162,11 @@ class _ServerScreenState extends State<ServerScreen> {
     final care = context.read<ServerCareController>();
     final run = context.read<GatewayRestart>();
     final update = context.read<HermesUpdateRun>();
+    final replies = maybeRepliesInProgress(context);
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => _carry(care, run, update, page)),
+      MaterialPageRoute<void>(
+        builder: (_) => _carry(care, run, update, replies, page),
+      ),
     );
   }
 

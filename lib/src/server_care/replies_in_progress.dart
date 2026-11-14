@@ -27,3 +27,13 @@ int repliesInProgressOf(BuildContext context) {
     return 0;
   }
 }
+
+/// The shell's counter, or null outside one, for a route that carries it
+/// along.
+RepliesInProgress? maybeRepliesInProgress(BuildContext context) {
+  try {
+    return context.read<RepliesInProgress>();
+  } on ProviderNotFoundException {
+    return null;
+  }
+}

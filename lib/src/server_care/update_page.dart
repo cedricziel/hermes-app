@@ -7,6 +7,7 @@ import '../theme/app_icons.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import 'hermes_update_run.dart';
+import 'replies_in_progress.dart';
 import 'server_care_controller.dart';
 import 'update_actions.dart';
 import 'update_check_controller.dart';
@@ -65,14 +66,19 @@ UpdateStatus updateStatusOf(
 /// start from the Server screen (the restart banner). The pushed route sits
 /// above the shell's providers, so they go with it.
 Future<void> showUpdatePage(BuildContext context) {
+  // One page: a second tap on the banner leaves the open one in front.
+  if (_UpdatePageState.open > 0) return Future.value();
   final care = context.read<ServerCareController>();
   final run = context.read<HermesUpdateRun>();
+  final replies = maybeRepliesInProgress(context);
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => MultiProvider(
         providers: [
           ChangeNotifierProvider<ServerCareController>.value(value: care),
           ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
+          if (replies != null)
+            Provider<RepliesInProgress>.value(value: replies),
         ],
         child: const UpdatePage(),
       ),
@@ -99,6 +105,9 @@ class UpdatePage extends StatefulWidget {
 }
 
 class _UpdatePageState extends State<UpdatePage> {
+  /// How many Update pages are on screen; the banner opens none while one is.
+  static int open = 0;
+
   UpdateCheckController? _own;
   late final HermesUpdateRun _run;
   UpdatePhase? _lastPhase;
@@ -108,6 +117,7 @@ class _UpdatePageState extends State<UpdatePage> {
   @override
   void initState() {
     super.initState();
+    open++;
     _run = context.read<HermesUpdateRun>();
     _lastPhase = _run.phase;
     if (widget.controller == null) {
@@ -136,6 +146,7 @@ class _UpdatePageState extends State<UpdatePage> {
 
   @override
   void dispose() {
+    open--;
     if (_own != null) {
       _run.removeListener(_runChanged);
       _own!.dispose();

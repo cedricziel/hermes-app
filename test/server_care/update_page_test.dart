@@ -9,6 +9,7 @@ import 'package:hermes_app/src/server_care/hermes_update_run.dart';
 import 'package:hermes_app/src/server_care/replies_in_progress.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/server_care/server_screen.dart';
+import 'package:hermes_app/src/server_care/update_page.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:provider/provider.dart';
@@ -351,6 +352,95 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Update Hermes now?'), findsOneWidget);
       expect(posts(), 1);
+    });
+  });
+
+  group('pushed the way the app does it', () {
+    /// The providers sit below the Navigator, as in `AppShell`: a pushed route
+    /// only sees what the opener carries along.
+    Future<void> pumpBelowNavigator(
+      WidgetTester tester,
+      Widget Function(BuildContext) opener,
+    ) async {
+      tester.view.physicalSize = const Size(420, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repositories = HermesRepositories(server.client());
+      care = ServerCareController(
+        repository: repositories.serverCare,
+        profile: 'default',
+      );
+      addTearDown(care.dispose);
+      final gateway = GatewayRestart(repository: repositories.serverCare);
+      addTearDown(gateway.dispose);
+      run = HermesUpdateRun(repository: repositories.serverCare, care: care);
+      addTearDown(run.dispose);
+      replies = RepliesInProgress()..attach(() => 1);
+      await tester.pumpWidget(
+        Provider<HermesRepositories>.value(
+          value: repositories,
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(),
+            home: MultiProvider(
+              providers: [
+                Provider<RepliesInProgress>.value(value: replies),
+                ChangeNotifierProvider<ServerCareController>.value(value: care),
+                ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+                ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
+              ],
+              child: Builder(builder: opener),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> expectReplyLine(WidgetTester tester) async {
+      await tester.tap(find.text('Update Hermes'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('1 reply in this app is still running and will stop.'),
+        findsOneWidget,
+      );
+    }
+
+    testWidgets('showServerScreen carries the reply count to the page', (
+      tester,
+    ) async {
+      await pumpBelowNavigator(
+        tester,
+        (context) => TextButton(
+          onPressed: () => showServerScreen(context, source: 'test'),
+          child: const Text('open server'),
+        ),
+      );
+      await tester.tap(find.text('open server'));
+      await tester.pumpAndSettle();
+      await openUpdate(tester);
+      await expectReplyLine(tester);
+    });
+
+    testWidgets('showUpdatePage carries it too, and never opens a second '
+        'page', (tester) async {
+      await pumpBelowNavigator(
+        tester,
+        (context) => TextButton(
+          onPressed: () => showUpdatePage(context),
+          child: const Text('open update'),
+        ),
+      );
+      await tester.tap(find.text('open update'));
+      await tester.pumpAndSettle();
+      expect(find.byType(UpdatePage), findsOneWidget);
+      // The banner's tap while the page is open leaves it alone.
+      final context = tester.element(find.byType(UpdatePage));
+      await showUpdatePage(context);
+      await tester.pumpAndSettle();
+      expect(find.byType(UpdatePage, skipOffstage: false), findsOneWidget);
+      await expectReplyLine(tester);
     });
   });
 }
