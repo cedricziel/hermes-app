@@ -25,7 +25,12 @@ AgentDetailModel agentDetailModel({
   required SubagentDetailController? controller,
   required bool readOnly,
 }) {
-  final base = AgentDetailModel(
+  AgentDetailModel build({
+    AgentOutputModel? output,
+    AgentNoteModel? note,
+    bool offline = false,
+    AgentStopStatus stop = AgentStopStatus.idle,
+  }) => AgentDetailModel(
     goal: row.goal,
     state: row.state,
     runTime: agentRunTime(row),
@@ -34,25 +39,18 @@ AgentDetailModel agentDetailModel({
     startedByAgent: row.parentId != null,
     delivered: row.summary,
     error: row.error,
+    output: output,
+    note: note,
+    offline: offline,
+    stop: stop,
   );
+
   // A failed background delegation has no live agent, and a detail that
   // cannot reach the session (a conversation window) only describes.
-  if (row.delegationOnly) return base;
+  if (row.delegationOnly) return build();
   // A window that holds no session says so and offers no Stop or note.
-  if (readOnly) {
-    return AgentDetailModel(
-      goal: base.goal,
-      state: base.state,
-      runTime: base.runTime,
-      toolCount: base.toolCount,
-      currentTool: base.currentTool,
-      startedByAgent: base.startedByAgent,
-      delivered: base.delivered,
-      error: base.error,
-      stop: AgentStopStatus.notControllable,
-    );
-  }
-  if (controller == null) return base;
+  if (readOnly) return build(stop: AgentStopStatus.notControllable);
+  if (controller == null) return build();
 
   final tail = controller.tailPhase;
   final output = tail == TailPhase.unsupported
@@ -101,15 +99,7 @@ AgentDetailModel agentDetailModel({
           offline: controller.offline,
         );
 
-  return AgentDetailModel(
-    goal: base.goal,
-    state: base.state,
-    runTime: base.runTime,
-    toolCount: base.toolCount,
-    currentTool: base.currentTool,
-    startedByAgent: base.startedByAgent,
-    delivered: base.delivered,
-    error: base.error,
+  return build(
     output: output,
     note: note,
     offline: controller.offline,

@@ -179,7 +179,7 @@ AgentList? parseAgentList(Map<String, Object?> result) {
   if (rows is! List) return null;
   if (delegations != null && delegations is! List) return null;
   final agents = <ListedAgent>[];
-  for (final row in rows as List? ?? const []) {
+  for (final row in rows) {
     if (row is! Map) continue;
     final id = readString(row['subagent_id']);
     if (id == null) continue;

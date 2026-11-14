@@ -7,6 +7,16 @@ import '../session_chat_transport.dart' show SessionTransportUnavailable;
 /// What a call on a chat's agents came to.
 sealed class AgentWorkResult<T> {
   const AgentWorkResult();
+
+  /// The same result with an answer turned by [convert]; every other result
+  /// passes through unchanged.
+  AgentWorkResult<R> mapOk<R>(R Function(T value) convert) => switch (this) {
+    WorkOk(:final value) => WorkOk(convert(value)),
+    WorkNotAttached() => const WorkNotAttached(),
+    WorkUnsupported() => const WorkUnsupported(),
+    WorkLost() => const WorkLost(),
+    WorkFailed(:final kind) => WorkFailed(kind),
+  };
 }
 
 final class WorkOk<T> extends AgentWorkResult<T> {

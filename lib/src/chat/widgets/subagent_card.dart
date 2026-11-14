@@ -61,13 +61,14 @@ class _SubagentGroupCardState extends State<SubagentGroupCard> {
     }
 
     final running = subagents.where((s) => s.status == SubagentStatus.running);
+    final failed = subagents.where((s) => s.status == SubagentStatus.failed);
     final waiting = _waiting(subagents);
     final label = waiting
         ? 'Running ${running.first.goal}…'
         : running.isNotEmpty
         ? '${subagents.length} agents · ${running.first.goal}…'
-        : subagents.any((s) => s.status == SubagentStatus.failed)
-        ? '${subagents.length} agents · ${subagents.where((s) => s.status == SubagentStatus.failed).length} failed'
+        : failed.isNotEmpty
+        ? '${subagents.length} agents · ${failed.length} failed'
         : 'Used ${subagents.length} agents';
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
@@ -93,9 +94,7 @@ class _SubagentGroupCardState extends State<SubagentGroupCard> {
                   ToolCallStatusIcon(
                     status: running.isNotEmpty
                         ? ToolCallStatus.running
-                        : subagents.any(
-                            (s) => s.status == SubagentStatus.failed,
-                          )
+                        : failed.isNotEmpty
                         ? ToolCallStatus.error
                         : subagents.every(
                             (s) => s.status == SubagentStatus.interrupted,
@@ -277,7 +276,8 @@ class SubagentCard extends StatelessWidget {
     final open = onShowDetails;
     if (open == null) return row;
     final l10n = context.l10n;
-    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final chrome = platformChromeOf(context);
+    final mac = chrome == PlatformChrome.macos;
     return RowActions(
       title: s.goal,
       actions: [
@@ -296,7 +296,7 @@ class SubagentCard extends StatelessWidget {
           onTap: () => open(s.id),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: switch (platformChromeOf(context)) {
+              minHeight: switch (chrome) {
                 PlatformChrome.material => 48,
                 PlatformChrome.ios => kAppleMinTapTarget,
                 PlatformChrome.macos => 28,
