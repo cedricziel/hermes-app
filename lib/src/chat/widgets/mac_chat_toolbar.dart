@@ -26,6 +26,7 @@ class MacChatToolbar extends StatelessWidget {
     this.avatar,
     required this.title,
     this.subtitle,
+    this.subtitleBuilder,
     required this.onNewChat,
     required this.onShowConnection,
     this.onCopyTranscript,
@@ -44,6 +45,9 @@ class MacChatToolbar extends StatelessWidget {
   final Widget? avatar;
   final String title;
   final String? subtitle;
+
+  /// Replaces the drawn [subtitle], e.g. with a `MacToolbarSubtitle`.
+  final Widget Function(BuildContext context, Widget subtitle)? subtitleBuilder;
   final VoidCallback onNewChat;
   final VoidCallback onShowConnection;
 
@@ -73,6 +77,7 @@ class MacChatToolbar extends StatelessWidget {
       leading: avatar,
       title: title,
       subtitle: subtitle,
+      subtitleBuilder: subtitleBuilder,
       actions: [
         MacToolbarButton(
           key: const Key('toolbar-new-chat'),
