@@ -219,6 +219,39 @@ final class QueueSubmissionNotStarted implements Exception {
   String toString() => 'Queued prompt was not submitted.';
 }
 
+/// How far a [ChatTransport.send] got when it failed.
+enum SendStep {
+  /// No connection yet.
+  connect,
+
+  /// Connected; opening or resuming the session.
+  open,
+
+  /// Session open; attaching files. Nothing was submitted.
+  attach,
+
+  /// `prompt.submit` was written without an answer: the server may have it.
+  submit,
+
+  /// `prompt.submit` was answered; the reply broke afterwards.
+  reply,
+}
+
+/// The error of a send that was asked to report its step (one given an
+/// `onSubmitting`). It holds the original error in [cause] and names the
+/// [step], and nothing of the prompt or the server's wording.
+final class SendFailure implements Exception {
+  const SendFailure(this.step, this.cause);
+  final SendStep step;
+  final Object cause;
+
+  /// Whether the prompt was certainly not written to the server.
+  bool get beforeSubmit => step.index < SendStep.submit.index;
+
+  @override
+  String toString() => 'Send failed at ${step.name}.';
+}
+
 final class ReplyStarted extends ChatEvent {
   const ReplyStarted();
 }
@@ -784,6 +817,13 @@ abstract interface class ChatTransport {
   ///
   /// [workspace] is the folder picked for a new chat. It is sent only when
   /// [threadId] is null; a resumed thread keeps the folder it has.
+  ///
+  /// [onSubmitting] runs once, just before `prompt.submit` is written and
+  /// never earlier. A send given one also ends with a [SendFailure] instead
+  /// of the raw error (a [ProfileUnavailableException] and a
+  /// [QueueSubmissionNotStarted] stay as they are), so the caller knows
+  /// whether the server may have the prompt. A send without one fails as
+  /// before. [PromptAcknowledgement.promptAccepted] says the server answered.
   Stream<ChatEvent> send({
     String? threadId,
     String? profile,
@@ -792,6 +832,7 @@ abstract interface class ChatTransport {
     ModelChoice? model,
     bool queued = false,
     WorkspaceChoice? workspace,
+    void Function()? onSubmitting,
   });
 
   /// The turns Hermes starts on its own in [threadId] after the reply of the

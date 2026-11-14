@@ -13,6 +13,7 @@ extension _Sending on HermesGatewayTransport {
     Future<void> Function()? beforeSubmit,
     Future<void> Function()? onNotSubmitted,
     bool Function()? queueDispatchAllowed,
+    void Function()? onSubmitting,
   }) {
     _promptAccepted = false;
     final stopped = CancelFlag();
@@ -31,11 +32,21 @@ extension _Sending on HermesGatewayTransport {
         beforeSubmit: beforeSubmit,
         onNotSubmitted: onNotSubmitted,
         queueDispatchAllowed: queueDispatchAllowed,
+        onSubmitting: onSubmitting,
       ).transform(
         StreamTransformer.fromHandlers(
           handleError: (error, stackTrace, sink) {
             _sendFailed(step.name, error, newThread: threadId == null);
-            sink.addError(error, stackTrace);
+            // Only a send that asked for its step gets the typed failure, so
+            // callers that catch the raw errors keep what they catch.
+            sink.addError(
+              onSubmitting == null ||
+                      error is ProfileUnavailableException ||
+                      error is QueueSubmissionNotStarted
+                  ? error
+                  : SendFailure(step.sendStep, error),
+              stackTrace,
+            );
           },
         ),
       ),
@@ -136,6 +147,7 @@ extension _Sending on HermesGatewayTransport {
     Future<void> Function()? beforeSubmit,
     Future<void> Function()? onNotSubmitted,
     bool Function()? queueDispatchAllowed,
+    void Function()? onSubmitting,
   }) async* {
     final scope = <String, Object?>{
       'profile': ?profile,
@@ -400,6 +412,8 @@ extension _Sending on HermesGatewayTransport {
             throw await notSubmitted(error);
           }
         }
+        // Before the step changes: a callback that throws sent nothing.
+        onSubmitting?.call();
         step.name = 'submit';
         submittedAt = clock.now();
         try {

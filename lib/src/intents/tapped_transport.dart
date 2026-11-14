@@ -24,6 +24,7 @@ class TappedTransport implements ChatTransport {
     ModelChoice? model,
     bool queued = false,
     WorkspaceChoice? workspace,
+    void Function()? onSubmitting,
   }) => _inner
       .send(
         threadId: threadId,
@@ -33,6 +34,7 @@ class TappedTransport implements ChatTransport {
         model: model,
         queued: queued,
         workspace: workspace,
+        onSubmitting: onSubmitting,
       )
       .map((event) {
         onEvent(event);
