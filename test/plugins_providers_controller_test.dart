@@ -245,16 +245,16 @@ void main() {
   group('telemetry', () {
     setUp(() => controller.load());
 
-    test('logs a save with only the fields it sent', () async {
+    test('logs a save with flags for the fields it sent', () async {
       server.on('PUT', save, {'ok': true});
       controller.chooseMemory('holographic');
       await controller.save();
 
       expect(events.single.$1, 'plugins.providers.save.ok');
-      expect(events.single.$2, {'memory.provider': 'holographic'});
+      expect(events.single.$2, {'memory.changed': true});
     });
 
-    test('logs built-in by name and a failure as an error', () async {
+    test('logs a failure as an error, without provider names', () async {
       server.on('PUT', save, {'detail': 'secret /srv/x'}, status: 400);
       controller.chooseMemory('');
       controller.chooseContext('lossless');
@@ -262,9 +262,10 @@ void main() {
 
       expect(events.single.$1, 'plugins.providers.save.error');
       expect(events.single.$2, {
-        'memory.provider': 'builtin',
-        'context.engine': 'lossless',
+        'memory.changed': true,
+        'context.changed': true,
       });
+      expect(events.single.$2.values.join(' '), isNot(contains('lossless')));
     });
   });
 
