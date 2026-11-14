@@ -58,11 +58,11 @@ For the selected provider each env var SHALL be the app-wide secret field (Secre
 #### Scenario: Never shown in the app switcher
 
 - **WHEN** the app switcher or a system snapshot captures the app with a key field on screen
-- **THEN** the snapshot shows no key field content, because the field is cleared when the app becomes inactive, before the snapshot is taken
+- **THEN** the snapshot shows no readable key: the field is obscured, and a shown value is hidden when the app becomes inactive, before the snapshot is taken
 
 #### Scenario: Cleared on leaving
 
-- **WHEN** the app goes to the background or inactive, App Lock engages, the profile changes, the user signs out or the server changes
+- **WHEN** App Lock locks the app, the form closes, the profile changes, the user signs out or the server changes
 - **THEN** every typed key is cleared
 
 #### Scenario: Save a key
@@ -87,13 +87,13 @@ For the selected provider each env var SHALL be the app-wide secret field (Secre
 
 #### Scenario: Backgrounded with text typed
 
-- **WHEN** the app goes to the background with a key typed
-- **THEN** the field is empty when the app returns
+- **WHEN** the app goes to the background or inactive with a key typed and shown
+- **THEN** the value is hidden, the typed text is still in the field when the app returns, and the control reads "Show key"
 
 #### Scenario: Lost answer
 
 - **WHEN** the answer to a save is lost
-- **THEN** the screen says "May have saved. Checking…", reads the config, and never sends the key again by itself
+- **THEN** the field is cleared (the key may already be saved), the screen says "May have saved. Checking…", reads the config, and never sends the key again by itself; when the re-read shows the key is not set, it says "The key wasn't saved. Paste it again."
 
 #### Scenario: Checking cannot finish
 
