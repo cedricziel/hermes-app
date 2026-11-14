@@ -66,6 +66,11 @@ The Server screen SHALL start with one sentence about the server's health and, w
 - **WHEN** `/api/status` reports `overall: ok`, a running gateway and no pressure
 - **THEN** the headline reads "Everything looks good" with no action
 
+#### Scenario: Update available is not attention
+
+- **WHEN** the server is healthy and the update check reports a newer version
+- **THEN** the headline still reads "Everything looks good" with no action, the Updates row reads "Update available" with the number of changes, and no attention mark is shown
+
 #### Scenario: Gateway not responding
 
 - **WHEN** `gateway_heartbeat_stale_s` is a number
@@ -350,7 +355,12 @@ The Usage page SHALL show, for the chat's profile and the last 7, 30 (default) o
 
 ### Requirement: Usage accessibility
 
-The usage chart SHALL expose a summary (metric, window, total, highest day) and each bar's date and value to screen readers in date order, SHALL offer a table with the same rows, SHALL label units on its axis, SHALL drop axis labels before truncating them at large text sizes, and SHALL not animate under reduced motion.
+The usage chart SHALL expose a summary (metric, window, total, highest day) and each bar's date and value to screen readers in date order, SHALL offer a table with the same rows, SHALL label units on its axis, SHALL drop axis labels before truncating them at large text sizes, and SHALL not animate under reduced motion. On desktop the arrow keys SHALL move the selection between bars. Press and drag SHALL never be the only way to reach a day: the arrow keys, each bar's semantics node and the table SHALL each reach every day.
+
+#### Scenario: Keyboard
+
+- **WHEN** the chart has keyboard focus on a desktop and the user presses the left or right arrow key
+- **THEN** the selection moves to the previous or next day, the label above the chart shows that day's date, value and conversations, and screen readers announce it
 
 #### Scenario: Screen reader
 
@@ -392,7 +402,7 @@ On a profile switch the profile-scoped parts SHALL be read again for the new pro
 
 ### Requirement: Accessibility
 
-Every control SHALL be at least 44 points (48 dp on Android) high, every state SHALL be conveyed in words, text SHALL wrap at the largest accessibility size without losing meaning, contrast SHALL meet WCAG AA in both themes, and destructive confirmations SHALL make Cancel the default.
+Every control SHALL be at least 44 points (48 dp on Android) high. In the usage chart's 90-day window each bar is a control and SHALL have a tap target at least 44 points (48 dp) wide; in the 7- and 30-day windows a bar is not an individual target (the chart is one press-and-drag surface at least 44 points high, and the arrow keys, semantics and table reach each day). Every state SHALL be conveyed in words, text SHALL wrap at the largest accessibility size without losing meaning, contrast SHALL meet WCAG AA in both themes, and destructive confirmations SHALL make Cancel the default.
 
 #### Scenario: Largest text
 
