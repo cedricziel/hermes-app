@@ -1,6 +1,6 @@
 ---
 name: parallel-ui-rollout
-description: Use when one hermes-app change (a restyle, a shared widget migration, a design port) is being split, or should be split, across several agents that each open their own PR — planning the waves, writing the agent brief, and getting every PR merged without breaking main. The merge and review rules also apply to any other multi-agent fan-out.
+description: Use when one hermes-app change (a restyle, a shared widget migration, a design port) is being split, or should be split, across several agents that each open their own PR: planning the waves, writing the agent brief, and getting every PR merged without breaking main. The merge and review rules also apply to any other multi-agent fan-out.
 ---
 
 # Rolling out a UI change with parallel agents
@@ -28,10 +28,12 @@ the rework.
   agents made the same helper public, and a shared-widget fix changed what
   another screen's test found.
 - **Write the design and the brief down as files.** Agents can't open Claude
-  Design or the orchestrator's conversation. Put the spec, the brief and the
-  shared API notes in the orchestrator's scratchpad and pass their absolute
-  paths in every brief (worktree-isolated agents can read them; they can't
-  write outside their worktree with compound shell commands).
+  Design or the orchestrator's conversation. Run the design pass first
+  (`design-pass` skill), which records its decisions in the change's
+  `design.md` and in `docs/design-briefs/<change>.md`. Put the brief and the
+  shared API notes in the repo too, so cloud sessions can read them. Local
+  worktree agents may also read the orchestrator's scratchpad by absolute
+  path; a cloud session cannot.
 - **Say what "visual only" means.** Restyle agents changed tap targets (a
   switch row that no longer flips on a row tap), flows (a picker sheet became
   an Add button) and added buttons (Done). Either forbid behaviour changes
@@ -44,11 +46,13 @@ the rework.
 - **Known collisions to put in the brief:** only one Hermes dashboard runs per
   machine (`verify-in-app` skill: use its isolated variant), and the worktree
   shell guard rejects compound commands that mention `git` (`.design-sync/NOTES.md`):
-  run git as plain single commands.
+  run git as plain single commands (`git -C <path> ...`, no `cd x && git ...`).
 
 ## Every PR
 
-- **Screenshots.** Agents write combined before/after PNGs plus a `READY` file
+- **Screenshots in cloud sessions.** Skip the upload. Describe the change in
+  the PR body and name the workflow test whose screenshots show it.
+- **Screenshots (desktop sessions with a browser).** Agents write combined before/after PNGs plus a `READY` file
   (`<file name> | <caption>` per line, file names relative to that folder) to
   `<orchestrator scratchpad>/shots/<PR number>/`. The orchestrator uploads them
   through Chrome: attach the files to the PR's new-comment box, read the
@@ -56,7 +60,7 @@ the rework.
   `textarea.select(); document.execCommand('delete')` (setting `.value`
   desyncs GitHub's editor), save them as `<file name> <URL>` lines in
   `uploaded.txt` next to `READY`, and put the images in a `## Screenshots`
-  section of the PR body with `gh pr edit --body-file`. GitHub returns 429
+  section of the PR body (update the PR with the GitHub MCP tools). GitHub returns 429
   silently after roughly 60–90 uploads an hour; upload in batches of up to
   about eight per call.
 - **The PR body is shared.** The agent owns the text it opened the PR with, the
@@ -65,27 +69,27 @@ the rework.
   own section and writes it back; an agent that regenerates the whole body from
   its own notes deletes the screenshots. If that happens, rebuild
   `## Screenshots` from `uploaded.txt`.
-- **Review before merge.** CodeRabbit when it reviews. When it is rate-limited
-  or capped, an isolated reviewer agent with fresh context reviews
-  `gh pr diff <n>` for correctness, accessibility and unintended behaviour or
-  API changes, and appends its findings as `## Review`; fix what it confirms,
-  then arm `gh pr merge --auto --squash`.
-  Never merge unreviewed.
-- **Rebase right before pushing**, and again after any merge that touched a
-  shared file the branch uses; push the rewritten branch with
-  `--force-with-lease`.
+- **Review before merge.** CodeRabbit when it reviews. It often skips stacked
+  PRs and it rate-limits. Then an isolated reviewer agent with fresh context is
+  the review of record: it reads the PR diff (GitHub MCP tools) for correctness,
+  accessibility and unintended behaviour or API changes, and its findings go
+  in as `## Review`. Fix what it confirms. Never merge unreviewed.
+- **Never rebase or force-push a pushed branch.** To pick up main or a lower
+  branch, merge it in with a plain merge commit and push normally.
 
 ## While they run
 
 - Keep watching every PR after its agent hands back: the harness can end an
   agent while CI is still running, and a later merge can turn its PR into a
-  conflict nobody sees. A watcher that polls `gh pr list` and the screenshot
-  folder, and remembers what it already reported, keeps the noise down.
-- Check main's CI after each merge, not only the PR's.
+  conflict nobody sees. A watcher that polls the open PRs (GitHub MCP
+  `list_pull_requests`) and the screenshot folder, and remembers what it
+  already reported, keeps the noise down.
+- Check main's CI after each merge, not only the PR's. Each merge regenerates
+  the release-please PR; that is expected.
 - Visual Flutter changes leave the React copies in `design/web` stale (see
   `.design-sync/NOTES.md`). Find the PRs that need a port with
-  `gh pr list --state merged --search '"needs a design port" in:body'` and plan
-  the port as part of the rollout.
+  `gh api -X GET search/issues -f q='repo:cedricziel/hermes-app is:pr is:merged "needs a design port" in:body'`
+  and plan the port as part of the rollout.
 
 ## When lead agents cannot spawn agents
 
@@ -101,22 +105,45 @@ levels and the orchestrator does the reviewing:
   lead had missed in most PRs of the run that added this section.
 - The orchestrator sends the findings back to the same lead, which keeps its
   context, and the lead writes the `## Review` section when it pushes the fixes.
-- Arm `--auto --squash` only after that follow-up push. Armed earlier, the PR can
-  merge without the fix.
+- Merge only after that follow-up push, and only once `Analyze & test` has
+  passed on the PR's current head (see "Child cloud sessions").
 - A follow-up push cancels the previous commit's CI run, and `Analyze & test`
   then reports failure for the old commit. Compare a failure event's `head_sha`
   with the PR's current head before acting on it.
 - Give every lead the same common brief file plus its own stream brief, each
   naming the files it must not touch. One stream owns `CLAUDE.md` and
-  `docs/architecture/`; a fix that needs a sentence there rebases after that
-  stream's PR merges.
+  `docs/architecture/`; a fix that needs a sentence there waits for that
+  stream's PR merges, then merges main into its branch.
+
+## Child cloud sessions
+
+Work is fanned out to child cloud sessions. Each child owns one feature and
+reports to the orchestrator, who merges.
+
+- **Stacked PRs.** Build them with plain merge commits of the lower branch into
+  the upper one. Merge bottom-up: after the lower PR merges, retarget the next
+  PR's base to main, then merge it. Retargeting does not rerun CI, so check the
+  required check on the current head before merging.
+- **No rebases, no force-pushes** on a pushed branch.
+- **No `git stash`.** Agents sharing one clone share one stash list, so one
+  worker's pop can take another's work. Workers use commits or patch files.
+- **GitHub goes through the GitHub MCP tools.** Use `gh` only for
+  `gh api -X GET search/...`.
+- **Review.** CodeRabbit often skips stacked PRs and rate-limits. Then an
+  isolated reviewer agent is the review of record.
+- **Merging is by hand.** Auto-merge armed through the API often does not fire.
+  The orchestrator merges once the required check `Analyze & test` has passed
+  on the PR's current head. A superseded commit's cancelled run shows as a
+  failure: compare the run's head sha with the PR's head before acting.
+- **Release PR.** Each merge regenerates the release-please PR. Do not touch it
+  until the rollout is done.
 
 ## Afterwards
 
 - Remove the finished agents' worktrees with `git worktree remove` without
   `--force`, so git refuses any worktree that still has uncommitted work.
 - Delete their branches: the repo squash-merges, so `git branch -d` calls them
-  "not fully merged". Confirm each PR merged (`gh pr view <n> --json state`),
+  "not fully merged". Confirm each PR merged (GitHub MCP `pull_request_read`),
   then use `git branch -D`.
 - If any PR merged without a review, review the whole range afterwards, for
   example with the `toolkit:deep-review` skill (a user plugin, so it may be
