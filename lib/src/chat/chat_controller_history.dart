@@ -90,10 +90,19 @@ extension _ChatControllerHistory on ChatController {
         notifyListeners();
         return;
       }
+      // A list read again for the profile in view must not drop the turn
+      // that is running in it.
+      final sameProfile = profile == previousProfile;
       final local = preserveSelection
           ? _threads.where((thread) => !thread.remote).toList()
+          : sameProfile
+          ? _threads
+                .where(
+                  (thread) => !thread.remote && _sending.containsKey(thread),
+                )
+                .toList()
           : const <ChatThread>[];
-      final live = preserveSelection && profile == previousProfile
+      final live = sameProfile
           ? _threads
                 .where(
                   (thread) => thread.remote && _sending.containsKey(thread),
@@ -116,7 +125,11 @@ extension _ChatControllerHistory on ChatController {
                     !entry.value.any((prompt) => prompt.durable != null))
                   entry.key.id: entry.value,
             }
-          : <String, List<QueuedPrompt>>{};
+          : {
+              for (final entry in _queues.entries)
+                if (live.contains(entry.key) || local.contains(entry.key))
+                  entry.key.id: entry.value,
+            };
       if (preserveSelection) previousSelection = _selectedId;
       for (final (:source, :recovered) in currentRecoveries) {
         if (source.id == recovered.id) continue;
@@ -207,7 +220,10 @@ extension _ChatControllerHistory on ChatController {
           : null;
       _selectedId =
           launchedThread?.id ??
-          (preserveSelection && _threads.any((t) => t.id == previousSelection)
+          ((preserveSelection ||
+                      live.any((t) => t.id == previousSelection) ||
+                      local.any((t) => t.id == previousSelection)) &&
+                  _threads.any((t) => t.id == previousSelection)
               ? previousSelection
               : null);
       if (launchedThread != null) _markRead(launchedThread);
