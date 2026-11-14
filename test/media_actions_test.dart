@@ -28,6 +28,24 @@ void main() {
       expect(File(target).readAsBytesSync(), List.filled(64, 7));
     });
 
+    test('a failing copy leaves no temp file and keeps the old file', () async {
+      final dir = tempDir('save_atomic');
+      final target = File('${dir.path}/chosen.bin')..writeAsBytesSync([1]);
+      final actions = PlatformMediaActions(
+        export: FileExport(
+          mobile: false,
+          pickDestination: (_) async => target.path,
+        ),
+      );
+
+      await expectLater(
+        actions.saveFile('x', File('${dir.path}/missing.bin')),
+        throwsA(anything),
+      );
+      expect(target.readAsBytesSync(), [1]);
+      expect(dir.listSync().map((e) => e.path), [target.path]);
+    });
+
     test('cancelling copies nothing', () async {
       final dir = tempDir('save_cancel');
       final source = writeTemp(dir, 'a.bin', [1]);

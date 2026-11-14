@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../chat/media/media_store.dart' show stagedFileName;
+
 /// Extensions Windows runs or installs when opened. A downloaded file with one
 /// of these is never offered Open with…, on any server and for any file name
 /// the server sends.
@@ -35,6 +37,23 @@ const kWindowsRunnableExtensions = {
   'appx',
   'msix',
   'appinstaller',
+  'application',
+  'appref-ms',
+  'settingcontent-ms',
+  'website',
+  'diagcab',
+  'chm',
+  'xll',
+  'ws',
+  'wsc',
+  'vb',
+  'scf',
+  // Disk images mount without the Mark of the Web, so what is inside runs
+  // unchecked.
+  'iso',
+  'img',
+  'vhd',
+  'vhdx',
 };
 
 /// Writes the Mark of the Web (the `Zone.Identifier` alternate data stream,
@@ -61,11 +80,13 @@ class FilesPlatformPolicy {
 
   /// Whether the file called [name] may be offered Open with….
   ///
-  /// Windows drops trailing dots and spaces from a name, so `a.exe.` and
-  /// `a.exe ` run as `a.exe`; they are judged without them.
+  /// [name] is judged as it is staged ([stagedFileName]: the last path part,
+  /// Unicode whitespace trimmed, cut to length), which is the name the file
+  /// is opened by, and then as Windows reads it: it drops trailing dots and
+  /// spaces, so `a.exe.` and `a.exe ` run as `a.exe`.
   bool canOpenWith(String name) {
     if (!windows) return true;
-    final trimmed = name.replaceFirst(RegExp(r'[. ]+$'), '');
+    final trimmed = stagedFileName(name).replaceFirst(RegExp(r'[. ]+$'), '');
     final dot = trimmed.lastIndexOf('.');
     if (dot < 0) return true;
     return !kWindowsRunnableExtensions.contains(

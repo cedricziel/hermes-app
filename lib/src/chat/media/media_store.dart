@@ -70,6 +70,11 @@ class MediaStore {
 
   /// Bumped by [clear], so a fetch that finishes afterwards keeps nothing.
   var _generation = 0;
+
+  /// Bumped by [clearFileDownloads] and [clear]: ends only Files downloads,
+  /// so an attachment or audio downloading when App Lock locks is unharmed.
+  var _filesGeneration = 0;
+  var _partCounter = 0;
   var _previewRequest = 0;
   StreamSubscription<void>? _signOut;
 
@@ -208,7 +213,9 @@ class MediaStore {
     String name,
     Future<void> Function(File part) fill,
   ) async {
-    final generation = _generation;
+    final files = _isFilesKey(key);
+    int current() => files ? _filesGeneration : _generation;
+    final generation = current();
     File? part;
     Object? fillFailure;
     try {
@@ -224,14 +231,14 @@ class MediaStore {
       // Written aside and renamed, so a half-written file is never taken for
       // a downloaded one. The name is this store's own, since every engine
       // has a store over the same folder.
-      part = File('${target.path}.$_partSuffix.part');
+      part = File('${target.path}.$_partSuffix-${_partCounter++}.part');
       try {
         await fill(part);
       } on Object catch (e) {
         fillFailure = e;
         rethrow;
       }
-      if (generation != _generation) {
+      if (generation != current()) {
         throw const MediaFetchException(MediaFailure.failed);
       }
       await part.rename(target.path);
@@ -246,9 +253,13 @@ class MediaStore {
       if (e is MediaFetchException || identical(e, fillFailure)) rethrow;
       throw const MediaFetchException(MediaFailure.failed);
     } finally {
-      if (generation == _generation) unawaited(_fileFetches.remove(key));
+      if (generation == current()) unawaited(_fileFetches.remove(key));
     }
   }
+
+  static bool _isFilesKey(String key) =>
+      key.startsWith(kFilesCopyKeyPrefix) ||
+      key.startsWith(kSecretCopyKeyPrefix);
 
   static String _folderOf(String key) {
     final hash = sha256.convert(utf8.encode(key)).toString().substring(0, 16);
@@ -274,15 +285,12 @@ class MediaStore {
 
   /// Deletes every file the Files page downloaded, secret copies included, and
   /// closes the Quick Look panel. Run when App Lock locks. A download still
-  /// running ends without leaving a file; chat attachments stay.
+  /// running ends without leaving a file; chat attachments and audio, and
+  /// their downloads in flight, are untouched.
   Future<void> clearFileDownloads() async {
-    _generation++;
+    _filesGeneration++;
     await _quietly(_quickLook.close);
-    _fileFetches.removeWhere(
-      (key, _) =>
-          key.startsWith(kFilesCopyKeyPrefix) ||
-          key.startsWith(kSecretCopyKeyPrefix),
-    );
+    _fileFetches.removeWhere((key, _) => _isFilesKey(key));
     await _quietly(() async {
       final root = await _root();
       if (!await root.exists()) return;
@@ -333,6 +341,7 @@ class MediaStore {
   /// run, and forgets the images.
   Future<void> clear() async {
     _generation++;
+    _filesGeneration++;
     await _quietly(_quickLook.close);
     _images.clear();
     _imageBytes = 0;
@@ -398,7 +407,11 @@ class MediaStore {
 
 /// The last part of [name], with what a file system rejects taken out, so a
 /// name from the server can only land inside its own folder.
-String _safeName(String name) {
+String _safeName(String name) => stagedFileName(name);
+
+/// The name a file called [name] by the server is staged under, and so the
+/// name it is opened, shared and saved by.
+String stagedFileName(String name) {
   final clean = fileNameOf(name).replaceAll(_unsafeInName, '_').trim();
   if (clean.isEmpty || clean == '.' || clean == '..') return 'file';
   return _shortened(clean);
@@ -417,7 +430,10 @@ String _shortened(String name) {
   while (utf8.encode(base).length + utf8.encode(extension).length > limit) {
     base = base.substring(0, base.length - 1);
   }
-  return '$base$extension';
+  // Cut in the middle of a name, what stays must not end in something that
+  // reads as an extension (`x….exe.aaaa` cut after `.exe`).
+  if (extension.isEmpty) base = base.replaceAll('.', '_');
+  return '${base.trimRight()}$extension';
 }
 
 Future<void> _quietly(Future<void> Function() action) async {

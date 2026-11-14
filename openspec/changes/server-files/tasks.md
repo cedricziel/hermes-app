@@ -61,6 +61,14 @@ If PR 1 passes about 500 lines, split it after 1.4 (repository) and 1.5 (streami
 - `FilesFailure.fixedFolder` was added so a 403 "outside the managed read boundary" reads as the fixed-folder message; the incomplete-download message is not reachable yet (the controller reports it as `unreadable`).
 - The new chat header item shows only for a chat the dashboard holds (`ThreadActionsButton`); a draft is reached through the Activity row and the Mac menu.
 
+## Known limits of path-based Save (not patched; the plugin is not ours)
+
+- Android: when the copy fails after the picker returned, `flutter_file_dialog` leaves an empty destination document the user chose.
+- The plugin writes the source path or URI to logcat in release builds. Paths are inside the app cache; no server path is among them.
+- `file_selector` bundles mobile implementations the app does not use (a PR line, no action).
+- Follow-up: chat attachments' `openWithSystem` (`attachment_file_actions.dart`) gets neither the runnable-file block nor the Mark of the Web on Windows.
+- iOS: `fileName` is not passed to the plugin, because with it the plugin copies the whole file to `NSTemporaryDirectory()` outside the media cache; the document is named after the staged (sanitised) file.
+
 ## Known deviations (review of the controller PR)
 
 - ~~Save is capped at 32 MB (`kMaxSaveBytes`): file_picker 13 saves from bytes, so `PlatformMediaActions.saveFile` reads the file into memory, against "SHALL NOT read it into memory" in the spec. A larger file ends as `FilesFailure.saveUnavailable`. Open item for the widget PR: a path-based save (`file_selector` on desktop, a document-export channel on mobile) without a new dependency decision hidden in the controller PR.~~ Done in PR 3: `FileExport` (`flutter_file_dialog` on iOS and Android, `file_selector` + `File.copy` on desktop); the cap and `FilesFailure.saveUnavailable` are gone. Not verified on a device: iOS Files export and Android document provider (5.2, 5.3).
