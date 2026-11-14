@@ -728,6 +728,25 @@ void main() {
       });
     });
 
+    testWidgets('a failing notification post is logged as a failed look', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        service = _OnShow(() => throw StateError('post failed'));
+        await setUpWatcher();
+        await watcher!.check();
+        deliveries('work', [delivery('hermes-app-new', at: 200)]);
+        text('hermes-app-new', 'Hi');
+
+        await watcher!.check();
+
+        expect(eventAttributes('agent_messages.look_failed'), {
+          'error_type': 'StateError',
+          'background': false,
+        });
+      });
+    });
+
     testWidgets('App Lock turned on while the first of two is posted makes '
         'the second generic', (tester) async {
       await tester.runAsync(() async {
