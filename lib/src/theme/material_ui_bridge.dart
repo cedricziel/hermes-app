@@ -9,6 +9,8 @@ import 'package:material_ui/material_ui.dart' as mui;
 /// update dialog from them. Add these to the app's delegates.
 const List<LocalizationsDelegate<dynamic>> kMaterialUiLocalizationsDelegates =
     <LocalizationsDelegate<dynamic>>[
+      mui.GlobalMaterialLocalizations.delegate,
+      cui.GlobalCupertinoLocalizations.delegate,
       _EnglishFallbackDelegate<mui.MaterialLocalizations>(
         mui.DefaultMaterialLocalizations.delegate,
       ),
@@ -18,8 +20,9 @@ const List<LocalizationsDelegate<dynamic>> kMaterialUiLocalizationsDelegates =
     ];
 
 /// The `Default*Localizations` delegates support English only and refuse any
-/// other locale, which leaves the dialog without localizations. This one
-/// supports every locale and loads the English defaults.
+/// other locale. Listed after the packages' `Global*` delegates, this one
+/// supports every locale and loads the English defaults for those the
+/// `Global*` delegates lack, so the dialog never ends up without localizations.
 class _EnglishFallbackDelegate<T> extends LocalizationsDelegate<T> {
   const _EnglishFallbackDelegate(this._english);
 

@@ -145,6 +145,15 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.text('UPDATE NOW'), findsOneWidget);
+        final hermes = brightness == Brightness.dark
+            ? buildHermesDarkTheme()
+            : buildHermesLightTheme();
+        expect(
+          mui.Theme.of(tester.element(find.byType(mui.AlertDialog)))
+              .colorScheme
+              .primary,
+          hermes.colorScheme.primary,
+        );
       }, variant: TargetPlatformVariant.all());
     }
 
