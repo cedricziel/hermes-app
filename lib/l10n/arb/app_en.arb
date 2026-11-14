@@ -3917,9 +3917,213 @@
   "@serverCareChannelsRow": {
     "description": "Row label on the Server screen: the gateway's messaging channels (Telegram, Discord and the like)."
   },
+  "serverCareCheckAllPassed": "All checks passed",
+  "@serverCareCheckAllPassed": {
+    "description": "Summary of a finished Server check in which nothing was found."
+  },
+  "serverCareCheckChecked": "Checked {ago}",
+  "@serverCareCheckChecked": {
+    "description": "Under the summary of a Server check: when it ran. {ago} is 'just now', '5 minutes ago' or 'today'.",
+    "placeholders": {
+      "ago": {
+        "type": "String",
+        "example": "just now"
+      }
+    }
+  },
+  "serverCareCheckDismiss": "Dismiss",
+  "@serverCareCheckDismiss": {
+    "description": "Button that forgets a Server check that took too long."
+  },
+  "serverCareCheckFailedExitedDetail": "Hermes ended it before it finished.",
+  "@serverCareCheckFailedExitedDetail": {
+    "description": "Body of the Server check page when the check stopped and Hermes said nothing readable."
+  },
+  "serverCareCheckFailedExitedTitle": "The check stopped early",
+  "@serverCareCheckFailedExitedTitle": {
+    "description": "Title of the Server check page when the check stopped before it finished."
+  },
+  "serverCareCheckFailedStartDetail": "Hermes didn't say why.",
+  "@serverCareCheckFailedStartDetail": {
+    "description": "Body of the Server check page when the server refused to start a check without giving a reason."
+  },
+  "serverCareCheckFailedStartTitle": "The check couldn't start",
+  "@serverCareCheckFailedStartTitle": {
+    "description": "Title of the Server check page when the server refused to start a check."
+  },
+  "serverCareCheckFixesHeader": "Things to fix",
+  "@serverCareCheckFixesHeader": {
+    "description": "Header of the list of fixes Hermes suggested after a Server check."
+  },
+  "serverCareCheckFooter": "To fix what can be fixed automatically, run 'hermes doctor --fix' on the server.",
+  "@serverCareCheckFooter": {
+    "description": "Footnote under a Server check result."
+  },
+  "serverCareCheckIncompleteDetail": "Hermes ended it early. What it had read is shown below.",
+  "@serverCareCheckIncompleteDetail": {
+    "description": "Second line of the Server check summary when the check ended without finishing; what it had read follows."
+  },
+  "serverCareCheckIncompleteTitle": "The check did not finish",
+  "@serverCareCheckIncompleteTitle": {
+    "description": "Title of the Server check summary when the check ended without finishing."
+  },
+  "serverCareCheckIntroDetail": "Hermes checks its configuration, connections and storage. It changes nothing and takes up to a minute.",
+  "@serverCareCheckIntroDetail": {
+    "description": "Body of the Server check page before a run."
+  },
+  "serverCareCheckIntroTitle": "Check Hermes for problems",
+  "@serverCareCheckIntroTitle": {
+    "description": "Title of the Server check page before a run."
+  },
+  "serverCareCheckKeepWaiting": "Keep waiting",
+  "@serverCareCheckKeepWaiting": {
+    "description": "Button on a Server check that is taking long: keep reading its progress without starting another."
+  },
   "serverCareCheckNow": "Check now",
   "@serverCareCheckNow": {
     "description": "Bar button on the Update page that asks the server whether an update exists. Also its accessibility label."
+  },
+  "serverCareCheckOtherHeader": "Other output",
+  "@serverCareCheckOtherHeader": {
+    "description": "Header of the lines of a Server check the app did not recognise, shown as Hermes wrote them."
+  },
+  "serverCareCheckPageTitle": "Server check",
+  "@serverCareCheckPageTitle": {
+    "description": "Title of the Server check page."
+  },
+  "serverCareCheckPassedTitle": "{count} passed",
+  "@serverCareCheckPassedTitle": {
+    "description": "Title of the folded list of checks that passed.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "18"
+      }
+    }
+  },
+  "serverCareCheckProblemsHeader": "Problems",
+  "@serverCareCheckProblemsHeader": {
+    "description": "Header of the problems found by a Server check."
+  },
+  "serverCareCheckRowChecking": "Checking…",
+  "@serverCareCheckRowChecking": {
+    "description": "Value of the Run a check row on the Server screen while a check runs."
+  },
+  "serverCareCheckRowSubtitle": "Hermes looks for problems in its setup",
+  "@serverCareCheckRowSubtitle": {
+    "description": "Subtitle of the Run a check row on the Server screen before a run."
+  },
+  "serverCareCheckRowSubtitleResult": "{summary} · checked {ago}",
+  "@serverCareCheckRowSubtitleResult": {
+    "description": "Subtitle of the Run a check row after a run. {summary} is 'All checks passed' or '2 problems'; {ago} is 'just now' or '5 minutes ago'.",
+    "placeholders": {
+      "summary": {
+        "type": "String",
+        "example": "2 problems"
+      },
+      "ago": {
+        "type": "String",
+        "example": "5 minutes ago"
+      }
+    }
+  },
+  "serverCareCheckRun": "Run a check",
+  "@serverCareCheckRun": {
+    "description": "Title of the row on the Server screen that opens the Server check, and the headline button that runs it."
+  },
+  "serverCareCheckRunAgain": "Run again",
+  "@serverCareCheckRunAgain": {
+    "description": "Button that runs the Server check again."
+  },
+  "serverCareCheckRunButton": "Run check",
+  "@serverCareCheckRunButton": {
+    "description": "Button on the Server check page that starts a check."
+  },
+  "serverCareCheckRunning": "Checking…",
+  "@serverCareCheckRunning": {
+    "description": "Title of the Server check page while Hermes checks."
+  },
+  "serverCareCheckRunningCount": "{count, plural, =1{1 check so far} other{{count} checks so far}}",
+  "@serverCareCheckRunningCount": {
+    "description": "How many checks Hermes has reported while a Server check runs.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "14"
+      }
+    }
+  },
+  "serverCareCheckSeverityPassed": "Passed",
+  "@serverCareCheckSeverityPassed": {
+    "description": "Screen reader word for a check that passed."
+  },
+  "serverCareCheckSeverityProblem": "Problem",
+  "@serverCareCheckSeverityProblem": {
+    "description": "Screen reader word for a problem found by a Server check."
+  },
+  "serverCareCheckSeverityWarning": "Warning",
+  "@serverCareCheckSeverityWarning": {
+    "description": "Screen reader word for a warning found by a Server check."
+  },
+  "serverCareCheckSummaryProblems": "{count, plural, =1{1 problem} other{{count} problems}}",
+  "@serverCareCheckSummaryProblems": {
+    "description": "Summary of a Server check that found problems and no warnings.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "2"
+      }
+    }
+  },
+  "serverCareCheckSummaryProblemsAndWarnings": "{problems, plural, =1{1 problem} other{{problems} problems}} and {warnings, plural, =1{1 warning} other{{warnings} warnings}}",
+  "@serverCareCheckSummaryProblemsAndWarnings": {
+    "description": "Summary of a Server check that found problems and warnings.",
+    "placeholders": {
+      "problems": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "2"
+      },
+      "warnings": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareCheckSummaryUnreadable": "The check finished",
+  "@serverCareCheckSummaryUnreadable": {
+    "description": "Summary of a Server check whose output the app could not sort into problems and warnings."
+  },
+  "serverCareCheckSummaryUnreadableDetail": "Its output is shown below as Hermes wrote it.",
+  "@serverCareCheckSummaryUnreadableDetail": {
+    "description": "Second line of the summary when the Server check's output is shown as written."
+  },
+  "serverCareCheckSummaryWarnings": "{count, plural, =1{1 warning} other{{count} warnings}}",
+  "@serverCareCheckSummaryWarnings": {
+    "description": "Summary of a Server check that found warnings and no problems.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern",
+        "example": "3"
+      }
+    }
+  },
+  "serverCareCheckTimeoutDetail": "It may still finish.",
+  "@serverCareCheckTimeoutDetail": {
+    "description": "Body of the Server check page when the check is taking long."
+  },
+  "serverCareCheckTimeoutTitle": "The check is taking longer than expected",
+  "@serverCareCheckTimeoutTitle": {
+    "description": "Title of the Server check page when the check is taking long."
+  },
+  "serverCareCheckWarningsHeader": "Warnings",
+  "@serverCareCheckWarningsHeader": {
+    "description": "Header of the warnings found by a Server check."
   },
   "serverCareCommandCopied": "Command copied",
   "@serverCareCommandCopied": {

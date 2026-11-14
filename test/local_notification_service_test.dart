@@ -730,6 +730,21 @@ void main() {
         expect(plugin.cancelled, [plugin.posted.first.id]);
       });
 
+      test('withdraws the ones that carry a reply or a draft too', () async {
+        plugin.active.addAll([
+          for (final (id, fields) in [
+            (1, {'t': 's1', 'y': 1, 'n': 'Chat', 'a': 'x'}),
+            (2, {'t': 's2', 'u': 'Try again', 'a': 'x'}),
+            (3, {'t': 's3'}),
+          ])
+            ActiveNotification(id: id, payload: jsonEncode(fields)),
+        ]);
+
+        await service.withdrawAnswerable();
+
+        expect(plugin.cancelled, [1, 2]);
+      });
+
       test('withdraws the tagged ones on Android, leaves the rest', () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.android;
         await service.show(_request(_approval));
@@ -1365,6 +1380,55 @@ void main() {
 
       expect(target.prompt, isNull);
       expect(target.threadId, 's1');
+    });
+  });
+
+  group('a draft the user may get back', () {
+    String payload(Map<String, Object?> fields) => jsonEncode(fields);
+
+    test('carries the profile, the text and the account hash', () {
+      final target = targetFromPayload(
+        payload({'t': 's1', 'p': 'work', 'u': 'Try again', 'a': 'abc123'}),
+      )!;
+
+      expect(target.threadId, 's1');
+      expect(target.profile, 'work');
+      expect(target.draft, 'Try again');
+      expect(target.accountHash, 'abc123');
+    });
+
+    test('is a plain chat tap without a text or without an account', () {
+      expect(targetFromPayload(payload({'t': 's1', 'a': 'x'}))!.draft, isNull);
+      expect(targetFromPayload(payload({'t': 's1', 'u': 'hi'}))!.draft, isNull);
+    });
+
+    test('keeps at most the length of a preview', () {
+      final fits = 'a' * kPreviewLength;
+      expect(
+        targetFromPayload(payload({'t': 's1', 'u': fits, 'a': 'x'}))!.draft,
+        fits,
+      );
+      expect(
+        targetFromPayload(payload({'t': 's1', 'u': '${fits}a', 'a': 'x'}))!
+            .draft,
+        isNull,
+      );
+    });
+
+    test('counts a joined emoji as one character', () {
+      const family = '👨‍👩‍👧‍👦';
+      expect(
+        targetFromPayload(
+          payload({'t': 's1', 'u': family * kPreviewLength, 'a': 'x'}),
+        )!.draft,
+        family * kPreviewLength,
+      );
+    });
+
+    test('the account hash tells accounts apart and is not the key', () {
+      expect(accountHashFor('one'), accountHashFor('one'));
+      expect(accountHashFor('one'), isNot(accountHashFor('two')));
+      expect(accountHashFor('one'), isNot(contains('one')));
     });
   });
 

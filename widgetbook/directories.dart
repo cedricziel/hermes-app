@@ -88,6 +88,7 @@ import 'schedules_use_cases.dart';
 import 'sudo_password_use_cases.dart';
 import 'voice_use_cases.dart';
 import 'grouped_row_use_cases.dart';
+import 'server_care_check_use_cases.dart';
 import 'server_care_gateway_use_cases.dart';
 import 'server_care_status_use_cases.dart';
 import 'server_care_update_logs_use_cases.dart';
@@ -127,6 +128,7 @@ final List<WidgetbookNode> directories = [
   ...serverCareGatewayNodes(),
   ...serverCareUpdateLogsNodes(),
   ...serverCareLogsNodes(),
+  ...serverCareCheckNodes(),
   ...serverCareUpdateRunNodes(),
   ...serverCareUsageNodes(),
   platformHintNode(),

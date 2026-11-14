@@ -28,6 +28,8 @@ class LogLine {
     r'^(\S+ \S+) (DEBUG|INFO|WARNING|ERROR|CRITICAL)(?: \[[^\]]*\])? (\S+): (.*)$',
   );
 
+  static final _lineEnd = RegExp(r'[\r\n]+$');
+
   static LogLine? _parseOne(String raw) {
     final m = _pattern.firstMatch(raw);
     if (m == null) return null;
@@ -44,7 +46,9 @@ class LogLine {
   /// Never throws.
   static List<LogLine> parseAll(Iterable<String> raw) {
     final out = <LogLine>[];
-    for (final line in raw) {
+    for (final untrimmed in raw) {
+      // Hermes sends every line with its newline; `.` does not match it.
+      final line = untrimmed.replaceFirst(_lineEnd, '');
       final entry = _parseOne(line);
       if (entry != null) {
         out.add(entry);

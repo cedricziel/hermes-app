@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/action_status.dart';
 import 'package:hermes_app/src/server_care/attention.dart';
 import 'package:hermes_app/src/server_care/doctor_report.dart';
+import 'package:hermes_app/src/server_care/widgets/server_check_body.dart'
+    show commandInFix;
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/server_care/server_status.dart';
 import 'package:hermes_app/src/server_care/update_check.dart';
@@ -246,6 +248,26 @@ void main() {
       );
     });
 
+    test('the status keeps the header of the latest run', () {
+      final s = ActionStatus.parse({
+        'running': false,
+        'lines': [
+          '=== doctor started 2026-11-14 08:00:00 ===',
+          'old',
+          '=== doctor started 2026-11-14 09:00:00 ===\r',
+          'new',
+        ],
+      })!;
+      expect(s.lines, ['new']);
+      expect(s.startHeader, '=== doctor started 2026-11-14 09:00:00 ===');
+      expect(
+        ActionStatus.parse({
+          'lines': ['a'],
+        })!.startHeader,
+        isNull,
+      );
+    });
+
     test('a header with an action id is recognised', () {
       expect(
         linesOfLatestRun([
@@ -269,6 +291,25 @@ void main() {
       expect(lines.first.continuation, hasLength(3));
       expect(lines.last.level, LogLevel.warning);
       expect(lines.last.continuation, isEmpty);
+    });
+
+    test('CRLF and newline endings are dropped, tracebacks still fold', () {
+      final lines = LogLine.parseAll([
+        '2026-11-14 09:12:03,114 ERROR a.b: boom\r\n',
+        'Traceback (most recent call last):\n',
+        '  File "x.py", line 1, in <module>\r\n',
+        'ValueError: boom\n',
+        '2026-11-14 09:12:04,001 INFO a.b: next\n',
+      ]);
+      expect(lines, hasLength(2));
+      expect(lines.first.message, 'boom');
+      expect(lines.first.raw, isNot(contains('\n')));
+      expect(lines.first.continuation, [
+        'Traceback (most recent call last):',
+        '  File "x.py", line 1, in <module>',
+        'ValueError: boom',
+      ]);
+      expect(lines.last.message, 'next');
     });
 
     test('a leading orphan line stays as a headerless entry', () {
@@ -299,6 +340,71 @@ void main() {
       expect(r.unknownLines, 1);
       expect(r.fixes, ["Re-run 'hermes setup telegram'", 'Migrate the config']);
       expect(r.allPassed, isFalse);
+    });
+
+    test('keeps lines after the list of fixes that are not fixes', () {
+      final r = DoctorReport.parse([
+        '◆ A',
+        '  ✗ Broken',
+        '  Found 1 issue(s) to address:',
+        '',
+        '  1. Do this',
+        '  and then something odd',
+      ]);
+      expect(r.fixes, ['Do this']);
+      expect(r.trailing, ['and then something odd']);
+      expect(r.unknownLines, 1);
+    });
+
+    test('format characters that reorder or hide text are removed', () {
+      final r = DoctorReport.parse([
+        '◆ A',
+        '  ✗ Bad\u200B thing',
+        '  Found 1 issue(s) to address:',
+        "  1. Run 'hermes \u202Esetup\u202C \u2066telegram\u2069'",
+      ]);
+      expect(r.sections.single.items.single.text, 'Bad thing');
+      expect(r.fixes.single, "Run 'hermes setup telegram'");
+      expect(commandInFix(r.fixes.single), 'hermes setup telegram');
+      expect(DoctorReport.clean('a\u202Eb\u2028c'), 'abc');
+    });
+
+    test('escape sequences and control characters never reach the text', () {
+      const raw =
+          '\x1B]8;;https://evil.example\x07link\x1B]8;;\x07 \x1B]0;title\x1B\\ok'
+          '\x1BP1;2|x\x1B\\ \x1B=\x07a\bb\rc\x00d\x7Fe\tf\x9Bg';
+      final cleaned = DoctorReport.clean(raw);
+      expect(cleaned, 'link ok abcde\tfg');
+      expect(
+        RegExp(r'[\x00-\x08\x0A-\x1F\x7F-\x9F]').hasMatch(cleaned),
+        isFalse,
+      );
+    });
+
+    test('a quoted command is the same text shown and copied, without a '
+        'newline', () {
+      final lines = [
+        '◆ A',
+        '  ✗ Bad',
+        '  Found 1 issue(s) to address:',
+        "  1. Run 'hermes \x1B]8;;http://x\x07setup\x1B]8;;\x07\b telegram\r\n'",
+      ];
+      final fix = DoctorReport.parse(lines).fixes.single;
+      final command = commandInFix(fix)!;
+      expect(command, 'hermes setup telegram');
+      expect(fix, contains(command));
+      expect(command.contains('\n'), isFalse);
+    });
+
+    test('leftover lines are the ones nothing above accounts for', () {
+      final lines = [
+        '────────',
+        '  Found 1 issue(s) to address:',
+        '  1. Do this',
+        'something odd',
+      ];
+      final r = DoctorReport.parse(lines);
+      expect(DoctorReport.leftover(lines, r), ['something odd']);
     });
 
     test('an emoji-presentation warning marker leaves no invisible text', () {
