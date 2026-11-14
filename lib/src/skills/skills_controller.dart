@@ -45,6 +45,13 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
   int _generation = 0;
   final _toggles = <String, Future<bool>>{};
 
+  /// Per skill with taps in flight: the value the server last confirmed, and
+  /// the newest tap, which alone may put that value back.
+  final _confirmed = <String, bool>{};
+  final _latestToggle = <String, int>{};
+  int _toggleCount = 0;
+  int _profileEpoch = 0;
+
   SkillsStatus get status => _status;
   String? get profile => _profile;
   String get query => _query;
@@ -158,27 +165,43 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     if (name == _profile) return Future.value();
     _profile = name;
     _skills = const [];
+    _profileEpoch++;
+    _confirmed.clear();
+    _latestToggle.clear();
     return load();
   }
 
   /// Switches a skill at once and tells the server; goes back and returns
   /// false when that fails. Taps on one skill are sent in the order made.
   Future<bool> toggle(String name, bool enabled) {
-    final previous = skill(name)?.enabled;
-    if (previous == null) return Future.value(false);
+    final current = skill(name)?.enabled;
+    if (current == null) return Future.value(false);
     final generation = _generation;
     final profile = _profile;
+    final tap = ++_toggleCount;
+    final epoch = _profileEpoch;
+    _confirmed.putIfAbsent(name, () => current);
+    _latestToggle[name] = tap;
     _set(name, enabled);
     final done = (_toggles[name] ?? Future<bool>.value(true)).then((_) async {
+      bool ok;
       try {
         await repository.setEnabled(name, enabled, profile: profile);
         _log('toggle', 'ok');
-        return true;
+        ok = true;
       } on Object {
         _log('toggle', 'error');
-        if (generation == _generation) _set(name, previous);
-        return false;
+        ok = false;
       }
+      // A tap made for another profile says nothing about this one.
+      if (epoch != _profileEpoch) return ok;
+      if (ok) _confirmed[name] = enabled;
+      if (_latestToggle[name] == tap) {
+        _latestToggle.remove(name);
+        final confirmed = _confirmed.remove(name)!;
+        if (!ok && generation == _generation) _set(name, confirmed);
+      }
+      return ok;
     });
     _toggles[name] = done;
     return done;

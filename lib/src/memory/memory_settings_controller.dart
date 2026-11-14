@@ -91,7 +91,17 @@ class MemorySettingsController extends ChangeNotifier {
     try {
       final result = await repository.read(profile);
       if (stale()) return;
-      _confirmed = settings = result;
+      // A key still being written keeps what the user picked; the read may
+      // predate the write.
+      final shown = settings;
+      var next = result;
+      if (shown != null) {
+        for (final setting in _writing) {
+          next = next.withValue(setting, shown.valueOf(setting));
+        }
+      }
+      _confirmed = result;
+      settings = next;
     } on MemoryFailure {
       if (stale()) return;
       _confirmed = settings = null;
@@ -180,12 +190,23 @@ class MemorySettingsController extends ChangeNotifier {
       try {
         await repository.write(profile, setting, wanted);
         if (stale()) return;
-        _confirmed = _confirmed!.withValue(setting, wanted);
+        // A failed read meanwhile leaves nothing to compare against.
+        _confirmed = _confirmed?.withValue(setting, wanted);
       } on MemoryWriteFailure {
         if (stale()) return;
         message = "Couldn't change ${setting.label}. Try again.";
-        if (settings!.valueOf(setting) == wanted) {
-          settings = settings!.withValue(setting, confirmed);
+        final shown = settings;
+        if (shown == null) {
+          notifyListeners();
+          break;
+        }
+        if (shown.valueOf(setting) == wanted) {
+          // Back to what the server holds, which a read meanwhile may have
+          // updated.
+          settings = shown.withValue(
+            setting,
+            _confirmed?.valueOf(setting) ?? confirmed,
+          );
           notifyListeners();
           break;
         }
