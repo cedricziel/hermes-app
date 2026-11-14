@@ -66,6 +66,9 @@ import 'state_use_cases.dart';
 import 'schedules_use_cases.dart';
 import 'sudo_password_use_cases.dart';
 import 'voice_use_cases.dart';
+import 'server_care_status_use_cases.dart';
+import 'server_care_update_logs_use_cases.dart';
+import 'server_care_usage_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
   voiceCallNode(),
@@ -88,6 +91,9 @@ final List<WidgetbookNode> directories = [
   paletteNode(),
   stateMessageNode(),
   busyBarNode(),
+  ...serverCareStatusNodes(),
+  ...serverCareUpdateLogsNodes(),
+  ...serverCareUsageNodes(),
   platformHintNode(),
   adaptiveChromeNode(),
   settingsChromeNode(),
