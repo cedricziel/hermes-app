@@ -13,11 +13,31 @@ import 'package:characters/characters.dart';
 ///
 /// Only the display changes. A path that is sent, stored or compared is the
 /// original string.
-String safePathText(String text) {
+String safePathText(String text) => _escaped(text, keepLineBreaks: false);
+
+/// [text], the content of a file, made safe to show the same way as
+/// [safePathText], except that line breaks stay: a line feed (and a carriage
+/// return before it) ends a line, and a tab stays a tab. A lone carriage
+/// return, the other controls and the bidi controls are drawn as `<U+XXXX>`,
+/// so a file cannot reorder what a person reads (a Trojan Source line) or
+/// hide text behind an escape sequence.
+String safeContentText(String text) => _escaped(text, keepLineBreaks: true);
+
+String _escaped(String text, {required bool keepLineBreaks}) {
   var changed = false;
   final out = StringBuffer();
-  for (final rune in text.runes) {
-    if (_unsafe(rune)) {
+  final runes = text.runes.toList();
+  for (var i = 0; i < runes.length; i++) {
+    final rune = runes[i];
+    if (keepLineBreaks && rune == 0x0A) {
+      out.writeCharCode(rune);
+    } else if (keepLineBreaks &&
+        rune == 0x0D &&
+        i + 1 < runes.length &&
+        runes[i + 1] == 0x0A) {
+      // CRLF: the carriage return is part of the line break.
+      changed = true;
+    } else if (_unsafe(rune)) {
       changed = true;
       final hex = rune.toRadixString(16).toUpperCase().padLeft(4, '0');
       out.write('<U+$hex>');

@@ -110,7 +110,35 @@ Summary of the **soil moisture** survey. The method is on the [methods page](htt
 ```
 run: sensors --since monday
 ```
+
+```python
+def moisture(readings):
+    return sum(readings) / len(readings)  # percent
+```
 ''';
+
+const _json = '''{
+  "plot": "A",
+  "moisture": 14.2,
+  "valid": true,
+  "readings": [14.2, 11.8, null],
+  "note": "rounded to one decimal"
+}
+''';
+
+const _shell = '''#!/bin/sh
+# Pull the readings, then upload them.
+for sensor in a b c; do
+  echo "reading \$sensor" >> readings.log
+done
+''';
+
+/// A file that tries to hide text: a right-to-left override, an escape
+/// sequence and a lone carriage return.
+const _tricky =
+    'access = "user\u202E // admin\u202C"\n'
+    'print("\u001B[2Jgone")\r'
+    'done\n';
 
 const _python = '''import statistics
 
@@ -843,7 +871,43 @@ WidgetbookComponent _previewViewComponent() => WidgetbookComponent(
   name: 'FilePreviewView',
   useCases: [
     _case('Text', (_) => _view(const TextContent(_log))),
-    _case('Code', (_) => _view(const CodeContent(_python))),
+    _case('Code', (_) => _view(const CodeContent(_python, language: 'python'))),
+    _case(
+      'Code, JSON',
+      (_) => _view(const CodeContent(_json, language: 'json')),
+    ),
+    _case(
+      'Code, shell',
+      (_) => _view(const CodeContent(_shell, language: 'shell')),
+    ),
+    _case(
+      'Code, language without a grammar (plain)',
+      (_) => _view(const CodeContent(_python, language: 'text')),
+    ),
+    _case(
+      'Code, control and bidi characters shown',
+      (_) => _view(const CodeContent(_tricky, language: 'python')),
+    ),
+    _case(
+      'Code, truncated, with its note',
+      (_) => _view(
+        const CodeContent(
+          _python,
+          language: 'python',
+          truncation: FileTruncation(
+            shownBytes: 512 * 1024,
+            totalBytes: 3355443,
+          ),
+        ),
+      ),
+    ),
+    _case(
+      'Code on a Mac',
+      (_) => _on(
+        TargetPlatform.macOS,
+        _view(const CodeContent(_python, language: 'python')),
+      ),
+    ),
     _case('Markdown, rendered', (_) => _view(const MarkdownContent(_markdown))),
     _case(
       'Markdown, source',
@@ -865,8 +929,14 @@ WidgetbookComponent _previewViewComponent() => WidgetbookComponent(
         ),
       ),
     ),
-    _case('HTML, as source', (_) => _view(const CodeContent(_html))),
-    _case('SVG, as source', (_) => _view(const CodeContent(_svg))),
+    _case(
+      'HTML, as source',
+      (_) => _view(const CodeContent(_html, language: 'html')),
+    ),
+    _case(
+      'SVG, as source',
+      (_) => _view(const CodeContent(_svg, language: 'svg')),
+    ),
     _case(
       'Image, with a transparent area',
       (_) => _view(ImageContent(_sampleImage, label: 'chart.png')),
@@ -903,7 +973,7 @@ WidgetbookComponent _previewViewComponent() => WidgetbookComponent(
     ),
     _case(
       'Largest text (3x), code',
-      (_) => _scaled(3, _view(const CodeContent(_python))),
+      (_) => _scaled(3, _view(const CodeContent(_python, language: 'python'))),
     ),
     _case(
       'Largest text (3x), truncated',
@@ -1078,7 +1148,9 @@ WidgetbookComponent _coverComponent() => WidgetbookComponent(
         Stack(
           fit: StackFit.expand,
           children: [
-            const FilePreviewView(content: CodeContent(_python)),
+            const FilePreviewView(
+              content: CodeContent(_python, language: 'python'),
+            ),
             const FilePreviewCover(glyph: FileGlyph.code),
           ],
         ),
@@ -1350,7 +1422,9 @@ WidgetbookComponent _accessibilityComponent() => WidgetbookComponent(
                     onSave: () {},
                   ),
                   const Expanded(
-                    child: FilePreviewView(content: CodeContent(_python)),
+                    child: FilePreviewView(
+                      content: CodeContent(_python, language: 'python'),
+                    ),
                   ),
                 ],
               ),
@@ -1436,7 +1510,12 @@ WidgetbookComponent _previewBodyComponent() => WidgetbookComponent(
       'Markdown with its switch',
       (_) => _body(const FilesPreviewShown(MarkdownContent(_markdown))),
     ),
-    _case('Code', (_) => _body(const FilesPreviewShown(CodeContent(_python)))),
+    _case(
+      'Code',
+      (_) => _body(
+        const FilesPreviewShown(CodeContent(_python, language: 'python')),
+      ),
+    ),
     _case(
       'Image',
       (_) => _body(
