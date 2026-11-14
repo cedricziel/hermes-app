@@ -93,24 +93,21 @@ Widget _categories(
   ContextCategoryList(state: state, categories: categories, onRetry: () {}),
 );
 
-/// A sheet-like surface with the bounded height a sheet or dialog gives.
-Widget _sheet(BuildContext context, Widget child) => Align(
-  alignment: Alignment.topCenter,
-  child: ConstrainedBox(
+/// A sheet-like surface with the bounded height a sheet or dialog gives,
+/// placed by the shared frame.
+Widget _sheet(BuildContext context, Widget child) => frame(
+  ConstrainedBox(
     constraints: BoxConstraints(
-      maxWidth: 520,
-      maxHeight: MediaQuery.sizeOf(context).height - 32,
+      maxHeight: MediaQuery.sizeOf(context).height - 64,
     ),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Material(
-        elevation: 2,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: child,
-      ),
+    child: Material(
+      elevation: 2,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     ),
   ),
+  maxWidth: 520,
 );
 
 Widget _confirmation({

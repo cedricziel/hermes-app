@@ -251,6 +251,34 @@ void main() {
       );
       expect(find.text('Hermes cut this diff short.'), findsOneWidget);
     });
+
+    testWidgets('a partial diff of the last file says it ends early', (
+      tester,
+    ) async {
+      const partial = ChangedFile(
+        path: 'a.dart',
+        changes: 40,
+        diff: 'diff --git a/a.dart b/a.dart\n@@ -1 +1 @@\n-x\n+y\n+z',
+        cutShort: true,
+      );
+      await tester.pumpWidget(
+        _app(
+          const FileDiffView(file: partial, truncated: true, showAction: false),
+        ),
+      );
+      expect(find.text('Hermes cut this diff short.'), findsOneWidget);
+      // A whole diff in a cut result carries no note.
+      await tester.pumpWidget(
+        _app(
+          FileDiffView(
+            file: ChangedFile(path: 'b.dart', diff: partial.diff),
+            truncated: true,
+            showAction: false,
+          ),
+        ),
+      );
+      expect(find.text('Hermes cut this diff short.'), findsNothing);
+    });
   });
 
   group('RestoreAllBar', () {
@@ -401,6 +429,29 @@ void main() {
         find.textContaining('checkpoints.enabled', findRichText: true),
         findsOneWidget,
       );
+    });
+
+    testWidgets('an empty list can be pulled to refresh', (tester) async {
+      var refreshed = 0;
+      await tester.pumpWidget(
+        _app(
+          SizedBox(
+            height: 600,
+            child: CheckpointListBody(
+              status: CheckpointListStatus.empty,
+              onRefresh: () async => refreshed++,
+            ),
+          ),
+        ),
+      );
+      await tester.fling(
+        find.byType(Scrollable).first,
+        const Offset(0, 400),
+        1000,
+      );
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      expect(refreshed, 1);
     });
 
     testWidgets('App Lock shows only the count', (tester) async {

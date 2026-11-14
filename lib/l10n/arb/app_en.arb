@@ -802,9 +802,23 @@
       }
     }
   },
+  "chatCheckpointsOutcomeTranscriptRestoredCountRewound": "{count, plural, =1{Restored 1 file · rewound the chat} other{Restored {count} files · rewound the chat}}",
+  "@chatCheckpointsOutcomeTranscriptRestoredCountRewound": {
+    "description": "Centred line in the transcript after a full restore that removed messages from the chat but not the last message this app showed. {count} is how many files.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
   "chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved": "Files restored · removed your last message",
   "@chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved": {
     "description": "Centred line in the transcript after a full restore when the file count is not known."
+  },
+  "chatCheckpointsOutcomeTranscriptRestoredUnknownRewound": "Files restored · rewound the chat",
+  "@chatCheckpointsOutcomeTranscriptRestoredUnknownRewound": {
+    "description": "Like the line above when the file count is not known."
   },
   "chatCheckpointsOutcomeTryAgain": "Try again",
   "@chatCheckpointsOutcomeTryAgain": {

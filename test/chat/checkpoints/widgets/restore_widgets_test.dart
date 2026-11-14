@@ -662,6 +662,29 @@ void main() {
         line(unknown, removed: true),
         'Files restored · removed your last message',
       );
+      // History was removed but not the message the app expected to lose: the
+      // line must not say the last message went.
+      const rewound = RestoreOutcome(
+        RestoreOutcomeKind.restored,
+        filesRestored: 3,
+        historyRemoved: 1,
+        lastMessageNotRemoved: true,
+      );
+      expect(
+        line(rewound, removed: true),
+        'Restored 3 files · rewound the chat',
+      );
+      expect(
+        line(
+          const RestoreOutcome(
+            RestoreOutcomeKind.restored,
+            historyRemoved: 1,
+            lastMessageNotRemoved: true,
+          ),
+          removed: true,
+        ),
+        'Files restored · rewound the chat',
+      );
       expect(line(three, removed: false), 'Restored 3 files');
       expect(line(unknown, removed: false), 'Files restored');
     });

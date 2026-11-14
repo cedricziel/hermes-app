@@ -90,10 +90,21 @@ class CheckpointListBody extends StatelessWidget {
     final l10n = context.l10n;
     return switch (status) {
       CheckpointListStatus.loaded => _loaded(context),
-      CheckpointListStatus.empty => _Block(
-        child: Text(l10n.chatCheckpointsListEmpty, textAlign: TextAlign.center),
+      CheckpointListStatus.empty => _refreshable(
+        _Block(
+          alwaysScrollable: onRefresh != null,
+          child: Text(
+            l10n.chatCheckpointsListEmpty,
+            textAlign: TextAlign.center,
+          ),
+        ),
       ),
-      CheckpointListStatus.off => _Block(child: _OffText(l10n: l10n)),
+      CheckpointListStatus.off => _refreshable(
+        _Block(
+          alwaysScrollable: onRefresh != null,
+          child: _OffText(l10n: l10n),
+        ),
+      ),
       CheckpointListStatus.loading => GroupedListView(
         children: [
           GroupedSection(
@@ -137,6 +148,14 @@ class CheckpointListBody extends StatelessWidget {
         ),
       ),
     };
+  }
+
+  /// Pull to refresh around a message, when [onRefresh] is set.
+  Widget _refreshable(Widget child) {
+    final refresh = onRefresh;
+    return refresh == null
+        ? child
+        : RefreshIndicator(onRefresh: refresh, child: child);
   }
 
   Widget _loaded(BuildContext context) {
@@ -246,14 +265,22 @@ class _OffText extends StatelessWidget {
 
 /// A centered message with room around it, with an optional action below.
 class _Block extends StatelessWidget {
-  const _Block({required this.child, this.action});
+  const _Block({
+    required this.child,
+    this.action,
+    this.alwaysScrollable = false,
+  });
 
   final Widget child;
   final Widget? action;
 
+  /// Lets a short message be pulled to refresh.
+  final bool alwaysScrollable;
+
   @override
   Widget build(BuildContext context) => Center(
     child: SingleChildScrollView(
+      physics: alwaysScrollable ? const AlwaysScrollableScrollPhysics() : null,
       padding: const EdgeInsets.all(24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),

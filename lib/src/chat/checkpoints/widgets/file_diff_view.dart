@@ -56,6 +56,8 @@ class FileDiffView extends StatelessWidget {
       note = truncated
           ? l10n.chatCheckpointsFileCut
           : l10n.chatCheckpointsFileNoPreview;
+    } else if (file.cutShort) {
+      note = l10n.chatCheckpointsFileCut;
     } else {
       note = null;
     }

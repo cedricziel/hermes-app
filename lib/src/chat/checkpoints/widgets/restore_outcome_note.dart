@@ -193,6 +193,13 @@ String? transcriptLineForRestore(
 }) {
   if (outcome.kind != RestoreOutcomeKind.restored) return null;
   final count = outcome.filesRestored;
+  if (removedMessages && outcome.lastMessageNotRemoved) {
+    // History was removed, but not the message this app expected to lose:
+    // say the chat was rewound without naming a message.
+    return count == null
+        ? l10n.chatCheckpointsOutcomeTranscriptRestoredUnknownRewound
+        : l10n.chatCheckpointsOutcomeTranscriptRestoredCountRewound(count);
+  }
   if (removedMessages) {
     return count == null
         ? l10n.chatCheckpointsOutcomeTranscriptRestoredUnknownRemoved
