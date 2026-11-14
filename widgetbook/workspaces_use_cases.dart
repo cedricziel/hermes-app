@@ -1099,17 +1099,36 @@ class _TypeHarness extends StatefulWidget {
 
 class _TypeHarnessState extends State<_TypeHarness> {
   late String _text = widget.text;
+  late PathEntryCheck _check = widget.check;
+  String? _used;
+
+  Future<void> _checkAgain() async {
+    setState(() => _check = PathEntryCheck.checking);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (mounted) setState(() => _check = PathEntryCheck.found);
+  }
 
   @override
-  Widget build(BuildContext context) => PathEntryView(
-    text: _text,
-    suggestions: widget.suggestions,
-    capped: widget.capped,
-    check: widget.check,
-    onChanged: (value) => setState(() => _text = value),
-    onPickSuggestion: (pick) => setState(() => _text = pick.path),
-    onUse: () {},
-    onCheckAgain: () {},
+  Widget build(BuildContext context) => Column(
+    children: [
+      Expanded(
+        child: PathEntryView(
+          text: _text,
+          suggestions: widget.suggestions,
+          capped: widget.capped,
+          check: _check,
+          onChanged: (value) => setState(() => _text = value),
+          onPickSuggestion: (pick) => setState(() => _text = pick.path),
+          onUse: () => setState(() => _used = _text),
+          onCheckAgain: _checkAgain,
+        ),
+      ),
+      if (_used != null)
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text('Catalog: would use $_used'),
+        ),
+    ],
   );
 }
 
