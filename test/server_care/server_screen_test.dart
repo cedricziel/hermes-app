@@ -386,6 +386,184 @@ void main() {
     });
   });
 
+  group('logs', () {
+    void logsAnswer() => server.on('GET', '/api/logs', {'lines': logsErrors});
+
+    List<Map<String, dynamic>> logReads() => server
+        .requestsTo('GET', '/api/logs')
+        .map((r) => r.queryParameters)
+        .toList();
+
+    testWidgets('the Logs row opens the page on the errors file', (
+      tester,
+    ) async {
+      logsAnswer();
+      await pump(tester);
+      expect(find.text("Recent lines from Hermes' logs"), findsOneWidget);
+      await tester.tap(find.text('Logs'));
+      await tester.pumpAndSettle();
+      expect(logReads().single, {
+        'file': 'errors',
+        'lines': 200,
+        'profile': 'default',
+      });
+      expect(find.text('Telegram failed'), findsOneWidget);
+      expect(
+        trail.recent
+            .where((r) => r.name == 'server_care.logs.opened')
+            .single
+            .attributes,
+        {'file': 'errors'},
+      );
+    });
+
+    testWidgets('the row is gone on a server without the route', (
+      tester,
+    ) async {
+      await pump(tester);
+      care.reportUnsupported(CarePart.logs);
+      await tester.pumpAndSettle();
+      expect(find.text('Logs'), findsNothing);
+      expect(find.text('Usage'), findsOneWidget);
+    });
+
+    testWidgets("an unexpected restart's headline shows the agent log", (
+      tester,
+    ) async {
+      logsAnswer();
+      server.on('GET', '/api/status', {
+        ...statusHealthy(),
+        'memory': {'pressure': 'ok', 'last_boot_suspected_oom': true},
+      });
+      await pump(tester);
+      expect(
+        find.text('Hermes restarted unexpectedly, probably out of memory'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Show logs'));
+      await tester.pumpAndSettle();
+      expect(logReads().single['file'], 'agent');
+      expect(find.text('Telegram failed'), findsOneWidget);
+    });
+
+    testWidgets("offline channels' headline shows the gateway log", (
+      tester,
+    ) async {
+      logsAnswer();
+      server.on('GET', '/api/status', {
+        ...statusHealthy(),
+        'components': {
+          'gateway': {'status': 'ok', 'state': 'running'},
+          'storage': {'status': 'ok'},
+          'platforms': {'status': 'ok', 'configured': 2, 'connected': 1},
+        },
+      });
+      await pump(tester);
+      await tester.tap(find.text('Show logs'));
+      await tester.pumpAndSettle();
+      expect(logReads().single['file'], 'gateway');
+    });
+
+    testWidgets('a healthy server has no Show logs button', (tester) async {
+      await pump(tester);
+      expect(find.text('Show logs'), findsNothing);
+    });
+
+    testWidgets('no Show logs button when the server has no logs route', (
+      tester,
+    ) async {
+      server.on('GET', '/api/status', {
+        ...statusHealthy(),
+        'memory': {'pressure': 'ok', 'last_boot_suspected_oom': true},
+      });
+      await pump(tester);
+      expect(find.text('Show logs'), findsOneWidget);
+      care.reportUnsupported(CarePart.logs);
+      await tester.pumpAndSettle();
+      expect(find.text('Show logs'), findsNothing);
+    });
+
+    group('on the gateway row', () {
+      void restartAnswers({required int exit, bool failedStart = false}) {
+        server
+          ..on('POST', '/api/gateway/restart', {
+            'ok': true,
+            'pid': 1,
+            'name': 'gateway-restart',
+          })
+          ..on('GET', '/api/actions/gateway-restart/status', {
+            'name': 'gateway-restart',
+            'running': false,
+            'exit_code': exit,
+            'lines': <String>['boom'],
+          })
+          ..on('GET', '/api/status', {
+            ...statusHealthy(),
+            if (failedStart) ...{
+              'gateway_running': false,
+              'gateway_state': 'startup_failed',
+            },
+            'components': {
+              'gateway': {'status': 'ok', 'state': 'running'},
+              'storage': {'status': 'ok'},
+              'platforms': {'status': 'ok', 'configured': 0, 'connected': 0},
+            },
+          });
+        logsAnswer();
+      }
+
+      Future<void> restart(WidgetTester tester) async {
+        await tester.tap(find.text('Restart gateway').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Restart for all'));
+        await tester.pump();
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 150)),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets("a failed restart offers Show logs beside Try again", (
+        tester,
+      ) async {
+        restartAnswers(exit: 1);
+        await pump(tester);
+        await restart(tester);
+        // Hermes' own last lines are the reason shown.
+        expect(find.text('boom'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
+        await tester.tap(find.text('Show logs'));
+        await tester.pumpAndSettle();
+        expect(logReads().single['file'], 'gateway');
+      });
+
+      testWidgets('a refusal started nothing, so it offers no Show logs', (
+        tester,
+      ) async {
+        restartAnswers(exit: 0);
+        server.on('POST', '/api/gateway/restart', {
+          'detail': 'requires root, and passwordless sudo is unavailable',
+        }, status: 500);
+        await pump(tester);
+        await restart(tester);
+        expect(find.textContaining('requires root'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
+        expect(find.text('Show logs'), findsNothing);
+      });
+
+      testWidgets('a restart that is slow offers Show logs too', (
+        tester,
+      ) async {
+        restartAnswers(exit: 0, failedStart: true);
+        await pump(tester);
+        await restart(tester);
+        expect(find.text("The gateway hasn't come back yet"), findsOneWidget);
+        expect(find.text('Show logs'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
+      });
+    });
+  });
+
   group('pages it opens', () {
     testWidgets('Usage and Update open with the controller above them', (
       tester,
@@ -448,6 +626,10 @@ void main() {
       care.reportUnsupported(CarePart.usage);
       await tester.pumpAndSettle();
       expect(find.text('Usage'), findsNothing);
+      // Logs is still a tool; with neither route the section goes.
+      expect(find.text('Tools'), findsOneWidget);
+      care.reportUnsupported(CarePart.logs);
+      await tester.pumpAndSettle();
       expect(find.text('Tools'), findsNothing);
     });
   });

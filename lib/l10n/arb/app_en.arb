@@ -4229,6 +4229,14 @@
   "@serverCareHeadlineUnsupportedDetail": {
     "description": "Detail under the unsupported-server headline."
   },
+  "serverCareLogDayToday": "Today",
+  "@serverCareLogDayToday": {
+    "description": "Header of the log lines written today."
+  },
+  "serverCareLogDayYesterday": "Yesterday",
+  "@serverCareLogDayYesterday": {
+    "description": "Header of the log lines written yesterday."
+  },
   "serverCareLogLevelCritical": "Critical",
   "@serverCareLogLevelCritical": {
     "description": "Name of the critical log level, in a log line's chip."
@@ -4280,6 +4288,110 @@
         "example": "5"
       }
     }
+  },
+  "serverCareLogsClearFilters": "Clear filters",
+  "@serverCareLogsClearFilters": {
+    "description": "Button on the Logs page that removes the level and search filters."
+  },
+  "serverCareLogsCopied": "Log lines copied",
+  "@serverCareLogsCopied": {
+    "description": "Message shown after the log lines were copied."
+  },
+  "serverCareLogsCopy": "Copy shown lines",
+  "@serverCareLogsCopy": {
+    "description": "Menu item on the Logs page that copies every line shown."
+  },
+  "serverCareLogsCopyConfirm": "Copy",
+  "@serverCareLogsCopyConfirm": {
+    "description": "Button that confirms copying the shown log lines."
+  },
+  "serverCareLogsCopyMessage": "Logs can contain private details, like messages and file paths. Anyone you paste them to can read them.",
+  "@serverCareLogsCopyMessage": {
+    "description": "Warning in the confirmation before log lines are copied."
+  },
+  "serverCareLogsCopyTitle": "Copy these log lines?",
+  "@serverCareLogsCopyTitle": {
+    "description": "Title of the confirmation before log lines are copied."
+  },
+  "serverCareLogsEmptyDetail": "Hermes hasn't written to this log.",
+  "@serverCareLogsEmptyDetail": {
+    "description": "Detail of the Logs page when the log has no lines."
+  },
+  "serverCareLogsEmptyTitle": "Nothing logged yet",
+  "@serverCareLogsEmptyTitle": {
+    "description": "Title of the Logs page when the log has no lines and no filter is set."
+  },
+  "serverCareLogsFailedDetail": "Try again in a moment.",
+  "@serverCareLogsFailedDetail": {
+    "description": "Detail of the Logs page when the read failed."
+  },
+  "serverCareLogsFailedTitle": "Logs can't be loaded",
+  "@serverCareLogsFailedTitle": {
+    "description": "Title of the Logs page when the read failed."
+  },
+  "serverCareLogsFileAgent": "Agent",
+  "@serverCareLogsFileAgent": {
+    "description": "Tab of the Logs page that shows the agent log."
+  },
+  "serverCareLogsFileErrors": "Errors",
+  "@serverCareLogsFileErrors": {
+    "description": "Tab of the Logs page that shows Hermes' errors log."
+  },
+  "serverCareLogsFileGateway": "Gateway",
+  "@serverCareLogsFileGateway": {
+    "description": "Tab of the Logs page that shows the messaging gateway log."
+  },
+  "serverCareLogsLastLines": "That's the last {count} lines.",
+  "@serverCareLogsLastLines": {
+    "description": "Note at the end of the Logs list when no older lines can be asked for.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "500"
+      }
+    }
+  },
+  "serverCareLogsLoading": "Loading logs",
+  "@serverCareLogsLoading": {
+    "description": "Screen reader label of the placeholder lines shown while logs load."
+  },
+  "serverCareLogsMore": "More",
+  "@serverCareLogsMore": {
+    "description": "Accessible name of the Logs page menu button."
+  },
+  "serverCareLogsNoMatchDetail": "Try another level or search.",
+  "@serverCareLogsNoMatchDetail": {
+    "description": "Detail of the Logs page when a filter leaves no lines."
+  },
+  "serverCareLogsNoMatchTitle": "No lines match",
+  "@serverCareLogsNoMatchTitle": {
+    "description": "Title of the Logs page when a level or search filter leaves no lines."
+  },
+  "serverCareLogsRowSubtitle": "Recent lines from Hermes' logs",
+  "@serverCareLogsRowSubtitle": {
+    "description": "Subtitle of the Logs row on the Server screen."
+  },
+  "serverCareLogsSearchHint": "Search these logs",
+  "@serverCareLogsSearchHint": {
+    "description": "Placeholder of the Logs page search field."
+  },
+  "serverCareLogsShowOlder": "Show older lines",
+  "@serverCareLogsShowOlder": {
+    "description": "Button at the end of the Logs list that asks for more, older lines."
+  },
+  "serverCareLogsSubtitle": "{profile} · newest first",
+  "@serverCareLogsSubtitle": {
+    "description": "Subtitle of the Logs page: the profile whose logs are shown, then the order.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "serverCareLogsTitle": "Logs",
+  "@serverCareLogsTitle": {
+    "description": "Title of the Logs page and of its row on the Server screen."
   },
   "serverCareMachineHeader": "Server",
   "@serverCareMachineHeader": {
@@ -4364,6 +4476,10 @@
   "serverCareSessionStoreUnreadable": "Can't be read",
   "@serverCareSessionStoreUnreadable": {
     "description": "Session store row value when the database cannot be read."
+  },
+  "serverCareShowLogs": "Show logs",
+  "@serverCareShowLogs": {
+    "description": "Button that opens the Logs page, on the Server screen headline and on the gateway row."
   },
   "serverCareSidebarCaptionNeedsAttention": "Needs attention",
   "@serverCareSidebarCaptionNeedsAttention": {

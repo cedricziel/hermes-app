@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.OpenableColumns
+import android.view.WindowManager
 import android.webkit.MimeTypeMap
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -30,6 +31,22 @@ class MainActivity : FlutterFragmentActivity() {
                     } catch (_: Exception) {
                         result.error("storage_unavailable", "Protected queue directory unavailable", null)
                     }
+                }
+            }
+        // Marks the window secure (no screenshots, a blank recents thumbnail)
+        // while a page that shows server logs is on screen.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hermes_app/secure_window")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "setSecure") {
+                    result.notImplemented()
+                } else {
+                    val secure = call.arguments as? Boolean ?: false
+                    if (secure) {
+                        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    } else {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    }
+                    result.success(null)
                 }
             }
         ClipboardFiles(applicationContext)

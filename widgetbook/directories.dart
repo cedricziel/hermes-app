@@ -1,4 +1,5 @@
 import 'files_use_cases.dart';
+import 'server_care_logs_use_cases.dart';
 import 'workspaces_use_cases.dart';
 import 'tools_use_cases.dart';
 import 'voice_call_use_cases.dart';
@@ -125,6 +126,7 @@ final List<WidgetbookNode> directories = [
   ...serverCareStatusNodes(),
   ...serverCareGatewayNodes(),
   ...serverCareUpdateLogsNodes(),
+  ...serverCareLogsNodes(),
   ...serverCareUpdateRunNodes(),
   ...serverCareUsageNodes(),
   platformHintNode(),
