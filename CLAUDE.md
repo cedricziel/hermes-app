@@ -88,6 +88,8 @@ Tests drive the real generated client and Dio pipeline against `test/support/fak
 
 `openspec/` holds spec-driven change proposals (`openspec/specs/` for current behavior, `openspec/changes/` for work in progress). Start a change with `/opsx:propose "<idea>"`; project context for it lives in `openspec/config.yaml`. Design history lives under `openspec/changes/archive/`.
 
+`docs/roadmap.md` is the checklist of planned and running work, with what is blocked and why. When a review, a CI run or your own work turns up something that the current PR does not fix, add it to its "Found along the way" table; do not leave it only in a PR description. Update an item's status in the PR that changes it.
+
 ## Skills
 
 Project skills live in `.claude/skills/<name>/SKILL.md` (frontmatter `name` and a `description` that says when to use it). When you learn something reusable about working in this repo, such as a workflow, a gotcha or a verification step, write it to a skill rather than to memory, so it is checked in and shared.
