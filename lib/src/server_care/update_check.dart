@@ -64,7 +64,7 @@ class UpdateCheck {
     return UpdateCheck(
       installMethod: _installMethod(raw),
       installMethodRaw: raw,
-      currentVersion: readString(root['current_version']),
+      currentVersion: readVersion(root['current_version']),
       behind: readInt(root['behind']),
       updateAvailable: readBool(root['update_available']) ?? false,
       canApply: readBool(root['can_apply']) ?? false,

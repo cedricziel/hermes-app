@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/action_status.dart';
 import 'package:hermes_app/src/server_care/doctor_report.dart';
+import 'package:hermes_app/src/server_care/widgets/server_check_body.dart'
+    show commandInFix;
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/server_care/server_status.dart';
 import 'package:hermes_app/src/server_care/update_check.dart';
@@ -121,10 +123,17 @@ void main() {
       expect(codex.note, isNotNull);
     });
 
-    test('knows only two lines it cannot place', () {
-      // "Running 44 connectivity checks in parallel…" and the closing
-      // "Tip: run 'hermes doctor --fix' …" line.
-      expect(report.unknownLines, 2);
+    test('knows no line it cannot place', () {
+      // The "Running 44 connectivity checks in parallel…" progress line and
+      // the closing "Tip: run 'hermes doctor --fix' …" line are not
+      // findings, and neither counts as unknown output.
+      expect(report.unknownLines, 0);
+      expect(report.trailing, isEmpty);
+    });
+
+    test('offers no --fix command to copy', () {
+      expect(commandInFix(report.fixes[1]), 'hermes setup');
+      expect(commandInFix(report.fixes[2]), isNull);
     });
 
     test('reads the same with ANSI colour around every line', () {
