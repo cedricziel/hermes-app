@@ -121,6 +121,7 @@ void main() {
       expect(ids, contains(kApprovalPlaceholderCategory));
       expect(ids, contains(kQuestionPlaceholderCategory));
       expect(ids, contains(messageCategory.id));
+      expect(ids, contains(replyReadyActionCategory.id));
       expect(
         ids.where((id) => id.startsWith('$kApprovalCategoryPrefix.')).length,
         15,
@@ -255,6 +256,52 @@ void main() {
     expect(reply.identifier, kReplyAction);
     expect(reply.placeholder, 'Your answer');
     expect(reply.buttonTitle, 'Send');
+  });
+
+  group('the reply-to-a-reply action', () {
+    test('is one text action on its own category', () {
+      expect(replyReadyActionCategory.id, 'hermes.reply.ready.reply');
+      expect(replyReadyActionCategory.placeholder, kReplyReadyBody);
+      expect(replyReadyActionCategory.isRequest, isFalse);
+      expect(replyReadyActionCategory.isDynamic, isFalse);
+      expect(replyReadyCategory.actions, isEmpty);
+
+      final action = replyReadyActionCategory.toDarwin().actions.single;
+      expect(action.identifier, kReplyChatAction);
+      expect(action.identifier, 'hermes.action.reply-chat');
+      expect(action.title, 'Reply');
+      expect(action.buttonTitle, 'Send');
+      expect(action.placeholder, 'Reply to Hermes');
+      expect(
+        action.options,
+        contains(DarwinNotificationActionOption.authenticationRequired),
+      );
+      expect(
+        action.options,
+        isNot(contains(DarwinNotificationActionOption.foreground)),
+      );
+    });
+
+    test('reaches the Runner with its own button and placeholder', () {
+      final action =
+          (replyReadyActionCategory.toChannel()['actions']! as List).single
+              as Map;
+
+      expect(action['id'], kReplyChatAction);
+      expect(action['buttonTitle'], 'Send');
+      expect(action['placeholder'], 'Reply to Hermes');
+    });
+
+    test('does not change the question Reply', () {
+      final action =
+          (requestCategoryFor(_question(['a']))!.toChannel()['actions']!
+                      as List)
+                  .last
+              as Map;
+
+      expect(action['placeholder'], 'Your answer');
+      expect(action['buttonTitle'], 'Send');
+    });
   });
 
   group('pending requests', () {

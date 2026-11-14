@@ -7,6 +7,7 @@ import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 import '../live_activities/live_activities.dart';
 import '../app_lock/app_lock_controller.dart';
+import '../auth/auth_controller.dart';
 import '../shell/app_presence.dart';
 import 'attention_policy.dart';
 import 'notification_service.dart';
@@ -25,6 +26,8 @@ class AttentionNotifier with WidgetsBindingObserver {
     this.activity,
     this.activities,
     this.appLock = _off,
+    this.accountKey = _nobody,
+    this.platform,
   }) {
     activity?.addListener(_activityChanged);
     _focused = AppPresence.focused(WidgetsBinding.instance.lifecycleState);
@@ -46,6 +49,16 @@ class AttentionNotifier with WidgetsBindingObserver {
   final bool Function() appLock;
 
   static bool _off() => false;
+
+  /// The key of the signed-in account, or null when nobody is: a finished
+  /// reply offers Reply only for an account.
+  final String? Function() accountKey;
+
+  static String? _nobody() => null;
+
+  /// The platform that decides whether a reply offers Reply; the running one
+  /// when null.
+  final TargetPlatform? platform;
 
   /// Called with the chat of a notification the user tapped.
   final void Function(NotificationTarget target) onOpen;
@@ -101,6 +114,8 @@ class AttentionNotifier with WidgetsBindingObserver {
       enabled: settings == null || (settings.loaded && settings.enabled),
       profile: profile,
       appLock: appLock(),
+      accountKey: accountKey(),
+      platform: platform,
     );
     if (notification == null) return;
     final pending = _permissionRequest;
@@ -171,3 +186,14 @@ class AttentionNotifier with WidgetsBindingObserver {
 /// and until its saved choice has loaded.
 bool appLockHidesRequests(AppLockController? lock) =>
     lock != null && (!lock.loaded || lock.enabled);
+
+/// The key of the account [auth] is signed in to, or null while it is not
+/// connected: its server stays set, and its state `ready`, while a sign-out or
+/// an expiry clears the tokens, so a ready connection that still allows
+/// protected requests is what counts.
+String? signedInAccountKey(AuthController? auth) =>
+    auth != null &&
+        auth.state == HermesConnectionState.ready &&
+        auth.protectedRequestsAllowed
+    ? auth.accountKey
+    : null;

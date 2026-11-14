@@ -9,6 +9,8 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show TargetPlatform;
+
 import '../agent_messages/agent_message_record.dart';
 import '../agent_messages/look_for_messages.dart';
 import '../agent_messages/message_alerts.dart';
@@ -60,12 +62,16 @@ class RunningRepliesStep extends BackgroundStep {
     RunningReplies? running,
     DateTime Function()? now,
     this.lookup = kAlertLookupBudget,
+    this.platform,
   }) : _running = running ?? RunningReplies(),
        _now = now ?? DateTime.now;
 
   final RunningReplies _running;
   final DateTime Function() _now;
   final Duration lookup;
+
+  /// Decides whether a reply offers Reply; the running platform when null.
+  final TargetPlatform? platform;
 
   @override
   Future<StepCounts> run(BackgroundContext context) async {
@@ -172,6 +178,8 @@ class RunningRepliesStep extends BackgroundStep {
         title: thread?.title ?? kUnnamedChatLabel,
         text: last!.content,
         appLock: await context.appLockOn(),
+        accountKey: context.hermes.accountKey,
+        platform: platform,
       ),
     );
     return _Verdict.announced;
