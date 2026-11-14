@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -519,6 +520,95 @@ void main() {
         )!.isEmpty,
         isTrue,
       );
+    });
+  });
+
+  group('every JSON parser', () {
+    // Each fixture with every value swapped for another type, and each
+    // truncated at every length, must read or give null, never throw.
+    Object? swapped(Object? v, int kind) {
+      final other = <Object?>[
+        null,
+        7,
+        'x',
+        true,
+        <Object?>[],
+        <String, Object?>{},
+      ];
+      return switch (v) {
+        Map() => {for (final e in v.entries) e.key: swapped(e.value, kind)},
+        List() => [for (final e in v) swapped(e, kind)],
+        _ => other[kind % other.length],
+      };
+    }
+
+    final today = DateTime(2026, 11, 14);
+    final parsers = <String, void Function(Object?)>{
+      'status': ServerStatus.parse,
+      'update check': UpdateCheck.parse,
+      'update start': UpdateStart.parse,
+      'receipt': UpdateReceiptSummary.parse,
+      'action status': ActionStatus.parse,
+      'usage': (j) => UsageReport.parse(j, days: 30, today: today),
+    };
+    final fixtures = <Object?>[
+      statusHealthy(),
+      statusOld(),
+      recordedStatusGatewayStopped(),
+      updateCheckBehind(),
+      updateCheckDocker(),
+      updateCheckManaged(),
+      recordedUpdateCheckUnreachable(),
+      updateStarted(),
+      updateRefused(),
+      receiptSuccess(),
+      receiptPartial(),
+      actionStatusAfterTwoRuns(),
+      recordedActionStatusIdle('doctor'),
+      usage30(),
+      recordedUsageEmpty(),
+      recordedUsageOneTurn(),
+    ];
+
+    test('ill-typed values never throw', () {
+      for (final entry in parsers.entries) {
+        for (final fixture in fixtures) {
+          for (var kind = 0; kind < 6; kind++) {
+            expect(
+              () => entry.value(swapped(fixture, kind)),
+              returnsNormally,
+              reason: '${entry.key}, kind $kind',
+            );
+          }
+        }
+        for (final odd in <Object?>[
+          null,
+          1,
+          'x',
+          [],
+          [1],
+          {},
+        ]) {
+          expect(() => entry.value(odd), returnsNormally);
+        }
+      }
+    });
+
+    test('truncated bodies never throw', () {
+      for (final entry in parsers.entries) {
+        for (final fixture in fixtures) {
+          final text = jsonEncode(fixture);
+          for (var n = 0; n < text.length; n += 7) {
+            Object? decoded;
+            try {
+              decoded = jsonDecode(text.substring(0, n));
+            } on FormatException {
+              decoded = text.substring(0, n);
+            }
+            expect(() => entry.value(decoded), returnsNormally);
+          }
+        }
+      }
     });
   });
 }
