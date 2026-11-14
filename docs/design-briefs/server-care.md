@@ -109,6 +109,7 @@ Outcomes:
 - **Failed or interrupted:** error, "The update didn't finish", "Hermes is still running 0.22.2." "Show details" with the last lines. Buttons "Done", "Try again" (Try again asks again).
 - **Refused:** like "Cannot apply here", with Hermes' message.
 - **Can't confirm:** info, "Hermes is back, but the app can't confirm the update", "Now running 0.23.0."
+- **Updated, old server still running:** warning, "Hermes updated, but the server is still running the old version", "Restart Hermes on the server to finish. Running now: 0.22.2. Installed: 0.23.0." Button "Check again". No banner.
 - **Not back:** warning, "Hermes hasn't come back yet", "If you started Hermes by hand, it may need to be started again on the server." Buttons "Keep waiting", "Dismiss".
 
 Leaving the page never cancels. There is no Cancel during the update (Hermes offers none).
@@ -144,7 +145,7 @@ Controls (under the bar on phones, in the Mac toolbar as `MacToolbarTabs` plus a
 - Level menu button: "All levels", "Warnings and errors", "Errors only".
 - Search field, placeholder "Search these logs".
 
-Lines: a list, newest first. Each line: first row time ("09:12:03", with the date on the first line of each day as a sticky section header "Today", "Yesterday", "12 Nov") and the level as a word chip ("Error", "Warning", "Info", "Debug") with an icon; second row the source in small monospace ("gateway.run"); then the message in monospace, wrapping. Continuation lines (tracebacks) sit under their line, indented, folded after 3 lines with "Show 12 more lines". Text selectable. At the end: "Show older lines" (up to 500), then "That's the last 500 lines."
+Lines: a list, newest first. Each line: first row time ("09:12:03", with the date on the first line of each day as a sticky section header "Today", "Yesterday", "12 Nov") and the level as a word chip ("Error", "Warning", "Info", "Debug") with an icon; second row the source in small monospace ("gateway.run"); then the message in monospace, wrapping. Continuation lines (tracebacks) sit under their line, indented, folded after 3 lines with "Show 12 more lines". Text selectable (copying through the system menu shows no warning; the warning belongs only to Copy shown lines, which copies everything). At the end: "Show older lines" (up to 500), then "That's the last 500 lines."
 
 States:
 
@@ -190,7 +191,7 @@ Controls: window segments "7 days", "30 days" (default), "90 days"; metric segme
 Hierarchy:
 
 1. **Totals card**: big number "8.4M tokens" (or "$12.40 estimated"), line "Last 30 days · 112 conversations". Under it in small text: "Input 7.9M · Output 520K · Cache reads 3.1M". With cost: "Billed $10.02" when Hermes reports billed cost.
-2. **Chart**: vertical bars, one per day, the accent colour, 2 pt corner radius, zero days as a 1 pt baseline tick. Three horizontal gridlines labelled in units ("4M", "8M" tokens; "$1", "$2"). X labels: start of each week (7 and 30 days), each month (90 days); at accessibility text sizes the x labels go and the y labels shorten. Selected bar: a label above the chart "12 Nov · 812K tokens · 9 conversations" (stays in place, no floating tooltip covering bars). Height 180 pt phone, 240 pt desktop. No entrance animation when reduced motion is on; otherwise bars rise once, 200 ms.
+2. **Chart**: vertical bars, one per day, the accent colour, 2 pt corner radius, zero days as a 1 pt baseline tick. Three horizontal gridlines labelled in units ("4M", "8M" tokens; "$1", "$2"). X labels: start of each week (7 and 30 days), each month (90 days); at accessibility text sizes the x labels go and the y labels shorten. Selected bar: a label above the chart "12 Nov · 812K tokens · 9 conversations" (stays in place, no floating tooltip covering bars). Height 180 pt phone, 240 pt desktop. Each bar's tap target is at least 44 pt (48 dp) wide, wider than the bar when needed; when the window's bars cannot all fit at that width (90 days on a phone, or any window at the largest text size) the chart scrolls sideways and opens at the newest day, with the summary and table unchanged. No entrance animation when reduced motion is on; otherwise bars rise once, 200 ms.
 3. Switch row "Show as table" (`GroupedSwitchRow`): replaces the chart with rows "12 Nov · 812K tokens · $3.42 · 9 conversations".
 4. **Section "By model"**: rows sorted by tokens: title the model id as Hermes reports it, subtitle "790K tokens · $3.30 · 8 conversations", trailing "92%", a thin proportion bar under the subtitle (decorative).
 5. Footer: "Days follow the server's time zone. Conversations count chats, messaging and scheduled tasks. Costs are estimates in US dollars."

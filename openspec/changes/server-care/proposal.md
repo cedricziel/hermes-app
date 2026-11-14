@@ -19,13 +19,14 @@ A new **Server** screen, reached from the account menu (iPhone, iPad, Android, W
 
 Each part hides itself when the server does not offer its route (404), without an error.
 
-Delivery: five PRs in order (see tasks.md):
+Delivery: six PRs in order (see tasks.md):
 
 1. `feat(server-care): read server status, updates, logs, checks and usage` (repository, parsers, fixtures, contract test; no UI).
-2. `feat(server-care): add the Server screen with status, updates and usage` (catalog first, then the screen and its navigation entries).
-3. `feat(server-care): restart and start the messaging gateway`.
-4. `feat(server-care): update Hermes from the app`.
-5. `feat(server-care): read logs and run the server check`.
+2. `feat(server-care): track server status and attention` (controller and the attention model; no UI).
+3. `feat(server-care): add the Server screen with status, updates and usage` (design pass, catalog first, then the screen and its navigation entries).
+4. `feat(server-care): restart and start the messaging gateway`.
+5. `feat(server-care): update Hermes from the app`.
+6. `feat(server-care): read logs and run the server check`.
 
 ## Non-goals
 

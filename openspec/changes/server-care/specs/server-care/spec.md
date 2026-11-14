@@ -20,6 +20,15 @@ The feature SHALL use only these dashboard routes, verified at Hermes `d923a5eb`
 - **WHEN** a response lacks an optional field or holds a value of an unexpected type
 - **THEN** that field is treated as unknown, the rest of the response is used, and nothing is reported as a problem because of it
 
+### Requirement: No roles
+
+Hermes has no roles: anyone signed in to the dashboard SHALL be offered every part, so there is no non-admin case beyond the usual sign-in handling.
+
+#### Scenario: Signed-in user
+
+- **WHEN** any signed-in user opens the Server screen
+- **THEN** every part the server offers is shown with its actions, and a 401 or 403 is handled by the existing sign-in path
+
 ### Requirement: Server screen entry points
 
 The app SHALL offer a Server screen from the account menu on iPhone, iPad, Android, Windows and Linux (an item "Server" after "Connection details"), and from a "Server" row after Profiles in the Mac sidebar. Connection details SHALL keep its place.
@@ -162,6 +171,16 @@ After confirmation the app SHALL send `POST /api/hermes/update` once, follow the
 - **WHEN** the dashboard is back but the receipt is missing or names another action for 60 seconds
 - **THEN** the page reads "Hermes is back, but the app can't confirm the update" with the version now running
 
+#### Scenario: The proxy answers 502 during the restart
+
+- **WHEN** a reverse proxy in front of Hermes answers `/api/health` with HTTP 502 and an HTML page while the dashboard is down
+- **THEN** the update stays in the restarting phase, and only an HTTP 200 JSON answer with `ok: true` moves it on
+
+#### Scenario: Updated but the old server still runs
+
+- **WHEN** the action ends with `exit_code: 0`, the receipt for the same action reports `success`, and `/api/health` still answers with the commit from before the update
+- **THEN** the page reads "Hermes updated, but the server is still running the old version. Restart Hermes on the server to finish." and offers Check again, and no success is reported
+
 #### Scenario: Not back
 
 - **WHEN** `/api/health` has not answered for 15 minutes
@@ -218,6 +237,11 @@ Restart gateway SHALL ask first and then send `POST /api/gateway/restart?profile
 
 - **WHEN** the gateway is not reported running 90 seconds after the restart
 - **THEN** the row reads "The gateway hasn't come back yet" and offers Show logs
+
+#### Scenario: Restart answer lost
+
+- **WHEN** the answer to `POST /api/gateway/restart` is lost to a timeout
+- **THEN** the app reads the action status and `/api/status` to learn whether the restart started, and does not send the restart request again unless the user confirms Try again
 
 #### Scenario: Refused
 
@@ -374,6 +398,11 @@ Every control SHALL be at least 44 points (48 dp on Android) high, every state S
 
 - **WHEN** the system text size is the largest accessibility size
 - **THEN** every row of the Server screen wraps, no value is cut, and the chart drops its axis labels while keeping its summary
+
+#### Scenario: Bars at the largest text size
+
+- **WHEN** the 90-day window is shown at the largest accessibility text size on a phone
+- **THEN** each bar keeps a tap target at least 44 points (48 dp) wide, the chart scrolls sideways (starting at the newest day) instead of shrinking the targets, and the table remains available
 
 ### Requirement: Telemetry
 
