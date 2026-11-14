@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -155,6 +156,7 @@ void main() {
         bool failed = false,
         bool appLock = false,
         String? accountKey = 'acct',
+        TargetPlatform platform = TargetPlatform.iOS,
       }) => replyReadyNotification(
         threadId: threadId,
         title: 'Release notes',
@@ -163,6 +165,7 @@ void main() {
         failed: failed,
         appLock: appLock,
         accountKey: accountKey,
+        platform: platform,
       );
 
       test('a completed reply in a chat offers Reply', () {
@@ -179,6 +182,26 @@ void main() {
           'n': 'Release notes',
           'a': accountHashFor('acct'),
         });
+      });
+
+      test('only iOS and macOS offer it', () {
+        expect(
+          signedIn(platform: TargetPlatform.macOS).category,
+          same(replyReadyActionCategory),
+        );
+        final plain = note();
+        for (final platform in [
+          TargetPlatform.android,
+          TargetPlatform.windows,
+          TargetPlatform.linux,
+          TargetPlatform.fuchsia,
+        ]) {
+          final n = signedIn(platform: platform);
+          expect(n.category, same(replyReadyCategory), reason: '$platform');
+          expect(n.offersReply, isFalse);
+          expect(n.accountHash, isNull);
+          expect(notificationPayload(n), notificationPayload(plain));
+        }
       });
 
       test('every other case keeps the plain category and payload', () {
@@ -215,6 +238,7 @@ void main() {
       AttentionNotification? reply({
         String? accountKey,
         bool appLock = false,
+        TargetPlatform platform = TargetPlatform.iOS,
         ChatEvent event = const ReplyCompleted('Done.'),
       }) => attentionFor(
         event: event,
@@ -225,11 +249,16 @@ void main() {
         profile: 'work',
         appLock: appLock,
         accountKey: accountKey,
+        platform: platform,
       );
 
       expect(
         reply(accountKey: 'acct')!.category,
         same(replyReadyActionCategory),
+      );
+      expect(
+        reply(accountKey: 'acct', platform: TargetPlatform.android)!.category,
+        same(replyReadyCategory),
       );
       expect(reply()!.category, same(replyReadyCategory));
       expect(

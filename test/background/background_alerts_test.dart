@@ -187,8 +187,12 @@ void main() {
     }) =>
         RunningReply(profile: profile, threadId: id, since: _now.subtract(ago));
 
-    RunningRepliesStep step() =>
-        RunningRepliesStep(running: running, now: () => _now);
+    RunningRepliesStep step({TargetPlatform platform = TargetPlatform.iOS}) =>
+        RunningRepliesStep(
+          running: running,
+          now: () => _now,
+          platform: platform,
+        );
 
     Map<String, Object?> listed(String id, String status) => {
       'id': 'rt-$id',
@@ -278,6 +282,19 @@ void main() {
       expect(payload['y'], 1);
       expect(payload['n'], 'Trip plan');
       expect(payload['a'], accountHashFor(_account));
+    });
+
+    test('offers no Reply on Android, as before', () async {
+      await running.replace([left('c1')]);
+      idle('c1');
+      stored('c1');
+
+      await refresh(() => [step(platform: TargetPlatform.android)]);
+
+      final shown = notifications.shown.single;
+      expect(shown.category, same(replyReadyCategory));
+      expect(shown.accountHash, isNull);
+      expect(jsonDecode(notificationPayload(shown)), {'t': 'c1', 'p': 'work'});
     });
 
     test('offers no Reply with App Lock on', () async {

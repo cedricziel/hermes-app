@@ -1,4 +1,6 @@
 import 'package:characters/characters.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
@@ -161,6 +163,7 @@ AttentionNotification? attentionFor({
   String? profile,
   bool appLock = false,
   String? accountKey,
+  TargetPlatform? platform,
 }) {
   if (!enabled) return null;
   if (appFocused && selectedThreadId == thread.id) return null;
@@ -173,6 +176,7 @@ AttentionNotification? attentionFor({
       failed: failed,
       appLock: appLock,
       accountKey: accountKey,
+      platform: platform,
     );
   }
   final body = switch (event) {
@@ -226,7 +230,8 @@ AttentionNotification? attentionFor({
 /// A completed reply in a chat offers the Reply action when [accountKey], the
 /// key of the signed-in account (null when nobody is), is given and [appLock]
 /// is off. [appLock] must already count an App Lock that has not loaded as
-/// on. Every other case keeps the plain category and payload.
+/// on, and only on iOS and macOS ([platform] defaults to the running one).
+/// Every other case keeps the plain category and payload.
 AttentionNotification replyReadyNotification({
   required String threadId,
   required String title,
@@ -235,9 +240,15 @@ AttentionNotification replyReadyNotification({
   bool failed = false,
   bool appLock = false,
   String? accountKey,
+  TargetPlatform? platform,
 }) {
+  final target = platform ?? defaultTargetPlatform;
   final offersReply =
-      !failed && !appLock && threadId.isNotEmpty && accountKey != null;
+      (target == TargetPlatform.iOS || target == TargetPlatform.macOS) &&
+      !failed &&
+      !appLock &&
+      threadId.isNotEmpty &&
+      accountKey != null;
   return AttentionNotification(
     threadId: threadId,
     title: title,

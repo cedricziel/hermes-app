@@ -32,12 +32,14 @@ void main() {
     NotificationSettings? withSettings,
     ValueListenable<bool>? activity,
     String? Function()? accountKey,
+    TargetPlatform? platform,
   }) => notifier = AttentionNotifier(
     service: service,
     settings: withSettings ?? settings,
     onOpen: opened.add,
     activity: activity,
     accountKey: accountKey ?? () => null,
+    platform: platform ?? TargetPlatform.iOS,
   );
 
   void leaveTheApp() {
@@ -89,6 +91,28 @@ void main() {
       );
 
       expect(service.shown.single.category, same(replyReadyActionCategory));
+    });
+
+    test('offers no Reply on Android, Windows or Linux', () {
+      for (final platform in [
+        TargetPlatform.android,
+        TargetPlatform.windows,
+        TargetPlatform.linux,
+      ]) {
+        service.shown.clear();
+        build(accountKey: () => 'acct', platform: platform);
+        leaveTheApp();
+
+        notifier.announce(
+          thread,
+          const ReplyCompleted('Nothing new.'),
+          selectedThreadId: null,
+          profile: 'work',
+        );
+
+        expect(service.shown.single.category, same(replyReadyCategory));
+        notifier.dispose();
+      }
     });
 
     test('offers no Reply without an account', () {

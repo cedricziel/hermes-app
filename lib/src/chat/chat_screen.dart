@@ -458,7 +458,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onOpen: _openFromNotification,
       activities: liveActivities,
       appLock: () => appLockHidesRequests(appLock),
-      accountKey: () => auth?.accountKey,
+      accountKey: () => signedInAccountKey(auth),
     );
     final repositories = HermesRepositories.maybeOf(context);
     final api = repositories?.api;
