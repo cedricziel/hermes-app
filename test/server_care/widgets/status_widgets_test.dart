@@ -257,6 +257,25 @@ void main() {
       expect(closed, 1);
     });
 
+    testWidgets('ready: the close target is 44 pt on Apple platforms and 48 dp '
+        'on Material', (tester) async {
+      for (final (platform, side) in [
+        (TargetPlatform.iOS, 44.0),
+        (TargetPlatform.macOS, 44.0),
+        (TargetPlatform.android, 48.0),
+      ]) {
+        await tester.pumpWidget(
+          _host(
+            ServerRestartBanner.ready(version: '0.23.0', onClose: () {}),
+            platform: platform,
+          ),
+        );
+        final size = tester.getSize(find.byType(IconButton));
+        expect(size.width, greaterThanOrEqualTo(side), reason: '$platform');
+        expect(size.height, greaterThanOrEqualTo(side), reason: '$platform');
+      }
+    });
+
     testWidgets('ready: dismisses itself after 6 s', (tester) async {
       var dismissed = 0;
       await tester.pumpWidget(
