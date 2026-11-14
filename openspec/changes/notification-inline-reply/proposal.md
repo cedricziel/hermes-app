@@ -31,7 +31,7 @@ Security and privacy impact:
 
 Observability:
 
-- Span `background.task` (from `headless-runtime`) with `task: notification.reply`, `engine`, annotated `reply.outcome` (`answered`, `sent`, `failed`, `unconfirmed`) when the body ran, and keeping the runtime's own `outcome` when the run ended first; a refusal for App Lock (`locked`) ends a run-less span, as Ask Hermes does. It crosses the gateway.
+- Span `background.task` (from `headless-runtime`) with `task: notification.reply`, `engine`, annotated `reply.outcome` (`answered`, `sent`, `failed`, `unconfirmed`) when the body ran, and keeping the runtime's own `outcome` when the run ended first; a refusal for App Lock (`app_locked`) ends a run-less span, as Ask Hermes does. It crosses the gateway.
 - Log event `notification.reply` with `outcome` and `route` (`main` or `background`); breadcrumb `notification.reply` with `outcome`.
 - None carries the text, a title, a profile name or an id.
 
