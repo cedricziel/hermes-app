@@ -10,6 +10,9 @@ import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/hermes_theme.dart';
 import '../../widgets/markdown_links.dart';
 import '../chat_message_kinds.dart';
+import '../chat_transport.dart' show ReplyStatusKind;
+import '../../../l10n/l10n.dart';
+import '../checkpoints/transcript_outcome.dart';
 import '../reactions/reaction_state.dart';
 import '../reactions/reaction_cards.dart';
 import '../chat_models.dart'
@@ -41,6 +44,7 @@ import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
 import 'subagent_card.dart';
 import 'tool_call_group.dart';
+import 'transcript_outcome_line.dart';
 import 'unsupported_request_card.dart';
 import 'vault_request_card.dart';
 import 'welcome_view.dart';
@@ -390,6 +394,12 @@ Widget _buildCustom(
       return ReviewSummaryNote(
         items: metadata![kMetaReviewItems] as List<String>,
       );
+    case kKindOutcomeLine:
+      final outcome = metadata![kMetaOutcome];
+      if (outcome is! TranscriptOutcome) return const SizedBox.shrink();
+      return TranscriptOutcomeLine(
+        text: transcriptOutcomeText(context.l10n, outcome),
+      );
     case kKindReasoning:
       return ReasoningBlock(
         text: metadata![kMetaReasoningText] as String,
@@ -401,7 +411,11 @@ Widget _buildCustom(
         text: '',
         active: true,
         startedAt: metadata![kMetaThinkingStartedAt] as DateTime,
-        activity: metadata[kMetaThinkingActivity] as String,
+        activity: switch (metadata[kMetaThinkingActivityKind]) {
+          ReplyStatusKind.compacting => context.l10n.chatStatusCompacting,
+          ReplyStatusKind.compressing => context.l10n.chatStatusCompressing,
+          _ => metadata[kMetaThinkingActivity] as String,
+        },
       );
     case kKindInputRequest:
       return switch (metadata![kMetaInputRequest]) {

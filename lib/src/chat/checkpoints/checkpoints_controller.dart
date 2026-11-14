@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'action_telemetry.dart';
@@ -150,6 +152,13 @@ class CheckpointsController extends ChangeNotifier {
 
   void bind(ActionScope? scope) {
     if (_disposed || scope == _scope) return;
+    final previous = _scope;
+    final resumed =
+        previous != null &&
+        previous.binding == null &&
+        scope != null &&
+        scope.binding != null &&
+        previous.threadId == scope.threadId;
     _scope = scope;
     _epoch++;
     _listGeneration++;
@@ -162,6 +171,9 @@ class CheckpointsController extends ChangeNotifier {
     _connected = true;
     _readFailures.clear();
     _notify();
+    // A chat that gets its runtime while the panel is open (it was resumed
+    // to be listed) is listed for that runtime.
+    if (_panelOpen && resumed) unawaited(refresh());
   }
 
   void setLocked(bool locked) {
@@ -233,6 +245,23 @@ class CheckpointsController extends ChangeNotifier {
     if (_disposed) return;
     _panelOpen = false;
     closeChanges();
+  }
+
+  int _panelHolds = 0;
+
+  @visibleForTesting
+  int get panelHolds => _panelHolds;
+
+  /// A view that shows the list (the panel's presence, a standalone page)
+  /// takes a hold while it is on screen, so one leaving does not close the
+  /// list under another that is still there: a layout change swaps one for
+  /// the next, a page opens over the panel.
+  void holdPanel() => _panelHolds++;
+
+  /// Gives a hold back; the last one out closes the panel.
+  void releasePanel() {
+    if (_panelHolds > 0) _panelHolds--;
+    if (_panelHolds == 0) panelClosed();
   }
 
   /// The user tapped the row of a stored chat that has no live session:
@@ -421,8 +450,17 @@ class CheckpointsController extends ChangeNotifier {
         intent._used ||
         !identical(intent, _intent) ||
         intent.epoch != _epoch ||
-        intent.scope != _scope ||
-        restoreRefusal(filePath: intent.filePath) != null) {
+        intent.scope != _scope) {
+      return;
+    }
+    final refusal = restoreRefusal(filePath: intent.filePath);
+    if (refusal != null) {
+      // A reply started while the confirmation was open: nothing is sent.
+      if (refusal == RestoreRefusal.replying) {
+        _outcome = const RestoreOutcome(RestoreOutcomeKind.busyReplying);
+        _intent = null;
+        _notify();
+      }
       return;
     }
     intent._used = true;
@@ -477,7 +515,8 @@ class CheckpointsController extends ChangeNotifier {
     bool Function() live,
   ) async {
     Future<bool> relist() async => live() && await _relist();
-    Future<bool> refetch() async => live() && await _refetchChat();
+    Future<bool> refetch({bool historyRemoved = false}) async =>
+        live() && await _refetchChat(historyRemoved: historyRemoved);
 
     switch (result) {
       case Restored(:final historyRemoved):
@@ -491,7 +530,9 @@ class CheckpointsController extends ChangeNotifier {
             checkpoints.any((c) => c.hash == intent.hash)) {
           await openChanges(intent.hash);
         }
-        final refetched = await refetch();
+        final refetched = await refetch(
+          historyRemoved: intent.isFull && historyRemoved > 0,
+        );
         final added = listed && live()
             ? _addedSafetyCheckpoint(intent.hash, before)
             : null;
@@ -610,9 +651,9 @@ class CheckpointsController extends ChangeNotifier {
   }
 
   /// Re-reads the chat; false when that failed.
-  Future<bool> _refetchChat() async {
+  Future<bool> _refetchChat({bool historyRemoved = false}) async {
     try {
-      await bridge.refetchChat();
+      await bridge.refetchChat(historyRemoved: historyRemoved);
       return true;
     } on Object {
       return false;

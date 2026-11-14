@@ -196,7 +196,9 @@ class WorkingDirectoryDetails extends StatelessWidget {
             MergeSemantics(
               child: Semantics(
                 button: true,
-                enabled: reason == null,
+                enabled: reason == null && onChange != null,
+                // The button's own node is excluded, so the tap is offered here.
+                onTap: reason == null ? onChange : null,
                 label: reason == null
                     ? l10n.workspacesDetailsChange
                     : '${l10n.workspacesDetailsChange}. $reason',

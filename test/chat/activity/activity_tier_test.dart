@@ -24,6 +24,8 @@ void main() {
         ActivityKind.sideResult: ActivityTier.reference,
         ActivityKind.notice: ActivityTier.reference,
         ActivityKind.acknowledgement: ActivityTier.reference,
+        ActivityKind.context: ActivityTier.reference,
+        ActivityKind.checkpoints: ActivityTier.reference,
       },
     );
   });

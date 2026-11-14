@@ -15,6 +15,18 @@ const String kKindReasoning = 'reasoning';
 const String kKindSubagents = 'subagents';
 const String kKindReviewSummary = 'review_summary';
 
+/// A line between messages after a compress or a restore settled ("Conversation
+/// compressed · 42 → 9 messages"). It exists only in this app, beside the
+/// chat's messages and never among them, so it is no prompt, no reply and
+/// nothing Copy Transcript, search, export or any surface reads. It carries
+/// `outcome` (a `TranscriptOutcome`: counts and flags, never text).
+const String kKindOutcomeLine = 'outcome_line';
+const String kMetaOutcome = 'outcome';
+
+/// The author of an outcome line: neither the user nor Hermes, so the line is
+/// never grouped with a message.
+const String kOutcomeAuthorId = 'app';
+
 /// Metadata keys. A `kKindToolGroup` message carries `calls` (a
 /// `List<ToolCall>`): a run of one or more calls the agent made back to back,
 /// with no reasoning between them, and `approvals` (a
@@ -58,6 +70,9 @@ class ScreenPreviewRun {
 const String kMetaInputRequest = 'request';
 const String kMetaThinkingStartedAt = 'startedAt';
 const String kMetaThinkingActivity = 'activity';
+
+/// A `ReplyStatusKind` the widget layer words itself; wins over the text.
+const String kMetaThinkingActivityKind = 'activityKind';
 
 /// Carried by the `ImageMessage` or `FileMessage` of an attachment: the
 /// `ChatAttachment` it stands for.

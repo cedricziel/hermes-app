@@ -117,10 +117,21 @@ extension _ChatControllerHistory on ChatController {
                   (thread) =>
                       thread.remote &&
                       (_sending.containsKey(thread) ||
-                          sendingAtStart.contains(thread)),
+                          sendingAtStart.contains(thread) ||
+                          // A full restore is running: its chat stays, or
+                          // the hold on Send would end with the list entry.
+                          _ChatControllerCheckpoints(this)
+                              ._actionHolds(thread)),
                 )
                 .toList()
           : const <ChatThread>[];
+      for (final thread in live) {
+        if (!_sending.containsKey(thread) && !sendingAtStart.contains(thread)) {
+          // Kept for its restore alone: the list is read again after it.
+          _ChatControllerCheckpoints(this)._actionsOf(thread)?.keptByHold =
+              true;
+        }
+      }
       final liveIds = {for (final thread in live) thread.id};
       final kept = {...live, ...local};
       final currentRecoveries = recoveredQueues
@@ -178,6 +189,9 @@ extension _ChatControllerHistory on ChatController {
       _sessionStates.addAll(keptState.sessions);
       _sessionActionGenerations.addAll(keptState.actions);
       _active.clear();
+      _activeKnown = false;
+      // A read of who is working that was already out is now stale.
+      _activeRefresh++;
       for (final controller in _chatControllers.values) {
         controller.dispose();
       }
@@ -204,6 +218,7 @@ extension _ChatControllerHistory on ChatController {
       });
       unawaited(_loadModelOptions(profile, generation, notifyLoading: false));
       _threads = [...local, ...threads];
+      _ChatControllerCheckpoints(this)._actionsAfterLoad();
       _unloaded
         ..clear()
         ..addAll(
@@ -430,7 +445,8 @@ extension _ChatControllerHistory on ChatController {
       if (page.hasMore) _olderRows[id] = page.rows;
       notifyListeners();
       if (!active || generation != _loadGeneration) return;
-      await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+      await controllerFor(thread)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     } on Object {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
@@ -589,7 +605,10 @@ extension _ChatControllerHistory on ChatController {
     }
     _reactionHistory(thread);
     notifyListeners();
-    unawaited(controllerFor(thread).setMessages(chatThreadToFlyer(thread)));
+    unawaited(
+      controllerFor(thread)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread)),
+    );
   }
 
   /// [messages] split into turns that can be matched: a prompt the user
@@ -711,34 +730,52 @@ extension _ChatControllerHistory on ChatController {
   /// window): its title and pin, and its messages once they were loaded. A
   /// chat that is gone leaves the list. Nothing is read while a reply streams
   /// into it, which would replace the reply in progress.
-  Future<void> _refreshThreadImpl(String id) async {
-    if (!active) return;
+  /// With [strict] (a restore or compress re-reading the chat it changed)
+  /// the messages are read even when the row looks unchanged, and a read
+  /// that did not land throws instead of keeping what is shown.
+  Future<void> _refreshThreadImpl(
+    String id, {
+    bool strict = false,
+    bool historyRemoved = false,
+  }) async {
+    Never notRead() => throw StateError('The chat was not read again');
+    if (!active) return strict ? notRead() : null;
     final repository = this.repository;
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (repository == null ||
         thread == null ||
         !thread.remote ||
         thread.isReplying) {
-      return;
+      return strict ? notRead() : null;
     }
     final generation = _loadGeneration;
     bool stale() =>
         !active || generation != _loadGeneration || thread.isReplying;
     try {
       final fresh = await repository.loadThread(id, profile: _profile);
-      if (stale()) return;
+      if (stale()) return strict ? notRead() : null;
       if (fresh == null) {
         housekeeping?.forget(thread);
-        return notifyListeners();
+        notifyListeners();
+        return strict ? notRead() : null;
       }
-      final unchanged = fresh.updatedAt == thread.updatedAt;
+      final unchanged = fresh.updatedAt == thread.updatedAt && !strict;
       housekeeping?.adopt(thread, fresh);
       notifyListeners();
-      if (stale()) return;
-      if (unchanged || _unloaded.contains(id)) return;
+      if (stale()) return strict ? notRead() : null;
+      if (unchanged || _unloaded.contains(id)) {
+        // A strict read that read nothing is not a re-read.
+        return strict ? notRead() : null;
+      }
       final page = await repository.loadMessagePage(id, profile: _profile);
-      if (stale()) return;
-      final failed = _failedTurn(thread, page.messages);
+      if (stale()) return strict ? notRead() : null;
+      var failed = _failedTurn(thread, page.messages);
+      // After a full restore took history away, a failed turn whose prompt
+      // the server no longer holds is gone with it, not put back. Any other
+      // read keeps it, with its Retry.
+      if (historyRemoved && failed.any((m) => m.role == ChatRole.user)) {
+        failed = const [];
+      }
       thread.messages
         ..clear()
         ..addAll(page.messages)
@@ -750,9 +787,11 @@ extension _ChatControllerHistory on ChatController {
         _olderRows.remove(id);
       }
       notifyListeners();
-      if (stale()) return;
-      await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+      if (stale()) return strict ? notRead() : null;
+      await controllerFor(thread)
+          .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     } on Object catch (e, stack) {
+      if (strict) rethrow;
       reportBug(e, stack, 'a history re-read');
       // Keeps what it shows; the next refresh or open reads it again.
     }

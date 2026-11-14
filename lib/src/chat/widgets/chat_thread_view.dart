@@ -88,6 +88,8 @@ class ChatThreadView extends StatelessWidget {
     this.greetingName,
     this.welcome = true,
     this.screenPreview,
+    this.sendHeld = false,
+    this.draftHandedBack = false,
     this.onShowAgentDetails,
   });
 
@@ -182,6 +184,12 @@ class ChatThreadView extends StatelessWidget {
   /// window that holds no screen.
   final ScreenPreviewBuilder? screenPreview;
 
+  /// A full restore of this chat is settling: Send is off until it ends.
+  final bool sendHeld;
+
+  /// A restore just put the last message back into the composer.
+  final bool draftHandedBack;
+
   /// Opens an agent's details in the Activity panel from the reply's agent
   /// card; none where the chat has no panel (the quick panel).
   final ValueChanged<String>? onShowAgentDetails;
@@ -229,6 +237,8 @@ class ChatThreadView extends StatelessWidget {
             commandRunning: commandRunning,
             queueView: queueView,
             sendTarget: sendTarget,
+            sendHeld: sendHeld,
+            draftHandedBack: draftHandedBack,
             dock: dock,
           ),
         );

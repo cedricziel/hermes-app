@@ -1069,17 +1069,49 @@ Widget _type(
   bool capped = false,
   PathEntryCheck check = PathEntryCheck.idle,
 }) => pushed(
-  PathEntryView(
+  _TypeHarness(
     text: text,
     suggestions: suggestions,
     capped: capped,
     check: check,
-    onChanged: (_) {},
-    onPickSuggestion: (_) {},
-    onUse: () {},
-    onCheckAgain: () {},
   ),
 );
+
+/// Holds the field's text for the catalog, so typing, the clear button and a
+/// tapped suggestion work; `PathEntryView` itself stays model-only. The
+/// suggestions and the check are fixed by the use case.
+class _TypeHarness extends StatefulWidget {
+  const _TypeHarness({
+    required this.text,
+    required this.suggestions,
+    required this.capped,
+    required this.check,
+  });
+
+  final String text;
+  final List<PathEntrySuggestion> suggestions;
+  final bool capped;
+  final PathEntryCheck check;
+
+  @override
+  State<_TypeHarness> createState() => _TypeHarnessState();
+}
+
+class _TypeHarnessState extends State<_TypeHarness> {
+  late String _text = widget.text;
+
+  @override
+  Widget build(BuildContext context) => PathEntryView(
+    text: _text,
+    suggestions: widget.suggestions,
+    capped: widget.capped,
+    check: widget.check,
+    onChanged: (value) => setState(() => _text = value),
+    onPickSuggestion: (pick) => setState(() => _text = pick.path),
+    onUse: () {},
+    onCheckAgain: () {},
+  );
+}
 
 final List<PathEntrySuggestion> _thirty = [
   for (var i = 1; i <= 30; i++)
