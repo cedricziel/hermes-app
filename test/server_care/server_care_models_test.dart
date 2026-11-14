@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/action_status.dart';
 import 'package:hermes_app/src/server_care/attention.dart';
+import 'package:hermes_app/src/server_care/care_result.dart';
+import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/server_care/doctor_report.dart';
 import 'package:hermes_app/src/server_care/widgets/server_check_body.dart'
     show commandInFix;
@@ -13,6 +15,7 @@ import 'package:hermes_app/src/server_care/update_check.dart';
 import 'package:hermes_app/src/server_care/update_receipt.dart';
 import 'package:hermes_app/src/server_care/usage_report.dart';
 
+import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
 
 ServerStatus status(Map<String, dynamic> patch) =>
@@ -616,6 +619,144 @@ void main() {
           }
         }
       }
+    });
+  });
+
+  group('doctor chatter', () {
+    List<String> run(List<String> body) => [
+      '=== doctor started 2026-11-14 09:00:00 ===',
+      ...body,
+    ];
+
+    test('only the connectivity progress line is chatter', () {
+      for (final line in [
+        'Running 44 connectivity checks in parallel…',
+        'Running 3 checks',
+        'Running 1 check',
+      ]) {
+        final r = DoctorReport.parse(
+          run(['◆ Messaging', '  ✓ Gateway ok', line]),
+        );
+        expect(r.unknownLines, 0, reason: line);
+      }
+      // A different "Running ..." line is not swallowed.
+      final other = DoctorReport.parse(
+        run(['◆ Messaging', 'Running 3 slow checks']),
+      );
+      expect(other.unknownLines, 1);
+      expect(other.sections.single.other, ['Running 3 slow checks']);
+    });
+
+    test('a Tip after the issue count is dropped', () {
+      final r = DoctorReport.parse(
+        run([
+          '◆ Messaging',
+          '  ✗ Telegram token rejected',
+          'Found 1 issue(s) to address:',
+          "  1. Re-run 'hermes setup telegram'",
+          "Tip: run 'hermes doctor --fix' to fix what it can",
+        ]),
+      );
+      expect(r.unknownLines, 0);
+      expect(r.trailing, isEmpty);
+      expect(r.fixes, hasLength(1));
+    });
+
+    test('a Tip inside a section still shows and counts as unknown', () {
+      final r = DoctorReport.parse(
+        run([
+          '◆ Messaging',
+          '  ✓ Gateway ok',
+          'Tip: something the section says',
+        ]),
+      );
+      expect(r.unknownLines, 1);
+      expect(r.sections.single.other, ['Tip: something the section says']);
+      expect(
+        DoctorReport.leftover([
+          '◆ Messaging',
+          'Tip: something the section says',
+        ], r),
+        contains('Tip: something the section says'),
+      );
+    });
+  });
+
+  group('commandInFix', () {
+    test('takes the first quoted hermes command, not the second', () {
+      expect(
+        commandInFix("Run 'hermes setup' then 'hermes setup telegram'"),
+        'hermes setup',
+      );
+    });
+
+    test('skips a --fix quote that comes first', () {
+      expect(
+        commandInFix("Try 'hermes doctor --fix', or 'hermes setup telegram'"),
+        'hermes setup telegram',
+      );
+      expect(commandInFix("Try 'hermes doctor --fix'"), isNull);
+    });
+
+    test('only single quotes are read: backticks are not matched', () {
+      expect(commandInFix('Run `hermes setup telegram`'), isNull);
+      expect(commandInFix("Run 'echo hi' or 'git pull'"), isNull);
+      expect(commandInFix('no command here'), isNull);
+    });
+  });
+
+  group('readVersion at the parses', () {
+    const nothing = <Object?>['unknown', 'Unknown', '', '  ', null, 7];
+
+    test('health', () {
+      final server = FakeHermesServer();
+      final repo = ServerCareRepository(server.client());
+      Future<String?> version(Object? v) async {
+        server.on('GET', '/api/health', {'ok': true, 'version': v});
+        final r = await repo.health() as CareOk<ServerHealth>;
+        return r.value.version;
+      }
+
+      return Future(() async {
+        for (final v in nothing) {
+          expect(await version(v), isNull, reason: '$v');
+        }
+        expect(await version(' 0.22.2 '), '0.22.2');
+      });
+    });
+
+    test('update check', () {
+      for (final v in nothing) {
+        expect(
+          UpdateCheck.parse({'current_version': v})!.currentVersion,
+          isNull,
+        );
+      }
+      expect(
+        UpdateCheck.parse({'current_version': '0.22.2'})!.currentVersion,
+        '0.22.2',
+      );
+    });
+
+    test('receipt', () {
+      for (final v in nothing) {
+        expect(
+          UpdateReceiptSummary.parse({
+            'summary': {'outcome': 'success', 'post_version': v},
+          })!.postVersion,
+          isNull,
+        );
+      }
+      expect(
+        UpdateReceiptSummary.parse({
+          'summary': {'outcome': 'success', 'post_version': '0.23.0'},
+        })!.postVersion,
+        '0.23.0',
+      );
+    });
+
+    test('status', () {
+      expect(status({'version': 'unknown'}).version, isNull);
     });
   });
 }
