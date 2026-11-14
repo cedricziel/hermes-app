@@ -17,7 +17,7 @@ The feature SHALL use only `GET /api/sessions/{session_id}/export?profile=`, ver
 
 #### Scenario: Server without the route
 
-- **WHEN** the server answers 404 with a detail other than `Session not found`
+- **WHEN** the server answers 404 whose detail is neither `Session not found` nor starting `Profile '`, or answers 405
 - **THEN** the app says this server cannot export chats and offers no retry
 
 ### Requirement: Entry points
@@ -73,7 +73,7 @@ The app SHALL offer the save sheet only for bytes that decode to a JSON object w
 
 ### Requirement: Lost answer and failures
 
-A timeout or dropped connection SHALL NOT read as saved, and the app SHALL NOT resend. Each failure (not found, unsupported, profile, unreadable store 503, timeout, incomplete, offline) SHALL have its own message. Try again SHALL ask the user to confirm again.
+A timeout or dropped connection SHALL NOT read as saved, and the app SHALL NOT resend. Each failure (not found, unsupported, profile 404, invalid profile name 400, unreadable store 503, timeout, incomplete, offline) SHALL have its own message. Try again SHALL ask the user to confirm again.
 
 #### Scenario: Timeout
 
@@ -84,6 +84,15 @@ A timeout or dropped connection SHALL NOT read as saved, and the app SHALL NOT r
 
 - **WHEN** the server answers 404 `Session not found`
 - **THEN** the message says the chat is no longer on the server
+
+### Requirement: Decode errors stay out of reports
+
+A `FormatException` from decoding the body embeds part of the file. The app SHALL catch it and SHALL NOT pass it, its message, the body or any part of it to the crash reporter, logs, breadcrumbs, spans or user-visible errors; the outcome is only `incomplete`.
+
+#### Scenario: Corrupt body
+
+- **WHEN** the body is not valid JSON
+- **THEN** the failure is reported as `incomplete` with no decoder message, and no body text appears in any report
 
 ### Requirement: System save sheet only
 

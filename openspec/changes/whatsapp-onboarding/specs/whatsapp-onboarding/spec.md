@@ -17,8 +17,13 @@ The feature SHALL use only `POST /api/messaging/whatsapp/onboarding/start`, `GET
 
 #### Scenario: Old server
 
-- **WHEN** start answers 404 or 405
+- **WHEN** start answers 405, or 404 whose detail does not start with "Profile '"
 - **THEN** the screen says "This server cannot link WhatsApp from the app" and nothing is retried
+
+#### Scenario: Deleted profile
+
+- **WHEN** start answers 404 with a detail starting "Profile '"
+- **THEN** the screen says the chat's profile no longer exists, and does not say the server is old
 
 ### Requirement: Entry and explicit start
 
@@ -36,8 +41,8 @@ The setup form of the WhatsApp platform SHALL show a "Link WhatsApp" button abov
 
 #### Scenario: Numbers are checked
 
-- **WHEN** an allowed number holds letters
-- **THEN** the screen asks for digits with an optional leading + separated by commas, and nothing is sent
+- **WHEN** an allowed number holds letters, or is `*` or a JID
+- **THEN** the screen asks for phone numbers (digits, optional leading +, separated by commas), says everyone-access is a server setting, and sends nothing
 
 ### Requirement: Progress and polling
 
@@ -67,10 +72,10 @@ When `qr_payload` is present the screen SHALL render it as a QR code with the ti
 - **WHEN** the code is shown
 - **THEN** the screen offers no copy or share action, and the payload is in no log, span, breadcrumb, preference or clipboard
 
-#### Scenario: Hidden on lock
+#### Scenario: Hidden on lock or background
 
 - **WHEN** App Lock locks, or the lifecycle leaves `resumed`
-- **THEN** the code is replaced by "Hidden" and returns when the app is unlocked and in front
+- **THEN** the code is replaced by "Hidden"; on a handset it shows again only after the "Show QR code" tap, on a tablet or computer when the app is unlocked and in front
 
 ### Requirement: Handset flow
 
@@ -79,7 +84,7 @@ On a handset the screen SHALL first say the QR must be scanned by the phone that
 #### Scenario: Phone
 
 - **WHEN** the screen shows a QR on a phone
-- **THEN** the notice and "Show QR code" appear first, and the code appears only after the tap
+- **THEN** the notice and "Show QR code" appear first, and the code appears only after the tap, and again after each lock or background
 
 #### Scenario: Mac
 
@@ -88,7 +93,7 @@ On a handset the screen SHALL first say the QR must be scanned by the phone that
 
 ### Requirement: Final states
 
-The screen SHALL end polling and say so for `connected`, `error`, `expired` (also HTTP 410), `cancelled` and an unknown id (404), with Start again for all but `connected`. The server's `error` text SHALL be shown to the user only.
+The screen SHALL end polling and say so for `connected`, `error`, `expired` (also HTTP 410), `cancelled` and an unknown id (404), with Start again for all but `connected`. The server's `error` text SHALL be shown as given, to the user only, with no wording per reason.
 
 #### Scenario: Expired
 
@@ -100,6 +105,11 @@ The screen SHALL end polling and say so for `connected`, `error`, `expired` (als
 - **WHEN** the status is `cancelled` and the user did not cancel
 - **THEN** the screen says another setup replaced this one
 
+#### Scenario: Error text
+
+- **WHEN** the status is `error` with any text, such as "...exited with code 1." or "500: Node.js preparation failed: ..."
+- **THEN** the screen shows that text and Start again
+
 #### Scenario: Already linked
 
 - **WHEN** start returns `connected` with no QR
@@ -107,17 +117,22 @@ The screen SHALL end polling and say so for `connected`, `error`, `expired` (als
 
 ### Requirement: Finish asks first
 
-Finish SHALL be offered only on `connected`. It SHALL ask "Save the WhatsApp setup and restart the messaging gateway? Conversations on messaging channels will be interrupted." with Cancel as the default and "Save and restart", and only then call apply with the chat's `profile` in the query and the body.
+Finish SHALL be offered only on `connected`. It SHALL ask "Save the WhatsApp setup and ask the messaging gateway to restart? Conversations on messaging channels will be interrupted." with Cancel as the default and "Save and restart", and only then call apply with the chat's `profile` in the query and the body.
 
 #### Scenario: Saved
 
 - **WHEN** the user confirms and apply returns `ok`
-- **THEN** the screens close to the refreshed platform list, and when `needs_restart` is true a notice says to restart the gateway from Server
+- **THEN** the screens close to the refreshed platform list; the notice says a restart was requested, never that the gateway restarted, and when `restart_started` is not true or `needs_restart` is true, to restart it from Server
 
 #### Scenario: Refused
 
-- **WHEN** apply answers 400, 404, 409 or 500 with a `detail`
+- **WHEN** apply answers 400, 409 or 500 with a `detail`
 - **THEN** the screen shows that text and stays, and apply is not repeated by itself
+
+#### Scenario: Setup gone after connected
+
+- **WHEN** apply answers 404 (the record is dropped 900 s after start, even when `connected`)
+- **THEN** the screen says the setup is no longer on the server and the settings may not be saved, and offers Start again, which on a linked session returns `connected` without a scan
 
 ### Requirement: Lost answers
 

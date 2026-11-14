@@ -2,7 +2,7 @@
 
 ## Why
 
-Hermes keeps the skills its agent wrote tidy with a background "curator": it marks unused skills stale and, after a while, archives them. It runs by itself once a week, or when a person asks. Today the app can say nothing about it. Someone whose skill list suddenly lost entries cannot tell why, cannot stop the curator, and cannot start it, without a terminal on the server.
+Hermes keeps the skills its agent wrote tidy with a background "curator": it marks unused skills stale and, after a while, archives them. It runs by itself once a week (started by the gateway or by the dashboard's own hourly check), or when a person asks. Today the app can say nothing about it. Someone whose skill list suddenly lost entries cannot tell why, cannot stop the curator, and cannot start it, without a terminal on the server.
 
 Roadmap item 4.8 (the skills curator).
 
@@ -12,9 +12,9 @@ A **Skill curator** section on the Skills screen, for the profile the screen sho
 
 - **Status.** On or off, paused or active, "Last ran 3 days ago" (or "Hasn't run yet"), the interval, and the thresholds ("Marked stale after 14 days, archived after 30"). From `GET /api/curator?profile=`.
 - **Pause and Resume.** A switch, `PUT /api/curator/paused?profile=`. Reversible, so no confirmation. It stops the scheduled passes only; Run now still works.
-- **Run now.** Asks first. The sheet says what a pass may do (archive skills the agent made and nobody used, and, if the server has consolidation on, merge and rewrite skills), that archived skills are kept, and that the app cannot undo it. Cancel is the default. It then follows the run (`POST /api/curator/run?profile=`, `GET /api/actions/curator-run/status`) and shows Hermes' own output lines when it ends.
+- **Run now.** Asks first. The sheet says what a pass may do (archive skills recorded as agent-made that nobody used, include bundled skills if the server's `prune_builtins` is on, and, if consolidation is on, merge and rewrite skills), that archived skills are kept, and that the app cannot undo it. Cancel is the default. It then follows the run (`POST /api/curator/run?profile=`, `GET /api/actions/curator-run/status`) and shows Hermes' own output lines when it ends.
 
-Hidden when the server has no curator route (404).
+Hidden when the server has no curator route (a route-missing 404, told apart from a missing profile by the detail text).
 
 One PR (see tasks.md): `feat(skills): see, pause and run the skill curator`.
 

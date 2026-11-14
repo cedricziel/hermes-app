@@ -5,8 +5,8 @@ One PR of about 500 changed lines, `feat(profile-soul): edit a profile's SOUL.md
 ## 1. PR 1: Personality screen
 
 - [ ] 1.1 Record fixtures from Hermes `d923a5eb` with `scripts/dev-backend.sh` (never the real `~/.hermes`): GET with text, absent file, empty file, BOM file, invalid UTF-8 file; PUT ok, 404 profile, 400 bad name, 422 missing content, 401. Note what the real 422 and plain 500 bodies look like. Add a check to `test/real_backend_contract_test.dart` (read only, never a PUT against a shared profile).
-- [ ] 1.2 Write failing `SoulRepository` tests against `FakeHermesServer` with the real generated client: path carries the name and no query; parsing is lenient; `exists`/empty distinction; `unsupported` for 404 "Not Found" but `profileGone` for "Profile ... does not exist."; 200 without `ok: true` is unconfirmed; timeout is `lostAnswer`. Then implement it in `lib/src/profiles/soul/`.
-- [ ] 1.3 Write failing `SoulController` tests: baseline after load and save; Save sends nothing until confirmed; the second read before PUT; changed on server sends nothing; Replace anyway sends once; check failure sends nothing; lost answer resends nothing and Check resolves it both ways; dirty state; read-only above 500,000 characters; dropped on sign-out, server change and App Lock; late answers after close ignored. Then implement it.
+- [ ] 1.2 Write failing `SoulRepository` tests against `FakeHermesServer` with the real generated client: path carries the name and no query; parsing is lenient; `exists`/empty distinction; `profileGone` for a 404 detail starting "Profile '", `unsupported` for any other 404 or a 405; 200 without `ok: true` is unconfirmed; timeout is `lostAnswer`. Then implement it in `lib/src/profiles/soul/`.
+- [ ] 1.3 Write failing `SoulController` tests: baseline after load and save; Save sends nothing until confirmed; the second read before PUT; changed on server sends nothing; Replace anyway sends once; check failure sends nothing; lost answer resends nothing and Check resolves it both ways; dirty state; a text over 500,000 characters stays editable and savable; dropped on sign-out, server change and App Lock; late answers after close ignored. Then implement it.
 - [ ] 1.4 Add the ARB strings (en and de, `profiles` area) for every state, question and note in the spec; run `flutter gen-l10n`.
 - [ ] 1.5 Build plain-model widgets in `lib/src/profiles/soul/widgets/` (editor with count and notes, save question, changed-on-server question, status line) with Widgetbook use cases in `widgetbook/` before the screen: every state in the proposal's Design pass, both themes, phone and desktop width, largest text. `flutter test test/widgetbook_test.dart` passes.
 - [ ] 1.6 Write failing screen and navigation tests, then wire `SoulScreen`: sidebar row after Memory (drawer, More section), `ProfileSection` entry and Mac Profiles section, 404 hides the entries, the screen is bound to the profile it was opened for.
@@ -18,5 +18,5 @@ One PR of about 500 changed lines, `feat(profile-soul): edit a profile's SOUL.md
 ## Not verified
 
 - Real 422 and unhandled-500 bodies, BOM and lone-surrogate behaviour (1.1 records them).
-- Whether a server older than `d923a5eb` has the routes: the app relies on the 404 `Not Found`.
+- Whether a server older than `d923a5eb` has the routes: the app relies on a route-missing 404 or 405.
 - How Hermes treats a distribution-owned SOUL.md in the prompt: not visible to the app.

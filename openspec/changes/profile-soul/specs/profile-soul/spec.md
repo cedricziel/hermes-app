@@ -17,7 +17,7 @@ The feature SHALL use only `GET /api/profiles/{name}/soul` and `PUT /api/profile
 
 #### Scenario: Old server
 
-- **WHEN** the server answers 404 with detail "Not Found"
+- **WHEN** the server answers 404 whose detail does not start with "Profile '", or answers 405
 - **THEN** the Personality entries are hidden for the rest of the connection and no error is shown
 
 ### Requirement: Entry points
@@ -96,12 +96,12 @@ If the save's answer is lost or lacks `ok: true`, the app SHALL say the save cou
 
 ### Requirement: Size guidance
 
-The app SHALL show a character count, note from 20,000 characters that Hermes may shorten long text, and SHALL open text over 500,000 characters read-only. It SHALL NOT block saving at 20,000.
+The app SHALL show a character count, note from 20,000 characters that Hermes may shorten long text, and SHALL NOT lock or block editing or saving at any length: Hermes has no fixed ceiling, since an explicit `context_file_max_chars` overrides the dynamic cap.
 
 #### Scenario: Long text
 
-- **WHEN** the text passes 20,000 characters
-- **THEN** a note appears and Save stays available
+- **WHEN** the text passes 20,000 characters, or 500,000
+- **THEN** a note appears and the editor and Save stay available
 
 ### Requirement: Privacy and observability
 

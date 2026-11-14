@@ -8,12 +8,22 @@ Lets a person see Hermes' skill curator from the Skills screen, pause and resume
 
 ### Requirement: Backend contract
 
-The feature SHALL use only `GET /api/curator?profile=`, `PUT /api/curator/paused?profile=` (body `{"paused": bool}`), `POST /api/curator/run?profile=` and `GET /api/actions/curator-run/status?lines=`, verified at Hermes `d923a5eb`, through the generated client, and parse responses leniently. It SHALL hide the section when a route answers 404.
+The feature SHALL use only `GET /api/curator?profile=`, `PUT /api/curator/paused?profile=` (body `{"paused": bool}`), `POST /api/curator/run?profile=` and `GET /api/actions/curator-run/status?lines=`, verified at Hermes `d923a5eb`, through the generated client, and parse responses leniently. It SHALL hide the section only when a 404 or 405 says the route is missing (detail `No such API endpoint` or an `error` body), never for a 404 whose detail starts `Profile '`.
 
 #### Scenario: Old server
 
 - **WHEN** `GET /api/curator` answers 404
 - **THEN** the Skills screen shows no curator section and no error
+
+#### Scenario: Missing profile
+
+- **WHEN** a request answers 404 with detail `Profile 'x' does not exist.`
+- **THEN** the section says the profile no longer exists and is not hidden as an old server
+
+#### Scenario: Curator unavailable or invalid
+
+- **WHEN** GET or PUT answers 500 `Curator unavailable: ...` or 400
+- **THEN** the section shows an error with Try again and changes no switch
 
 #### Scenario: Odd response
 
@@ -28,6 +38,11 @@ Every curator request SHALL carry the profile the Skills screen shows. The app S
 
 - **WHEN** the user changes the profile on the Skills screen
 - **THEN** status is read again for that profile, and a run or pause in progress for the old one is not shown against the new one
+
+#### Scenario: Profile deleted before a run
+
+- **WHEN** the POST answers 500 whose detail contains `404: Profile '`
+- **THEN** the app says the profile no longer exists and that nothing started, not a spawn failure
 
 #### Scenario: Refused as unnamed
 
@@ -64,7 +79,7 @@ The Pause switch SHALL send `PUT /api/curator/paused` with the new value and sho
 
 ### Requirement: Run needs a confirmation
 
-Run now SHALL open a confirmation whose default button is Cancel. It SHALL say that a pass may archive skills the agent created and that went unused past the thresholds, may merge and rewrite skills when the server has consolidation on (`curator.consolidate`), never touches bundled, hub-installed or pinned skills, keeps archived skills, and that the app cannot undo a pass.
+Run now SHALL open a confirmation whose default button is Cancel. It SHALL say that a pass may archive unused skills recorded as agent-made, may also include bundled skills when `curator.prune_builtins` is on, may merge and rewrite skills when `curator.consolidate` is on, skips pinned and hub-installed skills, keeps archived skills, and that the app cannot undo a pass.
 
 #### Scenario: Cancel is the default
 
@@ -74,7 +89,7 @@ Run now SHALL open a confirmation whose default button is Cancel. It SHALL say t
 #### Scenario: Consolidation unknown
 
 - **WHEN** the config value `curator.consolidate` is false, true or cannot be read
-- **THEN** the text says "archives unused skills only", "may also merge and rewrite skills", or the second, respectively
+- **THEN** the text says "archives unused skills only", "may also merge and rewrite skills", or the second, respectively; an unreadable `curator.prune_builtins` adds "may include bundled skills"
 
 #### Scenario: Undo is not offered
 
@@ -83,7 +98,7 @@ Run now SHALL open a confirmation whose default button is Cancel. It SHALL say t
 
 ### Requirement: Following a run
 
-After the user confirms, the app SHALL send `POST /api/curator/run?profile=`, then poll `GET /api/actions/curator-run/status` until `running` is false, and show the lines after the latest start header. It SHALL treat exit code 0 as finished, a non-zero code as failed (showing Hermes' last line), and a null code as unknown.
+After the user confirms, the app SHALL send `POST /api/curator/run?profile=`, then poll `GET /api/actions/curator-run/status?lines=2000` until `running` is false, and show the lines after the latest start header. It SHALL treat exit code 0 as finished, a non-zero code as failed (showing Hermes' last line), and a null code as unknown.
 
 #### Scenario: Finished
 
