@@ -34,7 +34,8 @@ class ToolsSpinner extends StatelessWidget {
 
 /// A toolset's switch, named "name, on" and, while a change is being
 /// written, "name, on, saving" with the switch disabled and a spinner
-/// beside it. It sits in a target of 44 pt on iOS, 48 dp on Material and
+/// beside it. While Hermes is first being asked what it needs ([preparing])
+/// it is disabled with a spinner and no "saving". It sits in a target of 44 pt on iOS, 48 dp on Material and
 /// 28 pt on a Mac, where the pointer is the input.
 class ToolsSwitch extends StatelessWidget {
   const ToolsSwitch({
@@ -43,6 +44,7 @@ class ToolsSwitch extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.saving = false,
+    this.preparing = false,
     this.showStateWord = false,
   });
 
@@ -54,6 +56,11 @@ class ToolsSwitch extends StatelessWidget {
   /// Null disables the switch.
   final ValueChanged<bool>? onChanged;
   final bool saving;
+
+  /// Hermes is being asked what the switch needs before anything is sent: a
+  /// spinner and a disabled switch at the saved position, named without
+  /// "saving".
+  final bool preparing;
 
   /// Says "On" or "Off" before the switch, for when it has a line to itself.
   final bool showStateWord;
@@ -68,7 +75,7 @@ class ToolsSwitch extends StatelessWidget {
       PlatformChrome.macos => 28.0,
     };
     final metrics = GroupedMetrics.of(context);
-    final usable = !saving && onChanged != null;
+    final usable = !saving && !preparing && onChanged != null;
     void toggle() => onChanged!(!value);
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -85,7 +92,10 @@ class ToolsSwitch extends StatelessWidget {
           ),
           const SizedBox(width: 8),
         ],
-        if (saving) ...[const ToolsSpinner(), const SizedBox(width: 8)],
+        if (saving || preparing) ...[
+          const ToolsSpinner(),
+          const SizedBox(width: 8),
+        ],
         // The platform switch is smaller than a touch target, so the target
         // and its accessibility node are this box, and the switch inside it
         // only draws and drags.

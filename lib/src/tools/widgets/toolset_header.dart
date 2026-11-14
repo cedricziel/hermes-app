@@ -6,6 +6,10 @@ import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
 import 'tools_switch.dart';
 
+/// Where the header's switch is in its round trip to Hermes; the same story
+/// as [ToolsetRowPhase], without the phases only a list row has.
+enum ToolsetHeaderPhase { idle, preparing, saving, checking }
+
 /// The top of a toolset's details: its name as the page heading, the switch,
 /// one sentence and a state line with an icon ("On", "Off", "On · needs
 /// setup"). At the largest text sizes the switch moves under the name with
@@ -18,17 +22,18 @@ class ToolsetHeader extends StatelessWidget {
     required this.enabled,
     required this.onChanged,
     this.needsSetup = false,
-    this.saving = false,
+    this.phase = ToolsetHeaderPhase.idle,
   });
 
   final String name;
   final String sentence;
 
-  /// The position the switch shows; while [saving] the one being written.
+  /// The position the switch shows; while saving the one being written, and
+  /// while preparing or checking the saved one.
   final bool enabled;
   final ValueChanged<bool> onChanged;
   final bool needsSetup;
-  final bool saving;
+  final ToolsetHeaderPhase phase;
 
   @override
   Widget build(BuildContext context) {
@@ -78,8 +83,9 @@ class ToolsetHeader extends StatelessWidget {
     final control = ToolsSwitch(
       name: name,
       value: enabled,
-      saving: saving,
-      onChanged: onChanged,
+      saving: phase == ToolsetHeaderPhase.saving,
+      preparing: phase == ToolsetHeaderPhase.preparing,
+      onChanged: phase == ToolsetHeaderPhase.checking ? null : onChanged,
     );
     final heading = Semantics(
       header: true,
@@ -127,6 +133,28 @@ class ToolsetHeader extends StatelessWidget {
               ),
             ),
           if (!large) ...[const SizedBox(height: 10), state],
+          if (phase == ToolsetHeaderPhase.checking)
+            Semantics(
+              liveRegion: true,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  spacing: 6,
+                  children: [
+                    const ToolsSpinner(),
+                    Expanded(
+                      child: Text(
+                        l10n.toolsRowChecking,
+                        style: TextStyle(
+                          fontSize: metrics.subtitleSize,
+                          color: colors.subtleText,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

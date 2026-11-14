@@ -17,7 +17,7 @@ extension _ChatControllerSending on ChatController {
       return false;
     }
     if (_sessionStates[selected]?.reclaimedReason != null) return false;
-    if (!active) return false;
+    if (!active || _moveHolds(selected)) return false;
     final epoch = _activityEpoch;
     final sizes = readyAttachments == null ? _sizesOrExplain(files) : <int>[];
     if (sizes == null) return false;
@@ -55,6 +55,7 @@ extension _ChatControllerSending on ChatController {
           modelChoice: _newChatModel,
         );
     if (selected == null) {
+      _carryPendingChoice(thread);
       _threads.insert(0, thread);
       _selectedId = thread.id;
     }
@@ -338,6 +339,7 @@ extension _ChatControllerSending on ChatController {
         attachments: attachments,
         model: thread.modelChoice,
         queued: queued,
+        workspace: _choiceForSend(thread, threadId),
       );
     } else {
       stream = (transport as QueueSubmissionTransport).sendQueued(

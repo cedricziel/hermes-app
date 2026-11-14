@@ -261,6 +261,10 @@ abstract final class AppIcons {
     Icons.view_sidebar_outlined,
     CupertinoIcons.sidebar_right,
   );
+  static const checklist = AppIconSet(
+    Icons.checklist,
+    CupertinoIcons.square_list,
+  );
   static const terminal = AppIconSet(
     Icons.terminal,
     CupertinoIcons.chevron_left_slash_chevron_right,
@@ -530,6 +534,7 @@ abstract final class AppIcons {
     'sidebar': sidebar,
     'inspector': inspector,
     'terminal': terminal,
+    'checklist': checklist,
     'swap': swap,
     'pin': pin,
     'unpin': unpin,

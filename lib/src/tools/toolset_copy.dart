@@ -3,12 +3,14 @@
 /// a toolset is switched on, or a setup step runs. Only strings and pure
 /// functions live here; `widgets/tools_confirmation.dart` shows the questions.
 ///
-/// The names below are the ones the risk table (`toolset_risk.dart`) uses,
-/// plus `vision`, `clarify`, `context_engine`, `kanban`, `memory`, `skills`
-/// and `discord`, which other parts of the app also use. Name unverified
-/// against the server catalog: `video` and `video_analysis` (both read as
-/// video analysis), `x_search` and `connections`. A name that is not here
-/// shows the server's own label and description.
+/// Names unverified: only the names in the risk table (`toolset_risk.dart`)
+/// come from the design record. `vision`, `clarify`, `context_engine`,
+/// `kanban`, `memory`, `skills`, `discord`, `video`, `video_analysis`,
+/// `x_search` and `connections` are all equally unverified guesses against
+/// the server's catalog (the other places the app uses a few of these words
+/// are not toolset names). Task 1.1(c) in `openspec/changes/toolsets/tasks.md`
+/// records the real catalog and settles them. A name that is not here shows
+/// the server's own label and description.
 library;
 
 import '../../l10n/l10n.dart';

@@ -418,6 +418,10 @@ class _Ask {
         _completed = true;
         // Announced by this process, so there is nothing left to hand over.
         if (_registered && !_muted) _forget();
+      case WorkspaceBound():
+        // Reported by the create, before the prompt is submitted: it says
+        // nothing about whether the question went in.
+        break;
       default:
         _frameSeen = true;
     }

@@ -780,6 +780,8 @@ class GroupedStatusLine extends StatelessWidget {
     required this.text,
     required this.color,
     required this.size,
+    this.scaleIcon = false,
+    this.liveRegion = false,
   });
 
   final AppIconSet icon;
@@ -787,31 +789,43 @@ class GroupedStatusLine extends StatelessWidget {
   final Color color;
   final double size;
 
+  /// Grows the icon with the text size, for lines that read at the largest
+  /// text sizes; off keeps the icon at [size].
+  final bool scaleIcon;
+
+  /// Announces the line to a screen reader when it appears or changes.
+  final bool liveRegion;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 2),
-    child: Row(
-      spacing: 4,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Level with the first line of text.
-        Padding(
-          padding: const EdgeInsets.only(top: 1),
-          child: AppIcon(
-            icon,
-            size: MediaQuery.textScalerOf(context).scale(size),
-            color: color,
+  Widget build(BuildContext context) {
+    final line = Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        spacing: 4,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Level with the first line of text.
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: AppIcon(
+              icon,
+              size: scaleIcon
+                  ? MediaQuery.textScalerOf(context).scale(size)
+                  : size,
+              color: color,
+            ),
           ),
-        ),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: size, color: color),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: size, color: color),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+    return liveRegion ? Semantics(liveRegion: true, child: line) : line;
+  }
 }
 
 /// A row's leading picture in a rounded square, such as a platform's icon

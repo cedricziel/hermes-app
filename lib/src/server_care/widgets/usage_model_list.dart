@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
 import 'usage_format.dart';
-
-/// What the page's footer says, so the catalog and the page read the same.
-const kUsageFooter =
-    "Days follow the server's time zone. Conversations count chats, "
-    'messaging and scheduled tasks. Costs are estimates in US dollars.';
 
 class UsageModelEntry {
   const UsageModelEntry({
@@ -38,7 +34,7 @@ class UsageModelList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GroupedSection(
-    header: 'By model',
+    header: context.l10n.serverCareUsageByModel,
     footer: footer,
     children: [for (final m in models) _ModelRow(entry: m)],
   );
@@ -51,19 +47,24 @@ class _ModelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final metrics = GroupedMetrics.of(context);
     final scheme = Theme.of(context).colorScheme;
     final muted = context.hermesColors.subtleText;
-    final share = formatShare(entry.share);
+    final share = formatShare(l10n, entry.share);
     final subtitle =
-        '${formatTokens(entry.tokens)} · ${formatDollars(entry.cost)} · '
-        '${formatConversations(entry.conversations)}';
+        '${formatTokens(l10n, entry.tokens)} · '
+        '${formatDollars(l10n, entry.cost)} · '
+        '${formatConversations(l10n, entry.conversations)}';
     return Semantics(
       container: true,
-      label:
-          '${entry.model}, ${formatTokensSpoken(entry.tokens)}, '
-          '${formatDollars(entry.cost)}, '
-          '${formatConversations(entry.conversations)}, $share of tokens',
+      label: l10n.serverCareUsageModelSpoken(
+        entry.model,
+        formatTokensSpoken(l10n, entry.tokens),
+        formatDollars(l10n, entry.cost),
+        formatConversations(l10n, entry.conversations),
+        share,
+      ),
       child: ExcludeSemantics(
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: metrics.rowMinHeight),

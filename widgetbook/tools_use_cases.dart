@@ -34,7 +34,7 @@ ToolsetRowView _view(
   int actions = 3,
   ToolsetRowPhase phase = ToolsetRowPhase.idle,
   bool showTryAgain = false,
-  ToolsetRowError? error,
+  String? error,
   bool selected = false,
 }) => ToolsetRowView(
   name: toolsetLabel(l10n, name),
@@ -74,21 +74,13 @@ class _LiveRowState extends State<_LiveRow> {
   Widget build(BuildContext context) {
     final view = widget.view;
     return ToolsetRow(
-      view: ToolsetRowView(
-        name: view.name,
-        sentence: view.sentence,
-        enabled: _enabled,
-        riskLine: view.riskLine,
-        needsSetup: view.needsSetup,
-        actionCount: view.actionCount,
-        phase: view.phase,
-        showTryAgain: view.showTryAgain,
-        error: view.error,
-        selected: view.selected,
-        unknownPlugin: view.unknownPlugin,
-      ),
+      view: view.copyWith(enabled: _enabled),
       onOpen: _noop,
-      onChanged: (value) => setState(() => _enabled = value),
+      onChanged: (value) {
+        if (view.phase == ToolsetRowPhase.idle) {
+          setState(() => _enabled = value);
+        }
+      },
       onTryAgain: _noop,
     );
   }
@@ -110,10 +102,7 @@ WidgetbookUseCase _rowCase(
   builder: (context) => _at(scale, () => _rows(views(context.l10n))),
 );
 
-ToolsetRowError _refused() => const ToolsetRowError(
-  ToolsetRowErrorKind.refused,
-  'Terminal can only be switched on for the default profile.',
-);
+const _refused = 'Terminal can only be switched on for the default profile.';
 
 const _pluginView = ToolsetRowView(
   name: 'Weather lookup',
@@ -152,32 +141,16 @@ WidgetbookNode _rowComponent() => WidgetbookComponent(
     ),
     _rowCase(
       'Failed, Hermes text',
-      (l) => [_view(l, 'terminal', error: _refused())],
+      (l) => [_view(l, 'terminal', error: _refused)],
     ),
     _rowCase(
       'Not allowed',
-      (l) => [
-        _view(
-          l,
-          'memory',
-          error: ToolsetRowError(
-            ToolsetRowErrorKind.notAllowed,
-            l.toolsErrorNotAllowed,
-          ),
-        ),
-      ],
+      (l) => [_view(l, 'memory', error: l.toolsErrorNotAllowed)],
     ),
     _rowCase(
       'Failed offline',
       (l) => [
-        _view(
-          l,
-          'file',
-          error: ToolsetRowError(
-            ToolsetRowErrorKind.offline,
-            l.toolsErrorOffline(toolsetLabel(l, 'file')),
-          ),
-        ),
+        _view(l, 'file', error: l.toolsErrorOffline(toolsetLabel(l, 'file'))),
       ],
     ),
     _rowCase(
@@ -186,10 +159,7 @@ WidgetbookNode _rowComponent() => WidgetbookComponent(
         _view(
           l,
           'memory',
-          error: ToolsetRowError(
-            ToolsetRowErrorKind.failed,
-            l.toolsErrorFailed(toolsetLabel(l, 'memory')),
-          ),
+          error: l.toolsErrorFailed(toolsetLabel(l, 'memory')),
         ),
       ],
     ),
@@ -244,14 +214,7 @@ WidgetbookNode _rowComponent() => WidgetbookComponent(
     _rowCase(
       'Largest text, failed',
       (l) => [
-        _view(
-          l,
-          'file',
-          error: ToolsetRowError(
-            ToolsetRowErrorKind.offline,
-            l.toolsErrorOffline(toolsetLabel(l, 'file')),
-          ),
-        ),
+        _view(l, 'file', error: l.toolsErrorOffline(toolsetLabel(l, 'file'))),
       ],
       scale: 3,
     ),
@@ -292,7 +255,7 @@ WidgetbookNode _headerComponent() {
     String name, {
     bool enabled = false,
     bool needsSetup = false,
-    bool saving = false,
+    ToolsetHeaderPhase phase = ToolsetHeaderPhase.idle,
     String? label,
   }) {
     final l10n = context.l10n;
@@ -302,7 +265,7 @@ WidgetbookNode _headerComponent() {
         sentence: toolsetSentence(l10n, name) ?? '',
         enabled: enabled,
         needsSetup: needsSetup,
-        saving: saving,
+        phase: phase,
         onChanged: (_) {},
       ),
     );
@@ -326,7 +289,38 @@ WidgetbookNode _headerComponent() {
       ),
       WidgetbookUseCase(
         name: 'Saving',
-        builder: (c) => header(c, 'terminal', enabled: true, saving: true),
+        builder: (c) => header(
+          c,
+          'terminal',
+          enabled: true,
+          phase: ToolsetHeaderPhase.saving,
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Preparing, reading the setup',
+        builder: (c) =>
+            header(c, 'terminal', phase: ToolsetHeaderPhase.preparing),
+      ),
+      WidgetbookUseCase(
+        name: 'Answer lost, checking',
+        builder: (c) => header(
+          c,
+          'terminal',
+          enabled: true,
+          phase: ToolsetHeaderPhase.checking,
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Largest text, checking',
+        builder: (c) => _at(
+          3,
+          () => header(
+            c,
+            'terminal',
+            enabled: true,
+            phase: ToolsetHeaderPhase.checking,
+          ),
+        ),
       ),
       WidgetbookUseCase(
         name: 'Long name',
@@ -347,8 +341,15 @@ WidgetbookNode _headerComponent() {
         ),
       WidgetbookUseCase(
         name: 'Largest text, saving',
-        builder: (c) =>
-            _at(3, () => header(c, 'terminal', enabled: true, saving: true)),
+        builder: (c) => _at(
+          3,
+          () => header(
+            c,
+            'terminal',
+            enabled: true,
+            phase: ToolsetHeaderPhase.saving,
+          ),
+        ),
       ),
       ...onEachPlatform(
         'Off, needs setup',
