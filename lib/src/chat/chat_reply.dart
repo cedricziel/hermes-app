@@ -264,6 +264,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         SessionControlUpdated() ||
         SessionControlUnavailable() ||
         SessionWaitUpdated() ||
+        ContextCompacted() ||
         SessionReclaimed() ||
         SessionResumeProgress() ||
         WarningScopeDiscarded() ||

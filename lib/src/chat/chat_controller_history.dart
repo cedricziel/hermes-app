@@ -203,6 +203,7 @@ extension _ChatControllerHistory on ChatController {
       });
       unawaited(_loadModelOptions(profile, generation, notifyLoading: false));
       _threads = [...local, ...threads];
+      _ChatControllerCheckpoints(this)._actionsAfterLoad();
       _unloaded
         ..clear()
         ..addAll(
@@ -706,33 +707,38 @@ extension _ChatControllerHistory on ChatController {
   /// window): its title and pin, and its messages once they were loaded. A
   /// chat that is gone leaves the list. Nothing is read while a reply streams
   /// into it, which would replace the reply in progress.
-  Future<void> _refreshThreadImpl(String id) async {
-    if (!active) return;
+  /// With [strict] (a restore or compress re-reading the chat it changed)
+  /// the messages are read even when the row looks unchanged, and a read
+  /// that did not land throws instead of keeping what is shown.
+  Future<void> _refreshThreadImpl(String id, {bool strict = false}) async {
+    Never notRead() => throw StateError('The chat was not read again');
+    if (!active) return strict ? notRead() : null;
     final repository = this.repository;
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (repository == null ||
         thread == null ||
         !thread.remote ||
         thread.isReplying) {
-      return;
+      return strict ? notRead() : null;
     }
     final generation = _loadGeneration;
     bool stale() =>
         !active || generation != _loadGeneration || thread.isReplying;
     try {
       final fresh = await repository.loadThread(id, profile: _profile);
-      if (stale()) return;
+      if (stale()) return strict ? notRead() : null;
       if (fresh == null) {
         housekeeping?.forget(thread);
-        return notifyListeners();
+        notifyListeners();
+        return strict ? notRead() : null;
       }
-      final unchanged = fresh.updatedAt == thread.updatedAt;
+      final unchanged = fresh.updatedAt == thread.updatedAt && !strict;
       housekeeping?.adopt(thread, fresh);
       notifyListeners();
-      if (stale()) return;
+      if (stale()) return strict ? notRead() : null;
       if (unchanged || _unloaded.contains(id)) return;
       final page = await repository.loadMessagePage(id, profile: _profile);
-      if (stale()) return;
+      if (stale()) return strict ? notRead() : null;
       final failed = _failedTurn(thread, page.messages);
       thread.messages
         ..clear()
@@ -745,9 +751,10 @@ extension _ChatControllerHistory on ChatController {
         _olderRows.remove(id);
       }
       notifyListeners();
-      if (stale()) return;
+      if (stale()) return strict ? notRead() : null;
       await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
     } on Object catch (e, stack) {
+      if (strict) rethrow;
       reportBug(e, stack, 'a history re-read');
       // Keeps what it shows; the next refresh or open reads it again.
     }

@@ -349,6 +349,7 @@ class _QueuedGate {
           SessionControlUpdated() ||
           SessionControlUnavailable() ||
           SessionWaitUpdated() ||
+          ContextCompacted() ||
           SessionReclaimed() ||
           SessionResumeProgress() ||
           ToolRiskFlagged() ||
@@ -424,6 +425,7 @@ class _Unsolicited {
     if (event is MessageReactionsUpdated ||
         event is SessionAcknowledgementReported ||
         event is SessionUsageUpdated ||
+        event is ContextCompacted ||
         event is TodoUpdated ||
         event is ConnectorOperationReceived ||
         event is SideResultReceived ||

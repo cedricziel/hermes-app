@@ -151,6 +151,24 @@ void main() {
       },
     );
 
+    test('session.info carries its usage for the runtime it came from', () {
+      final event = map('session.info', {
+        'running': false,
+        'usage': {
+          'total': 900,
+          'context_used': 4200,
+          'context_max': 200000,
+          'context_percent': 2,
+        },
+      }) as SessionInfo;
+      final none = map('session.info', {'running': false}) as SessionInfo;
+
+      expect(event.usage?.contextUsed, 4200);
+      expect(event.usage?.contextPercent, 2);
+      expect(event.usageRuntimeId, 's');
+      expect(none.usage, isNull);
+    });
+
     test('an empty session.info says nothing about running', () {
       final event = map('session.info', {}) as SessionInfo;
 
@@ -177,6 +195,53 @@ void main() {
       }) as ReplyStatus;
 
       expect(event.text, 'Compacting the conversation…');
+    });
+
+    test('a compressing status.update reads as the compressing status', () {
+      final event = map('status.update', {
+        'kind': 'compressing',
+        'text': '🗜️ compressing 42 messages…',
+      }) as ReplyStatus;
+      final cleared = map('status.update', {
+        'kind': 'compressing',
+        'text': '',
+      }) as ReplyStatus;
+
+      expect(event.text, 'Compressing the conversation…');
+      expect(cleared.text, '');
+    });
+
+    test('a compacted status.update asks for the context to be re-read, '
+        'carrying only the runtime', () {
+      final event = map('status.update', {
+        'kind': 'compacted',
+        'text': 'Compacted: 120 → 30 messages',
+      });
+
+      expect(event, isA<ContextCompacted>());
+      expect((event! as ContextCompacted).runtimeId, 's');
+      expect(
+        mapGatewayEvent(
+          GatewayEvent(
+            type: 'status.update',
+            sessionId: '',
+            payload: const {'kind': 'compacted', 'text': 'x'},
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test('every other status.update kind is still a session wait', () {
+      for (final kind in ['ready', 'goal', 'waiting', 'retrying', 'other']) {
+        final event = map('status.update', {
+          'kind': kind,
+          'text': 'x',
+        }) as SessionWaitUpdated;
+        expect(event.kind, kind);
+        expect(event.text, 'x');
+        expect(event.runtimeId, 's');
+      }
     });
 
     test('unknown status.update kinds use neutral session waits', () {
