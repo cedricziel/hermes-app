@@ -12,7 +12,7 @@ Six PRs, each under about 500 changed lines with tests, merged in order. Each en
 - [x] 1.5a Write a failing test for `ToolsAvailability`: 404 hides, network failure keeps the previous answer, read on connect and resume, rows handed to the screen. Then implement it and provide it from `AppShell`.
 - [x] 1.5 (The write group creates its own throwaway profile and deletes it, so it can run on any throwaway backend.) Add the contract test group in `test/real_backend_contract_test.dart` (skips without `HERMES_DEV_URL`): list shape, config shape, backends, computer-use status, a switch and its read-back on a throwaway profile. *Ran on d923a5eb: group `tools on a throwaway profile` (switch and read-back, provider, key, model, backend, open and new chat) creates a profile and deletes it after; it installs nothing.*
 - [x] 1.6 Write failing tests that `tools.list`, `tools.parse_lenient` carry only counts and outcomes. Then add them. _(done: #957 - the group "telemetry carries counts and outcomes only" in test/tools/hermes_tools_repository_test.dart)_
-- [ ] 1.7 Run `/simplify`, `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all passing.
+- [x] 1.7 Run `/simplify`, `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all passing. (done as one pass: #1096)
 
 ## 2. PR 2 — `feat(tools): switch toolsets`
 
@@ -21,7 +21,7 @@ Six PRs, each under about 500 changed lines with tests, merged in order. Each en
 - [x] 2.3a Write failing tests and implement the profile-gone outcome (`404` naming a profile is not "unsupported"), the offline state and `401/403`. _(done: #965, #1069 - tools_controller_test.dart, hermes_tools_repository_test.dart and tools_availability_test.dart)_
 - [ ] 2.3b The CI check that every name in the server catalog is in the risk table or an explicit "no risk" list. _(Open, owner decision F.166: test/tools/recorded_tools_test.dart asserts exactly 12 undecided names and fails on a 13th; the contract test lists the same names as still to decide.)_
 - [x] 2.4 Write failing tests that `tools.toggle`, `tools.toggled` and the breadcrumbs carry only fixed attributes. Then add them. _(done: #965 - "tools.toggled" and "telemetry names only fixed slugs" in test/tools/tools_controller_test.dart)_
-- [ ] 2.5 Run `/simplify`, format, analyze and the tests.
+- [x] 2.5 Run `/simplify`, format, analyze and the tests. (done as one pass: #1096)
 
 ## 3. PR 3 — `feat(tools): set toolsets up`
 
@@ -29,7 +29,7 @@ Six PRs, each under about 500 changed lines with tests, merged in order. Each en
 - [x] 3.2 Write failing tests and implement `ToolsetInstalls` (provided from `AppShell`; `running:false` with a null exit code is unknown) (one per connection, polls `tools-post-setup`, last six lines, exit code result, 22-minute unknown, survives the screen, drops on sign-out) and the Computer use grant follow.
 - [x] 3.3 Write failing `TerminalBackendsController` and `ComputerUseController` tests (read, pick, Local confirmation hook, readiness rows per platform, grant, 404 hides). Then implement them. _(done: #1032 - test/tools/terminal_backends_controller_test.dart and computer_use_controller_test.dart)_
 - [x] 3.4 Write failing tests that `tools.setup`, `tools.terminal_backend`, `tools.computer_use`, `tools.toggled`, `tools.setup_outcome` and the breadcrumbs carry only fixed attributes, no key, provider or profile name. Also write failing tests that a key save through the real Dio pipeline leaves no trace of the `/env` body or a key value in the request log, the telemetry interceptor or `DioException.toString()` (a failing and a lost save included). Then add them. _(done: #1053 - spans in toolset_setup_controller_test.dart, terminal_backends_controller_test.dart and computer_use_controller_test.dart; the request-body and DioException traces in test/tools/tools_secrets_test.dart)_
-- [ ] 3.5 Run `/simplify`, format, analyze and the tests.
+- [x] 3.5 Run `/simplify`, format, analyze and the tests. (done as one pass: #1096)
 
 
 ## 4. PR 4 — `feat(tools): add the tools widgets`
@@ -51,7 +51,7 @@ Six PRs, each under about 500 changed lines with tests, merged in order. Each en
   - The four confirmations (Terminal, Code execution, Computer use with "It may also install a driver on the server.", Browser), the install question for another toolset with an install step, and the Local, Install and Allow access questions, Apple alert and Material dialog (two text buttons, Cancel first); the "What's the difference?" sheet and popover.
 - [x] 4.2 Write failing widget tests for the copy (rows, sentences, chips, notes, confirmations, errors) and accessibility (labels, 44 pt targets on touch and 28 pt minimum on a Mac, large text, the saving and disabled announcements, the risk note as one element). Then make them pass. _(done: #1018, #1024, #1053 - test/tools/widgets/ (copy, 44 pt and 28 pt targets, large text, the risk note as one element))_
 - [ ] 4.3 Add `ToolsetRow`, `ToolsetHeader`, `RiskNote`, `ProviderRow`, `SecretFieldRow` (if this change built it), `InstallProgress` and `ReadinessRow` to `design/web` beside the sibling settings components, so the Hermes App design system carries them.
-- [ ] 4.4 Run `/simplify`, format, analyze and the tests (`test/widgetbook_test.dart` builds every use case in both themes).
+- [x] 4.4 Run `/simplify`, format, analyze and the tests (`test/widgetbook_test.dart` builds every use case in both themes). (done as one pass: #1096)
 
 ## 5. PR 5 — `feat(tools): add the Tools screen`
 
@@ -59,13 +59,13 @@ Six PRs, each under about 500 changed lines with tests, merged in order. Each en
 - [x] 5.2 Wire the entry: sidebar action and drawer More item after MCP servers (`chat_screen_layout.dart`, `thread_sidebar.dart`, `chat_screen_navigation.dart`), the Mac Profiles page section with a lazily read count, ⌘[ Back from the scaffold, hidden without `ToolsAvailability`.
 - [x] 5.3 Wire "Open the bot's screen" through `ChatScreen._openViewer('tools')` and a `BotScreenController` offered check; test that it is absent where there is no controller.
 - [x] 5.4 Add a workflow test in `test/workflows/` (phone and desktop, light and dark): open Tools, switch Web on, set it up with a key, switch Terminal on with the confirmation; look at the screenshots (`workflow-screenshots`). Done so far (`test/workflows/tools_workflow_test.dart`): open Tools from the sidebar and the drawer, switch a plain toolset, the Terminal question and Cancel, the details, loading, offline, couldn't load, old server, a lost answer, German and Mac. Still to do with the setup sections: set Web up with a key and switch Terminal on after the question.
-- [ ] 5.5 Run `/simplify`, format, analyze and the tests.
+- [x] 5.5 Run `/simplify`, format, analyze and the tests. (done as one pass: #1096)
 
 ## 6. PR 6 — `feat(tools): explain the difference and update the guides`
 
 - [x] 6.1 Add the "What's the difference?" footer link to the Skills, Plugins, MCP servers and Helper models screens, with tests that each shows the same four sentences.
 - [ ] 6.2 Update `CLAUDE.md` (a Tools paragraph beside Plugins and MCP servers: repository, controllers, the risk table, secrets, installs, "next chat"), the `verify-in-app` skill (switching a toolset and a key on the dev backend, reading `config.yaml` back) and `design/web` if it has the sibling pages. Done: the `CLAUDE.md` bullet and the `verify-in-app` scenario. design/web: needs a design port of the link (SkillsScreen, PluginsScreen, McpServersScreen, HelperModelsScreen) and of the Tools screen components; not done here.
-- [ ] 6.3 Run `/simplify`, format, analyze and the tests.
+- [x] 6.3 Run `/simplify`, format, analyze and the tests. (done as one pass: #1096)
 
 ## Not verified on a device
 

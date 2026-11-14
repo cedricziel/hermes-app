@@ -304,7 +304,8 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
 
   bool _hasToolset(String name) => _toolsets.any((t) => t.name == name);
 
-  Toolset? _toolset(String name) =>
+  /// The listed toolset called [name], or null when the server has none.
+  Toolset? toolsetNamed(String? name) =>
       _toolsets.where((t) => t.name == name).firstOrNull;
 
   void _setRow(String name, ToolsRowState row) {
@@ -325,7 +326,7 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
   /// keeps its saved position, until [confirm]. A second request for a row
   /// that is busy waits for the first answer.
   Future<void> requestSwitch(String name, {required bool enabled}) async {
-    final toolset = _toolset(name);
+    final toolset = toolsetNamed(name);
     if (toolset == null || _confirmation != null) return;
     // The switch is disabled while a setup write runs; a request that still
     // arrives is dropped, not queued, so nothing is sent behind the write.
@@ -527,7 +528,7 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
 
   void _runQueued(String name) {
     final next = _queued.remove(name);
-    final toolset = _toolset(name);
+    final toolset = toolsetNamed(name);
     if (next == null || toolset == null || next == toolset.enabled) return;
     unawaited(requestSwitch(name, enabled: next));
   }
