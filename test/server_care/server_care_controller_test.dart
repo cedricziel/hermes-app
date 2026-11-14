@@ -336,7 +336,71 @@ void main() {
     await pumpEventQueue();
     final span = tracer.spans.single;
     expect(span.name, 'server_care.status.fetch');
-    expect(span.attributes, {'hermes.version': '0.22.2', 'outcome': 'success'});
+    expect(span.attributes, {
+      'hermes.version': '0.22.2',
+      'outcome': 'success',
+      'attention': 'none',
+    });
     expect(span.ended, isTrue);
+  });
+
+  group("the span's attention attribute", () {
+    Future<Map<String, Object?>> spanFor(Map<String, dynamic> body) async {
+      server.on('GET', '/api/status', body);
+      tracer = RecordingTracer();
+      controller.dispose();
+      controller = build();
+      await controller.refresh();
+      return tracer.spans.single.attributes;
+    }
+
+    test("is the headline's fixed slug, never text", () async {
+      final cases = <String, Map<String, dynamic>>{
+        'gateway_off': {
+          ...statusHealthy(),
+          'gateway_running': false,
+          'gateway_state': 'stopped',
+        },
+        'gateway_failed': {
+          ...statusHealthy(),
+          'gateway_running': false,
+          'gateway_state': 'startup_failed',
+        },
+        'gateway_stale': {...statusHealthy(), 'gateway_heartbeat_stale_s': 90},
+        'none': statusHealthy(),
+      };
+      for (final entry in cases.entries) {
+        final attributes = await spanFor(entry.value);
+        expect(attributes['attention'], entry.key);
+        expect(attributes.keys.toSet(), {
+          'hermes.version',
+          'outcome',
+          'attention',
+        });
+      }
+    });
+
+    test('an unreachable server is offline', () async {
+      server.onRequest('GET', '/api/status', (o) {
+        throw DioException.connectionError(requestOptions: o, reason: 'down');
+      });
+      await controller.refresh();
+      expect(tracer.spans.last.attributes['attention'], 'offline');
+    });
+
+    test('every slug is a fixed name', () {
+      expect(Attention.values.map((a) => a.slug).toSet(), {
+        'none',
+        'offline',
+        'storage',
+        'gateway_failed',
+        'gateway_stale',
+        'gateway_off',
+        'disk',
+        'oom',
+        'channels',
+        'memory',
+      });
+    });
   });
 }

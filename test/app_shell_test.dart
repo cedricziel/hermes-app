@@ -2674,6 +2674,55 @@ void main() {
       expect(statusReads(), before);
     });
 
+    testWidgets('a running gateway restart reads again on resume, and sends '
+        'nothing', (tester) async {
+      server
+        ..on('POST', '/api/gateway/restart', {
+          'ok': true,
+          'pid': 1,
+          'name': 'gateway-restart',
+        })
+        ..on('GET', '/api/actions/gateway-restart/status', {
+          'name': 'gateway-restart',
+          'running': true,
+          'exit_code': null,
+          'pid': 1,
+          'lines': ['=== gateway-restart started 2026-11-14 09:00:00 ==='],
+        });
+      await pumpShell(
+        tester,
+        size: const Size(1400, 900),
+        auth: auth,
+        repositories: HermesRepositories(server.client()),
+      );
+      final gateway = tester
+          .element(find.byType(ChatScreen))
+          .read<GatewayRestart>();
+      unawaited(gateway.run(GatewayAction.restart, profile: 'work'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump(const Duration(milliseconds: 10));
+      final reads = server
+          .requestsTo('GET', '/api/actions/gateway-restart/status')
+          .length;
+      expect(gateway.phase, GatewayPhase.waiting);
+      expect(reads, greaterThanOrEqualTo(1));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump(const Duration(milliseconds: 10));
+      expect(
+        server.requestsTo('GET', '/api/actions/gateway-restart/status').length,
+        greaterThan(reads),
+      );
+      expect(server.requestsTo('POST', '/api/gateway/restart'), hasLength(1));
+      // Let the run's own timer go before the test ends.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+    });
+
     testWidgets('is not read while App Lock covers the app, then on unlock', (
       tester,
     ) async {
