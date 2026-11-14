@@ -35,6 +35,11 @@ import '../surfaces/surface_snapshot.dart'
 import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import '../watch/watch_complication.dart';
+import '../workspaces/hermes_workspaces_repository.dart';
+import '../workspaces/workspace_catalog_loader.dart';
+import '../workspaces/workspace_models.dart';
+import '../workspaces/workspace_paths.dart';
+import 'chat_workspace_state.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
@@ -70,7 +75,9 @@ import 'queue_storage/durable_queue_store.dart';
 import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
+import 'thread_sections.dart' show sessionFolderPath;
 import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
+import '../telemetry/report_bug.dart';
 
 part 'chat_controller_billing.dart';
 part 'chat_controller_subagents.dart';
@@ -86,6 +93,7 @@ part 'chat_controller_session_binding.dart';
 part 'chat_controller_session_state.dart';
 part 'chat_controller_streaming.dart';
 part 'chat_controller_surfaces.dart';
+part 'chat_controller_workspace.dart';
 
 const couldNotOpenChat = 'Could not open that chat.';
 
@@ -135,6 +143,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.billingBrowser,
     this.billingCopyCode,
     this.botChats,
+    this.workspaces,
     this.queueStore,
     this.queueScope,
     this.queueChanges,
@@ -310,6 +319,76 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _ChatControllerBilling(this)._billingVerificationInImpl(thread);
 
   final BotModeChatRepository? botChats;
+
+  /// Reads the server's projects and folders and moves a chat. Without one
+  /// no folder is offered and nothing is moved.
+  final HermesWorkspacesRepository? workspaces;
+  final _workspace = _WorkspaceData();
+
+  /// The folder picked for the selected new chat, or for the next one when
+  /// none is selected. Never stored.
+  WorkspaceChoice? get workspaceChoice =>
+      _ChatControllerWorkspace(this)._workspaceChoiceImpl;
+
+  /// Picks, or with null clears, the folder of the selected new chat. False
+  /// for a chat that exists already: its folder changes by
+  /// [moveWorkspace].
+  bool chooseWorkspace(WorkspaceChoice? choice) =>
+      _ChatControllerWorkspace(this)._chooseWorkspaceImpl(choice);
+
+  /// The profile's projects and git roots, read once and kept while the
+  /// welcome view shows; null without a repository. [profile] is the new
+  /// chat's recipient, the current profile when null.
+  WorkspaceCatalogLoader? workspaceCatalog({String? profile}) =>
+      _ChatControllerWorkspace(this)._catalogFor(profile);
+
+  /// What the row above a new chat's composer shows.
+  NewChatWorkspace newChatWorkspace({String? profile}) =>
+      _ChatControllerWorkspace(this)._newChatWorkspaceImpl(profile);
+
+  /// The server's project for [thread], from `info.project` of its creation.
+  WorkspaceProjectRef? workspaceProjectOf(ChatThread thread) =>
+      _workspace.projects[thread];
+
+  /// The one-time notice that Hermes started [thread] elsewhere than picked.
+  WorkspaceMismatch? workspaceMismatchOf(ChatThread thread) =>
+      _workspace.mismatches[thread];
+
+  void dismissWorkspaceMismatch(ChatThread thread) {
+    if (_workspace.mismatches.remove(thread) != null) notifyListeners();
+  }
+
+  /// Whether the server offers moving a chat's folder; false once it said
+  /// "unknown method" on this connection.
+  bool get workspaceMoveSupported =>
+      workspaces != null && !_workspace.moveUnsupported;
+
+  /// Why [thread]'s folder cannot be changed now, or null when it can.
+  WorkspaceMoveBlock? workspaceMoveBlock(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._moveBlockImpl(thread);
+
+  WorkspaceMoveState workspaceMoveOf(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._moveStateImpl(thread);
+
+  /// Moves the stored chat [thread] to [path] once, on the user's say-so.
+  /// Returns why nothing was sent, or null when the move was sent: its
+  /// outcome is [workspaceMoveOf]. The request is bound to [thread], not to
+  /// whatever is selected when the answer comes, and is never sent again.
+  Future<WorkspaceMoveBlock?> moveWorkspace(ChatThread thread, String path) =>
+      _ChatControllerWorkspace(this)._moveWorkspaceImpl(thread, path);
+
+  /// Reads [thread]'s row again after a move that could not be confirmed.
+  /// Sends nothing else.
+  Future<void> recheckWorkspaceMove(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._recheckWorkspaceMoveImpl(thread);
+
+  /// Drops the picks, the catalogs and the notices: sign-out and Change
+  /// Server, after which nothing of the folders is left for the next account.
+  void clearWorkspaceState() {
+    _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
+    notifyListeners();
+  }
+
   final Future<PromptQueueStore> Function()? queueStore;
   final QueueScope? Function(ChatThread thread, String? profile)? queueScope;
   final Listenable? queueChanges;
@@ -758,7 +837,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           threadListInvalidationBlocked) {
         _listRefreshPending = true;
       }
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the chat list refresh');
       // The next find, or opening the screen again, reads the list.
     }
   }
@@ -962,8 +1042,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final known = await profiles.list();
       if (!_currentActivity(epoch)) return null;
       if (known.any((p) => p.name == profile)) return profile;
-    } on Object {
+    } on Object catch (e, stack) {
       // Falls through: an unreadable list cannot vouch for the profile.
+      reportBug(e, stack, 'the profile check of a link');
     }
     if (!_currentActivity(epoch)) return null;
     breadcrumbs('deeplink.ignored', {'reason': 'unknown_profile'});
@@ -985,7 +1066,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final SurfaceSnapshot? snapshot;
     try {
       snapshot = await read();
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the stored request read');
       return false;
     }
     if (!_currentActivity(epoch)) return false;
@@ -1282,6 +1364,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     for (final controller in _chatControllers.values) {
       controller.dispose();
     }
+    _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
     super.dispose();
   }
 
@@ -1333,6 +1416,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       modelChoice: _newChatModel,
     );
     _threads.insert(0, thread);
+    _ChatControllerWorkspace(this)._carryPendingChoice(thread);
     _selectedId = thread.id;
     notifyListeners();
   }
@@ -1562,6 +1646,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       report('Wait for the branch to finish. Your draft was kept.');
       return false;
     }
+    // Hermes lets a live agent follow a move, even mid-turn: nothing goes to
+    // a chat while its move is being settled.
+    if (_ChatControllerWorkspace(this)._moveHolds(selected)) return false;
     if (_queueUnavailable.contains(selected)) {
       report(_queueMissingTarget);
       return false;
@@ -1649,6 +1736,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId == thread.id) _selectedId = id;
     thread.id = id;
     thread.remote = true;
+    _ChatControllerWorkspace(this)._workspaceCreated(thread);
     _bound.add(thread);
     _finishQueueBinding(thread, true);
     notifyListeners();

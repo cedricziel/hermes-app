@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -92,6 +93,19 @@ void main() {
       ).probe()).availability,
       GroupsAvailability.offline,
     );
+  });
+  test('a bug while probing reads as offline and is reported', () async {
+    final previous = FlutterError.onError;
+    final reported = <FlutterErrorDetails>[];
+    FlutterError.onError = reported.add;
+    addTearDown(() => FlutterError.onError = previous);
+
+    final probe = await HermesGroupsRepository(
+      (_, _) async => throw StateError('bug'),
+    ).probe();
+
+    expect(probe.availability, GroupsAvailability.offline);
+    expect(reported.single.exception, isA<StateError>());
   });
   test('strict identities and additive events', () {
     expect(

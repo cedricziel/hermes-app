@@ -52,7 +52,7 @@ class PluginLiveActivityService implements LiveActivityService {
     try {
       return await call();
     } on Object catch (error) {
-      debugPrint('Live Activity call failed: $error');
+      debugPrint('Live Activity call failed: ${error.runtimeType}');
       return null;
     }
   }

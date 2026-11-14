@@ -39,7 +39,9 @@ List<SingleChildWidget> authProviders(Telemetry telemetry) => [
           quickLook: platformQuickLook(),
         )
         ..clearOnSignOut(auth.signedOut)
-        // Files from an earlier run that nobody opened again.
+        // Copies of files that looked secret, which an app killed on the Files
+        // page never got to delete, and files nobody opened again.
+        ..wipeSecretCopies()
         ..sweep(mediaCacheMaxAge);
     },
     dispose: (_, store) => store?.dispose(),

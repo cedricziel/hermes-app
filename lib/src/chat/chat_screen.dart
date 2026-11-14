@@ -90,6 +90,7 @@ import '../windows/conversation_window_args.dart';
 import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
+import '../telemetry/report_bug.dart';
 import 'chat_controller.dart';
 import 'queue_storage/queue_persistence.dart';
 import 'chat_models.dart';
@@ -753,7 +754,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         } else {
           _activeRefreshBackoff.failed();
         }
-      } on Object {
+      } on Object catch (e, stack) {
+        // refreshActive answers false on a failure, so this is a bug.
+        reportBug(e, stack, 'the running chats refresh');
         _activeRefreshBackoff.failed();
       } finally {
         _activeRefreshInFlight = false;

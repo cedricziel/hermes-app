@@ -199,3 +199,39 @@ class SessionFolder {
   final String? branch;
   final String? gitRepoRoot;
 }
+
+/// Where a picked folder came from. For display only; never sent.
+enum WorkspaceChoiceSource { project, recent, browsed, typed }
+
+/// The folder picked for a chat that does not exist yet. It lives on the new
+/// thread in memory, goes out as `cwd` on `session.create` and is dropped
+/// once the chat exists; it is never stored on the device.
+class WorkspaceChoice {
+  const WorkspaceChoice({
+    required this.path,
+    this.projectName,
+    this.branch,
+    this.source = WorkspaceChoiceSource.typed,
+  });
+
+  /// An absolute server path or a `~`-led one, as the server wrote it or the
+  /// user typed it.
+  final String path;
+
+  /// The project's name and the branch, for the row above the composer.
+  final String? projectName;
+  final String? branch;
+  final WorkspaceChoiceSource source;
+
+  @override
+  String toString() => 'WorkspaceChoice(${source.name})';
+}
+
+/// The project Hermes resolved for a new session (`info.project`).
+class WorkspaceProjectRef {
+  const WorkspaceProjectRef({required this.name, this.id, this.primaryPath});
+
+  final String name;
+  final String? id;
+  final String? primaryPath;
+}

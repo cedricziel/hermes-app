@@ -40,7 +40,11 @@ enum FilesFailure {
   outside,
 
   /// The caller cancelled the request.
-  cancelled;
+  cancelled,
+
+  /// The file was downloaded but this platform cannot save one this large
+  /// without holding it in memory.
+  saveUnavailable;
 
   /// A fixed name for telemetry.
   String get slug => name;

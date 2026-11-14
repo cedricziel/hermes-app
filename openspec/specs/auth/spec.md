@@ -166,7 +166,7 @@ For a server without the auth gate, the system SHALL send the session token embe
 
 ### Requirement: Gated servers load providers and check for a stored session
 
-When auth is required, the system SHALL load the sign-in options from `GET /api/auth/providers` (each with a name, a display name that falls back to the name, and whether it supports password). It SHALL then read the stored session, except that credentials left by a failed departure/expiry deletion SHALL be treated as absent until fresh sign-in replaces them. With no stored session the state SHALL be needs login. With a stored session the system SHALL verify it with `GET /api/auth/me` and go to ready with the returned identity.
+When auth is required, the system SHALL load the sign-in options from `GET /api/auth/providers` (each with a name, a display name that falls back to the name, and whether it supports password). It SHALL then read the stored session, except that credentials left by a failed departure/expiry deletion SHALL be treated as absent until fresh sign-in replaces them. A stored session SHALL be sent only to the server that issued it. One recorded as issued by another server SHALL be treated as absent and left in storage. One stored before the issuing server was recorded SHALL count as issued by the saved address (or the dev override): it SHALL be treated as absent when the connect is to any other address, and before the saved address is replaced by another, the system SHALL record that address (or, after a same-host redirect of it, the address redirected to) as its issuer in the secure storage, under the session lock and without overwriting a newer pair. If that cannot be recorded, the saved address SHALL NOT be replaced. When there is neither a saved address nor a dev override, such a session SHALL be removed instead, since its issuer can no longer be known. With no stored session the state SHALL be needs login. With a stored session the system SHALL verify it with `GET /api/auth/me` and go to ready with the returned identity.
 
 #### Scenario: No stored session
 
@@ -177,6 +177,13 @@ When auth is required, the system SHALL load the sign-in options from `GET /api/
 
 - **WHEN** auth is required and a stored session passes `GET /api/auth/me`
 - **THEN** the state is ready
+
+#### Scenario: A session without a recorded server stays with the saved address
+
+- **WHEN** a session stored before the issuing server was recorded is found, the saved address could not be reached, and the user submits a different address
+- **THEN** no request to the new address carries the stored tokens, on this connect, on a later connect to it, or after a relaunch that restores it as the saved address
+- **AND** the state is needs login
+- **AND** the stored tokens are kept and recorded as issued by the earlier saved address, so connecting to that address again restores the session
 
 #### Scenario: Providers cannot be loaded
 
