@@ -153,6 +153,11 @@
   "@@x-area-watch": "",
 
   "@@x-area-widgets": "",
+  "widgetsSecretShow": "Schlüssel anzeigen",
+  "widgetsSecretHide": "Schlüssel ausblenden",
+  "widgetsSecretShowShort": "Anzeigen",
+  "widgetsSecretHideShort": "Ausblenden",
+  "widgetsSecretCharactersEntered": "{count, plural, one{{count} Zeichen eingegeben} other{{count} Zeichen eingegeben}}",
 
   "@@x-area-windows": "",
 

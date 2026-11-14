@@ -41,6 +41,7 @@ import 'mac_toolbar_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
 import 'mcp_use_cases.dart';
 import 'banner_use_cases.dart';
+import 'secret_field_use_cases.dart';
 import 'model_use_cases.dart';
 import 'palette_use_cases.dart';
 import 'platform_hint_use_cases.dart';
@@ -142,6 +143,7 @@ final List<WidgetbookNode> directories = [
   pluginsNode(),
   pluginsScreensNode(),
   bannerNode(),
+  secretFieldNode(),
   mcpNode(),
   mcpScreensNode(),
   settingsScreensNode(),
