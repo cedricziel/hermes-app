@@ -143,6 +143,9 @@ extension _ChatControllerWorkspace on ChatController {
   /// The server's home folder, when the profile's catalog was read.
   String? get _homeImpl => _workspace.loaders[_profileKey]?.catalog?.home;
 
+  bool get _offlineImpl =>
+      _workspace.loaders[_profileKey]?.status == WorkspaceCatalogStatus.offline;
+
   /// The project that holds [thread]'s folder: the server's own answer for a
   /// chat just created, else the catalog's by the server's rule. Never reads
   /// the catalog; null when it was not read.
@@ -427,6 +430,7 @@ extension _ChatControllerWorkspace on ChatController {
         ..branch = moved.branch
         ..folderPath = moved.folderPath;
       _workspace.projects.remove(thread);
+      _workspace.mismatches.remove(thread);
     }
     _setMove(
       key,
@@ -512,6 +516,7 @@ extension _ChatControllerWorkspace on ChatController {
                   }) ??
                   cwd;
             _workspace.projects.remove(thread);
+            _workspace.mismatches.remove(thread);
           }
           _setMove(
             key,

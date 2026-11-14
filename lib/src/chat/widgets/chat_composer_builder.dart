@@ -35,6 +35,7 @@ WidgetBuilder buildChatComposer({
   BotChatContext? botContext,
   Object? Function()? sendTarget,
   NeedsYouDockBuilder? dock,
+  Widget? workingDirectoryRow,
 }) {
   Widget composer(
     ValueChanged<String> onSend,
@@ -80,19 +81,23 @@ WidgetBuilder buildChatComposer({
               : null,
         ),
       );
-      if (dock == null) return bar;
-      // The dock shares the composer's box, so the height reported for the
-      // transcript's padding includes it.
+      if (dock == null && workingDirectoryRow == null) return bar;
+      // The row and the dock share the composer's box, so the height
+      // reported for the transcript's padding includes them.
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ViewMetricsBuilder(
-            // The keyboard is not in the Scaffold body's own MediaQuery,
-            // which has consumed it, so ask the view.
-            builder: (context, media) =>
-                dock(context, needsYouCompactFor(media)),
-          ),
+          // Where a new chat's first message will run.
+          if (workingDirectoryRow case final row?)
+            Padding(padding: const EdgeInsets.fromLTRB(8, 8, 8, 0), child: row),
+          if (dock != null)
+            ViewMetricsBuilder(
+              // The keyboard is not in the Scaffold body's own MediaQuery,
+              // which has consumed it, so ask the view.
+              builder: (context, media) =>
+                  dock(context, needsYouCompactFor(media)),
+            ),
           bar,
         ],
       );

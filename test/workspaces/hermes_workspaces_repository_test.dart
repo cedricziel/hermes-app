@@ -727,12 +727,19 @@ void main() {
     final files = Directory('lib/src/workspaces')
         .listSync()
         .whereType<File>()
-        .where((f) => f.path.endsWith('.dart'));
+        .where(
+          (f) =>
+              f.path.endsWith('.dart') &&
+              // The one file that talks to telemetry, with fixed names only
+              // (see workspace_telemetry_test.dart).
+              !f.path.endsWith('workspace_telemetry.dart'),
+        );
     expect(files, isNotEmpty);
     for (final file in files) {
       final imports = file
           .readAsLinesSync()
           .where((line) => line.startsWith('import '))
+          .map((line) => line.replaceAll('workspace_telemetry.dart', ''))
           .join('\n');
       for (final name in banned) {
         expect(imports, isNot(contains(name)), reason: '${file.path} $name');

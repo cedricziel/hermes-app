@@ -168,6 +168,12 @@ extension _ChatScreenNavigation on _ChatScreenState {
       MacCommand.renameThread: MacCommandHandler(
         on(ThreadAction.rename, when: managed && !thread.isCanonicalBotChat),
       ),
+      // Disabled while the chat replies or the server cannot move it.
+      MacCommand.changeFolder: MacCommandHandler(
+        thread != null && _chat.workspaceMoveBlock(thread) == null
+            ? () => _changeFolder(thread)
+            : null,
+      ),
       MacCommand.copyTranscript: MacCommandHandler(
         on(
           ThreadAction.copyTranscript,
@@ -189,6 +195,19 @@ extension _ChatScreenNavigation on _ChatScreenState {
         files && thread != null ? () => _showFiles(FilesOpenedFrom.menu) : null,
       ),
     };
+  }
+
+  /// Opens the folder details of [thread] with the picker over them.
+  void _changeFolder(ChatThread thread) {
+    _closeDrawerIfNarrow();
+    unawaited(
+      showWorkingDirectoryDetails(
+        context,
+        chat: _chat,
+        thread: thread,
+        openPicker: true,
+      ),
+    );
   }
 
   /// Opens the Files page of the chat in front.

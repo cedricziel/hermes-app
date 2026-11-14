@@ -46,6 +46,12 @@ import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../files/files_telemetry.dart' show FilesOpenedFrom;
 import '../files/open_files.dart';
+import '../workspaces/hermes_workspaces_repository.dart';
+import '../workspaces/ui/bound_working_directory.dart';
+import '../workspaces/ui/workspace_flows.dart';
+import '../workspaces/widgets/working_directory_line.dart'
+    show workingDirectoryLineBelowBar;
+import '../workspaces/workspace_telemetry.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
@@ -183,9 +189,14 @@ class ChatScreen extends StatefulWidget {
     this.voiceMessageRecorder,
     this.displaySocketOpener,
     this.takeoverSetting,
+    this.workspaces,
   });
 
   final HermesChatRepository? repository;
+
+  /// Reads the server's projects and folders and moves a chat to another
+  /// folder; the connected dashboard's unless a test supplies its own.
+  final HermesWorkspacesRepository? workspaces;
   final ChatTransport? transport;
   final HermesProfilesRepository? profiles;
   final HermesModelsRepository? models;
@@ -461,7 +472,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _sessionActivity = SessionActivity(auth!);
     }
     final queues = _maybeRead<QueuePersistence>();
+    final breadcrumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
+    // Only the main window reads folders: the repository needs the gateway
+    // this screen owns.
+    final workspaces =
+        widget.workspaces ??
+        (api != null && transport is HermesGatewayTransport
+            ? HermesWorkspacesRepository(
+                api.raw,
+                transport.requestKeepingConnection,
+                telemetry: WorkspaceTelemetry(
+                  repositories!.telemetry,
+                  breadcrumbs,
+                ),
+              )
+            : null);
     _chat = ChatController(
+      workspaces: workspaces,
       activity: _sessionActivity,
       queueStore: queues?.open,
       queueScope: queues == null
