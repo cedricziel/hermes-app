@@ -9,6 +9,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import '../telemetry/report_bug.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 
@@ -326,8 +327,9 @@ class KanbanBoardController extends ChangeNotifier {
         await _restart();
       }
       if (_current(generation)) notifyListeners();
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
       // The switcher is optional; the board still loads without it.
+      reportBug(e, stack, 'the Kanban board list');
     }
   }
 
@@ -521,7 +523,10 @@ class KanbanBoardController extends ChangeNotifier {
         return;
       }
       _events = events;
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
+      // The connect throws a StateError when the page has no session token,
+      // so every failure is retried; only a real bug is also reported.
+      reportBug(e, stack, 'the Kanban event stream');
       retry();
     }
   }
@@ -535,7 +540,7 @@ class KanbanBoardController extends ChangeNotifier {
       if (cursor is num) _cursor = math.max(_cursor, cursor.toInt());
       final events = data['events'];
       return events is List && events.isNotEmpty;
-    } on Object catch (_) {
+    } on FormatException {
       return false;
     }
   }

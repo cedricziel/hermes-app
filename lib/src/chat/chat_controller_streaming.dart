@@ -60,6 +60,10 @@ extension _ChatControllerStreaming on ChatController {
     final open = own.open;
     if (open == null) {
       // Nothing of the turn is on screen to carry it.
+      if (event is SubagentUpdated) {
+        // A background agent's frame still belongs in the roster.
+        _ChatControllerSubagents(this)._feedSubagent(thread, event.subagent);
+      }
       final last = own.last;
       switch (event) {
         case ReplyCompleted() when last?.settledWithoutCompletion ?? false:
@@ -309,6 +313,7 @@ extension _ChatControllerStreaming on ChatController {
       case ReviewSummarized():
         _onReviewSummary(thread, event);
       case SubagentUpdated():
+        _ChatControllerSubagents(this)._feedSubagent(thread, event.subagent);
         final owner = _subagentOwner(thread, event);
         if (owner == null) return;
         _updateReply(thread, owner, () => applyReplyEvent(owner, event));
@@ -509,6 +514,7 @@ extension _ChatControllerStreaming on ChatController {
       case ReviewSummarized():
         _onReviewSummary(thread, event, open: reply);
       case SubagentUpdated():
+        _ChatControllerSubagents(this)._feedSubagent(thread, event.subagent);
         final owner = _subagentOwner(thread, event) ?? reply;
         _updateReply(thread, owner, () => applyReplyEvent(owner, event));
       case ReplyErrored() ||

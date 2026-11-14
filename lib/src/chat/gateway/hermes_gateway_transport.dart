@@ -13,6 +13,9 @@ import '../../api/session_source.dart';
 import '../../models/model_provider_option.dart';
 import '../../workspaces/workspace_models.dart';
 import '../chat_models.dart';
+import '../checkpoints/checkpoint_models.dart';
+import '../checkpoints/checkpoints_transport.dart';
+import '../context/context_models.dart';
 import '../chat_transport.dart';
 import '../chat_session_state.dart';
 import '../owned_session_transport.dart';
@@ -38,6 +41,7 @@ part 'hermes_gateway_transport_follow_ups.dart';
 part 'hermes_gateway_transport_requests.dart';
 part 'hermes_gateway_transport_branching.dart';
 part 'hermes_gateway_transport_agent_work.dart';
+part 'hermes_gateway_transport_checkpoints.dart';
 part 'hermes_gateway_transport_connection.dart';
 
 /// Opens the dashboard's `/api/ws` socket, credentials included.
@@ -126,7 +130,9 @@ class HermesGatewayTransport
         GatewayConnectionTransport,
         QueueSubmissionTransport,
         BillingVerificationTransport,
-        AgentWorkTransport {
+        AgentWorkTransport,
+        CheckpointsTransport,
+        ContextTransport {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
@@ -135,6 +141,8 @@ class HermesGatewayTransport
     this.probeTimeout = const Duration(seconds: 10),
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
+    this.readTimeout = const Duration(seconds: 10),
+    this.longTimeout = const Duration(seconds: 90),
     Random? random,
     this._sleep = _delay,
   }) : _random = random ?? Random();
@@ -156,6 +164,14 @@ class HermesGatewayTransport
   /// How long opening a session or submitting a prompt may go unanswered
   /// before the connection is given up on.
   final Duration requestTimeout;
+
+  /// How long a checkpoint or context read may go unanswered; the connection
+  /// stays open.
+  final Duration readTimeout;
+
+  /// How long a checkpoint diff, a restore or a compress may go unanswered
+  /// before it is reported as possibly done.
+  final Duration longTimeout;
 
   /// How long a connection may take to answer [checkConnection].
   final Duration probeTimeout;
@@ -539,6 +555,41 @@ class HermesGatewayTransport
     String? profile,
     int dropTurns = 0,
   }) => _branchThread(threadId, profile: profile, dropTurns: dropTurns);
+
+  @override
+  Future<CheckpointList> listCheckpoints(OwnedSessionBinding binding) =>
+      _listCheckpoints(binding);
+
+  @override
+  Future<CheckpointList> listCheckpointsResuming(
+    String threadId, {
+    String? profile,
+  }) => _listCheckpointsResuming(threadId, profile);
+
+  @override
+  Future<CheckpointChanges> checkpointChanges(
+    OwnedSessionBinding binding,
+    String hash,
+  ) => _checkpointChanges(binding, hash);
+
+  @override
+  Future<CheckpointRestore> restoreCheckpoint(
+    String threadId, {
+    String? profile,
+    required String hash,
+    String? filePath,
+  }) => _restoreCheckpoint(threadId, profile, hash, filePath);
+
+  @override
+  Future<ContextBreakdown> contextBreakdown(OwnedSessionBinding binding) =>
+      _contextBreakdown(binding);
+
+  @override
+  Future<CompressionResult> compressSession(
+    String threadId, {
+    String? profile,
+    String? focus,
+  }) => _compressSession(threadId, profile, focus);
 
   @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) =>

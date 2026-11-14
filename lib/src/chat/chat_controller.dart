@@ -51,6 +51,10 @@ import 'owned_session_transport.dart';
 import 'todo_plan/todo_plan_state.dart';
 import 'moa_progress_state.dart';
 import 'session_usage/session_usage_controller.dart';
+import 'agent_work_transport.dart';
+import 'subagents/chat_roster_environment.dart';
+import 'subagents/subagent_repository.dart';
+import 'subagents/subagent_roster.dart';
 import 'side_results/side_result_state.dart';
 import 'connector_operation_controller.dart';
 import 'connector_operation_state.dart';
@@ -75,6 +79,7 @@ import 'thread_sections.dart' show sessionFolderPath;
 import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
 
 part 'chat_controller_billing.dart';
+part 'chat_controller_subagents.dart';
 part 'chat_controller_commands.dart';
 part 'chat_controller_connectors.dart';
 part 'chat_controller_history.dart';
@@ -231,6 +236,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _suspendActivity() {
+    _ChatControllerSubagents(this)._clearSubagents();
     search?.setActivity(false);
     housekeeping?.setActivity(false);
     _loadGeneration++;
@@ -388,6 +394,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final bool Function()? canShowQueues;
   bool get queuesVisible => _ChatControllerQueues(this)._queuesVisibleImpl;
   var _queueEpoch = 0;
+  final _protectedSends = Expando<_ProtectedQueuedSend>();
   final _restoredQueues = <ChatThread>{};
   final _loadedQueues = <ChatThread>{};
   final _queuePreparing = <ChatThread>{};
@@ -504,6 +511,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _usage = <ChatThread, SessionUsageController>{};
   final _ownedBindings = <ChatThread, OwnedSessionBinding>{};
   StreamSubscription<OwnedSessionChange>? _ownedSubscription;
+
+  final _subagents = <String, SubagentRoster>{};
+  ChatRosterEnvironment? _subagentEnvironment;
+
+  /// The agents the chat's replies delegated to, merged from their frames and
+  /// `subagent.list`; null for a chat that is not stored on the server or
+  /// when the controller is not active. It lives with the thread.
+  SubagentRoster? subagentsIn(ChatThread thread) =>
+      _ChatControllerSubagents(this)._subagentsInImpl(thread);
 
   final _moaStates = <ChatThread, MoaProgressState>{};
   final _moaBindings = <ChatThread, OwnedSessionBinding>{};
@@ -1264,6 +1280,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _removeBilling((_profile, thread.id));
     _ownedBindings.remove(thread);
     _usage.remove(thread)?.dispose();
+    _ChatControllerSubagents(this)._dropSubagents(thread.id);
     _reactions.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
     _processOutputs.remove(thread)?.clear();
@@ -1326,6 +1343,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     activity?.removeListener(_activityChanged);
     appLock?.removeListener(_billingLockChanged);
     _activityEpoch++;
+    _ChatControllerSubagents(this)._clearSubagents();
+    _subagentEnvironment?.dispose();
     housekeeping?.setActivity(false);
     _replayEnds?.cancel();
     for (final reply in _replies) {
@@ -1734,6 +1753,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);
     thread.id = id;
+    _ChatControllerSubagents(this)._rekeySubagents(previousId, id);
     if (controller != null) _chatControllers[id] = controller;
     _syncTodo(thread, _profile);
     notifyListeners();
