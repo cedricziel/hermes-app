@@ -164,31 +164,40 @@ class VoiceCallView extends StatelessWidget {
       child: TextButton.icon(
         onPressed: onShowChat,
         icon: Icon(AppIcons.expandMore.of(context)),
-        label: Text(l10n.voiceCallShowChat),
+        label: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: Text(l10n.voiceCallShowChat),
+        ),
       ),
     );
-    final state = Column(
+    Widget stateBlock({required bool withOrb}) => Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Center(
-          child: VoiceOrb(
-            state: orb,
-            amplitude: amplitude,
-            reduceMotion: reduceMotion,
-            stoppedCheck: endedByUser,
-            onTap: orb == VoiceOrbState.speaking ? onInterrupt : null,
+        if (withOrb) ...[
+          Center(
+            child: VoiceOrb(
+              state: orb,
+              amplitude: amplitude,
+              reduceMotion: reduceMotion,
+              stoppedCheck: endedByUser,
+              onTap: orb == VoiceOrbState.speaking ? onInterrupt : null,
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
         Semantics(
           liveRegion: true,
-          child: Text(
-            word,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
+          // Shrinks rather than breaking a word in a narrow column.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              word,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
@@ -212,34 +221,68 @@ class VoiceCallView extends StatelessWidget {
         ),
       ],
     );
-    final words = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (shown.isNotEmpty)
-          Text(
+    final captionText = shown.isEmpty
+        ? null
+        : Text(
             shown,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyLarge?.copyWith(
               fontStyle: orb == VoiceOrbState.sending ? FontStyle.italic : null,
             ),
-          ),
-        if (notice != null) ...[
-          if (shown.isNotEmpty) const SizedBox(height: 12),
-          notice!,
-        ],
+          );
+    final words = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ?notice,
+        if (notice != null && captionText != null) const SizedBox(height: 12),
+        ?captionText,
       ],
     );
-    // A slot of fixed height right above the controls: what was heard and what
-    // went wrong are always in view, a longer text scrolls inside it, and the
-    // controls never move.
-    Widget slot(double maxHeight) => SizedBox(
-      height: math.min(
+    // Right above the controls: the notice first, in full, then the caption,
+    // which shows its last lines when it is long. Short content is in view; a
+    // longer text scrolls inside the slot. The controls sit below it, so
+    // however tall the slot gets they stay where they are.
+    Widget slot(double maxHeight) {
+      final reserved = math.min(
         MediaQuery.textScalerOf(context).scale(24) * 4,
-        maxHeight * 0.22,
-      ),
-      child: SingleChildScrollView(child: Center(child: words)),
-    );
+        maxHeight * 0.18,
+      );
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: reserved,
+          maxHeight: math.max(reserved, maxHeight * 0.3),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (notice != null)
+              Flexible(
+                flex: 3,
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  children: [notice!],
+                ),
+              ),
+            if (notice != null && captionText != null)
+              const SizedBox(height: 8),
+            if (captionText != null)
+              Flexible(
+                flex: 2,
+                child: ListView(
+                  shrinkWrap: true,
+                  reverse: true,
+                  padding: EdgeInsets.zero,
+                  children: [captionText],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     // The controls sit below the scrolling part, so a caption, a notice or a
     // larger text size never moves End.
     final bottom = Column(
@@ -247,20 +290,23 @@ class VoiceCallView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (!ended) ...[
-          Text(
-            route,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
+          MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.15,
+            child: Text(
+              route,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 28,
-            runSpacing: 16,
+          // Fixed-width cells: a longer label (Unmute) never moves End.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Control(
                 label: muted ? l10n.voiceCallUnmute : l10n.voiceCallMute,
@@ -331,7 +377,7 @@ class VoiceCallView extends StatelessWidget {
                     children: [
                       showChat,
                       const SizedBox(height: 16),
-                      state,
+                      stateBlock(withOrb: true),
                       const SizedBox(height: 16),
                       words,
                       const SizedBox(height: 24),
@@ -345,40 +391,43 @@ class VoiceCallView extends StatelessWidget {
               // Short windows (a phone on its side): the state on the left,
               // what was heard and the controls on the right, so the state
               // word is never below the fold.
-              return Row(
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
-                        child: state,
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 880),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
+                          child: stateBlock(withOrb: true),
+                        ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 12, right: 12),
-                          child: showChat,
-                        ),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 8,
-                            ),
-                            child: Center(child: words),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12, right: 12),
+                            child: showChat,
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 24, 12),
-                          child: capped(bottom, box.maxHeight * 0.65),
-                        ),
-                      ],
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 8,
+                              ),
+                              child: Center(child: words),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 24, 12),
+                            child: capped(bottom, box.maxHeight * 0.65),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             }
             return ConstrainedBox(
@@ -387,16 +436,26 @@ class VoiceCallView extends StatelessWidget {
                 children: [
                   Padding(padding: sideGutter, child: showChat),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                      child: state,
+                    // The orb goes first when the room is short, so the state
+                    // word is always the first thing in view.
+                    child: LayoutBuilder(
+                      builder: (context, top) => SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                        child: stateBlock(
+                          withOrb:
+                              top.maxHeight >=
+                              VoiceOrb.diameter +
+                                  56 +
+                                  MediaQuery.textScalerOf(context).scale(150),
+                        ),
+                      ),
                     ),
                   ),
                   Padding(padding: sideGutter, child: slot(box.maxHeight)),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                    child: capped(bottom, box.maxHeight * 0.5),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: capped(bottom, box.maxHeight * 0.45),
                   ),
                 ],
               ),
@@ -433,35 +492,45 @@ class _Control extends StatelessWidget {
         ? colors.inverseSurface
         : colors.surfaceContainerHighest;
     final foreground = filled ? colors.onInverseSurface : colors.onSurface;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox.square(
-          dimension: _size,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              // A selected toggle is ringed, so End stays the only solid one.
-              border: selected && !filled
-                  ? Border.all(color: colors.onSurface, width: 2)
-                  : null,
-              color: onPressed == null
-                  ? colors.surfaceContainerHighest
-                  : background,
-            ),
-            child: NamedIconButton(
-              label: label,
-              icon: icon,
-              onPressed: onPressed,
-              isSelected: filled ? null : selected,
-              visualDensity: VisualDensity.standard,
-              color: foreground,
+    return SizedBox(
+      width: 88,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox.square(
+            dimension: _size,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                // A selected toggle is ringed, so End stays the only solid one.
+                border: selected && !filled
+                    ? Border.all(color: colors.onSurface, width: 2)
+                    : null,
+                color: onPressed == null
+                    ? colors.surfaceContainerHighest
+                    : background,
+              ),
+              child: NamedIconButton(
+                label: label,
+                icon: icon,
+                onPressed: onPressed,
+                isSelected: filled ? null : selected,
+                visualDensity: VisualDensity.standard,
+                color: foreground,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        ExcludeSemantics(child: Text(label)),
-      ],
+          const SizedBox(height: 8),
+          // The visible label stops growing at 1.15x so the three controls
+          // stay on one row; screen readers use the button's own name.
+          ExcludeSemantics(
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.15,
+              child: Text(label, textAlign: TextAlign.center),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

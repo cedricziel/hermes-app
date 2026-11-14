@@ -73,11 +73,13 @@ final _steps = <_Step>[
 ];
 
 void main() {
-  const extra = <(String, Size)>[
-    ('short-phone', Size(390, 667)),
-    ('landscape', Size(844, 390)),
+  const extra = <(String, Size, double)>[
+    ('short-phone', Size(390, 667), 1),
+    ('landscape', Size(844, 390), 1),
+    ('large-text-phone', Size(390, 844), 3),
+    ('large-text-landscape', Size(844, 390), 3),
   ];
-  for (final (name, size) in extra) {
+  for (final (name, size, scale) in extra) {
     testWidgets('call screen in every phase, $name', (tester) async {
       final shots = ScreenshotRecorder('voice-call-$name-light');
       await shots.start(tester, size);
@@ -92,6 +94,11 @@ void main() {
             theme: theme,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: child!,
+            ),
             home: shots.frame(
               Scaffold(
                 body: VoiceCallView(
