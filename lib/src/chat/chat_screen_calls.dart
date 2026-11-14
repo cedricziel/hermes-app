@@ -151,6 +151,7 @@ extension _ChatScreenCalls on _ChatScreenState {
                 profile: profile,
                 connect: connect,
                 events: events,
+                deviceSpeech: readiness.useDeviceSpeech,
                 speechFallback: (text, speechProfile, cancellation) async {
                   if (!ownerValid() || cancellation.isCancelled) {
                     throw StateError('The call changed');

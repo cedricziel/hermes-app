@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 
 import '../../chat/gateway/gateway_connection.dart';
 import 'call_bridge.dart';
+import 'call_telemetry.dart';
 
 typedef CallSpeechFallback = Future<Uint8List> Function(
   String text,
@@ -23,6 +24,7 @@ class CallSpeechStream {
     this.onAudio,
     this.onFailure,
     this.fallback,
+    this.retryDelay = const Duration(milliseconds: 500),
   }) {
     unawaited(
       _done.future.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
@@ -34,6 +36,13 @@ class CallSpeechStream {
   /// Whether the server asked for the `POST /api/audio/speak` fallback.
   bool get usedFallback => _fallback;
   final CallSpeechFallback? fallback;
+
+  /// The wait before the one retry of an open that failed in passing.
+  final Duration retryDelay;
+
+  /// How often the open was retried (0 or 1), for telemetry.
+  int get openRetries => _retries;
+  int _retries = 0;
   bool hasText = false;
   final MixedSocketConnect connect;
   final CallBridge output;
@@ -56,15 +65,18 @@ class CallSpeechStream {
   Future<void> open(String? profile) async {
     _profile = profile;
     try {
-      final opening = connect({'profile': ?profile});
-      unawaited(
-        opening.then<void>((socket) {
-          if (_stopped) {
-            unawaited(socket.sink.close().catchError((Object _) {}));
-          }
-        }, onError: (Object _, StackTrace _) {}),
-      );
-      final socket = await opening.timeout(const Duration(seconds: 10));
+      StreamChannel<Object?> socket;
+      try {
+        socket = await _connect(profile);
+      } on Object catch (error) {
+        // A blip on the ticket or the upgrade: one more try, nothing else is
+        // redone (only the socket opens, so no prompt is resent).
+        if (_stopped || !isTransientSpeechOpenError(error)) rethrow;
+        _retries++;
+        await Future<void>.delayed(retryDelay);
+        if (_stopped) return;
+        socket = await _connect(profile);
+      }
       if (_stopped) {
         await socket.sink.close();
         return;
@@ -89,6 +101,18 @@ class CallSpeechStream {
       // A failed open before any audio falls back instead of failing.
       if (!_fallback) rethrow;
     }
+  }
+
+  Future<StreamChannel<Object?>> _connect(String? profile) async {
+    final opening = connect({'profile': ?profile});
+    unawaited(
+      opening.then<void>((socket) {
+        if (_stopped) {
+          unawaited(socket.sink.close().catchError((Object _) {}));
+        }
+      }, onError: (Object _, StackTrace _) {}),
+    );
+    return opening.timeout(const Duration(seconds: 10));
   }
 
   void append(String text) {

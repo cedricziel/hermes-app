@@ -39,6 +39,7 @@ class VoiceCall extends ChangeNotifier {
     this.tones,
     this.haptics,
     this.releaseLease,
+    this.deviceSpeech = false,
     TargetPlatform? platform,
     DateTime Function()? now,
     this.events = noopAppEventLogger,
@@ -76,12 +77,17 @@ class VoiceCall extends ChangeNotifier {
 
   /// Releases the `tts-lease` when the call holds one, as a teardown step.
   final Future<void> Function()? releaseLease;
+
+  /// Whether the device's own recognizer transcribes the turns, for the
+  /// `voice_call.turn` event.
+  final bool deviceSpeech;
   final TargetPlatform _platform;
   final DateTime Function() _now;
 
   /// Gets `voice_call.connected` when CallKit hands over the audio and one
   /// `voice_call.ended` (`outcome`, `reason`, `step`, `error_type`, buckets
-  /// of turns and duration). Fixed words only: never speech, text or ids.
+  /// of turns, retries and duration), plus one `voice_call.turn` per reply
+  /// with its latency buckets. Fixed words only: never speech, text or ids.
   final AppEventLogger events;
   VoiceActivity _vad = VoiceActivity();
   VoiceCallConfig _config = const VoiceCallConfig();
@@ -122,6 +128,7 @@ class VoiceCall extends ChangeNotifier {
   int _transcriptionFailures = 0;
   int _turns = 0;
   int _fallbacks = 0;
+  int _speechRetries = 0;
   CallPhase phase = CallPhase.connecting;
   bool muted = false;
   bool speaker = false;
@@ -578,8 +585,12 @@ class VoiceCall extends ChangeNotifier {
     CallSpeechStream? speech;
     var step = 'transcribe';
     var replying = false;
+    var outcome = 'interrupted';
+    DateTime? submitted, firstText, firstAudio, replyDone;
+    Duration? transcription, speechOpen;
     try {
       final String text;
+      final heard = _now();
       try {
         text = (await transcribe(
           wavFromPcm16(pcm, sampleRate: VoiceActivity.sampleRate),
@@ -588,6 +599,7 @@ class VoiceCall extends ChangeNotifier {
         if (!_abandoned(epoch)) await _transcriptionFailed(error);
         return;
       }
+      transcription = _now().difference(heard);
       if (_abandoned(epoch)) return;
       _transcriptionFailures = 0;
       // One order, the first match decides: empty, echo, hallucination, stop
@@ -619,12 +631,14 @@ class VoiceCall extends ChangeNotifier {
         output: bridge,
         fallback: speechFallback,
         onAudio: () {
+          firstAudio ??= _now();
           if (_current(epoch) && !waitingForYou) {
             phase = CallPhase.speaking;
             _notify();
           }
         },
         onFailure: (error) {
+          outcome = 'failed';
           if (_current(epoch)) {
             unawaited(
               _end(
@@ -640,13 +654,20 @@ class VoiceCall extends ChangeNotifier {
         },
       );
       _speech = speech;
-      await speech.open(profile);
+      final opening = _now();
+      try {
+        await speech.open(profile);
+      } finally {
+        speechOpen = _now().difference(opening);
+        _speechRetries += speech.openRetries;
+      }
       // Nothing between this check and the send may await.
       if (_abandoned(epoch)) return;
       step = 'agent';
       _running++;
       replying = true;
       _replyEpoch = epoch;
+      submitted = _now();
       // Sending ends here: from this call on, End or mute can no longer
       // withdraw the words (that comes back with the queue restore and
       // `authorize`, task 5.0), so the screen stops promising a cancel.
@@ -661,6 +682,7 @@ class VoiceCall extends ChangeNotifier {
           }
         },
         onText: (part) {
+          firstText ??= _now();
           if (_current(epoch)) speech!.append(part);
         },
         onAttention: (waiting) {
@@ -669,6 +691,7 @@ class VoiceCall extends ChangeNotifier {
           _attentionChanged();
         },
       );
+      replyDone = _now();
       if (!_current(epoch)) return;
       // A tool-only turn may have nothing to read. Keep it conversational.
       if (!speech.hasText) {
@@ -681,9 +704,11 @@ class VoiceCall extends ChangeNotifier {
       if (!_current(epoch)) return;
       _turns++;
       _speech = null;
+      outcome = 'spoken';
       phase = _idlePhase;
       _notify();
     } on Object catch (error) {
+      outcome = 'failed';
       if (_current(epoch)) {
         await _end(
           'turn',
@@ -696,6 +721,18 @@ class VoiceCall extends ChangeNotifier {
       }
     } finally {
       if (replying) {
+        Duration? since(DateTime? at) =>
+            at == null || submitted == null ? null : at.difference(submitted);
+        _log('voice_call.turn', {
+          'transcription': callLatencyBucket(transcription),
+          'speech_open': callLatencyBucket(speechOpen),
+          'first_text': callLatencyBucket(since(firstText)),
+          'first_audio': callLatencyBucket(since(firstAudio)),
+          'reply_complete': callLatencyBucket(since(replyDone)),
+          'device_speech': deviceSpeech,
+          'fallback': speech?.usedFallback ?? false,
+          'outcome': outcome,
+        });
         _running--;
         if (_replyEpoch == epoch) _replyEpoch = null;
         if (_attentionReplyBy == epoch && _attentionReply) {
@@ -797,6 +834,7 @@ class VoiceCall extends ChangeNotifier {
       'connected': connected,
       'turns': callTurnsBucket(_turns),
       'speech_fallbacks': callTurnsBucket(_fallbacks),
+      'speech_retries': callTurnsBucket(_speechRetries),
       'duration': callDurationBucket(
         _started == null ? null : _now().difference(_started!),
       ),
