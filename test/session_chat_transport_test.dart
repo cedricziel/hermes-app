@@ -325,6 +325,7 @@ class _Delegate
     ModelChoice? model,
     bool queued = false,
     WorkspaceChoice? workspace,
+    void Function()? onSubmitting,
   }) => sendStream ?? sendController.stream;
 
   @override

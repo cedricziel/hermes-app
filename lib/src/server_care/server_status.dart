@@ -98,7 +98,7 @@ class ServerStatus {
     final storageStatus = readString(storage?['status']);
     final storageReason = readString(storage?['reason']);
     return ServerStatus(
-      version: readString(root['version']),
+      version: readVersion(root['version']),
       releaseDate: readString(root['release_date']),
       canUpdateHermes: readBool(root['can_update_hermes']),
       gatewayRunning: readBool(root['gateway_running']) ?? false,

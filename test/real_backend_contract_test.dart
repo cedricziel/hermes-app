@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
     show
+        CredentialPoolAdd,
         CronJobCreate,
         CustomEndpointUpdate,
         EnvVarUpdate,
@@ -52,6 +53,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/providers/provider_models.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
@@ -69,6 +71,7 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_models.dart';
+import 'package:hermes_app/src/tools/toolset_risk.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
@@ -106,8 +109,23 @@ import 'support/attachment_fixtures.dart';
 /// (no credentials, no build) and removes it, and the sign-in test starts and
 /// cancels a flow against a minimal OAuth provider on the loopback interface.
 /// The model provider tests only read the five list routes and call both
-/// validate routes with an empty value; they save no key, start no sign-in and
-/// remove nothing.
+/// validate routes with an empty value; the read-only group saves no key,
+/// starts no sign-in and removes nothing.
+/// The model provider write tests create three throwaway profiles named
+/// `contract-check-key-…`, `-endpoint-…` and `-pool-…`, save fake keys, a
+/// custom endpoint that points at a model served on the loopback interface, a
+/// manual pool entry and a `moa` preset into them, remove a key, and delete
+/// the profiles after; the local-runtime row test stages an empty `.gguf` in
+/// `$HERMES_DEV_HOME/models` (skipped without `HERMES_DEV_HOME`) and removes it.
+/// Nothing reaches a real provider. The tool write tests do the same with a
+/// profile named `contract-check-tools-…`: they switch toolsets, pick a
+/// provider with a fake key, a model and a terminal backend, and chat with a
+/// scripted model; no install step is started. These write groups create and
+/// delete profiles, so a second run against the same backend fails until it
+/// restarts. Fake keys go only to the backend, and no test saves a key for a
+/// hosted provider (Hermes would fetch that provider's catalog with it): the
+/// provider tests use LM Studio pointed at the loopback server, the tool test
+/// FAL.ai, whose catalog is built in.
 /// The media tests write throwaway files under the backend's `images` folder
 /// and the system temp directory, so they need a backend on this machine, and
 /// delete them after. The scripted-model tests create a throwaway profile
@@ -190,7 +208,10 @@ void main() {
 
     test('status carries the fields the headline reads', () async {
       final status = value(await care.status(profile: 'default'));
-      expect(status.version, isNotNull);
+      // A checkout without version metadata answers "unknown", which reads
+      // as no version.
+      expect(status.version, anyOf(isNull, isNot(isEmpty)));
+      expect(status.version?.toLowerCase(), isNot('unknown'));
       expect(status.profiles, contains('default'));
       expect(status.configVersion, isA<int>());
       expect(status.latestConfigVersion, isA<int>());
@@ -205,7 +226,8 @@ void main() {
       'health answers ok with the commit the dashboard booted from',
       () async {
         final health = value(await care.health());
-        expect(health.version, isNotNull);
+        expect(health.version, anyOf(isNull, isNot(isEmpty)));
+        expect(health.version?.toLowerCase(), isNot('unknown'));
         expect(
           health.commit,
           anyOf(isNull, matches(RegExp(r'^[0-9a-f]{40}$'))),
@@ -3663,6 +3685,40 @@ void main() {
       expect(list.toolsets.map((t) => t.name), contains('terminal'));
     });
 
+    test('every toolset the server lists has been decided about in the '
+        'risk table, or is on the list still to decide', () async {
+      // When a Hermes bump (update-hermes-contracts.yml) adds a toolset, this
+      // fails: decide it in toolset_risk.dart, or add it here on purpose.
+      // Names the server listed on d923a5eb that the app has not decided
+      // about (no risk line, no confirmation). A name outside all three sets
+      // is new: decide it in lib/src/tools/toolset_risk.dart.
+      const stillToDecide = {
+        'vision',
+        'video',
+        'x_search',
+        'skills',
+        'kanban',
+        'memory',
+        'context_engine',
+        'connections',
+        'clarify',
+        'discord',
+        'yuanbao',
+        'a2a',
+      };
+      final names = value(await tools.list()).toolsets.map((t) => t.name);
+
+      expect(names.length, greaterThan(10));
+      expect(names, containsAll(['terminal', 'file', 'web', 'browser']));
+      final unknown = names.where(
+        (n) =>
+            !kToolsetRisks.containsKey(n) &&
+            !kNoRiskToolsets.contains(n) &&
+            !stillToDecide.contains(n),
+      );
+      expect(unknown, isEmpty, reason: 'new toolsets: decide their risk');
+    });
+
     test('a toolset with a provider matrix reads its providers', () async {
       final list = value(await tools.list());
       final name = list.toolsets
@@ -3732,6 +3788,613 @@ void main() {
 
       expect(await gone.list(), isA<ToolsProfileGone<ToolsetList>>());
     });
+  }, skip: skip);
+
+  group('model providers on throwaway profiles (fake keys, no provider call)', () {
+    // Saves FAKE keys into profiles this group creates, adds a custom
+    // endpoint that points at a model served on the loopback interface, a
+    // manual pool entry and an opted-in `moa` preset, and deletes the
+    // profiles after. No key is validated (that would call the provider) and
+    // no provider is ever contacted: the only server reached is the loopback
+    // one. The local-runtime row needs HERMES_DEV_HOME (the backend's home) to
+    // stage an empty model file in; that test is skipped without it.
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final emptyProfile = 'contract-check-empty-$stamp';
+    final keyProfile = 'contract-check-key-$stamp';
+    final endpointProfile = 'contract-check-endpoint-$stamp';
+    final poolProfile = 'contract-check-pool-$stamp';
+    final devHome = Platform.environment['HERMES_DEV_HOME'];
+    final authorizations = <String?>[];
+    late HttpServer model;
+    late ProvidersRepository providers;
+
+    Future<Map<String, dynamic>> options(
+      String profile, {
+      bool unconfigured = true,
+    }) async {
+      final body = (await client.raw.getModelOptionsApiModelOptionsGet(
+        profile: profile,
+        includeUnconfigured: unconfigured,
+      )).data;
+      expect(body, isA<Map<String, dynamic>>());
+      return body! as Map<String, dynamic>;
+    }
+
+    Map<String, dynamic>? optionsRow(Map<String, dynamic> body, String slug) {
+      for (final row in (body['providers']! as List)) {
+        if ((row as Map)['slug'] == slug) return row.cast<String, dynamic>();
+      }
+      return null;
+    }
+
+    Future<Map<String, dynamic>> read(Future<Response<Object>> call) async {
+      final body = (await call).data;
+      expect(body, isA<Map<String, dynamic>>());
+      return body! as Map<String, dynamic>;
+    }
+
+    Future<ProviderCatalog> catalogOf(String profile) async {
+      final snapshot = await providers.load(profile);
+      expect(snapshot, isA<ProvidersLoaded>());
+      return (snapshot as ProvidersLoaded).catalog;
+    }
+
+    setUpAll(() async {
+      if (url == null) return;
+      providers = ProvidersRepository(client.raw);
+      model = await _serveScriptedModel(
+        command: 'true',
+        onTurn: (authorization, tools) {
+          if (tools.isNotEmpty) authorizations.add(authorization);
+        },
+      );
+      for (final name in [
+        emptyProfile,
+        keyProfile,
+        endpointProfile,
+        poolProfile,
+      ]) {
+        await client.raw.createProfileEndpointApiProfilesPost(
+          profileCreate: ProfileCreate(name: name, noSkills: true),
+        );
+      }
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      try {
+        for (final name in [
+          emptyProfile,
+          keyProfile,
+          endpointProfile,
+          poolProfile,
+        ]) {
+          await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+            name: name,
+          );
+        }
+      } finally {
+        await model.close(force: true);
+      }
+    });
+
+    HermesGatewayTransport connect() {
+      final transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      addTearDown(transport.close);
+      return transport;
+    }
+
+    test('an empty profile has every provider as a skeleton, no default, '
+        'no pool entry and no endpoint', () async {
+      final body = await options(emptyProfile);
+      expect(body['model'], '');
+      expect(body['provider'], '');
+      final rows = (body['providers']! as List).cast<Map<String, dynamic>>();
+      expect(rows.length, greaterThan(20));
+      final openRouter = optionsRow(body, 'openrouter')!;
+      expect(openRouter['authenticated'], isFalse);
+      expect(openRouter['auth_type'], 'api_key');
+      expect(openRouter['warning'], isA<String>());
+      // The chat picker's read (no flag) lists nothing but a staged local
+      // runtime for a profile with nothing connected.
+      final plain = await options(emptyProfile, unconfigured: false);
+      expect(plain['provider'], '');
+      final plainRows = (plain['providers']! as List).cast<Map>();
+      expect(
+        plainRows.where((r) => r['source'] != 'local-runtime'),
+        isEmpty,
+        reason: 'only a staged local runtime can be listed',
+      );
+      // The skeleton may name no key variable; /api/env always does.
+      expect(openRouter['key_env'], anyOf('', 'OPENROUTER_API_KEY'));
+      final openAi = optionsRow(body, 'openai-api')!;
+      expect(openAi['auth_type'], 'api_key');
+      expect(openAi['key_env'], 'OPENAI_API_KEY');
+      expect(optionsRow(body, 'nous')!['auth_type'], 'oauth_device_code');
+
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: emptyProfile),
+      );
+      final keyRow = env['OPENROUTER_API_KEY'] as Map;
+      expect(keyRow['is_set'], isFalse);
+      expect(keyRow['provider'], 'openrouter');
+      expect(keyRow['provider_primary'], isTrue);
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(
+          profile: emptyProfile,
+        ),
+      );
+      expect(pool['providers'], isEmpty);
+      final endpoints = await read(
+        client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: emptyProfile,
+        ),
+      );
+      expect(endpoints['endpoints'], isEmpty);
+      final oauth = await read(
+        client.raw.listOauthProvidersApiProvidersOauthGet(
+          profile: emptyProfile,
+        ),
+      );
+      expect((oauth['providers']! as List).length, greaterThan(3));
+
+      final catalog = await catalogOf(emptyProfile);
+      expect(catalog.connected, isEmpty);
+      expect(catalog.skippedRows, 0);
+      expect(catalog.byId('openrouter')!.keyEnv, 'OPENROUTER_API_KEY');
+    });
+
+    test('a saved key connects the provider, and removing it keeps the '
+        'default', () async {
+      // Only the loopback server is ever reached: LM Studio is a local
+      // provider, and its base URL is pointed at the scripted model before
+      // any key is saved. (A key for a hosted provider would let Hermes fetch
+      // that provider's catalog with it.)
+      await client.raw.setEnvVarApiEnvPut(
+        envVarUpdate: EnvVarUpdate(
+          key: 'LM_BASE_URL',
+          value: 'http://127.0.0.1:${model.port}/v1',
+          apiKey: null,
+          providerSetup: null,
+        ),
+        profile: keyProfile,
+      );
+      expect(
+        await providers.saveKey(keyProfile, 'LM_API_KEY', 'demo-lm-0000'),
+        isA<KeySaved>(),
+      );
+
+      final body = await options(keyProfile);
+      final row = optionsRow(body, 'lmstudio')!;
+      expect(row['authenticated'], isTrue);
+      expect(row['total_models'], isA<int>());
+      expect(body['provider'], '');
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: keyProfile),
+      );
+      final keyRow = env['LM_API_KEY'] as Map;
+      expect(keyRow['is_set'], isTrue);
+      expect(keyRow['redacted_value'], startsWith('«redacted:'));
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
+      );
+      final group = (pool['providers']! as List).single as Map;
+      expect(group['provider'], 'lmstudio');
+      expect(
+        ((group['entries']! as List).single as Map)['source'],
+        isA<String>(),
+      );
+      expect(
+        ((group['entries']! as List).single as Map)['source'],
+        'env:LM_API_KEY',
+      );
+      expect((await catalogOf(keyProfile)).byId('lmstudio')!.connected, isTrue);
+
+      expect(
+        await providers.setDefaultModel(keyProfile, 'lmstudio', 'scripted'),
+        isA<DefaultModelSaved>(),
+      );
+      expect((await options(keyProfile))['provider'], 'lmstudio');
+
+      expect(
+        await providers.removeKey(keyProfile, 'LM_API_KEY'),
+        isA<Removed>(),
+      );
+      // The key is gone and so is its pool mirror, and the default stays.
+      // (LM Studio is a local provider and stays "authenticated" without a
+      // key, so the hosted-provider case of a removed key, recorded in
+      // design.md and the fixtures, is not run here: it would need a key
+      // saved for a hosted provider.)
+      final after = await options(keyProfile);
+      expect(after['provider'], 'lmstudio');
+      expect(after['model'], 'scripted');
+      final gone = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(profile: keyProfile),
+      );
+      expect(gone['providers'], isEmpty);
+      final env2 = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: keyProfile),
+      );
+      expect((env2['LM_API_KEY'] as Map)['is_set'], isFalse);
+      expect(
+        (await catalogOf(keyProfile)).byId('lmstudio')!.credentials,
+        isEmpty,
+      );
+    });
+
+    test('a custom endpoint is checked, saved and made the default as '
+        '`custom:<id>`, and its key reaches a new chat and an open one with no '
+        'reload', () async {
+      final baseUrl = 'http://127.0.0.1:${model.port}/v1';
+      final checked = await providers.checkEndpoint(
+        name: 'Contract endpoint',
+        baseUrl: baseUrl,
+        model: 'scripted',
+        apiKey: 'demo-key-1',
+      );
+      expect(checked, isA<EndpointChecked>());
+      expect((checked as EndpointChecked).models, contains('scripted'));
+
+      final saved = await providers.saveEndpoint(
+        endpointProfile,
+        name: 'Contract endpoint',
+        baseUrl: baseUrl,
+        model: 'scripted',
+        apiKey: 'demo-key-1',
+      );
+      expect(saved, isA<EndpointSaved>());
+      final id = (saved as EndpointSaved).id!;
+      final listed = await read(
+        client.raw.listCustomEndpointsApiProvidersCustomEndpointsGet(
+          profile: endpointProfile,
+        ),
+      );
+      final row = (listed['endpoints']! as List).single as Map;
+      expect(row['id'], id);
+      expect(row['has_api_key'], isTrue);
+      final reference = RegExp(r'^\$\{([A-Z0-9_]+)\}$')
+          .firstMatch('${row['api_key_preview']}');
+      expect(reference, isNotNull, reason: 'a variable reference');
+      final keyVariable = reference!.group(1)!;
+
+      expect(
+        await providers.setDefaultModel(
+          endpointProfile,
+          'custom:$id',
+          'scripted',
+        ),
+        isA<DefaultModelSaved>(),
+      );
+      final body = await options(endpointProfile);
+      expect(body['provider'], 'custom:$id');
+      expect(body['model'], 'scripted');
+      final optionsEntry = optionsRow(body, id)!;
+      expect(optionsEntry['is_user_defined'], isTrue);
+      expect(optionsEntry['aliases'], contains('custom:$id'));
+      final catalog = await catalogOf(endpointProfile);
+      expect(catalog.entries.where((e) => e.id == id), hasLength(1));
+      expect(catalog.byId(id)!.isDefault, isTrue);
+
+      Future<String> chat({String? threadId, required String key}) async {
+        authorizations.clear();
+        final events = await connect()
+            .send(threadId: threadId, profile: endpointProfile, text: 'Hi.')
+            .toList();
+        expect((events.last as ReplyCompleted).failed, isFalse);
+        expect(authorizations, isNotEmpty);
+        expect(authorizations.last, 'Bearer $key');
+        return events.whereType<ThreadBound>().first.threadId;
+      }
+
+      final threadId = await chat(key: 'demo-key-1');
+      expect(
+        await providers.saveKey(endpointProfile, keyVariable, 'demo-key-2'),
+        isA<KeySaved>(),
+      );
+      await chat(key: 'demo-key-2');
+
+      // A chat that is open (here: the same connection) takes a key saved
+      // after it started on its next turn.
+      final open = connect();
+      authorizations.clear();
+      final first = await open
+          .send(profile: endpointProfile, text: 'Open.')
+          .toList();
+      final openThread = first.whereType<ThreadBound>().first.threadId;
+      expect(authorizations.last, 'Bearer demo-key-2');
+      expect(
+        await providers.saveKey(endpointProfile, keyVariable, 'demo-key-3'),
+        isA<KeySaved>(),
+      );
+      authorizations.clear();
+      final again = await open
+          .send(threadId: openThread, profile: endpointProfile, text: 'Again.')
+          .toList();
+      expect((again.last as ReplyCompleted).failed, isFalse);
+      expect(authorizations.last, 'Bearer demo-key-3');
+      expect(threadId, isNot(openThread));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('a manual pool entry connects the provider, read-only, and the '
+        'moa row is opt-in', () async {
+      final added = await read(
+        client.raw.addCredentialPoolEntryApiCredentialsPoolPost(
+          credentialPoolAdd: CredentialPoolAdd(
+            provider: 'lmstudio',
+            apiKey: 'demo-lm-0001',
+            label: 'manual demo',
+          ),
+          profile: poolProfile,
+        ),
+      );
+      expect(added['ok'], isTrue);
+      final pool = await read(
+        client.raw.listCredentialPoolApiCredentialsPoolGet(
+          profile: poolProfile,
+        ),
+      );
+      final entry =
+          (((pool['providers']! as List).single as Map)['entries']! as List)
+                  .single
+              as Map;
+      expect(entry['source'], 'manual');
+      expect(entry['auth_type'], 'api_key');
+      expect(entry['label'], 'manual demo');
+      expect(entry['token_preview'], endsWith('0001'));
+
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: poolProfile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText: '''
+moa:
+  presets:
+    contract-mix:
+      enabled: true
+      aggregator:
+        provider: lmstudio
+        model: scripted
+      reference_models: []
+''',
+        ),
+      );
+      final body = await options(poolProfile);
+      final lmStudio = optionsRow(body, 'lmstudio')!;
+      expect(lmStudio['authenticated'], isTrue);
+      final env = await read(
+        client.raw.getEnvVarsApiEnvGet(profile: poolProfile),
+      );
+      expect((env['LM_API_KEY'] as Map)['is_set'], isFalse);
+      final moa = optionsRow(body, 'moa')!;
+      expect(moa['auth_type'], 'virtual');
+      expect(moa['source'], 'virtual');
+      expect(moa['authenticated'], isTrue);
+      expect(moa['models'], contains('contract-mix'));
+      expect(optionsRow(await options(keyProfile), 'moa'), isNull);
+
+      final catalog = await catalogOf(poolProfile);
+      expect(catalog.skippedRows, 0);
+      expect(catalog.byId('moa'), isNull);
+      final connected = catalog.byId('lmstudio')!;
+      expect(connected.connected, isTrue);
+      expect(connected.credentials.single.kind, CredentialKind.poolKey);
+      expect(connected.credentials.single.label, 'manual demo');
+    });
+
+    test(
+      'the managed local runtime is a row with `auth_type: local` and '
+      '`source: local-runtime` that the catalog leaves out',
+      () async {
+        final models = Directory('$devHome/models')
+          ..createSync(recursive: true);
+        final file = File('${models.path}/contract-check-$stamp.gguf')
+          ..writeAsBytesSync(const []);
+        try {
+          final row = optionsRow(await options(keyProfile), 'llamacpp')!;
+          expect(row['source'], 'local-runtime');
+          expect(row['auth_type'], 'local');
+          expect(row['authenticated'], isTrue);
+          expect(row['models'], contains('contract-check-$stamp'));
+          final catalog = await catalogOf(keyProfile);
+          expect(catalog.byId('llamacpp'), isNull);
+          expect(catalog.skippedRows, 0);
+        } finally {
+          file.deleteSync();
+        }
+      },
+      skip: devHome == null ? 'set HERMES_DEV_HOME to the backend home' : null,
+    );
+  }, skip: skip);
+
+  group('tools on a throwaway profile (switches and setup writes, no '
+      'install)', () {
+    // Switches, picks and saves on a profile this group creates, with a fake
+    // key, and deletes the profile after. No install step is started (a
+    // post-setup would install from the network).
+    final profile =
+        'contract-check-tools-${DateTime.now().millisecondsSinceEpoch}';
+    late HttpServer model;
+    late HermesToolsRepository tools;
+    final turns = <List<String>>[];
+
+    setUpAll(() async {
+      if (url == null) return;
+      model = await _serveScriptedModel(
+        command: 'true',
+        onTurn: (_, names) {
+          if (names.isNotEmpty) turns.add(names);
+        },
+      );
+      await client.raw.createProfileEndpointApiProfilesPost(
+        profileCreate: ProfileCreate(name: profile, noSkills: true),
+      );
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: profile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText:
+              '''
+model:
+  default: "scripted"
+  provider: "custom"
+  base_url: "http://127.0.0.1:${model.port}/v1"
+  api_key: "scripted"
+  context_length: 131072
+''',
+        ),
+      );
+      tools = HermesToolsRepository(client.raw, profile: profile);
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      try {
+        await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+          name: profile,
+        );
+      } finally {
+        await model.close(force: true);
+      }
+    });
+
+    T value<T>(ToolsResult<T> result) {
+      expect(result, isA<ToolsOk<T>>(), reason: '$result');
+      return (result as ToolsOk<T>).value;
+    }
+
+    Toolset row(ToolsetList list, String name) =>
+        list.toolsets.singleWhere((t) => t.name == name);
+
+    test('a switch is answered and read back, and "available" follows '
+        '"enabled"', () async {
+      final before = row(value(await tools.list()), 'todo');
+      expect(before.enabled, isTrue);
+
+      final off = value(await tools.switchToolset('todo', enabled: false));
+      expect(off.enabled, isFalse);
+      expect(off.postSetupStarted, isNull);
+      expect(row(value(await tools.list()), 'todo').enabled, isFalse);
+      final raw = (await client.raw.getToolsetsApiToolsToolsetsGet(
+        profile: profile,
+      )).data!;
+      final rawRow = (raw as List).cast<Map<String, dynamic>>().singleWhere(
+        (r) => r['name'] == 'todo',
+      );
+      expect(rawRow['available'], false);
+
+      final on = value(await tools.switchToolset('todo', enabled: true));
+      expect(on.enabled, isTrue);
+      expect(row(value(await tools.list()), 'todo').enabled, isTrue);
+    });
+
+    test('a provider, a key, a model and a terminal backend are answered '
+        'and read back', () async {
+      final config = value(await tools.config('image_gen'));
+      // The provider is chosen by name, with a built-in catalog: a row whose
+      // tag speaks of a live catalog would make Hermes call the provider with
+      // the fake key on a machine with a network. The check comes before
+      // anything is saved.
+      final provider = config.providers.singleWhere(
+        (p) => p.name == 'FAL.ai',
+        orElse: () => throw TestFailure('image_gen has no FAL.ai provider'),
+      );
+      expect(provider.tag ?? '', isNot(contains('live catalog')));
+      expect(provider.envVars, hasLength(1));
+      value(await tools.pickProvider('image_gen', provider.name));
+      final saved = value(
+        await tools.saveEnv('image_gen', {
+          provider.envVars.single.key: 'demo-0000',
+        }),
+      );
+      expect(value(await tools.models('image_gen')).hasModels, isTrue);
+      final key = provider.envVars.single.key;
+      expect(saved.saved, [key]);
+      expect(saved.isSet[key], isTrue);
+      // A blank value is skipped, never cleared.
+      final blank = value(await tools.saveEnv('image_gen', {key: ''}));
+      expect(blank.saved, isEmpty);
+      expect(blank.skipped, [key]);
+      expect(blank.isSet[key], isTrue);
+
+      final after = value(await tools.config('image_gen'));
+      final active = after.providers.singleWhere((p) => p.isActive);
+      expect(active.name, provider.name);
+      expect(active.envVars.single.isSet, isTrue);
+      expect(after.activeProvider, provider.name);
+
+      // The catalog is read again: saving the key can change it.
+      final fresh = value(await tools.models('image_gen'));
+      expect(fresh.hasModels, isTrue);
+      final other = fresh.models.firstWhere((m) => m.id != fresh.current);
+      value(await tools.pickModel('image_gen', other.id));
+      expect(value(await tools.models('image_gen')).current, other.id);
+      expect(
+        await tools.pickModel('image_gen', 'no-such-model'),
+        isA<ToolsRefused<void>>(),
+      );
+
+      value(await tools.pickTerminalBackend('docker'));
+      expect(value(await tools.terminalBackends()).active, 'docker');
+      value(await tools.pickTerminalBackend('local'));
+      expect(value(await tools.terminalBackends()).active, 'local');
+      expect(
+        await tools.pickTerminalBackend('no-such-backend'),
+        isA<ToolsRefused<void>>(),
+      );
+    });
+
+    test(
+      'a switch reaches a chat started after it, and not one already open',
+      () async {
+        HermesGatewayTransport connect() {
+          final transport = HermesGatewayTransport(
+            connect: hermesGatewayConnect(
+              baseUrl: url!,
+              authRequired: false,
+              api: client,
+            ),
+          );
+          addTearDown(transport.close);
+          return transport;
+        }
+
+        Future<(List<String>, String)> send(
+          HermesGatewayTransport transport, {
+          String? threadId,
+        }) async {
+          turns.clear();
+          final events = await transport
+              .send(threadId: threadId, profile: profile, text: 'Hello.')
+              .toList();
+          expect((events.last as ReplyCompleted).failed, isFalse);
+          expect(turns, isNotEmpty);
+          final names = turns.reduce((a, b) => a.length >= b.length ? a : b);
+          final bound = events.whereType<ThreadBound>();
+          return (names, bound.isEmpty ? '' : bound.first.threadId);
+        }
+
+        value(await tools.switchToolset('terminal', enabled: true));
+        final open = connect();
+        final (first, threadId) = await send(open);
+        expect(first, contains('terminal'));
+
+        value(await tools.switchToolset('terminal', enabled: false));
+        final (same, _) = await send(open, threadId: threadId);
+        expect(same, contains('terminal'), reason: 'the open chat keeps it');
+        final (fresh, _) = await send(connect());
+        expect(fresh, isNotEmpty);
+        expect(fresh, isNot(contains('terminal')));
+
+        value(await tools.switchToolset('terminal', enabled: true));
+        final (back, _) = await send(connect());
+        expect(back, contains('terminal'));
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
   }, skip: skip);
 
   group('requests scoped to a second profile (no model call)', () {
@@ -4368,6 +5031,380 @@ approvals:
       skip: skip,
     );
 
+    Future<_GatewayTap> openTap() async {
+      final tap = _GatewayTap(
+        GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        ),
+      );
+      addTearDown(tap.close);
+      return tap;
+    }
+
+    Matcher rpcError(int code) =>
+        throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', code));
+
+    test(
+      'a delegation lists two running agents the app parses, which can be '
+      'read, steered and stopped, and which only the attached connection '
+      'controls',
+      () async {
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Delegate the crate counting.',
+        });
+        await tap.until(
+          () =>
+              tap
+                  .eventsOf(sid)
+                  .where((e) => e.type == 'subagent.tool')
+                  .length >=
+              2,
+          'two subagent.tool frames',
+        );
+        final ids = <String>{
+          for (final e in tap.eventsOf(sid))
+            if (e.type == 'subagent.start') e.payload['subagent_id']! as String,
+        };
+        expect(ids, hasLength(2));
+        // A failed assertion must not leave the children sleeping.
+        addTearDown(() async {
+          for (final id in ids) {
+            try {
+              await tap.rpc.request('subagent.interrupt', {
+                'session_id': sid,
+                'subagent_id': id,
+              });
+            } on Object {
+              // Already ended or the connection is gone.
+            }
+          }
+        });
+        Future<Map<String, Object?>> call(
+          String method, [
+          Map<String, Object?>? p,
+        ]) => tap.rpc.request(method, {'session_id': sid, ...?p});
+
+        // subagent.list: both children, running, steerable.
+        final list = parseAgentList(await call('subagent.list'))!;
+        expect(list.agents.map((a) => a.id).toSet(), ids);
+        expect(list.delegations, isEmpty);
+        for (final agent in list.agents) {
+          expect(agent.state, AgentState.running);
+          expect(agent.acceptingSteer, isTrue);
+          expect(agent.goal, startsWith('Count the '));
+          expect(agent.toolCount, 1);
+          expect(agent.lastTool, 'terminal');
+          expect(agent.startedAt, isNotNull);
+          expect(agent.delegationId, isNotNull);
+        }
+        final [first, second] = ids.toList();
+
+        // subagent.tail: the child's transcript, with its tool line.
+        final tail = parseAgentTail(
+          await call('subagent.tail', {'subagent_id': first}),
+        )!;
+        expect(tail.available, isTrue);
+        expect(tail.truncated, isFalse);
+        expect(tail.text, contains('terminal(sleep 30)'));
+
+        // subagent.steer: queued for a running child, rejected for an
+        // unknown one, and the two request errors.
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': first,
+              'text': 'Use the small crate.',
+            }),
+          ),
+          SteerOutcome.queued,
+        );
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': 'sa-9-unknown',
+              'text': 'Hello',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+        await expectLater(
+          call('subagent.steer', {'subagent_id': first, 'text': '  '}),
+          rpcError(4002),
+        );
+        await expectLater(
+          call('subagent.steer', {'text': 'x'}),
+          rpcError(4000),
+        );
+        await expectLater(call('subagent.tail'), rpcError(4000));
+
+        // A connection that never resumed the chat: reads and interrupts are
+        // 4001, a note is rejected (not 4001).
+        final other = await openTap();
+        await expectLater(
+          other.rpc.request('subagent.list', {'session_id': sid}),
+          rpcError(4001),
+        );
+        await expectLater(
+          other.rpc.request('subagent.tail', {
+            'session_id': sid,
+            'subagent_id': first,
+          }),
+          rpcError(4001),
+        );
+        await expectLater(
+          other.rpc.request('subagent.interrupt', {
+            'session_id': sid,
+            'subagent_id': first,
+          }),
+          rpcError(4001),
+        );
+        expect(
+          parseSteerOutcome(
+            await other.rpc.request('subagent.steer', {
+              'session_id': sid,
+              'subagent_id': first,
+              'text': 'x',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+
+        // subagent.interrupt: found for a running child, not for an unknown
+        // one; the child then completes as interrupted and is gone.
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': second}),
+          ),
+          StopOutcome.stopped,
+        );
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': 'sa-9-unknown'}),
+          ),
+          StopOutcome.alreadyEnded,
+        );
+        await tap.until(
+          () => tap
+              .eventsOf(sid)
+              .any(
+                (e) =>
+                    e.type == 'subagent.complete' &&
+                    e.payload['subagent_id'] == second,
+              ),
+          'the interrupted child to complete',
+        );
+        final complete = tap
+            .eventsOf(sid)
+            .firstWhere(
+              (e) =>
+                  e.type == 'subagent.complete' &&
+                  e.payload['subagent_id'] == second,
+            );
+        expect(complete.payload['status'], 'interrupted');
+        // The record is dropped when the child ends; allow a short race.
+        var endedTail = parseAgentTail(
+          await call('subagent.tail', {'subagent_id': second}),
+        )!;
+        for (var i = 0; i < 50 && endedTail.available; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          endedTail = parseAgentTail(
+            await call('subagent.tail', {'subagent_id': second}),
+          )!;
+        }
+        expect(endedTail.available, isFalse);
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': second}),
+          ),
+          StopOutcome.alreadyEnded,
+        );
+        expect(
+          parseSteerOutcome(
+            await call('subagent.steer', {
+              'subagent_id': second,
+              'text': 'late',
+            }),
+          ),
+          SteerOutcome.rejected,
+        );
+
+        // Stop the other child too, so nothing runs on after the test, and
+        // see the interrupted delegations listed once they are recorded.
+        expect(
+          parseStopOutcome(
+            await call('subagent.interrupt', {'subagent_id': first}),
+          ),
+          StopOutcome.stopped,
+        );
+        AgentList? after;
+        for (var i = 0; i < 100; i++) {
+          after = parseAgentList(await call('subagent.list'));
+          if (after!.agents.isEmpty && after.delegations.length == 2) break;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        expect(after!.agents, isEmpty);
+        expect(after.delegations, hasLength(2));
+        for (final row in after.delegations) {
+          expect(row.state, AgentState.stopped);
+          expect(row.goal, startsWith('Count the '));
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'a background program is listed, stopped once, and reads as stopped '
+      'afterwards (a program of the test itself; process.stop is never sent)',
+      () async {
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Run background server.',
+        });
+        await tap.until(
+          () => tap.eventsOf(sid).any((e) => e.type == 'message.complete'),
+          'the reply',
+        );
+        Future<Map<String, Object?>> call(
+          String method, [
+          Map<String, Object?>? p,
+        ]) => tap.rpc.request(method, {'session_id': sid, ...?p});
+
+        // The program's output is read by a background thread: on a slow
+        // machine the first list can precede it. Wait, bounded, for it.
+        var running = parseProcessList(await call('process.list'))!;
+        for (var i = 0; i < 150; i++) {
+          final tail = running.processes.isEmpty
+              ? null
+              : running.processes.first.outputTail;
+          if (tail != null && tail.contains('ready on demo port')) break;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          running = parseProcessList(await call('process.list'))!;
+        }
+        final row = running.processes.single;
+        expect(row.status, ProgramStatus.running);
+        expect(row.command, 'echo ready on demo port; sleep 300');
+        expect(row.outputTail, contains('ready on demo port'));
+        expect(row.exitCode, isNull);
+        expect(row.uptime, isNotNull);
+        addTearDown(() async {
+          try {
+            await tap.rpc.request('process.kill', {
+              'session_id': sid,
+              'process_id': row.id,
+            });
+          } on Object {
+            // Already stopped or the connection is gone.
+          }
+        });
+        // No attachment check: a connection that never resumed the chat reads
+        // the same list (design.md; the app still reads only while attached).
+        final reader = await openTap();
+        expect(
+          parseProcessList(
+            await reader.rpc.request('process.list', {'session_id': sid}),
+          )!.processes.single.id,
+          row.id,
+        );
+
+        final killed = parseProcessKill(
+          await call('process.kill', {'process_id': row.id}),
+        )!;
+        expect(killed.outcome, KillOutcome.killed);
+        expect(killed.completionReason, 'killed');
+        expect(killed.output, contains('ready on demo port'));
+
+        final after = parseProcessList(await call('process.list'))!;
+        final ended = after.processes.single;
+        expect(ended.id, row.id);
+        expect(ended.running, isFalse);
+        expect(ended.completionReason, 'killed');
+        expect(ended.exitCode, isNegative);
+        expect(ended.status, ProgramStatus.stopped);
+
+        final again = parseProcessKill(
+          await call('process.kill', {'process_id': row.id}),
+        )!;
+        expect(again.outcome, KillOutcome.alreadyExited);
+        expect(again.completionReason, 'killed');
+        expect(again.exitCode, isNegative);
+
+        await expectLater(
+          call('process.kill', {'process_id': 'proc_000000000000'}),
+          rpcError(4044),
+        );
+        await expectLater(call('process.kill'), rpcError(4012));
+        await expectLater(call('process.nope'), rpcError(-32601));
+        await expectLater(
+          tap.rpc.request('process.list', {'session_id': 'not-a-session'}),
+          rpcError(4001),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'process.list and process.kill answer 5032 at once when the chat\'s '
+      'agent could not be built',
+      () async {
+        final broken = '$profile-broken';
+        await client.raw.createProfileEndpointApiProfilesPost(
+          profileCreate: ProfileCreate(name: broken, noSkills: true),
+        );
+        addTearDown(
+          () => client.raw.deleteProfileEndpointApiProfilesNameDelete(
+            name: broken,
+          ),
+        );
+        await client.raw.updateConfigRawApiConfigRawPut(
+          profile: broken,
+          rawConfigUpdate: RawConfigUpdate(
+            yamlText:
+                'model:\n  default: "none"\n  provider: "no-such-provider"\n',
+          ),
+        );
+        final tap = await openTap();
+        final session = await tap.rpc.request('session.create', {
+          'profile': broken,
+          'source': 'hermes_app',
+        });
+        final sid = session['session_id'] as String;
+        final clock = Stopwatch()..start();
+        await expectLater(
+          tap.rpc.request('process.list', {'session_id': sid}),
+          rpcError(5032),
+        );
+        expect(clock.elapsed, lessThan(const Duration(seconds: 10)));
+        await expectLater(
+          tap.rpc.request('process.kill', {
+            'session_id': sid,
+            'process_id': 'proc_000000000000',
+          }),
+          rpcError(5032),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
     test(
       'an approval is found by its chat on another connection and answered '
       'there by its id, without resuming the chat',
@@ -4682,7 +5719,16 @@ Future<HttpServer> _serveMinimalMcp() async {
 /// An OpenAI-compatible model that answers a prompt containing "Clean up"
 /// with one terminal call running [command], and anything else, including the
 /// call's result and Hermes' own side calls, with a plain line.
-Future<HttpServer> _serveScriptedModel({required String command}) async {
+///
+/// Two more prompts script the agent-control checks: "Delegate" answers with
+/// a `delegate_task` call holding two goals, and "Run background" with a
+/// background `terminal` call (`sleep 300`). A delegated child, told apart by
+/// its system prompt ("focused subagent"), runs `terminal` `sleep 30` on its
+/// first turn and answers plainly after the tool's result.
+Future<HttpServer> _serveScriptedModel({
+  required String command,
+  void Function(String? authorization, List<String> tools)? onTurn,
+}) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
     final response = request.response;
@@ -4691,6 +5737,10 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
       response.write(
         jsonEncode({
           'object': 'list',
+          // LM Studio's own listing (`/api/v1/models`) reads `models`.
+          'models': [
+            {'key': 'scripted', 'type': 'llm'},
+          ],
           'data': [
             {'id': 'scripted', 'object': 'model', 'context_length': 131072},
           ],
@@ -4699,25 +5749,56 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
       await response.close();
       return;
     }
-    final body = jsonDecode(
-      await utf8.decoder.bind(request).join(),
-    ) as Map<String, dynamic>;
+    // Hermes also probes the endpoint (`/models/<id>`, `/api/show`); only a
+    // chat request carries a body.
+    final raw = await utf8.decoder.bind(request).join();
+    final decoded = raw.startsWith('{') ? jsonDecode(raw) : null;
+    if (decoded is! Map<String, dynamic> || decoded['messages'] is! List) {
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
+      return;
+    }
+    final body = decoded;
+    onTurn?.call(request.headers.value('authorization'), [
+      for (final tool in (body['tools'] as List?) ?? const [])
+        ?((tool as Map)['function'] as Map?)?['name'] as String?,
+    ]);
     final messages = (body['messages'] as List).cast<Map<String, dynamic>>();
     final last = messages.last;
+    final userTurn = last['role'] == 'user';
+    final lastText = jsonEncode(last['content']);
+    final isChild = jsonEncode(messages.first['content'])
+        .contains('focused subagent');
+    final childFirstTurn = isChild && !messages.any((m) => m['role'] == 'tool');
+    final canCall = body['tools'] != null;
+    final cleanUp = canCall && userTurn && lastText.contains('Clean up');
+    final delegate =
+        canCall && !isChild && userTurn && lastText.contains('Delegate');
+    final background =
+        canCall && !isChild && userTurn && lastText.contains('Run background');
     final callTool =
-        body['tools'] != null &&
-        last['role'] == 'user' &&
-        jsonEncode(last['content']).contains('Clean up');
+        cleanUp || delegate || background || (canCall && childFirstTurn);
+    Map<String, Object?> call(String id, String name, Object arguments) => {
+      'id': id,
+      'type': 'function',
+      'function': {'name': name, 'arguments': jsonEncode(arguments)},
+    };
     final calls = [
-      if (callTool)
-        {
-          'id': 'call_scripted',
-          'type': 'function',
-          'function': {
-            'name': 'terminal',
-            'arguments': jsonEncode({'command': command}),
-          },
-        },
+      if (cleanUp) call('call_scripted', 'terminal', {'command': command}),
+      if (delegate)
+        call('call_delegate', 'delegate_task', {
+          'tasks': [
+            {'goal': 'Count the apples in the demo crate'},
+            {'goal': 'Count the pears in the demo crate'},
+          ],
+        }),
+      if (background)
+        call('call_background', 'terminal', {
+          'command': 'echo ready on demo port; sleep 300',
+          'background': true,
+        }),
+      if (canCall && childFirstTurn)
+        call('call_child', 'terminal', {'command': 'sleep 30'}),
     ];
     final content = callTool ? null : 'Done.';
     final finish = callTool ? 'tool_calls' : 'stop';
@@ -4817,9 +5898,9 @@ class _GatewayTap {
   }
 
   /// Waits until [condition] holds, and fails naming [what] when it does not
-  /// within two minutes.
+  /// within a minute.
   Future<void> until(bool Function() condition, String what) async {
-    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    final deadline = DateTime.now().add(const Duration(seconds: 60));
     while (!condition()) {
       if (DateTime.now().isAfter(deadline)) {
         fail('timed out waiting for $what');
