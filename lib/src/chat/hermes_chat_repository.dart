@@ -283,6 +283,7 @@ class HermesChatRepository {
       updatedAt: _time(row['last_active'] ?? row['started_at']),
       pinned: row['pinned'] == true,
       folderPath: sessionFolderPath(row),
+      cwd: sessionCwd(row),
       remote: true,
       named:
           row['title'] is String && (row['title'] as String).trim().isNotEmpty,

@@ -7,6 +7,7 @@ import '../api/hermes_api_client.dart';
 import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import 'files_failure.dart';
 import 'files_models.dart';
+import 'files_source.dart';
 import 'files_telemetry.dart';
 import 'server_path.dart';
 
@@ -26,7 +27,7 @@ const kLargeDownloadBytes = 50 * 1024 * 1024;
 /// to a [FilesFailure] from its status and `detail` alone: the [DioException]
 /// holds the request's URI, and so the path, and is dropped here, so no span,
 /// log, breadcrumb or message downstream can carry either.
-class HermesFilesRepository {
+class HermesFilesRepository implements FilesSource {
   HermesFilesRepository(
     this._client, {
     String? profile,
@@ -44,6 +45,7 @@ class HermesFilesRepository {
 
   /// The folder this page may not leave, once known. Set it before the first
   /// list, read or download below it.
+  @override
   ServerPath? highestFolder;
 
   /// Whether the server has the `/api/fs` routes, by `GET /api/fs/default-cwd`
@@ -64,6 +66,7 @@ class HermesFilesRepository {
 
   /// `GET /api/fs/default-cwd?profile=`: the start folder of a chat that has
   /// no stored folder yet. A local profile gets the dashboard's own folder.
+  @override
   Future<FilesResult<ServerPath>> defaultCwd({CancelToken? cancelToken}) =>
       _get(
         () => _client.raw.fsDefaultCwdApiFsDefaultCwdGet(
@@ -75,6 +78,7 @@ class HermesFilesRepository {
       );
 
   /// `GET /api/fs/git-root`: the repository root above [path], or null.
+  @override
   Future<FilesResult<ServerPath?>> gitRoot(
     ServerPath path, {
     CancelToken? cancelToken,
@@ -102,6 +106,7 @@ class HermesFilesRepository {
 
   /// `GET /api/fs/list`: the entries of [path]. A 200 with an `error` code is
   /// a failure, never an empty folder.
+  @override
   Future<FilesResult<FsListing>> list(
     ServerPath path, {
     CancelToken? cancelToken,
@@ -131,6 +136,7 @@ class HermesFilesRepository {
   }
 
   /// `GET /api/fs/read-text`: up to 512 KB of [path] as text.
+  @override
   Future<FilesResult<FsTextFile>> readText(
     ServerPath path, {
     CancelToken? cancelToken,
@@ -157,6 +163,7 @@ class HermesFilesRepository {
   /// With an announced length from [kLargeDownloadBytes] up and [allowLarge]
   /// false, it stops after the headers and answers a [FsDownload] with
   /// `declined` set and the length, so the page can ask first.
+  @override
   Future<FilesResult<FsDownload>> download(
     ServerPath path, {
     required IOSink sink,

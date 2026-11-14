@@ -105,6 +105,43 @@ class MediaStore {
     }
   });
 
+  /// A file in the cache directory under [name] that [download] streams into
+  /// the sink it is given, the first time [key] is asked for. The bytes go to
+  /// a `.part` file that is renamed when [download] returns, so a half-written
+  /// file is never taken for a downloaded one; when it throws, the `.part`
+  /// file is deleted and the error reaches the caller as it is. Asking for the
+  /// same [key] again, also while [download] runs, shares that one download.
+  Future<File> stageDownload(
+    String key,
+    String name,
+    Future<void> Function(IOSink sink) download,
+  ) => _stage(key, name, (part) async {
+    final IOSink sink;
+    try {
+      sink = part.openWrite();
+    } on Object {
+      throw const MediaFetchException(MediaFailure.failed);
+    }
+    try {
+      await download(sink);
+    } on Object {
+      await _quietly(sink.close);
+      rethrow;
+    }
+    try {
+      await sink.close();
+    } on Object {
+      throw const MediaFetchException(MediaFailure.failed);
+    }
+  });
+
+  /// Deletes the staged file for [key], so the next [stageDownload] fetches
+  /// it again. A download of [key] still running is not stopped.
+  Future<void> evict(String key) => _quietly(() async {
+    final folder = Directory('${(await _root()).path}/${_folderOf(key)}');
+    if (await folder.exists()) await folder.delete(recursive: true);
+  });
+
   /// [bytes] the chat already holds, as a file in the cache directory.
   Future<File> stageBytes(String key, String name, Uint8List bytes) =>
       stage(key, name, () async => bytes);
@@ -221,6 +258,10 @@ class MediaStore {
   Future<bool> open(File file) => _actions.open(file.path);
 
   Future<bool> save(String name, Uint8List bytes) => _actions.save(name, bytes);
+
+  /// Asks the user where to keep the staged [file] as [name].
+  Future<bool> saveFile(String name, File file) =>
+      _actions.saveFile(name, file);
 
   /// Deletes every file downloaded so far, including those of an earlier
   /// run, and forgets the images.

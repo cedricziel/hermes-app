@@ -1,0 +1,771 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
+import '../chat/media/media_store.dart';
+import 'files_failure.dart';
+import 'files_models.dart';
+import 'files_preview_kind.dart';
+import 'files_source.dart';
+import 'files_state.dart';
+import 'files_telemetry.dart';
+import 'secret_names.dart';
+import 'server_path.dart';
+
+/// How many rows a folder shows; the rest are counted, not listed.
+const kFilesMaxRows = 2000;
+
+/// How long a request may go unanswered before the page gives up on it.
+const kFilesAnswerTimeout = Duration(seconds: 10);
+
+/// One visit to the Files page of a chat: its folder, listing, selected file
+/// and that file's preview.
+///
+/// It belongs to one chat, one profile and one connection. [cancelAll] (also
+/// run by [dispose]) ends it: requests and downloads are cancelled and every
+/// answer that arrives afterwards, like one for a folder or file the user has
+/// already left, is dropped. Nothing is resent: a request that gets no answer
+/// within [answerTimeout] ends in a failure the user can retry.
+///
+/// Nothing is requested for a file the user has not opened or acted on, and a
+/// file whose name looks secret is asked about first. No path, name or
+/// content reaches telemetry.
+class FilesController extends ChangeNotifier {
+  FilesController({
+    required this._source,
+    required this._media,
+    required this._profile,
+    this._cwd,
+    this._openedFrom = FilesOpenedFrom.activity,
+    FilesTelemetry? telemetry,
+    this._answerTimeout = kFilesAnswerTimeout,
+    this._share,
+  }) : _telemetry = telemetry ?? FilesTelemetry();
+
+  final FilesSource _source;
+  final MediaStore _media;
+  final String _profile;
+  final ServerPath? _cwd;
+  final FilesOpenedFrom _openedFrom;
+  final FilesTelemetry _telemetry;
+  final Duration _answerTimeout;
+  final Future<void> Function(File file)? _share;
+
+  var _closed = false;
+  var _disposed = false;
+  var _folderGen = 0;
+  var _fileGen = 0;
+  CancelToken? _listToken;
+  CancelToken? _fileToken;
+
+  ServerPath? _begin;
+  ServerPath? _root;
+  ServerPath? _folder;
+  FsListing? _listing;
+  FolderState _folderState = const FolderLoading();
+  var _stale = false;
+  var _showHidden = false;
+  var _fromServerDefault = false;
+  List<FsEntry>? _visible;
+
+  FsEntry? _selected;
+  PreviewState _preview = const PreviewIdle();
+  int? _knownSize;
+  Future<void> Function()? _pending;
+
+  /// Paths the user said Continue for, whose cached copy goes when their
+  /// preview closes.
+  final _secretOk = <String>{};
+
+  /// Paths already tried as a folder after a 400, so it happens once.
+  final _triedAsFolder = <String>{};
+
+  /// Keys downloaded without a length (an SSH workspace): they cannot be
+  /// told complete, so they download again on the next open.
+  final _unverified = <String>{};
+
+  final _fetches = <String, Future<void>>{};
+
+  /// The highest folder the page may show, once the first listing is in.
+  ServerPath? get root => _root;
+
+  /// The folder being shown, or loading.
+  ServerPath? get folder => _folder;
+
+  FolderState get folderState => _folderState;
+
+  /// Whether the page started at the server's `default-cwd` because the chat
+  /// has no stored folder.
+  bool get startedFromServerDefault => _fromServerDefault;
+
+  /// A refresh failed after a listing: the list stays, marked out of date.
+  bool get stale => _stale;
+
+  bool get showHidden => _showHidden;
+
+  FsEntry? get selected => _selected;
+
+  PreviewState get preview => _preview;
+
+  /// Whether Up can go anywhere: not at the highest folder.
+  bool get canGoUp {
+    final folder = _folder;
+    final root = _root;
+    if (folder == null || root == null || folder.parent == null) return false;
+    return folder.isWithin(root) && !root.isWithin(folder);
+  }
+
+  /// The rows to show: folders first as the server sent them, hidden names
+  /// only when asked for, at most [kFilesMaxRows].
+  List<FsEntry> get entries {
+    final listing = _listing;
+    if (listing == null) return const [];
+    return _visible ??= [
+      for (final e in listing.entries)
+        if (_showHidden || !isHidden(e.name)) e,
+    ];
+  }
+
+  /// How many rows [entries] would hold without the cap.
+  int get entryCount => entries.length;
+
+  /// The rows that fit on the page.
+  List<FsEntry> get shownEntries =>
+      entryCount <= kFilesMaxRows ? entries : entries.sublist(0, kFilesMaxRows);
+
+  /// Whether hidden names exist that are not shown.
+  bool get hasHiddenEntries =>
+      !_showHidden && (_listing?.entries.any((e) => isHidden(e.name)) ?? false);
+
+  /// Whether [entry]'s name looks secret, so it is asked about first.
+  bool isSecret(FsEntry entry) =>
+      !entry.isDirectory && SecretNames.looksSecret(entry.path);
+
+  // -- Folder ---------------------------------------------------------------
+
+  /// Lists the chat's folder: the stored `cwd`, else the server's
+  /// `default-cwd` for the chat's profile.
+  Future<void> start() {
+    if (_closed) return Future.value();
+    _telemetry.opened(_openedFrom);
+    return _begin0();
+  }
+
+  Future<void> _begin0() async {
+    final gen = ++_folderGen;
+    _setFolder(const FolderLoading());
+    var begin = _begin ?? _cwd;
+    if (begin == null) {
+      final result = await _bounded(
+        (t) => _source.defaultCwd(cancelToken: t),
+        _newListToken(),
+      );
+      if (_gone(gen, _folderGen)) return;
+      switch (result) {
+        case FilesOk(:final value):
+          begin = value;
+          _fromServerDefault = true;
+        case FilesFailed(:final kind):
+          return _setFolder(FolderFailed(kind));
+        case FilesUnsupported():
+          return _setFolder(const FolderFailed(FilesFailure.unreadable));
+      }
+    }
+    _begin = begin;
+    _folder = begin;
+    _notify();
+    final listing = _bounded(
+      (t) => _source.list(begin!, cancelToken: t),
+      CancelToken(),
+    );
+    final git = _bounded(
+      (t) => _source.gitRoot(begin!, cancelToken: t),
+      CancelToken(),
+    );
+    final listed = await listing;
+    final rooted = await git;
+    if (_gone(gen, _folderGen)) return;
+    switch (listed) {
+      case FilesOk(:final value):
+        // The server resolves links (`/tmp` is `/private/tmp` on a Mac), so
+        // the folder it listed, not the stored text, is the one the page is
+        // confined to.
+        final resolved = value.entries.firstOrNull?.path.parent ?? begin;
+        final git = rooted is FilesOk<ServerPath?> ? rooted.value : null;
+        final root = git != null && resolved.isWithin(git) ? git : resolved;
+        _root = root;
+        _source.highestFolder = root;
+        _folder = resolved;
+        _listing = value;
+        _visible = null;
+        _setFolder(const FolderReady());
+      case FilesFailed(:final kind):
+        _setFolder(FolderFailed(kind));
+      case FilesUnsupported():
+        _setFolder(const FolderFailed(FilesFailure.unreadable));
+    }
+  }
+
+  /// Lists the folder again. The list stays while it loads; when that fails
+  /// it stays under [stale]. Nothing is resent by itself.
+  Future<void> refresh() {
+    if (_closed) return Future.value();
+    final folder = _folder;
+    if (_root == null || folder == null) return _begin0();
+    return _load(folder, refresh: _listing != null);
+  }
+
+  /// Opens a folder the server listed. One outside the highest folder is
+  /// refused without a request.
+  Future<void> openFolder(FsEntry entry) => _go(entry.path);
+
+  /// Goes to the parent folder, unless [canGoUp] is false.
+  Future<void> up() {
+    final parent = _folder?.parent;
+    if (!canGoUp || parent == null) return Future.value();
+    return _go(parent);
+  }
+
+  Future<void> _go(ServerPath path) {
+    if (_closed) return Future.value();
+    _closePreview();
+    final root = _root;
+    if (root != null && !path.isWithin(root)) {
+      _folderGen++;
+      _listToken?.cancel();
+      _folder = path;
+      _listing = null;
+      _visible = null;
+      _stale = false;
+      _setFolder(const FolderFailed(FilesFailure.outside));
+      return Future.value();
+    }
+    return _load(path, refresh: false);
+  }
+
+  Future<void> _load(ServerPath path, {required bool refresh}) async {
+    final gen = ++_folderGen;
+    _listToken?.cancel();
+    if (!refresh) {
+      _folder = path;
+      _listing = null;
+      _visible = null;
+      _stale = false;
+      _setFolder(const FolderLoading());
+    }
+    final result = await _bounded(
+      (t) => _source.list(path, cancelToken: t),
+      _newListToken(),
+    );
+    if (_gone(gen, _folderGen)) return;
+    switch (result) {
+      case FilesOk(:final value):
+        _stale = false;
+        if (value.allOutsideBoundary) {
+          _listing = null;
+          _visible = null;
+          _setFolder(const FolderFailed(FilesFailure.outside));
+          return;
+        }
+        _listing = value;
+        _visible = null;
+        final selected = _selected;
+        if (refresh &&
+            selected != null &&
+            !value.entries.any((e) => e.path == selected.path)) {
+          _closePreview();
+        }
+        _setFolder(const FolderReady());
+      case FilesFailed(:final kind):
+        if (refresh && _listing != null) {
+          _stale = true;
+          _notify();
+        } else {
+          _listing = null;
+          _visible = null;
+          _setFolder(FolderFailed(kind));
+        }
+      case FilesUnsupported():
+        _setFolder(const FolderFailed(FilesFailure.unreadable));
+    }
+  }
+
+  void toggleHidden() {
+    if (_closed) return;
+    _showHidden = !_showHidden;
+    _visible = null;
+    _telemetry.hiddenToggled(on: _showHidden);
+    _notify();
+  }
+
+  // -- Preview --------------------------------------------------------------
+
+  /// A tap on a row: a folder opens, a file previews.
+  Future<void> select(FsEntry entry) {
+    if (_closed) return Future.value();
+    if (entry.isDirectory) return openFolder(entry);
+    return _open(entry);
+  }
+
+  /// Asks again after a failure.
+  Future<void> retry() {
+    final entry = _selected;
+    return entry == null ? Future.value() : _open(entry);
+  }
+
+  Future<void> _open(FsEntry entry) async {
+    if (_closed) return;
+    _leave(except: entry);
+    _cancelFile();
+    final gen = ++_fileGen;
+    _selected = entry;
+    _knownSize = null;
+    if (_askSecret(entry, () => _open(entry))) return;
+    final kind = previewKindFor(entry.name);
+    _telemetry.previewOpened(kind);
+    if (kind.readsText) return _readText(entry, kind, gen);
+    if (kind == FilePreviewKind.image) return _showImage(entry, gen);
+    _setPreview(PreviewDetails(kind));
+  }
+
+  bool _askSecret(FsEntry entry, Future<void> Function() then) {
+    if (!isSecret(entry) || _secretOk.contains(entry.path.value)) return false;
+    _pending = then;
+    _telemetry.secretWarned();
+    _setPreview(const PreviewConfirmSecret());
+    return true;
+  }
+
+  /// The user chose Continue on the secret question.
+  Future<void> confirmSecret() {
+    final entry = _selected;
+    final next = _pending;
+    if (_closed || entry == null || next == null) return Future.value();
+    _pending = null;
+    _secretOk.add(entry.path.value);
+    return next();
+  }
+
+  /// The user chose Cancel on the secret question: nothing was requested.
+  void declineSecret() {
+    if (_closed || _preview is! PreviewConfirmSecret) return;
+    _pending = null;
+    _closePreview();
+    _notify();
+  }
+
+  /// The user chose Download on the size question.
+  Future<void> confirmSize() {
+    final next = _pending;
+    if (_closed || next == null) return Future.value();
+    _pending = null;
+    return next();
+  }
+
+  /// The user chose Cancel on the size question.
+  void declineSize() {
+    final preview = _preview;
+    final entry = _selected;
+    if (_closed || preview is! PreviewConfirmSize || entry == null) return;
+    _pending = null;
+    _setPreview(
+      PreviewDetails(previewKindFor(entry.name), size: preview.bytes),
+    );
+  }
+
+  Future<void> _readText(FsEntry entry, FilePreviewKind kind, int gen) async {
+    final span = _telemetry.startPreview();
+    _setPreview(const PreviewLoading());
+    final result = await _bounded(
+      (t) => _source.readText(entry.path, cancelToken: t),
+      _newFileToken(),
+    );
+    if (_gone(gen, _fileGen)) {
+      _telemetry.endPreview(span, kind, FilesPreviewOutcome.cancelled);
+      return;
+    }
+    switch (result) {
+      case FilesOk(:final value):
+        _knownSize = value.byteSize;
+        _telemetry.endPreview(
+          span,
+          kind,
+          FilesPreviewOutcome.ok,
+          bytes: value.byteSize,
+        );
+        _setPreview(
+          value.binary
+              ? PreviewDetails(FilePreviewKind.other, size: value.byteSize)
+              : PreviewText(kind, value),
+        );
+      case FilesFailed(kind: FilesFailure.notAFile):
+        _telemetry.endPreview(span, kind, FilesPreviewOutcome.failed);
+        await _asFolder(entry);
+      case FilesFailed(kind: FilesFailure.tooLarge):
+        _telemetry.endPreview(span, kind, FilesPreviewOutcome.tooLarge);
+        _setPreview(
+          const PreviewDetails(FilePreviewKind.other, tooLargeForText: true),
+        );
+      case FilesFailed(kind: FilesFailure.cancelled):
+        _telemetry.endPreview(span, kind, FilesPreviewOutcome.cancelled);
+        _setPreview(PreviewDetails(kind));
+      case FilesFailed(:final kind):
+        _telemetry.endPreview(
+          span,
+          FilePreviewKind.other,
+          FilesPreviewOutcome.failed,
+        );
+        _setPreview(PreviewFailed(kind));
+      case FilesUnsupported():
+        _telemetry.endPreview(span, kind, FilesPreviewOutcome.failed);
+        _setPreview(const PreviewFailed(FilesFailure.unreadable));
+    }
+  }
+
+  Future<void> _showImage(
+    FsEntry entry,
+    int gen, {
+    bool allowLarge = false,
+  }) async {
+    const image = FilePreviewKind.image;
+    final span = _telemetry.startPreview();
+    _setPreview(const PreviewLoading());
+    final result = await _fetch(entry, gen, allowLarge: allowLarge);
+    if (_gone(gen, _fileGen)) {
+      _telemetry.endPreview(span, image, FilesPreviewOutcome.cancelled);
+      return;
+    }
+    switch (result) {
+      case _Fetched(:final file, :final length):
+        _telemetry.endPreview(
+          span,
+          image,
+          FilesPreviewOutcome.ok,
+          bytes: length,
+        );
+        _setPreview(PreviewImage(file));
+      case _Declined(:final bytes):
+        _telemetry.endPreview(
+          span,
+          image,
+          FilesPreviewOutcome.tooLarge,
+          bytes: bytes,
+        );
+        _pending = () => _showImage(entry, ++_fileGen, allowLarge: true);
+        _setPreview(PreviewConfirmSize(bytes));
+      case _FetchFailed(kind: FilesFailure.notAFile):
+        _telemetry.endPreview(span, image, FilesPreviewOutcome.failed);
+        await _asFolder(entry);
+      case _FetchFailed(kind: FilesFailure.cancelled):
+        _telemetry.endPreview(span, image, FilesPreviewOutcome.cancelled);
+        _setPreview(const PreviewDetails(image));
+      case _FetchFailed(:final kind):
+        _telemetry.endPreview(span, image, FilesPreviewOutcome.failed);
+        _setPreview(PreviewFailed(kind));
+    }
+  }
+
+  /// A row listed as a file turned out to be a folder (a link to one): try it
+  /// as a folder, once.
+  Future<void> _asFolder(FsEntry entry) async {
+    if (!_triedAsFolder.add(entry.path.value)) {
+      _setPreview(const PreviewFailed(FilesFailure.notAFile));
+      return;
+    }
+    _selected = null;
+    _setPreview(const PreviewIdle());
+    await _go(entry.path);
+  }
+
+  // -- Save, share, open with ------------------------------------------------
+
+  Future<void> save() => _act(FileAction.save);
+
+  Future<void> openWith() => _act(FileAction.openWith);
+
+  Future<void> shareFile() => _act(FileAction.share);
+
+  Future<void> _act(FileAction action, {bool allowLarge = false}) async {
+    final entry = _selected;
+    if (_closed || entry == null) return;
+    if (_askSecret(entry, () => _act(action))) return;
+    final resting = switch (_preview) {
+      PreviewLoading() || PreviewConfirmSize() || PreviewConfirmSecret() =>
+        PreviewDetails(previewKindFor(entry.name), size: _knownSize),
+      final other => other,
+    };
+    _cancelFile();
+    final gen = ++_fileGen;
+    _setPreview(const PreviewLoading());
+    final result = await _fetch(entry, gen, allowLarge: allowLarge);
+    if (_gone(gen, _fileGen)) return;
+    switch (result) {
+      case _Fetched(:final file):
+        _setPreview(resting);
+        final done = switch (action) {
+          FileAction.save => await _media.saveFile(entry.name, file),
+          FileAction.openWith => await _media.open(file),
+          FileAction.share => await _shared(file),
+        };
+        if (done) _telemetry.saved(action.slug);
+      case _Declined(:final bytes):
+        _pending = () => _act(action, allowLarge: true);
+        _setPreview(PreviewConfirmSize(bytes));
+      case _FetchFailed(kind: FilesFailure.cancelled):
+        _setPreview(resting);
+      case _FetchFailed(:final kind):
+        _setPreview(PreviewFailed(kind));
+    }
+  }
+
+  Future<bool> _shared(File file) async {
+    final share = _share;
+    if (share == null) return false;
+    try {
+      await share(file);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  /// Stops a running read or download. The partial file is deleted and the
+  /// preview goes back to the file's details without an error.
+  void cancelDownload() {
+    _fileToken?.cancel();
+  }
+
+  /// Deletes the cached copy and fetches the selected file again.
+  Future<void> reload() async {
+    final entry = _selected;
+    if (_closed || entry == null) return;
+    final key = _key(entry.path);
+    _cancelFile();
+    await _fetches[key];
+    _unverified.remove(key);
+    await _media.evict(key);
+    if (_closed || _selected != entry) return;
+    await _open(entry);
+  }
+
+  /// Closes the preview. A cached copy fetched after the secret question is
+  /// deleted.
+  void closePreview() {
+    if (_closed) return;
+    _closePreview();
+    _notify();
+  }
+
+  void _closePreview() {
+    _cancelFile();
+    _fileGen++;
+    _pending = null;
+    final entry = _selected;
+    if (entry != null) _forgetSecret(entry.path);
+    _selected = null;
+    _preview = const PreviewIdle();
+  }
+
+  /// A different file is being opened: what the previous one fetched after
+  /// the secret question goes.
+  void _leave({required FsEntry except}) {
+    final previous = _selected;
+    if (previous != null && previous.path != except.path) {
+      _forgetSecret(previous.path);
+    }
+  }
+
+  void _forgetSecret(ServerPath path) {
+    if (_secretOk.remove(path.value)) {
+      unawaited(_media.evict(_key(path)));
+      _unverified.remove(_key(path));
+    }
+  }
+
+  /// Ends the page: cancels every request and download, drops late answers
+  /// and removes what was fetched after a secret question. A profile switch,
+  /// sign-out, server change or leaving the page calls it.
+  void cancelAll() {
+    if (_closed) return;
+    _closed = true;
+    _folderGen++;
+    _fileGen++;
+    _listToken?.cancel();
+    _fileToken?.cancel();
+    _pending = null;
+    for (final path in _secretOk) {
+      unawaited(_media.evict('fs:$_profile:$path'));
+    }
+    _secretOk.clear();
+  }
+
+  @override
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    cancelAll();
+    super.dispose();
+  }
+
+  // -- Plumbing --------------------------------------------------------------
+
+  String _key(ServerPath path) => 'fs:$_profile:${path.value}';
+
+  /// Streams [entry] into the cache and says how it went. A fetch of the same
+  /// file still running is awaited first, so two never share one.
+  Future<_Fetch> _fetch(
+    FsEntry entry,
+    int gen, {
+    required bool allowLarge,
+  }) async {
+    final key = _key(entry.path);
+    final earlier = _fetches[key];
+    if (earlier != null) {
+      await earlier;
+      if (_gone(gen, _fileGen)) {
+        return const _FetchFailed(FilesFailure.cancelled);
+      }
+    }
+    if (_unverified.remove(key)) await _media.evict(key);
+    final run = _run(entry, key, gen, allowLarge: allowLarge);
+    final tracked = run.then<void>((_) {});
+    _fetches[key] = tracked;
+    unawaited(
+      tracked.whenComplete(() {
+        if (identical(_fetches[key], tracked)) _fetches.remove(key);
+      }),
+    );
+    return run;
+  }
+
+  Future<_Fetch> _run(
+    FsEntry entry,
+    String key,
+    int gen, {
+    required bool allowLarge,
+  }) async {
+    final token = _newFileToken();
+    var ran = false;
+    int? length;
+    try {
+      final file = await _media.stageDownload(key, entry.name, (sink) async {
+        ran = true;
+        final result = await _source.download(
+          entry.path,
+          sink: sink,
+          cancelToken: token,
+          allowLarge: allowLarge,
+          onProgress: (received, total) {
+            if (!_gone(gen, _fileGen)) {
+              _setPreview(PreviewLoading(received: received, total: total));
+            }
+          },
+        );
+        switch (result) {
+          case FilesOk(:final value):
+            length = value.contentLength;
+            if (value.declined) {
+              throw _Stop(_Declined(value.contentLength ?? 0));
+            }
+            final expected = _knownSize;
+            if (length == null && expected != null && value.bytes < expected) {
+              throw const _Stop(_FetchFailed(FilesFailure.unreadable));
+            }
+          case FilesFailed(:final kind):
+            throw _Stop(_FetchFailed(kind));
+          case FilesUnsupported():
+            throw const _Stop(_FetchFailed(FilesFailure.unreadable));
+        }
+      });
+      if (ran && length == null) _unverified.add(key);
+      return _Fetched(file, length);
+    } on _Stop catch (stop) {
+      return stop.result;
+    } on Object {
+      return const _FetchFailed(FilesFailure.unreadable);
+    }
+  }
+
+  CancelToken _newListToken() => _listToken = CancelToken();
+
+  CancelToken _newFileToken() {
+    _fileToken?.cancel();
+    return _fileToken = CancelToken();
+  }
+
+  void _cancelFile() => _fileToken?.cancel();
+
+  /// Whether the answer for generation [gen] is one the user has left.
+  bool _gone(int gen, int current) => _closed || gen != current;
+
+  /// [call]'s answer, or "unreachable" when none comes within the timeout; the
+  /// request is cancelled then and never sent again.
+  Future<FilesResult<T>> _bounded<T>(
+    Future<FilesResult<T>> Function(CancelToken token) call,
+    CancelToken token,
+  ) {
+    final done = Completer<FilesResult<T>>();
+    final timer = Timer(_answerTimeout, () {
+      if (done.isCompleted) return;
+      token.cancel();
+      done.complete(const FilesFailed(FilesFailure.unreachable));
+    });
+    call(token)
+        .then<void>((result) {
+          if (!done.isCompleted) done.complete(result);
+        })
+        .catchError((Object _) {
+          if (!done.isCompleted) {
+            done.complete(const FilesFailed(FilesFailure.unreadable));
+          }
+        })
+        .whenComplete(timer.cancel);
+    return done.future;
+  }
+
+  void _setFolder(FolderState state) {
+    _folderState = state;
+    _notify();
+  }
+
+  void _setPreview(PreviewState state) {
+    _preview = state;
+    _notify();
+  }
+
+  void _notify() {
+    if (!_closed) notifyListeners();
+  }
+}
+
+sealed class _Fetch {
+  const _Fetch();
+}
+
+class _Fetched extends _Fetch {
+  const _Fetched(this.file, this.length);
+
+  final File file;
+  final int? length;
+}
+
+class _Declined extends _Fetch {
+  const _Declined(this.bytes);
+
+  final int bytes;
+}
+
+class _FetchFailed extends _Fetch {
+  const _FetchFailed(this.kind);
+
+  final FilesFailure kind;
+}
+
+/// Ends a staged download early, carrying how.
+class _Stop implements Exception {
+  const _Stop(this.result);
+
+  final _Fetch result;
+}
