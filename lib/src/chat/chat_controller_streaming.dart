@@ -33,6 +33,8 @@ extension _ChatControllerStreaming on ChatController {
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
+        _ChatControllerCheckpoints(this)
+            ._onContextEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
       return;
@@ -166,6 +168,7 @@ extension _ChatControllerStreaming on ChatController {
       controller.dispose();
     }
     _usage.clear();
+    _ChatControllerCheckpoints(this)._detachActionUsage();
     for (final state in _sideResults.values) {
       state.dispose();
     }
@@ -298,6 +301,8 @@ extension _ChatControllerStreaming on ChatController {
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
+        _ChatControllerCheckpoints(this)
+            ._onContextEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
       return;
@@ -432,6 +437,8 @@ extension _ChatControllerStreaming on ChatController {
         _onSideResult(thread, event, profile) ||
         _onProcessOutput(thread, event, profile) ||
         _onUsageEvent(thread, event, profile) ||
+        _ChatControllerCheckpoints(this)
+            ._onContextEvent(thread, event, profile) ||
         _onSessionEvent(thread, event, profile) ||
         _onWarning(thread, event, profile)) {
       return;
@@ -485,6 +492,7 @@ extension _ChatControllerStreaming on ChatController {
           SessionControlUpdated() ||
           SessionControlUnavailable() ||
           SessionWaitUpdated() ||
+          ContextCompacted() ||
           SessionReclaimed() ||
           SessionResumeProgress() ||
           WarningScopeDiscarded():

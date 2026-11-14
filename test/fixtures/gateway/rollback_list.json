@@ -1,0 +1,41 @@
+{
+  "source_ref": "d923a5eb",
+  "note": "Invented content in the shapes of the Hermes gateway handlers and tests named in openspec/changes/chat-checkpoints-and-context/design.md. No real paths, hashes or messages.",
+  "source": "tui_gateway/methods_tools.py::rollback.list",
+  "cases": {
+    "on": {
+      "result": {
+        "enabled": true,
+        "checkpoints": [
+          {
+            "hash": "9c0d1e2f9c0d1e2f9c0d1e2f9c0d1e2f9c0d1e2f",
+            "timestamp": "2026-09-29T10:05:00+00:00",
+            "message": "pre-rollback snapshot (restoring to 1a2b3c4d)"
+          },
+          {
+            "hash": "5e6f7a8b5e6f7a8b5e6f7a8b5e6f7a8b5e6f7a8b",
+            "timestamp": "2026-09-29T10:02:00+00:00",
+            "message": "before patch"
+          },
+          {
+            "hash": "1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d",
+            "timestamp": "2026-09-29T10:00:00+00:00",
+            "message": "before write_file"
+          }
+        ]
+      }
+    },
+    "off": {
+      "result": {
+        "enabled": false,
+        "checkpoints": []
+      }
+    },
+    "empty": {
+      "result": {
+        "enabled": true,
+        "checkpoints": []
+      }
+    }
+  }
+}

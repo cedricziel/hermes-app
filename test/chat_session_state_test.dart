@@ -6,6 +6,9 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_session_state.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_event_mapper.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart'
+    show GatewayEvent;
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
@@ -75,6 +78,37 @@ void main() {
       expect(thread.messages.last.isPending, isTrue);
     },
   );
+
+  test('compress frames leave no wait behind; every other kind still waits '
+      'until cleared', () async {
+    ChatEvent frame(String kind, String text) => mapGatewayEvent(
+      GatewayEvent(
+        type: 'status.update',
+        sessionId: 'runtime-a',
+        payload: {'kind': kind, 'text': text},
+      ),
+    )!;
+    final send = transport.sends.last;
+    send
+      ..emit(frame('compressing', '🗜️ compressing 12 messages…'))
+      ..emit(frame('ready', 'Ready'))
+      ..emit(frame('goal', 'Working toward the goal'));
+    await pumpEventQueue();
+    final thread = chat.selectedThread!;
+    final reply = thread.messages.last;
+    final state = chat.sessionStateIn(thread)!;
+    // Before, `compressing` stayed as a wait nothing cleared.
+    expect(state.waits.keys, ['ready', 'goal']);
+    expect(reply.activity, 'Compressing the conversation…');
+    send
+      ..emit(frame('compressing', ''))
+      ..emit(frame('compacted', 'Compacted'))
+      ..emit(frame('ready', ''))
+      ..emit(frame('goal', ''));
+    await pumpEventQueue();
+    expect(state.waits, isEmpty);
+    expect(reply.isPending, isTrue);
+  });
 
   const control = SessionControlSnapshot(
     revision: 'opaque',

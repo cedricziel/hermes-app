@@ -269,11 +269,33 @@ final class ReplyErrored extends ChatEvent {
 /// [storedSessionId] re-keys the thread whatever [running] says, since
 /// compressing the conversation can rotate the id mid-turn.
 final class SessionInfo extends ChatEvent {
-  const SessionInfo({this.running, this.storedSessionId});
+  const SessionInfo({
+    this.running,
+    this.storedSessionId,
+    this.usage,
+    this.usageRuntimeId = '',
+    this.usageConnection,
+  });
 
   /// Null when the server did not say.
   final bool? running;
   final String? storedSessionId;
+
+  /// The session's usage, which Hermes reports after each turn and after a
+  /// compress, for the runtime [usageRuntimeId] on [usageConnection]. Null
+  /// when the frame carried none or it did not decode.
+  final UsageSnapshot? usage;
+  final String usageRuntimeId;
+  final Object? usageConnection;
+}
+
+/// Hermes compacted the conversation on its own (`status.update` of kind
+/// `compacted`) in the runtime [runtimeId]: the usage, and the context
+/// breakdown while it is open, are read again. It is never progress, an
+/// answer, the opening of a reply or a request.
+final class ContextCompacted extends ChatEvent {
+  const ContextCompacted({required this.runtimeId});
+  final String runtimeId;
 }
 
 /// What the agent is doing while it writes, shown in place of the generic

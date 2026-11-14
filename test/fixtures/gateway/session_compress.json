@@ -1,0 +1,92 @@
+{
+  "source_ref": "d923a5eb",
+  "note": "Invented content in the shapes of the Hermes gateway handlers and tests named in openspec/changes/chat-checkpoints-and-context/design.md. No real paths, hashes or messages.",
+  "source": "tui_gateway/methods_session.py::session.compress",
+  "cases": {
+    "compressed": {
+      "result": {
+        "status": "compressed",
+        "removed": 33,
+        "before_messages": 42,
+        "after_messages": 9,
+        "before_tokens": 120000,
+        "after_tokens": 30000,
+        "summary": {
+          "noop": false,
+          "aborted": false,
+          "refused_would_grow": false,
+          "fallback_used": false,
+          "headline": "Compressed: 42 → 9 messages",
+          "token_line": "Approx request size: ~120,000 → ~30,000 tokens",
+          "note": null
+        },
+        "usage": {
+          "context_used": 30000,
+          "context_max": 200000,
+          "context_percent": 15
+        },
+        "info": {},
+        "messages": []
+      }
+    },
+    "noop": {
+      "result": {
+        "status": "compressed",
+        "removed": 0,
+        "before_messages": 3,
+        "after_messages": 3,
+        "summary": {
+          "noop": true,
+          "headline": "No changes from compression: 3 messages"
+        }
+      }
+    },
+    "aborted": {
+      "result": {
+        "status": "aborted",
+        "summary": {
+          "aborted": true,
+          "note": "The summary could not be written."
+        }
+      }
+    },
+    "refused_would_grow": {
+      "result": {
+        "status": "compressed",
+        "summary": {
+          "refused_would_grow": true
+        }
+      }
+    },
+    "fallback_used": {
+      "result": {
+        "status": "compressed",
+        "before_messages": 30,
+        "after_messages": 8,
+        "summary": {
+          "fallback_used": true
+        }
+      }
+    },
+    "lock_held": {
+      "result": {
+        "compressed": false,
+        "lock_held": true,
+        "message": "Another compression is running."
+      }
+    },
+    "pending": {
+      "result": {
+        "status": "pending",
+        "turn_isolation": true,
+        "message": "Compression will apply shortly."
+      }
+    },
+    "busy_4009": {
+      "error": {
+        "code": 4009,
+        "message": "session busy — compression already running"
+      }
+    }
+  }
+}
