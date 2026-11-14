@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/grouped_dialog.dart';
+import '../../telemetry/report_bug.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
@@ -54,7 +55,8 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
         _orchestrator = settings.orchestratorProfile;
         _defaultAssignee = settings.defaultAssignee;
       });
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the Kanban orchestration dialog');
       if (mounted) setState(() => _failed = true);
     }
   }

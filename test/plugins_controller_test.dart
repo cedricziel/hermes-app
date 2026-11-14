@@ -1,7 +1,6 @@
-import 'package:flutter/foundation.dart';
-
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
