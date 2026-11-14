@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'lenient_read.dart';
+
 /// Names one agent of one chat on one connection. A selection or a
 /// confirmation holds the key it started with, so a list that refreshes or
 /// reorders never moves it to another agent.
@@ -156,37 +158,6 @@ bool summaryShowsMissedNote(String? summary) =>
 bool errorShowsMissedNote(String? error) =>
     error?.contains(kMissedNoteInError) ?? false;
 
-// ---- lenient readers -------------------------------------------------
-
-String? _string(Object? value) =>
-    value is String && value.isNotEmpty ? value : null;
-
-num? _number(Object? value) {
-  if (value is num) return value.isFinite ? value : null;
-  if (value is String) {
-    final parsed = num.tryParse(value.trim());
-    return parsed != null && parsed.isFinite ? parsed : null;
-  }
-  return null;
-}
-
-int? _int(Object? value) => _number(value)?.toInt();
-
-bool? _bool(Object? value) => value is bool ? value : null;
-
-DateTime? _seconds(Object? value) {
-  final seconds = _number(value);
-  if (seconds == null) return null;
-  try {
-    return DateTime.fromMillisecondsSinceEpoch(
-      (seconds * 1000).round(),
-      isUtc: true,
-    );
-  } on Object {
-    return null;
-  }
-}
-
 AgentState _stateOf(Object? status, AgentState fallback) {
   if (status == null) return fallback;
   return switch (status) {
@@ -210,41 +181,41 @@ AgentList? parseAgentList(Map<String, Object?> result) {
   final agents = <ListedAgent>[];
   for (final row in rows as List? ?? const []) {
     if (row is! Map) continue;
-    final id = _string(row['subagent_id']);
+    final id = readString(row['subagent_id']);
     if (id == null) continue;
     agents.add(
       ListedAgent(
         id: id,
-        parentId: _string(row['parent_id']),
-        depth: _int(row['depth']),
-        goal: _string(row['goal']),
-        delegationId: _string(row['delegation_id']),
-        model: _string(row['model']),
-        startedAt: _seconds(row['started_at']),
+        parentId: readString(row['parent_id']),
+        depth: readInt(row['depth']),
+        goal: readString(row['goal']),
+        delegationId: readString(row['delegation_id']),
+        model: readString(row['model']),
+        startedAt: readSeconds(row['started_at']),
         // A listed agent without a status is a live one; the list holds only
         // those and the failed delegations.
         state: _stateOf(row['status'], AgentState.running),
-        toolCount: _int(row['tool_count']),
-        lastTool: _string(row['last_tool']),
-        acceptingSteer: _bool(row['accepting_steer']),
+        toolCount: readInt(row['tool_count']),
+        lastTool: readString(row['last_tool']),
+        acceptingSteer: readBool(row['accepting_steer']),
       ),
     );
   }
   final failed = <FailedDelegation>[];
   for (final row in delegations as List? ?? const []) {
     if (row is! Map) continue;
-    final id = _string(row['delegation_id']);
-    final index = _int(row['task_index']);
+    final id = readString(row['delegation_id']);
+    final index = readInt(row['task_index']);
     if (id == null || index == null) continue;
     failed.add(
       FailedDelegation(
         delegationId: id,
         taskIndex: index,
         state: _stateOf(row['status'], AgentState.failed),
-        goal: _string(row['goal']),
-        error: _string(row['error']),
-        dispatchedAt: _seconds(row['dispatched_at']),
-        completedAt: _seconds(row['completed_at']),
+        goal: readString(row['goal']),
+        error: readString(row['error']),
+        dispatchedAt: readSeconds(row['dispatched_at']),
+        completedAt: readSeconds(row['completed_at']),
       ),
     );
   }
@@ -256,11 +227,11 @@ AgentList? parseAgentList(Map<String, Object?> result) {
 /// bytes at a character boundary, and when it was cut (here or by Hermes) its
 /// partial first line is dropped.
 AgentTail? parseAgentTail(Map<String, Object?> result) {
-  final available = _bool(result['available']);
+  final available = readBool(result['available']);
   final text = result['text'];
   if (available == null || (text != null && text is! String)) return null;
   var shown = text as String? ?? '';
-  var truncated = _bool(result['truncated']) ?? false;
+  var truncated = readBool(result['truncated']) ?? false;
   final bytes = utf8.encode(shown);
   if (bytes.length > kAgentTailBytes) {
     var start = bytes.length - kAgentTailBytes;
@@ -280,7 +251,7 @@ AgentTail? parseAgentTail(Map<String, Object?> result) {
 
 /// Reads a `subagent.interrupt` answer; null when `found` is not a bool.
 StopOutcome? parseStopOutcome(Map<String, Object?> result) =>
-    switch (_bool(result['found'])) {
+    switch (readBool(result['found'])) {
       true => StopOutcome.stopped,
       false => StopOutcome.alreadyEnded,
       null => null,
