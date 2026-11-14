@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart';
 
 import '../core/safe_notifier.dart';
+import '../telemetry/telemetry.dart';
 import 'care_result.dart';
 import 'server_care_repository.dart';
 import 'usage_report.dart';
@@ -22,6 +24,7 @@ class UsageController extends ChangeNotifier with SafeNotifier {
     DateTime Function()? today,
     this.onUnsupported,
     this.lookupFailed,
+    this.telemetry = const ConnectionTelemetry(),
   }) : _today = today ?? DateTime.now,
        // A named parameter cannot be a private initializing formal.
        // ignore: prefer_initializing_formals
@@ -30,6 +33,7 @@ class UsageController extends ChangeNotifier with SafeNotifier {
        _metric = _rememberedMetric;
 
   final ServerCareRepository repository;
+  final ConnectionTelemetry telemetry;
   final DateTime Function() _today;
 
   /// Called when the server answered that it has no usage route.
@@ -100,32 +104,59 @@ class UsageController extends ChangeNotifier with SafeNotifier {
     final window = _window;
     _loading = true;
     notifyListeners();
-    final result = await repository.usage(
-      profile: profile,
-      days: window.days,
-      today: _today(),
+    // The window and the outcome only: no profile and no figure.
+    Span? span;
+    _quiet(
+      () => span = telemetry.tracer?.startSpan(
+        'server_care.usage.fetch',
+        attributes: {...telemetry.serverAttributes, 'days': window.days},
+      ),
     );
-    if (generation != _generation || disposed) return;
-    _loading = false;
-    switch (result) {
-      case CareOk(:final value):
-        _report = value;
-        _failure = null;
-        _failureMessage = null;
-        _unsupported = false;
-        _revision++;
-      case CareUnsupported():
-        _report = null;
-        _failure = null;
-        _failureMessage = null;
-        _unsupported = true;
-        onUnsupported?.call();
-      case CareFailed(:final kind, :final message):
-        _failure = kind;
-        _failureMessage = message;
-        _unsupported = false;
+    var outcome = 'obsolete';
+    try {
+      final result = await repository.usage(
+        profile: profile,
+        days: window.days,
+        today: _today(),
+      );
+      if (generation != _generation || disposed) return;
+      _loading = false;
+      switch (result) {
+        case CareOk(:final value):
+          _report = value;
+          _failure = null;
+          _failureMessage = null;
+          _unsupported = false;
+          _revision++;
+          outcome = value.isEmpty ? 'empty' : 'success';
+        case CareUnsupported():
+          _report = null;
+          _failure = null;
+          _failureMessage = null;
+          _unsupported = true;
+          outcome = 'unsupported';
+          onUnsupported?.call();
+        case CareFailed(:final kind, :final message):
+          _failure = kind;
+          _failureMessage = message;
+          _unsupported = false;
+          outcome = kind == CareFailureKind.storeUnreadable
+              ? 'store_unreadable'
+              : kind.name;
+      }
+      notifyListeners();
+    } finally {
+      _quiet(() => span?.setAttribute('outcome', outcome));
+      _quiet(() => span?.end());
     }
-    notifyListeners();
+  }
+
+  static void _quiet(void Function() action) {
+    try {
+      action();
+    } on Object {
+      return;
+    }
   }
 
   void setWindow(UsageChartWindow window) {

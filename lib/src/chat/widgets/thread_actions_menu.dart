@@ -19,12 +19,22 @@ export '../thread_export.dart' show threadTranscript;
 enum ThreadAction {
   openInNewWindow,
   showFiles,
+  changeFolder,
   copyTranscript,
   branch,
   rename,
   pin,
   archive,
   delete,
+}
+
+/// "Change Folder…" in a thread's menu: offered while the server can move a
+/// chat's folder, and disabled while the chat replies.
+class ChangeFolderOffer {
+  const ChangeFolderOffer({required this.onSelected, this.enabled = true});
+
+  final VoidCallback onSelected;
+  final bool enabled;
 }
 
 /// The menu of one thread as a Mac app lists it, with the shortcuts the menu
@@ -37,6 +47,7 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
   bool canOpenInNewWindow = false,
   bool canonical = false,
   bool canBranch = false,
+  ChangeFolderOffer? changeFolder,
 }) => [
   if (canOpenInNewWindow) ...[
     const AdaptiveMenuItem(
@@ -51,6 +62,12 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
       const AdaptiveMenuItem(
         value: ThreadAction.rename,
         child: Text('Rename…'),
+      ),
+    if (changeFolder != null && !canonical)
+      AdaptiveMenuItem(
+        value: ThreadAction.changeFolder,
+        enabled: changeFolder.enabled,
+        child: const Text('Change Folder…'),
       ),
     AdaptiveMenuItem(
       value: ThreadAction.pin,
@@ -96,9 +113,13 @@ class ThreadActionsButton extends StatefulWidget {
     this.dense = false,
     this.onOpenInNewWindow,
     this.onShowFiles,
+    this.changeFolder,
   });
 
   final ChatThread thread;
+
+  /// "Change Folder…" in the Mac menu; null leaves it out.
+  final ChangeFolderOffer? changeFolder;
 
   /// Opens the chat's Files page; the menu has no Files item without it.
   final VoidCallback? onShowFiles;
@@ -128,6 +149,8 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
 
   Future<void> _run(ThreadAction action) => action == ThreadAction.showFiles
       ? Future(() => widget.onShowFiles?.call())
+      : action == ThreadAction.changeFolder
+      ? Future(() => widget.changeFolder?.onSelected())
       : runThreadAction(
           context,
           action,
@@ -163,6 +186,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
             manageable: housekeeping != null,
             canOpenInNewWindow: widget.onOpenInNewWindow != null,
             canBranch: housekeeping?.branch != null && _thread.remote,
+            changeFolder: widget.changeFolder,
           )
         else ...[
           if (widget.onShowFiles != null)
@@ -216,7 +240,7 @@ Future<void> runThreadAction(
   ValueChanged<ChatThread>? onOpenInNewWindow,
 }) async {
   switch ((action, housekeeping)) {
-    case (ThreadAction.showFiles, _):
+    case (ThreadAction.showFiles, _) || (ThreadAction.changeFolder, _):
       break;
     case (ThreadAction.openInNewWindow, _):
       onOpenInNewWindow?.call(thread);

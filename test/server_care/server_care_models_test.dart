@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/action_status.dart';
 import 'package:hermes_app/src/server_care/attention.dart';
+import 'package:hermes_app/src/server_care/care_result.dart';
+import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/server_care/doctor_report.dart';
 import 'package:hermes_app/src/server_care/widgets/server_check_body.dart'
     show commandInFix;
@@ -12,6 +14,7 @@ import 'package:hermes_app/src/server_care/update_check.dart';
 import 'package:hermes_app/src/server_care/update_receipt.dart';
 import 'package:hermes_app/src/server_care/usage_report.dart';
 
+import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
 
 ServerStatus status(Map<String, dynamic> patch) =>
@@ -526,6 +529,294 @@ void main() {
         )!.isEmpty,
         isTrue,
       );
+    });
+  });
+
+  group('every JSON parser', () {
+    // Each fixture with every value swapped for another type, and each
+    // truncated at every length, must read or give null, never throw.
+    Object? swapped(Object? v, int kind) {
+      final other = <Object?>[
+        null,
+        7,
+        'x',
+        true,
+        <Object?>[],
+        <String, Object?>{},
+      ];
+      return switch (v) {
+        Map() => {for (final e in v.entries) e.key: swapped(e.value, kind)},
+        List() => [for (final e in v) swapped(e, kind)],
+        _ => other[kind % other.length],
+      };
+    }
+
+    final today = DateTime(2026, 11, 14);
+    final parsers = <String, void Function(Object?)>{
+      'status': ServerStatus.parse,
+      'update check': UpdateCheck.parse,
+      'update start': UpdateStart.parse,
+      'receipt': UpdateReceiptSummary.parse,
+      'action status': ActionStatus.parse,
+      'usage': (j) => UsageReport.parse(j, days: 30, today: today),
+    };
+    final fixtures = <Object?>[
+      statusHealthy(),
+      statusOld(),
+      recordedStatusGatewayStopped(),
+      updateCheckBehind(),
+      updateCheckDocker(),
+      updateCheckManaged(),
+      recordedUpdateCheckUnreachable(),
+      updateStarted(),
+      updateRefused(),
+      receiptSuccess(),
+      receiptPartial(),
+      actionStatusAfterTwoRuns(),
+      recordedActionStatusIdle('doctor'),
+      usage30(),
+      recordedUsageEmpty(),
+      recordedUsageOneTurn(),
+    ];
+
+    // Every single-step mutation of [v], recursively: one key or element
+    // dropped, one field or element replaced by a scalar of another type, a
+    // scalar replaced by a map or a list, and the same inside every child.
+    Iterable<Object?> mutations(Object? v) sync* {
+      const scalars = <Object?>[null, 7, 'x', true];
+      final containers = <Object?>[
+        <String, Object?>{},
+        <Object?>[],
+        <Object?>[1],
+      ];
+      Iterable<Object?> replacements(Object? child) =>
+          child is Map || child is List ? scalars : [...containers, ...scalars];
+      if (v is Map) {
+        for (final key in v.keys) {
+          yield {...v}..remove(key);
+          for (final r in replacements(v[key])) {
+            yield {...v, key: r};
+          }
+          for (final inner in mutations(v[key])) {
+            yield {...v, key: inner};
+          }
+        }
+      } else if (v is List) {
+        for (var i = 0; i < v.length; i++) {
+          yield [...v]..removeAt(i);
+          for (final r in replacements(v[i])) {
+            yield [...v]..[i] = r;
+          }
+          for (final inner in mutations(v[i])) {
+            yield [...v]..[i] = inner;
+          }
+        }
+      }
+    }
+
+    test('ill-typed values never throw', () {
+      for (final entry in parsers.entries) {
+        for (final fixture in fixtures) {
+          for (var kind = 0; kind < 6; kind++) {
+            expect(
+              () => entry.value(swapped(fixture, kind)),
+              returnsNormally,
+              reason: '${entry.key}, kind $kind',
+            );
+          }
+        }
+        for (final odd in <Object?>[
+          null,
+          1,
+          'x',
+          [],
+          [1],
+          {},
+        ]) {
+          expect(() => entry.value(odd), returnsNormally);
+        }
+      }
+    });
+
+    test('a field of the wrong shape never throws', () {
+      // Names the failing mutation: a map or list field made a scalar and
+      // a scalar made a map or a list, one at a time.
+      for (final entry in parsers.entries) {
+        for (final fixture in fixtures) {
+          for (final mutated in mutations(fixture)) {
+            expect(
+              () => entry.value(mutated),
+              returnsNormally,
+              reason: '${entry.key}: $mutated',
+            );
+          }
+        }
+      }
+      final shapes = {
+        for (final m in mutations({'components': <String, Object?>{}})) '$m',
+        for (final m in mutations({
+          'commits': [1],
+        }))
+          '$m',
+      };
+      expect(shapes, containsAll(['{components: x}', '{commits: 7}']));
+    });
+
+    test('a body with keys or elements missing never throws', () {
+      for (final entry in parsers.entries) {
+        for (final fixture in fixtures) {
+          for (final mutated in mutations(fixture)) {
+            if (mutated is! Map && mutated is! List) continue;
+            expect(
+              () => entry.value(mutated),
+              returnsNormally,
+              reason: '${entry.key}: $mutated',
+            );
+          }
+        }
+      }
+      // The fixtures differ from their truncations, so the cases are real.
+      final truncated = mutations(updateCheckBehind())
+          .where((m) => m is Map && m.length < (updateCheckBehind().length));
+      expect(truncated, isNotEmpty);
+    });
+  });
+
+  group('doctor chatter', () {
+    List<String> run(List<String> body) => [
+      '=== doctor started 2026-11-14 09:00:00 ===',
+      ...body,
+    ];
+
+    test('only the connectivity progress line is chatter', () {
+      for (final line in [
+        'Running 44 connectivity checks in parallel…',
+        'Running 3 checks',
+        'Running 1 check',
+      ]) {
+        final r = DoctorReport.parse(
+          run(['◆ Messaging', '  ✓ Gateway ok', line]),
+        );
+        expect(r.unknownLines, 0, reason: line);
+      }
+      // A different "Running ..." line is not swallowed.
+      final other = DoctorReport.parse(
+        run(['◆ Messaging', 'Running 3 slow checks']),
+      );
+      expect(other.unknownLines, 1);
+      expect(other.sections.single.other, ['Running 3 slow checks']);
+    });
+
+    test('a Tip after the issue count is dropped', () {
+      final r = DoctorReport.parse(
+        run([
+          '◆ Messaging',
+          '  ✗ Telegram token rejected',
+          'Found 1 issue(s) to address:',
+          "  1. Re-run 'hermes setup telegram'",
+          "Tip: run 'hermes doctor --fix' to fix what it can",
+        ]),
+      );
+      expect(r.unknownLines, 0);
+      expect(r.trailing, isEmpty);
+      expect(r.fixes, hasLength(1));
+    });
+
+    test('a Tip inside a section still shows and counts as unknown', () {
+      final r = DoctorReport.parse(
+        run([
+          '◆ Messaging',
+          '  ✓ Gateway ok',
+          'Tip: something the section says',
+        ]),
+      );
+      expect(r.unknownLines, 1);
+      expect(r.sections.single.other, ['Tip: something the section says']);
+      expect(
+        DoctorReport.leftover([
+          '◆ Messaging',
+          'Tip: something the section says',
+        ], r),
+        contains('Tip: something the section says'),
+      );
+    });
+  });
+
+  group('commandInFix', () {
+    test('takes the first quoted hermes command, not the second', () {
+      expect(
+        commandInFix("Run 'hermes setup' then 'hermes setup telegram'"),
+        'hermes setup',
+      );
+    });
+
+    test('skips a --fix quote that comes first', () {
+      expect(
+        commandInFix("Try 'hermes doctor --fix', or 'hermes setup telegram'"),
+        'hermes setup telegram',
+      );
+      expect(commandInFix("Try 'hermes doctor --fix'"), isNull);
+    });
+
+    test('only single quotes are read: backticks are not matched', () {
+      expect(commandInFix('Run `hermes setup telegram`'), isNull);
+      expect(commandInFix("Run 'echo hi' or 'git pull'"), isNull);
+      expect(commandInFix('no command here'), isNull);
+    });
+  });
+
+  group('readVersion at the parses', () {
+    const nothing = <Object?>['unknown', 'Unknown', '', '  ', null, 7];
+
+    test('health', () {
+      final server = FakeHermesServer();
+      final repo = ServerCareRepository(server.client());
+      Future<String?> version(Object? v) async {
+        server.on('GET', '/api/health', {'ok': true, 'version': v});
+        final r = await repo.health() as CareOk<ServerHealth>;
+        return r.value.version;
+      }
+
+      return Future(() async {
+        for (final v in nothing) {
+          expect(await version(v), isNull, reason: '$v');
+        }
+        expect(await version(' 0.22.2 '), '0.22.2');
+      });
+    });
+
+    test('update check', () {
+      for (final v in nothing) {
+        expect(
+          UpdateCheck.parse({'current_version': v})!.currentVersion,
+          isNull,
+        );
+      }
+      expect(
+        UpdateCheck.parse({'current_version': '0.22.2'})!.currentVersion,
+        '0.22.2',
+      );
+    });
+
+    test('receipt', () {
+      for (final v in nothing) {
+        expect(
+          UpdateReceiptSummary.parse({
+            'summary': {'outcome': 'success', 'post_version': v},
+          })!.postVersion,
+          isNull,
+        );
+      }
+      expect(
+        UpdateReceiptSummary.parse({
+          'summary': {'outcome': 'success', 'post_version': '0.23.0'},
+        })!.postVersion,
+        '0.23.0',
+      );
+    });
+
+    test('status', () {
+      expect(status({'version': 'unknown'}).version, isNull);
     });
   });
 }

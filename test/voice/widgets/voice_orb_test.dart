@@ -96,6 +96,27 @@ void main() {
     }
   });
 
+  testWidgets('without an amplitude no rings are drawn', (tester) async {
+    for (final state in [VoiceOrbState.listening, VoiceOrbState.speaking]) {
+      await pumpVoice(tester, Center(child: VoiceOrb(state: state)));
+      expect(find.byType(AnimatedContainer), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is SizedBox && (w.width ?? 0) > 112 && w.width! < 168,
+        ),
+        findsNothing,
+        reason: state.name,
+      );
+    }
+    await pumpVoice(
+      tester,
+      const Center(
+        child: VoiceOrb(state: VoiceOrbState.listening, amplitude: 0),
+      ),
+    );
+    expect(find.byType(AnimatedContainer), findsNWidgets(2));
+  });
+
   testWidgets('the level rings follow the amplitude', (tester) async {
     Future<double> outer(double level) async {
       await pumpVoice(

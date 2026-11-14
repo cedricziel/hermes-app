@@ -76,11 +76,36 @@ class WorkingDirectoryLine extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Flexible(
-          child: Text(
-            parts.join(' · '),
-            maxLines: below ? null : 1,
-            overflow: below ? TextOverflow.clip : TextOverflow.ellipsis,
-            style: TextStyle(fontSize: size, color: muted),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final style = TextStyle(fontSize: size, color: muted);
+              var shown = parts.join(' · ');
+              final hasBranch = branch != null && branch!.isNotEmpty;
+              // A branch cut to "…" says nothing: leave it out when the folder
+              // and the branch do not fit together.
+              if (!below && hasBranch && box.maxWidth.isFinite) {
+                final painter = TextPainter(
+                  text: TextSpan(text: shown, style: style),
+                  textDirection: Directionality.of(context),
+                  textScaler: MediaQuery.textScalerOf(context),
+                  maxLines: 1,
+                )..layout(maxWidth: box.maxWidth);
+                final fits = !painter.didExceedMaxLines;
+                painter.dispose();
+                if (!fits) {
+                  shown = [
+                    parts.first,
+                    if (offline) l10n.workspacesRowOffline,
+                  ].join(' · ');
+                }
+              }
+              return Text(
+                shown,
+                maxLines: below ? null : 1,
+                overflow: below ? TextOverflow.clip : TextOverflow.ellipsis,
+                style: style,
+              );
+            },
           ),
         ),
         const SizedBox(width: 2),

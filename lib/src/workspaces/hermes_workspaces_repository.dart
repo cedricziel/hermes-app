@@ -5,6 +5,7 @@ import '../chat/gateway/gateway_rpc_client.dart';
 import '../surfaces/surface_snapshot.dart' show kDefaultProfile;
 import 'workspace_models.dart';
 import 'workspace_paths.dart';
+import 'workspace_telemetry.dart';
 
 /// How long a gateway call here may go unanswered. A move that gets no answer
 /// in that time is a lost answer: the caller reads the chat again and never
@@ -48,7 +49,11 @@ class HermesWorkspacesRepository {
     this._rpc, {
     this.timeout = kWorkspaceRpcTimeout,
     Duration? moveTimeout,
+    this.telemetry = WorkspaceTelemetry.none,
   }) : moveTimeout = moveTimeout ?? timeout * 6;
+
+  /// Where the `workspace.list` and `workspace.move` spans go.
+  final WorkspaceTelemetry telemetry;
 
   final DefaultApi _api;
   final WorkspaceRpc _rpc;
@@ -65,6 +70,15 @@ class HermesWorkspacesRepository {
   /// when none is picked. With [scan] the server also walks the profile's
   /// scan folders first.
   Future<WorkspacesResult<WorkspaceCatalog>> catalog({
+    String? profile,
+    bool scan = false,
+  }) => _listed(
+    WorkspaceListKind.catalog,
+    _catalogRead(profile: profile, scan: scan),
+    counts: (catalog) => (catalog.projects.length, catalog.repos.length),
+  );
+
+  Future<WorkspacesResult<WorkspaceCatalog>> _catalogRead({
     String? profile,
     bool scan = false,
   }) => _rest(
@@ -88,6 +102,15 @@ class HermesWorkspacesRepository {
   /// ([routeKnown], after an earlier read answered); before that it means a
   /// server without the route, which answers the same status.
   Future<WorkspacesResult<FolderListing>> listFolders(
+    String path, {
+    String? profile,
+    bool routeKnown = false,
+  }) => _listed(
+    WorkspaceListKind.browse,
+    _foldersRead(path, profile: profile, routeKnown: routeKnown),
+  );
+
+  Future<WorkspacesResult<FolderListing>> _foldersRead(
     String path, {
     String? profile,
     bool routeKnown = false,
@@ -134,10 +157,13 @@ class HermesWorkspacesRepository {
     if (!isServerPath(word)) {
       return const WorkspacesOk(PathSuggestions(folders: [], capped: false));
     }
-    return _gateway('complete.path', {
-      'word': word,
-      'profile': profile ?? kDefaultProfile,
-    }, (result) => _suggestions(word, result));
+    return _listed(
+      WorkspaceListKind.suggest,
+      _gateway('complete.path', {
+        'word': word,
+        'profile': profile ?? kDefaultProfile,
+      }, (result) => _suggestions(word, result)),
+    );
   }
 
   /// Moves the stored chat [storedId] to [cwd], once. Nothing is sent for a
@@ -153,7 +179,8 @@ class HermesWorkspacesRepository {
     if (!isServerPath(cwd)) {
       return const WorkspacesFailed(WorkspacesFailure.notAServerPath);
     }
-    return _gateway(
+    final span = telemetry.startMove();
+    final result = await _gateway(
       'session.workspace.move',
       {
         'session_key': storedId,
@@ -172,6 +199,25 @@ class HermesWorkspacesRepository {
       // An answer that does not fit may be one the server gave after moving.
       malformed: WorkspacesFailure.unreachable,
     );
+    telemetry.endMove(span, result);
+    return result;
+  }
+
+  /// Times [read] as a `workspace.list` span, which says only what kind of
+  /// read it was, how it ended and how many projects and roots came back.
+  Future<WorkspacesResult<T>> _listed<T>(
+    WorkspaceListKind kind,
+    Future<WorkspacesResult<T>> read, {
+    (int, int) Function(T value)? counts,
+  }) async {
+    final span = telemetry.startList(kind);
+    final result = await read;
+    final sizes = switch (result) {
+      WorkspacesOk(:final value) when counts != null => counts(value),
+      _ => null,
+    };
+    telemetry.endList(span, result, projects: sizes?.$1, repos: sizes?.$2);
+    return result;
   }
 
   /// The folder fields of the stored chat [id], to learn what a lost answer

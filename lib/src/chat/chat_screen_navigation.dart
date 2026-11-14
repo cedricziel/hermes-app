@@ -169,6 +169,14 @@ extension _ChatScreenNavigation on _ChatScreenState {
       MacCommand.renameThread: MacCommandHandler(
         on(ThreadAction.rename, when: managed && !thread.isCanonicalBotChat),
       ),
+      // Disabled while the chat replies or the server cannot move it.
+      MacCommand.changeFolder: MacCommandHandler(
+        thread != null &&
+                _chat.workspaceChangeOffered(thread) &&
+                _chat.workspaceMoveBlock(thread) == null
+            ? () => _changeFolder(thread)
+            : null,
+      ),
       MacCommand.copyTranscript: MacCommandHandler(
         on(
           ThreadAction.copyTranscript,
@@ -191,6 +199,35 @@ extension _ChatScreenNavigation on _ChatScreenState {
         files && thread != null ? () => _showFiles(FilesOpenedFrom.menu) : null,
       ),
     };
+  }
+
+  /// "Change Folder…" for [thread]'s menu: only for the open chat, while the
+  /// server can move it; disabled while it replies.
+  ChangeFolderOffer? _changeFolderOffer(ChatThread thread) {
+    if (!workspacesOffered(_chat) ||
+        thread.id != _chat.selectedId ||
+        !thread.remote) {
+      return null;
+    }
+    final block = _chat.workspaceMoveBlock(thread);
+    if (!_chat.workspaceChangeOffered(thread)) return null;
+    return ChangeFolderOffer(
+      enabled: block == null,
+      onSelected: () => _changeFolder(thread),
+    );
+  }
+
+  /// Opens the folder details of [thread] with the picker over them.
+  void _changeFolder(ChatThread thread) {
+    _closeDrawerIfNarrow();
+    unawaited(
+      showWorkingDirectoryDetails(
+        context,
+        chat: _chat,
+        thread: thread,
+        openPicker: true,
+      ),
+    );
   }
 
   /// Opens the Files page of the chat in front.

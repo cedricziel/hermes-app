@@ -6,6 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
+import 'package:hermes_app/src/chat/chat_workspace_state.dart'
+    show WorkspaceMoveBlock;
+import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoints_controller.dart';
@@ -1075,5 +1079,259 @@ void main() {
     expect(records, contains('chat.checkpoints.restore_confirmed'));
     expect(records, isNot(contains('quarterly')));
     expect(records, isNot(contains(_hash)));
+  });
+
+  group('folder moves and restores exclude each other', () {
+    late List<String> moves;
+
+    /// A controller that can also move a chat's folder.
+    void withMoves() {
+      chat.dispose();
+      moves = [];
+      chat = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        transport: source,
+        workspaces: HermesWorkspacesRepository(server.client().raw, (
+          method,
+          params, {
+          required timeout,
+        }) async {
+          moves.add(method);
+          return {'cwd': params['cwd']};
+        }),
+        attention: attention,
+        appLock: lock,
+        breadcrumbs: Breadcrumbs.of(trail),
+        report: (_) {},
+      );
+    }
+
+    test(
+      'a full restore in flight blocks a move, and nothing is sent',
+      () async {
+        withMoves();
+        final (opened, checkpoints) = await listed();
+        expect(chat.workspaceMoveBlock(opened), isNull);
+        source.fake.restoreGate = Completer<void>();
+
+        final restoring = checkpoints.confirmRestore(
+          checkpoints.beginRestore(_hash)!,
+        );
+        await pumpEventQueue();
+
+        expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.restoring);
+        expect(
+          await chat.moveWorkspace(opened, '/srv/other'),
+          WorkspaceMoveBlock.restoring,
+        );
+        expect(moves, isEmpty);
+
+        source.fake.restoreGate!.complete();
+        await restoring;
+        await pumpEventQueue();
+        expect(chat.workspaceMoveBlock(opened), isNull);
+      },
+    );
+
+    test('a compress in flight blocks a move, and nothing is sent', () async {
+      withMoves();
+      final (opened, _) = await listed();
+      final context = chat.contextIn(opened)!;
+      source.fake.compressGate = Completer<void>();
+
+      final compressing = context.confirmCompress(context.beginCompress()!);
+      await pumpEventQueue();
+
+      expect(context.compressing, isTrue);
+      expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.restoring);
+      expect(
+        await chat.moveWorkspace(opened, '/srv/other'),
+        WorkspaceMoveBlock.restoring,
+      );
+      expect(moves, isEmpty);
+
+      source.fake.compressGate!.complete();
+      await compressing;
+      await pumpEventQueue();
+      expect(chat.workspaceMoveBlock(opened), isNull);
+    });
+
+    test(
+      'a move in flight blocks slash commands, Retry, Edit and Branch',
+      () async {
+        final answer = Completer<Map<String, Object?>>();
+        chat.dispose();
+        moves = [];
+        chat = ChatController(
+          repository: HermesChatRepository(server.client().raw),
+          transport: source,
+          workspaces: HermesWorkspacesRepository(server.client().raw, (
+            method,
+            params, {
+            required timeout,
+          }) {
+            moves.add(method);
+            return answer.future;
+          }),
+          attention: attention,
+          appLock: lock,
+          report: (_) {},
+        );
+        final opened = await open();
+        source.own('stored-1');
+
+        expect(chat.canEditLastPrompt(opened), isTrue);
+        expect(chat.canBranch(opened), isTrue);
+        final move = chat.moveWorkspace(opened, '/srv/other');
+        await pumpEventQueue();
+
+        expect(await chat.runSlashCommand('/compress'), isFalse);
+        expect(source.slashRuns, isEmpty);
+        expect(chat.canEditLastPrompt(opened), isFalse);
+        expect(chat.canBranch(opened), isFalse);
+        await chat.retry(opened);
+        expect(source.undos, isEmpty);
+
+        answer.complete({'cwd': '/srv/other'});
+        await move;
+        await pumpEventQueue();
+        expect(chat.canEditLastPrompt(opened), isTrue);
+        expect(await chat.runSlashCommand('/help'), isTrue);
+      },
+    );
+
+    test(
+      'two overlapping commands keep a move waiting until both end',
+      () async {
+        withMoves();
+        final opened = await open();
+        source.own('stored-1');
+        final first = Completer<SlashCommandResult>();
+        final second = Completer<SlashCommandResult>();
+        const done = SlashCommandResult(threadId: 'stored-1', output: 'Done');
+
+        source.slashGate = first;
+        final one = chat.runSlashCommand('/help');
+        await pumpEventQueue();
+        source.slashGate = second;
+        final two = chat.runSlashCommand('/usage');
+        await pumpEventQueue();
+        expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.replying);
+
+        first.complete(done);
+        await one;
+        await pumpEventQueue();
+        expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.replying);
+        expect(
+          await chat.moveWorkspace(opened, '/srv/other'),
+          WorkspaceMoveBlock.replying,
+        );
+        expect(moves, isEmpty);
+
+        second.complete(done);
+        await two;
+        await pumpEventQueue();
+        expect(chat.workspaceMoveBlock(opened), isNull);
+      },
+    );
+
+    test('a Retry in flight makes a move wait', () async {
+      withMoves();
+      final opened = await open();
+      source.own('stored-1');
+      source.undoGate = Completer<void>();
+
+      final retrying = chat.retry(opened);
+      await pumpEventQueue();
+
+      expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.replying);
+      expect(
+        await chat.moveWorkspace(opened, '/srv/other'),
+        WorkspaceMoveBlock.replying,
+      );
+      expect(moves, isEmpty);
+
+      source.undoGate!.complete();
+      await retrying;
+      await pumpEventQueue();
+    });
+
+    test('a slash command that runs makes a move wait, and nothing is '
+        'sent', () async {
+      withMoves();
+      final opened = await open();
+      source.own('stored-1');
+      source.slashGate = Completer<SlashCommandResult>();
+
+      final running = chat.runSlashCommand('/compress');
+      await pumpEventQueue();
+
+      expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.replying);
+      expect(
+        await chat.moveWorkspace(opened, '/srv/other'),
+        WorkspaceMoveBlock.replying,
+      );
+      expect(moves, isEmpty);
+
+      source.slashGate!.complete(
+        const SlashCommandResult(threadId: 'stored-1', output: 'Done'),
+      );
+      await running;
+      await pumpEventQueue();
+      expect(chat.workspaceMoveBlock(opened), isNull);
+    });
+
+    test(
+      'a move in flight blocks a restore and a compress from starting',
+      () async {
+        withMoves();
+        final (opened, checkpoints) = await listed();
+        final context = chat.contextIn(opened)!;
+        expect(checkpoints.restoreRefusal(), isNull);
+        expect(context.compressRefusal, isNull);
+        final answer = Completer<Map<String, Object?>>();
+        chat.dispose();
+        chat = ChatController(
+          repository: HermesChatRepository(server.client().raw),
+          transport: source,
+          workspaces: HermesWorkspacesRepository(server.client().raw, (
+            method,
+            params, {
+            required timeout,
+          }) {
+            moves.add(method);
+            return answer.future;
+          }),
+          attention: attention,
+          appLock: lock,
+          report: (_) {},
+        );
+        final again = await open();
+        source.own('stored-1');
+        source.fake.list = CheckpointsOn([
+          Checkpoint(hash: _hash, reason: CheckpointReason.beforeEdit),
+        ]);
+        final checkpoints2 = chat.checkpointsIn(again)!;
+        await checkpoints2.panelOpened();
+        final context2 = chat.contextIn(again)!;
+
+        final move = chat.moveWorkspace(again, '/srv/other');
+        await pumpEventQueue();
+
+        expect(moves, ['session.workspace.move']);
+        expect(checkpoints2.restoreRefusal(), RestoreRefusal.folderMoving);
+        expect(checkpoints2.beginRestore(_hash), isNull);
+        expect(context2.compressRefusal, CompressRefusal.folderMoving);
+        expect(context2.beginCompress(), isNull);
+        expect(source.fake.restoreRequests, isEmpty);
+        expect(source.fake.compressRequests, isEmpty);
+
+        answer.complete({'cwd': '/srv/other'});
+        await move;
+        await pumpEventQueue();
+        expect(checkpoints2.restoreRefusal(), isNull);
+        expect(context2.compressRefusal, isNull);
+      },
+    );
   });
 }

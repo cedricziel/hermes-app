@@ -18,8 +18,9 @@ enum VoiceOrbState {
 }
 
 /// The call's one round indicator: a 112 pt circle with a 2 pt ring and a 48 pt
-/// icon for the state, and two level rings behind it that follow [amplitude]
-/// (the input level while listening, the output level while speaking).
+/// icon for the state, and, once [amplitude] is given, two level rings behind
+/// it that follow it (the input level while listening, the output level while
+/// speaking).
 ///
 /// It is a button only while [VoiceOrbState.speaking] and [onTap] is set; in
 /// every other state it is not a target and carries no semantics, since the
@@ -28,7 +29,7 @@ class VoiceOrb extends StatelessWidget {
   const VoiceOrb({
     super.key,
     required this.state,
-    this.amplitude = 0,
+    this.amplitude,
     this.reduceMotion = false,
     this.onTap,
     this.stoppedCheck = false,
@@ -36,8 +37,8 @@ class VoiceOrb extends StatelessWidget {
 
   final VoiceOrbState state;
 
-  /// The current level, 0 (silence) to 1 (loudest).
-  final double amplitude;
+  /// The current level, 0 (silence) to 1 (loudest). Null draws no rings.
+  final double? amplitude;
 
   /// Keeps the rings and the spinner still. The system's own setting is
   /// honoured as well.
@@ -55,13 +56,14 @@ class VoiceOrb extends StatelessWidget {
 
   bool get _tappable => state == VoiceOrbState.speaking && onTap != null;
   bool get _hasLevel =>
-      state == VoiceOrbState.listening || state == VoiceOrbState.speaking;
+      amplitude != null &&
+      (state == VoiceOrbState.listening || state == VoiceOrbState.speaking);
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final still = reduceMotion || MediaQuery.disableAnimationsOf(context);
-    final level = amplitude.clamp(0.0, 1.0);
+    final level = (amplitude ?? 0).clamp(0.0, 1.0);
     final disc = DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,

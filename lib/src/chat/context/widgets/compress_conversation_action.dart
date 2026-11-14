@@ -32,6 +32,7 @@ class CompressConversationAction extends StatelessWidget {
       CompressRefusal.replying => l10n.chatContextPageCompressReplying,
       CompressRefusal.disconnected => l10n.chatContextPageCompressDisconnected,
       CompressRefusal.compressing => l10n.chatContextPageCompressCompressing,
+      CompressRefusal.folderMoving => l10n.chatContextPageCompressFolderMoving,
       CompressRefusal.unavailable ||
       CompressRefusal.locked => l10n.chatContextPageCompressUnavailable,
     };

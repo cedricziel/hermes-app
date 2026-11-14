@@ -78,7 +78,7 @@ void main() {
         false,
         VoiceOrbState.muted,
         'Muted',
-        'Nothing is captured or sent. Unmute to talk.',
+        "Hermes can't hear you. Unmute to talk.",
       ),
       (
         CallPhase.sending,
@@ -373,6 +373,53 @@ void main() {
     await tester.tap(find.text('Ask Hermes for help'));
     expect(asks, 1);
   });
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('End stays put whatever the caption says, ${scale}x', (
+      tester,
+    ) async {
+      const long =
+          'Please check the third paragraph of the quarterly report and '
+          'tell me whether the numbers still add up after the correction, '
+          'and then summarise it for the team in two short sentences.';
+      Future<Offset> endAt(String caption, {Widget? notice}) async {
+        await pumpVoice(
+          tester,
+          VoiceCallView(
+            phase: CallPhase.listening,
+            elapsed: const Duration(seconds: 75),
+            muted: false,
+            speaker: false,
+            route: 'iPhone',
+            caption: caption,
+            notice: notice,
+            onMute: () {},
+            onSpeaker: () {},
+            onEnd: () {},
+            onShowChat: () {},
+          ),
+          scale: scale,
+        );
+        expect(tester.takeException(), isNull);
+        return tester.getTopLeft(find.bySemanticsLabel('End call'));
+      }
+
+      final none = await endAt('');
+      expect(await endAt('Hello there'), none);
+      expect(await endAt('Hello there, this one runs\nacross two lines'), none);
+      expect(await endAt(long), none);
+      expect(
+        await endAt(
+          '',
+          notice: const VoiceCallNotice(
+            tone: VoiceCallNoticeTone.info,
+            title: "Couldn't send. Nothing was sent.",
+          ),
+        ),
+        none,
+      );
+    });
+  }
 
   for (final scale in [1.0, 2.0]) {
     for (final size in [const Size(390, 844), const Size(480, 760)]) {

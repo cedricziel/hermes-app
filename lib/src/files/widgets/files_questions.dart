@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'safe_path_text.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/platform_chrome.dart';
@@ -107,7 +108,7 @@ Future<bool> askOpenSecretFile(BuildContext context, String name) {
   final l10n = context.l10n;
   return showConfirmDialog(
     context,
-    title: name,
+    title: safePathText(name),
     message: l10n.filesSecretQuestion,
     confirmLabel: l10n.filesActionContinue,
     cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,

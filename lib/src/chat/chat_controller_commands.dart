@@ -236,6 +236,7 @@ extension _ChatControllerCommands on ChatController {
         _bound.contains(thread) &&
         !_undoing.containsKey(thread) &&
         !_ChatControllerCheckpoints(this)._actionHolds(thread) &&
+        !_moveHolds(thread) &&
         !thread.isReplying &&
         !_queues.containsKey(thread) &&
         prompt != null &&
@@ -250,7 +251,10 @@ extension _ChatControllerCommands on ChatController {
     if (_sessionStates[thread]?.reclaimedReason != null) return;
     // A full restore is rewinding the chat: another undo would take a second
     // turn.
-    if (_ChatControllerCheckpoints(this)._actionHolds(thread)) return;
+    if (_ChatControllerCheckpoints(this)._actionHolds(thread) ||
+        _moveHolds(thread)) {
+      return;
+    }
     final epoch = _activityEpoch;
     final generation = _sessionActionGeneration(thread);
     if (!_currentActivity(epoch) ||
@@ -343,6 +347,7 @@ extension _ChatControllerCommands on ChatController {
       _sessionStates[thread]?.reclaimedReason == null &&
       !_undoing.containsKey(thread) &&
       !_ChatControllerCheckpoints(this)._actionHolds(thread) &&
+      !_moveHolds(thread) &&
       !thread.isReplying &&
       !_queues.containsKey(thread);
 
