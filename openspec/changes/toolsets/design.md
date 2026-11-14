@@ -220,6 +220,11 @@ The REST writes change `config.yaml` and `.env` only; they do not reach into run
 - The risk note comes before any setting in the detail; at the largest text size the row's switch moves under the text with the state in words.
 - "Install on server" is a filled button exactly when the provider's status is `needs_setup`, its helper says "Needed before this works. The app asks first.", and the switch-started install opens the detail's install section from a "Show" button in the list's banner.
 
+- "Couldn't confirm." with Try again: where a Try again action sits beside the line (Mac, wide window, narrow Windows and Linux) the line says only "Couldn't confirm." and the button says what to do, so one request is not made twice; with pull to refresh the line says "Couldn't confirm. Pull to refresh." (rows, details, key form, provider, model and backend picks).
+- A row keeps its action count while "May have changed. Checking…" shows; the line follows the count, so the order stays: risk line, needs setup, count, checking.
+- "Applies from your next chat." on a toolset's details shows only for a toolset whose own switch changed in this visit; the list-level note stays after any change.
+- The driver's "Install on server" for Computer use is the Set up area's single button; Readiness has none, so there are never two filled install buttons.
+
 - Mac targets: the pointer is the input, so the Mac uses the app's existing sizes (grouped rows 40 pt, `MacToolbar` buttons and source-list rows 28 pt, `kMacSourceListRowHeight`) with 28 pt as the minimum; touch platforms keep 44 pt / 48 dp, the key form's Replace included.
 - Deviation: the model picker and "What's the difference?" open through `showAdaptiveSheet`, so a Mac and wide windows show a centred dialog, not an anchored popover as the canvas draws it; the app has no popover helper, and one is not worth adding for two sheets.
 

@@ -148,7 +148,9 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
   String? _postSetupStarted;
   String? _postSetupToolset;
   var _changed = false;
+  final _changedNames = <String>{};
   var _toolVanished = false;
+  final _setupBusy = <String>{};
 
   /// The profile the list is for.
   String get profile => _repository.profile;
@@ -174,10 +176,24 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
   /// one on.
   bool get changedSinceOpen => _changed;
 
+  /// True when a switch of [name] itself succeeded since the screen opened;
+  /// the details show "Applies from your next chat" only for such a toolset.
+  bool changedToolset(String name) => _changedNames.contains(name);
+
   /// True when a refused switch found its toolset gone from the server.
   bool get toolVanished => _toolVanished;
 
   ToolsRowState rowState(String name) => _rows[name] ?? const ToolsRowState();
+
+  /// A setup write (a provider, a key, a model) of [name] is out. Its switch
+  /// is disabled meanwhile, so a switch and a setup write never overlap.
+  bool switchLocked(String name) => _setupBusy.contains(name);
+
+  /// Tells the controller that the setup of [name] is [busy] with a write.
+  void setSetupBusy(String name, {required bool busy}) {
+    if (busy ? !_setupBusy.add(name) : !_setupBusy.remove(name)) return;
+    notifyListeners();
+  }
 
   /// The position of [toolset]'s switch.
   bool shownEnabled(Toolset toolset) =>
@@ -226,10 +242,12 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
     _rows.clear();
     _installSteps.clear();
     _queued.clear();
+    _setupBusy.clear();
     _confirmation = null;
     _postSetupStarted = null;
     _postSetupToolset = null;
     _changed = false;
+    _changedNames.clear();
     _toolVanished = false;
     notifyListeners();
   }
@@ -293,6 +311,9 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
   Future<void> requestSwitch(String name, {required bool enabled}) async {
     final toolset = _toolset(name);
     if (toolset == null || _confirmation != null) return;
+    // The switch is disabled while a setup write runs; a request that still
+    // arrives is dropped, not queued, so nothing is sent behind the write.
+    if (_setupBusy.contains(name)) return;
     if (rowState(name).busy) {
       _queued[name] = enabled;
       return;
@@ -392,6 +413,7 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
     switch (result) {
       case ToolsOk(:final value):
         _changed = true;
+        _changedNames.add(name);
         final started = value.postSetupStarted;
         if (started != null) {
           _postSetupStarted = started;

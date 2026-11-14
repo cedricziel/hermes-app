@@ -187,6 +187,27 @@ void main() {
       hang.complete();
     });
 
+    test(
+      'refresh ends the unconfirmed state without sending anything',
+      () async {
+        lose('$_web/provider');
+        final hang = Completer<void>();
+        server.onRequest('GET', '$_web/config', (_) async {
+          await hang.future;
+          return (status: 200, body: _webConfig());
+        });
+        await web.pickProvider('Local Driver');
+        expect(web.providerState, ToolsWriteState.unconfirmed);
+        hang.complete();
+        server.on('GET', '$_web/config', _webConfig());
+
+        await web.refresh();
+
+        expect(web.providerState, ToolsWriteState.idle);
+        expect(bodies('$_web/provider'), hasLength(1));
+      },
+    );
+
     test('a lost capability pick is checked against the backend', () async {
       lose('$_web/provider');
       server.on('GET', '$_web/config', {

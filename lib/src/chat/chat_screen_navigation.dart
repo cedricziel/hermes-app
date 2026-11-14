@@ -309,18 +309,34 @@ extension _ChatScreenNavigation on _ChatScreenState {
         availability?.profile;
     final tools = profile == null ? null : _tools?.forProfile(profile);
     if (tools == null) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ToolsScreen(
-          repository: tools,
-          availability: availability,
-          // A deleted profile: read the list of profiles again.
-          onProfileGone: _profiles == null
-              ? null
-              : () => unawaited(_loadRecipients()),
+    // The Computer use details link to the bot's screen. The status is read
+    // (no frames) while the Tools screen is open, so the link follows whether
+    // the profile has one; a chat with no Bot Screen controller offers none.
+    final screen = _screen;
+    final watch = screen?.watch(frames: false);
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ToolsScreen(
+            repository: tools,
+            availability: availability,
+            // A deleted profile: read the list of profiles again.
+            onProfileGone: _profiles == null
+                ? null
+                : () => unawaited(_loadRecipients()),
+            botScreen: screen == null
+                ? null
+                : ToolsBotScreenLink(
+                    changes: screen,
+                    offered: () => screen.status != null && !screen.unsupported,
+                    open: () => _openViewer('tools'),
+                  ),
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      watch?.release();
+    }
     // Switches made there change what the entry and the count know.
     if (mounted) unawaited(availability?.refresh(tools.profile));
   }

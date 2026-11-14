@@ -5,6 +5,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/tools/toolset_copy.dart';
 import 'package:hermes_app/src/tools/tools_models.dart';
 import 'package:hermes_app/src/tools/widgets/install_progress.dart';
+import 'package:hermes_app/src/tools/widgets/provider_choice_section.dart';
 import 'package:hermes_app/src/tools/widgets/provider_row.dart';
 import 'package:hermes_app/src/tools/widgets/readiness_row.dart';
 import 'package:hermes_app/src/tools/widgets/status_chip.dart';
@@ -12,6 +13,9 @@ import 'package:hermes_app/src/tools/widgets/tools_confirmation.dart';
 import 'package:hermes_app/src/tools/widgets/tools_difference_sheet.dart';
 import 'package:hermes_app/src/tools/widgets/tools_load_state.dart';
 import 'package:hermes_app/src/tools/widgets/toolset_key_form.dart';
+import 'package:hermes_app/src/tools/widgets/toolset_model_row.dart';
+import 'package:hermes_app/src/tools/widgets/tools_disclosure.dart';
+import 'package:hermes_app/src/tools/widgets/tools_note.dart';
 import 'package:hermes_app/src/tools/widgets/toolset_model_sheet.dart';
 import 'package:hermes_app/src/widgets/disclosure_tile.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -398,7 +402,11 @@ class _KeyDemo extends StatefulWidget {
     required this.fields,
     this.phase = ToolsetKeyFormPhase.idle,
     this.hideSignal = 0,
+    this.tryAgain = false,
   });
+
+  /// Where nothing pulls to refresh: "Couldn't confirm." with Try again.
+  final bool tryAgain;
 
   /// (label, typed text, is set, has link)
   final List<(String, String, bool, bool)> fields;
@@ -490,6 +498,7 @@ class _KeyDemoState extends State<_KeyDemo> {
           _replacing[i] = true;
         }),
         onGetKey: (_) {},
+        onTryAgain: widget.tryAgain ? () {} : null,
       ),
     ]);
   }
@@ -544,6 +553,14 @@ WidgetbookNode _keyFormComponent() => WidgetbookComponent(
       builder: (_) => const _KeyDemo(
         fields: _setKey,
         phase: ToolsetKeyFormPhase.unconfirmed,
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Couldn\'t confirm, Try again (desktop)',
+      builder: (_) => const _KeyDemo(
+        fields: _setKey,
+        phase: ToolsetKeyFormPhase.unconfirmed,
+        tryAgain: true,
       ),
     ),
     WidgetbookUseCase(
@@ -950,6 +967,204 @@ Widget _backdrop(Widget dialog) => fill(
   ),
 );
 
+/// The parts the setup area is made of: the choice group, the notes under
+/// it, the disclosure rows and the Model row.
+WidgetbookNode _setupPartsComponent() => WidgetbookComponent(
+  name: 'Setup area parts',
+  useCases: [
+    WidgetbookUseCase(
+      name: 'ProviderChoiceSection',
+      builder: (c) => _page([
+        ProviderChoiceSection(
+          header: c.l10n.toolsSetupHeader,
+          footer: c.l10n.toolsSetupFooter,
+          onPick: (_) {},
+          choices: [
+            for (final (i, p) in _webProviders.indexed)
+              ProviderChoice(
+                id: p.name,
+                name: p.name,
+                status: p.status,
+                picked: i == 0,
+                badge: p.badge,
+                line: p.line,
+                needsNousSignIn: p.nous,
+              ),
+          ],
+        ),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'ProviderChoiceSection, a write is out',
+      builder: (c) => _page([
+        ProviderChoiceSection(
+          enabled: false,
+          onPick: (_) {},
+          choices: [
+            for (final (i, p) in _webProviders.indexed)
+              ProviderChoice(
+                id: p.name,
+                name: p.name,
+                status: p.status,
+                picked: i == 0,
+              ),
+          ],
+        ),
+        ToolsLoadingRow(c.l10n.toolsWriteSaving),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'ToolsNote, every tone',
+      builder: (c) => _page([
+        const ToolsNote(
+          tone: ToolsNoteTone.error,
+          text: 'That provider is not available.',
+        ),
+        ToolsNote(
+          tone: ToolsNoteTone.warning,
+          text: c.l10n.toolsRowUnconfirmedRetry,
+          actionLabel: c.l10n.toolsTryAgain,
+          onAction: () {},
+        ),
+        ToolsNote(tone: ToolsNoteTone.info, text: c.l10n.toolsWriteNotApplied),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'ToolsNote, largest text',
+      builder: (c) => _at(
+        3,
+        () => _page([
+          ToolsNote(
+            tone: ToolsNoteTone.warning,
+            text: c.l10n.toolsInstallFollowLost,
+            actionLabel: c.l10n.toolsCheckAgain,
+            onAction: () {},
+          ),
+        ]),
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'ToolsDisclosure, Change setup closed',
+      builder: (c) => _page([
+        ToolsDisclosure(
+          title: c.l10n.toolsSetupChange,
+          value: 'Brightfetch',
+          expanded: false,
+          onExpandedChanged: (_) {},
+          children: const [],
+        ),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'ToolsDisclosure, open with providers',
+      builder: (c) => _page([
+        ToolsDisclosure(
+          title: c.l10n.toolsSetupChange,
+          value: 'Brightfetch',
+          expanded: true,
+          onExpandedChanged: (_) {},
+          children: [
+            _PickGroup(_webProviders, header: c.l10n.toolsSetupHeader),
+          ],
+        ),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'ToolsetModelRow, ready',
+      builder: (c) => _page([
+        ToolsetModelRow(
+          phase: ToolsetModelRowPhase.ready,
+          provider: 'Imageco',
+          value: 'Fast One',
+          onOpen: () {},
+        ),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'ToolsetModelRow, a model is being saved',
+      builder: (c) => _page([
+        ToolsetModelRow(
+          phase: ToolsetModelRowPhase.ready,
+          provider: 'Imageco',
+          value: 'Fast One',
+          enabled: false,
+          onOpen: () {},
+        ),
+        ToolsLoadingRow(c.l10n.toolsWriteSaving),
+      ]),
+    ),
+    WidgetbookUseCase(name: 'ToolsetModelRow, loading', builder: _modelLoading),
+    WidgetbookUseCase(
+      name: 'ToolsetModelRow, couldn\'t read',
+      builder: (c) => _page([
+        ToolsetModelRow(
+          phase: ToolsetModelRowPhase.failed,
+          provider: 'Imageco',
+          onRetry: () {},
+        ),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'Install checking after it ended',
+      builder: (_) => _install(InstallPhase.checking),
+    ),
+    WidgetbookUseCase(
+      name: 'Install, follow lost, Check again',
+      builder: (c) => _page([
+        InstallProgress(
+          phase: InstallPhase.unknown,
+          lines: _lines,
+          extra: ToolsNote(
+            tone: ToolsNoteTone.warning,
+            text: c.l10n.toolsInstallFollowLost,
+            actionLabel: c.l10n.toolsCheckAgain,
+            onAction: () {},
+          ),
+        ),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'Allow access, waiting on the Mac',
+      builder: (c) => _page([
+        InstallProgress(
+          header: c.l10n.toolsGrantHeader,
+          runningTitle: c.l10n.toolsGrantRunning,
+          phase: InstallPhase.running,
+          lines: const ['Waiting for the permission window'],
+        ),
+      ]),
+    ),
+    ...onEachPlatform(
+      'Providers and a note',
+      (c) => _page([
+        ProviderChoiceSection(
+          header: c.l10n.toolsSetupHeader,
+          onPick: (_) {},
+          choices: [
+            for (final (i, p) in _webProviders.indexed)
+              ProviderChoice(
+                id: p.name,
+                name: p.name,
+                status: p.status,
+                picked: i == 1,
+                badge: p.badge,
+                line: p.line,
+              ),
+          ],
+        ),
+        const ToolsNote(
+          tone: ToolsNoteTone.error,
+          text: 'That provider is not available.',
+        ),
+      ]),
+    ),
+  ],
+);
+
+Widget _modelLoading(BuildContext context) => _page(const [
+  ToolsetModelRow(phase: ToolsetModelRowPhase.loading, provider: ''),
+]);
+
 WidgetbookNode _confirmComponent() {
   ToolsetQuestion Function(AppLocalizations) of(String name) =>
       (l10n) => toolsetConfirmQuestion(l10n, name, 'work')!;
@@ -1029,6 +1244,7 @@ List<WidgetbookNode> toolsSetupComponents() => [
   _setupComponent(),
   _keyFormComponent(),
   _installComponent(),
+  _setupPartsComponent(),
   _readinessComponent(),
   _modelComponent(),
   _confirmComponent(),

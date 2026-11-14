@@ -147,6 +147,31 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// Reads the matrix (and the model catalog, for a toolset that has one)
+  /// again for "Couldn't confirm. Pull to refresh." A read that works ends the
+  /// unconfirmed and not-applied states: the screen then shows what Hermes
+  /// says. Typed keys stay, and nothing is written.
+  Future<void> refresh() async {
+    final epoch = _epoch;
+    final result = await _repository.config(toolset);
+    if (_stale(epoch)) return;
+    if (_applyConfig(result)) {
+      if (_keys == ToolsetKeysState.unconfirmed) _keys = ToolsetKeysState.idle;
+      if (_provider == ToolsWriteState.unconfirmed ||
+          _provider == ToolsWriteState.notApplied) {
+        _provider = ToolsWriteState.idle;
+      }
+      if (_model == ToolsWriteState.unconfirmed ||
+          _model == ToolsWriteState.notApplied) {
+        _model = ToolsWriteState.idle;
+      }
+    }
+    notifyListeners();
+    if (kModelToolsets.contains(toolset) && _models != null) {
+      await loadModels(provider: _modelsProvider);
+    }
+  }
+
   /// Whether the matrix was read; keeps the last good one on a failure.
   bool _applyConfig(ToolsResult<ToolsetConfig> result) {
     if (result case ToolsOk(:final value)) {
