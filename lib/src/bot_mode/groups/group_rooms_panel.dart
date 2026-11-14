@@ -80,7 +80,7 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
       for (final room in rooms) {
         try {
           states[room.roomId] = await repository.state(room.roomId);
-        } on Object {
+        } on Exception {
           /* Listing survives a single unavailable room state. */
         }
       }

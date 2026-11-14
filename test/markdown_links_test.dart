@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/widgets/markdown_links.dart';
@@ -38,5 +40,17 @@ void main() {
     final handler = markdownLinkHandler(open: (_) => throw Exception('nope'));
     handler('https://example.com', 'label');
     await Future<void>.delayed(Duration.zero);
+  });
+
+  test('a bug in opening a link is not swallowed', () async {
+    final handler = markdownLinkHandler(open: (_) => throw StateError('bug'));
+    final errors = <Object>[];
+
+    await runZonedGuarded(() async {
+      handler('https://example.com', 'label');
+      await Future<void>.delayed(Duration.zero);
+    }, (error, _) => errors.add(error));
+
+    expect(errors.single, isA<StateError>());
   });
 }

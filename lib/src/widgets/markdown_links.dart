@@ -21,8 +21,9 @@ void Function(String url, String title) markdownLinkHandler({
     }
     try {
       await opener(uri);
-    } on Object catch (_) {
-      // A link that fails to open leaves the message as it is.
+    } on Exception {
+      // A link that fails to open (a platform error, or no plugin) leaves the
+      // message as it is; a bug is not hidden.
     }
   };
 }

@@ -30,7 +30,7 @@ Future<void> openIssueTracker([LinkOpener? openLink]) async {
       openLink ?? (uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
   try {
     await open(_issuesUrl);
-  } on Object catch (_) {
-    // The link failing to open is not fatal.
+  } on Exception {
+    // The link failing to open is not fatal; a bug is not hidden.
   }
 }
