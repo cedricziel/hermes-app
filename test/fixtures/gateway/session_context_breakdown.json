@@ -1,8 +1,239 @@
 {
   "source_ref": "d923a5eb",
-  "note": "Invented content in the shapes of the Hermes gateway handlers and tests named in openspec/changes/chat-checkpoints-and-context/design.md. No real paths, hashes or messages.",
+  "note": "Recorded from a throwaway Hermes (see source_ref) on a scripted model, then scrubbed: invented paths, hashes and times. Cases marked invented could not be reached over the RPC and stay hand-built.",
   "source": "tui_gateway/methods_session.py::session.context_breakdown",
   "cases": {
+    "before_agent_build": {
+      "result": {
+        "categories": [],
+        "context_max": 0,
+        "context_percent": 0,
+        "context_used": 0,
+        "estimated_total": 0,
+        "context_estimated": false,
+        "context_source": "provider_usage",
+        "model": ""
+      },
+      "source": "recorded"
+    },
+    "four_categories": {
+      "result": {
+        "categories": [
+          {
+            "color": "var(--context-usage-system)",
+            "id": "system_prompt",
+            "label": "System prompt",
+            "tokens": 3161
+          },
+          {
+            "color": "var(--context-usage-tools)",
+            "id": "tool_definitions",
+            "label": "Tool definitions",
+            "tokens": 9167
+          },
+          {
+            "color": "var(--context-usage-subagents)",
+            "id": "subagent_definitions",
+            "label": "Subagent definitions",
+            "tokens": 1166
+          },
+          {
+            "color": "var(--context-usage-conversation)",
+            "id": "conversation",
+            "label": "Conversation",
+            "tokens": 42
+          }
+        ],
+        "context_max": 131072,
+        "context_percent": 0,
+        "context_used": 20,
+        "context_source": "provider_usage",
+        "context_estimated": false,
+        "estimated_total": 13536,
+        "model": "example-model",
+        "context_files": [
+          {
+            "label": "SOUL.md",
+            "path": "/srv/demo/home/SOUL.md",
+            "chars": 663,
+            "est_tokens": 167,
+            "loaded": true,
+            "status": "loaded"
+          }
+        ]
+      },
+      "source": "recorded"
+    },
+    "seven_categories": {
+      "result": {
+        "categories": [
+          {
+            "color": "var(--context-usage-system)",
+            "id": "system_prompt",
+            "label": "System prompt",
+            "tokens": 3208
+          },
+          {
+            "color": "var(--context-usage-tools)",
+            "id": "tool_definitions",
+            "label": "Tool definitions",
+            "tokens": 12555
+          },
+          {
+            "color": "var(--context-usage-rules)",
+            "id": "rules",
+            "label": "Rules",
+            "tokens": 43
+          },
+          {
+            "color": "var(--context-usage-mcp)",
+            "id": "mcp",
+            "label": "MCP",
+            "tokens": 362
+          },
+          {
+            "color": "var(--context-usage-subagents)",
+            "id": "subagent_definitions",
+            "label": "Subagent definitions",
+            "tokens": 1166
+          },
+          {
+            "color": "var(--context-usage-memory)",
+            "id": "memory",
+            "label": "Memory",
+            "tokens": 93
+          },
+          {
+            "color": "var(--context-usage-conversation)",
+            "id": "conversation",
+            "label": "Conversation",
+            "tokens": 42
+          }
+        ],
+        "context_max": 131072,
+        "context_percent": 0,
+        "context_used": 20,
+        "context_source": "provider_usage",
+        "context_estimated": false,
+        "estimated_total": 17469,
+        "model": "example-model",
+        "context_files": [
+          {
+            "label": "AGENTS.md",
+            "path": "/srv/demo/project/AGENTS.md",
+            "chars": 58,
+            "est_tokens": 15,
+            "loaded": true,
+            "status": "loaded"
+          },
+          {
+            "label": "SOUL.md",
+            "path": "/srv/demo/home/SOUL.md",
+            "chars": 663,
+            "est_tokens": 167,
+            "loaded": true,
+            "status": "loaded"
+          }
+        ]
+      },
+      "source": "recorded"
+    },
+    "above_85_percent": {
+      "result": {
+        "categories": [
+          {
+            "color": "var(--context-usage-system)",
+            "id": "system_prompt",
+            "label": "System prompt",
+            "tokens": 3161
+          },
+          {
+            "color": "var(--context-usage-tools)",
+            "id": "tool_definitions",
+            "label": "Tool definitions",
+            "tokens": 9167
+          },
+          {
+            "color": "var(--context-usage-subagents)",
+            "id": "subagent_definitions",
+            "label": "Subagent definitions",
+            "tokens": 1166
+          },
+          {
+            "color": "var(--context-usage-conversation)",
+            "id": "conversation",
+            "label": "Conversation",
+            "tokens": 3789
+          }
+        ],
+        "context_max": 131072,
+        "context_percent": 93,
+        "context_used": 121695,
+        "context_source": "provider_usage_plus_estimate",
+        "context_estimated": true,
+        "estimated_total": 17283,
+        "model": "example-model",
+        "context_files": [
+          {
+            "label": "SOUL.md",
+            "path": "/srv/demo/home/SOUL.md",
+            "chars": 663,
+            "est_tokens": 167,
+            "loaded": true,
+            "status": "loaded"
+          }
+        ]
+      },
+      "source": "recorded"
+    },
+    "after_compress": {
+      "result": {
+        "categories": [
+          {
+            "color": "var(--context-usage-system)",
+            "id": "system_prompt",
+            "label": "System prompt",
+            "tokens": 3161
+          },
+          {
+            "color": "var(--context-usage-tools)",
+            "id": "tool_definitions",
+            "label": "Tool definitions",
+            "tokens": 9167
+          },
+          {
+            "color": "var(--context-usage-subagents)",
+            "id": "subagent_definitions",
+            "label": "Subagent definitions",
+            "tokens": 1166
+          },
+          {
+            "color": "var(--context-usage-conversation)",
+            "id": "conversation",
+            "label": "Conversation",
+            "tokens": 2971
+          }
+        ],
+        "context_max": 131072,
+        "context_percent": 13,
+        "context_used": 16465,
+        "context_source": "local_estimate",
+        "context_estimated": true,
+        "estimated_total": 16465,
+        "model": "example-model",
+        "context_files": [
+          {
+            "label": "SOUL.md",
+            "path": "/srv/demo/home/SOUL.md",
+            "chars": 663,
+            "est_tokens": 167,
+            "loaded": true,
+            "status": "loaded"
+          }
+        ]
+      },
+      "source": "recorded"
+    },
     "eight_categories": {
       "result": {
         "categories": [
@@ -72,17 +303,8 @@
             "status": "ok"
           }
         ]
-      }
-    },
-    "before_agent_build": {
-      "result": {
-        "categories": [],
-        "context_max": 200000,
-        "context_percent": 0,
-        "context_used": 0,
-        "estimated_total": 0,
-        "context_files": []
-      }
+      },
+      "source": "invented: the skills index never appeared in the system prompt of this setup"
     }
   }
 }
