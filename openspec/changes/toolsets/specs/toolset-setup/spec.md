@@ -50,6 +50,16 @@ For the selected provider each env var SHALL be a masked field labelled with its
 - **WHEN** a key field is shown
 - **THEN** it disables autocorrect, suggestions, keyboard learning and autofill, offers no control that shows the typed value, and says "Saved on your server for <profile>. The app doesn't keep it."
 
+#### Scenario: Characters typed
+
+- **WHEN** the user types or pastes into a key field
+- **THEN** a line under it says "<N> characters entered" (announced to screen readers, never stored or logged), and the line goes when the field is cleared
+
+#### Scenario: Never shown in the app switcher
+
+- **WHEN** the app switcher or a system snapshot captures the app with a key field on screen
+- **THEN** the snapshot shows no key field content, because the field is cleared when the app becomes inactive, before the snapshot is taken
+
 #### Scenario: Cleared on leaving
 
 - **WHEN** the app goes to the background or inactive, App Lock engages, the profile changes, the user signs out or the server changes
@@ -63,7 +73,7 @@ For the selected provider each env var SHALL be a masked field labelled with its
 #### Scenario: Failure clears too
 
 - **WHEN** the save fails
-- **THEN** the message says "Couldn't save the key. Type it again.", the field is empty, and Save stays disabled until something is typed
+- **THEN** the field has been cleared (as after every save), the message says "Couldn't save the key. Type it again.", and Save stays disabled until something is typed
 
 #### Scenario: Blank is not sent
 
@@ -85,6 +95,11 @@ For the selected provider each env var SHALL be a masked field labelled with its
 - **WHEN** the answer to a save is lost
 - **THEN** the screen says "May have saved. Checking…", reads the config, and never sends the key again by itself
 
+#### Scenario: Checking cannot finish
+
+- **WHEN** that read fails, the app goes offline, or 10 seconds pass without an answer
+- **THEN** "Checking…" ends, the key shows its last known state ("Already set" or the empty field), and the screen says "Couldn't confirm. Pull to refresh."
+
 #### Scenario: Nothing recorded
 
 - **WHEN** a key is saved
@@ -92,7 +107,7 @@ For the selected provider each env var SHALL be a masked field labelled with its
 
 ### Requirement: Install on the server
 
-When the selected provider has `post_setup`, the screen SHALL offer an install step (the main action while it is not ready, under Advanced otherwise) that asks "Install on your server?" with "Hermes will run an installer on the server. It may download software." (Cancel default), sends `POST …/post-setup` and follows `GET /api/actions/tools-post-setup/status` every 2 seconds. One install SHALL run per connection and log lines SHALL NOT be logged.
+When the selected provider has `post_setup`, the screen SHALL offer an install step that asks "Install on your server?" with "Hermes will run an installer on the server. It may download software." (Cancel default), sends `POST …/post-setup` and follows `GET /api/actions/tools-post-setup/status` every 2 seconds. One install SHALL run per connection and log lines SHALL NOT be logged.
 
 
 #### Scenario: Progress
@@ -102,8 +117,8 @@ When the selected provider has `post_setup`, the screen SHALL offer an install s
 
 #### Scenario: Install is the main action
 
-- **WHEN** the selected provider's install step has not run and the toolset does not work without it
-- **THEN** "Install on server" is the filled button of the section, with "Needed before this works. Hermes asks before it runs anything."
+- **WHEN** the selected provider's status is `needs_setup`
+- **THEN** "Install on server" is the filled button of the section, with "Needed before this works. The app asks first.", and no Save button is filled beside it
 
 #### Scenario: Installer started from the list
 
@@ -160,6 +175,15 @@ When the selected provider has `post_setup`, the screen SHALL offer an install s
 - **WHEN** an install is already running from this app
 - **THEN** other Install buttons are disabled with "Another install is running"
 
+### Requirement: Install button emphasis
+
+"Install on server" SHALL be the section's filled button exactly when the provider's status is `needs_setup`, and SHALL never be filled together with Save; otherwise it SHALL sit under Advanced as "Run the install step again".
+
+#### Scenario: Ready provider with an install step
+
+- **WHEN** the provider reports Ready and has `post_setup`
+- **THEN** no filled install button shows and Advanced offers "Run the install step again"
+
 ### Requirement: Models for image and video generation
 
 For `image_gen` and `video_gen`, after a provider is active, a "Model" row SHALL read `GET …/models` and open a list showing each model's `display`, `speed`, `strengths` and `price` with the default marked. Picking SHALL send `PUT …/model` and read again. A toolset with `has_models: false` SHALL show no Model row.
@@ -181,7 +205,7 @@ For `image_gen` and `video_gen`, after a provider is active, a "Model" row SHALL
 
 ### Requirement: Where commands run
 
-The Terminal detail SHALL show "Where commands run" from `GET /api/tools/terminal/backends`: each backend with label, description, a status chip (Ready, Needs setup, Can't be used) and the active one marked. Choosing one SHALL send `PUT /api/tools/terminal/backend`. Choosing `local` SHALL first ask "Run commands directly on your server?" with "Commands will run on the same machine as Hermes, not in a container." (Cancel default). The app SHALL NOT edit any backend setting.
+The Terminal detail SHALL show "Where commands run" from `GET /api/tools/terminal/backends`: each backend with label, description, a status chip (Ready, Needs setup, Can't be used) and the active one marked. Choosing one SHALL send `PUT /api/tools/terminal/backend`. The app SHALL NOT edit any backend setting.
 
 #### Scenario: Needs setup is selectable
 
@@ -214,6 +238,15 @@ The Terminal detail SHALL show "Where commands run" from `GET /api/tools/termina
 - **THEN** a labelled progress state shows
 - **WHEN** it fails
 - **THEN** "Couldn't read where commands run" with Try again shows
+
+### Requirement: Confirming the Local backend
+
+Choosing `local` SHALL first ask "Run commands directly on your server?" with "Commands will run on the same machine as Hermes, with full access to that machine's files, not in a container." (Cancel default, "Use local").
+
+#### Scenario: Local cancelled
+
+- **WHEN** the user cancels the Local question
+- **THEN** nothing is sent and the previous backend stays marked
 
 ### Requirement: Computer use readiness and permission
 
