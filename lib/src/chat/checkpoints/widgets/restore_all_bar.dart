@@ -35,8 +35,9 @@ class RestoreAllBar extends StatelessWidget {
     BuildContext context,
     double width,
     String count,
-    String label,
-  ) {
+    String label, {
+    required bool busy,
+  }) {
     final scaler = MediaQuery.textScalerOf(context);
     double measure(String text, TextStyle style) {
       final painter = TextPainter(
@@ -56,7 +57,11 @@ class RestoreAllBar extends StatelessWidget {
     final countWidth = measure(count, base.merge(_countStyle));
     // The button's own padding and border come on top of its label.
     final buttonWidth =
-        measure(label, base.copyWith(fontWeight: FontWeight.w500)) + 48;
+        measure(label, base.copyWith(fontWeight: FontWeight.w500)) +
+        48 +
+        // The busy spinner and its gap, plus a margin for the real font.
+        (busy ? 24 : 0) +
+        8;
     return countWidth + 12 + buttonWidth <= width;
   }
 
@@ -101,6 +106,7 @@ class RestoreAllBar extends StatelessWidget {
                     box.maxWidth,
                     countText,
                     label,
+                    busy: busy,
                   );
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -79,7 +79,7 @@ class CompressOutcomeNote extends StatelessWidget {
         '',
       ),
       CompressOutcomeKind.aborted => (
-        AppBannerTone.warning,
+        AppBannerTone.neutral,
         l10n.chatContextOutcomeAborted,
         '',
       ),

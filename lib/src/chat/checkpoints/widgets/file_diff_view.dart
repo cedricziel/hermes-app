@@ -71,6 +71,7 @@ class FileDiffView extends StatelessWidget {
                 header: true,
                 child: Text(
                   l10n.chatCheckpointsFileHeading(breakableFileName(name)),
+                  semanticsLabel: l10n.chatCheckpointsFileHeading(name),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
@@ -136,6 +137,8 @@ class FileRestoreAction extends StatelessWidget {
       return Text(
         isShortenedChangedPath(file)
             ? l10n.chatCheckpointsFileNameShortened
+            : file.renamed
+            ? l10n.chatCheckpointsChangesReasonFileNotOffered
             : l10n.chatCheckpointsFileNameNotAlone,
         style: TextStyle(color: muted),
       );

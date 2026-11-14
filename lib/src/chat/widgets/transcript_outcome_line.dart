@@ -25,7 +25,6 @@ class TranscriptOutcomeLine extends StatelessWidget {
     );
     return Semantics(
       container: true,
-      liveRegion: true,
       label: text,
       child: ExcludeSemantics(
         child: Padding(

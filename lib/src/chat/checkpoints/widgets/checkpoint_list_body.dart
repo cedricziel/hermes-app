@@ -64,6 +64,7 @@ class CheckpointListBody extends StatelessWidget {
     this.onRestoreAll,
     this.onRetry,
     this.onRefresh,
+    this.lockedCount,
   });
 
   final CheckpointListStatus status;
@@ -76,6 +77,9 @@ class CheckpointListBody extends StatelessWidget {
   final ValueChanged<String>? onSeeChanges;
   final ValueChanged<String>? onRestoreAll;
   final VoidCallback? onRetry;
+
+  /// Under App Lock only this count shows; the list itself is not passed.
+  final int? lockedCount;
   final Future<void> Function()? onRefresh;
 
   /// The config key shown as a code span in the "off" message.
@@ -128,7 +132,7 @@ class CheckpointListBody extends StatelessWidget {
       ),
       CheckpointListStatus.locked => _Block(
         child: Text(
-          l10n.chatCheckpointsListLocked(items.length),
+          l10n.chatCheckpointsListLocked(lockedCount ?? items.length),
           textAlign: TextAlign.center,
         ),
       ),

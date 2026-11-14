@@ -204,8 +204,10 @@ CheckpointListBody _list(
   List<CheckpointListItem> items = const [],
   bool disconnected = false,
   RestoreRefusal? refusal,
+  int? lockedCount,
 }) => CheckpointListBody(
   status: status,
+  lockedCount: lockedCount,
   items: items,
   disconnected: disconnected,
   restoreRefusal: refusal,
@@ -416,7 +418,7 @@ WidgetbookNode chatCheckpointsNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'App Lock (count only)',
           builder: (_) =>
-              fill(_list(CheckpointListStatus.locked, items: _items(5))),
+              fill(_list(CheckpointListStatus.locked, lockedCount: 5)),
         ),
         WidgetbookUseCase(
           name: 'Largest text',

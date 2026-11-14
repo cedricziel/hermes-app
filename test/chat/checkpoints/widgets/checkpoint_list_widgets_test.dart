@@ -81,7 +81,14 @@ void main() {
         paragraph.size.height,
         greaterThan(paragraph.text.style!.fontSize! * 3 * 1.5),
       );
-      expect(_longName.endsWith('.dart'), isTrue);
+      // The extension is drawn whole on one line.
+      final plain = paragraph.text.toPlainText();
+      final at = plain.indexOf('.dart');
+      expect(at, greaterThan(0));
+      final boxes = paragraph.getBoxesForSelection(
+        TextSelection(baseOffset: at, extentOffset: at + '.dart'.length),
+      );
+      expect(boxes.map((b) => b.top).toSet(), hasLength(1));
     });
 
     testWidgets('the line under the name has the folder and the counts', (
@@ -403,15 +410,7 @@ void main() {
             height: 800,
             child: CheckpointListBody(
               status: CheckpointListStatus.locked,
-              items: [
-                for (var i = 0; i < 3; i++)
-                  CheckpointListItem(
-                    checkpoint: Checkpoint(
-                      hash: 'aaa111bbb22$i',
-                      reason: CheckpointReason.beforeEdit,
-                    ),
-                  ),
-              ],
+              lockedCount: 3,
             ),
           ),
         ),

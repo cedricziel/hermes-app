@@ -138,7 +138,7 @@ class _FileRow extends StatelessWidget {
         ? l10n.chatCheckpointsChangesCountsSemantics(file.added!, file.removed!)
         : details;
     return Semantics(
-      button: true,
+      button: onTap != null,
       excludeSemantics: true,
       label: spoken == null
           ? name
