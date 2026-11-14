@@ -75,6 +75,8 @@ class _ServerScreenState extends State<ServerScreen> {
       crumbs = Breadcrumbs.none;
     }
     crumbs('server_care.opened', {'source': widget.source});
+    // A run that finished while the screen was closed has said its piece.
+    if (_run.phase == GatewayPhase.done) _run.dismiss();
     _update = UpdateCheckController(
       repository: HermesRepositories.of(context).serverCare,
       onUnsupported: () => care.reportUnsupported(CarePart.update),
@@ -103,6 +105,11 @@ class _ServerScreenState extends State<ServerScreen> {
       });
     }
   }
+
+  /// The run belongs to the profile shown; one for another profile says
+  /// nothing here.
+  bool _runIsHere(ServerCareController care) =>
+      _run.profile == null || _run.profile == care.profile;
 
   void _tryAgain(GatewayAction action) {
     _run.dismiss();
@@ -200,7 +207,7 @@ class _ServerScreenState extends State<ServerScreen> {
     final status = care.status;
     final attention = care.attention;
     // While a restart or start runs, the headline says so, with no button.
-    if (_run.busy) {
+    if (_run.busy && _runIsHere(care)) {
       return ServerStatusCard(
         tone: ServerStatusTone.loading,
         title: _run.action == GatewayAction.start
@@ -445,21 +452,24 @@ class _ServerScreenState extends State<ServerScreen> {
               value: shared.join(', '),
             ),
           GroupedActionRow(
-            title: status.gatewayRunning
+            title: _restartsGateway(status)
                 ? l10n.serverCareGatewayRestart
                 : l10n.serverCareGatewayStart,
-            icon: status.gatewayRunning ? AppIcons.refresh : AppIcons.play,
+            icon: _restartsGateway(status) ? AppIcons.refresh : AppIcons.play,
             onPressed: () => runGatewayAction(
               context,
-              status.gatewayRunning
+              _restartsGateway(status)
                   ? GatewayAction.restart
                   : GatewayAction.start,
             ),
-            status: gatewayRowStatus(
-              l10n,
-              _run,
-              onTryAgain: () => _tryAgain(_run.action ?? GatewayAction.restart),
-            ),
+            status: !_runIsHere(context.read<ServerCareController>())
+                ? null
+                : gatewayRowStatus(
+                    l10n,
+                    _run,
+                    onTryAgain: () =>
+                        _tryAgain(_run.action ?? GatewayAction.restart),
+                  ),
           ),
         ],
       ),
@@ -513,3 +523,8 @@ class _ServerScreenState extends State<ServerScreen> {
           ];
   }
 }
+
+/// A gateway that is running, or one that failed to start, is restarted (after
+/// a question); only one that is off is started.
+bool _restartsGateway(ServerStatus status) =>
+    status.gatewayRunning || status.gatewayState == GatewayState.startupFailed;

@@ -40,6 +40,8 @@ Future<void> runGatewayAction(
   final l10n = context.l10n;
   final profile = care.profile;
   if (profile == null) return;
+  // One run at a time; another profile's is not this one's to join.
+  if (run.busy && run.profile != profile) return;
   if (!run.busy && action == GatewayAction.restart) {
     final shared = (care.status?.gatewaySharedWith.length ?? 0) > 1;
     final confirmed = await showConfirmDialog(
@@ -54,7 +56,7 @@ Future<void> runGatewayAction(
     );
     if (!confirmed || !context.mounted) return;
   }
-  run.confirmed(action);
+  if (!run.busy && action == GatewayAction.restart) run.confirmed(action);
   await run.run(action, profile: profile);
 }
 

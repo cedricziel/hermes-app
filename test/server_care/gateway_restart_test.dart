@@ -223,6 +223,67 @@ void main() {
     expect(gateway.phase, GatewayPhase.done);
   });
 
+  test('a lost restart is not done while the old gateway still runs', () async {
+    server.onRequest('POST', '/api/gateway/restart', (r) {
+      throw DioException.connectionError(requestOptions: r, reason: 'dropped');
+    });
+    server.on(
+      'GET',
+      '/api/actions/gateway-restart/status',
+      action('gateway-restart', exit: 1, lines: ['old run']),
+    );
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(posts('restart'), 1);
+    expect(gateway.phase, GatewayPhase.slow);
+  });
+
+  test(
+    'a lost restart is done once the gateway was seen down and up',
+    () async {
+      server.onRequest('POST', '/api/gateway/restart', (r) {
+        throw DioException.connectionError(
+          requestOptions: r,
+          reason: 'dropped',
+        );
+      });
+      server.on(
+        'GET',
+        '/api/actions/gateway-restart/status',
+        action('gateway-restart', exit: 0),
+      );
+      var reads = 0;
+      server.onRequest(
+        'GET',
+        '/api/status',
+        (_) => (
+          status: 200,
+          body: reads++ == 0
+              ? status(running: false, state: 'stopped')
+              : status(),
+        ),
+      );
+      await gateway.run(GatewayAction.restart, profile: 'work');
+      expect(gateway.phase, GatewayPhase.done);
+      expect(posts('restart'), 1);
+    },
+  );
+
+  test('a bare 504 on the POST is a lost answer, not a refusal', () async {
+    server.on('POST', '/api/gateway/restart', {}, status: 504);
+    server.on('GET', '/api/status', status(running: false, state: 'stopped'));
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.failure, isNull);
+    expect(gateway.phase, GatewayPhase.slow);
+    expect(posts('restart'), 1);
+  });
+
+  test('the run remembers its profile until dismissed', () async {
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.profile, 'work');
+    gateway.dismiss();
+    expect(gateway.profile, isNull);
+  });
+
   test('a lost answer that never settles ends slow, not failed', () async {
     server.onRequest('POST', '/api/gateway/restart', (r) {
       throw DioException.connectionError(requestOptions: r, reason: 'dropped');

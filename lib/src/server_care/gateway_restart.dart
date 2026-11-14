@@ -64,6 +64,10 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   String? _message;
   List<String> _logLines = const [];
   Future<void>? _running;
+  String? _profile;
+
+  /// The profile of the run in progress or just finished; null when idle.
+  String? get profile => _profile;
 
   GatewayPhase get phase => _phase;
 
@@ -103,6 +107,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     if (busy || _phase == GatewayPhase.idle) return;
     _phase = GatewayPhase.idle;
     _action = null;
+    _profile = null;
     _failure = null;
     _message = null;
     _logLines = const [];
@@ -129,6 +134,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
 
   Future<void> _execute(GatewayAction action, String profile) async {
     _action = action;
+    _profile = profile;
     _failure = null;
     _message = null;
     _logLines = const [];
@@ -180,7 +186,10 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       case CareOk():
         break;
       case CareFailed(
-        kind: CareFailureKind.offline || CareFailureKind.unreadable,
+        kind: CareFailureKind.offline ||
+            CareFailureKind.unreadable ||
+            CareFailureKind.server,
+        message: null,
       ):
         // The answer is lost: it may have started. Never send it again.
         lost = true;
@@ -239,6 +248,9 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     String profile,
     DateTime started,
   ) async {
+    // A restart found the old gateway running; "running" alone proves
+    // nothing until it has been seen down. A start has no such old state.
+    var sawDown = name == CareAction.gatewayStart;
     while (true) {
       final action = await _repository.actionStatus(name, lines: 40);
       if (disposed) return null;
@@ -250,8 +262,12 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       }
       final gateway = await _repository.status(profile: profile);
       if (disposed) return null;
-      if (gateway case CareOk(:final value) when _isBack(value)) {
-        return _done();
+      if (gateway case CareOk(:final value)) {
+        if (_isBack(value)) {
+          if (sawDown) return _done();
+        } else {
+          sawDown = true;
+        }
       }
       if (_now().difference(started) >= returnWindow) return _slow();
       await _delay(_actionPoll);
