@@ -112,6 +112,10 @@ class VoiceCall extends ChangeNotifier {
   bool _active = false;
   bool _startedOnce = false;
   bool _nativeStarted = false;
+
+  /// The id given to the native call, so a late `stopCapture` of this call
+  /// cannot close the microphone of the next one.
+  String? _callId;
   bool _connectedOnce = false;
   bool _requestedMute = false;
   int _muteRequests = 0;
@@ -204,9 +208,10 @@ class VoiceCall extends ChangeNotifier {
           _end('native_events', 'Call audio became unavailable.', error),
         ),
       );
+      final callId = _callId = const Uuid().v4();
       _nativeStarted = true;
       step = 'native_start';
-      await bridge.start(const Uuid().v4(), 'Hermes');
+      await bridge.start(callId, 'Hermes');
       opened = true;
     } on CallPreparationException catch (failure) {
       if (_current(epoch)) await _end('prepare', failure.message);
@@ -239,8 +244,10 @@ class VoiceCall extends ChangeNotifier {
     if (_lateClosed || !_ending && !ended && !_disposed) return;
     _lateClosed = true;
     await _endFuture;
-    await _step(bridge.stopCapture);
+    await _step(_stopCapture);
   }
+
+  Future<void> _stopCapture() => bridge.stopCapture(_callId ?? '');
 
   /// One teardown step: at most two seconds, a throw counts as a miss, and
   /// neither stops the steps after it.
@@ -265,6 +272,9 @@ class VoiceCall extends ChangeNotifier {
         _lastPCM = _started;
         _lastActivity = _started;
         phase = CallPhase.listening;
+        // Natively `start` clears a pause that arrived before it ran, and
+        // `_syncCapture` sends nothing when the want has not changed.
+        if (_paused) unawaited(_guard(bridge.pauseCapture));
         if (waitingForYou) {
           _wasWaiting = true;
           phase = CallPhase.attention;
@@ -775,7 +785,7 @@ class VoiceCall extends ChangeNotifier {
     final speech = _speech;
     _speech = null;
     final connected = _connectedOnce;
-    final closed = !_nativeStarted || await _step(bridge.stopCapture);
+    final closed = !_nativeStarted || await _step(_stopCapture);
     microphoneUnconfirmed = !closed;
     this.notice = closed ? notice : CallNotice.microphoneMayBeOpen;
     _log('voice_call.ended', {

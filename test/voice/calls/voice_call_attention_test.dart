@@ -52,6 +52,23 @@ void main() {
       expect(h.call.phase, CallPhase.listening);
     });
 
+    test(
+      'a pause sent before activation is sent again once activated',
+      () async {
+        h.bridge.startGate = Completer<void>();
+        final starting = h.call.start();
+        await pumpEventQueue();
+        h.agent.setThreadAttention(true);
+        expect(h.bridge.pauses, 1, reason: 'the native start may clear it');
+        h.bridge.startGate!.complete();
+        await starting;
+        h.bridge.emit('activated');
+        await pumpEventQueue();
+        expect(h.bridge.pauses, 2);
+        expect(h.call.capturePaused, isTrue);
+      },
+    );
+
     test('pausing resets the speech detector', () async {
       await h.activate();
       // Half an utterance is heard, then the approval arrives.

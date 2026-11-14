@@ -45,6 +45,7 @@ final class CallAudio {
   }
 
   private func installTap(on input: AVAudioInputNode) throws {
+    if tapped { input.removeTap(onBus: 0); tapped = false }
     let source = input.outputFormat(forBus: 0)
     guard source.sampleRate > 0,
           let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000,

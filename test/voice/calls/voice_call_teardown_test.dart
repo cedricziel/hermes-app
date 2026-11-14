@@ -169,6 +169,29 @@ void main() {
       },
     );
 
+    test('stopCapture carries the id the call started with', () async {
+      await h.activate();
+      await h.call.end();
+      expect(h.bridge.startIds, hasLength(1));
+      expect(h.bridge.captureStopIds, [h.bridge.startIds.single]);
+    });
+
+    test('a late stopCapture names its own call, not a later one', () async {
+      h.bridge.startGate = Completer<void>();
+      final starting = h.call.start();
+      await pumpEventQueue();
+      await h.call.end();
+      h.bridge.startGate!.complete();
+      await starting;
+      await pumpEventQueue();
+      final first = h.bridge.startIds.single;
+      expect(h.bridge.captureStopIds, [first, first]);
+      await h.rebuild();
+      await h.activate();
+      expect(h.bridge.startIds.last, isNot(first));
+      expect(h.bridge.captureStopIds, [first, first]);
+    });
+
     test('the lease is released between audio and the agent', () async {
       final order = <String>[];
       await h.rebuild(releaseLease: () async => h.bridge.log.add('lease'));

@@ -26,8 +26,9 @@ abstract interface class CallBridge {
   Future<void> resumeCapture();
 
   /// Ends the capture and nothing else (no playback, no session). The first
-  /// step of every teardown.
-  Future<void> stopCapture();
+  /// step of every teardown. [id] is the call's id from [start]: a stop of an
+  /// earlier call does nothing to a later one.
+  Future<void> stopCapture(String id);
 }
 
 /// Only CallKit's activated audio session opens the microphone. The Dart
@@ -68,5 +69,6 @@ class AppleCallBridge implements CallBridge {
   @override
   Future<void> resumeCapture() => _methods.invokeMethod('resumeCapture');
   @override
-  Future<void> stopCapture() => _methods.invokeMethod('stopCapture');
+  Future<void> stopCapture(String id) =>
+      _methods.invokeMethod('stopCapture', {'id': id});
 }
