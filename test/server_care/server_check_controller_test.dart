@@ -490,11 +490,13 @@ void main() {
       await c.run(profile: 'work');
       expect(c.phase, CheckPhase.idle);
       expect(c.report, isNull);
-      final reads = server.requestsTo('GET', '/api/actions/doctor/status');
+      final reads = server
+          .requestsTo('GET', '/api/actions/doctor/status')
+          .length;
       await pumpEventQueue();
       expect(
         server.requestsTo('GET', '/api/actions/doctor/status').length,
-        reads.length,
+        reads,
       );
     });
 
