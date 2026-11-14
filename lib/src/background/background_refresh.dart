@@ -437,17 +437,18 @@ class OpenRequestsStep extends BackgroundStep {
     }
     var announced = 0;
     for (final requests in chats.values) {
+      // One notification per chat, with the first request's buttons; only
+      // that request is marked, so a later run announces the next one.
+      final request = requests.first;
       final result = await context.notifications.post(
-        _notification(requests.first, lockOn),
+        _notification(request, lockOn),
       );
       if (result.status == NotificationPostStatus.accepted) {
         accepted++;
         report();
         try {
-          await context.announced.add([
-            for (final request in requests) ..._marks(request),
-          ]);
-          announced += requests.length;
+          await context.announced.add(_marks(request));
+          announced++;
         } on Object catch (error) {
           marksFailed++;
           report();
