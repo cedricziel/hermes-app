@@ -277,7 +277,8 @@ class GroupedSection extends StatelessWidget {
 /// trailing edge a muted [value] with a disclosure chevron, or [trailing]
 /// (a switch) in their place. Above the default text size, a [value] that
 /// would not fit beside the title (or would squeeze it) sits under it instead,
-/// ahead of the subtitle, and the title and subtitle wrap.
+/// ahead of the subtitle, and the title and subtitle keep the line limits
+/// they were given.
 class GroupedRow extends StatelessWidget {
   const GroupedRow({
     super.key,
@@ -459,8 +460,8 @@ class GroupedRow extends StatelessWidget {
                         ),
                     ],
                   ),
-                  maxLines: stacked ? null : titleMaxLines,
-                  overflow: titleMaxLines == null || stacked
+                  maxLines: titleMaxLines,
+                  overflow: titleMaxLines == null
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
                   style: titleStyle,
@@ -479,8 +480,8 @@ class GroupedRow extends StatelessWidget {
                 if (subtitle != null)
                   Text(
                     subtitle,
-                    maxLines: stacked ? null : subtitleMaxLines,
-                    overflow: subtitleMaxLines == null || stacked
+                    maxLines: subtitleMaxLines,
+                    overflow: subtitleMaxLines == null
                         ? null
                         : TextOverflow.ellipsis,
                     style: TextStyle(

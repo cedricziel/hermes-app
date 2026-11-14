@@ -138,6 +138,48 @@ void main() {
     expect(value.dx, title.dx);
     expect(value.dy, greaterThan(title.dy));
   });
+
+  testWidgets(
+    'a stacked row still honours titleMaxLines and subtitleMaxLines',
+    (tester) async {
+      const title = 'a long title that has to wrap somewhere in the row';
+      const subtitle = 'a long subtitle that has to wrap somewhere in the row';
+      await _pump(
+        tester,
+        const GroupedRow(
+          title: title,
+          titleMaxLines: 2,
+          value: longValue,
+          subtitle: subtitle,
+          subtitleMaxLines: 2,
+        ),
+        scale: 2,
+      );
+      final titleText = tester.widget<Text>(find.text(title));
+      expect(titleText.maxLines, 2);
+      expect(titleText.overflow, TextOverflow.ellipsis);
+      final subtitleText = tester.widget<Text>(find.text(subtitle));
+      expect(subtitleText.maxLines, 2);
+      expect(subtitleText.overflow, TextOverflow.ellipsis);
+    },
+  );
+
+  testWidgets('a stacked row with null limits still wraps in full', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const GroupedRow(
+        title: 'State',
+        titleMaxLines: null,
+        value: longValue,
+        subtitle: 'Gateway',
+        subtitleMaxLines: null,
+      ),
+      scale: 2,
+    );
+    expect(tester.widget<Text>(find.text('Gateway')).maxLines, isNull);
+  });
 }
 
 void _noop() {}
