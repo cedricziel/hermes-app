@@ -47,8 +47,12 @@ Span? startToolsSpan(
   return span;
 }
 
-void endToolsSpan(Span? span, String outcome) =>
-    quietly(() => span?.setAttribute('outcome', outcome));
+/// Sets [outcome] on [span] and ends it.
+void endToolsSpan(Span? span, String outcome) => quietly(() {
+  span
+    ?..setAttribute('outcome', outcome)
+    ..end();
+});
 
 /// Ends [span] with [outcome] and logs `tools.setup_outcome` for [step].
 void finishSetupStep(

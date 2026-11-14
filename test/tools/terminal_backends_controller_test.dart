@@ -187,6 +187,89 @@ void main() {
     );
   });
 
+  group('after the question', () {
+    test('a dispose while it is open sends nothing', () async {
+      final gate = Completer<bool>();
+      final other = TerminalBackendsController(
+        toolsRepository(server),
+        confirmLocal: () => gate.future,
+      );
+      await other.load();
+      final picking = other.pick('local');
+      other.dispose();
+      gate.complete(true);
+      await picking;
+
+      expect(puts(), isEmpty);
+    });
+
+    test('a read that made Local the active backend sends nothing', () async {
+      final gate = Completer<bool>();
+      final other = TerminalBackendsController(
+        toolsRepository(server),
+        confirmLocal: () => gate.future,
+      );
+      await other.load();
+      final picking = other.pick('local');
+      server.on('GET', _list, _backends('local'));
+      await other.load();
+      gate.complete(true);
+      await picking;
+
+      expect(puts(), isEmpty);
+      expect(other.pickState, ToolsWriteState.idle);
+      other.dispose();
+    });
+
+    test('a read that dropped the backend sends nothing', () async {
+      final gate = Completer<bool>();
+      final other = TerminalBackendsController(
+        toolsRepository(server),
+        confirmLocal: () => gate.future,
+      );
+      await other.load();
+      final picking = other.pick('local');
+      server.on('GET', _list, {
+        'active': 'docker',
+        'backends': [(backendsFixture['backends']! as List)[1]],
+      });
+      await other.load();
+      gate.complete(true);
+      await picking;
+
+      expect(puts(), isEmpty);
+      other.dispose();
+    });
+  });
+
+  group('a failed re-read after a write', () {
+    test('keeps the loaded list and state when the pick worked', () async {
+      server.on('GET', _list, _backends('local'));
+      await controller.load();
+      server
+        ..on('PUT', _put, {'ok': true})
+        ..on('GET', _list, {'detail': 'x'}, status: 503);
+
+      await controller.pick('docker');
+
+      expect(controller.pickState, ToolsWriteState.idle);
+      expect(controller.loadState, ToolsLoadState.ready);
+      expect(controller.backends, hasLength(2));
+    });
+
+    test('keeps the loaded list and state after a lost answer', () async {
+      server.on('GET', _list, _backends('local'));
+      await controller.load();
+      lose();
+      server.on('GET', _list, {'detail': 'x'}, status: 503);
+
+      await controller.pick('docker');
+
+      expect(controller.pickState, ToolsWriteState.unconfirmed);
+      expect(controller.loadState, ToolsLoadState.ready);
+    });
+  });
+
   group('a backend other than Local', () {
     test('is sent without a question, even when it needs setup', () async {
       server

@@ -419,4 +419,122 @@ void main() {
       expect(events.join(), isNot(contains('slow-2')));
     });
   });
+
+  group('onWritten', () {
+    late int written;
+
+    ToolsetSetupController withHook(String toolset) {
+      written = 0;
+      return ToolsetSetupController(
+        toolsRepository(server),
+        toolset: toolset,
+        checkTimeout: const Duration(milliseconds: 200),
+        onWritten: () => written++,
+      );
+    }
+
+    test('is called after a provider pick, a key save and a model pick, '
+        'never after a failure', () async {
+      final c = withHook('web');
+      await c.load();
+      server.on('PUT', '$_web/provider', {'detail': 'no'}, status: 400);
+      await c.pickProvider('Local Driver');
+      expect(written, 0);
+
+      server.on('PUT', '$_web/provider', {'ok': true});
+      await c.pickProvider('Local Driver');
+      expect(written, 1);
+
+      c.selectProvider('Search Co');
+      c.setKey('SEARCHCO_API_KEY', 'x');
+      server.on('PUT', '$_web/env', {
+        'ok': true,
+        'saved': ['SEARCHCO_API_KEY'],
+      });
+      await c.saveKeys();
+      expect(written, 2);
+
+      server
+        ..on('GET', '$_image/models', _images())
+        ..on('PUT', '$_image/model', {'ok': true});
+      final image = withHook('image_gen');
+      await image.loadModels();
+      await image.pickModel('slow-2');
+      expect(written, 1);
+      c.dispose();
+      image.dispose();
+    });
+
+    test('is called when a lost answer is shown to have landed', () async {
+      final c = withHook('web');
+      await c.load();
+      lose('$_web/provider');
+      server.on('GET', '$_web/config', _webConfig(active: 'Local Driver'));
+
+      await c.pickProvider('Local Driver');
+
+      expect(written, 1);
+      c.dispose();
+    });
+
+    test('a throwing hook does not break the write', () async {
+      final c = ToolsetSetupController(
+        toolsRepository(server),
+        toolset: 'web',
+        onWritten: () => throw StateError('x'),
+      );
+      await c.load();
+      server.on('PUT', '$_web/provider', {'ok': true});
+
+      await c.pickProvider('Local Driver');
+
+      expect(c.providerState, ToolsWriteState.idle);
+      c.dispose();
+    });
+  });
+
+  group('model catalog reads', () {
+    test(
+      'an older overlapping answer cannot replace a newer catalog',
+      () async {
+        server.on('GET', '$_image/models', _images());
+        final image = build('image_gen');
+        final slow = Completer<void>();
+        var n = 0;
+        server.onRequest('GET', '$_image/models', (_) async {
+          final mine = ++n;
+          if (mine == 1) await slow.future;
+          return (
+            status: 200,
+            body: _images(current: mine == 1 ? 'old' : 'new'),
+          );
+        });
+
+        final first = image.loadModels();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await image.loadModels();
+        slow.complete();
+        await first;
+
+        expect(image.models!.current, 'new');
+        expect(image.modelsLoading, isFalse);
+        image.dispose();
+      },
+    );
+
+    test('the provider of the last load is sent again after a pick', () async {
+      server
+        ..on('GET', '$_image/models', _images())
+        ..on('PUT', '$_image/model', {'ok': true});
+      final image = build('image_gen');
+      await image.loadModels(provider: 'Image Co');
+
+      await image.pickModel('slow-2');
+
+      final reads = server.requestsTo('GET', '$_image/models').toList();
+      expect(reads, hasLength(2));
+      expect(reads.last.queryParameters, containsPair('provider', 'Image Co'));
+      image.dispose();
+    });
+  });
 }

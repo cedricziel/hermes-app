@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/tools/computer_use_controller.dart';
+import 'package:hermes_app/src/tools/tools_action_follower.dart';
 import 'package:hermes_app/src/tools/tools_controller.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -45,6 +47,33 @@ Map<String, Object?> _action({
   'lines': lines,
 };
 
+/// Moves the fake clock and lets every answer land. Dio schedules
+/// zero-length timers between its steps, so they are run too.
+void _advance(FakeAsync async, [Duration by = Duration.zero]) {
+  async
+    ..elapse(by)
+    ..flushMicrotasks();
+  for (var i = 0; i < 20; i++) {
+    async
+      ..elapse(Duration.zero)
+      ..flushMicrotasks();
+  }
+}
+
+R _settle<R>(FakeAsync async, Future<R> future) {
+  R? value;
+  var done = false;
+  unawaited(
+    future.then((v) {
+      value = v;
+      done = true;
+    }),
+  );
+  _advance(async);
+  expect(done, isTrue, reason: 'the call did not finish');
+  return value as R;
+}
+
 void main() {
   late FakeHermesServer server;
   late ComputerUseController controller;
@@ -52,17 +81,17 @@ void main() {
   late List<String> events;
   late int asked;
   var answer = true;
+  Future<bool> Function()? confirm;
 
-  ComputerUseController build({
-    Duration patience = const Duration(seconds: 5),
-  }) => ComputerUseController(
+  const poll = kToolsActionInterval;
+
+  ComputerUseController build() => ComputerUseController(
     toolsRepository(server),
-    confirmGrant: () async {
+    confirmGrant: () {
       asked++;
-      return answer;
+      return confirm?.call() ?? Future.value(answer);
     },
-    interval: const Duration(milliseconds: 10),
-    patience: patience,
+    checkTimeout: const Duration(seconds: 10),
     telemetry: ConnectionTelemetry(
       tracer: tracer,
       events: (name, [attributes = const {}]) =>
@@ -70,14 +99,15 @@ void main() {
     ),
   );
 
-  Future<void> until(bool Function() done) async {
-    for (var i = 0; i < 300 && !done(); i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    expect(done(), isTrue, reason: 'timed out waiting');
+  int polls() => server.requestsTo('GET', _log).length;
+
+  /// A controller with the status loaded, inside [async]'s zone.
+  void open(FakeAsync async) {
+    controller = build();
+    _settle(async, controller.load());
   }
 
-  setUp(() async {
+  setUp(() {
     server = FakeHermesServer()
       ..on('GET', _status, _cu())
       ..on('POST', _grant, {
@@ -89,261 +119,418 @@ void main() {
     events = [];
     asked = 0;
     answer = true;
-    controller = build();
-    await controller.load();
+    confirm = null;
   });
 
   tearDown(() => controller.dispose());
 
   test('reads the status and derives the grant offer from the model', () {
-    expect(controller.loadState, ToolsLoadState.ready);
-    expect(controller.status!.platform, 'darwin');
-    expect(controller.canOfferGrant, isTrue);
+    fakeAsync((async) {
+      open(async);
+
+      expect(controller.loadState, ToolsLoadState.ready);
+      expect(controller.status!.platform, 'darwin');
+      expect(controller.canOfferGrant, isTrue);
+    });
   });
 
-  test('no grant is offered when nothing is known to be missing', () async {
-    server.on('GET', _status, _cu(screen: true, ready: true));
-    await controller.load();
-    expect(controller.canOfferGrant, isFalse);
+  test('no grant is offered when nothing is known to be missing', () {
+    fakeAsync((async) {
+      open(async);
+      server.on('GET', _status, _cu(screen: true, ready: true));
+      _settle(async, controller.load());
+      expect(controller.canOfferGrant, isFalse);
 
-    server.on('GET', _status, _cu(screen: null, installed: false));
-    await controller.load();
-    expect(controller.canOfferGrant, isFalse);
+      server.on('GET', _status, _cu(screen: null, installed: false));
+      _settle(async, controller.load());
+      expect(controller.canOfferGrant, isFalse);
 
-    server.on('GET', _status, _cu(grantable: false));
-    await controller.load();
-    expect(controller.canOfferGrant, isFalse);
-    await controller.grant();
-    expect(asked, 0);
-    expect(server.requestsTo('POST', _grant), isEmpty);
+      server.on('GET', _status, _cu(grantable: false));
+      _settle(async, controller.load());
+      expect(controller.canOfferGrant, isFalse);
+      _settle(async, controller.grant());
+      expect(asked, 0);
+      expect(server.requestsTo('POST', _grant), isEmpty);
+    });
   });
 
-  test('404 and 405 hide the section', () async {
-    server.on('GET', _status, {'detail': 'x'}, status: 404);
-    await controller.load();
-    expect(controller.loadState, ToolsLoadState.unsupported);
+  test('404 and 405 hide the section', () {
+    fakeAsync((async) {
+      open(async);
+      server.on('GET', _status, {'detail': 'x'}, status: 404);
+      _settle(async, controller.load());
+      expect(controller.loadState, ToolsLoadState.unsupported);
 
-    server.on('GET', _status, {'detail': 'x'}, status: 405);
-    await controller.load();
-    expect(controller.loadState, ToolsLoadState.unsupported);
+      server.on('GET', _status, {'detail': 'x'}, status: 405);
+      _settle(async, controller.load());
+      expect(controller.loadState, ToolsLoadState.unsupported);
+    });
   });
 
-  test('a failed read keeps the last status', () async {
-    server.on('GET', _status, {'detail': 'x'}, status: 500);
+  test('a failed read keeps the last status', () {
+    fakeAsync((async) {
+      open(async);
+      server.on('GET', _status, {'detail': 'x'}, status: 500);
 
-    await controller.load();
+      _settle(async, controller.load());
 
-    expect(controller.loadState, ToolsLoadState.failed);
-    expect(controller.status, isNotNull);
+      expect(controller.loadState, ToolsLoadState.failed);
+      expect(controller.status, isNotNull);
+    });
   });
 
   group('grant', () {
-    test('nothing is sent until the confirmation says yes', () async {
-      final gate = Completer<bool>();
-      controller.dispose();
-      controller = ComputerUseController(
-        toolsRepository(server),
-        confirmGrant: () {
-          asked++;
-          return gate.future;
-        },
-        interval: const Duration(milliseconds: 10),
-      );
-      await controller.load();
-      server.on('GET', _log, _action(running: false, exit: 0));
+    test('nothing is sent until the confirmation says yes', () {
+      fakeAsync((async) {
+        open(async);
+        final gate = Completer<bool>();
+        confirm = () => gate.future;
+        server.on('GET', _log, _action(running: false, exit: 0));
 
-      final granting = controller.grant();
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      expect(asked, 1);
-      expect(server.requestsTo('POST', _grant), isEmpty);
-      expect(controller.canOfferGrant, isFalse, reason: 'one at a time');
+        final granting = controller.grant();
+        _advance(async);
+        expect(asked, 1);
+        expect(server.requestsTo('POST', _grant), isEmpty);
+        expect(controller.canOfferGrant, isFalse, reason: 'one at a time');
 
-      gate.complete(true);
-      await granting;
-      await until(
-        () => controller.grantPhase == ComputerUseGrantPhase.finished,
-      );
-      expect(server.requestsTo('POST', _grant), hasLength(1));
+        gate.complete(true);
+        _settle(async, granting);
+        _advance(async, poll);
+        expect(controller.grantPhase, ComputerUseGrantPhase.finished);
+        expect(server.requestsTo('POST', _grant), hasLength(1));
+      });
     });
 
-    test('declining sends nothing', () async {
-      answer = false;
+    test('declining sends nothing', () {
+      fakeAsync((async) {
+        open(async);
+        answer = false;
 
-      await controller.grant();
+        _settle(async, controller.grant());
 
-      expect(server.requestsTo('POST', _grant), isEmpty);
-      expect(controller.grantPhase, ComputerUseGrantPhase.idle);
-      expect(controller.canOfferGrant, isTrue);
-      expect(
-        tracer.spans.where((s) => s.attributes['action'] == 'grant'),
-        isEmpty,
-      );
+        expect(server.requestsTo('POST', _grant), isEmpty);
+        expect(controller.grantPhase, ComputerUseGrantPhase.idle);
+        expect(controller.canOfferGrant, isTrue);
+        expect(
+          tracer.spans.where((s) => s.attributes['action'] == 'grant'),
+          isEmpty,
+        );
+      });
     });
 
-    test('a confirmation that throws counts as no', () async {
-      controller.dispose();
-      controller = ComputerUseController(
-        toolsRepository(server),
-        confirmGrant: () async => throw StateError('dialog'),
-      );
-      await controller.load();
+    test('a confirmation that throws counts as no', () {
+      fakeAsync((async) {
+        open(async);
+        confirm = () async => throw StateError('dialog');
 
-      await controller.grant();
+        _settle(async, controller.grant());
 
-      expect(server.requestsTo('POST', _grant), isEmpty);
+        expect(server.requestsTo('POST', _grant), isEmpty);
+      });
+    });
+
+    test('a profile switch or dispose while the question is open sends '
+        'nothing', () {
+      fakeAsync((async) {
+        open(async);
+        final gate = Completer<bool>();
+        confirm = () => gate.future;
+        final granting = controller.grant();
+        _advance(async);
+        controller.switchProfile(toolsRepository(server, profile: 'home'));
+        gate.complete(true);
+        _settle(async, granting);
+        expect(server.requestsTo('POST', _grant), isEmpty);
+
+        final second = Completer<bool>();
+        confirm = () => second.future;
+        _settle(async, controller.load());
+        final again = controller.grant();
+        _advance(async);
+        controller.dispose();
+        second.complete(true);
+        _settle(async, again);
+        expect(server.requestsTo('POST', _grant), isEmpty);
+      });
+    });
+
+    test('a status read during the question that removes the need sends '
+        'nothing', () {
+      fakeAsync((async) {
+        open(async);
+        final gate = Completer<bool>();
+        confirm = () => gate.future;
+        final granting = controller.grant();
+        _advance(async);
+        server.on('GET', _status, _cu(screen: true, ready: true));
+        _settle(async, controller.load());
+        gate.complete(true);
+        _settle(async, granting);
+
+        expect(server.requestsTo('POST', _grant), isEmpty);
+        expect(controller.grantPhase, ComputerUseGrantPhase.idle);
+      });
     });
 
     test('follows the log, then re-reads the status: the result is the '
-        're-read, not the log', () async {
-      var polls = 0;
-      server.onRequest('GET', _log, (_) {
-        polls++;
-        return (
-          status: 200,
-          body: polls < 3
-              ? _action(running: true, lines: ['waiting for the window'])
-              : _action(running: false, exit: 1, lines: ['log says failed']),
+        're-read, not the log', () {
+      fakeAsync((async) {
+        var n = 0;
+        server.onRequest('GET', _log, (_) {
+          n++;
+          return (
+            status: 200,
+            body: n < 3
+                ? _action(running: true, lines: ['waiting for the window'])
+                : _action(running: false, exit: 1, lines: ['log says failed']),
+          );
+        });
+        var reads = 0;
+        server.onRequest('GET', _status, (_) {
+          reads++;
+          return (
+            status: 200,
+            body: reads == 1 ? _cu() : _cu(screen: true, ready: true),
+          );
+        });
+        open(async);
+
+        _settle(async, controller.grant());
+        expect(controller.grantPhase, ComputerUseGrantPhase.running);
+        _advance(async, poll * 2);
+
+        // The exit code was 1, yet the re-read is what says the result.
+        expect(controller.grantPhase, ComputerUseGrantPhase.finished);
+        expect(controller.status!.screenRecording, isTrue);
+        expect(controller.status!.ready, isTrue);
+        expect(controller.grantLines, ['log says failed']);
+      });
+    });
+
+    test('an earlier run\'s finished log does not end a grant whose start '
+        'gave no pid', () {
+      fakeAsync((async) {
+        server
+          ..on('POST', _grant, {'ok': true})
+          ..on('GET', _log, _action(running: false, exit: 0, pid: 99));
+        open(async);
+
+        _settle(async, controller.grant());
+
+        // Unknown, not success: the status is read, and says what it says.
+        expect(controller.grantPhase, ComputerUseGrantPhase.finished);
+        expect(controller.status!.screenRecording, isFalse);
+        expect(controller.canOfferGrant, isTrue);
+        expect(controller.grantLines, isEmpty);
+      });
+    });
+
+    test('a finished log without a pid is not the grant\'s own', () {
+      fakeAsync((async) {
+        server.on('GET', _log, _action(running: false, exit: 0, pid: null));
+        open(async);
+
+        _settle(async, controller.grant());
+
+        // The follower ended it as unknown: one read of the log, then the
+        // status read.
+        expect(polls(), 1);
+        expect(controller.grantPhase, ComputerUseGrantPhase.finished);
+      });
+    });
+
+    test('a re-read that fails after the end is unconfirmed and keeps the '
+        'loaded status and state', () {
+      fakeAsync((async) {
+        server.on('GET', _log, _action(running: false, exit: 0));
+        var reads = 0;
+        server.onRequest('GET', _status, (_) {
+          reads++;
+          return reads == 1
+              ? (status: 200, body: _cu())
+              : (status: 500, body: {'detail': 'x'});
+        });
+        open(async);
+
+        _settle(async, controller.grant());
+
+        expect(controller.grantPhase, ComputerUseGrantPhase.unconfirmed);
+        expect(controller.status, isNotNull);
+        expect(controller.loadState, ToolsLoadState.ready);
+      });
+    });
+
+    test('a re-read that hangs ends unconfirmed after the check timeout', () {
+      fakeAsync((async) {
+        server.on('GET', _log, _action(running: false, exit: 0));
+        open(async);
+        final hang = Completer<void>();
+        server.onRequest('GET', _status, (_) async {
+          await hang.future;
+          return (status: 200, body: _cu(screen: true));
+        });
+
+        _settle(async, controller.grant());
+        expect(controller.grantPhase, ComputerUseGrantPhase.checking);
+        _advance(async, const Duration(seconds: 9));
+        expect(controller.grantPhase, ComputerUseGrantPhase.checking);
+        _advance(async, const Duration(seconds: 2));
+
+        expect(controller.grantPhase, ComputerUseGrantPhase.unconfirmed);
+        expect(controller.loadState, ToolsLoadState.ready);
+        hang.complete();
+      });
+    });
+
+    test('no end within the patience still re-reads', () {
+      fakeAsync((async) {
+        open(async);
+        server.on('GET', _log, _action(running: true));
+
+        _settle(async, controller.grant());
+        _advance(async, kToolsActionPatience);
+
+        expect(controller.grantPhase, ComputerUseGrantPhase.finished);
+      });
+    });
+
+    test('failed reads of the log are said, backed off, and give up after '
+        'three; checkAgain resumes', () {
+      fakeAsync((async) {
+        open(async);
+        server.onRequest(
+          'GET',
+          _log,
+          (_) => (status: 502, body: {'detail': 'x'}),
         );
+
+        _settle(async, controller.grant());
+        expect(controller.followFailing, isTrue);
+        expect(controller.grantBusy, isTrue);
+        _advance(async, poll);
+        expect(polls(), 2);
+        _advance(async, poll * 2);
+
+        expect(polls(), 3);
+        expect(controller.grantPhase, ComputerUseGrantPhase.finished);
+        expect(controller.followFailing, isFalse);
+        expect(controller.followLost, isTrue);
+
+        server.on('GET', _log, _action(running: false, exit: 0));
+        controller.checkAgain();
+        _advance(async);
+
+        expect(controller.followLost, isFalse);
+        expect(controller.grantPhase, ComputerUseGrantPhase.finished);
       });
-      var reads = 0;
-      server.onRequest('GET', _status, (_) {
-        reads++;
-        return (
-          status: 200,
-          body: reads == 1 ? _cu() : _cu(screen: true, ready: true),
-        );
+    });
+
+    test('a non-macOS server refuses with Hermes\' text', () {
+      fakeAsync((async) {
+        open(async);
+        server.on('POST', _grant, {
+          'detail': 'Computer Use permission grants are a macOS concept.',
+        }, status: 400);
+
+        _settle(async, controller.grant());
+
+        expect(controller.grantPhase, ComputerUseGrantPhase.refused);
+        expect(controller.refusalDetail, contains('macOS concept'));
+        expect(polls(), 0);
       });
-      await controller.load();
-
-      await controller.grant();
-      await until(
-        () => controller.grantPhase == ComputerUseGrantPhase.finished,
-      );
-
-      // The exit code was 1, yet the re-read is what says the result.
-      expect(controller.status!.screenRecording, isTrue);
-      expect(controller.status!.ready, isTrue);
-      expect(controller.grantLines, ['log says failed']);
-      expect(reads, greaterThanOrEqualTo(2));
     });
 
-    test('a re-read that fails after the end is unconfirmed', () async {
-      server.on('GET', _log, _action(running: false, exit: 0));
-      var reads = 0;
-      server.onRequest('GET', _status, (_) {
-        reads++;
-        return reads == 1
-            ? (status: 200, body: _cu())
-            : (status: 500, body: {'detail': 'x'});
+    test('a failure is not retried', () {
+      fakeAsync((async) {
+        open(async);
+        server.on('POST', _grant, {'detail': 'x'}, status: 500);
+
+        _settle(async, controller.grant());
+        _advance(async, const Duration(minutes: 1));
+
+        expect(controller.grantPhase, ComputerUseGrantPhase.failed);
+        expect(server.requestsTo('POST', _grant), hasLength(1));
       });
-      await controller.load();
-
-      await controller.grant();
-      await until(
-        () => controller.grantPhase == ComputerUseGrantPhase.unconfirmed,
-      );
-
-      expect(controller.status, isNotNull);
     });
 
-    test('no end within the patience still re-reads', () async {
-      controller.dispose();
-      controller = build(patience: const Duration(milliseconds: 60));
-      await controller.load();
-      server.on('GET', _log, _action(running: true));
+    test('a lost answer keeps the grant busy and follows read-only, never '
+        'resending', () {
+      fakeAsync((async) {
+        open(async);
+        server.onRequest('POST', _grant, (r) {
+          throw DioException.receiveTimeout(
+            timeout: const Duration(seconds: 1),
+            requestOptions: r,
+          );
+        });
+        server.on('GET', _log, _action(running: true, pid: 9));
 
-      await controller.grant();
-      await until(
-        () => controller.grantPhase == ComputerUseGrantPhase.finished,
-      );
-    });
+        _settle(async, controller.grant());
 
-    test('a non-macOS server refuses with Hermes\' text', () async {
-      server.on('POST', _grant, {
-        'detail': 'Computer Use permission grants are a macOS concept.',
-      }, status: 400);
+        expect(controller.grantBusy, isTrue);
+        expect(controller.canOfferGrant, isFalse);
+        _settle(async, controller.grant());
+        expect(server.requestsTo('POST', _grant), hasLength(1));
 
-      await controller.grant();
-
-      expect(controller.grantPhase, ComputerUseGrantPhase.refused);
-      expect(controller.refusalDetail, contains('macOS concept'));
-      expect(server.requestsTo('GET', _log), isEmpty);
-    });
-
-    test('a failure is not retried', () async {
-      server.on('POST', _grant, {'detail': 'x'}, status: 500);
-
-      await controller.grant();
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-
-      expect(controller.grantPhase, ComputerUseGrantPhase.failed);
-      expect(server.requestsTo('POST', _grant), hasLength(1));
-    });
-
-    test('a lost answer re-reads the status and never resends', () async {
-      server.onRequest('POST', _grant, (r) {
-        throw DioException.receiveTimeout(
-          timeout: const Duration(seconds: 1),
-          requestOptions: r,
-        );
+        server.on('GET', _log, _action(running: false, exit: 0, pid: 9));
+        _advance(async, poll);
+        expect(controller.grantPhase, ComputerUseGrantPhase.finished);
+        expect(server.requestsTo('POST', _grant), hasLength(1));
       });
-
-      await controller.grant();
-
-      expect(controller.grantPhase, ComputerUseGrantPhase.finished);
-      expect(server.requestsTo('POST', _grant), hasLength(1));
-      expect(server.requestsTo('GET', _log), isEmpty);
     });
 
-    test('a second grant while one runs is not sent', () async {
-      server.on('GET', _log, _action(running: true));
-      await controller.grant();
+    test('a second grant while one runs is not sent', () {
+      fakeAsync((async) {
+        open(async);
+        server.on('GET', _log, _action(running: true));
+        _settle(async, controller.grant());
 
-      await controller.grant();
+        _settle(async, controller.grant());
 
-      expect(server.requestsTo('POST', _grant), hasLength(1));
-      expect(asked, 1);
+        expect(server.requestsTo('POST', _grant), hasLength(1));
+        expect(asked, 1);
+      });
     });
 
-    test('a profile switch stops following', () async {
-      server.on('GET', _log, _action(running: true));
-      await controller.grant();
-      await until(() => server.requestsTo('GET', _log).isNotEmpty);
+    test('a profile switch stops following', () {
+      fakeAsync((async) {
+        open(async);
+        server.on('GET', _log, _action(running: true));
+        _settle(async, controller.grant());
 
-      controller.switchProfile(toolsRepository(server, profile: 'home'));
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      final polls = server.requestsTo('GET', _log).length;
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+        controller.switchProfile(toolsRepository(server, profile: 'home'));
+        final seen = polls();
+        _advance(async, const Duration(minutes: 1));
 
-      expect(server.requestsTo('GET', _log), hasLength(polls));
-      expect(controller.grantPhase, ComputerUseGrantPhase.idle);
-      expect(controller.status, isNull);
+        expect(polls(), seen);
+        expect(controller.grantPhase, ComputerUseGrantPhase.idle);
+        expect(controller.status, isNull);
+      });
     });
 
-    test('dispose stops following', () async {
-      server.on('GET', _log, _action(running: true));
-      await controller.grant();
-      controller.dispose();
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      final polls = server.requestsTo('GET', _log).length;
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+    test('dispose stops following', () {
+      fakeAsync((async) {
+        open(async);
+        server.on('GET', _log, _action(running: true));
+        _settle(async, controller.grant());
+        controller.dispose();
+        final seen = polls();
+        _advance(async, const Duration(minutes: 1));
 
-      expect(server.requestsTo('GET', _log), hasLength(polls));
+        expect(polls(), seen);
+      });
     });
   });
 
-  test(
-    'spans carry the action and the outcome, never error or checks',
-    () async {
+  test('spans carry the action and the outcome, never error or checks', () {
+    fakeAsync((async) {
       server.on(
         'GET',
         _log,
         _action(running: false, exit: 0, lines: ['LOGLINE']),
       );
-      await controller.grant();
-      await until(
-        () => controller.grantPhase == ComputerUseGrantPhase.finished,
-      );
+      open(async);
+      _settle(async, controller.grant());
 
       final actions = {
         for (final s in tracer.spans.where(
@@ -352,6 +539,7 @@ void main() {
           s.attributes['action']: s.attributes['outcome'],
       };
       expect(actions, {'status': 'ok', 'grant': 'ok'});
+      expect(tracer.spans.every((s) => s.ended), isTrue);
       final recorded = [
         for (final s in tracer.spans) '${s.name} ${s.attributes}',
         ...events,
@@ -359,6 +547,6 @@ void main() {
       for (final leak in ['SECRET-ERROR', 'SECRET-CHECK', 'LOGLINE', 'work']) {
         expect(recorded, isNot(contains(leak)));
       }
-    },
-  );
+    });
+  });
 }

@@ -40,6 +40,9 @@ class ToolsInstallState {
     this.switchStarted = false,
     this.detail,
     this.failure,
+    this.followFailing = false,
+    this.followLost = false,
+    this.startLost = false,
   });
 
   final ToolsInstallPhase phase;
@@ -60,6 +63,19 @@ class ToolsInstallState {
   final String? detail;
   final ToolsFailure? failure;
 
+  /// Reads of the status are failing and being retried: "Couldn't follow the
+  /// install", with the run still counted as running.
+  final bool followFailing;
+
+  /// The follow gave up after repeated failed reads. [phase] is
+  /// [ToolsInstallPhase.unknown]; the screen offers
+  /// [ToolsetInstalls.checkAgain].
+  final bool followLost;
+
+  /// The answer to the start was lost: the install may be running and is
+  /// followed read-only.
+  final bool startLost;
+
   bool get active =>
       phase == ToolsInstallPhase.starting || phase == ToolsInstallPhase.running;
 
@@ -67,6 +83,8 @@ class ToolsInstallState {
     ToolsInstallPhase? phase,
     List<String>? lines,
     int? exitCode,
+    bool? followFailing,
+    bool? followLost,
   }) => ToolsInstallState(
     phase: phase ?? this.phase,
     toolset: toolset,
@@ -76,6 +94,9 @@ class ToolsInstallState {
     switchStarted: switchStarted,
     detail: detail,
     failure: failure,
+    followFailing: followFailing ?? this.followFailing,
+    followLost: followLost ?? this.followLost,
+    startLost: startLost,
   );
 }
 
@@ -85,10 +106,14 @@ enum ToolsInstallStart {
 
   /// An install already runs on this connection; nothing was sent.
   busy,
+
+  /// The object was disposed or cleared (sign-out) meanwhile.
+  dropped,
   refused,
   notStarted,
 
-  /// The answer was lost. The install may run; nothing is sent again.
+  /// The answer was lost. The install may run, so it stays busy and is
+  /// followed read-only; nothing is sent again.
   unknown,
 }
 
@@ -107,6 +132,10 @@ enum ToolsInstallStart {
 /// from there, never from the log. Log lines are shown, never logged; the
 /// span `tools.setup` (`step: post_setup`) and the event `tools.setup_outcome`
 /// carry the outcome only.
+///
+/// An end with no screen open is not lost: [requestReread] has no listener
+/// then, and the next screen reads the config when it opens, which is where
+/// the result shows.
 ///
 /// The macOS permission grant has its own slot and is followed by
 /// `ComputerUseController`, which shares [ActionFollower] with this.
@@ -127,6 +156,8 @@ class ToolsetInstalls extends ChangeNotifier with SafeNotifier {
 
   ToolsInstallState? _state;
   ActionFollower? _follower;
+  HermesToolsRepository? _repository;
+  int? _pid;
   Span? _span;
   var _epoch = 0;
 
@@ -142,8 +173,11 @@ class ToolsetInstalls extends ChangeNotifier with SafeNotifier {
     String toolset,
     String key,
   ) async {
-    if (disposed || busy) return ToolsInstallStart.busy;
+    if (disposed) return ToolsInstallStart.dropped;
+    if (busy) return ToolsInstallStart.busy;
     final epoch = ++_epoch;
+    _repository = repository;
+    _pid = null;
     _span = startToolsSpan(telemetry, 'tools.setup', {'step': 'post_setup'});
     _state = ToolsInstallState(
       phase: ToolsInstallPhase.starting,
@@ -153,24 +187,24 @@ class ToolsetInstalls extends ChangeNotifier with SafeNotifier {
     notifyListeners();
 
     final result = await repository.startPostSetup(toolset, key);
-    if (disposed || epoch != _epoch) return ToolsInstallStart.busy;
+    if (disposed || epoch != _epoch) return ToolsInstallStart.dropped;
     switch (result) {
       case ToolsOk(:final value):
         _state = _state!.copyWith(phase: ToolsInstallPhase.running);
         notifyListeners();
-        _follow(repository, epoch, pid: value.pid, mustSeeRunning: false);
+        _follow(repository, epoch, pid: value.pid);
         return ToolsInstallStart.started;
       case ToolsFailed(kind: ToolsFailure.unknownOutcome):
-        // It may run. Sending again could start a second one.
-        _finishWith(
-          ToolsInstallState(
-            phase: ToolsInstallPhase.unknown,
-            toolset: toolset,
-            key: key,
-          ),
-          'unknown',
+        // It may run. Sending again could start a second one, and the slot
+        // must not look free: follow it read-only until it ends.
+        _state = ToolsInstallState(
+          phase: ToolsInstallPhase.running,
+          toolset: toolset,
+          key: key,
+          startLost: true,
         );
-        _reread(toolset);
+        notifyListeners();
+        _follow(repository, epoch, pid: null, waitForRun: true);
         return ToolsInstallStart.unknown;
       case ToolsRefused(:final detail):
         _finishWith(
@@ -211,6 +245,8 @@ class ToolsetInstalls extends ChangeNotifier with SafeNotifier {
   }) {
     if (disposed || busy) return false;
     final epoch = ++_epoch;
+    _repository = repository;
+    _pid = null;
     _span = startToolsSpan(telemetry, 'tools.setup', {'step': 'post_setup'});
     _state = ToolsInstallState(
       phase: ToolsInstallPhase.running,
@@ -219,7 +255,25 @@ class ToolsetInstalls extends ChangeNotifier with SafeNotifier {
       switchStarted: true,
     );
     notifyListeners();
-    _follow(repository, epoch, pid: null, mustSeeRunning: true);
+    _follow(repository, epoch, pid: null);
+    return true;
+  }
+
+  /// After the follow gave up on failed reads: reads the status again, still
+  /// read-only, with the process id it knew. Does nothing otherwise.
+  bool checkAgain() {
+    final state = _state;
+    final repository = _repository;
+    if (disposed || busy || repository == null || state == null) return false;
+    if (!state.followLost) return false;
+    final epoch = ++_epoch;
+    _span = startToolsSpan(telemetry, 'tools.setup', {'step': 'post_setup'});
+    _state = state.copyWith(
+      phase: ToolsInstallPhase.running,
+      followLost: false,
+    );
+    notifyListeners();
+    _follow(repository, epoch, pid: _pid);
     return true;
   }
 
@@ -235,8 +289,12 @@ class ToolsetInstalls extends ChangeNotifier with SafeNotifier {
     _epoch++;
     _follower?.cancel();
     _follower = null;
-    quietly(() => _span?.end());
-    _span = null;
+    if (_span != null) {
+      finishSetupStep(telemetry, _span, 'post_setup', 'unknown');
+      _span = null;
+    }
+    _repository = null;
+    _pid = null;
     if (_state != null) {
       _state = null;
       notifyListeners();
@@ -247,33 +305,47 @@ class ToolsetInstalls extends ChangeNotifier with SafeNotifier {
     HermesToolsRepository repository,
     int epoch, {
     required int? pid,
-    required bool mustSeeRunning,
+    bool waitForRun = false,
   }) {
+    _pid = pid;
     _follower = ActionFollower(
       fetch: (lines) => repository.postSetupStatus(lines: lines),
       pid: pid,
-      mustSeeRunning: mustSeeRunning,
+      mustSeeRunning: pid == null && !waitForRun,
+      waitForRun: waitForRun,
       interval: interval,
       patience: patience,
       onProgress: (lines) {
         if (epoch != _epoch || _state == null) return;
+        _pid = _follower?.pid ?? _pid;
         _state = _state!.copyWith(lines: List.unmodifiable(lines));
+        notifyListeners();
+      },
+      onFailing: ({required failing}) {
+        if (epoch != _epoch || _state == null) return;
+        _state = _state!.copyWith(followFailing: failing);
         notifyListeners();
       },
       onEnd: (end, code) {
         if (epoch != _epoch || _state == null) return;
+        _pid = _follower?.pid ?? _pid;
         final phase = switch (end) {
           ActionEnd.succeeded => ToolsInstallPhase.succeeded,
           ActionEnd.failed => ToolsInstallPhase.failed,
-          ActionEnd.unknown => ToolsInstallPhase.unknown,
+          ActionEnd.unknown || ActionEnd.lost => ToolsInstallPhase.unknown,
         };
         final toolset = _state!.toolset;
         _finishWith(
-          _state!.copyWith(phase: phase, exitCode: code),
+          _state!.copyWith(
+            phase: phase,
+            exitCode: code,
+            followFailing: false,
+            followLost: end == ActionEnd.lost,
+          ),
           switch (end) {
             ActionEnd.succeeded => 'ok',
             ActionEnd.failed => 'failed',
-            ActionEnd.unknown => 'unknown',
+            ActionEnd.unknown || ActionEnd.lost => 'unknown',
           },
         );
         _reread(toolset);

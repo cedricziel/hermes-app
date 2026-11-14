@@ -77,7 +77,11 @@ class TerminalBackendsController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
-  bool _apply(ToolsResult<TerminalBackends> result) {
+  /// Takes a read. After a write ([readBack]) a failed read changes nothing:
+  /// the list that was loaded stays on screen and only the write state shows
+  /// that the check failed.
+  bool _apply(ToolsResult<TerminalBackends> result, {bool readBack = false}) {
+    if (readBack && result is! ToolsOk<TerminalBackends>) return false;
     switch (result) {
       case ToolsOk(:final value):
         _backends = value;
@@ -138,6 +142,8 @@ class TerminalBackendsController extends ChangeNotifier with SafeNotifier {
         confirmed = false;
       }
       if (_stale(epoch) || !confirmed) return;
+      // A read may have run while the question was open.
+      if (name == active || !backends.any((b) => b.name == name)) return;
     }
     _pick = ToolsWriteState.saving;
     _detail = null;
@@ -145,10 +151,7 @@ class TerminalBackendsController extends ChangeNotifier with SafeNotifier {
 
     final span = startToolsSpan(telemetry, 'tools.terminal_backend', {});
     final result = await _repository.pickTerminalBackend(name);
-    quietly(() {
-      endToolsSpan(span, result.outcome);
-      span?.end();
-    });
+    endToolsSpan(span, result.outcome);
     if (_stale(epoch)) return;
 
     switch (result) {
@@ -156,7 +159,7 @@ class TerminalBackendsController extends ChangeNotifier with SafeNotifier {
         _pick = ToolsWriteState.idle;
         final fresh = await _repository.terminalBackends();
         if (_stale(epoch)) return;
-        _apply(fresh);
+        _apply(fresh, readBack: true);
       case ToolsRefused(:final detail):
         _detail = detail;
         _pick = ToolsWriteState.refused;
@@ -170,7 +173,7 @@ class TerminalBackendsController extends ChangeNotifier with SafeNotifier {
           fresh = null;
         }
         if (_stale(epoch)) return;
-        _pick = fresh == null || !_apply(fresh)
+        _pick = fresh == null || !_apply(fresh, readBack: true)
             ? ToolsWriteState.unconfirmed
             : (active == name
                   ? ToolsWriteState.idle

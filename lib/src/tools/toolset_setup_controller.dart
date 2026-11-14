@@ -42,12 +42,18 @@ enum ToolsetKeysState {
 /// of the one request that saves them. Nothing here logs, traces, stores or
 /// prints them, and no method returns them: the screen shows only how many
 /// characters were typed.
+///
+/// Writes of this controller are one at a time, but `ToolsController` keeps
+/// its own guard for the toolset switch, so a switch and a provider pick on
+/// the same toolset can overlap. That is known: the screen disables the
+/// switch while a setup write runs.
 class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
   ToolsetSetupController(
     HermesToolsRepository repository, {
     required this.toolset,
     this.telemetry = const ConnectionTelemetry(),
     this.checkTimeout = kToolsCheckTimeout,
+    this.onWritten,
   }) : _repository = repository;
 
   HermesToolsRepository _repository;
@@ -55,7 +61,14 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
   final ConnectionTelemetry telemetry;
   final Duration checkTimeout;
 
+  /// Called after a key, provider or model write the server accepted (or a
+  /// re-read showed landed), so the shell can read the toolset list again:
+  /// the matrix and the list change together. Never called for a failure.
+  final void Function()? onWritten;
+
   var _epoch = 0;
+  var _modelsToken = 0;
+  String? _modelsProvider;
   ToolsetConfig? _config;
   var _loading = false;
   ToolsFailure? _loadFailure;
@@ -263,6 +276,7 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
         final fresh = await _repository.config(toolset);
         if (_stale(epoch)) return;
         if (fresh is ToolsOk<ToolsetConfig>) _applyConfig(fresh);
+        _written();
       case ToolsFailed(kind: ToolsFailure.unknownOutcome):
         _typed.clear();
         _keys = ToolsetKeysState.checking;
@@ -317,6 +331,7 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
         final fresh = await _repository.config(toolset);
         if (_stale(epoch)) return;
         if (fresh is ToolsOk<ToolsetConfig>) _applyConfig(fresh);
+        _written();
       case ToolsRefused(:final detail):
         _providerDetail = detail;
         _provider = ToolsWriteState.refused;
@@ -349,6 +364,7 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
       case true:
         if (capability == null) _adopt(name);
         _provider = ToolsWriteState.idle;
+        _written();
       case false:
         _provider = ToolsWriteState.notApplied;
       case null:
@@ -380,15 +396,18 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
 
   /// Reads the model catalog. Only `image_gen` and `video_gen` have one; for
   /// any other toolset nothing is sent. [provider] narrows it to one
-  /// provider's models.
+  /// provider's models and is kept for the reads after a pick. An older
+  /// answer never replaces a newer one.
   Future<void> loadModels({String? provider}) async {
     if (!kModelToolsets.contains(toolset)) return;
     final epoch = _epoch;
+    final token = ++_modelsToken;
+    _modelsProvider = provider;
     _modelsLoading = true;
     _modelsFailure = null;
     notifyListeners();
     final result = await _repository.models(toolset, provider: provider);
-    if (_stale(epoch)) return;
+    if (_stale(epoch) || token != _modelsToken) return;
     _applyModels(result);
     _modelsLoading = false;
     notifyListeners();
@@ -405,6 +424,25 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
       _ => ToolsFailure.server,
     };
     return false;
+  }
+
+  /// Reads the catalog again after a pick, with the provider the last load
+  /// used. Null when a newer read overtook this one or [timeout] passed.
+  Future<ToolsResult<ToolsetModels>?> _rereadModels(
+    int epoch, {
+    Duration? timeout,
+  }) async {
+    final token = ++_modelsToken;
+    var read = _repository.models(toolset, provider: _modelsProvider);
+    if (timeout != null) {
+      read = read.timeout(
+        timeout,
+        onTimeout: () => const ToolsFailed(ToolsFailure.timeout),
+      );
+    }
+    final result = await read;
+    if (_stale(epoch) || token != _modelsToken) return null;
+    return result;
   }
 
   /// Picks the model [id], once. Only an id the catalog lists is sent. The
@@ -440,27 +478,26 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     switch (result) {
       case ToolsOk():
         _model = ToolsWriteState.idle;
-        final fresh = await _repository.models(toolset);
+        final fresh = await _rereadModels(epoch);
         if (_stale(epoch)) return;
-        _applyModels(fresh);
+        if (fresh != null) _applyModels(fresh);
+        _written();
       case ToolsRefused(:final detail):
         _modelDetail = detail;
         _model = ToolsWriteState.refused;
       case ToolsFailed(kind: ToolsFailure.unknownOutcome):
         _model = ToolsWriteState.checking;
         notifyListeners();
-        ToolsResult<ToolsetModels>? fresh;
-        try {
-          fresh = await _repository.models(toolset).timeout(checkTimeout);
-        } on TimeoutException {
-          fresh = null;
-        }
+        final fresh = await _rereadModels(epoch, timeout: checkTimeout);
         if (_stale(epoch)) return;
-        _model = fresh == null || !_applyModels(fresh)
-            ? ToolsWriteState.unconfirmed
-            : (_models?.current == id
-                  ? ToolsWriteState.idle
-                  : ToolsWriteState.notApplied);
+        if (fresh == null || !_applyModels(fresh)) {
+          _model = ToolsWriteState.unconfirmed;
+        } else if (_models?.current == id) {
+          _model = ToolsWriteState.idle;
+          _written();
+        } else {
+          _model = ToolsWriteState.notApplied;
+        }
       default:
         _model = ToolsWriteState.failed;
     }
@@ -493,8 +530,11 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
       _keys = ToolsetKeysState.unconfirmed;
     } else {
       _keys = ToolsetKeysState.saved;
+      _written();
     }
   }
+
+  void _written() => quietly(() => onWritten?.call());
 
   Span? _startSpan(String step, {int? keys}) =>
       startToolsSpan(telemetry, 'tools.setup', {'step': step, 'keys': ?keys});
