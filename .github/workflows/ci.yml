@@ -66,6 +66,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov-${{ matrix.shard }}
@@ -105,7 +106,7 @@ jobs:
             echo "No shard produced coverage." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          python3 scripts/coverage_summary.py lcov.info summary.md "${files[@]}"
+          EXPECTED_SHARDS=4 python3 scripts/coverage_summary.py lcov.info summary.md "${files[@]}"
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload merged coverage

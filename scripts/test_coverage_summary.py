@@ -23,6 +23,16 @@ class CoverageSummaryTest(unittest.TestCase):
         self.assertIn("**66.7%** (2 of 3 lines", text)
         self.assertLess(text.index("`auth`"), text.index("`chat`"))
 
+    def test_files_directly_in_lib_src_have_their_own_row(self):
+        text = cs.summarize(cs.merge(["SF:lib/src/app.dart\nDA:1,1\nend_of_record\nSF:lib/main.dart\nDA:1,0\nend_of_record\n"]))
+        self.assertIn("`(files directly in lib/src)` | 100.0%", text)
+        self.assertIn("`(lib/main.dart)` | 0.0%", text)
+
+    def test_summary_says_how_many_shards_contributed(self):
+        files = cs.merge([A])
+        self.assertIn("Built from 3 of 4 shard coverage files (partial", cs.summarize(files, 3, 4))
+        self.assertNotIn("partial", cs.summarize(files, 4, 4))
+
     def test_lcov_round_trips(self):
         out = io.StringIO()
         cs.write_lcov(cs.merge([A, B]), out)
