@@ -1,0 +1,132 @@
+# Design
+
+Verified against Hermes `d923a5eb` (`openapi/HERMES_REF`): `hermes_cli/web_routers/files.py`, `hermes_cli/web_server_files.py`, `hermes_cli/ssh_workspace_fs.py`, `hermes_cli/web_server.py` (limits, auth), and the tests `tests/hermes_cli/test_web_server_fs.py` and `test_web_server_files.py`. The pinned OpenAPI document lists the same routes; none has a response schema, so every response below is untyped JSON.
+
+## The two route families, and which one the app uses
+
+Hermes has two families that look alike and are not.
+
+|                | `/api/files` ("managed files")                                                                                                                                                                                       | `/api/fs`                                                                                                                                                                                                                                                             |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Made for       | The dashboard's Files tab and uploads                                                                                                                                                                                | The desktop app: folder picker, preview pane, spot editor                                                                                                                                                                                                             |
+| Where it reads | The dashboard host's disk only. Never the profile's SSH workspace                                                                                                                                                    | The profile's SSH workspace when the profile's terminal is SSH, else the host's disk                                                                                                                                                                                  |
+| Paths          | Absolute, or relative to the locked root; any `..` is 400                                                                                                                                                            | Absolute, or relative to the session's working folder (only `read-data-url`, `download`, with `session_id`); `file:` URLs and `%XX` double-encoding are accepted                                                                                                      |
+| Roots          | The user's home folder by default (`can_change_path: true`). Locked to one folder when `HERMES_DASHBOARD_FILES_ROOT` is set or Hermes' home is `/opt/data` (hosted); outside it is 403                               | No root by default. On a locked deployment the same lock applies as "managed read boundary" (403)                                                                                                                                                                     |
+| `profile`      | Not accepted                                                                                                                                                                                                         | Accepted on every route (it picks the SSH workspace; `session_id` also needs it)                                                                                                                                                                                      |
+| Listing        | `GET /api/files?path=` returns `entries[]` with `name`, `path`, `is_directory`, `size`, `mtime`, `mime_type`, plus `parent`, `root`, `locked_root`, `can_change_path`. Hides only secrets                            | `GET /api/fs/list?path=` returns `entries[]` with `name`, `path`, `isDirectory` only. Hides `.git`, `node_modules`, `.venv`, `__pycache__`, `build`, `dist`, `target`, `venv` and similar, and secrets. Failure is HTTP 200 with `{"entries": [], "error": "ENOENT"}` |
+| Reading        | `/read` returns the whole file as a data URL (100 MB cap); `/download` streams it; `/stream` serves audio and video with Range                                                                                       | `/read-text` returns up to 512 KB as text with `byteSize`, `truncated`, `binary`, `language`, `mimeType` (source cap 64 MB, else 413); `/read-data-url` (16 MB cap, else 413); `/download` streams with no size cap                                                   |
+| Writing        | `upload` (data URL, JSON), `upload-stream` (multipart, constant memory), `mkdir`, `DELETE` (JSON body, `recursive` default false). All size-capped at 100 MB. `overwrite` **defaults to true**                       | `POST /api/fs/write-text` only: 8 MB, UTF-8, parent must exist, atomic replace, no stale-file check                                                                                                                                                                   |
+| Secrets        | `_is_sensitive_path` denies `.env`, `.env.*`, `.envrc`, `auth.json`, `config.yaml`, `credentials`, `.git-credentials`, token files, and any path under `mcp-tokens/` or `pairing/` (403 on read, hidden in listings) | Same denylist for the local disk. **On an SSH workspace `read-text` and `read-data-url` skip it** (only `download` checks it, after resolving)                                                                                                                        |
+| Auth           | Header, or `?token=` on `/download` only                                                                                                                                                                             | Header only (`test_fs_endpoints_require_auth`)                                                                                                                                                                                                                        |
+
+**Decision.** Browse, preview and download with `/api/fs`. It is the family that follows the profile to the machine where the agent actually works (an SSH workspace is not on the dashboard host, so `/api/files` would show the wrong disk), it needs no root, and it is the one Hermes' own desktop app uses for exactly this. Use `/api/files` for the things only it can do, in later changes: upload, mkdir, delete (design "Later").
+
+The app's existing attachment code calls `/api/files/download` (`fetchManagedFile`). That stays as it is for `MEDIA:` paths. The Files page does not reuse that route: it has no `profile`, so on an SSH profile it would read the dashboard host.
+
+What this costs, honestly:
+
+- `fs/list` has no size or modified time. Rows show a name and a type icon only. The size is known once the file is opened (see "Size before download").
+- `fs/list` reports a symlink to a folder as a file (`entry.is_dir(follow_symlinks=False)`). Opening it fails with 400 "Path points to a directory"; the controller then lists it as a folder.
+- A listing error comes as HTTP 200 with `error`. The repository maps it, it never shows `entries: []` as "empty" when `error` is set.
+- On an SSH workspace the server does not apply the secrets denylist to `read-text`. The client applies its own (below), so a `.env` is never fetched silently on any profile.
+
+## Server surface used (v1)
+
+All paths are query parameters, always absolute, always taken from a previous answer (never built by the client). `profile` is the chat's profile (`default` for none).
+
+- `GET /api/fs/default-cwd?profile=` returns `{"cwd": "/srv/project", "branch": "main"}` (SSH: the workspace's `cwd`). Used as the start for a chat that has no stored session yet, and as the **availability probe**: 404 or 405 means an older Hermes without `/api/fs`.
+- `GET /api/fs/git-root?path=&profile=` returns `{"root": "/srv/project"}` or `{"root": null}`. Walks up at most 50 folders looking for `.git`. Used to set the highest folder the user can go up to.
+- `GET /api/fs/list?path=&profile=` returns, from `test_fs_list_sorts_and_hides_noise`: `{"entries": [{"name": "a_dir", "path": "/tmp/project/a_dir", "isDirectory": true}, {"name": "a.txt", "path": "/tmp/project/a.txt", "isDirectory": false}]}`, folders first then names case-insensitively. Failure examples: `{"entries": [], "error": "ENOENT" | "ENOTDIR" | "EACCES" | "<strerror>"}` with HTTP 200; HTTP 403 `Path is outside the managed read boundary` on a locked deployment; HTTP 400 `Invalid path`; HTTP 503 `SSH workspace is unavailable`. No pagination: a folder with thousands of files arrives whole, so the list is virtualized and the client shows at most the first 2,000 rows with "Showing the first 2,000 of N" (the count is known).
+- `GET /api/fs/read-text?path=&profile=` returns `{"binary": false, "byteSize": 1834, "language": "python", "mimeType": "text/x-python", "path": "/tmp/project/app.py", "text": "…", "truncated": false}`. `text` is at most 512 KB, decoded UTF-8 with replacement; `truncated` is true above that; `language` is a name from a fixed server map (`python`, `markdown`, `json`, `yaml`, `shell`, `xml`, `text` …). Errors: 400 `Path points to a directory` / `Only regular files can be read`, 403 `File is not readable` / `Access to sensitive files is not allowed`, 404 `File not found`, 409 while a live SQLite database holds the file, 413 `File too large` above 64 MB.
+- `GET /api/fs/download?path=&profile=` streams the bytes as an attachment (`Content-Disposition: attachment; filename=…`). Local files use `FileResponse`, which sets `Content-Length` and supports `Range` (Starlette 1.3.1); an SSH file is a `StreamingResponse` with **no `Content-Length`**. No size cap. Same 400/403/404/409 errors as above, before the first byte.
+- `GET /api/sessions` rows and `GET /api/sessions/{id}` carry `cwd` (and `git_repo_root`). `sessionFolderPath` already reads them.
+
+Not used in v1: `/api/fs/read-data-url` (16 MB, whole file in a JSON string: the streaming download is better), `/api/media` and `/api/media/proxy` (they serve images from Hermes' own media folders and an allowlist of image CDNs, as `data_url`; they cannot show an arbitrary file and `chat-media` already uses them), `/api/files/read` (whole file as a data URL), `/api/files/stream` (audio and video with Range; later, with playback), `/api/fs/write-text`, and every `/api/files` write route.
+
+## Where the working folder comes from
+
+`ChatThread` already keeps the session row, so the Files page starts at `sessionFolderPath`'s `cwd` (not its `git_repo_root`, which that helper prefers for grouping). Without a stored session (a new chat before the first send) it starts at `default-cwd` for the chat's profile. The stored `cwd` is where the session started; if the agent later changed directory, the files it wrote there are one "Up" away only if they are under the start's git root. That limit is accepted for v1 and written in the open questions.
+
+**Highest folder.** `git-root(cwd)` when it answers a folder that is an ancestor of the start, else the start itself. The user can go up to it and no further. This is a client choice, not a security boundary (the server would list any absolute path); it keeps the feature to "what the agent wrote for this chat" and stops a tap on "Up" from walking into `/` or the home folder.
+
+## Path handling
+
+`ServerPath` (`lib/src/files/server_path.dart`) is an immutable value that wraps the exact string the server returned. It parses the style from the first path it sees (POSIX `/`, or a Windows drive or UNC path with `\`) and offers only `segments`, `parent`, `name` and `isWithin(root)`, comparing whole components, never `startsWith`. It has no `join`. v1 never needs one: every child path comes from a listing entry. (A later upload would add `child(name)` that rejects an empty name, a separator, `..`, a NUL and a name over 255 bytes.) A path is sent as a query parameter through the generated client, which encodes it; the client never concatenates paths into a URL. Every request first checks `isWithin(highest folder)`, so a tampered or buggy answer cannot make the client request `/etc/passwd`.
+
+## Secrets and hidden files
+
+- **Hidden files.** Names starting with a dot are not listed until the user turns on "Show hidden files" (per chat session, in memory; default off). The server already hides `.git`, `.venv` and the like.
+- **Secret-looking names** (`SecretNames`, a pure function with its own tests): `.env` and `.env.*`, `.envrc`, `.netrc`, `.npmrc`, `.pypirc`, `.git-credentials`, `credentials*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `id_rsa*`, `id_ed25519*`, `*.kdbx`, `*token*`, `*secret*` and anything under `.ssh`, `.aws`, `.gnupg` or `mcp-tokens`. They are listed (with a lock icon and no preview), and opening one asks "This file may contain passwords or keys. Show it anyway?" with **Show** and Cancel. Show then runs the normal preview. The server may still answer 403 for the names it blocks; that shows as "Hermes doesn't share this file."
+- Nothing is previewed because a row is focused or hovered; a preview starts only from a tap or Enter.
+- The preview text, image bytes and file names are never logged, put in telemetry, notifications, widgets or the app-switcher snapshot (App Lock already covers the app; the Mac Quick Look panel closes when the app locks, a new requirement).
+
+## Size before download
+
+`fs/list` has no sizes, so size comes from the answer that precedes the bytes:
+
+- Text-like files (extension in the app's text set, or the server's `language` known): `read-text` first. It returns `byteSize`, `truncated` and `binary`. If `binary` is true the file is treated as "other". At most 512 KB moves; a truncated file shows "Showing the first 512 KB of 3.2 MB" with a **Download full file** action.
+- Everything else (images, PDF, unknown): `GET /api/fs/download` as a stream (`ResponseType.stream`, a `CancelToken`). The response headers arrive before the body, so `Content-Length` is read from them. Above 50 MB the app cancels the request and asks "This file is 212 MB. Download it anyway?" (Download, Cancel); the request has moved at most its first buffered chunk. A cancel closes the connection and the server stops sending.
+- No `Content-Length` (SSH workspaces): progress is "Downloaded 12 MB" without a bar, still cancellable, and the 50 MB question is not asked. Recorded as an open question.
+- The existing `_getBytes` (used by `fetchManagedFile`) puts the whole file in memory. Files does not use it.
+
+## Streaming download
+
+`HermesApiClient.downloadFsFile(path, profile, sink, cancel, onProgress)` is hand-written, because the generated `fsDownloadApiFsDownloadGet` decodes the body as JSON (the same reason `fetchManagedFile` exists). It writes chunks to an `IOSink` and reports `received` and `total` (null when unknown). The idle timeout is between chunks (Dio receive timeout); it does not use the 5-minute total deadline that `requestDeadlineExtra` sets for the in-memory download.
+
+`MediaStore.stageDownload(key, name, download)` is the one new method on the shared cache: it hands `download` the temporary `.part` file's sink, renames it on success, deletes it on error or cancel, and shares one in-flight download per `key` like `stage` does. Key: `fs:<profile>:<path>`. Everything after that is the existing code: `open`, `save`, `showQuickLook`, `stageCopy`, `DragOut`, the safe-name rule, `clear()` on sign-out, the 24-hour sweep. A file already staged is not downloaded again until sign-out, but a **Reload** action (preview header menu) deletes the staged copy and fetches again, because a file the agent is still writing changes.
+
+## Client architecture (`lib/src/files/`)
+
+- `HermesFilesRepository` (like `HermesMcpRepository`): constructed from `HermesApiClient` and the `profile`; methods return a sealed `FilesResult<T>` (`FilesOk`, `FilesUnsupported`, `FilesFailed(kind)`) and never throw. Parsing is lenient: an entry without a string `name` and `path` is skipped, `isDirectory` defaults to false, a non-object body is `FilesFailed(unreadable)`. Methods: `defaultCwd`, `gitRoot`, `list(path)` (maps `error` to a kind), `readText(path)`. The download goes through the client method above, called by the controller with a `CancelToken`.
+- Failure kinds: `missing` (404, ENOENT), `notAllowed` (403, EACCES, hosted boundary), `notAFile` (400 directory / not regular), `busy` (409), `tooLarge` (413), `unreachable` (503, 502, network), `unreadable` (anything else), `cancelled`.
+- Availability: the first `defaultCwd` per connection decides. 404 or 405 is `FilesUnsupported`; it is logged once (`files.unsupported`) and cached on the connection, so the entry points stay hidden. Any other failure is not "unsupported": the entry shows and the page explains.
+- `FilesController` (one per Files page visit, `ChangeNotifier`): holds `root`, `folder`, the listing, `showHidden`, the selected file and its `PreviewState`, and the one in-flight list and download. State: `folderLoading | folderReady | folderFailed(kind)`, `previewIdle | previewLoading(progress) | previewConfirmSize(bytes) | previewConfirmSecret | previewReady(kind) | previewFailed(kind)`. A late answer for an earlier folder, file, profile or connection is dropped (a generation counter, like `MemoryProposalsController`). Pull to refresh, a Refresh action and ⌘R re-list. Changing the chat's profile, signing out, a server change or leaving the page disposes it, cancels the download and closes the Quick Look panel it opened.
+- Plain-model widgets in `lib/src/files/widgets/`: `FilesBrowserView` (path bar, list, empty and error states), `FileRow`, `FilePreviewView` (header, body, actions), `TextPreview` (with line numbers off, wrap on), `CodePreview`, `MarkdownPreview` (reuses `gpt_markdown` as the chat does), `ImagePreview` (reuses `image_viewer.dart` pinch and pan), `OtherFilePreview` (name, type, size, Save, Open with…), `FileSizeConfirm`, `SecretFileConfirm`. They take models and callbacks only, so each state has a Widgetbook use case.
+- **Colours for code.** A syntax highlighter is the only new dependency. The repo rule asks for a mature package judged on recent releases, publisher, platform coverage and popularity; task 4.1 compares `re_highlight`, `flutter_highlight` and `highlight` (and `gpt_markdown`'s own code block if it already colours) and records the choice and the reason in the PR. Until then code shows as plain monospace; the first three PRs do not depend on it. The server's `language` name picks the grammar; an unknown name shows plain text.
+- **PDF.** No in-app renderer in v1. iOS and macOS show it in Quick Look (`QuickLook`, already handles PDF), Android uses `open_filex` through `MediaStore.open`, Windows and Linux the system viewer. The preview screen for a PDF is `OtherFilePreview` with a primary **Open** and the file's size.
+- **Save and share.** **Save** is `MediaStore.save` (the system's save dialog, already used by file cards). **Share** is the system share sheet on iOS and Android (the share action already in `attachment_file_actions.dart`); desktop shows Save and Open with… only. **Open with…** is `MediaStore.open`.
+- **Mac.** The row and the preview's file are `QuickLookTarget`s (Space toggles Quick Look); the row drags out through `DragOut` with a `DragOutFile` whose `read` stages the file first (kind `file`; no new drag code). View > Show Files is a `MacCommand` with a free chord chosen in the design pass.
+
+## Where it lives in the navigation
+
+No tab. Entry points, all calling one `openFiles(context, chat)`:
+
+- Activity panel, under "This session": a row "Files" with the folder's name as value (the existing panel is an inspector on wide layouts and a detent sheet on a phone; the row closes the sheet and pushes the page). Shown only when `FilesAvailability` is true and the chat has a working folder.
+- The chat header's overflow menu: "Files".
+- Mac: View > Show Files (offered by `ChatScreen`'s `MacCommandScope`, so it follows the chat in front and a conversation window's chat).
+
+The page is a pushed `SettingsScaffold` page titled with the folder's name: iPhone and Android a full page (list, then preview pushed on top); iPad and desktop width (900 pt, Plugins' rule; 700 pt on iPad) a list beside the preview pane; on a Mac the same inside the main window with the Mac toolbar (back, path bar, search is not offered, Refresh, Show hidden files as a toggle item). Not an inspector: a preview needs room, and Kanban and Activity already use the inspector for short reference panels. Quick Look gives the larger view on a Mac.
+
+## Failure handling
+
+- Offline or unreachable: the folder shows "Can't reach your Hermes server." with Try again; a file already staged still opens.
+- A listing `error`: ENOENT "This folder no longer exists." (with Up); EACCES "Hermes can't read this folder."; ENOTDIR lists the parent and opens the file instead.
+- 403 on a file: "Hermes doesn't share this file."; 404 "This file no longer exists."; 409 "This file is in use by Hermes right now. Try again in a moment."; 413 "This file is too large to open here."; 400 not regular "This isn't a regular file."; other "Couldn't open this file." with Try again.
+- A cancelled download deletes its partial file and returns to the file's detail, without an error line.
+- A lost answer is not retried silently: downloads and reads are reads, so Try again is safe, and the page says what failed. Nothing here sends a write.
+- A 401 follows the app's existing rule (refresh, never sign out on a concurrent 401).
+
+## Telemetry
+
+Spans (each carries the connection's `hermes.*` attributes from `Telemetry.forConnection`): `files.list` (`outcome`, `entries` bucket `0`, `1-50`, `51-500`, `>500`), `files.preview` (`kind` text | code | markdown | image | pdf | other, `size` bucket `<100KB`, `<5MB`, `<50MB`, `>=50MB`, `outcome`), `files.download` (`size` bucket, `outcome` done | cancelled | failed | too_large, `length_known` flag). Logs: `files.unsupported` (once per connection), `files.list_failed` and `files.download_failed` (`kind`), `files.preview_unreadable` (`kind`, to count lenient-parse misses). Breadcrumbs: `files.opened` (`source`: activity | header | menu), `files.preview.opened` (`kind`), `files.saved` (`action`), `files.secret.warned`, `files.hidden.toggled` (`on`). No path, file or folder name, profile, content, `cwd` or server address in any of them.
+
+## Hiding on an old server
+
+Entry points are built from `FilesAvailability` (connection-scoped, from the first `default-cwd` answer). Method-not-found (404 or 405) is "unsupported": no row, no menu item, no error, one log event. A server that answers `/api/fs` but returns 403 on every folder (a locked deployment whose root excludes this chat's folder) shows the page with "Hermes only shares files from a fixed folder on this server." instead; the page is not hidden, because the user can still reach other chats' folders.
+
+## Later (separate changes, with the server facts they rest on)
+
+- **Upload** (`/api/files/upload-stream`, multipart, `path` plus `file` plus `overwrite`): host-local only, 100 MB, requires the target inside the managed root. Send `overwrite=false` and treat 409 `File already exists` as "Replace?" confirm; the form field defaults to true, so relying on the default would overwrite silently. Build the target through `ServerPath.child`. Needs a picker (`file_picker` is already a dependency) and shows nothing on an SSH profile.
+- **Delete** (`DELETE /api/files` with a JSON body, `recursive` false by default): host-local only, always confirmed, names the file, a folder says "and everything in it".
+- **Edit text** (`POST /api/fs/write-text`): has no stale check, so the client re-reads and compares before saving, as the server's own docstring says.
+- **Changed in this chat**: derive from `write_file` and `patch` tool calls in the transcript, with an "Open in Files" action on those cards.
+- **Video and audio**: `/api/files/stream` with Range.
+
+## Open questions (recommendation first)
+
+1. **Should "Up" stop at the git root?** Recommend yes (start folder up to its git root), with "Browse other folders" later if people ask. Alternative: unrestricted, which is easier to get lost in and shows more of the server than the feature is for.
+2. **The stored `cwd` is where the session started.** Recommend ignoring later `cd`s in v1. A later change can read the `terminal` tool's reported folder.
+3. **No `Content-Length` on SSH workspaces.** Recommend no size question for them and an indeterminate bar. Alternative: ask the server team to add `Content-Length`; we cannot change it.
+4. **Server skips the secrets denylist on SSH `read-text`.** Recommend the client's own `SecretNames` check (done) and a note to Hermes upstream, not a workaround.
+5. **Sizes in the list.** Recommend none in v1. Alternative: use `/api/files` listing as an enrichment where `can_change_path` and the path is under its root, at the cost of two code paths and a wrong answer on SSH.
+6. **PDF in-app.** Recommend the system viewer for v1; revisit when the highlighter dependency is chosen (one extra dependency per kind should be justified).
