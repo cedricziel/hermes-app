@@ -2713,6 +2713,10 @@
       }
     }
   },
+  "providersCardConnectBodyDefault": "Your Hermes server has no model provider yet.",
+  "@providersCardConnectBodyDefault": {
+    "description": "Body of the connect card for the profile named default, which is the server's own profile: no name is said."
+  },
   "providersCardConnectTitle": "Connect a model to start chatting",
   "@providersCardConnectTitle": {
     "description": "Title of the card on the empty chat when no model provider is connected."
@@ -2740,6 +2744,16 @@
       "model": {
         "type": "String",
         "example": "Example Model A"
+      }
+    }
+  },
+  "providersCardReconnectBodyDefault": "New chats use {model}, but its provider's key is missing or no longer works.",
+  "@providersCardReconnectBodyDefault": {
+    "description": "Body of the reconnect card for the profile named default: no name is said.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "example-model-a"
       }
     }
   },

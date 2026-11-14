@@ -90,3 +90,7 @@
     width: 100%;
   }
 }
+
+.h-welcome-view__card-slot {
+  margin-top: 24px;
+}
