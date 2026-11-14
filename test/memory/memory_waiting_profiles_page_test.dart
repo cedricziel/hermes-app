@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/memory/memory_destination.dart';
@@ -96,8 +97,8 @@ void main() {
   });
 
   testWidgets('without a count it keeps the entry count', (tester) async {
-    transport.script['/memory pending'] = StateError('socket');
-    transport.script['/skills pending'] = StateError('socket');
+    transport.script['/memory pending'] = const GatewayConnectionClosed();
+    transport.script['/skills pending'] = const GatewayConnectionClosed();
     await pumpPage(tester);
 
     expect(find.textContaining('waiting'), findsNothing);
