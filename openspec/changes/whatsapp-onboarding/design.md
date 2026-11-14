@@ -72,3 +72,15 @@ WhatsApp links a device when the phone that holds the account scans the QR. On a
 ## Observability
 
 Spans: `whatsapp.pair.start`, `whatsapp.pair.apply` (they cross the network; attributes `outcome`, `restart`). Log events through `AppEventLogger`: `whatsapp.pair.ended` with `status`, `whatsapp.pair.unavailable` (a route-missing 404 or a 405 on start from an old server, once per connection). Breadcrumbs: `whatsapp.pair.opened`, `whatsapp.pair.qr_shown`, `whatsapp.pair.applied`. None holds the QR, an id, a number, a name, a path, an error text or a profile.
+
+## Design pass
+
+No Claude Design canvas was built; the brief `docs/design-briefs/whatsapp-onboarding.md` was written from the design system README, the merged briefs and the shared widgets. Decisions that change behaviour:
+
+- One pushed screen whose body follows the phase, like the Telegram screen; Finish closes both screens to the Bots list, which shows a banner with the outcome (success when a restart was requested and `needs_restart` is false, warning otherwise; never "restarted").
+- Polling also pauses while App Lock is locked, not only in the background (the code is hidden then, so a stale poll has nothing to show). On unlock a handset needs the "Show QR code" tap again.
+- The countdown is the setup's 600 s ("Setup closes in 8:42"), not the code's rotation, which is not verified. A last-minute warning is shown; it is announced at the minute, 30 s and 10 s only.
+- A failed poll keeps the last state and adds an offline or unreachable banner ("This code may be out of date."); polling continues every 2 s.
+- Back is disabled while apply is in flight (at most 10 s); no Cancel is sent then. After 10 s with no answer the lost-answer state shows, and Check ends within 10 s with "Couldn't confirm".
+- Start again returns to the setup form with the earlier mode and numbers.
+- The QR tile is black on white in both themes and does not scale with text size.
