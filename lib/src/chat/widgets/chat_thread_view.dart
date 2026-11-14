@@ -65,6 +65,7 @@ class ChatThreadView extends StatelessWidget {
     this.turnActionStatus,
     this.modelPill,
     this.header,
+    this.activityLine,
     this.dock,
     this.reactionsFor,
     this.onReactionDetails,
@@ -87,6 +88,11 @@ class ChatThreadView extends StatelessWidget {
   });
 
   final ChatThread? thread;
+
+  /// The activity line, drawn under the header (and its divider) above a Bot
+  /// Chat banner; it is a plain widget that folds away by itself. Null draws
+  /// none.
+  final Widget? activityLine;
 
   /// The Needs-you dock, built inside the composer's box so it sits directly
   /// above the composer, moves with it and is part of the height the
@@ -222,6 +228,7 @@ class ChatThreadView extends StatelessWidget {
           if (platformChromeOf(context) != PlatformChrome.macos)
             const Divider(height: 1),
         ],
+        ?activityLine,
         if (botContext case final bot?) BotChatBanner(context: bot),
         Expanded(
           child: AttachmentSurface(
