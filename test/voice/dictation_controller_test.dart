@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -234,6 +235,54 @@ void main() {
     expect(trail.recent.last.name, 'voice.dictation.ended');
     expect(trail.recent.last.attributes['outcome'], 'denied');
   });
+
+  test(
+    'a failing permission request ends in failed, not an async error',
+    () async {
+      final failing = _FailingPermissionRecorder();
+      recorder = failing;
+      final dictation = controller();
+
+      await dictation.start();
+
+      expect(dictation.phase, DictationPhase.failed);
+      expect(failing.starts, 0);
+      expect(trail.recent.last.attributes['outcome'], 'failed');
+    },
+  );
+
+  test('disposing while the permission request fails still disposes the '
+      'recorder', () async {
+    final failing = _FailingPermissionRecorder(gate: Completer<void>());
+    recorder = failing;
+    final dictation = controller();
+    final starting = dictation.start();
+    await pumpEventQueue();
+
+    dictation.dispose();
+    failing.gate!.complete();
+    await starting;
+    await pumpEventQueue();
+
+    expect(failing.disposed, isTrue);
+  });
+
+  test(
+    'an on-device start that throws a platform error ends in failed',
+    () async {
+      final dictation = controller(
+        engine: DictationEngine.device,
+        model: OnDeviceModel.installed,
+        support: VoiceSupport.none,
+        speech: _PlatformFailingSpeech(),
+      );
+
+      await dictation.start();
+
+      expect(dictation.phase, DictationPhase.failed);
+      expect(recorder.starts, 0);
+    },
+  );
 
   test('stops by itself after five minutes', () {
     fakeAsync((async) {
@@ -831,4 +880,31 @@ class _HeldSpeech extends OnDeviceSpeech {
     await gate.future;
     return super.start(locale: locale, sampleRate: sampleRate);
   }
+}
+
+class _FailingPermissionRecorder extends FakeVoiceRecorder {
+  _FailingPermissionRecorder({this.gate});
+
+  final Completer<void>? gate;
+  var disposed = false;
+
+  @override
+  Future<bool> requestPermission() async {
+    await gate?.future;
+    throw PlatformException(code: 'permission');
+  }
+
+  @override
+  Future<void> dispose() {
+    disposed = true;
+    return super.dispose();
+  }
+}
+
+class _PlatformFailingSpeech extends OnDeviceSpeech {
+  @override
+  Future<OnDeviceSession> start({
+    required String locale,
+    required int sampleRate,
+  }) async => throw PlatformException(code: 'boom');
 }

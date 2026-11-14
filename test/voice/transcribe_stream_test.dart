@@ -149,4 +149,31 @@ void main() {
     expect(server.closed, isTrue);
     expect(server.textFrames.where((f) => f['eos'] == true), isEmpty);
   });
+
+  test('closes a socket that opens after the open timeout', () async {
+    final stream = TranscribeStream.start(
+      connect: ([q = const {}]) => opened.future,
+      sampleRate: 16000,
+      openTimeout: const Duration(milliseconds: 20),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(stream.failed, isTrue);
+
+    opened.complete(server.controller.local);
+    await pumpEventQueue();
+
+    expect(server.closed, isTrue);
+    expect(server.received, isEmpty);
+  });
+
+  test('a non-string transcript fails the stream at once', () async {
+    final stream = start();
+    opened.complete(server.controller.local);
+    await pumpEventQueue();
+
+    server.send({'type': 'final', 'transcript': 7});
+
+    expect(await stream.finish().timeout(const Duration(seconds: 2)), isNull);
+    expect(stream.failed, isTrue);
+  });
 }

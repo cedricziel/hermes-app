@@ -48,10 +48,15 @@ class TranscribeStream implements LiveTranscriber {
     Duration openTimeout,
   ) async {
     final StreamChannel<Object?> channel;
+    final opening = connect(query);
     try {
-      channel = await connect(query).timeout(openTimeout);
+      channel = await opening.timeout(openTimeout);
     } on Object {
       _fail();
+      // A socket that opens after the give-up would never be closed.
+      unawaited(
+        opening.then((late) => late.sink.close(), onError: (Object _) {}),
+      );
       return;
     }
     if (_result.isCompleted) {
@@ -82,7 +87,14 @@ class TranscribeStream implements LiveTranscriber {
       case 'partial':
         if (data['text'] case final String text) _partials.add(text);
       case 'final':
-        _complete((data['transcript'] as String?)?.trim() ?? '');
+        final transcript = data['transcript'];
+        if (transcript == null) {
+          _complete('');
+        } else if (transcript is String) {
+          _complete(transcript.trim());
+        } else {
+          _fail();
+        }
       case 'error':
         _fail();
     }
