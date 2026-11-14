@@ -21,6 +21,8 @@ import 'hermes_update_run.dart';
 import 'replies_in_progress.dart';
 import 'server_care_repository.dart';
 import 'server_care_controller.dart';
+import 'server_check_controller.dart';
+import 'server_check_page.dart';
 import 'server_logs_page.dart';
 import 'server_status.dart';
 import 'update_check_controller.dart';
@@ -28,6 +30,7 @@ import 'update_page.dart';
 import 'usage_page.dart';
 import 'widgets/care_row_value.dart';
 import 'widgets/grouped_action_row.dart';
+import 'widgets/server_check_body.dart' show checkSummary;
 import 'widgets/server_status_card.dart';
 
 /// Pushes the Server screen as a settings page. [source] says where the
@@ -37,11 +40,18 @@ Future<void> showServerScreen(BuildContext context, {required String source}) {
   final care = context.read<ServerCareController>();
   final run = context.read<GatewayRestart>();
   final update = context.read<HermesUpdateRun>();
+  final check = context.read<ServerCheckController>();
   final replies = maybeRepliesInProgress(context);
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) =>
-          _carry(care, run, update, replies, ServerScreen(source: source)),
+      builder: (_) => _carry(
+        care,
+        run,
+        update,
+        check,
+        replies,
+        ServerScreen(source: source),
+      ),
     ),
   );
 }
@@ -50,6 +60,7 @@ Widget _carry(
   ServerCareController care,
   GatewayRestart run,
   HermesUpdateRun update,
+  ServerCheckController check,
   RepliesInProgress? replies,
   Widget page,
 ) => MultiProvider(
@@ -58,6 +69,7 @@ Widget _carry(
     ChangeNotifierProvider<ServerCareController>.value(value: care),
     ChangeNotifierProvider<GatewayRestart>.value(value: run),
     ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
+    ChangeNotifierProvider<ServerCheckController>.value(value: check),
   ],
   // A page outlives the shell on the root navigator: it goes when the
   // connection it was opened for ends.
@@ -167,10 +179,11 @@ class _ServerScreenState extends State<ServerScreen> {
     final care = context.read<ServerCareController>();
     final run = context.read<GatewayRestart>();
     final update = context.read<HermesUpdateRun>();
+    final check = context.read<ServerCheckController>();
     final replies = maybeRepliesInProgress(context);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _carry(care, run, update, replies, page),
+        builder: (_) => _carry(care, run, update, check, replies, page),
       ),
     );
   }
@@ -178,6 +191,10 @@ class _ServerScreenState extends State<ServerScreen> {
   /// Opens the Logs page on [file], if the server has the route.
   void _showLogs(CareLogFile file, {String? profile}) =>
       _open(ServerLogsPage(initialFile: file, profile: profile));
+
+  /// Opens the Server check page. [run] starts a check as it opens (the
+  /// buttons that offer one); the row that shows the last result does not.
+  void _showCheck({bool run = false}) => _open(ServerCheckPage(runOnOpen: run));
 
   String? _subtitle(AppLocalizations l10n, ServerCareController care) {
     final profile = care.profile;
@@ -194,6 +211,7 @@ class _ServerScreenState extends State<ServerScreen> {
     // The rows read the run's state; the screen rebuilds with it.
     context.watch<GatewayRestart>();
     context.watch<HermesUpdateRun>();
+    context.watch<ServerCheckController>();
     final l10n = context.l10n;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final body = ListenableBuilder(
@@ -231,7 +249,9 @@ class _ServerScreenState extends State<ServerScreen> {
       ..._hermes(l10n, care, showStatus ? status : null),
       if (showStatus) ..._gateway(l10n, status),
       if (showStatus) ..._machine(l10n, status),
-      if (care.offers(CarePart.usage) || care.offers(CarePart.logs))
+      if (care.offers(CarePart.usage) ||
+          care.offers(CarePart.logs) ||
+          care.offers(CarePart.check))
         GroupedSection(
           header: l10n.serverCareToolsHeader,
           children: [
@@ -239,7 +259,13 @@ class _ServerScreenState extends State<ServerScreen> {
               GroupedRow(
                 title: l10n.serverCareUsageTitle,
                 subtitle: l10n.serverCareUsageRowSubtitle,
-                onTap: () => _open(const UsagePage()),
+                onTap: () => _open(
+                  UsagePage(
+                    onRunCheck: care.offers(CarePart.check)
+                        ? () => _showCheck(run: true)
+                        : null,
+                  ),
+                ),
               ),
             if (care.offers(CarePart.logs))
               GroupedRow(
@@ -247,6 +273,7 @@ class _ServerScreenState extends State<ServerScreen> {
                 subtitle: l10n.serverCareLogsRowSubtitle,
                 onTap: () => _showLogs(CareLogFile.errors),
               ),
+            if (care.offers(CarePart.check)) _checkRow(l10n),
           ],
         ),
       GroupedSection(
@@ -258,6 +285,38 @@ class _ServerScreenState extends State<ServerScreen> {
         ],
       ),
     ];
+  }
+
+  /// "Run a check", with what the last one found and when, or that one is
+  /// running now.
+  Widget _checkRow(AppLocalizations l10n) {
+    final check = context.read<ServerCheckController>();
+    final report = check.report;
+    final at = check.finishedAt;
+    String? value;
+    String? subtitle = l10n.serverCareCheckRowSubtitle;
+    if (check.busy) {
+      value = l10n.serverCareCheckRowChecking;
+      subtitle = null;
+    } else if (check.phase == CheckPhase.finished &&
+        report != null &&
+        at != null) {
+      final summary = report.allPassed
+          ? l10n.serverCareCheckAllPassed
+          : report.problems > 0 || report.warnings > 0
+          ? checkSummary(l10n, report.problems, report.warnings)
+          : l10n.serverCareCheckSummaryUnreadable;
+      subtitle = l10n.serverCareCheckRowSubtitleResult(
+        summary,
+        elapsedText(l10n, elapsedSince(at, DateTime.now())),
+      );
+    }
+    return CareValueRow(
+      title: l10n.serverCareCheckRun,
+      value: value,
+      subtitle: subtitle,
+      onTap: _showCheck,
+    );
   }
 
   Widget _headline(AppLocalizations l10n, ServerCareController care) {
@@ -337,6 +396,12 @@ class _ServerScreenState extends State<ServerScreen> {
         ServerStatusTone.error,
         l10n.serverCareHeadlineStorageUnreadable,
         l10n.serverCareStorageMissingDetail,
+        care.offers(CarePart.check)
+            ? ServerStatusButton(
+                label: l10n.serverCareCheckRun,
+                onPressed: () => _showCheck(run: true),
+              )
+            : null,
       ),
       Attention.gatewayFailed => card(
         ServerStatusTone.error,
