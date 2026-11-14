@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_otel/flutter_otel.dart' show StatusCode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals.dart';
@@ -115,6 +116,7 @@ void main() {
       );
       expect(tracer.spans.single.name, 'memory.proposals.diff');
       expect(tracer.spans.single.attributes['outcome'], 'failed');
+      expect(tracer.spans.single.status, StatusCode.error);
     });
   });
 
@@ -134,6 +136,10 @@ void main() {
           'outcome': 'ok',
         },
         {'hermes.version': 'test', 'kind': 'skill', 'outcome': 'failed'},
+      ]);
+      expect(spans.map((s) => s.status), [
+        isNot(StatusCode.error),
+        StatusCode.error,
       ]);
       final exported = [
         ...spans.map((s) => '${s.attributes}'),
