@@ -10,6 +10,7 @@ Decisions taken in the design pass:
 
 - Line: 44 pt (Apple) or 48 dp (Material, desktop Material) button; progress indicator, one-line sentence with end ellipsis, counter chips at the right (plan checklist icon "2/5", processes terminal icon "1 running", references hub icon "3/5"). Surface-high background with a hairline below, first under the header, above a Bot Chat banner. Two rows from text scale 1.5.
 - The line shows at most two counters, the ones that changed last; the goal sentence is the goal's text only; the rest lives in the panel.
+- The sentence comes first (review of the catalog): when it does not fit beside the chips on one row they go compact (icon and number, no word), and if that is not enough only the chip that changed last stays. From text scale 2 the sentence may use two lines. On the Mac the subtitle drops spinner and status together when under about 24 pt are left for the status.
 - Dock: surface-high rounded card at the composer's width. Header (kind icon, title that wraps up to two lines, "1 of N" with Previous and Next), body, pinned actions. Only the body scrolls.
 - Billing: the host line ("Opens verify.example.com") comes before the code box; on a phone the actions stack full width, Open verification page filled over Copy code; elsewhere one row. Invalid URL: Open disabled with "This link can't be opened here."
 - Sending: spinner, "Sending your answer…", 2 pt `BusyBar`, Skip and Continue disabled. Lost answer and offline are one plain warning line (icon and text in the warning colour), not a `Banner`.

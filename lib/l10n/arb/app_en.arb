@@ -136,6 +136,138 @@
       }
     }
   },
+  "chatActivityLineAsking": "{count, plural, =1{Asking 1 model} other{Asking {count} models}}",
+  "@chatActivityLineAsking": {
+    "description": "Activity line sentence while a mixture-of-agents turn collects answers from several models. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineAskingUnknown": "Asking models",
+  "@chatActivityLineAskingUnknown": {
+    "description": "Activity line sentence while a mixture-of-agents turn collects answers and the number of models is not known."
+  },
+  "chatActivityLineCombining": "Combining answers",
+  "@chatActivityLineCombining": {
+    "description": "Activity line sentence while a mixture-of-agents turn combines the models' answers."
+  },
+  "chatActivityLineLabel": "Hermes is working: {sentence}. Opens activity.",
+  "@chatActivityLineLabel": {
+    "description": "Accessible name of the activity line without counters. {sentence} is what Hermes is doing.",
+    "placeholders": {
+      "sentence": {
+        "type": "String",
+        "example": "Running 2 processes"
+      }
+    }
+  },
+  "chatActivityLineLabelCounters": "Hermes is working: {sentence}, {counters}. Opens activity.",
+  "@chatActivityLineLabelCounters": {
+    "description": "Accessible name of the activity line with counters. {sentence} is what Hermes is doing, {counters} the spoken counters joined by commas.",
+    "placeholders": {
+      "sentence": {
+        "type": "String",
+        "example": "Running 2 processes"
+      },
+      "counters": {
+        "type": "String",
+        "example": "plan 2 of 5, 1 process running"
+      }
+    }
+  },
+  "chatActivityLinePlan": "Working on the plan",
+  "@chatActivityLinePlan": {
+    "description": "Activity line sentence while a plan has an open task and nothing else reports what Hermes is doing."
+  },
+  "chatActivityLinePlanCounter": "{done}/{total}",
+  "@chatActivityLinePlanCounter": {
+    "description": "Counter chip on the activity line: plan tasks done out of all tasks.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "2"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLinePlanCounterLabel": "plan {done} of {total}",
+  "@chatActivityLinePlanCounterLabel": {
+    "description": "Spoken form of the plan counter on the activity line.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "2"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineProcesses": "{count, plural, =1{Process running} other{Running {count} processes}}",
+  "@chatActivityLineProcesses": {
+    "description": "Activity line sentence while background processes run. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineProcessesCounter": "{count, plural, =1{1 running} other{{count} running}}",
+  "@chatActivityLineProcessesCounter": {
+    "description": "Counter chip on the activity line: how many background processes run.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineProcessesCounterLabel": "{count, plural, =1{1 process running} other{{count} processes running}}",
+  "@chatActivityLineProcessesCounterLabel": {
+    "description": "Spoken form of the processes counter on the activity line.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityLineReferencesCounter": "{done}/{total}",
+  "@chatActivityLineReferencesCounter": {
+    "description": "Counter chip on the activity line: models that have answered out of all asked in a mixture-of-agents turn.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineReferencesCounterLabel": "{done} of {total} models answered",
+  "@chatActivityLineReferencesCounterLabel": {
+    "description": "Spoken form of the models counter on the activity line.",
+    "placeholders": {
+      "done": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "chatActivityLineRestoring": "Restoring the chat…",
+  "@chatActivityLineRestoring": {
+    "description": "Activity line sentence while a chat is being restored on the server."
+  },
   "chatActivityNeedsYouBillingCopy": "Copy code",
   "@chatActivityNeedsYouBillingCopy": {
     "description": "Button on the Needs-you card that copies the billing verification code."
@@ -371,156 +503,6 @@
   "@providersAddHeading": {
     "description": "Heading of the part of the model providers list that offers providers not yet connected."
   },
-  "providersAlertCantUse": "{profile} can no longer use {provider} models.",
-  "@providersAlertCantUse": {
-    "description": "Body of a removal alert.",
-    "placeholders": {
-      "profile": {
-        "type": "String",
-        "example": "work"
-      },
-      "provider": {
-        "type": "String",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "providersAlertCleartextBody": "{address} isn't encrypted. Anyone on the network could read the key on its way.",
-  "@providersAlertCleartextBody": {
-    "description": "Body of the alert shown before a key goes to an address that is not encrypted.",
-    "placeholders": {
-      "address": {
-        "type": "String",
-        "example": "models.example.net"
-      }
-    }
-  },
-  "providersAlertCleartextTitle": "Send the key unencrypted?",
-  "@providersAlertCleartextTitle": {
-    "description": "Title of the alert shown before a key goes to an address that is not encrypted."
-  },
-  "providersAlertDefaultWarning": "New chats in {profile} can't start until you pick another model.",
-  "@providersAlertDefaultWarning": {
-    "description": "Sentence added to a removal question when the provider serves the default model.",
-    "placeholders": {
-      "profile": {
-        "type": "String",
-        "example": "work"
-      }
-    }
-  },
-  "providersAlertDeleteAction": "Delete",
-  "@providersAlertDeleteAction": {
-    "description": "Red action of the delete endpoint alert."
-  },
-  "providersAlertDeleteEndpointBody": "{profile} can no longer use it.",
-  "@providersAlertDeleteEndpointBody": {
-    "description": "Body of the delete endpoint alert when the endpoint has no key.",
-    "placeholders": {
-      "profile": {
-        "type": "String",
-        "example": "work"
-      }
-    }
-  },
-  "providersAlertDeleteEndpointKeyBody": "Its saved key is deleted too.",
-  "@providersAlertDeleteEndpointKeyBody": {
-    "description": "Body of the delete endpoint alert when the endpoint has a saved key."
-  },
-  "providersAlertDeleteEndpointTitle": "Delete {name}?",
-  "@providersAlertDeleteEndpointTitle": {
-    "description": "Title of the alert that asks before deleting a custom endpoint.",
-    "placeholders": {
-      "name": {
-        "type": "String",
-        "example": "My GPU box"
-      }
-    }
-  },
-  "providersAlertKeepWaiting": "Keep waiting",
-  "@providersAlertKeepWaiting": {
-    "description": "Default button of the alert that asks before cancelling a sign-in."
-  },
-  "providersAlertModelAction": "Use it anyway",
-  "@providersAlertModelAction": {
-    "description": "Action of the expensive model alert."
-  },
-  "providersAlertModelTitle": "Use this model?",
-  "@providersAlertModelTitle": {
-    "description": "Title of the alert Hermes asks for before an expensive model becomes the default."
-  },
-  "providersAlertRemoveAction": "Remove",
-  "@providersAlertRemoveAction": {
-    "description": "Red action of the alert that removes an endpoint's saved key."
-  },
-  "providersAlertRemoveKeyAction": "Remove key",
-  "@providersAlertRemoveKeyAction": {
-    "description": "Red action of the remove key alert."
-  },
-  "providersAlertRemoveKeyActionMac": "Remove Key",
-  "@providersAlertRemoveKeyActionMac": {
-    "description": "Red action of the remove key alert on a Mac, where actions are in title case."
-  },
-  "providersAlertRemoveKeyTitle": "Remove the {provider} key?",
-  "@providersAlertRemoveKeyTitle": {
-    "description": "Title of the alert that asks before removing a key.",
-    "placeholders": {
-      "provider": {
-        "type": "String",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "providersAlertRemoveSavedKeyBody": "Hermes will connect without a key.",
-  "@providersAlertRemoveSavedKeyBody": {
-    "description": "Body of the alert that asks before removing an endpoint's saved key."
-  },
-  "providersAlertRemoveSavedKeyTitle": "Remove the saved key for {name}?",
-  "@providersAlertRemoveSavedKeyTitle": {
-    "description": "Title of the alert that asks before removing an endpoint's saved key.",
-    "placeholders": {
-      "name": {
-        "type": "String",
-        "example": "My GPU box"
-      }
-    }
-  },
-  "providersAlertSignOutAction": "Sign out",
-  "@providersAlertSignOutAction": {
-    "description": "Red action of the sign out alert."
-  },
-  "providersAlertSignOutActionMac": "Sign Out",
-  "@providersAlertSignOutActionMac": {
-    "description": "Red action of the sign out alert on a Mac, where actions are in title case."
-  },
-  "providersAlertSignOutTitle": "Sign out of {provider}?",
-  "@providersAlertSignOutTitle": {
-    "description": "Title of the alert that asks before signing out of a provider.",
-    "placeholders": {
-      "provider": {
-        "type": "String",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "providersAlertStopAction": "Stop",
-  "@providersAlertStopAction": {
-    "description": "Red action of the alert that cancels a sign-in."
-  },
-  "providersAlertStopBody": "The code stops working.",
-  "@providersAlertStopBody": {
-    "description": "Body of the alert that asks before cancelling a sign-in."
-  },
-  "providersAlertStopTitle": "Stop signing in to {provider}?",
-  "@providersAlertStopTitle": {
-    "description": "Title of the alert that asks before cancelling a sign-in.",
-    "placeholders": {
-      "provider": {
-        "type": "String",
-        "example": "ChatGPT"
-      }
-    }
-  },
   "providersApiTypeAnthropicMessages": "Anthropic Messages",
   "@providersApiTypeAnthropicMessages": {
     "description": "How a custom endpoint talks to its server: the Anthropic Messages API. A protocol name; usually not translated."
@@ -536,58 +518,6 @@
   "providersApiTypeResponses": "Responses",
   "@providersApiTypeResponses": {
     "description": "How a custom endpoint talks to its server: the Responses API. A protocol name; usually not translated."
-  },
-  "providersCardConnect": "Connect a model",
-  "@providersCardConnect": {
-    "description": "Button of the connect card."
-  },
-  "providersCardConnectBody": "Your Hermes server has no model provider for {profile} yet.",
-  "@providersCardConnectBody": {
-    "description": "Body of the connect card.",
-    "placeholders": {
-      "profile": {
-        "type": "String",
-        "example": "work"
-      }
-    }
-  },
-  "providersCardConnectTitle": "Connect a model to start chatting",
-  "@providersCardConnectTitle": {
-    "description": "Title of the card on the empty chat when no model provider is connected."
-  },
-  "providersCardLoadingBody": "A provider is connected, but its model list isn't ready yet.",
-  "@providersCardLoadingBody": {
-    "description": "Body of the loading card."
-  },
-  "providersCardLoadingTitle": "Hermes is loading your models",
-  "@providersCardLoadingTitle": {
-    "description": "Title of the card while a connected provider's model list is not ready."
-  },
-  "providersCardReconnect": "Reconnect",
-  "@providersCardReconnect": {
-    "description": "Button of the reconnect card."
-  },
-  "providersCardReconnectBody": "New chats in {profile} use {model}, but its provider's key is missing or no longer works.",
-  "@providersCardReconnectBody": {
-    "description": "Body of the reconnect card.",
-    "placeholders": {
-      "profile": {
-        "type": "String",
-        "example": "work"
-      },
-      "model": {
-        "type": "String",
-        "example": "Example Model A"
-      }
-    }
-  },
-  "providersCardReconnectTitle": "Reconnect your model's provider",
-  "@providersCardReconnectTitle": {
-    "description": "Title of the card when the default model's provider lost its key."
-  },
-  "providersCheckAgain": "Check again",
-  "@providersCheckAgain": {
-    "description": "Button that reads the providers or the sign-in state again."
   },
   "providersConnectedCount": "{count} connected",
   "@providersConnectedCount": {
@@ -791,326 +721,25 @@
   "@providersEndpointAddress": {
     "description": "Label of a custom endpoint's web address on its detail."
   },
-  "providersEndpointAddressFooter": "Hermes connects to this address from your server, so localhost means the server itself.",
-  "@providersEndpointAddressFooter": {
-    "description": "Note under the custom endpoint's address field."
-  },
-  "providersEndpointAddressHint": "https://example.com/v1",
-  "@providersEndpointAddressHint": {
-    "description": "Placeholder of the custom endpoint's address field; an example address."
-  },
-  "providersEndpointAdvanced": "Advanced",
-  "@providersEndpointAdvanced": {
-    "description": "Title of the collapsed section with the API type and a typed model."
-  },
   "providersEndpointApiType": "API type",
   "@providersEndpointApiType": {
     "description": "Label of the protocol a custom endpoint uses, on its detail."
-  },
-  "providersEndpointApiTypeFooter": "Automatic works for most servers. Pick another if chats fail with a 404.",
-  "@providersEndpointApiTypeFooter": {
-    "description": "Note under the API type choice."
-  },
-  "providersEndpointCheck": "Check connection",
-  "@providersEndpointCheck": {
-    "description": "Button that asks Hermes to reach the custom endpoint and list its models."
-  },
-  "providersEndpointCheckFailedDetail": "Hermes didn't answer. Try again.",
-  "@providersEndpointCheckFailedDetail": {
-    "description": "Detail when the connection check got no answer from Hermes."
-  },
-  "providersEndpointCheckFailedTitle": "Couldn't check the connection",
-  "@providersEndpointCheckFailedTitle": {
-    "description": "Heading when the connection check got no answer from Hermes."
-  },
-  "providersEndpointChecking": "Checking connection…",
-  "@providersEndpointChecking": {
-    "description": "Status line while Hermes checks the custom endpoint."
-  },
-  "providersEndpointFirstFooter": "New chats in {profile} will use this endpoint, since there is no default model yet.",
-  "@providersEndpointFirstFooter": {
-    "description": "Note shown instead of the switch when the profile has no default model yet.",
-    "placeholders": {
-      "profile": {
-        "type": "String",
-        "example": "work"
-      }
-    }
-  },
-  "providersEndpointFormTitleEdit": "Edit {name}",
-  "@providersEndpointFormTitleEdit": {
-    "description": "Bar title of the form that edits a custom endpoint.",
-    "placeholders": {
-      "name": {
-        "type": "String",
-        "example": "My GPU box"
-      }
-    }
-  },
-  "providersEndpointFormTitleNew": "Add custom endpoint",
-  "@providersEndpointFormTitleNew": {
-    "description": "Bar title of the form that adds a custom endpoint."
-  },
-  "providersEndpointFound": "{count, plural, =1{Found 1 model} other{Found {count} models}}",
-  "@providersEndpointFound": {
-    "description": "Heading of the success note after a connection check that listed models.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "providersEndpointInsecureDetail": "Your key would be sent to it in plain text.",
-  "@providersEndpointInsecureDetail": {
-    "description": "Detail of the warning when a key would be sent to an unencrypted address."
-  },
-  "providersEndpointInsecureTitle": "This address isn't encrypted",
-  "@providersEndpointInsecureTitle": {
-    "description": "Heading of the warning when a key would be sent to an unencrypted address."
-  },
-  "providersEndpointIssueAddress": "Enter an address",
-  "@providersEndpointIssueAddress": {
-    "description": "Error under the address field when it is empty."
-  },
-  "providersEndpointIssueModel": "Check the connection or type a model",
-  "@providersEndpointIssueModel": {
-    "description": "Error shown when Save was tapped without a model."
-  },
-  "providersEndpointIssueName": "Enter a name",
-  "@providersEndpointIssueName": {
-    "description": "Error under the name field when it is empty."
-  },
-  "providersEndpointIssueScheme": "Address must start with http:// or https://",
-  "@providersEndpointIssueScheme": {
-    "description": "Error under the address field when it has no scheme."
   },
   "providersEndpointKey": "API key",
   "@providersEndpointKey": {
     "description": "Label of a custom endpoint's key on its detail."
   },
-  "providersEndpointKeyFooter": "Leave empty if the server needs none.",
-  "@providersEndpointKeyFooter": {
-    "description": "Note under the custom endpoint's API key field."
-  },
-  "providersEndpointKeyFooterEdit": "Type a new key to replace the saved one.",
-  "@providersEndpointKeyFooterEdit": {
-    "description": "Note under the key field of an endpoint with a saved key."
-  },
-  "providersEndpointKeyHint": "Optional",
-  "@providersEndpointKeyHint": {
-    "description": "Placeholder of the custom endpoint's API key field."
-  },
   "providersEndpointKeyNone": "None",
   "@providersEndpointKeyNone": {
     "description": "Value of a custom endpoint's key row when it has no key."
-  },
-  "providersEndpointKeyNotSentDetail": "The key wasn't sent because the address isn't encrypted.",
-  "@providersEndpointKeyNotSentDetail": {
-    "description": "Detail of the note after a check that left the typed key out."
-  },
-  "providersEndpointKeyNotSentTitle": "Checked without your key",
-  "@providersEndpointKeyNotSentTitle": {
-    "description": "Heading of the note after a check that left the typed key out."
-  },
-  "providersEndpointKeyRemove": "Remove saved key",
-  "@providersEndpointKeyRemove": {
-    "description": "Red row that removes an endpoint's saved key after asking."
   },
   "providersEndpointKeySaved": "Saved",
   "@providersEndpointKeySaved": {
     "description": "Value of a custom endpoint's key row when a key is saved. The key is never shown."
   },
-  "providersEndpointKeySavedHint": "Saved key",
-  "@providersEndpointKeySavedHint": {
-    "description": "Placeholder of the key field of an endpoint that already has a saved key."
-  },
-  "providersEndpointModelFooter": "For servers that list no models.",
-  "@providersEndpointModelFooter": {
-    "description": "Note under the field where a model is typed by hand."
-  },
-  "providersEndpointModelHint": "Model name",
-  "@providersEndpointModelHint": {
-    "description": "Placeholder of the field where a model is typed by hand."
-  },
-  "providersEndpointModelLabel": "Model",
-  "@providersEndpointModelLabel": {
-    "description": "Label of the choice of a model found on the endpoint, and of the field to type one."
-  },
-  "providersEndpointNameFooter": "Shown in the model picker",
-  "@providersEndpointNameFooter": {
-    "description": "Note under the custom endpoint's name field."
-  },
-  "providersEndpointNameHint": "My GPU box",
-  "@providersEndpointNameHint": {
-    "description": "Placeholder of the custom endpoint's name field."
-  },
-  "providersEndpointNameLabel": "Name",
-  "@providersEndpointNameLabel": {
-    "description": "Label of the custom endpoint's name field."
-  },
-  "providersEndpointNoModelsDetail": "Type the model's name under Advanced.",
-  "@providersEndpointNoModelsDetail": {
-    "description": "Detail of the warning when the endpoint listed no models and Hermes gave no sentence."
-  },
-  "providersEndpointNoModelsTitle": "Connected, but no models listed",
-  "@providersEndpointNoModelsTitle": {
-    "description": "Heading of the warning when the endpoint answered and listed no models."
-  },
-  "providersEndpointRefusedFallback": "Hermes couldn't save this endpoint.",
-  "@providersEndpointRefusedFallback": {
-    "description": "Error when Hermes refused to save the endpoint and gave no reason."
-  },
-  "providersEndpointUnknownDetail": "Check the provider list before you save again.",
-  "@providersEndpointUnknownDetail": {
-    "description": "Detail of the warning after the answer to saving an endpoint was lost."
-  },
-  "providersEndpointUnknownTitle": "Couldn't tell whether the endpoint was saved",
-  "@providersEndpointUnknownTitle": {
-    "description": "Heading of the warning after the answer to saving an endpoint was lost."
-  },
-  "providersEndpointUnreachableDetail": "Hermes couldn't reach {address} from your server.",
-  "@providersEndpointUnreachableDetail": {
-    "description": "Detail of the error when Hermes could not reach the endpoint.",
-    "placeholders": {
-      "address": {
-        "type": "String",
-        "example": "https://gpu-box.example.net:8000/v1"
-      }
-    }
-  },
-  "providersEndpointUnreachableTitle": "Couldn't connect",
-  "@providersEndpointUnreachableTitle": {
-    "description": "Heading of the error when Hermes could not reach the endpoint."
-  },
-  "providersEndpointUseForNew": "Use for new chats",
-  "@providersEndpointUseForNew": {
-    "description": "Switch that makes the new endpoint's model the default for new chats."
-  },
-  "providersEndpointUseForNewFooter": "Keeps {model} for new chats when off. You can change it later.",
-  "@providersEndpointUseForNewFooter": {
-    "description": "Note under the switch that makes the endpoint the default.",
-    "placeholders": {
-      "model": {
-        "type": "String",
-        "example": "Example Model A"
-      }
-    }
-  },
-  "providersEndpointWillUse": "Hermes will use {address}",
-  "@providersEndpointWillUse": {
-    "description": "Note under the model choice when Hermes resolved a different address.",
-    "placeholders": {
-      "address": {
-        "type": "String",
-        "example": "https://gpu-box.example.net:8000/v1"
-      }
-    }
-  },
   "providersEndpointsFailed": "Custom endpoints couldn't be read.",
   "@providersEndpointsFailed": {
     "description": "Warning banner above the custom endpoint entry when the endpoints could not be read."
-  },
-  "providersFormSave": "Save",
-  "@providersFormSave": {
-    "description": "Save button in the bar of a provider form."
-  },
-  "providersKeyChecking": "Checking key…",
-  "@providersKeyChecking": {
-    "description": "Status line while Hermes checks the API key."
-  },
-  "providersKeyEditKey": "Edit key",
-  "@providersKeyEditKey": {
-    "description": "Button after a rejected key that puts the cursor back in the field."
-  },
-  "providersKeyEmpty": "Paste the key first",
-  "@providersKeyEmpty": {
-    "description": "Error under the API key field when Save was tapped with nothing typed."
-  },
-  "providersKeyGetLink": "Get a key from {provider}",
-  "@providersKeyGetLink": {
-    "description": "Row that opens the provider's page where keys are issued.",
-    "placeholders": {
-      "provider": {
-        "type": "String",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "providersKeyHelper": "Saved on your Hermes server for {profile}. You won't see it again here.",
-  "@providersKeyHelper": {
-    "description": "Note under the API key field.",
-    "placeholders": {
-      "profile": {
-        "type": "String",
-        "example": "work"
-      }
-    }
-  },
-  "providersKeyHint": "Paste your key",
-  "@providersKeyHint": {
-    "description": "Placeholder of the API key field."
-  },
-  "providersKeyLabel": "API key",
-  "@providersKeyLabel": {
-    "description": "Label of the field that takes an API key."
-  },
-  "providersKeyProviderErrorFallback": "The provider answered with an error for this key.",
-  "@providersKeyProviderErrorFallback": {
-    "description": "Detail of the provider error warning when Hermes gave no sentence."
-  },
-  "providersKeyProviderErrorTitle": "{provider} didn't answer normally",
-  "@providersKeyProviderErrorTitle": {
-    "description": "Heading of the warning above the key field when the provider answered the check with an error.",
-    "placeholders": {
-      "provider": {
-        "type": "String",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "providersKeyRefusedFallback": "Hermes couldn't save this key.",
-  "@providersKeyRefusedFallback": {
-    "description": "Error under the key field when Hermes refused to save and gave no reason."
-  },
-  "providersKeyRejectedFallback": "That API key was rejected. Double-check it and try again.",
-  "@providersKeyRejectedFallback": {
-    "description": "Error under the key field when the provider rejected the key and Hermes gave no sentence."
-  },
-  "providersKeySaveAnyway": "Save anyway",
-  "@providersKeySaveAnyway": {
-    "description": "Button that saves a key that was not accepted or could not be checked, and the red action of the unencrypted key alert."
-  },
-  "providersKeyTitle": "Connect {provider}",
-  "@providersKeyTitle": {
-    "description": "Bar title of the form that takes an API key.",
-    "placeholders": {
-      "provider": {
-        "type": "String",
-        "example": "OpenRouter"
-      }
-    }
-  },
-  "providersKeyTitleReplace": "Replace key",
-  "@providersKeyTitleReplace": {
-    "description": "Bar title of the form that replaces a saved API key."
-  },
-  "providersKeyUnknownDetail": "Paste it again to be sure.",
-  "@providersKeyUnknownDetail": {
-    "description": "Detail of the warning shown after the answer to a save was lost; the field is empty."
-  },
-  "providersKeyUnknownTitle": "Couldn't tell whether the key was saved",
-  "@providersKeyUnknownTitle": {
-    "description": "Heading of the warning shown after the answer to a save was lost."
-  },
-  "providersKeyUseAccount": "Use an {provider} account instead",
-  "@providersKeyUseAccount": {
-    "description": "Text button on the key form of a provider that also signs in with an account.",
-    "placeholders": {
-      "provider": {
-        "type": "String",
-        "example": "OpenRouter"
-      }
-    }
   },
   "providersKeysFailed": "Saved keys couldn't be read. You can still add a key.",
   "@providersKeysFailed": {
@@ -1135,10 +764,6 @@
   "providersMoreHeader": "More providers",
   "@providersMoreHeader": {
     "description": "Header of the alphabetical group of providers that can be added."
-  },
-  "providersNotAccepted": "Hermes didn't accept the request",
-  "@providersNotAccepted": {
-    "description": "Fixed message when Hermes answers 422 to a save; it never repeats what was sent."
   },
   "providersOfflineBannerDetail": "Showing what was last loaded. Check your connection or VPN.",
   "@providersOfflineBannerDetail": {
@@ -1169,14 +794,6 @@
   "providersRemoveKey": "Remove key",
   "@providersRemoveKey": {
     "description": "Red row on a provider's detail that removes its saved key after asking."
-  },
-  "providersReplyCheckProviders": "Check model providers",
-  "@providersReplyCheckProviders": {
-    "description": "Button under a failed reply that opens the default model's provider."
-  },
-  "providersReplyFailedTitle": "The reply failed",
-  "@providersReplyFailedTitle": {
-    "description": "Heading of the error under a failed reply that came from the model provider."
   },
   "providersRestartDetail": "It was updated. Models can't change until it restarts.",
   "@providersRestartDetail": {
@@ -1300,10 +917,6 @@
   "@providersRowWaiting": {
     "description": "Subtitle of a provider whose account sign-in has started and is not finished."
   },
-  "providersSaving": "Saving…",
-  "@providersSaving": {
-    "description": "Status line while a form is being saved."
-  },
   "providersSearchHint": "Search providers",
   "@providersSearchHint": {
     "description": "Placeholder of the field that filters the providers that can be added."
@@ -1311,6 +924,534 @@
   "providersSearchNoMatch": "No provider matches your search.",
   "@providersSearchNoMatch": {
     "description": "Row shown when the search filters out every provider."
+  },
+  "providersSignOut": "Sign out",
+  "@providersSignOut": {
+    "description": "Red row on a provider's detail that signs the account out after asking."
+  },
+  "providersTryAgain": "Try again",
+  "@providersTryAgain": {
+    "description": "Button that reads the providers again."
+  },
+
+  "providersAlertCantUse": "{profile} can no longer use {provider} models.",
+  "@providersAlertCantUse": {
+    "description": "Body of a removal alert.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertCleartextBody": "{address} isn't encrypted. Anyone on the network could read the key on its way.",
+  "@providersAlertCleartextBody": {
+    "description": "Body of the alert shown before a key goes to an address that is not encrypted.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "models.example.net"
+      }
+    }
+  },
+  "providersAlertCleartextTitle": "Send the key unencrypted?",
+  "@providersAlertCleartextTitle": {
+    "description": "Title of the alert shown before a key goes to an address that is not encrypted."
+  },
+  "providersAlertDefaultWarning": "New chats in {profile} can't start until you pick another model.",
+  "@providersAlertDefaultWarning": {
+    "description": "Sentence added to a removal question when the provider serves the default model.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersAlertDeleteAction": "Delete",
+  "@providersAlertDeleteAction": {
+    "description": "Red action of the delete endpoint alert."
+  },
+  "providersAlertDeleteEndpointBody": "{profile} can no longer use it.",
+  "@providersAlertDeleteEndpointBody": {
+    "description": "Body of the delete endpoint alert when the endpoint has no key.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersAlertDeleteEndpointKeyBody": "Its saved key is deleted too.",
+  "@providersAlertDeleteEndpointKeyBody": {
+    "description": "Body of the delete endpoint alert when the endpoint has a saved key."
+  },
+  "providersAlertDeleteEndpointTitle": "Delete {name}?",
+  "@providersAlertDeleteEndpointTitle": {
+    "description": "Title of the alert that asks before deleting a custom endpoint.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersAlertKeepWaiting": "Keep waiting",
+  "@providersAlertKeepWaiting": {
+    "description": "Default button of the alert that asks before cancelling a sign-in."
+  },
+  "providersAlertModelAction": "Use it anyway",
+  "@providersAlertModelAction": {
+    "description": "Action of the expensive model alert."
+  },
+  "providersAlertModelTitle": "Use this model?",
+  "@providersAlertModelTitle": {
+    "description": "Title of the alert Hermes asks for before an expensive model becomes the default."
+  },
+  "providersAlertRemoveAction": "Remove",
+  "@providersAlertRemoveAction": {
+    "description": "Red action of the alert that removes an endpoint's saved key."
+  },
+  "providersAlertRemoveKeyAction": "Remove key",
+  "@providersAlertRemoveKeyAction": {
+    "description": "Red action of the remove key alert."
+  },
+  "providersAlertRemoveKeyActionMac": "Remove Key",
+  "@providersAlertRemoveKeyActionMac": {
+    "description": "Red action of the remove key alert on a Mac, where actions are in title case."
+  },
+  "providersAlertRemoveKeyTitle": "Remove the {provider} key?",
+  "@providersAlertRemoveKeyTitle": {
+    "description": "Title of the alert that asks before removing a key.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertRemoveSavedKeyBody": "Hermes will connect without a key.",
+  "@providersAlertRemoveSavedKeyBody": {
+    "description": "Body of the alert that asks before removing an endpoint's saved key."
+  },
+  "providersAlertRemoveSavedKeyTitle": "Remove the saved key for {name}?",
+  "@providersAlertRemoveSavedKeyTitle": {
+    "description": "Title of the alert that asks before removing an endpoint's saved key.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersAlertSignOutAction": "Sign out",
+  "@providersAlertSignOutAction": {
+    "description": "Red action of the sign out alert."
+  },
+  "providersAlertSignOutActionMac": "Sign Out",
+  "@providersAlertSignOutActionMac": {
+    "description": "Red action of the sign out alert on a Mac, where actions are in title case."
+  },
+  "providersAlertSignOutTitle": "Sign out of {provider}?",
+  "@providersAlertSignOutTitle": {
+    "description": "Title of the alert that asks before signing out of a provider.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersAlertStopAction": "Stop",
+  "@providersAlertStopAction": {
+    "description": "Red action of the alert that cancels a sign-in."
+  },
+  "providersAlertStopBody": "The code stops working.",
+  "@providersAlertStopBody": {
+    "description": "Body of the alert that asks before cancelling a sign-in."
+  },
+  "providersAlertStopTitle": "Stop signing in to {provider}?",
+  "@providersAlertStopTitle": {
+    "description": "Title of the alert that asks before cancelling a sign-in.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "ChatGPT"
+      }
+    }
+  },
+  "providersCardConnect": "Connect a model",
+  "@providersCardConnect": {
+    "description": "Button of the connect card."
+  },
+  "providersCardConnectBody": "Your Hermes server has no model provider for {profile} yet.",
+  "@providersCardConnectBody": {
+    "description": "Body of the connect card.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersCardConnectTitle": "Connect a model to start chatting",
+  "@providersCardConnectTitle": {
+    "description": "Title of the card on the empty chat when no model provider is connected."
+  },
+  "providersCardLoadingBody": "A provider is connected, but its model list isn't ready yet.",
+  "@providersCardLoadingBody": {
+    "description": "Body of the loading card."
+  },
+  "providersCardLoadingTitle": "Hermes is loading your models",
+  "@providersCardLoadingTitle": {
+    "description": "Title of the card while a connected provider's model list is not ready."
+  },
+  "providersCardReconnect": "Reconnect",
+  "@providersCardReconnect": {
+    "description": "Button of the reconnect card."
+  },
+  "providersCardReconnectBody": "New chats in {profile} use {model}, but its provider's key is missing or no longer works.",
+  "@providersCardReconnectBody": {
+    "description": "Body of the reconnect card.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      },
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersCardReconnectTitle": "Reconnect your model's provider",
+  "@providersCardReconnectTitle": {
+    "description": "Title of the card when the default model's provider lost its key."
+  },
+  "providersCheckAgain": "Check again",
+  "@providersCheckAgain": {
+    "description": "Button that reads the providers or the sign-in state again."
+  },
+  "providersEndpointAddressFooter": "Hermes connects to this address from your server, so localhost means the server itself.",
+  "@providersEndpointAddressFooter": {
+    "description": "Note under the custom endpoint's address field."
+  },
+  "providersEndpointAddressHint": "https://example.com/v1",
+  "@providersEndpointAddressHint": {
+    "description": "Placeholder of the custom endpoint's address field; an example address."
+  },
+  "providersEndpointAdvanced": "Advanced",
+  "@providersEndpointAdvanced": {
+    "description": "Title of the collapsed section with the API type and a typed model."
+  },
+  "providersEndpointApiTypeFooter": "Automatic works for most servers. Pick another if chats fail with a 404.",
+  "@providersEndpointApiTypeFooter": {
+    "description": "Note under the API type choice."
+  },
+  "providersEndpointCheck": "Check connection",
+  "@providersEndpointCheck": {
+    "description": "Button that asks Hermes to reach the custom endpoint and list its models."
+  },
+  "providersEndpointCheckFailedDetail": "Hermes didn't answer. Try again.",
+  "@providersEndpointCheckFailedDetail": {
+    "description": "Detail when the connection check got no answer from Hermes."
+  },
+  "providersEndpointCheckFailedTitle": "Couldn't check the connection",
+  "@providersEndpointCheckFailedTitle": {
+    "description": "Heading when the connection check got no answer from Hermes."
+  },
+  "providersEndpointChecking": "Checking connection…",
+  "@providersEndpointChecking": {
+    "description": "Status line while Hermes checks the custom endpoint."
+  },
+  "providersEndpointFirstFooter": "New chats in {profile} will use this endpoint, since there is no default model yet.",
+  "@providersEndpointFirstFooter": {
+    "description": "Note shown instead of the switch when the profile has no default model yet.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersEndpointFormTitleEdit": "Edit {name}",
+  "@providersEndpointFormTitleEdit": {
+    "description": "Bar title of the form that edits a custom endpoint.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My GPU box"
+      }
+    }
+  },
+  "providersEndpointFormTitleNew": "Add custom endpoint",
+  "@providersEndpointFormTitleNew": {
+    "description": "Bar title of the form that adds a custom endpoint."
+  },
+  "providersEndpointFound": "{count, plural, =1{Found 1 model} other{Found {count} models}}",
+  "@providersEndpointFound": {
+    "description": "Heading of the success note after a connection check that listed models.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "providersEndpointInsecureDetail": "Your key would be sent to it in plain text.",
+  "@providersEndpointInsecureDetail": {
+    "description": "Detail of the warning when a key would be sent to an unencrypted address."
+  },
+  "providersEndpointInsecureTitle": "This address isn't encrypted",
+  "@providersEndpointInsecureTitle": {
+    "description": "Heading of the warning when a key would be sent to an unencrypted address."
+  },
+  "providersEndpointIssueAddress": "Enter an address",
+  "@providersEndpointIssueAddress": {
+    "description": "Error under the address field when it is empty."
+  },
+  "providersEndpointIssueModel": "Check the connection or type a model",
+  "@providersEndpointIssueModel": {
+    "description": "Error shown when Save was tapped without a model."
+  },
+  "providersEndpointIssueName": "Enter a name",
+  "@providersEndpointIssueName": {
+    "description": "Error under the name field when it is empty."
+  },
+  "providersEndpointIssueScheme": "Address must start with http:// or https://",
+  "@providersEndpointIssueScheme": {
+    "description": "Error under the address field when it has no scheme."
+  },
+  "providersEndpointKeyFooter": "Leave empty if the server needs none.",
+  "@providersEndpointKeyFooter": {
+    "description": "Note under the custom endpoint's API key field."
+  },
+  "providersEndpointKeyFooterEdit": "Type a new key to replace the saved one.",
+  "@providersEndpointKeyFooterEdit": {
+    "description": "Note under the key field of an endpoint with a saved key."
+  },
+  "providersEndpointKeyHint": "Optional",
+  "@providersEndpointKeyHint": {
+    "description": "Placeholder of the custom endpoint's API key field."
+  },
+  "providersEndpointKeyNotSentDetail": "The key wasn't sent because the address isn't encrypted.",
+  "@providersEndpointKeyNotSentDetail": {
+    "description": "Detail of the note after a check that left the typed key out."
+  },
+  "providersEndpointKeyNotSentTitle": "Checked without your key",
+  "@providersEndpointKeyNotSentTitle": {
+    "description": "Heading of the note after a check that left the typed key out."
+  },
+  "providersEndpointKeyRemove": "Remove saved key",
+  "@providersEndpointKeyRemove": {
+    "description": "Red row that removes an endpoint's saved key after asking."
+  },
+  "providersEndpointKeySavedHint": "Saved key",
+  "@providersEndpointKeySavedHint": {
+    "description": "Placeholder of the key field of an endpoint that already has a saved key."
+  },
+  "providersEndpointModelFooter": "For servers that list no models.",
+  "@providersEndpointModelFooter": {
+    "description": "Note under the field where a model is typed by hand."
+  },
+  "providersEndpointModelHint": "Model name",
+  "@providersEndpointModelHint": {
+    "description": "Placeholder of the field where a model is typed by hand."
+  },
+  "providersEndpointModelLabel": "Model",
+  "@providersEndpointModelLabel": {
+    "description": "Label of the choice of a model found on the endpoint, and of the field to type one."
+  },
+  "providersEndpointNameFooter": "Shown in the model picker",
+  "@providersEndpointNameFooter": {
+    "description": "Note under the custom endpoint's name field."
+  },
+  "providersEndpointNameHint": "My GPU box",
+  "@providersEndpointNameHint": {
+    "description": "Placeholder of the custom endpoint's name field."
+  },
+  "providersEndpointNameLabel": "Name",
+  "@providersEndpointNameLabel": {
+    "description": "Label of the custom endpoint's name field."
+  },
+  "providersEndpointNoModelsDetail": "Type the model's name under Advanced.",
+  "@providersEndpointNoModelsDetail": {
+    "description": "Detail of the warning when the endpoint listed no models and Hermes gave no sentence."
+  },
+  "providersEndpointNoModelsTitle": "Connected, but no models listed",
+  "@providersEndpointNoModelsTitle": {
+    "description": "Heading of the warning when the endpoint answered and listed no models."
+  },
+  "providersEndpointRefusedFallback": "Hermes couldn't save this endpoint.",
+  "@providersEndpointRefusedFallback": {
+    "description": "Error when Hermes refused to save the endpoint and gave no reason."
+  },
+  "providersEndpointUnknownDetail": "Check the provider list before you save again.",
+  "@providersEndpointUnknownDetail": {
+    "description": "Detail of the warning after the answer to saving an endpoint was lost."
+  },
+  "providersEndpointUnknownTitle": "Couldn't tell whether the endpoint was saved",
+  "@providersEndpointUnknownTitle": {
+    "description": "Heading of the warning after the answer to saving an endpoint was lost."
+  },
+  "providersEndpointUnreachableDetail": "Hermes couldn't reach {address} from your server.",
+  "@providersEndpointUnreachableDetail": {
+    "description": "Detail of the error when Hermes could not reach the endpoint.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "https://gpu-box.example.net:8000/v1"
+      }
+    }
+  },
+  "providersEndpointUnreachableTitle": "Couldn't connect",
+  "@providersEndpointUnreachableTitle": {
+    "description": "Heading of the error when Hermes could not reach the endpoint."
+  },
+  "providersEndpointUseForNew": "Use for new chats",
+  "@providersEndpointUseForNew": {
+    "description": "Switch that makes the new endpoint's model the default for new chats."
+  },
+  "providersEndpointUseForNewFooter": "Keeps {model} for new chats when off. You can change it later.",
+  "@providersEndpointUseForNewFooter": {
+    "description": "Note under the switch that makes the endpoint the default.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "Example Model A"
+      }
+    }
+  },
+  "providersEndpointWillUse": "Hermes will use {address}",
+  "@providersEndpointWillUse": {
+    "description": "Note under the model choice when Hermes resolved a different address.",
+    "placeholders": {
+      "address": {
+        "type": "String",
+        "example": "https://gpu-box.example.net:8000/v1"
+      }
+    }
+  },
+  "providersFormSave": "Save",
+  "@providersFormSave": {
+    "description": "Save button in the bar of a provider form."
+  },
+  "providersKeyChecking": "Checking key…",
+  "@providersKeyChecking": {
+    "description": "Status line while Hermes checks the API key."
+  },
+  "providersKeyEditKey": "Edit key",
+  "@providersKeyEditKey": {
+    "description": "Button after a rejected key that puts the cursor back in the field."
+  },
+  "providersKeyEmpty": "Paste the key first",
+  "@providersKeyEmpty": {
+    "description": "Error under the API key field when Save was tapped with nothing typed."
+  },
+  "providersKeyGetLink": "Get a key from {provider}",
+  "@providersKeyGetLink": {
+    "description": "Row that opens the provider's page where keys are issued.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyHelper": "Saved on your Hermes server for {profile}. You won't see it again here.",
+  "@providersKeyHelper": {
+    "description": "Note under the API key field.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "providersKeyHint": "Paste your key",
+  "@providersKeyHint": {
+    "description": "Placeholder of the API key field."
+  },
+  "providersKeyLabel": "API key",
+  "@providersKeyLabel": {
+    "description": "Label of the field that takes an API key."
+  },
+  "providersKeyProviderErrorFallback": "The provider answered with an error for this key.",
+  "@providersKeyProviderErrorFallback": {
+    "description": "Detail of the provider error warning when Hermes gave no sentence."
+  },
+  "providersKeyProviderErrorTitle": "{provider} didn't answer normally",
+  "@providersKeyProviderErrorTitle": {
+    "description": "Heading of the warning above the key field when the provider answered the check with an error.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyRefusedFallback": "Hermes couldn't save this key.",
+  "@providersKeyRefusedFallback": {
+    "description": "Error under the key field when Hermes refused to save and gave no reason."
+  },
+  "providersKeyRejectedFallback": "That API key was rejected. Double-check it and try again.",
+  "@providersKeyRejectedFallback": {
+    "description": "Error under the key field when the provider rejected the key and Hermes gave no sentence."
+  },
+  "providersKeySaveAnyway": "Save anyway",
+  "@providersKeySaveAnyway": {
+    "description": "Button that saves a key that was not accepted or could not be checked, and the red action of the unencrypted key alert."
+  },
+  "providersKeyTitle": "Connect {provider}",
+  "@providersKeyTitle": {
+    "description": "Bar title of the form that takes an API key.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersKeyTitleReplace": "Replace key",
+  "@providersKeyTitleReplace": {
+    "description": "Bar title of the form that replaces a saved API key."
+  },
+  "providersKeyUnknownDetail": "Paste it again to be sure.",
+  "@providersKeyUnknownDetail": {
+    "description": "Detail of the warning shown after the answer to a save was lost; the field is empty."
+  },
+  "providersKeyUnknownTitle": "Couldn't tell whether the key was saved",
+  "@providersKeyUnknownTitle": {
+    "description": "Heading of the warning shown after the answer to a save was lost."
+  },
+  "providersKeyUseAccount": "Use an {provider} account instead",
+  "@providersKeyUseAccount": {
+    "description": "Text button on the key form of a provider that also signs in with an account.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "OpenRouter"
+      }
+    }
+  },
+  "providersNotAccepted": "Hermes didn't accept the request",
+  "@providersNotAccepted": {
+    "description": "Fixed message when Hermes answers 422 to a save; it never repeats what was sent."
+  },
+  "providersReplyCheckProviders": "Check model providers",
+  "@providersReplyCheckProviders": {
+    "description": "Button under a failed reply that opens the default model's provider."
+  },
+  "providersReplyFailedTitle": "The reply failed",
+  "@providersReplyFailedTitle": {
+    "description": "Heading of the error under a failed reply that came from the model provider."
+  },
+  "providersSaving": "Saving…",
+  "@providersSaving": {
+    "description": "Status line while a form is being saved."
   },
   "providersServerBody": "{provider} is connected from Hermes' own command line. Run this on the computer running Hermes, then check again:",
   "@providersServerBody": {
@@ -1460,10 +1601,6 @@
   "providersSignInWaiting": "Waiting for you to approve…",
   "@providersSignInWaiting": {
     "description": "Status line while the sign-in waits for approval."
-  },
-  "providersSignOut": "Sign out",
-  "@providersSignOut": {
-    "description": "Red row on a provider's detail that signs the account out after asking."
   },
   "providersStepChangeModel": "Change model",
   "@providersStepChangeModel": {
@@ -1627,11 +1764,6 @@
       }
     }
   },
-  "providersTryAgain": "Try again",
-  "@providersTryAgain": {
-    "description": "Button that reads the providers again."
-  },
-
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",

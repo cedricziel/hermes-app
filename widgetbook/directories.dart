@@ -15,6 +15,7 @@ import 'session_state_use_cases.dart';
 import 'todo_plan_use_cases.dart';
 import 'activity_panel_use_cases.dart';
 import 'needs_you_dock_use_cases.dart';
+import 'activity_line_use_cases.dart';
 import 'moa_progress_use_cases.dart';
 import 'background_check_status_use_cases.dart';
 import 'queue_recovery_use_cases.dart';
@@ -89,6 +90,8 @@ final List<WidgetbookNode> directories = [
   sudoPasswordPromptNode(),
   botScreenViewerNode(),
   activityButtonNode(),
+  activityLineNode(),
+  macToolbarSubtitleNode(),
   needsYouDockNode(),
   needsYouBodiesNode(),
   activityWaitingMarkerNode(),
