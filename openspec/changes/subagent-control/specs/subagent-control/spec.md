@@ -374,12 +374,17 @@ If the ended agent's completion summary contains Hermes' notice "[steer did not 
 
 ### Requirement: An agent that ends while its detail is open
 
-When the agent shown in an open detail ends, the detail SHALL stay open, show the new state, remove Stop agent and the note field with "This agent has finished. Stop and notes no longer apply." (or the Failed or Stopped wording), keep the last output read under "Last output" without refreshing it, and keep an unsent note readable with Copy and "Not sent". A stop or note in flight SHALL report its own answer first.
+When the agent shown in an open detail ends, the detail SHALL stay open, show the new state, remove Stop agent and the note field with "This agent has finished. Stop and notes no longer apply." (or the Failed or Stopped wording), keep the last output read under "Last output" without refreshing it, and keep an unsent note readable with Copy and "Not sent". A note in flight SHALL report its own answer first.
 
 #### Scenario: The agent finishes while the user reads its output
 
 - **WHEN** the detail of a running agent is open and `subagent.complete` arrives with status `completed`
 - **THEN** the detail shows Finished, the summary, the last output under "Last output", and no Stop or note field, and no further `subagent.tail` is sent
+
+#### Scenario: A stop in flight when the agent ends
+
+- **WHEN** a stop is in flight and the agent's completion frame arrives
+- **THEN** the detail shows the agent's new state, and the stop's answer, when it comes, changes nothing (see "Stop outcomes")
 
 #### Scenario: An unsent note when the agent ends
 

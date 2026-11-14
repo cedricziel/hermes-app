@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
@@ -173,6 +174,78 @@ void main() {
       );
 
       expect(lastBody(), containsPair('confirm_expensive_model', true));
+    });
+  });
+
+  group('assignMain', () {
+    Map<String, Object?> lastBody() =>
+        jsonBody(server.requestsTo('POST', '/api/model/set').last)!
+            as Map<String, Object?>;
+
+    setUp(() {
+      server.on('POST', '/api/model/set', {
+        'ok': true,
+        'scope': 'main',
+        'provider': 'openrouter',
+        'model': 'gpt-5',
+      });
+    });
+
+    test('posts the main scope for the profile without an effort', () async {
+      final confirm = await repository.assignMain(
+        const ModelChoice('openrouter', 'gpt-5', effort: 'high'),
+        profile: 'my work',
+      );
+
+      expect(confirm, isNull);
+      final request = server.requestsTo('POST', '/api/model/set').single;
+      expect(request.queryParameters, {'profile': 'my work'});
+      expect(lastBody(), {
+        'scope': 'main',
+        'provider': 'openrouter',
+        'model': 'gpt-5',
+        'task': '',
+        'base_url': '',
+        'api_key': '',
+        'confirm_expensive_model': false,
+      });
+    });
+
+    test('returns the message of a model that needs confirming', () async {
+      server.on('POST', '/api/model/set', {
+        'ok': false,
+        'scope': 'main',
+        'confirm_required': true,
+        'confirm_message': 'gpt-5-pro costs \$120 per million tokens.',
+      });
+
+      final confirm = await repository.assignMain(
+        const ModelChoice('openai', 'gpt-5-pro'),
+        profile: 'work',
+      );
+
+      expect(confirm, 'gpt-5-pro costs \$120 per million tokens.');
+    });
+
+    test('sends the confirmation when asked to', () async {
+      await repository.assignMain(
+        const ModelChoice('openai', 'gpt-5-pro'),
+        profile: 'work',
+        confirmExpensive: true,
+      );
+
+      expect(lastBody(), containsPair('confirm_expensive_model', true));
+    });
+
+    test('surfaces a refused model as a DioException', () async {
+      server.on('POST', '/api/model/set', {
+        'detail': 'provider not configured',
+      }, status: 400);
+
+      expect(
+        repository.assignMain(const ModelChoice('x', 'y'), profile: 'work'),
+        throwsA(isA<DioException>()),
+      );
     });
   });
 }
