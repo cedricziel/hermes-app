@@ -190,7 +190,10 @@ void main() {
 
     test('status carries the fields the headline reads', () async {
       final status = value(await care.status(profile: 'default'));
-      expect(status.version, isNotNull);
+      // A checkout without version metadata answers "unknown", which reads
+      // as no version.
+      expect(status.version, anyOf(isNull, isNot(isEmpty)));
+      expect(status.version?.toLowerCase(), isNot('unknown'));
       expect(status.profiles, contains('default'));
       expect(status.configVersion, isA<int>());
       expect(status.latestConfigVersion, isA<int>());
@@ -205,7 +208,8 @@ void main() {
       'health answers ok with the commit the dashboard booted from',
       () async {
         final health = value(await care.health());
-        expect(health.version, isNotNull);
+        expect(health.version, anyOf(isNull, isNot(isEmpty)));
+        expect(health.version?.toLowerCase(), isNot('unknown'));
         expect(
           health.commit,
           anyOf(isNull, matches(RegExp(r'^[0-9a-f]{40}$'))),
