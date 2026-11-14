@@ -317,6 +317,77 @@ void main() {
     });
   });
 
+  group('typing and the other reads', () {
+    ServerLogsController slowTyping() {
+      controller.dispose();
+      return controller = ServerLogsController(
+        repository: ServerCareRepository(server.client()),
+        profile: 'default',
+      );
+    }
+
+    test('Show older while a search is pending sends it once, with 500', () {
+      fakeAsync((async) {
+        slowTyping();
+        controller.setSearch('time');
+        expect(controller.canShowOlder, isFalse);
+        async.elapse(const Duration(milliseconds: 100));
+        controller.showOlder();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        expect(reads(), hasLength(1));
+        expect(reads().single['search'], 'time');
+        expect(reads().single['lines'], 500);
+      });
+    });
+
+    test('Refresh while a search is pending sends it once', () {
+      fakeAsync((async) {
+        slowTyping();
+        controller.setSearch('time');
+        controller.load();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        expect(reads(), hasLength(1));
+        expect(reads().single['search'], 'time');
+        expect(reads().single['lines'], 200);
+      });
+    });
+
+    test('filtered follows what was sent, not what is typed', () {
+      fakeAsync((async) {
+        slowTyping();
+        controller.load();
+        async.flushMicrotasks();
+        expect(controller.filtered, isFalse);
+        controller.setSearch('time');
+        expect(controller.filtered, isFalse);
+        async.elapse(const Duration(milliseconds: 450));
+        async.flushMicrotasks();
+        expect(controller.filtered, isTrue);
+      });
+    });
+  });
+
+  group('a 404 from the logs route', () {
+    test('with a Hermes detail is a refusal, not a missing route', () async {
+      server.on('GET', '/api/logs', {'detail': 'Unknown profile'}, status: 404);
+      await controller.load();
+      expect(controller.unsupported, isFalse);
+      expect(unsupported, 0);
+      expect(controller.failure, CareFailureKind.refused);
+      expect(controller.failureMessage, 'Unknown profile');
+    });
+
+    test('without one is a missing route', () async {
+      server.on('GET', '/api/logs', {'detail': 'Not Found'}, status: 404);
+      await controller.load();
+      expect(controller.unsupported, isTrue);
+    });
+  });
+
   group('telemetry', () {
     test('a read is one span with only fixed attributes', () async {
       await controller.load();

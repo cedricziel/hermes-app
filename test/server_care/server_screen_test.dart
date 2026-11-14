@@ -537,6 +537,20 @@ void main() {
         expect(logReads().single['file'], 'gateway');
       });
 
+      testWidgets('a refusal started nothing, so it offers no Show logs', (
+        tester,
+      ) async {
+        restartAnswers(exit: 0);
+        server.on('POST', '/api/gateway/restart', {
+          'detail': 'requires root, and passwordless sudo is unavailable',
+        }, status: 500);
+        await pump(tester);
+        await restart(tester);
+        expect(find.textContaining('requires root'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
+        expect(find.text('Show logs'), findsNothing);
+      });
+
       testWidgets('a restart that is slow offers Show logs too', (
         tester,
       ) async {

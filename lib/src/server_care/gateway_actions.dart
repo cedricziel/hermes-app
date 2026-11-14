@@ -73,8 +73,10 @@ Future<void> runGatewayAction(
 
 /// What the gateway row says about a run: the progress while it goes, the
 /// outcome after, with Hermes' own text for a refusal. Null when idle.
-/// [onShowLogs], when given, adds Show logs beside Try again on a run that
-/// failed or is slow, so the person can see why.
+/// [onShowLogs], when given, adds Show logs beside Try again where the logs
+/// can explain something: a child that exited with an error, and a gateway
+/// that is slow or could not be confirmed. A refusal started nothing, so
+/// there is nothing to read.
 GroupedActionStatus? gatewayRowStatus(
   AppLocalizations l10n,
   GatewayRestart run, {
@@ -112,7 +114,7 @@ GroupedActionStatus? gatewayRowStatus(
               ? l10n.serverCareGatewayStartFailed
               : l10n.serverCareGatewayRestartFailed),
       buttons: [
-        ?showLogs,
+        if (run.failure == GatewayFailure.exited) ?showLogs,
         GroupedActionButton(
           label: l10n.serverCareTryAgain,
           onPressed: onTryAgain,

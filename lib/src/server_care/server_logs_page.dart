@@ -8,14 +8,18 @@ import '../app_lock/app_lock_controller.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
-import '../widgets/adaptive_dialog.dart';
+import '../auth/auth_controller.dart';
+import '../widgets/dialog_presentation.dart';
+import '../widgets/route_dismissal.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/settings_search_field.dart';
 import 'care_result.dart';
+import 'connection_bound.dart';
 import 'secure_window.dart';
 import 'server_care_controller.dart';
 import 'server_care_repository.dart';
 import 'server_logs_controller.dart';
+import 'widgets/logs_copy_dialog.dart';
 import 'widgets/private_surface.dart';
 import 'widgets/server_logs_body.dart';
 
@@ -31,10 +35,18 @@ const _tabOrder = [CareLogFile.errors, CareLogFile.agent, CareLogFile.gateway];
 /// surface while the app is inactive on a phone, and drops the lines when
 /// App Lock covers the app.
 class ServerLogsPage extends StatefulWidget {
-  const ServerLogsPage({super.key, this.initialFile = CareLogFile.errors});
+  const ServerLogsPage({
+    super.key,
+    this.initialFile = CareLogFile.errors,
+    this.profile,
+  });
 
   /// The file shown first.
   final CareLogFile initialFile;
+
+  /// The profile whose logs are shown first; the chat's when null. A later
+  /// switch of the chat's profile still moves the page.
+  final String? profile;
 
   @override
   State<ServerLogsPage> createState() => _ServerLogsPageState();
@@ -46,6 +58,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   late final ServerLogsController _controller;
   late final TabController _tabs;
   AppLockController? _appLock;
+  ConnectionGuard? _connection;
   void Function()? _releaseSecure;
   String? _careProfile;
 
@@ -57,7 +70,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
     _appLock = _maybeRead<AppLockController>();
     _controller = ServerLogsController(
       repository: HermesRepositories.of(context).serverCare,
-      profile: _careProfile,
+      profile: widget.profile ?? _careProfile,
       file: widget.initialFile,
       telemetry: HermesRepositories.of(context).telemetry,
       covered: () => _appLock?.covered ?? false,
@@ -69,17 +82,29 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       vsync: this,
       initialIndex: _tabOrder.indexOf(widget.initialFile),
     )..addListener(_tabChanged);
-    _care.addListener(_followChatProfile);
-    _appLock?.addListener(_lockChanged);
     _releaseSecure = SecureWindow.instance.hold();
-    // Only the file: no profile, no lines, no search.
-    (_maybeRead<Breadcrumbs>() ?? Breadcrumbs.none)('server_care.logs.opened', {
-      'file': widget.initialFile.name,
-    });
-    if (_appLock?.covered ?? false) {
-      _controller.cover();
-    } else {
-      _controller.load();
+    // Anything that throws from here on must not leave the window secure.
+    try {
+      _care.addListener(_followChatProfile);
+      _appLock?.addListener(_lockChanged);
+      _connection = ConnectionGuard(
+        _maybeRead<AuthController>(),
+        _connectionEnded,
+      );
+      // Only the file: no profile, no lines, no search.
+      (_maybeRead<Breadcrumbs>() ?? Breadcrumbs.none)(
+        'server_care.logs.opened',
+        {'file': widget.initialFile.name},
+      );
+      if (_appLock?.covered ?? false) {
+        _controller.cover();
+      } else {
+        _controller.load();
+      }
+    } on Object {
+      _releaseSecure?.call();
+      _releaseSecure = null;
+      rethrow;
     }
   }
 
@@ -95,10 +120,21 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   /// closes rather than explain a missing part.
   void _logsMissing() {
     _care.reportUnsupported(CarePart.logs);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) Navigator.of(context).maybePop();
-    });
+    _leave();
   }
+
+  /// The connection this page was opened for ended: the lines go at once and
+  /// so does the page.
+  void _connectionEnded() {
+    _controller.cover();
+    _leave();
+  }
+
+  /// Removes this page's own route, never whatever is on top of it (the
+  /// Copy question, a menu).
+  void _leave() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) dismissRoute(context);
+  });
 
   void _tabChanged() {
     _controller.setFile(_tabOrder[_tabs.index]);
@@ -127,6 +163,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   @override
   void dispose() {
     _releaseSecure?.call();
+    _connection?.dispose();
     _appLock?.removeListener(_lockChanged);
     _care.removeListener(_followChatProfile);
     _tabs
@@ -139,22 +176,28 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   Future<void> _copy() async {
     final l10n = context.l10n;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    final confirmed = await showConfirmDialog(
-      context,
-      title: l10n.serverCareLogsCopyTitle,
-      message: l10n.serverCareLogsCopyMessage,
-      confirmLabel: l10n.serverCareLogsCopyConfirm,
-      cancelLabel: l10n.serverCareCancel,
-      cancelIsDefault: true,
-    );
-    if (!confirmed || !mounted) return;
-    // Exactly the lines on screen, in the order shown.
+    // Exactly the lines on screen when the question is asked, in the order
+    // shown: what is copied is what was confirmed, even if the page reads
+    // again while the question is open.
     final text = [
       for (final entry in _controller.entries) ...[
         entry.raw,
         ...entry.continuation,
       ],
     ].join('\n');
+    if (text.isEmpty) return;
+    final confirmed =
+        await showAppDialog<bool>(
+          context: context,
+          builder: (_) => LogsCopyDialog(
+            title: l10n.serverCareLogsCopyTitle,
+            message: l10n.serverCareLogsCopyMessage,
+            confirmLabel: l10n.serverCareLogsCopyConfirm,
+            cancelLabel: l10n.serverCareCancel,
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
     await Clipboard.setData(ClipboardData(text: text));
     messenger?.showSnackBar(SnackBar(content: Text(l10n.serverCareLogsCopied)));
   }

@@ -17,10 +17,14 @@ class PrivateSurface extends StatefulWidget {
     super.key,
     required this.child,
     this.blankWhenInactive,
+    this.blank = false,
   });
 
   final Widget child;
   final bool? blankWhenInactive;
+
+  /// Shows the blank surface whatever the app's state is, for the catalog.
+  final bool blank;
 
   @override
   State<PrivateSurface> createState() => _PrivateSurfaceState();
@@ -53,16 +57,17 @@ class _PrivateSurfaceState extends State<PrivateSurface>
               defaultTargetPlatform == TargetPlatform.android));
 
   bool get _hidden =>
+      widget.blank ||
       _applies &&
-      (_state == AppLifecycleState.inactive ||
-          _state == AppLifecycleState.hidden ||
-          _state == AppLifecycleState.paused);
+          (_state == AppLifecycleState.inactive ||
+              _state == AppLifecycleState.hidden ||
+              _state == AppLifecycleState.paused);
 
   @override
   Widget build(BuildContext context) {
     final hidden = _hidden;
     return Stack(
-      fit: StackFit.passthrough,
+      fit: StackFit.expand,
       children: [
         Offstage(offstage: hidden, child: widget.child),
         if (hidden)

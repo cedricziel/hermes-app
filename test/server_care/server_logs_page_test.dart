@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SemanticsNode;
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
 import 'package:hermes_app/src/server_care/server_logs_page.dart';
@@ -90,13 +92,15 @@ void main() {
     bool withLock = false,
     CareLogFile file = CareLogFile.errors,
     bool pushed = false,
+    AuthController? auth,
+    Widget? pageOverride,
   }) async {
     debugDefaultTargetPlatformOverride = platform;
     tester.view.physicalSize = Size(width, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.runAsync(care.refresh);
-    final page = ServerLogsPage(initialFile: file);
+    final page = pageOverride ?? ServerLogsPage(initialFile: file);
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -107,6 +111,8 @@ void main() {
           Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
           if (withLock)
             ChangeNotifierProvider<AppLockController>.value(value: lock),
+          if (auth != null)
+            ChangeNotifierProvider<AuthController>.value(value: auth),
         ],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -383,4 +389,178 @@ void main() {
     await tester.pumpAndSettle();
     expect(reads().last['profile'], 'work');
   });
+
+  group('when the connection ends', () {
+    for (final (name, end) in <(String, void Function(_TestAuth))>[
+      ('sign-out', (a) => a.move(state: HermesConnectionState.needsLogin)),
+      (
+        'session expiry',
+        (a) => a.move(state: HermesConnectionState.needsLogin, allowed: false),
+      ),
+      ('a server change', (a) => a.move(server: 'https://other.example')),
+      ('another account', (a) => a.move(owner: 2)),
+      ('protected requests closing', (a) => a.move(allowed: false)),
+    ]) {
+      pageTest('$name drops the lines and the page', (tester) async {
+        final auth = _TestAuth();
+        addTearDown(auth.dispose);
+        await pump(tester, pushed: true, auth: auth);
+        expect(find.text('Telegram failed'), findsOneWidget);
+        end(auth);
+        await tester.pumpAndSettle();
+        expect(find.text('Telegram failed'), findsNothing);
+        expect(find.text('Logs'), findsNothing);
+        expect(find.text('open'), findsOneWidget);
+        // Nothing is read for a connection that is gone.
+        expect(reads(), hasLength(1));
+      });
+    }
+
+    pageTest('the lines are gone even if the route lingers', (tester) async {
+      final auth = _TestAuth();
+      addTearDown(auth.dispose);
+      await pump(tester, auth: auth);
+      auth.move(state: HermesConnectionState.needsLogin);
+      // Before the page is removed, nothing readable is left in it.
+      await tester.pump();
+      expect(find.text('Telegram failed'), findsNothing);
+    });
+  });
+
+  pageTest('Copy copies the lines that were confirmed, not a later read', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('logs-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copy shown lines'));
+    await tester.pumpAndSettle();
+    // The page reads again for another profile while the question is open.
+    server.on('GET', '/api/logs', {'lines': []});
+    care.profileChanged('work');
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.tap(find.text('Copy'));
+    await tester.pumpAndSettle();
+    expect(clipboard, contains('Telegram failed'));
+    expect(clipboard!.split('\n'), hasLength(5));
+    expect(find.text('Log lines copied'), findsOneWidget);
+  });
+
+  pageTest('a missing route closes this page, not the question on top', (
+    tester,
+  ) async {
+    await pump(tester, pushed: true);
+    await tester.tap(find.byKey(const Key('logs-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copy shown lines'));
+    await tester.pumpAndSettle();
+    server.on('GET', '/api/logs', {'detail': 'Not Found'}, status: 404);
+    care.profileChanged('work');
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Copy these log lines?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Logs'), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+  });
+
+  pageTest('a page that fails to start does not leave the window secure', (
+    tester,
+  ) async {
+    lock.dispose();
+    lock = _ThrowingLock();
+    await pump(tester, withLock: true);
+    expect(tester.takeException(), isNotNull);
+    expect(secureCalls, [true, false]);
+  });
+
+  pageTest('nothing is readable while the page is blanked', (tester) async {
+    final semantics = tester.ensureSemantics();
+    String everything() {
+      final out = StringBuffer();
+      void walk(SemanticsNode node) {
+        final data = node.getSemanticsData();
+        out.write('${data.label} ${data.value} ${data.hint} ');
+        node.visitChildren((c) {
+          walk(c);
+          return true;
+        });
+      }
+
+      walk(
+        tester
+            .binding
+            .renderViews
+            .first
+            .owner!
+            .semanticsOwner!
+            .rootSemanticsNode!,
+      );
+      return out.toString();
+    }
+
+    await pump(tester);
+    expect(everything(), contains('Telegram failed'));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(everything(), isNot(contains('Telegram')));
+    expect(everything(), isNot(contains('Logs')));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    semantics.dispose();
+  });
+
+  pageTest('opened for a profile, it reads that one', (tester) async {
+    await pump(
+      tester,
+      pageOverride: const ServerLogsPage(
+        initialFile: CareLogFile.gateway,
+        profile: 'work',
+      ),
+    );
+    expect(reads().single, {
+      'file': 'gateway',
+      'lines': 200,
+      'profile': 'work',
+    });
+  });
+}
+
+class _TestAuth extends AuthController {
+  var _state = HermesConnectionState.ready;
+  var _allowed = true;
+  var _owner = 1;
+  String _server = 'https://hermes.example';
+
+  @override
+  HermesConnectionState get state => _state;
+  @override
+  bool get protectedRequestsAllowed => _allowed;
+  @override
+  int get ownerGeneration => _owner;
+  @override
+  String? get baseUrl => _server;
+
+  void move({
+    HermesConnectionState? state,
+    bool? allowed,
+    int? owner,
+    String? server,
+  }) {
+    _state = state ?? _state;
+    _allowed = allowed ?? _allowed;
+    _owner = owner ?? _owner;
+    _server = server ?? _server;
+    notifyListeners();
+  }
+}
+
+class _ThrowingLock extends AppLockController {
+  _ThrowingLock() : super(authenticator: FakeDeviceAuthenticator());
+
+  @override
+  bool get covered => throw StateError('broken');
 }

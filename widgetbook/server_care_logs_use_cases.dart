@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/server_care/widgets/log_level_menu_button.dart';
+import 'package:hermes_app/src/server_care/widgets/logs_copy_dialog.dart';
+import 'package:hermes_app/src/server_care/widgets/private_surface.dart';
 import 'package:hermes_app/src/server_care/widgets/server_logs_body.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:hermes_app/src/widgets/settings_search_field.dart';
@@ -228,4 +230,43 @@ List<WidgetbookNode> serverCareLogsNodes() => [
       ),
     ],
   ),
+  WidgetbookComponent(
+    name: 'LogsCopyDialog',
+    useCases: [
+      ...onEachPlatform('Copy these lines', (_) => _copyDialog()),
+      WidgetbookUseCase(
+        name: 'Largest text',
+        builder: (context) => _largest(context, _copyDialog()),
+      ),
+    ],
+  ),
+  WidgetbookComponent(
+    name: 'PrivateSurface',
+    useCases: [
+      WidgetbookUseCase(
+        name: 'Blank while the app is inactive',
+        builder: (_) => PrivateSurface(
+          blank: true,
+          child: _page((_) => _body(ServerLogsStatus.ready, entries: _lines())),
+        ),
+      ),
+    ],
+  ),
 ];
+
+/// The question open over a dimmed page, as the screen shows it.
+Widget _copyDialog() => Builder(
+  builder: (context) {
+    final l10n = context.l10n;
+    return Container(
+      color: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.3),
+      alignment: Alignment.center,
+      child: LogsCopyDialog(
+        title: l10n.serverCareLogsCopyTitle,
+        message: l10n.serverCareLogsCopyMessage,
+        confirmLabel: l10n.serverCareLogsCopyConfirm,
+        cancelLabel: l10n.serverCareCancel,
+      ),
+    );
+  },
+);

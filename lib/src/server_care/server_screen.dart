@@ -14,6 +14,7 @@ import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import 'attention.dart';
 import 'care_result.dart';
+import 'connection_bound.dart';
 import 'gateway_actions.dart';
 import 'gateway_restart.dart';
 import 'hermes_update_run.dart';
@@ -58,7 +59,9 @@ Widget _carry(
     ChangeNotifierProvider<GatewayRestart>.value(value: run),
     ChangeNotifierProvider<HermesUpdateRun>.value(value: update),
   ],
-  child: page,
+  // A page outlives the shell on the root navigator: it goes when the
+  // connection it was opened for ends.
+  child: ConnectionBound(child: page),
 );
 
 /// Is Hermes OK, and what is it running on: a headline, then the Hermes
@@ -173,7 +176,8 @@ class _ServerScreenState extends State<ServerScreen> {
   }
 
   /// Opens the Logs page on [file], if the server has the route.
-  void _showLogs(CareLogFile file) => _open(ServerLogsPage(initialFile: file));
+  void _showLogs(CareLogFile file, {String? profile}) =>
+      _open(ServerLogsPage(initialFile: file, profile: profile));
 
   String? _subtitle(AppLocalizations l10n, ServerCareController care) {
     final profile = care.profile;
@@ -543,7 +547,10 @@ class _ServerScreenState extends State<ServerScreen> {
                         context.read<ServerCareController>().offers(
                           CarePart.logs,
                         )
-                        ? () => _showLogs(CareLogFile.gateway)
+                        ? () => _showLogs(
+                            CareLogFile.gateway,
+                            profile: _run.profile,
+                          )
                         : null,
                   ),
           ),

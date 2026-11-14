@@ -70,6 +70,7 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
   bool _answered = false;
   int _generation = 0;
   Timer? _typing;
+  bool _sentFiltered = false;
 
   CareLogFile get file => _file;
   LogLevelFilter get level => _level;
@@ -97,16 +98,20 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
   /// True once the server answered that it has no logs route.
   bool get unsupported => _unsupported;
 
-  /// Whether a level or a search narrows the lines.
-  bool get filtered =>
-      _level != LogLevelFilter.all || _search.trim().isNotEmpty;
+  /// Whether the last read sent a level or a search. What is only typed
+  /// does not count until it is sent, so an empty log is not "No lines
+  /// match" for a search that has not gone out yet.
+  bool get filtered => _sentFiltered;
 
   /// How many lines the current read asks for.
   int get requestedLines => _lines;
 
   /// Whether Show older would give more: the answer filled the 200 asked for.
   bool get canShowOlder =>
-      _lines == initialLines && _answered && _rawCount >= initialLines;
+      _typing == null &&
+      _lines == initialLines &&
+      _answered &&
+      _rawCount >= initialLines;
 
   /// Whether the 500-line limit was reached, so there is nothing further.
   bool get reachedLimit => _lines == olderLines && _rawCount >= olderLines;
@@ -127,6 +132,13 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
       _loading = false;
       return;
     }
+    if (_typing != null) {
+      // A search is waiting to go out: this read is that search, as a fresh
+      // read, so it is not sent twice.
+      _typing!.cancel();
+      _typing = null;
+      _lines = initialLines;
+    }
     final generation = ++_generation;
     _loading = true;
     notifyListeners();
@@ -136,6 +148,7 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
       LogLevelFilter.errors => 'ERROR',
     };
     final search = _search.trim().isEmpty ? null : _search.trim();
+    _sentFiltered = _level != LogLevelFilter.all || search != null;
     // Fixed names and flags only: never the search, the profile or a line.
     Span? span;
     _quiet(
@@ -251,6 +264,9 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
 
   /// Asks for 500 lines instead of 200, with the same choices.
   Future<void> showOlder() {
+    // A search still waiting goes out with this read.
+    _typing?.cancel();
+    _typing = null;
     _lines = olderLines;
     return load();
   }
@@ -260,6 +276,7 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
   void cover() {
     _coveredHere = true;
     _typing?.cancel();
+    _typing = null;
     _generation++;
     _loading = false;
     _drop();
