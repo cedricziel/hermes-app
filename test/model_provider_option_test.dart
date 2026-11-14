@@ -124,6 +124,120 @@ void main() {
     });
   });
 
+  group('ModelOptions first-run facts', () {
+    Map<String, Object?> row(
+      String slug, {
+      bool? authenticated,
+      List<String> models = const [],
+    }) => {'slug': slug, 'authenticated': ?authenticated, 'models': models};
+
+    test('a connected provider without models is warming', () {
+      final options = ModelOptions.fromJson({
+        'providers': [row('example-a', authenticated: true)],
+      });
+
+      expect(options.providers, isEmpty);
+      expect(options.warming, isTrue);
+      expect(options.currentMissing, isFalse);
+    });
+
+    test('a provider that is not connected is not warming', () {
+      final options = ModelOptions.fromJson({
+        'providers': [row('example-a', authenticated: false)],
+      });
+
+      expect(options.warming, isFalse);
+    });
+
+    test('a row without the flag and without models is not warming', () {
+      expect(
+        ModelOptions.fromJson({
+          'providers': [row('example-a')],
+        }).warming,
+        isFalse,
+      );
+    });
+
+    test('a warming row is recorded next to a ready provider', () {
+      final options = ModelOptions.fromJson({
+        'providers': [
+          row('example-a', authenticated: true),
+          row('example-b', authenticated: true, models: ['example-model-a']),
+        ],
+      });
+
+      expect(options.providers.map((p) => p.id), ['example-b']);
+      expect(options.warming, isTrue);
+    });
+
+    test('the default provider missing from the rows is currentMissing', () {
+      final options = ModelOptions.fromJson({
+        'provider': 'example-a',
+        'model': 'example-model-a',
+        'providers': [
+          row('example-b', authenticated: true, models: ['example-model-b']),
+        ],
+      });
+
+      expect(options.currentMissing, isTrue);
+      expect(
+        options.missing,
+        const ModelChoice('example-a', 'example-model-a'),
+      );
+      expect(options.providers, hasLength(1));
+    });
+
+    test('currentMissing holds with no provider ready at all', () {
+      final options = ModelOptions.fromJson({
+        'provider': 'example-a',
+        'model': 'example-model-a',
+        'providers': <Object?>[],
+      });
+
+      expect(options.currentMissing, isTrue);
+    });
+
+    test('the default provider among the rows is not missing', () {
+      final ready = ModelOptions.fromJson({
+        'provider': 'example-a',
+        'model': 'example-model-a',
+        'providers': [
+          row('example-a', authenticated: true, models: ['example-model-a']),
+        ],
+      });
+      final warming = ModelOptions.fromJson({
+        'provider': 'example-a',
+        'model': 'example-model-a',
+        'providers': [row('example-a', authenticated: true)],
+      });
+
+      expect(ready.currentMissing, isFalse);
+      expect(warming.currentMissing, isFalse);
+      expect(warming.warming, isTrue);
+    });
+
+    test('a fresh profile with no default is not missing anything', () {
+      final options = ModelOptions.fromJson({
+        'provider': '',
+        'model': '',
+        'providers': <Object?>[],
+      });
+
+      expect(options.currentMissing, isFalse);
+      expect(options.warming, isFalse);
+    });
+
+    test('a provider that was named without a model is not missing', () {
+      expect(
+        ModelOptions.fromJson({
+          'provider': 'example-a',
+          'providers': <Object?>[],
+        }).currentMissing,
+        isFalse,
+      );
+    });
+  });
+
   group('ModelOptions.model', () {
     test('finds a model within its own provider only', () {
       final options = ModelOptions.fromJson({

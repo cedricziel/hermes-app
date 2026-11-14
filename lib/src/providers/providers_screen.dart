@@ -31,15 +31,48 @@ import 'widgets/provider_list_view.dart';
 import 'widgets/provider_view_models.dart';
 
 /// Where the Model providers screen was opened from, for the
-/// `providers.opened` breadcrumb. The welcome card and the composer have
-/// their own values, added with those entry points.
+/// `providers.opened` breadcrumb.
 enum ProvidersEntry {
   sidebar('sidebar'),
   drawer('drawer'),
-  profiles('profiles');
+  profiles('profiles'),
+
+  /// The chat's welcome card.
+  welcome('welcome'),
+
+  /// The composer's "Set up a model" pill.
+  composer('composer'),
+
+  /// A failed reply's "Check model providers" action.
+  reply('reply');
 
   const ProvidersEntry(this.wire);
   final String wire;
+}
+
+/// Where the screen starts, once its first read has answered.
+sealed class ProvidersFocus {
+  const ProvidersFocus();
+
+  /// "Add a provider" is scrolled into view.
+  const factory ProvidersFocus.add() = _FocusAdd;
+
+  /// One provider: its detail when it is connected, and otherwise the way to
+  /// connect it (its key form, sign-in or server command).
+  const factory ProvidersFocus.provider(String id) = _FocusProvider;
+
+  /// [ProvidersFocus.provider], or "Add a provider" without an [id].
+  static ProvidersFocus providerOrAdd(String? id) =>
+      id == null ? const _FocusAdd() : _FocusProvider(id);
+}
+
+final class _FocusAdd extends ProvidersFocus {
+  const _FocusAdd();
+}
+
+final class _FocusProvider extends ProvidersFocus {
+  const _FocusProvider(this.id);
+  final String id;
 }
 
 Future<bool> _openInBrowser(Uri uri) =>
@@ -62,6 +95,7 @@ class ProvidersScreen extends StatefulWidget {
     required this.repository,
     required this.profile,
     this.entry = ProvidersEntry.sidebar,
+    this.focus,
     this.onChanged,
     this.launchLink,
     this.platform,
@@ -72,6 +106,9 @@ class ProvidersScreen extends StatefulWidget {
   /// The profile the screen is for; null for a server without profiles.
   final String? profile;
   final ProvidersEntry entry;
+
+  /// Where the screen starts; the top of the list when null.
+  final ProvidersFocus? focus;
 
   /// A provider, a sign-in or the default model changed: pickers elsewhere
   /// read their options again.
@@ -97,6 +134,8 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   var _stepQueued = false;
   var _changes = 0;
   var _left = false;
+  var _wide = false;
+  late ProvidersFocus? _focus = widget.focus;
   Timer? _stepRetry;
 
   AuthController? _auth;
@@ -193,6 +232,32 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
       widget.onChanged?.call();
     }
     _maybeOpenStep();
+    _applyFocus();
+  }
+
+  /// Moves to [ProvidersScreen.focus] once the first read has answered; a
+  /// failed read leaves the screen where it is and keeps the focus for the
+  /// retry.
+  void _applyFocus() {
+    final focus = _focus;
+    if (focus == null || _controller.catalog == null) return;
+    _focus = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      switch (focus) {
+        case _FocusAdd():
+          _scrollToAdd();
+        case _FocusProvider(:final id):
+          final entry = _controller.catalog?.byId(id);
+          if (entry == null) {
+            _scrollToAdd();
+          } else if (entry.connected) {
+            _select(id, wide: _wide);
+          } else {
+            _add(id);
+          }
+      }
+    });
   }
 
   // ---- sheets ----
@@ -504,6 +569,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
             final wide = mac
                 ? box.maxWidth >= kMacSplitBreakpoint
                 : isWideLayout(context, width: box.maxWidth);
+            _wide = wide;
             final selectedId = wide ? _selectedFor(data) : null;
             final selectedEntry = selectedId == null
                 ? null

@@ -31,7 +31,10 @@ import 'following_chat_list.dart';
 import 'message_actions.dart';
 import 'message_drag_grip.dart';
 import 'read_aloud_actions.dart';
+import '../first_run_card.dart' show isProviderReplyError;
 import '../starter_prompts.dart';
+import '../../providers/widgets/connect_model_card.dart'
+    show ProviderReplyFailure;
 import 'reasoning_block.dart';
 import 'review_summary_note.dart';
 import '../../theme/type_scale.dart';
@@ -76,12 +79,15 @@ typedef ScreenPreviewBuilder = Widget Function(ScreenPreviewRun run);
 /// given a reply's message id, copies the chat up to that reply into a new
 /// one; every finished reply offers it. The welcome
 /// view offers [starterPrompts], the generic ones when null, and hands a
-/// tapped one to [onPickPrompt].
+/// tapped one to [onPickPrompt]; a [welcomeCard] takes their place. A reply
+/// that failed with the model provider's error offers [onCheckProviders].
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
 /// A tapped link goes to [openLink], the system browser when null.
 Builders buildChatBuilders({
   required ValueChanged<StarterPrompt> onPickPrompt,
   List<StarterPrompt>? starterPrompts,
+  Widget? welcomeCard,
+  VoidCallback? onCheckProviders,
   String? greetingName,
   String? assistantName,
   ValueListenable<String?>? latestReplyId,
@@ -127,6 +133,7 @@ Builders buildChatBuilders({
               onEdit: onEdit,
               onBranch: onBranch,
               onLinkTap: onLinkTap,
+              onCheckProviders: onCheckProviders,
             ),
     imageMessageBuilder: (
       context,
@@ -190,6 +197,7 @@ Builders buildChatBuilders({
           ? starterPrompts ?? kGenericStarterPrompts
           : const [],
       onPick: onPickPrompt,
+      card: welcomeCard,
       bottomPadding:
           context.watch<ComposerHeightNotifier>().height +
           MediaQuery.paddingOf(context).bottom,
@@ -230,6 +238,7 @@ Widget _buildText(
   VoidCallback? onEdit,
   ValueChanged<String>? onBranch,
   void Function(String url, String title)? onLinkTap,
+  VoidCallback? onCheckProviders,
 }) {
   final scheme = Theme.of(context).colorScheme;
   final error = message.metadata?[kMetaError] as String?;
@@ -293,7 +302,17 @@ Widget _buildText(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (message.text.isNotEmpty) draggable,
-      if (error != null) ReplyErrorNote(error),
+      if (error != null)
+        if (onCheckProviders != null && isProviderReplyError(error))
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: ProviderReplyFailure(
+              message: error,
+              onCheckProviders: onCheckProviders,
+            ),
+          )
+        else
+          ReplyErrorNote(error),
       if (latestReplyId == null)
         below(false)
       else

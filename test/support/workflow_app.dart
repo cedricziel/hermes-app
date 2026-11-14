@@ -129,6 +129,7 @@ Future<void> pumpScreen(
   Brightness brightness = Brightness.light,
   List<SingleChildWidget> providers = const [],
   TargetPlatform? platform,
+  Locale? locale,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -149,6 +150,7 @@ Future<void> pumpScreen(
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
+          locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: withScreenshotFont(

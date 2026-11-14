@@ -122,7 +122,8 @@ Widget? protectedQueueView(ChatController chat, ChatThread? t) =>
 /// retries, paging and queue bound to [chat]. A null [thread] (a new chat)
 /// has none of them. Only the main window lets the last prompt be edited
 /// ([editable]), branches a chat into a new one ([branchable]) and offers
-/// [starterPrompts], slash commands and a [header].
+/// [starterPrompts] (or a [welcomeCard] in their place), slash commands and a
+/// [header]. [onCheckProviders] is the failed reply's way to Model providers.
 /// A [screen] shows the Bot screen's preview under a running `computer_use`
 /// call, and a tap on it calls [onOpenScreen]. With a [needsYou] queue (the
 /// screen owns it) the requests that wait on the user dock above the
@@ -150,6 +151,8 @@ ChatThreadView boundChatThreadView({
   List<SlashCommand> slashCommands = const [],
   bool commandRunning = false,
   List<StarterPrompt>? starterPrompts,
+  Widget? welcomeCard,
+  VoidCallback? onCheckProviders,
   ValueChanged<StarterPrompt>? onPickStarter,
   Widget? header,
   Widget? recipientChip,
@@ -203,6 +206,8 @@ ChatThreadView boundChatThreadView({
     queueView: protectedQueueView(chat, t),
     sendTarget: sendTarget,
     starterPrompts: starterPrompts,
+    welcomeCard: welcomeCard,
+    onCheckProviders: onCheckProviders,
     onPickStarter: onPickStarter ?? (_) {},
     greetingName: greetingName,
     header: header,

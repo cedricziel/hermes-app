@@ -81,32 +81,67 @@ class ModelProviderOption {
 
 /// The models a profile can chat with, and the one it uses by default.
 class ModelOptions {
-  const ModelOptions({this.providers = const [], this.current});
+  const ModelOptions({
+    this.providers = const [],
+    this.current,
+    this.warming = false,
+    this.missing,
+  });
 
   /// Reads `GET /api/model/options`, which has no response schema. Only
   /// providers that are authenticated and list models are kept; rows that
-  /// don't fit are skipped.
+  /// don't fit are skipped. Two facts about what was left out are kept:
+  /// [warming] and [missing].
   factory ModelOptions.fromJson(Object? body) {
     final json = body is Map ? body : const {};
     final rows = json['providers'] is List ? json['providers'] as List : [];
     final model = json['model'];
     final provider = json['provider'];
+    final choice =
+        model is String &&
+            model.isNotEmpty &&
+            provider is String &&
+            provider.isNotEmpty
+        ? ModelChoice(provider, model)
+        : null;
+    final maps = rows.whereType<Map<Object?, Object?>>().toList();
+    final providers = [for (final row in maps) ?_provider(row)];
+    final readyIds = {for (final p in providers) p.id};
     return ModelOptions(
-      providers: [
-        for (final row in rows.whereType<Map<Object?, Object?>>())
-          ?_provider(row),
-      ],
-      current:
-          model is String &&
-              model.isNotEmpty &&
-              provider is String &&
-              provider.isNotEmpty
-          ? ModelChoice(provider, model)
+      providers: providers,
+      current: choice,
+      // Connected, yet left out above for listing no models.
+      warming: maps.any(
+        (row) =>
+            row['authenticated'] == true &&
+            row['slug'] is String &&
+            (row['slug'] as String).isNotEmpty &&
+            !readyIds.contains(row['slug']),
+      ),
+      missing:
+          choice != null &&
+              !maps.any(
+                (row) =>
+                    row['slug'] == choice.providerId &&
+                    row['authenticated'] != false,
+              )
+          ? choice
           : null,
     );
   }
 
   final List<ModelProviderOption> providers;
+
+  /// A provider is connected but lists no models yet (Hermes builds some
+  /// catalogs in the background).
+  final bool warming;
+
+  /// The configured default model, when its provider is not among the
+  /// connected ones: Hermes leaves a provider out once its credential is
+  /// gone, even while another provider is ready.
+  final ModelChoice? missing;
+
+  bool get currentMissing => missing != null;
 
   /// The profile's configured model, which a chat without a choice runs.
   final ModelChoice? current;

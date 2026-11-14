@@ -14,6 +14,7 @@ class WelcomeView extends StatelessWidget {
     required this.onPick,
     this.bottomPadding = 0,
     this.assistantName,
+    this.card,
   });
 
   final String? greetingName;
@@ -21,8 +22,35 @@ class WelcomeView extends StatelessWidget {
   final List<StarterPrompt> prompts;
   final ValueChanged<StarterPrompt> onPick;
 
+  /// Replaces the starter prompts: the card that leads a profile with no
+  /// usable model to Model providers. It fades out when the prompts return,
+  /// and does not animate while the system asks for reduced motion.
+  final Widget? card;
+
   /// Height of whatever overlays the bottom of this view, the composer in chat.
   final double bottomPadding;
+
+  Widget _prompts() => LayoutBuilder(
+    builder: (context, constraints) {
+      // One column at the full width when two cards do not fit.
+      final width = constraints.maxWidth < 2 * _cardWidth + 10
+          ? constraints.maxWidth
+          : _cardWidth;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final prompt in prompts)
+            _SuggestionCard(
+              text: prompt.label,
+              icon: _icon(prompt.source),
+              width: width,
+              onTap: () => onPick(prompt),
+            ),
+        ],
+      );
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -86,26 +114,27 @@ class WelcomeView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        // One column at the full width when two cards do not fit.
-                        final width = constraints.maxWidth < 2 * _cardWidth + 10
-                            ? constraints.maxWidth
-                            : _cardWidth;
-                        return Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            for (final prompt in prompts)
-                              _SuggestionCard(
-                                text: prompt.label,
-                                icon: _icon(prompt.source),
-                                width: width,
-                                onTap: () => onPick(prompt),
+                    SizedBox(
+                      width: double.infinity,
+                      child: AnimatedSwitcher(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 200),
+                        layoutBuilder: (current, previous) => Stack(
+                          alignment: Alignment.topLeft,
+                          children: [...previous, ?current],
+                        ),
+                        child: card == null
+                            ? KeyedSubtree(
+                                key: const ValueKey('starter-prompts'),
+                                child: _prompts(),
+                              )
+                            : Align(
+                                key: const ValueKey('welcome-card'),
+                                alignment: Alignment.topCenter,
+                                child: card,
                               ),
-                          ],
-                        );
-                      },
+                      ),
                     ),
                   ],
                 ),
