@@ -76,7 +76,8 @@ class CareValueRow extends StatelessWidget {
                 maxValueWidth: careRowValueWidth(
                   box.maxWidth - 2 * metrics.rowPadding,
                 ),
-                style: TextStyle(fontSize: metrics.subtitleSize),
+                style: DefaultTextStyle.of(context).style
+                    .merge(TextStyle(fontSize: metrics.subtitleSize)),
                 textScaler: scaler,
                 textDirection: direction,
               );

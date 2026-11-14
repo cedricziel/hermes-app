@@ -243,7 +243,13 @@ class _UsageChartState extends State<UsageChart>
     final axisMax = step * 3;
     String yText(double v) =>
         metric == UsageChartMetric.tokens ? formatCompact(v) : formatDollars(v);
-    final yLabels = [for (var k = 1; k <= 3; k++) yText(step * k)];
+    // A tiny maximum can round several gridlines to the same text; showing
+    // a label twice says nothing, so a repeat is left blank.
+    final yLabels = <String>[];
+    for (var k = 1; k <= 3; k++) {
+      final text = yText(step * k);
+      yLabels.add(yLabels.contains(text) ? '' : text);
+    }
 
     TextPainter measure(String text) => TextPainter(
       text: TextSpan(text: text, style: axisStyle),
@@ -319,7 +325,10 @@ class _UsageChartState extends State<UsageChart>
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             excludeFromSemantics: true,
-            onTapDown: (d) => _selectAt(d.localPosition.dx),
+            onTapDown: (d) {
+              _focus.requestFocus();
+              _selectAt(d.localPosition.dx);
+            },
             onHorizontalDragStart: window.scrolls
                 ? null
                 : (d) => _selectAt(d.localPosition.dx),
@@ -543,6 +552,8 @@ class UsageChartPlotPainter extends CustomPainter {
       old.topPad != topPad ||
       old.plotHeight != plotHeight ||
       !mapEquals(old.xLabels, xLabels) ||
+      old.xLabelStyle != xLabelStyle ||
+      old.xLabelScaler != xLabelScaler ||
       old.barColor != barColor ||
       old.selectedColor != selectedColor ||
       old.gridColor != gridColor ||

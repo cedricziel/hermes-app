@@ -150,6 +150,19 @@ void main() {
     expect(find.text('5 Nov · 1.2M tokens · 2 conversations'), findsOneWidget);
   });
 
+  testWidgets('arrow keys work right after a click on a bar', (tester) async {
+    final picked = <int>[];
+    await tester.pumpWidget(_host(_chart(onSelected: picked.add)));
+    await tester.pumpAndSettle();
+    final plot = tester.getTopLeft(find.byType(CustomPaint).last);
+    final slot =
+        (390 - (plot.dx - tester.getTopLeft(find.byType(UsageChart)).dx)) / 30;
+    await tester.tapAt(plot + Offset(slot * 22.5, 100));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    expect(picked, [22, 21]);
+  });
+
   testWidgets('arrow keys move between bars', (tester) async {
     final picked = <int>[];
     await tester.pumpWidget(_host(_chart(onSelected: picked.add)));
