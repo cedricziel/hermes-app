@@ -373,4 +373,85 @@ void main() {
       expect(answerFor(question, kAllowOnceAction, null), isNull);
     });
   });
+
+  group('Android actions', () {
+    List<String> androidIds(RequestCategory? c) => [
+      for (final a in c!.toAndroid()) a.id,
+    ];
+
+    test('of an approval are the offered choices', () {
+      final all = requestCategoryFor(
+        _approval(['once', 'session', 'always', 'deny']),
+      );
+      expect(androidIds(all), [
+        kAllowOnceAction,
+        kAllowSessionAction,
+        kDenyAction,
+      ]);
+      final two = requestCategoryFor(_approval(['once', 'deny']));
+      expect(androidIds(two), [kAllowOnceAction, kDenyAction]);
+      expect(kMaxAndroidActions, 3);
+    });
+
+    test('close the notification and stay in the background', () {
+      final action = requestCategoryFor(_approval(['once', 'deny']))!
+          .toAndroid()
+          .first;
+      expect(action.cancelNotification, isTrue);
+      expect(action.showsUserInterface, isFalse);
+      expect(action.inputs, isEmpty);
+    });
+
+    test('of a question with two choices are the choices and Reply', () {
+      final actions = requestCategoryFor(_question(['a', 'b']))!.toAndroid();
+      expect(
+        [for (final a in actions) a.id],
+        ['${kChoiceActionPrefix}0', '${kChoiceActionPrefix}1', kReplyAction],
+      );
+      final reply = actions.last;
+      expect(reply.inputs.single.label, RequestAction.kReplyPlaceholder);
+      expect(reply.showsUserInterface, isFalse);
+    });
+
+    test('of a question with three choices are the three choices', () {
+      final category = requestCategoryFor(_question(['a', 'b', 'c']));
+      expect(_titles(category), ['a', 'b', 'c', 'Reply']);
+      expect([for (final a in category!.toAndroid()) a.title], ['a', 'b', 'c']);
+    });
+
+    test('of a question with five choices are two and Other…', () {
+      final actions = requestCategoryFor(_question(['a', 'b', 'c', 'd', 'e']))!
+          .toAndroid();
+      expect([for (final a in actions) a.title], ['a', 'b', 'Other…']);
+      expect(actions.last.id, kOpenAction);
+      expect(actions.last.showsUserInterface, isTrue);
+    });
+
+    test('of a question with four choices are two and Other…', () {
+      final actions = requestCategoryFor(_question(['a', 'b', 'c', 'd']))!
+          .toAndroid();
+      expect([for (final a in actions) a.title], ['a', 'b', 'Other…']);
+      expect(actions.last.id, kOpenAction);
+      expect(actions.last.showsUserInterface, isTrue);
+    });
+
+    test('of an open-ended question are Reply and Open', () {
+      final actions = requestCategoryFor(_question([]))!.toAndroid();
+      expect([for (final a in actions) a.id], [kReplyAction, kOpenAction]);
+      expect(actions.last.showsUserInterface, isTrue);
+    });
+
+    test('of a placeholder are none', () {
+      expect(requestCategoryFor(_approval([]))!.toAndroid(), isEmpty);
+    });
+
+    test('keep answerFor working on the choice ids', () {
+      final question = pendingRequestFor(_question(['a', 'b', 'c', 'd', 'e']))!;
+      final actions = requestCategoryFor(_question(['a', 'b', 'c', 'd', 'e']))!
+          .toAndroid();
+      final answer = answerFor(question, actions[1].id, null) as QuestionAnswer;
+      expect(answer.values, ['b']);
+      expect(answerFor(question, actions.last.id, null), isNull);
+    });
+  });
 }

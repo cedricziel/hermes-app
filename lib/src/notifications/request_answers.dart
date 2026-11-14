@@ -25,8 +25,8 @@ import 'attention_policy.dart';
 import 'local_notification_service.dart';
 import 'notification_service.dart';
 
-/// The name the running app's answer port is registered under, so the iOS
-/// background isolate can hand it an answer.
+/// The name the running app's answer port is registered under, so the iOS or
+/// Android background isolate can hand it an answer.
 const kRequestAnswersPort = 'hermes_app.request_answers';
 
 /// How long the answer to one button may take, from the moment iOS hands it
@@ -442,8 +442,8 @@ Future<AnswerOutcome> routeAnswer(
 SendPort? _lookupApp() =>
     IsolateNameServer.lookupPortByName(kRequestAnswersPort);
 
-/// Answers in the iOS background isolate when the app's own isolate is not
-/// running, on a connection of the headless runtime. Answers go one at a
+/// Answers in the iOS or Android background isolate when the app's own
+/// isolate is not running, on a connection of the headless runtime. Answers go one at a
 /// time, so two of them never refresh the token pair at once.
 class LoneAnswerer {
   LoneAnswerer({
@@ -557,8 +557,9 @@ Future<void> _endBackgroundTask(int? task) async {
 
 LoneAnswerer? _loneAnswerer;
 
-/// Where iOS delivers a button that does not open the app, in an isolate of
-/// its own.
+/// Where iOS and Android deliver a button that does not open the app, in an
+/// isolate of its own. Android adds no handover time or task, so the budget
+/// starts now.
 @pragma('vm:entry-point')
 Future<void> answerRequestInBackground(NotificationResponse response) async {
   await prepareBackgroundIsolate();

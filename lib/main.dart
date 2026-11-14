@@ -462,7 +462,8 @@ Future<void> main([List<String> args = const []]) async {
           lazy: false,
           create: (context) {
             if (defaultTargetPlatform != TargetPlatform.iOS &&
-                defaultTargetPlatform != TargetPlatform.macOS) {
+                defaultTargetPlatform != TargetPlatform.macOS &&
+                defaultTargetPlatform != TargetPlatform.android) {
               return null;
             }
             return RequestAnswers.forAuth(

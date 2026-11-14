@@ -235,7 +235,9 @@ class LocalNotificationService
       ),
       onDidReceiveNotificationResponse: _onResponse,
       onDidReceiveBackgroundNotificationResponse:
-          _background || defaultTargetPlatform != TargetPlatform.iOS
+          _background ||
+              (defaultTargetPlatform != TargetPlatform.iOS &&
+                  defaultTargetPlatform != TargetPlatform.android)
           ? null
           : answerRequestInBackground,
     );
@@ -334,8 +336,13 @@ class LocalNotificationService
       if (permission == false) {
         return const NotificationPostResult(NotificationPostStatus.denied);
       }
-      // Android has no placeholder that hides the text on a locked screen.
+      // Android's categories are not registered with the system; its buttons
+      // come from the category's actions at post time.
       final category = _darwin ? notification.category : null;
+      final androidCategory = !_darwin && notification.request != null
+          ? notification.category
+          : null;
+      final answerable = androidCategory?.actions.isNotEmpty ?? false;
       // A background run may be the first thing to start the app since the
       // system last forgot the categories, so it registers its own.
       if (category != null && (category.isDynamic || _background)) {
@@ -351,7 +358,7 @@ class LocalNotificationService
             ? InterruptionLevel.timeSensitive
             : null,
       );
-      final body = _darwin
+      final body = _darwin || answerable
           ? notification.body
           : notification.category?.isRequest == true
           ? notification.category!.placeholder
@@ -367,12 +374,18 @@ class LocalNotificationService
         title: notification.title,
         body: notification.bodyIsPlainText ? body : notificationPreview(body),
         notificationDetails: NotificationDetails(
-          android: const AndroidNotificationDetails(
+          android: AndroidNotificationDetails(
             _channelId,
             _channelName,
             channelDescription: 'Replies and requests from Hermes',
             importance: Importance.high,
             priority: Priority.high,
+            // The plugin cannot set a public version or require
+            // authentication, so a private notification would show the
+            // command and working buttons on a lock screen that shows all
+            // content. Secret keeps both off it.
+            actions: answerable ? androidCategory!.toAndroid() : null,
+            visibility: answerable ? NotificationVisibility.secret : null,
           ),
           iOS: darwin,
           macOS: darwin,
@@ -394,8 +407,7 @@ class LocalNotificationService
 
   @override
   Future<void> withdrawAnswerable() async {
-    // Only Apple's notifications carry buttons; Android's stay generic.
-    if (!_supported || !_darwin) return;
+    if (!_supported) return;
     try {
       await _initialize();
       for (final active in await _plugin.getActiveNotifications()) {

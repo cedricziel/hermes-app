@@ -716,8 +716,7 @@ void main() {
         expect(plugin.cancelled, [plugin.posted.first.id]);
       });
 
-      test('withdraws nothing on Android, whose notifications have no '
-          'buttons', () async {
+      test('withdraws the answerable ones on Android too', () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.android;
         await service.show(_request(_approval));
         plugin.active.add(
@@ -729,32 +728,109 @@ void main() {
 
         await service.withdrawAnswerable();
 
-        expect(plugin.cancelled, isEmpty);
+        expect(plugin.cancelled, [plugin.posted.single.id]);
       });
 
-      test('stays generic on Android', () async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.android;
-
-        await service.show(_request(_approval));
-
-        expect(plugin.posted.single.body, kApprovalBody);
-      });
-
-      test('stays generic on Android without a known choice', () async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.android;
-
-        await service.show(
-          _request(
-            const ApprovalRequest(
-              requestId: 'r9',
-              command: 'rm -rf build',
-              description: '',
-              choices: ['later'],
-            ),
-          ),
+      group('on Android', () {
+        setUp(
+          () => debugDefaultTargetPlatformOverride = TargetPlatform.android,
         );
 
-        expect(plugin.posted.single.body, kApprovalBody);
+        test(
+          'shows the command, the buttons and no lock screen text',
+          () async {
+            await service.show(_request(_approval));
+
+            final posted = plugin.posted.single;
+            final android = posted.details!.android!;
+            expect(posted.body, 'rm -rf build');
+            expect(android.visibility, NotificationVisibility.secret);
+            expect(android.actions!.map((a) => a.id), [
+              kAllowOnceAction,
+              kDenyAction,
+            ]);
+            expect(android.importance, Importance.high);
+            expect(android.priority, Priority.high);
+          },
+        );
+
+        test('shows a question with its buttons', () async {
+          await service.show(_request(_question));
+
+          final android = plugin.posted.single.details!.android!;
+          expect(plugin.posted.single.body, 'Which?');
+          expect(android.actions!.map((a) => a.id), [
+            '${kChoiceActionPrefix}0',
+            '${kChoiceActionPrefix}1',
+            kReplyAction,
+          ]);
+        });
+
+        test('stays generic with no buttons while App Lock is on', () async {
+          final locked = attentionFor(
+            event: const ApprovalRequested(_approval),
+            thread: ChatThread(
+              id: 's1',
+              title: 'Cleanup',
+              updatedAt: DateTime(2026),
+            ),
+            appFocused: false,
+            selectedThreadId: null,
+            enabled: true,
+            appLock: true,
+          )!;
+
+          await service.show(locked);
+
+          final posted = plugin.posted.single;
+          expect(posted.body, kApprovalBody);
+          expect(posted.details!.android!.actions, isNull);
+          expect(posted.details!.android!.visibility, isNull);
+        });
+
+        test('stays generic without a known choice', () async {
+          await service.show(
+            _request(
+              const ApprovalRequest(
+                requestId: 'r9',
+                command: 'rm -rf build',
+                description: '',
+                choices: ['later'],
+              ),
+            ),
+          );
+
+          final posted = plugin.posted.single;
+          expect(posted.body, kApprovalBody);
+          expect(posted.details!.android!.actions, isNull);
+          expect(posted.details!.android!.visibility, isNull);
+        });
+
+        test('takes background button responses unless it is one', () async {
+          await service.show(_request(_approval));
+          expect(plugin.onBackgroundResponse, isNotNull);
+
+          final background = _FakePlugin();
+          final other = LocalNotificationService(
+            plugin: background,
+            background: true,
+            registerCategories: (_) async {},
+          );
+          addTearDown(other.dispose);
+          await other.show(_request(_approval));
+          expect(background.onBackgroundResponse, isNull);
+        });
+
+        test('answers from a button', () async {
+          await service.show(_request(_question));
+          final answered = service.answers.first;
+
+          plugin.onResponse!(
+            _action(plugin.posted.single.payload, '${kChoiceActionPrefix}1'),
+          );
+
+          expect(((await answered).answer as QuestionAnswer).values, ['b']);
+        });
       });
 
       test('reports an answer button on answers, not taps', () async {
