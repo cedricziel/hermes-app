@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_sidebar.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../macos/mac_toolbar_search_field.dart';
@@ -29,6 +30,7 @@ class MacChatToolbar extends StatelessWidget {
     required this.onShowConnection,
     this.onCopyTranscript,
     this.activityOpen = false,
+    this.activityWaiting = 0,
     this.onToggleActivity,
     required this.searchQuery,
     required this.searchActive,
@@ -48,6 +50,9 @@ class MacChatToolbar extends StatelessWidget {
   /// Copies the open chat as Markdown; null while no chat is open.
   final VoidCallback? onCopyTranscript;
   final bool activityOpen;
+
+  /// How many requests need the user; marks the Activity button.
+  final int activityWaiting;
 
   /// Shows or hides the Activity inspector; null while no chat is open.
   final VoidCallback? onToggleActivity;
@@ -94,10 +99,15 @@ class MacChatToolbar extends StatelessWidget {
         ],
         MacToolbarButton(
           key: const Key('toolbar-activity'),
-          label: activityOpen ? 'Hide Inspector' : 'Show Inspector',
+          label: activityOpen
+              ? 'Hide Inspector'
+              : activityWaiting > 0
+              ? context.l10n.chatActivityButtonWaiting(activityWaiting)
+              : 'Show Inspector',
           shortcut: '⌥⌘I',
           icon: AppIcons.inspector,
           selected: activityOpen,
+          marked: activityWaiting > 0,
           onPressed: onToggleActivity,
         ),
         if (showField)

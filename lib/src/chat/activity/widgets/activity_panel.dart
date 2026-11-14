@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/l10n.dart';
+import '../../../server_care/widgets/server_attention_dot.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../../widgets/named_icon_button.dart';
@@ -123,22 +125,49 @@ class _SectionTitle extends StatelessWidget {
 }
 
 /// Opens the Activity panel, or closes the inspector when it is [open].
+///
+/// [waiting] counts the requests that need the user. While it is above zero
+/// the button wears the attention mark at its top right and its label says
+/// how many; the count is never colour alone.
 class ActivityButton extends StatelessWidget {
   const ActivityButton({
     super.key,
     required this.open,
     required this.onPressed,
+    this.waiting = 0,
   });
 
   final bool open;
   final VoidCallback onPressed;
+  final int waiting;
 
   @override
-  Widget build(BuildContext context) => NamedIconButton(
-    key: const Key('header-activity'),
-    label: open ? 'Hide activity' : 'Activity',
-    icon: AppIcons.inspector,
-    isSelected: open,
-    onPressed: onPressed,
-  );
+  Widget build(BuildContext context) {
+    final button = NamedIconButton(
+      key: const Key('header-activity'),
+      label: open
+          ? 'Hide activity'
+          : waiting > 0
+          ? context.l10n.chatActivityButtonWaiting(waiting)
+          : 'Activity',
+      icon: AppIcons.inspector,
+      isSelected: open,
+      onPressed: onPressed,
+    );
+    if (waiting <= 0) return button;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        button,
+        const PositionedDirectional(
+          top: 8,
+          end: 8,
+          child: IgnorePointer(
+            key: Key('activity-waiting-marker'),
+            child: ServerAttentionDot(),
+          ),
+        ),
+      ],
+    );
+  }
 }
