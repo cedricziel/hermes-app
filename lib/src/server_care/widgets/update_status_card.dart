@@ -364,10 +364,11 @@ class UpdateOutcomeCard extends StatelessWidget {
       UpdateOutcomeKind.notBack => "Hermes hasn't come back yet",
     };
     final body = switch (kind) {
-      UpdateOutcomeKind.success ||
-      UpdateOutcomeKind.unconfirmed => 'Now running $version.',
+      UpdateOutcomeKind.success || UpdateOutcomeKind.unconfirmed =>
+        version == null ? null : 'Now running $version.',
       UpdateOutcomeKind.partial => null,
-      UpdateOutcomeKind.failed => 'Hermes is still running $version.',
+      UpdateOutcomeKind.failed =>
+        version == null ? null : 'Hermes is still running $version.',
       UpdateOutcomeKind.oldServerRunning =>
         'Restart Hermes on the server to finish.',
       UpdateOutcomeKind.notBack =>

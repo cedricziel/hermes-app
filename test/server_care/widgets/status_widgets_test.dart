@@ -267,6 +267,25 @@ void main() {
       expect(dismissed, 1);
     });
 
+    testWidgets('ready: a new dismiss callback replaces the old timer', (
+      tester,
+    ) async {
+      var first = 0, second = 0;
+      Widget banner(VoidCallback dismiss) => _host(
+        ServerRestartBanner.ready(
+          version: '0.23.0',
+          onClose: () {},
+          onAutoDismiss: dismiss,
+        ),
+      );
+      await tester.pumpWidget(banner(() => first++));
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(banner(() => second++));
+      await tester.pump(const Duration(seconds: 7));
+      expect(first, 0);
+      expect(second, 1);
+    });
+
     testWidgets('ready: stays until closed under reduced motion', (
       tester,
     ) async {
