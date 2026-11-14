@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -248,14 +249,38 @@ void main() {
     expect(offline.entries, isEmpty);
   });
 
-  test('a deadline that passes while offline removes the item', () {
-    rig.connect('op-1');
-    rig.connector.suspend();
-    rig.poke.notifyListeners();
-    expect(rig.kinds, [NeedsYouKind.connector]);
-    rig.now = DateTime.utc(2031);
-    rig.poke.notifyListeners();
-    expect(rig.queue.entries, isEmpty);
+  test('a deadline that passes while offline removes the item without a '
+      'poke', () {
+    fakeAsync((async) {
+      final start = DateTime.utc(2030);
+      DateTime now() => start.add(async.elapsed);
+      final scope = Object();
+      final connector = ConnectorOperationController(now: now);
+      connector.bind(scope, profile: 'p', respond: (_) async => {});
+      final queue = NeedsYouQueue(
+        changes: connector,
+        read: () =>
+            (scope: 'chat', billing: null, connector: connector, session: null),
+        now: now,
+      );
+      connector.accept(
+        ConnectorOperationSnapshot.fromUpdate({
+          ...connectionUpdateFixture,
+          'op_id': 'op-1',
+          'owner': {'type': 'session', 'session_id': 'runtime-a'},
+          'deadline_at': start.millisecondsSinceEpoch / 1000 + 60,
+        })!,
+        attachment: scope,
+      );
+      connector.suspend();
+      expect(queue.entries, hasLength(1));
+      async.elapse(const Duration(seconds: 59));
+      expect(queue.entries, hasLength(1));
+      async.elapse(const Duration(seconds: 2));
+      expect(queue.entries, isEmpty);
+      queue.dispose();
+      connector.dispose();
+    });
   });
 
   test('another chat starts with an empty queue', () {
@@ -339,24 +364,85 @@ void main() {
   });
 
   group('arrivals', () {
-    test('each item arrives once, however often its source changes', () {
+    test('an item is announced once, however often its source changes', () {
       rig.verify();
+      rig.verify();
+      rig.poke.notifyListeners();
+      expect([for (final e in rig.arrived) e.kind], [NeedsYouKind.billing]);
+    });
+
+    test('an item behind the front waits until it is the front', () {
       rig.verify();
       rig.connect('op-1');
-      rig.connect('op-1', seq: 2);
-      rig.poke.notifyListeners();
+      expect([for (final e in rig.arrived) e.kind], [NeedsYouKind.billing]);
+      rig.billing.setLocked(true);
       expect(
         [for (final e in rig.arrived) e.kind],
         [NeedsYouKind.billing, NeedsYouKind.connector],
       );
     });
 
-    test('an item that left and came back arrives again', () {
+    test('paging to an item is not an announcement', () {
+      rig.verify();
+      rig.connect('op-1');
+      rig.queue.show(1);
+      rig.billing.setLocked(true);
+      expect(rig.arrived, hasLength(1));
+    });
+
+    test('an item that left and came back is announced again', () {
       rig.verify();
       rig.billing.setLocked(true);
       rig.billing.setLocked(false);
       rig.verify();
       expect(rig.arrived, hasLength(2));
+    });
+
+    test('what a chat already held when it was opened is not announced', () {
+      rig.connect('op-1');
+      var chat = 'other';
+      final announced = <NeedsYouEntry>[];
+      final queue = NeedsYouQueue(
+        changes: rig.poke,
+        read: () => (
+          scope: chat,
+          billing: null,
+          connector: rig.connector,
+          session: null,
+        ),
+        now: () => rig.now,
+        onArrived: announced.add,
+      );
+      addTearDown(queue.dispose);
+      expect(queue.entries, hasLength(1));
+      chat = 'chat-3';
+      rig.poke.notifyListeners();
+      expect(announced, isEmpty);
+      rig.connect('op-2');
+      expect(announced, isEmpty, reason: 'op-2 waits behind op-1');
+    });
+
+    test('nothing is announced while the card is not drawn', () {
+      var drawn = false;
+      final announced = <NeedsYouEntry>[];
+      final queue = NeedsYouQueue(
+        changes: rig.poke,
+        read: () => (
+          scope: 'chat-1',
+          billing: rig.billing,
+          connector: null,
+          session: null,
+        ),
+        now: () => rig.now,
+        onArrived: announced.add,
+        canAnnounce: () => drawn,
+      );
+      addTearDown(queue.dispose);
+      rig.verify();
+      expect(announced, isEmpty);
+      drawn = true;
+      rig.poke.notifyListeners();
+      expect(announced, hasLength(1));
     });
 
     test('the keys hold no code, url, name or id', () {

@@ -191,7 +191,41 @@ void main() {
       replies.single.complete({'status': 'ok', 'settled': true});
       async.flushMicrotasks();
       expect(controller.operations.single.settled, isTrue);
+      expect(controller.errorFor(operation.key), isNull);
+      expect(controller.answerFor(operation.key), ConnectorAnswer.idle);
       expect(outcomes, ['unconfirmed']);
+    });
+  });
+
+  test('a late ok that settled nothing clears the unconfirmed line', () {
+    inFakeAsync((async) {
+      continueOn();
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 10));
+      expect(controller.answerFor(operation.key), ConnectorAnswer.unconfirmed);
+      replies.single.complete({'status': 'ok', 'settled': false});
+      async.flushMicrotasks();
+      expect(controller.answerFor(operation.key), ConnectorAnswer.idle);
+      expect(controller.errorFor(operation.key), isNull);
+      expect(outcomes, ['unconfirmed']);
+    });
+  });
+
+  test('a settlement from the snapshot clears the line too', () {
+    inFakeAsync((async) {
+      continueOn();
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 10));
+      controller.accept(
+        ConnectorOperationSnapshot.fromUpdate({
+          ...connectionUpdateFixture,
+          'seq': 9,
+          'settled': true,
+        })!,
+        attachment: attachment,
+      );
+      expect(controller.errorFor(operation.key), isNull);
+      expect(controller.answerFor(operation.key), ConnectorAnswer.idle);
     });
   });
 
@@ -216,50 +250,6 @@ void main() {
       async.flushMicrotasks();
       expect(controller.answerFor(operation.key), ConnectorAnswer.idle);
       expect(outcomes, ['unconfirmed', 'responded']);
-    });
-  });
-
-  test('Skip on the card skips every target that can be skipped, in one '
-      'response', () {
-    inFakeAsync((async) {
-      final target = connectionUpdateFixture['targets']! as List;
-      controller.accept(
-        ConnectorOperationSnapshot.fromUpdate({
-          ...connectionUpdateFixture,
-          'seq': 7,
-          'targets': [
-            ...target,
-            {
-              'name': 'second',
-              'kind': 'connector',
-              'action': 'authorize',
-              'state': 'pending',
-              'resolved': false,
-            },
-            {
-              'name': 'done',
-              'kind': 'connector',
-              'action': 'authorize',
-              'state': 'connected',
-              'resolved': true,
-            },
-          ],
-        })!,
-        attachment: attachment,
-      );
-      unawaited(
-        controller.skipAll(
-          controller.operations.single,
-          attachment: attachment,
-        ),
-      );
-      async.flushMicrotasks();
-      expect(sent, hasLength(1));
-      expect((sent.single['result']! as Map)['targets'], [
-        {'name': 'synthetic-connector', 'status': 'skipped'},
-        {'name': 'second', 'status': 'skipped'},
-      ]);
-      expect(controller.answerFor(operation.key), ConnectorAnswer.sending);
     });
   });
 }

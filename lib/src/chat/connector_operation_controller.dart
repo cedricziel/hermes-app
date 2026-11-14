@@ -148,19 +148,29 @@ class ConnectorOperationController extends ChangeNotifier {
       }
       _timers.remove(snapshot.key)?.cancel();
       final current = _state.find(snapshot.key)!;
-      final remaining = current.deadlineAt.difference(_now());
-      if (!current.settled && remaining > Duration.zero) {
-        final generation = _generation;
-        _timers[current.key] = Timer(remaining, () {
-          if (!_disposed && generation == _generation) {
-            _log('deadline');
-            if (!_disposed && generation == _generation) notifyListeners();
-          }
-        });
+      if (current.settled) {
+        _answers.remove(current.key);
+        _errors.remove(current.key);
       }
+      _armDeadline(current);
       notifyListeners();
     }
     return outcome;
+  }
+
+  /// Notifies when [operation]'s deadline passes, so a card that offered it
+  /// stops. It carries no authority, so [suspend] arms it again.
+  void _armDeadline(ConnectorOperationSnapshot operation) {
+    _timers.remove(operation.key)?.cancel();
+    final remaining = operation.deadlineAt.difference(_now());
+    if (operation.settled || remaining <= Duration.zero) return;
+    final generation = _generation;
+    _timers[operation.key] = Timer(remaining, () {
+      if (!_disposed && generation == _generation) {
+        _log('deadline');
+        if (!_disposed && generation == _generation) notifyListeners();
+      }
+    });
   }
 
   bool awaitingFinalStatus(ConnectorOperationKey key) {
@@ -227,27 +237,6 @@ class ConnectorOperationController extends ChangeNotifier {
     await _answer(operation, {
       'targets': [
         {'name': name, 'status': 'skipped'},
-      ],
-    });
-  }
-
-  /// Skips every target of [operation] that can be skipped, in one response:
-  /// what the Needs-you card's Skip does.
-  Future<void> skipAll(
-    ConnectorOperationSnapshot operation, {
-    required Object attachment,
-  }) async {
-    List<String> names() => [
-      for (final target in operation.targets)
-        if (canSkip(operation.key, target.name)) target.name,
-    ];
-    if (!_current(operation, attachment) || names().isEmpty) return;
-    _action('skip');
-    final skipped = names();
-    if (!_current(operation, attachment) || skipped.isEmpty) return;
-    await _answer(operation, {
-      'targets': [
-        for (final name in skipped) {'name': name, 'status': 'skipped'},
       ],
     });
   }
@@ -368,11 +357,16 @@ class ConnectorOperationController extends ChangeNotifier {
         generation != _generation ||
         late is! Map ||
         late['status'] != 'ok' ||
-        late['settled'] != true) {
+        late['settled'] is! bool) {
       return;
     }
-    _state.markSettled(key);
-    _timers.remove(key)?.cancel();
+    // It did go through: the line that said it might not have is stale.
+    _answers.remove(key);
+    _errors.remove(key);
+    if (late['settled'] == true) {
+      _state.markSettled(key);
+      _timers.remove(key)?.cancel();
+    }
     notifyListeners();
   }
 
@@ -448,6 +442,9 @@ class ConnectorOperationController extends ChangeNotifier {
     _attempts.clear();
     _accountAuthority.clear();
     _state.stripBrowserLinks();
+    for (final operation in _state.operations) {
+      _armDeadline(operation);
+    }
     notifyListeners();
   }
 
