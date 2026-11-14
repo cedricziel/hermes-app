@@ -300,22 +300,6 @@
   "@@x-area-watch": "",
 
   "@@x-area-widgets": "",
-  "widgetsSecretShow": "Show key",
-  "@widgetsSecretShow": {
-    "description": "Accessible name of the button that reveals a typed key, token or password."
-  },
-  "widgetsSecretHide": "Hide key",
-  "@widgetsSecretHide": {
-    "description": "Accessible name of the button that hides a typed key, token or password again."
-  },
-  "widgetsSecretShowShort": "Show",
-  "@widgetsSecretShowShort": {
-    "description": "Visible text of the Show button on macOS, where it sits beside a secret field."
-  },
-  "widgetsSecretHideShort": "Hide",
-  "@widgetsSecretHideShort": {
-    "description": "Visible text of the Hide button on macOS, where it sits beside a secret field."
-  },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {
     "description": "Muted line under a secret field, announced to screen readers, with how many characters were typed. The count is never stored.",
@@ -325,6 +309,22 @@
         "example": "12"
       }
     }
+  },
+  "widgetsSecretHide": "Hide key",
+  "@widgetsSecretHide": {
+    "description": "Accessible name of the button that hides a typed key, token or password again."
+  },
+  "widgetsSecretHideShort": "Hide",
+  "@widgetsSecretHideShort": {
+    "description": "Visible text of the Hide button on macOS, where it sits beside a secret field."
+  },
+  "widgetsSecretShow": "Show key",
+  "@widgetsSecretShow": {
+    "description": "Accessible name of the button that reveals a typed key, token or password."
+  },
+  "widgetsSecretShowShort": "Show",
+  "@widgetsSecretShowShort": {
+    "description": "Visible text of the Show button on macOS, where it sits beside a secret field."
   },
 
   "@@x-area-windows": "",
