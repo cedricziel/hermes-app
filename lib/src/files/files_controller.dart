@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../chat/media/media_store.dart';
 import 'files_failure.dart';
 import 'files_models.dart';
+import 'files_platform_policy.dart';
 import 'files_preview_kind.dart';
 import 'files_source.dart';
 import 'files_state.dart';
@@ -45,6 +46,7 @@ class FilesController extends ChangeNotifier {
     FilesTelemetry? telemetry,
     this._answerTimeout = kFilesAnswerTimeout,
     this._share,
+    this._policy = const FilesPlatformPolicy.none(),
   }) : _telemetry = telemetry ?? FilesTelemetry();
 
   final FilesSource _source;
@@ -55,6 +57,7 @@ class FilesController extends ChangeNotifier {
   final FilesTelemetry _telemetry;
   final Duration _answerTimeout;
   final Future<void> Function(File file)? _share;
+  final FilesPlatformPolicy _policy;
 
   var _closed = false;
   var _disposed = false;
@@ -565,7 +568,15 @@ class FilesController extends ChangeNotifier {
 
   Future<void> save() => _act(FileAction.save);
 
-  Future<void> openWith() => _act(FileAction.openWith);
+  /// Whether Open with… may be offered for [entry]. Never for a file that
+  /// Windows would run.
+  bool canOpenWith(FsEntry entry) => _policy.canOpenWith(entry.path.name);
+
+  Future<void> openWith() {
+    final entry = _selected;
+    if (entry == null || !canOpenWith(entry)) return Future.value();
+    return _act(FileAction.openWith);
+  }
 
   Future<void> shareFile() => _act(FileAction.share);
 
@@ -631,7 +642,7 @@ class FilesController extends ChangeNotifier {
     try {
       final done = switch (action) {
         FileAction.save => await _media.saveFile(entry.path.name, file),
-        FileAction.openWith => await _media.open(file),
+        FileAction.openWith => await _openMarked(file),
         FileAction.share => await _shared(file),
       };
       if (done) _telemetry.saved(action.slug);
@@ -639,6 +650,13 @@ class FilesController extends ChangeNotifier {
     } on Object {
       return FilesFailure.unreadable;
     }
+  }
+
+  /// Opens [file] after marking it as downloaded; a file that cannot be
+  /// marked is not opened.
+  Future<bool> _openMarked(File file) async {
+    await _policy.markDownloaded(file);
+    return _media.open(file);
   }
 
   Future<bool> _shared(File file) async {
@@ -827,6 +845,11 @@ class FilesController extends ChangeNotifier {
         }
       });
       if (ran && length == null) _unverified.add(key);
+      try {
+        await _policy.markDownloaded(file);
+      } on Object {
+        // Opening the file marks it again and fails if that cannot be done.
+      }
       if (_closed) {
         // Ended while it finished: nothing of it may stay behind.
         if (_unverified.remove(key) || _secretOk.contains(entry.path.value)) {
