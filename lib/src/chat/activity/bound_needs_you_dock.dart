@@ -251,6 +251,9 @@ NeedsYouItem? _connector(
   final (controller, operation) = found;
   final key = operation.key;
   final left = operation.deadlineAt.difference(chat.clockNow);
+  // Display-only: the actions are drawn, disabled, so the card does not
+  // change shape and they come back with the reconnect.
+  final offline = controller.displayOnly;
   return NeedsYouItem(
     id: entry.key,
     kind: NeedsYouKind.connector,
@@ -262,7 +265,9 @@ NeedsYouItem? _connector(
               name: target.name,
               status: _status(target),
               detail: target.detail ?? target.instructions,
-              openable: controller.offersOpen(key, target.name),
+              openable: offline
+                  ? _couldOpen(target)
+                  : controller.offersOpen(key, target.name),
             ),
       ],
       expiresIn: left > Duration.zero ? left : null,
@@ -273,16 +278,33 @@ NeedsYouItem? _connector(
       ConnectorAnswer.unconfirmed => NeedsYouAnswer.unconfirmed,
       ConnectorAnswer.refused => NeedsYouAnswer.refused,
     },
-    offline: controller.displayOnly,
-    actions: {
-      if (operation.targets.any((t) => controller.offersOpen(key, t.name)))
-        NeedsYouAction.open,
-      if (operation.targets.any((t) => controller.offersSkip(key, t.name)))
-        NeedsYouAction.skip,
-      if (controller.offersRespond(key)) NeedsYouAction.continueOn,
-    },
+    offline: offline,
+    actions: offline
+        ? {
+            if (operation.targets.any(_couldOpen)) NeedsYouAction.open,
+            if (operation.targets.any((t) => t.supportsSkip))
+              NeedsYouAction.skip,
+            NeedsYouAction.continueOn,
+          }
+        : {
+            if (operation.targets.any(
+              (t) => controller.offersOpen(key, t.name),
+            ))
+              NeedsYouAction.open,
+            if (operation.targets.any(
+              (t) => controller.offersSkip(key, t.name),
+            ))
+              NeedsYouAction.skip,
+            if (controller.offersRespond(key)) NeedsYouAction.continueOn,
+          },
   );
 }
+
+/// Whether a target would offer Open with its link, which a display-only
+/// model no longer holds.
+bool _couldOpen(ConnectorOperationTarget target) =>
+    target.canCompleteHere &&
+    const {'pending', 'initiated'}.contains(target.state);
 
 ConnectorTargetStatus _status(ConnectorOperationTarget target) {
   if (target.resolved == true || target.state == 'connected') {

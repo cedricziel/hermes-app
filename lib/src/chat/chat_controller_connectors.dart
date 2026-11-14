@@ -274,6 +274,15 @@ extension _ChatControllerConnectors on ChatController {
                 !change.connected &&
                 (source as GatewayConnectionTransport).gatewayConnection ==
                     null;
+            if (!change.connected) {
+              // Before anything is told, so no card sees a controller that
+              // has lost its session and still acts.
+              for (final entry in _connectorBindings.entries) {
+                if (identical(entry.value.connection, change.connection)) {
+                  _connectorOperations[entry.key]?.suspend();
+                }
+              }
+            }
             if (down != _connectionDown && (down || change.connected)) {
               _connectionDown = down;
               notifyListeners();

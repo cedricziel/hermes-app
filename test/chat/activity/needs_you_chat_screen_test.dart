@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/activity/widgets/needs_you_dock.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
@@ -17,6 +18,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../../support/fake_gateway.dart';
 import '../../support/fake_hermes_server.dart';
 import '../../support/pump_chat.dart';
+import '../billing_fixtures.dart' show billingVerificationFixture;
 import '../connector_fixtures.dart';
 
 /// The chat screen owning the Needs-you queue of the open chat, against the
@@ -29,12 +31,14 @@ void main() {
   late ChatProfiles profiles;
   late BreadcrumbTrail trail;
   late List<String> announced;
+  late _Lock lock;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     trail = BreadcrumbTrail(capacity: 100);
     announced = [];
+    lock = _Lock();
     gateway = FakeGateway()..activeSessions = {};
     gateway.handlers['connection.respond'] = (_) => {
       'status': 'ok',
@@ -70,6 +74,7 @@ void main() {
 
   tearDown(() async {
     profiles.dispose();
+    lock.dispose();
     await transport.close();
   });
 
@@ -105,7 +110,10 @@ void main() {
       withProfiles: true,
       transport: transport,
       chatProfiles: profiles,
-      providers: [Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail))],
+      providers: [
+        Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
+        ChangeNotifierProvider<AppLockController>.value(value: lock),
+      ],
     );
     await openThread(tester, 'First chat');
     await settle(tester);
@@ -267,4 +275,110 @@ void main() {
     expect(enabled(tester, 'needs-you-continue'), isTrue);
     await finish(tester);
   });
+
+  group('billing verification', () {
+    Future<void> details(WidgetTester tester) => emit(
+      tester,
+      'billing.step_up.verification',
+      billingVerificationFixture,
+    );
+
+    testWidgets('shows in the dock with its code, announced by kind only', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await details(tester);
+      expect(find.text('Billing access needs approval'), findsOneWidget);
+      expect(find.text('PRIVATE-CODE'), findsOneWidget);
+      expect(find.text('Copy code'), findsOneWidget);
+      expect(announced, ['Billing access needs approval']);
+      expect(announced.join(), isNot(contains('PRIVATE')));
+      expect(find.bySemanticsLabel('Activity, 1 needs you'), findsOneWidget);
+      await finish(tester);
+    });
+
+    testWidgets('leaves when App Lock covers the app', (tester) async {
+      await pumpScreen(tester);
+      await details(tester);
+      expect(find.text('PRIVATE-CODE'), findsOneWidget);
+      lock.covered = true;
+      await tester.pump();
+      expect(find.text('PRIVATE-CODE'), findsNothing);
+      expect(dock(), findsNothing);
+      await finish(tester);
+    });
+
+    testWidgets('is discarded when the connection drops', (tester) async {
+      await pumpScreen(tester);
+      await details(tester);
+      gateway.drop();
+      await settle(tester);
+      expect(find.text('PRIVATE-CODE'), findsNothing);
+      expect(dock(), findsNothing);
+      await finish(tester);
+    });
+  });
+
+  group('while the connection is lost', () {
+    Future<void> drop(WidgetTester tester) async {
+      gateway.drop();
+      await settle(tester);
+    }
+
+    testWidgets('a connector sign-in stays, display-only, with its actions '
+        'disabled', (tester) async {
+      await pumpScreen(tester);
+      await request(tester);
+      expect(enabled(tester, 'needs-you-continue'), isTrue);
+      await drop(tester);
+
+      expect(dock(), findsOneWidget);
+      expect(find.textContaining('Offline. These actions'), findsOneWidget);
+      expect(enabled(tester, 'needs-you-continue'), isFalse);
+      expect(enabled(tester, 'needs-you-skip'), isFalse);
+      expect(find.byKey(const Key('needs-you-open')), findsOneWidget);
+      expect(enabled(tester, 'needs-you-open'), isFalse);
+      // No second announcement and the marker stays.
+      expect(announced, ['A connection needs you']);
+      expect(find.bySemanticsLabel('Activity, 1 needs you'), findsOneWidget);
+      await finish(tester);
+    });
+
+    testWidgets('the reconnect replay brings the actions back', (tester) async {
+      gateway.handlers['session.resume'] = (params) => {
+        'session_id': 'rt-1',
+        'stored_session_id': params['session_id'],
+        'session_key': params['session_id'],
+        'pending_connection': connectionRequestFixture,
+      };
+      await pumpScreen(tester);
+      await request(tester);
+      await drop(tester);
+      expect(enabled(tester, 'needs-you-continue'), isFalse);
+
+      // The next send reconnects and resumes the chat, which replays the
+      // operation the server still holds.
+      await tester.enterText(composerField, 'Back again');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await settle(tester);
+      await settle(tester);
+
+      expect(find.textContaining('Offline. These actions'), findsNothing);
+      expect(enabled(tester, 'needs-you-continue'), isTrue);
+      await finish(tester);
+    });
+  });
+}
+
+class _Lock extends AppLockController {
+  var _covered = false;
+
+  @override
+  bool get covered => _covered;
+
+  set covered(bool value) {
+    _covered = value;
+    notifyListeners();
+  }
 }
