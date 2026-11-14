@@ -219,6 +219,9 @@ Future<bool> showConfirmDialog(
     await showAppDialog<bool>(
       context: context,
       builder: (dialog) => AppAlertDialog(
+        // At a large text size the title and text scroll together and the
+        // actions stay in view.
+        scrollable: true,
         title: Text(title),
         content: message == null ? null : Text(message),
         actions: [
