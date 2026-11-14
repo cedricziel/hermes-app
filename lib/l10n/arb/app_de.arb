@@ -119,6 +119,7 @@
   "@@x-area-drag_out": "",
 
   "@@x-area-files": "",
+  "filesDragFallbackName": "Datei",
   "filesEntryLabel": "Dateien",
   "filesPreviewLoading": "Datei wird geöffnet…",
   "filesAboutList": "Über diese Liste",

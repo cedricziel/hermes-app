@@ -96,9 +96,12 @@ FilesPreviewModel previewModelOf(
       return const FilesPreviewEmpty();
     case PreviewLoading(:final received, :final total):
       return FilesPreviewLoading(received: received, total: total);
-    // The question is a dialog over a still preview.
-    case PreviewConfirmSize() || PreviewConfirmSecret():
+    // The size question comes after a request has started.
+    case PreviewConfirmSize():
       return const FilesPreviewLoading();
+    // The secret question comes before any request: nothing is loading.
+    case PreviewConfirmSecret():
+      return const FilesPreviewPending();
     case PreviewText(:final kind, :final file):
       final truncation = file.truncated
           ? FileTruncation(

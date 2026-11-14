@@ -5,6 +5,8 @@ import '../../settings/report_bug_link.dart' show LinkOpener;
 import 'file_details_view.dart';
 import 'file_download_progress.dart';
 import 'files_browser_view.dart' show FilesNoSelection;
+import '../../theme/app_icons.dart';
+import '../../widgets/state_message.dart';
 import 'files_failures.dart';
 import 'files_metrics.dart';
 import 'files_spinner.dart';
@@ -32,6 +34,12 @@ class FilesPreviewLoading extends FilesPreviewModel {
 
   final int? received;
   final int? total;
+}
+
+/// A question is open (the secret one): nothing has been requested, so there
+/// is nothing to show but why the page waits.
+class FilesPreviewPending extends FilesPreviewModel {
+  const FilesPreviewPending();
 }
 
 /// A file shown inline: text, code, Markdown or an image.
@@ -146,6 +154,7 @@ class _FilesPreviewBodyState extends State<FilesPreviewBody> {
                 total: total,
                 onCancel: callbacks.onCancelDownload ?? () {},
               ),
+      FilesPreviewPending() => const _Pending(),
       FilesPreviewShown(:final content) => _shown(content),
       FilesPreviewDetails() => _details(
         context,
@@ -210,6 +219,16 @@ class _FilesPreviewBodyState extends State<FilesPreviewBody> {
       secondary: [for (final kind in details.secondary) action(kind)],
     );
   }
+}
+
+/// The page waits for the user's answer to the secret question.
+class _Pending extends StatelessWidget {
+  const _Pending();
+
+  @override
+  Widget build(BuildContext context) => scrollingMessage(
+    StateMessage(icon: AppIcons.lock, title: context.l10n.filesRowSecretHint),
+  );
 }
 
 /// A text file's read: a spinner under no words, as the read has no progress.

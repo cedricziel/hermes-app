@@ -59,6 +59,11 @@ If PR 1 passes about 500 lines, split it after 1.4 (repository) and 1.5 (streami
 - Space on a Mac row selects the file (so its preview loads) and then shows Quick Look; there is no separate Quick Look of an unselected row. A tap on a Mac row still opens its preview.
 - View > Show Files is a static menu item: on an old server it is disabled, not hidden (the menu layout cannot hide an item).
 - `FilesFailure.fixedFolder` was added so a 403 "outside the managed read boundary" reads as the fixed-folder message; the incomplete-download message is not reachable yet (the controller reports it as `unreadable`).
+- Files is not offered in conversation windows (no session to close the page on lock or expiry, and no `HermesRepositories` provider, which would have enabled `MemoryDestination` there); View > Show Files is disabled while one is key.
+- The Mac toolbar's "Show Files" and the menu layout's labels are English-only like their neighbours (`menu_layout.dart` and `MacChatToolbar` have no ARB); the Activity row and header item use `filesEntryLabel` ("Files").
+- The page subtitle of the brief ("work · 14 items") is not drawn: the count needs a plural ARB string and a second source of truth for hidden rows.
+- The primary Open of a PDF becomes Save on a type Windows would block (never a PDF in practice).
+- The test for `filesAvailabilityProvider` uses the real provider definition, not the whole `authProviders` list (which needs a signed-in `AuthController`).
 - The new chat header item shows only for a chat the dashboard holds (`ThreadActionsButton`); a draft is reached through the Activity row and the Mac menu.
 
 ## Known limits of path-based Save (not patched; the plugin is not ours)

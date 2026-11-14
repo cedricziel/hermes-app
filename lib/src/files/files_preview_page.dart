@@ -9,6 +9,7 @@ import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/settings_scaffold.dart';
 import 'files_controller.dart';
+import 'files_models.dart';
 import 'files_state.dart';
 import 'files_view_models.dart';
 import 'widgets/file_preview_header.dart';
@@ -60,15 +61,26 @@ class FilesPreviewActions {
   );
 }
 
-/// What a drag of the selected file out of the window carries: the file's
-/// name now, its bytes only when the receiver asks.
-DragOutFile? filesDragItem(FilesController controller) {
-  final entry = controller.selected;
-  if (entry == null) return null;
+/// What a drag of [entry] out of the window carries: its name now, its bytes
+/// only when the receiver asks, one download at most. Null for a folder or a
+/// secret-looking file the user has not said Continue for, so nothing is
+/// offered to the receiver that cannot be delivered.
+DragOutFile? filesDragItem(
+  FilesController controller,
+  FsEntry entry,
+  String fallbackName,
+) {
+  final drag = controller.beginDrag(entry);
+  if (drag == null) return null;
   return DragOutFile(
-    name: sanitizeDragFileName(entry.path.name, fallback: 'File'),
-    read: () async => (await controller.stageForDrag(entry))!.readAsBytes(),
-    localPath: () async => (await controller.stageForDrag(entry))?.path,
+    name: sanitizeDragFileName(entry.name, fallback: fallbackName),
+    read: () async {
+      final file = await drag.file();
+      if (file == null) throw StateError('no file');
+      return file.readAsBytes();
+    },
+    localPath: () async => (await drag.file())?.path,
+    cancel: drag.cancel,
   );
 }
 
@@ -102,6 +114,7 @@ class FilesPreviewPane extends StatelessWidget {
       );
       if (entry == null || controller.preview is PreviewIdle) return body;
       final mac = platformChromeOf(context) == PlatformChrome.macos;
+      final l10n = context.l10n;
       return FilesCoverGate(
         controller: controller,
         child: Column(
@@ -117,7 +130,11 @@ class FilesPreviewPane extends StatelessWidget {
               wrapTile: mac
                   ? (context, tile) => DragOut(
                       kind: DragOutKind.file,
-                      item: () => filesDragItem(controller),
+                      item: () => filesDragItem(
+                        controller,
+                        entry,
+                        l10n.filesDragFallbackName,
+                      ),
                       child: tile,
                     )
                   : null,
@@ -278,11 +295,16 @@ class _FilesCoverGateState extends State<FilesCoverGate> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.controller.selected;
+    // Only where the system snapshots an inactive app for a switcher; a
+    // desktop window that lost focus is not blanked.
+    final platform = Theme.of(context).platform;
+    final covers =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.android;
     return Stack(
       fit: StackFit.passthrough,
       children: [
         widget.child,
-        if (_covered && entry != null)
+        if (covers && _covered && entry != null)
           Positioned.fill(
             key: const Key('files-preview-cover'),
             child: FilePreviewCover(glyph: fileGlyphForName(entry.path.name)),

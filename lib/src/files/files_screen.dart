@@ -12,7 +12,6 @@ import '../chat/media/media_store.dart';
 import '../chat/widgets/quick_look_target.dart';
 import '../drag_out/drag_out_item.dart';
 import '../drag_out/drag_out_source.dart';
-import '../drag_out/sanitize_drag_file_name.dart';
 import '../theme/app_icons.dart';
 import '../theme/breakpoints.dart';
 import '../theme/platform_chrome.dart';
@@ -92,7 +91,7 @@ class _FilesScreenState extends State<FilesScreen> {
   String? _server;
   AppLockController? _lock;
   Route<void>? _previewRoute;
-  Object? _asked;
+  int? _askedSerial;
   var _wide = false;
   var _closing = false;
 
@@ -172,8 +171,12 @@ class _FilesScreenState extends State<FilesScreen> {
     final preview = _previewRoute;
     _previewRoute = null;
     scheduleMicrotask(() {
+      if (route == null || !route.isActive) return;
+      // What is open above the page (a question, the … menu, the preview) goes
+      // first; a dialog then answers as dismissed.
+      navigator.popUntil((r) => identical(r, route) || !r.isActive);
       if (preview != null && preview.isActive) navigator.removeRoute(preview);
-      if (route != null && route.isActive) navigator.removeRoute(route);
+      if (route.isActive) navigator.removeRoute(route);
     });
   }
 
@@ -181,12 +184,15 @@ class _FilesScreenState extends State<FilesScreen> {
 
   void _onController() {
     final preview = _controller.preview;
-    if (!identical(_asked, preview)) {
+    // Each question has its own serial: the same const state asked twice is
+    // two questions.
+    final serial = _controller.questionSerial;
+    if (serial != _askedSerial) {
       if (preview is PreviewConfirmSecret) {
-        _asked = preview;
+        _askedSerial = serial;
         unawaited(_askSecret());
       } else if (preview is PreviewConfirmSize) {
-        _asked = preview;
+        _askedSerial = serial;
         unawaited(_askSize(preview.bytes));
       }
     }
@@ -237,14 +243,20 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   void _pushPreview() {
-    final route = MaterialPageRoute<void>(
-      builder: (_) => FilesPreviewPage(
-        controller: _controller,
-        actions: _actions(),
-        platformActions: _platformActions(),
-        previousTitle: folderTitleOf(_controller, context.l10n.filesEntryLabel),
-      ),
+    Widget page(BuildContext _) => FilesPreviewPage(
+      controller: _controller,
+      actions: _actions(),
+      platformActions: _platformActions(),
+      previousTitle: folderTitleOf(_controller, context.l10n.filesEntryLabel),
     );
+    // Reduced motion: no transition from the list to the preview.
+    final Route<void> route = MediaQuery.disableAnimationsOf(context)
+        ? PageRouteBuilder<void>(
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (context, _, _) => page(context),
+          )
+        : MaterialPageRoute<void>(builder: page);
     _previewRoute = route;
     unawaited(
       Navigator.of(context).push(route).then((_) {
@@ -280,8 +292,7 @@ class _FilesScreenState extends State<FilesScreen> {
       tryAgain: () => unawaited(_controller.retry()),
       cancelDownload: _controller.cancelDownload,
       downloadFull: () => unawaited(_save()),
-      open: () =>
-          unawaited(_mac ? _controller.quickLook() : _controller.openWith()),
+      open: () => unawaited(_openPrimary()),
       share: platform.share ? () => unawaited(_controller.shareFile()) : null,
       openWith: platform.openWith
           ? () => unawaited(_controller.openWith())
@@ -290,6 +301,15 @@ class _FilesScreenState extends State<FilesScreen> {
           ? () => unawaited(_controller.quickLook(toggle: true))
           : null,
     );
+  }
+
+  /// A PDF's Open: Quick Look on a Mac, the system's app elsewhere, and Save
+  /// where the app may not be opened (a type Windows would run).
+  Future<void> _openPrimary() {
+    if (_mac) return _controller.quickLook();
+    final entry = _controller.selected;
+    if (entry != null && !_controller.canOpenWith(entry)) return _save();
+    return _controller.openWith();
   }
 
   Future<void> _save() async {
@@ -344,6 +364,7 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Widget _wrapRow(BuildContext context, FileRowModel row, Widget child) {
+    final l10n = context.l10n;
     final entry = _entryFor(row);
     if (entry == null) return child;
     final isFile = !entry.isDirectory;
@@ -357,13 +378,8 @@ class _FilesScreenState extends State<FilesScreen> {
       child: isFile
           ? DragOut(
               kind: DragOutKind.file,
-              item: () => DragOutFile(
-                name: sanitizeDragFileName(entry.name, fallback: 'File'),
-                read: () async =>
-                    (await _controller.stageForDrag(entry))!.readAsBytes(),
-                localPath: () async =>
-                    (await _controller.stageForDrag(entry))?.path,
-              ),
+              item: () =>
+                  filesDragItem(_controller, entry, l10n.filesDragFallbackName),
               child: child,
             )
           : child,

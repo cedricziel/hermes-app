@@ -30,21 +30,7 @@ List<SingleChildWidget> authProviders(Telemetry telemetry) => [
   ),
   // Whether the server has the Files routes: asked once per connection, so
   // the entry points of Files stay hidden on an older Hermes.
-  ProxyProvider<HermesRepositories?, FilesAvailability?>(
-    update: (_, repositories, previous) {
-      if (repositories == null) {
-        previous?.dispose();
-        return null;
-      }
-      if (previous != null &&
-          identical(previous.connection, repositories.api)) {
-        return previous;
-      }
-      previous?.dispose();
-      return FilesAvailability.forRepositories(repositories);
-    },
-    dispose: (_, availability) => availability?.dispose(),
-  ),
+  filesAvailabilityProvider(),
   // Downloaded files are deleted when the session ends, so this must be
   // listening from the start, not from the first file opened.
   Provider<MediaStore?>(
@@ -65,3 +51,19 @@ List<SingleChildWidget> authProviders(Telemetry telemetry) => [
     dispose: (_, store) => store?.dispose(),
   ),
 ];
+
+/// Whether the server has the Files routes, asked once per connection (a new
+/// API client asks again). A [ChangeNotifier], so it needs a notifier
+/// provider: entry points watch it and appear when the probe answers.
+SingleChildWidget filesAvailabilityProvider() =>
+    ChangeNotifierProxyProvider<HermesRepositories?, FilesAvailability?>(
+      create: (_) => null,
+      update: (_, repositories, previous) {
+        if (repositories == null) return null;
+        if (previous != null &&
+            identical(previous.connection, repositories.api)) {
+          return previous;
+        }
+        return FilesAvailability.forRepositories(repositories);
+      },
+    );

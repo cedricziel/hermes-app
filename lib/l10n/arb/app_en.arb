@@ -465,6 +465,10 @@
   "@@x-area-drag_out": "",
 
   "@@x-area-files": "",
+  "filesDragFallbackName": "File",
+  "@filesDragFallbackName": {
+    "description": "Name given to a file dragged out of the window when its own name cannot be used."
+  },
   "filesEntryLabel": "Files",
   "@filesEntryLabel": {
     "description": "Name of the Files page in the Activity panel row, the chat header menu and the title when the folder has no name."

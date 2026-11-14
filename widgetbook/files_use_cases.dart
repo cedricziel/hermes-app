@@ -1416,6 +1416,10 @@ WidgetbookComponent _previewBodyComponent() => WidgetbookComponent(
     _case('Nothing selected', (_) => _body(const FilesPreviewEmpty())),
     _case('Reading a text file', (_) => _body(const FilesPreviewLoading())),
     _case(
+      'Waiting for the secret question',
+      (_) => _body(const FilesPreviewPending()),
+    ),
+    _case(
       'Downloading, with a length',
       (_) => _body(
         const FilesPreviewLoading(

@@ -7,7 +7,7 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
-import 'package:hermes_app/src/files/files_availability.dart';
+import 'package:hermes_app/src/app/providers/auth_providers.dart';
 import 'package:provider/provider.dart';
 
 import '../../widgetbook/files_sample_image.dart';
@@ -33,7 +33,6 @@ Map<String, Object?> _entry(
 void main() {
   late FakeHermesServer server;
   late MediaStore media;
-  late FilesAvailability availability;
 
   void list(String path, List<Map<String, Object?>> entries) => server.on(
     'GET',
@@ -78,6 +77,7 @@ void main() {
       _entry('reports', dir: true),
       _entry('analysis.py'),
       _entry('api_token.txt'),
+      _entry('deploy.pem'),
       _entry('chart.png'),
       _entry('export.zip'),
       _entry('README.md'),
@@ -161,8 +161,6 @@ void main() {
       cacheDirectory: () async => dir,
       actions: FakeMediaActions(),
     );
-    availability = FilesAvailability.forRepositories(repositories);
-    addTearDown(availability.dispose);
     await pumpScreen(
       tester,
       shots,
@@ -175,7 +173,8 @@ void main() {
       providers: [
         Provider<HermesRepositories?>.value(value: repositories),
         Provider<MediaStore?>.value(value: media),
-        ChangeNotifierProvider<FilesAvailability?>.value(value: availability),
+        // The app's own definition, as `main` builds it.
+        filesAvailabilityProvider(),
       ],
     );
   }
@@ -259,6 +258,12 @@ void main() {
         await tester.tap(find.text('Cancel'));
         await idle(tester);
         expect(find.textContaining('passwords or keys'), findsNothing);
+
+        await tapRow(tester, 'deploy.pem');
+        expect(find.textContaining('passwords or keys'), findsOneWidget);
+        await shots.capture(tester, 'secret-question-again');
+        await tester.tap(find.text('Cancel'));
+        await idle(tester);
 
         await tapRow(tester, 'empty');
         expect(find.text('Nothing here yet'), findsOneWidget);

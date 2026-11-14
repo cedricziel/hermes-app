@@ -15,6 +15,8 @@ import 'package:hermes_app/src/files/files_preview_page.dart';
 import 'package:hermes_app/src/files/files_screen.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/files/widgets/file_preview_cover.dart';
+import 'package:hermes_app/src/files/widgets/file_preview_header.dart';
+import 'package:hermes_app/src/files/widgets/files_spinner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -26,6 +28,10 @@ import '../support/fake_files_source.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
 import '../support/fake_quick_look.dart';
+
+bool _stale = false;
+ValueNotifier<int> _changed = ValueNotifier(0);
+AppLockController? _lock;
 
 void main() {
   late FakeFilesSource source;
@@ -49,6 +55,7 @@ void main() {
       folderEntry('/srv/p/reports'),
       file('/srv/p/export.zip'),
       file('/srv/p/api_token.txt'),
+      file('/srv/p/deploy.pem'),
       file('/srv/p/notes.txt'),
     ]);
     source.gitRoots['/srv/p'] = () => ok<ServerPath?>(null);
@@ -122,6 +129,28 @@ void main() {
 
       expect(find.byType(FilesPreviewPage), findsOneWidget);
       expect(find.text('hello from the notes'), findsOneWidget);
+    });
+
+    testWidgets('reduced motion pushes the preview without a transition', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await pump(tester);
+      await tester.tap(find.text('notes.txt'));
+      await settle(tester);
+
+      final route = ModalRoute.of(
+        tester.element(find.byType(FilesPreviewPage)),
+      );
+      expect(route, isA<PageRouteBuilder<void>>());
+      expect(
+        (route! as PageRouteBuilder<void>).transitionDuration,
+        Duration.zero,
+      );
     });
 
     testWidgets('back from the preview shows the list again', (tester) async {
@@ -217,6 +246,81 @@ void main() {
     });
   });
 
+  group('questions', () {
+    testWidgets('a second secret question is asked again', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('api_token.txt'));
+      await settle(tester);
+      expect(find.textContaining('passwords or keys'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await settle(tester);
+      expect(find.textContaining('passwords or keys'), findsNothing);
+
+      await tester.tap(find.text('deploy.pem'));
+      await settle(tester);
+
+      expect(find.textContaining('passwords or keys'), findsOneWidget);
+    });
+
+    testWidgets('the wide pane waits without a spinner behind the question', (
+      tester,
+    ) async {
+      await pump(tester, size: const Size(1100, 800));
+      await tester.tap(find.text('deploy.pem'));
+      await settle(tester);
+
+      expect(find.byType(FilesSpinner), findsNothing);
+      expect(find.byType(FilePreviewHeader), findsOneWidget);
+    });
+
+    for (final (name, end) in <(String, Future<void> Function(WidgetTester))>[
+      (
+        'the chat changes',
+        (tester) async {
+          _stale = true;
+          _changed.value++;
+        },
+      ),
+      (
+        'App Lock locks',
+        (tester) async {
+          _lock!.didChangeAppLifecycleState(AppLifecycleState.paused);
+        },
+      ),
+    ]) {
+      testWidgets('an open question goes with the page when $name', (
+        tester,
+      ) async {
+        SharedPreferencesAsyncPlatform.instance =
+            InMemorySharedPreferencesAsync.empty();
+        _stale = false;
+        _changed = ValueNotifier(0);
+        _lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+        addTearDown(_lock!.dispose);
+        await tester.runAsync(() async {
+          await _lock!.load();
+          await _lock!.setEnabled(true);
+        });
+        await pump(
+          tester,
+          closeWhen: _changed,
+          shouldClose: () => _stale,
+          lock: _lock,
+        );
+        await tester.tap(find.text('api_token.txt'));
+        await settle(tester);
+        expect(find.textContaining('passwords or keys'), findsOneWidget);
+
+        await end(tester);
+        await settle(tester);
+
+        expect(find.textContaining('passwords or keys'), findsNothing);
+        expect(find.byType(FilesScreen), findsNothing);
+        expect(find.text('chat'), findsOneWidget);
+      });
+    }
+  });
+
   group('wide', () {
     testWidgets('the preview sits beside the list', (tester) async {
       await pump(tester, size: const Size(1100, 800));
@@ -260,6 +364,24 @@ void main() {
       await tester.pump();
       expect(find.byKey(const Key('files-preview-cover')), findsNothing);
       expect(find.text('hello from the notes'), findsOneWidget);
+    });
+
+    testWidgets('a desktop window that lost focus is not blanked', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        size: const Size(1100, 800),
+        platform: TargetPlatform.macOS,
+      );
+      await tester.tap(find.text('notes.txt'));
+      await settle(tester);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+
+      expect(find.byKey(const Key('files-preview-cover')), findsNothing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     });
 
     testWidgets('the phone preview page is covered too', (tester) async {
