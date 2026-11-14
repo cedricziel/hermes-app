@@ -1013,6 +1013,48 @@ WidgetbookNode _setupPartsComponent() => WidgetbookComponent(
         ToolsLoadingRow(c.l10n.toolsWriteSaving),
       ]),
     ),
+    ...onEachPlatform(
+      'Locked, a write is out',
+      (c) => _page([
+        ProviderChoiceSection(
+          enabled: false,
+          header: c.l10n.toolsBackendsHeader,
+          onPick: (_) {},
+          choices: [
+            for (final (i, p) in _backends.indexed)
+              ProviderChoice(
+                id: p.name,
+                name: p.name,
+                status: p.status,
+                picked: i == 1,
+                line: p.line,
+                hermesText: p.hermes,
+                commandsWillFail: p.fail && i == 1,
+              ),
+          ],
+        ),
+        ToolsLoadingRow(c.l10n.toolsWriteSaving),
+      ]),
+    ),
+    WidgetbookUseCase(
+      name: 'The only option, picked (not dimmed)',
+      builder: (c) => _page([
+        ProviderChoiceSection(
+          header: c.l10n.toolsSetupHeader,
+          onPick: (_) {},
+          choices: const [
+            ProviderChoice(
+              id: 'Cua driver',
+              name: 'Cua driver',
+              status: ToolsStatus.needsInstall,
+              picked: true,
+              badge: 'free',
+              line: 'Runs on the server',
+            ),
+          ],
+        ),
+      ]),
+    ),
     WidgetbookUseCase(
       name: 'ToolsNote, every tone',
       builder: (c) => _page([

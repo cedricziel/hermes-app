@@ -66,7 +66,8 @@ void main() {
       final oldPrint = debugPrint;
       debugPrint = (message, {wrapWidth}) => printed.add('$message');
 
-      await h.pump();
+      final trail = BreadcrumbTrail();
+      await h.pump(trail: trail);
       await h.openWeb();
       await h.type(typedKey);
       await h.showKey();
@@ -95,6 +96,8 @@ void main() {
         ...events,
         ...printed,
         ...errors,
+        // What a crash report would carry.
+        for (final crumb in trail.recent) '${crumb.name} ${crumb.attributes}',
       ].join('\n');
       expect(tracer.spans, isNotEmpty);
       expect(recorded, isNot(contains(typedKey)));

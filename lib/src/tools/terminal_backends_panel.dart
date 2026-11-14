@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../l10n/l10n.dart';
 import '../widgets/grouped_list.dart';
 import 'terminal_backends_controller.dart';
-import 'toolset_copy.dart';
 import 'tools_controller.dart' show ToolsLoadState;
 import 'tools_models.dart';
 import 'tools_panel_env.dart';
@@ -32,50 +31,26 @@ class TerminalBackendsPanel extends StatefulWidget {
 }
 
 class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
-  late TerminalBackendsController _controller;
-  var _busy = false;
-  var _wasWriting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = _newController()..addListener(_onChanged);
-    unawaited(_controller.load());
-    widget.env.refresh.add(_controller.load);
-  }
-
-  TerminalBackendsController _newController() => TerminalBackendsController(
-    widget.env.repository,
-    telemetry: widget.env.repository.telemetry,
-    confirmLocal: () =>
-        widget.env.ask(toolsetLocalBackendQuestion(context.l10n)),
-  );
+  /// The registry's controller: a pick goes on, and its result waits, when
+  /// the panel is gone.
+  late final TerminalBackendsController _controller =
+      widget.env.registry.backends;
 
   bool get _writing =>
       _controller.pickState == ToolsWriteState.saving ||
       _controller.pickState == ToolsWriteState.checking;
 
-  /// The pick locks the toolset's switch while it is out, and the list is read
-  /// again once it landed.
-  void _onChanged() {
-    final writing = _writing;
-    if (writing != _busy) {
-      _busy = writing;
-      widget.env.onBusyChanged('terminal', busy: writing);
-    }
-    if (_wasWriting &&
-        !writing &&
-        _controller.pickState == ToolsWriteState.idle) {
-      widget.env.onWritten();
-    }
-    _wasWriting = writing;
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_controller.load());
+    widget.env.refresh.add(_controller.load);
   }
 
   @override
   void didUpdateWidget(TerminalBackendsPanel old) {
     super.didUpdateWidget(old);
     if (old.env.repository.profile != widget.env.repository.profile) {
-      _controller.switchProfile(widget.env.repository);
       unawaited(_controller.load());
     }
   }
@@ -83,12 +58,6 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
   @override
   void dispose() {
     widget.env.refresh.remove(_controller.load);
-    final onBusy = widget.env.onBusyChanged;
-    final wasBusy = _busy;
-    _controller
-      ..removeListener(_onChanged)
-      ..dispose();
-    if (wasBusy) scheduleMicrotask(() => onBusy('terminal', busy: false));
     super.dispose();
   }
 

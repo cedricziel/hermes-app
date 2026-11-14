@@ -351,21 +351,25 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('$name: keys and an install step that never ran', (
+    testWidgets('$name: Advanced offers the install step under its header', (
       tester,
     ) async {
       final shots = ScreenshotRecorder('tools-setup-combo-$name');
-      world.searchCoInstall = true;
+      world
+        ..searchCoInstall = true
+        ..webKeySet = true;
       await pumpShell(tester, shots, size: size);
       await openTools(tester);
       await openRow(tester, webText);
+      await tester.tap(find.text('Change setup'));
+      await tester.pumpAndSettle();
       final toggle = find.text(
         'Use different providers for search and extract',
       );
       await reveal(tester, toggle);
       await tester.tap(toggle);
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('Install on server'));
+      await reveal(tester, find.text('Run the install step again'));
       await shots.capture(tester, 'advanced');
     });
   }

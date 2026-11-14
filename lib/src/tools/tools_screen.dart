@@ -25,6 +25,7 @@ import 'tools_controller.dart';
 import 'tools_models.dart';
 import 'tools_panel_env.dart';
 import 'tools_row_mapping.dart';
+import 'tools_setup_registry.dart';
 import 'widgets/toolset_detail_body.dart';
 import 'widgets/toolset_row.dart';
 import 'widgets/tools_confirmation.dart';
@@ -106,6 +107,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
   var _ownsInstalls = false;
   late ToolsAsker _asker;
   final _panelRefresh = ToolsRefresh();
+  late final ToolsSetupRegistry _registry;
   final _pages = <Route<void>>[];
   AuthController? _auth;
   int? _authGeneration;
@@ -127,6 +129,14 @@ class _ToolsScreenState extends State<ToolsScreen> {
           telemetry: widget.repository.telemetry,
         );
     _asker = ToolsAsker(context: () => context, lock: _lock);
+    _registry = ToolsSetupRegistry(
+      repository: widget.repository,
+      confirmLocal: () => _asker.ask(toolsetLocalBackendQuestion(context.l10n)),
+      confirmGrant: () => _asker.ask(toolsetAllowAccessQuestion(context.l10n)),
+      onWritten: () => unawaited(_controller.load()),
+      onBusyChanged: (name, {required busy}) =>
+          _controller.setSetupBusy(name, busy: busy),
+    );
   }
 
   ToolsController _newController() => ToolsController(
@@ -163,6 +173,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
       _followedInstall = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        // The setup controllers notify their panels, so not while building.
+        _registry.switchProfile(widget.repository);
         _controller.announce();
         unawaited(_controller.load());
       });
@@ -185,6 +197,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     if (auth.state != HermesConnectionState.ready ||
         auth.ownerGeneration != _authGeneration) {
       _panelRefresh.clearAll();
+      _registry.clearKeys();
     }
   }
 
@@ -194,6 +207,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     _lock?.removeListener(_onLock);
     _takeQuestionDown();
     _asker.dispose();
+    _registry.dispose();
     _controller
       ..removeListener(_onChanged)
       ..dispose();
@@ -350,9 +364,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
     refresh: _panelRefresh,
     botScreen: widget.botScreen,
     lock: _lock,
+    registry: _registry,
     onWritten: () => unawaited(_controller.load()),
-    onBusyChanged: (name, {required busy}) =>
-        _controller.setSetupBusy(name, busy: busy),
   );
 
   /// "Show" on the installer banner: the details of the toolset whose switch

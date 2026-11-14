@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../l10n/l10n.dart';
 import '../widgets/grouped_list.dart';
 import 'computer_use_controller.dart';
-import 'toolset_copy.dart';
 import 'toolset_installs.dart';
 import 'tools_controller.dart' show ToolsLoadState;
 import 'tools_panel_env.dart';
@@ -35,38 +34,21 @@ class ComputerUsePanel extends StatefulWidget {
 }
 
 class _ComputerUsePanelState extends State<ComputerUsePanel> {
-  late ComputerUseController _controller;
+  late final ComputerUseController _controller = widget.env.registry.computer;
   ToolsInstallState? _handledEnd;
-  var _busy = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = ComputerUseController(
-      widget.env.repository,
-      telemetry: widget.env.repository.telemetry,
-      confirmGrant: () =>
-          widget.env.ask(toolsetAllowAccessQuestion(context.l10n)),
-    );
-    _controller.addListener(_onChanged);
     unawaited(_controller.load());
     widget.env.refresh.add(_controller.load);
     widget.env.installs.addListener(_onInstalls);
-  }
-
-  /// The grant locks the toolset's switch while the permission window is out.
-  void _onChanged() {
-    final busy = _controller.grantBusy;
-    if (busy == _busy) return;
-    _busy = busy;
-    widget.env.onBusyChanged(_computerUse, busy: busy);
   }
 
   @override
   void didUpdateWidget(ComputerUsePanel old) {
     super.didUpdateWidget(old);
     if (old.env.repository.profile != widget.env.repository.profile) {
-      _controller.switchProfile(widget.env.repository);
       unawaited(_controller.load());
     }
   }
@@ -75,12 +57,6 @@ class _ComputerUsePanelState extends State<ComputerUsePanel> {
   void dispose() {
     widget.env.refresh.remove(_controller.load);
     widget.env.installs.removeListener(_onInstalls);
-    final onBusy = widget.env.onBusyChanged;
-    final wasBusy = _busy;
-    _controller
-      ..removeListener(_onChanged)
-      ..dispose();
-    if (wasBusy) scheduleMicrotask(() => onBusy(_computerUse, busy: false));
     super.dispose();
   }
 

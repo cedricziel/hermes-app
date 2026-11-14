@@ -133,22 +133,6 @@ void main() {
       expect(find.byType(FilledButton), findsNothing);
       await h.close();
     });
-
-    testWidgets('a provider with keys and an install step that never ran '
-        'offers "Install on server" under Advanced', (tester) async {
-      await start(tester, prepare: (w) => w.searchCoInstall = true);
-      await h.openWeb();
-
-      // Save is the only filled button.
-      expect(
-        find.widgetWithText(FilledButton, 'Install on server'),
-        findsNothing,
-      );
-      await h.tapText('Use different providers for search and extract');
-      expect(find.text('Install on server'), findsOneWidget);
-      expect(find.text('Run the install step again'), findsNothing);
-      await h.close();
-    });
   });
 
   group('a switch and a setup write do not overlap', () {
@@ -328,6 +312,170 @@ void main() {
       expect(installs.state, isNull);
       await h.close();
     });
+  });
+
+  group('a write belongs to its controller, not to the panel', () {
+    testWidgets('opening another toolset mid-save keeps the old switch '
+        'locked until the write settles, and the result waits', (tester) async {
+      await start(tester, size: wide);
+      final gate = Completer<void>();
+      world.server.onRequest('PUT', '$web/env', (request) async {
+        await gate.future;
+        world.webKeySet = true;
+        return (
+          status: 200,
+          body: {
+            'ok': true,
+            'name': 'web',
+            'saved': ['SEARCHCO_API_KEY'],
+            'skipped': <Object?>[],
+          },
+        );
+      });
+      await h.type(typedKey);
+      await tester.tap(find.text('Save'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Another toolset opens; the Web panel is gone.
+      final todo = find.descendant(
+        of: find.byKey(const Key('tools-list')),
+        matching: find.text('Keep a to-do list while working.'),
+      );
+      await tester.ensureVisible(todo);
+      await tester.tap(todo);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(TextField), findsNothing);
+
+      final rowSwitch = find.descendant(
+        of: find.byKey(const ValueKey('tool-row-web')),
+        matching: find.byType(ToolsSwitch),
+      );
+      expect(tester.widget<ToolsSwitch>(rowSwitch).onChanged, isNull);
+      await tester.tap(rowSwitch, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(world.server.requestsTo('PUT', web), isEmpty);
+      expect(world.server.requestsTo('PUT', '$web/env'), hasLength(1));
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.widget<ToolsSwitch>(rowSwitch).onChanged, isNotNull);
+
+      // Back on Web: the save's result is there.
+      final webRow = find.descendant(
+        of: find.byKey(const Key('tools-list')),
+        matching: find.text('Look things up on the web and read pages.'),
+      );
+      await tester.tap(webRow);
+      await tester.pumpAndSettle();
+      expect(find.text('Saved.'), findsOneWidget);
+      expect(find.text('Already set'), findsOneWidget);
+      await h.close();
+    });
+  });
+
+  group('installs wait for every write', () {
+    testWidgets('no install question during a provider pick', (tester) async {
+      await start(tester, prepare: (w) => w.webActive = 'Local Driver');
+      await h.openWeb();
+      final gate = Completer<void>();
+      world.server.onRequest('PUT', '$web/provider', (_) async {
+        await gate.future;
+        return (status: 200, body: {'ok': true, 'name': 'web'});
+      });
+      await tester.ensureVisible(h.provider('Search Co'));
+      await tester.tap(h.provider('Search Co'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final install = find.widgetWithText(FilledButton, 'Install on server');
+      expect(tester.widget<FilledButton>(install).onPressed, isNull);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(world.server.requestsTo('POST', '$web/post-setup'), isEmpty);
+      await h.close();
+    });
+
+    testWidgets('the failed block\'s Try again is disabled while the switch '
+        'is saving', (tester) async {
+      await start(tester, size: wide);
+      await h.openComputerUse();
+      await startInstall(tester);
+      world
+        ..installRunning = false
+        ..installExit = 1;
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      final gate = Completer<void>();
+      world.server.onRequest('PUT', '/api/tools/toolsets/computer_use', (
+        _,
+      ) async {
+        await gate.future;
+        return (status: 200, body: {'ok': true, 'name': 'computer_use'});
+      });
+
+      final rowSwitch = find.descendant(
+        of: find.byKey(const ValueKey('tool-row-computer_use')),
+        matching: find.byType(ToolsSwitch),
+      );
+      await tester.tap(rowSwitch);
+      await tester.pump(const Duration(milliseconds: 100));
+      // A confirmation may come first; answer it.
+      if (find.text('Switch on').evaluate().isNotEmpty) {
+        await tester.tap(find.text('Switch on'));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      final tryAgain = find.widgetWithText(FilledButton, 'Try again');
+      expect(tester.widget<FilledButton>(tryAgain).onPressed, isNull);
+      gate.complete();
+      await tester.pumpAndSettle();
+      await h.close();
+    });
+  });
+
+  testWidgets('a model list goes with a profile change and a late pick '
+      'sends nothing', (tester) async {
+    final profile = ValueNotifier('work');
+    addTearDown(profile.dispose);
+    await start(tester, profile: profile);
+    await h.openImages();
+    await h.tapText('Model');
+    expect(find.text('Fine Two'), findsOneWidget);
+
+    profile.value = 'home';
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fine Two'), findsNothing);
+    expect(
+      world.server.requestsTo('PUT', '/api/tools/toolsets/image_gen/model'),
+      isEmpty,
+    );
+    await h.close();
+  });
+
+  testWidgets('Advanced offers the install step under its own header, and '
+      'only once the key is saved', (tester) async {
+    await start(tester, prepare: (w) => w.searchCoInstall = true);
+    await h.openWeb();
+    await h.tapText('Use different providers for search and extract');
+    // The key is still to type: no install step yet.
+    expect(find.text('Install on server'), findsNothing);
+    await h.close();
+
+    await start(
+      tester,
+      prepare: (w) {
+        w
+          ..searchCoInstall = true
+          ..webKeySet = true;
+      },
+    );
+    await h.openWeb();
+    await h.tapText('Change setup');
+    await h.tapText('Use different providers for search and extract');
+    // Its own header, and the step offered again for a ready provider.
+    expect(find.text('Install on server'), findsOneWidget);
+    expect(find.text('Run the install step again'), findsOneWidget);
+    await h.close();
   });
 
   testWidgets('a second question asked before the first one is on screen '

@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/toolset_installs.dart';
@@ -47,6 +49,7 @@ class SetupHarness {
     Brightness brightness = Brightness.light,
     AuthController? auth,
     ValueNotifier<String>? profile,
+    BreadcrumbTrail? trail,
   }) async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
@@ -65,7 +68,7 @@ class SetupHarness {
       home: const Scaffold(body: Text('home')),
     );
     await tester.pumpWidget(
-      lock == null && auth == null
+      lock == null && auth == null && trail == null
           ? app
           : MultiProvider(
               providers: [
@@ -73,6 +76,8 @@ class SetupHarness {
                   ChangeNotifierProvider<AppLockController>.value(value: lock),
                 if (auth != null)
                   ChangeNotifierProvider<AuthController>.value(value: auth),
+                if (trail != null)
+                  Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
               ],
               child: app,
             ),

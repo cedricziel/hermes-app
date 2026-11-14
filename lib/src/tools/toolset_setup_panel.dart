@@ -26,8 +26,9 @@ import 'widgets/toolset_model_sheet.dart';
 /// it needs from (the providers), the keys of the one picked, the install
 /// step, and the model of image and video generation.
 ///
-/// It owns the [ToolsetSetupController] and the one [TextEditingController]
-/// per key the form shows, and nothing else: typed keys live in those fields
+/// It shows the [ToolsetSetupController] the screen's registry keeps (so a
+/// write goes on, and its result is waiting, when the panel is gone) and owns
+/// the one [TextEditingController] per key the form shows, and nothing else: typed keys live in those fields
 /// and in the controller's private map, are cleared by a successful save, a
 /// lost answer, App Lock, a provider or profile change and when the panel
 /// goes away, and are never read back out or logged. The install runs
@@ -54,7 +55,6 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   var _advanced = false;
   var _hideSignal = 0;
   var _prevKeys = ToolsetKeysState.idle;
-  var _busy = false;
   var _rereading = false;
   ToolsInstallState? _handledEnd;
   String? _modelsFor;
@@ -68,8 +68,14 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     super.initState();
     // Open when the toolset needs setup, and it stays open when what the
     // user does there sets it up.
-    _expanded = !widget.toolset.configured;
-    _setup = _newSetup(widget.env);
+    _setup = widget.env.registry.setup(_name)..addListener(_onSetup);
+    // A result that waited for the user (a save that ended while another
+    // toolset was open) shows open.
+    _expanded =
+        !widget.toolset.configured ||
+        _setup.keysState != ToolsetKeysState.idle ||
+        _setup.providerState != ToolsWriteState.idle ||
+        _setup.modelState != ToolsWriteState.idle;
     _lockWatch = SecretFieldsLock(widget.env.lock, () => _setup.clearKeys());
     unawaited(_setup.load());
     widget.env.refresh.add(_refresh);
@@ -78,13 +84,6 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     // An install that ended with no screen open shows its result now.
     WidgetsBinding.instance.addPostFrameCallback((_) => _onInstalls());
   }
-
-  ToolsetSetupController _newSetup(ToolsPanelEnv env) => ToolsetSetupController(
-    env.repository,
-    toolset: widget.toolset.name,
-    telemetry: env.repository.telemetry,
-    onWritten: () => widget.env.onWritten(),
-  )..addListener(_onSetup);
 
   @override
   void didUpdateWidget(ToolsetSetupPanel old) {
@@ -95,7 +94,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
       _expanded = !widget.toolset.configured;
       _advanced = false;
       _modelsFor = null;
-      _setup.switchProfile(widget.env.repository);
+      // The registry handed the controller to the new profile.
       unawaited(_setup.load());
     }
   }
@@ -106,15 +105,14 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     widget.env.refresh.removeClear(_clearTyped);
     _installs.removeListener(_onInstalls);
     _lockWatch?.dispose();
-    final onBusy = widget.env.onBusyChanged;
-    final name = _name;
-    final wasBusy = _busy;
+    _closeModelSheet();
     final state = _installs.state;
     final showed = _handledEnd != null && identical(state, _handledEnd);
+    // The controller stays with the screen: a write goes on and its result
+    // waits here. What was typed goes.
     _setup
       ..removeListener(_onSetup)
-      ..clearKeys()
-      ..dispose();
+      ..clearKeys();
     for (final field in _fields.values) {
       field
         ..clear()
@@ -123,7 +121,6 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     _fields.clear();
     // After the frame: both notify listeners that are being torn down too.
     scheduleMicrotask(() {
-      if (wasBusy) onBusy(name, busy: false);
       if (showed && state?.phase == ToolsInstallPhase.succeeded) {
         _installs.acknowledge();
       }
@@ -168,11 +165,6 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     if (keys == ToolsetKeysState.failed && _prevKeys != keys) _hideSignal++;
     if (keys == ToolsetKeysState.saved) _replacing.clear();
     _prevKeys = keys;
-    final busy = _writing;
-    if (busy != _busy) {
-      _busy = busy;
-      widget.env.onBusyChanged(_name, busy: busy);
-    }
     _maybeLoadModels();
     setState(() {});
   }
@@ -211,7 +203,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   }
 
   Future<void> _install(String key) async {
-    if (_installs.busy || widget.env.switchBusy) return;
+    if (_installs.busy || _locked) return;
     final repository = widget.env.repository;
     final confirmed = await widget.env.ask(
       toolsetInstallStepQuestion(context.l10n),
@@ -236,28 +228,58 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   Future<void> _openModels(String provider) async {
     final catalog = _setup.models;
     if (catalog == null || !catalog.hasModels) return;
+    final profile = widget.env.repository.profile;
     await showAdaptiveSheet<void>(
       context,
       maxWidth: 440,
-      builder: (sheet) => ListenableBuilder(
-        listenable: _setup,
-        builder: (_, _) {
-          final models = _setup.models ?? catalog;
-          return SafeArea(
-            child: ToolsetModelSheet(
-              models: models.models,
-              current: models.current,
-              defaultModel: models.defaultModel,
-              provider: provider,
-              onPick: (id) {
-                if (!widget.env.switchBusy) unawaited(_setup.pickModel(id));
-              },
-              onDone: () => Navigator.of(sheet).pop(),
-            ),
-          );
-        },
-      ),
+      builder: (sheet) {
+        _sheetRoute = ModalRoute.of(sheet);
+        _sheetNavigator = Navigator.of(sheet);
+        return ListenableBuilder(
+          listenable: _setup,
+          builder: (_, _) {
+            final models = _setup.models ?? catalog;
+            return SafeArea(
+              child: ToolsetModelSheet(
+                models: models.models,
+                current: models.current,
+                defaultModel: models.defaultModel,
+                provider: provider,
+                onPick: (id) {
+                  // A late tap sends nothing: the panel went, the profile
+                  // changed, or the switch is being written.
+                  if (!mounted ||
+                      widget.env.repository.profile != profile ||
+                      _locked) {
+                    return;
+                  }
+                  unawaited(_setup.pickModel(id));
+                },
+                onDone: () => Navigator.of(sheet).pop(),
+              ),
+            );
+          },
+        );
+      },
     );
+    _sheetRoute = null;
+    _sheetNavigator = null;
+  }
+
+  Route<dynamic>? _sheetRoute;
+  NavigatorState? _sheetNavigator;
+
+  /// Takes the model list down with the panel (a profile change closes the
+  /// details page under it).
+  void _closeModelSheet() {
+    final route = _sheetRoute;
+    final navigator = _sheetNavigator;
+    _sheetRoute = null;
+    _sheetNavigator = null;
+    if (route == null || navigator == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (navigator.mounted && route.isActive) navigator.removeRoute(route);
+    });
   }
 
   // ---- building ----
@@ -445,9 +467,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
           child: ToolsInstallButton(
             needsSetup: true,
             anotherRunning: _installs.busy,
-            onPressed: widget.env.switchBusy
-                ? null
-                : () => unawaited(_install(step)),
+            onPressed: _locked ? null : () => unawaited(_install(step)),
           ),
         ),
       );
@@ -459,7 +479,10 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
       context,
       config,
       selected,
-      showInstallAgain: step != null && !fillInstall && !active,
+      // With a key still to type the step waits: it is offered once the key
+      // is saved.
+      showInstallAgain:
+          step != null && !fillInstall && !active && !editableKeys,
       installRan: selected?.status == ToolsetProviderStatus.ready,
     );
     if (advanced.isNotEmpty) {
@@ -547,16 +570,19 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     final step = selected?.postSetup;
     if (showInstallAgain && step != null) {
       out.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: ToolsInstallButton(
-            needsSetup: false,
-            again: installRan,
-            anotherRunning: _installs.busy,
-            onPressed: widget.env.switchBusy
-                ? null
-                : () => unawaited(_install(step)),
-          ),
+        GroupedSection(
+          header: l10n.toolsInstallHeader,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: ToolsInstallButton(
+                needsSetup: false,
+                again: installRan,
+                anotherRunning: _installs.busy,
+                onPressed: _locked ? null : () => unawaited(_install(step)),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -710,7 +736,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
         return InstallProgress(
           phase: InstallPhase.failed,
           lines: lines,
-          onTryAgain: key == null || _installs.busy
+          onTryAgain: key == null || _installs.busy || _locked
               ? null
               : () => unawaited(_install(key)),
         );

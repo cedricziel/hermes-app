@@ -8,6 +8,7 @@ import '../theme/breakpoints.dart';
 import 'hermes_tools_repository.dart';
 import 'toolset_copy.dart';
 import 'toolset_installs.dart';
+import 'tools_setup_registry.dart';
 
 /// Whether there is no pull to refresh: on a desktop platform (macOS,
 /// Windows, Linux) or in a window wide enough for the details beside the
@@ -86,8 +87,8 @@ class ToolsPanelEnv {
     required this.ask,
     required this.launchLink,
     required this.refresh,
+    required this.registry,
     required this.onWritten,
-    required this.onBusyChanged,
     this.botScreen,
     this.lock,
     this.switchBusy = false,
@@ -103,12 +104,12 @@ class ToolsPanelEnv {
   final ToolsLinkLauncher launchLink;
   final ToolsRefresh refresh;
 
+  /// The controllers of the setup, which outlive the panels; they hold the
+  /// write lock of a toolset and report it.
+  final ToolsSetupRegistry registry;
+
   /// A setup write landed: the screen reads the list again.
   final VoidCallback onWritten;
-
-  /// A setup write of the toolset started or ended; its switch is disabled
-  /// while one is out.
-  final void Function(String toolset, {required bool busy}) onBusyChanged;
   final ToolsBotScreenLink? botScreen;
 
   /// App Lock, which clears typed keys when it locks.
@@ -125,8 +126,8 @@ class ToolsPanelEnv {
     ask: ask,
     launchLink: launchLink,
     refresh: refresh,
+    registry: registry,
     onWritten: onWritten,
-    onBusyChanged: onBusyChanged,
     botScreen: botScreen,
     lock: lock,
     switchBusy: busy,
