@@ -36,12 +36,14 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     Breadcrumbs breadcrumbs = Breadcrumbs.none,
     DateTime Function()? now,
     Future<void> Function(Duration)? delay,
+    bool Function()? covered,
   }) : _repository = repository,
        _care = care,
        _telemetry = telemetry,
        _breadcrumbs = breadcrumbs,
        _now = now ?? DateTime.now,
-       _delay = delay ?? Future<void>.delayed;
+       _delay = delay ?? Future<void>.delayed,
+       _covered = covered;
 
   /// How long the child's status is read for.
   static const waitWindow = Duration(seconds: 30);
@@ -57,6 +59,10 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   final Breadcrumbs _breadcrumbs;
   final DateTime Function() _now;
   final Future<void> Function(Duration) _delay;
+
+  /// Whether App Lock covers the app: Hermes' words about a failed run are
+  /// not kept then.
+  final bool Function()? _covered;
 
   GatewayPhase _phase = GatewayPhase.idle;
   GatewayAction? _action;
@@ -288,7 +294,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       started,
       returnWindow,
       sawDown: sawDown || exitedClean,
-      watch: name,
+      watch: exitedClean ? null : name,
     );
   }
 
@@ -320,6 +326,11 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
             returnWindow,
             sawDown: sawDown,
             watch: name,
+            // The action registry is per dashboard, not per profile: after a
+            // lost answer the child seen running may belong to another
+            // profile's run, so its exit 0 proves nothing about this one. A
+            // failure still ends the run.
+            exitZeroCounts: false,
           );
         }
       }
@@ -350,19 +361,25 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     Duration window, {
     required bool sawDown,
     CareAction? watch,
+    bool exitZeroCounts = true,
   }) async {
     _enter(GatewayPhase.returning);
     var lastBack = false;
+    var watching = watch != null;
     while (true) {
-      if (watch != null && !sawDown) {
-        final action = await _repository.actionStatus(watch, lines: 40);
+      // The child is read until it ended, whether or not the gateway was
+      // seen down: a child that fails with the gateway stopped is a failed
+      // run with its reason, not a slow one.
+      if (watching) {
+        final action = await _repository.actionStatus(watch!, lines: 40);
         if (disposed) return null;
         if (action case CareOk(:final value) when !value.running) {
+          watching = false;
           final code = value.exitCode;
           if (code != null && code != 0) {
             return _fail(GatewayFailure.exited, _tail(value.lines));
           }
-          if (code == 0) sawDown = true;
+          if (code == 0 && exitZeroCounts) sawDown = true;
         }
       }
       final gateway = await _repository.status(profile: profile);
@@ -401,7 +418,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
 
   String _fail(GatewayFailure failure, String? message) {
     _failure = failure;
-    _message = message;
+    _message = (_covered?.call() ?? false) ? null : message;
     _enter(GatewayPhase.failed);
     return failure == GatewayFailure.refused ? 'refused' : 'failed';
   }

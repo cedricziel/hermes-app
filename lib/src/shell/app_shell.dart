@@ -261,6 +261,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _chatProfiles?.addListener(_followServerCareProfile);
       care.lookUpProfile = _resolveServerCareProfile;
       _gatewayRun = GatewayRestart(
+        covered: () => _appLock?.covered ?? false,
         repository: repositories.serverCare,
         care: care,
         telemetry: repositories.telemetry,

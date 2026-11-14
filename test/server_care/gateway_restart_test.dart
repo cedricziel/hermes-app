@@ -279,6 +279,68 @@ void main() {
     expect(care.gatewayBusy, isFalse);
   });
 
+  test('after a lost answer a running child that exits 0 does not prove the '
+      'restart (it may be another profile\'s)', () async {
+    server.onRequest('POST', '/api/gateway/restart', (r) {
+      throw DioException.connectionError(requestOptions: r, reason: 'dropped');
+    });
+    var reads = 0;
+    server.onRequest(
+      'GET',
+      '/api/actions/gateway-restart/status',
+      (_) => (
+        status: 200,
+        body: reads++ == 0
+            ? action('gateway-restart', running: true)
+            : action('gateway-restart', exit: 0),
+      ),
+    );
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.phase, GatewayPhase.slow);
+    expect(gateway.unconfirmed, isTrue);
+  });
+
+  test('a child seen running after a lost start that then fails ends failed '
+      'even with the gateway stopped', () async {
+    server.onRequest('POST', '/api/gateway/start', (r) {
+      throw DioException.connectionError(requestOptions: r, reason: 'dropped');
+    });
+    server.on('GET', '/api/status', status(running: false, state: 'stopped'));
+    var reads = 0;
+    server.onRequest(
+      'GET',
+      '/api/actions/gateway-start/status',
+      (_) => (
+        status: 200,
+        body: reads++ == 0
+            ? action('gateway-start', running: true)
+            : action('gateway-start', exit: 1, lines: ['no token']),
+      ),
+    );
+    await gateway.run(GatewayAction.start, profile: 'work');
+    expect(gateway.phase, GatewayPhase.failed);
+    expect(gateway.message, 'no token');
+  });
+
+  test(
+    'a failed run keeps no text of Hermes while App Lock covers the app',
+    () async {
+      gateway.dispose();
+      gateway = GatewayRestart(
+        repository: ServerCareRepository(server.client()),
+        now: () => clock,
+        delay: (d) async => clock = clock.add(d),
+        covered: () => true,
+      );
+      server.on('POST', '/api/gateway/restart', {
+        'detail': 'needs root on the host',
+      }, status: 500);
+      await gateway.run(GatewayAction.restart, profile: 'work');
+      expect(gateway.phase, GatewayPhase.failed);
+      expect(gateway.message, isNull);
+    },
+  );
+
   test('a press after the outcome starts a new run', () async {
     await gateway.run(GatewayAction.restart, profile: 'work');
     expect(gateway.busy, isFalse);
