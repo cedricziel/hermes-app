@@ -208,6 +208,28 @@ void main() {
       });
     });
 
+    test('until the retried stream shows a picture it is waiting, with no '
+        'old picture and no input', () {
+      scenario(() {
+        gateway.drop();
+        settle();
+
+        unawaited(viewer.takeOver());
+        settle();
+
+        expect(channels, hasLength(2));
+        expect(viewer.control, BotScreenControl.inControl);
+        expect(viewer.phase, BotScreenViewerPhase.connecting);
+        expect(viewer.framebuffer, isNull);
+        expect(viewer.input, isNull);
+
+        handshake();
+        expect(viewer.phase, BotScreenViewerPhase.live);
+        expect(viewer.framebuffer, isNotNull);
+        expect(viewer.input, isNotNull);
+      });
+    });
+
     test('a take over whose retry is refused still follows the new id with '
         'its stream, so a later one holds the lease on the stream it uses', () {
       scenario(() {
@@ -890,6 +912,29 @@ void main() {
 
         expect(channels, hasLength(streams));
         expect(server.holder, 'agent');
+      });
+    });
+
+    test('in control with the stream paused and the connection gone, it '
+        'still gives the lease back within the budget', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        viewer.foreground = false;
+        settle();
+        expect(channel.sentCloseCode, kCloseKeepingControl);
+        gateway.drop();
+        settle();
+
+        unawaited(viewer.shutDown('sign_out'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(server.holder, 'agent');
+        expect(channels, hasLength(1));
+        expect(logged.last, 'bot_screen.handback {reason: sign_out}');
+        expect(count(logged, 'bot_screen.takeover'), 1);
       });
     });
 
