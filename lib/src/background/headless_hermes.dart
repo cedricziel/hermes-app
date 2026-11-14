@@ -403,7 +403,14 @@ class _Run {
       refreshRemote: true,
       pending: pending,
     );
-    annotations['snapshot.sources_failed'] = built.sourcesFailed;
+    annotations
+      ..['snapshot.sources_failed'] = built.sourcesFailed
+      // A later build in the same run must not keep an earlier one's list.
+      ..remove('snapshot.sources_errored')
+      ..remove('snapshot.sources_timed_out');
+    for (final MapEntry(:key, :value) in built.failures.attributes.entries) {
+      annotations['snapshot.$key'] = value;
+    }
     return store.writeIfCurrent(
       built.snapshot,
       appLockOn: _deps.appLockOn ?? AppLockController.savedEnabled,

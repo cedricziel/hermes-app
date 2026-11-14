@@ -5,20 +5,60 @@ import '../schedules/schedule_models.dart';
 import 'chat_hints.dart';
 import 'surface_snapshot.dart';
 
-/// A built snapshot and how many of its sources could not be read.
-typedef SnapshotBuild = ({SurfaceSnapshot snapshot, int sourcesFailed});
+/// A built snapshot and the sources it could not read: [SourceFailures]
+/// names them, and `sourcesFailed` counts every failed read (one per profile
+/// whose chats failed).
+typedef SnapshotBuild = ({
+  SurfaceSnapshot snapshot,
+  int sourcesFailed,
+  SourceFailures failures,
+});
+
+/// Which sources of a build failed, by slug (`profiles`, `chats`, `kanban`,
+/// `schedules`), split by why: [errored] threw or answered with an error,
+/// [timedOut] was still running when the build's budget ran out. A budget
+/// cut short is expected when the app goes to the background (the pause
+/// build has 800 ms before iOS suspends it), so only [errored] makes a build
+/// fail; a timed-out source just keeps its previous section.
+class SourceFailures {
+  const SourceFailures({this.errored = const {}, this.timedOut = const {}});
+
+  final Set<String> errored;
+  final Set<String> timedOut;
+
+  bool get isEmpty => errored.isEmpty && timedOut.isEmpty;
+
+  /// `ok`, `partial` (only time-outs) or `error`: the span's `outcome`.
+  String get outcome => errored.isNotEmpty
+      ? 'error'
+      : timedOut.isNotEmpty
+      ? 'partial'
+      : 'ok';
+
+  /// The span attributes that name the failed sources: sorted,
+  /// comma-separated slugs, left out when there are none.
+  Map<String, Object> get attributes => {
+    'outcome': outcome,
+    if (errored.isNotEmpty) 'sources_errored': _join(errored),
+    if (timedOut.isNotEmpty) 'sources_timed_out': _join(timedOut),
+  };
+
+  static String _join(Set<String> slugs) => (slugs.toList()..sort()).join(',');
+}
 
 /// What a job without a name of its own is called: its prompt is never used,
 /// since the snapshot must not carry what the user asked for.
 const kUnnamedJobLabel = 'Scheduled task';
 
 /// How one source answered: [value] when [ok], nothing when it failed or
-/// took too long.
+/// [timedOut].
 class _Read<T> {
-  const _Read.ok(this.value) : ok = true;
-  const _Read.failed() : ok = false, value = null;
+  const _Read.ok(this.value) : ok = true, timedOut = false;
+  const _Read.failed() : ok = false, timedOut = false, value = null;
+  const _Read.timedOut() : ok = false, timedOut = true, value = null;
 
   final bool ok;
+  final bool timedOut;
   final T? value;
 }
 
@@ -62,6 +102,12 @@ class SurfaceSnapshotBuilder {
     var kanban = previous?.kanban;
     var schedules = previous?.schedules;
     var failed = 0;
+    final errored = <String>{};
+    final timedOut = <String>{};
+    void fail(String source, _Read<Object?> read) {
+      failed++;
+      (read.timedOut ? timedOut : errored).add(source);
+    }
 
     if (refreshRemote) {
       final deadline = Completer<void>();
@@ -71,10 +117,10 @@ class SurfaceSnapshotBuilder {
         deadline.complete();
       });
       Future<_Read<T>> read<T>(Future<T> Function() source) {
-        if (expired) return Future.value(const _Read.failed());
+        if (expired) return Future.value(_Read<T>.timedOut());
         return Future.any([
           _read(source),
-          deadline.future.then((_) => _Read<T>.failed()),
+          deadline.future.then((_) => _Read<T>.timedOut()),
         ]);
       }
 
@@ -97,9 +143,11 @@ class SurfaceSnapshotBuilder {
                     ? read.value!
                     : [...kept.where((c) => c.profile == toRead[index])],
             ];
-            failed += reads.where((read) => !read.ok).length;
+            for (final read in reads) {
+              if (!read.ok) fail('chats', read);
+            }
           } else {
-            failed++;
+            fail('profiles', names);
           }
         }
 
@@ -111,12 +159,12 @@ class SurfaceSnapshotBuilder {
         if (kanbanRead.ok) {
           kanban = kanbanRead.value;
         } else {
-          failed++;
+          fail('kanban', kanbanRead);
         }
         if (schedulesRead.ok) {
           schedules = schedulesRead.value;
         } else {
-          failed++;
+          fail('schedules', schedulesRead);
         }
       } finally {
         timer.cancel();
@@ -176,6 +224,7 @@ class SurfaceSnapshotBuilder {
     return (
       snapshot: redact ? snapshot.redacted() : snapshot,
       sourcesFailed: failed,
+      failures: SourceFailures(errored: errored, timedOut: timedOut),
     );
   }
 

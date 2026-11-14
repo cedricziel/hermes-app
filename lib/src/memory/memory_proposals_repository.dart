@@ -107,6 +107,11 @@ class MemoryProposalsRepository {
         span?.setAttribute('count', read.proposals.length);
       }
       span?.setAttribute('outcome', read.status.name);
+      // A read that could not reach Hermes is an error span, so it can be
+      // found by status; an unsupported or unreadable answer is not.
+      if (read.status == ProposalReadStatus.failed) {
+        span?.setStatus(StatusCode.error);
+      }
       span?.end();
     });
     return read;
@@ -126,6 +131,7 @@ class MemoryProposalsRepository {
     } finally {
       _quiet(() {
         span?.setAttribute('outcome', outcome);
+        if (outcome == 'failed') span?.setStatus(StatusCode.error);
         span?.end();
       });
     }
