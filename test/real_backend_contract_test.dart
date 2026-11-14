@@ -116,7 +116,11 @@ import 'support/attachment_fixtures.dart';
 /// keeps the deleted profile's state open, so a second run against the same
 /// backend fails ("Named profile home does not exist") until it restarts.
 /// The server files tests only read: they list, read and download files in
-/// the folder the dashboard runs in, and write nothing on the backend.
+/// the folder the dashboard runs in, and in a folder they make in the system
+/// temp directory (or under `HERMES_DEV_FILES_ROOT`), and write nothing on
+/// the backend. `HERMES_DEV_HOME` (the backend's state folder) enables the
+/// live-database check, which opens a gateway session and closes it. The
+/// working directory tests create a project over the gateway and delete it.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -127,6 +131,7 @@ void main() {
           : 'set HERMES_DEV_MODEL_CALLS=1 to make real model calls');
 
   late HermesApiClient client;
+  String? sessionToken;
 
   setUpAll(() async {
     if (url == null) return;
@@ -134,6 +139,7 @@ void main() {
     final token = RegExp(r'__HERMES_SESSION_TOKEN__="([^"]+)"')
         .firstMatch(page.data ?? '')
         ?.group(1);
+    sessionToken = token;
     client = HermesApiClient(
       Dio(
         BaseOptions(baseUrl: url, headers: {'X-Hermes-Session-Token': ?token}),
@@ -1314,6 +1320,97 @@ void main() {
       );
     }, skip: skip);
 
+    test('fs/list hides what Hermes hides, shows a symlinked folder as a file '
+        'and still lists through it; complete.path follows the link', () async {
+      await Link('${root.path}/linked').create(inner);
+      await Directory('${root.path}/.git').create();
+      await Directory('${root.path}/node_modules').create();
+      await Directory('${root.path}/.hiddendir').create();
+      await File('${root.path}/.env').writeAsString('SECRET=1');
+      await File('${root.path}/.dotnote').writeAsString('x');
+
+      final raw =
+          ((await client.raw.fsListApiFsListGet(
+                    path: root.path,
+                    profile: 'default',
+                  )).data!
+                  as Map)
+              .cast<String, Object?>();
+      final rows = {
+        for (final row in (raw['entries'] as List).cast<Map>())
+          row['name'] as String: row.cast<String, Object?>(),
+      };
+      expect(
+        rows.keys,
+        containsAll(['inner', 'linked', 'note.txt', '.dotnote', '.hiddendir']),
+      );
+      for (final hidden in ['.git', 'node_modules', '.env']) {
+        expect(rows.keys, isNot(contains(hidden)));
+      }
+      expect(rows['inner']!['isDirectory'], isTrue);
+      expect(rows['linked']!['isDirectory'], isFalse, reason: 'the symlink');
+      expect(rows['inner']!['path'], '${root.path}/inner');
+
+      final folders = value(await workspaces.listFolders(root.path)).folders
+          .map((f) => f.name);
+      expect(folders, unorderedEquals(['inner', '.hiddendir']));
+      // The link's own path lists its target.
+      expect(
+        value(await workspaces.listFolders('${root.path}/linked')).folders,
+        isEmpty,
+      );
+      final typed = value(await workspaces.complete('${root.path}/lin'));
+      expect(typed.folders.map((s) => s.text), ['${root.path}/linked/']);
+    }, skip: skip);
+
+    test('a project made over the gateway is in the catalog with its folders '
+        'and a chat started inside it reports it', () async {
+      final made = await rpc.request('projects.create', {
+        'profile': 'default',
+        'name': 'contract-check-project',
+        'folders': [root.path, inner],
+      });
+      final id = ((made['project']! as Map)['id']) as String;
+      addTearDown(
+        () => rpc
+            .request('projects.delete', {'profile': 'default', 'id': id})
+            .then((_) {}, onError: (Object _) {}),
+      );
+
+      final raw =
+          ((await client.raw.getChatWorkspacesApiChatWorkspacesGet(
+                    profile: 'default',
+                  )).data!
+                  as Map)
+              .cast<String, Object?>();
+      final row = (raw['projects'] as List).cast<Map>().singleWhere(
+        (p) => p['id'] == id,
+      );
+      expect(row['name'], 'contract-check-project');
+      expect(row['slug'], isA<String>());
+      expect(row['archived'], isFalse);
+      expect(row['primary_path'], root.path);
+      expect((row['folders'] as List).cast<Map>().map((f) => f['path']), [
+        root.path,
+        inner,
+      ]);
+      expect((row['folders'] as List).cast<Map>().first['is_primary'], isTrue);
+
+      final catalog = value(await workspaces.catalog(profile: 'default'));
+      final project = catalog.projects.singleWhere((p) => p.id == id);
+      expect(project.folders.map((f) => f.path), [root.path, inner]);
+      expect(project.folders.first.isPrimary, isTrue);
+
+      final created = await create({'cwd': inner, 'cwd_explicit': true});
+      final info = infoOf(created);
+      expect(info['cwd'], inner);
+      expect(info['branch'], isA<String>());
+      final bound = (info['project']! as Map).cast<String, Object?>();
+      expect(bound['id'], id);
+      expect(bound['name'], 'contract-check-project');
+      expect(bound['primary_path'], root.path);
+    }, skip: skip);
+
     test('complete.path with an absolute word lists folders', () async {
       final got = value(await workspaces.complete('${root.path}/in'));
       expect(got.folders.map((s) => s.text), ['${root.path}/inner/']);
@@ -1344,31 +1441,64 @@ void main() {
       );
 
       // Not through the repository, which would refuse it without asking.
+      // The server reads a relative path against its own folder: 4017.
       await expectLater(
         rpc.request('session.workspace.move', {
           'session_key': stored,
           'cwd': 'inner',
           'profile': 'default',
         }),
-        throwsA(isA<GatewayRpcException>()),
+        throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', 4017)),
       );
       failedWith(
         await workspaces.moveWorkspace(stored, '${root.path}/missing'),
         WorkspacesFailure.notFound,
       );
+      failedWith(
+        await workspaces.moveWorkspace('20200101_000000_ffffff', inner),
+        WorkspacesFailure.sessionGone,
+      );
+      failedWith(
+        await workspaces.moveWorkspace(
+          stored,
+          inner,
+          profile: 'contract-check-missing',
+        ),
+        WorkspacesFailure.unknownProfile,
+      );
+      // Outside a repository the answer's branch and git_repo_root are empty
+      // strings, which the app reads as none.
+      final rawMoved = await rpc.request('session.workspace.move', {
+        'session_key': stored,
+        'cwd': root.path,
+        'profile': 'default',
+      });
+      expect(rawMoved['cwd'], root.path);
+      expect(rawMoved['branch'], isA<String>());
+      expect(rawMoved['git_repo_root'], isA<String>());
+      final moved = value(await workspaces.moveWorkspace(stored, root.path));
+      final rawRoot = rawMoved['git_repo_root']! as String;
+      expect(moved.gitRepoRoot, rawRoot.isEmpty ? isNull : rawRoot);
+      final rawBranch = rawMoved['branch']! as String;
+      expect(moved.branch, rawBranch.isEmpty ? isNull : rawBranch);
     }, skip: skip);
 
-    test('a hermes_app chat created with no cwd stores the folder it '
-        'reports', () async {
+    test('a hermes_app chat created with no cwd runs in the folder the '
+        'server starts a chat in, and has no stored row until its first '
+        'message', () async {
       final created = await create({});
-      final reported = infoOf(created)['cwd'];
-      expect(reported, anyOf(isNull, isA<String>()));
-      final folder = await workspaces.sessionFolder(
-        created['stored_session_id'] as String,
+      final start =
+          ((await client.raw.fsDefaultCwdApiFsDefaultCwdGet(profile: 'default'))
+                  .data!
+              as Map)['cwd'];
+      expect(start, isA<String>());
+      expect(infoOf(created)['cwd'], start);
+      // The stored folder after a first message is read in the scripted-model
+      // group below.
+      failedWith(
+        await workspaces.sessionFolder(created['stored_session_id'] as String),
+        WorkspacesFailure.sessionGone,
       );
-      if (reported is String && folder is WorkspacesOk<SessionFolder>) {
-        expect(folder.value.cwd, reported);
-      }
     }, skip: skip);
 
     test('with the files root set, outside answers 403 with the boundary '
@@ -3589,10 +3719,9 @@ void main() {
   group('server files (read only)', () {
     // Only GETs on /api/fs: nothing is written or deleted on the backend. The
     // checks read the folder the dashboard itself runs in, so they hold on
-    // whatever files it has. The shapes are from the spec and Hermes' own
-    // tests (`test_web_server_fs.py`), not yet recorded against a live
-    // backend: cases that need a particular file (a `.env` for 403, a locked
-    // database for 409, an SSH workspace) are not covered here.
+    // whatever files it has. The cases that need a particular file (a `.env`
+    // for 403, a locked database for 409) are in the group on a made-up
+    // folder below; an SSH workspace is not covered (no second machine).
     late HermesFilesRepository files;
     late ServerPath cwd;
 
@@ -3706,6 +3835,300 @@ void main() {
     });
   }, skip: skip);
 
+  group('server files on a made-up folder (local backend)', () {
+    // Writes only into a folder this test creates (and deletes) under the
+    // system temp directory, or under HERMES_DEV_FILES_ROOT when the backend
+    // is locked to one. Needs a backend on this machine; the live-database
+    // cases also need HERMES_DEV_HOME, the backend's state folder.
+    late Directory dir;
+    late Directory proj;
+    late HermesFilesRepository files;
+    late Dio raw;
+    final filesRoot = Platform.environment['HERMES_DEV_FILES_ROOT'];
+    final home = Platform.environment['HERMES_DEV_HOME'];
+
+    T value<T>(FilesResult<T> r) {
+      expect(r, isA<FilesOk<T>>(), reason: 'the route answered: $r');
+      return (r as FilesOk<T>).value;
+    }
+
+    FilesFailure kind<T>(FilesResult<T> r) {
+      expect(r, isA<FilesFailed<T>>(), reason: 'the route answered: $r');
+      return (r as FilesFailed<T>).kind;
+    }
+
+    ServerPath at(String path) => ServerPath.tryParse(path)!;
+
+    setUp(() async {
+      if (url == null) return;
+      final parent = filesRoot == null
+          ? Directory.systemTemp
+          : Directory(filesRoot);
+      final made = await parent.createTemp('hermes-files-');
+      addTearDown(() => made.delete(recursive: true));
+      dir = Directory(made.resolveSymbolicLinksSync());
+      proj = await Directory('${dir.path}/proj').create();
+      await Directory('${proj.path}/src').create();
+      await Directory('${proj.path}/empty').create();
+      await Directory('${proj.path}/real').create();
+      await Link('${proj.path}/link').create('${proj.path}/real');
+      await Directory('${dir.path}/plain').create();
+      await File('${proj.path}/src/main.py').writeAsString('print(1)\n');
+      await File('${proj.path}/README.md').writeAsString('hi\n');
+      await File('${proj.path}/.env').writeAsString('SECRET=1\n');
+      await File('${proj.path}/blob.bin')
+          .writeAsBytes([for (var i = 0; i < 2000; i++) i % 256]);
+      await File('${proj.path}/big.txt').writeAsString('line\n' * 150000);
+      files = HermesFilesRepository(client, profile: 'default')
+        ..highestFolder = at(dir.path);
+      raw = Dio(
+        BaseOptions(
+          baseUrl: url,
+          headers: {'X-Hermes-Session-Token': ?sessionToken},
+          validateStatus: (_) => true,
+        ),
+      );
+    });
+
+    test('a listing puts folders first, shows a symlinked folder as a file, '
+        'keeps dot entries and hides secret names', () async {
+      await Directory('${proj.path}/.git').create();
+      await File('${proj.path}/.dotnote').writeAsString('x');
+      final listing = value(await files.list(at(proj.path)));
+      expect(listing.skipped, 0);
+      final byName = {for (final e in listing.entries) e.name: e};
+      expect(
+        byName.keys,
+        containsAll(['src', 'empty', 'real', 'link', 'README.md', '.dotnote']),
+      );
+      expect(byName.keys, isNot(contains('.env')));
+      expect(byName.keys, isNot(contains('.git')));
+      expect(byName['link']!.isDirectory, isFalse, reason: 'the symlink');
+      expect(byName['real']!.isDirectory, isTrue);
+      final names = listing.entries.map((e) => e.name).toList();
+      final lastFolder = listing.entries.lastIndexWhere((e) => e.isDirectory);
+      final firstFile = listing.entries.indexWhere((e) => !e.isDirectory);
+      expect(lastFolder, lessThan(firstFile), reason: '$names');
+      expect(byName['README.md']!.path.value, '${proj.path}/README.md');
+    });
+
+    test('an empty folder is an empty listing, a symlink path lists its '
+        'target, a missing folder and a file are failures', () async {
+      expect(
+        value(await files.list(at('${proj.path}/empty'))).entries,
+        isEmpty,
+      );
+      await File('${proj.path}/real/inside.txt').writeAsString('x');
+      expect(
+        value(await files.list(at('${proj.path}/link'))).entries
+            .map((e) => e.name),
+        ['inside.txt'],
+      );
+      expect(
+        kind(await files.list(at('${proj.path}/nope'))),
+        FilesFailure.missing,
+      );
+      expect(
+        kind(await files.list(at('${proj.path}/README.md'))),
+        FilesFailure.notAFile,
+      );
+    });
+
+    test('read-text: text, truncated, binary, and every refusal', () async {
+      final md = value(await files.readText(at('${proj.path}/README.md')));
+      expect(md.text, 'hi\n');
+      expect(md.language, 'markdown');
+      expect(md.byteSize, 3);
+      expect(md.truncated, isFalse);
+      expect(md.binary, isFalse);
+
+      final big = value(await files.readText(at('${proj.path}/big.txt')));
+      expect(big.byteSize, 750000);
+      expect(big.truncated, isTrue);
+      expect(utf8.encode(big.text), hasLength(512 * 1024));
+
+      final bin = value(await files.readText(at('${proj.path}/blob.bin')));
+      expect(bin.binary, isTrue);
+      expect(bin.byteSize, 2000);
+
+      expect(
+        kind(await files.readText(at('${proj.path}/src'))),
+        FilesFailure.notAFile,
+      );
+      expect(
+        kind(await files.readText(at('${proj.path}/link'))),
+        FilesFailure.notAFile,
+        reason: 'a symlinked folder is a directory to stat',
+      );
+      expect(
+        kind(await files.readText(at('${proj.path}/.env'))),
+        // A locked deployment answers a secret name with the boundary 403.
+        filesRoot == null ? FilesFailure.notAllowed : FilesFailure.fixedFolder,
+      );
+      expect(
+        kind(await files.readText(at('${proj.path}/nope.txt'))),
+        FilesFailure.missing,
+      );
+    });
+
+    test('download names the file and its length, and refuses a secret, a '
+        'folder and a missing file', () async {
+      final out = File('${dir.path}/out');
+      final sink = out.openWrite();
+      final result = await files.download(
+        at('${proj.path}/README.md'),
+        sink: sink,
+      );
+      await sink.close();
+      final done = value(result);
+      expect(done.declined, isFalse);
+      expect(out.readAsStringSync(), 'hi\n');
+      expect(done.contentLength, 3);
+
+      final headers = await raw.get<List<int>>(
+        '/api/fs/download',
+        queryParameters: {
+          'path': '${proj.path}/README.md',
+          'profile': 'default',
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+      expect(headers.statusCode, 200);
+      expect(headers.headers.value('content-length'), '3');
+      expect(
+        headers.headers.value('content-disposition'),
+        'attachment; filename="README.md"',
+      );
+
+      for (final (name, status) in [
+        ('.env', 403),
+        ('src', 400),
+        ('nope', 404),
+      ]) {
+        final r = await raw.get<Object>(
+          '/api/fs/download',
+          queryParameters: {'path': '${proj.path}/$name', 'profile': 'default'},
+        );
+        expect(r.statusCode, status, reason: name);
+        expect((r.data as Map)['detail'], isA<String>());
+      }
+    });
+
+    test(
+      'a database a live connection holds is 409 on read-text and '
+      'download',
+      () async {
+        final db = '$home/state.db';
+        final rpc = GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        );
+        addTearDown(rpc.close);
+        final created = await rpc.request('session.create', {
+          'profile': 'default',
+          'source': 'hermes_app',
+        });
+        addTearDown(
+          () => rpc
+              .request('session.close', {'session_id': created['session_id']})
+              .then((_) {}, onError: (Object _) {}),
+        );
+
+        final any = HermesFilesRepository(client, profile: 'default');
+        expect(kind(await any.readText(at(db))), FilesFailure.busy);
+        final sink = File('${dir.path}/db').openWrite();
+        final download = await any.download(at(db), sink: sink);
+        await sink.close();
+        expect(kind(download), FilesFailure.busy);
+        final r = await raw.get<Object>(
+          '/api/fs/download',
+          queryParameters: {'path': db, 'profile': 'default'},
+        );
+        expect(r.statusCode, 409);
+        expect((r.data as Map)['detail'], contains('connection'));
+      },
+      skip: home == null
+          ? 'set HERMES_DEV_HOME'
+          : filesRoot != null
+          ? 'the state folder is outside the files root'
+          : null,
+    );
+
+    test('with the files root set, the start folder is outside it: its first '
+        'list is the fixed-folder 403, git-root and default-cwd still answer, '
+        'and a folder inside lists', () async {
+      final any = HermesFilesRepository(client, profile: 'default');
+      final start = value(await any.defaultCwd());
+      expect(start.isWithin(at(filesRoot!)), isFalse);
+      expect(kind(await any.list(start)), FilesFailure.fixedFolder);
+      expect(kind(await any.readText(start)), FilesFailure.fixedFolder);
+      expect(value(await any.gitRoot(start)), anyOf(isNull, isA<ServerPath>()));
+      expect(value(await any.list(at(proj.path))).entries, isNotEmpty);
+    }, skip: filesRoot == null ? 'set HERMES_DEV_FILES_ROOT' : null);
+
+    test('a profile the server does not have is 404 with the profile in the '
+        'detail, an invalid name is 400', () async {
+      Future<Response<Object>> list(String profile) => raw.get<Object>(
+        '/api/fs/list',
+        queryParameters: {'path': proj.path, 'profile': profile},
+      );
+      final missing = await list('contract-check-missing-profile');
+      expect(missing.statusCode, 404);
+      expect(
+        (missing.data as Map)['detail'],
+        startsWith("Profile 'contract-check-missing-profile'"),
+      );
+      final invalid = await list('../bad name');
+      expect(invalid.statusCode, 400);
+      expect((invalid.data as Map)['detail'], isA<String>());
+
+      final other = HermesFilesRepository(client, profile: '../bad name');
+      expect(kind(await other.list(at(proj.path))), FilesFailure.badRequest);
+      final ghost = HermesFilesRepository(
+        client,
+        profile: 'contract-check-missing-profile',
+      );
+      expect(kind(await ghost.defaultCwd()), FilesFailure.badRequest);
+    });
+
+    test('default-cwd is the same with or without a profile, git-root finds '
+        'the nearest repository and answers null outside one', () async {
+      final start = value(await files.defaultCwd());
+      final bare =
+          ((await client.raw.fsDefaultCwdApiFsDefaultCwdGet()).data! as Map)
+              .cast<String, Object?>();
+      expect(bare['cwd'], start.value);
+      expect(bare['branch'], isA<String>());
+
+      await Directory('${proj.path}/.git').create();
+      expect(
+        value(await files.gitRoot(at('${proj.path}/src')))?.value,
+        proj.path,
+      );
+      expect(value(await files.gitRoot(at(proj.path)))?.value, proj.path);
+      // A path that does not exist still answers its nearest repository.
+      expect(
+        value(await files.gitRoot(at('${proj.path}/nope')))?.value,
+        proj.path,
+      );
+      var outside = Directory('${dir.path}/plain');
+      String? ancestor;
+      for (var d = outside; d.parent.path != d.path; d = d.parent) {
+        if (Directory('${d.path}/.git').existsSync()) {
+          ancestor = d.path;
+          break;
+        }
+      }
+      expect(
+        value(await files.gitRoot(at('${dir.path}/plain')))?.value,
+        ancestor,
+      );
+    });
+  }, skip: skip);
+
   group('a throwaway profile on a scripted model (no paid model call)', () {
     final profile = 'contract-check-${DateTime.now().millisecondsSinceEpoch}';
     late Directory scratch;
@@ -3758,6 +4181,70 @@ approvals:
       addTearDown(transport.close);
       return transport;
     }
+
+    test(
+      'a hermes_app chat sent with no folder stores the folder it ran in, '
+      'and moving the stored chat shows in its row',
+      () async {
+        final transport = connect();
+        final rpc = GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        );
+        addTearDown(rpc.close);
+        final workspaces = HermesWorkspacesRepository(
+          client.raw,
+          rpc.requestWithin,
+        );
+
+        final events = await transport
+            .send(profile: profile, text: 'Say hello.')
+            .toList();
+        expect((events.last as ReplyCompleted).failed, isFalse);
+        final id = events.whereType<ThreadBound>().single.threadId;
+        final bound = events.whereType<WorkspaceBound>().single;
+
+        // The catalog's default_cwd is where the profile's chats run. For a
+        // named profile that is its own folder, while fs/default-cwd (the
+        // Files page's start for a chat without a stored folder) answers the
+        // dashboard's launch folder: a gap noted in the change's design.
+        final catalog = await workspaces.catalog(profile: profile);
+        expect(
+          catalog,
+          isA<WorkspacesOk<WorkspaceCatalog>>(),
+          reason: '$catalog',
+        );
+        final defaultCwd =
+            (catalog as WorkspacesOk<WorkspaceCatalog>).value.defaultCwd;
+        final stored = await workspaces.sessionFolder(id, profile: profile);
+        expect(stored, isA<WorkspacesOk<SessionFolder>>(), reason: '$stored');
+        final folder = (stored as WorkspacesOk<SessionFolder>).value;
+        expect(folder.cwd, isNotNull);
+        expect(folder.cwd, bound.cwd);
+        expect(
+          folder.cwd,
+          defaultCwd,
+          reason: 'the folder the profile runs in',
+        );
+
+        final target = Directory('${scratch.path}/moved')..createSync();
+        final resolved = target.resolveSymbolicLinksSync();
+        final moved = await workspaces.moveWorkspace(
+          id,
+          resolved,
+          profile: profile,
+        );
+        expect(moved, isA<WorkspacesOk<MovedWorkspace>>(), reason: '$moved');
+        final after = await workspaces.sessionFolder(id, profile: profile);
+        expect(after, isA<WorkspacesOk<SessionFolder>>(), reason: '$after');
+        expect((after as WorkspacesOk<SessionFolder>).value.cwd, resolved);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
 
     test(
       'an approval offers choices the card can show, and Allow once runs '

@@ -1,0 +1,595 @@
+{
+  "source_ref": "d923a5eb",
+  "note": "Recorded from a throwaway Hermes (GET /api/fs/*) on a made-up folder; invented names, paths rewritten to /srv/demo. Source: hermes_cli/web_routers/files.py. Large and binary bodies are shortened.",
+  "cases": {
+    "list_folder": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "1331",
+        "content-type": "application/json"
+      },
+      "body": {
+        "entries": [
+          {
+            "name": ".hiddendir",
+            "path": "/srv/demo/proj/.hiddendir",
+            "isDirectory": true
+          },
+          {
+            "name": "empty",
+            "path": "/srv/demo/proj/empty",
+            "isDirectory": true
+          },
+          {
+            "name": "real",
+            "path": "/srv/demo/proj/real",
+            "isDirectory": true
+          },
+          {
+            "name": "src",
+            "path": "/srv/demo/proj/src",
+            "isDirectory": true
+          },
+          {
+            "name": ".dotnote",
+            "path": "/srv/demo/proj/.dotnote",
+            "isDirectory": false
+          },
+          {
+            "name": "big.txt",
+            "path": "/srv/demo/proj/big.txt",
+            "isDirectory": false
+          },
+          {
+            "name": "blob.bin",
+            "path": "/srv/demo/proj/blob.bin",
+            "isDirectory": false
+          },
+          {
+            "name": "link",
+            "path": "/srv/demo/proj/link",
+            "isDirectory": false
+          },
+          {
+            "name": "README.md",
+            "path": "/srv/demo/proj/README.md",
+            "isDirectory": false
+          }
+        ]
+      },
+      "note": "dir first then files, case-insensitive; .git node_modules .env hidden; .dotnote and .hiddendir shown; the symlink `link` -> real reports isDirectory false"
+    },
+    "list_through_symlink": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/link"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "14",
+        "content-type": "application/json"
+      },
+      "body": {
+        "entries": []
+      },
+      "note": "the symlink path itself lists its target"
+    },
+    "list_empty": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/empty"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "14",
+        "content-type": "application/json"
+      },
+      "body": {
+        "entries": []
+      }
+    },
+    "list_missing": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/nope"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "31",
+        "content-type": "application/json"
+      },
+      "body": {
+        "entries": [],
+        "error": "ENOENT"
+      },
+      "note": "HTTP 200 with error"
+    },
+    "list_file": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/README.md"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "32",
+        "content-type": "application/json"
+      },
+      "body": {
+        "entries": [],
+        "error": "ENOTDIR"
+      },
+      "note": "HTTP 200 with error ENOTDIR"
+    },
+    "read_text_markdown": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/README.md"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "221",
+        "content-type": "application/json"
+      },
+      "textBytes": 3,
+      "body": {
+        "binary": false,
+        "byteSize": 3,
+        "language": "markdown",
+        "mimeType": "text/markdown",
+        "path": "/srv/demo/proj/README.md",
+        "text": "hi\n",
+        "truncated": false
+      }
+    },
+    "read_text_truncated": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/big.txt"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "629357",
+        "content-type": "application/json"
+      },
+      "textBytes": 524288,
+      "body": {
+        "binary": false,
+        "byteSize": 750000,
+        "language": "text",
+        "mimeType": "text/plain",
+        "path": "/srv/demo/proj/big.txt",
+        "text": "line\nline\nline\nline\n",
+        "truncated": true
+      },
+      "note": "750000 byte file: the first 524288 bytes (textBytes); text shortened in this fixture"
+    },
+    "read_text_binary": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/blob.bin"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "4876",
+        "content-type": "application/json"
+      },
+      "textBytes": 3576,
+      "body": {
+        "binary": true,
+        "byteSize": 2000,
+        "language": "text",
+        "mimeType": "application/octet-stream",
+        "path": "/srv/demo/proj/blob.bin",
+        "text": "\u0000\u0001 [binary content omitted]",
+        "truncated": false
+      },
+      "note": "binary true, and text still carries the decoded bytes"
+    },
+    "read_text_directory": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/src"
+        }
+      },
+      "status": 400,
+      "headers": {
+        "content-length": "39",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Path points to a directory"
+      }
+    },
+    "read_text_symlinked_folder": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/link"
+        }
+      },
+      "status": 400,
+      "headers": {
+        "content-length": "39",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Path points to a directory"
+      },
+      "note": "stat follows the link: a directory"
+    },
+    "read_text_secret": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/.env"
+        }
+      },
+      "status": 403,
+      "headers": {
+        "content-length": "53",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Access to sensitive files is not allowed"
+      }
+    },
+    "read_text_missing": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/nope.txt"
+        }
+      },
+      "status": 404,
+      "headers": {
+        "content-length": "27",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "File not found"
+      }
+    },
+    "download_markdown": {
+      "request": {
+        "route": "/api/fs/download",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/README.md"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-type": "text/markdown; charset=utf-8",
+        "content-disposition": "attachment; filename=\"README.md\"",
+        "content-length": "3"
+      },
+      "bodyNote": "not JSON (a file download); first bytes omitted"
+    },
+    "download_secret": {
+      "request": {
+        "route": "/api/fs/download",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/.env"
+        }
+      },
+      "status": 403,
+      "headers": {
+        "content-length": "53",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Access to sensitive files is not allowed"
+      }
+    },
+    "download_missing": {
+      "request": {
+        "route": "/api/fs/download",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/nope"
+        }
+      },
+      "status": 404,
+      "headers": {
+        "content-length": "27",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "File not found"
+      }
+    },
+    "download_directory": {
+      "request": {
+        "route": "/api/fs/download",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/src"
+        }
+      },
+      "status": 400,
+      "headers": {
+        "content-length": "39",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Path points to a directory"
+      }
+    },
+    "list_profile_missing": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "ghost-profile",
+          "path": "/srv/demo/proj"
+        }
+      },
+      "status": 404,
+      "headers": {
+        "content-length": "52",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Profile 'ghost-profile' does not exist."
+      }
+    },
+    "list_profile_invalid": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "../bad name",
+          "path": "/srv/demo/proj"
+        }
+      },
+      "status": 400,
+      "headers": {
+        "content-length": "221",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "'../bad name' is not a valid profile name. Use lowercase letters, numbers, '-' or '_', starting with a letter or number, up to 64 characters (for example: bad-name). Then run `hermes profile create bad-name`."
+      }
+    },
+    "default_cwd": {
+      "request": {
+        "route": "/api/fs/default-cwd",
+        "query": {
+          "profile": "default"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "72",
+        "content-type": "application/json"
+      },
+      "body": {
+        "cwd": "/srv/demo/launch",
+        "branch": "main"
+      }
+    },
+    "default_cwd_profile_missing": {
+      "request": {
+        "route": "/api/fs/default-cwd",
+        "query": {
+          "profile": "ghost-profile"
+        }
+      },
+      "status": 404,
+      "headers": {
+        "content-length": "52",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Profile 'ghost-profile' does not exist."
+      }
+    },
+    "git_root_inside": {
+      "request": {
+        "route": "/api/fs/git-root",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/src"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "102",
+        "content-type": "application/json"
+      },
+      "body": {
+        "root": "/srv/demo/proj"
+      }
+    },
+    "git_root_outside": {
+      "request": {
+        "route": "/api/fs/git-root",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/plain"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "13",
+        "content-type": "application/json"
+      },
+      "body": {
+        "root": null
+      }
+    },
+    "git_root_missing_path": {
+      "request": {
+        "route": "/api/fs/git-root",
+        "query": {
+          "profile": "default",
+          "path": "/srv/demo/proj/nope"
+        }
+      },
+      "status": 200,
+      "headers": {
+        "content-length": "102",
+        "content-type": "application/json"
+      },
+      "body": {
+        "root": "/srv/demo/proj"
+      },
+      "note": "a path that does not exist still answers the root of its nearest repository"
+    },
+    "download_live_database": {
+      "request": {
+        "route": "/api/fs/download",
+        "query": {
+          "profile": "default",
+          "path": "/srv/hermes-home/state.db"
+        }
+      },
+      "status": 409,
+      "headers": {
+        "content-length": "328",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Refusing to serve /srv/hermes-home/state.db: a connection to it is still open in this process, and raw file access would cancel that connection's POSIX advisory locks. Close all database handles (stop the gateway/dashboard) and retry."
+      },
+      "note": "409 while a gateway session holds a connection to state.db"
+    },
+    "read_text_live_database": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/hermes-home/state.db"
+        }
+      },
+      "status": 409,
+      "headers": {
+        "content-length": "328",
+        "content-type": "application/json"
+      },
+      "body": {
+        "detail": "Refusing to serve /srv/hermes-home/state.db: a connection to it is still open in this process, and raw file access would cancel that connection's POSIX advisory locks. Close all database handles (stop the gateway/dashboard) and retry."
+      },
+      "note": "409 as well"
+    },
+    "locked_list_outside": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "default",
+          "path": "/srv/elsewhere"
+        }
+      },
+      "status": 403,
+      "body": {
+        "detail": "Path is outside the managed read boundary"
+      },
+      "note": "HERMES_DASHBOARD_FILES_ROOT set: every fs route except git-root and default-cwd answers 403 outside the root"
+    },
+    "locked_list_inside": {
+      "request": {
+        "route": "/api/fs/list",
+        "query": {
+          "profile": "default",
+          "path": "/srv/locked/inside"
+        }
+      },
+      "status": 200,
+      "body": {
+        "entries": [
+          {
+            "name": "a.txt",
+            "path": "/srv/locked/inside/a.txt",
+            "isDirectory": false
+          }
+        ]
+      }
+    },
+    "locked_read_text_outside": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/elsewhere/x.txt"
+        }
+      },
+      "status": 403,
+      "body": {
+        "detail": "Path is outside the managed read boundary"
+      }
+    },
+    "locked_default_cwd": {
+      "request": {
+        "route": "/api/fs/default-cwd",
+        "query": {
+          "profile": "default"
+        }
+      },
+      "status": 200,
+      "body": {
+        "cwd": "/srv/demo/launch",
+        "branch": "main"
+      },
+      "note": "the start folder is not inside the root: the first list of it is the 403"
+    },
+    "locked_git_root": {
+      "request": {
+        "route": "/api/fs/git-root",
+        "query": {
+          "profile": "default",
+          "path": "/srv/elsewhere"
+        }
+      },
+      "status": 200,
+      "body": {
+        "root": null
+      }
+    },
+    "locked_read_text_secret": {
+      "request": {
+        "route": "/api/fs/read-text",
+        "query": {
+          "profile": "default",
+          "path": "/srv/locked/inside/.env"
+        }
+      },
+      "status": 403,
+      "body": {
+        "detail": "Path is outside the managed read boundary"
+      },
+      "note": "a secret name inside the root reads as outside the boundary, not as the unlocked \"sensitive files\" 403"
+    }
+  }
+}
