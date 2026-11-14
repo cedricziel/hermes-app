@@ -102,8 +102,8 @@ class _MacMenuBarState extends State<MacMenuBar> {
   Future<void> _help() async {
     try {
       await launchUrl(_helpUrl, mode: LaunchMode.externalApplication);
-    } on Object catch (_) {
-      // Nothing to do when the browser cannot be opened.
+    } on Exception {
+      // Nothing to do when the browser cannot be opened; a bug is not hidden.
     }
   }
 

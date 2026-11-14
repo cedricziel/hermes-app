@@ -90,7 +90,7 @@ class MacDragOutSource implements DragOutSource {
       } else {
         _drags.remove(id);
       }
-    } on Object {
+    } on Exception {
       // A drag the system refuses is not started; the click still works.
       _drags.remove(id);
     }

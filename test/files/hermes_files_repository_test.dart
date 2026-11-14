@@ -83,6 +83,22 @@ void main() {
       expect(listing.skipped, 6);
     });
 
+    test('skips a row whose name is not the last part of its path', () async {
+      server.on('GET', '/api/fs/list', {
+        'entries': [
+          row('ok.txt', '/srv/p/ok.txt'),
+          row('notes.txt', '/srv/p/.env'),
+          row('a', '/srv/p/a/b'),
+        ],
+      });
+
+      final listing = ok(await repository.list(p('/srv/p')));
+
+      expect(listing.entries.map((e) => e.name), ['ok.txt']);
+      expect(listing.skipped, 2);
+      expect(listing.skippedOutside, 0);
+    });
+
     test(
       'a body that is not an object, or has no entries, is unreadable',
       () async {

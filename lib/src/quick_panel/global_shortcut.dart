@@ -45,7 +45,9 @@ class ChannelGlobalShortcut implements GlobalShortcut {
     try {
       return await _channel.invokeMethod<bool>('isSet') ?? false;
     } on Object catch (error) {
-      debugPrint('Could not read the quick panel shortcut: $error');
+      debugPrint(
+        'Could not read the quick panel shortcut: ${error.runtimeType}',
+      );
       return false;
     }
   }
