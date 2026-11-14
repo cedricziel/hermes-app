@@ -73,9 +73,15 @@ class FilesBrowserView extends StatelessWidget {
     this.onShowHidden,
     this.onUp,
     this.onGoBack,
+    this.wrapRow,
   });
 
   final FolderViewState state;
+
+  /// Puts something around a row, such as the Mac's Quick Look target and
+  /// drag out.
+  final Widget Function(BuildContext context, FileRowModel row, Widget child)?
+  wrapRow;
 
   /// Taps a row; a folder opens, a file is previewed.
   final ValueChanged<FileRowModel> onOpen;
@@ -108,6 +114,7 @@ class FilesBrowserView extends StatelessWidget {
       selected: selected,
       onOpen: onOpen,
       onTryAgain: onTryAgain,
+      wrapRow: wrapRow,
     ),
   };
 }
@@ -118,8 +125,11 @@ class _FolderList extends StatelessWidget {
     required this.selected,
     required this.onOpen,
     required this.onTryAgain,
+    required this.wrapRow,
   });
 
+  final Widget Function(BuildContext context, FileRowModel row, Widget child)?
+  wrapRow;
   final FolderViewReady ready;
   final ServerPath? selected;
   final ValueChanged<FileRowModel> onOpen;
@@ -150,13 +160,14 @@ class _FolderList extends StatelessWidget {
       itemCount: ready.rows.length,
       itemBuilder: (context, i) {
         final row = ready.rows[i];
-        return FileRow(
+        final tile = FileRow(
           key: row.path == null ? null : ValueKey(row.path),
           model: row,
           selected:
               selected != null && row.path != null && row.path == selected,
           onTap: () => onOpen(row),
         );
+        return wrapRow?.call(context, row, tile) ?? tile;
       },
     );
   }

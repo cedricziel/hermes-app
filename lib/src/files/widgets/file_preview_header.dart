@@ -149,10 +149,11 @@ class FilePreviewHeader extends StatelessWidget {
         padding: EdgeInsets.zero,
         style: files.iconButtonStyle(),
         itemBuilder: (context) => [
-          PopupMenuItem(
-            value: FilePreviewMenuChoice.openWith,
-            child: Text(l10n.filesActionOpenWith),
-          ),
+          if (onOpenWith != null)
+            PopupMenuItem(
+              value: FilePreviewMenuChoice.openWith,
+              child: Text(l10n.filesActionOpenWith),
+            ),
           PopupMenuItem(
             value: FilePreviewMenuChoice.reload,
             child: Text(l10n.filesActionReload),

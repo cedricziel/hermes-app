@@ -13,7 +13,9 @@ import 'package:hermes_app/src/files/widgets/file_preview_cover.dart';
 import 'package:hermes_app/src/files/widgets/file_preview_header.dart';
 import 'package:hermes_app/src/files/widgets/file_previews.dart';
 import 'package:hermes_app/src/files/widgets/file_row.dart';
+import 'package:hermes_app/src/files/widgets/files_activity_row.dart';
 import 'package:hermes_app/src/files/widgets/files_browser_view.dart';
+import 'package:hermes_app/src/files/widgets/files_preview_body.dart';
 import 'package:hermes_app/src/files/widgets/files_failures.dart';
 import 'package:hermes_app/src/files/widgets/files_notes.dart';
 import 'package:hermes_app/src/files/widgets/files_page_menu.dart';
@@ -1387,6 +1389,190 @@ class _FocusFirstState extends State<_FocusFirst> {
   Widget build(BuildContext context) => widget.child;
 }
 
+// -- The preview area, in every state the screen maps onto it -------------------
+
+Widget _body(FilesPreviewModel model) => Builder(
+  builder: (context) => fill(
+    FilesPreviewBody(
+      model: model,
+      callbacks: FilesPreviewCallbacks(
+        onOpen: () {},
+        onSave: () {},
+        onShare: () {},
+        onOpenWith: () {},
+        onTryAgain: () {},
+        onCancelDownload: () {},
+        onDownloadFull: () {},
+      ),
+      confirmLink: (context, host) async => true,
+      openLink: (uri) async => true,
+    ),
+  ),
+);
+
+WidgetbookComponent _previewBodyComponent() => WidgetbookComponent(
+  name: 'FilesPreviewBody',
+  useCases: [
+    _case('Nothing selected', (_) => _body(const FilesPreviewEmpty())),
+    _case('Reading a text file', (_) => _body(const FilesPreviewLoading())),
+    _case(
+      'Downloading, with a length',
+      (_) => _body(
+        const FilesPreviewLoading(
+          received: 14 * 1024 * 1024,
+          total: 30 * 1024 * 1024,
+        ),
+      ),
+    ),
+    _case(
+      'Downloading, length not known',
+      (_) => _body(const FilesPreviewLoading(received: 12 * 1024 * 1024)),
+    ),
+    _case(
+      'Markdown with its switch',
+      (_) => _body(const FilesPreviewShown(MarkdownContent(_markdown))),
+    ),
+    _case('Code', (_) => _body(const FilesPreviewShown(CodeContent(_python)))),
+    _case(
+      'Image',
+      (_) => _body(
+        FilesPreviewShown(ImageContent(_sampleImage, label: 'chart.png')),
+      ),
+    ),
+    _case(
+      'PDF: Open and Save',
+      (_) => _body(
+        const FilesPreviewDetails(
+          name: 'invoice-2026.pdf',
+          size: 218 * 1024,
+          primary: FilesDetailsActionKind.open,
+          secondary: [FilesDetailsActionKind.save],
+        ),
+      ),
+    ),
+    _case(
+      'Other file: Save, Share and Open with',
+      (_) => _body(
+        const FilesPreviewDetails(
+          name: 'export.zip',
+          primary: FilesDetailsActionKind.save,
+          secondary: [
+            FilesDetailsActionKind.share,
+            FilesDetailsActionKind.openWith,
+          ],
+        ),
+      ),
+    ),
+    _case(
+      'Windows: an executable offers Save only',
+      (_) => _body(
+        const FilesPreviewDetails(
+          name: 'setup.exe',
+          primary: FilesDetailsActionKind.save,
+        ),
+      ),
+    ),
+    _case(
+      'Too large for text',
+      (_) => _body(
+        const FilesPreviewDetails(
+          name: 'server.log',
+          size: 90 * 1024 * 1024,
+          tooLarge: true,
+          primary: FilesDetailsActionKind.save,
+        ),
+      ),
+    ),
+    _case(
+      'Could not be opened',
+      (_) => _body(const FilesPreviewFailed(FileProblem.couldntOpen)),
+    ),
+    _case(
+      'German',
+      (_) => _german(
+        _body(
+          const FilesPreviewDetails(
+            name: 'export.zip',
+            primary: FilesDetailsActionKind.save,
+            secondary: [FilesDetailsActionKind.share],
+          ),
+        ),
+      ),
+    ),
+    _case(
+      'Largest text (3x)',
+      (_) => _scaled(
+        3,
+        _body(
+          const FilesPreviewDetails(
+            name: 'export.zip',
+            primary: FilesDetailsActionKind.save,
+            secondary: [FilesDetailsActionKind.share],
+          ),
+        ),
+      ),
+    ),
+  ],
+);
+
+WidgetbookComponent _activityRowComponent() => WidgetbookComponent(
+  name: 'FilesActivityRow',
+  useCases: [
+    _case(
+      'With the folder name',
+      (_) => Builder(
+        builder: (context) => fill(
+          Align(
+            alignment: Alignment.topCenter,
+            child: FilesActivityRow(folderName: 'field-notes', onTap: () {}),
+          ),
+        ),
+      ),
+    ),
+    _case(
+      'A long folder name',
+      (_) => Builder(
+        builder: (context) => fill(
+          Align(
+            alignment: Alignment.topCenter,
+            child: FilesActivityRow(
+              folderName: 'hermes-quarterly-report-2026-final',
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    ),
+    _case(
+      'Without a folder name, German',
+      (_) => _german(
+        Builder(
+          builder: (context) => fill(
+            Align(
+              alignment: Alignment.topCenter,
+              child: FilesActivityRow(onTap: () {}),
+            ),
+          ),
+        ),
+      ),
+    ),
+    _case(
+      'Largest text (3x)',
+      (_) => _scaled(
+        3,
+        Builder(
+          builder: (context) => fill(
+            Align(
+              alignment: Alignment.topCenter,
+              child: FilesActivityRow(folderName: 'field-notes', onTap: () {}),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ],
+);
+
 WidgetbookNode filesNode() => WidgetbookFolder(
   name: 'Files',
   children: [
@@ -1396,6 +1582,8 @@ WidgetbookNode filesNode() => WidgetbookFolder(
     _notesComponent(),
     _previewHeaderComponent(),
     _previewViewComponent(),
+    _previewBodyComponent(),
+    _activityRowComponent(),
     _detailsComponent(),
     _coverComponent(),
     _progressComponent(),

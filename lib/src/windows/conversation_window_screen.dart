@@ -19,8 +19,11 @@ import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../share/shared_item.dart';
 import '../widgets/inspector_layout.dart';
+import '../files/files_telemetry.dart' show FilesOpenedFrom;
+import '../files/open_files.dart';
 import 'conversation_window_args.dart';
-import 'conversation_windows.dart' show kInspectorWindowCommand;
+import 'conversation_windows.dart'
+    show kFilesWindowCommand, kInspectorWindowCommand;
 import 'desktop_conversation_windows.dart';
 import 'widgets/conversation_window_toolbar.dart';
 
@@ -159,6 +162,12 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   void _onCommand(String command) {
     if (command == kInspectorWindowCommand) {
       if (mounted && _thread != null) _toggleActivity();
+      return;
+    }
+    if (command == kFilesWindowCommand) {
+      if (mounted && _thread != null && filesShown(context)) {
+        unawaited(openFiles(context, _chat, from: FilesOpenedFrom.menu));
+      }
       return;
     }
     final action = ThreadAction.values.asNameMap()[command];

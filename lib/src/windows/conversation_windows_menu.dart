@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../chat/widgets/thread_actions_menu.dart';
+import '../files/open_files.dart';
 import '../macos/mac_commands.dart';
 import 'conversation_windows.dart';
 
@@ -55,6 +56,9 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.copyTranscript: run(ThreadAction.copyTranscript),
               MacCommand.archiveThread: run(ThreadAction.archive),
               MacCommand.deleteThread: run(ThreadAction.delete),
+              MacCommand.showFiles: MacCommandHandler(
+                filesShown(context) ? windows.showKeyWindowFiles : null,
+              ),
               MacCommand.toggleInspector: MacCommandHandler(
                 windows.toggleKeyWindowInspector,
                 title: 'Show Inspector',

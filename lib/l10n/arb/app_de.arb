@@ -119,6 +119,8 @@
   "@@x-area-drag_out": "",
 
   "@@x-area-files": "",
+  "filesEntryLabel": "Dateien",
+  "filesPreviewLoading": "Datei wird geöffnet…",
   "filesAboutList": "Über diese Liste",
   "filesAboutListMessage": "Hermes lässt einige Dateien in dieser Liste weg, zum Beispiel Build-Ordner und config.yaml. „Versteckte Dateien anzeigen“ zeigt Namen, die mit einem Punkt beginnen, aber nicht diese. Um eine davon zu bekommen, bitte den Agenten, sie an eine Antwort anzuhängen.",
   "filesActionContinue": "Fortfahren",

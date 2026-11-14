@@ -304,6 +304,11 @@ void main() {
           'Access to sensitive files is not allowed',
           FilesFailure.notAllowed,
         ),
+        (
+          403,
+          'Path is outside the managed read boundary',
+          FilesFailure.fixedFolder,
+        ),
         (404, 'File not found', FilesFailure.missing),
         (404, "Profile 'x' does not exist.", FilesFailure.badRequest),
         (409, 'busy', FilesFailure.busy),

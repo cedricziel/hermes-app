@@ -60,6 +60,9 @@ extension _ChatScreenLayout on _ChatScreenState {
         _wide = isWide;
         final selected = chat.selectedThread;
         final bot = selected?.botContext;
+        final showFiles = selected != null && filesShown(context)
+            ? () => _showFiles(FilesOpenedFrom.header)
+            : null;
         _latestReply.follow(chat, selected);
         final showNewChatFab =
             !isWide && platformChromeOf(context) == PlatformChrome.ios;
@@ -163,6 +166,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                       onCopyTranscript: selected == null
                           ? null
                           : () => _copyTranscript(selected),
+                      onShowFiles: showFiles,
                       searchQuery: search?.query ?? '',
                       searchActive: search?.active ?? false,
                       searchFocus: _searchFocus,
@@ -180,6 +184,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                     onShowConnection: _showConnection,
                     onNewChat: _newThread,
                     callButton: _callButton,
+                    onShowFiles: showFiles,
                     activityOpen: _activityOpen,
                     onToggleActivity: selected == null ? null : _toggleActivity,
                   ),
@@ -237,6 +242,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                         thread: selected,
                         housekeeping: chat.housekeeping,
                         includeCopyTranscript: true,
+                        onShowFiles: showFiles,
                       ),
                     if (selected != null)
                       ActivityButton(open: false, onPressed: _toggleActivity),

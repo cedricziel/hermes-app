@@ -16,6 +16,7 @@ import '../macos/mac_window.dart';
 import '../quick_panel/quick_panel_app.dart';
 import '../settings/theme_controller.dart';
 import '../theme/hermes_theme.dart';
+import '../files/files_availability.dart';
 import 'conversation_window_args.dart';
 import 'conversation_window_screen.dart';
 import 'desktop_conversation_windows.dart';
@@ -66,6 +67,10 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
+        Provider<HermesRepositories?>.value(value: repositories),
+        ChangeNotifierProvider<FilesAvailability?>(
+          create: (_) => FilesAvailability.forRepositories(repositories),
+        ),
         Provider<MediaStore?>(
           lazy: false,
           create: (_) => MediaStore(

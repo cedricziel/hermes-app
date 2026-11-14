@@ -19,6 +19,7 @@ import '../support/attachment_fixtures.dart';
 import '../support/fake_files_source.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
+import '../support/fake_quick_look.dart';
 import '../support/recording_tracer.dart';
 
 const _mb = 1024 * 1024;
@@ -48,6 +49,7 @@ void main() {
   late FakeFilesSource source;
   late Directory cache;
   late FakeMediaActions actions;
+  late FakeQuickLook quickLook;
   late MediaStore media;
   late BreadcrumbTrail trail;
   late RecordingTracer tracer;
@@ -75,10 +77,12 @@ void main() {
     source = FakeFilesSource();
     cache = tempDir('files_controller');
     actions = FakeMediaActions();
+    quickLook = FakeQuickLook();
     media = MediaStore(
       source: HermesMediaSource(() => FakeHermesServer().client()),
       cacheDirectory: () async => cache,
       actions: actions,
+      quickLook: quickLook,
     );
     trail = BreadcrumbTrail();
     tracer = RecordingTracer();
@@ -1315,6 +1319,52 @@ void main() {
       expect(folders.where((n) => n.startsWith('s')), hasLength(1));
       await media.wipeSecretCopies();
       expect(cached(), hasLength(1));
+    });
+  });
+
+  group('quick look and drag out', () {
+    test('quick look downloads the selected file and shows it', () async {
+      folder([file('/srv/p/spec.pdf')]);
+      source.downloads['/srv/p/spec.pdf'] = writes([1, 2], length: 2);
+      await build().start();
+      await controller.select(controller.entries.single);
+      await controller.quickLook();
+
+      expect(quickLook.shown, endsWith('spec.pdf'));
+      expect(controller.preview, isA<PreviewDetails>());
+    });
+
+    test('a secret file asks before quick look fetches anything', () async {
+      folder([file('/srv/p/.env')]);
+      source.downloads['/srv/p/.env'] = writes([1], length: 1);
+      await build().start();
+      controller.toggleHidden();
+      await controller.select(controller.entries.single);
+      expect(controller.preview, isA<PreviewConfirmSecret>());
+      await controller.quickLook();
+      expect(source.count('download'), 0);
+      expect(quickLook.previewed, isEmpty);
+    });
+
+    test('a drag stages the file without touching the preview', () async {
+      folder([file('/srv/p/a.zip'), file('/srv/p/b.txt')]);
+      source.downloads['/srv/p/a.zip'] = writes([9, 9, 9], length: 3);
+      await build().start();
+
+      final staged = await controller.stageForDrag(controller.entries.first);
+
+      expect(staged!.readAsBytesSync(), [9, 9, 9]);
+      expect(controller.preview, isA<PreviewIdle>());
+      expect(controller.selected, isNull);
+    });
+
+    test('a secret file or a folder is not dragged', () async {
+      folder([file('/srv/p/.env'), folderEntry('/srv/p/sub')]);
+      await build().start();
+      controller.toggleHidden();
+      expect(await controller.stageForDrag(controller.entries[0]), isNull);
+      expect(await controller.stageForDrag(controller.entries[1]), isNull);
+      expect(source.count('download'), 0);
     });
   });
 }

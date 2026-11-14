@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../chat/media/media_store.dart';
+import '../chat/media/quick_look.dart' show QuickLookToggle;
 import 'files_failure.dart';
 import 'files_models.dart';
 import 'files_platform_policy.dart';
@@ -267,6 +268,10 @@ class FilesController extends ChangeNotifier {
   /// Opens a folder the server listed. One outside the highest folder is
   /// refused without a request.
   Future<void> openFolder(FsEntry entry) => _go(entry.path);
+
+  /// Opens an ancestor of the folder shown, as a path-bar segment asks. One
+  /// outside the highest folder is refused without a request.
+  Future<void> openPath(ServerPath path) => _go(path);
 
   /// Goes to the parent folder, unless [canGoUp] is false.
   Future<void> up() {
@@ -580,23 +585,68 @@ class FilesController extends ChangeNotifier {
 
   Future<void> shareFile() => _act(FileAction.share);
 
-  Future<void> _act(FileAction action, {bool allowLarge = false}) async {
+  /// Shows the selected file in the system's Quick Look panel (macOS). With
+  /// [toggle] the panel closes instead when it already shows the file.
+  Future<void> quickLook({bool toggle = false}) =>
+      _act(FileAction.quickLook, toggle: toggle);
+
+  String? _savedName;
+
+  /// The name of the file a Save just kept, returned once so the screen says
+  /// so a single time.
+  String? takeSavedName() {
+    final name = _savedName;
+    _savedName = null;
+    return name;
+  }
+
+  /// The selected file's size once a header or `read-text` said.
+  int? get knownSize => _knownSize;
+
+  /// A copy of [entry] in the cache for a drag out of the app, downloaded if
+  /// need be, or null when it must not go: a folder, a file whose name looks
+  /// secret that the user has not said Continue for, or a failed download.
+  /// It does not touch the preview. The drop is the user's action, so a large
+  /// file is not asked about.
+  Future<File?> stageForDrag(FsEntry entry) async {
+    if (_closed || entry.isDirectory) return null;
+    if (isSecret(entry) && !_secretOk.contains(entry.path.value)) return null;
+    final result = await _run(
+      entry,
+      _key(entry.path),
+      _fileGen,
+      allowLarge: true,
+      fetchToken: CancelToken(),
+    );
+    return result is _Fetched ? result.file : null;
+  }
+
+  Future<void> _act(
+    FileAction action, {
+    bool allowLarge = false,
+    bool toggle = false,
+  }) async {
     final entry = _selected;
     // A second tap while a read or download runs would drop the preview it
     // is about to return to.
     if (_closed || entry == null || _acting || _preview is PreviewLoading) {
       return;
     }
-    if (_askSecret(entry, () => _act(action))) return;
+    if (_askSecret(entry, () => _act(action, toggle: toggle))) return;
     _acting = true;
     try {
-      await _actOn(action, entry, allowLarge);
+      await _actOn(action, entry, allowLarge, toggle);
     } finally {
       _acting = false;
     }
   }
 
-  Future<void> _actOn(FileAction action, FsEntry entry, bool allowLarge) async {
+  Future<void> _actOn(
+    FileAction action,
+    FsEntry entry,
+    bool allowLarge,
+    bool toggle,
+  ) async {
     final resting =
         _resting ??
         switch (_preview) {
@@ -616,11 +666,11 @@ class FilesController extends ChangeNotifier {
       case _Fetched(:final file):
         _resting = null;
         _setPreview(resting);
-        final failure = await _finish(action, entry, file);
+        final failure = await _finish(action, entry, file, toggle);
         if (_gone(gen, _fileGen)) return;
         if (failure != null) _setPreview(PreviewFailed(failure));
       case _Declined(:final bytes):
-        _pending = () => _act(action, allowLarge: true);
+        _pending = () => _act(action, allowLarge: true, toggle: toggle);
         _setPreview(PreviewConfirmSize(bytes));
       case _FetchFailed(kind: FilesFailure.cancelled):
         _resting = null;
@@ -638,14 +688,23 @@ class FilesController extends ChangeNotifier {
     FileAction action,
     FsEntry entry,
     File file,
+    bool toggle,
   ) async {
     try {
+      if (action == FileAction.quickLook) {
+        final shown = await _media.showQuickLook(file, toggle: toggle);
+        return shown == QuickLookToggle.failed ? FilesFailure.unreadable : null;
+      }
       final done = switch (action) {
         FileAction.save => await _media.saveFile(entry.path.name, file),
         FileAction.openWith => await _openMarked(file),
         FileAction.share => await _shared(file),
+        FileAction.quickLook => false,
       };
-      if (done) _telemetry.saved(action.slug);
+      if (done) {
+        _telemetry.saved(action.slug);
+        if (action == FileAction.save) _savedName = entry.path.name;
+      }
       return null;
     } on Object {
       return FilesFailure.unreadable;
@@ -808,8 +867,9 @@ class FilesController extends ChangeNotifier {
     String key,
     int gen, {
     required bool allowLarge,
+    CancelToken? fetchToken,
   }) async {
-    final token = _newFileToken();
+    final token = fetchToken ?? _newFileToken();
     var ran = false;
     int? length;
     try {
@@ -823,7 +883,7 @@ class FilesController extends ChangeNotifier {
           cancelToken: token,
           allowLarge: allowLarge,
           onProgress: (received, total) {
-            if (!_gone(gen, _fileGen)) {
+            if (fetchToken == null && !_gone(gen, _fileGen)) {
               _setPreview(PreviewLoading(received: received, total: total));
             }
           },

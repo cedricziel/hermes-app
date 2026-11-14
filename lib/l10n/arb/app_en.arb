@@ -465,6 +465,14 @@
   "@@x-area-drag_out": "",
 
   "@@x-area-files": "",
+  "filesEntryLabel": "Files",
+  "@filesEntryLabel": {
+    "description": "Name of the Files page in the Activity panel row, the chat header menu and the title when the folder has no name."
+  },
+  "filesPreviewLoading": "Opening file…",
+  "@filesPreviewLoading": {
+    "description": "Screen reader label while a text file is read and no progress is known."
+  },
   "filesAboutList": "About this list",
   "@filesAboutList": {
     "description": "Page menu item and title of the alert that explains what the file list leaves out."

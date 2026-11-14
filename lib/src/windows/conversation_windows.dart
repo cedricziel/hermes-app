@@ -23,6 +23,10 @@ import 'window_auth_interceptor.dart';
 /// inspector, next to the [ThreadAction] names.
 const kInspectorWindowCommand = 'inspector';
 
+/// The window command that opens the Files page of a conversation window's
+/// chat, next to the [ThreadAction] names.
+const kFilesWindowCommand = 'files';
+
 String? windowSessionOwnerKey(AuthController auth) {
   final server = auth.baseUrl;
   if (!auth.protectedRequestsAllowed || server == null) return null;
@@ -637,6 +641,10 @@ class ConversationWindows extends ChangeNotifier {
   /// false when the main window is key.
   Future<bool> toggleKeyWindowInspector() =>
       _commandKeyWindow(kInspectorWindowCommand);
+
+  /// Opens the Files page of the key conversation window's chat; false when
+  /// the main window is key.
+  Future<bool> showKeyWindowFiles() => _commandKeyWindow(kFilesWindowCommand);
 
   Future<bool> _commandKeyWindow(String command) async {
     final key = _keyWindowId;

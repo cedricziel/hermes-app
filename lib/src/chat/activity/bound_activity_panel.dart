@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' show MaterialPageRoute;
 import 'package:flutter/widgets.dart';
 
 import '../../bot_screen/bot_screen_card_model.dart';
 import '../../bot_screen/bot_screen_controller.dart';
 import '../../bot_screen/widgets/bound_bot_screen_card.dart';
+import '../../files/files_telemetry.dart' show FilesOpenedFrom;
+import '../../files/open_files.dart';
+import '../../files/server_path.dart';
+import '../../files/widgets/files_activity_row.dart';
 import '../../memory/memory_destination.dart';
 import '../chat_controller.dart';
 import '../chat_models.dart';
@@ -80,6 +86,14 @@ class BoundActivityPanel extends StatelessWidget {
     return model.listed(usedByChat: used) ? model : null;
   }
 
+  /// The chat's folder name, when it has a stored one.
+  String? _folderName(ChatThread t) {
+    final cwd = t.workingDirectory;
+    final path = cwd == null ? null : ServerPath.tryParse(cwd);
+    if (path == null) return null;
+    return path.isRoot ? path.value : path.name;
+  }
+
   Widget _sections(BuildContext context, ChatThread t) {
     final usage = chat.usageIn(t),
         billing = chat.billingVerificationIn(t),
@@ -143,6 +157,17 @@ class BoundActivityPanel extends StatelessWidget {
               ? TodoPlanCard(state: plan, initiallyOpen: true)
               : null,
           session: [
+            if (filesShown(context))
+              FilesActivityRow(
+                folderName: _folderName(t),
+                onTap: () {
+                  // A sheet closes first; the page then opens over the chat.
+                  onClose?.call();
+                  unawaited(
+                    openFiles(context, chat, from: FilesOpenedFrom.activity),
+                  );
+                },
+              ),
             if (state != null &&
                 state.visible &&
                 sessionStateTier(state) == ActivityTier.reference)
