@@ -88,6 +88,7 @@ import 'grouped_row_use_cases.dart';
 import 'server_care_gateway_use_cases.dart';
 import 'server_care_status_use_cases.dart';
 import 'server_care_update_logs_use_cases.dart';
+import 'server_care_update_run_use_cases.dart';
 import 'server_care_usage_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
@@ -121,6 +122,7 @@ final List<WidgetbookNode> directories = [
   ...serverCareStatusNodes(),
   ...serverCareGatewayNodes(),
   ...serverCareUpdateLogsNodes(),
+  ...serverCareUpdateRunNodes(),
   ...serverCareUsageNodes(),
   platformHintNode(),
   adaptiveChromeNode(),

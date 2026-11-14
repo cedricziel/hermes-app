@@ -153,11 +153,13 @@ ChatThreadView boundChatThreadView({
   VoidCallback? onSetupModel,
   BotScreenController? screen,
   VoidCallback? onOpenScreen,
+  ValueChanged<String>? onShowAgentDetails,
   NeedsYouQueue? needsYou,
 }) {
   final t = thread;
   return ChatThreadView(
     thread: t,
+    onShowAgentDetails: onShowAgentDetails,
     screenPreview: screen == null
         ? null
         : (run) => BoundBotScreenPreview(

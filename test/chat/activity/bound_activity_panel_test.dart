@@ -19,6 +19,17 @@ import '../../support/fake_attachment_source.dart';
 import '../../support/fake_gateway.dart';
 import '../../support/fake_hermes_server.dart';
 
+/// A widget test that, once its body is done, lets the panel's read of the
+/// chat's agents (made when it opens or the chat changes) land, so no request
+/// is left in flight.
+void panelTest(String name, Future<void> Function(WidgetTester) body) =>
+    testWidgets(name, (tester) async {
+      await body(tester);
+      await tester.pump();
+      await tester.runAsync(pumpEventQueue);
+      await tester.pump();
+    });
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late FakeGateway gateway;
@@ -135,7 +146,7 @@ void main() {
     matching: finder,
   );
 
-  testWidgets(
+  panelTest(
     'recall events go to This session, survive clears and stay with their chat',
     (tester) async {
       await tester.runAsync(() async {
@@ -164,7 +175,7 @@ void main() {
     },
   );
 
-  testWidgets('finished status and process logs stay in the inspector', (
+  panelTest('finished status and process logs stay in the inspector', (
     tester,
   ) async {
     await tester.runAsync(() async {
@@ -188,7 +199,7 @@ void main() {
     expect(inPanel(find.text('NOW')), findsNothing);
   });
 
-  testWidgets('Verify billing access is offered only under This session', (
+  panelTest('Verify billing access is offered only under This session', (
     tester,
   ) async {
     await tester.runAsync(() => open('stored-1'));
@@ -198,7 +209,7 @@ void main() {
     expect(inPanel(find.byType(BillingVerificationCard)), findsOneWidget);
   });
 
-  testWidgets('billing the server does not offer leaves the panel', (
+  panelTest('billing the server does not offer leaves the panel', (
     tester,
   ) async {
     await tester.runAsync(() async {
@@ -212,7 +223,7 @@ void main() {
     expect(find.byType(BillingVerificationCard), findsNothing);
   });
 
-  testWidgets('a side answer goes to the panel and stays with its own chat', (
+  panelTest('a side answer goes to the panel and stays with its own chat', (
     tester,
   ) async {
     await tester.runAsync(() async {

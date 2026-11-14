@@ -120,6 +120,10 @@ class SubagentDetailController extends ChangeNotifier {
   var _epoch = 0;
   var _answered = false;
   var _available = false;
+  var _truncated = false;
+
+  /// The cut flag of the held text, so a refresh never changes its warning.
+  var _shownTruncated = false;
   var _refreshFailed = false;
   var _tailUnsupported = false;
 
@@ -134,6 +138,7 @@ class SubagentDetailController extends ChangeNotifier {
     if (_disposed || _holding == holding) return;
     _holding = holding;
     _shown = holding ? _latest : null;
+    _shownTruncated = _truncated;
     notifyListeners();
   }
 
@@ -143,6 +148,10 @@ class SubagentDetailController extends ChangeNotifier {
     _shown = null;
     notifyListeners();
   }
+
+  /// Only the end of the output is held (Hermes or this app cut its start).
+  bool get tailTruncated =>
+      (_shown != null ? _shownTruncated : _truncated) && tail.isNotEmpty;
 
   /// The last read failed after output was shown: "Couldn't refresh the
   /// output."
@@ -198,6 +207,7 @@ class SubagentDetailController extends ChangeNotifier {
       case WorkOk(:final value):
         _answered = true;
         _available = value.available;
+        _truncated = value.truncated;
         _refreshFailed = false;
         if (value.available) {
           _latest = value.text;
@@ -222,6 +232,7 @@ class SubagentDetailController extends ChangeNotifier {
     _shown = null;
     _answered = false;
     _available = false;
+    _truncated = false;
     _refreshFailed = false;
   }
 
@@ -242,6 +253,10 @@ class SubagentDetailController extends ChangeNotifier {
       _timer = null;
       if (_stop == StopPhase.confirming) {
         _stop = StopPhase.ended;
+      } else if (_stop == StopPhase.stopping) {
+        // The stop took effect: the agent's own state says it ended, so no
+        // "Stopping…" stays under it.
+        _stop = StopPhase.idle;
       } else if (_stop == StopPhase.sending) {
         // A completion frame came first: it wins and the answer, when it
         // comes, changes nothing.

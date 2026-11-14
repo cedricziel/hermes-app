@@ -19,6 +19,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/fake_gateway.dart';
+import '../support/chat_with_activity.dart';
 import '../support/fake_chat_transport.dart';
 import '../support/fake_attachment_source.dart';
 import '../support/fake_hermes_server.dart';
@@ -456,6 +457,7 @@ void main() {
       expect(footer.hitTestable(), findsOneWidget);
       expect(tester.getSize(find.byType(Chat)).height, greaterThan(200));
       expect(find.textContaining('Success'), findsNothing);
+      await settleActivityPanel(tester);
     },
   );
 }
