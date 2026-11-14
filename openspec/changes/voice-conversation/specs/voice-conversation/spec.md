@@ -156,7 +156,7 @@ On `fallback`, or a socket failure before any audio, the app SHALL synthesize th
 
 ### Requirement: Interrupting the agent
 
-Tapping the orb while the agent speaks SHALL stop playback and the running reply, wait until the session has settled, and listen. The first spoken turn after it carries `interrupted: true` under the chat spec's rules. Where the platform has no echo cancellation the microphone is closed while Hermes speaks, and the stall watchdog is suspended whenever capture is closed by design.
+Tapping the orb while the agent speaks SHALL stop playback and the running reply, wait until the session has settled, or at most 8 s (after which the next turn does not carry `interrupted`), and listen. The next turn submitted on a settled thread carries `interrupted: true` under the chat spec's rules. Where the platform has no echo cancellation the microphone is closed while Hermes speaks, and the stall watchdog is suspended whenever capture is closed by design.
 
 #### Scenario: Tap to interrupt
 
@@ -188,7 +188,7 @@ While the agent waits for an approval or question, capture SHALL be paused and n
 
 ### Requirement: Waiting is tracked on its own
 
-The waiting state SHALL be read from the chat, not only from the call's own reply, and tracked independently of any turn or barge-in: a request raised by a typed reply, a server-queued reply or a reply still running after speech was stopped SHALL still pause capture. It SHALL be checked again immediately before the app interrupts a reply and before it submits a turn, and a turn that was already being sent when the request arrived SHALL be dropped.
+The waiting state SHALL be read from the chat, not only from the call's own reply, and tracked independently of any turn or barge-in: a request raised by a typed reply, a server-queued reply or a reply still running after speech was stopped SHALL still pause capture. It SHALL be checked again immediately before the app interrupts a reply and before it submits a turn, and a turn still in Sending (not yet handed to the transport) SHALL be dropped.
 
 #### Scenario: Approval after a barge-in
 
@@ -243,7 +243,7 @@ Where barge-in is off, capture SHALL be open only while the call is Listening. O
 
 ### Requirement: Microphone closed on every exit
 
-On every way a call ends (End, stop phrase, interruption, error, sign-out, profile or chat change, idle, disposal), the app SHALL stop capture first, then close the speech socket, stop playback, release the audio session and the `tts-lease` if held. Each step SHALL have its own timeout and a failure or hang in one SHALL NOT skip another. An End while capture is still starting SHALL cancel the start and close capture when it resolves.
+On every way a call ends (every `reason` listed under Telemetry), the app SHALL stop capture first, then close the speech socket, stop playback, release the audio session and the `tts-lease` if held. Each step SHALL have its own timeout and a failure or hang in one SHALL NOT skip another. An End while capture is still starting SHALL cancel the start and close capture when it resolves.
 
 #### Scenario: Speech socket hangs during teardown
 
@@ -257,7 +257,7 @@ On every way a call ends (End, stop phrase, interruption, error, sign-out, profi
 
 ### Requirement: Unconfirmed close
 
-When closing capture could not be confirmed, the screen SHALL say "The call ended, but the microphone may still be open" instead of "The microphone is closed", and the strip SHALL read "microphone may still be open" until capture is closed or the app quits.
+When closing capture could not be confirmed, the screen SHALL say "The call ended, but the microphone may still be open" instead of "The microphone is closed", and the strip SHALL read "microphone may still be open" until a late `stopCapture` completion or a bridge `deactivated` or `ended` event; End on the strip retries `stopCapture`.
 
 #### Scenario: Close not confirmed
 
@@ -322,3 +322,12 @@ The call SHALL log `voice_call.readiness`, `voice_call.connected` and one `voice
 
 - **WHEN** a call ends
 - **THEN** `reason` is one of hang_up, stop_phrase, voice_stopped, app, app_failure, background, idle, transcription, interrupted, focus_lost, prepare, audio_focus, native_start, native_events, connect, microphone_stalled, native_error, speech, turn or mute
+
+### Requirement: Content stays out of other surfaces
+
+Captions, transcripts and reply text SHALL NOT reach logs, the crash reporter's messages, notifications beyond existing rules, the surface snapshot, Live Activities or the watch.
+
+#### Scenario: Caption on the call screen
+
+- **WHEN** a turn's caption shows during a call
+- **THEN** it appears on the call screen only

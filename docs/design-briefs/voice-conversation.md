@@ -42,7 +42,7 @@ After review:
 - Waiting for you pauses capture ("microphone paused" in the strip) and ignores speech: nothing is interrupted or sent.
 - A voice turn is never queued; two notices cover "still answering" and "Hermes was busy".
 - The strip lives in the app shell; Escape and "Show chat" leave the dialog without ending the call; the Mac uses a dialog, not a sheet.
-- Scope: the turn list, the "Speak replies" switch and the tones are the last PR and can be cut; the safety rules do not depend on them.
+- Scope: the turn list and the "Speak replies" switch are the last PR and can be cut; the tones are core and not cuttable; the safety rules do not depend on the extras.
 - Desktop lock is not observed (a stated limit); the 5-minute idle limit bounds it.
 
 Copy added by the design:
