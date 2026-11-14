@@ -30,7 +30,8 @@ Future<void> chooseNewChatFolder(
   ChatController chat,
 ) async {
   if (!workspacesOffered(chat)) return;
-  final guard = WorkspaceGuard(chat);
+  // The pick belongs to the draft that was open: switching drafts closes it.
+  final guard = WorkspaceGuard(chat, trackSelection: true);
   try {
     await showWorkspacePicker(
       context,

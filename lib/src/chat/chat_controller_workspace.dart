@@ -314,16 +314,17 @@ extension _ChatControllerWorkspace on ChatController {
     if (disposed) return;
     // How a move ended, as a fixed name: never the folder.
     final outcome = switch (state.phase) {
-      WorkspaceMovePhase.changed => 'changed',
-      WorkspaceMovePhase.unchanged => 'unchanged',
-      WorkspaceMovePhase.couldNotConfirm => 'could_not_confirm',
-      WorkspaceMovePhase.folderMissing => 'folder_missing',
-      WorkspaceMovePhase.chatGone => 'chat_gone',
-      WorkspaceMovePhase.profileGone => 'profile_gone',
+      WorkspaceMovePhase.changed => WorkspaceMoveOutcome.changed,
+      WorkspaceMovePhase.unchanged => WorkspaceMoveOutcome.unchanged,
+      WorkspaceMovePhase.couldNotConfirm =>
+        WorkspaceMoveOutcome.couldNotConfirm,
+      WorkspaceMovePhase.folderMissing => WorkspaceMoveOutcome.folderMissing,
+      WorkspaceMovePhase.chatGone => WorkspaceMoveOutcome.chatGone,
+      WorkspaceMovePhase.profileGone => WorkspaceMoveOutcome.profileGone,
       _ => null,
     };
     if (outcome != null && before != state.phase) {
-      events('workspace.move_outcome', {'outcome': outcome});
+      events('workspace.move_outcome', {'outcome': outcome.slug});
     }
     notifyListeners();
     if (!wasInFlight || state.inFlight) return;
@@ -388,7 +389,9 @@ extension _ChatControllerWorkspace on ChatController {
       case WorkspacesUnsupported():
         _workspace.moveUnsupported = true;
         _workspace.moves.remove(key);
-        events('workspace.move_outcome', {'outcome': 'unsupported'});
+        events('workspace.move_outcome', {
+          'outcome': WorkspaceMoveOutcome.unsupported.slug,
+        });
         notifyListeners();
       case WorkspacesFailed(:final kind)
           when kind == WorkspacesFailure.notFound:

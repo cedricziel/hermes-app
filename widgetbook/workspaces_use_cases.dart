@@ -659,7 +659,7 @@ Widget _picker({
   bool scanning = false,
   WorkspacePickerScanOutcome? outcome,
   int found = 0,
-  WorkspacePickerRow serverDefault = _defaultRow,
+  WorkspacePickerRow? serverDefault = _defaultRow,
   double? width,
 }) => Align(
   alignment: Alignment.topLeft,
@@ -741,6 +741,28 @@ WidgetbookComponent _pickerComponent() => WidgetbookComponent(
   name: 'WorkspacePickerView',
   useCases: [
     _case('Ready', (_) => _picker(scan: true)),
+    _case(
+      'Default folder unknown (a new chat)',
+      (_) => _picker(
+        catalog: WorkspacePickerCatalog.projectsFailed,
+        projects: const [],
+        recent: const [],
+        serverDefault: const WorkspacePickerRow(
+          id: 'default',
+          title: "Your server's default folder",
+          path: '',
+        ),
+      ),
+    ),
+    _case(
+      'Move, default folder unknown (no default row)',
+      (_) => _picker(
+        catalog: WorkspacePickerCatalog.projectsFailed,
+        projects: const [],
+        recent: const [],
+        serverDefault: null,
+      ),
+    ),
     _case(
       'More than eight rows (search shows)',
       (_) => _picker(recent: _manyRecent, scan: true),

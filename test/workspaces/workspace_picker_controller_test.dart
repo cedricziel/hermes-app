@@ -738,6 +738,28 @@ void main() {
       expect(picker.useBrowsed(), isNull);
     });
 
+    test('Use is refused for a level still opening or one that timed out, '
+        'and allowed for one Hermes may not read', () async {
+      open();
+      await settle();
+      final gate = Completer<FakeResponse>();
+      fs['/home/me/slow'] = () => gate.future;
+
+      picker.openFolder(ServerPath.tryParse('/home/me/slow')!);
+      expect(picker.browseLevel, FolderBrowserLevel.opening);
+      expect(picker.useBrowsed(), isNull);
+
+      await settle(_wait.inMilliseconds + 40);
+      expect(picker.browseLevel, FolderBrowserLevel.unreachable);
+      expect(picker.useBrowsed(), isNull);
+
+      fs['/home/me/private'] = () => ok({'entries': [], 'error': 'EACCES'});
+      picker.openFolder(ServerPath.tryParse('/home/me/private')!);
+      await settle();
+      expect(picker.useBrowsed(), isNotNull);
+      gate.complete(ok(_dir([])));
+    });
+
     test('a level with no answer ends as "couldn\'t open", is read again '
         'only on retry, and a late answer applies', () async {
       open();

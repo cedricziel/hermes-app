@@ -366,4 +366,59 @@ void main() {
       expect(rpcCalls, isEmpty);
     });
   }
+
+  for (final (name, size, platform, brightness) in [
+    ('android', phoneSize, TargetPlatform.android, Brightness.light),
+    ('desktop', desktopSize, TargetPlatform.windows, Brightness.dark),
+  ]) {
+    testWidgets('$name: Browse, a missing folder and Type a path', (
+      tester,
+    ) async {
+      server.on(
+        'GET',
+        '/api/fs/list',
+        {'entries': const [], 'error': 'ENOENT'},
+        query: {'path': '/srv/code', 'profile': 'default'},
+      );
+      rpc = (method, params) async => {
+        'items': [
+          {'text': 'x', 'display': 'field-notes/', 'meta': 'dir'},
+          {'text': 'x', 'display': 'soil-survey/', 'meta': 'dir'},
+          {'text': 'x', 'display': 'README.md', 'meta': ''},
+        ],
+      };
+      final shots = ScreenshotRecorder('working-directory-$name-browse-type');
+      await pumpChat(
+        tester,
+        shots,
+        size: size,
+        brightness: brightness,
+        platform: platform,
+      );
+      await newChat(tester);
+      await tester.tap(find.byType(WorkingDirectoryRow));
+      await idle(tester);
+      await tester.tap(find.byKey(const Key('workspace-picker-browse')));
+      await idle(tester);
+      await shots.capture(tester, 'browse');
+      expect(find.byKey(const Key('folder-browser-use')), findsOneWidget);
+
+      await tester.tap(find.text('code').last);
+      await idle(tester);
+      await shots.capture(tester, 'missing');
+      final use = tester.widget<FilledButton>(
+        find.byKey(const Key('folder-browser-use')),
+      );
+      expect(use.onPressed, isNull);
+
+      await tester.tap(find.byType(BackButton).last);
+      await idle(tester);
+      await tester.tap(find.byKey(const Key('workspace-picker-type')));
+      await idle(tester);
+      await tester.enterText(find.byType(TextField).last, '/srv/');
+      await idle(tester);
+      await shots.capture(tester, 'type');
+      expect(find.text('field-notes'), findsWidgets);
+    });
+  }
 }

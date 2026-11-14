@@ -1,4 +1,7 @@
 import 'package:flutter/cupertino.dart';
+
+import 'safe_path_text.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -27,7 +30,8 @@ List<ServerPath> pathBarFolders(ServerPath current, ServerPath? highest) {
   return chain.reversed.toList();
 }
 
-String _segmentLabel(ServerPath path) => path.isRoot ? path.value : path.name;
+String _segmentLabel(ServerPath path) =>
+    safePathText(path.isRoot ? path.value : path.name);
 
 /// The breadcrumb of the folder the page shows: each folder from the highest
 /// one down to the current one, as a link-coloured text button, with the

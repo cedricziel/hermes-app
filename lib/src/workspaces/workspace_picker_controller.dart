@@ -667,10 +667,13 @@ class WorkspacePickerController extends ChangeNotifier {
   /// outside what the server lets the app browse.
   FolderPick? useBrowsed() {
     final path = _browsePath;
+    // Only a level that was read: one that is still opening, timed out, is
+    // missing or is outside the boundary cannot be picked. A folder Hermes
+    // may not read (EACCES) can, with its note.
     if (_dead ||
         path == null ||
-        _level == FolderBrowserLevel.missing ||
-        _level == FolderBrowserLevel.outside) {
+        (_level != FolderBrowserLevel.ready &&
+            _level != FolderBrowserLevel.notAllowed)) {
       return null;
     }
     return _pickOf(path.value, WorkspaceChoiceSource.browsed);

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../files/widgets/safe_path_text.dart';
+
 import '../../../l10n/l10n.dart';
 import '../../chat/chat_workspace_state.dart';
 import '../../files/widgets/files_metrics.dart';
@@ -164,7 +166,7 @@ class WorkingDirectoryDetails extends StatelessWidget {
                 label: l10n.workspacesDetailsFolder,
                 trailing: busy ? const FilesSpinner(size: 18) : null,
                 child: _Value(
-                  Text(folderName),
+                  Text(safePathText(folderName)),
                   warning: homeFolder ? l10n.workspacesHomeFolderNote : null,
                 ),
               ),
@@ -180,12 +182,14 @@ class WorkingDirectoryDetails extends StatelessWidget {
               if (branch != null && branch!.isNotEmpty)
                 _DetailRow(
                   label: l10n.workspacesDetailsBranch,
-                  child: _Value(Text(branch!, style: _mono(metrics))),
+                  child: _Value(
+                    Text(safePathText(branch!), style: _mono(metrics)),
+                  ),
                 ),
               if (projectName != null)
                 _DetailRow(
                   label: l10n.workspacesDetailsProject,
-                  child: _Value(Text(projectName!)),
+                  child: _Value(Text(safePathText(projectName!))),
                 ),
             ],
           ),

@@ -10,13 +10,18 @@ enum WorkspaceListKind { catalog, browse, suggest }
 /// How a folder move came out, as `workspace.move_outcome` reports it. Fixed
 /// names, never a folder.
 enum WorkspaceMoveOutcome {
-  changed,
-  unchanged,
-  couldNotConfirm,
-  folderMissing,
-  chatGone,
-  profileGone,
-  unsupported,
+  changed('changed'),
+  unchanged('unchanged'),
+  couldNotConfirm('could_not_confirm'),
+  folderMissing('folder_missing'),
+  chatGone('chat_gone'),
+  profileGone('profile_gone'),
+  unsupported('unsupported');
+
+  const WorkspaceMoveOutcome(this.slug);
+
+  /// The fixed name `workspace.move_outcome` carries.
+  final String slug;
 }
 
 /// A fixed name for how a call came to an end.

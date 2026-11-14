@@ -356,7 +356,7 @@ The system SHALL offer "Change folder…" for a stored chat that is not replying
 #### Scenario: Old server
 
 - **WHEN** the move answers method not found
-- **THEN** "Change folder…" is hidden for the connection
+- **THEN** "Change folder…" is hidden in the app and the Chat menu item is disabled for the connection
 
 #### Scenario: Current folder marked
 

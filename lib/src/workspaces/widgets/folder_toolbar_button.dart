@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../files/widgets/safe_path_text.dart';
+
 import '../../../l10n/l10n.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../theme/app_icons.dart';
@@ -41,7 +43,7 @@ class FolderToolbarButton extends StatelessWidget {
         ? scheme.onSurface
         : scheme.onSurface.withValues(alpha: 0.4);
     return Tooltip(
-      message: l10n.workspacesPathLabel(path),
+      message: l10n.workspacesPathLabel(safePathText(path)),
       excludeFromSemantics: true,
       child: Semantics(
         button: true,

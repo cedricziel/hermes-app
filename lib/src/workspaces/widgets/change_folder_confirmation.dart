@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
+
+import '../../files/widgets/safe_path_text.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -13,7 +16,7 @@ String changeFolderConfirmationMessage(
   required String path,
 }) =>
     '${l10n.workspacesConfirmBody(workspaceShortName(folderName, max: 40))}'
-    '\n\n$path · ${l10n.workspacesOnYourServer}';
+    '\n\n${safePathText(path)} · ${l10n.workspacesOnYourServer}';
 
 /// "Change the folder for this chat?": the confirmation before a chat is
 /// moved to another folder. It is [showConfirmDialog]: an alert on Apple

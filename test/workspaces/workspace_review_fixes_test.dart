@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/workspaces/ui/workspace_guard.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/thread_sections.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -280,5 +284,46 @@ void main() {
 
     expect(find.byType(WorkingDirectoryRow), findsOneWidget);
     expect(find.textContaining('/srv/other'), findsWidgets);
+  });
+
+  test('a pick for a new chat closes when the open draft changes', () async {
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([_row('s1'), _row('s2')]),
+    );
+    server.on('GET', '/api/sessions/s2/messages', messageListBody('s2', []));
+    final attention = AttentionNotifier(
+      service: null,
+      settings: null,
+      onOpen: (_) {},
+    );
+    final chat = ChatController(
+      repository: HermesChatRepository(server.client().raw),
+      workspaces: workspaces,
+      transport: transport,
+      attention: attention,
+      report: (_) {},
+    );
+    addTearDown(() {
+      chat.dispose();
+      attention.dispose();
+    });
+    await chat.loadThreads();
+    chat.newThread();
+    final guard = WorkspaceGuard(chat, trackSelection: true);
+    addTearDown(guard.dispose);
+    final same = WorkspaceGuard(chat);
+    addTearDown(same.dispose);
+
+    // A notification tap opens another chat while the picker is open.
+    chat.select('s2');
+
+    expect(guard.closed.value, isTrue);
+    expect(
+      same.closed.value,
+      isFalse,
+      reason: 'a guard that does not track the selection stays open',
+    );
   });
 }

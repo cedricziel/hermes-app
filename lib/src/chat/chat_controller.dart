@@ -39,6 +39,7 @@ import '../workspaces/hermes_workspaces_repository.dart';
 import '../workspaces/workspace_catalog_loader.dart';
 import '../workspaces/workspace_models.dart';
 import '../workspaces/workspace_paths.dart';
+import '../workspaces/workspace_telemetry.dart' show WorkspaceMoveOutcome;
 import 'chat_workspace_state.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';

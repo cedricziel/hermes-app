@@ -166,13 +166,15 @@ class _PickerSheetState extends State<_PickerSheet> {
     final status = picker.status;
     return WorkspacePickerView(
       selectedId: picker.selectedId,
-      serverDefault:
-          picker.serverDefault ??
-          WorkspacePickerRow(
-            id: kPickerDefaultId,
-            title: l10n.workspacesPickerDefaultUnknown,
-            path: '',
-          ),
+      // A move cannot go to a default that is not known: the row is left out.
+      serverDefault: picker.isMove
+          ? picker.serverDefault
+          : picker.serverDefault ??
+                WorkspacePickerRow(
+                  id: kPickerDefaultId,
+                  title: l10n.workspacesPickerDefaultUnknown,
+                  path: '',
+                ),
       projects: picker.projects,
       recent: picker.recent,
       catalog: switch (status) {

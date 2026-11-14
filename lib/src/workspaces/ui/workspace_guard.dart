@@ -13,8 +13,12 @@ import '../../chat/chat_models.dart';
 /// `dismissWhen`. One guard serves everything one gesture opens, and the
 /// opener disposes it when the last of them is gone.
 class WorkspaceGuard {
-  WorkspaceGuard(this.chat, {ChatThread? thread})
+  /// With [trackSelection] the guard closes when the open chat (or the lack
+  /// of one) is no longer the one it was made for: a pick for a new chat
+  /// belongs to that draft.
+  WorkspaceGuard(this.chat, {ChatThread? thread, this._trackSelection = false})
     : _threadId = thread?.id,
+      _selectedAtOpen = chat.selectedId,
       _epoch = chat.workspaceEpoch,
       _profile = chat.profile {
     chat.addListener(_check);
@@ -22,6 +26,8 @@ class WorkspaceGuard {
 
   final ChatController chat;
   final String? _threadId;
+  final bool _trackSelection;
+  final String? _selectedAtOpen;
   final int _epoch;
   final String? _profile;
   final _closed = ValueNotifier<bool>(false);
@@ -40,7 +46,8 @@ class WorkspaceGuard {
     if (chat.disposed ||
         chat.workspaceEpoch != _epoch ||
         chat.profile != _profile ||
-        (_threadId != null && chat.selectedId != _threadId)) {
+        (_threadId != null && chat.selectedId != _threadId) ||
+        (_trackSelection && chat.selectedId != _selectedAtOpen)) {
       _closed.value = true;
     }
   }

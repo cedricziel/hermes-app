@@ -85,8 +85,8 @@ class FolderBrowserView extends StatelessWidget {
 
   /// Whether "Use" is available for this level.
   bool get canUse =>
-      level != FolderBrowserLevel.missing &&
-      level != FolderBrowserLevel.outside;
+      level == FolderBrowserLevel.ready ||
+      level == FolderBrowserLevel.notAllowed;
 
   @override
   Widget build(BuildContext context) {

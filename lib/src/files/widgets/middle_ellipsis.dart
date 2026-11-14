@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'safe_path_text.dart';
+
 /// [text] cut to at most [maxChars] characters, the middle replaced by an
 /// ellipsis. With [keepExtension] the end is the extension and a few
 /// characters before it, so `quarterly-report-final.pdf` keeps its `.pdf`.
@@ -8,6 +10,7 @@ String elideMiddle(
   required int maxChars,
   bool keepExtension = false,
 }) {
+  text = safePathText(text);
   final chars = text.characters;
   if (chars.length <= maxChars || maxChars < 5) return text;
   final dot = text.lastIndexOf('.');
@@ -39,6 +42,7 @@ class MiddleEllipsisText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = safePathText(this.text);
     final lines = maxLines;
     if (lines == null) return Text(text, style: style);
     final base = DefaultTextStyle.of(context).style.merge(style);
