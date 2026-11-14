@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../models/model_provider_option.dart';
+import '../workspaces/workspace_models.dart' show WorkspaceChoice;
 import 'chat_models.dart';
 import 'chat_transport.dart';
 import 'slash_command.dart';
@@ -372,6 +373,7 @@ final class SessionChatTransport
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+    WorkspaceChoice? workspace,
   }) => _stream((d) {
     _acknowledgement = d is PromptAcknowledgement
         ? d as PromptAcknowledgement
@@ -383,6 +385,7 @@ final class SessionChatTransport
       attachments: attachments,
       model: model,
       queued: queued,
+      workspace: workspace,
     );
   });
 
