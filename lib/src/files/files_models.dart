@@ -43,13 +43,28 @@ class FsEntry {
 /// A folder's entries in the server's order (folders first), without the rows
 /// that did not fit.
 class FsListing {
-  const FsListing({required this.entries, this.skipped = 0});
+  const FsListing({
+    required this.entries,
+    this.skipped = 0,
+    this.skippedOutside = 0,
+  });
 
   final List<FsEntry> entries;
 
   /// Rows left out: not an object, no name or path, a path that is not
   /// absolute, or one outside the folder the page is confined to.
   final int skipped;
+
+  /// How many of the [skipped] rows lay outside the highest folder.
+  final int skippedOutside;
+
+  /// Nothing to show although the server sent rows, all of them outside the
+  /// highest folder: the page says so instead of "This folder is empty".
+  bool get allOutsideBoundary =>
+      entries.isEmpty && skippedOutside > 0 && skippedOutside == skipped;
+
+  /// The server sent no rows at all.
+  bool get isEmpty => entries.isEmpty && skipped == 0;
 }
 
 /// The answer of `read-text`: at most 512 KB of a file.

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -248,23 +249,29 @@ class HermesFilesRepository {
   FilesResult<FsListing> _parseListing(Object? body) {
     if (body is! Map) return const FilesFailed(FilesFailure.unreadable);
     final error = body['error'];
-    if (error != null && error != '') {
-      return FilesFailed(
-        error is String
-            ? filesFailureForListError(error)
-            : FilesFailure.unreadable,
-      );
+    if (error is String && error.isNotEmpty) {
+      return FilesFailed(filesFailureForListError(error));
+    }
+    // `null`, `false` and an empty string say there was no error.
+    if (error != null && error != false && error != '') {
+      return const FilesFailed(FilesFailure.unreadable);
     }
     final rows = body['entries'];
     if (rows is! List) return const FilesFailed(FilesFailure.unreadable);
     final entries = <FsEntry>[];
     var skipped = 0;
+    var outside = 0;
     for (final row in rows) {
       final name = row is Map ? row['name'] : null;
       final text = row is Map ? row['path'] : null;
       final path = text is String ? ServerPath.tryParse(text) : null;
-      if (name is! String || name.isEmpty || path == null || _outside(path)) {
+      if (name is! String || name.isEmpty || path == null) {
         skipped++;
+        continue;
+      }
+      if (_outside(path)) {
+        skipped++;
+        outside++;
         continue;
       }
       entries.add(
@@ -275,7 +282,9 @@ class HermesFilesRepository {
         ),
       );
     }
-    return FilesOk(FsListing(entries: entries, skipped: skipped));
+    return FilesOk(
+      FsListing(entries: entries, skipped: skipped, skippedOutside: outside),
+    );
   }
 
   FilesResult<FsTextFile> _parseText(Object? body) {
@@ -286,12 +295,13 @@ class HermesFilesRepository {
       return const FilesFailed(FilesFailure.unreadable);
     }
     final size = body['byteSize'];
+    final fallbackSize = text is String ? utf8.encode(text).length : 0;
     final language = body['language'];
     final mime = body['mimeType'];
     return FilesOk(
       FsTextFile(
         text: text is String ? text : '',
-        byteSize: size is num ? size.toInt() : (text as String).length,
+        byteSize: size is num ? size.toInt() : fallbackSize,
         truncated: body['truncated'] == true,
         binary: binary,
         language: language is String && language.isNotEmpty ? language : null,

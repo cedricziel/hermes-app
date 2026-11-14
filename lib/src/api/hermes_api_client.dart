@@ -115,8 +115,12 @@ class HermesApiClient {
   /// The headers arrive before the body: [onHeaders] gets the announced
   /// `Content-Length` (null when the server sends none, as an SSH workspace
   /// does) and returns false to stop there, with nothing written
-  /// ([FsDownload.declined]). [onProgress] gets the bytes written so far and
-  /// that length. A gap of [idleTimeout] between two chunks fails the
+  /// ([FsDownload.declined]). It is synchronous on purpose: the Dio adapter
+  /// starts reading the body as soon as the headers are in, so a caller that
+  /// awaited something here would leave the body buffering in memory. The
+  /// body is read one chunk at a time, paused until the sink has taken it, so
+  /// a slow disk holds the connection back instead of filling memory.
+  /// [onProgress] gets the bytes written so far and that length. A gap of [idleTimeout] between two chunks fails the
   /// download; the request has no total deadline, since a large file may take
   /// long. [cancelToken] ends it at once. The caller closes [sink] and
   /// deletes a partial file on a throw.
@@ -131,7 +135,7 @@ class HermesApiClient {
     required IOSink sink,
     CancelToken? cancelToken,
     void Function(int received, int? total)? onProgress,
-    FutureOr<bool> Function(int? contentLength)? onHeaders,
+    bool Function(int? contentLength)? onHeaders,
     Duration idleTimeout = const Duration(seconds: 30),
   }) async {
     final request = CancelToken();
@@ -151,22 +155,20 @@ class HermesApiClient {
         options: Options(
           responseType: ResponseType.stream,
           receiveTimeout: idleTimeout,
-          validateStatus: (_) => true,
+          // The default validateStatus: a 401 must be a DioException so the
+          // auth interceptors refresh the session and retry.
+          // Hermes may compress; a body must match its Content-Length.
+          headers: {HttpHeaders.acceptEncodingHeader: 'identity'},
           // Only a backstop: the idle timeout ends a stalled download.
           extra: requestDeadlineExtra(const Duration(hours: 12)),
         ),
       );
       final body = response.data!;
-      final status = response.statusCode ?? 0;
-      if (status < 200 || status >= 300) {
-        final detail = await _errorDetail(body, idleTimeout);
-        throw failed(filesFailureForStatus(status, detail, fileRoute: true));
-      }
       final announced = int.tryParse(
         response.headers.value(Headers.contentLengthHeader) ?? '',
       );
       final length = announced != null && announced >= 0 ? announced : null;
-      if (onHeaders != null && !await onHeaders(length)) {
+      if (onHeaders != null && !onHeaders(length)) {
         request.cancel();
         return FsDownload(bytes: 0, contentLength: length, declined: true);
       }
@@ -178,7 +180,8 @@ class HermesApiClient {
         error == null ? done.complete() : done.completeError(error);
       }
 
-      final subscription = body.stream
+      late final StreamSubscription<List<int>> subscription;
+      subscription = body.stream
           .timeout(idleTimeout)
           .listen(
             (chunk) {
@@ -188,7 +191,13 @@ class HermesApiClient {
                 onProgress?.call(received, length);
               } on Object catch (error) {
                 end(error);
+                return;
               }
+              // Take no more until the sink has written this one.
+              subscription.pause();
+              sink.flush().then((_) {
+                if (!done.isCompleted) subscription.resume();
+              }, onError: end);
             },
             onError: end,
             onDone: end,
@@ -208,6 +217,17 @@ class HermesApiClient {
     } on FsDownloadException {
       rethrow;
     } on DioException catch (error) {
+      final data = error.response?.data;
+      if (error.type == DioExceptionType.badResponse && data is ResponseBody) {
+        final detail = await _errorDetail(data, idleTimeout);
+        throw failed(
+          filesFailureForStatus(
+            error.response?.statusCode,
+            detail,
+            fileRoute: true,
+          ),
+        );
+      }
       throw failed(filesFailureForDio(error, fileRoute: true));
     } on TimeoutException {
       throw failed(FilesFailure.unreachable);

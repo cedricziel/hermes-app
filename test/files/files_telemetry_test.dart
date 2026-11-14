@@ -2,7 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_otel/flutter_otel.dart' show StatusCode;
+import 'package:flutter_otel/flutter_otel.dart'
+    show LogRecord, Logger, StatusCode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/files/files_failure.dart';
@@ -16,6 +17,13 @@ import '../support/fake_hermes_server.dart';
 import '../support/fs_download_adapter.dart';
 import '../support/recorded_events.dart';
 import '../support/recording_tracer.dart';
+
+class _CapturingLogger extends Logger {
+  final records = <LogRecord>[];
+
+  @override
+  void emit(LogRecord record) => records.add(record);
+}
 
 ServerPath p(String text) => ServerPath.tryParse(text)!;
 
@@ -310,17 +318,74 @@ void main() {
         results.add(await repository.download(p(path), sink: sink));
         await sink.close();
 
+        // A result holds a kind and nothing else to leak from; what a
+        // failure could still print is checked below on the thrown type.
         for (final result in results) {
           expect(result, isA<FilesFailed<Object?>>());
-          final text = '$result';
-          expect(text, isNot(contains('secret')));
-          expect(text, isNot(contains('.env')));
-          expect(text, isNot(contains('hermes.test')));
+          expect(
+            (result as FilesFailed<Object?>).kind.slug,
+            matches(RegExp(r'^[a-zA-Z]+$')),
+          );
         }
       }
       expectNothingSecret(recorded());
       expect(recorded(), isNot(contains('.env')));
     });
+
+    test(
+      'the real HTTP interceptor exports no path for a failing list',
+      () async {
+        final logger = _CapturingLogger();
+        final dio = server.dio()
+          ..interceptors.add(
+            httpInterceptor(logger, tracer, serverAttributes: _server),
+          );
+        final repository = build(HermesApiClient(dio));
+        for (final status in [403, 404, 500]) {
+          server.on('GET', '/api/fs/list', {
+            'detail': 'no $path',
+          }, status: status);
+          expect(await repository.list(p(path)), isA<FilesFailed<FsListing>>());
+        }
+        server.onRequest(
+          'GET',
+          '/api/fs/list',
+          (o) => throw failing(o, DioExceptionType.connectionError),
+        );
+        expect(await repository.list(p(path)), isA<FilesFailed<FsListing>>());
+
+        final exported = [
+          for (final span in tracer.spans) ...[
+            span.name,
+            ...span.attributes.keys,
+            ...span.attributes.values.map((v) => '$v'),
+            ...span.events,
+            '${span.statusDescription}',
+          ],
+          for (final record in logger.records) ...[
+            record.body,
+            ...record.attributes.keys,
+            ...record.attributes.values.map((v) => '$v'),
+          ],
+        ].join('\n');
+        expect(
+          tracer.spans.where((s) => s.attributes['http.route'] == '/api/fs'),
+          isNotEmpty,
+          reason: 'the interceptor did trace the requests',
+        );
+        expect(logger.records, isNotEmpty);
+        for (final leak in [
+          'my-secret-project',
+          '.env',
+          '/srv',
+          'path=',
+          '%2F',
+          'hermes.test',
+        ]) {
+          expect(exported, isNot(contains(leak)), reason: leak);
+        }
+      },
+    );
 
     test('downloadFsFile throws only a kind', () async {
       server.onRequest(

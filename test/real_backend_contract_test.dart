@@ -3105,6 +3105,9 @@ void main() {
     setUp(() async {
       files = HermesFilesRepository(client, profile: 'default');
       cwd = value(await files.defaultCwd());
+      // The page never leaves the start folder's repository; here the start
+      // folder itself stands in, so the boundary is exercised on real rows.
+      files.highestFolder = cwd;
     });
 
     test(
@@ -3190,7 +3193,11 @@ void main() {
       final sink = out.openWrite();
       final result = await files.download(file.path, sink: sink);
       await sink.close();
-      if (result case FilesOk(:final value)) {
+      if (result case FilesOk(:final value) when value.declined) {
+        // From 50 MB the repository stops after the headers and asks.
+        expect(out.lengthSync(), 0);
+        expect(value.contentLength, greaterThanOrEqualTo(kLargeDownloadBytes));
+      } else if (result case FilesOk(:final value)) {
         expect(out.lengthSync(), value.bytes);
         // A local profile answers a Content-Length; an SSH workspace none.
         expect(value.contentLength, anyOf(isNull, value.bytes));

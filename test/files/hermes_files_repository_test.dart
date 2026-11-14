@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/api/hermes_api_client.dart';
+import 'package:hermes_app/src/auth/page_token.dart';
 import 'package:hermes_app/src/files/files_failure.dart';
 import 'package:hermes_app/src/files/files_models.dart';
 import 'package:hermes_app/src/files/hermes_files_repository.dart';
@@ -123,6 +127,19 @@ void main() {
       }
     });
 
+    test('an error of false is no error', () async {
+      server.on('GET', '/api/fs/list', {
+        'entries': [row('a', '/srv/p/a')],
+        'error': false,
+      });
+      expect(ok(await repository.list(p('/srv/p'))).entries, hasLength(1));
+      server.on('GET', '/api/fs/list', {'entries': [], 'error': 7});
+      expect(
+        failure(await repository.list(p('/srv/p'))),
+        FilesFailure.unreadable,
+      );
+    });
+
     test('every status maps to its kind', () async {
       const expected = {
         400: FilesFailure.badRequest,
@@ -227,6 +244,21 @@ void main() {
       final binary = ok(await repository.readText(p('/srv/p/a.bin')));
       expect(binary.binary, isTrue);
       expect(binary.text, isEmpty);
+    });
+
+    test('a binary answer needs neither text nor a size', () async {
+      server.on('GET', '/api/fs/read-text', {'binary': true});
+      final binary = ok(await repository.readText(p('/srv/p/a.bin')));
+      expect(binary.binary, isTrue);
+      expect(binary.text, isEmpty);
+      expect(binary.byteSize, 0);
+    });
+
+    test('a missing size falls back to the UTF-8 byte length', () async {
+      server.on('GET', '/api/fs/read-text', {'text': 'h\u00e9llo \u{1F600}'});
+      final file = ok(await repository.readText(p('/srv/p/a.txt')));
+      expect(file.byteSize, utf8.encode('h\u00e9llo \u{1F600}').length);
+      expect(file.byteSize, 11);
     });
 
     test(
@@ -475,6 +507,33 @@ void main() {
       final listing = ok(await repository.list(p('/srv/app')));
       expect(listing.entries.map((e) => e.name), ['in']);
       expect(listing.skipped, 2);
+      expect(listing.skippedOutside, 2);
+      expect(listing.allOutsideBoundary, isFalse);
+    });
+
+    test('a folder of rows all outside is not an empty folder', () async {
+      server.on('GET', '/api/fs/list', {
+        'entries': [
+          row('key', '/srv/app-secrets/key'),
+          row('passwd', '/etc/passwd'),
+        ],
+      });
+      final hidden = ok(await repository.list(p('/srv/app')));
+      expect(hidden.entries, isEmpty);
+      expect(hidden.allOutsideBoundary, isTrue);
+      expect(hidden.isEmpty, isFalse);
+
+      server.on('GET', '/api/fs/list', {'entries': []});
+      final empty = ok(await repository.list(p('/srv/app')));
+      expect(empty.allOutsideBoundary, isFalse);
+      expect(empty.isEmpty, isTrue);
+
+      server.on('GET', '/api/fs/list', {
+        'entries': ['junk', row('key', '/etc/passwd')],
+      });
+      final mixed = ok(await repository.list(p('/srv/app')));
+      expect(mixed.allOutsideBoundary, isFalse, reason: 'a junk row too');
+      expect(mixed.isEmpty, isFalse);
     });
   });
 
@@ -656,5 +715,105 @@ void main() {
         expect(written, isEmpty);
       }
     });
+
+    test('asks for the bytes as they are', () async {
+      server.on('GET', '/api/fs/download', Uint8List.fromList([1]));
+      await run(repository);
+      expect(
+        server.requests.single.headers['accept-encoding'] ??
+            server.requests.single.headers['Accept-Encoding'],
+        'identity',
+      );
+    });
+
+    test('a 401 goes through the interceptors and is retried', () async {
+      var downloads = 0;
+      var pages = 0;
+      server
+        ..onRequest('GET', '/', (_) {
+          pages++;
+          return (
+            status: 200,
+            body: '<script>window.__HERMES_SESSION_TOKEN__="t$pages"</script>',
+          );
+        })
+        ..onRequest('GET', '/api/fs/download', (o) {
+          downloads++;
+          return o.headers['X-Hermes-Session-Token'] == 't2'
+              ? (status: 200, body: Uint8List.fromList([5, 6]))
+              : (status: 401, body: {'detail': 'Unauthorized'});
+        });
+      final dio = server.dio();
+      dio.interceptors.add(
+        pageTokenInterceptor(dio, PageToken(server.client())),
+      );
+      final repository = HermesFilesRepository(HermesApiClient(dio));
+
+      final (result, written) = await run(repository);
+
+      expect(ok(result).bytes, 2);
+      expect(written, [5, 6]);
+      expect(downloads, 2, reason: 'refused once, then retried');
+    });
+
+    test('a 401 that stays a 401 is a kind, with no path', () async {
+      server.on('GET', '/api/fs/download', {'detail': 'x'}, status: 401);
+      final (result, written) = await run(repository);
+      expect(failure(result), FilesFailure.unreadable);
+      expect(written, isEmpty);
+    });
+
+    test('the sink is given one chunk at a time and the body waits', () async {
+      final adapter = FsDownloadAdapter(length: 4);
+      final repository = HermesFilesRepository(adapter.client());
+      // A test double with nothing to close.
+      // ignore: close_sinks
+      final sink = _SlowSink();
+      final future = repository.download(p('/srv/p/out.bin'), sink: sink);
+      await pumpEventQueue();
+      adapter.chunks.add(Uint8List.fromList([1, 2]));
+      await pumpEventQueue();
+
+      expect(sink.flushes, hasLength(1));
+      expect(adapter.chunks.isPaused, isTrue, reason: 'waiting for the sink');
+
+      sink.flushes.single.complete();
+      await pumpEventQueue();
+      expect(adapter.chunks.isPaused, isFalse);
+
+      adapter.chunks.add(Uint8List.fromList([3, 4]));
+      await pumpEventQueue();
+      expect(sink.flushes, hasLength(2));
+      sink.flushes.last.complete();
+      await adapter.chunks.close();
+      await pumpEventQueue();
+      sink.autoFlush = true;
+      for (final f in sink.flushes) {
+        if (!f.isCompleted) f.complete();
+      }
+      expect(ok(await future).bytes, 4);
+      expect(sink.bytes, [1, 2, 3, 4]);
+    });
   });
+}
+
+/// A sink whose flush finishes only when the test says so.
+class _SlowSink implements IOSink {
+  final bytes = <int>[];
+  final flushes = <Completer<void>>[];
+  var autoFlush = false;
+
+  @override
+  void add(List<int> data) => bytes.addAll(data);
+
+  @override
+  Future<void> flush() {
+    final done = Completer<void>();
+    if (autoFlush) done.complete();
+    flushes.add(done);
+    return done.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
