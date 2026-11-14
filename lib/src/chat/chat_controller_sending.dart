@@ -24,6 +24,12 @@ extension _ChatControllerSending on ChatController {
       return false;
     }
     final epoch = _activityEpoch;
+    final undo = _SendUndo(
+      title: selected?.title ?? 'New chat',
+      prior: selected == null ? null : _sentPrompts[selected],
+      settled: selected != null && _queueSettled.contains(selected),
+      bound: selected != null && _bound.contains(selected),
+    );
     final sizes = readyAttachments == null ? _sizesOrExplain(files) : <int>[];
     if (sizes == null) return false;
     final attachments = <ChatAttachment>[...?readyAttachments];
@@ -80,6 +86,9 @@ extension _ChatControllerSending on ChatController {
         ..title = label.length > 48 ? '${label.substring(0, 48)}…' : label
         ..named = false;
     }
+    if (protectedSend == null && !thread.named) {
+      undo.appliedTitle = thread.title;
+    }
 
     final threadId = _bound.contains(thread) ? thread.id : null;
     final userMessage = ChatMessage(
@@ -90,7 +99,6 @@ extension _ChatControllerSending on ChatController {
       createdAt: DateTime.now(),
       attachments: attachments,
     );
-    voice?.prior = _sentPrompts[thread];
     _sentPrompts[thread] = userMessage;
     if (protectedSend == null) {
       thread.messages.add(userMessage);
@@ -130,6 +138,7 @@ extension _ChatControllerSending on ChatController {
         protectedSend: protectedSend,
         deferredUser: protectedSend == null ? null : userMessage,
         voice: voice,
+        undo: undo,
       );
       if (!_currentActivity(epoch)) return false;
       unawaited(_attention.askForPermission());
@@ -211,6 +220,7 @@ extension _ChatControllerSending on ChatController {
     _ProtectedQueuedSend? protectedSend,
     ChatMessage? deferredUser,
     _VoiceTurn? voice,
+    required _SendUndo undo,
   }) {
     _beginMoaTurn(thread, reply);
     final epoch = _activityEpoch;
@@ -275,6 +285,13 @@ extension _ChatControllerSending on ChatController {
         // this turn was being opened) goes on as after any turn that ended.
         if (_turnEnded(thread)) {
           _drainQueue(thread);
+        }
+        // Opening the session closed the watch that listened between turns:
+        // listen again, as after a send that ended any other way.
+        if (_bound.contains(thread)) {
+          _followUps(transport, thread, profile);
+          if (!_currentActivity(epoch)) return;
+          _refetchIfIdle(thread);
         }
         notifyListeners();
       } else if (folded) {
@@ -442,14 +459,21 @@ extension _ChatControllerSending on ChatController {
           }
           return;
         }
-        if (protectedSend == null &&
-            event is PromptAccepted &&
+        if (event is PromptAccepted &&
             event.status == PromptAccepted.voiceStopped) {
           // Hermes took the words as a stop phrase, typed or spoken: no turn
           // runs, so neither the prompt nor its placeholder is shown.
           withdrawn = 'voice_stopped';
+          // A durable queued prompt Hermes consumed is settled, not failed.
+          if (protectedSend != null) _acceptedQueue(thread, protectedSend);
           voice?.answer(VoiceTurnAnswer.voiceStopped);
-          _dropUnsentTurn(thread, submittedUser, reply, voice?.prior);
+          _dropUnsentTurn(thread, submittedUser, reply, undo);
+          // A typed prompt has no call turn to hear it: tell the calls.
+          if (voice == null) {
+            for (final listener in [..._voiceStoppedListeners]) {
+              listener();
+            }
+          }
           return;
         }
         if (voice != null && event is PromptAccepted) {
@@ -518,7 +542,7 @@ extension _ChatControllerSending on ChatController {
           if (!_currentActivity(epoch)) return;
           withdrawn = 'not_sent';
           voice.answer(VoiceTurnAnswer.withdrawn);
-          _dropUnsentTurn(thread, submittedUser, reply, voice.prior);
+          _dropUnsentTurn(thread, submittedUser, reply, undo);
         }
         end(error);
       },

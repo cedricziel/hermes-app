@@ -69,6 +69,10 @@ abstract interface class CallAgent {
   /// call's own turn.
   void watchTyped(void Function() listener);
 
+  /// Calls [listener] when Hermes took a message typed in the chat as the stop
+  /// phrase of its voice mode, which ends the call.
+  void watchVoiceStopped(void Function() listener);
+
   /// Whether the thread waits for the user (an approval, a question), whoever
   /// raised it: this call's reply, a typed one or a server-queued one.
   bool get attention;
@@ -96,6 +100,7 @@ class ChatCallAgent implements CallAgent {
   /// Set by [interrupt]: whatever this call sends from then on is withdrawn.
   bool _stopped = false;
   void Function()? _typed;
+  void Function()? _voiceStopped;
   ChatMessage? _knownPrompt;
   Completer<void>? _reply;
   String? _messageID;
@@ -124,6 +129,18 @@ class ChatCallAgent implements CallAgent {
       chat.active &&
       chat.profile == profile &&
       identical(chat.selectedThread, _thread);
+
+  @override
+  void watchVoiceStopped(void Function() listener) {
+    final previous = _voiceStopped;
+    if (previous != null) chat.removeVoiceStoppedListener(previous);
+    void heard() {
+      if (!_disposed && valid) listener();
+    }
+
+    _voiceStopped = heard;
+    chat.addVoiceStoppedListener(heard);
+  }
 
   @override
   void watchTyped(void Function() listener) {
@@ -171,6 +188,12 @@ class ChatCallAgent implements CallAgent {
         interrupted: interrupted,
         onSubmitting: onSubmitted,
         onAnswer: (answer) {
+          // The prompt is taken out of the chat again, which is not a message
+          // typed there: the thread's last prompt is the one before the call's.
+          if (answer == VoiceTurnAnswer.withdrawn ||
+              answer == VoiceTurnAnswer.voiceStopped) {
+            _knownPrompt = _earlierPrompt;
+          }
           switch (answer) {
             case VoiceTurnAnswer.started:
               break;
@@ -341,5 +364,6 @@ class ChatCallAgent implements CallAgent {
     _disposed = true;
     _watcher = null;
     chat.removeListener(_changed);
+    if (_voiceStopped case final heard?) chat.removeVoiceStoppedListener(heard);
   }
 }

@@ -223,7 +223,9 @@ void main() {
         expect(done, isFalse);
         expect(transport.sends, isEmpty);
         storeGate!.complete(store);
-        await pumpEventQueue();
+        for (var i = 0; i < 50 && !done; i++) {
+          await pumpEventQueue();
+        }
         expect(done, isTrue);
         expect(refused, isNull);
         final send = transport.sends.single;
@@ -423,6 +425,35 @@ void main() {
       final chat = await settled();
       expect(await speak(chat), isNull);
       expect(transport.sends.last.interrupted, isFalse);
+    });
+  });
+
+  group('after a turn that was not sent', () {
+    test('the chat listens for the session again', () async {
+      final chat = await open();
+      var wanted = true;
+      await speak(chat, wanted: () => wanted);
+      // Opening the session closes the watch the follow-ups listened on.
+      transport.followUpStreams['stored']!.finish();
+      await pumpEventQueue();
+      final before = transport.followUpCalls;
+      wanted = false;
+      transport.sends.single.submit();
+      await pumpEventQueue();
+      expect(transport.followUpCalls, greaterThan(before));
+    });
+
+    test('a typed stop phrase leaves the chat listening again', () async {
+      final chat = await open();
+      await chat.submit('stop', const []);
+      transport.followUpStreams['stored']!.finish();
+      await pumpEventQueue();
+      final before = transport.followUpCalls;
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(transport.followUpCalls, greaterThan(before));
     });
   });
 }

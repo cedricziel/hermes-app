@@ -88,3 +88,5 @@ A late stopCapture from an old call that arrives after a new call is live would 
 - [ ] 9.3 The `tts-lease` warm-up (`app:conversation:<id>`, failure ignored) with its test.
 - [ ] 9.4 Roadmap: each implementing PR updates the 4.11 row's status in the same PR (CLAUDE.md). This design PR leaves it to the orchestrator.
 - [ ] 9.5 If this PR is cut, amend the spec in the same PR: remove the "Speak replies" sentences from "Speaking the reply" and the turn list from the call view. The tones are core and stay (task 2.11).
+
+_PR 3 review follow-ups (done):_ a typed prompt Hermes takes as `voice_stopped` ends a running call (`ChatController.addVoiceStoppedListener`, `CallAgent.watchVoiceStopped`); a withdrawn voice turn or a consumed stop phrase puts the chat back as it was (title, last sent prompt, settled state, the follow-up listener, and a chat that a create had bound to an id Hermes never stored creates its session again); a durable queued prompt answered `voice_stopped` is settled, not failed. `PromptAcknowledged` needs no skip: a `voice_stopped` result carries no `user_row_id`. The final `wanted` check before `_send` stays on purpose (cheap, defensive).

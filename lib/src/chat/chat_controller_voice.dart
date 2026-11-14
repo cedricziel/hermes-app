@@ -58,10 +58,6 @@ final class _VoiceTurn {
   final void Function()? onSubmitting;
   final void Function(VoiceTurnAnswer)? onAnswer;
 
-  /// The prompt the thread had sent before this one, which is again the last
-  /// sent when this one is withdrawn.
-  ChatMessage? prior;
-
   void answer(VoiceTurnAnswer answer) {
     try {
       onAnswer?.call(answer);
@@ -172,17 +168,51 @@ extension _ChatControllerVoice on ChatController {
   }
 
   /// Takes a turn that was not sent, or that Hermes ended as a stop phrase,
-  /// out of the thread: the prompt and its placeholder, as if neither had been
-  /// shown. [prior] is the prompt the thread had sent before, which is the last
-  /// sent again.
+  /// out of the thread: the prompt and its placeholder, and what sending them
+  /// changed ([undo]), as if neither had been shown.
   void _dropUnsentTurn(
     ChatThread thread,
     ChatMessage prompt,
     ChatMessage reply,
-    ChatMessage? prior,
+    _SendUndo undo,
   ) {
+    // First, so what listens to the removals sees the thread as it was.
+    if (identical(_sentPrompts[thread], prompt)) {
+      _sentPrompts[thread] = undo.prior;
+    }
+    if (undo.settled) _queueSettled.add(thread);
+    // Hermes stores a session with its first prompt: a chat bound by a create
+    // whose prompt was never written is bound to an id Hermes does not know,
+    // so the next send creates a session again.
+    if (!undo.bound) _bound.remove(thread);
     _removeReply(thread, reply);
     _removeReply(thread, prompt);
-    if (identical(_sentPrompts[thread], prompt)) _sentPrompts[thread] = prior;
+    // The words were the chat's title only because they were its first prompt.
+    if (undo.appliedTitle != null &&
+        thread.messages.isEmpty &&
+        !thread.named &&
+        thread.title == undo.appliedTitle) {
+      thread.title = undo.title;
+    }
   }
+}
+
+/// What sending a prompt changed in a thread, to put back when the prompt
+/// turns out never to have been sent.
+final class _SendUndo {
+  _SendUndo({
+    required this.title,
+    required this.prior,
+    required this.settled,
+    required this.bound,
+  });
+
+  /// The thread's title before, the one the prompt's words set (null when they
+  /// set none), the prompt it had sent last, whether the session was known
+  /// idle, and whether the thread was bound to a stored session.
+  final String title;
+  String? appliedTitle;
+  final ChatMessage? prior;
+  final bool settled;
+  final bool bound;
 }

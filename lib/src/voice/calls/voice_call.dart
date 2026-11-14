@@ -52,6 +52,8 @@ class VoiceCall extends ChangeNotifier {
     // A message typed in the chat ends the cut-off: the next spoken turn
     // follows something else.
     agent.watchTyped(_clearInterrupted);
+    // A typed prompt Hermes took as its stop phrase ends the call too.
+    agent.watchVoiceStopped(() => unawaited(voiceStopped()));
   }
   final CallBridge bridge;
   final CallAgent agent;

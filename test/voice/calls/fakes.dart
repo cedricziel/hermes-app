@@ -177,6 +177,12 @@ class FakeCallAgent implements CallAgent {
   }
 
   void Function()? _typed;
+  void Function()? _stopHeard;
+  @override
+  void watchVoiceStopped(void Function() listener) => _stopHeard = listener;
+
+  /// Hermes took a typed prompt as its stop phrase.
+  void typedVoiceStopped() => _stopHeard?.call();
   @override
   void watchTyped(void Function() listener) => _typed = listener;
 

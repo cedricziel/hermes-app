@@ -174,6 +174,29 @@ void main() {
     },
   );
 
+  test('a queued prompt Hermes takes as its stop phrase is consumed', () async {
+    final chat = await open();
+    final thread = chat.selectedThread!;
+    transport.acceptanceStatus = PromptAccepted.voiceStopped;
+    expect(await chat.submit('first', const []), isTrue);
+    expect(await chat.submit('stop', const []), isTrue);
+    expect(chat.queuedIn(thread).single.text, 'stop');
+    transport.sends.single
+      ..emit(const ReplyCompleted('Done'))
+      ..emit(const SessionInfo(running: false))
+      ..finish();
+    await transport.prepared.timeout(const Duration(seconds: 5));
+    await pumpEventQueue();
+    expect(transport.sends, hasLength(2));
+    transport.sends.last.finish();
+    await pumpEventQueue();
+    expect(chat.queuedIn(thread), isEmpty);
+    expect(chat.queueNeedsReview(thread), isFalse);
+    expect(thread.isReplying, isFalse);
+    expect(reports, isEmpty);
+    expect((await store.load(scope())).records, isEmpty);
+  });
+
   test('new input on restored queue stays paused', () async {
     await store.commit(scope(), 'restored');
     final chat = await open();

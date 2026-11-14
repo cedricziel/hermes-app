@@ -418,4 +418,102 @@ void main() {
       expect(typed, 1);
     });
   });
+
+  group('a turn that was not sent leaves the chat as it was', () {
+    /// Sends a spoken turn and withdraws it before it is written.
+    Future<void> withdraw({bool interrupted = false}) async {
+      var wanted = true;
+      final refused = agent
+          .reply(
+            'Secret words',
+            onText: (_) {},
+            onAttention: (_) {},
+            wanted: () => wanted,
+            interrupted: interrupted,
+          )
+          .then<void>((_) {}, onError: (Object _) {});
+      await pumpEventQueue();
+      wanted = false;
+      transport.sends.last.submit();
+      await refused;
+      await pumpEventQueue();
+    }
+
+    test('the words do not become the chat title', () async {
+      await withdraw();
+      expect(chat.selectedThread!.title, 'New chat');
+      expect(chat.selectedThread!.messages, isEmpty);
+    });
+
+    test('a typed stop phrase leaves no title either', () async {
+      await chat.submit('Secret stop words', const []);
+      transport.sends.single
+        ..emit(const PromptAccepted(PromptAccepted.voiceStopped))
+        ..finish();
+      await pumpEventQueue();
+      expect(chat.selectedThread!.title, 'New chat');
+    });
+
+    test('is not mistaken for a typed message', () async {
+      var typed = 0;
+      agent.watchTyped(() => typed++);
+      await withdraw();
+      expect(typed, 0);
+    });
+
+    test('keeps a pending interrupted for the next turn', () async {
+      await chat.submit('earlier', const []);
+      transport.sends.single
+        ..emit(const ReplyCompleted('Done'))
+        ..emit(const SessionInfo(running: false))
+        ..finish();
+      await pumpEventQueue();
+      await withdraw(interrupted: true);
+      final done = agent.reply(
+        'Again',
+        onText: (_) {},
+        onAttention: (_) {},
+        wanted: () => true,
+        interrupted: true,
+      );
+      await pumpEventQueue();
+      expect(transport.sends.last.text, 'Again');
+      expect(transport.sends.last.interrupted, isTrue);
+      transport.sends.last.emit(const ReplyCompleted('Hi.'));
+      await done;
+    });
+
+    test(
+      'a chat bound by the withdrawn send creates its session again',
+      () async {
+        var wanted = true;
+        final first = agent
+            .reply(
+              'Hello',
+              onText: (_) {},
+              onAttention: (_) {},
+              wanted: () => wanted,
+            )
+            .then<void>((_) {}, onError: (Object _) {});
+        await pumpEventQueue();
+        transport.sends.single.emit(const ThreadBound('never-stored'));
+        await pumpEventQueue();
+        wanted = false;
+        transport.sends.single.submit();
+        await first;
+        await pumpEventQueue();
+        final done = agent.reply(
+          'Again',
+          onText: (_) {},
+          onAttention: (_) {},
+          wanted: () => true,
+        );
+        await pumpEventQueue();
+        expect(transport.sends.last.text, 'Again');
+        expect(transport.sends.last.threadId, isNull);
+        transport.sends.last.emit(const ReplyCompleted('Hi.'));
+        await done;
+      },
+    );
+  });
 }
