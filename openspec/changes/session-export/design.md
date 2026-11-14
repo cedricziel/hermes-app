@@ -1,0 +1,57 @@
+# Design
+
+## Server surface
+
+Verified in the Hermes source at `d923a5eb` (`openapi/HERMES_REF`), read only. The `hermes` command is not installed in this environment, so no response was recorded (see "Not verified").
+
+- **Route.** `GET /api/sessions/{session_id}/export?profile=` in `hermes_cli/web_routers/sessions.py: export_session_endpoint`. Registered on `manage_router` (`web_server.py` line 1067); the usual dashboard auth applies (`web_server.py: auth_middleware`, or the OAuth gate). The OpenAPI entry has no response schema (`{}`), only 200 and 422.
+- **Parameters.** `session_id` is an exact id or an unambiguous prefix (`hermes_state_sessions.py: resolve_session_id`; two matches resolve to none). `profile` is optional. Omitted, the process's own `state.db` is read (`web_server_sessions.py: _session_db_path_for_profile`). Named, it goes through `web_server_cron.py: _cron_profile_home`: 400 with the validation message for a bad name, 404 `Profile '<name>' does not exist.` for an unknown one. The route is read only (`read_only=True`); `get_session` first drains queued token counts.
+- **Response.** `StreamingResponse`, `media_type="application/json"`. No `Content-Disposition`, and no `Content-Length` is set, so the total is unknown while it downloads. The web page names the file itself, `session-<id>.json` (`web/src/pages/SessionsPage.tsx: handleExport`). The body is one compact object: every column of the `sessions` row (`get_session`; `system_prompt` and `tool_names` resolved, `model_config`, `origin_json`, `user_id`, `chat_id`, `cwd`, `git_repo_root`, billing and token counts, `title`) with `"messages":[ ... ]` appended.
+- **Messages.** Read in keyset pages of 500 with `include_inactive=True`: every stored row of that session, including rows after a rewind (`active` 0) and rows archived by in-place compaction (`compacted` 1), each with its flags. Per row: `role`, `content` (a string, or a list for multimodal parts), `tool_calls`, `tool_call_id`, `tool_name`, `reasoning`, `reasoning_content`, `reasoning_details`, `api_content`, `display_metadata`, `token_count`, `timestamp` (`hermes_state_messages.py: get_messages`, `_row_to_message_dict`; `display_identity` and `display_order` are dropped). It is one session, not the compression lineage: parent sessions are not included (`export_session_lineage` is not used here), whereas `/messages` includes ancestors. There is no `timings` key, unlike `SessionDB.export_session`.
+- **Size.** No cap and no truncation; memory on the server is bounded by the page size, not by the transcript. The test `tests/hermes_cli/test_web_server.py: test_export_session_streams_bounded_message_pages` covers 501 rows in two pages.
+- **Errors.** 404 `Session not found` (unknown id, ambiguous prefix; `sessions.py: _NOT_FOUND`); 503 `Session store is corrupt ...` (`_resolve_session_id`); 401 `Unauthorized`; 422 from FastAPI. The first byte is sent only after the session row is read, so those are real statuses. A failure while streaming the pages happens after status 200: the body just stops, as truncated JSON.
+- **Secrets.** Nothing is redacted on this route. The CLI's `/save ... redact` option is not reachable over HTTP (`hermes_cli/session_export.py`). The system prompt, tool results and arguments can hold keys.
+- **Import.** `POST /api/sessions/import` takes a session export (JSON or JSONL; `sessions.py: import_sessions_endpoint`). Noted, not used.
+- **Markdown.** `hermes_cli/session_export_md.py` renders Markdown for the CLI; no route serves it.
+
+## What the app has
+
+- `ThreadAction` and `runThreadAction` (`lib/src/chat/widgets/thread_actions_menu.dart`) are the one place every chat menu goes through: sidebar row (`ThreadActionsButton`, dense; Mac `macThreadMenuItems`), chat header, Mac toolbar "…" (`mac_chat_toolbar.dart`), conversation window (`conversation_windows_menu.dart`) and the Mac Chat menu (`MacCommand.copyTranscript` in `menu_layout.dart`, handler in `chat_screen_navigation.dart`). A new `ThreadAction.exportJson` reaches all of them.
+- Saving: `MediaActions.save(name, bytes)` is `FilePicker.saveFile` (`lib/src/chat/media/media_actions.dart`, also `kanban_files.dart`). `file_picker` 13.3.3 shows NSSavePanel on macOS, the save dialog on Windows and Linux, the Files export sheet on iOS and the system "create document" picker on Android, and returns null on cancel.
+- Not present: `share_plus` (Server files plans it, `openspec/changes/server-files` task 3.4), a Share action, any `Content-Disposition` handling.
+- Text export that exists: `threadTranscript`, `threadMarkdown`, `threadExportFileName` (`lib/src/chat/thread_export.dart`): visible turns only.
+- Generated client: `exportSessionEndpointApiSessionsSessionIdExportGet` (`packages/hermes_api`, `default_api.dart`) takes `sessionId`, `profile`, `headers`, `extra`; it returns `Response<Object>`.
+
+## Decisions
+
+1. **Raw JSON only.** It is the one thing the server gives that the app cannot make: reasoning, tool calls, rewound and compacted rows, the system prompt and costs. A device-made Markdown would repeat Copy Transcript and the Mac drag-out. A "Save transcript as Markdown…" using `threadMarkdown` and `saveFile` is a small separate change, left out here.
+2. **Save, not Share.** The existing save path is used on every platform. A Share action waits for `share_plus` from Server files; this change does not add the package.
+3. **Hand-written byte fetch.** The generated method can return the JSON (Dio decodes `application/json` to a `Map`), so this is a choice, not a necessity. It would decode a possibly very large body into maps and re-encode it: several times the memory, and not the server's bytes. `HermesApiClient._getBytes` (`fetchKanbanAttachment`, `fetchManagedFile`) already asks for bytes with a 5-minute deadline; `fetchSessionExport(id, profile)` is a third thin caller, with the id percent-encoded (the generated method puts it into the path as is). A reviewer who prefers the generated call can swap it; the rest of the design does not change.
+4. **Confirm first.** One dialog, Cancel the default, before anything is requested, because the file may hold secrets. It is not a destructive action, but the file leaves the app's protection.
+5. **Validate before saving.** A streamed 200 can stop short. The bytes are decoded (`jsonDecode`, in an isolate above 1 MB); the root must be an object with a string `id` and a list `messages`, or nothing is offered for saving. A dropped connection is the same failure. Nothing is retried.
+6. **Memory only.** The bytes are never staged in `MediaStore`, so no cache rule applies. They are dropped when the save returns, the user cancels, the profile or server changes, the user signs out, or App Lock locks (the fetch is cancelled).
+7. **Profile.** The profile the chat was listed under (`ThreadHousekeeping.profile`) is sent explicitly. A chat without one is not offered (`housekeeping == null` or a null profile hides the item); local and mock chats never are.
+8. **File name.** `threadExportFileName`'s rules with `.json`. The name stays on the device and goes to no telemetry.
+
+## Known limit
+
+A chat the server compressed into a new session exports only its current session. The file says so only through its `parent_session_id`. The confirmation does not claim "the whole chat"; it says "this session as Hermes stored it".
+
+## Platforms
+
+All six clients use `saveFile`. macOS needs the user-selected read-write entitlement the Kanban save already uses; no native change. watchOS: none.
+
+## Invariants touched
+
+Auth: the request goes through the managed `Dio`, so a 401 follows the existing refresh path and never signs the user out on its own. Telemetry never breaks the app; every call is guarded. Generated client: see decision 3.
+
+## Observability
+
+- `session_export.fetch` span (`ChatTelemetry`/feature span helper, in the repository): `outcome` (saved-ready, not_found, unsupported, profile, corrupt, timeout, incomplete, offline, cancelled), `bytes_bucket`, `messages_bucket`, `hermes.*`. The messages count is read from the decoded root.
+- `session_export.failed` through `AppEventLogger` with `reason` only.
+- Breadcrumbs `session_export.started`, `.saved`, `.cancelled`, from the controller.
+- None carries a title, id, profile, file name, path or any file content.
+
+## Not verified
+
+No response was captured; headers and real bodies, the size of a long chat, whether an image part embeds data or a path, the 404 text on older servers, and `saveFile` on a physical iPhone and in the macOS sandbox are unchecked.
