@@ -164,7 +164,7 @@ class _PickerSheetState extends State<_PickerSheet> {
           picker.serverDefault ??
           WorkspacePickerRow(
             id: kPickerDefaultId,
-            title: l10n.workspacesTagServerDefault,
+            title: l10n.workspacesPickerDefaultUnknown,
             path: '',
           ),
       projects: picker.projects,

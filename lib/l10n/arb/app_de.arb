@@ -1297,6 +1297,7 @@
   "workspacesOnYourServer": "auf deinem Server",
   "workspacesPathLabel": "{path} auf deinem Server",
   "workspacesPickerBrowse": "Ordner auf deinem Server durchsuchen",
+  "workspacesPickerDefaultUnknown": "Standardordner deines Servers",
   "workspacesPickerEmpty": "Noch keine Projekte oder zuletzt genutzten Ordner. Durchsuche deinen Server oder gib einen Pfad ein.",
   "workspacesPickerLoading": "Projekte werden geladen…",
   "workspacesPickerMore": "Mehr",

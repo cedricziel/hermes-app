@@ -46,6 +46,7 @@ import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../files/files_telemetry.dart' show FilesOpenedFrom;
 import '../files/open_files.dart';
+import 'chat_workspace_state.dart' show WorkspaceMoveBlock;
 import '../workspaces/hermes_workspaces_repository.dart';
 import '../workspaces/ui/bound_working_directory.dart';
 import '../workspaces/ui/workspace_flows.dart';

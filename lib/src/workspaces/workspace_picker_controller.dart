@@ -102,8 +102,13 @@ class WorkspacePickerController extends ChangeNotifier {
     _loader.addListener(_catalogChanged);
     _lastRepos = _repoRoots(_loader.catalog);
     telemetry.pickerOpened(move: isMove);
-    _openCatalog();
-    _startProbe();
+    // Not now: a picker is made while a sheet builds, and a read starting
+    // notifies the chat's listeners.
+    scheduleMicrotask(() {
+      if (_dead) return;
+      _openCatalog();
+      _startProbe();
+    });
   }
 
   final HermesWorkspacesRepository _repository;

@@ -197,6 +197,22 @@ extension _ChatScreenNavigation on _ChatScreenState {
     };
   }
 
+  /// "Change Folder…" for [thread]'s menu: only for the open chat, while the
+  /// server can move it; disabled while it replies.
+  ChangeFolderOffer? _changeFolderOffer(ChatThread thread) {
+    if (!workspacesOffered(_chat) ||
+        thread.id != _chat.selectedId ||
+        !thread.remote) {
+      return null;
+    }
+    final block = _chat.workspaceMoveBlock(thread);
+    if (block != null && block != WorkspaceMoveBlock.replying) return null;
+    return ChangeFolderOffer(
+      enabled: block == null,
+      onSelected: () => _changeFolder(thread),
+    );
+  }
+
   /// Opens the folder details of [thread] with the picker over them.
   void _changeFolder(ChatThread thread) {
     _closeDrawerIfNarrow();

@@ -81,6 +81,7 @@ extension _ChatScreenLayout on _ChatScreenState {
               : 0,
           avatarBuilder: (_) => _avatar(24),
           navigation: navigation,
+          changeFolderFor: _changeFolderOffer,
           onOpenInNewWindow: _windows == null
               ? null
               : (thread) => unawaited(_openInWindow(thread)),
@@ -294,6 +295,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                         housekeeping: chat.housekeeping,
                         includeCopyTranscript: true,
                         onShowFiles: showFiles,
+                        changeFolder: _changeFolderOffer(selected),
                       ),
                     if (selected != null)
                       ActivityButton(
