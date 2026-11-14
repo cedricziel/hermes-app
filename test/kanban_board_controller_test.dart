@@ -324,7 +324,7 @@ void main() {
     final retrying = KanbanBoardController(
       repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async {
-        if (attempts++ == 0) throw StateError('no session token');
+        if (attempts++ == 0) throw StateError('bug');
         final socket = StreamChannelController<String>();
         sockets.add(socket);
         return socket.foreign;

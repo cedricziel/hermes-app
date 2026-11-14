@@ -58,6 +58,7 @@ class GroupRoomRow extends StatelessWidget {
   final String? activity;
   @override
   Widget build(BuildContext context) => GroupedRow(
+    wrapWhenStacked: true,
     leading: const GroupedTile(child: AppIcon(AppIcons.group)),
     title: room.name,
     subtitle: [

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../server_care/widgets/server_attention_dot.dart';
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
@@ -168,6 +169,7 @@ class MacToolbarButton extends StatelessWidget {
     required this.onPressed,
     this.shortcut,
     this.selected,
+    this.marked = false,
   });
 
   final String label;
@@ -180,16 +182,31 @@ class MacToolbarButton extends StatelessWidget {
   /// Whether a toggle is on; null for a plain button.
   final bool? selected;
 
+  /// Draws the attention mark at the icon's top right; [label] says why.
+  final bool marked;
+
   @override
   Widget build(BuildContext context) {
     final shortcut = this.shortcut;
-    return NamedIconButton(
+    final button = NamedIconButton(
       label: label,
       tooltip: shortcut == null ? label : '$label $shortcut',
       icon: icon,
       isSelected: selected,
       onPressed: onPressed,
       style: macToolbarButtonStyle(context),
+    );
+    if (!marked) return button;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        button,
+        const PositionedDirectional(
+          top: 0,
+          end: 0,
+          child: IgnorePointer(child: ServerAttentionDot()),
+        ),
+      ],
     );
   }
 }

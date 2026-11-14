@@ -76,12 +76,15 @@ List<SingleChildWidget> surfaceProviders(Telemetry telemetry) => [
     },
     dispose: (_, cleanup) => cleanup.dispose(),
   ),
-  // Only the iOS Home Screen widgets exist; the report says which are
-  // placed, at most once a day.
+  // The report says which Home Screen widgets are placed, at most once a
+  // day. Android has no widget provider yet, so it reports zero.
   Provider<WidgetUsageReporter?>(
     lazy: false,
     create: (_) {
-      if (defaultTargetPlatform != TargetPlatform.iOS) return null;
+      if (defaultTargetPlatform != TargetPlatform.iOS &&
+          defaultTargetPlatform != TargetPlatform.android) {
+        return null;
+      }
       final reporter = WidgetUsageReporter(events: telemetry.events());
       unawaited(reporter.report());
       return reporter;

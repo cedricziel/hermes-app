@@ -6,6 +6,7 @@ import '../telemetry/breadcrumbs.dart';
 import 'memory_decisions.dart';
 import 'memory_proposals.dart';
 import 'memory_proposals_repository.dart';
+import '../telemetry/report_bug.dart';
 
 /// What the inbox says about the last decision, until the next one.
 class MemoryProposalsNotice {
@@ -194,7 +195,8 @@ class MemoryProposalsController extends ChangeNotifier {
     ProposalDiff result;
     try {
       result = ProposalDiff(text: await repository.diff(profile, id));
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the memory proposals');
       result = const ProposalDiff(failed: true);
     }
     if (_disposed || generation != _generation) return;

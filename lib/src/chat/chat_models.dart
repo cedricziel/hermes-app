@@ -692,6 +692,8 @@ class ChatThread {
     required this.updatedAt,
     this.pinned = false,
     this.folderPath,
+    this.workingDirectory,
+    this.branch,
     this.remote = false,
     this.named = false,
     this.unread = false,
@@ -708,6 +710,13 @@ class ChatThread {
   DateTime updatedAt;
   bool pinned;
   final String? folderPath;
+
+  /// The folder the chat runs in as the server stored it (`cwd`), unlike
+  /// [folderPath], which is the git root when there is one.
+  final String? workingDirectory;
+
+  /// The git branch stored with the chat (`git_branch`), when known.
+  final String? branch;
 
   /// Whether the Hermes dashboard holds this thread, as opposed to a local
   /// draft or mock data.

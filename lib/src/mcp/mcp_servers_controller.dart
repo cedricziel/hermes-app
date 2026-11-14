@@ -8,6 +8,16 @@ import '../core/safe_notifier.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_command_review_items.dart';
+import '../telemetry/report_bug.dart';
+
+/// The active profile could not be learned, so nothing can be asked of it.
+/// An expected failure, not a bug.
+class McpProfileUnknown implements Exception {
+  const McpProfileUnknown();
+
+  @override
+  String toString() => 'The active profile is unknown';
+}
 
 /// Where a connection test of one server stands.
 sealed class McpTestState {
@@ -200,7 +210,8 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
     try {
       _profile = forProfile ?? await _activeProfile();
       await _fetch();
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP servers');
       if (disposed) return;
       _failed = true;
     }
@@ -277,7 +288,8 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
   Future<void> _reload() async {
     try {
       await _fetch();
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP servers');
       if (disposed) return;
       _failed = true;
     }
@@ -314,7 +326,8 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
       return e.status == 409
           ? const McpAddDuplicate()
           : McpAddRefused(e.reason);
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP servers');
       return const McpAddFailed();
     } finally {
       _saving = false;
@@ -340,7 +353,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
   /// replaces it. Throws when it cannot be read, or the profile is unknown.
   Future<Map<String, Object?>> loadRawServers() async {
     if (!_ready) await load();
-    if (!_ready) throw StateError('The active profile is unknown');
+    if (!_ready) throw const McpProfileUnknown();
     return repository.loadRawServers(profile: _profile);
   }
 
@@ -373,7 +386,8 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
       return const McpReplaced();
     } on McpRefused catch (e) {
       return McpReplaceRefused(e.problems);
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP servers');
       return const McpReplaceFailed();
     } finally {
       _saving = false;
@@ -395,7 +409,8 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
           s.name == name ? s.withEnabled(enabled) : s,
       ];
       return McpOutcome.done;
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP servers');
       return _failure(e);
     } finally {
       _switching.remove(name);
@@ -414,7 +429,8 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
       outcome = McpTestFinished(
         await repository.testServer(server, profile: _profile),
       );
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP servers');
       if (await _failure(e) != McpOutcome.gone) {
         outcome = const McpTestUnavailable();
       }
@@ -435,7 +451,8 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
     final name = server.name;
     try {
       await repository.removeServer(name, profile: _profile);
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP servers');
       return _failure(e);
     }
     _fetches++; // a list asked for before the removal is out of date
@@ -468,7 +485,8 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
         _ => 'Could not start signing in to $name',
       };
       return const McpSignInDeclined();
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP servers');
       if (await _failure(e) == McpOutcome.gone) return const McpSignInGone();
       _signInNotes[name] = 'Could not start signing in to $name';
       return const McpSignInDeclined();

@@ -52,7 +52,10 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
   @override
   void didUpdateWidget(ServerRestartBanner old) {
     super.didUpdateWidget(old);
-    if (old._ready != widget._ready) _arm();
+    if (old._ready != widget._ready ||
+        old.onAutoDismiss != widget.onAutoDismiss) {
+      _arm();
+    }
   }
 
   void _arm() {
