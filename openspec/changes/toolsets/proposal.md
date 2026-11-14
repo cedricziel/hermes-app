@@ -9,8 +9,8 @@ The same screens exist for Skills, Plugins, MCP servers and Helper models. Tools
 ## What Changes
 
 - A **Tools** screen per profile, reached from the chat sidebar next to MCP servers (phone and tablet), and from a Tools section on the Mac Profiles page. It uses `SettingsScaffold` and `GroupedListView` like Skills, Plugins, MCP servers and Helper models.
-- The list is grouped Needs setup, On, Off. Each row has a plain name, one sentence about what it lets Hermes do, a switch, and a state ("5 tools", "On · needs setup").
-- Switching a toolset on or off writes the profile's tool list. Switching on **Terminal**, **Code execution** or **Computer use** first says what it lets the agent do and asks. Switching off never asks. The result is checked by reading the list again; a lost answer is "may have happened" and is never resent.
+- The list is grouped Needs setup, On, Off. Each row has a plain name, one sentence about what it lets Hermes do, a switch, and a state ("5 actions", "On · needs setup").
+- Switching a toolset on or off writes the profile's tool list. Switching on **Terminal**, **Code execution**, **Computer use** or **Browser** first says what it lets the agent do and asks. Switching off never asks. The result is checked by reading the list again; a lost answer is "may have happened" and is never resent.
 - A detail (a pane from 900 pt, a pushed page below) with what the toolset lets Hermes do, its state, a **Set up** section when it needs one, where it applies, and the tools it holds.
 - **Set up**, for the toolsets that have a provider matrix (web, browser, image and video generation, speech, vision and others): pick a provider, add its keys, run the provider's install step on the server when it has one, and pick a model for image and video generation. Keys follow the MCP install panel: masked, only in screen state, cleared after the request, never logged.
 - **Where commands run** for Terminal: the terminal backends with Hermes' own health probe (ready, needs setup, unavailable), and a choice between them. Choosing Local asks first.
@@ -43,6 +43,6 @@ None. The cross-links on Skills, Plugins, MCP servers and Helper models are spec
 
 - Code: new `lib/src/tools/` (repository over the generated `authController.api!.raw` client with lenient parsing, controllers, screens), plain-model widgets in `lib/src/tools/widgets/`, one sidebar action and drawer entry (`chat_screen_layout.dart`, `thread_sidebar.dart`), a section on `mac_profiles_page.dart`, a footer line on the four sibling screens, Widgetbook use cases, a contract-test group.
 - Backend: no new route and no server change. REST: `GET/PUT /api/tools/toolsets…`, `/api/tools/terminal/…`, `/api/tools/computer-use/…`, and `GET /api/actions/{name}/status` for the two long steps. All of them are in the pinned OpenAPI file, so the generated client is used; only the untyped answers are parsed by hand.
-- Delivery: five PRs (see tasks.md).
+- Delivery: six PRs (see tasks.md).
 - Security and privacy: API keys typed here reach the server once and live nowhere else. Switching on a command or computer-control toolset is confirmed. Setup text from Hermes is shown but never logged. See design.md "Secrets".
 - Observability: spans `tools.list`, `tools.toggle`, `tools.setup`, `tools.terminal_backend`, `tools.computer_use`; log events `tools.toggled`, `tools.setup_outcome`, `tools.parse_lenient`; breadcrumbs `tools.opened`, `tools.toggled`, `tools.risk_confirmed`, `tools.setup.step`. Counts, outcomes and a fixed list of built-in toolset slugs only; never profile names, provider names, key names, values, server text or URLs.

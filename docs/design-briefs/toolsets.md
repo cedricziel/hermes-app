@@ -18,7 +18,7 @@ Purpose: see what the profile can use and what is not working yet.
 
 - Title "Tools". Subtitle "work · 5 on" (profile name · count on). Bar action: none. Footer link "What's the difference?".
 - Sections in this order, empty ones omitted: "Needs setup", "On", "Off".
-- Row: name (bold), one sentence (secondary, wraps, up to three lines), meta "5 tools". A switch at the trailing edge. A "Needs setup" row adds a warning line "Needs setup" with icon, not colour alone. A risky toolset (see below) adds a small "Can change things" note with an icon under the sentence. Tapping the row (not the switch) opens the detail.
+- Row: name (bold), one sentence (secondary, wraps, up to three lines), meta "5 actions". A switch at the trailing edge. A "Needs setup" row adds a warning line "Needs setup" with icon, not colour alone. A risky toolset (see below) adds a small "Can change things" note with an icon under the sentence. Tapping the row (not the switch) opens the detail.
 - Hierarchy: name, sentence, then state. The switch is the primary action; there is no other.
 - Footer (below the last section): "Switching a tool on or off applies from your next chat. A chat that is already open keeps the tools it started with." then the link.
 
@@ -29,8 +29,8 @@ Sentences (sentence case, no jargon):
 | Web search and scraping | Look things up on the web and read pages. |
 | Browser | Open web pages, click and type in them. |
 | Terminal | Run commands on the machine where Hermes runs. |
-| Files | Read, create and change files on that machine. |
-| Code execution | Write and run programs on that machine. |
+| Files | Read, create and change files on the machine where Hermes runs. |
+| Code execution | Write and run programs on the machine where Hermes runs. |
 | Image analysis | Look at pictures and describe them. |
 | Video analysis | Watch videos and describe them. |
 | Image generation | Make pictures from a description. |
@@ -61,7 +61,7 @@ States:
 - Error: "Couldn't load tools." with "Try again". Rows already loaded stay.
 - Offline: the same as error, with "You're offline." as its first line.
 - Old server: the entry does not exist; if the screen was open, "This server doesn't offer tools settings." and Back.
-- Permission denied (server answers 403): "You can't change tools on this server." and the switches disabled.
+- Not allowed (a write answers 401 or 403): "You can't change tools on this server." and the switch returns.
 - A write in flight: the row's switch shows a small progress and is disabled; a lost answer: row caption "May have changed. Checking…".
 
 iPhone: a normal grouped list, large title collapsing as in Skills. iPad and wide windows: list left, detail right from 900 pt. Mac: `MacToolbar` with back and title, no bottom sheets; the detail is the right pane, and below 900 pt a pushed page; ⌘[ goes back; arrow keys move in the list, Space toggles the focused switch.
@@ -77,7 +77,7 @@ Order of content:
 3. "What it lets Hermes do": for risky toolsets, the sentence in a bordered note with an icon ("Can change things on your server"), see the table. Other toolsets show nothing here.
 4. Set up (when it needs setup; "Change setup" when it has providers and is already set up): see screens 3 to 6.
 5. "Where it applies": "Used in your chats in this app and in the terminal." or "Used in Discord chats only."
-6. "Tools in this group (5)", collapsed: the tool names in a monospace list, and the helper line "These are the names you see on tool cards in a chat."
+6. "What's inside (5)", collapsed: the tool names in a monospace list, and the helper line "These are the names you see on tool cards in a chat."
 
 Primary action: the switch, or, when the toolset needs setup, "Set up" which scrolls to and expands section 4. Destructive: none (nothing is deleted). Mac: right pane, same content, no sheet.
 
@@ -86,6 +86,7 @@ Primary action: the switch, or, when the toolset needs setup, "Set up" which scr
 Switch on, risky toolsets. Cancel is the default and left.
 
 - Terminal: title "Let Hermes run commands?", body "It can run commands on the machine where Hermes runs. It applies to work. You can switch it off again here.", buttons "Cancel", "Switch on".
+- Browser: "Let Hermes use a browser?", "It can open web pages, click and type in them, and may install a browser on the server. It applies to work. You can switch it off again here.", "Cancel", "Switch on".
 - Code execution: "Let Hermes run programs?", "It can write and run programs on the machine where Hermes runs. It applies to work. You can switch it off again here."
 - Computer use: "Let Hermes control a computer?", "It can see a desktop's screen and move its mouse and keyboard. It applies to work. You can switch it off again here."
 - Local backend: "Run commands directly on your server?", "Commands will run on the same machine as Hermes, not in a container.", "Cancel", "Use local".

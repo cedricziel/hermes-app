@@ -92,7 +92,8 @@ For the selected provider each env var SHALL be a masked field labelled with its
 
 ### Requirement: Install on the server
 
-When the selected provider has `post_setup` and is not ready, the screen SHALL offer an install step that asks "Install on your server?" with "Hermes will run an installer on the server. It may download software." (Cancel default), sends `POST …/post-setup`, and follows `GET /api/actions/tools-post-setup/status` every 2 seconds, ending on `exit_code` (0 done). One install SHALL run per connection, only an install the app started SHALL be followed, and log lines SHALL NOT be logged.
+When the selected provider has `post_setup`, the screen SHALL offer an install step (the main action while it is not ready, under Advanced otherwise) that asks "Install on your server?" with "Hermes will run an installer on the server. It may download software." (Cancel default), sends `POST …/post-setup` and follows `GET /api/actions/tools-post-setup/status` every 2 seconds. One install SHALL run per connection and log lines SHALL NOT be logged.
+
 
 #### Scenario: Progress
 
@@ -126,8 +127,23 @@ When the selected provider has `post_setup` and is not ready, the screen SHALL o
 
 #### Scenario: Started by the switch
 
-- **WHEN** switching Computer use on answers `post_setup_started`
-- **THEN** the screen shows "Hermes is installing the driver on your server" with the same progress, without asking again
+- **WHEN** switching a toolset on answers `post_setup_started`
+- **THEN** the screen shows "Hermes started an installer on your server" with the same log, the switch having been confirmed already, and ends in "Checking…" and a config read, not in "Installed" from the log
+
+#### Scenario: Ended with no exit code
+
+- **WHEN** the status says `running: false` with `exit_code: null`
+- **THEN** the screen says "Couldn't tell whether it finished" and reads the setup again
+
+#### Scenario: Install or follow fails
+
+- **WHEN** the spawn answers `400` or `500`, or reading the status fails
+- **THEN** Hermes' sentence or "Couldn't follow the install. Check again." shows, and polling retries with backoff three times
+
+#### Scenario: Provider with keys and an install step
+
+- **WHEN** the provider has both `env_vars` and `post_setup` and reports Ready
+- **THEN** "Run the install step again" is offered under Advanced
 
 #### Scenario: Another install in progress
 
@@ -198,10 +214,25 @@ The Computer use detail SHALL show "Readiness" from `GET /api/tools/computer-use
 - **WHEN** the profile's Bot Screen is offered
 - **THEN** "Open the bot's screen" shows and opens the existing viewer; it is absent otherwise
 
+#### Scenario: Driver missing on a Mac server
+
+- **WHEN** `can_grant` is true but `installed` is false and the permissions are null
+- **THEN** "Allow access" is not offered and Install on server is
+
+#### Scenario: Status read fails
+
+- **WHEN** the status or models read fails with something other than 404/405
+- **THEN** that section says "Couldn't read this. Try again." and the rest of the detail works
+
 #### Scenario: macOS server missing screen recording
 
 - **WHEN** the status has `accessibility: true`, `screen_recording: false`, `can_grant: true`
 - **THEN** Accessibility shows "Allowed", Screen recording "Not allowed", and "Allow access" is offered
+
+#### Scenario: Grant fails
+
+- **WHEN** the grant spawn answers `400` or `500`
+- **THEN** Hermes' sentence shows and nothing is followed
 
 #### Scenario: Grant ends
 
@@ -223,13 +254,6 @@ The Computer use detail SHALL show "Readiness" from `GET /api/tools/computer-use
 - **WHEN** the grant answers `400`
 - **THEN** Hermes' sentence shows and no progress is followed
 
-#### Scenario: Bot screen link
-
-- **WHEN** the profile's Bot Screen is offered
-- **THEN** "Open the bot's screen" opens the live viewer with source `tools`
-- **WHEN** it is not offered or the server lacks it
-- **THEN** no link shows
-
 #### Scenario: Old server
 
 - **WHEN** the status route answers `404`
@@ -237,7 +261,7 @@ The Computer use detail SHALL show "Readiness" from `GET /api/tools/computer-use
 
 ### Requirement: Allowing access on a Mac server
 
-When `can_grant` is true and a permission is missing, the Computer use detail SHALL offer "Allow access". It SHALL ask "Allow access on the server's Mac?" with "A permission window will open on the computer that runs Hermes. Someone there has to approve it." (Cancel default), send `POST …/permissions/grant`, follow `GET /api/actions/computer-use-grant/status`, and read the status again at the end.
+When `can_grant` and `installed` are true and a permission is exactly `false`, the Computer use detail SHALL offer "Allow access". It SHALL ask "Allow access on the server's Mac?" with "A permission window will open on the computer that runs Hermes. Someone there has to approve it." (Cancel default), send `POST …/permissions/grant`, follow `GET /api/actions/computer-use-grant/status`, and read the status again at the end.
 
 #### Scenario: Confirm and follow
 

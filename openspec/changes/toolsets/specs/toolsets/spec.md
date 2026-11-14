@@ -67,7 +67,7 @@ The Tools screen SHALL show the profile's toolsets in the settings kit (`Setting
 
 ### Requirement: Detail
 
-Selecting a row SHALL open its detail, as a pane beside the list at 900 points or wider and as a pushed page below, showing in order: name, sentence and switch; the state line; what it lets Hermes do (risky toolsets); Set up; where it applies; and a collapsed "Tools in this group (N)".
+Selecting a row SHALL open its detail, as a pane beside the list at 900 points or wider and as a pushed page below, showing in order: name, sentence and switch; the state line; what it lets Hermes do (risky toolsets); Set up; where it applies; and a collapsed "What's inside (N)".
 
 #### Scenario: Order of the detail
 
@@ -122,17 +122,32 @@ Switching a toolset SHALL send `PUT /api/tools/toolsets/{name}` with `enabled` a
 
 #### Scenario: Toolset vanished
 
-- **WHEN** the write answers `404`
-- **THEN** the list is read again and "That tool is no longer on this server" shows
+- **WHEN** the write is refused with `400` "Unknown toolset" and the list read afterwards no longer holds it
+- **THEN** "That tool is no longer on this server" shows and the detail selection moves to the first row
+
+#### Scenario: Profile deleted
+
+- **WHEN** a read or write answers `404` "Profile … does not exist"
+- **THEN** the screen says "This profile no longer exists", the profile list is read again, and the Tools entry is NOT hidden
+
+#### Scenario: Offline after opening
+
+- **WHEN** a read or write fails with a network error
+- **THEN** the screen says "You're offline." with Try again, switches return to their last confirmed state, and nothing is resent by itself
+
+#### Scenario: Not allowed
+
+- **WHEN** a write answers `401` or `403`
+- **THEN** the message "You can't change tools on this server." shows and the switch returns
 
 #### Scenario: Install started by the switch
 
 - **WHEN** switching a toolset on answers `post_setup_started`
-- **THEN** the screen follows that install as an install the user started, as described in toolset-setup
+- **THEN** the screen says "Hermes started an installer on your server" and follows it as described in toolset-setup, without claiming which provider it is for
 
 ### Requirement: Confirming risky toolsets
 
-Switching on `terminal`, `code_execution` or `computer_use` SHALL first ask, every time, with a title "Let Hermes <do the thing>?", the sentence of what it lets Hermes do, "It applies to <profile>. You can switch it off again here.", Cancel (the default) and "Switch on". Cancel SHALL send nothing and leave the switch off. Switching off SHALL NOT ask. `file`, `browser`, `cronjob`, `delegation` and `discord_admin` SHALL show their sentence in the row and the detail without asking.
+Switching on `terminal`, `code_execution`, `computer_use` or `browser` SHALL first ask, every time, with a title "Let Hermes <do the thing>?", the sentence of what it lets Hermes do, "It applies to <profile>. You can switch it off again here.", Cancel (the default) and "Switch on". Cancel SHALL send nothing and leave the switch off. Switching off SHALL NOT ask. `file`, `cronjob`, `delegation` and `discord_admin` SHALL show their sentence in the row and the detail without asking.
 
 #### Scenario: Terminal on
 
@@ -143,6 +158,11 @@ Switching on `terminal`, `code_execution` or `computer_use` SHALL first ask, eve
 
 - **WHEN** the user cancels
 - **THEN** no request is sent and the switch stays off
+
+#### Scenario: App Lock while the question is open
+
+- **WHEN** App Lock engages with a confirmation open
+- **THEN** the question is dismissed as cancelled and nothing is sent
 
 #### Scenario: Off needs no question
 
@@ -199,6 +219,11 @@ Rows, switches and detail controls SHALL be at least 44 points (iOS, macOS) or 4
 
 - **WHEN** the system text size is the largest accessibility size
 - **THEN** every sentence is shown in full and no control is cut off
+
+#### Scenario: Keyboard
+
+- **WHEN** the screen is used with a keyboard
+- **THEN** focus moves list then detail, Space toggles the focused switch, and on macOS ⌘[ goes back
 
 #### Scenario: Screen reader
 
