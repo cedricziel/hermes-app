@@ -133,7 +133,7 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
   }
 
   UpdateState _stateOf(UpdateCheck check, String? fallbackVersion) {
-    final version = check.currentVersion ?? fallbackVersion ?? '';
+    final version = check.currentVersion ?? fallbackVersion;
     final behind = check.behind;
     if (check.updateAvailable) {
       final stable = check.rollbackTo;
@@ -144,7 +144,7 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
         return UpdateStateRollback(
           stableVersion: stable,
           changeCount: count,
-          currentVersion: version.isEmpty ? null : version,
+          currentVersion: version,
         );
       }
       if (!check.canApply) {
@@ -166,7 +166,7 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
         reason: UpdateFailureReason.noResult,
       );
     }
-    return UpdateStateUpToDate(version: version, checkedAgo: _ago());
+    return UpdateStateUpToDate(version: version ?? '', checkedAgo: _ago());
   }
 
   Elapsed _ago() {
@@ -271,13 +271,10 @@ class UpdateStateFailed extends UpdateState {
 }
 
 class UpdateStateAvailable extends UpdateState {
-  const UpdateStateAvailable({
-    required this.changeCount,
-    required this.currentVersion,
-  });
+  const UpdateStateAvailable({required this.changeCount, this.currentVersion});
 
   final int changeCount;
-  final String currentVersion;
+  final String? currentVersion;
 }
 
 class UpdateStateRollback extends UpdateState {
