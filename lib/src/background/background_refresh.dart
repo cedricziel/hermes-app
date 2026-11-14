@@ -449,6 +449,8 @@ class OpenRequestsStep extends BackgroundStep {
       try {
         await context.announced.add(open);
       } on Object catch (error) {
+        marksFailed++;
+        report();
         recordFailure(
           'background.request_alert.mark_failed',
           errorType: error.runtimeType.toString(),
