@@ -493,6 +493,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ConnectorOperationController? get connectionOperations =>
       _ChatControllerConnectors(this)._connectionOperationsImpl;
 
+  /// Threads whose owned session lost its connection and was not retired,
+  /// and whether the gateway connection itself is gone: what makes a
+  /// Needs-you card display-only.
+  final _lostOwners = <(String?, String)>{};
+  var _connectionDown = false;
+
+  /// Whether [thread]'s connection is lost (its session dropped, or the
+  /// gateway did) and not yet restored.
+  bool connectionLostFor(ChatThread thread) =>
+      _ChatControllerConnectors(this)._connectionLostForImpl(thread);
+
+  /// The time the chat's deadlines are read against.
+  DateTime get clockNow => _clock();
+
   void processOutputDetailsOpened() =>
       _ChatControllerSessionBinding(this)._processOutputDetailsOpenedImpl();
 

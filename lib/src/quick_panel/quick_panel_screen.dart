@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../chat/activity/bound_needs_you_dock.dart';
+import '../chat/activity/needs_you_queue.dart';
 import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/attachment_surface.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
@@ -25,6 +28,7 @@ import '../voice/dictation_controller.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/dictation_view.dart';
 import '../voice/on_device_speech.dart';
+import '../telemetry/breadcrumbs.dart';
 import '../voice/voice_recorder.dart';
 import '../windows/conversation_window_args.dart';
 import '../windows/desktop_conversation_windows.dart';
@@ -81,6 +85,7 @@ class QuickPanelScreen extends StatefulWidget {
 class _QuickPanelScreenState extends State<QuickPanelScreen> {
   late final AttentionNotifier _attention;
   late final ChatController _chat;
+  late final NeedsYouQueue _needsYou;
   BrokerQueueStore? _protectedQueue;
   late final AttachmentSource _attachmentSource;
   ComposerDictation? _dictation;
@@ -149,6 +154,13 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
       attention: _attention,
       report: _showMessage,
     )..addListener(_changed);
+    _needsYou = needsYouQueueFor(
+      _chat,
+      breadcrumbs: context.read<Breadcrumbs?>() ?? Breadcrumbs.none,
+      onArrived: (entry) {
+        if (mounted) announceNeedsYou(context, entry.kind);
+      },
+    );
     _attachmentSource = _HeldAttachmentSource(
       widget.attachmentSource ?? PluginAttachmentSource(),
       _link.hold,
@@ -367,6 +379,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _needsYou.dispose();
     _chat
       ..removeListener(_changed)
       ..dispose();
@@ -441,6 +454,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
           commandRunning: _queueSending || _loading || !_loaded,
           latestReply: _latestReply,
           welcome: false,
+          needsYou: _needsYou,
         ),
       );
     } else {

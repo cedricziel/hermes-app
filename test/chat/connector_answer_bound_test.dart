@@ -218,4 +218,48 @@ void main() {
       expect(outcomes, ['unconfirmed', 'responded']);
     });
   });
+
+  test('Skip on the card skips every target that can be skipped, in one '
+      'response', () {
+    inFakeAsync((async) {
+      final target = connectionUpdateFixture['targets']! as List;
+      controller.accept(
+        ConnectorOperationSnapshot.fromUpdate({
+          ...connectionUpdateFixture,
+          'seq': 7,
+          'targets': [
+            ...target,
+            {
+              'name': 'second',
+              'kind': 'connector',
+              'action': 'authorize',
+              'state': 'pending',
+              'resolved': false,
+            },
+            {
+              'name': 'done',
+              'kind': 'connector',
+              'action': 'authorize',
+              'state': 'connected',
+              'resolved': true,
+            },
+          ],
+        })!,
+        attachment: attachment,
+      );
+      unawaited(
+        controller.skipAll(
+          controller.operations.single,
+          attachment: attachment,
+        ),
+      );
+      async.flushMicrotasks();
+      expect(sent, hasLength(1));
+      expect((sent.single['result']! as Map)['targets'], [
+        {'name': 'synthetic-connector', 'status': 'skipped'},
+        {'name': 'second', 'status': 'skipped'},
+      ]);
+      expect(controller.answerFor(operation.key), ConnectorAnswer.sending);
+    });
+  });
 }

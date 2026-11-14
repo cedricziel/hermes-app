@@ -4,6 +4,7 @@ import '../../telemetry/breadcrumbs.dart';
 import '../billing_verification_controller.dart';
 import '../chat_session_state.dart';
 import '../connector_operation_controller.dart';
+import '../connector_operation_state.dart';
 import 'activity_tier.dart';
 import 'widgets/needs_you_models.dart';
 
@@ -16,6 +17,10 @@ typedef NeedsYouSources = ({
   ConnectorOperationController? connector,
   ChatSessionState? session,
 });
+
+/// The queue's key for [operation]; the dock finds the operation by it.
+String connectorEntryKey(ConnectorOperationSnapshot operation) =>
+    'connector:${operation.owner.sessionId}:${operation.opId}';
 
 /// A request that waits on the user: its key, its kind and when the queue
 /// first saw it. Nothing else of it, never a code, link, name or reason.
@@ -169,10 +174,7 @@ class NeedsYouQueue extends ChangeNotifier {
       for (final operation in connector.operations) {
         if (operation.owner.type == 'session' &&
             connectorTier(operation, connector) == ActivityTier.needsYou) {
-          found.add((
-            'connector:${operation.owner.sessionId}:${operation.opId}',
-            NeedsYouKind.connector,
-          ));
+          found.add((connectorEntryKey(operation), NeedsYouKind.connector));
         }
       }
     }

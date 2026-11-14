@@ -22,6 +22,13 @@ bool needsYouCompactFor(MediaQueryData media) =>
     media.viewInsets.bottom > 0 &&
     media.size.height - media.viewInsets.bottom < kNeedsYouCompactHeight;
 
+/// Builds the dock for the composer's box: [compact] says whether the
+/// keyboard leaves the chat so little room that the card collapses.
+typedef NeedsYouDockBuilder = Widget Function(
+  BuildContext context,
+  bool compact,
+);
+
 /// Below this card width the billing actions stack, full width.
 const double _kStackActionsWidth = 480;
 

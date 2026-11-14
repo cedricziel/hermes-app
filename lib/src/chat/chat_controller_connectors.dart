@@ -6,20 +6,27 @@ extension _ChatControllerConnectors on ChatController {
     final owner = (_profile, thread.id), source = transport;
     final controller = _connectorOperations[owner],
         binding = _connectorBindings[owner];
+    // A controller kept display-only while the connection is lost stays
+    // reachable until the reconnect replaces it or a retirement removes it.
     return active &&
             _threads.contains(thread) &&
             source is OwnedSessionTransport &&
             binding != null &&
             controller != null &&
             controller.hasScope(binding) &&
-            (source as OwnedSessionTransport).ownedSessionFor(
-                  thread.id,
-                  profile: _profile,
-                ) ==
-                binding
+            (controller.displayOnly ||
+                (source as OwnedSessionTransport).ownedSessionFor(
+                      thread.id,
+                      profile: _profile,
+                    ) ==
+                    binding)
         ? controller
         : null;
   }
+
+  bool _connectionLostForImpl(ChatThread thread) =>
+      active &&
+      (_connectionDown || _lostOwners.contains((_profile, thread.id)));
 
   ConnectorOperationController? get _connectionOperationsImpl {
     final source = transport,
@@ -49,6 +56,7 @@ extension _ChatControllerConnectors on ChatController {
   }
 
   void _clearConnectors() {
+    _lostOwners.clear();
     _connectorActivityGeneration++;
     _cancelConnectorActivitySubscription();
     for (final controller in _connectorOperations.values) {
@@ -153,10 +161,30 @@ extension _ChatControllerConnectors on ChatController {
   void _onConnectorOwnership(OwnedSessionChange change, int epoch) {
     final owner = (change.binding.profile, change.threadId);
     if (!change.connected) {
-      if (_connectorBindings[owner] == change.binding) {
-        _removeConnector(owner);
-        notifyListeners();
+      final source = transport;
+      final replaced =
+          source is OwnedSessionTransport &&
+          (source as OwnedSessionTransport).ownedSessionFor(
+                owner.$2,
+                profile: owner.$1,
+              ) !=
+              null;
+      if (change.retired || replaced) {
+        _lostOwners.remove(owner);
+      } else {
+        _lostOwners.add(owner);
       }
+      if (_connectorBindings[owner] == change.binding) {
+        // A drop keeps what the operations show, without a link or authority,
+        // until the reconnect replays them; a retirement releases them.
+        final kept = _connectorOperations[owner];
+        if (change.retired || kept == null) {
+          _removeConnector(owner);
+        } else {
+          kept.suspend();
+        }
+      }
+      notifyListeners();
       if (identical(_connectorConnection, change.binding.connection)) {
         _clearConnectionOperations();
         notifyListeners();
@@ -172,6 +200,8 @@ extension _ChatControllerConnectors on ChatController {
             change.binding) {
       return;
     }
+    _lostOwners.remove(owner);
+    _connectionDown = false;
     final controller = _adoptConnector(owner, change.binding);
     if (!_currentConnector(owner, controller, change.binding, epoch)) return;
     final pending = change.resumeSnapshot?['pending_connection'];
@@ -240,6 +270,14 @@ extension _ChatControllerConnectors on ChatController {
         .listen(
           (change) {
             if (!current()) return;
+            final down =
+                !change.connected &&
+                (source as GatewayConnectionTransport).gatewayConnection ==
+                    null;
+            if (down != _connectionDown && (down || change.connected)) {
+              _connectionDown = down;
+              notifyListeners();
+            }
             if (!change.connected) {
               if (identical(_connectorConnection, change.connection)) {
                 _clearConnectionOperations();

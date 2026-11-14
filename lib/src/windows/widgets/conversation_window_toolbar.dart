@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../chat/widgets/thread_actions_menu.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../macos/mac_window.dart';
@@ -20,6 +21,7 @@ class ConversationWindowToolbar extends StatelessWidget {
     this.onShare,
     this.onAction,
     this.activityOpen = false,
+    this.activityWaiting = 0,
     this.onToggleActivity,
   });
 
@@ -36,6 +38,9 @@ class ConversationWindowToolbar extends StatelessWidget {
   /// Called for Rename, Copy Transcript, Archive and Delete in the … menu.
   final ValueChanged<ThreadAction>? onAction;
   final bool activityOpen;
+
+  /// How many requests need the user; marks the Inspector button.
+  final int activityWaiting;
 
   /// Shows or hides the Activity inspector; null while no chat is open.
   final VoidCallback? onToggleActivity;
@@ -68,10 +73,21 @@ class ConversationWindowToolbar extends StatelessWidget {
             const SizedBox(width: 4),
             MacToolbarButton(
               key: const Key('window-activity'),
-              label: activityOpen ? 'Hide Inspector' : 'Show Inspector',
+              label: activityWaiting > 0
+                  ? (activityOpen
+                        ? context.l10n.chatActivityInspectorHideWaiting(
+                            activityWaiting,
+                          )
+                        : context.l10n.chatActivityInspectorShowWaiting(
+                            activityWaiting,
+                          ))
+                  : (activityOpen
+                        ? context.l10n.chatActivityInspectorHide
+                        : context.l10n.chatActivityInspectorShow),
               shortcut: '⌥⌘I',
               icon: AppIcons.inspector,
               selected: activityOpen,
+              marked: activityWaiting > 0,
               onPressed: onToggleActivity,
             ),
             const SizedBox(width: 4),

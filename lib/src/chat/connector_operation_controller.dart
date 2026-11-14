@@ -231,6 +231,27 @@ class ConnectorOperationController extends ChangeNotifier {
     });
   }
 
+  /// Skips every target of [operation] that can be skipped, in one response:
+  /// what the Needs-you card's Skip does.
+  Future<void> skipAll(
+    ConnectorOperationSnapshot operation, {
+    required Object attachment,
+  }) async {
+    List<String> names() => [
+      for (final target in operation.targets)
+        if (canSkip(operation.key, target.name)) target.name,
+    ];
+    if (!_current(operation, attachment) || names().isEmpty) return;
+    _action('skip');
+    final skipped = names();
+    if (!_current(operation, attachment) || skipped.isEmpty) return;
+    await _answer(operation, {
+      'targets': [
+        for (final name in skipped) {'name': name, 'status': 'skipped'},
+      ],
+    });
+  }
+
   Future<void> continueOperation(
     ConnectorOperationSnapshot operation, {
     required Object attachment,
