@@ -160,7 +160,7 @@ The answer to an inline reply SHALL arrive as the notifications this spec alread
 
 ### Requirement: Reply not sent
 
-When Hermes cannot have received the prompt (nobody signed in, the stored session unreadable, the server unreachable, the account changed, the chat or profile gone, or a failure before `prompt.submit` was sent), the system SHALL post for that chat, replacing its notification, the chat's title and "Reply not sent. Open Hermes to try again." if a text is kept, else "Reply not sent. Open Hermes to write it again." It SHALL NOT retry or put the text in a title or body.
+When Hermes cannot have received the prompt (each before `prompt.submit` was written: nobody signed in, the stored session unreadable, the server unreachable, the account changed, the chat or profile gone, or any other failure before it), the system SHALL post for that chat, replacing its notification, the chat's title and "Reply not sent. Open Hermes to try again." if a text is kept, else "Reply not sent. Open Hermes to write it again." It SHALL NOT retry or put the text in a title or body.
 
 #### Scenario: Server unreachable
 
@@ -179,7 +179,7 @@ When Hermes cannot have received the prompt (nobody signed in, the stored sessio
 
 ### Requirement: Reply that may have been sent
 
-Once `prompt.submit` was written without an answer (a session reclaimed before it was written is not this case), the system SHALL NOT resend. Whatever ends the work after that point, whether a lost connection, a timeout, a headless runtime that reports unreachable, signed out or locked, a stream that ends with no acknowledgement or a hand-off that reports nothing in time, SHALL post "Couldn't confirm your reply was sent. Open Hermes to check." without the text, and keep no text.
+Once `prompt.submit` was written without an answer (a session reclaimed before that is not this case), the system SHALL NOT resend, and SHALL post "Couldn't confirm your reply was sent. Open Hermes to check." without the text, keeping none, whatever ends the work: a lost connection, a timeout, a runtime reporting unreachable, signed out or locked, a clean end with no acknowledgement, or a silent hand-off. If the system ends the process first, nothing is posted, kept or resent.
 
 #### Scenario: Answer lost
 
@@ -207,7 +207,7 @@ Typed reply text SHALL be held in memory only while it is sent. Except as "Unsen
 
 ### Requirement: Unsent text can be restored
 
-After "Reply not sent", the text MAY be kept only if it is at most 120 user-perceived characters, App Lock is off and loaded, and the user is signed in, and only in that notification's payload with its account marker, for as long as the notification lives. Tapping it SHALL open the chat as `hermes://chat?profile=<p>&id=<id>&prompt=<text>` does, with the text in the composer, never sent. In another account it SHALL put nothing in the composer. Longer text SHALL NOT be kept.
+After "Reply not sent", the text MAY be kept only if it is at most 120 user-perceived characters, App Lock is off and loaded, the user is signed in and the payload's account matches, and only in that notification's payload while it lives. Tapping it SHALL open the chat as `hermes://chat?...&prompt=<text>` does, text in the composer, never sent; in another account nothing is put there. Longer text SHALL NOT be kept.
 
 #### Scenario: Unsent text restored
 
