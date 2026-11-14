@@ -63,6 +63,7 @@ void main() {
       () => tester
           .widgetList<RawImage>(find.byType(RawImage))
           .any((image) => image.image != null),
+      reason: 'the photo thumbnail to decode',
     );
   }
 
@@ -75,6 +76,7 @@ void main() {
     await waitUntil(
       tester,
       () => find.byType(LinearProgressIndicator).evaluate().isEmpty,
+      reason: 'the preparing indicator to go away',
     );
   }
 
@@ -204,6 +206,7 @@ void main() {
     await waitUntil(
       tester,
       () => cleared && find.byType(LinearProgressIndicator).evaluate().isEmpty,
+      reason: 'the store to clear and the preparing indicator to go away',
     );
     expect(cleared, isTrue);
     expect(native.previewed, isEmpty);

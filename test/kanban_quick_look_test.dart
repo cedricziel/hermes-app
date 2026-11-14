@@ -23,6 +23,7 @@ import 'support/fake_media_actions.dart';
 import 'support/fake_quick_look.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/recorded_events.dart';
+import 'support/wait_until.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -81,6 +82,20 @@ void main() {
     }
   }
 
+  // Waits on what the real I/O is meant to produce. [settle] stays for the
+  // tests that assert nothing happened, where there is nothing to wait for.
+  Future<void> waitFor(
+    WidgetTester tester,
+    bool Function() done,
+    String reason,
+  ) => waitUntil(tester, done, reason: reason);
+
+  Future<void> waitForText(WidgetTester tester, String text) => waitFor(
+    tester,
+    () => find.text(text).evaluate().isNotEmpty,
+    '"$text" to show',
+  );
+
   Future<void> awaitPreview(WidgetTester tester) async {
     await tester.runAsync(() => quickLook.previewCompleted);
     await tester.pump();
@@ -138,7 +153,7 @@ void main() {
         ),
       ),
     );
-    await settle(tester);
+    await waitForText(tester, 'spec.pdf');
     await tester.pumpAndSettle();
   }
 
@@ -190,7 +205,11 @@ void main() {
     await pumpPanel(tester);
 
     await doubleClick(tester, row);
-    await settle(tester);
+    await waitFor(
+      tester,
+      () => actions.opened.isNotEmpty,
+      'the file to be opened',
+    );
 
     expect(fetches(), 1);
     expect(
@@ -210,12 +229,13 @@ void main() {
     await click(tester, row);
 
     await pressSpace(tester);
-    await settle(tester);
+    await waitFor(tester, () => quickLook.shown != null, 'Quick Look to show');
     expect(fetches(), 1);
     expect(File(quickLook.shown!).readAsBytesSync(), spec);
 
     await pressSpace(tester);
-    await settle(tester);
+    await waitFor(tester, () => quickLook.shown == null, 'Quick Look to close');
+    await settle(tester); // a request that must not come
     expect(quickLook.shown, isNull);
     expect(fetches(), 1);
   });
@@ -230,7 +250,11 @@ void main() {
       await click(tester, row, buttons: kSecondaryMouseButton);
       await tester.pumpAndSettle();
       await tester.runAsync(() => tester.tap(find.text('Quick Look')));
-      await settle(tester);
+      await waitFor(
+        tester,
+        () => quickLook.previewed.length == i + 1,
+        'preview number ${i + 1}',
+      );
     }
 
     expect(selected(tester), isTrue);
@@ -246,12 +270,16 @@ void main() {
     await pumpPanel(tester);
     await click(tester, row);
     await pressSpace(tester);
-    await settle(tester);
+    await waitFor(tester, () => quickLook.shown != null, 'Quick Look to show');
 
     await click(tester, row, buttons: kSecondaryMouseButton);
     await tester.pumpAndSettle();
     await tester.runAsync(() => tester.tap(find.text('Open')));
-    await settle(tester);
+    await waitFor(
+      tester,
+      () => actions.opened.isNotEmpty,
+      'the file to be opened',
+    );
 
     expect(actions.opened.single, quickLook.shown);
     expect(fetches(), 1);
@@ -264,7 +292,7 @@ void main() {
     await click(tester, row, buttons: kSecondaryMouseButton);
     await tester.pumpAndSettle();
     await tester.runAsync(() => tester.tap(find.text('Save…')));
-    await settle(tester);
+    await waitFor(tester, () => files.saved.isNotEmpty, 'the file to be saved');
 
     expect(files.saved.single.name, 'spec.pdf');
     expect(files.saved.single.bytes, spec);
@@ -278,7 +306,12 @@ void main() {
     await click(tester, row);
 
     await pressSpace(tester);
-    await settle(tester);
+    await waitForText(tester, 'attachment file missing on disk');
+    await waitFor(
+      tester,
+      () => events.named('quick_look.failed').isNotEmpty,
+      'the quick_look.failed event',
+    );
 
     expect(find.text('attachment file missing on disk'), findsOneWidget);
     expect(quickLook.previewed, isEmpty);
@@ -295,7 +328,12 @@ void main() {
     await click(tester, row);
 
     await pressSpace(tester);
-    await settle(tester);
+    await waitForText(tester, "Quick Look couldn't preview this file.");
+    await waitFor(
+      tester,
+      () => events.named('quick_look.failed').isNotEmpty,
+      'the quick_look.failed event',
+    );
 
     expect(find.text("Quick Look couldn't preview this file."), findsOne);
     expect(events.named('quick_look.failed'), [
@@ -314,7 +352,7 @@ void main() {
     await click(tester, row);
 
     await pressSpace(tester);
-    await settle(tester);
+    await waitFor(tester, () => fetches() == 1, 'the download to start');
     await pressSpace(tester);
     await doubleClick(tester, row);
 
@@ -348,7 +386,7 @@ void main() {
     await pumpPanel(tester);
     await click(tester, row);
     await pressSpace(tester);
-    await settle(tester);
+    await waitFor(tester, () => fetches() == 1, 'the download to start');
     unhandledKeys.clear();
 
     await pressSpace(tester);
