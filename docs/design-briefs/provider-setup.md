@@ -148,7 +148,7 @@ Save enabled when Name, Address and a model (found or typed) are present. Saving
 
 **First provider (no default before, recommendation saved):** title "You're ready", body "New chats in <profile> use <model> from <provider>." Buttons: "Start chatting" (primary; closes everything and returns to the chat when it came from the chat, else to the list) and "Change model" (secondary; opens the picker limited to this provider).
 
-**After a Nous sign-in that moved the default:** when the profile's default after the sign-in differs from the one before it (Hermes moves it off the free tier's model by itself), show "You're ready" with that model and "Change model". When it is unchanged, show the later-provider step below.
+**After a Nous sign-in that moved the default:** when the profile's default after the sign-in differs from the one before it (Hermes moves it off the free tier's model by itself), show "You're ready" with that model and "Change model". When Hermes cleared it (no default after the sign-in), show the no-recommendation state above. When it is unchanged, show the later-provider step below.
 
 **Later provider:** title "Use <model> for new chats?" body "<provider> recommends it. You're using <current model> now." Buttons: "Use <model>" (primary), "Keep <current model>" (secondary), "Choose another model…" (text).
 

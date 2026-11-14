@@ -292,6 +292,12 @@ The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for 
 - **WHEN** a Nous Portal sign-in is approved and the re-read default differs from it
 - **THEN** the step reads "New chats use <model>" with Change, and nothing else is saved
 
+#### Scenario: Nous cleared the default
+
+- **GIVEN** a profile whose default before the sign-in was the free tier's model
+- **WHEN** a Nous Portal sign-in is approved and the re-read default is empty
+- **THEN** the step reads "Choose a model for new chats" with the picker limited to Nous Portal, and nothing is saved until the person picks
+
 #### Scenario: Nous poll names the unchanged default
 
 - **GIVEN** a profile whose default is a model the person chose
