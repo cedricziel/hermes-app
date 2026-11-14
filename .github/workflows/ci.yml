@@ -6,11 +6,57 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer push cancels the run of a pull request it replaces. On main nothing
+# is cancelled once it runs, so every finished merge leaves a complete run
+# (a run still waiting in the queue is replaced by the newer one).
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Decides which heavy jobs a pull request needs. Push to main and manual runs
+  # always run everything. Only the paths no build or test reads count as
+  # docs-only: docs/, openspec/, .claude/skills/ and Markdown files anywhere
+  # (no test reads such a file from the repository). The watch tests depend on
+  # the two Swift packages they run and on this workflow.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      watch: ${{ steps.filter.outputs.watch }}
+    steps:
+      # On a pull request HEAD is the merge commit and HEAD^1 the base branch.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Classify the changed files
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          code=true
+          watch=true
+          if [ "$EVENT_NAME" = pull_request ]; then
+            code=false
+            watch=false
+            while IFS= read -r file; do
+              echo "changed: $file"
+              case "$file" in
+                docs/* | openspec/* | .claude/skills/* | *.md) ;;
+                *) code=true ;;
+              esac
+              case "$file" in
+                ios/HermesWatch/* | ios/HermesSurfaceKit/* | .github/workflows/ci.yml) watch=true ;;
+              esac
+            done < <(git diff --name-only --no-renames HEAD^1 HEAD)
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "watch=$watch" >> "$GITHUB_OUTPUT"
+          echo "code=$code watch=$watch" >> "$GITHUB_STEP_SUMMARY"
+
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
@@ -45,6 +91,8 @@ jobs:
 
   test:
     name: Test (shard ${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -86,8 +134,8 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    needs: test
-    if: always() && !cancelled()
+    needs: [changes, test]
+    if: always() && !cancelled() && needs.changes.outputs.code == 'true'
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -116,22 +164,41 @@ jobs:
           path: lcov.info
           if-no-files-found: ignore
 
-  # The required check. It passes only when analysis, every test shard and the
-  # Swift package tests did.
+  # The required check. It passes only when analysis did, and every test job
+  # that was needed did: the shards unless the pull request changed docs only,
+  # the Swift package tests unless it left their files alone. A job that was not
+  # needed must show as skipped; a failed or cancelled one fails this check.
   analyze-and-test:
     name: Analyze & test
     runs-on: ubuntu-latest
-    needs: [analyze, test, test-watch]
+    needs: [changes, analyze, test, test-watch]
     if: always()
     steps:
       - name: Check results
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          ANALYZE: ${{ needs.analyze.result }}
+          TEST: ${{ needs.test.result }}
+          TEST_WATCH: ${{ needs.test-watch.result }}
+          NEED_TEST: ${{ needs.changes.outputs.code }}
+          NEED_WATCH: ${{ needs.changes.outputs.watch }}
         run: |
-          [ "${{ needs.analyze.result }}" = success ] && [ "${{ needs.test.result }}" = success ] && [ "${{ needs.test-watch.result }}" = success ]
+          fail=0
+          expect() {
+            echo "$1: $2 (expected $3)"
+            [ "$2" = "$3" ] || fail=1
+          }
+          expect changes "$CHANGES" success
+          expect analyze "$ANALYZE" success
+          if [ "$NEED_TEST" = true ]; then expect test "$TEST" success; else expect test "$TEST" skipped; fi
+          if [ "$NEED_WATCH" = true ]; then expect test-watch "$TEST_WATCH" success; else expect test-watch "$TEST_WATCH" skipped; fi
+          exit $fail
 
   build-android:
     name: Build Android (release)
     runs-on: ubuntu-latest
-    needs: analyze-and-test
+    needs: [changes, analyze-and-test]
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -156,7 +223,8 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
-    needs: analyze-and-test
+    needs: [changes, analyze-and-test]
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -177,6 +245,8 @@ jobs:
   # here too.
   test-watch:
     name: Test watch core
+    needs: changes
+    if: needs.changes.outputs.watch == 'true'
     runs-on: macos-26
     permissions:
       contents: read
@@ -199,7 +269,8 @@ jobs:
   build-ios:
     name: Build iOS (simulator)
     runs-on: macos-26
-    needs: analyze-and-test
+    needs: [changes, analyze-and-test]
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -239,7 +310,8 @@ jobs:
   build-macos:
     name: Build macOS (debug)
     runs-on: macos-26
-    needs: analyze-and-test
+    needs: [changes, analyze-and-test]
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -259,7 +331,8 @@ jobs:
   build-linux:
     name: Build Linux (release)
     runs-on: ubuntu-22.04
-    needs: analyze-and-test
+    needs: [changes, analyze-and-test]
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 

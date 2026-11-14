@@ -34,7 +34,7 @@ Started 14 November 2026 from a full review of the app: structure, practice, bug
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | 2.1  | Background and App Lock: the second approval in a chat is announced; widgets reload at most hourly across isolates; suspension marks; App Lock fails closed when the device check throws | merged #906 |
 | 2.2  | Sign-in hardening: the loopback listener ignores requests without the app's state; a cross-host redirect no longer gets the stored session                                               | merged #908 |
-| 2.3  | Bot Screen: a lease held by a paused viewer is released on shut-down; no stale picture or dead input after a take-over retry; older lease broadcasts are ignored                         | open #905 |
+| 2.3  | Bot Screen: a lease held by a paused viewer is released on shut-down; no stale picture or dead input after a take-over retry; older lease broadcasts are ignored                         | merged #905 |
 | 2.4  | Voice: a late transcribe socket is closed; a throwing permission check or start ends as failed; one error instead of two                                                                 | merged #904 |
 
 ## Practice
@@ -114,10 +114,14 @@ Things the work itself turned up. Each is verified before it is built. A small o
 | F.14 | `design/web` (the React copies Claude Design uses) drifts from the Flutter widgets: audit it once against the catalog and bring it level before the wave 4 design passes rely on it | `.design-sync/NOTES.md` | queued |
 | F.15 | Cloud delivery: the environment's setup script installs the Flutter release pinned in `.fvmrc`; document it and the child-session workflow in the `parallel-ui-rollout` skill once a fresh session has proven it | the orchestrator, when it started child sessions | queued |
 | F.16 | Chat: a send in a chat whose first page is still loading now waits for that read; decide what the user sees meanwhile and cap the wait | review of #902 | open (with #902) |
-| F.17 | The pre-commit hook (`dart_pre_commit`) was not installed in the cloud checkouts, so commits never ran it, and it fails today on its `outdated` check (flutter_local_notifications 22 to 23 and others). Update the dependencies, install the hook in every clone, never bypass it | the owner | merged #923 (dependencies); the PRs committed with `--no-verify` before the rule are being re-committed through the hook |
+| F.17 | The pre-commit hook (`dart_pre_commit`) was not installed in the cloud checkouts, so commits never ran it, and it fails today on its `outdated` check (flutter_local_notifications 22 to 23 and others). Update the dependencies, install the hook in every clone, never bypass it | the owner | merged #923 and #924 (dependencies); branches committed with `--no-verify` before the rule get a head commit that passed the hook, since their history cannot be rewritten without a force-push |
 | F.18 | A project `verify` skill for Linux cloud sessions: a throwaway Hermes backend at the pinned revision, the contract test against it, and the Linux app under Xvfb, isolated and cleaned up; leads run it before a PR and keep its table of covered behaviour current | the owner | building |
 | F.19 | Localization: declare the supported locales for iOS and macOS (`CFBundleLocalizations` in both `Info.plist` files) and decide whether German ships before the extraction is complete | lead of #919 | queued |
 | F.20 | Bot Screen: a release sent for a new viewer id after the shut-down budget is dropped; record on the next open that the lease may still be held, and offer Hand back | review of #905 | queued |
+| F.21 | #923 merged before any CI job had finished and left two failing tests (fixed in #924). No complete CI run on main, platform builds included, has been seen with flutter_local_notifications 23: confirm one, fix what is red | the orchestrator | open |
+| F.22 | Every push to main cancels the CI run of the push before it, so a quick series of merges leaves main without a finished run. Merge in stacks, or let main's runs finish (`cancel-in-progress` only for pull requests) | the orchestrator | queued |
+| F.23 | CodeRabbit skips a PR whose base is not the default branch ("Auto reviews are disabled on base/target branches other than the default branch"), so a stacked PR above the bottom has only its isolated review. Allow other base branches in its settings, or accept that | the proposals stack | queued (the owner's setting) |
+| F.24 | Android request notifications (#914): after the broadcast receiver returns, Android may freeze the process before the answer is sent. Move the answer into an expedited WorkManager task | review of #914 | queued |
 
 ## Blocked
 
@@ -137,6 +141,7 @@ Things the work itself turned up. Each is verified before it is built. A small o
 - A way to list and stop side tasks started with `prompt.background` or `prompt.btw`.
 - One route that says how each provider connects (key, sign-in code, command line). Today the app has to merge `/api/model/options`, `/api/env`, `/api/providers/oauth` and `/api/providers/custom-endpoints`.
 - Roles: today anyone signed in to the dashboard may restart the gateway and update Hermes.
+- Removing a credential pool entry by its id. Today the route takes an index, which can remove the wrong key when the pool changed meanwhile, so the app lists pool keys read-only.
 
 ## Out of scope
 
