@@ -52,7 +52,6 @@ Delegated agents SHALL be listed in the Activity panel only. They SHALL NOT be d
 - **WHEN** a reply starts a delegated agent
 - **THEN** nothing is added to the strip above the transcript, the reply's agent card shows the agent, and the Activity panel lists it under Now
 
-
 ### Requirement: Activity items can open a detail in the panel
 
 An Activity panel item with more to show than its row SHALL open that detail inside the panel: a page pushed within the phone sheet, or the inspector's content on wide layouts, with a back control labelled "Activity" returning to the list at its scroll position. Switching chats or closing the panel SHALL close the detail. Escape SHALL return to the list before it closes an inspector. A detail SHALL NOT open a window, a route over the chat, or a sheet on the Mac.
@@ -71,3 +70,12 @@ An Activity panel item with more to show than its row SHALL open that detail ins
 
 - **WHEN** an agent's detail is open in the inspector and the user selects another chat
 - **THEN** the inspector shows the new chat's activity list, not the detail
+
+### Requirement: Narrow windows
+
+Below 760 points on the Mac, iPad, Windows and Linux the inspector SHALL lie over the chat behind a scrim, so the composer cannot take focus while it is open.
+
+#### Scenario: A narrow window
+
+- **WHEN** an iPad, Mac, Windows or Linux window is narrower than 760 points and the Activity panel is open
+- **THEN** the inspector lies over the chat behind a scrim, and tapping or clicking the scrim closes it
