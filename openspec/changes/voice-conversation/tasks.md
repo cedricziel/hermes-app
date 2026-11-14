@@ -1,90 +1,51 @@
 # Tasks
 
-This change lands after `voice-dictation`, as three stacked PRs of about 500 changed lines each:
+Ordered. Catalog widgets first (`component-catalog` skill), then logic, then wiring. Four PRs, each reviewable alone; the new platforms stay hidden until PR 4.
 
-1. `feat(voice): speak replies through Hermes` (groups 1 and 2)
-2. `feat(voice): run the voice conversation loop` (group 3)
-3. `feat(chat): voice calls from the composer` (groups 4 to 6)
+1. `feat(voice): call widgets in the catalog` (group 1)
+2. `feat(voice): consent, stop phrases and safe teardown` (groups 2 and 3)
+3. `feat(chat): voice turn flags` (group 4)
+4. `feat(voice): voice calls on Android and desktop` (groups 5 and 6)
 
-The toggle stays hidden until PR 3. No OpenAPI change: every REST route is already in the generated client.
+No OpenAPI or OpenRPC change. Never hand-edit `packages/hermes_api`.
 
-## 1. Availability and send flags
+## 1. Catalog widgets (plain models, no controller)
 
-- [ ] 1.1 Write failing tests for `VoiceAvailability` against `FakeHermesServer`. Cover:
-  - usable speech-to-text and text-to-speech with `voice_chat` following a set main model;
-  - a pinned `voice_chat` model;
-  - `tts.reason` set to `no credentials`;
-  - no `voice_chat` task;
-  - an empty `main.model`;
-  - 404 from either route.
+- [ ] 1.1 `VoiceOrb` (`lib/src/voice/widgets/voice_orb.dart`): states connecting, listening, muted, sending, thinking, speaking, waiting, stopped; `amplitude` 0-1; reduce-motion static; optional `onTap` with the label "Interrupt the assistant" enabled only while speaking. Widget tests for each state and the label. Use cases: each state, light and dark, text scale 1x and 2x.
+- [ ] 1.2 `HandsFreeStrip`: "Hands-free on" with the recording dot, "Muted" variant, End button; used in the call view and the chat header. Use cases, both themes, phone and desktop width.
+- [ ] 1.3 Extend `VoiceCallView`: orb in place of the icon tile, state word with icon, caption, `VoiceTurnList` (last two turns, user or assistant), "Speak replies" switch, Mute, Speaker (iOS and Android only), End, the notice area. New `VoiceCallNotice` (info and error: "Couldn't hear that. Nothing was sent.", "Audio route changed. Please repeat if needed.", "The call was interrupted", "Stopped: no one spoke for 5 minutes", "Waiting for you in the chat"). Existing tests in `test/voice/calls/voice_call_view_test.dart` stay green; add cases.
+- [ ] 1.4 Extend `VoiceCallSetupView` (scrolling body, consent row and Start call pinned at the bottom) with `VoiceConsentRow` (switch, sentence, "Start call" disabled until on, "Use dictation instead"), the GPT-Live note, the `voice_chat` check row, and "The call ends if you leave Hermes" on Android and desktop.
+- [ ] 1.5 Use cases in `widgetbook/voice_call_use_cases.dart`: every board of the canvas (see `docs/design-briefs/voice-conversation.md`), phone and desktop width (480 pt dialog), both themes, largest text. `test/widgetbook_test.dart` passes, one run at a time.
 
-  Then build `lib/src/voice/voice_availability.dart` until the tests pass.
+## 2. Consent and state (TDD)
 
-- [ ] 1.2 Write failing transport tests: `send(voiceTurn: true, interrupted: true)` puts both flags into `prompt.submit`, a typed send puts in neither, and `{"voice_stopped": true}` becomes its own submit outcome. Extend `ChatTransport.send`, `HermesGatewayTransport`, `FakeChatTransport` and `ChatController.send` until they pass.
+- [ ] 2.1 Failing tests: `VoiceCall` with `consented: false` never calls `bridge.start` or opens capture; the setup screen's switch starts off on every open, "Start call" is disabled until it is on, nothing is stored (preferences untouched). Implement.
+- [ ] 2.2 Failing tests for the Sending phase: transcribing plus submit shows Sending; End or mute during it sends nothing (fake agent records no `reply`); a turn already submitted stays and End stops its reply. Implement.
+- [ ] 2.3 Failing tests: transcription failure and timeout drop the turn with the notice and listen again; two in a row end the call; a success resets the count; no text reaches events. Implement (changes the shipped end-on-first-failure).
+- [ ] 2.4 Failing unit tests for the stop-phrase matcher (NFKC, punctuation, leading addresses, built-in list, profile list, empty list) and the echo guard (0.6, sliding window). Implement in `lib/src/voice/calls/`; replaces the hang-up regex.
+- [ ] 2.5 Failing tests for the 5-minute idle end (fake clock), the pause from `voice.silence_duration` (3.0 means 0.9 s, clamps 0.5-3 s) and the missing-section defaults. Implement.
+- [ ] 2.6 Tones (generated PCM) and haptics behind a seam; tests with a fake player and haptic recorder: tone on listening, sent, stopped; none when the bridge is not active. Live-region announcement text test.
 
-## 2. Speech playback
+## 3. Teardown (TDD)
 
-- [ ] 2.1 Add `flutter_soloud` and `audio_session` to `pubspec.yaml`. Verify that `flutter build macos --debug` and CI's Linux build still pass, adding `libasound2-dev` to the CI Linux job if needed.
-- [ ] 2.2 Write failing tests for `SpeechSession` with a fake socket and a fake `SpeechPlayer`:
-  - text frames hold only the new suffix, and `done` goes out at the end;
-  - the player opens at the `start` rate, and an odd trailing byte carries over;
-  - `end` finishes the session, and `stop` sends `stop` and stops the player;
-  - `fallback`, or a failure before any audio, calls `POST /api/audio/speak` and plays the data URL;
-  - a failure after audio has started counts as finished.
+- [ ] 3.1 Failing tests for the exit order on every path (End, stop phrase, deactivated, error, sign-out, profile change, chat change, idle, dispose): capture stops first; a throwing speech socket, player, audio session or lease release does not skip the next step; once only. Implement `_end`.
 
-  Then build `lib/src/voice/speech_session.dart` and the SoLoud-backed `SpeechPlayer` until the tests pass.
+## 4. Voice turn flags (TDD)
 
-## 3. Conversation loop
+- [ ] 4.1 Failing transport tests: `send(voiceTurn: true, interrupted: true)` puts both flags in `prompt.submit`; a typed send neither; `{"voice_stopped": true}` is its own outcome that ends the call. Extend `ChatTransport.send`, `HermesGatewayTransport`, `FakeChatTransport`, `ChatController.submit`; the queue and retry keep the flags. `ChatCallAgent.reply` sets them.
+- [ ] 4.2 `VoiceAvailability` (`voice-config`, `voice_chat` slot, 404s, no main model, `no credentials`) against `FakeHermesServer`; re-read triggers; `_canCall` uses it and the platform list. iOS readiness gains the `voice_chat` row.
 
-- [ ] 3.1 Write failing unit tests for `VoiceActivity` on synthetic PCM:
-  - noise-floor calibration;
-  - speech start;
-  - the end of a turn after the configured pause;
-  - the 60 s cap;
-  - the barge-in window, with its raised trigger and grace period.
+## 5. Portable bridge
 
-  Then build `lib/src/voice/voice_activity.dart`.
-
-- [ ] 3.2 Write failing unit tests for the stop-phrase matcher (NFKC, punctuation, the leading-address prefixes, the built-in list, a profile list, an empty list) and the echo guard (ratio 0.6, sliding window). Then build both in `lib/src/voice/`.
-- [ ] 3.3 Write failing tests for `VoiceConversationController` with `FakeChatTransport`, a fake recorder, a fake transcriber and a fake speech session:
-  - a full turn sent with `voiceTurn`;
-  - silence not sent;
-  - a stop phrase ends the call;
-  - a reply streamed into speech, with its sealed prose included;
-  - "Speak replies" off;
-  - a tap interrupts, stops the reply, and sends the next turn with `interrupted`;
-  - barge-in on iOS/Android only, with the echo ignored;
-  - two microphone failures end the call;
-  - leases held and released;
-  - `voice_stopped` ends the call.
-
-  Then build the controller until the tests pass.
-
-- [ ] 3.4 Add the breadcrumbs `voice.conversation.started|ended` (`reason`), `voice.turn.sent` (`interrupted`) and `voice.speech.fallback` through `Breadcrumbs`, with a test that no text reaches the trail.
-
-## 4. Call screen in the catalog
-
-- [ ] 4.1 Write failing widget tests for `VoiceOrb` (the five states and amplitude scaling) and `VoiceCallScreen`:
-  - the caption and hint for each mode;
-  - the last two turns;
-  - the mute and End controls;
-  - the orb enabled only while speaking, with the label "Interrupt the assistant";
-  - the recording indicator;
-  - the GPT-Live note.
-
-  Then build them in `lib/src/voice/widgets/`.
-
-- [ ] 4.2 Add Widgetbook use cases for the orb in each state and palette, and for the call screen in each mode at phone and desktop width. Verify that `test/widgetbook_test.dart` passes in both themes.
-- [ ] 4.3 Write failing `ChatComposer` tests for the Start voice toggle: shown only with a `VoiceAvailability` that allows it, placed beside the dictation microphone, and labelled "End voice" during a call. Add its Widgetbook use case.
-
-## 5. Wiring and platforms
-
-- [ ] 5.1 Write a failing chat-screen test: the toggle shows when both voice routes answer as compatible, a call opens the call screen, sends a spoken turn into the thread, and leaves the turns in the thread after End. Wire the controller, the availability checks (including a refresh after Helper models saves) and the lifecycle (background, profile switch, opening another chat) into `ChatScreen` until the test passes.
-- [ ] 5.2 Configure `audio_session` for calls on iOS and Android, and add `MODIFY_AUDIO_SETTINGS` to the Android manifest. Add `libasound2 | libasound2t64` to the `.deb` `Depends` in `scripts/package-linux.sh`. Verify by building iOS (simulator), Android (debug APK) and the Linux package.
-- [ ] 5.3 Add a voice-call step to the chat workflow test, using fake audio seams, and check its screenshots (workflow-screenshots skill).
+- [ ] 5.1 Add `flutter_soloud` to `pubspec.yaml` (`flutter pub upgrade` rule applies). Confirm `flutter build macos --debug` and CI's Linux build; add `libasound2-dev` to the Linux job if needed.
+- [ ] 5.2 `PortableCallBridge` behind `CallBridge`, with fake recorder and player seams: pcm events, mute, play at the `start` rate with the odd-byte carry, drain, stop, `deactivated` on focus loss, `audioReset` on a route change, pause capture while playing where barge-in is off. Tests first.
+- [ ] 5.3 Lifecycle: background and hidden end the call except on iOS; Android `MODIFY_AUDIO_SETTINGS` and `audio_session` configuration; `.deb` `Depends` gains `libasound2 | libasound2t64` in `scripts/package-linux.sh`. Build iOS (simulator), Android (debug APK), the Linux package.
+- [ ] 5.4 Header button on all platforms through `_canCall`; call dialog at 760 pt or wider, window-modal sheet on the Mac; hidden in conversation windows.
 
 ## 6. Docs and verification
 
-- [ ] 6.1 Add contract checks to `test/real_backend_contract_test.dart`: the `/api/model/auxiliary` `voice_chat` row, the `voice-live/status` shape, and `speak-stream` returning `start` and PCM for a short text. Put the last one behind `HERMES_DEV_MODEL_CALLS`.
-- [ ] 6.2 Update `CLAUDE.md` (the Voice paragraph) and the `verify-in-app` skill. Cover how to run a call against the dev backend: Edge text-to-speech needs ffmpeg on the host, local Whisper speech-to-text, and the microphone permission. Add a `voice-device-check` note to the skill for the iOS echo and barge-in check.
-- [ ] 6.3 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`. Hold a call in the running macOS app against `scripts/dev-backend.sh` with the `verify-in-app` skill. Check barge-in on an iPhone with the speaker on.
+- [ ] 6.1 Add a voice-call step to the chat workflow test with fake audio seams and check its screenshots (`workflow-screenshots`).
+- [ ] 6.2 Contract checks in `test/real_backend_contract_test.dart`: the `voice_chat` row in `/api/model/auxiliary`, the `voice-live/status` shape, `speak-stream` `start` and PCM for a short text behind `HERMES_DEV_MODEL_CALLS`.
+- [ ] 6.3 Update `docs/architecture/voice.md` (replace the "planned" sentence), `docs/voice-calls.md` (consent, failure, idle, other platforms), CLAUDE.md's Voice line only if its rules change, and the `verify-in-app` skill (a call against the dev backend: Edge speech needs ffmpeg on the host, local Whisper, microphone permission).
+- [ ] 6.4 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze`, `flutter test`.
+- [ ] 6.5 Device checks, recorded as not verified until done: iPhone speaker barge-in and an incoming call; Android echo, Bluetooth, focus loss and background end; Mac call with `verify-in-app`; Windows and Linux microphone and output; VoiceOver and TalkBack announcements and tones.

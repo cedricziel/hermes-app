@@ -2,92 +2,112 @@
 
 ## Context
 
-`voice-dictation` provides microphone capture (`record`, 16 kHz PCM), the transcription socket and upload, the `voice-config` reader and the waveform. Hermes' desktop runs the chained voice loop in `use-voice-conversation.ts`, `voice-barge-in.ts`, `voice-playback.ts`, `voice-stop-word.ts` and `voice-tts-echo.ts`; this design follows its thresholds so both clients behave alike against one server. Replies already stream through `ChatTransport` and `ChatController`. `ChatMessage.sealedProse` holds text written before a tool call. The Helper models screen already reads `/api/model/auxiliary` (`lib/src/models/auxiliary_models.dart`).
+Read against `main` at `fd9a626` and the Hermes source at `d923a5e` (0.22.2, the ref `openapi/HERMES_REF` and `openrpc/HERMES_REF` pin; `hermes_cli/web_routers/audio.py`).
+
+**What exists.** iOS has a native voice call, shipped without a spec: `lib/src/voice/calls/` (`VoiceCall` state machine, `VoiceActivity` segmentation, `CallSpeechStream` for `/api/audio/speak-stream` and its `POST /api/audio/speak` fallback, `ChatCallAgent` sending through `ChatController.submit`, `CallReadinessChecker`), `packages/hermes_calls` (CallKit and one voice-processing AVAudioEngine graph), `docs/voice-calls.md`. The header button `header-voice-call` is iOS only (`chat_screen_calls.dart`, `_canCall`). Widgets: `VoiceCallView`, `VoiceCallSetupView`, `VoiceCallScreen`, with use cases in `widgetbook/voice_call_use_cases.dart`. `read_aloud` plays one finished reply and is separate.
+
+**What the first draft got wrong now.** It planned a new `VoiceConversationController`, `VoiceActivity`, `SpeechSession`, a composer toggle, a 1.25 s pause, an end on background everywhere, and `voice.conversation.*` telemetry. All of that exists or conflicts with the shipped iOS call. The draft's thresholds, the echo guard and the stop phrases are kept as the rules below; the structure is replaced by reuse.
+
+**What is missing for the new rules** (checked in code): no consent step; a failed transcription ends the call (`VoiceCall._turn` → `_end('turn')`); only "hang up" and "end the call" stop it; prompts carry no `voice_turn` or `interrupted` (`grep` finds none in `lib/`); the pause is a fixed 900 ms; no idle limit; no tones; no "Speak replies" switch; `CallBridge` has only the Apple implementation; `_canCall` is iOS only and does not read `voice_chat`.
+
+**Backend facts at the ref.**
+
+- `prompt.submit` takes `voice_turn`, `interrupted`, `voice_context`, `queued`; its result has `status` or, for a typed stop phrase, `voice_stopped` with no `status`.
+- `/api/audio/speak-stream`: client `{"text"}`, `{"done": true}`, `{"stop": true}` (or disconnect); server `{"type":"start","sample_rate","channels":1}` with the first PCM frame, binary s16le PCM, `{"type":"end"}`, or `{"type":"fallback"}` only when no audio was made. Non-streaming providers (Edge, the default) still stream per-sentence PCM, which needs `ffmpeg` on the server; without it the socket falls back.
+- `POST /api/audio/speak` answers a data URL (`{ok, data_url, mime_type}`); `POST /api/audio/tts-lease`, `stt-lease`; `GET /api/audio/voice-config`, `voice-live/status`. Transcription upload limit 25 MiB (a 60 s turn at 16 kHz is about 1.9 MB).
+- Auth: the socket uses the same ticket or token as `/api/ws` (`hermesMixedSocketConnect`).
+
+Not verifiable without a device: echo cancellation and barge-in on iOS and Android speakers, the CallKit hand-over, Bluetooth routes, audio focus on Android, `flutter_soloud` and `record` on Windows and Linux, tone loudness, haptics, VoiceOver and TalkBack announcements. CI proves compilation and the Dart state machine.
 
 ## Goals / Non-Goals
 
-**Goals:**
+**Goals:** one loop on five platforms; nothing sent without per-call consent; a state the user can always see and hear; the microphone closed on every exit; plain-model widgets so every state is in Widgetbook.
 
-- One `VoiceConversationController` that drives the loop from `ChatController`'s own reply state, so voice turns are ordinary chat turns.
-- Plain-model call-screen widgets (orb, caption, transcript, controls), so every state is in Widgetbook.
-
-**Non-Goals:**
-
-- A second chat pipeline for voice. Speech is a reader of the reply, never a separate request.
-- Background audio, CarPlay and the watch.
+**Non-Goals:** a second chat pipeline; background audio on Android and desktop; barge-in without platform echo cancellation; approvals by voice.
 
 ## Decisions
 
-### UI modelled on assistant-ui's voice elements
+### 1. One loop, a platform audio seam
 
-The call screen follows assistant-ui's `VoiceConversation`: an orb that is also the interrupt button, a caption with a hint, the last two turns and a control bar.
+`VoiceCall` stays the owner of the loop. `CallBridge` is the seam: `events` (`pcm`, `muted`, `route`, `audioReset`, `deactivated`, `ended`, `error`), `start`, `mute`, `play`, `drain`, `stopPlayback`, `end`. `AppleCallBridge` is unchanged. `PortableCallBridge` (Android, macOS, Windows, Linux) feeds `pcm` from `record` (16 kHz mono; `echoCancel` and `noiseSuppress` on) and plays with `flutter_soloud` (a buffer stream, s16le mono at the `start` rate). It emits `deactivated` when audio focus is lost (`audio_session`, Android), `audioReset` on a route change, `error` when the microphone fails. Tests use a fake bridge.
+Alternative rejected: a second controller. It would fork the barge-in and teardown rules that are already tested.
 
-- The orb has five states, resolved in assistant-ui's fixed order: `idle`, `connecting`, `muted` (wins over speaking), then `speaking` or `listening`.
-- `VoiceOrb` is a `CustomPainter`, not WebGL: rings scaled by a 0–1 `amplitude`, with a palette taken from the theme. That is enough in Flutter and runs on every platform.
-- The composer toggle follows assistant-ui's compact voice toggle ("Start voice" / "End voice"), next to the dictation microphone.
+### 2. Consent
 
-The call screen is a full-screen route on phones and a sheet over the chat pane at 760 pt or wider (the Mac split view stays visible). Widgets live in `lib/src/voice/widgets/` (`voice_orb.dart`, `voice_call_screen.dart`) and take a `VoiceCallView` model with `mode`, `amplitude`, `turns`, `muted`, `canInterrupt` and `note`.
+`VoiceCallSetupView` (the start screen) gets a consent row: a switch "Send what I say automatically" with the sentence "Hermes sends each thing you say after a pause, without you pressing send. It can use its tools to act on it." "Start call" is disabled until it is on. State lives in the screen's local state and is dropped with it: no preference, no default, not carried across calls, chats or profiles. Without consent the screen offers "Use dictation instead" (the existing dictation sheet). The call object takes `consented: true` at construction and refuses to open the microphone otherwise, so a code path that forgets the screen still cannot send. A breadcrumb `voice_call.consent` records only that it was given.
+Alternative rejected: a one-time global setting. The microphone and a send without a tap is the highest-trust action in the app; asking each time costs one tap.
 
-### Availability (compatible voice models)
+### 3. State, in words, icon, sound and haptic
 
-`VoiceAvailability` combines three reads per profile: speech-to-text and text-to-speech from `voice-config`, and the `voice_chat` slot from `/api/model/auxiliary`. The slot counts as resolved when it names a model, or when it follows the main model (`provider` `auto`/`main`, no model, no base URL) and the response's `main.model` is set. This matches `agent/voice_turn_route.py`, which runs a slot that follows the main model on the main model. Like dictation, `tts.reason == "no credentials"` means unusable. Edge, the default, always relays and is usable. The reads are repeated on profile switch, reconnect, resume, and after `HelperModelsScreen` saves a slot.
-Alternative: require a pinned `voice_chat` model. The user chose against it; a slot that follows the main model still runs voice turns.
+States and their sources in `CallPhase`: Connecting, Listening, Muted (`muted` wins), Sending (new: `transcribing` plus the submit until `ChatController.submit` returns accepted), Thinking, Speaking, Waiting for you (`attention`), Stopped (`ended` or `failed`, with the notice). Each has an icon and a word; colour only tints. The orb (`VoiceOrb`, a `CustomPainter`, amplitude 0-1 from the PCM level, ring motion off under reduce-motion) is decoration plus the interrupt button.
+Audible: three tones generated as PCM in Dart (no asset): rising "listening" (after connecting and after each reply), a soft tick "sent", falling "stopped". Played on the call's own output through the bridge. Speaking is the voice itself. With "Speak replies" off a reply is silent, so the tick is the only confirmation; the screen says "Reply is in the chat". Haptics: a light impact on sent and a medium one on stopped on iOS and Android. A `Semantics(liveRegion: true)` word announces each change ("Hermes is speaking"). The "Hands-free on" strip with a recording dot shows while the microphone is open and says "Muted" beside a struck mic when it is not.
 
-### Loop controller over the existing chat path
+### 4. Stopping
 
-`VoiceConversationController` (`lib/src/voice/voice_conversation_controller.dart`) is a state machine: `connecting → listening → transcribing → thinking → speaking → listening`, with `ended(reason)`.
+End, mute, stop phrases, and the platform hang-up (CallKit on iOS; the End button, and Escape on desktop). Back, or "Show chat", leaves the screen without ending the call, as on iOS today; the chat header then shows the "Hands-free on" strip with End, so a running microphone is never out of sight. End or mute during Sending cancels the epoch before submit, so nothing is sent (the existing epoch check; a test pins it). After submit, End stops the reply this call started (`ChatCallAgent.interrupt`).
+Stop phrases port the desktop's `voice-stop-word.ts`: NFKC (`unorm_dart`, or a small table if the analyzer rejects it), lowercase, strip punctuation, strip a leading "hey hermes", "hermes", "ok", "hey"; the profile's `voice.stop_phrases` wins, empty turns them off; the built-in list is in the spec. It replaces the hang-up regex.
 
-- It sends through `ChatController.send(text, voiceTurn: true, interrupted: …)`, which passes the flags down `ChatTransport.send` into `prompt.submit`. The fake transport records them for tests.
-- It watches the thread's latest reply in `ChatController` for new text (content plus `sealedProse`) and for the reply's end. Each new suffix goes to the speech session, so a queued or retried reply behaves as in the chat.
-- A `{"voice_stopped": true}` submit outcome becomes a new `SubmitOutcome`, which ends the call.
+### 5. Listening and failed transcription
 
-### Voice activity detection on PCM
+The existing `VoiceActivity` stays: 100 ms onset, 200 ms pre-roll, noise floor, 60 s cap. The pause is `voice.silence_duration` when set to a value other than 3.0 (Hermes' default, which is too slow for conversation), clamped to 0.5-3 s; otherwise the shipped 0.9 s. This replaces the draft's 1.25 s so iOS does not change. A transcription failure or timeout drops the turn and its audio, shows "Couldn't hear that. Nothing was sent.", and listens again; a second consecutive failure ends the call. A successful turn resets the count. This changes the shipped behaviour (end on first failure).
 
-`VoiceActivity` (`lib/src/voice/voice_activity.dart`) computes RMS per 20 ms frame of the 16 kHz PCM stream. It does not use `record`'s amplitude callback, whose rate differs per platform. The thresholds are the desktop's:
+### 6. Speaking and barge-in
 
-- Calibrate the noise floor over the first 400 ms of quiet.
-- Speech is above max(floor × 3.5, a minimum level).
-- End-of-turn is the configured pause after speech; the turn is capped at 60 s.
-- Barge-in needs 80 % of the last 300 ms above a trigger raised during playback, with 500 ms of grace after playback starts.
+`CallSpeechStream` is unchanged except for the portable output. "Speak replies" off skips the socket and lease. Barge-in: on iOS (native AEC) as shipped; on Android with `record`'s `echoCancel` and the `voiceCommunication` audio usage; off elsewhere, where the bridge pauses capture while audio plays and resumes at the drain or the orb tap. The echo guard ports `voice-tts-echo.ts`: similarity ≥ 0.6 against the reply being spoken, with a sliding window for transcripts of 10 characters or more shorter than the reply; a matching barge-in transcript is dropped. `voice.barge_in: false` turns it off. If device tests show Android echo triggering barge-in, it is a one-line platform check to turn off there.
 
-The desktop's levels are calibrated to Web Audio byte samples, so the minimum level is set again for int16 RMS and checked on devices. It is a constant, not a setting.
+### 7. Voice turn flags
 
-### Speech playback with `flutter_soloud`
+`ChatController.submit` gains `voiceTurn` and `interrupted`, passed through `ChatTransport.send` into `prompt.submit`. `ChatCallAgent.reply` sets `voiceTurn: true` and `interrupted` when the previous turn of this call was cut off. The `voice_stopped` outcome ends the call. The queue and retry paths keep the flags with the entry.
 
-`SpeechSession` (`lib/src/voice/speech_session.dart`) owns one speak-stream socket per reply. It is opened with the binary socket helper from `voice-dictation`. It feeds text frames, and on `start` it creates a SoLoud buffer stream (s16le, mono, the given rate). Each PCM frame goes in with `addAudioDataStream`, carrying an odd trailing byte over to the next frame. `stop()` stops the voice handle and sends `stop`. On fallback it calls `POST /api/audio/speak`, decodes the data URL and plays it with `loadMem`. `flutter_soloud` is the only maintained package with raw PCM streaming on all five platforms. `just_audio` and `flutter_pcm_sound` miss Windows and Linux, and `audioplayers` cannot stream PCM. The `SpeechPlayer` interface keeps it replaceable, and tests use a fake player.
+### 8. Interruptions, background, idle
 
-### Audio session and echo cancellation
+- System interruption: iOS `deactivated` → end (shipped); Android audio focus loss → `deactivated` → end. No automatic resume: a call the user did not choose to pause must not reopen the microphone by itself.
+- Route change: `audioReset` drops the epoch, discards the turn being heard, sets "Audio route changed. Please repeat if needed." and listens (shipped on iOS; the portable bridge emits it on device change).
+- Background and lock: iOS keeps the call (CallKit, `UIBackgroundModes=audio`). Android: `AppLifecycleState.paused` ends it. macOS, Windows, Linux: `hidden` and `paused` end it; losing focus alone does not, since the OS shows its microphone indicator; a screen lock the app cannot observe is covered by the idle limit. A foreground service is a follow-up.
+- Idle: 5 minutes with no speech and no running reply end the call ("Stopped: no one spoke for 5 minutes"). A constant, not a setting.
+- Sign-out, profile, chat or account change end it (shipped, `ChatCallAgent.onContextLost`).
 
-On iOS and Android, `audio_session` sets a voice-chat session for the call: `playAndRecord`, mode `voiceChat`, `defaultToSpeaker` and `allowBluetooth`, with the Android `voiceCommunication` usage. `record` starts with `echoCancel: true, noiseSuppress: true`. Barge-in is enabled only there (`Platform.isIOS || Platform.isAndroid`). Elsewhere the microphone closes while the agent speaks, and the orb tap interrupts. If device tests show SoLoud's iOS output escaping the voice-processing unit, the transcript echo guard still catches the echo. The fallback is to turn off barge-in on iOS, which is a one-line platform check.
+### 9. Teardown order
 
-### Echo guard and stop phrases
+`_end` becomes: stop capture (microphone) → close the speech socket and stop playback → release the audio session and focus → release leases (`tts-lease`, `stt-lease`) → interrupt the agent. Each step is guarded so a throw does not skip the next, and the first step runs before the notice is shown. The shipped order releases native audio before waiting on remote cancel; the microphone-first rule only moves the capture stop up.
 
-These are ports of the desktop's `voice-tts-echo.ts` and `voice-stop-word.ts`. The echo guard uses a `SequenceMatcher` ratio of 0.6 or higher, with a sliding window for transcripts of 10 characters or more that are shorter than the reply. Stop phrases use NFKC, lowercasing, punctuation removal, the leading-address prefixes and the built-in list. NFKC needs the `unorm_dart` package, or a small table if the analyzer rejects that package. Both are pure Dart and unit tested.
+### 10. Availability, entry and screens
 
-### Config
+The header button is the entry on all platforms. `_canCall` adds the platform check (iOS, Android, macOS, Windows, Linux; not web, not conversation windows) and `VoiceAvailability`: speech-to-text and text-to-speech from `voice-config`, and the `voice_chat` slot from `/api/model/auxiliary` (names a model, or follows the main model: `provider` `auto`/`main`, no model, no base URL, and `main.model` set; this matches `agent/voice_turn_route.py`). `tts.reason == "no credentials"` means unusable; Edge always relays and is usable. Re-read on profile switch, reconnect, resume and after Helper models saves. On iOS the readiness checker gets the `voice_chat` check as a fifth row.
+Screens: phone, a full-screen route (shipped). At 760 pt or wider, a 480 pt dialog over the chat so the split view stays visible; on the Mac, a window-modal sheet. The Speaker control is iOS and Android only; desktop has no earpiece. Desktop gets "Output" as the system's choice, no in-app picker.
 
-The controller reads the `voice` section of `GET /api/config?profile=` once per call: `silence_duration`, `stop_phrases` and `barge_in`. A missing key takes Hermes' default. No setting is written.
+### 11. Config
 
-### Platforms and native changes
+`GET /api/config?profile=` `voice` section, read once per call: `silence_duration`, `stop_phrases`, `barge_in`. Missing keys take the defaults above. Nothing is written. Warm-up: `tts-lease` while the call is open (`{"lease": "app:conversation:<id>", "active": …}`), failure ignored.
 
-- **iOS:** the audio session category is set at runtime. There is no `UIBackgroundModes` audio entry (background audio is a non-goal), and the permission string comes from `voice-dictation`.
-- **Android:** `MODIFY_AUDIO_SETTINGS` in the manifest, for `audio_session` and speakerphone routing.
-- **macOS:** no change beyond `voice-dictation`. Playback needs no entitlement. The call is not offered in conversation windows, as with dictation.
-- **Linux:** `flutter_soloud` builds miniaudio from source with CMake. CI's Linux job may need `libasound2-dev`, and the `.deb` gains `libasound2 | libasound2t64`.
-- **Windows:** none.
-- **watchOS:** none.
+### Platform matrix
+
+| Platform | Audio                                        | Barge-in                   | Background     | Verified without a device            |
+| -------- | -------------------------------------------- | -------------------------- | -------------- | ------------------------------------ |
+| iOS      | CallKit, voice-processing engine (shipped)   | yes                        | keeps running  | no                                   |
+| Android  | `record` + `flutter_soloud`, `audio_session` | yes (device-dependent AEC) | ends           | no                                   |
+| macOS    | `record` + `flutter_soloud`                  | no, orb tap                | ends on hidden | partly (Mac is the dev host, not CI) |
+| Windows  | same                                         | no                         | ends on hidden | compile only                         |
+| Linux    | same; needs ALSA/Pulse                       | no                         | ends on hidden | compile and Xvfb without audio       |
+
+macOS adds no entitlement (the audio-input one exists for dictation). Android adds `MODIFY_AUDIO_SETTINGS`. Linux adds `libasound2 | libasound2t64` to the `.deb`.
 
 ### Invariants touched
 
-- **API layering:** REST goes through the generated client, and the sockets are opened like `/api/ws`. There is no `packages/hermes_api` change.
-- **Telemetry:** breadcrumbs only, through `Breadcrumbs`, and never text.
-- **Tests:** availability and the fallbacks run against `FakeHermesServer`. The loop runs against `FakeChatTransport` with fake recorder and player seams.
+- API layering: REST through the generated client; sockets opened like `/api/ws`; no `packages/hermes_api` change.
+- Privacy: events and breadcrumbs carry fixed words, flags, buckets only. Audio is never written to disk (the Apple converter's temporary files are removed, as today).
+- Auth: the call never signs the user out and ends on sign-out.
+- Chat: voice turns are ordinary messages; nothing is held back from the thread after End.
 
 ## Risks / Trade-offs
 
-- **Echo on speakerphone triggers barge-in.** Mitigations: platform AEC, a trigger raised during playback, a grace period after playback starts, and the transcript echo guard. Barge-in can be turned off per profile (`voice.barge_in: false`).
-- **SoLoud and `record` contend for the audio session on iOS.** The session is configured once, before either starts. Device testing is a task, not an assumption.
-- **The VAD levels differ from the desktop's.** They are tuned on device during verification and kept as named constants.
-- **A long reply stays unspoken until its first sentence ends.** The server flushes on punctuation or after 2 s idle, as on the desktop.
-- **The call ends when the app is backgrounded,** which surprises users who lock the phone. The call screen says so; background audio is a follow-up change.
-- **Size.** The work spans three stacked PRs (see tasks). Each is reviewable alone, and the feature is hidden until the last one wires the toggle.
+- **Echo on speakerphone triggers barge-in** on Android. Mitigations: platform AEC, a raised trigger during playback, grace after playback starts, the echo guard, `voice.barge_in`.
+- **`record` and SoLoud contend for the audio session** on Android. Configure `audio_session` once before either starts; device test is a task.
+- **A call that ends on background surprises Android users.** The start screen says "The call ends if you leave Hermes."
+- **Consent fatigue.** One tap per call. If it proves too much, a per-profile "ask each call" preference is a later change, never default-on.
+- **Tones may be inaudible on a muted device.** The visible state is the primary; the tone is the second channel.
+- **Linux audio** may be absent (headless, containers); the button hides.
+
+## Design pass
+
+The canvas and its decisions are in `docs/design-briefs/voice-conversation.md`. Two findings change the build: at the largest text size the start screen overflows, so its body scrolls and the consent switch and "Start call" are pinned at the bottom; and the "Hands-free on" strip drops its second half at large sizes instead of wrapping. Sending is a state of its own so End and mute have a visible last moment.
