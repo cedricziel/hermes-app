@@ -5,8 +5,7 @@
 /// them with a live backend. Model ids are placeholders.
 library;
 
-/// `YYYY-MM-DD` of [days] before [now] (the real clock unless a test gives
-/// its own), so a fixture never goes stale.
+/// `YYYY-MM-DD` of [days] before [now].
 String _daysBack(DateTime now, int days) {
   final d = now.subtract(Duration(days: days));
   return '${d.year.toString().padLeft(4, '0')}-'

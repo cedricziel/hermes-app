@@ -341,6 +341,35 @@ void main() {
     },
   );
 
+  test('a child still running at 30 s that then fails after the gateway was '
+      'seen down ends failed, not done', () async {
+    var reads = 0;
+    server.onRequest(
+      'GET',
+      '/api/actions/gateway-restart/status',
+      (_) => (
+        status: 200,
+        body: reads++ < 21
+            ? action('gateway-restart', running: true)
+            : action('gateway-restart', exit: 1, lines: ['unit failed']),
+      ),
+    );
+    var statusReads = 0;
+    server.onRequest(
+      'GET',
+      '/api/status',
+      (_) => (
+        status: 200,
+        body: statusReads++ == 0
+            ? status(running: false, state: 'stopped')
+            : status(),
+      ),
+    );
+    await gateway.run(GatewayAction.restart, profile: 'work');
+    expect(gateway.phase, GatewayPhase.failed);
+    expect(gateway.message, 'unit failed');
+  });
+
   test('a press after the outcome starts a new run', () async {
     await gateway.run(GatewayAction.restart, profile: 'work');
     expect(gateway.busy, isFalse);

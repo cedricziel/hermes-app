@@ -70,6 +70,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   String? _message;
   Future<void>? _running;
   int _runId = 0;
+  GatewayAction? _lastAction;
   bool _unconfirmed = false;
   String? _profile;
 
@@ -84,6 +85,10 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
 
   /// Null when idle.
   GatewayAction? get action => _action;
+
+  /// The action of the latest run, kept after [dismiss] so a headline that
+  /// outlives the run (the final status read) still says what it did.
+  GatewayAction? get lastAction => _lastAction;
 
   /// Set with [GatewayPhase.failed].
   GatewayFailure? get failure => _failure;
@@ -166,6 +171,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   ) async {
     _unconfirmed = false;
     _action = action;
+    _lastAction = action;
     _profile = profile;
     _failure = null;
     _message = null;
@@ -353,8 +359,10 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   }
 
   /// Reads the gateway until it runs again. With [watch] the action of a
-  /// child this run saw running is read too, until the gateway was seen down:
-  /// its exit 0 counts as the restart finished, a non-zero exit fails the run.
+  /// child this run saw running is read too, until the child ended: its
+  /// exit 0 counts as the restart finished when [exitZeroCounts], a non-zero
+  /// exit fails the run (a missed failure would leave the person waiting
+  /// with no reason).
   Future<String?> _awaitReturn(
     String profile,
     DateTime from,
@@ -373,6 +381,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       if (watching) {
         final action = await _repository.actionStatus(watch!, lines: 40);
         if (disposed) return null;
+        if (action is CareUnsupported) watching = false;
         if (action case CareOk(:final value) when !value.running) {
           watching = false;
           final code = value.exitCode;

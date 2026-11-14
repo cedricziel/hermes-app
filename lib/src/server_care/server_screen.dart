@@ -221,7 +221,7 @@ class _ServerScreenState extends State<ServerScreen> {
     if ((_run.busy || care.gatewayBusy) && _runIsHere(care)) {
       return ServerStatusCard(
         tone: ServerStatusTone.loading,
-        title: _run.action == GatewayAction.start
+        title: (_run.action ?? _run.lastAction) == GatewayAction.start
             ? l10n.serverCareGatewayHeadlineStarting
             : l10n.serverCareGatewayHeadlineRestarting,
       );
