@@ -94,6 +94,7 @@ class ChangedFile {
     this.added,
     this.removed,
     this.diff,
+    this.cutShort = false,
   });
 
   /// The path as `stat` shows it, unquoted. Sent as `file_path` only when
@@ -114,6 +115,10 @@ class ChangedFile {
   /// This file's section of the diff; null when the server cut the diff
   /// before it or sent none (a binary file has none to show).
   final String? diff;
+
+  /// The server's cut fell inside this file's section: the last one of a diff
+  /// as long as the cut. Its diff is shown but ends early.
+  final bool cutShort;
 }
 
 sealed class CheckpointChanges {
@@ -261,6 +266,10 @@ CheckpointChanges parseCheckpointChanges(Map<String, Object?> result) {
     return const ChangesUnreadable();
   }
   final sections = parseDiff(diff);
+  // The cut falls inside the last section of a diff as long as the limit.
+  final cutKey = diff.length >= kCheckpointDiffLimit && sections.isNotEmpty
+      ? sections.keys.last
+      : null;
   final listed = parseStat(stat);
   final files = <ChangedFile>[];
   final used = <String>{};
@@ -277,13 +286,21 @@ CheckpointChanges parseCheckpointChanges(Map<String, Object?> result) {
       if (matches.length == 1) key = matches.single;
     }
     used.add(key);
-    files.add(_withSection(entry, sections[key]));
+    files.add(
+      _withSection(entry, sections[key], cut: cutKey != null && key == cutKey),
+    );
   }
   // A diff with no stat still lists its files, but a path that did not come
   // from `stat` is never offered for a one-file restore.
   for (final entry in sections.entries) {
     if (used.add(entry.key)) {
-      files.add(_withSection(ChangedFile(path: entry.key), entry.value));
+      files.add(
+        _withSection(
+          ChangedFile(path: entry.key),
+          entry.value,
+          cut: cutKey != null && entry.key == cutKey,
+        ),
+      );
     }
   }
   return Changes(
@@ -292,7 +309,11 @@ CheckpointChanges parseCheckpointChanges(Map<String, Object?> result) {
   );
 }
 
-ChangedFile _withSection(ChangedFile file, String? section) {
+ChangedFile _withSection(
+  ChangedFile file,
+  String? section, {
+  bool cut = false,
+}) {
   var added = 0, removed = 0;
   if (section != null) {
     var inHunk = false;
@@ -312,9 +333,12 @@ ChangedFile _withSection(ChangedFile file, String? section) {
     binary: file.binary,
     renamed: file.renamed,
     changes: file.changes,
-    added: section == null || file.binary ? null : added,
-    removed: section == null || file.binary ? null : removed,
+    // Counts of a section the server cut would be too low: the `stat` total
+    // stands in for them.
+    added: section == null || file.binary || cut ? null : added,
+    removed: section == null || file.binary || cut ? null : removed,
     diff: section,
+    cutShort: cut && !file.binary,
   );
 }
 

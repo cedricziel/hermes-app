@@ -107,6 +107,8 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   );
 
   /// A gateway restart or start is running: the headline stops offering it.
+  bool get gatewayBusy => _gatewayBusy;
+
   set gatewayBusy(bool value) => _set(() => _gatewayBusy = value);
 
   /// An update is running or checking its result.

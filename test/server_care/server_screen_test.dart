@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
+import 'package:hermes_app/src/server_care/gateway_restart.dart';
 import 'package:hermes_app/src/server_care/server_care_controller.dart';
 import 'package:hermes_app/src/server_care/server_screen.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
@@ -17,6 +18,7 @@ void main() {
   late FakeHermesServer server;
   late BreadcrumbTrail trail;
   late ServerCareController care;
+  late GatewayRestart gateway;
 
   setUp(() {
     server = FakeHermesServer()
@@ -39,6 +41,16 @@ void main() {
       profile: 'default',
     );
     addTearDown(care.dispose);
+    // A clock that moves with the waits, so a gateway that never comes back
+    // ends as slow in a few calls, not in 90 real seconds.
+    var clock = DateTime(2026, 11, 14, 9);
+    gateway = GatewayRestart(
+      repository: repositories.serverCare,
+      care: care,
+      now: () => clock,
+      delay: (d) async => clock = clock.add(d),
+    );
+    addTearDown(gateway.dispose);
     // As in the app, the controller is provided below the root Navigator, so
     // a route the screen pushes must carry it along.
     await tester.pumpWidget(
@@ -52,8 +64,11 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(),
-          home: ChangeNotifierProvider<ServerCareController>.value(
-            value: care,
+          home: MultiProvider(
+            providers: [
+              ChangeNotifierProvider<ServerCareController>.value(value: care),
+              ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+            ],
             child: const ServerScreen(source: 'test'),
           ),
         ),
@@ -85,8 +100,8 @@ void main() {
       expect(find.text('Off'), findsOneWidget);
       // How many channels are connected says nothing beside "Off".
       expect(find.text('Channels'), findsNothing);
-      // No restart or start action in this screen yet.
-      expect(find.text('Start gateway'), findsNothing);
+      // The headline and the gateway section both offer it.
+      expect(find.text('Start gateway'), findsNWidgets(2));
     });
 
     testWidgets('offers Try again when Hermes cannot be reached', (
@@ -181,11 +196,195 @@ void main() {
     });
   });
 
+  group('restarting and starting the gateway', () {
+    void answers({bool running = true}) {
+      server
+        ..on('POST', '/api/gateway/restart', {
+          'ok': true,
+          'pid': 1,
+          'name': 'gateway-restart',
+        })
+        ..on('POST', '/api/gateway/start', {
+          'ok': true,
+          'pid': 2,
+          'name': 'gateway-start',
+        })
+        ..on('GET', '/api/actions/gateway-restart/status', {
+          'name': 'gateway-restart',
+          'running': false,
+          'exit_code': 0,
+          'lines': <String>[],
+        })
+        ..on('GET', '/api/actions/gateway-start/status', {
+          'name': 'gateway-start',
+          'running': false,
+          'exit_code': 0,
+          'lines': <String>[],
+        })
+        ..on('GET', '/api/status', {
+          ...statusHealthy(),
+          'gateway_running': running,
+          'gateway_state': running ? 'running' : 'stopped',
+        });
+    }
+
+    Future<void> settle(WidgetTester tester) async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 150)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a start runs at once, with the profile, no question asked', (
+      tester,
+    ) async {
+      gatewayOff();
+      await pump(tester);
+      answers(running: false);
+      server.on('GET', '/api/status', {
+        ...statusHealthy(),
+        'gateway_running': false,
+        'gateway_state': 'stopped',
+      });
+      await tester.tap(find.text('Start gateway').first);
+      await tester.pump();
+      await settle(tester);
+      final posts = server.requestsTo('POST', '/api/gateway/start');
+      expect(posts, hasLength(1));
+      expect(posts.single.queryParameters, {'profile': 'default'});
+      expect(find.text('Restart the messaging gateway?'), findsNothing);
+    });
+
+    testWidgets('a restart asks first, and Cancel sends nothing', (
+      tester,
+    ) async {
+      answers();
+      server.on('GET', '/api/status', {
+        ...statusHealthy(),
+        'gateway_state': 'startup_failed',
+        'gateway_running': false,
+        'active_agents': 2,
+      });
+      await pump(tester);
+      await tester.tap(find.text('Restart gateway').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Restart the messaging gateway?'), findsOneWidget);
+      expect(
+        find.textContaining('Chats in this app keep running.'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('2 conversations on messaging channels'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('This gateway is shared'), findsOneWidget);
+      expect(find.text('Restart for all'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(server.requestsTo('POST', '/api/gateway/restart'), isEmpty);
+    });
+
+    testWidgets('confirming restarts with the profile and reads the status '
+        'again', (tester) async {
+      answers();
+      await pump(tester);
+      final before = server.requestsTo('GET', '/api/status').length;
+      await tester.tap(find.text('Restart gateway'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restart for all'));
+      await tester.pump();
+      await settle(tester);
+      final posts = server.requestsTo('POST', '/api/gateway/restart');
+      expect(posts, hasLength(1));
+      expect(posts.single.queryParameters, {'profile': 'default'});
+      expect(
+        server.requestsTo('GET', '/api/status').length,
+        greaterThan(before),
+      );
+      expect(find.text('Running again'), findsOneWidget);
+    });
+
+    testWidgets('a run that finished while the screen was closed is gone when '
+        'it opens again', (tester) async {
+      answers();
+      await pump(tester);
+      await tester.runAsync(
+        () => gateway.run(GatewayAction.restart, profile: 'default'),
+      );
+      expect(gateway.phase, GatewayPhase.done);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<HermesRepositories>.value(
+              value: HermesRepositories(server.client()),
+            ),
+            ChangeNotifierProvider<ServerCareController>.value(value: care),
+            ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(),
+            home: const ServerScreen(source: 'test'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(gateway.phase, GatewayPhase.idle);
+      expect(find.text('Running again'), findsNothing);
+    });
+
+    testWidgets('a lost restart that never showed the gateway down says it '
+        'could not confirm it', (tester) async {
+      answers();
+      server.onRequest(
+        'POST',
+        '/api/gateway/restart',
+        (_) => throw DioException.connectionError(
+          requestOptions: RequestOptions(),
+          reason: 'dropped',
+        ),
+      );
+      await pump(tester);
+      await tester.tap(find.text('Restart gateway'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restart for all'));
+      await tester.pump();
+      await settle(tester);
+      expect(find.text("Couldn't confirm the restart"), findsOneWidget);
+      expect(find.text("The gateway hasn't come back yet"), findsNothing);
+      expect(find.text('Running again'), findsNothing);
+      expect(server.requestsTo('POST', '/api/gateway/restart'), hasLength(1));
+    });
+
+    testWidgets('a refusal shows Hermes\' own text and sends nothing again', (
+      tester,
+    ) async {
+      answers();
+      server.on('POST', '/api/gateway/restart', {
+        'detail': 'gateway restart already in progress for another profile',
+      }, status: 500);
+      await pump(tester);
+      await tester.tap(find.text('Restart gateway'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restart for all'));
+      await tester.pump();
+      await settle(tester);
+      expect(
+        find.text('gateway restart already in progress for another profile'),
+        findsOneWidget,
+      );
+      expect(server.requestsTo('POST', '/api/gateway/restart'), hasLength(1));
+    });
+  });
+
   group('pages it opens', () {
     testWidgets('Usage and Update open with the controller above them', (
       tester,
     ) async {
-      server.on('GET', '/api/analytics/usage', usage30());
+      server.on('GET', '/api/analytics/usage', usage30(today: DateTime.now()));
       await pump(tester);
       await tester.tap(find.text('Usage'));
       await tester.pump(const Duration(milliseconds: 400));

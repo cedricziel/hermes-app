@@ -117,6 +117,8 @@ import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
 import 'activity/bound_activity_panel.dart';
+import 'activity/bound_needs_you_dock.dart';
+import 'activity/needs_you_queue.dart';
 import 'activity/widgets/activity_panel.dart';
 import 'widgets/chat_app_bar.dart';
 import 'widgets/chat_header.dart';
@@ -245,6 +247,10 @@ class ChatScreen extends StatefulWidget {
 /// Owns resources and lifecycle; private parts group feature behavior and layout.
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
+
+  /// The requests that wait on the user in the open chat, which dock above
+  /// the composer and mark the Activity button.
+  late final NeedsYouQueue _needsYou;
 
   /// How many staged memory changes wait in the chat's profile, for the
   /// Memory entry; null without a dashboard connection.
@@ -465,6 +471,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
     )..addListener(_changed);
+    _needsYou = needsYouQueueFor(
+      _chat,
+      breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
+      onArrived: (entry) {
+        if (mounted) announceNeedsYou(context, entry.kind);
+      },
+    );
     if (transport != null && _skills != null) {
       _memoryWaiting = MemoryWaitingCount(
         MemoryProposalsRepository(
@@ -833,6 +846,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _sessionActivity?.removeListener(_callOwnerChanged);
     _voiceCall?.removeListener(_callChanged);
     _voiceCall?.dispose();
+    _needsYou.dispose();
     _chat
       ..removeListener(_changed)
       ..dispose();

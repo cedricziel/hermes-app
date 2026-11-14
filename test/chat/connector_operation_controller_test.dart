@@ -141,7 +141,10 @@ void main() {
       server.refuse(0, 4002);
       await request;
       expect(controller.operations.single.settled, isFalse);
-      expect(controller.errorFor(controller.operations.single.key), isNotNull);
+      expect(
+        controller.answerFor(controller.operations.single.key),
+        ConnectorAnswer.unconfirmed,
+      );
     },
   );
   test(
