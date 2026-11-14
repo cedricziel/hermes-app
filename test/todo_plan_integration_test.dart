@@ -15,6 +15,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_gateway.dart';
+import 'support/chat_with_activity.dart';
 import 'support/fake_attachment_source.dart';
 import 'support/fake_hermes_server.dart';
 
@@ -144,7 +145,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Implement the change'), findsOneWidget);
     expect(find.byType(Checkbox), findsNothing);
-    expect(gateway.methods, hasLength(methods));
+    await settleActivityPanel(tester);
+    // The panel's own read of the chat's agents is not the plan's.
+    expect(
+      gateway.methods.where((method) => method != 'subagent.list'),
+      hasLength(methods),
+    );
   });
 
   test('an unconfirmed stored owner has no guessed runtime plan', () async {

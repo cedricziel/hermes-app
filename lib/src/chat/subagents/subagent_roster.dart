@@ -76,6 +76,12 @@ class SubagentRoster extends ChangeNotifier {
   final String? profile;
   final AppEventLogger events;
   final SubagentRepository _repository;
+
+  /// The calls on this chat's agents, for a detail's own controller.
+  SubagentRepository get repository => _repository;
+
+  /// The token of the connection the roster reads on now, or null offline.
+  Object? get connection => _env.connection;
   final RosterEnvironment _env;
 
   final _rows = <String, RosterRow>{};

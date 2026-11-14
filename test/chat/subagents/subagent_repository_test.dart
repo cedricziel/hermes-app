@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/agent_work_transport.dart';
@@ -407,6 +408,74 @@ void main() {
       expect(await repository.list('thread-1'), isA<WorkFailed<AgentList>>());
       transport.agentAnswer = (_) => {'found': 'yes'};
       expect(await repository.interrupt(key), isA<WorkFailed>());
+    });
+  });
+
+  group('parsers', () {
+    test('random and truncated JSON never throws', () {
+      final random = Random(7);
+      Object? value(int depth) {
+        final pick = random.nextInt(depth > 2 ? 5 : 8);
+        return switch (pick) {
+          0 => null,
+          1 => random.nextInt(1000) - 500,
+          2 => random.nextDouble() * 100,
+          3 => random.nextBool(),
+          4 => ['', 'a1', '12', 'running', 'x' * 40][random.nextInt(5)],
+          5 => [for (var i = 0; i < random.nextInt(4); i++) value(depth + 1)],
+          _ => {
+            for (final k in [
+              'subagents',
+              'delegations',
+              'subagent_id',
+              'goal',
+              'status',
+              'text',
+              'available',
+              'truncated',
+              'found',
+              'started_at',
+              'tool_count',
+              'parent_id',
+            ])
+              if (random.nextBool()) k: value(depth + 1),
+          },
+        };
+      }
+
+      final valid = jsonEncode({
+        'subagents': [
+          {'subagent_id': 'a1', 'goal': 'g', 'status': 'running'},
+        ],
+        'delegations': [],
+        'text': 'line\nline',
+        'available': true,
+        'truncated': true,
+        'found': true,
+        'status': 'queued',
+      });
+      for (var i = 0; i < 300; i++) {
+        final decoded = value(0);
+        final map = decoded is Map
+            ? decoded.cast<String, Object?>()
+            : {'x': decoded};
+        parseAgentList(map);
+        parseAgentTail(map);
+        parseStopOutcome(map);
+        parseSteerOutcome(map);
+        // A truncated document that still decodes is parsed too.
+        final cut = valid.substring(0, random.nextInt(valid.length));
+        try {
+          final partial = jsonDecode(cut);
+          if (partial is Map) {
+            final m = partial.cast<String, Object?>();
+            parseAgentList(m);
+            parseAgentTail(m);
+          }
+        } on FormatException {
+          // Not a document at all.
+        }
+      }
     });
   });
 
