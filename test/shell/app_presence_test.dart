@@ -43,14 +43,35 @@ void main() {
     });
   });
 
+  group('on Windows and Linux', () {
+    test('a window that lost focus or is minimized is still running', () {
+      for (final platform in [TargetPlatform.windows, TargetPlatform.linux]) {
+        for (final state in [
+          AppLifecycleState.resumed,
+          AppLifecycleState.inactive,
+          AppLifecycleState.hidden,
+        ]) {
+          expect(
+            AppPresence.foreground(state, platform: platform),
+            isTrue,
+            reason: '$platform $state',
+          );
+          expect(
+            AppPresence.focused(state),
+            state == AppLifecycleState.resumed,
+          );
+        }
+        expect(
+          AppPresence.foreground(AppLifecycleState.paused, platform: platform),
+          isFalse,
+        );
+      }
+    });
+  });
+
   group('on other platforms', () {
     test('foreground is resumed and nothing else', () {
-      for (final platform in [
-        TargetPlatform.iOS,
-        TargetPlatform.android,
-        TargetPlatform.windows,
-        TargetPlatform.linux,
-      ]) {
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
         for (final state in AppLifecycleState.values) {
           expect(
             AppPresence.foreground(state, platform: platform),

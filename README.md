@@ -64,8 +64,8 @@ run" all the same.
 | Dictation (speech to text) | Works | Works | The microphone goes through `record` (16 kHz PCM stream) to the server's transcription. On Linux that is `parecord` and `pactl` from `pulseaudio-utils`, which the `.deb` declares. There is no on-device recognizer. |
 | Voice calls | Not available | Not available | Hands-free calls are iOS only. |
 | Bot Screen viewer and takeover | Works | Works | The viewer and its keyboard input have Windows and Linux paths. |
-| Notifications | Not available | Not available | The code turns them off outside iOS, macOS and Android. The plugin has Windows and Linux backends that are linked in but not used. |
-| App Lock | Partly | Not available | `local_auth` covers Windows Hello, but the dialog's text names Face ID and Touch ID only. It has no Linux backend. |
+| Notifications | Works (untested) | Works (untested) | Plain notifications while the app runs: a tap opens the chat, there are no answer buttons, and nothing arrives while the app is closed. Not yet run on a real desktop. |
+| App Lock | Works (untested) | Not available | Windows Hello or a PIN through `local_auth`. It has no Linux backend, and the dialog says so. |
 | Opening `hermes://` links | Not available | Not available | The link listener only starts on iOS, macOS and Android, and neither package registers the scheme. |
 | Receive shared files and text | Not available | Not available | Receiving works on iOS, Android and macOS. Drag and drop and paste still work. |
 | Drag files out | Not available | Not available | Drag out is macOS only. Opening a file uses the system default app. |
@@ -225,7 +225,7 @@ The optional [Hermes App messenger plugin](plugins/hermes-app/README.md) registe
 the app as a Hermes messaging destination. Install it on your Hermes server to
 let the agent and scheduled jobs send text into new, saved chats you can open
 and reply to. Delivery works while the app is disconnected. The app announces
-new messages with a notification on Android, iOS and macOS: within about a
+new messages with a notification on Android, iOS, macOS, Windows and Linux: within about a
 minute while it is open, and on iOS and Android when the system lets it check
 in the background. A closed or suspended app is not woken at once. The plugin
 guide covers setup and testing.
