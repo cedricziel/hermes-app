@@ -102,7 +102,7 @@ class _NotificationsDialog extends StatelessWidget {
           GroupedSection(
             footer:
                 'When a Hermes profile starts a chat for you, while the app is '
-                '${platform == TargetPlatform.macOS ? 'open' : 'open or when the system lets it check in the background'}. '
+                '${platform == TargetPlatform.android || platform == TargetPlatform.iOS ? 'open or when the system lets it check in the background' : 'open'}. '
                 'The text stays hidden while App Lock is on.',
             children: [
               GroupedSwitchRow(

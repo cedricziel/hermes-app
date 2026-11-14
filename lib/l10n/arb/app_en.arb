@@ -20,6 +20,58 @@
   "@@x-area-api": "",
 
   "@@x-area-app_lock": "",
+  "appLockFooterAndroid": "Hermes asks for your fingerprint, face or screen lock when you open it and when you come back to it.",
+  "@appLockFooterAndroid": {
+    "description": "Explains App Lock on Android, under its switch."
+  },
+  "appLockFooterApple": "Hermes asks for Face ID, Touch ID or your device passcode when you open it and when you come back to it.",
+  "@appLockFooterApple": {
+    "description": "Explains App Lock on iOS and macOS, under its switch."
+  },
+  "appLockFooterLinux": "App Lock would ask your system to confirm it is you when you open Hermes.",
+  "@appLockFooterLinux": {
+    "description": "Explains App Lock on Linux, under its switch."
+  },
+  "appLockFooterWindows": "Hermes asks for Windows Hello (face, fingerprint or PIN) when you open it and when you come back to it.",
+  "@appLockFooterWindows": {
+    "description": "Explains App Lock on Windows, under its switch."
+  },
+  "appLockSetupAndroid": "Set up a screen lock or fingerprint in system settings to use App Lock. This device does not offer one right now.",
+  "@appLockSetupAndroid": {
+    "description": "Note shown on Android when the device has no screen lock or biometrics."
+  },
+  "appLockSetupApple": "Set up Face ID, Touch ID or a passcode in system settings to use App Lock. This device does not offer one right now.",
+  "@appLockSetupApple": {
+    "description": "Note shown on iOS and macOS when the device has no passcode or biometrics."
+  },
+  "appLockSetupWindows": "Set up Windows Hello or a PIN in Windows settings under Accounts, Sign-in options, to use App Lock. This device does not offer one right now.",
+  "@appLockSetupWindows": {
+    "description": "Note shown on Windows when Windows Hello is not set up."
+  },
+  "appLockSwitchAndroid": "Require fingerprint or screen lock",
+  "@appLockSwitchAndroid": {
+    "description": "Label of the App Lock switch on Android."
+  },
+  "appLockSwitchApple": "Require Face ID or Touch ID",
+  "@appLockSwitchApple": {
+    "description": "Label of the App Lock switch on iOS and macOS."
+  },
+  "appLockSwitchLinux": "Require system unlock",
+  "@appLockSwitchLinux": {
+    "description": "Label of the App Lock switch on Linux, where it stays off."
+  },
+  "appLockSwitchWindows": "Require Windows Hello",
+  "@appLockSwitchWindows": {
+    "description": "Label of the App Lock switch on Windows."
+  },
+  "appLockTitle": "App lock",
+  "@appLockTitle": {
+    "description": "Title of the App Lock dialog."
+  },
+  "appLockUnavailableLinux": "App Lock is not available on Linux: there is no system prompt Hermes can use to confirm it is you.",
+  "@appLockUnavailableLinux": {
+    "description": "Note shown on Linux, where App Lock cannot be turned on."
+  },
 
   "@@x-area-auth": "",
 

@@ -16,6 +16,14 @@ import 'request_notifications.dart';
 const _channelId = 'agent_activity';
 const _channelName = 'Agent activity';
 
+/// Identifies the app to Windows for its toasts, in the form
+/// `CompanyName.ProductName`. Unpackaged, Windows files the toasts under it.
+const _windowsAppUserModelId = 'com.cedricziel.hermesApp';
+
+/// Names the toast activation callback of the Windows plugin; fixed, since
+/// Windows keys the callback registration by it.
+const _windowsActivationGuid = 'c7d1a9f4-3b2e-4c6a-9e51-8f0d2a7b6e13';
+
 /// Tags Android's answerable notifications: its plugin lists no payloads, so
 /// the tag is how they are found again.
 const kAnswerableTag = 'hermes.request';
@@ -172,7 +180,13 @@ Future<void> _categoryCall(String method, [Object? arguments]) {
 }
 
 /// [NotificationService] on `flutter_local_notifications`. On platforms other
-/// than macOS, iOS and Android it does nothing.
+/// than macOS, iOS, Android, Windows and Linux it does nothing.
+///
+/// Windows and Linux post plain notifications: a tap opens the chat, and there
+/// are no buttons, so a request shows its placeholder text, never the
+/// command. An unpackaged Windows app can neither cancel nor list shown
+/// toasts, and Linux depends on the notification server; both are tried and
+/// a failure is ignored.
 ///
 /// A background service, as the iOS background isolate makes, registers no
 /// categories at start, which would drop the placeholders the main app set;
@@ -202,7 +216,9 @@ class LocalNotificationService
       switch (defaultTargetPlatform) {
         TargetPlatform.android ||
         TargetPlatform.iOS ||
-        TargetPlatform.macOS => true,
+        TargetPlatform.macOS ||
+        TargetPlatform.windows ||
+        TargetPlatform.linux => true,
         _ => false,
       };
 
@@ -236,6 +252,12 @@ class LocalNotificationService
         android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: darwin,
         macOS: darwin,
+        linux: const LinuxInitializationSettings(defaultActionName: 'Open'),
+        windows: const WindowsInitializationSettings(
+          appName: 'Hermes',
+          appUserModelId: _windowsAppUserModelId,
+          guid: _windowsActivationGuid,
+        ),
       ),
       onDidReceiveNotificationResponse: _onResponse,
       onDidReceiveBackgroundNotificationResponse:
@@ -340,10 +362,14 @@ class LocalNotificationService
       if (permission == false) {
         return const NotificationPostResult(NotificationPostStatus.denied);
       }
+      // Windows and Linux have no buttons here, so a request keeps its
+      // placeholder text.
       // Android's categories are not registered with the system; its buttons
       // come from the category's actions at post time.
       final category = _darwin ? notification.category : null;
-      final androidCategory = !_darwin && notification.request != null
+      final androidCategory =
+          defaultTargetPlatform == TargetPlatform.android &&
+              notification.request != null
           ? notification.category
           : null;
       // Only with the text on show: the buttons answer what the user sees.
@@ -406,6 +432,8 @@ class LocalNotificationService
           ),
           iOS: darwin,
           macOS: darwin,
+          linux: const LinuxNotificationDetails(),
+          windows: const WindowsNotificationDetails(),
         ),
         payload: notificationPayload(notification),
       );

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -465,8 +466,44 @@ void main() {
             .onChanged,
         isNull,
       );
-      expect(find.textContaining('Set up Face ID'), findsOneWidget);
+      expect(find.textContaining('Set up a screen lock'), findsOneWidget);
     });
+
+    for (final (platform, switchText, note) in [
+      (TargetPlatform.iOS, 'Require Face ID or Touch ID', 'Set up Face ID'),
+      (TargetPlatform.macOS, 'Require Face ID or Touch ID', 'Set up Face ID'),
+      (
+        TargetPlatform.android,
+        'Require fingerprint or screen lock',
+        'Set up a screen lock',
+      ),
+      (
+        TargetPlatform.windows,
+        'Require Windows Hello',
+        'Set up Windows Hello or a PIN',
+      ),
+      (
+        TargetPlatform.linux,
+        'Require system unlock',
+        'App Lock is not available on Linux',
+      ),
+    ]) {
+      testWidgets('words itself for $platform', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        authenticator.available = false;
+        final lock = (await tester.runAsync(relaunched))!;
+
+        await openDialog(tester, lock);
+
+        expect(find.text(switchText), findsOneWidget);
+        expect(find.textContaining(note), findsOneWidget);
+        if (platform == TargetPlatform.linux) {
+          expect(find.textContaining('Face ID'), findsNothing);
+          expect(find.textContaining('Windows Hello'), findsNothing);
+        }
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
   });
 
   group('LocalDeviceAuthenticator', () {

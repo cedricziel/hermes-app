@@ -18,13 +18,16 @@ import 'look_for_messages.dart';
 import 'message_alerts.dart';
 
 /// Whether messages from Hermes are looked for on [platform] (the running one
-/// when null): only where the app runs on a phone or a Mac.
+/// when null): on a phone and on the desktops, where a notification service
+/// exists.
 bool agentMessagesSupported([TargetPlatform? platform]) =>
     !kIsWeb &&
     const {
       TargetPlatform.android,
       TargetPlatform.iOS,
       TargetPlatform.macOS,
+      TargetPlatform.windows,
+      TargetPlatform.linux,
     }.contains(platform ?? defaultTargetPlatform);
 
 /// The profiles that had a message from Hermes in the latest look that found
