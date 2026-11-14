@@ -2,9 +2,13 @@
 
 Change: `openspec/changes/session-export/`. Read its design.md for the server facts (route, no `Content-Length`, a stream that can stop short, no redaction); this brief is the visual and copy pass.
 
-## Design (done)
+## Design status
 
-No Claude Design canvas was built for this change. The pass was written from the Hermes App design system README and the repo's files (`lib/src/widgets/`, `thread_actions_menu.dart`, the briefs of Server care and Tools). There is no canvas link and no artboard count; nothing here was rendered or looked at in a viewer. The first pictures of these states are the Widgetbook use cases, and they are the place to correct this brief.
+Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 00:00 UTC)
+
+No build starts before the canvas exists.
+
+No Claude Design canvas was built for this change yet. The pass was written from the Hermes App design system README and the repo's files (`lib/src/widgets/`, `thread_actions_menu.dart`, the briefs of Server care and Tools). There is no canvas link and no artboard count; nothing here was rendered or looked at in a viewer. The canvas is the next step and the place to correct this brief; Widgetbook use cases follow it.
 
 Screens and states decided: the menu row in the places listed under "Navigation" (enabled, hidden, disabled while busy), one alert in three phases (confirmation, progress, failure with nine messages), the saved snack bar, and the silent cancel.
 
@@ -19,7 +23,8 @@ Decisions, one line each:
 - A saved file is a floating snack bar, "Chat saved", with no path, no name and no action. A cancelled save sheet shows nothing.
 - Menu row: "Export Chat as JSON…" (Mac and the iPad menu bar, title case) and "Export chat as JSON…" (the Material header menu, sentence case, matching the existing "Copy Transcript" / "Copy transcript" split), directly under Copy Transcript, with the ellipsis because a dialog follows. No shortcut. The neighbouring labels are hard-coded English strings, not ARB keys; the new label is too, so it matches them (the ARB strings of task 1.2 are the alert's). In the menu bar the label is a const `MenuEntry` label in `menu_layout.dart`; `MacCommandHandler.title` is the route for a label that changes at run time and is not needed here.
 - One export at a time: while one runs, the row is disabled everywhere.
-- The settled 10-second rule does not fit a download of unknown size, so there is one exception: after 10 s without the first byte the progress alert adds the line "Still waiting for Hermes. Cancel stops it." The managed `Dio` allows 30 s of silence (`receiveTimeout`, which covers the headers and the gap between two chunks, `request_timeout.dart`); no byte at all for 30 s ends as `lost` ("Couldn't confirm the export"), a stall after bytes arrived is `incomplete`, and the total stays capped at five minutes by the `requestDeadlineExtra` of `_getBytes` (see "Lost answer"). Reason: the request only reads, the user holds Cancel, and the alert never says saved. Open question 1 asks whether 30 s of silence is too short.
+- Decided by the owner: the "Downloaded N MB" line stays (the `FileDownloadProgress` wording); there is no Export entry in the non-Mac sidebar row menu or the touch swipe sheet for now. The header menu is the entry off the Mac. It can be added later together with Copy transcript.
+- The settled 10-second rule does not fit a download of unknown size, so there is one exception: after 10 s without the first byte the progress alert adds the line "Still waiting for Hermes. Cancel stops it." The managed `Dio` allows 30 s of silence (`receiveTimeout`, which covers the headers and the gap between two chunks, `request_timeout.dart`); no byte at all for 30 s ends as `lost` ("Couldn't confirm the export"), a stall after bytes arrived is `incomplete`, and the total stays capped at five minutes by the `requestDeadlineExtra` of `_getBytes` (see "Lost answer"). Reason: the request only reads, the user holds Cancel, and the alert never says saved. Decided by the owner: 30 s of silence stays as the stall deadline (the spec's Timeout scenario says the same).
 
 Corrections: none (there was no canvas to correct against).
 
@@ -60,10 +65,10 @@ Two facts the design must not blur:
 
 There is no navigation. The action runs where the user already is and returns to it.
 
-- **iPhone, iPad, Android, Windows, Linux:** the chat header "…" menu (`ThreadActionsButton` with `includeCopyTranscript`): after Copy transcript and before the Rename group. Off the Mac the sidebar row menu has no Copy transcript (it shows only with `includeCopyTranscript`), and touch rows have no "…" menu at all (the swipe and long-press sheet of `SwipeableThreadRow` is Rename, Pin, Archive, Delete). Export follows Copy transcript: it is **not** added to the non-Mac sidebar row menu or to the touch action sheet. The spec's "sidebar row menu" therefore means the Mac one (owner decision, see the questions).
+- **iPhone, iPad, Android, Windows, Linux:** the chat header "…" menu (`ThreadActionsButton` with `includeCopyTranscript`): after Copy transcript and before the Rename group. Off the Mac the sidebar row menu has no Copy transcript (it shows only with `includeCopyTranscript`), and touch rows have no "…" menu at all (the swipe and long-press sheet of `SwipeableThreadRow` is Rename, Pin, Archive, Delete). Export follows Copy transcript: it is **not** added to the non-Mac sidebar row menu or to the touch action sheet for now (owner decision). The header menu is the entry off the Mac; the other two can get it later together with Copy transcript. The spec's "sidebar row menu" means the Mac one.
 - **iPad menu bar** (an iPad with a keyboard shows the same `menu_layout.dart` menus; entries default to `{mac, ipad}`): the Chat menu gets "Export Chat as JSON…" after Copy Transcript, title case like its neighbours, no shortcut, disabled for no chat, a chat without a profile, or while an export runs.
 - **Mac:** the sidebar row menu (`macThreadMenuItems`), the toolbar "…" menu (after Copy Transcript, before Connection Details; it exists only in compact windows, `mac_chat_toolbar.dart`, so wide windows reach the action through the Chat menu), the **Chat** menu in the menu bar ("Export Chat as JSON…" after Copy Transcript, no shortcut), and the conversation window's toolbar "…" menu and the menu bar while that window is key. The alert is the restrained Mac alert, centred on the window that started the export.
-- Absent for a local or mock chat or one without a profile in context menus; in the conversation window with no profile the row is absent (its toolbar menu hard-codes `manageable: true`, which task 3.1 gates). In the menu bar, which does not move items around, the item is present and disabled for such a chat (open question 2).
+- Absent for a local or mock chat or one without a profile in context menus; in the conversation window with no profile the row is absent (its toolbar menu hard-codes `manageable: true`, which task 3.1 gates). In the menu bar, which does not move items around, the item is present and disabled for such a chat (open question 1).
 
 ## The alert, phase by phase
 
@@ -81,7 +86,7 @@ Title "Preparing the export…". `BusyBar` under the message, indeterminate. Mes
 
 ### 3. Failure
 
-Title and message from the table. Buttons: Close (default, `filledOnMaterial: false`) and, for the rows marked, Try again. Try again closes the failure and shows phase 1 again; the user confirms again before any request (spec: nothing is resent on its own).
+Title and message from the table. Buttons: Close (default, `filledOnMaterial: false`) and, for the rows marked, Try again. On Material both are text buttons, Close first, Try again second, neither filled; on Apple Close is the bold default. Try again closes the failure and shows phase 1 again; the user confirms again before any request (spec: nothing is resent on its own).
 
 | Kind               | Title                          | Message                                                                                         | Try again |
 | ------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------- | --------- |
@@ -154,6 +159,7 @@ States: enabled; absent (local or mock chat, or no profile); disabled while an e
 | One request              | Phase 1 then 2: one request after Export; Try again returns to phase 1    |
 | Server without the route | Failure `unsupported`, no Try again                                       |
 | Server chat              | Menu rows in the places of "Navigation" (the places that offer Copy Transcript) |
+| Touch list               | Header menu only; no row in the non-Mac sidebar menu or the swipe sheet   |
 | Local chat               | Row absent (disabled in the Mac menu bar), Copy Transcript unchanged      |
 | Chat of another profile  | Request carries the chat's profile (not visible); failure `profileMissing` (404) |
 | Cancel                   | Phase 1: Cancel, Escape, tap outside (not on iOS); no request, nothing saved |
@@ -186,15 +192,18 @@ States: enabled; absent (local or mock chat, or no profile); disabled while an e
 
 The ARB files hold the full set; German follows the existing glossary in `lib/l10n/` (check "Sitzung" and "Systemprompt" against it).
 
+## Decisions taken by the owner
+
+1. **Deadline.** 30 s of silence stays as the stall deadline: no byte for 30 s is `lost`, a stall after bytes is `incomplete`, five minutes in total, plus the 10 s "Still waiting" line. No `receiveTimeoutExtra(5 min)`. The spec's Timeout scenario already says so.
+2. **Bytes counter.** The "Downloaded N MB" line stays (the `FileDownloadProgress` wording, fed by the progress callback of task 2.2).
+3. **Entry points.** No Export in the non-Mac sidebar row menu or the touch swipe sheet for now. The header menu is the entry off the Mac. It can be added later together with Copy transcript.
+
 ## Open questions for the owner
 
-1. **Deadline.** Recommended and designed: the managed `Dio` idle limit as it is (30 s without a byte is `lost`, a stall after bytes is `incomplete`, five minutes in total), plus the 10 s "Still waiting" line. The alternative is `receiveTimeoutExtra(5 min)` on the fetch, so a silent server is waited on for five minutes; `downloadFsFile` is the precedent for an explicit idle timeout. This changes the spec's Timeout scenario wording (done minimally, see the list for the owner).
-2. **Mac menu bar.** Present but disabled for a local chat, or removed? The spec says the action is not offered; a disabled fixed menu item is the macOS convention and is assumed here.
-3. **Bytes counter.** Designed: a "Downloaded 12 MB" line from the existing `FileDownloadProgress` wording, fed by the progress callback that task 2.2 adds. Drop it if the owner wants the alert quieter.
-4. **Share.** The save sheet is the only exit. If `share_plus` lands with Server files, "Share…" would be a second row; left out here.
-5. **Entry points.** The spec said "sidebar row menu"; off the Mac that menu has no Copy transcript and touch rows have no menu, so Export is offered only in the Mac sidebar menu and the header menu elsewhere. Do you want it added to the non-Mac sidebar menu and the swipe sheet as well (which would also need Copy transcript there)?
-6. **Size.** No cap: the server streams without a limit and `MediaActions` saves from bytes in memory (`kMaxSaveBytes`, 32 MB, applies only to `saveFile`). Accepted risk: a very large export is held in memory; the 5-minute total bounds it in practice. Recommended over a "too large" state, which would need a `Content-Length` the server does not send. Revisit after the first real large export.
-7. **Compressed chats.** The copy says "this session"; should the confirmation also say a continued chat's earlier part is not included? Not added: the app cannot tell in advance.
+1. **Mac menu bar.** Present but disabled for a local chat, or removed? The spec says the action is not offered; a disabled fixed menu item is the macOS convention and is assumed here.
+2. **Share.** The save sheet is the only exit. If `share_plus` lands with Server files, "Share…" would be a second row; left out here.
+3. **Size.** No cap: the server streams without a limit and `MediaActions` saves from bytes in memory (`kMaxSaveBytes`, 32 MB, applies only to `saveFile`). Accepted risk: a very large export is held in memory; the 5-minute total bounds it in practice. Recommended over a "too large" state, which would need a `Content-Length` the server does not send. Revisit after the first real large export.
+4. **Compressed chats.** The copy says "this session"; should the confirmation also say a continued chat's earlier part is not included? Not added: the app cannot tell in advance.
 
 ## Not verified
 

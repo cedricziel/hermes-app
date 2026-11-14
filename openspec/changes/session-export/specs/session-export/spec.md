@@ -29,6 +29,11 @@ The app SHALL offer "Export chat as JSON…" for a chat the server holds, next t
 - **WHEN** the user opens the menu of a chat listed by the server
 - **THEN** the action is offered in every place that offers Copy Transcript
 
+#### Scenario: Touch list
+
+- **WHEN** the user opens the sidebar row menu off the Mac or the swipe sheet of a touch row
+- **THEN** the action is not offered there, and the chat header menu is the entry
+
 #### Scenario: Local chat
 
 - **WHEN** the chat is not on the server
