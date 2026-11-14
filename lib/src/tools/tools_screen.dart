@@ -397,9 +397,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
   /// started it.
   void _showInstalling() {
     final name = _controller.postSetupToolset;
-    final toolset = _controller.toolsets
-        .where((t) => t.name == name)
-        .firstOrNull;
+    final toolset = _controller.toolsetNamed(name);
     _controller.clearPostSetupStarted();
     if (toolset != null) _open(toolset);
   }
@@ -575,9 +573,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
   String? _startedName(BuildContext context) {
     final name = _controller.postSetupToolset;
-    final toolset = _controller.toolsets
-        .where((t) => t.name == name)
-        .firstOrNull;
+    final toolset = _controller.toolsetNamed(name);
     return toolset == null ? null : toolsetName(context.l10n, toolset);
   }
 
@@ -659,9 +655,7 @@ class _ToolsetDetailState extends State<_ToolsetDetail> {
     builder: (context, _) {
       final controller = widget.controller;
       final name = widget.name;
-      final toolset = controller.toolsets
-          .where((t) => t.name == name)
-          .firstOrNull;
+      final toolset = controller.toolsetNamed(name);
       if (toolset == null) return const SizedBox.shrink();
       final l10n = context.l10n;
       final desktop = toolsOnDesktop(context);
@@ -729,9 +723,7 @@ class _ToolsetPage extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        final toolset = controller.toolsets
-            .where((t) => t.name == name)
-            .firstOrNull;
+        final toolset = controller.toolsetNamed(name);
         if (toolset == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) Navigator.of(context).maybePop();
