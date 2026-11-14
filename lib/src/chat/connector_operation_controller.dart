@@ -16,12 +16,25 @@ class ConnectorResponseCanceled implements Exception {
   const ConnectorResponseCanceled();
 }
 
+/// Where the user's last answer to an operation stands.
+///
+/// `sending` ends within [ConnectorOperationController.responseBound]: the
+/// response confirms (back to `idle`), or it is reported `unconfirmed` (the
+/// call failed or had no result in time) or `refused` (the server answered
+/// with a status other than ok). Both leave the actions offered again.
+enum ConnectorAnswer { idle, sending, unconfirmed, refused }
+
+/// How long a response may take before it is reported unconfirmed. The
+/// transport ends the call later, after its own 30 second timeout.
+const kConnectorResponseBound = Duration(seconds: 10);
+
 class ConnectorOperationController extends ChangeNotifier {
   ConnectorOperationController({
     DateTime Function()? now,
     Future<bool> Function(Uri)? openBrowser,
     this.events = noopAppEventLogger,
     this.breadcrumbs = Breadcrumbs.none,
+    this.responseBound = kConnectorResponseBound,
   }) : _now = now ?? DateTime.now,
        _openBrowser =
            openBrowser ??
@@ -30,10 +43,13 @@ class ConnectorOperationController extends ChangeNotifier {
   final Future<bool> Function(Uri) _openBrowser;
   final AppEventLogger events;
   final Breadcrumbs breadcrumbs;
+  final Duration responseBound;
   final _state = ConnectorOperationsState();
   final _pending = <ConnectorOperationKey>{},
       _accountAuthority = <ConnectorOperationKey>{};
   final _errors = <ConnectorOperationKey, String>{};
+  final _answers = <ConnectorOperationKey, ConnectorAnswer>{};
+  final _attempts = <ConnectorOperationKey, int>{};
   final _responseChecks = <ConnectorOperationKey, bool Function()>{};
   final _timers = <ConnectorOperationKey, Timer>{};
   Object? _attachment;
@@ -41,6 +57,7 @@ class ConnectorOperationController extends ChangeNotifier {
   ConnectorRespond? _respond;
   int _generation = 0;
   bool _disposed = false, _unsupported = false, _actionsAllowed = true;
+  bool _displayOnly = false;
   bool hasScope(Object attachment) => !_disposed && _attachment == attachment;
   bool authorityFor(ConnectorOperationSnapshot operation) =>
       _actionsAllowed &&
@@ -58,6 +75,16 @@ class ConnectorOperationController extends ChangeNotifier {
       _current(operation, attachment) &&
       (_responseChecks[operation.key]?.call() ?? false);
   String? errorFor(ConnectorOperationKey key) => _errors[key];
+
+  /// Where the answer to [key] stands; `idle` when none was sent or it was
+  /// confirmed.
+  ConnectorAnswer answerFor(ConnectorOperationKey key) => _pending.contains(key)
+      ? ConnectorAnswer.sending
+      : _answers[key] ?? ConnectorAnswer.idle;
+
+  /// Whether only the names, states and deadlines of the operations remain
+  /// (see [suspend]): no link, no authority, no responder.
+  bool get displayOnly => !_disposed && _displayOnly;
 
   void bind(
     Object? attachment, {
@@ -79,6 +106,7 @@ class ConnectorOperationController extends ChangeNotifier {
     _profile = profile;
     _actionsAllowed = actionsAllowed;
     _unsupported = false;
+    _displayOnly = false;
     _clear();
     if (attachment != null) _state.adopt(attachment);
     notifyListeners();
@@ -142,17 +170,27 @@ class ConnectorOperationController extends ChangeNotifier {
         !_now().isBefore(operation.deadlineAt);
   }
 
+  /// Whether [key] is unsettled and its deadline has not passed.
+  bool stillOpen(ConnectorOperationKey key) {
+    final operation = _state.find(key);
+    return operation != null &&
+        !operation.settled &&
+        _now().isBefore(operation.deadlineAt);
+  }
+
   bool _eligible(ConnectorOperationSnapshot? operation) =>
       operation != null &&
       _attachment != null &&
       !operation.settled &&
       _now().isBefore(operation.deadlineAt) &&
       authorityFor(operation);
+
+  /// Whether a response could be sent for [key] but for one in flight, so a
+  /// card keeps its actions on screen, disabled, while it is sending.
+  bool offersRespond(ConnectorOperationKey key) =>
+      !_unsupported && _respond != null && _eligible(_state.find(key));
   bool canRespond(ConnectorOperationKey key) =>
-      !_unsupported &&
-      _respond != null &&
-      !_pending.contains(key) &&
-      _eligible(_state.find(key));
+      offersRespond(key) && !_pending.contains(key);
   ConnectorOperationTarget? _target(ConnectorOperationKey key, String name) {
     final operation = _state.find(key);
     if (operation == null) return null;
@@ -162,12 +200,14 @@ class ConnectorOperationController extends ChangeNotifier {
     return null;
   }
 
+  bool offersSkip(ConnectorOperationKey key, String name) =>
+      offersRespond(key) && _target(key, name)?.supportsSkip == true;
   bool canSkip(ConnectorOperationKey key, String name) =>
-      canRespond(key) && _target(key, name)?.supportsSkip == true;
+      offersSkip(key, name) && !_pending.contains(key);
+  bool offersOpen(ConnectorOperationKey key, String name) =>
+      _eligible(_state.find(key)) && _target(key, name)?.browserUri != null;
   bool canOpen(ConnectorOperationKey key, String name) =>
-      !_pending.contains(key) &&
-      _eligible(_state.find(key)) &&
-      _target(key, name)?.browserUri != null;
+      offersOpen(key, name) && !_pending.contains(key);
   bool _current(ConnectorOperationSnapshot operation, Object attachment) =>
       attachment == _attachment &&
       identical(_state.find(operation.key), operation);
@@ -210,6 +250,9 @@ class ConnectorOperationController extends ChangeNotifier {
         attachment = _attachment!,
         profile = _profile;
     final key = operation.key;
+    final attempt = _attempts[key] = (_attempts[key] ?? 0) + 1;
+    bool mine() =>
+        !_disposed && generation == _generation && _attempts[key] == attempt;
     _responseChecks[key] = () =>
         !_disposed &&
         generation == _generation &&
@@ -219,6 +262,7 @@ class ConnectorOperationController extends ChangeNotifier {
         !_unsupported;
     _pending.add(key);
     _errors.remove(key);
+    _answers.remove(key);
     try {
       notifyListeners();
       if (_disposed ||
@@ -229,16 +273,45 @@ class ConnectorOperationController extends ChangeNotifier {
           _unsupported) {
         return;
       }
-      final response = await respond({
+      final reply = respond({
         'owner': operation.owner.toWire(),
         'op_id': operation.opId,
         'profile': ?profile,
         'result': result,
-      });
-      if (_disposed || generation != _generation) return;
-      if (response['status'] != 'ok' || response['settled'] is! bool) {
-        _errors[key] = 'The server did not confirm the response.';
-        _log('refused');
+      }).then<Object?>((value) => value, onError: _Failed.new);
+      final bound = Completer<_Bound>();
+      final timer = Timer(responseBound, () => bound.complete(const _Bound()));
+      final first = await Future.any<Object?>([reply, bound.future]);
+      timer.cancel();
+      if (!mine()) return;
+      if (first is _Bound) {
+        _report(key, ConnectorAnswer.unconfirmed);
+        // The transport ends the call on its own later; a settlement it may
+        // still carry is applied, nothing else.
+        unawaited(reply.then((late) => _lateResult(late, key, generation)));
+        return;
+      }
+      if (first is _Failed) {
+        final error = first.error;
+        if (error is ConnectorResponseCanceled) {
+          _log('stale');
+          return;
+        }
+        if (error is GatewayRpcException &&
+            error.code == kGatewayMethodNotFound) {
+          _unsupported = true;
+          _errors[key] = 'Connection responses are unavailable on this server.';
+          _log('unsupported');
+          return;
+        }
+        _report(key, ConnectorAnswer.unconfirmed);
+        return;
+      }
+      final response = first as Map<String, Object?>;
+      if (response['status'] != 'ok') {
+        _report(key, ConnectorAnswer.refused);
+      } else if (response['settled'] is! bool) {
+        _report(key, ConnectorAnswer.unconfirmed);
       } else {
         if (response['settled'] == true) {
           _state.markSettled(key);
@@ -246,25 +319,40 @@ class ConnectorOperationController extends ChangeNotifier {
         }
         _log('responded');
       }
-    } on Object catch (error) {
-      if (_disposed || generation != _generation) return;
-      if (error is ConnectorResponseCanceled) {
-        _log('stale');
-        return;
-      }
-      _unsupported =
-          error is GatewayRpcException && error.code == kGatewayMethodNotFound;
-      _errors[key] = _unsupported
-          ? 'Connection responses are unavailable on this server.'
-          : 'The response was refused or the connection was lost.';
-      _log(_unsupported ? 'unsupported' : 'refused');
     } finally {
-      if (!_disposed && generation == _generation) {
+      if (mine()) {
         _responseChecks.remove(key);
         _pending.remove(key);
         notifyListeners();
       }
     }
+  }
+
+  /// Notes that the answer to [key] was refused or left unconfirmed, with
+  /// the words the older cards show and the outcome to log.
+  void _report(ConnectorOperationKey key, ConnectorAnswer answer) {
+    _answers[key] = answer;
+    _errors[key] = answer == ConnectorAnswer.refused
+        ? 'The server refused your answer.'
+        : "Couldn't confirm your answer. It may have gone through; check "
+              'before trying again.';
+    _log(answer.name);
+  }
+
+  /// What the call returned after it was reported unconfirmed: a settlement
+  /// still settles the operation, anything else changes nothing and logs
+  /// nothing.
+  void _lateResult(Object? late, ConnectorOperationKey key, int generation) {
+    if (_disposed ||
+        generation != _generation ||
+        late is! Map ||
+        late['status'] != 'ok' ||
+        late['settled'] != true) {
+      return;
+    }
+    _state.markSettled(key);
+    _timers.remove(key)?.cancel();
+    notifyListeners();
   }
 
   Future<void> openTarget(
@@ -321,6 +409,27 @@ class ConnectorOperationController extends ChangeNotifier {
     }
   }
 
+  /// Keeps what a card shows (target names, states, the deadline) and drops
+  /// everything that acts, because the connection is lost: no browser link,
+  /// no authority and no responder, and an answer in flight is abandoned. The
+  /// reconnect replay builds a new controller; retirement disposes this one.
+  void suspend() {
+    if (_disposed || _displayOnly) return;
+    _generation++;
+    _displayOnly = true;
+    _actionsAllowed = false;
+    _respond = null;
+    _unsupported = false;
+    _pending.clear();
+    _responseChecks.clear();
+    _errors.clear();
+    _answers.clear();
+    _attempts.clear();
+    _accountAuthority.clear();
+    _state.stripBrowserLinks();
+    notifyListeners();
+  }
+
   void _clear() {
     for (final timer in _timers.values) {
       timer.cancel();
@@ -329,6 +438,8 @@ class ConnectorOperationController extends ChangeNotifier {
     _pending.clear();
     _responseChecks.clear();
     _errors.clear();
+    _answers.clear();
+    _attempts.clear();
     _accountAuthority.clear();
     _state.clear();
   }
@@ -355,4 +466,15 @@ class ConnectorOperationController extends ChangeNotifier {
     _clear();
     if (_notificationDepth == 0) super.dispose();
   }
+}
+
+/// The bound passed with no outcome.
+class _Bound {
+  const _Bound();
+}
+
+/// A response call that threw.
+class _Failed {
+  const _Failed(this.error);
+  final Object error;
 }
