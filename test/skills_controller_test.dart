@@ -186,6 +186,53 @@ void main() {
       expect(c.skill('zeta')!.enabled, isTrue);
     });
 
+    void answer(List<bool> accepted) {
+      var i = 0;
+      server.onRequest('PUT', '/api/skills/toggle', (_) async {
+        return accepted[i++]
+            ? (status: 200, body: {'ok': true})
+            : (status: 500, body: {'detail': 'x'});
+      });
+    }
+
+    test('quick taps that all fail end on what the server holds', () async {
+      answer([false, false]);
+      final c = controller();
+      await c.load();
+
+      final results = await Future.wait([
+        c.toggle('zeta', false),
+        c.toggle('zeta', true),
+      ]);
+
+      expect(results, [false, false]);
+      expect(c.skill('zeta')!.enabled, isTrue);
+    });
+
+    test('a failure after an accepted tap goes back to that tap', () async {
+      answer([true, false, false]);
+      final c = controller();
+      await c.load();
+
+      await Future.wait([
+        c.toggle('zeta', false),
+        c.toggle('zeta', true),
+        c.toggle('zeta', false),
+      ]);
+
+      expect(c.skill('zeta')!.enabled, isFalse);
+    });
+
+    test('an accepted tap after a failure is kept', () async {
+      answer([false, true]);
+      final c = controller();
+      await c.load();
+
+      await Future.wait([c.toggle('zeta', false), c.toggle('zeta', true)]);
+
+      expect(c.skill('zeta')!.enabled, isTrue);
+    });
+
     test('a switch is logged without the skill name', () async {
       server.on('PUT', '/api/skills/toggle', {'ok': true});
       final c = controller();
