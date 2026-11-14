@@ -30,9 +30,15 @@ extension _ChatControllerSubagents on ChatController {
         covered: appLock == null ? null : () => appLock!.covered,
         lockChanges: appLock,
       ),
+      programs: _ChatProgramCards(this),
       events: events,
     );
     return _subagents[thread.id] = created;
+  }
+
+  /// The program cards changed by a list read or a kill answer.
+  void _programCardsChanged() {
+    if (active) notifyListeners();
   }
 
   /// Gives a frame to the roster of its thread. A thread that is not a stored
@@ -63,4 +69,51 @@ extension _ChatControllerSubagents on ChatController {
     }
     _subagents.clear();
   }
+}
+
+/// A chat's program cards as the roster sees them: the session's attachment
+/// on the current connection and the [ProcessOutputState] scoped to it.
+class _ChatProgramCards implements ProgramCards {
+  _ChatProgramCards(this._chat);
+  final ChatController _chat;
+
+  @override
+  Listenable get cardChanges => _chat;
+
+  ChatThread? _thread(String threadId) =>
+      _chat._threads.where((thread) => thread.id == threadId).firstOrNull;
+
+  @override
+  Object? attachmentOf(String threadId) {
+    final source = _chat.transport;
+    if (!_chat.active || source is! OwnedSessionTransport) return null;
+    return (source as OwnedSessionTransport).ownedSessionFor(
+      threadId,
+      profile: _chat._profile,
+    );
+  }
+
+  @override
+  ProcessOutputState? cardsFor(
+    String threadId,
+    Object attachment, {
+    bool create = false,
+  }) {
+    final thread = _thread(threadId);
+    if (thread == null || attachmentOf(threadId) != attachment) return null;
+    if (!create) {
+      final state = _chat._processOutputs[thread];
+      return state != null && state.hasScope(attachment) ? state : null;
+    }
+    final binding = _ChatControllerSessionBinding(_chat)
+        ._syncOwnedSession(thread, _chat._profile);
+    if (binding == null || binding != attachment) return null;
+    return _chat._processOutputs.putIfAbsent(
+      thread,
+      () => ProcessOutputState()..adopt(binding),
+    );
+  }
+
+  @override
+  void cardsChanged() => _ChatControllerSubagents(_chat)._programCardsChanged();
 }
