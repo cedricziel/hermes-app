@@ -499,6 +499,14 @@
   "@providersAccountsFailed": {
     "description": "Warning banner above the recommended providers when the account sign-in list could not be read."
   },
+  "providersAddAction": "Add provider",
+  "@providersAddAction": {
+    "description": "Label of the toolbar button that scrolls to the providers to add."
+  },
+  "providersAddActionMac": "Add Provider",
+  "@providersAddActionMac": {
+    "description": "Label of the Mac toolbar button that scrolls to the providers to add, in title case."
+  },
   "providersAddHeading": "Add a provider",
   "@providersAddHeading": {
     "description": "Heading of the part of the model providers list that offers providers not yet connected."
@@ -1248,6 +1256,10 @@
   "@providersKeysFailed": {
     "description": "Warning banner above the connected providers when the saved keys could not be read."
   },
+  "providersLinkFailed": "Couldn't open the link.",
+  "@providersLinkFailed": {
+    "description": "Shown when the browser could not be opened for a provider's page."
+  },
   "providersListTitle": "Model providers",
   "@providersListTitle": {
     "description": "Title of the model providers screen."
@@ -1294,6 +1306,10 @@
       }
     }
   },
+  "providersProfileSectionDetail": "Keys, sign-ins and endpoints",
+  "@providersProfileSectionDetail": {
+    "description": "Detail line of the Model providers section on the Mac Profiles page."
+  },
   "providersRecommendedHeader": "Recommended",
   "@providersRecommendedHeader": {
     "description": "Header of the group of providers Hermes suggests first."
@@ -1301,6 +1317,14 @@
   "providersRemoveKey": "Remove key",
   "@providersRemoveKey": {
     "description": "Red row on a provider's detail that removes its saved key after asking."
+  },
+  "providersRemoveRefusedFallback": "Hermes couldn't remove this.",
+  "@providersRemoveRefusedFallback": {
+    "description": "Shown when Hermes refused to remove a key, sign-in or endpoint and gave no reason."
+  },
+  "providersRemoveUnknown": "Couldn't tell whether it was removed. The list shows what Hermes has now.",
+  "@providersRemoveUnknown": {
+    "description": "Shown when the answer to a removal was lost and the list was read again."
   },
   "providersReplyCheckProviders": "Check model providers",
   "@providersReplyCheckProviders": {
