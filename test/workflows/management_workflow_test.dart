@@ -290,6 +290,12 @@ void main() {
       await tester.scrollUntilVisible(find.text('Aggregator'), 200);
       await tester.pumpAndSettle();
       await shots.capture(tester, 'mixture-of-agents');
+
+      final link = find.text("What's the difference?");
+      await tester.scrollUntilVisible(link, 200);
+      await tester.pumpAndSettle();
+      expect(link, findsOneWidget);
+      await shots.capture(tester, 'whats-the-difference');
     });
 
     testWidgets('$name: account dialogs', (tester) async {
