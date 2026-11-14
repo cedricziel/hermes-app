@@ -28,6 +28,14 @@ const double _kStackActionsWidth = 480;
 /// The body takes at most this share of the height the chat has left.
 const double _kBodyShare = 0.4;
 
+/// Below this card width the paging controls take their own row under the
+/// title, so the title keeps the full width (two lines at most).
+const double _kNarrowCardWidth = 400;
+
+/// Whether the paging controls sit under the title rather than beside it.
+bool _stackPaging(BuildContext context, {required bool narrow}) =>
+    narrow || MediaQuery.textScalerOf(context).scale(1) >= 1.3;
+
 /// A card above the composer that holds what the agent needs from the user,
 /// one request at a time, oldest first.
 ///
@@ -51,21 +59,27 @@ class NeedsYouDock extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: kChatColumnMaxWidth),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Material(
-            key: const Key('needs-you-dock'),
-            color: scheme.surfaceContainerHighest,
-            elevation: 0,
-            clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(kHermesRadius),
-              side: BorderSide(color: scheme.outline),
-            ),
-            child: LayoutBuilder(
-              builder: (context, box) => _Card(
-                model: model,
-                item: item,
-                index: index,
-                stackActions: box.maxWidth < _kStackActionsWidth,
+          child: Semantics(
+            container: true,
+            explicitChildNodes: true,
+            label: context.l10n.chatActivityNeedsYouDockLabel(items.length),
+            child: Material(
+              key: const Key('needs-you-dock'),
+              color: scheme.surfaceContainerHighest,
+              elevation: 0,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(kHermesRadius),
+                side: BorderSide(color: scheme.outline),
+              ),
+              child: LayoutBuilder(
+                builder: (context, box) => _Card(
+                  model: model,
+                  item: item,
+                  index: index,
+                  stackActions: box.maxWidth < _kStackActionsWidth,
+                  narrow: box.maxWidth < _kNarrowCardWidth,
+                ),
               ),
             ),
           ),
@@ -81,12 +95,13 @@ class _Card extends StatelessWidget {
     required this.item,
     required this.index,
     required this.stackActions,
+    required this.narrow,
   });
 
   final NeedsYouDockModel model;
   final NeedsYouItem item;
   final int index;
-  final bool stackActions;
+  final bool stackActions, narrow;
 
   bool get _offline => item.offline && item.kind != NeedsYouKind.billing;
 
@@ -105,7 +120,7 @@ class _Card extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Header(model: model, item: item, index: index),
+            _Header(model: model, item: item, index: index, narrow: narrow),
             if (sending) const BusyBar(minHeight: 2),
             _flexible(
               bounded: box.hasBoundedHeight,
@@ -118,9 +133,8 @@ class _Card extends StatelessWidget {
                       constraints: BoxConstraints(
                         maxHeight: left * _kBodyShare,
                       ),
-                      child: SingleChildScrollView(
+                      child: _ScrollingBody(
                         key: const Key('needs-you-body'),
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                         child: _Body(
                           model: model,
                           item: item,
@@ -194,11 +208,17 @@ AppIconSet _icon(NeedsYouKind kind) => switch (kind) {
 };
 
 class _Header extends StatelessWidget {
-  const _Header({required this.model, required this.item, required this.index});
+  const _Header({
+    required this.model,
+    required this.item,
+    required this.index,
+    required this.narrow,
+  });
 
   final NeedsYouDockModel model;
   final NeedsYouItem item;
   final int index;
+  final bool narrow;
 
   @override
   Widget build(BuildContext context) {
@@ -217,9 +237,9 @@ class _Header extends StatelessWidget {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
     final onShow = model.onShow;
-    // Beside a large title the paging controls leave it a word per line, so
-    // from 1.3 times the text size they take their own row.
-    final stackPaging = MediaQuery.textScalerOf(context).scale(1) >= 1.3;
+    // Beside the title the paging controls leave it three or four lines on a
+    // phone or at a large text size, so they take their own row there.
+    final stackPaging = _stackPaging(context, narrow: narrow);
     final paging = [
       Flexible(
         child: Text(
@@ -411,6 +431,7 @@ class _Actions extends StatelessWidget {
           child: Text(l10n.chatActivityNeedsYouBillingOpen),
         );
         final copy = OutlinedButton(
+          style: needsYouOutlinedStyle(context),
           key: const Key('needs-you-copy'),
           onPressed: _has(NeedsYouAction.copy) ? run(model.onCopy) : null,
           child: Text(l10n.chatActivityNeedsYouBillingCopy),
@@ -448,6 +469,7 @@ class _Actions extends StatelessWidget {
           buttons.add(
             hasOpen
                 ? OutlinedButton(
+                    style: needsYouOutlinedStyle(context),
                     key: const Key('needs-you-continue'),
                     onPressed: onPressed,
                     child: Text(l10n.chatActivityNeedsYouConnectorContinue),
@@ -499,6 +521,83 @@ class _Actions extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: buttons,
+    );
+  }
+}
+
+/// The card's body: scrolls, and shows that it does. A scrollbar stays up while
+/// there is more than fits, and a fade at the bottom edge says there is more
+/// below, so a row cut off by the height cap does not read as the end.
+class _ScrollingBody extends StatefulWidget {
+  const _ScrollingBody({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ScrollingBody> createState() => _ScrollingBodyState();
+}
+
+class _ScrollingBodyState extends State<_ScrollingBody> {
+  final _controller = ScrollController();
+  bool _scrollable = false, _more = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool _update(ScrollMetrics m) {
+    final scrollable = m.maxScrollExtent > 0.5;
+    final more = m.maxScrollExtent - m.pixels > 1;
+    if (scrollable != _scrollable || more != _more) {
+      setState(() {
+        _scrollable = scrollable;
+        _more = more;
+      });
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final card = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (n) => _update(n.metrics),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) => _update(n.metrics),
+        child: Stack(
+          children: [
+            Scrollbar(
+              controller: _controller,
+              thumbVisibility: _scrollable,
+              child: SingleChildScrollView(
+                controller: _controller,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: widget.child,
+              ),
+            ),
+            if (_more)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 28,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [card.withValues(alpha: 0), card],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

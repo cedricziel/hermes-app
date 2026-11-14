@@ -14,6 +14,15 @@ double needsYouIconSize(BuildContext context, double size) =>
 bool needsYouLargeText(BuildContext context) =>
     MediaQuery.textScalerOf(context).scale(1) >= 2;
 
+/// The look of the card's outlined buttons: a border that shows on the card in
+/// both themes (the theme's own outline is as dark as the card in dark mode).
+ButtonStyle needsYouOutlinedStyle(BuildContext context) =>
+    OutlinedButton.styleFrom(
+      side: BorderSide(
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+      ),
+    );
+
 /// A plain warning line: icon and words in the warning colour, never colour
 /// alone. Not a banner; it sits in the card it belongs to.
 class NeedsYouNoticeLine extends StatelessWidget {
@@ -225,6 +234,7 @@ class _TargetRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: OutlinedButton(
+              style: needsYouOutlinedStyle(context),
               onPressed: onOpen,
               child: Text(context.l10n.chatActivityNeedsYouConnectorOpen),
             ),
@@ -240,6 +250,7 @@ class _TargetRow extends StatelessWidget {
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: OutlinedButton(
+            style: needsYouOutlinedStyle(context),
             onPressed: onOpen,
             child: Text(context.l10n.chatActivityNeedsYouConnectorOpen),
           ),

@@ -41,6 +41,7 @@
   "chatActivityNeedsYouConnectorContinue": "Fortfahren",
   "chatActivityNeedsYouConnectorOpen": "Öffnen",
   "chatActivityNeedsYouConnectorSkip": "Überspringen",
+  "chatActivityNeedsYouDockLabel": "{count, plural, =1{1 Anfrage braucht dich} other{{count} Anfragen brauchen dich}}",
   "chatActivityNeedsYouExpires": "Läuft in {minutes} Min. ab",
   "chatActivityNeedsYouExpiresSoon": "Läuft in weniger als einer Minute ab",
   "chatActivityNeedsYouLinkUnavailable": "Dieser Link kann hier nicht geöffnet werden.",

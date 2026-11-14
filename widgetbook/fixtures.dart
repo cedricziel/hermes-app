@@ -860,7 +860,7 @@ const needsYouConnectorThree = NeedsYouItem(
 const needsYouReclaimed = NeedsYouItem(
   id: 'reclaim',
   kind: NeedsYouKind.reclaim,
-  body: ReclaimBodyModel(reason: 'Opened by "Cedric\'s iPad".'),
+  body: ReclaimBodyModel(reason: 'Opened by "Sam\'s iPad".'),
   actions: {NeedsYouAction.reopen},
 );
 
