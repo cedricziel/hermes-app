@@ -3,8 +3,8 @@ import 'agent_detail_host.dart';
 import 'agent_models.dart';
 
 /// One agent of a chat as the roster shows it, from frames, the list, or both.
-final class AgentRow {
-  AgentRow({
+final class RosterRow {
+  RosterRow({
     required this.id,
     required this.order,
     this.goal = '',
@@ -56,13 +56,13 @@ final class AgentRow {
   );
 
   @override
-  String toString() => 'AgentRow($state)';
+  String toString() => 'RosterRow($state)';
 }
 
 /// A row placed in the panel: how deep it is drawn under its parent.
 final class PlacedAgent {
   const PlacedAgent(this.row, this.level);
-  final AgentRow row;
+  final RosterRow row;
 
   /// 0 at the top of its section, at most 2.
   final int level;

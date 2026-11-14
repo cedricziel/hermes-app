@@ -211,6 +211,32 @@ void main() {
       },
     );
 
+    test(
+      'the last section of a cut diff is marked and drops its partial counts',
+      () {
+        final head = 'diff --git a/f0.txt b/f0.txt\n@@ -1 +1 @@\n-x\n+y\n';
+        final second = 'diff --git a/f1.txt b/f1.txt\n@@ -1 +1 @@\n-a\n+b\n';
+        final diff =
+            head +
+            second +
+            ('+' * (kCheckpointDiffLimit - head.length - second.length));
+        final cut = parseCheckpointChanges({
+          'stat': ' f0.txt | 2 +-\n f1.txt | 9 +++++++++\n',
+          'diff': diff,
+        }) as Changes;
+        expect(cut.files[0].cutShort, isFalse);
+        expect(cut.files[0].added, 1);
+        expect(cut.files[1].cutShort, isTrue);
+        expect(cut.files[1].added, isNull);
+        expect(cut.files[1].changes, 9);
+        final whole = parseCheckpointChanges({
+          'stat': ' f0.txt | 2 +-\n',
+          'diff': head,
+        }) as Changes;
+        expect(whole.files.single.cutShort, isFalse);
+      },
+    );
+
     test('a listed file without a section has no diff, not an empty one', () {
       final result = parseCheckpointChanges({
         'stat': ' a.txt | 2 +-\n b.txt | 1 +\n',

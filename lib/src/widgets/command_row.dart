@@ -10,10 +10,19 @@ import '../theme/platform_chrome.dart';
 /// Copy button. Copying announces "Command copied" to screen readers and, for
 /// a moment, says "Copied" on the button.
 class CommandRow extends StatefulWidget {
-  const CommandRow({super.key, required this.command, this.onCopied});
+  const CommandRow({
+    super.key,
+    required this.command,
+    this.onCopied,
+    this.copyBelowAtLargeText = false,
+  });
 
   final String command;
   final VoidCallback? onCopied;
+
+  /// At a large text size the Copy button sits under the command, instead of
+  /// beside it where it would leave the command a sliver to wrap in.
+  final bool copyBelowAtLargeText;
 
   @override
   State<CommandRow> createState() => _CommandRowState();
@@ -47,6 +56,40 @@ class _CommandRowState extends State<CommandRow> {
     final minTarget = platformChromeOf(context) == PlatformChrome.material
         ? 48.0
         : kAppleMinTapTarget;
+    final stacked =
+        widget.copyBelowAtLargeText &&
+        MediaQuery.textScalerOf(context).scale(14) > 21;
+    final commandText = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: SelectableText(
+        widget.command,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 13,
+          color: scheme.onSurface,
+        ),
+      ),
+    );
+    // The label turns into the announcement: a live region speaks
+    // when it changes.
+    final copy = Semantics(
+      button: true,
+      liveRegion: _copied,
+      label: _copied
+          ? l10n.serverCareCommandCopied
+          : l10n.serverCareCommandCopy,
+      onTap: _copy,
+      excludeSemantics: true,
+      child: TextButton(
+        onPressed: _copy,
+        style: TextButton.styleFrom(minimumSize: Size(minTarget, minTarget)),
+        child: Text(
+          _copied
+              ? l10n.serverCareCommandCopiedButton
+              : l10n.serverCareCommandCopy,
+        ),
+      ),
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
@@ -54,45 +97,20 @@ class _CommandRowState extends State<CommandRow> {
       ),
       child: Padding(
         padding: const EdgeInsetsDirectional.only(start: 12, end: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: SelectableText(
-                  widget.command,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    color: scheme.onSurface,
-                  ),
-                ),
+        child: stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  commandText,
+                  Align(alignment: AlignmentDirectional.centerEnd, child: copy),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: commandText),
+                  copy,
+                ],
               ),
-            ),
-            // The label turns into the announcement: a live region speaks
-            // when it changes.
-            Semantics(
-              button: true,
-              liveRegion: _copied,
-              label: _copied
-                  ? l10n.serverCareCommandCopied
-                  : l10n.serverCareCommandCopy,
-              onTap: _copy,
-              excludeSemantics: true,
-              child: TextButton(
-                onPressed: _copy,
-                style: TextButton.styleFrom(
-                  minimumSize: Size(minTarget, minTarget),
-                ),
-                child: Text(
-                  _copied
-                      ? l10n.serverCareCommandCopiedButton
-                      : l10n.serverCareCommandCopy,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

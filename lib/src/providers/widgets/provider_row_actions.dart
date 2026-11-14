@@ -8,9 +8,10 @@ import '../../widgets/grouped_list.dart';
 bool providerLargeText(BuildContext context) =>
     MediaQuery.textScalerOf(context).scale(14) > 18.2;
 
-/// A button in or under a provider row: 44 pt tall on iOS, 48 dp on Android
-/// and a small 28 pt push button on a Mac. Plain text, or outlined for the
-/// row's one stronger action. It is named by [semanticsLabel] when the
+/// A button in or under a provider row, or in a form or step: 44 pt tall on
+/// iOS, 48 dp on Android and a small 28 pt push button on a Mac. Plain text,
+/// outlined for the row's one stronger action, or [filled] for the one
+/// primary action of a form or step. It is named by [semanticsLabel] when the
 /// visible word does not say enough ("Cancel sign-in to ChatGPT").
 class ProviderRowButton extends StatelessWidget {
   const ProviderRowButton({
@@ -19,14 +20,24 @@ class ProviderRowButton extends StatelessWidget {
     required this.onPressed,
     this.semanticsLabel,
     this.outlined = false,
+    this.filled = false,
     this.fullWidth = false,
+    this.autofocus = false,
+    this.focusNode,
+    this.liveRegion = false,
   });
 
   final String label;
   final String? semanticsLabel;
   final VoidCallback? onPressed;
   final bool outlined;
+  final bool filled;
   final bool fullWidth;
+  final bool autofocus;
+  final FocusNode? focusNode;
+
+  /// The label is announced when it changes ("Code copied").
+  final bool liveRegion;
 
   @override
   Widget build(BuildContext context) {
@@ -45,9 +56,24 @@ class ProviderRowButton extends StatelessWidget {
         ? Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12)
         : null;
     final child = Text(label, textAlign: TextAlign.center);
-    final button = outlined
+    final button = filled
+        ? FilledButton(
+            onPressed: onPressed,
+            autofocus: autofocus,
+            focusNode: focusNode,
+            style: FilledButton.styleFrom(
+              minimumSize: size,
+              padding: padding,
+              textStyle: textStyle,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: child,
+          )
+        : outlined
         ? OutlinedButton(
             onPressed: onPressed,
+            autofocus: autofocus,
+            focusNode: focusNode,
             style: OutlinedButton.styleFrom(
               minimumSize: size,
               padding: padding,
@@ -58,6 +84,8 @@ class ProviderRowButton extends StatelessWidget {
           )
         : TextButton(
             onPressed: onPressed,
+            autofocus: autofocus,
+            focusNode: focusNode,
             style: TextButton.styleFrom(
               minimumSize: size,
               padding: padding,
@@ -69,6 +97,7 @@ class ProviderRowButton extends StatelessWidget {
     return Semantics(
       container: true,
       button: true,
+      liveRegion: liveRegion,
       enabled: onPressed != null,
       label: semanticsLabel ?? label,
       onTap: onPressed,
