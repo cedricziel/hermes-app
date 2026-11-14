@@ -60,7 +60,10 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    `HERMES_DEV_TELEGRAM_PAIRING` and `HERMES_DEV_BOT_SCREEN` unset. Proves
    the generated client, the lenient repositories and the gateway still match
    the pinned backend, including free scripted-model turns. Skipped tests
-   (paid model, Telegram, Bot Screen) prove nothing; say so.
+   prove nothing; say so. They are the paid-model, Telegram, Bot Screen and
+   files-root checks, and the ones that need a provider on the default
+   profile (`approval.pending` there, a profile's own default model): the
+   contract backend has none, as in CI.
 3. **App** (`app`): `flutter test -d linux integration_test/verify_flow_test.dart`
    builds and runs the real app under its own Xvfb display, a private D-Bus
    session with an unlocked throwaway gnome-keyring (and a stand-in
@@ -149,7 +152,7 @@ Then add a row to "Covered behaviour" below and run `scripts/verify.sh` twice.
 | Behaviour                                                                                                   | Tier     | Check                                                                     |
 | ----------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------- |
 | REST shapes the app reads (status, sessions, profiles, config, skills, plugins, MCP, memory, kanban, cron…) | contract | `test/real_backend_contract_test.dart`                                    |
-| Gateway JSON-RPC: session create/resume, prompt, approvals, branching on a scripted model                   | contract | same file, scripted-model group                                           |
+| Gateway JSON-RPC: session create/resume, prompt, an approval answered (Allow once), branching, on a scripted-model profile | contract | same file, scripted-model group |
 | Bot Mode chat registry, hosted group send/replay/stop/disband                                               | contract | `test/bot_mode_chat_contract_test.dart`, `real_groups_contract_test.dart` |
 | Connect to a password-gated server from `HERMES_SERVER_URL`                                                 | app      | `verify_flow_test.dart` step 1                                            |
 | Password sign-in via loopback + PKCE, session stored in secure storage (keyring)                                     | app      | step 2                                                                    |

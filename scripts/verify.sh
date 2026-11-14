@@ -99,6 +99,19 @@ run_pids() {
     while read -r line; do [[ "$line" =~ ^[0-9]+$ ]] && sids[$line]=1; done <"$run/sids"
   fi
   for pid in $(marked_pids "$run"); do in_run[$pid]=1; done
+  # A process marked for another run is never ours, whatever its session.
+  local -A other=()
+  local entry
+  for dir in /proc/[0-9]*; do
+    pid="${dir#/proc/}"
+    [[ -n "${in_run[$pid]:-}" ]] && continue
+    { while IFS= read -r -d '' entry; do
+      if [[ "$entry" == HERMES_VERIFY_RUN=* ]]; then
+        other[$pid]=1
+        break
+      fi
+    done <"$dir/environ"; } 2>/dev/null || true
+  done
   local dir f
   for dir in /proc/[0-9]*; do
     pid="${dir#/proc/}"
@@ -114,7 +127,7 @@ run_pids() {
   while ((grew)); do
     grew=0
     for pid in "${!ppid_of[@]}"; do
-      [[ -n "${in_run[$pid]:-}" || "$pid" == "$$" || "$pid" == "$BASHPID" ]] && continue
+      [[ -n "${in_run[$pid]:-}" || -n "${other[$pid]:-}" || "$pid" == "$$" || "$pid" == "$BASHPID" ]] && continue
       [[ "${start_of[$pid]:-0}" -ge "$since" ]] || continue
       if [[ -n "${in_run[${ppid_of[$pid]}]:-}" || -n "${sids[${sid_of[$pid]}]:-}" ]]; then
         in_run[$pid]=1
@@ -468,7 +481,13 @@ resolve_tmp_root
 # One run per checkout: runs share build/linux and the mimalloc seed.
 mkdir -p "$ROOT_DIR/build/verify"
 exec 8>"$ROOT_DIR/build/verify/.lock"
-flock -n 8 || die "another verify.sh run is using this checkout; use another worktree"
+# Orphans of a run killed with SIGKILL still hold the lock: sweep stale runs,
+# then try once more.
+if ! flock -n 8; then
+  cmd_clean
+  sleep 1
+  flock -n 8 || die "another verify.sh run is using this checkout; use another worktree"
+fi
 cmd_clean
 HERMES_DIR="$(cd "$ROOT_DIR" && scripts/install-hermes.sh)"
 
