@@ -51,7 +51,7 @@ Future<void> openFiles(
   final profile = chat.profile ?? kDefaultProfile;
   final threadId = thread.id;
   final telemetry = FilesTelemetry(repositories.telemetry, breadcrumbs);
-  // A chat with no stored folder yet runs in the folder the workspace
+  // A new chat with no stored folder yet runs in the folder the workspace
   // catalog names, which `fs/default-cwd` (the dashboard's own) may not be.
   final cwd = thread.workingDirectory ?? chat.draftWorkingDirectory;
   // The root navigator: from the Activity panel the nearest one is the

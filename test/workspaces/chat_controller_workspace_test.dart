@@ -229,6 +229,28 @@ void main() {
       expect(chat.draftWorkingDirectory, _other);
     });
 
+    test('a draft expands a ~ pick with the catalog home', () async {
+      chat.newThread();
+      chat.workspaceCatalog();
+      await pumpEventQueue();
+      chat.chooseWorkspace(
+        const WorkspaceChoice(
+          path: '~/code/x',
+          projectName: 'X',
+          source: WorkspaceChoiceSource.project,
+        ),
+      );
+
+      expect(chat.draftWorkingDirectory, '/home/me/code/x');
+    });
+
+    test('only a new chat has a draft folder', () async {
+      chat.workspaceCatalog();
+      await pumpEventQueue();
+      chat.select('s1');
+      expect(chat.draftWorkingDirectory, isNull);
+    });
+
     test('is cleared on a profile switch, with the catalog', () async {
       chat.newThread();
       chat.chooseWorkspace(pickOther);

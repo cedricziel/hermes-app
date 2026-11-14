@@ -127,6 +127,7 @@ class HermesFilesRepository implements FilesSource {
     );
     switch (result) {
       case FilesOk(:final value):
+        if (!_listed.any(path.isWithin)) _listed.add(path);
         _telemetry.endList(span, null, entries: value.entries.length);
       case FilesFailed(:final kind):
         _telemetry.endList(span, kind);
@@ -220,16 +221,17 @@ class HermesFilesRepository implements FilesSource {
     }
   }
 
-  /// A boundary 403 for [path] inside the known [highestFolder] is not the
-  /// boundary: the root already holds it, so the server refused that file
-  /// itself (a secret name, say). Only a path outside the root, or one asked
-  /// before the root is known, reads as the fixed folder.
+  /// Folders that listed successfully: the server's own boundary holds them.
+  final _listed = <ServerPath>[];
+
+  /// A boundary 403 for [path] inside a folder known to be within the
+  /// server's boundary is not the boundary: the server refused that file
+  /// itself (a secret name, say). [highestFolder] is no evidence, since a git
+  /// root above the files root can be the highest folder.
   FilesFailure _insideRoot(FilesFailure kind, ServerPath? path) {
-    final highest = highestFolder;
     if (kind == FilesFailure.fixedFolder &&
         path != null &&
-        highest != null &&
-        path.isWithin(highest)) {
+        _listed.any(path.isWithin)) {
       return FilesFailure.notAllowed;
     }
     return kind;

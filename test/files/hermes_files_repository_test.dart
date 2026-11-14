@@ -45,11 +45,16 @@ void main() {
   });
   tearDown(() => temp.deleteSync(recursive: true));
 
-  group('a boundary 403 with a known root', () {
+  group('a boundary 403 below a folder that listed', () {
     const boundary = {'detail': 'Path is outside the managed read boundary'};
 
-    test('inside the root it is the file\'s own refusal', () async {
-      repository.highestFolder = p('/srv/p');
+    Future<void> listed(String folder) async {
+      server.on('GET', '/api/fs/list', {'entries': []});
+      ok(await repository.list(p(folder)));
+    }
+
+    test('a file inside it is the file\'s own refusal', () async {
+      await listed('/srv/p');
       server
         ..on('GET', '/api/fs/read-text', boundary, status: 403)
         ..on('GET', '/api/fs/list', boundary, status: 403)
@@ -69,7 +74,18 @@ void main() {
       expect(failure(result), FilesFailure.notAllowed);
     });
 
-    test('without a root it still reads as the boundary', () async {
+    test('a git root above the listed folder stays the boundary', () async {
+      await listed('/srv/repo/app');
+      repository.highestFolder = p('/srv/repo');
+      server.on('GET', '/api/fs/list', boundary, status: 403);
+
+      expect(
+        failure(await repository.list(p('/srv/repo'))),
+        FilesFailure.fixedFolder,
+      );
+    });
+
+    test('nothing listed yet reads as the boundary', () async {
       server.on('GET', '/api/fs/read-text', boundary, status: 403);
 
       expect(
@@ -78,9 +94,29 @@ void main() {
       );
     });
 
-    test('outside the root nothing is asked and it reads outside', () async {
+    test('a trailing slash, a drive root and a UNC root', () async {
+      for (final (folder, file) in [
+        ('/srv/p/', '/srv/p/.env'),
+        ('/', '/.env'),
+        (r'C:\', r'C:\.env'),
+        (r'\\host\share', r'\\host\share\.env'),
+      ]) {
+        final repo = HermesFilesRepository(server.client(), profile: 'work');
+        server.on('GET', '/api/fs/list', {'entries': []});
+        ok(await repo.list(p(folder)));
+        server.on('GET', '/api/fs/read-text', boundary, status: 403);
+        expect(
+          failure(await repo.readText(p(file))),
+          FilesFailure.notAllowed,
+          reason: folder,
+        );
+      }
+    });
+
+    test('outside the highest folder nothing is asked', () async {
+      await listed('/srv/p');
       repository.highestFolder = p('/srv/p');
-      server.on('GET', '/api/fs/read-text', boundary, status: 403);
+      server.requests.clear();
 
       expect(
         failure(await repository.readText(p('/srv/p-secrets/.env'))),
