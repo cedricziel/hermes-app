@@ -39,7 +39,7 @@ const _mainEngineOnly = {
   'MacOSWindowUtilsPlugin',
   'FPPPackageInfoPlusPlugin',
   'FlutterMultiWindowPlugin',
-  'RecordMacOsPlugin',
+  'RecordDarwinPlugin',
   // Background tasks belong to the main engine; a window schedules none.
   'WorkmanagerPlugin',
 };
@@ -76,7 +76,7 @@ void main() {
     final end = panel.indexOf('\n  }', start);
 
     expect(_registered(panel.substring(start, end)), {
-      'RecordMacOsPlugin',
+      'RecordDarwinPlugin',
       'HermesSpeechPlugin',
     });
   });

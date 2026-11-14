@@ -29,6 +29,25 @@ The system SHALL disable the switch and explain why when the device has no biome
 - **WHEN** the user opens the App lock dialog on a device that cannot confirm the person
 - **THEN** the switch is disabled and a note says to set up Face ID, Touch ID or a passcode
 
+### Requirement: Support check that fails
+
+When the device's support check fails without an answer (an error rather than "not supported"), the system SHALL NOT offer the switch, but SHALL keep a lock that is already on: the app stays locked and "Unlock" checks again. A platform with no implementation of the check (such as Linux) counts as a device without support. If the check still cannot tell and the device reports that it cannot confirm anyone (no passcode or biometrics set up, or no implementation), rather than that the confirmation failed or was cancelled, the lock SHALL NOT be enforced for that run, so the user is never locked out of their own app.
+
+#### Scenario: The check fails once
+
+- **WHEN** app lock is on, the support check fails at launch and the device then confirms the person
+- **THEN** the app stays locked until that confirmation, and opens after it
+
+#### Scenario: The check fails and nobody can be confirmed
+
+- **WHEN** app lock is on, the support check keeps failing and the device reports that it cannot confirm anyone
+- **THEN** the app unlocks without enforcing the lock
+
+#### Scenario: The check fails while app lock is off
+
+- **WHEN** the user opens the App lock dialog after the support check failed
+- **THEN** the switch is disabled and the note is shown
+
 ### Requirement: Locking and unlocking
 
 While app lock is on, the system SHALL lock the app at launch and whenever it leaves the screen (hidden or in the background), and SHALL ask the device to confirm the person at launch and when the app returns. While locked, the system SHALL show a lock screen with an "Unlock" button that asks again, and SHALL keep the app's content out of sight, without discarding its state. Until the saved choice has loaded the app SHALL stay covered. Losing focus alone SHALL NOT lock the app. On iOS and Android the system SHALL also cover the content as soon as the app loses focus, other than to the device prompt, so that the system's app switcher snapshot, taken after that, shows the cover. The cover is drawn by the app, so a snapshot taken before its next frame can still hold the content. The cover SHALL lift without asking when the app regains focus without having left the screen.

@@ -11,6 +11,11 @@ the rework.
 
 ## Before launching
 
+- **Install the pre-commit hook in every clone.** Each agent runs
+  `dart run tool/setup_git_hooks.dart` before its first commit, cloud sessions
+  included, and fixes a failing hook instead of bypassing it (no `--no-verify`,
+  no `core.hooksPath`, no config edit). Its `outdated` check makes dependency
+  updates part of normal work.
 - **Shared pieces first, alone.** Build the shared widgets (or their React
   copies in `design/web`) in one PR, merge it, and only then launch the screen
   agents with that PR's API notes. Parallel agents that each invent a group row
@@ -81,6 +86,30 @@ the rework.
   `.design-sync/NOTES.md`). Find the PRs that need a port with
   `gh pr list --state merged --search '"needs a design port" in:body'` and plan
   the port as part of the rollout.
+
+## When lead agents cannot spawn agents
+
+In a cloud session a lead agent may have no Agent tool. The hierarchy is then two
+levels and the orchestrator does the reviewing:
+
+- A lead's own read of its diff is not the review. After the lead hands back, the
+  orchestrator starts the isolated reviewer described under "Every PR", for every
+  PR, whether or not CodeRabbit also reviewed. Give it the branch name and what
+  the PR claims, nothing else, and use a stronger model when a wrong merge would
+  sign users out, lose a message or leak control of something (auth, the send
+  path, leases, App Lock). Why: reviewers started this way found a defect the
+  lead had missed in most PRs of the run that added this section.
+- The orchestrator sends the findings back to the same lead, which keeps its
+  context, and the lead writes the `## Review` section when it pushes the fixes.
+- Arm `--auto --squash` only after that follow-up push. Armed earlier, the PR can
+  merge without the fix.
+- A follow-up push cancels the previous commit's CI run, and `Analyze & test`
+  then reports failure for the old commit. Compare a failure event's `head_sha`
+  with the PR's current head before acting on it.
+- Give every lead the same common brief file plus its own stream brief, each
+  naming the files it must not touch. One stream owns `CLAUDE.md` and
+  `docs/architecture/`; a fix that needs a sentence there rebases after that
+  stream's PR merges.
 
 ## Afterwards
 

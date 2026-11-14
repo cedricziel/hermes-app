@@ -1,7 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import hermes_speech
-import record_macos
+import record_darwin
 
 /// A panel that takes key focus without activating the app, so typing into
 /// it leaves Hermes' other windows where they are.
@@ -80,7 +80,7 @@ final class QuickPanel: NSObject, NSWindowDelegate {
   /// its event sink per plugin instance, so the panel's listener does not
   /// take the main engine's.
   private static func registerPlugins(_ registry: FlutterPluginRegistry) {
-    RecordMacOsPlugin.register(with: registry.registrar(forPlugin: "RecordMacOsPlugin"))
+    RecordDarwinPlugin.register(with: registry.registrar(forPlugin: "RecordDarwinPlugin"))
     HermesSpeechPlugin.register(with: registry.registrar(forPlugin: "HermesSpeechPlugin"))
   }
 

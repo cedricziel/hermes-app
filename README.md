@@ -201,7 +201,7 @@ has the details.
 
 ## Development
 
-`CLAUDE.md` covers the commands and the architecture. The repo uses
+`CLAUDE.md` covers the commands and an architecture map; `docs/architecture/` has each area in full. The repo uses
 [dart_pre_commit](https://pub.dev/packages/dart_pre_commit) to run the same
 `dart format` and `dart analyze` checks CI does, on staged Dart files:
 

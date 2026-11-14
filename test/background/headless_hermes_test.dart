@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:dio/dio.dart';
@@ -65,6 +66,32 @@ class _Store extends MemoryTokenStore {
     await super.write(next);
     wroteAt = DateTime.now();
   }
+}
+
+/// Answers `/api/status` of [_url] as if it had been redirected to [to].
+class _RedirectingStatus implements HttpClientAdapter {
+  _RedirectingStatus(this._inner, this.to);
+
+  final HttpClientAdapter _inner;
+  final String to;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final body = await _inner.fetch(options, requestStream, cancelFuture);
+    if (options.uri.toString() == '$_url/api/status') {
+      body.redirects = [
+        RedirectRecord(301, 'GET', Uri.parse('$to/api/status')),
+      ];
+    }
+    return body;
+  }
+
+  @override
+  void close({bool force = false}) => _inner.close(force: force);
 }
 
 /// A dashboard whose access tokens work until rotated, and whose refresh
@@ -170,6 +197,7 @@ void main() {
 
   HeadlessDeps deps({
     String devServerUrl = '',
+    HttpClientAdapter? adapter,
     ConnectionTelemetryFactory? telemetry,
     Duration minRefreshBudget = Duration.zero,
     Duration rejectionRecheck = Duration.zero,
@@ -178,7 +206,7 @@ void main() {
     tokenStore: store,
     prefs: SharedPreferencesAsync(),
     devServerUrl: devServerUrl,
-    adapter: dashboard.server,
+    adapter: adapter ?? dashboard.server,
     openSocket: (_) => gateway.connect(),
     telemetry: telemetry ?? recorded,
     minRefreshBudget: minRefreshBudget,
@@ -320,9 +348,63 @@ void main() {
     test('is signed out when another dashboard minted the session', () async {
       store.session = _session(serverUrl: 'http://other.test');
 
-      expect(await run(readProfiles), isA<HeadlessSignedOut<List<String?>>>());
+      final outcome = await run(readProfiles);
+
+      expect(outcome, isA<HeadlessSignedOut<List<String?>>>());
+      final signedOut = outcome as HeadlessSignedOut<List<String?>>;
+      expect(signedOut.reason, SignedOutReason.otherServer);
+      expect(signedOut.nothingStored, isFalse);
       expect(dashboard.server.requestsTo('GET', '/api/profiles'), isEmpty);
+      expect(spanOutcome(), 'other_server');
     });
+
+    for (final (minted, session) in [
+      ('the saved address', _session()),
+      ('an older app', _session(serverUrl: null)),
+    ]) {
+      test('follows a redirect to the same host with a session minted by '
+          '$minted', () async {
+        store.session = session;
+
+        final outcome = await run(
+          readProfiles,
+          with_: deps(
+            adapter: _RedirectingStatus(
+              dashboard.server,
+              'https://hermes.test',
+            ),
+          ),
+        );
+
+        expect(outcome, isA<HeadlessDone<List<String?>>>());
+        expect(
+          dashboard.server.requestsTo('GET', '/api/profiles').single.uri.host,
+          'hermes.test',
+        );
+      });
+
+      test('does not take a session minted by $minted along a redirect to '
+          'another host', () async {
+        store.session = session;
+
+        final outcome = await run(
+          readProfiles,
+          with_: deps(
+            adapter: _RedirectingStatus(
+              dashboard.server,
+              'https://elsewhere.test',
+            ),
+          ),
+        );
+
+        expect(outcome, isA<HeadlessSignedOut<List<String?>>>());
+        final signedOut = outcome as HeadlessSignedOut<List<String?>>;
+        expect(signedOut.reason, SignedOutReason.otherServer);
+        expect(signedOut.nothingStored, isFalse);
+        expect(dashboard.server.requestsTo('GET', '/api/profiles'), isEmpty);
+        expect(store.session, same(session));
+      });
+    }
 
     test(
       'is locked, without a request, while the keychain is unreadable',

@@ -16,13 +16,12 @@ enum NativeLoginFailure {
   refresh,
   idpError,
   missingCode,
-  stateMismatch,
   listenerClosed,
   other,
 }
 
 /// Raised when the native login flow fails for a reason the user should see
-/// (timeout, state mismatch, IdP error, browser launch failure, ...).
+/// (timeout, IdP error, browser launch failure, ...).
 class NativeLoginException implements Exception {
   NativeLoginException(
     this.message, {
@@ -291,6 +290,23 @@ Future<String> _awaitCallback(
     // Stray requests (favicon probes, etc.) carry neither.
     final isCallback =
         params.containsKey('code') || params.containsKey('error');
+    // Any page in a browser on this device can reach the listener. Only the
+    // redirect carrying the state sent to Hermes may end the sign-in; anything
+    // else is refused and the listener keeps waiting for it.
+    if (isCallback &&
+        (request.uri.path != '/callback' ||
+            expectedState.isEmpty ||
+            params['state'] != expectedState)) {
+      request.response.statusCode = request.uri.path != '/callback'
+          ? HttpStatus.notFound
+          : HttpStatus.badRequest;
+      try {
+        await request.response.close();
+      } on Object {
+        // A client that went away must not end the sign-in.
+      }
+      continue;
+    }
     final redirect = isCallback ? finishedRedirect() : null;
     if (redirect != null) {
       request.response
@@ -302,9 +318,15 @@ Future<String> _awaitCallback(
         ..headers.contentType = ContentType.html
         ..write(_doneHtml);
     }
+    if (!isCallback) {
+      try {
+        await request.response.close();
+      } on Object {
+        // As above: a stray request must not end the sign-in.
+      }
+      continue;
+    }
     await request.response.close();
-
-    if (!isCallback) continue;
 
     final error = params['error'];
     if (error != null) {
@@ -320,14 +342,6 @@ Future<String> _awaitCallback(
       throw NativeLoginException(
         'Sign-in callback missing authorization code.',
         reason: NativeLoginFailure.missingCode,
-      );
-    }
-
-    final returnedState = params['state'];
-    if (expectedState.isEmpty || returnedState != expectedState) {
-      throw NativeLoginException(
-        'Sign-in callback state mismatch (possible CSRF); please try again.',
-        reason: NativeLoginFailure.stateMismatch,
       );
     }
 
