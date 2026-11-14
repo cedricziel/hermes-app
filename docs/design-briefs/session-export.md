@@ -8,7 +8,7 @@ Design: brief reviewed, canvas pending (publish quota, resumes after 2026-11-15 
 
 No build starts before the canvas exists.
 
-No Claude Design canvas was built for this change yet. The pass was written from the Hermes App design system README and the repo's files (`lib/src/widgets/`, `thread_actions_menu.dart`, the briefs of Server care and Tools). There is no canvas link and no artboard count; nothing here was rendered or looked at in a viewer. The canvas is the next step and the place to correct this brief; Widgetbook use cases follow it.
+No Claude Design canvas is published for this change yet. The pass was written from the Hermes App design system README and the repo's files (`lib/src/widgets/`, `thread_actions_menu.dart`, the briefs of Server care and Tools). There is no canvas link yet; the boards were rendered locally only (28, see "Local render review") and nothing was looked at in the claude.ai viewer. The canvas is the next step and the place to correct this brief; Widgetbook use cases follow it.
 
 Screens and states decided: the menu row in the places listed under "Navigation" (enabled, hidden, disabled while busy), one alert in three phases (confirmation, progress, failure with nine messages), the saved snack bar, and the silent cancel.
 
@@ -18,20 +18,26 @@ Decisions, one line each:
 - The alert never names the chat and never shows its title, so App Lock has nothing to blank and the app switcher shows nothing private.
 - Confirmation: title "Export this chat as JSON?", the secrets sentence is the first line of the message, Cancel is the default (bold on Apple; on Android, Windows and Linux two text buttons, Cancel first, neither filled, as for every Android confirmation). On Material a default `AppDialogAction` renders as a filled button unless `filledOnMaterial: false`, so Cancel and Close are built with `isDefault: true, filledOnMaterial: false`. Export is a plain button, never red: it is not destructive, the file leaves the app's protection.
 - Progress is the same alert with the title "Preparing the export…", the thin `BusyBar` (size unknown, so never a percentage), a received-bytes line once the first byte arrives ("Downloaded 12 MB", the `FileDownloadProgress` wording) and Cancel. Escape and a tap outside do nothing while it runs; Cancel is the way out. The alert wraps its content in `PopScope(canPop: phase != progress)` so the Android back gesture and Escape cannot close it either; the confirmation and failure phases stay poppable.
-- Failures reuse the alert: a title that starts with the word "Couldn't" or names the problem, one sentence of cause, one sentence of consequence ("Nothing was saved."). Buttons: Close (default) and, where retrying can help, Try again, which goes back to the confirmation, never straight to a request.
+- Failures reuse the alert: a title that starts with the word "Couldn't" or names the problem, one sentence of cause, one sentence of consequence ("Nothing was saved."). Buttons: Close (default) and, where retrying can help, Try again, which goes back to the confirmation, never straight to a request. Apple order: Close (bold) left, Try again right, when they sit side by side; stacked, Try again above Close. Material: Close first, Try again second.
 - Nine failures have nine messages (table below). Status is the words in the title; there is no coloured icon to carry it.
 - A saved file is a floating snack bar, "Chat saved", with no path, no name and no action. A cancelled save sheet shows nothing.
-- Menu row: "Export Chat as JSON…" (Mac and the iPad menu bar, title case) and "Export chat as JSON…" (the Material header menu, sentence case, matching the existing "Copy Transcript" / "Copy transcript" split), directly under Copy Transcript, with the ellipsis because a dialog follows. No shortcut. The neighbouring labels are hard-coded English strings, not ARB keys; the new label is too, so it matches them (the ARB strings of task 1.2 are the alert's). In the menu bar the label is a const `MenuEntry` label in `menu_layout.dart`; `MacCommandHandler.title` is the route for a label that changes at run time and is not needed here.
+- Menu row: "Export Chat as JSON…" (Mac and the iPad menu bar, title case) and "Export chat as JSON…" (the Material header menu, sentence case, matching the existing "Copy Transcript" / "Copy transcript" split), directly under Copy Transcript, with the ellipsis because a dialog follows. Exact menus: see "Menu rows". No shortcut. The neighbouring labels are hard-coded English strings, not ARB keys; the new label is too, so it matches them (the ARB strings of task 1.2 are the alert's). In the menu bar the label is a const `MenuEntry` label in `menu_layout.dart`; `MacCommandHandler.title` is the route for a label that changes at run time and is not needed here.
 - One export at a time: while one runs, the row is disabled everywhere.
 - Decided by the owner: the "Downloaded N MB" line stays (the `FileDownloadProgress` wording); there is no Export entry in the non-Mac sidebar row menu or the touch swipe sheet for now. The header menu is the entry off the Mac. It can be added later together with Copy transcript.
-- The settled 10-second rule does not fit a download of unknown size, so there is one exception: after 10 s without the first byte the progress alert adds the line "Still waiting for Hermes. Cancel stops it." The managed `Dio` allows 30 s of silence (`receiveTimeout`, which covers the headers and the gap between two chunks, `request_timeout.dart`); no byte at all for 30 s ends as `lost` ("Couldn't confirm the export"), a stall after bytes arrived is `incomplete`, and the total stays capped at five minutes by the `requestDeadlineExtra` of `_getBytes` (see "Lost answer"). Reason: the request only reads, the user holds Cancel, and the alert never says saved. Decided by the owner: 30 s of silence stays as the stall deadline (the spec's Timeout scenario says the same).
+- The settled 10-second rule does not fit a download of unknown size, so there is one exception: after 10 s without the first byte the progress alert adds the line "Still waiting for Hermes." The managed `Dio` allows 30 s of silence (`receiveTimeout`, which covers the headers and the gap between two chunks, `request_timeout.dart`); no byte at all for 30 s ends as `lost` ("Couldn't confirm the export"), a stall after bytes arrived is `incomplete`, and the total stays capped at five minutes by the `requestDeadlineExtra` of `_getBytes` (see "Lost answer"). Reason: the request only reads, the user holds Cancel, and the alert never says saved. Decided by the owner: 30 s of silence stays as the stall deadline (the spec's Timeout scenario says the same).
 
-Corrections: none (there was no canvas to correct against).
+Corrections: the local render review below changed the stalled-line copy, the failure button order, the menu orders and the large-text and German alert rules. No published canvas exists to correct against.
+
+### Local render review
+
+The canvas is staged locally and is not published: 28 boards (the header menu; the alert confirm, progress, received bytes, stalled and saved states; nine failures; dark; large text; German; App Lock; Android; Mac and iPad), one parametric page imported by short board files. It publishes after the quota resets on 2026-11-15 00:00 UTC. Rendered with the design-system tokens in headless Chromium, light and dark, no hex colours.
+
+What could not be checked: the claude.ai viewer; contrast and target sizes beyond the eye and the design system's own sizes; largest text (simulated with CSS `zoom: 1.6`, not an OS text scale); disabled menu rows; the Mac toolbar "…" and sidebar row menus (the Chat menu row stands for them); the conversation window menu; Windows and Linux dialogs (same as Android); the iPad alert; the Mac progress and failure alerts (same component as iPhone); reduced motion; VoiceOver and TalkBack; focus order; tap outside, Escape and the back gesture (static render); the App Lock "nothing after unlock" behaviour (stated, not drawn as a sequence). The dimmed chat behind each alert is made from design-system parts with made-up copy, not the real chat. The chat header title truncating at 1.6x belongs to `ChatHeader`, not to this change.
 
 Copy added by the design (English; German in the table at the end):
 
 - Confirmation: "Export this chat as JSON?" / "The file holds this session as Hermes stored it, including the system prompt, tool output and file paths. It can contain secrets such as keys. Save it only somewhere you trust." / "Cancel", "Export".
-- Progress: "Preparing the export…" / "Hermes is sending the file. A long chat can take a while." / "Cancel"; after 10 s the extra line "Still waiting for Hermes. Cancel stops it."
+- Progress: "Preparing the export…" / "Hermes is sending the file. A long chat can take a while." / "Cancel"; after 10 s the extra line "Still waiting for Hermes."
 - Failures and the snack bar: see the failure table and "Saved".
 
 New components needed:
@@ -41,7 +47,15 @@ New components needed:
 | `SessionExportAlert`   | Plain-model alert with a phase: `confirm`, `progress` (with `stalled` and received bytes), `failed(kind)`; callbacks `onConfirm`, `onCancel`, `onRetry`, `onClose` | `AppAlertDialog` + `AppDialogAction` (shell); `BusyBar` (progress line); `showConfirmDialog` (confirm only) |
 | `SessionExportFailure` | Enum of the nine failure kinds with their copy keys, shared by the widget and the controller                                                   | none (the controller's outcomes of 1.3)                                                                     |
 
-No other widget: the menu rows are entries in the existing menus and the snack bar is the app's usual `SnackBar`.
+No other app widget: the menu rows are entries in the existing menus and the snack bar is the app's usual `SnackBar`.
+
+Design-system gaps found by the local render (the canvas worked around each; the app needs none of them, they are for the design system):
+
+- `AlertDialog` has no content slot: `message` is a string, so the `BusyBar` and the "Downloaded N MB" line cannot sit inside it. The canvas passes a React node as `message`, which renders inside a `<p>`. Wanted: `children`, and `filledOnMaterial: false` per action (as `AppDialogAction`). Until then Material alerts use `Sheet presentation="dialog"` with two `Button variant="text"`, because `AlertDialog` fills the default action on Material.
+- The Apple `AlertDialog` is a fixed 270 px; Flutter uses 310 at accessibility sizes. The canvas overrides the width on the two large-text boards.
+- `Menu` has no disabled item.
+- No `SnackBar`; drawn from tokens (inverse surface, one line, 48 high).
+- The Mac and iPad menu bar strip is plain markup (native OS chrome, not a design-system component).
 
 ## Who and why
 
@@ -82,7 +96,7 @@ Title "Export this chat as JSON?". Message as above. Buttons: Cancel (default), 
 
 ### 2. Progress
 
-Title "Preparing the export…". `BusyBar` under the message, indeterminate. Message "Hermes is sending the file. A long chat can take a while." One button: Cancel (default). The alert is not dismissible by Escape, the back gesture or a tap outside (a stray tap must not cancel a long download; the explicit button must), through `PopScope(canPop: phase != progress)` in the alert; the Mac route is always barrier-dismissible, so `PopScope` and the route's own barrier both need checking there (Widgetbook cannot show the barrier; the workflow test does). Once bytes arrive the line "Downloaded 12 MB" appears under the message and is announced in coarse steps as `announcedReceivedBytes` does. After 10 s without a first byte the message gains the line "Still waiting for Hermes. Cancel stops it." and the bar keeps moving. When the bytes are complete and valid, the alert closes and the system save sheet opens at once; there is no "ready" phase.
+Title "Preparing the export…". `BusyBar` under the message, indeterminate. Message "Hermes is sending the file. A long chat can take a while." One button: Cancel (default). The alert is not dismissible by Escape, the back gesture or a tap outside (a stray tap must not cancel a long download; the explicit button must), through `PopScope(canPop: phase != progress)` in the alert; the Mac route is always barrier-dismissible, so `PopScope` and the route's own barrier both need checking there (Widgetbook cannot show the barrier; the workflow test does). Once bytes arrive the line "Downloaded 12 MB" appears under the message and is announced in coarse steps as `announcedReceivedBytes` does. After 10 s without a first byte the message gains the line "Still waiting for Hermes." (one line in 270 pt; the Cancel button is on screen, so the line does not repeat it) and the bar keeps moving. When the bytes are complete and valid, the alert closes and the system save sheet opens at once; there is no "ready" phase.
 
 ### 3. Failure
 
@@ -109,7 +123,15 @@ Title and message from the table. Buttons: Close (default, `filledOnMaterial: fa
 
 ## Menu rows
 
-States: enabled; absent (local or mock chat, or no profile); disabled while an export runs (any menu, same label, no extra text). In the Mac and iPad menu bars: enabled, disabled (also with no chat selected, and while one runs). The row has no leading icon in the Mac and Material menus, like Copy Transcript. Order in every menu: Copy Transcript, Export Chat as JSON…, then the existing next item. The conversation window's toolbar and menu follow the same gating as the main window: no profile, no row; busy, disabled.
+States: enabled; absent (local or mock chat, or no profile); disabled while an export runs (any menu, same label, no extra text). In the Mac and iPad menu bars: enabled, disabled (also with no chat selected, and while one runs). The row has no leading icon in the Mac and Material menus, like Copy Transcript. The conversation window's toolbar and menu follow the same gating as the main window: no profile, no row; busy, disabled.
+
+Exact order, row directly after Copy Transcript in every menu:
+
+- **Header "…" menu (all but Mac):** Copy transcript, Export chat as JSON…, divider, Rename, Pin, Archive, Delete (as in `thread_actions_menu.dart`; Rename has no ellipsis there).
+- **Mac and iPad Chat menu** (`menu_layout.dart`, section `chat`): Find…, divider, Pin, Rename…, Copy Transcript, Export Chat as JSON…, divider, Archive, Delete…. Only the Export row is new.
+- **Mac sidebar row menu and toolbar "…":** the existing order with the row after Copy Transcript (the toolbar menu: before Connection Details).
+
+Disabled rows are not drawn on the canvas: the design system's `Menu` has no disabled item (see "Design-system gaps"). The state is specified here: a disabled row keeps its label and position, uses the platform's disabled text colour, and is skipped by arrow keys and focus.
 
 ## Every state
 
@@ -119,8 +141,8 @@ States: enabled; absent (local or mock chat, or no profile); disabled while an e
 - **App Lock with the save sheet open:** the app cannot dismiss the native sheet. The rule: the bytes are dropped on lock only if the sheet has not returned; if the user finishes the sheet after unlocking, the file is written (an accepted limit, the user chose the place), and no snack bar is shown for a save that returns after a lock. On iOS the plugin's temporary export copy is removed by `FilePicker.clearTemporaryFiles()` (see Privacy).
 - **Phone and desktop/Mac:** the alert's width is the platform's own. The Mac alert is at its restrained width at every window size; the Cupertino alert is 270 pt; Material and Windows/Linux dialogs follow Material's width.
 - **Light and dark:** theme colours only; nothing custom, no hex.
-- **Largest text size:** the message wraps and scrolls inside the alert (`scrollable: true`); the buttons stay visible; the Cupertino alert stacks its two buttons. Nothing is cut with an ellipsis.
-- **German:** the strings are 20 to 40 percent longer ("Chat als JSON exportieren…", "Der Export ist unvollständig"). Titles must wrap to two lines on a 270 pt Cupertino alert; no fixed heights.
+- **Largest text size:** the message wraps and scrolls inside the alert (`scrollable: true`); the buttons stay visible; the Cupertino alert stacks its two buttons at large text sizes and in German, not only at the largest size (the design system's Apple alert action is `nowrap` with an ellipsis, so side by side "Erneut versuchen" and "Try again" are cut). At accessibility sizes the Cupertino alert is 310 pt wide, not 270. Nothing is cut with an ellipsis.
+- **German:** the strings are 20 to 40 percent longer ("Chat als JSON exportieren…", "Der Export ist unvollständig"). Titles must wrap to two lines on a 270 pt Cupertino alert; no fixed heights. Two failure buttons stack in German.
 
 ## Accessibility
 
@@ -188,9 +210,10 @@ States: enabled; absent (local or mock chat, or no profile); disabled while an e
 | Try again / Close / Export / Cancel | Erneut versuchen / Schließen / Exportieren / Abbrechen                                                                                                                                                                   |
 | Couldn't export this chat           | Chat konnte nicht exportiert werden                                                                                                                                                                                      |
 | Hermes answered with an error. Nothing was saved. | Hermes hat mit einem Fehler geantwortet. Es wurde nichts gespeichert.                                                                                                                                              |
+| Still waiting for Hermes.           | Hermes antwortet noch nicht.                                                                                                                                                                                             |
 | Downloaded 12 MB                    | Reuse the existing `filesDownloadDownloaded` string                                                                                                                                                                      |
 
-The ARB files hold the full set; German follows the existing glossary in `lib/l10n/` (check "Sitzung" and "Systemprompt" against it).
+Only the rows above are brief copy. The canvas drafted the rest (progress message, the seven other failure titles and messages, the menu rows); that German is a draft for the owner, not decided. The ARB files hold the full set; German follows the existing glossary in `lib/l10n/` (check "Sitzung" and "Systemprompt" against it).
 
 ## Decisions taken by the owner
 
@@ -203,8 +226,11 @@ The ARB files hold the full set; German follows the existing glossary in `lib/l1
 1. **Mac menu bar.** Present but disabled for a local chat, or removed? The spec says the action is not offered; a disabled fixed menu item is the macOS convention and is assumed here.
 2. **Share.** The save sheet is the only exit. If `share_plus` lands with Server files, "Share…" would be a second row; left out here.
 3. **Size.** No cap: the server streams without a limit and `MediaActions` saves from bytes in memory (`kMaxSaveBytes`, 32 MB, applies only to `saveFile`). Accepted risk: a very large export is held in memory; the 5-minute total bounds it in practice. Recommended over a "too large" state, which would need a `Content-Length` the server does not send. Revisit after the first real large export.
-4. **Compressed chats.** The copy says "this session"; should the confirmation also say a continued chat's earlier part is not included? Not added: the app cannot tell in advance.
+4. **German copy.** Only the table's strings are brief copy; the rest of the German on the boards and in the ARB is a draft. Needs the owner's review (check "Sitzung", "Systemprompt" and "Export" against the glossary).
+5. **Stalled line.** "Still waiting for Hermes." drops the Cancel hint so it fits one line in 270 pt. Keep it, or prefer the hint ("Still waiting for Hermes. Tap Cancel to stop.", which wraps with an orphan on iPhone and says "Tap" on desktop)?
+6. **Failure button order on Apple.** Close (bold) left, Try again right is assumed. The HIG puts the preferred action on the right; Close is the default here only so Enter never retries. Confirm.
+7. **Compressed chats.** The copy says "this session"; should the confirmation also say a continued chat's earlier part is not included? Not added: the app cannot tell in advance.
 
 ## Not verified
 
-No canvas; no rendering at all. The wording of the system alerts at the largest text size, VoiceOver and TalkBack output, `saveFile` on a physical iPhone, Android and the macOS sandbox, and the real response were not checked.
+No published canvas; a local render exists (see "Local render review"). The wording of the system alerts at the largest text size, VoiceOver and TalkBack output, `saveFile` on a physical iPhone, Android and the macOS sandbox, and the real response were not checked.
