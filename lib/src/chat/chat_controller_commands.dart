@@ -172,29 +172,32 @@ extension _ChatControllerCommands on ChatController {
   /// What [thread] holds that a command's re-read must not drop: rows only
   /// this app has (command lines) and turns sent here, which may still be
   /// streaming. Rows read from Hermes are left to [page], the truth after
-  /// the command, which may have undone some. A settled turn whose receipt
-  /// names a row the page should hold but does not was undone too.
+  /// the command, which may have undone some. A settled turn is dropped when
+  /// the page does not hold its stored row (undone, or older than the page,
+  /// which loading older messages brings back in place), or, without a receipt, when the page
+  /// holds a prompt with the same words.
   List<ChatMessage> _heldAfterRefresh(ChatThread thread, MessagePage page) {
-    final oldest = page.hasMore
-        ? page.messages
-              .map((m) => int.tryParse(m.id.split('-').last))
-              .nonNulls
-              .fold<int?>(null, (a, b) => a == null ? b : min(a, b))
-        : 0;
     final stored = {for (final m in page.messages) m.id};
+    final storedPrompts = {
+      for (final m in page.messages)
+        if (m.role == ChatRole.user) m.content,
+    };
     final kept = <ChatMessage>[];
     for (final turn in _turns([
       for (final m in thread.messages)
         if (m.id.contains('-local-')) m,
     ], stored: false)) {
-      final row = turn.first.canonicalRow?.rowId;
-      final undone =
-          row != null &&
-          oldest != null &&
-          row >= oldest &&
-          !turn.any((m) => m.isPending) &&
-          !stored.contains('${thread.id}-$row');
-      if (!undone) kept.addAll(turn);
+      final first = turn.first;
+      final settled = !turn.any((m) => m.isPending);
+      final row = first.canonicalRow?.rowId;
+      final gone = !settled
+          ? false
+          : row != null
+          ? !stored.contains('${thread.id}-$row')
+          : first.role == ChatRole.user &&
+                !turn.any((m) => m.status == MessageStatus.error) &&
+                storedPrompts.contains(first.content);
+      if (!gone) kept.addAll(turn);
     }
     return kept;
   }
