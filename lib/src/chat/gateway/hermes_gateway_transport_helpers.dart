@@ -469,4 +469,14 @@ class _Unsolicited {
 /// or `reply` once the prompt was taken.
 class _SendStep {
   String name = 'connect';
+
+  /// [name] as the step a caller sees. `commit` runs only for a queued send
+  /// with `beforeSubmit`, which has no [SendFailure]; it is before submit.
+  SendStep get sendStep => switch (name) {
+    'connect' => SendStep.connect,
+    'open' => SendStep.open,
+    'attach' || 'commit' => SendStep.attach,
+    'submit' => SendStep.submit,
+    _ => SendStep.reply,
+  };
 }

@@ -374,6 +374,7 @@ final class SessionChatTransport
     ModelChoice? model,
     bool queued = false,
     WorkspaceChoice? workspace,
+    void Function()? onSubmitting,
   }) => _stream((d) {
     _acknowledgement = d is PromptAcknowledgement
         ? d as PromptAcknowledgement
@@ -386,6 +387,7 @@ final class SessionChatTransport
       model: model,
       queued: queued,
       workspace: workspace,
+      onSubmitting: onSubmitting,
     );
   });
 

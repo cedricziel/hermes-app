@@ -400,6 +400,7 @@ class HermesGatewayTransport
     ModelChoice? model,
     bool queued = false,
     WorkspaceChoice? workspace,
+    void Function()? onSubmitting,
   }) => _send(
     threadId: threadId,
     profile: profile,
@@ -408,6 +409,7 @@ class HermesGatewayTransport
     model: model,
     queued: queued,
     workspace: workspace,
+    onSubmitting: onSubmitting,
   );
 
   @override
