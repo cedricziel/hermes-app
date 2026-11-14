@@ -524,16 +524,17 @@ WidgetbookNode appNode() => WidgetbookFolder(
           'Notifications · messages from Hermes off',
           (_) => _notificationsWith((s) => s.setAgentMessages(false)),
         ),
-        WidgetbookUseCase(
-          name: 'Notifications · no messages row (Linux)',
-          builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.linux),
-            child: withAppProviders(
-              CatalogAuth(),
-              _dialog(showNotificationsDialog),
+        for (final platform in [TargetPlatform.windows, TargetPlatform.linux])
+          WidgetbookUseCase(
+            name: 'Notifications · desktop, no background check ($platform)',
+            builder: (context) => Theme(
+              data: Theme.of(context).copyWith(platform: platform),
+              child: withAppProviders(
+                CatalogAuth(),
+                _dialog(showNotificationsDialog),
+              ),
             ),
           ),
-        ),
         ...onEachPlatform(
           'Notifications · Live Activities',
           (_) => _withLiveActivities(allowed: true),
@@ -546,6 +547,22 @@ WidgetbookNode appNode() => WidgetbookFolder(
         ...onEachPlatform(
           'App lock · no Face ID or passcode',
           (_) => _appLock(available: false),
+        ),
+        for (final platform in [TargetPlatform.windows, TargetPlatform.linux])
+          WidgetbookUseCase(
+            name:
+                'App lock · ${platform == TargetPlatform.linux ? 'not available' : 'no Windows Hello'} ($platform)',
+            builder: (context) => Theme(
+              data: Theme.of(context).copyWith(platform: platform),
+              child: _appLock(available: false),
+            ),
+          ),
+        WidgetbookUseCase(
+          name: 'App lock · Windows Hello ready (windows)',
+          builder: (context) => Theme(
+            data: Theme.of(context).copyWith(platform: TargetPlatform.windows),
+            child: _appLock(available: true),
+          ),
         ),
         ...onEachPlatform(
           'About',

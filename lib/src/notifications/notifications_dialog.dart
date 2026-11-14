@@ -39,6 +39,12 @@ Future<void> showNotificationsDialog(BuildContext context) {
   );
 }
 
+/// Whether a request notification shows its text and answers it with buttons:
+/// not on Windows and Linux, which post plain notifications.
+@visibleForTesting
+bool answersFromNotification(TargetPlatform platform) =>
+    platform != TargetPlatform.windows && platform != TargetPlatform.linux;
+
 class _NotificationsDialog extends StatelessWidget {
   const _NotificationsDialog({this.liveActivities, this.checks});
   final BackgroundCheckController? checks;
@@ -61,12 +67,16 @@ class _NotificationsDialog extends StatelessWidget {
       title: 'Notifications',
       children: [
         GroupedSection(
-          footer:
-              'When a reply finishes or Hermes needs you, while the app is not '
-              'in front. Replies show a preview. Approvals and questions show '
-              'the command or the question and can be answered from the '
-              'notification; the text stays hidden on a locked screen when '
-              'the system hides previews there.',
+          footer: answersFromNotification(platform)
+              ? 'When a reply finishes or Hermes needs you, while the app is '
+                    'not in front. Replies show a preview. Approvals and '
+                    'questions show the command or the question and can be '
+                    'answered from the notification; the text stays hidden on '
+                    'a locked screen when the system hides previews there.'
+              : 'When a reply finishes or Hermes needs you, while the app is '
+                    'not in front. Replies show a preview. Approvals and '
+                    'questions only say that Hermes needs you; open the app '
+                    'to answer.',
           children: [
             GroupedSwitchRow(
               key: const Key('notify-me'),
@@ -102,7 +112,7 @@ class _NotificationsDialog extends StatelessWidget {
           GroupedSection(
             footer:
                 'When a Hermes profile starts a chat for you, while the app is '
-                '${platform == TargetPlatform.macOS ? 'open' : 'open or when the system lets it check in the background'}. '
+                '${platform == TargetPlatform.android || platform == TargetPlatform.iOS ? 'open or when the system lets it check in the background' : 'open'}. '
                 'The text stays hidden while App Lock is on.',
             children: [
               GroupedSwitchRow(

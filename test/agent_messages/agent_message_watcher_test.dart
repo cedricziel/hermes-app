@@ -728,6 +728,25 @@ void main() {
       });
     });
 
+    testWidgets('a failing notification post is logged as a failed look', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        service = _OnShow(() => throw StateError('post failed'));
+        await setUpWatcher();
+        await watcher!.check();
+        deliveries('work', [delivery('hermes-app-new', at: 200)]);
+        text('hermes-app-new', 'Hi');
+
+        await watcher!.check();
+
+        expect(eventAttributes('agent_messages.look_failed'), {
+          'error_type': 'StateError',
+          'background': false,
+        });
+      });
+    });
+
     testWidgets('App Lock turned on while the first of two is posted makes '
         'the second generic', (tester) async {
       await tester.runAsync(() async {
@@ -925,17 +944,26 @@ void main() {
         });
       });
 
-      for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
-        testWidgets('on $platform', (tester) async {
-          await tester.runAsync(() async {
-            await setUpWatcher(platform: platform);
-            await watcher!.check();
+      testWidgets('on a platform without notifications', (tester) async {
+        await tester.runAsync(() async {
+          await setUpWatcher(platform: TargetPlatform.fuchsia);
+          await watcher!.check();
 
-            expect(server.requests, isEmpty);
-          });
+          expect(server.requests, isEmpty);
         });
-      }
+      });
     });
+
+    for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+      testWidgets('looks on $platform', (tester) async {
+        await tester.runAsync(() async {
+          await setUpWatcher(platform: platform);
+          await watcher!.check();
+
+          expect(server.requests, isNotEmpty);
+        });
+      });
+    }
 
     group('the record', () {
       testWidgets('is forgotten when the setting is switched back on', (

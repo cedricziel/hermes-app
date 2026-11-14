@@ -141,6 +141,11 @@ abstract final class AppIcons {
     Icons.system_update_alt,
     CupertinoIcons.arrow_down_to_line,
   );
+  static const eye = AppIconSet(Icons.visibility_outlined, CupertinoIcons.eye);
+  static const eyeOff = AppIconSet(
+    Icons.visibility_off_outlined,
+    CupertinoIcons.eye_slash,
+  );
   static const checkCircle = AppIconSet(
     Icons.check_circle_outline,
     CupertinoIcons.check_mark_circled,
@@ -465,6 +470,8 @@ abstract final class AppIcons {
     'edit': edit,
     'download': download,
     'install': install,
+    'eye': eye,
+    'eyeOff': eyeOff,
     'checkCircle': checkCircle,
     'checkCircleFilled': checkCircleFilled,
     'attach': attach,

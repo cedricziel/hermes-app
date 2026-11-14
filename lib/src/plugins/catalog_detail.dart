@@ -38,15 +38,24 @@ class CatalogDetail extends StatelessWidget {
     final facts = [
       if (entry.installed)
         GroupedRow(
+          wrapWhenStacked: true,
           title: 'Status',
           value: entry.updateAvailable ? 'Update available' : 'Installed',
         ),
       if (entry.commit.isNotEmpty)
-        GroupedRow(title: 'Commit', value: entry.commit),
+        GroupedRow(wrapWhenStacked: true, title: 'Commit', value: entry.commit),
       if (entry.requiresHermes.isNotEmpty)
-        GroupedRow(title: 'Requires Hermes', value: entry.requiresHermes),
+        GroupedRow(
+          wrapWhenStacked: true,
+          title: 'Requires Hermes',
+          value: entry.requiresHermes,
+        ),
       if (entry.platforms.isNotEmpty)
-        GroupedRow(title: 'Platforms', value: entry.platforms.join(', ')),
+        GroupedRow(
+          wrapWhenStacked: true,
+          title: 'Platforms',
+          value: entry.platforms.join(', '),
+        ),
     ];
     return DetailPage(
       key: const Key('catalog-detail'),

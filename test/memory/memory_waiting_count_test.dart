@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
 import 'package:hermes_app/src/memory/memory_waiting_count.dart';
@@ -44,8 +45,8 @@ void main() {
 
   test('a read that fails shows no count', () async {
     await count.refresh('work');
-    transport.script['/memory pending'] = StateError('socket');
-    transport.script['/skills pending'] = StateError('socket');
+    transport.script['/memory pending'] = const GatewayConnectionClosed();
+    transport.script['/skills pending'] = const GatewayConnectionClosed();
     await count.refresh('work');
     expect(count.waiting, isNull);
   });

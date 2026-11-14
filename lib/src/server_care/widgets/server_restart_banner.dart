@@ -52,7 +52,10 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
   @override
   void didUpdateWidget(ServerRestartBanner old) {
     super.didUpdateWidget(old);
-    if (old._ready != widget._ready) _arm();
+    if (old._ready != widget._ready ||
+        old.onAutoDismiss != widget.onAutoDismiss) {
+      _arm();
+    }
   }
 
   void _arm() {
@@ -83,11 +86,11 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
       child: AppIcon(
         ready ? AppIcons.checkCircle : AppIcons.info,
         size: 20,
-        color: ready ? colors.success : scheme.primary,
+        color: ready ? colors.success : colors.link,
       ),
     );
     final background = Color.alphaBlend(
-      scheme.primary.withValues(alpha: 0.06),
+      colors.link.withValues(alpha: 0.08),
       scheme.surfaceContainerHighest,
     );
     return Semantics(

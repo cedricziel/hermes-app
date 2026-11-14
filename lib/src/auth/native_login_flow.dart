@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -26,6 +27,7 @@ class NativeLoginException implements Exception {
   NativeLoginException(
     this.message, {
     this.statusCode,
+    this.errorCode,
     this.reason = NativeLoginFailure.other,
   });
   final String message;
@@ -36,10 +38,19 @@ class NativeLoginException implements Exception {
   /// The HTTP status the server answered with, when the failure was one.
   final int? statusCode;
 
+  /// The `error` field of a JSON error body, such as Hermes'
+  /// `session_expired`, when the server sent one.
+  final String? errorCode;
+
   /// True when the server refused the credential itself (as opposed to being
-  /// unreachable or failing), so retrying with it cannot succeed.
+  /// unreachable or failing), so retrying with it cannot succeed. A 400 or
+  /// 401 counts as refused whatever its body. A 403 counts only with Hermes'
+  /// `session_expired` body: Hermes never answers a refresh with 403, so any
+  /// other 403 comes from a proxy or firewall that never looked at the token.
   bool get rejected =>
-      statusCode == 400 || statusCode == 401 || statusCode == 403;
+      statusCode == 400 ||
+      statusCode == 401 ||
+      (statusCode == 403 && errorCode == 'session_expired');
 
   @override
   String toString() => message;
@@ -266,9 +277,23 @@ Future<HermesSession> refreshNativeSession(
     throw NativeLoginException(
       _describeDioError(e),
       statusCode: e.response?.statusCode,
+      errorCode: _errorCode(e.response?.data),
       reason: NativeLoginFailure.refresh,
     );
   }
+}
+
+String? _errorCode(Object? body) {
+  if (body is String) {
+    try {
+      body = jsonDecode(body);
+    } on FormatException {
+      return null;
+    }
+  }
+  return body is Map && body['error'] is String
+      ? body['error'] as String
+      : null;
 }
 
 /// Whether a request that got no answer may still have been carried out.

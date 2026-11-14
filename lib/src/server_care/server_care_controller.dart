@@ -50,7 +50,32 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   String? _profile;
   DateTime? _lastRead;
   int _generation = 0;
+  bool _missedWhileCovered = false;
+  bool _profileLookupFailed = false;
   final _reportedUnsupported = <CarePart>{};
+
+  /// The chat's profile this controller reads for; null until one is known.
+  String? get profile => _profile;
+
+  /// Whether the server has the route of [part], as far as it is known: true
+  /// until a read of it was answered with a missing route.
+  bool offers(CarePart part) => !_reportedUnsupported.contains(part);
+
+  /// Whether no profile is known and looking one up failed: the status cannot
+  /// be read until it is tried again.
+  bool get profileLookupFailed => _profileLookupFailed && _profile == null;
+
+  /// Set by the shell: looks up the server's default profile again. A read
+  /// asked for while no profile is known does this instead.
+  Future<void> Function()? lookUpProfile;
+
+  /// The shell's lookup of the default profile ended without a name.
+  void profileLookupEnded({required bool found}) {
+    final failed = !found && _profile == null;
+    if (failed == _profileLookupFailed) return;
+    _profileLookupFailed = failed;
+    notifyListeners();
+  }
 
   /// The last status read, kept while a later read fails.
   ServerStatus? get status => _status;
@@ -67,6 +92,9 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   Attention? get attention {
     if (!_supported) return null;
     if (_failure == CareFailureKind.offline) return Attention.offline;
+    // Any other failed read says nothing new: the old status is not shown as
+    // current, and no mark is raised or cleared on it.
+    if (_failure != null) return null;
     final status = _status;
     if (status == null) return null;
     return Attention.of(status, gatewayBusy: _gatewayBusy);
@@ -105,19 +133,38 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
     _lastRead = null;
     // The gateway that was busy belonged to the old profile.
     _gatewayBusy = false;
+    if (profile == null) {
+      // Nothing to read, and a read that was running is dropped.
+      _loading = false;
+      notifyListeners();
+      return;
+    }
     refresh();
   }
 
   /// Reads the status now.
   Future<void> refresh() async {
     final profile = _profile;
-    if (disposed || profile == null) return;
+    if (disposed) return;
+    if (profile == null) {
+      // Nothing can be read before a profile is known; try to learn one.
+      final lookUp = lookUpProfile;
+      if (lookUp != null) {
+        _profileLookupFailed = false;
+        notifyListeners();
+        await lookUp();
+      }
+      return;
+    }
     if (covered?.call() ?? false) {
       // A read that was running is dropped below; do not leave it spinning.
+      // The one that is skipped is made up for on unlock.
       _loading = false;
+      _missedWhileCovered = true;
       notifyListeners();
       return;
     }
+    _missedWhileCovered = false;
     final generation = ++_generation;
     _loading = true;
     notifyListeners();
@@ -147,6 +194,8 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
           outcome = 'unsupported';
           reportUnsupported(CarePart.status);
         case CareFailed(:final kind):
+          // The next resume tries again, also after an earlier success.
+          _lastRead = null;
           _failure = kind;
           outcome = kind.name;
       }
@@ -164,6 +213,8 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   /// timers stop while iOS suspends the app, so this is what catches up.
   Future<void> resumed() async {
     if (_loading) return;
+    // A read skipped under App Lock is owed, however recent the last was.
+    if (_missedWhileCovered) return refresh();
     final last = _lastRead;
     if (last != null && _now().difference(last) < resumeInterval) return;
     await refresh();
@@ -173,6 +224,7 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   /// part is a fixed name; nothing about the server goes in the event.
   void reportUnsupported(CarePart part) {
     if (!_reportedUnsupported.add(part)) return;
+    notifyListeners();
     _quiet(
       () => telemetry.events('server_care.unsupported', {'part': part.name}),
     );

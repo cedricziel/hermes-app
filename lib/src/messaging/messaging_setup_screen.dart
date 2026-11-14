@@ -9,6 +9,7 @@ import 'hermes_messaging_repository.dart';
 import 'telegram_pairing_screen.dart';
 import '../chat/gateway_connection_transport.dart';
 import '../widgets/route_dismissal.dart';
+import '../telemetry/report_bug.dart';
 
 /// A form for the credentials and settings a platform reads from its
 /// environment. Values the dashboard already holds are never shown, only
@@ -70,7 +71,8 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
         clear: _cleared.toList(),
       );
       if (mounted) dismissRoute(context, true);
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a messaging screen');
       if (!mounted) return;
       setState(() {
         _saving = false;

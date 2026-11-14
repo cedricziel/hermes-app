@@ -73,12 +73,15 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   }
 
   final active = <ActiveNotification>[];
+  Exception? activeError;
+  Exception? cancelError;
   final cancelled = <int>[];
   final cancelledTags = <String?>[];
 
   /// Like the plugin's Android side: no payload, but the tag.
   @override
   Future<List<ActiveNotification>> getActiveNotifications() async => [
+    if (activeError case final error?) throw error,
     for (final a in active)
       if (defaultTargetPlatform == TargetPlatform.android)
         ActiveNotification(id: a.id, tag: a.tag, title: a.title, body: a.body)
@@ -88,6 +91,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
 
   @override
   Future<void> cancel({required int id, String? tag}) async {
+    if (cancelError case final error?) throw error;
     cancelled.add(id);
     cancelledTags.add(tag);
   }
@@ -1006,7 +1010,7 @@ void main() {
     });
 
     test('reports unavailable platform without attempting a post', () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      debugDefaultTargetPlatformOverride = TargetPlatform.fuchsia;
 
       final result = await service.post(_request(_approval));
 
@@ -1109,7 +1113,7 @@ void main() {
     });
 
     test('does nothing on a platform without notifications', () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      debugDefaultTargetPlatformOverride = TargetPlatform.fuchsia;
       plugin.launchDetails = NotificationAppLaunchDetails(
         true,
         notificationResponse: _response('s1'),
@@ -1123,6 +1127,169 @@ void main() {
       expect(await service.launchTarget(), isNull);
       expect(plugin.initializeCalls, 0);
     });
+  });
+
+  group('on Windows and Linux', () {
+    late _FakePlugin plugin;
+    late LocalNotificationService service;
+
+    setUp(() {
+      plugin = _FakePlugin();
+      service = LocalNotificationService(
+        plugin: plugin,
+        registerCategories: (_) async => fail('no categories on a desktop'),
+      );
+    });
+
+    tearDown(() async {
+      debugDefaultTargetPlatformOverride = null;
+      await service.dispose();
+    });
+
+    const reply = AttentionNotification(
+      threadId: 's1',
+      profile: 'work',
+      title: 'Cleanup',
+      body: 'Done.',
+    );
+
+    for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+      group('$platform', () {
+        setUp(() => debugDefaultTargetPlatformOverride = platform);
+
+        test('posts a reply with the details of its own platform', () async {
+          final result = await service.post(reply);
+
+          expect(result.status, NotificationPostStatus.accepted);
+          final posted = plugin.posted.single;
+          expect(posted.title, 'Cleanup');
+          expect(posted.body, 'Done.');
+          expect(targetFromPayload(posted.payload)!.threadId, 's1');
+          expect(
+            platform == TargetPlatform.linux
+                ? posted.details!.linux
+                : posted.details!.windows,
+            isNotNull,
+          );
+        });
+
+        test('initializes with the settings of its own platform', () async {
+          await service.post(reply);
+
+          final settings = plugin.settings!;
+          expect(settings.linux!.defaultActionName, isNotEmpty);
+          final windows = settings.windows!;
+          expect(windows.appName, 'Hermes');
+          expect(windows.appUserModelId, 'com.cedricziel.hermesApp');
+          expect(
+            windows.guid,
+            matches(
+              RegExp(
+                r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+              ),
+            ),
+          );
+          expect(plugin.onBackgroundResponse, isNull);
+        });
+
+        test('a request shows the placeholder, never the command', () async {
+          await service.post(_request(_approval));
+
+          final posted = plugin.posted.single;
+          expect(posted.body, isNot(contains('rm -rf')));
+          expect(posted.details!.linux?.actions ?? const [], isEmpty);
+          expect(posted.details!.windows?.actions ?? const [], isEmpty);
+        });
+
+        test('a tap opens its chat', () async {
+          final taps = <NotificationTarget>[];
+          service.taps.listen(taps.add);
+          await service.post(reply);
+
+          plugin.onResponse!(_response(plugin.posted.single.payload));
+          await Future<void>.delayed(Duration.zero);
+
+          expect(taps.single.threadId, 's1');
+        });
+
+        test(
+          'a tap in the shape the Windows plugin reports opens its chat',
+          () async {
+            final taps = <NotificationTarget>[];
+            service.taps.listen(taps.add);
+            await service.post(reply);
+            final payload = plugin.posted.single.payload;
+
+            // The Windows plugin sets actionId to the payload for a body tap.
+            plugin.onResponse!(
+              NotificationResponse(
+                notificationResponseType:
+                    NotificationResponseType.selectedNotification,
+                payload: payload,
+                actionId: payload,
+              ),
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            expect(taps.single.threadId, 's1');
+          },
+        );
+
+        test('a launch by a Windows-shaped tap opens its chat', () async {
+          await service.post(reply);
+          final payload = plugin.posted.single.payload;
+          plugin.launchDetails = NotificationAppLaunchDetails(
+            true,
+            notificationResponse: NotificationResponse(
+              notificationResponseType:
+                  NotificationResponseType.selectedNotification,
+              payload: payload,
+              actionId: payload,
+            ),
+          );
+
+          expect((await service.launchTarget())!.threadId, 's1');
+        });
+
+        test(
+          'withdrawing answerable ones survives a plugin that cannot list',
+          () async {
+            plugin.activeError = PlatformException(code: 'unpackaged');
+
+            await service.withdrawAnswerable();
+          },
+        );
+
+        test('withdrawing survives a plugin that cannot cancel', () async {
+          plugin.active.add(
+            ActiveNotification(
+              id: 1,
+              payload: notificationPayload(_request(_approval)),
+            ),
+          );
+          plugin.cancelError = PlatformException(code: 'unpackaged');
+
+          await service.withdrawAnswerable();
+        });
+
+        test('a plugin that fails to post is reported, not thrown', () async {
+          plugin.showError = PlatformException(code: 'no_server');
+
+          final result = await service.post(reply);
+
+          expect(result.status, NotificationPostStatus.failed);
+          expect(result.errorType, 'PlatformException');
+        });
+
+        test('has no permission to report', () async {
+          expect(await service.allowed(), isNull);
+          expect(
+            await service.requestPermission(),
+            NotificationPermission.unavailable,
+          );
+        });
+      });
+    }
   });
 
   group('registerCategoriesNatively', () {

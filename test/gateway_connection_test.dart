@@ -84,6 +84,16 @@ void main() {
       expect(server.requestsTo('GET', '/'), isEmpty);
     });
 
+    test('an answer without a ticket is an unavailable credential', () async {
+      server.on('POST', '/api/auth/ws-ticket', {'detail': 'login page'});
+
+      await expectLater(
+        connect(authRequired: true)(),
+        throwsA(isA<GatewayCredentialUnavailable>()),
+      );
+      expect(opened, isEmpty);
+    });
+
     test('every connection mints its own ticket', () async {
       server.on('POST', '/api/auth/ws-ticket', {'ticket': 'tkt-1'});
       final connectGateway = connect(authRequired: true);
@@ -99,7 +109,7 @@ void main() {
 
       await expectLater(
         connect(authRequired: false)(),
-        throwsA(isA<StateError>()),
+        throwsA(isA<GatewayCredentialUnavailable>()),
       );
       expect(opened, isEmpty);
     });

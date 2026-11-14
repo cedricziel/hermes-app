@@ -125,6 +125,7 @@ extension _ChatControllerSessionBinding on ChatController {
   }
 
   void _clearOwnedState() {
+    _ChatControllerSubagents(this)._clearSubagents();
     _clearBilling();
     _clearReactions();
     _clearTodo();
@@ -171,6 +172,10 @@ extension _ChatControllerSessionBinding on ChatController {
             ) ==
             binding;
     final previous = _ownedBindings[thread];
+    if (previous != binding) {
+      // The session is held here now, so list reads blocked by a 4001 may go on.
+      _subagents[thread.id]?.markAttached();
+    }
     final controller = _usage.putIfAbsent(thread, () {
       final created = SessionUsageController(
         telemetry: usageTelemetry,
