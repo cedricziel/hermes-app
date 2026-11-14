@@ -26,7 +26,11 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
     this.covered,
     DateTime Function()? now,
     this.resumeInterval = const Duration(minutes: 5),
-  }) : _now = now ?? DateTime.now;
+    String? profile,
+  }) : _now = now ?? DateTime.now,
+       // A named parameter cannot be a private initializing formal.
+       // ignore: prefer_initializing_formals
+       _profile = profile;
 
   final ServerCareRepository repository;
   final ConnectionTelemetry telemetry;
@@ -89,7 +93,9 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   }
 
   /// Follows the chat's profile; a change reads again, and an answer still
-  /// on its way for the old one is dropped.
+  /// on its way for the old one is dropped. While no profile is known nothing
+  /// is read and there is no mark: a read without a profile would answer for
+  /// whichever profile the server has active.
   void profileChanged(String? profile) {
     if (profile == _profile) return;
     _profile = profile;
@@ -104,7 +110,8 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
 
   /// Reads the status now.
   Future<void> refresh() async {
-    if (disposed) return;
+    final profile = _profile;
+    if (disposed || profile == null) return;
     if (covered?.call() ?? false) {
       // A read that was running is dropped below; do not leave it spinning.
       _loading = false;
@@ -112,7 +119,6 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
       return;
     }
     final generation = ++_generation;
-    final profile = _profile;
     _loading = true;
     notifyListeners();
     Span? span;

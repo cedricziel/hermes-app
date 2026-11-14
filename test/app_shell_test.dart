@@ -2356,6 +2356,11 @@ void main() {
       auth = FakeSessionAuth();
       addTearDown(auth.dispose);
       kanbanPlugin(on: false);
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work'),
+      );
       server.on('GET', '/api/status', {
         'version': '0.22.2',
         'gateway_running': true,
@@ -2373,6 +2378,10 @@ void main() {
         repositories: HermesRepositories(server.client()),
       );
       expect(statusReads(), greaterThanOrEqualTo(1));
+      // The server's default profile is named, never left to the server.
+      for (final request in server.requestsTo('GET', '/api/status')) {
+        expect(request.queryParameters['profile'], isNotEmpty);
+      }
       final care = tester
           .element(find.byType(ChatScreen))
           .read<ServerCareController>();

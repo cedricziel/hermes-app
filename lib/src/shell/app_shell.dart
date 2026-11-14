@@ -244,7 +244,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
     if (repositories != null) {
-      final care = _serverCare = ServerCareController(
+      _serverCare = ServerCareController(
         repository: repositories.serverCare,
         telemetry: repositories.telemetry,
         covered: () => _appLock?.covered ?? false,
@@ -252,9 +252,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _chatProfiles?.addListener(_followServerCareProfile);
       _appLock?.addListener(_readServerCareAfterUnlock);
       // The chat reports its profile after its threads load, and not at all
-      // when it works in the server's default: read now, and again if a
-      // profile is reported.
-      unawaited(care.refresh());
+      // when it works in the server's default, so the default is resolved by
+      // name here. Nothing is read before some profile is known.
+      unawaited(_resolveServerCareProfile());
     }
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
@@ -350,8 +350,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _rebuild(VoidCallback update) => setState(update);
 
+  /// The server's own default profile, by name; null until read.
+  String? _defaultProfile;
+
+  Future<void> _resolveServerCareProfile() async {
+    try {
+      final active = await _profiles?.loadActive();
+      if (active != null) {
+        final name = active.current.isNotEmpty ? active.current : active.active;
+        _defaultProfile = name.isEmpty ? null : name;
+      }
+    } on Object {
+      // The chat's own report is then what names the profile.
+    }
+    if (mounted) _followServerCareProfile();
+  }
+
   void _followServerCareProfile() =>
-      _serverCare?.profileChanged(_chatProfiles?.current);
+      _serverCare?.profileChanged(_chatProfiles?.current ?? _defaultProfile);
 
   /// A status read skipped under App Lock is made up for on unlock.
   void _readServerCareAfterUnlock() {

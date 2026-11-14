@@ -22,16 +22,18 @@ void main() {
   late RecordingTracer tracer;
   late ServerCareController controller;
 
-  ServerCareController build() => ServerCareController(
-    repository: ServerCareRepository(server.client()),
-    telemetry: ConnectionTelemetry(
-      events: (name, [attributes = const {}]) => events(name, attributes),
-      tracer: tracer,
-      serverAttributes: const {'hermes.version': '0.22.2'},
-    ),
-    covered: () => covered,
-    now: () => clock,
-  );
+  ServerCareController build({String? profile = 'default'}) =>
+      ServerCareController(
+        profile: profile,
+        repository: ServerCareRepository(server.client()),
+        telemetry: ConnectionTelemetry(
+          events: (name, [attributes = const {}]) => events(name, attributes),
+          tracer: tracer,
+          serverAttributes: const {'hermes.version': '0.22.2'},
+        ),
+        covered: () => covered,
+        now: () => clock,
+      );
 
   setUp(() {
     server = FakeHermesServer()..on('GET', '/api/status', statusHealthy());
@@ -45,6 +47,31 @@ void main() {
   tearDown(() => controller.dispose());
 
   int reads() => server.requestsTo('GET', '/api/status').length;
+
+  test(
+    'nothing is read, and there is no mark, until a profile is known',
+    () async {
+      controller.dispose();
+      controller = build(profile: null);
+      await controller.refresh();
+      await controller.resumed();
+      expect(reads(), 0);
+      expect(controller.attention, isNull);
+      controller.profileChanged('work');
+      await pumpEventQueue();
+      expect(reads(), 1);
+      expect(controller.attention, isNotNull);
+    },
+  );
+
+  test('every status read names its profile', () async {
+    await controller.refresh();
+    controller.profileChanged('work');
+    await pumpEventQueue();
+    for (final request in server.requestsTo('GET', '/api/status')) {
+      expect(request.queryParameters['profile'], isNotEmpty);
+    }
+  });
 
   test('reads the status for the chat profile and ranks it', () async {
     controller.profileChanged('work');
