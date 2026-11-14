@@ -50,6 +50,11 @@ class ChatSessionState {
   String? runtimeId;
   SessionControlSnapshot? control;
   final waits = <String, String>{};
+
+  /// The memory recall sentence of each status kind, until that kind clears.
+  /// Recalls are not waits, so they stay out of [waits] and [visible]; the
+  /// activity line reads them from here.
+  final recallWaits = <String, String>{};
   final _memoryRecalls = <MemoryRecall>[];
   bool earlierRecallsOmitted = false;
 
@@ -87,6 +92,7 @@ class ChatSessionState {
     runtimeId = null;
     control = null;
     waits.clear();
+    recallWaits.clear();
     _memoryRecalls.clear();
     earlierRecallsOmitted = false;
     resume = null;

@@ -48,6 +48,8 @@ import 'chat_transport.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
 import 'owned_session_transport.dart';
+import 'activity/working_summary.dart' show WorkingSummary;
+import 'activity/working_summary_source.dart';
 import 'todo_plan/todo_plan_state.dart';
 import 'moa_progress_state.dart';
 import 'session_usage/session_usage_controller.dart';
@@ -606,6 +608,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   ChatSessionState? sessionStateIn(ChatThread thread) =>
       _ChatControllerSessionState(this)._sessionStateInImpl(thread);
+
+  final _workingSource = WorkingSummarySource();
+
+  /// What [thread] is doing now, for the activity line and the Mac toolbar's
+  /// subtitle; null when nothing is working.
+  WorkingSummary? workingSummaryIn(ChatThread thread) =>
+      _workingSource.read(thread, workingInputsOf(this, thread));
 
   void sessionDetailsOpened() =>
       _ChatControllerSessionState(this)._sessionDetailsOpenedImpl();
