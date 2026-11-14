@@ -7,7 +7,8 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:ui' show IsolateNameServer;
 
-import 'package:flutter/foundation.dart' show ChangeNotifier, ValueListenable;
+import 'package:flutter/foundation.dart'
+    show ChangeNotifier, TargetPlatform, ValueListenable, defaultTargetPlatform;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_otel/flutter_otel.dart'
@@ -580,6 +581,10 @@ Future<void> answerRequestInBackground(NotificationResponse response) async {
         }
       },
       deadline: deadline,
+      // Android registers the app's port before this isolate exists, or never.
+      pollFor: defaultTargetPlatform == TargetPlatform.android
+          ? Duration.zero
+          : const Duration(seconds: 3),
     );
   } finally {
     await _endBackgroundTask(handover.task);
