@@ -49,6 +49,11 @@ import '../platform_hint/show_platform_hint_prompt.dart';
 import '../profiles/chat_profiles.dart';
 import '../server_care/server_attention_mark.dart';
 import '../server_care/gateway_restart.dart';
+import '../server_care/hermes_update_run.dart';
+import '../server_care/replies_in_progress.dart';
+import '../server_care/update_banner.dart';
+import '../server_care/update_page.dart';
+import '../server_care/update_run_record.dart';
 import '../server_care/server_care_controller.dart';
 import '../server_care/server_care_scope.dart';
 import '../server_care/server_screen.dart';
@@ -154,6 +159,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// Restarts and starts the messaging gateway; owned here so a run goes on
   /// when the Server screen is left.
   GatewayRestart? _gatewayRun;
+
+  /// Updates Hermes and follows it to the receipt; owned here so it goes on
+  /// when the Server screen is left, and so the banner and the Mac sidebar
+  /// can say where it is.
+  HermesUpdateRun? _updateRun;
+  bool _updateWasBusy = false;
+
+  /// The replies the chat shows as running, for the update question.
+  final _replies = RepliesInProgress();
 
   /// The sidebar of a Mac window, which a pick in it closes when it lies
   /// over the page.
@@ -294,6 +308,21 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         telemetry: repositories.telemetry,
         breadcrumbs: _breadcrumbs,
       );
+      final accountKey = auth?.accountKey;
+      final updateRun = _updateRun = HermesUpdateRun(
+        repository: repositories.serverCare,
+        store: accountKey == null
+            ? null
+            : UpdateRunStore(accountKey: accountKey),
+        care: care,
+        covered: () => _appLock?.covered ?? false,
+        probeConnection: _probeConnection,
+        telemetry: repositories.telemetry,
+        breadcrumbs: _breadcrumbs,
+      )..addListener(_updateRunChanged);
+      auth?.addListener(_resetUpdateOnDeparture);
+      // An update a previous launch started is picked up where it is.
+      unawaited(updateRun.resume());
       care.addListener(_careSupportChanged);
       _appLock?.addListener(_readServerCareAfterUnlock);
       // The chat reports its profile after its threads load, and not at all
@@ -420,6 +449,35 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     });
   }
 
+  /// What an update that finished may have changed on the server: whether it
+  /// has Kanban and Schedules. It never touches `AuthController`: a connect
+  /// would swap the shell for the setup screen if it failed, and replace the
+  /// client the repositories hold. The status itself is read again by the run
+  /// through the care controller. A refusal changed nothing, so it reads
+  /// nothing.
+  Future<void> _probeConnection() async {
+    final phase = _updateRun?.phase;
+    if (phase != UpdatePhase.finished && phase != UpdatePhase.staleServer) {
+      return;
+    }
+    if (mounted) await _detect();
+  }
+
+  /// The care controller and the Mac sidebar say "Updating…" while it runs.
+  void _updateRunChanged() {
+    final busy = _updateRun?.busy ?? false;
+    if (busy == _updateWasBusy) return;
+    _updateWasBusy = busy;
+    _serverCare?.updating = busy;
+  }
+
+  /// Sign-out and a server change drop the update; an expired session does
+  /// not, so it is read again after sign-in.
+  void _resetUpdateOnDeparture() {
+    if (_auth?.ownerGeneration == _ownerGeneration) return;
+    unawaited(_updateRun?.reset());
+  }
+
   /// The server's own default profile, by name; null until read.
   String? _defaultProfile;
 
@@ -466,6 +524,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (_appLock?.covered ?? true) {
       // Hermes' own words about a failed run are not kept while covered.
       _gatewayRun?.forgetText();
+      _updateRun?.forgetText();
       return;
     }
     unawaited(_serverCare?.resumed());
@@ -495,6 +554,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _chatProfiles?.removeListener(_followServerCareProfile);
     _appLock?.removeListener(_readServerCareAfterUnlock);
     _gatewayRun?.dispose();
+    _auth?.removeListener(_resetUpdateOnDeparture);
+    _updateRun
+      ?..removeListener(_updateRunChanged)
+      ..dispose();
     _serverCare
       ?..removeListener(_careSupportChanged)
       ..dispose();
@@ -592,12 +655,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     );
     final care = _serverCare;
     final gatewayRun = _gatewayRun;
+    final updateRun = _updateRun;
     final tools = _tools;
     final toolInstalls = _toolInstalls;
+    final hasCare = care != null && gatewayRun != null && updateRun != null;
     final providers = <SingleChildWidget>[
-      if (care != null && gatewayRun != null) ...[
+      if (hasCare) ...[
         ChangeNotifierProvider<ServerCareController>.value(value: care),
         ChangeNotifierProvider<GatewayRestart>.value(value: gatewayRun),
+        ChangeNotifierProvider<HermesUpdateRun>.value(value: updateRun),
+        Provider<RepliesInProgress>.value(value: _replies),
       ],
       if (tools != null && toolInstalls != null) ...[
         ChangeNotifierProvider<ToolsAvailability>.value(value: tools),
@@ -606,7 +673,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     ];
     final provided = providers.isEmpty
         ? built
-        : MultiProvider(providers: providers, child: built);
+        : MultiProvider(
+            providers: providers,
+            // The banner shows in this window only, above every destination.
+            child: hasCare
+                ? Builder(
+                    builder: (context) => UpdateBannerLayer(
+                      onOpen: () => showUpdatePage(context),
+                      child: built,
+                    ),
+                  )
+                : built,
+          );
     final chrome = platformChromeOf(context);
     if (!chrome.isApple) return provided;
     final mac = chrome == PlatformChrome.macos;

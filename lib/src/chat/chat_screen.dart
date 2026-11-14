@@ -29,6 +29,7 @@ import '../agent_messages/agent_message_watcher.dart' show AgentMessageFinds;
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
@@ -77,6 +78,7 @@ import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
 import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
+import '../server_care/replies_in_progress.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
@@ -260,6 +262,12 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
 
+  /// Tells the update question how many replies this chat has running.
+  RepliesInProgress? _repliesCount;
+  int _runningReplies() => _chat.threads
+      .where((thread) => thread.remote && thread.isReplying)
+      .length;
+
   /// The requests that wait on the user in the open chat, which dock above
   /// the composer and mark the Activity button.
   late final NeedsYouQueue _needsYou;
@@ -362,6 +370,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Whether the Activity inspector is open; it stays open across chats.
   bool _activityOpen = false;
+
+  /// The agent whose detail the Activity panel shows; cleared when the chat
+  /// or the profile changes and when the panel closes.
+  final _agentSelection = ActivitySelection();
+
+  /// The sheet of the Activity panel on a phone, while it is open.
+  DraggableScrollableController? _activitySheet;
   bool _detailOpen = false;
   final _conversationNavigator = GlobalKey<NavigatorState>();
 
@@ -489,6 +504,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
     )..addListener(_changed);
+    _repliesCount = _maybeRead<RepliesInProgress>()?..attach(_runningReplies);
     _needsYou = needsYouQueueFor(
       _chat,
       breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
@@ -686,6 +702,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _wasLoadingThreads = loading;
     final thread = _chat.selectedThread;
     final owner = (_chat.profile, _chat.selectedId);
+    final picked = _agentSelection.key;
+    if (picked != null &&
+        (picked.threadId != _chat.selectedId ||
+            picked.profile != _chat.profile)) {
+      _agentSelection.clear();
+    }
     final savedOwner = _draftOwners[thread];
     if (savedOwner != null &&
         savedOwner != owner &&
@@ -845,6 +867,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _agentSelection.dispose();
     _disposeBotScreen();
     _windowlessChanges?.cancel();
     _listChanges?.controller.removeListener(_invalidationsChanged);
@@ -869,6 +892,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _voiceCall?.removeListener(_callChanged);
     _voiceCall?.dispose();
     _needsYou.dispose();
+    _repliesCount?.detach(_runningReplies);
     _chat
       ..removeListener(_changed)
       ..dispose();
