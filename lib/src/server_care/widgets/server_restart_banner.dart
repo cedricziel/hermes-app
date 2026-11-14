@@ -122,6 +122,11 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
     );
   }
 
+  double _closeTarget(BuildContext context) =>
+      platformChromeOf(context) == PlatformChrome.material
+      ? 48
+      : kAppleMinTapTarget;
+
   Widget _inset(BuildContext context) {
     final strip = ExcludeSemantics(child: SizedBox(height: widget.topInset));
     return platformChromeOf(context) == PlatformChrome.macos
@@ -154,9 +159,10 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
                 ),
                 IconButton(
                   tooltip: l10n.serverCareRestartBannerClose,
-                  constraints: const BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 44,
+                  // 44 pt on Apple platforms, 48 dp on Material.
+                  constraints: BoxConstraints(
+                    minWidth: _closeTarget(context),
+                    minHeight: _closeTarget(context),
                   ),
                   onPressed: widget.onClose,
                   icon: const AppIcon(AppIcons.close, size: 18),

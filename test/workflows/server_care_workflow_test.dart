@@ -390,114 +390,126 @@ void main() {
       });
   }
 
-  testWidgets('phone: update Hermes, leave and return, restart banner, '
-      'success', (tester) async {
-    final shots = ScreenshotRecorder('server-care-update');
-    var stage = 'running';
-    server.on('GET', '/api/status', {...statusHealthy(), 'active_agents': 2});
-    updateServer(() => stage);
-    await pumpShell(
+  for (final (name, brightness) in [
+    ('', Brightness.light),
+    ('-dark', Brightness.dark),
+  ]) {
+    testWidgets('phone$name: update Hermes, leave and return, restart banner, '
+        'success', (tester) async {
+      final shots = ScreenshotRecorder('server-care-update$name');
+      var stage = 'running';
+      server.on('GET', '/api/status', {...statusHealthy(), 'active_agents': 2});
+      updateServer(() => stage);
+      await pumpShell(
+        tester,
+        shots,
+        size: const Size(390, 844),
+        platform: TargetPlatform.android,
+        brightness: brightness,
+      );
+      await openServer(tester);
+      await tester.tap(find.textContaining('Update available'));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'available');
+      expect(find.text('Update Hermes'), findsOneWidget);
+
+      await tester.tap(find.text('Update Hermes'));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      await shots.capture(tester, 'question');
+      expect(find.text('Update Hermes now?'), findsOneWidget);
+      expect(
+        find.text('2 conversations on messaging channels will stop.'),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(FilledButton),
+        ),
+        findsNothing,
+      );
+      expect(server.requestsTo('POST', '/api/hermes/update'), isEmpty);
+      await tester.tap(find.text('Update').last);
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await tester.pump(const Duration(seconds: 2));
+      await answered(tester);
+      await shots.capture(tester, 'updating');
+      expect(find.text('Downloading and installing'), findsOneWidget);
+      expect(server.requestsTo('POST', '/api/hermes/update'), hasLength(1));
+
+      // Leave for the chat while Hermes restarts: the banner follows.
+      stage = 'down';
+      await until(tester, 'Restarting Hermes');
+      await back(tester);
+      await back(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'banner-on-chat');
+      const banner =
+          "Hermes is restarting after the update. Chats continue when it's back.";
+      expect(find.text(banner), findsOneWidget);
+
+      // Back to the page through the banner: the current phase.
+      await tester.tap(find.text(banner));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'restarting');
+      expect(find.text('Restarting Hermes'), findsOneWidget);
+
+      stage = 'up';
+      await until(tester, 'Now running 0.23.0.');
+      await shots.capture(tester, 'success');
+      expect(find.text('Hermes is up to date'), findsOneWidget);
+      await back(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'ready');
+      expect(find.text('Hermes 0.23.0 is ready'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 7));
+      await letSocketsIdle(tester);
+    });
+  }
+
+  for (final (name, brightness) in [
+    ('', Brightness.light),
+    ('-dark', Brightness.dark),
+  ]) {
+    testWidgets('mac$name: the sidebar says Updating… and the banner shows', (
       tester,
-      shots,
-      size: const Size(390, 844),
-      platform: TargetPlatform.android,
-      brightness: Brightness.light,
-    );
-    await openServer(tester);
-    await tester.tap(find.textContaining('Update available'));
-    await tester.pump(const Duration(milliseconds: 600));
-    await answered(tester);
-    await shots.capture(tester, 'available');
-    expect(find.text('Update Hermes'), findsOneWidget);
-
-    await tester.tap(find.text('Update Hermes'));
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pump(const Duration(milliseconds: 600));
-    await shots.capture(tester, 'question');
-    expect(find.text('Update Hermes now?'), findsOneWidget);
-    expect(
-      find.text('2 conversations on messaging channels will stop.'),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.byType(FilledButton),
-      ),
-      findsNothing,
-    );
-    expect(server.requestsTo('POST', '/api/hermes/update'), isEmpty);
-    await tester.tap(find.text('Update').last);
-    await tester.pump(const Duration(milliseconds: 600));
-    await answered(tester);
-    await tester.pump(const Duration(seconds: 2));
-    await answered(tester);
-    await shots.capture(tester, 'updating');
-    expect(find.text('Downloading and installing'), findsOneWidget);
-    expect(server.requestsTo('POST', '/api/hermes/update'), hasLength(1));
-
-    // Leave for the chat while Hermes restarts: the banner follows.
-    stage = 'down';
-    await until(tester, 'Restarting Hermes');
-    await back(tester);
-    await back(tester);
-    await tester.pump(const Duration(milliseconds: 600));
-    await answered(tester);
-    await shots.capture(tester, 'banner-on-chat');
-    const banner =
-        "Hermes is restarting after the update. Chats continue when it's back.";
-    expect(find.text(banner), findsOneWidget);
-
-    // Back to the page through the banner: the current phase.
-    await tester.tap(find.text(banner));
-    await tester.pump(const Duration(milliseconds: 600));
-    await answered(tester);
-    await shots.capture(tester, 'restarting');
-    expect(find.text('Restarting Hermes'), findsOneWidget);
-
-    stage = 'up';
-    await until(tester, 'Now running 0.23.0.');
-    await shots.capture(tester, 'success');
-    expect(find.text('Hermes is up to date'), findsOneWidget);
-    await back(tester);
-    await tester.pump(const Duration(milliseconds: 600));
-    await answered(tester);
-    await shots.capture(tester, 'ready');
-    expect(find.text('Hermes 0.23.0 is ready'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 7));
-    await letSocketsIdle(tester);
-  });
-
-  testWidgets('mac: the sidebar says Updating… and the banner shows', (
-    tester,
-  ) async {
-    final shots = ScreenshotRecorder('server-care-update-mac');
-    var stage = 'down';
-    updateServer(() => stage);
-    await pumpShell(
-      tester,
-      shots,
-      size: const Size(1160, 760),
-      platform: TargetPlatform.macOS,
-      brightness: Brightness.light,
-    );
-    final run = tester.element(find.byType(ChatScreen)).read<HermesUpdateRun>();
-    run.start().ignore();
-    await until(tester, 'Updating…');
-    await shots.capture(tester, 'sidebar');
-    expect(find.text('Updating…'), findsWidgets);
-    expect(
-      find.text(
-        "Hermes is restarting after the update. Chats continue when it's back.",
-      ),
-      findsOneWidget,
-    );
-    stage = 'up';
-    await until(tester, 'Hermes 0.23.0 is ready');
-    await shots.capture(tester, 'ready');
-    await tester.pump(const Duration(seconds: 7));
-    await letSocketsIdle(tester);
-  });
+    ) async {
+      final shots = ScreenshotRecorder('server-care-update-mac$name');
+      var stage = 'down';
+      updateServer(() => stage);
+      await pumpShell(
+        tester,
+        shots,
+        size: const Size(1160, 760),
+        platform: TargetPlatform.macOS,
+        brightness: brightness,
+      );
+      final run = tester
+          .element(find.byType(ChatScreen))
+          .read<HermesUpdateRun>();
+      run.start().ignore();
+      await until(tester, 'Updating…');
+      await shots.capture(tester, 'sidebar');
+      expect(find.text('Updating…'), findsWidgets);
+      expect(
+        find.text(
+          "Hermes is restarting after the update. Chats continue when it's back.",
+        ),
+        findsOneWidget,
+      );
+      stage = 'up';
+      await until(tester, 'Hermes 0.23.0 is ready');
+      await shots.capture(tester, 'ready');
+      await tester.pump(const Duration(seconds: 7));
+      await letSocketsIdle(tester);
+    });
+  }
 
   for (final (name, brightness) in [
     ('mac', Brightness.light),

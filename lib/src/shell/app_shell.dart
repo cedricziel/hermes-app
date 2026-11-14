@@ -288,6 +288,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             ? null
             : UpdateRunStore(accountKey: accountKey),
         care: care,
+        covered: () => _appLock?.covered ?? false,
         probeConnection: _probeConnection,
         telemetry: repositories.telemetry,
         breadcrumbs: _breadcrumbs,

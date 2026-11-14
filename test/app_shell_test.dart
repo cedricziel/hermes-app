@@ -261,7 +261,10 @@ void main() {
         });
     });
 
-    Future<HermesUpdateRun> pumpWithRun(WidgetTester tester) async {
+    Future<HermesUpdateRun> pumpWithRun(
+      WidgetTester tester, {
+      AppLockController? lock,
+    }) async {
       kanbanPlugin(on: true);
       final auth = FakeSessionAuth();
       addTearDown(auth.dispose);
@@ -269,9 +272,12 @@ void main() {
         tester,
         size: const Size(400, 800),
         auth: auth,
+        lock: lock,
         repositories: HermesRepositories(server.client()),
       );
-      return tester.element(find.byType(ChatScreen)).read<HermesUpdateRun>();
+      return tester
+          .element(find.byType(ChatScreen, skipOffstage: false))
+          .read<HermesUpdateRun>();
     }
 
     Future<void> startRestarting(
@@ -359,6 +365,33 @@ void main() {
       expect(find.byType(AppShell), findsOneWidget);
       expect(find.text('Hermes 0.23.0 is ready'), findsOneWidget);
       await stop(tester, run);
+    });
+
+    testWidgets('Hermes\' words arriving while App Lock covers the app are '
+        'not kept', (tester) async {
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+        await lock.load();
+        await lock.setEnabled(true);
+      });
+      addTearDown(lock.dispose);
+      lock.didChangeAppLifecycleState(AppLifecycleState.paused);
+      expect(lock.covered, isTrue);
+      server.on('POST', '/api/hermes/update', {
+        'ok': false,
+        'pid': null,
+        'name': 'hermes-update',
+        'error': 'docker_update_unsupported',
+        'message': 'Update the container image instead.',
+        'update_command': 'docker compose pull',
+      });
+      final run = await pumpWithRun(tester, lock: lock);
+      run.start().ignore();
+      await tester.pump(const Duration(seconds: 3));
+      expect(run.phase, UpdatePhase.refused);
+      expect(run.refusalMessage, isNull);
+      expect(run.refusalCommand, isNull);
     });
 
     testWidgets('a sign-out drops the update and the banner goes', (
