@@ -100,13 +100,14 @@ class MacDragOutSource implements DragOutSource {
     final arguments = call.arguments;
     switch (call.method) {
       case 'readFile':
-        return _read(arguments as int);
+        if (arguments is! int) throw PlatformException(code: 'gone');
+        return _read(arguments);
       case 'readTimedOut':
-        _timedOut(arguments as int);
+        if (arguments is int) _timedOut(arguments);
       case 'fileWritten':
-        _written(arguments as Map);
+        if (arguments is Map) _written(arguments);
       case 'ended':
-        _ended(arguments as Map);
+        if (arguments is Map) _ended(arguments);
       default:
         throw MissingPluginException(call.method);
     }
