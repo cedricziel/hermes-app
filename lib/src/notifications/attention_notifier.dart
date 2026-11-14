@@ -188,7 +188,12 @@ bool appLockHidesRequests(AppLockController? lock) =>
     lock != null && (!lock.loaded || lock.enabled);
 
 /// The key of the account [auth] is signed in to, or null while it is not
-/// connected: its server stays set while it departs, so only a ready
-/// connection counts.
+/// connected: its server stays set, and its state `ready`, while a sign-out or
+/// an expiry clears the tokens, so a ready connection that still allows
+/// protected requests is what counts.
 String? signedInAccountKey(AuthController? auth) =>
-    auth?.state == HermesConnectionState.ready ? auth?.accountKey : null;
+    auth != null &&
+        auth.state == HermesConnectionState.ready &&
+        auth.protectedRequestsAllowed
+    ? auth.accountKey
+    : null;
