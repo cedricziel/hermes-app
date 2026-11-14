@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
@@ -147,5 +149,141 @@ void main() {
     );
     expect(find.text('No MCP servers on "work"'), findsOneWidget);
     expect(find.text("What's the difference?"), findsNothing);
+  });
+
+  /// The link ends a loaded list, so none of the states without one show it.
+  group('has no link without a list', () {
+    final link = find.text("What's the difference?");
+
+    /// Mounts [screen] and lets it settle, or, for a held-back answer, runs a
+    /// few frames only, since the spinner never settles.
+    Future<void> mount(
+      WidgetTester t,
+      Widget screen, {
+      bool settle = true,
+    }) async {
+      t.view
+        ..physicalSize = const Size(420, 1000)
+        ..devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(MaterialApp(home: screen));
+      if (settle) {
+        await t.pumpAndSettle();
+      } else {
+        await t.pump(const Duration(milliseconds: 200));
+      }
+    }
+
+    Widget skills() => SkillsScreen(
+      repository: HermesSkillsRepository(server.client().raw),
+      chatProfile: 'default',
+    );
+    Widget helperModels() => HelperModelsScreen(
+      repository: HermesModelsRepository(server.client().raw),
+      profile: 'work',
+    );
+    Widget plugins() => PluginsScreen(
+      repository: HermesPluginManagerRepository(server.client().raw),
+    );
+    Widget mcp() => McpServersScreen(
+      repository: HermesMcpRepository(server.client().raw),
+      profiles: HermesProfilesRepository(server.client().raw),
+    );
+
+    // A held-back answer, completed at the end so no request is left open.
+    Completer<FakeResponse> hold(String path) {
+      final answer = Completer<FakeResponse>();
+      server.onRequest('GET', path, (_) => answer.future);
+      addTearDown(() {
+        if (!answer.isCompleted) answer.complete((status: 500, body: null));
+      });
+      return answer;
+    }
+
+    testWidgets('Skills while loading', (t) async {
+      hold('/api/skills');
+      await mount(t, skills(), settle: false);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('Skills that failed to load', (t) async {
+      server.on('GET', '/api/skills', {'detail': 'boom'}, status: 500);
+      await mount(t, skills());
+      expect(find.text('Could not load skills'), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('Skills without skills', (t) async {
+      server.on('GET', '/api/skills', []);
+      await mount(t, skills());
+      expect(find.text('This profile has no skills yet.'), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('Skills with a search that matches nothing', (t) async {
+      server.on('GET', '/api/skills', [
+        skillRow(name: 'apple-notes', description: 'Read', category: 'apple'),
+      ]);
+      await mount(t, skills());
+      expect(link, findsOneWidget);
+      await t.enterText(find.byType(TextField), 'zzz');
+      await t.pumpAndSettle();
+      expect(find.text('No skills match.'), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('Helper models while loading', (t) async {
+      hold('/api/model/auxiliary');
+      server.on('GET', '/api/model/options', {'providers': []});
+      await mount(t, helperModels(), settle: false);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('Helper models that failed to load', (t) async {
+      server.on('GET', '/api/model/auxiliary', {'detail': 'x'}, status: 500);
+      server.on('GET', '/api/model/options', {'providers': []});
+      await mount(t, helperModels());
+      expect(find.text('Retry'), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('Plugins while loading', (t) async {
+      hold('/api/dashboard/plugins/hub');
+      await mount(t, plugins(), settle: false);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('Plugins that failed to load', (t) async {
+      server.on('GET', '/api/dashboard/plugins/hub', {
+        'detail': 'x',
+      }, status: 500);
+      await mount(t, plugins());
+      expect(find.text('Could not load plugins'), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('MCP servers while loading', (t) async {
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work'),
+      );
+      hold('/api/mcp/servers');
+      await mount(t, mcp(), settle: false);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(link, findsNothing);
+    });
+
+    testWidgets('MCP servers that failed to load', (t) async {
+      server
+        ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+        ..on('GET', '/api/mcp/servers', {'detail': 'x'}, status: 500);
+      await mount(t, mcp());
+      expect(find.text('Could not load MCP servers'), findsOneWidget);
+      expect(link, findsNothing);
+    });
   });
 }
