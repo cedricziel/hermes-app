@@ -8,11 +8,11 @@ Activity that waits on the user (a billing verification code, a connector sign-i
 
 - Needs-you items (billing verification details of a pending request, connector operations the user can act on, a reclaimed session or one whose restore failed) show as one card docked directly above the composer, oldest first, with "1 of N" paging when there are several.
 - The card offers the item's own actions (Open verification page, Copy code; Open, Skip per target, Continue; Reopen) and leaves when the item is resolved, expires, or its scope retires.
-- A Skip or Continue shows "Sending your answer…" and ends within 10 s: a confirmed answer removes the item, anything else shows "Couldn't confirm your answer" and offers the actions again. Nothing is resent automatically. This is a new bound on the connector response, which waits without limit today.
-- While the connection is lost the item stays, with its server actions disabled and a plain "Offline" line, instead of silently moving to This session and back.
+- A Skip or Continue shows "Sending your answer…" and ends within 10 s: a confirmed answer removes the item, anything else shows "Couldn't confirm your answer" and offers the actions again. Nothing is resent automatically. The transport already ends the call after 30 s; this is a shorter, visible bound.
+- While the connection is lost a connector sign-in stays as a display-only card with its actions disabled and a plain "Offline" line, instead of vanishing and coming back. Billing details never stay: they are discarded on a drop.
 - The card is announced to screen readers by kind when it appears.
 - The Activity button shows a marker while any Needs-you item exists, and its accessible label says how many.
-- Applies to the main chat window (all layouts), Mac conversation windows and the quick panel.
+- Applies to the main chat window (all layouts), Mac conversation windows and the expanded quick panel (the compact one-line quick panel shows no dock).
 - The strip above the transcript is deleted, with the `ChatThreadView` parameters only it used.
 
 ## Non-goals
@@ -32,7 +32,7 @@ None (adds to `chat-activity`).
 
 - `chat-activity`: the docked Needs-you card, its paging, answer and offline states, the Activity button's marker; the Needs-you tier gains a failed restore and keeps an item while offline.
 - `agent-billing-verification`: verification details show in the docked card instead of an expandable strip card.
-- `agent-connector-operations`: a response is confirmed or reported unconfirmed within 10 s.
+- `agent-connector-operations`: a response is confirmed or reported unconfirmed within 10 s; a display-only model survives a connection loss.
 
 ## Impact
 

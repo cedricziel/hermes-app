@@ -10,7 +10,7 @@ After `chat-activity-panel` Working items (status lines such as "recalled 5 memo
 - On macOS (main window and conversation windows) there is no line: the newest Working sentence, with a small progress indicator, joins the toolbar subtitle after profile and model. Details are in the inspector.
 - The quick panel shows no Working status.
 - Process output moves from This session to Now in the Activity panel, where the `chat-activity` spec already puts it; today `BoundActivityPanel` lists every process card under This session.
-- The `ChatThreadView` parameters the line makes unnecessary are not needed: the strip is already gone (removed by `chat-activity-needs-you`), so this change only adds the line.
+- Nothing is removed: the strip is deleted by `chat-activity-needs-you`, so this change only adds the line.
 
 ## Non-goals
 
@@ -35,7 +35,7 @@ None (adds to `chat-activity`).
 ## Impact
 
 - New `WorkingSummary` model (newest sentence, counters) in `lib/src/chat/activity/` and `ActivityLine` widget in `lib/src/chat/activity/widgets/`.
-- `ChatThreadView` draws the line below the header; `MacChatToolbar` gains a status part of the subtitle (`MacToolbarSubtitle`); `ChatScreen` and `ConversationWindowScreen` pass it.
+- `ChatThreadView` draws the line below the header; `MacChatToolbar` and `ConversationWindowToolbar` gain a status part of the subtitle (`MacToolbarSubtitle`); `ChatScreen` and `ConversationWindowScreen` pass it.
 - `BoundActivityPanel` lists live process cards under Now.
 - Widgetbook use cases for the line and the subtitle; chat workflow screenshots change.
 

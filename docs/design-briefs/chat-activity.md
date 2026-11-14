@@ -23,7 +23,7 @@ Corrections where this brief or the first proposals did not work:
 - "Goal: ship the weekly digest (turn 3 of 20)" lost its tail at 390 pt; three counters left 60 pt for the sentence. Hence the goal text alone and at most two counters.
 - At the largest text size three chips overflow even on two rows; the two-counter limit applies there too.
 - With the body at 40% of the chat, the dock and composer leave no transcript on a 667 pt phone with the keyboard open. The design drew a collapse: title, one summary line ("3 sign-ins waiting · Expires in 4 min") and the action while the keyboard is open. Adopted in the change's design.md; the catalog fixes the thresholds.
-- The canvas drew connector Open enabled while offline. It needs operation authority, so the change keeps it disabled (design.md); Copy code and the billing Open stay.
+- The canvas drew connector Open and billing Copy code enabled while offline. Connector Open needs operation authority, and billing details are discarded when the connection is lost (`agent-billing-verification`), so the change disables Open, keeps a connector item display-only and drops a billing item (design.md).
 - The canvas draws the shared Button and `ChatComposer` unscaled at the largest size, so that board is indicative only.
 
 Copy added by the design: "Billing access needs approval"; "Connect Notion to continue"; "Session opened elsewhere"; "This chat was opened on another device."; "Verify this request on your billing page, then come back. Enter this code there:"; "Opens verify.example.com"; "This link can't be opened here."; "Expires in 4 min"; "Waiting for sign-in"; "Signed in"; "Sending your answer…"; "Couldn't confirm your answer. It may have gone through; check before trying again."; "Offline. These actions come back when you're connected."; "N of M"; "Previous request"; "Next request"; "3 sign-ins waiting · Expires in 4 min"; "Activity, N need you"; "Working on the plan"; "Waiting for you"; "Answered". The titles for a failed restore ("This chat couldn't be restored") were not drawn; the catalog uses them.
@@ -51,7 +51,7 @@ New components needed (from the canvas, all token markup): ActivityLine, Counter
 
 ## Differences by platform
 
-iOS: detent sheet from the line. Android: Material modal sheet, 48 dp targets. iPad and wide desktop: inspector beside the chat; the line hides while it is open. macOS: toolbar subtitle, ⌥⌘I inspector, 28 pt targets, no sheets. The quick panel shows the dock and no Working status.
+iOS: detent sheet from the line. Android: Material modal sheet, 48 dp targets. iPad and wide desktop: inspector beside the chat; the line hides while it is open. macOS: toolbar subtitle, ⌥⌘I inspector, 28 pt targets, no sheets. The expanded quick panel shows the dock inside its fixed height, the compact one shows none, and neither shows Working status.
 
 ## What was not checked
 

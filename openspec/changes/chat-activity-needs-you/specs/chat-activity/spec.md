@@ -9,7 +9,7 @@ The app SHALL show Needs-you items as a single card docked directly above the co
 #### Scenario: A reclaimed session in the quick panel
 
 - **WHEN** a reclaimed session is reported for the chat open in the quick panel
-- **THEN** the quick panel shows the card above its composer with Reopen and grows to fit it
+- **THEN** the expanded quick panel shows the card above its composer with Reopen inside its fixed height
 
 ### Requirement: Only the dock's body scrolls
 
@@ -45,7 +45,7 @@ The card SHALL offer Copy code and Open verification page for billing details; t
 
 ### Requirement: An answer is confirmed or reported unconfirmed within 10 seconds
 
-After Skip or Continue the card SHALL disable both, show "Sending your answer…" and a progress indicator, and end that state within 10 seconds. A confirmed answer SHALL follow the operation's own settlement. An answer that is refused, fails, or is not confirmed within 10 seconds SHALL show a warning line with an icon and the words "Couldn't confirm your answer", say that it may have gone through, and offer Skip and Continue again. The app SHALL NOT resend an answer by itself.
+After Skip or Continue the card SHALL disable both, show "Sending your answer…" and a progress indicator, and end that state within 10 seconds. A confirmed answer SHALL follow the operation's own settlement. An answer that fails or is not confirmed within 10 seconds SHALL show a warning line with an icon and the words "Couldn't confirm your answer", say that it may have gone through, and offer Skip and Continue again. The app SHALL NOT resend an answer by itself.
 
 #### Scenario: The answer is lost
 
@@ -53,20 +53,34 @@ After Skip or Continue the card SHALL disable both, show "Sending your answer…
 - **THEN** the card shows "Couldn't confirm your answer" and Continue is offered again
 - **AND** no second response was sent
 
+#### Scenario: The server refuses
+
+- **WHEN** the server answers Continue with a status other than ok
+- **THEN** the card shows "The server refused your answer." and offers Skip and Continue again
+
 #### Scenario: The confirmation arrives late
 
 - **WHEN** the operation settles after the card showed "Couldn't confirm your answer"
 - **THEN** the item leaves the card
 
-### Requirement: Needs-you items stay while the connection is lost
+### Requirement: A connector sign-in stays while the connection is lost
 
-While the gateway connection is lost and reconnecting, an item that was Needs-you SHALL stay on the card with its server actions (Skip, Continue, Open on a connector, Reopen) disabled and the line "Offline. These actions come back when you're connected." Copy code and the billing Open verification page SHALL stay available while the details are held. The item SHALL leave for every retirement its own capability defines, and the app SHALL NOT offer an action on authority it no longer holds.
+While the gateway connection is lost and its scope is not retired, a connector sign-in that was Needs-you SHALL stay on the card as a display-only item with Skip, Continue and Open disabled and the line "Offline. These actions come back when you're connected." The app SHALL NOT offer an action on authority it no longer holds.
 
 #### Scenario: The network drops with a sign-in waiting
 
 - **WHEN** the connection is lost while a connector sign-in is shown
-- **THEN** the card stays with Skip and Continue disabled and the Offline line
+- **THEN** the card stays with Skip, Continue and Open disabled and the Offline line
 - **AND** after the reconnect restores the operation the actions are offered again
+
+### Requirement: Billing details and Reopen follow the connection
+
+Billing verification details SHALL leave the card when the connection is lost. Reopen SHALL be disabled while offline. Every item SHALL leave for the retirements its capability defines.
+
+#### Scenario: The network drops with billing details shown
+
+- **WHEN** the connection is lost while billing details are shown
+- **THEN** the details are discarded and the item leaves the card
 
 ### Requirement: Needs-you items are announced
 
@@ -93,7 +107,7 @@ While at least one Needs-you item waits in the open chat, the Activity button (i
 
 The app SHALL assign every kind of chat activity it presents outside the transcript to exactly one tier:
 
-- **Needs you**: activity that waits on the user: billing verification details for a pending request; a connector operation the user can still act on (unsettled, with current authority and at least one offered action, or one that was so until the connection was lost); a reclaimed session that can be reopened; a session whose restore failed.
+- **Needs you**: activity that waits on the user: billing verification details for a pending request; a connector operation the user can still act on (unsettled, with current authority and at least one offered action, or kept display-only while the connection is lost); a reclaimed session that can be reopened; a session whose restore failed.
 - **Working**: live activity of the session: transient status lines (`status.update`, including memory recall), goal, loop and heartbeat control state, the todo plan, background process output, mixture-of-agents progress and session resume progress.
 - **For reference**: activity worth knowing but never urgent: session usage, side results (`/btw`, `/background`), session notices and keyed notifications, the identity-free session acknowledgement, connection-wide read-only connector activity, settled or read-only connector operations, and the billing grant result.
 
