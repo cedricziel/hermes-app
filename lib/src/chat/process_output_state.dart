@@ -149,7 +149,13 @@ class ProcessOutputState {
       listed.add(process.id);
       var card = _cards[process.id];
       if (card == null) {
-        if (!process.running) continue;
+        // A program the frames never named takes a free slot or a finished
+        // card's, never a running card's: that would drop frame output and
+        // churn on the next read.
+        if (!process.running ||
+            (_cards.length >= maxCards && !_cards.values.any(_finished))) {
+          continue;
+        }
         evicted = _makeRoom() || evicted;
         card = ProcessOutput(processId: process.id);
       }
@@ -236,13 +242,14 @@ class ProcessOutputState {
   /// otherwise the oldest. Answers whether a card went.
   bool _makeRoom() {
     if (_cards.length < maxCards) return false;
-    final done = _cards.values.where(
-      (card) => card.closed || (card.listed && !card.running),
-    );
+    final done = _cards.values.where(_finished);
     _cards.remove(done.isEmpty ? _cards.keys.first : done.first.processId);
     omittedCards = true;
     return true;
   }
+
+  static bool _finished(ProcessOutput card) =>
+      card.closed || (card.listed && !card.running);
 
   static (String, bool) _bounded(String text) {
     final bytes = utf8.encode(text);

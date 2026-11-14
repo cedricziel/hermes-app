@@ -327,6 +327,90 @@ void main() {
     });
   });
 
+  group('review fixes', () {
+    rig('a program that starts after an empty list is read on the next '
+        'tick and gets its name', (async, r) {
+      r.roster.watch();
+      async.flushMicrotasks();
+      expect(r.programReads, 1);
+      async.elapse(const Duration(seconds: 10));
+      expect(r.programReads, 1, reason: 'nothing to look for');
+      r.cards.frame('late', 'out');
+      r.listPrograms([program('late', command: 'npm run dev')]);
+      async.elapse(const Duration(seconds: 5));
+      expect(r.programReads, 2);
+      expect(r.cards.state.card('late')!.command, 'npm run dev');
+      expect(r.cards.state.card('late')!.running, isTrue);
+    });
+
+    rig('a card the list never names is looked for once, not forever', (
+      async,
+      r,
+    ) {
+      r.roster.watch();
+      async.flushMicrotasks();
+      r.cards.frame('elsewhere', 'out');
+      async.elapse(const Duration(seconds: 5));
+      expect(r.programReads, 2);
+      async.elapse(const Duration(seconds: 60));
+      expect(r.programReads, 2);
+      expect(r.cards.state.card('elsewhere')!.listed, isFalse);
+      // Another new card is looked for once again.
+      r.cards.frame('other', 'out');
+      async.elapse(const Duration(seconds: 5));
+      expect(r.programReads, 3);
+      async.elapse(const Duration(seconds: 30));
+      expect(r.programReads, 3);
+    });
+
+    rig('a closed card the list never named is not looked for', (async, r) {
+      r.roster.watch();
+      async.flushMicrotasks();
+      r.cards.state.apply(
+        const ProcessOutputUpdate('done', closed: true),
+        attachment: r.cards.attachment!,
+      );
+      async.elapse(const Duration(seconds: 20));
+      expect(r.programReads, 1);
+    });
+
+    rig('a round started while another is in flight does not count that '
+        'round\'s failure twice', (async, r) {
+      r.cards.frame('p', 'out');
+      r.listPrograms([program('p')]);
+      r.agents = (_) => {
+        'subagents': [
+          {'subagent_id': 'a', 'status': 'running'},
+        ],
+      };
+      r.roster.watch();
+      async.flushMicrotasks();
+      expect(r.roster.backoffFailures, 0);
+      // The timer's round: the agent read stays out, the program read fails.
+      final agentGate = Completer<Map<String, Object?>>();
+      final programGate = Completer<Map<String, Object?>>();
+      r.agents = (_) => agentGate.future;
+      r.programs = (_) => programGate.future;
+      async.elapse(const Duration(seconds: 5));
+      programGate.completeError(const GatewayRpcException(5010, 'x'));
+      async.flushMicrotasks();
+      expect(r.roster.backoffFailures, 1);
+      // An environment change starts a round, whose program read stays out.
+      final laterGate = Completer<Map<String, Object?>>();
+      r.programs = (_) => laterGate.future;
+      r.env.update(() {});
+      async.flushMicrotasks();
+      expect(r.programReads, 3);
+      // The timer round's agent read fails late: that round already
+      // counted its failure.
+      agentGate.completeError(const GatewayRpcException(5000, 'x'));
+      async.flushMicrotasks();
+      expect(r.roster.backoffFailures, 1);
+      laterGate.complete({'processes': []});
+      async.flushMicrotasks();
+    });
+  });
+
   group('stop host', () {
     rig('a lost kill re-reads the list through the roster and is never '
         'resent', (async, r) {

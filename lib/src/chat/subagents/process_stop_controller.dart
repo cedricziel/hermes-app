@@ -182,7 +182,10 @@ class ProcessStopController extends ChangeNotifier {
     _log('unconfirmed');
     _set(switch (outcome) {
       _Reread.stopped => ProcessStopPhase.killed,
-      _Reread.exited => ProcessStopPhase.alreadyEnded,
+      // The kill's answer was lost and the program is gone: its card's own
+      // state (Exited or Ended) says what happened, not a claim that it had
+      // already ended.
+      _Reread.exited => ProcessStopPhase.idle,
       _Reread.gone => ProcessStopPhase.notListed,
       _Reread.running || _Reread.failed => ProcessStopPhase.unconfirmed,
     });

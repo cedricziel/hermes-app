@@ -203,6 +203,26 @@ void main() {
     });
   });
 
+  test('a list-only program never evicts a running card at the cap', () {
+    for (var i = 0; i < ProcessOutputState.maxCards; i++) {
+      frame('$i', 'frame output $i');
+    }
+    final running = [
+      for (var i = 0; i < ProcessOutputState.maxCards; i++) row('$i'),
+    ];
+    for (var read = 0; read < 3; read++) {
+      state.applyList(
+        list([...running, row('extra', tail: 'x')]),
+        attachment: attachment,
+      );
+    }
+    expect(state.card('extra'), isNull);
+    expect(state.cards.map((c) => c.text), [
+      for (var i = 0; i < ProcessOutputState.maxCards; i++) 'frame output $i',
+    ]);
+    expect(state.omittedCards, isFalse);
+  });
+
   group('kill answers', () {
     test('killed reads Stopped and its output is not appended to a card '
         'with output', () {

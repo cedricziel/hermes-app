@@ -355,7 +355,13 @@ void main() {
       lose(again);
       again.stop();
       async.flushMicrotasks();
-      expect(again.controller.phase, ProcessStopPhase.alreadyEnded);
+      // A lost answer claims nothing: the card's own state (Exited or
+      // Ended) says what happened.
+      expect(again.controller.phase, ProcessStopPhase.idle);
+      expect(
+        processStopStatusOf(again.controller.phase),
+        ProcessStopStatus.idle,
+      );
       expect(again.outcomes, ['unconfirmed']);
       again.controller.dispose();
     });

@@ -139,9 +139,15 @@ class SubagentRoster extends ChangeNotifier {
   var _programsListed = false;
   Future<AgentWorkResult<ProcessList>>? _programsInFlight;
 
-  /// Both lists share one backoff: a round where both reads fail counts
-  /// once.
-  var _failedThisRound = false;
+  /// Both lists share one backoff. Each read belongs to the round that
+  /// started it, and a round counts its failures once, also when another
+  /// round starts while its reads are out.
+  var _rounds = 0;
+  int? _failedRound;
+
+  /// Cards the list has been read for once without naming them (a child
+  /// agent's program may live under another session): not read for again.
+  final _programsLookedFor = <String>{};
 
   /// Whether the last list answer was malformed or failed (for tests and the
   /// panel's quiet state).
@@ -223,6 +229,21 @@ class SubagentRoster extends ChangeNotifier {
   bool get _anyProgramRunning =>
       _programCards?.cards.any((card) => card.running) ?? false;
 
+  /// A card frames opened that no list read has looked for yet: a program
+  /// that started after the last read.
+  bool get _anyProgramUnlooked =>
+      _programCards?.cards.any(
+        (card) =>
+            !card.listed &&
+            !card.closed &&
+            !_programsLookedFor.contains(card.processId),
+      ) ??
+      false;
+
+  /// Failures counted by the backoff in a row (for tests).
+  @visibleForTesting
+  int get backoffFailures => _backoff.failures;
+
   ProcessOutputState? get _programCards {
     final cards = programs;
     final attachment = cards?.attachmentOf(threadId);
@@ -234,26 +255,29 @@ class SubagentRoster extends ChangeNotifier {
     // reading: its agents may have started from another client.
     final agents = _gatesOpen && (_anyActive || !_listed);
     final programs =
-        _programGatesOpen && (_anyProgramRunning || !_programsListed);
+        _programGatesOpen &&
+        (_anyProgramRunning || !_programsListed || _anyProgramUnlooked);
     if (!(agents || programs) || !_backoff.tick()) return;
     _round(agents: agents, programs: programs);
   }
 
   /// One round of reads on the shared timer and backoff.
   void _round({required bool agents, required bool programs}) {
-    _failedThisRound = false;
-    if (agents && _gatesOpen) unawaited(_read());
-    if (programs && _programGatesOpen) unawaited(_readPrograms());
+    final round = ++_rounds;
+    if (agents && _gatesOpen) unawaited(_read(round: round));
+    if (programs && _programGatesOpen) {
+      unawaited(_readPrograms(round: round));
+    }
   }
 
-  void _readFailed() {
-    if (_failedThisRound) return;
-    _failedThisRound = true;
+  void _readFailed(int round) {
+    if (_failedRound == round) return;
+    _failedRound = round;
     _backoff.failed();
   }
 
-  void _readSucceeded() {
-    if (!_failedThisRound) _backoff.succeeded();
+  void _readSucceeded(int round) {
+    if (_failedRound != round) _backoff.succeeded();
   }
 
   /// The chat's stored id changed (a new chat got its first one). Rows from
@@ -265,6 +289,7 @@ class SubagentRoster extends ChangeNotifier {
     _inFlight = _programsInFlight = null;
     _listed = _programsListed = false;
     _blockedOn = _programsBlockedOn = null;
+    _programsLookedFor.clear();
   }
 
   /// The session now holds the connection (an action attached it), so list
@@ -281,20 +306,26 @@ class SubagentRoster extends ChangeNotifier {
     final pending = _inFlight;
     if (pending != null) await pending;
     if (_disposed) return const WorkLost();
-    return _read(force: true);
+    return _read(force: true, round: ++_rounds);
   }
 
-  Future<AgentWorkResult<AgentList>> _read({bool force = false}) {
+  Future<AgentWorkResult<AgentList>> _read({
+    bool force = false,
+    required int round,
+  }) {
     final running = _inFlight;
     if (!force && running != null) return running;
     late final Future<AgentWorkResult<AgentList>> read;
-    read = _readOnce(force: force).whenComplete(() {
+    read = _readOnce(force: force, round: round).whenComplete(() {
       if (identical(_inFlight, read)) _inFlight = null;
     });
     return _inFlight = read;
   }
 
-  Future<AgentWorkResult<AgentList>> _readOnce({required bool force}) async {
+  Future<AgentWorkResult<AgentList>> _readOnce({
+    required bool force,
+    required int round,
+  }) async {
     final connection = _env.connection;
     // A forced read (the re-read after a stop) skips the demand and the
     // backoff, not the rules about the background, App Lock, a missing
@@ -322,7 +353,7 @@ class SubagentRoster extends ChangeNotifier {
         _listed = true;
         _blockedOn = null;
         _lastReadFailed = false;
-        _readSucceeded();
+        _readSucceeded(round);
         _changed();
         return WorkOk(value);
       case WorkNotAttached():
@@ -343,11 +374,11 @@ class SubagentRoster extends ChangeNotifier {
         return const WorkFailed(WorkFailureKind.notOwned);
       case WorkFailed(:final kind):
         _lastReadFailed = true;
-        _readFailed();
+        _readFailed(round);
         return WorkFailed(kind);
       case WorkLost():
         _lastReadFailed = true;
-        _readFailed();
+        _readFailed(round);
         return const WorkLost();
     }
   }
@@ -360,14 +391,17 @@ class SubagentRoster extends ChangeNotifier {
     final pending = _programsInFlight;
     if (pending != null) await pending;
     if (_disposed) return const WorkLost();
-    return _readPrograms(force: true);
+    return _readPrograms(force: true, round: ++_rounds);
   }
 
-  Future<AgentWorkResult<ProcessList>> _readPrograms({bool force = false}) {
+  Future<AgentWorkResult<ProcessList>> _readPrograms({
+    bool force = false,
+    required int round,
+  }) {
     final running = _programsInFlight;
     if (!force && running != null) return running;
     late final Future<AgentWorkResult<ProcessList>> read;
-    read = _readProgramsOnce(force: force).whenComplete(() {
+    read = _readProgramsOnce(force: force, round: round).whenComplete(() {
       if (identical(_programsInFlight, read)) _programsInFlight = null;
     });
     return _programsInFlight = read;
@@ -375,6 +409,7 @@ class SubagentRoster extends ChangeNotifier {
 
   Future<AgentWorkResult<ProcessList>> _readProgramsOnce({
     required bool force,
+    required int round,
   }) async {
     final cards = programs, connection = _env.connection;
     if (cards == null ||
@@ -390,6 +425,14 @@ class SubagentRoster extends ChangeNotifier {
     final attachment = cards.attachmentOf(threadId);
     if (attachment == null) return const WorkNotAttached();
     final generation = _generation;
+    // The cards this read looks for; a later card is looked for by a later
+    // read.
+    final lookedFor = [
+      for (final card
+          in cards.cardsFor(threadId, attachment)?.cards ??
+              const <ProcessOutput>[])
+        card.processId,
+    ];
     final result = await _repository.processList(threadId, profile: profile);
     if (_disposed ||
         generation != _generation ||
@@ -404,8 +447,9 @@ class SubagentRoster extends ChangeNotifier {
         if (state == null) return const WorkLost();
         state.applyList(value, attachment: attachment);
         _programsListed = true;
+        _programsLookedFor.addAll(lookedFor);
         _programsBlockedOn = null;
-        _readSucceeded();
+        _readSucceeded(round);
         cards.cardsChanged();
         _changed();
         return WorkOk(value);
@@ -426,10 +470,10 @@ class SubagentRoster extends ChangeNotifier {
       case WorkFailed(:final kind):
         // 5032 (the agent is still starting) and 5010 land here: quiet, on
         // the backoff.
-        _readFailed();
+        _readFailed(round);
         return WorkFailed(kind);
       case WorkLost():
-        _readFailed();
+        _readFailed(round);
         return const WorkLost();
     }
   }
@@ -585,6 +629,7 @@ class SubagentRoster extends ChangeNotifier {
       _loggedUnsupported = _loggedProgramsUnsupported = false;
       _listed = _programsListed = false;
       _inFlight = _programsInFlight = null;
+      _programsLookedFor.clear();
       _backoff.reset();
     }
     notifyListeners();
@@ -609,6 +654,7 @@ class SubagentRoster extends ChangeNotifier {
     _generation++;
     _inFlight = _programsInFlight = null;
     _listed = _programsListed = false;
+    _programsLookedFor.clear();
     _rows.clear();
     _delegations.clear();
     _lastReadFailed = false;
