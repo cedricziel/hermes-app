@@ -281,6 +281,7 @@ class _LinkSegment extends StatelessWidget {
               foregroundColor: link,
               minimumSize: Size(files.target, files.target),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.standard,
               padding: const EdgeInsets.symmetric(horizontal: 6),
               textStyle: Theme.of(context).textTheme.labelLarge
                   ?.copyWith(fontSize: fontSize),

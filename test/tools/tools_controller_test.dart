@@ -339,6 +339,44 @@ void main() {
     await controller.requestSwitch('todo', enabled: true);
 
     expect(controller.postSetupStarted, 'some_driver');
+    expect(controller.postSetupToolset, 'todo');
+
+    controller.clearPostSetupStarted();
+
+    expect(controller.postSetupStarted, isNull);
+    expect(controller.postSetupToolset, isNull);
+  });
+
+  test(
+    'a list the shell already read is shown at once and read again',
+    () async {
+      final seeded = ToolsController(
+        toolsRepository(server),
+        initial: controller.toolsets,
+      );
+      addTearDown(seeded.dispose);
+
+      expect(seeded.hasLoaded, isTrue);
+      expect(seeded.loadState, ToolsLoadState.ready);
+      expect(seeded.groups.needsSetup.map((t) => t.name), ['web']);
+      final before = server.requestsTo('GET', '/api/tools/toolsets').length;
+
+      await seeded.load();
+
+      expect(
+        server.requestsTo('GET', '/api/tools/toolsets').length,
+        before + 1,
+      );
+      expect(seeded.loadState, ToolsLoadState.ready);
+    },
+  );
+
+  test('without a seed the list starts out loading', () {
+    final fresh = ToolsController(toolsRepository(server));
+    addTearDown(fresh.dispose);
+
+    expect(fresh.hasLoaded, isFalse);
+    expect(fresh.loadState, ToolsLoadState.loading);
   });
 
   test('a 404 on a write marks the server as without tools', () async {

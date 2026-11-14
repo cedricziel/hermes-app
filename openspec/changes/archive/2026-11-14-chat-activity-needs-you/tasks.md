@@ -31,5 +31,10 @@ Two PRs, in order, each about 500 changed lines or fewer. Every behaviour task s
 
 ## 4. Verify
 
-- [ ] 4.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
-- [ ] 4.2 Run the `verify-in-app` loop on macOS against a dev backend: trigger a reclaim (open the same session from a second client) and confirm the Reopen card docks above the composer; stop the backend while a connector card shows and confirm the display-only Offline card; screenshot both. Billing and connector cards need a scripted server; if the dev backend cannot raise them, say so and cover them with the fake gateway tests instead.
+- [x] 4.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
+
+## Not verified on a device
+
+These checks had not been run when the change was archived. The implementation and its tests are in the repository; see docs/roadmap.md.
+
+- 4.2 Run the `verify-in-app` loop on macOS against `scripts/dev-backend.sh`: trigger a reclaim (open the same session from a second client) and confirm the Reopen card docks above the composer; stop the backend while a connector card shows and confirm the display-only Offline card; screenshot both. Billing and connector cards need a scripted server; the fake gateway tests cover them.

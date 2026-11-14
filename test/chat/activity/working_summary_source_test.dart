@@ -6,6 +6,21 @@ void main() {
   turnScoped();
   final scope = Object();
 
+  test('a queued turn that ends only through the read fallback advances the '
+      'turn end', () {
+    final source = WorkingSummarySource();
+    final scope = Object();
+    const replying = WorkingInputs(replying: true);
+    source.read(scope, replying);
+    source.turnEnded(scope);
+    source.read(scope, replying);
+    final arrived = source.next();
+    expect(source.waitIsCurrent(scope, arrived, replying: true), isTrue);
+    // The queued turn ends with nobody saying so.
+    source.read(scope, const WorkingInputs());
+    expect(source.waitIsCurrent(scope, arrived, replying: true), isFalse);
+  });
+
   test('nothing working yields null', () {
     expect(
       WorkingSummarySource().read(scope, const WorkingInputs(replying: true)),

@@ -8,6 +8,10 @@ import '../../theme/hermes_theme.dart';
 import '../../bot_screen/bot_screen_card_model.dart';
 import '../../bot_screen/bot_screen_controller.dart';
 import '../../bot_screen/widgets/bound_bot_screen_card.dart';
+import '../../files/files_telemetry.dart' show FilesOpenedFrom;
+import '../../files/open_files.dart';
+import '../../files/server_path.dart';
+import '../../files/widgets/files_activity_row.dart';
 import '../../memory/memory_destination.dart';
 import '../chat_controller.dart';
 import '../chat_models.dart';
@@ -105,6 +109,14 @@ class BoundActivityPanel extends StatelessWidget {
     if (model == null) return null;
     final used = !model.screenRunning && threadUsedScreen(t);
     return model.listed(usedByChat: used) ? model : null;
+  }
+
+  /// The chat's folder name, when it has a stored one.
+  String? _folderName(ChatThread t) {
+    final cwd = t.workingDirectory;
+    final path = cwd == null ? null : ServerPath.tryParse(cwd);
+    if (path == null) return null;
+    return path.isRoot ? path.value : path.name;
   }
 
   /// Whether the session state is live work: control, a resume, or a wait of
@@ -258,6 +270,17 @@ class BoundActivityPanel extends StatelessWidget {
               ? TodoPlanCard(state: plan, initiallyOpen: true)
               : null,
           session: [
+            if (filesShown(context))
+              FilesActivityRow(
+                folderName: _folderName(t),
+                onTap: () {
+                  // A sheet closes first; the page then opens over the chat.
+                  onClose?.call();
+                  unawaited(
+                    openFiles(context, chat, from: FilesOpenedFrom.activity),
+                  );
+                },
+              ),
             if (roster != null) ...[
               ..._agentRows(roster, roster.sections.session),
               if (roster.sections.hiddenEnded > 0)
