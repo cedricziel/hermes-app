@@ -166,7 +166,7 @@ For a server without the auth gate, the system SHALL send the session token embe
 
 ### Requirement: Gated servers load providers and check for a stored session
 
-When auth is required, the system SHALL load the sign-in options from `GET /api/auth/providers` (each with a name, a display name that falls back to the name, and whether it supports password). It SHALL then read the stored session, except that credentials left by a failed departure/expiry deletion SHALL be treated as absent until fresh sign-in replaces them. With no stored session the state SHALL be needs login. With a stored session the system SHALL verify it with `GET /api/auth/me` and go to ready with the returned identity.
+When auth is required, the system SHALL load the sign-in options from `GET /api/auth/providers` (each with a name, a display name that falls back to the name, and whether it supports password). It SHALL then read the stored session, except that credentials left by a failed departure/expiry deletion SHALL be treated as absent until fresh sign-in replaces them. A stored session SHALL be sent only to the server that issued it: one recorded as issued by another server, or one stored before the issuing server was recorded while the connect is not to the saved address (or the dev override), SHALL be treated as absent and left in storage. With no stored session the state SHALL be needs login. With a stored session the system SHALL verify it with `GET /api/auth/me` and go to ready with the returned identity.
 
 #### Scenario: No stored session
 
@@ -177,6 +177,13 @@ When auth is required, the system SHALL load the sign-in options from `GET /api/
 
 - **WHEN** auth is required and a stored session passes `GET /api/auth/me`
 - **THEN** the state is ready
+
+#### Scenario: A session without a recorded server stays with the saved address
+
+- **WHEN** a session stored before the issuing server was recorded is found, the saved address could not be reached, and the user submits a different address
+- **THEN** no request to the new address carries the stored tokens
+- **AND** the state is needs login
+- **AND** the stored tokens are kept, so the saved address still restores the session once it answers
 
 #### Scenario: Providers cannot be loaded
 

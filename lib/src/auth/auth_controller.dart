@@ -387,13 +387,13 @@ class AuthController extends ChangeNotifier {
     }
     final storedSession = stored.session;
     // A session another dashboard minted is no use here. One stored before
-    // the minter was recorded is taken as the typed address's.
+    // the minter was recorded is taken as the saved (or dev) address's, so a
+    // new address typed while the saved one is unreachable never gets it.
+    final launchAddress = saved || typed == normalizeServerUrl(_devServerUrl);
+    final minter = storedSession?.serverUrl ?? (launchAddress ? typed : null);
     if (storedSession == null ||
-        !sessionServes(
-          storedSession.serverUrl ?? typed,
-          typed: typed,
-          redirectedTo: normalized,
-        )) {
+        minter == null ||
+        !sessionServes(minter, typed: typed, redirectedTo: normalized)) {
       _protectedRequestsAllowed = false;
       _setState(HermesConnectionState.needsLogin);
       return;

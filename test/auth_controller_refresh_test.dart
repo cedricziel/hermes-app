@@ -708,6 +708,29 @@ void main() {
     });
   }
 
+  test('a session stored before the server was recorded is not sent to a '
+      'new address typed while the saved one is unreachable', () async {
+    final gone = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final saved = 'http://127.0.0.1:${gone.port}';
+    await gone.close(force: true);
+    await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
+    store = MemoryTokenStore(_session());
+    controller = AuthController(
+      tokenStore: store,
+      telemetry: events.connection,
+    );
+    await controller.bootstrap();
+    expect(controller.state, HermesConnectionState.connectionError);
+
+    await controller.connect(dashboard.url);
+
+    expect(controller.baseUrl, dashboard.url);
+    expect(controller.state, HermesConnectionState.needsLogin);
+    expect(dashboard.authRequests, 0);
+    expect(dashboard.refreshCalls, 0);
+    expect(store.session?.refreshToken, 'refresh-1');
+  });
+
   test('signs the user out when the refresh token is rejected', () async {
     await bootstrapWith(_session());
     dashboard

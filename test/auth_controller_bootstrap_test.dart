@@ -184,6 +184,8 @@ void main() {
     for (final entry in malformedBodies.entries) {
       test('keeps the session and shows an error when ${entry.key}', () async {
         server = await _Dashboard.start(me: entry.value);
+        final minted = _storedSession.boundTo(server.url);
+        tokens = MemoryTokenStore(minted);
         final controller = AuthController(tokenStore: tokens);
 
         await controller
@@ -192,7 +194,7 @@ void main() {
 
         expect(controller.state, HermesConnectionState.connectionError);
         expect(controller.errorMessage, 'Unexpected response from the server');
-        expect(tokens.session, _storedSession);
+        expect(tokens.session, minted);
       });
     }
 
