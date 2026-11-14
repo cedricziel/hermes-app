@@ -218,4 +218,67 @@ void main() {
     expect(run.phase, UpdatePhase.idle);
     run.dispose();
   });
+
+  test('the record is written before the request is sent', () async {
+    UpdateRunRecord? duringPost;
+    server.onRequest('POST', '/api/hermes/update', (o) async {
+      duringPost = await saved();
+      return (status: 200, body: updateStarted());
+    });
+    await killedMidUpdate();
+    expect(duringPost, isNotNull);
+    expect(duringPost!.actionId, isNull);
+    expect(duringPost!.commitBefore, 'old');
+  });
+
+  test('a refused request leaves no record', () async {
+    server.on('POST', '/api/hermes/update', {'detail': 'no'}, status: 401);
+    final run = build();
+    await run.start();
+    await pumpEventQueue();
+    expect(await saved(), isNull);
+    run.dispose();
+  });
+
+  test('a record with no action id never credits an older receipt', () async {
+    await UpdateRunStore(accountKey: 'acct', prefs: prefs).write(
+      UpdateRunRecord(
+        startedAt: t0,
+        versionBefore: '0.22.2',
+        commitBefore: 'old',
+      ),
+    );
+    clock = t0.add(const Duration(minutes: 5));
+    // An earlier update finished: its id, its success receipt, exit 0.
+    server
+      ..on('GET', '/api/health', health('old'))
+      ..on('GET', '/api/actions/hermes-update/status', {
+        ...action(exit: 0),
+        'action_id': 'z' * 32,
+      })
+      ..on('GET', '/api/hermes/update/receipt', receiptSuccess(actionId: 'z'));
+    final run = build();
+    await run.resume();
+    expect(run.result, isNull);
+    expect(run.phase, UpdatePhase.idle);
+    expect(await saved(), isNull);
+    run.dispose();
+  });
+
+  test('a resumed run says so', () async {
+    await killedMidUpdate();
+    clock = t0.add(const Duration(minutes: 10));
+    server
+      ..on('GET', '/api/health', health('new'))
+      ..on('GET', '/api/actions/hermes-update/status', action());
+    final run = build();
+    expect(run.resumedAfterLaunch, isFalse);
+    await run.resume();
+    expect(run.resumedAfterLaunch, isTrue);
+    run.dispose();
+    final fresh = build();
+    await fresh.start();
+    expect(fresh.resumedAfterLaunch, isFalse);
+    fresh.dispose();
+  });
 }

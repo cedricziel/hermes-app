@@ -553,7 +553,7 @@ void main() {
     expect(statusReads, greaterThan(3));
   });
 
-  test('a 20 minute suspension while restarting lands in notBack', () async {
+  test('a 20 minute suspension while still down lands in notBack', () async {
     timeline(upAt: 60 * 60);
     var suspended = false;
     run.dispose();
@@ -563,8 +563,6 @@ void main() {
         if (!suspended && now() > 10) {
           suspended = true;
           clock = clock.add(const Duration(minutes: 20));
-          // Hermes came back meanwhile; nothing the app read says so.
-          timeline(upAt: 0);
         }
       },
     );
@@ -572,6 +570,29 @@ void main() {
     expect(run.phase, UpdatePhase.notBack);
     expect(run.result, isNull);
     expect(server.requestsTo('GET', '/api/hermes/update/receipt'), isEmpty);
+  });
+
+  test('one more health read follows a suspension before notBack', () async {
+    timeline(upAt: 60 * 60);
+    var suspended = false;
+    run.dispose();
+    run = build(
+      onDelay: (d) async {
+        if (!suspended && now() > 10) {
+          suspended = true;
+          clock = clock.add(const Duration(minutes: 20));
+          // Hermes came back while the app slept: the next read sees it, and
+          // only the receipt then decides.
+          timeline(upAt: 0);
+        }
+      },
+    );
+    await run.start();
+    expect(run.phase, UpdatePhase.finished);
+    expect(
+      server.requestsTo('GET', '/api/hermes/update/receipt'),
+      hasLength(1),
+    );
   });
 
   test('the receipt read repeats on the wall clock, not by count', () async {
@@ -648,6 +669,243 @@ void main() {
     final reads = server.requests.length;
     await pumpEventQueue();
     expect(server.requests.length, reads);
+  });
+
+  group('receipt route that keeps failing', () {
+    final failures = <String, FakeResponse>{
+      '500 with detail': (status: 500, body: {'detail': 'boom'}),
+      '400 with detail': (status: 400, body: {'detail': 'bad'}),
+      '502 page': (status: 502, body: _html),
+      '504 page': (status: 504, body: _html),
+      '200 without a summary': (status: 200, body: {'x': 1}),
+    };
+    for (final MapEntry(:key, :value) in failures.entries) {
+      test('$key on a healthy server ends in unknown, bounded', () async {
+        server.onRequest('GET', '/api/hermes/update/receipt', (_) => value);
+        final seen = <UpdatePhase>[];
+        run.addListener(() => seen.add(run.phase));
+        await run.start();
+        expect(run.phase, UpdatePhase.finished);
+        expect(run.result, UpdateResult.unknown);
+        expect(server.requests.length, lessThan(200));
+        // It did not bounce back to restarting once Hermes answered.
+        final firstVerify = seen.indexOf(UpdatePhase.verifying);
+        expect(seen.skip(firstVerify), isNot(contains(UpdatePhase.restarting)));
+      });
+    }
+
+    test('with health failing too it ends, with delays', () async {
+      var healthReads = 0;
+      server.onRequest('GET', '/api/health', (o) {
+        final t = now();
+        if (t < 5) return (status: 200, body: health(_old));
+        if (t < 30) throw down(o);
+        // Answers, then drops again, forever.
+        return healthReads++ % 2 == 0
+            ? (status: 200, body: health(_fresh, version: '0.23.0'))
+            : throw down(o);
+      });
+      server.on('GET', '/api/hermes/update/receipt', {
+        'detail': 'boom',
+      }, status: 500);
+      await run.start();
+      expect(run.phase, anyOf(UpdatePhase.finished, UpdatePhase.notBack));
+      expect(server.requests.length, lessThan(400));
+    });
+  });
+
+  group('staleness is judged from evidence', () {
+    test('one failed action poll then the old commit: staleServer', () async {
+      server
+        ..on('GET', '/api/health', health(_old))
+        ..on('GET', '/api/actions/hermes-update/status', {
+          'detail': 'x',
+        }, status: 502);
+      await run.start();
+      expect(run.phase, UpdatePhase.staleServer);
+      expect(tracer.spans.single.attributes['came_back'], false);
+    });
+
+    test('the old commit stays stale though health failed once', () async {
+      var reads = 0;
+      server.onRequest('GET', '/api/health', (o) {
+        final n = reads++;
+        if (n == 0) return (status: 200, body: health('d923a5e0000'));
+        if (n == 1) throw down(o);
+        return (status: 200, body: health('d923a5e0000'));
+      });
+      server.on('GET', '/api/actions/hermes-update/status', action(exit: 0));
+      await run.start();
+      expect(run.phase, UpdatePhase.staleServer);
+    });
+
+    test('a full health sha matching a short post_sha is not stale', () async {
+      server
+        ..on('GET', '/api/health', health('0a1b2c3deadbeef'))
+        ..on('GET', '/api/actions/hermes-update/status', action(exit: 0));
+      // The commit before was read as the first health answer: make it old.
+      var reads = 0;
+      server.onRequest(
+        'GET',
+        '/api/health',
+        (_) => (
+          status: 200,
+          body: reads++ == 0 ? health(_old) : health('0a1b2c3deadbeef'),
+        ),
+      );
+      await run.start();
+      expect(run.phase, UpdatePhase.finished);
+      expect(run.result, UpdateResult.success);
+    });
+  });
+
+  group('lost answer and relaunch', () {
+    test('a failed POST answer is not resent and is followed', () async {
+      server.on('POST', '/api/hermes/update', '<html>spa</html>');
+      await run.start();
+      expect(posts(), 1);
+      expect(run.phase, UpdatePhase.finished);
+    });
+  });
+
+  group('app lock', () {
+    test('covered: no text is stored', () async {
+      var covered = true;
+      run.dispose();
+      run = HermesUpdateRun(
+        repository: ServerCareRepository(server.client()),
+        covered: () => covered,
+        now: () => clock,
+        delay: (d) async => clock = clock.add(d),
+      );
+      server.on('POST', '/api/hermes/update', updateRefused());
+      await run.start();
+      expect(run.phase, UpdatePhase.refused);
+      expect(run.refusalMessage, isNull);
+      expect(run.refusalCommand, isNull);
+
+      server
+        ..on('POST', '/api/hermes/update', updateStarted())
+        ..on('GET', '/api/health', health(_old))
+        ..on(
+          'GET',
+          '/api/actions/hermes-update/status',
+          action(exit: 1, lines: ['secret line']),
+        )
+        ..on('GET', '/api/hermes/update/receipt', {
+          'summary': {'outcome': 'failed', 'action_id': 'a' * 32},
+        });
+      await run.start();
+      expect(run.lines, isEmpty);
+
+      server.on('GET', '/api/hermes/update/receipt', {
+        'summary': {
+          'outcome': 'partial',
+          'action_id': 'a' * 32,
+          'user_action': {'step': 'x', 'reason': 'Do it.'},
+        },
+      });
+      server.on('GET', '/api/actions/hermes-update/status', action(exit: 0));
+      var reads = 0;
+      server.onRequest(
+        'GET',
+        '/api/health',
+        (_) => (
+          status: 200,
+          body: reads++ == 0 ? health(_old) : health(_fresh, version: '0.23.0'),
+        ),
+      );
+      await run.start();
+      expect(run.result, UpdateResult.partial);
+      expect(run.reasons, isEmpty);
+
+      covered = false;
+      reads = 0;
+      await run.start();
+      expect(run.reasons, ['Do it.']);
+    });
+  });
+
+  group('spans are never left open', () {
+    test('reset mid-run ends it as interrupted', () async {
+      var polls = 0;
+      run.dispose();
+      run = build(
+        onDelay: (d) async {
+          if (polls++ == 1) unawaited(run.reset());
+        },
+      );
+      await run.start();
+      final span = tracer.spans.single;
+      expect(span.ended, isTrue);
+      expect(span.attributes['outcome'], 'interrupted');
+    });
+
+    test('dispose mid-run ends it', () async {
+      var polls = 0;
+      run.dispose();
+      run = build(
+        onDelay: (d) async {
+          if (polls++ == 1) run.dispose();
+        },
+      );
+      await run.start();
+      expect(tracer.spans.single.ended, isTrue);
+      expect(tracer.spans.single.attributes['outcome'], 'interrupted');
+    });
+
+    test('reset before anything was sent is cancelled', () async {
+      server.onRequest('GET', '/api/health', (_) {
+        unawaited(run.reset());
+        return (status: 200, body: health(_old));
+      });
+      await run.start();
+      expect(tracer.spans.single.ended, isTrue);
+      expect(tracer.spans.single.attributes['outcome'], 'cancelled');
+      expect(posts(), 0);
+    });
+
+    test('a settled run leaves none open for the next confirmation', () async {
+      await run.start();
+      run.beginConfirmation();
+      expect(tracer.spans.every((s) => s.ended), isTrue);
+      expect(events.named('server_care.update_finished'), hasLength(1));
+    });
+  });
+
+  group('the update request is refused for lack of access', () {
+    test('nothing started: Check again reads and sends nothing', () async {
+      server.on('POST', '/api/hermes/update', {'detail': 'no'}, status: 401);
+      await run.start();
+      expect(run.phase, UpdatePhase.unauthorized);
+      expect(run.nothingStarted, isTrue);
+      final before = server.requests.length;
+      await run.checkAgain();
+      expect(run.phase, UpdatePhase.unauthorized);
+      expect(server.requests.length, before);
+      expect(posts(), 1);
+    });
+
+    test('a 401 on the receipt is a started update', () async {
+      server.on('GET', '/api/hermes/update/receipt', {
+        'detail': 'no',
+      }, status: 401);
+      await run.start();
+      expect(run.nothingStarted, isFalse);
+    });
+  });
+
+  test('a double tap on Check again finishes once', () async {
+    server
+      ..on('GET', '/api/health', health(_old))
+      ..on('GET', '/api/actions/hermes-update/status', action(exit: 0));
+    await run.start();
+    expect(run.phase, UpdatePhase.staleServer);
+    server.on('GET', '/api/health', health(_fresh, version: '0.23.0'));
+    await Future.wait([run.checkAgain(), run.checkAgain()]);
+    expect(run.phase, UpdatePhase.finished);
+    // The stale report and one for the finish.
+    expect(events.named('server_care.update_finished'), hasLength(2));
   });
 
   group('telemetry', () {

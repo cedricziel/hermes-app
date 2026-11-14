@@ -61,12 +61,14 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     Future<void> Function()? probeConnection,
     ConnectionTelemetry telemetry = const ConnectionTelemetry(),
     Breadcrumbs breadcrumbs = Breadcrumbs.none,
+    bool Function()? covered,
     DateTime Function()? now,
     Future<void> Function(Duration)? delay,
   }) : _repository = repository,
        _store = store,
        _care = care,
        _probeConnection = probeConnection,
+       _covered = covered,
        _telemetry = telemetry,
        _breadcrumbs = breadcrumbs,
        _now = now ?? DateTime.now,
@@ -87,12 +89,16 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   static const _firstBackoff = Duration(seconds: 1);
   static const _lastBackoff = Duration(seconds: 10);
 
+  /// How often a run may go from verifying back to restarting.
+  static const _maxFlaps = 5;
+
   final ServerCareRepository _repository;
   final UpdateRunStore? _store;
   final ServerCareController? _care;
   final Future<void> Function()? _probeConnection;
   final ConnectionTelemetry _telemetry;
   final Breadcrumbs _breadcrumbs;
+  final bool Function()? _covered;
   final DateTime Function() _now;
   final Future<void> Function(Duration) _delay;
 
@@ -114,6 +120,10 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   DateTime? _startedAt;
   DateTime? _restartSince;
   bool _lost = false;
+  bool _postSent = false;
+  bool _resumedAfterLaunch = false;
+  bool _nothingStarted = false;
+  int _flaps = 0;
   bool _sawRunning = false;
   bool _cameBack = false;
   UpdatePhase _reached = UpdatePhase.starting;
@@ -159,6 +169,17 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
 
   /// With [UpdatePhase.refused]: the command to run on the server.
   String? get refusalCommand => _refusalCommand;
+
+  /// The run was picked up from a saved record on launch, so a result was
+  /// not observed live (no "ready" banner for it).
+  bool get resumedAfterLaunch => _resumedAfterLaunch;
+
+  /// With [UpdatePhase.unauthorized]: the update request itself was refused
+  /// for lack of access, so nothing was started and there is nothing to
+  /// check. The person dismisses and asks again; the request is never resent.
+  bool get nothingStarted => _nothingStarted;
+
+  bool get _isCovered => _covered?.call() ?? false;
 
   /// When the run started; null when idle.
   DateTime? get startedAt => _startedAt;
@@ -226,8 +247,9 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     if (disposed) return Future.value();
     switch (_phase) {
       case UpdatePhase.staleServer:
-        return _launch(_checkStale);
+        return _running ?? _launch(_checkStale);
       case UpdatePhase.unauthorized:
+        if (_nothingStarted || _running != null) return Future.value();
         _startSpan(resumed: false);
         return _launch(() => _follow(_Step.verify));
       default:
@@ -256,6 +278,10 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     _actionId = record.actionId;
     _versionBefore = record.versionBefore;
     _commitBefore = record.commitBefore;
+    _resumedAfterLaunch = true;
+    // A record with no action id is one whose request may not have been
+    // answered: its child must be seen running before anything is credited.
+    _lost = record.actionId == null;
     if (_now().difference(record.startedAt) < resumeWindow) {
       _startSpan(resumed: true);
       await _launch(() => _follow(_Step.update));
@@ -266,6 +292,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
 
   @override
   void dispose() {
+    _endOpenSpan();
     _generation++;
     super.dispose();
   }
@@ -283,7 +310,15 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
 
   bool _stale(int generation) => disposed || generation != _generation;
 
+  /// Ends a span the run still holds: only an interrupted or cancelled run
+  /// has one.
+  void _endOpenSpan() {
+    if (_span == null) return;
+    _report(_postSent ? 'interrupted' : 'cancelled');
+  }
+
   void _reset() {
+    _endOpenSpan();
     _generation++;
     _running = null;
     _phase = UpdatePhase.idle;
@@ -301,6 +336,10 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     _startedAt = null;
     _restartSince = null;
     _lost = false;
+    _postSent = false;
+    _resumedAfterLaunch = false;
+    _nothingStarted = false;
+    _flaps = 0;
     _sawRunning = false;
     _cameBack = false;
     _staleResult = null;
@@ -328,16 +367,24 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
       _versionNow = value.version;
       _commitNow = value.commit;
     }
+    // Saved before the request, without an action id: a kill while it is in
+    // flight resumes as an answer that was lost.
+    await _store?.write(_record());
+    if (_stale(generation)) return;
+    _postSent = true;
     final answer = await _repository.startUpdate();
     if (_stale(generation)) return;
     switch (answer) {
       case CareOk(value: final UpdateRefused refused):
-        _refusalMessage = refused.message;
-        _refusalCommand = refused.command;
+        _setRefusal(refused.message, refused.command);
         return _settle(UpdatePhase.refused, 'refused');
       case CareOk(value: final UpdateStarted started):
         _actionId = started.actionId;
       case CareFailed(kind: CareFailureKind.unauthorized):
+        // Nothing was started, and the request is never resent.
+        _nothingStarted = true;
+        await _store?.clear();
+        if (_stale(generation)) return;
         return _settle(UpdatePhase.unauthorized, 'unauthorized');
       case CareFailed(
         kind: CareFailureKind.offline ||
@@ -348,22 +395,31 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         // The answer is lost: it may have started. Never send it again.
         _lost = true;
       case CareFailed(:final message):
-        _refusalMessage = message;
+        _setRefusal(message, null);
         return _settle(UpdatePhase.refused, 'refused');
       case CareUnsupported():
-        _refusalMessage = null;
         return _settle(UpdatePhase.refused, 'refused');
     }
-    await _store?.write(
-      UpdateRunRecord(
-        startedAt: _startedAt!,
-        actionId: _actionId,
-        versionBefore: _versionBefore,
-        commitBefore: _commitBefore,
-      ),
-    );
+    if (_actionId != null) await _store?.write(_record());
     if (_stale(generation)) return;
     await _follow(_Step.update);
+  }
+
+  UpdateRunRecord _record() => UpdateRunRecord(
+    startedAt: _startedAt!,
+    actionId: _actionId,
+    versionBefore: _versionBefore,
+    commitBefore: _commitBefore,
+  );
+
+  void _setRefusal(String? message, String? command) {
+    if (_isCovered) return;
+    _refusalMessage = message;
+    _refusalCommand = command;
+  }
+
+  void _setLines(List<String> lines) {
+    if (lines.isNotEmpty && !_isCovered) _lines = lines;
   }
 
   /// An update saved long ago: the receipt is read once. When it names the
@@ -413,7 +469,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
       if (_stale(generation)) return null;
       switch (status) {
         case CareOk(:final value):
-          if (value.lines.isNotEmpty) _lines = value.lines;
+          _setLines(value.lines);
           if (value.running) {
             _sawRunning = true;
           } else if (!_lost || _sawRunning) {
@@ -426,19 +482,31 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
           _settle(UpdatePhase.unauthorized, 'unauthorized');
           return null;
         case CareFailed() || CareUnsupported():
-          _cameBack = true;
           return _Step.restart;
       }
       if (_lost &&
           !_sawRunning &&
           _now().difference(from) >= lostAnswerWindow) {
-        _finish(UpdateResult.unknown);
+        if (_resumedAfterLaunch) {
+          await _dropUnseen(generation);
+        } else {
+          _finish(UpdateResult.unknown);
+        }
         return null;
       }
       notifyListeners();
       await _delay(_poll);
       if (_stale(generation)) return null;
     }
+  }
+
+  /// A saved run whose request was never seen running: there is nothing to
+  /// report, so the record is dropped without a word.
+  Future<void> _dropUnseen(int generation) async {
+    await _store?.clear();
+    if (_stale(generation)) return;
+    _reset();
+    notifyListeners();
   }
 
   /// The action stopped: tell a restart that was missed from one that did not
@@ -475,41 +543,48 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     return null;
   }
 
-  /// Reads `/api/health` and nothing else until Hermes answers.
+  /// Reads `/api/health` and nothing else until Hermes answers. The window
+  /// belongs to this stay in `restarting`; one more read follows a wait that
+  /// outlasted it, since a suspended app may have slept through the return.
   Future<_Step?> _restart(int generation) async {
     _enter(UpdatePhase.restarting);
-    _restartSince ??= _now();
+    final since = _restartSince ??= _now();
     var backoff = _firstBackoff;
-    while (true) {
-      final health = await _repository.health();
-      if (_stale(generation)) return null;
-      if (health case CareOk(:final value)) {
-        _noteHealth(value);
-        if (_changed(value)) {
-          _cameBack = true;
+    try {
+      while (true) {
+        final health = await _repository.health();
+        if (_stale(generation)) return null;
+        if (health case CareOk(:final value)) {
+          _noteHealth(value);
+          if (_changed(value)) {
+            _cameBack = true;
+            return _Step.verify;
+          }
+          // The same code answers: either Hermes restarted onto it or it
+          // never stopped. A child still running means the update is not
+          // over.
+          final status = await _repository.actionStatus(
+            CareAction.hermesUpdate,
+            lines: 60,
+          );
+          if (_stale(generation)) return null;
+          if (status case CareOk(:final value) when value.running) {
+            _setLines(value.lines);
+            return _Step.update;
+          }
           return _Step.verify;
         }
-        // The same code answers: either Hermes restarted onto it or it never
-        // stopped. A child still running means the update is not over.
-        final status = await _repository.actionStatus(
-          CareAction.hermesUpdate,
-          lines: 60,
-        );
-        if (_stale(generation)) return null;
-        if (status case CareOk(:final value) when value.running) {
-          if (value.lines.isNotEmpty) _lines = value.lines;
-          return _Step.update;
-        }
         _cameBack = true;
-        return _Step.verify;
+        if (_now().difference(since) >= restartWindow) {
+          _settle(UpdatePhase.notBack, 'not_back');
+          return null;
+        }
+        await _delay(backoff);
+        if (_stale(generation)) return null;
+        backoff = backoff * 2 > _lastBackoff ? _lastBackoff : backoff * 2;
       }
-      await _delay(backoff);
-      if (_stale(generation)) return null;
-      if (_now().difference(_restartSince!) >= restartWindow) {
-        _settle(UpdatePhase.notBack, 'not_back');
-        return null;
-      }
-      backoff = backoff * 2 > _lastBackoff ? _lastBackoff : backoff * 2;
+    } finally {
+      _restartSince = null;
     }
   }
 
@@ -539,9 +614,23 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
           _settle(UpdatePhase.unauthorized, 'unauthorized');
           return null;
         case CareFailed():
-          // Hermes went away again.
-          _cameBack = true;
-          return _Step.restart;
+          // Only a health read that fails too means Hermes went away again;
+          // a receipt route that keeps failing on a healthy server is read
+          // until the window ends, never in a tight loop.
+          final health = await _repository.health();
+          if (_stale(generation)) return null;
+          if (health case CareOk(:final value)) {
+            _noteHealth(value);
+          } else {
+            _cameBack = true;
+            if (++_flaps > _maxFlaps) {
+              _finish(UpdateResult.unknown);
+              return null;
+            }
+            await _delay(_poll);
+            if (_stale(generation)) return null;
+            return _Step.restart;
+          }
         case CareUnsupported():
           break;
       }
@@ -591,25 +680,47 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         version != _versionBefore;
   }
 
+  /// Whether the process answering is still the old code, judged from the
+  /// commits: the receipt's `post_sha` is what it should run now, its
+  /// `pre_sha` (or the commit read before) is what it ran. Hermes may send
+  /// either as a short or a full SHA, so they are compared by prefix.
+  bool _serverStale(UpdateReceiptSummary receipt) {
+    final now = _commitNow;
+    if (now == null) return false;
+    final post = receipt.postSha;
+    if (post != null && _sameSha(now, post)) return false;
+    final ranBefore =
+        _sameSha(now, receipt.preSha) || _sameSha(now, _commitBefore);
+    // Without a post_sha, a restart that was seen settles it.
+    return ranBefore && (post != null || !_cameBack);
+  }
+
+  static bool _sameSha(String a, String? b) {
+    if (b == null || b.isEmpty || a.isEmpty) return false;
+    final x = a.toLowerCase();
+    final y = b.toLowerCase();
+    return x.startsWith(y) || y.startsWith(x);
+  }
+
   /// Settles the run from a receipt of this action; false when it does not
   /// say yet (`running`, or an outcome this app does not know).
   bool _resolve(UpdateReceiptSummary receipt) {
     switch (receipt.outcome) {
       case UpdateOutcome.success || UpdateOutcome.partial:
         _postVersion = receipt.postVersion;
-        _reasons = [
-          for (final f in [
-            ?receipt.userAction,
-            if (receipt.userAction == null) ...receipt.followups,
-          ])
-            ?f.reason,
-        ];
+        _reasons = _isCovered
+            ? const []
+            : [
+                for (final f in [
+                  ?receipt.userAction,
+                  if (receipt.userAction == null) ...receipt.followups,
+                ])
+                  ?f.reason,
+              ];
         final result = receipt.outcome == UpdateOutcome.success
             ? UpdateResult.success
             : UpdateResult.partial;
-        if (!_cameBack &&
-            _commitBefore != null &&
-            _commitNow == _commitBefore) {
+        if (_serverStale(receipt)) {
           // Updated, but the old process still answers.
           _staleResult = result;
           _settle(UpdatePhase.staleServer, 'stale_server');
