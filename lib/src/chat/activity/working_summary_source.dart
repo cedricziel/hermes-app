@@ -23,9 +23,9 @@ class WorkingInputs {
   });
 
   /// A turn is running (a reply is in flight). Status, goal, loop, heartbeat
-  /// and plan sentences are turn-scoped: they count only while it is true.
-  /// Processes, mixture-of-agents and a restoring chat keep their own
-  /// lifetimes.
+  /// and plan sentences, processes and mixture-of-agents are turn-scoped:
+  /// they count only while it is true. A restoring chat counts while its
+  /// resume is loading, turn or not.
   final bool replying;
 
   /// Server text of each `status.update` kind that is not empty, memory
