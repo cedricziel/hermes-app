@@ -69,9 +69,10 @@ extension _ChatScreenNavigation on _ChatScreenState {
     if (thread == null) return;
     crumbs('chat.activity.opened', {'surface': 'sheet', 'source': source});
     final grower = _activitySheet = DraggableScrollableController();
-    void grow() {
+    void grow([int tries = 0]) {
       // A detail needs the room: the sheet goes to its full height.
-      if (_agentSelection.key != null && grower.isAttached) {
+      if (_agentSelection.key == null) return;
+      if (grower.isAttached) {
         unawaited(
           grower.animateTo(
             1,
@@ -79,10 +80,14 @@ extension _ChatScreenNavigation on _ChatScreenState {
             curve: Curves.easeOut,
           ),
         );
+      } else if (tries < 8 && mounted) {
+        // The sheet is still being pushed.
+        WidgetsBinding.instance.addPostFrameCallback((_) => grow(tries + 1));
       }
     }
 
     _agentSelection.addListener(grow);
+    grow();
     final sheet = showKanbanDetentSheet(
       sheet: grower,
       context,
@@ -104,9 +109,11 @@ extension _ChatScreenNavigation on _ChatScreenState {
     unawaited(
       sheet.then((_) {
         crumbs('chat.activity.closed', {'surface': 'sheet'});
-        _agentSelection
-          ..removeListener(grow)
-          ..clear();
+        if (mounted) {
+          _agentSelection
+            ..removeListener(grow)
+            ..clear();
+        }
         _activitySheet = null;
         grower.dispose();
       }),
@@ -119,10 +126,11 @@ extension _ChatScreenNavigation on _ChatScreenState {
     final thread = _chat.selectedThread;
     final roster = thread == null ? null : _chat.subagentsIn(thread);
     if (roster == null) return;
-    _agentSelection.select(agentKeyOf(roster, agentId), source: 'transcript');
+    // The sheet listens for a selection to grow, so it opens first.
     if (_wide ? !_activityOpen : _activitySheet == null) {
       _toggleActivity(source: 'transcript');
     }
+    _agentSelection.select(agentKeyOf(roster, agentId), source: 'transcript');
   }
 
   /// What the menu bar's File and Chat menus do here.

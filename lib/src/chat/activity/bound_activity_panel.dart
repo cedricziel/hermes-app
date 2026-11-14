@@ -139,12 +139,13 @@ class BoundActivityPanel extends StatelessWidget {
       return null;
     }
     return BoundAgentDetail(
-      key: ObjectKey(agent),
+      key: ValueKey((agent, roster)),
       chat: chat,
       roster: roster,
       agent: agent,
       source: selection.source,
       stopRequested: selection.stopRequested,
+      onStopAsked: selection.consumeStop,
       readOnly: readOnly,
       onBack: selection.clear,
       onClose: onClose,
@@ -349,8 +350,11 @@ class _RosterDemandState extends State<_RosterDemand> {
   void didUpdateWidget(_RosterDemand oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.roster, widget.roster)) {
+      // Only a panel that is shown reads: a covered one waits for its next
+      // visibility change.
+      final wasWatching = _watch != null;
       _watch?.close();
-      _watch = widget.roster.watch();
+      _watch = wasWatching ? widget.roster.watch() : null;
     }
   }
 

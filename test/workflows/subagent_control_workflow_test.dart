@@ -300,6 +300,13 @@ void main() {
           expect(find.byType(BoundActivityPanel), findsOneWidget);
           expect(find.text('Recent output'), findsOneWidget);
           expect(inPanel(find.text(_audit)), findsOneWidget);
+          if (phone) {
+            // A detail needs the room: the sheet grows to its full height.
+            expect(
+              tester.getSize(find.byType(BoundActivityPanel)).height,
+              greaterThan(phoneSize.height * 0.85),
+            );
+          }
           await shots.capture(tester, 'opened-from-transcript');
 
           // Escape (or Back) returns to the list, which stays open.
@@ -440,6 +447,35 @@ void main() {
       await leaveDetail(tester, phone: false);
       expect(find.byType(BoundActivityPanel), findsNothing);
 
+      reply.emit(const ReplyCompleted('Both agents reported.'));
+      await runFrames(tester);
+      reply.finish();
+      await runFrames(tester);
+    },
+  );
+
+  platformTest(
+    'a phone sheet grows when a row opens a detail',
+    TargetPlatform.iOS,
+    (tester) async {
+      final shots = ScreenshotRecorder('subagent-control-phone-sheet');
+      await pumpChat(
+        tester,
+        shots,
+        size: phoneSize,
+        platform: TargetPlatform.iOS,
+        brightness: Brightness.light,
+      );
+      final reply = await startReply(tester);
+      await startAgents(tester, reply);
+      await openActivity(tester, phone: true);
+      final before = tester.getSize(find.byType(BoundActivityPanel)).height;
+      expect(before, lessThan(phoneSize.height * 0.7));
+      await openAgentFromPanel(tester, _audit);
+      expect(
+        tester.getSize(find.byType(BoundActivityPanel)).height,
+        greaterThan(phoneSize.height * 0.85),
+      );
       reply.emit(const ReplyCompleted('Both agents reported.'));
       await runFrames(tester);
       reply.finish();

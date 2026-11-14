@@ -30,6 +30,7 @@ class BoundAgentDetail extends StatefulWidget {
     this.source = 'panel',
     this.readOnly = false,
     this.outputMaxHeight,
+    this.onStopAsked,
   });
 
   final ChatController chat;
@@ -40,6 +41,9 @@ class BoundAgentDetail extends StatefulWidget {
 
   /// Open with the stop confirmation, as "Stop agent" on a row asks.
   final bool stopRequested;
+
+  /// Called when the request to open with the confirmation was used.
+  final VoidCallback? onStopAsked;
   final String source;
   final bool readOnly;
   final double? outputMaxHeight;
@@ -87,7 +91,9 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
     });
     if (widget.stopRequested) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _controller?.startStop();
+        if (!mounted) return;
+        widget.onStopAsked?.call();
+        _controller?.startStop();
       });
     }
   }

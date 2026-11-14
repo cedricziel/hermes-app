@@ -31,6 +31,10 @@ class ActivitySelection extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The open detail used the row's "Stop agent" request; a detail built
+  /// again (a layout change) does not ask once more.
+  void consumeStop() => _stopRequested = false;
+
   void clear() {
     if (_key == null) return;
     _key = null;

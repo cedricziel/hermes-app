@@ -112,7 +112,9 @@ class ActivityPanel extends StatelessWidget {
         Positioned.fill(
           child: Offstage(
             offstage: detail != null,
-            child: TickerMode(enabled: detail == null, child: list),
+            // The sheet's growing animation runs on this list's scrollable, so
+            // its tickers stay on while a detail covers it.
+            child: list,
           ),
         ),
         if (detail != null) Positioned.fill(child: detail),
