@@ -337,8 +337,10 @@ class AgentMessageWatcher with WidgetsBindingObserver {
         'summary': summary,
         'background': false,
       });
-    } on Object {
-      // A look that failed is tried again on the next tick.
+    } on Object catch (error) {
+      // A look that failed is tried again on the next tick; the finally block
+      // reports it.
+      failure ??= error;
     } finally {
       if (failure case final error?
           when _current(epoch) && _reported.add('${error.runtimeType}')) {
