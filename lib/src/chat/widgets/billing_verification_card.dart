@@ -42,54 +42,24 @@ class BillingVerificationCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Verification grants billing access. It does not make a charge.',
-                    ),
-                    if (controller.locked)
-                      const Text(
-                        'Unlock the app to receive fresh verification details.',
-                      )
-                    else if (details == null)
-                      const Text('No verification details received.')
-                    else ...[
-                      SelectableText(details.userCode),
-                      if (details.browserUri case final uri?) ...[
-                        Text('Browser destination: ${uri.host}'),
-                        SelectableText(details.verificationUrl),
-                      ] else
-                        const Text('Browser opening unavailable.'),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          TextButton(
-                            onPressed: controller.canCopyCode
-                                ? () => controller.copyVerificationCode(
-                                    expectedDetails: details,
-                                    expectedGeneration: generation,
-                                  )
-                                : null,
-                            child: const Text('Copy code'),
-                          ),
-                          TextButton(
-                            onPressed: controller.canOpenVerification
-                                ? () => controller.openVerification(
-                                    expectedDetails: details,
-                                    expectedGeneration: generation,
-                                  )
-                                : null,
-                            child: const Text('Open verification'),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (controller.message case final message?) Text(message),
-                    if (controller.retryAt != null && !controller.canStart)
-                      const Text('Retry is available after the server delay.'),
-                  ],
+                child: BillingVerificationBody(
+                  details: details,
+                  locked: controller.locked,
+                  message: controller.message,
+                  retryPending:
+                      controller.retryAt != null && !controller.canStart,
+                  onCopy: controller.canCopyCode && details != null
+                      ? () => controller.copyVerificationCode(
+                          expectedDetails: details,
+                          expectedGeneration: generation,
+                        )
+                      : null,
+                  onOpen: controller.canOpenVerification && details != null
+                      ? () => controller.openVerification(
+                          expectedDetails: details,
+                          expectedGeneration: generation,
+                        )
+                      : null,
                 ),
               ),
             ],
@@ -110,4 +80,71 @@ class BillingVerificationCard extends StatelessWidget {
       );
     },
   );
+}
+
+/// The details inside [BillingVerificationCard]: what verification grants,
+/// the code and destination, Copy code and Open verification. A plain-model
+/// widget; the card binds it to its controller.
+class BillingVerificationBody extends StatelessWidget {
+  const BillingVerificationBody({
+    super.key,
+    required this.details,
+    this.locked = false,
+    this.message,
+    this.retryPending = false,
+    this.onCopy,
+    this.onOpen,
+  });
+
+  final BillingVerificationDetails? details;
+  final bool locked;
+  final String? message;
+
+  /// Whether to say that retrying waits for the server's delay.
+  final bool retryPending;
+
+  /// Null disables Copy code.
+  final VoidCallback? onCopy;
+
+  /// Null disables Open verification.
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = this.details;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Verification grants billing access. It does not make a charge.',
+        ),
+        if (locked)
+          const Text('Unlock the app to receive fresh verification details.')
+        else if (details == null)
+          const Text('No verification details received.')
+        else ...[
+          SelectableText(details.userCode),
+          if (details.browserUri case final uri?) ...[
+            Text('Browser destination: ${uri.host}'),
+            SelectableText(details.verificationUrl),
+          ] else
+            const Text('Browser opening unavailable.'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              TextButton(onPressed: onCopy, child: const Text('Copy code')),
+              TextButton(
+                onPressed: onOpen,
+                child: const Text('Open verification'),
+              ),
+            ],
+          ),
+        ],
+        if (message case final text?) Text(text),
+        if (retryPending)
+          const Text('Retry is available after the server delay.'),
+      ],
+    );
+  }
 }
