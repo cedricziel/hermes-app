@@ -303,6 +303,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   MemoryWaitingCount? _memoryWaiting;
   var _wasLoadingThreads = false;
   HandoffController? _handoff;
+  HandoffRestore? _handoffRestore;
   DockMenuController? _dock;
   HermesProfilesRepository? _profiles;
   ProfileAvatarRepository? _avatars;
@@ -649,10 +650,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _refreshReadAloud();
     }
     _handoff = _maybeRead<HandoffController>();
-    _handoff?.bind((activity, valid) async {
+    final restore = _handoffRestore = (activity, valid) async {
       final shown = await _showChat(activity.threadId, activity.profile, valid);
       return shown.opened;
-    });
+    };
+    _handoff?.bind(restore);
     _dock = _maybeRead<DockMenuController?>()
       ?..bind(this, open: _openFromDock, newChat: _newChatFromDock)
       ..addListener(_syncDock);
@@ -910,8 +912,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _listChanges?.controller.removeListener(_invalidationsChanged);
     _listChanges?.dispose();
     _menuBar?.disconnect(_chat);
-    _handoff?.bind(null);
-    _handoff?.advertise(null);
+    // A replacement screen is built before this one is disposed.
+    if (_handoffRestore case final restore?) _handoff?.unbind(restore);
+    _handoff?.withdraw(this);
     _dock
       ?..removeListener(_syncDock)
       ..release(this);
