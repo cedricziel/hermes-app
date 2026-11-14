@@ -315,6 +315,10 @@ enum UpdateOutcomeKind {
   oldServerRunning,
   notBack,
 
+  /// The update has said "running" for a long time: the app cannot tell
+  /// whether it finished, and does not say Hermes is back.
+  stillRunning,
+
   /// The update's status was refused with this sign-in; the update may still
   /// be going.
   unauthorized,
@@ -368,7 +372,8 @@ class UpdateOutcomeCard extends StatelessWidget {
       UpdateOutcomeKind.unauthorized ||
       UpdateOutcomeKind.notBack => (AppIcons.warningRounded, colors.warning),
       UpdateOutcomeKind.failed => (AppIcons.errorFilled, scheme.error),
-      UpdateOutcomeKind.unconfirmed => (AppIcons.info, colors.subtleText),
+      UpdateOutcomeKind.unconfirmed ||
+      UpdateOutcomeKind.stillRunning => (AppIcons.info, colors.subtleText),
     };
     final title = switch (kind) {
       UpdateOutcomeKind.success => l10n.serverCareUpdateTitleUpToDate,
@@ -379,6 +384,8 @@ class UpdateOutcomeCard extends StatelessWidget {
       UpdateOutcomeKind.oldServerRunning =>
         l10n.serverCareUpdateOutcomeOldServerTitle,
       UpdateOutcomeKind.notBack => l10n.serverCareUpdateOutcomeNotBackTitle,
+      UpdateOutcomeKind.stillRunning =>
+        l10n.serverCareUpdateOutcomeNotConfirmedTitle,
       UpdateOutcomeKind.unauthorized =>
         l10n.serverCareUpdateOutcomeUnauthorizedTitle,
     };
@@ -395,6 +402,8 @@ class UpdateOutcomeCard extends StatelessWidget {
       UpdateOutcomeKind.oldServerRunning =>
         l10n.serverCareUpdateOutcomeRestartToFinish,
       UpdateOutcomeKind.notBack => l10n.serverCareUpdateOutcomeNotBackHint,
+      UpdateOutcomeKind.stillRunning =>
+        l10n.serverCareUpdateOutcomeNotConfirmedHint,
       UpdateOutcomeKind.unauthorized =>
         l10n.serverCareUpdateOutcomeUnauthorizedHint,
     };
@@ -411,6 +420,7 @@ class UpdateOutcomeCard extends StatelessWidget {
           ),
         ),
         UpdateOutcomeKind.oldServerRunning ||
+        UpdateOutcomeKind.stillRunning ||
         UpdateOutcomeKind.unauthorized => _fullWidth(
           FilledButton(
             style: _wide(context),
@@ -435,6 +445,7 @@ class UpdateOutcomeCard extends StatelessWidget {
           ),
         ),
       if (kind == UpdateOutcomeKind.notBack ||
+          kind == UpdateOutcomeKind.stillRunning ||
           kind == UpdateOutcomeKind.unauthorized)
         _fullWidth(
           TextButton(

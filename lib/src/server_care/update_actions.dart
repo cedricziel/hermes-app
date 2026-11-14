@@ -96,6 +96,9 @@ UpdateRunView? updateRunViewOf(AppLocalizations l10n, HermesUpdateRun run) {
     UpdatePhase.notBack => const UpdateRunOutcome(
       kind: UpdateOutcomeKind.notBack,
     ),
+    UpdatePhase.stillRunning => const UpdateRunOutcome(
+      kind: UpdateOutcomeKind.stillRunning,
+    ),
     UpdatePhase.refused => UpdateRunRefused(
       message: run.refusalMessage ?? l10n.serverCareUpdateOnServer,
       command: run.refusalCommand,

@@ -4321,6 +4321,14 @@
   "@serverCareUpdateOutcomeNotBackTitle": {
     "description": "Title of the result card when Hermes has not come back after the update."
   },
+  "serverCareUpdateOutcomeNotConfirmedHint": "It has been running for a long time. Check again to read its result.",
+  "@serverCareUpdateOutcomeNotConfirmedHint": {
+    "description": "Body of the result card when the update has said it is running for a long time and the app cannot tell whether it finished."
+  },
+  "serverCareUpdateOutcomeNotConfirmedTitle": "The app can't tell whether the update finished",
+  "@serverCareUpdateOutcomeNotConfirmedTitle": {
+    "description": "Title of the result card when the update has been running for a long time and may still be going."
+  },
   "serverCareUpdateOutcomeNowRunning": "Now running {version}.",
   "@serverCareUpdateOutcomeNowRunning": {
     "description": "Body of the result card; version is the one Hermes runs now.",

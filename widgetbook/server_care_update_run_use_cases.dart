@@ -277,6 +277,16 @@ List<WidgetbookNode> serverCareUpdateRunNodes() => [
         ),
       ),
       ..._phase(
+        'Still running, cannot tell',
+        const UpdateRunOutcome(kind: UpdateOutcomeKind.stillRunning),
+      ),
+      WidgetbookUseCase(
+        name: 'Still running, largest text',
+        builder: (_) => _largest(
+          _page(const UpdateRunOutcome(kind: UpdateOutcomeKind.stillRunning)),
+        ),
+      ),
+      ..._phase(
         'Refused, with the command',
         const UpdateRunRefused(
           message:

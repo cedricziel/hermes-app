@@ -908,6 +908,162 @@ void main() {
     expect(events.named('server_care.update_finished'), hasLength(2));
   });
 
+  group('clock set backwards', () {
+    test('restarting ends in notBack instead of polling forever', () async {
+      // Down for good, whatever the clock says.
+      server
+        ..onRequest('GET', '/api/health', (o) => throw down(o))
+        ..onRequest(
+          'GET',
+          '/api/actions/hermes-update/status',
+          (o) => throw down(o),
+        );
+      var jumped = false;
+      run.dispose();
+      run = build(
+        onDelay: (d) async {
+          if (!jumped && run.phase == UpdatePhase.restarting && now() > 10) {
+            jumped = true;
+            clock = clock.subtract(const Duration(hours: 2));
+          }
+        },
+      );
+      await run.start();
+      expect(run.phase, UpdatePhase.notBack);
+      expect(server.requests.length, lessThan(100));
+    });
+
+    test('verifying ends in unknown instead of reading forever', () async {
+      server.on('GET', '/api/hermes/update/receipt', {
+        'detail': 'No update receipt found.',
+      }, status: 404);
+      var jumped = false;
+      run.dispose();
+      run = build(
+        onDelay: (d) async {
+          if (!jumped && run.phase == UpdatePhase.verifying) {
+            jumped = true;
+            clock = clock.subtract(const Duration(hours: 2));
+          }
+        },
+      );
+      await run.start();
+      expect(run.result, UpdateResult.unknown);
+    });
+
+    test('updating ends in stillRunning', () async {
+      server
+        ..on('GET', '/api/health', health(_old))
+        ..on('GET', '/api/actions/hermes-update/status', action(running: true));
+      var jumped = false;
+      run.dispose();
+      run = build(
+        onDelay: (d) async {
+          if (!jumped && now() > 10) {
+            jumped = true;
+            clock = clock.subtract(const Duration(hours: 2));
+          }
+        },
+      );
+      await run.start();
+      expect(run.phase, UpdatePhase.stillRunning);
+    });
+  });
+
+  group('a long update', () {
+    setUp(() {
+      server
+        ..on('GET', '/api/health', health(_old))
+        ..on(
+          'GET',
+          '/api/actions/hermes-update/status',
+          action(running: true, lines: ['still pulling']),
+        );
+    });
+
+    test(
+      'says nothing is confirmed after 30 minutes, keeping the record',
+      () async {
+        await run.start();
+        expect(run.phase, UpdatePhase.stillRunning);
+        expect(run.result, isNull);
+        expect(run.busy, isFalse);
+        expect(run.showsBanner, isFalse);
+        expect(now(), inInclusiveRange(30 * 60, 30 * 60 + 5));
+        expect(server.requests.length, lessThan(1000));
+        expect(posts(), 1);
+        expect(tracer.spans.single.attributes['outcome'], 'not_confirmed');
+        expect(server.requestsTo('GET', '/api/hermes/update/receipt'), isEmpty);
+      },
+    );
+
+    test('Check again continues and reads the result', () async {
+      await run.start();
+      var reads = 0;
+      server
+        ..onRequest(
+          'GET',
+          '/api/health',
+          (_) => (status: 200, body: health(_fresh, version: '0.23.0')),
+        )
+        ..on('GET', '/api/actions/hermes-update/status', action());
+      reads = server.requests.length;
+      await run.checkAgain();
+      expect(server.requests.length, greaterThan(reads));
+      expect(run.phase, UpdatePhase.finished);
+      expect(run.result, UpdateResult.success);
+      expect(posts(), 1);
+    });
+
+    test('Check again while it still runs waits another window', () async {
+      await run.start();
+      final first = now();
+      await run.checkAgain();
+      expect(run.phase, UpdatePhase.stillRunning);
+      expect(now() - first, greaterThanOrEqualTo(30 * 60));
+    });
+
+    test('Dismiss ends it', () async {
+      await run.start();
+      run.dismiss();
+      expect(run.phase, UpdatePhase.idle);
+    });
+  });
+
+  test('a flapping proxy cannot spin restarting and updating', () async {
+    var n = 0;
+    server
+      ..on('GET', '/api/health', health(_old))
+      ..onRequest(
+        'GET',
+        '/api/actions/hermes-update/status',
+        (_) => n++ % 2 == 0
+            ? (status: 502, body: _html)
+            : (status: 200, body: action(running: true)),
+      );
+    await run.start();
+    expect(run.phase, UpdatePhase.stillRunning);
+    // About one cycle per poll interval over 30 minutes, three calls each.
+    expect(server.requests.length, lessThan(30 * 60 ~/ 2 * 4));
+  });
+
+  test('a 4xx without a detail answering the POST is a lost answer', () async {
+    for (final status in [408, 429]) {
+      server.on('POST', '/api/hermes/update', _html, status: status);
+      await run.start();
+      expect(run.phase, isNot(UpdatePhase.refused), reason: '$status');
+      expect(run.nothingStarted, isFalse);
+    }
+    expect(posts(), 2);
+  });
+
+  test('a 4xx with a detail is still a refusal', () async {
+    server.on('POST', '/api/hermes/update', {'detail': 'busy'}, status: 429);
+    await run.start();
+    expect(run.phase, UpdatePhase.refused);
+    expect(run.refusalMessage, 'busy');
+  });
+
   group('telemetry', () {
     test('a success after minutes carries buckets and nothing else', () async {
       final crumbs = <(String, Map<String, Object>)>[];

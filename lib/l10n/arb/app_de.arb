@@ -872,6 +872,8 @@
   "serverCareUpdateOutcomeKeepWaiting": "Weiter warten",
   "serverCareUpdateOutcomeNotBackHint": "Falls du Hermes von Hand gestartet hast, muss es auf dem Server vielleicht neu gestartet werden.",
   "serverCareUpdateOutcomeNotBackTitle": "Hermes ist noch nicht wieder da",
+  "serverCareUpdateOutcomeNotConfirmedHint": "Es läuft schon sehr lange. Prüfe erneut, um das Ergebnis zu lesen.",
+  "serverCareUpdateOutcomeNotConfirmedTitle": "Die App kann nicht sagen, ob das Update abgeschlossen wurde",
   "serverCareUpdateOutcomeNowRunning": "Jetzt läuft {version}.",
   "serverCareUpdateOutcomeOldServerTitle": "Hermes wurde aktualisiert, aber der Server läuft noch mit der alten Version",
   "serverCareUpdateOutcomePartialTitle": "Hermes wurde aktualisiert, aber eine Sache ist noch zu erledigen",

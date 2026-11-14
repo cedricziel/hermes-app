@@ -33,6 +33,10 @@ enum UpdatePhase {
   /// Hermes did not answer for 15 minutes.
   notBack,
 
+  /// The update's action has said "running" for 30 minutes: it may still be
+  /// going, so nothing is claimed. Check again reads its status and receipt.
+  stillRunning,
+
   /// Hermes (or its receipt) refused the update.
   refused,
 
@@ -80,6 +84,10 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   /// A saved update older than this is read once and dropped on launch.
   static const resumeWindow = Duration(hours: 1);
 
+  /// How long the update's own action may say "running" before the app stops
+  /// claiming to follow it.
+  static const updatingWindow = Duration(minutes: 30);
+
   /// How long the receipt is waited for once Hermes answers.
   static const receiptWindow = Duration(seconds: 60);
 
@@ -119,6 +127,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   String? _refusalCommand;
   DateTime? _startedAt;
   DateTime? _restartSince;
+  DateTime? _updateSince;
   bool _lost = false;
   bool _postSent = false;
   bool _resumedAfterLaunch = false;
@@ -225,7 +234,9 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   /// ends the run.
   void dismiss() {
     if (busy || _phase == UpdatePhase.idle) return;
-    if (_phase == UpdatePhase.notBack || _phase == UpdatePhase.unauthorized) {
+    if (_phase == UpdatePhase.notBack ||
+        _phase == UpdatePhase.stillRunning ||
+        _phase == UpdatePhase.unauthorized) {
       unawaited(_store?.clear());
     }
     _reset();
@@ -248,6 +259,11 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     switch (_phase) {
       case UpdatePhase.staleServer:
         return _running ?? _launch(_checkStale);
+      case UpdatePhase.stillRunning:
+        if (_running != null) return Future.value();
+        _updateSince = null;
+        _startSpan(resumed: false);
+        return _launch(() => _follow(_Step.update));
       case UpdatePhase.unauthorized:
         if (_nothingStarted || _running != null) return Future.value();
         _startSpan(resumed: false);
@@ -279,10 +295,11 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     _versionBefore = record.versionBefore;
     _commitBefore = record.commitBefore;
     _resumedAfterLaunch = true;
+    _updateSince = record.startedAt;
     // A record with no action id is one whose request may not have been
     // answered: its child must be seen running before anything is credited.
     _lost = record.actionId == null;
-    if (_now().difference(record.startedAt) < resumeWindow) {
+    if (!_passed(record.startedAt, resumeWindow)) {
       _startSpan(resumed: true);
       await _launch(() => _follow(_Step.update));
     } else {
@@ -306,6 +323,14 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     });
     _running = done;
     return done;
+  }
+
+  /// Whether [window] has passed since [since]. A clock set backwards makes
+  /// the difference negative; that counts as passed, so no wait can last
+  /// forever.
+  bool _passed(DateTime since, Duration window) {
+    final elapsed = _now().difference(since);
+    return elapsed.isNegative || elapsed >= window;
   }
 
   bool _stale(int generation) => disposed || generation != _generation;
@@ -335,6 +360,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     _refusalCommand = null;
     _startedAt = null;
     _restartSince = null;
+    _updateSince = null;
     _lost = false;
     _postSent = false;
     _resumedAfterLaunch = false;
@@ -358,6 +384,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
     final generation = _generation;
     _startedAt = _now();
     _startSpan(resumed: false);
+    _updateSince = _startedAt;
     _enter(UpdatePhase.starting);
     final health = await _repository.health();
     if (_stale(generation)) return;
@@ -389,7 +416,9 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
       case CareFailed(
         kind: CareFailureKind.offline ||
             CareFailureKind.unreadable ||
-            CareFailureKind.server,
+            CareFailureKind.server ||
+            // A proxy's 408 or 429 has no detail: Hermes did not say no.
+            CareFailureKind.refused,
         message: null,
       ):
         // The answer is lost: it may have started. Never send it again.
@@ -461,7 +490,13 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   Future<_Step?> _update(int generation) async {
     _enter(UpdatePhase.updating);
     final from = _now();
+    final since = _updateSince ??= from;
     while (true) {
+      if (_passed(since, updatingWindow)) {
+        // Still "running" after half an hour: it may be, and it may be stuck.
+        _settle(UpdatePhase.stillRunning, 'not_confirmed');
+        return null;
+      }
       final status = await _repository.actionStatus(
         CareAction.hermesUpdate,
         lines: 60,
@@ -484,9 +519,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         case CareFailed() || CareUnsupported():
           return _Step.restart;
       }
-      if (_lost &&
-          !_sawRunning &&
-          _now().difference(from) >= lostAnswerWindow) {
+      if (_lost && !_sawRunning && _passed(from, lostAnswerWindow)) {
         if (_resumedAfterLaunch) {
           await _dropUnseen(generation);
         } else {
@@ -570,12 +603,15 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
           if (_stale(generation)) return null;
           if (status case CareOk(:final value) when value.running) {
             _setLines(value.lines);
+            // A flapping proxy must not spin the two steps.
+            await _delay(_poll);
+            if (_stale(generation)) return null;
             return _Step.update;
           }
           return _Step.verify;
         }
         _cameBack = true;
-        if (_now().difference(since) >= restartWindow) {
+        if (_passed(since, restartWindow)) {
           _settle(UpdatePhase.notBack, 'not_back');
           return null;
         }
@@ -634,7 +670,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         case CareUnsupported():
           break;
       }
-      if (_now().difference(from) >= receiptWindow) {
+      if (_passed(from, receiptWindow)) {
         _finish(UpdateResult.unknown);
         return null;
       }
@@ -753,7 +789,9 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   /// resolves the update) drops the saved record and reads the server again.
   void _settle(UpdatePhase phase, String outcome) {
     final keepsRecord =
-        phase == UpdatePhase.notBack || phase == UpdatePhase.unauthorized;
+        phase == UpdatePhase.notBack ||
+        phase == UpdatePhase.stillRunning ||
+        phase == UpdatePhase.unauthorized;
     _enter(phase);
     _report(outcome);
     if (!keepsRecord) unawaited(_afterResolved());
