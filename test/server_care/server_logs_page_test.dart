@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SemanticsNode;
@@ -428,7 +430,14 @@ void main() {
   });
 
   group('what sits above the page when its state ends', () {
-    final surfaces = <(String, Future<void> Function(WidgetTester), Finder)>[
+    // The profile menu's items are menu entries on Material and a Mac, and
+    // plain menu items in an iOS overlay; both name the other profile.
+    Finder profileItems(TargetPlatform p) => p == TargetPlatform.iOS
+        ? find.text('work')
+        : find.byType(CheckedPopupMenuItem<String>);
+    List<(String, Future<void> Function(WidgetTester), Finder)> surfacesFor(
+      TargetPlatform p,
+    ) => <(String, Future<void> Function(WidgetTester), Finder)>[
       (
         'the Copy question',
         (tester) async {
@@ -461,7 +470,7 @@ void main() {
           await tester.tap(find.byKey(const Key('settings-subtitle-menu')));
           await tester.pumpAndSettle();
         },
-        find.byType(CheckedPopupMenuItem<String>),
+        profileItems(p),
       ),
     ];
 
@@ -503,28 +512,142 @@ void main() {
           ),
         ];
 
-    for (final (event, leaves, trigger) in events) {
-      for (final (surfaceName, open, finder) in surfaces) {
-        pageTest('$event closes $surfaceName and copies nothing', (
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      for (final (event, leaves, trigger) in events) {
+        for (final (surfaceName, open, finder) in surfacesFor(platform)) {
+          pageTest('$event closes $surfaceName and copies nothing ($platform)', (
+            tester,
+          ) async {
+            final auth = _TestAuth();
+            addTearDown(auth.dispose);
+            await tester.runAsync(lock.load);
+            await tester.runAsync(() => lock.setEnabled(true));
+            await pump(
+              tester,
+              pushed: true,
+              auth: auth,
+              withLock: true,
+              platform: platform,
+            );
+            await open(tester);
+            expect(finder, findsWidgets);
+            await trigger(tester, auth);
+            // A covered page shows a pulsing placeholder, so it never settles.
+            await tester.pump(const Duration(seconds: 1));
+            await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+            await tester.pump(const Duration(seconds: 1));
+            expect(finder, findsNothing);
+            expect(tester.takeException(), isNull);
+            expect(clipboard, isNull);
+            expect(find.text('Log lines copied'), findsNothing);
+            if (leaves) expect(find.text('open'), findsOneWidget);
+          });
+        }
+      }
+    }
+
+    // The answer to the Copy question is held while the page goes stale, then
+    // given: the epoch check alone must stop the copy.
+    for (final (event, trigger)
+        in <(String, Future<void> Function(WidgetTester, _TestAuth))>[
+          ('a profile switch', (t, a) async => care.profileChanged('work')),
+          (
+            'the App Lock cover',
+            (t, a) async => t.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.inactive,
+            ),
+          ),
+          (
+            'a sign-out',
+            (t, a) async => a.move(state: HermesConnectionState.needsLogin),
+          ),
+        ]) {
+      pageTest('a held "Copy" after $event copies nothing', (tester) async {
+        final auth = _TestAuth();
+        addTearDown(auth.dispose);
+        await tester.runAsync(lock.load);
+        await tester.runAsync(() => lock.setEnabled(true));
+        final answer = Completer<bool>();
+        await pump(
+          tester,
+          pushed: true,
+          auth: auth,
+          withLock: true,
+          pageOverride: ServerLogsPage(
+            askToCopy: (context, closer) => answer.future,
+          ),
+        );
+        await tester.tap(find.byKey(const Key('logs-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Copy shown lines'));
+        await tester.pump();
+        await trigger(tester, auth);
+        await tester.pump(const Duration(seconds: 1));
+        answer.complete(true);
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump(const Duration(seconds: 1));
+        expect(clipboard, isNull);
+        expect(find.text('Log lines copied'), findsNothing);
+      });
+    }
+
+    pageTest('a held "Copy" with nothing changed does copy', (tester) async {
+      final answer = Completer<bool>();
+      await pump(
+        tester,
+        pageOverride: ServerLogsPage(
+          askToCopy: (context, closer) => answer.future,
+        ),
+      );
+      await tester.tap(find.byKey(const Key('logs-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copy shown lines'));
+      await tester.pump();
+      answer.complete(true);
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump(const Duration(seconds: 1));
+      expect(clipboard!.split('\n'), hasLength(5));
+    });
+
+    // A dialog someone else put over the page is not this page's to close.
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      for (final (event, trigger)
+          in <(String, Future<void> Function(WidgetTester))>[
+            ('a profile switch', (t) async => care.profileChanged('work')),
+            (
+              'the App Lock cover',
+              (t) async => t.binding.handleAppLifecycleStateChanged(
+                AppLifecycleState.inactive,
+              ),
+            ),
+            (
+              'an inactive lifecycle change',
+              (t) async {
+                t.binding.handleAppLifecycleStateChanged(
+                  AppLifecycleState.inactive,
+                );
+                t.binding.handleAppLifecycleStateChanged(
+                  AppLifecycleState.resumed,
+                );
+              },
+            ),
+          ]) {
+        pageTest('a foreign dialog survives $event ($platform)', (
           tester,
         ) async {
-          final auth = _TestAuth();
-          addTearDown(auth.dispose);
           await tester.runAsync(lock.load);
           await tester.runAsync(() => lock.setEnabled(true));
-          await pump(tester, pushed: true, auth: auth, withLock: true);
-          await open(tester);
-          expect(finder, findsWidgets);
-          await trigger(tester, auth);
-          // A covered page shows a pulsing placeholder, so it never settles.
+          await pump(tester, withLock: true, platform: platform);
+          showDialog<void>(
+            context: tester.element(find.byType(ServerLogsPage)),
+            builder: (_) => const AlertDialog(title: Text('Foreign dialog')),
+          ).ignore();
+          await tester.pumpAndSettle();
+          await trigger(tester);
           await tester.pump(const Duration(seconds: 1));
           await tester.runAsync(() => Future<void>.delayed(Duration.zero));
           await tester.pump(const Duration(seconds: 1));
-          expect(finder, findsNothing);
-          expect(tester.takeException(), isNull);
-          expect(clipboard, isNull);
-          expect(find.text('Log lines copied'), findsNothing);
-          if (leaves) expect(find.text('open'), findsOneWidget);
+          expect(find.text('Foreign dialog'), findsOneWidget);
         });
       }
     }

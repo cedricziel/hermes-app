@@ -19,6 +19,7 @@ import 'secure_window.dart';
 import 'server_care_controller.dart';
 import 'server_care_repository.dart';
 import 'server_logs_controller.dart';
+import 'widgets/closes_with.dart';
 import 'widgets/logs_copy_dialog.dart';
 import 'widgets/private_surface.dart';
 import 'widgets/server_logs_body.dart';
@@ -39,10 +40,17 @@ class ServerLogsPage extends StatefulWidget {
     super.key,
     this.initialFile = CareLogFile.errors,
     this.profile,
+    this.askToCopy,
   });
 
   /// The file shown first.
   final CareLogFile initialFile;
+
+  /// Asks whether to copy; the real question when null. [closer] fires when
+  /// the question goes stale. For tests that hold the answer.
+  @visibleForTesting
+  final Future<bool> Function(BuildContext context, Listenable closer)?
+  askToCopy;
 
   /// The profile whose logs are shown first; the chat's when null. A later
   /// switch of the chat's profile still moves the page.
@@ -66,6 +74,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   /// ending, a profile switch, App Lock covering. A question answered after
   /// one of them copies nothing.
   int _epoch = 0;
+  final _staleSignal = _Signal();
 
   @override
   void initState() {
@@ -137,16 +146,14 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   }
 
   /// What was asked or opened on this page no longer applies: closes the
-  /// questions and menus above it (never a page) and outdates any answer.
+  /// questions and menus this page opened (each marks itself with
+  /// [ClosesWith], so a dialog from anywhere else is left alone) and
+  /// outdates any answer. An iOS menu is an overlay inside the page, not a
+  /// route: the page's chrome is rebuilt under a new key, which closes it.
   void _stale() {
     _epoch++;
-    final navigators = {
-      Navigator.maybeOf(context),
-      Navigator.maybeOf(context, rootNavigator: true),
-    };
-    for (final navigator in navigators) {
-      navigator?.popUntil((route) => route is! PopupRoute);
-    }
+    _staleSignal.fire();
+    if (mounted) setState(() {});
   }
 
   /// Removes this page's own route, never whatever is on top of it (the
@@ -184,6 +191,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
   @override
   void dispose() {
     _releaseSecure?.call();
+    _staleSignal.dispose();
     _connection?.dispose();
     _appLock?.removeListener(_lockChanged);
     _care.removeListener(_followChatProfile);
@@ -210,23 +218,31 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       ],
     ].join('\n');
     if (text.isEmpty) return;
-    final confirmed =
-        await showAppDialog<bool>(
-          context: context,
-          builder: (_) => LogsCopyDialog(
-            title: l10n.serverCareLogsCopyTitle,
-            message: l10n.serverCareLogsCopyMessage,
-            confirmLabel: l10n.serverCareLogsCopyConfirm,
-            cancelLabel: l10n.serverCareCancel,
-          ),
-        ) ??
-        false;
+    final confirmed = await (widget.askToCopy ?? _askToCopy)(
+      context,
+      _staleSignal,
+    );
     // Nothing is copied if the page is gone or its lines were replaced or
     // dropped while the question was open.
     if (!confirmed || !mounted || epoch != _epoch) return;
     await Clipboard.setData(ClipboardData(text: text));
     messenger?.showSnackBar(SnackBar(content: Text(l10n.serverCareLogsCopied)));
   }
+
+  Future<bool> _askToCopy(BuildContext context, Listenable closer) async =>
+      await showAppDialog<bool>(
+        context: context,
+        builder: (_) => ClosesWith(
+          closer: closer,
+          child: LogsCopyDialog(
+            title: context.l10n.serverCareLogsCopyTitle,
+            message: context.l10n.serverCareLogsCopyMessage,
+            confirmLabel: context.l10n.serverCareLogsCopyConfirm,
+            cancelLabel: context.l10n.serverCareCancel,
+          ),
+        ),
+      ) ??
+      false;
 
   SettingsSubtitleMenu<String>? _profileMenu(AppLocalizations l10n) {
     final profile = _controller.profile;
@@ -237,7 +253,11 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       onSelected: _controller.setProfile,
       itemBuilder: (_) => [
         for (final p in profiles)
-          CheckedPopupMenuItem(value: p, checked: p == profile, child: Text(p)),
+          CheckedPopupMenuItem(
+            value: p,
+            checked: p == profile,
+            child: ClosesWith(closer: _staleSignal, child: Text(p)),
+          ),
       ],
     );
   }
@@ -260,9 +280,14 @@ class _ServerLogsPageState extends State<ServerLogsPage>
 
   @override
   Widget build(BuildContext context) => PrivateSurface(
-    child: ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) => _scaffold(context),
+    // A new key per epoch rebuilds the page's chrome, which also closes an
+    // iOS menu (an overlay inside the page, not a route).
+    child: KeyedSubtree(
+      key: ValueKey(_epoch),
+      child: ListenableBuilder(
+        listenable: _controller,
+        builder: (context, _) => _scaffold(context),
+      ),
     ),
   );
 
@@ -276,6 +301,7 @@ class _ServerLogsPageState extends State<ServerLogsPage>
       entries: c.entries,
       level: c.level,
       onLevel: c.setLevel,
+      closeMenusWith: _staleSignal,
       refusedMessage: c.failureMessage,
       canShowOlder: c.canShowOlder,
       lastLinesCount: c.reachedLimit ? ServerLogsController.olderLines : null,
@@ -314,7 +340,10 @@ class _ServerLogsPageState extends State<ServerLogsPage>
             PopupMenuItem<void>(
               enabled: canCopy,
               onTap: _copy,
-              child: Text(l10n.serverCareLogsCopy),
+              child: ClosesWith(
+                closer: _staleSignal,
+                child: Text(l10n.serverCareLogsCopy),
+              ),
             ),
           ],
         ),
@@ -325,4 +354,10 @@ class _ServerLogsPageState extends State<ServerLogsPage>
           : RefreshIndicator(onRefresh: c.load, child: body),
     );
   }
+}
+
+/// A [ChangeNotifier] that anyone can fire, for what must reach every
+/// question and menu a page opened.
+class _Signal extends ChangeNotifier {
+  void fire() => notifyListeners();
 }
