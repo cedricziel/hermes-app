@@ -5,6 +5,7 @@ import 'package:hermes_app/src/chat/chat_models.dart'
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
+import 'package:hermes_app/src/workspaces/workspace_models.dart';
 
 /// A [ChatTransport] the test drives by hand: every [send] is recorded and
 /// its reply stream is fed through the returned [FakeSend].
@@ -58,6 +59,7 @@ class FakeChatTransport implements ChatTransport, PromptAcknowledgement {
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+    WorkspaceChoice? workspace,
   }) {
     final send = FakeSend(
       threadId: threadId,
@@ -66,6 +68,7 @@ class FakeChatTransport implements ChatTransport, PromptAcknowledgement {
       attachments: attachments,
       model: model,
       queued: queued,
+      workspace: workspace,
     );
     sends.add(send);
     return send._events.stream;
@@ -336,6 +339,7 @@ class FakeSend {
     this.attachments = const [],
     this.model,
     this.queued = false,
+    this.workspace,
   });
 
   final String? threadId;
@@ -346,6 +350,9 @@ class FakeSend {
 
   /// Whether the send asked to queue behind a running turn.
   final bool queued;
+
+  /// The folder picked for a new chat, when the send carried one.
+  final WorkspaceChoice? workspace;
   final _events = StreamController<ChatEvent>();
 
   void emit(ChatEvent event) => _events.add(event);

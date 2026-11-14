@@ -55,6 +55,7 @@ extension _ChatControllerSending on ChatController {
           modelChoice: _newChatModel,
         );
     if (selected == null) {
+      _carryPendingChoice(thread);
       _threads.insert(0, thread);
       _selectedId = thread.id;
     }
@@ -330,6 +331,7 @@ extension _ChatControllerSending on ChatController {
         attachments: attachments,
         model: thread.modelChoice,
         queued: queued,
+        workspace: _choiceForSend(thread, threadId),
       );
     } else {
       stream = (transport as QueueSubmissionTransport).sendQueued(

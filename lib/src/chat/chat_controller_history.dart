@@ -154,6 +154,7 @@ extension _ChatControllerHistory on ChatController {
       if (switched) {
         _modelOptions = null;
         _newChatModel = null;
+        _ChatControllerWorkspace(this)._workspaceProfileSwitched();
         search?.clear();
       }
       _carryReplies();

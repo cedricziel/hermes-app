@@ -9,6 +9,7 @@ extension _Sending on HermesGatewayTransport {
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+    WorkspaceChoice? workspace,
     Future<void> Function()? beforeSubmit,
     Future<void> Function()? onNotSubmitted,
     bool Function()? queueDispatchAllowed,
@@ -24,6 +25,7 @@ extension _Sending on HermesGatewayTransport {
         attachments: attachments,
         model: model,
         queued: queued,
+        workspace: workspace,
         stopped: stopped,
         step: step,
         beforeSubmit: beforeSubmit,
@@ -59,6 +61,66 @@ extension _Sending on HermesGatewayTransport {
         },
       });
 
+  /// `session.create`, with the picked folder as `cwd` and `cwd_explicit`.
+  /// A server whose contract predates the flag answers `4000` naming it; the
+  /// create is then sent once more without the flag ([onRetry]), and the
+  /// folder it reports is compared with the pick afterwards. A create that
+  /// carries no folder is sent as it always was.
+  Future<Map<String, Object?>> _createSession(
+    GatewayRpcClient client,
+    Map<String, Object?> params,
+    WorkspaceChoice? workspace,
+    void Function() onRetry,
+  ) async {
+    if (workspace == null) return _call(client, 'session.create', params);
+    try {
+      return await _call(client, 'session.create', {
+        ...params,
+        'cwd': workspace.path,
+        'cwd_explicit': true,
+      });
+    } on GatewayRpcException catch (error) {
+      if (error.code != 4000 || !error.message.contains('cwd_explicit')) {
+        rethrow;
+      }
+      onRetry();
+      return _call(client, 'session.create', {
+        ...params,
+        'cwd': workspace.path,
+      });
+    }
+  }
+
+  /// Where Hermes started the new session, from its `info`, or null when it
+  /// said nothing about a folder.
+  static WorkspaceBound? _workspaceBound(
+    Map<String, Object?> session,
+    bool retriedWithoutExplicit,
+  ) {
+    final info = session['info'];
+    if (info is! Map) return null;
+    final cwd = info['cwd'];
+    if (cwd is! String || cwd.trim().isEmpty) return null;
+    final branch = info['branch'];
+    final project = info['project'];
+    final name = project is Map ? project['name'] : null;
+    final fields = project is Map ? project : const <Object?, Object?>{};
+    final projectId = fields['id'];
+    final primaryPath = fields['primary_path'];
+    return WorkspaceBound(
+      cwd: cwd,
+      branch: branch is String && branch.trim().isNotEmpty ? branch : null,
+      project: name is String && name.trim().isNotEmpty
+          ? WorkspaceProjectRef(
+              name: name,
+              id: projectId is String ? projectId : null,
+              primaryPath: primaryPath is String ? primaryPath : null,
+            )
+          : null,
+      retriedWithoutExplicit: retriedWithoutExplicit,
+    );
+  }
+
   Stream<ChatEvent> _sendReply({
     String? threadId,
     String? profile,
@@ -66,6 +128,7 @@ extension _Sending on HermesGatewayTransport {
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+    WorkspaceChoice? workspace,
     required CancelFlag stopped,
     required _SendStep step,
     Future<void> Function()? beforeSubmit,
@@ -84,6 +147,7 @@ extension _Sending on HermesGatewayTransport {
     late ReplayLedger before;
     late _Tap tap;
     late Map<String, Object?> session;
+    var retriedWithoutExplicit = false;
     Object? usageResumeToken;
     for (var attempt = 0; ; attempt++) {
       if (attempt > 0) await _sleep(reconnectDelay(attempt, _random));
@@ -104,14 +168,19 @@ extension _Sending on HermesGatewayTransport {
               ? null
               : _beginResume((profile, threadId));
           session = threadId == null
-              ? await _call(client, 'session.create', {
-                  ...scope,
-                  if (model != null) ...{
-                    'model': model.modelId,
-                    'provider': model.providerId,
-                    'reasoning_effort': ?model.effort,
+              ? await _createSession(
+                  client,
+                  {
+                    ...scope,
+                    if (model != null) ...{
+                      'model': model.modelId,
+                      'provider': model.providerId,
+                      'reasoning_effort': ?model.effort,
+                    },
                   },
-                })
+                  workspace,
+                  () => retriedWithoutExplicit = true,
+                )
               : await _call(client, 'session.resume', {
                   'session_id': threadId,
                   ...scope,
@@ -266,6 +335,10 @@ extension _Sending on HermesGatewayTransport {
     try {
       if (threadId == null) {
         yield ThreadBound(storedId);
+        if (_workspaceBound(session, retriedWithoutExplicit)
+            case final bound?) {
+          yield bound;
+        }
       }
       // Images queue on the session and the next prompt takes them, so a send
       // that fails after queuing one must take them off again.
