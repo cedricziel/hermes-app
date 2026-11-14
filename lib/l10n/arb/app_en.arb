@@ -1937,9 +1937,17 @@
       }
     }
   },
+  "filesDragFallbackName": "File",
+  "@filesDragFallbackName": {
+    "description": "Name given to a file dragged out of the window when its own name cannot be used."
+  },
   "filesDragTooltip": "Drag to Finder",
   "@filesDragTooltip": {
     "description": "Hover text of the file tile in a Mac preview header, which can be dragged out of the window."
+  },
+  "filesEntryLabel": "Files",
+  "@filesEntryLabel": {
+    "description": "Name of the Files page in the Activity panel row, the chat header menu and the title when the folder has no name."
   },
   "filesFailureBusy": "This file is open in a database right now. Try again in a moment.",
   "@filesFailureBusy": {
@@ -2104,6 +2112,10 @@
   "filesPickEmpty": "No folders in here.",
   "@filesPickEmpty": {
     "description": "Shown in the folder picker when a folder holds no subfolders."
+  },
+  "filesPreviewLoading": "Opening file…",
+  "@filesPreviewLoading": {
+    "description": "Screen reader label while a text file is read and no progress is known."
   },
   "filesPreviewTypeSize": "{type} · {size}",
   "@filesPreviewTypeSize": {

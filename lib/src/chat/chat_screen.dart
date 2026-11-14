@@ -44,6 +44,8 @@ import '../handoff/handoff_activity.dart';
 import '../messaging/messaging_screen.dart';
 import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
+import '../files/files_telemetry.dart' show FilesOpenedFrom;
+import '../files/open_files.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
@@ -932,6 +934,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) => MacCommandScope(
     commands: _menuCommands(
       ios: platformChromeOf(context) == PlatformChrome.ios,
+      files: filesShown(context),
     ),
     child: _buildScreen(context),
   );
