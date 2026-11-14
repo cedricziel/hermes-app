@@ -310,7 +310,7 @@ void main() {
     await tapSwitch(tester, 'todo');
     await tester.pump(const Duration(seconds: 11));
 
-    expect(find.text('Couldn\'t confirm. Try again.'), findsOneWidget);
+    expect(find.text('Couldn\'t confirm.'), findsOneWidget);
     expect(puts(), hasLength(1));
     await shots.capture(tester, 'couldnt-confirm');
   });

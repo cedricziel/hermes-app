@@ -28,14 +28,13 @@ ProcessCardInfo? processCardInfo(
 }
 
 /// How a Stop's phase reads on the card. The open confirmation and a
-/// confirmation closed because the program ended draw no banner; neither
-/// does a server without `process.kill`, whose card simply loses Stop.
+/// confirmation closed because the program ended draw no banner.
 ProcessStopStatus processStopStatusOf(ProcessStopPhase phase) =>
     switch (phase) {
       ProcessStopPhase.idle ||
       ProcessStopPhase.confirming ||
-      ProcessStopPhase.ended ||
-      ProcessStopPhase.unsupported => ProcessStopStatus.idle,
+      ProcessStopPhase.ended => ProcessStopStatus.idle,
+      ProcessStopPhase.unsupported => ProcessStopStatus.unsupported,
       ProcessStopPhase.sending => ProcessStopStatus.sending,
       ProcessStopPhase.checking => ProcessStopStatus.checking,
       ProcessStopPhase.killed => ProcessStopStatus.killed,

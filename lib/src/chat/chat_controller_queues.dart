@@ -442,6 +442,8 @@ extension _ChatControllerQueues on ChatController {
     if (_restoredQueues.contains(thread) || _queueRemoving.contains(thread)) {
       return;
     }
+    // A full restore is settling: the queue goes on after it.
+    if (_ChatControllerCheckpoints(this)._deferForHold(thread)) return;
     final first = queue.first;
     if (first.durable != null) {
       if (!first.uncertain) unawaited(_dispatchProtected(thread, first));
@@ -564,7 +566,11 @@ extension _ChatControllerQueues on ChatController {
     ChatThread thread,
     QueuedPrompt prompt,
   ) async {
-    if (_moveHolds(thread) || !_queueDispatching.add(thread)) return;
+    if (_moveHolds(thread) ||
+        _ChatControllerCheckpoints(this)._deferForHold(thread) ||
+        !_queueDispatching.add(thread)) {
+      return;
+    }
     final scope = prompt.scope;
     final profile = _profile;
     final generation = _loadGeneration;

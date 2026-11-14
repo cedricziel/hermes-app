@@ -124,6 +124,189 @@ void main() {
     });
   });
 
+  group('ModelOptions first-run facts', () {
+    Map<String, Object?> row(
+      String slug, {
+      bool? authenticated,
+      List<String> models = const [],
+    }) => {'slug': slug, 'authenticated': ?authenticated, 'models': models};
+
+    test('a connected provider without models is warming', () {
+      final options = ModelOptions.fromJson({
+        'providers': [row('example-a', authenticated: true)],
+      });
+
+      expect(options.providers, isEmpty);
+      expect(options.warming, isTrue);
+      expect(options.currentMissing, isFalse);
+    });
+
+    test('a provider that is not connected is not warming', () {
+      final options = ModelOptions.fromJson({
+        'providers': [row('example-a', authenticated: false)],
+      });
+
+      expect(options.warming, isFalse);
+    });
+
+    test('a row without the flag next to flagged rows is warming', () {
+      expect(
+        ModelOptions.fromJson({
+          'providers': [
+            row('example-a'),
+            row('example-b', authenticated: false),
+          ],
+        }).warming,
+        isTrue,
+      );
+    });
+
+    test(
+      'rows without the flag anywhere (an older server) are not warming',
+      () {
+        expect(
+          ModelOptions.fromJson({
+            'providers': [row('example-a'), row('example-b')],
+          }).warming,
+          isFalse,
+        );
+      },
+    );
+
+    test('a warming row is recorded next to a ready provider', () {
+      final options = ModelOptions.fromJson({
+        'providers': [
+          row('example-a', authenticated: true),
+          row('example-b', authenticated: true, models: ['example-model-a']),
+        ],
+      });
+
+      expect(options.providers.map((p) => p.id), ['example-b']);
+      expect(options.warming, isTrue);
+    });
+
+    test('the default provider missing from the rows is currentMissing', () {
+      final options = ModelOptions.fromJson({
+        'provider': 'example-a',
+        'model': 'example-model-a',
+        'providers': [
+          row('example-b', authenticated: true, models: ['example-model-b']),
+        ],
+      });
+
+      expect(options.currentMissing, isTrue);
+      expect(
+        options.missing,
+        const ModelChoice('example-a', 'example-model-a'),
+      );
+      expect(options.providers, hasLength(1));
+    });
+
+    test('currentMissing holds with no provider ready at all', () {
+      final options = ModelOptions.fromJson({
+        'provider': 'example-a',
+        'model': 'example-model-a',
+        'providers': <Object?>[],
+      });
+
+      expect(options.currentMissing, isTrue);
+    });
+
+    test('the default provider among the rows is not missing', () {
+      final ready = ModelOptions.fromJson({
+        'provider': 'example-a',
+        'model': 'example-model-a',
+        'providers': [
+          row('example-a', authenticated: true, models: ['example-model-a']),
+        ],
+      });
+      final warming = ModelOptions.fromJson({
+        'provider': 'example-a',
+        'model': 'example-model-a',
+        'providers': [row('example-a', authenticated: true)],
+      });
+
+      expect(ready.currentMissing, isFalse);
+      expect(warming.currentMissing, isFalse);
+      expect(warming.warming, isTrue);
+    });
+
+    test('a custom endpoint default is not missing, by slug or alias', () {
+      final bare = ModelOptions.fromJson({
+        'provider': 'custom:relay',
+        'model': 'example-model-a',
+        'providers': [
+          {
+            'slug': 'relay',
+            'authenticated': true,
+            'aliases': ['custom:relay'],
+            'models': ['example-model-a'],
+          },
+        ],
+      });
+      final bySlugOnly = ModelOptions.fromJson({
+        'provider': 'custom:relay',
+        'model': 'example-model-a',
+        'providers': [
+          row('relay', authenticated: true, models: ['example-model-a']),
+        ],
+      });
+      final other = ModelOptions.fromJson({
+        'provider': 'custom:relay',
+        'model': 'example-model-a',
+        'providers': [
+          {
+            'slug': 'lab',
+            'authenticated': true,
+            'aliases': ['custom:lab'],
+            'models': ['example-model-a'],
+          },
+        ],
+      });
+
+      expect(bare.currentMissing, isFalse);
+      expect(bySlugOnly.currentMissing, isFalse);
+      expect(other.currentMissing, isTrue);
+      // The same match finds the model, so sending is allowed.
+      expect(
+        bare.model(const ModelChoice('custom:relay', 'example-model-a')),
+        isNotNull,
+      );
+    });
+
+    test('the merged default "auto" is never a lost provider', () {
+      expect(
+        ModelOptions.fromJson({
+          'provider': 'auto',
+          'model': 'example-model-a',
+          'providers': <Object?>[],
+        }).currentMissing,
+        isFalse,
+      );
+    });
+
+    test('a fresh profile with no default is not missing anything', () {
+      final options = ModelOptions.fromJson({
+        'provider': '',
+        'model': '',
+        'providers': <Object?>[],
+      });
+
+      expect(options.currentMissing, isFalse);
+      expect(options.warming, isFalse);
+    });
+
+    test('a provider that was named without a model is not missing', () {
+      expect(
+        ModelOptions.fromJson({
+          'provider': 'example-a',
+          'providers': <Object?>[],
+        }).currentMissing,
+        isFalse,
+      );
+    });
+  });
+
   group('ModelOptions.model', () {
     test('finds a model within its own provider only', () {
       final options = ModelOptions.fromJson({

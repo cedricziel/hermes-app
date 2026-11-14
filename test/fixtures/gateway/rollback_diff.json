@@ -1,0 +1,26 @@
+{
+  "source_ref": "d923a5eb",
+  "note": "Invented content in the shapes of the Hermes gateway handlers and tests named in openspec/changes/chat-checkpoints-and-context/design.md. No real paths, hashes or messages.",
+  "source": "tui_gateway/methods_tools.py::rollback.diff",
+  "cases": {
+    "normal": {
+      "result": {
+        "stat": " notes/plan.md   | 4 +++-\n src/garden.txt  | 2 +-\n 2 files changed, 4 insertions(+), 2 deletions(-)\n",
+        "diff": "diff --git a/notes/plan.md b/notes/plan.md\nindex 1111111..2222222 100644\n--- a/notes/plan.md\n+++ b/notes/plan.md\n@@ -1,3 +1,4 @@\n # Plan\n-Water the beans\n+Water the beans twice\n+Plant the onions\n Weed the rows\ndiff --git a/src/garden.txt b/src/garden.txt\nindex 3333333..4444444 100644\n--- a/src/garden.txt\n+++ b/src/garden.txt\n@@ -1 +1 @@\n-tomatoes: 4\n+tomatoes: 6\n",
+        "rendered": "\u001b[32m+\u001b[0m"
+      }
+    },
+    "cut_at_4000": {
+      "result": {
+        "stat": " notes/long.md | 400 ++++++++++\n src/extra.txt | 1 +\n 2 files changed, 401 insertions(+)\n",
+        "diff": "diff --git a/notes/long.md b/notes/long.md\nindex 5555555..6666666 100644\n--- a/notes/long.md\n+++ b/notes/long.md\n@@ -0,0 +1,400 @@\n+line 0 of the long invented note\n+line 1 of the long invented note\n+line 2 of the long invented note\n+line 3 of the long invented note\n+line 4 of the long invented note\n+line 5 of the long invented note\n+line 6 of the long invented note\n+line 7 of the long invented note\n+line 8 of the long invented note\n+line 9 of the long invented note\n+line 10 of the long invented note\n+line 11 of the long invented note\n+line 12 of the long invented note\n+line 13 of the long invented note\n+line 14 of the long invented note\n+line 15 of the long invented note\n+line 16 of the long invented note\n+line 17 of the long invented note\n+line 18 of the long invented note\n+line 19 of the long invented note\n+line 20 of the long invented note\n+line 21 of the long invented note\n+line 22 of the long invented note\n+line 23 of the long invented note\n+line 24 of the long invented note\n+line 25 of the long invented note\n+line 26 of the long invented note\n+line 27 of the long invented note\n+line 28 of the long invented note\n+line 29 of the long invented note\n+line 30 of the long invented note\n+line 31 of the long invented note\n+line 32 of the long invented note\n+line 33 of the long invented note\n+line 34 of the long invented note\n+line 35 of the long invented note\n+line 36 of the long invented note\n+line 37 of the long invented note\n+line 38 of the long invented note\n+line 39 of the long invented note\n+line 40 of the long invented note\n+line 41 of the long invented note\n+line 42 of the long invented note\n+line 43 of the long invented note\n+line 44 of the long invented note\n+line 45 of the long invented note\n+line 46 of the long invented note\n+line 47 of the long invented note\n+line 48 of the long invented note\n+line 49 of the long invented note\n+line 50 of the long invented note\n+line 51 of the long invented note\n+line 52 of the long invented note\n+line 53 of the long invented note\n+line 54 of the long invented note\n+line 55 of the long invented note\n+line 56 of the long invented note\n+line 57 of the long invented note\n+line 58 of the long invented note\n+line 59 of the long invented note\n+line 60 of the long invented note\n+line 61 of the long invented note\n+line 62 of the long invented note\n+line 63 of the long invented note\n+line 64 of the long invented note\n+line 65 of the long invented note\n+line 66 of the long invented note\n+line 67 of the long invented note\n+line 68 of the long invented note\n+line 69 of the long invented note\n+line 70 of the long invented note\n+line 71 of the long invented note\n+line 72 of the long invented note\n+line 73 of the long invented note\n+line 74 of the long invented note\n+line 75 of the long invented note\n+line 76 of the long invented note\n+line 77 of the long invented note\n+line 78 of the long invented note\n+line 79 of the long invented note\n+line 80 of the long invented note\n+line 81 of the long invented note\n+line 82 of the long invented note\n+line 83 of the long invented note\n+line 84 of the long invented note\n+line 85 of the long invented note\n+line 86 of the long invented note\n+line 87 of the long invented note\n+line 88 of the long invented note\n+line 89 of the long invented note\n+line 90 of the long invented note\n+line 91 of the long invented note\n+line 92 of the long invented note\n+line 93 of the long invented note\n+line 94 of the long invented note\n+line 95 of the long invented note\n+line 96 of the long invented note\n+line 97 of the long invented note\n+line 98 of the long invented note\n+line 99 of the long invented note\n+line 100 of the long invented note\n+line 101 of the long invented note\n+line 102 of the long invented note\n+line 103 of the long invented note\n+line 104 of the long invented note\n+line 105 of the long invented note\n+line 106 of the long invented note\n+line 107 of the long invented note\n+line 108 of the long invented note\n+line 109 of the long invented note\n+line 110 of the lo"
+      }
+    },
+    "empty": {
+      "result": {
+        "stat": "",
+        "diff": ""
+      }
+    }
+  }
+}

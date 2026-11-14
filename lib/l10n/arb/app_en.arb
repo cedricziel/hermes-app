@@ -82,6 +82,22 @@
   "@@x-area-bot_screen": "",
 
   "@@x-area-chat": "",
+  "chatComposerHoldHandedBack": "Your last message is back in the box.",
+  "@chatComposerHoldHandedBack": {
+    "description": "Line above the message box after restoring files removed the user's last message and put it back into the box, unsent. Disappears on the next edit."
+  },
+  "chatComposerHoldRestoring": "Restoring files…",
+  "@chatComposerHoldRestoring": {
+    "description": "Line above the message box while files are restored from a checkpoint; Send is off until it finishes, typing is not."
+  },
+  "chatStatusCompacting": "Compacting the conversation…",
+  "@chatStatusCompacting": {
+    "description": "Status line under the agent’s thinking row while Hermes compacts the conversation on its own."
+  },
+  "chatStatusCompressing": "Compressing the conversation…",
+  "@chatStatusCompressing": {
+    "description": "Status line under the agent’s thinking row while the conversation is being compressed."
+  },
 
   "@@x-area-chat/activity": "",
   "chatActivityButtonHide": "Hide activity",
@@ -844,6 +860,137 @@
   "@chatCheckpointsOutcomeTryAgain": {
     "description": "Button on a restore outcome note that asks for the restore again, behind a new confirmation."
   },
+  "chatCheckpointsPageChangesSubtitle": "Since {time} · {reason}",
+  "@chatCheckpointsPageChangesSubtitle": {
+    "description": "Subtitle of the Changes page: when the checkpoint was taken (a relative time such as “12 min ago”, or a bare date such as “3 November”) and why.",
+    "placeholders": {
+      "time": {
+        "type": "String",
+        "example": "12 min ago"
+      },
+      "reason": {
+        "type": "String",
+        "example": "Before editing a file"
+      }
+    }
+  },
+  "chatCheckpointsPageChangesTitle": "Changes",
+  "@chatCheckpointsPageChangesTitle": {
+    "description": "Title of the page that lists the files that differ from a checkpoint."
+  },
+  "chatCheckpointsPageFileNext": "Next file",
+  "@chatCheckpointsPageFileNext": {
+    "description": "Accessibility label of the button that shows the next changed file."
+  },
+  "chatCheckpointsPageFilePrevious": "Previous file",
+  "@chatCheckpointsPageFilePrevious": {
+    "description": "Accessibility label of the button that shows the previous changed file."
+  },
+  "chatCheckpointsPageRefresh": "Refresh",
+  "@chatCheckpointsPageRefresh": {
+    "description": "Bar button of the File checkpoints page that reads the list again."
+  },
+  "chatCheckpointsPageRestoring": "Restoring files…",
+  "@chatCheckpointsPageRestoring": {
+    "description": "Working line in the Activity panel while a restore from a checkpoint runs."
+  },
+  "chatCheckpointsPageRowCount": "File checkpoints · {count}",
+  "@chatCheckpointsPageRowCount": {
+    "description": "Activity panel row: the chat's file checkpoints and how many there are.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatCheckpointsPageRowFailed": "Couldn't read checkpoints",
+  "@chatCheckpointsPageRowFailed": {
+    "description": "Error line of the File checkpoints row when the list could not be read."
+  },
+  "chatCheckpointsPageRowNotChecked": "Not checked yet",
+  "@chatCheckpointsPageRowNotChecked": {
+    "description": "Subtitle of the File checkpoints row of a stored chat whose checkpoints were not read yet; opening the row reads them."
+  },
+  "chatCheckpointsPageRowOff": "File checkpoints are off",
+  "@chatCheckpointsPageRowOff": {
+    "description": "Title of the File checkpoints row when the server has them switched off."
+  },
+  "chatCheckpointsPageRowOffHint": "See how to turn them on",
+  "@chatCheckpointsPageRowOffHint": {
+    "description": "Subtitle of the File checkpoints row when they are off; the row opens the explanation."
+  },
+  "chatCheckpointsPageRowSubtitle": "Restore files Hermes changed",
+  "@chatCheckpointsPageRowSubtitle": {
+    "description": "Subtitle of the File checkpoints row; keep it to one line."
+  },
+  "chatCheckpointsPageTimeDate": "on {date}",
+  "@chatCheckpointsPageTimeDate": {
+    "description": "When a checkpoint was taken, more than a week ago; also read inside sentences such as “goes back to how it was on 3 November”.",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "3 November"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeDays": "{count, plural, =1{1 day ago} other{{count} days ago}}",
+  "@chatCheckpointsPageTimeDays": {
+    "description": "When a checkpoint was taken, in days; also read inside sentences.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeExact": "{date} at {time}",
+  "@chatCheckpointsPageTimeExact": {
+    "description": "The exact time of a checkpoint, read by a screen reader.",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "14 November 2026"
+      },
+      "time": {
+        "type": "String",
+        "example": "10:40"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeHours": "{count} h ago",
+  "@chatCheckpointsPageTimeHours": {
+    "description": "When a checkpoint was taken, in hours; also read inside sentences.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeJustNow": "just now",
+  "@chatCheckpointsPageTimeJustNow": {
+    "description": "When a checkpoint was taken, under a minute ago; also read inside sentences, so it starts in lower case."
+  },
+  "chatCheckpointsPageTimeMinutes": "{count} min ago",
+  "@chatCheckpointsPageTimeMinutes": {
+    "description": "When a checkpoint was taken, in minutes; also read inside sentences.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatCheckpointsPageTimeUnknown": "at an unknown time",
+  "@chatCheckpointsPageTimeUnknown": {
+    "description": "Read inside a confirmation sentence when the checkpoint's time is not known: “goes back to how it was at an unknown time”."
+  },
+  "chatCheckpointsPageTimeYesterday": "yesterday",
+  "@chatCheckpointsPageTimeYesterday": {
+    "description": "When a checkpoint was taken; also read inside sentences, so it starts in lower case."
+  },
+  "chatCheckpointsPageTitle": "File checkpoints",
+  "@chatCheckpointsPageTitle": {
+    "description": "Title of the checkpoint page, and of the Activity panel row that opens it."
+  },
   "chatCheckpointsRestoreAllConfirm": "Restore all files",
   "@chatCheckpointsRestoreAllConfirm": {
     "description": "Destructive button of the Restore all files confirmation."
@@ -1263,6 +1410,34 @@
   "chatContextOutcomeWouldNotShrink": "Compressing wouldn't make this chat smaller.",
   "@chatContextOutcomeWouldNotShrink": {
     "description": "Note when compressing would not reduce the chat."
+  },
+  "chatContextPageCompress": "Compress conversation…",
+  "@chatContextPageCompress": {
+    "description": "Outlined button on the Context page that asks to compress the conversation."
+  },
+  "chatContextPageCompressCaption": "Older messages are replaced by a short summary.",
+  "@chatContextPageCompressCaption": {
+    "description": "Caption under the Compress conversation button."
+  },
+  "chatContextPageCompressCompressing": "Hermes is compressing this chat.",
+  "@chatContextPageCompressCompressing": {
+    "description": "Caption under the disabled Compress conversation button while a compress runs."
+  },
+  "chatContextPageCompressDisconnected": "Reconnect to compress.",
+  "@chatContextPageCompressDisconnected": {
+    "description": "Caption under the disabled Compress conversation button while the connection is lost."
+  },
+  "chatContextPageCompressReplying": "Wait for the reply to finish.",
+  "@chatContextPageCompressReplying": {
+    "description": "Caption under the disabled Compress conversation button while the chat replies."
+  },
+  "chatContextPageCompressUnavailable": "This chat can't be compressed right now.",
+  "@chatContextPageCompressUnavailable": {
+    "description": "Caption under the disabled Compress conversation button when the server or the chat cannot compress."
+  },
+  "chatContextPageOverLimit": "Hermes usually compresses by itself before this. Compressing now makes room.",
+  "@chatContextPageOverLimit": {
+    "description": "Note on the Context page when more is used than the window holds."
   },
   "chatContextPercent": "{percent}%",
   "@chatContextPercent": {
@@ -1744,6 +1919,10 @@
       }
     }
   },
+  "chatWidgetsProgramConfirmThisProgram": "this program",
+  "@chatWidgetsProgramConfirmThisProgram": {
+    "description": "Stands for the command in the stop confirmation's message when Hermes gave none (\"Hermes ends this program\")."
+  },
   "chatWidgetsProgramConfirmTitle": "Stop this program?",
   "@chatWidgetsProgramConfirmTitle": {
     "description": "Title of the confirmation before a background program is stopped."
@@ -1787,6 +1966,10 @@
   "chatWidgetsProgramOutcomeStopped": "Stopped",
   "@chatWidgetsProgramOutcomeStopped": {
     "description": "Banner once a program was stopped."
+  },
+  "chatWidgetsProgramOutcomeUnsupported": "This server can't stop programs.",
+  "@chatWidgetsProgramOutcomeUnsupported": {
+    "description": "Banner after Stop program was pressed on a server without process.kill; Stop is then gone."
   },
   "chatWidgetsProgramStateClosed": "Closed",
   "@chatWidgetsProgramStateClosed": {
@@ -2316,6 +2499,10 @@
   "@@x-area-live_activities": "",
 
   "@@x-area-macos": "",
+  "macosCompressConversation": "Compress Conversation…",
+  "@macosCompressConversation": {
+    "description": "Mac menu bar, Chat menu item: asks to summarize the open chat's earlier messages to free up context; opens a confirmation. Title case, keep it short."
+  },
 
   "@@x-area-mcp": "",
 
@@ -2534,6 +2721,10 @@
       }
     }
   },
+  "providersCardConnectBodyDefault": "Your Hermes server has no model provider yet.",
+  "@providersCardConnectBodyDefault": {
+    "description": "Body of the connect card for the profile named default, which is the server's own profile: no name is said."
+  },
   "providersCardConnectTitle": "Connect a model to start chatting",
   "@providersCardConnectTitle": {
     "description": "Title of the card on the empty chat when no model provider is connected."
@@ -2561,6 +2752,16 @@
       "model": {
         "type": "String",
         "example": "Example Model A"
+      }
+    }
+  },
+  "providersCardReconnectBodyDefault": "New chats use {model}, but its provider's key is missing or no longer works.",
+  "@providersCardReconnectBodyDefault": {
+    "description": "Body of the reconnect card for the profile named default: no name is said.",
+    "placeholders": {
+      "model": {
+        "type": "String",
+        "example": "example-model-a"
       }
     }
   },
@@ -3638,6 +3839,7 @@
   "@providersTryAgain": {
     "description": "Button that reads the providers again."
   },
+
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",
@@ -4049,6 +4251,14 @@
   "@serverCareHeadlineUnsupportedDetail": {
     "description": "Detail under the unsupported-server headline."
   },
+  "serverCareLogDayToday": "Today",
+  "@serverCareLogDayToday": {
+    "description": "Header of the log lines written today."
+  },
+  "serverCareLogDayYesterday": "Yesterday",
+  "@serverCareLogDayYesterday": {
+    "description": "Header of the log lines written yesterday."
+  },
   "serverCareLogLevelCritical": "Critical",
   "@serverCareLogLevelCritical": {
     "description": "Name of the critical log level, in a log line's chip."
@@ -4100,6 +4310,110 @@
         "example": "5"
       }
     }
+  },
+  "serverCareLogsClearFilters": "Clear filters",
+  "@serverCareLogsClearFilters": {
+    "description": "Button on the Logs page that removes the level and search filters."
+  },
+  "serverCareLogsCopied": "Log lines copied",
+  "@serverCareLogsCopied": {
+    "description": "Message shown after the log lines were copied."
+  },
+  "serverCareLogsCopy": "Copy shown lines",
+  "@serverCareLogsCopy": {
+    "description": "Menu item on the Logs page that copies every line shown."
+  },
+  "serverCareLogsCopyConfirm": "Copy",
+  "@serverCareLogsCopyConfirm": {
+    "description": "Button that confirms copying the shown log lines."
+  },
+  "serverCareLogsCopyMessage": "Logs can contain private details, like messages and file paths. Anyone you paste them to can read them.",
+  "@serverCareLogsCopyMessage": {
+    "description": "Warning in the confirmation before log lines are copied."
+  },
+  "serverCareLogsCopyTitle": "Copy these log lines?",
+  "@serverCareLogsCopyTitle": {
+    "description": "Title of the confirmation before log lines are copied."
+  },
+  "serverCareLogsEmptyDetail": "Hermes hasn't written to this log.",
+  "@serverCareLogsEmptyDetail": {
+    "description": "Detail of the Logs page when the log has no lines."
+  },
+  "serverCareLogsEmptyTitle": "Nothing logged yet",
+  "@serverCareLogsEmptyTitle": {
+    "description": "Title of the Logs page when the log has no lines and no filter is set."
+  },
+  "serverCareLogsFailedDetail": "Try again in a moment.",
+  "@serverCareLogsFailedDetail": {
+    "description": "Detail of the Logs page when the read failed."
+  },
+  "serverCareLogsFailedTitle": "Logs can't be loaded",
+  "@serverCareLogsFailedTitle": {
+    "description": "Title of the Logs page when the read failed."
+  },
+  "serverCareLogsFileAgent": "Agent",
+  "@serverCareLogsFileAgent": {
+    "description": "Tab of the Logs page that shows the agent log."
+  },
+  "serverCareLogsFileErrors": "Errors",
+  "@serverCareLogsFileErrors": {
+    "description": "Tab of the Logs page that shows Hermes' errors log."
+  },
+  "serverCareLogsFileGateway": "Gateway",
+  "@serverCareLogsFileGateway": {
+    "description": "Tab of the Logs page that shows the messaging gateway log."
+  },
+  "serverCareLogsLastLines": "That's the last {count} lines.",
+  "@serverCareLogsLastLines": {
+    "description": "Note at the end of the Logs list when no older lines can be asked for.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "500"
+      }
+    }
+  },
+  "serverCareLogsLoading": "Loading logs",
+  "@serverCareLogsLoading": {
+    "description": "Screen reader label of the placeholder lines shown while logs load."
+  },
+  "serverCareLogsMore": "More",
+  "@serverCareLogsMore": {
+    "description": "Accessible name of the Logs page menu button."
+  },
+  "serverCareLogsNoMatchDetail": "Try another level or search.",
+  "@serverCareLogsNoMatchDetail": {
+    "description": "Detail of the Logs page when a filter leaves no lines."
+  },
+  "serverCareLogsNoMatchTitle": "No lines match",
+  "@serverCareLogsNoMatchTitle": {
+    "description": "Title of the Logs page when a level or search filter leaves no lines."
+  },
+  "serverCareLogsRowSubtitle": "Recent lines from Hermes' logs",
+  "@serverCareLogsRowSubtitle": {
+    "description": "Subtitle of the Logs row on the Server screen."
+  },
+  "serverCareLogsSearchHint": "Search these logs",
+  "@serverCareLogsSearchHint": {
+    "description": "Placeholder of the Logs page search field."
+  },
+  "serverCareLogsShowOlder": "Show older lines",
+  "@serverCareLogsShowOlder": {
+    "description": "Button at the end of the Logs list that asks for more, older lines."
+  },
+  "serverCareLogsSubtitle": "{profile} · newest first",
+  "@serverCareLogsSubtitle": {
+    "description": "Subtitle of the Logs page: the profile whose logs are shown, then the order.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "serverCareLogsTitle": "Logs",
+  "@serverCareLogsTitle": {
+    "description": "Title of the Logs page and of its row on the Server screen."
   },
   "serverCareMachineHeader": "Server",
   "@serverCareMachineHeader": {
@@ -4184,6 +4498,10 @@
   "serverCareSessionStoreUnreadable": "Can't be read",
   "@serverCareSessionStoreUnreadable": {
     "description": "Session store row value when the database cannot be read."
+  },
+  "serverCareShowLogs": "Show logs",
+  "@serverCareShowLogs": {
+    "description": "Button that opens the Logs page, on the Server screen headline and on the gateway row."
   },
   "serverCareSidebarCaptionNeedsAttention": "Needs attention",
   "@serverCareSidebarCaptionNeedsAttention": {
@@ -5132,6 +5450,14 @@
   "@toolsBannerShow": {
     "description": "Button in the installer banner that opens the tool's details."
   },
+  "toolsCheckAgain": "Check again",
+  "@toolsCheckAgain": {
+    "description": "Button next to a note that the app lost track of an install or a permission window; reads its state again."
+  },
+  "toolsChecking": "Checking…",
+  "@toolsChecking": {
+    "description": "Shown with a spinner while the app reads what the server has after an install or a permission window ended."
+  },
   "toolsChipCantUse": "Can't be used",
   "@toolsChipCantUse": {
     "description": "Status badge: a tool or backend that cannot work on this server. Keep it short."
@@ -5340,6 +5666,26 @@
   "@toolsFooterLink": {
     "description": "Link under the tools list that explains tools, skills, plugins and MCP servers."
   },
+  "toolsGrantFailed": "Couldn't open the permission window. Try again.",
+  "@toolsGrantFailed": {
+    "description": "Error when asking the server's Mac to open its permission window failed."
+  },
+  "toolsGrantFollowLost": "Couldn't follow the permission window. Check again.",
+  "@toolsGrantFollowLost": {
+    "description": "Warning when the app lost track of the permission window on the server's Mac."
+  },
+  "toolsGrantFollowRetrying": "Couldn't follow the permission window. Trying again…",
+  "@toolsGrantFollowRetrying": {
+    "description": "Warning while the app retries reading the progress of the permission window."
+  },
+  "toolsGrantHeader": "Allow access",
+  "@toolsGrantHeader": {
+    "description": "Header of the block that shows the permission window opened on the server's Mac."
+  },
+  "toolsGrantRunning": "Waiting for approval on the Mac that runs Hermes…",
+  "@toolsGrantRunning": {
+    "description": "Title while the permission window is open on the server's Mac and someone there has to approve it."
+  },
   "toolsHeaderOffNeedsSetup": "Off · needs setup",
   "@toolsHeaderOffNeedsSetup": {
     "description": "State line in a tool's detail header: the tool is off and has not been set up."
@@ -5386,6 +5732,14 @@
   "@toolsInstallFailedNothing": {
     "description": "Sentence after a failed install, introducing the installer's last lines."
   },
+  "toolsInstallFollowLost": "Couldn't follow the install. Check again.",
+  "@toolsInstallFollowLost": {
+    "description": "Warning when the app gave up reading how an install on the server is going."
+  },
+  "toolsInstallFollowRetrying": "Couldn't follow the install. Trying again…",
+  "@toolsInstallFollowRetrying": {
+    "description": "Warning while the app retries reading how an install on the server is going."
+  },
   "toolsInstallHeader": "Install on server",
   "@toolsInstallHeader": {
     "description": "Header of the section that shows an install running on the server."
@@ -5397,6 +5751,14 @@
   "toolsInstallLeave": "You can leave this screen. The install keeps going.",
   "@toolsInstallLeave": {
     "description": "Muted line while an install runs on the server."
+  },
+  "toolsInstallMayHaveStarted": "The install may have started. Checking…",
+  "@toolsInstallMayHaveStarted": {
+    "description": "Title while an install is followed after the answer to starting it was lost."
+  },
+  "toolsInstallNotStarted": "Couldn't start the install. Try again.",
+  "@toolsInstallNotStarted": {
+    "description": "Error when starting an install on the server failed and nothing is known to run."
   },
   "toolsInstallRunning": "Installing on your server…",
   "@toolsInstallRunning": {
@@ -5497,6 +5859,10 @@
   "toolsKeyUnconfirmed": "Couldn't confirm. Pull to refresh.",
   "@toolsKeyUnconfirmed": {
     "description": "Shown when the app could not find out whether a key was saved."
+  },
+  "toolsKeyUnconfirmedRetry": "Couldn't confirm.",
+  "@toolsKeyUnconfirmedRetry": {
+    "description": "Under a key field when the answer to saving was lost and reading again failed, where nothing pulls to refresh."
   },
   "toolsLabelBrowser": "Browser",
   "@toolsLabelBrowser": {
@@ -5668,6 +6034,10 @@
   "@toolsProviderNeedsSignInNote": {
     "description": "Note on a provider that needs a sign-in on the Hermes server."
   },
+  "toolsReadFailed": "Couldn't read this.",
+  "@toolsReadFailed": {
+    "description": "Shown in a section of a tool's details when reading it failed; Try again is next to it."
+  },
   "toolsReadinessAccessibility": "Accessibility",
   "@toolsReadinessAccessibility": {
     "description": "Row label in the Computer use readiness section: the macOS accessibility permission."
@@ -5703,6 +6073,10 @@
   "toolsReadinessInstalled": "Installed",
   "@toolsReadinessInstalled": {
     "description": "Value of the Driver row when the driver is installed."
+  },
+  "toolsReadinessLoading": "Checking readiness…",
+  "@toolsReadinessLoading": {
+    "description": "Shown with a spinner while the readiness of Computer use is read from the server."
   },
   "toolsReadinessNo": "No",
   "@toolsReadinessNo": {
@@ -5820,7 +6194,7 @@
   "@toolsRowUnconfirmedPull": {
     "description": "Line in a tool's row when the app could not confirm a switch; on touch screens the list is refreshed by pulling down."
   },
-  "toolsRowUnconfirmedRetry": "Couldn't confirm. Try again.",
+  "toolsRowUnconfirmedRetry": "Couldn't confirm.",
   "@toolsRowUnconfirmedRetry": {
     "description": "Line in a tool's row when the app could not confirm a switch; a Try again button follows it where there is no pull to refresh."
   },
@@ -5928,9 +6302,17 @@
   "@toolsSetupAdvancedFooter": {
     "description": "Footer of the Advanced part of Web setup, where search and extract get different providers."
   },
+  "toolsSetupAdvancedGeneric": "Advanced",
+  "@toolsSetupAdvancedGeneric": {
+    "description": "Title of the row that opens the less common options of a tool's setup."
+  },
   "toolsSetupAdvancedTitle": "Use different providers for search and extract",
   "@toolsSetupAdvancedTitle": {
     "description": "Last row of the Web Set up section; opens the choices for search and for extract."
+  },
+  "toolsSetupChange": "Change setup",
+  "@toolsSetupChange": {
+    "description": "Row in the details of a tool that is already set up; opens its providers, keys and install step. The value is the active provider."
   },
   "toolsSetupExtractHeader": "Extract",
   "@toolsSetupExtractHeader": {
@@ -6029,6 +6411,26 @@
         "example": "Discord"
       }
     }
+  },
+  "toolsWriteFailedBackend": "Couldn't change where commands run. Try again.",
+  "@toolsWriteFailedBackend": {
+    "description": "Error under the terminal backends when picking one failed."
+  },
+  "toolsWriteFailedModel": "Couldn't change the model. Try again.",
+  "@toolsWriteFailedModel": {
+    "description": "Error under the Model row when picking a model failed."
+  },
+  "toolsWriteFailedSetup": "Couldn't change the setup. Try again.",
+  "@toolsWriteFailedSetup": {
+    "description": "Error under the providers of a tool when picking one failed."
+  },
+  "toolsWriteNotApplied": "That didn't change. Try again.",
+  "@toolsWriteNotApplied": {
+    "description": "Shown when the answer to a pick was lost and reading again shows it did not land."
+  },
+  "toolsWriteSaving": "Saving…",
+  "@toolsWriteSaving": {
+    "description": "Shown with a spinner while a pick of a provider, model or backend is being saved."
   },
 
   "@@x-area-update": "",

@@ -147,6 +147,37 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// Reads the matrix (and the model catalog, for a toolset that has one)
+  /// again for "Couldn't confirm. Pull to refresh." A read that works ends the
+  /// unconfirmed and not-applied states: the screen then shows what Hermes
+  /// says. Typed keys stay, and nothing is written.
+  Future<void> refresh() async {
+    final epoch = _epoch;
+    final result = await _repository.config(toolset);
+    if (_stale(epoch)) return;
+    if (_applyConfig(result)) {
+      if (_keys == ToolsetKeysState.unconfirmed) {
+        // The read worked: a key that was being checked and is still not set
+        // was not saved; otherwise the keys show what Hermes says.
+        _keys = _unsavedAfterCheck
+            ? ToolsetKeysState.notSaved
+            : ToolsetKeysState.idle;
+      }
+      if (_provider == ToolsWriteState.unconfirmed ||
+          _provider == ToolsWriteState.notApplied) {
+        _provider = ToolsWriteState.idle;
+      }
+      if (_model == ToolsWriteState.unconfirmed ||
+          _model == ToolsWriteState.notApplied) {
+        _model = ToolsWriteState.idle;
+      }
+    }
+    notifyListeners();
+    if (kModelToolsets.contains(toolset) && _models != null) {
+      await loadModels(provider: _modelsProvider);
+    }
+  }
+
   /// Whether the matrix was read; keeps the last good one on a failure.
   bool _applyConfig(ToolsResult<ToolsetConfig> result) {
     if (result case ToolsOk(:final value)) {
@@ -190,10 +221,39 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
   }
 
   /// Drops every typed value: App Lock, the form closing, a profile switch.
-  void clearKeys() {
+  ///
+  /// With [notify] false the listeners are not told, for a caller that is
+  /// being torn down.
+  void clearKeys({bool notify = true}) {
     if (_typed.isEmpty) return;
     _typed.clear();
-    notifyListeners();
+    if (notify) notifyListeners();
+  }
+
+  /// The user has seen what the last writes ended with: the result states
+  /// (saved, failed, refused, unconfirmed, not applied), Hermes' texts, the
+  /// Nous flag and a provider that was only looked at go, so a later visit
+  /// does not show an old "Saved." A write that is still running is left
+  /// alone: its result waits for the user. Silent, like [clearKeys] with
+  /// `notify: false`, for the panel's dispose.
+  void acknowledge() {
+    bool busy(ToolsWriteState s) =>
+        s == ToolsWriteState.saving || s == ToolsWriteState.checking;
+    if (_writing ||
+        busy(_provider) ||
+        busy(_model) ||
+        _keys == ToolsetKeysState.saving ||
+        _keys == ToolsetKeysState.checking) {
+      return;
+    }
+    _keys = ToolsetKeysState.idle;
+    _lastRefusal = null;
+    _provider = ToolsWriteState.idle;
+    _providerDetail = null;
+    _needsNousAuth = false;
+    _model = ToolsWriteState.idle;
+    _modelDetail = null;
+    _selected = null;
   }
 
   /// Hands the controller to another profile and drops everything typed.
@@ -201,6 +261,7 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     _epoch++;
     _repository = repository;
     _typed.clear();
+    _checkedKeys = const {};
     _config = null;
     _loadFailure = null;
     _keys = ToolsetKeysState.idle;
@@ -511,11 +572,19 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
         if (env.isSet && keys.contains(env.key)) env.key,
   };
 
+  /// The keys of the last lost-answer check, to judge a later refresh.
+  var _checkedKeys = const <String>{};
+
+  bool get _unsavedAfterCheck =>
+      _checkedKeys.isNotEmpty &&
+      _setKeys(_checkedKeys).length < _checkedKeys.length;
+
   Future<void> _check(
     int epoch,
     Iterable<String> keys,
     Set<String> wasSet,
   ) async {
+    _checkedKeys = {...keys};
     final result = await _readConfigWithin();
     if (_stale(epoch)) return;
     if (result == null || !_applyConfig(result)) {

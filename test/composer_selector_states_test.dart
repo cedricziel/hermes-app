@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/profiles/widgets/recipient_picker.dart';
+import 'package:hermes_app/src/providers/providers_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'support/fake_attachment_source.dart';
@@ -73,7 +74,7 @@ void main() {
       null;
 
   testWidgets(
-    'empty model configuration offers setup and refreshes without losing draft',
+    'empty model configuration opens Model providers and refreshes without losing draft',
     (tester) async {
       server.on('GET', '/api/model/options', {
         'providers': [],
@@ -88,6 +89,33 @@ void main() {
       expect(sendEnabled(tester), isFalse);
       await tester.tap(find.text('Set up a model'));
       await tester.pumpAndSettle();
+      expect(find.byType(ProvidersScreen), findsOneWidget);
+      // A provider is connected meanwhile; closing the screen reads again.
+      server.on('GET', '/api/model/options', _readyModels);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(ProvidersScreen), findsNothing);
+      expect(find.text('local-model'), findsOneWidget);
+      expect(
+        tester.widget<EditableText>(composerField).controller.text,
+        'Keep this draft',
+      );
+      expect(sendEnabled(tester), isTrue);
+      expect(transport.sends, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'a server without model providers keeps the terminal command and refreshes',
+    (tester) async {
+      server.on('GET', '/api/model/options', {'detail': 'x'}, status: 404);
+      await pump(tester);
+      await tester.enterText(composerField, 'Keep this draft');
+      await tester.pump();
+      expect(sendEnabled(tester), isTrue);
+      await tester.tap(find.text('Profile default'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProvidersScreen), findsNothing);
       expect(find.textContaining('hermes'), findsWidgets);
       server.on('GET', '/api/model/options', _readyModels);
       await tester.tap(find.text('Check again'));
@@ -97,8 +125,6 @@ void main() {
         tester.widget<EditableText>(composerField).controller.text,
         'Keep this draft',
       );
-      expect(sendEnabled(tester), isTrue);
-      expect(transport.sends, isEmpty);
     },
   );
 

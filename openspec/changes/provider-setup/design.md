@@ -118,7 +118,7 @@ External account providers show "Connect <provider> on your server" with the `cl
 
 **First run.** `ModelOptions.fromJson` (the chat's own read, without `include_unconfigured`) additionally records two facts it currently drops: whether a row is `authenticated` but lists no models (`warming`), and whether the top-level `provider` names a provider that is not among the authenticated rows (`currentMissing`: Hermes leaves such a provider out when its credential is gone, `inventory.py:724-736`). When `currentMissing` is set (whatever `modelOptionsState` says: another provider may still be ready while the default's provider is gone, and sending is disabled then too), or when `modelOptionsState` is `incomplete`, the starter prompts are replaced by one of three cards, `currentMissing` first:
 
-- `currentMissing`: "Reconnect your model's provider" / "New chats in <profile> use <model>, but its provider's key is missing or no longer works." / "Reconnect", which opens the screen on that provider's detail (Replace key, Sign in, or the server command).
+- `currentMissing`: "Reconnect your model's provider" / "New chats in <profile> use <model>, but its provider's key is missing or no longer works." / "Reconnect", which opens the screen on that provider: its detail while it is connected (Replace key), else the way to connect it (its key form, Sign in, or the server command).
 - `warming` (and not `currentMissing`): "Hermes is loading your models" / "A provider is connected, but its model list isn't ready yet." / "Check again" (re-reads the chat's model options). It does not lead to "Connect".
 - otherwise: "Connect a model to start chatting" / "Your Hermes server has no model provider for <profile> yet." / "Connect a model".
 

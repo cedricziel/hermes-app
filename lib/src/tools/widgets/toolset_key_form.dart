@@ -82,6 +82,7 @@ class ToolsetKeyForm extends StatelessWidget {
     required this.onReplace,
     required this.onGetKey,
     this.onChanged,
+    this.onTryAgain,
   });
 
   final String provider;
@@ -97,6 +98,11 @@ class ToolsetKeyForm extends StatelessWidget {
 
   /// Called when a field's text changes, so Save can follow what is typed.
   final VoidCallback? onChanged;
+
+  /// With [ToolsetKeyFormPhase.unconfirmed]: reads Hermes again. Given where
+  /// nothing pulls to refresh (a Mac, a wide window); then the line says "Try
+  /// again" instead of "Pull to refresh" and carries the button.
+  final VoidCallback? onTryAgain;
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +139,9 @@ class ToolsetKeyForm extends StatelessWidget {
       ToolsetKeyFormPhase.unconfirmed => (
         AppIcons.questionCircleFilled,
         colors.warning,
-        l10n.toolsKeyUnconfirmed,
+        onTryAgain == null
+            ? l10n.toolsKeyUnconfirmed
+            : l10n.toolsKeyUnconfirmedRetry,
       ),
       ToolsetKeyFormPhase.notSaved => (
         AppIcons.warningFilled,
@@ -193,6 +201,20 @@ class ToolsetKeyForm extends StatelessWidget {
                   color: status.$2,
                   size: metrics.subtitleSize,
                 ),
+              ),
+            ),
+          ),
+        if (phase == ToolsetKeyFormPhase.unconfirmed && onTryAgain != null)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(
+                start: metrics.rowPadding - 8,
+              ),
+              child: TextButton(
+                onPressed: onTryAgain,
+                style: toolsButtonStyle(context),
+                child: Text(l10n.toolsTryAgain),
               ),
             ),
           ),

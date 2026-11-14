@@ -9,12 +9,15 @@ import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.da
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/context/compress_entry.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/starter_context_loader.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/chat_profiles.dart';
+import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
@@ -45,6 +48,8 @@ Future<void> pumpChatScreen(
   FakeHermesServer? server,
   bool withProfiles = false,
   bool withSkills = false,
+  HermesModelsRepository? models,
+  ProvidersRepository? providersRepository,
   ChatTransport? transport,
   List<SingleChildWidget> providers = const [],
   bool settle = true,
@@ -63,6 +68,7 @@ Future<void> pumpChatScreen(
   ThemeData? theme,
   Size size = const Size(1400, 900),
   ValueListenable<bool>? visible,
+  CompressConversationEntry? onCompressConversation,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -97,6 +103,8 @@ Future<void> pumpChatScreen(
           skills: withSkills
               ? HermesSkillsRepository(server!.client().raw)
               : null,
+          models: models,
+          providers: providersRepository,
           transport: transport,
           onShowChat: onShowChat,
           onExternalNavigation: onExternalNavigation,
@@ -107,6 +115,7 @@ Future<void> pumpChatScreen(
           displaySocketOpener: displaySocketOpener,
           takeoverSetting: takeoverSetting,
           chatProfiles: chatProfiles,
+          onCompressConversation: onCompressConversation,
         ),
       ),
     ),

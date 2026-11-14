@@ -1044,7 +1044,7 @@ void main() {
       final events = await reply();
 
       expect(_types(events), [ThreadBound, ReplyStatus, ReplyCompleted]);
-      expect((events[1] as ReplyStatus).text, 'Compacting the conversation…');
+      expect((events[1] as ReplyStatus).kind, ReplyStatusKind.compacting);
     });
 
     test('Explained provider wait: a thinking.delta that explains the wait '

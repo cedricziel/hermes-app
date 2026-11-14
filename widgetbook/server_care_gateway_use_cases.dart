@@ -3,7 +3,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/gateway_actions.dart';
 import 'package:hermes_app/src/server_care/server_status.dart';
 import 'package:hermes_app/src/server_care/widgets/gateway_restart_dialog.dart';
-import 'package:hermes_app/src/server_care/widgets/grouped_action_row.dart';
+import 'package:hermes_app/src/widgets/grouped_action_row.dart';
 import 'package:hermes_app/src/server_care/widgets/server_status_card.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -141,6 +141,9 @@ WidgetbookComponent _headlineCards() => WidgetbookComponent(
   ],
 );
 
+GroupedActionButton _showLogs(BuildContext c) =>
+    GroupedActionButton(label: c.l10n.serverCareShowLogs, onPressed: _later);
+
 GroupedActionButton _tryAgain(BuildContext c) =>
     GroupedActionButton(label: c.l10n.serverCareTryAgain, onPressed: _later);
 
@@ -209,7 +212,7 @@ get _rowStates => [
     (c) => GroupedActionStatus(
       phase: GroupedActionPhase.failed,
       text: c.l10n.serverCareGatewayRestartFailed,
-      buttons: [_tryAgain(c)],
+      buttons: [_showLogs(c), _tryAgain(c)],
     ),
   ),
   (
@@ -218,7 +221,7 @@ get _rowStates => [
     (c) => GroupedActionStatus(
       phase: GroupedActionPhase.failed,
       text: c.l10n.serverCareGatewayStartFailed,
-      buttons: [_tryAgain(c)],
+      buttons: [_showLogs(c), _tryAgain(c)],
     ),
   ),
   (
@@ -227,7 +230,7 @@ get _rowStates => [
     (c) => GroupedActionStatus(
       phase: GroupedActionPhase.failed,
       text: 'gateway restart already in progress for another profile',
-      buttons: [_tryAgain(c)],
+      buttons: [_showLogs(c), _tryAgain(c)],
     ),
   ),
   (
@@ -236,7 +239,7 @@ get _rowStates => [
     (c) => GroupedActionStatus(
       phase: GroupedActionPhase.warning,
       text: c.l10n.serverCareGatewayUnconfirmed,
-      buttons: [_tryAgain(c)],
+      buttons: [_showLogs(c), _tryAgain(c)],
     ),
   ),
   (
@@ -245,7 +248,7 @@ get _rowStates => [
     (c) => GroupedActionStatus(
       phase: GroupedActionPhase.warning,
       text: c.l10n.serverCareGatewaySlow,
-      buttons: [_tryAgain(c)],
+      buttons: [_showLogs(c), _tryAgain(c)],
     ),
   ),
   (
@@ -261,7 +264,7 @@ get _rowStates => [
           'hermes gateway restart: old process did not exit after 30 s\n'
           'hermes gateway restart: sending SIGKILL\n'
           "hermes gateway restart: error: couldn't remove the lock file",
-      buttons: [_tryAgain(c)],
+      buttons: [_showLogs(c), _tryAgain(c)],
     ),
   ),
 ];

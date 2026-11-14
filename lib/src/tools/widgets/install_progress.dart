@@ -19,6 +19,10 @@ enum InstallPhase {
 
   /// The app lost track and could not read how it ended.
   unknown,
+
+  /// The installer exited with 0 and Hermes is being asked again what the
+  /// toolset needs: "Installed." only shows once that read says so.
+  checking,
 }
 
 /// How many of the installer's lines are shown.
@@ -35,11 +39,25 @@ class InstallProgress extends StatelessWidget {
     required this.phase,
     required this.lines,
     this.onTryAgain,
+    this.header,
+    this.runningTitle,
+    this.extra,
   });
 
   final InstallPhase phase;
   final List<String> lines;
   final VoidCallback? onTryAgain;
+
+  /// The section's header; "Install on server" when null. The permission
+  /// grant on a Mac server reuses this block with its own words.
+  final String? header;
+
+  /// The title while running; "Installing on your server…" when null.
+  final String? runningTitle;
+
+  /// A line or button under the body, such as "Couldn't follow the install.
+  /// Check again."
+  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -66,13 +84,19 @@ class InstallProgress extends StatelessWidget {
       InstallPhase.running ||
       InstallPhase.startedBySwitch => InstallRunningBody(
         title: phase == InstallPhase.running
-            ? l10n.toolsInstallRunning
+            ? runningTitle ?? l10n.toolsInstallRunning
             : l10n.toolsInstallStartedBySwitch,
         lines: shown,
         note: l10n.toolsInstallLeave,
         selectableLines: true,
         liveRegion: true,
         noteFirst: true,
+      ),
+      InstallPhase.checking => Semantics(
+        liveRegion: true,
+        container: true,
+        label: l10n.toolsChecking,
+        child: ExcludeSemantics(child: InstallSpinnerRow(l10n.toolsChecking)),
       ),
       InstallPhase.done => status(
         AppIcons.checkCircleFilled,
@@ -127,15 +151,21 @@ class InstallProgress extends StatelessWidget {
         ],
       ),
     };
+    final extra = this.extra;
     return GroupedSection(
-      header: l10n.toolsInstallHeader,
+      header: header ?? l10n.toolsInstallHeader,
       children: [
         Padding(
           padding: EdgeInsets.symmetric(
             horizontal: metrics.rowPadding,
             vertical: 12,
           ),
-          child: body,
+          child: extra == null
+              ? body
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [body, const SizedBox(height: 8), extra],
+                ),
         ),
       ],
     );
@@ -153,11 +183,17 @@ class ToolsInstallButton extends StatelessWidget {
     required this.needsSetup,
     required this.onPressed,
     this.anotherRunning = false,
+    this.again = true,
   });
 
   final bool needsSetup;
   final VoidCallback? onPressed;
   final bool anotherRunning;
+
+  /// For the quiet form: the step has run before ("Run the install step
+  /// again"). False for a provider that is not ready yet, where it reads
+  /// "Install on server".
+  final bool again;
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +209,9 @@ class ToolsInstallButton extends StatelessWidget {
           child: Text(
             anotherRunning
                 ? l10n.toolsInstallAnotherRunning
-                : l10n.toolsInstallAgain,
+                : again
+                ? l10n.toolsInstallAgain
+                : l10n.toolsInstallButton,
           ),
         ),
       );
