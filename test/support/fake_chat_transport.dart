@@ -102,6 +102,7 @@ class FakeChatTransport
     ModelChoice? model,
     bool queued = false,
     WorkspaceChoice? workspace,
+    void Function()? onSubmitting,
   }) {
     final send = FakeSend(
       threadId: threadId,
@@ -111,6 +112,7 @@ class FakeChatTransport
       model: model,
       queued: queued,
       workspace: workspace,
+      onSubmitting: onSubmitting,
     );
     sends.add(send);
     return send._events.stream;
@@ -382,6 +384,7 @@ class FakeSend {
     this.model,
     this.queued = false,
     this.workspace,
+    this.onSubmitting,
   });
 
   final String? threadId;
@@ -396,6 +399,10 @@ class FakeSend {
   /// The folder picked for a new chat, when the send carried one.
   final WorkspaceChoice? workspace;
   final _events = StreamController<ChatEvent>();
+
+  /// The callback the send was given, for a test to run where the real
+  /// transport would, just before `prompt.submit`.
+  final void Function()? onSubmitting;
 
   void emit(ChatEvent event) => _events.add(event);
 

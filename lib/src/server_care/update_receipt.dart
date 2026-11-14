@@ -57,7 +57,7 @@ class UpdateReceiptSummary {
     return UpdateReceiptSummary(
       outcome: _outcome(readString(summary['outcome'])),
       actionId: readString(summary['action_id']),
-      postVersion: readString(summary['post_version']),
+      postVersion: readVersion(summary['post_version']),
       preSha: readString(summary['pre_sha']),
       postSha: readString(summary['post_sha']),
       userAction: followup(summary['user_action']),
