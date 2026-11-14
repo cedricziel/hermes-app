@@ -50,6 +50,10 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
   final _confirmed = <String, bool>{};
   final _latestToggle = <String, int>{};
   final _pending = <String, bool>{};
+
+  /// The load generation current when a write was last confirmed; a reload
+  /// started before then may have read the value from before that write.
+  final _confirmedAt = <String, int>{};
   int _toggleCount = 0;
   int _profileEpoch = 0;
 
@@ -138,7 +142,7 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     try {
       final skills = await repository.list(profile: _profile);
       if (generation != _generation) return;
-      _skills = _withPendingToggles(skills);
+      _skills = _withPendingToggles(skills, generation);
       _status = SkillsStatus.ready;
     } on SkillsUnsupported {
       if (generation != _generation) return;
@@ -170,6 +174,7 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     _confirmed.clear();
     _latestToggle.clear();
     _pending.clear();
+    _confirmedAt.clear();
     return load();
   }
 
@@ -197,10 +202,14 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
       }
       // A tap made for another profile says nothing about this one.
       if (epoch != _profileEpoch) return ok;
-      if (ok) _confirmed[name] = enabled;
+      if (ok) {
+        _confirmed[name] = enabled;
+        _confirmedAt[name] = _generation;
+      }
       if (_latestToggle[name] == tap) {
         _latestToggle.remove(name);
         _pending.remove(name);
+        _confirmedAt.remove(name);
         final confirmed = _confirmed.remove(name)!;
         if (!ok) _set(name, confirmed);
       }
@@ -211,18 +220,24 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
   }
 
   /// A reload that lands while taps are in flight must not undo them on
-  /// screen, and what it read becomes the value a failed tap goes back to.
-  List<HermesSkill> _withPendingToggles(List<HermesSkill> skills) {
+  /// screen. What it read becomes the value a failed tap goes back to, unless
+  /// the reload started before a write was confirmed and so may be stale.
+  List<HermesSkill> _withPendingToggles(
+    List<HermesSkill> skills,
+    int generation,
+  ) {
     if (_pending.isEmpty) return skills;
+    for (final s in skills) {
+      if (_pending.containsKey(s.name) &&
+          generation > (_confirmedAt[s.name] ?? -1)) {
+        _confirmed[s.name] = s.enabled;
+      }
+    }
     return [
       for (final s in skills)
-        if (_pending.containsKey(s.name))
-          () {
-            _confirmed[s.name] = s.enabled;
-            return s.copyWith(enabled: _pending[s.name]);
-          }()
-        else
-          s,
+        _pending.containsKey(s.name)
+            ? s.copyWith(enabled: _pending[s.name])
+            : s,
     ];
   }
 

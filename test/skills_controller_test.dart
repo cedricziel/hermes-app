@@ -170,7 +170,7 @@ void main() {
     });
 
     test(
-      'a reload during a failing toggle sets what it rolls back to',
+      'a reload during a failing toggle keeps the tap, then rolls back',
       () async {
         final gate = Completer<void>();
         server.onRequest('PUT', '/api/skills/toggle', (_) async {
@@ -181,16 +181,67 @@ void main() {
         await c.load();
 
         final done = c.toggle('zeta', false);
-        // Another client disabled it meanwhile; the reload sees that.
-        server.on('GET', '/api/skills', [
-          skillRow(name: 'zeta', category: 'devops', enabled: false),
-        ]);
-        await c.load(quiet: true);
+        await c.load(quiet: true); // reads the value from before the tap
         expect(c.skill('zeta')!.enabled, isFalse);
         gate.complete();
 
         expect(await done, isFalse);
+        expect(c.skill('zeta')!.enabled, isTrue);
+      },
+    );
+
+    test(
+      'a stale reload does not replace the value a failed tap returns to',
+      () async {
+        var gets = 0;
+        final reload = Completer<void>();
+        server.onRequest('GET', '/api/skills', (_) async {
+          if (gets++ > 0) await reload.future;
+          return (
+            status: 200,
+            body: [skillRow(name: 'zeta', category: 'devops')],
+          );
+        });
+        final gateB = Completer<void>();
+        var puts = 0;
+        server.onRequest('PUT', '/api/skills/toggle', (_) async {
+          if (puts++ == 0) return (status: 200, body: {'ok': true});
+          await gateB.future;
+          return (status: 500, body: {'detail': 'x'});
+        });
+        final c = controller();
+        await c.load();
+
+        final stale = c.load(quiet: true);
+        final a = c.toggle('zeta', false);
+        final b = c.toggle('zeta', true);
+        await a;
+        reload.complete();
+        await stale;
+        gateB.complete();
+
+        expect(await b, isFalse);
         expect(c.skill('zeta')!.enabled, isFalse);
+      },
+    );
+
+    test(
+      'switching profile during a tap leaves the new profile alone',
+      () async {
+        final gate = Completer<void>();
+        server.onRequest('PUT', '/api/skills/toggle', (_) async {
+          await gate.future;
+          return (status: 500, body: {'detail': 'x'});
+        });
+        final c = controller();
+        await c.load();
+
+        final done = c.toggle('zeta', false);
+        await c.selectProfile('other');
+        gate.complete();
+
+        expect(await done, isFalse);
+        expect(c.skill('zeta')!.enabled, isTrue);
       },
     );
 
