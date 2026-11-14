@@ -8,7 +8,6 @@ import '../bot_mode_roster_repository.dart';
 import '../group_protocol/hermes_groups_repository.dart';
 import 'group_room_controller.dart';
 import 'widgets/group_widgets.dart';
-import '../../telemetry/report_bug.dart';
 import '../../widgets/route_dismissal.dart';
 
 /// Hosted rooms only. Legacy Desktop metadata rooms have no migration contract.
@@ -81,8 +80,9 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
       for (final room in rooms) {
         try {
           states[room.roomId] = await repository.state(room.roomId);
-        } on Exception {
-          /* Listing survives a single unavailable room state. */
+        } on Object {
+          /* Listing survives a single unavailable room state. Bot Mode uses
+             StateError for its ordinary refusals, so nothing narrower fits. */
         }
       }
       if (!mounted || generation != _generation) return;
@@ -100,8 +100,7 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
           ..clear()
           ..addAll(states);
       });
-    } on Object catch (error, stack) {
-      reportBug(error, stack, 'the group rooms listing');
+    } on Object catch (error) {
       if (mounted && generation == _generation) {
         setState(() => _error = GroupFailure.from(error).message);
       }
