@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../agent_messages/agent_message_watcher.dart';
 import '../api/hermes_repositories.dart';
 import '../app_lock/app_lock_controller.dart';
@@ -45,7 +46,10 @@ import '../notifications/notification_settings.dart';
 import '../platform_hint/platform_hint_offer.dart';
 import '../platform_hint/show_platform_hint_prompt.dart';
 import '../profiles/chat_profiles.dart';
+import '../server_care/server_attention_mark.dart';
 import '../server_care/server_care_controller.dart';
+import '../server_care/server_care_scope.dart';
+import '../server_care/server_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/mac_profiles_page.dart';
 import '../profiles/widgets/mac_profile_switcher.dart';
@@ -72,7 +76,7 @@ part 'app_shell_bots.dart';
 part 'app_shell_sudo_prompt.dart';
 part 'app_shell_profiles.dart';
 
-enum _Destination { chat, bots, kanban, schedules, profiles }
+enum _Destination { chat, bots, kanban, schedules, profiles, server }
 
 /// Top-level navigation between Chat and the destinations the server offers:
 /// Kanban while its plugin is on, Schedules while it has the cron routes.
@@ -244,12 +248,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
     if (repositories != null) {
-      _serverCare = ServerCareController(
+      final care = _serverCare = ServerCareController(
         repository: repositories.serverCare,
         telemetry: repositories.telemetry,
         covered: () => _appLock?.covered ?? false,
       );
       _chatProfiles?.addListener(_followServerCareProfile);
+      care.lookUpProfile = _resolveServerCareProfile;
+      care.addListener(_careSupportChanged);
       _appLock?.addListener(_readServerCareAfterUnlock);
       // The chat reports its profile after its threads load, and not at all
       // when it works in the server's default, so the default is resolved by
@@ -351,6 +357,22 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _rebuild(VoidCallback update) => setState(update);
 
+  /// Whether the server has a status route, as last seen: the Mac sidebar
+  /// lists Server only while it does.
+  bool _careSupported = true;
+
+  void _careSupportChanged() {
+    final supported = _serverCare?.supported ?? true;
+    if (supported == _careSupported || !mounted) return;
+    setState(() {
+      _careSupported = supported;
+      // The row the person is on is leaving the sidebar: go back to Chat.
+      if (!supported && _current == _Destination.server) {
+        _current = _Destination.chat;
+      }
+    });
+  }
+
   /// The server's own default profile, by name; null until read.
   String? _defaultProfile;
 
@@ -364,7 +386,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     } on Object {
       // The chat's own report is then what names the profile.
     }
-    if (mounted) _followServerCareProfile();
+    if (!mounted) return;
+    _followServerCareProfile();
+    _serverCare?.profileLookupEnded(
+      found: (_chatProfiles?.current ?? _defaultProfile) != null,
+    );
   }
 
   void _followServerCareProfile() =>
@@ -398,7 +424,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _finds.dispose();
     _chatProfiles?.removeListener(_followServerCareProfile);
     _appLock?.removeListener(_readServerCareAfterUnlock);
-    _serverCare?.dispose();
+    _serverCare
+      ?..removeListener(_careSupportChanged)
+      ..dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();
     _schedulesController?.dispose();
@@ -418,6 +446,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _appForeground = AppPresence.foreground(state);
     _syncSchedulesForeground();
     if (state == AppLifecycleState.resumed) {
+      // The default profile's name is still owed when the first lookup failed.
+      if (_serverCare != null &&
+          _defaultProfile == null &&
+          _chatProfiles?.current == null) {
+        unawaited(_resolveServerCareProfile());
+      }
       unawaited(_serverCare?.resumed());
       _installs?.resumed();
       _detect();
@@ -459,6 +493,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       icon: AppIcons.person,
       selected: AppIcons.person,
       label: 'Profiles',
+      caption: null,
+    ),
+    // The label and the caption are filled in where it is listed.
+    _Destination.server: (
+      icon: AppIcons.server,
+      selected: AppIcons.server,
+      label: '',
       caption: null,
     ),
   };
@@ -536,6 +577,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (_kanban) _Destination.kanban,
       if (_schedules) _Destination.schedules,
       if (mac && _chatProfiles != null) _Destination.profiles,
+      if (mac && _serverCare != null && _careSupported) _Destination.server,
     ];
     if (destinations.length == 1) return chat();
 
@@ -549,8 +591,28 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         final index = destinations.indexOf(_current);
         void select(int i) => _selectByUser(destinations[i]);
         final switcher = mac ? _profileSwitcher() : null;
+        // Only a Mac sidebar shows the caption; others need not rebuild.
+        final l10n = context.l10n;
+        final serverCaption = !mac || _serverCare == null
+            ? null
+            : serverMarkCaption(
+                l10n,
+                context.select<ServerCareController, ServerAttentionMark>(
+                  (care) => care.mark,
+                ),
+              );
         final shellNavigation = ShellNavigation(
-          destinations: [for (final d in destinations) _labels[d]!],
+          destinations: [
+            for (final d in destinations)
+              d == _Destination.server
+                  ? (
+                      icon: _labels[d]!.icon,
+                      selected: _labels[d]!.selected,
+                      label: l10n.serverCareTitle,
+                      caption: serverCaption,
+                    )
+                  : _labels[d]!,
+          ],
           selectedIndex: index,
           onSelected: select,
         );
@@ -591,6 +653,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               changeSource: _gateway,
               transport: _gateway,
             ),
+            _Destination.server => const ServerScreen(source: 'sidebar'),
           };
           if (!wide ||
               destination == _Destination.chat ||

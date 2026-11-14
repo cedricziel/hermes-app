@@ -385,15 +385,23 @@ class GroupedRow extends StatelessWidget {
     // Called from under the row's Material, so this is the style the row's
     // text is drawn in.
     final base = DefaultTextStyle.of(context).style;
-    double measure(String text, double size, {int? maxLines}) => (TextPainter(
-      text: TextSpan(
-        text: text,
-        style: base.merge(TextStyle(fontSize: size)),
-      ),
-      textDirection: direction,
-      textScaler: scaler,
-      maxLines: maxLines,
-    )..layout()).width;
+    double measure(String text, double size, {int? maxLines}) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: base.merge(TextStyle(fontSize: size)),
+        ),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: maxLines,
+      )..layout();
+      try {
+        return painter.width;
+      } finally {
+        painter.dispose();
+      }
+    }
+
     final valueWidth = measure(value, metrics.subtitleSize, maxLines: 1) + 8;
     // Room beside the title: the row less its leading, chevron and gaps.
     var room = width;
