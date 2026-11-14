@@ -33,12 +33,16 @@ void main() {
   /// What `process.list` answers, by program id.
   late Map<String, Map<String, Object?>> programs;
 
+  /// How the panel is shown: 'writable', 'readOnly' or 'hidden'.
+  late ValueNotifier<String> panel;
+
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     trail = BreadcrumbTrail(capacity: 200);
     events = [];
     programs = {};
+    panel = ValueNotifier('writable');
     gateway = FakeGateway()..activeSessions = {};
     gateway.handlers['session.resume'] = (params) => {
       'session_id': 'rt-1',
@@ -92,6 +96,7 @@ void main() {
   });
 
   tearDown(() async {
+    panel.dispose();
     chat.dispose();
     attention.dispose();
     await transport.close();
@@ -136,14 +141,16 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: ListenableBuilder(
-            listenable: chat,
+            listenable: Listenable.merge([chat, panel]),
             builder: (context, _) => SizedBox(
               width: 380,
-              child: BoundActivityPanel(
-                chat: chat,
-                thread: chat.selectedThread,
-                readOnly: readOnly,
-              ),
+              child: panel.value == 'hidden'
+                  ? const SizedBox.shrink()
+                  : BoundActivityPanel(
+                      chat: chat,
+                      thread: chat.selectedThread,
+                      readOnly: readOnly || panel.value == 'readOnly',
+                    ),
             ),
           ),
         ),
@@ -321,6 +328,45 @@ void main() {
     await settle(tester);
     expect(stopButton(), findsNothing);
     expect(calls('process.list'), isEmpty);
+    expect(calls('process.kill'), isEmpty);
+    await finish(tester);
+  });
+
+  testWidgets('a program the list named runs on, and the same chat drawn '
+      'read-only offers no Stop and sends nothing', (tester) async {
+    await arrange(tester);
+    expect(find.text(_command), findsOneWidget);
+    expect(stopButton(), findsOneWidget, reason: 'writable: Stop is there');
+    final lists = calls('process.list').length;
+
+    panel.value = 'readOnly';
+    await settle(tester);
+    await tester.tap(find.byType(ProcessOutputCard));
+    await settle(tester);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text(_command), findsOneWidget, reason: 'still named');
+    expect(find.textContaining('Running'), findsOneWidget);
+    expect(stopButton(), findsNothing);
+    expect(
+      tester.widget<ProcessOutputCard>(find.byType(ProcessOutputCard)).onStop,
+      isNull,
+    );
+    await tester.pump(const Duration(seconds: 12));
+    await settle(tester);
+    expect(calls('process.list'), hasLength(lists), reason: 'no reads');
+    expect(calls('process.kill'), isEmpty);
+    await finish(tester);
+  });
+
+  testWidgets('closing the panel while the confirmation is open closes it '
+      'with no kill', (tester) async {
+    await arrange(tester);
+    await pressStop(tester);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    panel.value = 'hidden';
+    await settle(tester);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(AlertDialog), findsNothing);
     expect(calls('process.kill'), isEmpty);
     await finish(tester);
   });

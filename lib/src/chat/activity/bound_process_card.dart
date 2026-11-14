@@ -51,11 +51,26 @@ class _BoundProcessCardState extends State<BoundProcessCard> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.roster, widget.roster) ||
         widget.readOnly ||
-        widget.output.processId != oldWidget.output.processId) {
-      // Another chat, profile or connection: a stop started for the old one
-      // is not this card's.
+        widget.output.processId != oldWidget.output.processId ||
+        _stale(widget.roster)) {
+      // Another roster or program, or the same roster now naming another
+      // chat id or profile: a stop bound to the old key is not this card's.
       _dropController();
     }
+  }
+
+  /// Whether the controller was made for a key the roster no longer names:
+  /// a compression gave the chat a new stored id (the roster follows it in
+  /// place), or the profile changed. A server's "can't stop programs" holds
+  /// only for the connection that said it.
+  bool _stale(SubagentRoster? roster) {
+    final controller = _controller;
+    if (controller == null || roster == null) return false;
+    final key = controller.key;
+    return key.threadId != roster.threadId ||
+        key.profile != roster.profile ||
+        (controller.phase == ProcessStopPhase.unsupported &&
+            !identical(key.connection, roster.connection));
   }
 
   void _dropController() {
@@ -69,6 +84,7 @@ class _BoundProcessCardState extends State<BoundProcessCard> {
   }
 
   ProcessStopController? _controllerFor(SubagentRoster roster) {
+    if (_stale(roster)) _dropController();
     final existing = _controller;
     if (existing != null) return existing;
     final connection = roster.connection;

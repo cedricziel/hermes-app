@@ -219,9 +219,28 @@ void main() {
         await tester.tap(inPanel(find.byType(ProcessOutputCard)));
         await runFrames(tester);
         await settleMotion(tester);
+        // The card from its command down to Stop program, all in view: the
+        // sheet scrolls to the card's top when Stop alone would cut it.
         await tester.ensureVisible(stopButton());
         await settleMotion(tester);
+        await tester.ensureVisible(inPanel(find.text(_command)));
+        await settleMotion(tester);
         expect(stopButton(), findsOneWidget);
+        final screen = Offset.zero & size;
+        final header = tester.getRect(
+          find
+              .descendant(
+                of: find.byType(BoundActivityPanel),
+                matching: find.text('Activity'),
+              )
+              .first,
+        );
+        final command = tester.getRect(inPanel(find.text(_command)));
+        expect(command.top, greaterThanOrEqualTo(header.bottom));
+        expect(
+          screen.contains(tester.getRect(stopButton()).bottomRight),
+          isTrue,
+        );
         await shots.capture(tester, 'program-running');
 
         await tester.tap(stopButton());
