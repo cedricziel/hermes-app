@@ -52,6 +52,9 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   int _generation = 0;
   final _reportedUnsupported = <CarePart>{};
 
+  /// The chat's profile this controller reads for; null until one is known.
+  String? get profile => _profile;
+
   /// The last status read, kept while a later read fails.
   ServerStatus? get status => _status;
 

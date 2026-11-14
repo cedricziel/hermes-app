@@ -34,6 +34,9 @@ import 'mac_thread_row.dart';
 import 'relative_time.dart';
 import 'sidebar_row.dart';
 import 'swipeable_thread_row.dart';
+import '../../server_care/server_care_scope.dart';
+import '../../server_care/server_screen.dart';
+import '../../server_care/widgets/server_attention_dot.dart';
 import 'thread_actions_menu.dart';
 import 'thread_search_view.dart';
 import 'working_dot.dart';
@@ -782,13 +785,14 @@ class AccountFooter extends StatelessWidget {
       );
     }
     final label = user ?? auth.baseUrl ?? 'Not connected';
+    final mark = serverAttentionMarkOf(context);
 
     return Padding(
       padding: const EdgeInsets.all(8),
       child: MergeSemantics(
         child: Semantics(
           button: true,
-          label: 'Account',
+          label: mark.accountLabel,
           child: Tooltip(
             message: 'Account',
             excludeFromSemantics: true,
@@ -806,6 +810,9 @@ class AccountFooter extends StatelessWidget {
                 if (value == 'spotlight') showSpotlightDialog(context);
                 if (value == 'about') showAppAboutDialog(context);
                 if (value == 'connection') showConnectionDetails(context);
+                if (value == 'server') {
+                  showServerScreen(context, source: 'menu');
+                }
               },
               itemBuilder: (context) => [
                 PopupMenuItem(
@@ -839,6 +846,11 @@ class AccountFooter extends StatelessWidget {
                   value: 'connection',
                   child: Text('Connection details'),
                 ),
+                if (serverCareOffered(context))
+                  PopupMenuItem(
+                    value: 'server',
+                    child: ServerMenuItemLabel(needsAttention: mark.showsDot),
+                  ),
                 const PopupMenuItem(value: 'about', child: Text('About')),
                 if (auth.status?.authRequired ?? false)
                   const PopupMenuItem(
@@ -854,15 +866,18 @@ class AccountFooter extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 14,
-                      backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
-                      child: AppIcon(
-                        AppIcons.person,
-                        size: 15,
-                        color: Theme.of(context).colorScheme.onSurface,
+                    ServerAttentionBadge(
+                      show: mark.showsDot,
+                      child: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        child: AppIcon(
+                          AppIcons.person,
+                          size: 15,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

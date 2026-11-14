@@ -104,8 +104,10 @@ class UsageReport {
   }
 
   /// Reads [json] for a window of [days] days ending at [today] (the server's
-  /// calendar day, as a date; its time is ignored). Rows that do not fit are
-  /// skipped; null when [json] is not an object.
+  /// calendar day, as a date; its time is ignored), or at the newest day the
+  /// server sent when that is later: the app does not know the server's time
+  /// zone, and a day the server already reports must not fall off the chart.
+  /// Rows that do not fit are skipped; null when [json] is not an object.
   static UsageReport? parse(
     Object? json, {
     required int days,
@@ -113,9 +115,6 @@ class UsageReport {
   }) {
     final root = readMap(json);
     if (root == null || days < 1) return null;
-    final end = DateTime.utc(today.year, today.month, today.day);
-    final start = end.subtract(Duration(days: days - 1));
-
     final byDay = <DateTime, UsageDay>{};
     for (final row in readMaps(root['daily'])) {
       final day = _date(readString(row['day']));
@@ -131,6 +130,11 @@ class UsageReport {
         apiCalls: readInt(row['api_calls']) ?? 0,
       );
     }
+    var end = DateTime.utc(today.year, today.month, today.day);
+    for (final day in byDay.keys) {
+      if (day.isAfter(end)) end = day;
+    }
+    final start = end.subtract(Duration(days: days - 1));
     final window = [
       for (var i = 0; i < days; i++)
         () {

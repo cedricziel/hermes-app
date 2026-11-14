@@ -64,6 +64,13 @@ void main() {
     },
   );
 
+  test('exposes the profile it reads for', () async {
+    expect(controller.profile, 'default');
+    controller.profileChanged('work');
+    expect(controller.profile, 'work');
+    await pumpEventQueue();
+  });
+
   test('every status read names its profile', () async {
     await controller.refresh();
     controller.profileChanged('work');

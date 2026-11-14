@@ -46,6 +46,7 @@ import '../platform_hint/platform_hint_offer.dart';
 import '../platform_hint/show_platform_hint_prompt.dart';
 import '../profiles/chat_profiles.dart';
 import '../server_care/server_care_controller.dart';
+import '../server_care/server_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/mac_profiles_page.dart';
 import '../profiles/widgets/mac_profile_switcher.dart';
@@ -72,7 +73,7 @@ part 'app_shell_bots.dart';
 part 'app_shell_sudo_prompt.dart';
 part 'app_shell_profiles.dart';
 
-enum _Destination { chat, bots, kanban, schedules, profiles }
+enum _Destination { chat, bots, kanban, schedules, profiles, server }
 
 /// Top-level navigation between Chat and the destinations the server offers:
 /// Kanban while its plugin is on, Schedules while it has the cron routes.
@@ -460,6 +461,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       label: 'Profiles',
       caption: null,
     ),
+    // The caption is the attention mark's, filled in where it is listed.
+    _Destination.server: (
+      icon: AppIcons.server,
+      selected: AppIcons.server,
+      label: 'Server',
+      caption: null,
+    ),
   };
 
   @override
@@ -535,6 +543,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (_kanban) _Destination.kanban,
       if (_schedules) _Destination.schedules,
       if (mac && _chatProfiles != null) _Destination.profiles,
+      if (mac && _serverCare != null) _Destination.server,
     ];
     if (destinations.length == 1) return chat();
 
@@ -548,8 +557,21 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         final index = destinations.indexOf(_current);
         void select(int i) => _selectByUser(destinations[i]);
         final switcher = mac ? _profileSwitcher() : null;
+        final serverCaption = _serverCare == null
+            ? null
+            : context.watch<ServerCareController>().mark.caption;
         final shellNavigation = ShellNavigation(
-          destinations: [for (final d in destinations) _labels[d]!],
+          destinations: [
+            for (final d in destinations)
+              d == _Destination.server
+                  ? (
+                      icon: _labels[d]!.icon,
+                      selected: _labels[d]!.selected,
+                      label: _labels[d]!.label,
+                      caption: serverCaption,
+                    )
+                  : _labels[d]!,
+          ],
           selectedIndex: index,
           onSelected: select,
         );
@@ -590,6 +612,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               changeSource: _gateway,
               transport: _gateway,
             ),
+            _Destination.server => const ServerScreen(source: 'sidebar'),
           };
           if (!wide ||
               destination == _Destination.chat ||

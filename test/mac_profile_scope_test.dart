@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/screens/home_screen.dart';
@@ -13,6 +14,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../widgetbook/catalog_auth.dart';
+import 'support/fake_device_authenticator.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/protected_catalog_auth.dart';
 
@@ -132,6 +134,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     MacCommandRegistry? registry,
     BreadcrumbTrail? trail,
+    AppLockController? lock,
   }) async {
     tester.view
       ..physicalSize = const Size(1200, 800)
@@ -142,6 +145,7 @@ void main() {
     await tester.pumpWidget(
       withAppProviders(
         auth,
+        lock: lock,
         Provider<Breadcrumbs>.value(
           value: trail == null ? Breadcrumbs.none : Breadcrumbs.of(trail),
           child: MaterialApp(
@@ -400,6 +404,106 @@ void main() {
       await tester.tap(find.text('Sign Out').last);
       await tester.pumpAndSettle();
       expect(signOuts, 1);
+    });
+  });
+
+  group('server care', () {
+    /// The status is not read while App Lock still covers the app, which it
+    /// does until it has loaded its setting.
+    Future<AppLockController> loadedLock(WidgetTester tester) async {
+      final lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+      addTearDown(lock.dispose);
+      await tester.runAsync(lock.load);
+      return lock;
+    }
+
+    void statusWithGatewayOff() => server.on('GET', '/api/status', {
+      'version': '0.22.2',
+      'gateway_running': false,
+      'gateway_state': 'stopped',
+      'components': {
+        'platforms': {'configured': 1, 'connected': 0},
+      },
+      'profiles': ['default', 'work'],
+    });
+
+    testWidgets('the Mac sidebar lists Server after Profiles with its '
+        'caption', (tester) async {
+      statusWithGatewayOff();
+      await pump(tester, lock: await loadedLock(tester));
+      final labels = [
+        for (final label in ['Chat', 'Profiles', 'Server'])
+          tester.getTopLeft(inSidebar(find.text(label))).dy,
+      ];
+      expect(labels, orderedEquals([...labels]..sort()));
+      expect(inSidebar(find.text('Needs attention')), findsOneWidget);
+    });
+
+    testWidgets('the Mac sidebar row has no caption while the server is fine', (
+      tester,
+    ) async {
+      server.on('GET', '/api/status', {
+        'version': '0.22.2',
+        'gateway_running': true,
+        'gateway_state': 'running',
+      });
+      await pump(tester, lock: await loadedLock(tester));
+      expect(inSidebar(find.text('Server')), findsOneWidget);
+      expect(inSidebar(find.text('Needs attention')), findsNothing);
+    });
+
+    testWidgets('opening Server shows the headline from the status', (
+      tester,
+    ) async {
+      statusWithGatewayOff();
+      await pump(tester, lock: await loadedLock(tester));
+      await tester.tap(inSidebar(find.text('Server')));
+      await tester.pumpAndSettle();
+      expect(find.text('The messaging gateway is off'), findsOneWidget);
+    });
+
+    testWidgets('the account menu offers Server after Connection details, '
+        'with the mark', (tester) async {
+      statusWithGatewayOff();
+      final handle = tester.ensureSemantics();
+      await pump(
+        tester,
+        platform: TargetPlatform.android,
+        lock: await loadedLock(tester),
+      );
+      expect(
+        find.bySemanticsLabel(RegExp('Account, server needs attention')),
+        findsOne,
+      );
+      await tester.tap(find.byTooltip('Account'));
+      await tester.pumpAndSettle();
+      final connection = tester.getTopLeft(find.text('Connection details')).dy;
+      final server = tester
+          .getTopLeft(find.text('Server · needs attention'))
+          .dy;
+      final about = tester.getTopLeft(find.text('About')).dy;
+      expect(connection, lessThan(server));
+      expect(server, lessThan(about));
+      handle.dispose();
+    });
+
+    testWidgets('the account menu says only Server while the server is fine', (
+      tester,
+    ) async {
+      server.on('GET', '/api/status', {
+        'version': '0.22.2',
+        'gateway_running': true,
+        'gateway_state': 'running',
+      });
+      await pump(
+        tester,
+        platform: TargetPlatform.android,
+        lock: await loadedLock(tester),
+      );
+      await tester.tap(find.byTooltip('Account'));
+      await tester.pumpAndSettle();
+      expect(find.text('Server'), findsOneWidget);
+      expect(find.text('Server · needs attention'), findsNothing);
     });
   });
 }

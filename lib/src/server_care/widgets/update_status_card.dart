@@ -100,6 +100,8 @@ class UpdateStatusCard extends StatelessWidget {
 
   final UpdateStatus status;
   final VoidCallback? onCheckNow;
+
+  /// Without it an available update shows no button and no restart note.
   final VoidCallback? onUpdate;
   final VoidCallback? onCopied;
 
@@ -156,23 +158,29 @@ class UpdateStatusCard extends StatelessWidget {
           child: const Text('Check now'),
         ),
       ),
-      UpdateAvailable() => _fullWidth(
+      UpdateAvailable() when onUpdate != null => _fullWidth(
         FilledButton(
           style: _wide(context),
           onPressed: onUpdate,
           child: const Text('Update Hermes'),
         ),
       ),
-      UpdateRollback(:final stableVersion) => _fullWidth(
+      UpdateRollback(:final stableVersion) when onUpdate != null => _fullWidth(
         FilledButton(
           style: _wide(context),
           onPressed: onUpdate,
           child: Text('Move to $stableVersion'),
         ),
       ),
-      UpdateChecking() || UpdateCannotApply() => null,
+      UpdateChecking() ||
+      UpdateCannotApply() ||
+      UpdateAvailable() ||
+      UpdateRollback() => null,
     };
-    final showNote = status is UpdateAvailable || status is UpdateRollback;
+    // Without an action there is no restart to warn about.
+    final showNote =
+        onUpdate != null &&
+        (status is UpdateAvailable || status is UpdateRollback);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
