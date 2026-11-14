@@ -225,13 +225,16 @@ class SurfaceSnapshotStore {
       if (unchanged) return written;
     }
     if (_written != null && reload) {
-      _reloadedFor = next.updatedAt;
-      await Future.wait([
+      final results = await Future.wait([
         for (final kind in widgetKinds)
           if (signedInChanged || !signedInOnlyKinds.contains(kind))
             _reload(kind),
-        _saveReloadedFor(next.updatedAt),
       ]);
+      // A reload that failed leaves no mark, so the next refresh tries again.
+      if (results.every((reloaded) => reloaded)) {
+        _reloadedFor = next.updatedAt;
+        await _saveReloadedFor(next.updatedAt);
+      }
     }
     if (!unchanged && !_writes.isClosed) _writes.add(next);
     return next;
@@ -265,11 +268,13 @@ class SurfaceSnapshotStore {
 
   /// A widget that cannot be reloaded must not keep the others stale, and
   /// the snapshot is stored either way.
-  Future<void> _reload(String kind) async {
+  Future<bool> _reload(String kind) async {
     try {
       await _storage.reload(kind);
+      return true;
     } on Object catch (error) {
       _log('widgets.reload_failed', error, {'widget.kind': kind});
+      return false;
     }
   }
 

@@ -315,7 +315,23 @@ void main() {
       expect(events.named('surface.snapshot.write_failed'), isEmpty);
       expect(events.named('widgets.reload_failed'), [
         {'widget.kind': 'Recent', 'error.type': 'StateError'},
-      ]);
+        {'widget.kind': 'Recent', 'error.type': 'StateError'},
+      ], reason: 'a failed reload is not marked, so the refresh tries again');
+    });
+
+    test('a reload that failed is not marked, so the next refresh within the '
+        'hour reloads again', () async {
+      storage.reloadFailure = StateError('no widgets');
+      await store.write(snapshot());
+      storage.reloadFailure = null;
+
+      await store.write(snapshot(minute: 30));
+
+      expect(storage.reloaded, ['Recent']);
+      expect(
+        storage.reloadedFor,
+        snapshot(minute: 30).updatedAt.toIso8601String(),
+      );
     });
 
     test('content already stored is only refreshed after a start', () async {
