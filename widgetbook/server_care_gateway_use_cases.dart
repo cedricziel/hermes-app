@@ -230,7 +230,8 @@ get _rowStates => [
     (c) => GroupedActionStatus(
       phase: GroupedActionPhase.failed,
       text: 'gateway restart already in progress for another profile',
-      buttons: [_showLogs(c), _tryAgain(c)],
+      // A refusal started nothing, so there is no log to show.
+      buttons: [_tryAgain(c)],
     ),
   ),
   (
