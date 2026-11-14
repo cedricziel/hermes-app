@@ -157,6 +157,8 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
     _needsYou = needsYouQueueFor(
       _chat,
       breadcrumbs: context.read<Breadcrumbs?>() ?? Breadcrumbs.none,
+      // The compact one-line panel draws no dock, so nothing is announced.
+      canAnnounce: () => _expanded,
       onArrived: (entry) {
         if (mounted) announceNeedsYou(context, entry.kind);
       },

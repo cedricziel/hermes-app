@@ -20,7 +20,7 @@ typedef NeedsYouSources = ({
 
 /// The queue's key for [operation]; the dock finds the operation by it.
 String connectorEntryKey(ConnectorOperationSnapshot operation) =>
-    'connector:${operation.owner.sessionId}:${operation.opId}';
+    'connector:${operation.opId}';
 
 /// A request that waits on the user: its key, its kind and when the queue
 /// first saw it. Nothing else of it, never a code, link, name or reason.
@@ -43,7 +43,11 @@ class NeedsYouEntry {
 /// It reads [read] again whenever [changes] fires and keeps only item keys
 /// and first-seen times: an item leaves when its source stops calling it
 /// Needs you (`activity_tier.dart`), and a new one is announced through
-/// [onArrived] once. The shown position follows its item, or its slot when
+/// [onArrived] once, when it first becomes the item on the card (not while it
+/// waits behind another, and not for what a chat already held when it was
+/// opened). Keys carry no runtime id, so a reconnect that brings the same
+/// operation back under a new runtime neither reorders nor announces it
+/// again. The shown position follows its item, or its slot when
 /// the item leaves, so a re-render never moves the card.
 ///
 /// It records `chat.activity.needs_you.shown` (kind, count) when another item
@@ -56,6 +60,7 @@ class NeedsYouQueue extends ChangeNotifier {
     DateTime Function()? now,
     this.breadcrumbs = Breadcrumbs.none,
     this.onArrived,
+    this.canAnnounce,
   }) : _changes = changes,
        _now = now ?? DateTime.now {
     changes.addListener(refresh);
@@ -67,8 +72,15 @@ class NeedsYouQueue extends ChangeNotifier {
   final DateTime Function() _now;
   final Breadcrumbs breadcrumbs;
 
-  /// Called once for each item that joins the queue.
+  /// Called once for each item that first becomes the shown one.
   final void Function(NeedsYouEntry entry)? onArrived;
+
+  /// Whether the card is on screen; an item waits to be announced while it
+  /// is not.
+  final bool Function()? canAnnounce;
+
+  final _announced = <String>{};
+  var _seeding = true;
 
   final _seen = <String, ({DateTime since, int serial})>{};
   var _serial = 0;
@@ -92,6 +104,8 @@ class NeedsYouQueue extends ChangeNotifier {
     if (next == _shown) return;
     _shown = next;
     _shownKey = _frontKey = _entries[next].key;
+    // The user is looking at it.
+    _announced.add(_shownKey!);
     breadcrumbs('chat.activity.needs_you.paged', {'count': _entries.length});
     notifyListeners();
   }
@@ -103,6 +117,8 @@ class NeedsYouQueue extends ChangeNotifier {
     if (sources.scope != _scope) {
       _scope = sources.scope;
       _seen.clear();
+      _announced.clear();
+      _seeding = true;
       _entries = const [];
       _shown = 0;
       _shownKey = _frontKey = null;
@@ -110,13 +126,11 @@ class NeedsYouQueue extends ChangeNotifier {
     final found = _collect(sources);
     final keys = {for (final (key, _) in found) key};
     _seen.removeWhere((key, _) => !keys.contains(key));
-    final arrived = <NeedsYouEntry>[];
     final entries = <NeedsYouEntry>[];
     for (final (key, kind) in found) {
       final seen = _seen[key] ??= (since: _now(), serial: _serial++);
       final entry = NeedsYouEntry(key: key, kind: kind, since: seen.since);
       entries.add(entry);
-      if (!_entries.any((known) => known.key == key)) arrived.add(entry);
     }
     entries.sort(
       (a, b) => _seen[a.key]!.serial.compareTo(_seen[b.key]!.serial),
@@ -146,8 +160,15 @@ class NeedsYouQueue extends ChangeNotifier {
       }
     }
     if (changed) notifyListeners();
-    for (final entry in arrived) {
-      onArrived?.call(entry);
+    _announced.removeWhere((key) => !keys.contains(key));
+    if (_seeding) {
+      _announced.addAll(keys);
+      _seeding = false;
+    } else if (front != null &&
+        !_announced.contains(front) &&
+        (canAnnounce?.call() ?? true)) {
+      _announced.add(front);
+      onArrived?.call(entries[shown]);
     }
   }
 
@@ -159,7 +180,7 @@ class NeedsYouQueue extends ChangeNotifier {
         sessionStateTier(state) == ActivityTier.needsYou) {
       final reclaimed = state.reclaimedReason != null;
       found.add((
-        '${reclaimed ? 'reclaim' : 'resume'}:${state.runtimeId}',
+        reclaimed ? 'reclaim' : 'resume',
         reclaimed ? NeedsYouKind.reclaim : NeedsYouKind.resume,
       ));
     }
@@ -167,7 +188,7 @@ class NeedsYouQueue extends ChangeNotifier {
     if (billing != null &&
         billing.supported &&
         billingTier(billing) == ActivityTier.needsYou) {
-      found.add(('billing:${billing.generation}', NeedsYouKind.billing));
+      found.add(('billing', NeedsYouKind.billing));
     }
     final connector = sources.connector;
     if (connector != null) {

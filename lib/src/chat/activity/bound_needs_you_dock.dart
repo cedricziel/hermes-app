@@ -35,12 +35,14 @@ NeedsYouQueue needsYouQueueFor(
   ChatController chat, {
   Breadcrumbs breadcrumbs = Breadcrumbs.none,
   void Function(NeedsYouEntry entry)? onArrived,
+  bool Function()? canAnnounce,
 }) => NeedsYouQueue(
   changes: chat,
   read: () => needsYouSources(chat),
   now: () => chat.clockNow,
   breadcrumbs: breadcrumbs,
   onArrived: onArrived,
+  canAnnounce: canAnnounce,
 );
 
 /// Announces a request that reached the queue to assistive technology: a
@@ -187,11 +189,11 @@ NeedsYouDockModel needsYouDockModel(
       if (attachment == null || name == null) return;
       unawaited(controller.openTarget(operation, name, attachment: attachment));
     },
-    onSkip: (item) {
+    onSkip: (item, target) {
       final found = _operation(chat, thread!, item.id);
       final attachment = found?.$1.attachment;
       if (found == null || attachment == null) return;
-      unawaited(found.$1.skipAll(found.$2, attachment: attachment));
+      unawaited(found.$1.skip(found.$2, target, attachment: attachment));
     },
     onContinue: (item) {
       final found = _operation(chat, thread!, item.id);
@@ -268,6 +270,9 @@ NeedsYouItem? _connector(
               openable: offline
                   ? _couldOpen(target)
                   : controller.offersOpen(key, target.name),
+              skippable: offline
+                  ? target.supportsSkip
+                  : controller.offersSkip(key, target.name),
             ),
       ],
       expiresIn: left > Duration.zero ? left : null,
@@ -331,7 +336,6 @@ NeedsYouItem? _session(
     body: ReclaimBodyModel(
       reason: reason == null || reason.isEmpty ? null : reason,
     ),
-    offline: chat.connectionLostFor(thread),
     actions: const {NeedsYouAction.reopen},
   );
 }
