@@ -13,6 +13,7 @@ class AppAlertDialog extends StatelessWidget {
     this.content,
     this.actions = const [],
     this.backgroundColor,
+    this.scrollable = false,
   });
 
   final Widget? title;
@@ -22,6 +23,11 @@ class AppAlertDialog extends StatelessWidget {
   /// The surface of the Material dialog; null keeps the theme's.
   final Color? backgroundColor;
 
+  /// Puts the title and the content in one scrolling region with the actions
+  /// outside it, so a long text at the largest text size cannot push the
+  /// actions out of view. A Cupertino alert already does this.
+  final bool scrollable;
+
   @override
   Widget build(BuildContext context) {
     if (!platformChromeOf(context).isApple) {
@@ -30,6 +36,7 @@ class AppAlertDialog extends StatelessWidget {
         content: content,
         actions: actions,
         backgroundColor: backgroundColor,
+        scrollable: scrollable,
       );
     }
     // Material fields inside the content still need a Material ancestor.
