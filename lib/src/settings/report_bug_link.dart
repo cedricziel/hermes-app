@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/l10n.dart';
+
 typedef LinkOpener = Future<bool> Function(Uri uri);
 
 final _issuesUrl = Uri.parse('https://github.com/cedricziel/hermes-app/issues');
@@ -17,7 +19,7 @@ class ReportBugLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TextButton(
     onPressed: () => openIssueTracker(openLink),
-    child: const Text('Report a bug'),
+    child: Text(context.l10n.settingsReportBug),
   );
 }
 

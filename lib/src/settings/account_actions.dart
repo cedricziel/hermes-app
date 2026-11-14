@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../auth/auth_controller.dart';
 import '../screens/home_screen.dart';
 import '../widgets/adaptive_dialog.dart';
@@ -11,11 +12,12 @@ Future<void> showConnectionDetails(BuildContext context) =>
 
 /// Signs out of the dashboard once the user confirms.
 Future<void> confirmSignOut(BuildContext context, AuthController auth) async {
+  final l10n = context.l10n;
   final confirmed = await showConfirmDialog(
     context,
-    title: 'Sign out of the dashboard?',
-    message: 'You will need to sign in again to see your chats.',
-    confirmLabel: 'Sign Out',
+    title: l10n.settingsSignOutTitle,
+    message: l10n.settingsSignOutMessage,
+    confirmLabel: l10n.settingsSignOut,
   );
   if (confirmed) await auth.signOut();
 }
