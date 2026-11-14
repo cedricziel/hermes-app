@@ -10,6 +10,11 @@ import 'tools_switch.dart';
 enum ToolsetRowPhase {
   idle,
 
+  /// Hermes is being asked what the switch needs, before a question or a
+  /// write; nothing is sent yet. The switch is disabled at its saved
+  /// position with a spinner.
+  preparing,
+
   /// A write is out: the switch shows the new position, disabled.
   saving,
 
@@ -22,17 +27,6 @@ enum ToolsetRowPhase {
   /// A question is open that decides whether the switch moves; the switch is
   /// still at its saved position.
   awaitingConfirmation,
-}
-
-/// Why a change to a toolset failed. The text beside it comes from the
-/// caller: Hermes' own for [refused], fixed copy for the others.
-enum ToolsetRowErrorKind { refused, notAllowed, offline, failed }
-
-class ToolsetRowError {
-  const ToolsetRowError(this.kind, this.text);
-
-  final ToolsetRowErrorKind kind;
-  final String text;
 }
 
 /// Everything a [ToolsetRow] shows, as plain values.
@@ -70,7 +64,10 @@ class ToolsetRowView {
   /// With [ToolsetRowPhase.unconfirmed]: offer Try again, where there is no
   /// pull to refresh.
   final bool showTryAgain;
-  final ToolsetRowError? error;
+
+  /// The error line of a change that failed, from the caller: Hermes' own
+  /// text for a refusal, fixed copy for the rest.
+  final String? error;
 
   /// The toolset whose details show beside the list.
   final bool selected;
@@ -78,6 +75,25 @@ class ToolsetRowView {
   /// A plugin's toolset: Hermes' label and description, and no risk line,
   /// since the app knows nothing about what it does.
   final bool unknownPlugin;
+
+  ToolsetRowView copyWith({
+    bool? enabled,
+    ToolsetRowPhase? phase,
+    String? error,
+    bool? selected,
+  }) => ToolsetRowView(
+    name: name,
+    sentence: sentence,
+    enabled: enabled ?? this.enabled,
+    riskLine: riskLine,
+    needsSetup: needsSetup,
+    actionCount: actionCount,
+    phase: phase ?? this.phase,
+    showTryAgain: showTryAgain,
+    error: error ?? this.error,
+    selected: selected ?? this.selected,
+    unknownPlugin: unknownPlugin,
+  );
 }
 
 /// A toolset in the grouped list: name, sentence and state lines, with its
@@ -112,23 +128,63 @@ class ToolsetRow extends StatelessWidget {
     final error = view.error;
 
     final details = <Widget>[
+      if (view.riskLine && !view.unknownPlugin)
+        GroupedStatusLine(
+          icon: AppIcons.shield,
+          text: l10n.toolsRowCanChangeThings,
+          color: scheme.onSurface,
+          size: size,
+          scaleIcon: true,
+        ),
+      if (view.needsSetup)
+        GroupedStatusLine(
+          icon: AppIcons.warningFilled,
+          text: l10n.toolsNeedsSetup,
+          color: colors.warning,
+          size: size,
+          scaleIcon: true,
+        ),
+      if (unconfirmed)
+        GroupedStatusLine(
+          icon: AppIcons.help,
+          text: tryAgain
+              ? l10n.toolsRowUnconfirmedRetry
+              : l10n.toolsRowUnconfirmedPull,
+          color: colors.warning,
+          size: size,
+          scaleIcon: true,
+          liveRegion: true,
+        ),
+      if (error != null)
+        GroupedStatusLine(
+          icon: AppIcons.error,
+          text: error,
+          color: scheme.error,
+          size: size,
+          scaleIcon: true,
+          liveRegion: true,
+        ),
+      // The count, which "Checking…" replaces in place.
       if (phase == ToolsetRowPhase.checking)
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Row(
-            spacing: 6,
-            children: [
-              const ToolsSpinner(),
-              Expanded(
-                child: Text(
-                  l10n.toolsRowChecking,
-                  style: TextStyle(
-                    fontSize: metrics.footerSize,
-                    color: colors.subtleText,
+        Semantics(
+          liveRegion: true,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
+              spacing: 6,
+              children: [
+                const ToolsSpinner(),
+                Expanded(
+                  child: Text(
+                    l10n.toolsRowChecking,
+                    style: TextStyle(
+                      fontSize: metrics.footerSize,
+                      color: colors.subtleText,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         )
       else if (view.actionCount > 0)
@@ -142,42 +198,13 @@ class ToolsetRow extends StatelessWidget {
             ),
           ),
         ),
-      if (view.riskLine && !view.unknownPlugin)
-        GroupedStatusLine(
-          icon: AppIcons.shield,
-          text: l10n.toolsRowCanChangeThings,
-          color: scheme.onSurface,
-          size: size,
-        ),
-      if (view.needsSetup)
-        GroupedStatusLine(
-          icon: AppIcons.warningFilled,
-          text: l10n.toolsNeedsSetup,
-          color: colors.warning,
-          size: size,
-        ),
-      if (unconfirmed)
-        GroupedStatusLine(
-          icon: AppIcons.help,
-          text: tryAgain
-              ? l10n.toolsRowUnconfirmedRetry
-              : l10n.toolsRowUnconfirmedPull,
-          color: colors.warning,
-          size: size,
-        ),
-      if (error != null)
-        GroupedStatusLine(
-          icon: AppIcons.error,
-          text: error.text,
-          color: scheme.error,
-          size: size,
-        ),
     ];
 
     final control = ToolsSwitch(
       name: view.name,
       value: view.enabled,
       saving: phase == ToolsetRowPhase.saving,
+      preparing: phase == ToolsetRowPhase.preparing,
       showStateWord: large,
       onChanged: phase == ToolsetRowPhase.checking ? null : onChanged,
     );

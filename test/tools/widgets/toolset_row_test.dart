@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/tools/widgets/toolset_header.dart';
 import 'package:hermes_app/src/tools/widgets/toolset_row.dart';
 import 'package:hermes_app/src/tools/widgets/tools_list_footer.dart';
@@ -11,7 +12,7 @@ ToolsetRowView _view({
   bool risk = false,
   ToolsetRowPhase phase = ToolsetRowPhase.idle,
   bool tryAgain = false,
-  ToolsetRowError? error,
+  String? error,
 }) => ToolsetRowView(
   name: 'Terminal',
   sentence: 'Run commands on the machine where Hermes runs.',
@@ -112,6 +113,8 @@ void main() {
     );
     // The row's text node reads the risk line and opens the details.
     final text = t.getSemantics(find.text('Terminal'));
+    expect(text, isSemantics(isButton: true, hasTapAction: true));
+    expect(text.label, isNot(contains('Terminal, on')));
     expect(text.label, contains('Can change things'));
     expect(text.label, contains('Run commands'));
     handle.dispose();
@@ -173,16 +176,87 @@ void main() {
   testWidgets('an error is a line with the error glyph', (t) async {
     await pumpTools(
       t,
-      _row(
-        _view(
-          error: const ToolsetRowError(
-            ToolsetRowErrorKind.notAllowed,
-            "You can't change tools on this server.",
-          ),
-        ),
-      ),
+      _row(_view(error: "You can't change tools on this server.")),
     );
     expect(find.text("You can't change tools on this server."), findsOneWidget);
+    expect(find.byIcon(AppIcons.error.apple), findsOneWidget);
+  });
+
+  testWidgets('error, checking and unconfirmed lines are live regions', (
+    t,
+  ) async {
+    final handle = t.ensureSemantics();
+    for (final (view, text) in [
+      (_view(error: 'Nope.'), 'Nope.'),
+      (_view(phase: ToolsetRowPhase.checking), 'May have changed. Checking…'),
+      (
+        _view(phase: ToolsetRowPhase.unconfirmed),
+        "Couldn't confirm. Pull to refresh.",
+      ),
+    ]) {
+      await pumpTools(t, _row(view));
+      expect(
+        t.getSemantics(find.text(text)),
+        isSemantics(isLiveRegion: true),
+        reason: text,
+      );
+    }
+    await pumpTools(t, _row(_view()));
+    expect(
+      t.getSemantics(find.text('Needs setup')),
+      isNot(isSemantics(isLiveRegion: true)),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('the lines run risk, needs setup, then the count', (t) async {
+    await pumpTools(t, _row(_view(risk: true)));
+    double y(String text) => t.getTopLeft(find.text(text)).dy;
+    final order = [
+      y('Terminal'),
+      y('Run commands on the machine where Hermes runs.'),
+      y('Can change things'),
+      y('Needs setup'),
+      y('2 actions'),
+    ];
+    expect(order, orderedEquals([...order]..sort()));
+    expect(order.toSet().length, order.length);
+  });
+
+  testWidgets('"Checking…" replaces the count in place, at the end', (t) async {
+    await pumpTools(t, _row(_view(risk: true)));
+    final count = t.getTopLeft(find.text('2 actions')).dy;
+    await pumpTools(
+      t,
+      _row(_view(risk: true, phase: ToolsetRowPhase.checking)),
+    );
+    expect(find.text('2 actions'), findsNothing);
+    final checking = t.getTopLeft(find.text('May have changed. Checking…')).dy;
+    expect(checking, closeTo(count, 3));
+    expect(checking, greaterThan(t.getTopLeft(find.text('Needs setup')).dy));
+  });
+
+  testWidgets('preparing: saved position, disabled, spinner, not "saving"', (
+    t,
+  ) async {
+    final handle = t.ensureSemantics();
+    await pumpTools(
+      t,
+      _row(_view(enabled: true, phase: ToolsetRowPhase.preparing)),
+    );
+    expect(
+      t.getSemantics(find.bySemanticsLabel(RegExp('^Terminal, (on|off)'))),
+      isSemantics(
+        label: 'Terminal, on',
+        hasToggledState: true,
+        isToggled: true,
+        hasEnabledState: true,
+        isEnabled: false,
+      ),
+    );
+    expect(t.widget<Switch>(find.byType(Switch)).value, isTrue);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    handle.dispose();
   });
 
   testWidgets('the sentence keeps three lines, and all of it at 2x', (t) async {
@@ -282,14 +356,14 @@ void main() {
     Widget header({
       bool enabled = false,
       bool needsSetup = false,
-      bool saving = false,
+      ToolsetHeaderPhase phase = ToolsetHeaderPhase.idle,
       ValueChanged<bool>? onChanged,
     }) => ToolsetHeader(
       name: 'Web search and scraping',
       sentence: 'Look things up on the web and read pages.',
       enabled: enabled,
       needsSetup: needsSetup,
-      saving: saving,
+      phase: phase,
       onChanged: onChanged ?? (_) {},
     );
 
@@ -307,7 +381,10 @@ void main() {
 
     testWidgets('the name is a heading and the switch is named', (t) async {
       final handle = t.ensureSemantics();
-      await pumpTools(t, header(enabled: true, saving: true));
+      await pumpTools(
+        t,
+        header(enabled: true, phase: ToolsetHeaderPhase.saving),
+      );
       expect(
         t.getSemantics(find.text('Web search and scraping')),
         isSemantics(isHeader: true),
@@ -317,6 +394,39 @@ void main() {
         'Web search and scraping, on, saving',
       );
       expect(t.widget<Switch>(find.byType(Switch)).onChanged, isNull);
+      handle.dispose();
+    });
+
+    testWidgets('preparing and checking disable the switch at its saved '
+        'position', (t) async {
+      final handle = t.ensureSemantics();
+      for (final phase in [
+        ToolsetHeaderPhase.preparing,
+        ToolsetHeaderPhase.checking,
+      ]) {
+        await pumpTools(t, header(enabled: true, phase: phase));
+        expect(t.widget<Switch>(find.byType(Switch)).onChanged, isNull);
+        expect(
+          t.getSemantics(
+            find.bySemanticsLabel(RegExp('^Web search and scraping, on')),
+          ),
+          isSemantics(
+            label: 'Web search and scraping, on',
+            hasEnabledState: true,
+            isEnabled: false,
+          ),
+          reason: '$phase',
+        );
+      }
+      await pumpTools(
+        t,
+        header(enabled: true, phase: ToolsetHeaderPhase.checking),
+      );
+      expect(find.text('May have changed. Checking…'), findsOneWidget);
+      expect(
+        t.getSemantics(find.text('May have changed. Checking…')),
+        isSemantics(isLiveRegion: true),
+      );
       handle.dispose();
     });
 
@@ -356,7 +466,7 @@ void main() {
     expect(taps, 1);
     expect(
       t.getSemantics(find.text("What's the difference?")),
-      isSemantics(isLink: true, isButton: true),
+      isSemantics(isLink: true, hasTapAction: true),
     );
     handle.dispose();
   });

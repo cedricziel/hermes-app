@@ -13,7 +13,8 @@ enum ToolsStatus {
   needsSignIn,
   needsInstall,
 
-  /// Also what a status this app does not know reads as.
+  /// What a provider with a status this app does not know reads as. A
+  /// backend with an unknown status is [unusable] instead.
   needsSetup,
   unusable;
 

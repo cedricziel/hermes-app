@@ -41,7 +41,6 @@ class ToolsListFooter extends StatelessWidget {
           ),
           Semantics(
             link: true,
-            button: true,
             child: InkWell(
               onTap: onWhatsTheDifference,
               child: ConstrainedBox(
