@@ -14,7 +14,8 @@ import 'named_icon_button.dart';
 /// count is read from [controller] each time and never kept.
 ///
 /// A shown value is hidden again when the app leaves `resumed`, when [busy]
-/// turns true (a check or save started), when [hideSignal] changes (the
+/// turns true (a check or save started; the value stays hidden and the
+/// toggle is off while it is true), when [hideSignal] changes (the
 /// screen passes a counter it raises after a failed save) and when the row
 /// goes away. Hiding never touches the text; the screen clears [controller]
 /// itself when App Lock locks, the form closes or an answer to a save is lost.
@@ -46,8 +47,9 @@ class SecretFieldRow extends StatefulWidget {
   /// True while a check or save runs; a shown value is hidden when it starts.
   final bool busy;
 
-  /// Hides a shown value whenever it changes. Raise it after a failed save.
-  final Object? hideSignal;
+  /// Hides a shown value whenever it changes. Pass a counter the screen
+  /// raises after each failed save; a constant or a repeated bool never hides.
+  final int? hideSignal;
   final String? errorText;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
@@ -98,14 +100,17 @@ class _SecretFieldRowState extends State<SecretFieldRow>
     final l10n = context.l10n;
     final label = _shown ? l10n.widgetsSecretHide : l10n.widgetsSecretShow;
     void toggle() => setState(() => _shown = !_shown);
+    final canToggle = widget.enabled && !widget.busy;
     final chrome = platformChromeOf(context);
     if (chrome == PlatformChrome.macos) {
       return Semantics(
         button: true,
+        enabled: canToggle,
         label: label,
+        onTap: canToggle ? toggle : null,
         excludeSemantics: true,
         child: TextButton(
-          onPressed: widget.enabled ? toggle : null,
+          onPressed: canToggle ? toggle : null,
           child: Text(
             _shown ? l10n.widgetsSecretHideShort : l10n.widgetsSecretShowShort,
           ),
@@ -116,7 +121,7 @@ class _SecretFieldRowState extends State<SecretFieldRow>
     return NamedIconButton(
       label: label,
       icon: _shown ? AppIcons.eyeOff : AppIcons.eye,
-      onPressed: widget.enabled ? toggle : null,
+      onPressed: canToggle ? toggle : null,
       constraints: BoxConstraints(minWidth: side, minHeight: side),
     );
   }
@@ -132,7 +137,7 @@ class _SecretFieldRowState extends State<SecretFieldRow>
           hint: widget.hint,
           controller: widget.controller,
           enabled: widget.enabled,
-          obscureText: !_shown,
+          obscureText: !_shown || widget.busy,
           maxLines: 1,
           autocorrect: false,
           enableSuggestions: false,

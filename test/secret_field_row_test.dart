@@ -21,7 +21,7 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     bool busy = false,
-    Object? hideSignal,
+    int? hideSignal,
     bool enabled = true,
     TargetPlatform platform = TargetPlatform.iOS,
   }) => tester.pumpWidget(
@@ -195,11 +195,6 @@ void main() {
       tester.widget<TextField>(find.byType(TextField)).keyboardType,
       TextInputType.visiblePassword,
     );
-    await pump(tester);
-    // ignore: avoid_print
-    print(
-      'IOSKB ${tester.widget<TextField>(find.byType(TextField)).keyboardType}',
-    );
   });
 
   testWidgets('the toggle is 44 pt on iOS and 48 dp on Android', (
@@ -227,6 +222,37 @@ void main() {
     expect(find.widgetWithText(TextButton, 'Hide'), findsOneWidget);
     expect(find.bySemanticsLabel('Hide key'), findsOneWidget);
     handle.dispose();
+  });
+
+  testWidgets('the Mac toggle works from the accessibility tree', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester, platform: TargetPlatform.macOS);
+    tester.semantics.tap(find.semantics.byLabel('Show key'));
+    await tester.pump();
+    expect(_editable(tester).obscureText, isFalse);
+    expect(find.bySemanticsLabel('Hide key'), findsOneWidget);
+    handle.dispose();
+  });
+
+  testWidgets('a disabled Mac form cannot reveal the value', (tester) async {
+    await pump(tester, enabled: false, platform: TargetPlatform.macOS);
+    expect(
+      tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('while busy the value stays hidden and the toggle is off', (
+    tester,
+  ) async {
+    await pump(tester, busy: true);
+    expect(_editable(tester).obscureText, isTrue);
+    expect(
+      tester.widget<IconButton>(find.byType(IconButton)).onPressed,
+      isNull,
+    );
   });
 
   testWidgets('a disabled form cannot reveal the value', (tester) async {
