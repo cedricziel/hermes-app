@@ -10,6 +10,7 @@ import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/hermes_theme.dart';
 import '../../widgets/markdown_links.dart';
 import '../chat_message_kinds.dart';
+import '../chat_transport.dart' show ReplyStatusKind;
 import '../../../l10n/l10n.dart';
 import '../checkpoints/transcript_outcome.dart';
 import '../reactions/reaction_state.dart';
@@ -391,7 +392,11 @@ Widget _buildCustom(
         text: '',
         active: true,
         startedAt: metadata![kMetaThinkingStartedAt] as DateTime,
-        activity: metadata[kMetaThinkingActivity] as String,
+        activity: switch (metadata[kMetaThinkingActivityKind]) {
+          ReplyStatusKind.compacting => context.l10n.chatStatusCompacting,
+          ReplyStatusKind.compressing => context.l10n.chatStatusCompressing,
+          _ => metadata[kMetaThinkingActivity] as String,
+        },
       );
     case kKindInputRequest:
       return switch (metadata![kMetaInputRequest]) {

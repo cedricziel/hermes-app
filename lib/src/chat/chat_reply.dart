@@ -232,8 +232,9 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       reply.settledWithoutCompletion = true;
       _settleRunningTools(reply, ToolCallStatus.completed);
       expireInputRequests(reply);
-    case ReplyStatus(:final text):
+    case ReplyStatus(:final text, :final kind):
       reply.activity = text.isEmpty ? null : text;
+      reply.activityKind = kind;
     case ReplyRebuilt(:final text):
       reply.reasoningActive = false;
       reply.activity = null;

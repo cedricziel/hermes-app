@@ -153,6 +153,7 @@ extension _ChatControllerCheckpoints on ChatController {
               // being sent, or a full restore holds Send: the server could
               // rewind a second turn or lose the one in flight.
               _undoing.containsKey(thread) ||
+              _retrying.contains(thread) ||
               _queueDispatching.contains(thread) ||
               _actionHolds(thread) ||
               thread.messages.any((m) => m.awaitingInput));

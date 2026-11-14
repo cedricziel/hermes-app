@@ -239,6 +239,7 @@ void main() {
         await s.controller.confirmRestore(intent);
         expect(s.transport.count('restore'), 0);
         expect(s.chat.held, isEmpty);
+        expect(s.controller.outcome!.kind, RestoreOutcomeKind.busyReplying);
       },
     );
 

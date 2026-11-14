@@ -194,7 +194,8 @@ void main() {
         'text': 'x',
       }) as ReplyStatus;
 
-      expect(event.text, 'Compacting the conversation…');
+      expect(event.kind, ReplyStatusKind.compacting);
+      expect(event.text, isEmpty);
     });
 
     test('a compressing status.update reads as the compressing status', () {
@@ -207,7 +208,8 @@ void main() {
         'text': '',
       }) as ReplyStatus;
 
-      expect(event.text, 'Compressing the conversation…');
+      expect(event.kind, ReplyStatusKind.compressing);
+      expect(cleared.kind, isNull);
       expect(cleared.text, '');
     });
 

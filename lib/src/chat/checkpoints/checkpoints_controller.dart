@@ -433,8 +433,17 @@ class CheckpointsController extends ChangeNotifier {
         intent._used ||
         !identical(intent, _intent) ||
         intent.epoch != _epoch ||
-        intent.scope != _scope ||
-        restoreRefusal(filePath: intent.filePath) != null) {
+        intent.scope != _scope) {
+      return;
+    }
+    final refusal = restoreRefusal(filePath: intent.filePath);
+    if (refusal != null) {
+      // A reply started while the confirmation was open: nothing is sent.
+      if (refusal == RestoreRefusal.replying) {
+        _outcome = const RestoreOutcome(RestoreOutcomeKind.busyReplying);
+        _intent = null;
+        _notify();
+      }
       return;
     }
     intent._used = true;

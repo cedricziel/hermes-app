@@ -227,10 +227,12 @@ ChatEvent? mapGatewayEvent(GatewayEvent event, {Object? connection}) {
     ),
     'status.update' => switch (payload) {
       {'kind': 'compacting', 'text': final String value} => ReplyStatus(
-        value.isEmpty ? '' : 'Compacting the conversation…',
+        '',
+        kind: value.isEmpty ? null : ReplyStatusKind.compacting,
       ),
       {'kind': 'compressing', 'text': final String value} => ReplyStatus(
-        value.isEmpty ? '' : 'Compressing the conversation…',
+        '',
+        kind: value.isEmpty ? null : ReplyStatusKind.compressing,
       ),
       // Hermes compacted on its own: the usage is read again. It needs the
       // runtime to find its chat; nothing else is taken from the frame.

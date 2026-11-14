@@ -618,6 +618,54 @@ void main() {
       });
     }
 
+    test('the 2 s settle wait of a queue ending during the hold defers to the '
+        'release, which sends once', () async {
+      final (opened, checkpoints) = await listed();
+      chat.submit('First', const []);
+      await pumpEventQueue();
+      chat.submit('Second', const []);
+      await pumpEventQueue();
+      final first = source.sends.last;
+      first
+        ..emit(const ReplyCompleted('Done'))
+        ..finish();
+      await pumpEventQueue();
+      expect(chat.queuedIn(opened), isNotEmpty);
+      final sends = source.sends.length;
+      final gate = source.fake.restoreGate = Completer<void>();
+      final confirming = checkpoints.confirmRestore(
+        checkpoints.beginRestore(_hash)!,
+      );
+      expect(chat.sendHeldIn(opened), isTrue);
+      // The settle timer fires while the hold is on: nothing is sent.
+      await Future<void>.delayed(const Duration(milliseconds: 2300));
+      expect(source.sends.length, sends);
+      gate.complete();
+      await confirming;
+      await pumpEventQueue();
+      expect(source.sends.length, sends + 1);
+      expect(source.sends.last.text, 'Second');
+    });
+
+    test(
+      'a settle wait that ends after no hold sends the queue as before',
+      () async {
+        final (opened, _) = await listed();
+        chat.submit('First', const []);
+        await pumpEventQueue();
+        chat.submit('Second', const []);
+        await pumpEventQueue();
+        source.sends.last
+          ..emit(const ReplyCompleted('Done'))
+          ..finish();
+        await pumpEventQueue();
+        final sends = source.sends.length;
+        await Future<void>.delayed(const Duration(milliseconds: 2300));
+        expect(source.sends.length, sends + 1);
+        expect(chat.sendHeldIn(opened), isFalse);
+      },
+    );
+
     test('clearing the chat ends the hold but never sends the queued prompt: '
         'the restore may still be running on the server', () async {
       final (opened, checkpoints) = await listed();
@@ -664,6 +712,20 @@ void main() {
       expect(checkpoints.restoreRefusal(), RestoreRefusal.replying);
       expect(context.compressRefusal, CompressRefusal.replying);
       source.undoGate!.complete();
+      await pumpEventQueue();
+    });
+
+    test('a full restore stays refused from the Retry undo to its send: '
+        'there is no gap in which the chat looks idle', () async {
+      final (opened, checkpoints) = await listed();
+      source.undoGate = Completer<void>();
+      unawaited(chat.retry(opened));
+      await pumpEventQueue();
+      source.undoGate!.complete();
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.value();
+        expect(checkpoints.restoreRefusal(), isNotNull, reason: 'step $i');
+      }
       await pumpEventQueue();
     });
 

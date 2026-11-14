@@ -212,6 +212,7 @@ List<Message> chatMessageToFlyer(
           kMetaKind: kKindThinking,
           kMetaThinkingStartedAt: m.createdAt,
           kMetaThinkingActivity: m.activity ?? 'Thinking…',
+          if (m.activityKind != null) kMetaThinkingActivityKind: m.activityKind,
         },
       ),
   ];

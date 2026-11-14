@@ -21,7 +21,7 @@ extension _ChatControllerCommands on ChatController {
   /// reply queue. Display-only command output stays in this visit's chat.
   Future<bool> _runSlashCommandImpl(String command) async {
     if (_ChatControllerCheckpoints(this)._actionHolds(selectedThread)) {
-      report('Wait for the files to be restored, then try again.');
+      // The composer's status line already says the files are restoring.
       return false;
     }
     if (_sessionStates[selectedThread]?.reclaimedReason != null) {
@@ -258,11 +258,29 @@ extension _ChatControllerCommands on ChatController {
       return;
     }
     final prompt = lastPromptText(thread);
-    if (prompt == null || _undoing.containsKey(thread)) return;
+    if (prompt == null ||
+        _undoing.containsKey(thread) ||
+        _retrying.contains(thread)) {
+      return;
+    }
     if (prompt.startsWith('/')) {
       unawaited(runSlashCommand(prompt));
       return;
     }
+    _retrying.add(thread);
+    try {
+      await _retryTurn(thread, prompt, epoch, generation);
+    } finally {
+      _retrying.remove(thread);
+    }
+  }
+
+  Future<void> _retryTurn(
+    ChatThread thread,
+    String prompt,
+    int epoch,
+    int generation,
+  ) async {
     if (canEditLastPrompt(thread) && _lastPrompt(thread)!.attachments.isEmpty) {
       try {
         await _undoLastTurn(thread, TurnAction.retry);

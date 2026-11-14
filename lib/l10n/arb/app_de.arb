@@ -36,6 +36,8 @@
   "@@x-area-chat": "",
   "chatComposerHoldHandedBack": "Deine letzte Nachricht ist wieder im Nachrichtenfeld.",
   "chatComposerHoldRestoring": "Dateien werden wiederhergestellt …",
+  "chatStatusCompacting": "Die Unterhaltung wird verdichtet …",
+  "chatStatusCompressing": "Die Unterhaltung wird komprimiert …",
 
   "@@x-area-chat/activity": "",
   "chatActivityButtonHide": "Aktivität ausblenden",
@@ -756,6 +758,7 @@
   "providersStepStartChatting": "Chat starten",
   "providersStepUse": "{model} verwenden",
   "providersTryAgain": "Erneut versuchen",
+
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",

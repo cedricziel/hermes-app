@@ -767,6 +767,7 @@ void main() {
 
   for (final (name, size, platform) in [
     ('phone', phoneSize, TargetPlatform.iOS),
+    ('phone-android', phoneSize, TargetPlatform.android),
     ('desktop', desktopSize, TargetPlatform.macOS),
   ]) {
     for (final dark in [false, true]) {

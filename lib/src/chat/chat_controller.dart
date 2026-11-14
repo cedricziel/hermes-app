@@ -275,6 +275,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
     _suspendedQueues.addAll(_queues.keys);
     _undoing.clear();
+    _retrying.clear();
     _interrupts.clear();
     _holds.clear();
     for (final subscription in _replies) {
@@ -1648,6 +1649,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// The threads whose last turn is being dropped, and for what, so a second
   /// tap does not drop the turn before it too.
   final _undoing = <ChatThread, TurnAction>{};
+
+  /// Threads where a Retry runs from taking the turn back to sending the
+  /// prompt again. A full restore waits for it: between the two the chat is
+  /// neither undoing nor replying.
+  final _retrying = <ChatThread>{};
 
   /// Why the last retry or edit of a thread failed, until the next one or the
   /// next prompt.

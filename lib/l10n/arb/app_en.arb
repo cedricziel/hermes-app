@@ -90,6 +90,14 @@
   "@chatComposerHoldRestoring": {
     "description": "Line above the message box while files are restored from a checkpoint; Send is off until it finishes, typing is not."
   },
+  "chatStatusCompacting": "Compacting the conversation…",
+  "@chatStatusCompacting": {
+    "description": "Status line under the agent’s thinking row while Hermes compacts the conversation on its own."
+  },
+  "chatStatusCompressing": "Compressing the conversation…",
+  "@chatStatusCompressing": {
+    "description": "Status line under the agent’s thinking row while the conversation is being compressed."
+  },
 
   "@@x-area-chat/activity": "",
   "chatActivityButtonHide": "Hide activity",
@@ -3765,6 +3773,7 @@
   "@providersTryAgain": {
     "description": "Button that reads the providers again."
   },
+
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",

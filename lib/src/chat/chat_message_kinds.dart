@@ -71,6 +71,9 @@ const String kMetaInputRequest = 'request';
 const String kMetaThinkingStartedAt = 'startedAt';
 const String kMetaThinkingActivity = 'activity';
 
+/// A `ReplyStatusKind` the widget layer words itself; wins over the text.
+const String kMetaThinkingActivityKind = 'activityKind';
+
 /// Carried by the `ImageMessage` or `FileMessage` of an attachment: the
 /// `ChatAttachment` it stands for.
 const String kMetaAttachment = 'attachment';

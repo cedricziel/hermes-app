@@ -301,10 +301,17 @@ final class ContextCompacted extends ChatEvent {
 /// What the agent is doing while it writes, shown in place of the generic
 /// "Thinking…" label. Empty [text] clears it.
 final class ReplyStatus extends ChatEvent {
-  const ReplyStatus(this.text);
+  const ReplyStatus(this.text, {this.kind});
 
+  /// The text to show; empty with no [kind] clears the status.
   final String text;
+
+  /// A status the widget layer words itself, so the text is localized.
+  final ReplyStatusKind? kind;
 }
+
+/// A status of the turn that has no server text of its own.
+enum ReplyStatusKind { compacting, compressing }
 
 final class WarningScopeDiscarded extends ChatEvent {
   const WarningScopeDiscarded();

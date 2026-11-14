@@ -73,8 +73,8 @@ void main() {
     expect(events.skip(at).whereType<ReplyDelta>(), isNotEmpty);
     expect(events.whereType<ReplyCompleted>().single.text, 'Answer');
     expect(
-      events.whereType<ReplyStatus>().map((e) => e.text),
-      contains('Compressing the conversation…'),
+      events.whereType<ReplyStatus>().map((e) => e.kind),
+      contains(ReplyStatusKind.compressing),
     );
     expect(events.whereType<SessionWaitUpdated>(), isEmpty);
   });
