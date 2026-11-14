@@ -95,6 +95,7 @@ class SubagentRoster extends ChangeNotifier {
 
   /// Whether the last list answer was malformed or failed (for tests and the
   /// panel's quiet state).
+  var _listed = false;
   var _lastReadFailed = false;
   bool get lastReadFailed => _lastReadFailed;
 
@@ -138,7 +139,9 @@ class SubagentRoster extends ChangeNotifier {
     if (_demand++ == 0) {
       _backoff.reset();
       _timer = Timer.periodic(kRosterEvery, (_) => _tick());
-      scheduleMicrotask(() => unawaited(_read()));
+      scheduleMicrotask(() {
+        if (_demand > 0 && _gatesOpen) unawaited(_read());
+      });
     }
     return RosterWatch._(() {
       if (_disposed || --_demand > 0) return;
@@ -159,7 +162,9 @@ class SubagentRoster extends ChangeNotifier {
   bool get _anyActive => _rows.values.any((row) => row.active);
 
   void _tick() {
-    if (!_gatesOpen || !_anyActive || !_backoff.tick()) return;
+    // Until one read has answered, a chat with no frame rows still needs
+    // reading: its agents may have started from another client.
+    if (!_gatesOpen || !(_anyActive || !_listed) || !_backoff.tick()) return;
     unawaited(_read());
   }
 
@@ -191,12 +196,16 @@ class SubagentRoster extends ChangeNotifier {
   }
 
   Future<AgentWorkResult<void>> _readOnce({required bool force}) async {
-    if (_disposed || !_env.foreground && !force) return const WorkLost();
     final connection = _env.connection;
-    if (connection == null || !_env.unlocked) return const WorkLost();
-    if (!force &&
-        (identical(_unsupportedOn, connection) ||
-            identical(_blockedOn, connection))) {
+    // A forced read (the re-read after a stop) skips the demand and the
+    // backoff, not the rules about the background, App Lock, a missing
+    // connection or a method the server does not have.
+    if (_disposed ||
+        connection == null ||
+        !_env.foreground ||
+        !_env.unlocked ||
+        identical(_unsupportedOn, connection) ||
+        (!force && identical(_blockedOn, connection))) {
       return const WorkLost();
     }
     final generation = _generation, startSeq = _frameSeq;
@@ -211,6 +220,8 @@ class SubagentRoster extends ChangeNotifier {
     switch (result) {
       case WorkOk(:final value):
         _apply(value, startSeq);
+        _listed = true;
+        _blockedOn = null;
         _lastReadFailed = false;
         _backoff.succeeded();
         _changed();
@@ -260,7 +271,9 @@ class SubagentRoster extends ChangeNotifier {
       row.toolCount = agent.toolCount ?? row.toolCount;
       row.lastTool = agent.lastTool ?? row.lastTool;
       // Ended states stick; a list never brings an ended row back.
-      if (row.active || !agent.state.active) row.state = agent.state;
+      if (!row.completedByFrame && (row.active || !agent.state.active)) {
+        row.state = agent.state;
+      }
     }
     for (final row in _rows.values) {
       if (row.active &&
@@ -274,8 +287,16 @@ class SubagentRoster extends ChangeNotifier {
     for (final failed in list.delegations) {
       final duplicate = _rows.values.any(
         (row) =>
-            row.delegationId == failed.delegationId &&
-            row.taskIndex == failed.taskIndex,
+            (row.delegationId == failed.delegationId &&
+                row.taskIndex == failed.taskIndex) ||
+            // The agent's own row may know neither id: it ended before the
+            // list ever named its delegation.
+            (!row.active &&
+                row.goal.isNotEmpty &&
+                row.goal == failed.goal &&
+                (row.delegationId ?? failed.delegationId) ==
+                    failed.delegationId &&
+                (row.taskIndex ?? failed.taskIndex) == failed.taskIndex),
       );
       if (duplicate) {
         _delegations.remove(failed.key);
@@ -304,10 +325,12 @@ class SubagentRoster extends ChangeNotifier {
   AgentSections get sections {
     final all = [..._rows.values, ..._delegations.values];
     int byStart(AgentRow a, AgentRow b) {
+      // A row with no start time (seen only by a frame so far) is the newest.
       final left = a.startedAt, right = b.startedAt;
       if (left != null && right != null && left != right) {
         return left.compareTo(right);
       }
+      if ((left == null) != (right == null)) return left == null ? 1 : -1;
       return a.order.compareTo(b.order);
     }
 
@@ -373,6 +396,8 @@ class SubagentRoster extends ChangeNotifier {
       _generation++;
       _unsupportedOn = _blockedOn = null;
       _loggedUnsupported = false;
+      _listed = false;
+      _inFlight = null;
       _backoff.reset();
     }
     notifyListeners();
@@ -395,6 +420,8 @@ class SubagentRoster extends ChangeNotifier {
   /// and a chat or profile that is no longer this one.
   void clear() {
     _generation++;
+    _inFlight = null;
+    _listed = false;
     _rows.clear();
     _delegations.clear();
     _lastReadFailed = false;
@@ -432,7 +459,8 @@ class _RosterHost implements AgentDetailHost {
   bool get online => _roster._env.connection != null;
 
   @override
-  bool get readingAllowed => _roster._env.foreground && _roster._demand > 0;
+  bool get readingAllowed =>
+      _roster._env.foreground && _roster._env.unlocked && _roster._demand > 0;
 
   @override
   bool get unlocked => _roster._env.unlocked;

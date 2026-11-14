@@ -370,6 +370,7 @@ void main() {
       r.answer = (_) => gate.future;
       r.roster.watch();
       async.flushMicrotasks();
+      r.answer = (_) => {'subagents': [], 'delegations': []};
       r.env.update(() => r.env.connection = Object());
       gate.complete({
         'subagents': [listed('old')],
@@ -401,6 +402,163 @@ void main() {
       expect(r.reads, 1);
       r.roster.applyFrame(frame('b'));
       expect(r.roster.hasAgents, isFalse);
+    });
+  });
+
+  group('review fixes', () {
+    rig('a failed first read with no rows is retried on the backoff', (
+      async,
+      r,
+    ) {
+      r.answer = (_) => throw const GatewayRequestTimeout();
+      r.roster.watch();
+      async.flushMicrotasks();
+      expect(r.reads, 1);
+      r.listAnswers([listed('remote')]);
+      async.elapse(const Duration(seconds: 30));
+      expect(r.now, ['remote']);
+    });
+
+    rig('a read in flight when the connection changes does not block the '
+        'new connection', (async, r) {
+      final gate = Completer<Map<String, Object?>>();
+      r.answer = (_) => gate.future;
+      r.roster.watch();
+      async.flushMicrotasks();
+      r.answer = (_) => {
+        'subagents': [listed('new')],
+        'delegations': [],
+      };
+      r.env.update(() => r.env.connection = Object());
+      async.flushMicrotasks();
+      expect(r.now, ['new']);
+      gate.complete({
+        'subagents': [listed('old')],
+      });
+      async.flushMicrotasks();
+      expect(r.now, ['new']);
+    });
+
+    rig('a failed delegation does not duplicate an ended agent that knows '
+        'neither id', (async, r) {
+      r.roster.applyFrame(frame('a', status: SubagentStatus.failed));
+      r.listAnswers([], [
+        {
+          'delegation_id': 'd1',
+          'task_index': 0,
+          'status': 'failed',
+          'goal': 'goal a',
+          'error': 'x',
+        },
+      ]);
+      r.roster.watch();
+      async.flushMicrotasks();
+      expect(r.session, ['a']);
+    });
+
+    rig('a forced read honours the background, App Lock and unsupported', (
+      async,
+      r,
+    ) {
+      r.roster.applyFrame(frame('a'));
+      r.env.foreground = false;
+      Object? result;
+      unawaited(r.roster.readNow().then((value) => result = value));
+      async.flushMicrotasks();
+      expect(r.reads, 0);
+      expect(result.runtimeType.toString(), startsWith('WorkLost'));
+      r.env.foreground = true;
+      r.answer = (_) =>
+          throw const GatewayRpcException(kGatewayMethodNotFound, 'x');
+      unawaited(r.roster.readNow());
+      async.flushMicrotasks();
+      unawaited(r.roster.readNow());
+      async.flushMicrotasks();
+      expect(r.reads, 1, reason: 'not asked again once unsupported');
+    });
+
+    rig('a forced read that succeeds lifts a 4001 block', (async, r) {
+      r.roster.applyFrame(frame('a'));
+      r.answer = (_) => throw const GatewayRpcException(4001, 'x');
+      r.roster.watch();
+      async.flushMicrotasks();
+      r.answer = (_) => {
+        'subagents': [listed('a')],
+      };
+      unawaited(r.roster.readNow());
+      async.flushMicrotasks();
+      final before = r.reads;
+      async.elapse(const Duration(seconds: 5));
+      expect(r.reads, greaterThan(before));
+    });
+
+    rig('a re-read starts after the read in flight', (async, r) {
+      final first = Completer<Map<String, Object?>>();
+      var calls = 0;
+      r.answer = (_) =>
+          ++calls == 1 ? first.future : {'subagents': [], 'delegations': []};
+      r.roster.watch();
+      async.flushMicrotasks();
+      unawaited(r.roster.readNow());
+      async.flushMicrotasks();
+      expect(calls, 1);
+      first.complete({'subagents': [], 'delegations': []});
+      async.flushMicrotasks();
+      expect(calls, 2);
+    });
+
+    rig('rows without a start time sort after those with one, in a stable '
+        'order', (async, r) {
+      r.listAnswers([
+        listed('a', started: 200),
+        listed('c', started: 100),
+        listed('b'),
+      ]);
+      r.roster.applyFrame(frame('b'));
+      r.roster.watch();
+      async.flushMicrotasks();
+      expect(r.now, ['c', 'a', 'b']);
+    });
+
+    rig('a completion frame is final against the list', (async, r) {
+      r.roster.applyFrame(frame('a', status: SubagentStatus.completed));
+      r.listAnswers([listed('a', status: 'interrupted')]);
+      r.roster.watch();
+      async.flushMicrotasks();
+      expect(r.roster.row('a')!.state, AgentState.finished);
+    });
+
+    rig('opening and closing in one frame sends nothing', (async, r) {
+      r.roster.watch().close();
+      async.flushMicrotasks();
+      expect(r.reads, 0);
+    });
+
+    rig('reads stop when the app locks or goes to the background '
+        'mid-polling', (async, r) {
+      r.listAnswers([listed('a')]);
+      r.roster.watch();
+      async.flushMicrotasks();
+      r.env.update(() => r.env.unlocked = false);
+      async.elapse(const Duration(seconds: 20));
+      expect(r.reads, 1);
+      r.env.update(() {
+        r.env.unlocked = true;
+        r.env.foreground = false;
+      });
+      async.elapse(const Duration(seconds: 20));
+      expect(r.reads, 1);
+    });
+
+    rig('sign-out clear drops rows and the next frame starts fresh', (
+      async,
+      r,
+    ) {
+      r.roster.applyFrame(frame('a'));
+      r.roster.clear();
+      expect(r.roster.hasAgents, isFalse);
+      r.roster.applyFrame(frame('b'));
+      expect(r.now, ['b']);
     });
   });
 
