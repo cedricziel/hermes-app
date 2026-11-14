@@ -8,6 +8,7 @@ import '../bot_mode_roster_repository.dart';
 import '../group_protocol/hermes_groups_repository.dart';
 import 'group_room_controller.dart';
 import 'widgets/group_widgets.dart';
+import '../../telemetry/report_bug.dart';
 import '../../widgets/route_dismissal.dart';
 
 /// Hosted rooms only. Legacy Desktop metadata rooms have no migration contract.
@@ -99,7 +100,8 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
           ..clear()
           ..addAll(states);
       });
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportBug(error, stack, 'the group rooms listing');
       if (mounted && generation == _generation) {
         setState(() => _error = GroupFailure.from(error).message);
       }
