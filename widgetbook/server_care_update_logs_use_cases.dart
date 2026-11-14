@@ -251,6 +251,15 @@ List<WidgetbookNode> serverCareUpdateLogsNodes() => [
         ),
       ),
       WidgetbookUseCase(
+        name: 'Available, no version reported',
+        builder: (_) => frame(
+          UpdateStatusCard(
+            status: const UpdateAvailable(changeCount: 12),
+            onUpdate: () {},
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
         name: 'Rollback',
         builder: (_) => frame(
           UpdateStatusCard(

@@ -165,6 +165,36 @@ void main() {
     expect(updates, 1);
   });
 
+  testWidgets('an available update names the version when there is one', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      UpdateStatusCard(
+        status: const UpdateAvailable(changeCount: 2, currentVersion: '0.22.2'),
+        onUpdate: () {},
+      ),
+    );
+    expect(find.text('Update available'), findsOneWidget);
+    expect(find.text('2 changes since your version (0.22.2).'), findsOneWidget);
+  });
+
+  testWidgets('an available update without a version has no "since" line', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      UpdateStatusCard(
+        status: const UpdateAvailable(changeCount: 2),
+        onUpdate: () {},
+      ),
+    );
+    expect(find.text('Update available'), findsOneWidget);
+    expect(find.textContaining('since your version'), findsNothing);
+    expect(find.textContaining('()'), findsNothing);
+    expect(find.text('Update Hermes'), findsOneWidget);
+  });
+
   testWidgets('a failed outcome offers Done and Try again', (tester) async {
     final pressed = <String>[];
     await _pump(

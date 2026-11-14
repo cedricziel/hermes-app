@@ -56,6 +56,7 @@ class _UsagePageState extends State<UsagePage> {
       repository: HermesRepositories.of(context).serverCare,
       profile: _careProfile,
       onUnsupported: _usageMissing,
+      telemetry: HermesRepositories.of(context).telemetry,
       lookupFailed: () => _care.profileLookupFailed,
     );
     _care.addListener(_followChatProfile);

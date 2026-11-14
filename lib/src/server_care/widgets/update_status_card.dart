@@ -46,13 +46,10 @@ class UpdateCheckFailed extends UpdateStatus {
 }
 
 class UpdateAvailable extends UpdateStatus {
-  const UpdateAvailable({
-    required this.changeCount,
-    required this.currentVersion,
-  });
+  const UpdateAvailable({required this.changeCount, this.currentVersion});
 
   final int changeCount;
-  final String currentVersion;
+  final String? currentVersion;
 }
 
 /// The build is newer than the stable release; updating moves it back.
@@ -132,10 +129,12 @@ class UpdateStatusCard extends StatelessWidget {
       UpdateChecking() => null,
       UpdateCheckFailed(:final message) => message,
       UpdateAvailable(:final changeCount, :final currentVersion) =>
-        l10n.serverCareUpdateBodyChangesSince(
-          l10n.serverCareUpdateChanges(changeCount),
-          currentVersion,
-        ),
+        currentVersion == null
+            ? null
+            : l10n.serverCareUpdateBodyChangesSince(
+                l10n.serverCareUpdateChanges(changeCount),
+                currentVersion,
+              ),
       UpdateRollback(:final changeCount, :final currentVersion) =>
         changeCount == null || currentVersion == null
             ? null
