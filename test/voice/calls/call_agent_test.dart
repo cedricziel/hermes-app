@@ -131,6 +131,31 @@ void main() {
     },
   );
   test(
+    'reports an approval raised by a reply this call did not start',
+    () async {
+      final seen = <bool>[];
+      agent.watchAttention(seen.add);
+      expect(agent.attention, isFalse);
+      // A typed message, not a voice turn.
+      expect(await chat.submit('Check the server', const []), isTrue);
+      await pumpEventQueue();
+      transport.sends.single.emit(
+        const ApprovalRequested(
+          ApprovalRequest(
+            requestId: 'typed-approval',
+            command: 'restart service',
+            description: 'Restart the service',
+            choices: ['once', 'deny'],
+          ),
+        ),
+      );
+      await pumpEventQueue();
+      expect(agent.attention, isTrue);
+      expect(seen, [true]);
+      transport.stopsRunning = false;
+    },
+  );
+  test(
     'speaks the new reply when the history arrives above it mid-turn',
     () async {
       SharedPreferencesAsyncPlatform.instance =

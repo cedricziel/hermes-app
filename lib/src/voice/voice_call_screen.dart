@@ -193,6 +193,19 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   Widget? _notice(BuildContext context, VoiceCall call) {
     final l10n = context.l10n;
     return switch ((call.notice, call.endReason, call.ended)) {
+      (CallNotice.microphoneMayBeOpen, _, _) => VoiceCallNotice(
+        tone: VoiceCallNoticeTone.warning,
+        title: l10n.voiceNoticeMicMayBeOpenTitle,
+        detail: l10n.voiceNoticeMicMayBeOpenDetail,
+      ),
+      (CallNotice.idle, _, _) => VoiceCallNotice(
+        title: l10n.voiceNoticeIdleTitle,
+        detail: l10n.voiceNoticeIdleDetail,
+      ),
+      (CallNotice.left, _, _) => VoiceCallNotice(
+        title: l10n.voiceNoticeLeftTitle,
+        detail: l10n.voiceNoticeLeftDetail,
+      ),
       (CallNotice.speechFailed, _, _) => VoiceCallNotice(
         tone: VoiceCallNoticeTone.warning,
         title: l10n.voiceNoticeSpeechFailedTitle,
@@ -202,7 +215,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         tone: VoiceCallNoticeTone.warning,
         title: l10n.voiceNoticeTranscriptionTitle,
       ),
-      (_, 'interrupted', true) => VoiceCallNotice(
+      (_, 'interrupted' || 'focus_lost', true) => VoiceCallNotice(
         tone: VoiceCallNoticeTone.warning,
         title: l10n.voiceNoticeInterruptedTitle,
         detail: l10n.voiceNoticeInterruptedDetail,
@@ -261,7 +274,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                 speaker: call.speaker,
                 route: call.route,
                 caption: call.caption,
-                error: call.notice != null || call.endReason == 'interrupted'
+                error: call.notice != null || call.interruptedEnd
                     ? _error
                     : _error ?? call.error,
                 notice: _notice(context, call),
@@ -269,8 +282,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                     call.phase == CallPhase.ended &&
                     _endedByUser(call.endReason),
                 stoppedWord:
-                    call.ended &&
-                    (call.notice != null || call.endReason == 'interrupted'),
+                    call.ended && (call.notice != null || call.interruptedEnd),
                 onStartNew: call.ended ? _startNew : null,
                 helpBusy: _busy,
                 onAskHermes: () => unawaited(
@@ -285,6 +297,14 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                     ], useDeviceSpeech: _readiness.useDeviceSpeech),
                   ),
                 ),
+                capturePaused:
+                    call.phase == CallPhase.attention && call.capturePaused,
+                speakingHint: call.bargeInActive
+                    ? VoiceSpeakingHint.tapOrTalk
+                    : VoiceSpeakingHint.tapOnly,
+                onInterrupt: call.phase == CallPhase.speaking
+                    ? () => unawaited(call.interruptReply())
+                    : null,
                 onMute: () => unawaited(call.setMuted(!call.muted)),
                 onSpeaker: () => unawaited(call.setSpeaker(!call.speaker)),
                 onEnd: () => unawaited(call.end()),

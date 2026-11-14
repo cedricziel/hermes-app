@@ -116,20 +116,17 @@ void main() {
       expect(call.phase, CallPhase.listening);
     },
   );
-  test(
-    'barge-in stops speech and the owned turn before accepting a new utterance',
-    () async {
-      await activate();
-      utterance();
-      transcript.complete('First');
-      await pumpEventQueue();
-      bridge.emit('pcm', {'data': pcm()});
-      await pumpEventQueue();
-      expect(agent.interrupts, 1);
-      expect(bridge.stops, 1);
-      expect(call.phase, CallPhase.listening);
-    },
-  );
+  test('barge-in stops the speech and leaves the reply running until a turn is sent', () async {
+    await activate();
+    utterance();
+    transcript.complete('First');
+    await pumpEventQueue();
+    bridge.emit('pcm', {'data': pcm()});
+    await pumpEventQueue();
+    expect(agent.interrupts, 0);
+    expect(bridge.stops, 1);
+    expect(call.phase, CallPhase.listening);
+  });
   test(
     'barge-in cancels POST/decoding fallback and discards late PCM',
     () async {

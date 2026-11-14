@@ -10,6 +10,7 @@ import 'context/pages/compress_flow.dart';
 import 'context/context_controller.dart';
 
 import '../voice/calls/call_bridge.dart';
+import '../voice/calls/call_tones.dart';
 import '../voice/calls/call_audio_decoder.dart';
 import '../voice/calls/call_agent.dart';
 import '../voice/calls/voice_call.dart';
@@ -890,6 +891,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
+    _voiceCall?.lifecycleChanged(state);
     _syncBotScreenGates();
     _updateActivePolling();
     if (state case AppLifecycleState.paused || AppLifecycleState.hidden) {

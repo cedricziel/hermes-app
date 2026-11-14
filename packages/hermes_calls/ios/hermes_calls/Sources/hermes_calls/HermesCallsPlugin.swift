@@ -122,6 +122,9 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       }
       do { try audio.play(bytes.data, rate: rate.doubleValue); result(nil) }
       catch { result(failure("audio", "Could not play call audio.")) }
+    case "pauseCapture": audio.setCapturePaused(true); result(nil)
+    case "resumeCapture": audio.setCapturePaused(false); result(nil)
+    case "stopCapture": audio.stopCapture(); result(nil)
     case "drain": audio.finish(result)
     case "stopPlayback": audio.stopPlayback(); result(nil)
     default: result(FlutterMethodNotImplemented)

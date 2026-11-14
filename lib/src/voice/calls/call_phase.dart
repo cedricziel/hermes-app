@@ -13,4 +13,16 @@ enum CallPhase {
 }
 
 /// Why the call shows a notice, in fixed words the screen turns into text.
-enum CallNotice { transcription, speechFailed }
+enum CallNotice {
+  transcription,
+  speechFailed,
+
+  /// The microphone could not be confirmed closed when the call ended.
+  microphoneMayBeOpen,
+
+  /// Five minutes of silence ended the call.
+  idle,
+
+  /// The app was hidden, which ends a call everywhere but on iOS.
+  left,
+}

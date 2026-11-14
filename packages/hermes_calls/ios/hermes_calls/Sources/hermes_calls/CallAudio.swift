@@ -17,6 +17,9 @@ final class CallAudio {
   private var playbackRate = 0.0
   var running: Bool { engine.isRunning }
   var muted = false
+  /// Capture paused by Dart (Waiting for you, tones): the tap keeps running but
+  /// no audio is sent. CallKit's mute is not involved.
+  private(set) var capturePaused = false
   var emit: (([String: Any]) -> Void)?
 
   init() {
@@ -50,7 +53,7 @@ final class CallAudio {
       guard error == nil, converted.frameLength > 0, let samples = converted.int16ChannelData else { return }
       let data = Data(bytes: samples[0], count: Int(converted.frameLength) * 2)
       DispatchQueue.main.async {
-        guard let self, self.engine.isRunning, !self.muted,
+        guard let self, self.engine.isRunning, !self.muted, !self.capturePaused,
               captureGeneration == self.generation else { return }
         self.emit?(["type": "pcm", "data": FlutterStandardTypedData(bytes: data)])
       }
@@ -64,6 +67,19 @@ final class CallAudio {
       tapped = false
       throw error
     }
+  }
+
+  func setCapturePaused(_ paused: Bool) {
+    guard capturePaused != paused else { return }
+    capturePaused = paused
+    emit?(["type": "capturePaused", "paused": paused, "reason": "request"])
+  }
+
+  /// Ends the capture tap only. Playback and the engine keep running so the
+  /// call can still say its last tone; `stop()` ends the rest.
+  func stopCapture() {
+    generation += 1
+    if tapped { engine.inputNode.removeTap(onBus: 0); tapped = false }
   }
 
   func play(_ data: Data, rate: Double) throws {
@@ -139,6 +155,7 @@ final class CallAudio {
     stopPlayback()
     if tapped { engine.inputNode.removeTap(onBus: 0); tapped = false }
     engine.stop()
+    capturePaused = false
   }
 
   enum AudioError: Error { case unavailable, overflow }

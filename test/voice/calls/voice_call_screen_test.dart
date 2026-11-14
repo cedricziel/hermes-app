@@ -19,6 +19,7 @@ class _Flow {
   Completer<bool>? permission;
   Completer<void>? setup;
   final bridge = FakeCallBridge();
+  final agent = FakeCallAgent();
   VoiceCall? call;
   CallReadiness? submitted;
 
@@ -70,7 +71,7 @@ class _Flow {
                       return call = VoiceCall(
                         bridge: bridge,
                         consented: consented,
-                        agent: FakeCallAgent(),
+                        agent: agent,
                         connect: ([_ = const {}]) async =>
                             throw StateError('unused'),
                         transcribe: (_) async => '',
@@ -205,6 +206,61 @@ void main() {
     await tester.runAsync(() => flow.call!.end());
     await tester.pump();
     expect(find.text('The microphone is closed.'), findsOneWidget);
+    await flow.dispose(tester);
+  });
+
+  testWidgets('a microphone that cannot be confirmed closed says so', (
+    tester,
+  ) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    await flow.consentAndStart(tester);
+    await tester.runAsync(() async {
+      await pumpEventQueue();
+      flow.bridge.stopCaptureError = StateError('no answer');
+      await flow.call!.end();
+    });
+    await tester.pump();
+    expect(
+      find.text('The call ended, but the microphone may still be open.'),
+      findsOneWidget,
+    );
+    await flow.dispose(tester);
+  });
+
+  testWidgets('Waiting for you tells the user capture is paused', (
+    tester,
+  ) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    await flow.consentAndStart(tester);
+    await tester.runAsync(() async {
+      await pumpEventQueue();
+      flow.bridge.emit('activated');
+      flow.agent.setThreadAttention(true);
+      await pumpEventQueue();
+    });
+    await tester.pump();
+    expect(find.textContaining('Capture is paused'), findsOneWidget);
+    expect(flow.bridge.pauses, greaterThan(0));
+    await flow.dispose(tester);
+  });
+
+  testWidgets('hiding the app ends the call with a notice off iOS', (
+    tester,
+  ) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    await flow.consentAndStart(tester);
+    await tester.runAsync(() async {
+      await pumpEventQueue();
+      flow.bridge.emit('activated');
+      flow.call!.lifecycleChanged(AppLifecycleState.hidden);
+      await pumpEventQueue();
+    });
+    await tester.pump();
+    expect(flow.call!.endReason, 'background');
+    expect(find.text('The call ended.'), findsOneWidget);
     await flow.dispose(tester);
   });
 

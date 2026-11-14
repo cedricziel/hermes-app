@@ -131,8 +131,11 @@ extension _ChatScreenCalls on _ChatScreenState {
                 _chat,
                 onContextLost: () => unawaited(created.end()),
               );
+              final bridge = AppleCallBridge();
               created = VoiceCall(
-                bridge: AppleCallBridge(),
+                bridge: bridge,
+                tones: BridgeCallTones(bridge),
+                haptics: SystemCallHaptics(),
                 agent: agent,
                 consented: consented,
                 loadConfig: () => repository.voiceCallConfig(profile: profile),

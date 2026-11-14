@@ -6804,6 +6804,14 @@
   "@voiceNoticeLeftTitle": {
     "description": "Title of the notice after the user left the app during a call."
   },
+  "voiceNoticeMicMayBeOpenDetail": "Check your device's microphone indicator. Your turns are in the chat.",
+  "@voiceNoticeMicMayBeOpenDetail": {
+    "description": "Detail of the notice when the call ended but the app could not confirm the microphone closed."
+  },
+  "voiceNoticeMicMayBeOpenTitle": "The call ended, but the microphone may still be open.",
+  "@voiceNoticeMicMayBeOpenTitle": {
+    "description": "Title of the notice when the call ended but the app could not confirm the microphone closed."
+  },
   "voiceNoticeRouteTitle": "Audio route changed. Please repeat if needed. Nothing was sent.",
   "@voiceNoticeRouteTitle": {
     "description": "Notice in a call when the audio device changed during a turn."
