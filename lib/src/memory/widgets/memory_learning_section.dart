@@ -89,6 +89,7 @@ class MemoryLearningSection extends StatelessWidget {
           children: [
             if (current == null)
               GroupedRow(
+                wrapWhenStacked: true,
                 title: unreadable
                     ? "Couldn't read the memory settings"
                     : 'Reading the memory settings',
@@ -112,11 +113,13 @@ class MemoryLearningSection extends StatelessWidget {
                 current.writeApproval,
               ),
               GroupedRow(
+                wrapWhenStacked: true,
                 title: MemorySetting.reviewInterval.label,
                 value: intervalLabel(current.reviewInterval),
                 onTap: () => _pickInterval(context, current.reviewInterval),
               ),
               GroupedRow(
+                wrapWhenStacked: true,
                 title: MemorySetting.updatesInChat.label,
                 value: reportLabel(current.updatesInChat),
                 onTap: () => _pickReport(context, current.updatesInChat),

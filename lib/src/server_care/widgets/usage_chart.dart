@@ -172,9 +172,13 @@ class _UsageChartState extends State<UsageChart>
 
   void _select(int index, {bool reveal = false}) {
     final next = _clamp(index);
-    if (next == _selected || widget.days.isEmpty) return;
-    setState(() => _selected = next);
-    widget.onSelected?.call(next);
+    if (widget.days.isEmpty) return;
+    if (next != _selected) {
+      setState(() => _selected = next);
+      widget.onSelected?.call(next);
+    }
+    // Also for the bar that is already selected: it may have been scrolled
+    // off screen since.
     if (reveal) _revealSelected();
   }
 

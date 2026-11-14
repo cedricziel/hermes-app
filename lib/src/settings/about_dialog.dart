@@ -34,7 +34,11 @@ class AppAboutDialog extends StatelessWidget {
       children: [
         GroupedSection(
           children: [
-            GroupedRow(title: l10n.settingsAboutVersion, value: version),
+            GroupedRow(
+              wrapWhenStacked: true,
+              title: l10n.settingsAboutVersion,
+              value: version,
+            ),
             GroupedRow(
               key: const Key('report-bug'),
               title: l10n.settingsReportBug,

@@ -218,6 +218,7 @@ class MacProfileDetail extends StatelessWidget {
           children: [
             for (final section in ProfileSection.values)
               GroupedRow(
+                wrapWhenStacked: true,
                 key: ValueKey('profile-section-${section.name}'),
                 title: section.label,
                 subtitle: section.detail,
