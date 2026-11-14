@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
@@ -85,6 +86,7 @@ void _run(
 }
 
 void main() {
+  _reviewTests();
   group('starting', () {
     _run('shows the code and waits', (async, rig) {
       rig.signIn.start();
@@ -425,6 +427,58 @@ void main() {
         });
         rig.signIn.dispose();
       });
+    });
+  });
+}
+
+void _reviewTests() {
+  test('Stop while the code is still being fetched cancels on arrival', () {
+    fakeAsync((async) {
+      final rig = _Rig();
+      rig.server
+        ..onRequest('POST', _start, (_) async {
+          await Future<void>.delayed(const Duration(seconds: 2));
+          return (status: 200, body: _session());
+        })
+        ..on('DELETE', _cancel, {'ok': true})
+        ..on('GET', _poll, _pending());
+      rig.signIn.start();
+      _settle(async);
+      rig.signIn.cancel();
+      _settle(async);
+      expect(rig.signIn.phase, SignInPhase.cancelled);
+      expect(rig.cancels, 0);
+      async.elapse(const Duration(seconds: 3));
+      _settle(async);
+      expect(rig.cancels, 1);
+      expect(rig.signIn.phase, SignInPhase.cancelled);
+      async.elapse(const Duration(minutes: 2));
+      _settle(async);
+      expect(rig.polls, 0);
+      rig.signIn.dispose();
+    });
+  });
+
+  test('a resume past the code lifetime expires it', () {
+    fakeAsync((async) {
+      final rig = _Rig(platform: TargetPlatform.iOS);
+      rig.server
+        ..on('POST', _start, _session(expiresIn: 60))
+        ..on('DELETE', _cancel, {'ok': true})
+        ..on('GET', _poll, _pending());
+      rig.signIn.start();
+      _settle(async);
+      rig.signIn.appLifecycle(AppLifecycleState.paused);
+      // The phone's timers were frozen; only the clock moved on.
+      final later = clock.now().add(const Duration(minutes: 5));
+      withClock(Clock(() => later), () {
+        rig.signIn.appLifecycle(AppLifecycleState.resumed);
+      });
+      _settle(async);
+      expect(rig.signIn.phase, SignInPhase.expired);
+      expect(rig.cancels, 1);
+      expect(rig.polls, 0);
+      rig.signIn.dispose();
     });
   });
 }

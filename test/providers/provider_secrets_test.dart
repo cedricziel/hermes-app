@@ -380,8 +380,9 @@ void controllerSecrets() {
         )
         ..lostSave = LostAnswer.afterWrite;
       await h.controller.load();
+      h.backend.validate = {'ok': true, 'reachable': true, 'message': ''};
       h.controller.openKeyForm('anthropic');
-      await h.controller.saveKeyAnyway(_secret);
+      await h.controller.submitKey(_secret);
       expect(h.controller.keyForm!.phase, KeyFormPhase.unknown);
       _expectControllerClean(h.exported());
     });

@@ -329,6 +329,7 @@ class EndpointFormState {
     this.message,
     this.issue,
     this.checkedAddress,
+    this.keyNotSent = false,
   });
 
   final EndpointFormPhase phase;
@@ -350,6 +351,11 @@ class EndpointFormState {
   /// The typed address the check was made for; a changed address makes the
   /// result stale.
   final String? checkedAddress;
+
+  /// The check left the typed key out because the address is `http://` and
+  /// not local to the server; the screen explains that the key is only sent
+  /// on save, after confirmation.
+  final bool keyNotSent;
 
   bool get busy =>
       phase == EndpointFormPhase.checking || phase == EndpointFormPhase.saving;

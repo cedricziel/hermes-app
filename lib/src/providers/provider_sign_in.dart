@@ -91,6 +91,7 @@ class ProviderSignIn extends ChangeNotifier {
   bool _polling = false;
   int _polls = 0;
   int _run = 0;
+  final _cancelOnArrival = <int>{};
   DateTime? _deadline;
   Timer? _timer;
   Timer? _lifetime;
@@ -134,6 +135,14 @@ class ProviderSignIn extends ChangeNotifier {
     _phase = SignInPhase.starting;
     notifyListeners();
     final result = await repository.startSignIn(profile, providerId);
+    if (_cancelOnArrival.remove(run)) {
+      // Stop was pressed before the code arrived: the session is cancelled
+      // as soon as there is one.
+      if (result is SignInStarted) {
+        await repository.cancelSignIn(profile, result.session.sessionId);
+      }
+      return;
+    }
     if (_closed || run != _run) return;
     switch (result) {
       case SignInStarted(:final session):
@@ -159,8 +168,15 @@ class ProviderSignIn extends ChangeNotifier {
   /// The person's Stop: the server's poller is told to stop, so a later
   /// approval saves nothing.
   Future<void> cancel() async {
+    if (_closed) return;
+    if (_phase == SignInPhase.starting && _run > 0) {
+      _cancelOnArrival.add(_run);
+      _run++;
+      _finish(SignInPhase.cancelled, 'cancelled');
+      return;
+    }
     final session = _session;
-    if (_closed || _phase != SignInPhase.waiting || session == null) return;
+    if (_phase != SignInPhase.waiting || session == null) return;
     _finish(SignInPhase.cancelled, 'cancelled');
     await repository.cancelSignIn(profile, session.sessionId);
   }

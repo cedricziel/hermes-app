@@ -151,7 +151,7 @@ class ProviderSetupController extends ChangeNotifier
     keyForm = null;
     step = null;
     confirmation = null;
-    _pendingConfirm = null;
+    _endPendingConfirm();
     _stepContext = null;
     endpointForm = const EndpointFormState();
     lastRemoval = null;
@@ -162,10 +162,23 @@ class ProviderSetupController extends ChangeNotifier
     unawaited(load());
   }
 
+  /// Ends the span of a confirmation nobody answered.
+  void _endPendingConfirm() {
+    final pending = _pendingConfirm;
+    _pendingConfirm = null;
+    if (pending != null) {
+      _signals.end(pending.span, {
+        'outcome': 'declined',
+        'confirm_asked': true,
+      });
+    }
+  }
+
   /// Reads the providers again.
   Future<void> load() => _reload();
 
   Future<bool> _reload() async {
+    if (_disposed) return false;
     final generation = _generation;
     final read = ++_reads;
     loading = true;
@@ -285,7 +298,10 @@ class ProviderSetupController extends ChangeNotifier
 
   /// "Save anyway" after a rejection or a provider error: saves without
   /// checking again, and the confirmation says the key was not checked.
-  Future<void> saveKeyAnyway(String raw) => _runKey(raw, forced: true);
+  Future<void> saveKeyAnyway(String raw) async {
+    if (keyForm?.offersSaveAnyway != true) return;
+    await _runKey(raw, forced: true);
+  }
 
   Future<void> _runKey(String raw, {required bool forced}) async {
     final form = keyForm;
@@ -398,8 +414,12 @@ class ProviderSetupController extends ChangeNotifier
         // saved when the provider now connects through that variable. Nothing
         // identifies a replacement (the connection looks the same, and the
         // preview can match on its four ends), so a replacement stays unknown.
-        if (generation == _generation) reloaded = await _reload();
-        final now = generation == _generation ? catalog?.byId(entry.id) : null;
+        if (generation == _generation && !_disposed) {
+          reloaded = await _reload();
+        }
+        final now = generation == _generation && !_disposed
+            ? catalog?.byId(entry.id)
+            : null;
         saved =
             firstKey &&
             reloaded &&
@@ -428,6 +448,7 @@ class ProviderSetupController extends ChangeNotifier
       return;
     }
     if (!reloaded) await _reload();
+    if (_disposed || generation != _generation) return;
     if (!wasConnected) {
       _signals.log('providers.connected', {
         'method': 'key',
@@ -480,6 +501,7 @@ class ProviderSetupController extends ChangeNotifier
   }
 
   Future<void> _runDefaultStep(_StepContext context) async {
+    if (_disposed) return;
     final generation = _generation;
     final seq = ++_stepSeq;
     bool current() =>
@@ -569,6 +591,10 @@ class ProviderSetupController extends ChangeNotifier
     bool confirmed = false,
     Span? span,
   }) async {
+    if (_disposed) {
+      _signals.end(span, {'outcome': 'failed', 'confirm_asked': confirmed});
+      return DefaultSetOutcome.failed;
+    }
     final generation = _generation;
     final traced = span ?? _signals.start('providers.default_model.set');
     var confirmAsked = confirmed;
@@ -701,6 +727,13 @@ class ProviderSetupController extends ChangeNotifier
         status: RemovalStatus.refused,
       );
     }
+    if (_disposed) {
+      return RemovalResult(
+        providerId: entry.id,
+        kind: kind,
+        status: RemovalStatus.unknown,
+      );
+    }
     final generation = _generation;
     final span = _signals.start('providers.remove');
     final result = switch (action) {
@@ -724,7 +757,14 @@ class ProviderSetupController extends ChangeNotifier
     };
     final message = result is RemoveRefused ? result.message : null;
     if (status == RemovalStatus.refused) {
-      return _removalDone(span, entry, kind, status, message: message);
+      return _removalDone(
+        span,
+        entry,
+        kind,
+        status,
+        generation,
+        message: message,
+      );
     }
     var reloaded = false;
     if (generation == _generation) reloaded = await _reload();
@@ -749,6 +789,7 @@ class ProviderSetupController extends ChangeNotifier
       entry,
       kind,
       status,
+      generation,
       stillConnected: generation == _generation
           ? catalog?.byId(entry.id)
           : null,
@@ -759,7 +800,8 @@ class ProviderSetupController extends ChangeNotifier
     Span? span,
     ProviderEntry entry,
     RemovalKind kind,
-    RemovalStatus status, {
+    RemovalStatus status,
+    int generation, {
     String? message,
     ProviderEntry? stillConnected,
   }) {
@@ -785,8 +827,10 @@ class ProviderSetupController extends ChangeNotifier
       stillConnected: connected,
       stillConnectedThrough: connected ? stillConnected.credentials.length : 0,
     );
-    lastRemoval = result;
-    _notify();
+    if (!_disposed && generation == _generation) {
+      lastRemoval = result;
+      _notify();
+    }
     return result;
   }
 
@@ -845,12 +889,18 @@ class ProviderSetupController extends ChangeNotifier
       checkedAddress: typed,
     );
     _notify();
+    // A key is not sent to an unencrypted address that is not local to the
+    // server: the check would put it on the wire before anyone confirmed.
+    final keyNotSent =
+        apiKey != null &&
+        apiKey.isNotEmpty &&
+        endpointSendsKeyUnencrypted(typed, hasKey: true);
     final span = _signals.start('providers.endpoint.check');
     final result = await repository.checkEndpoint(
       name: name.trim(),
       baseUrl: typed,
       model: model.trim(),
-      apiKey: apiKey,
+      apiKey: keyNotSent ? null : apiKey,
       apiMode: apiMode,
     );
     final models = result is EndpointChecked ? result.models.length : 0;
@@ -872,14 +922,17 @@ class ProviderSetupController extends ChangeNotifier
           resolvedBaseUrl: resolvedBaseUrl != typed ? resolvedBaseUrl : null,
           warning: warning,
           checkedAddress: typed,
+          keyNotSent: keyNotSent,
         ),
       EndpointUnreachable() => EndpointFormState(
         phase: EndpointFormPhase.unreachable,
         checkedAddress: typed,
+        keyNotSent: keyNotSent,
       ),
       EndpointCheckFailed() => EndpointFormState(
         phase: EndpointFormPhase.checkFailed,
         checkedAddress: typed,
+        keyNotSent: keyNotSent,
       ),
     };
     _notify();
@@ -932,15 +985,17 @@ class ProviderSetupController extends ChangeNotifier
     if (apiKey != null && apiKey.isEmpty && !confirmedClear) {
       return EndpointSubmit.needsClearConfirmation;
     }
+    // The address Hermes resolved counts only for a check of this very
+    // address; the confirmation looks at what is actually sent.
+    final fresh = endpointForm.checkedAddress == typed;
+    final baseUrl = fresh ? endpointForm.resolvedBaseUrl ?? typed : typed;
     if (!confirmedCleartext &&
         endpointSendsKeyUnencrypted(
-          endpointForm.resolvedBaseUrl ?? typed,
+          baseUrl,
           hasKey: apiKey != null && apiKey.isNotEmpty,
         )) {
       return EndpointSubmit.needsCleartextConfirmation;
     }
-    final fresh = endpointForm.checkedAddress == typed;
-    final baseUrl = fresh ? endpointForm.resolvedBaseUrl ?? typed : typed;
     final models = fresh && endpointForm.models.isNotEmpty
         ? endpointForm.models
         : null;
@@ -994,7 +1049,7 @@ class ProviderSetupController extends ChangeNotifier
         // Never resent: the providers are read again and the person looks.
         finish('unknown');
         if (generation == _generation) await _reload();
-        if (live && !_disposed) {
+        if (!_disposed && generation == _generation && seq == _endpointSeq) {
           endpointForm = const EndpointFormState(
             phase: EndpointFormPhase.unknown,
           );
@@ -1021,12 +1076,26 @@ class ProviderSetupController extends ChangeNotifier
             phase: EndpointFormPhase.saved,
           );
         }
-        if (makeDefault) {
-          step = DefaultModelStep(
-            providerId: savedId ?? id ?? '',
-            kind: DefaultStepKind.saved,
-            model: model.trim(),
-          );
+        final endpointId = savedId ?? id;
+        if (endpointId != null && (makeDefault || id == null)) {
+          // Built from what the re-read says, not from what was asked.
+          final slug = 'custom:$endpointId';
+          final taken =
+              catalog?.byId(endpointId)?.isDefault == true &&
+              defaultModel.isNotEmpty;
+          step = taken
+              ? DefaultModelStep(
+                  providerId: slug,
+                  kind: DefaultStepKind.saved,
+                  model: defaultModel,
+                  currentModel: defaultModel,
+                )
+              : DefaultModelStep(
+                  providerId: slug,
+                  kind: DefaultStepKind.ask,
+                  model: model.trim(),
+                  currentModel: defaultModel.isEmpty ? null : defaultModel,
+                );
         }
         _notify();
         return EndpointSubmit.saved;
