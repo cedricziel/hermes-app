@@ -72,6 +72,17 @@ void main() {
       expect(config.isStopPhrase('stop the music and play jazz'), isFalse);
     });
 
+    test('a profile phrase is read like a transcript', () {
+      final config = parse({
+        'stop_phrases': ['OK stop', 'Hey Hermes, bye!'],
+      });
+      expect(config.isStopPhrase('stop'), isTrue);
+      expect(config.isStopPhrase('Ok, stop.'), isTrue);
+      expect(config.isStopPhrase('bye'), isTrue);
+      expect(config.isStopPhrase('hey hermes bye'), isTrue);
+      expect(config.isStopPhrase('goodbye'), isFalse);
+    });
+
     test('lowercases, trims punctuation and a leading address', () {
       final config = parse({});
       expect(config.isStopPhrase('Hang up.'), isTrue);

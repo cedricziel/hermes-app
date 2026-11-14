@@ -276,7 +276,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
               builder: (_, _) => VoiceCallView(
                 phase: call.phase,
                 elapsed: call.elapsed,
-                muted: call.muted,
+                muted: call.mutedRequested,
                 speaker: call.speaker,
                 route: call.route,
                 caption: call.caption,

@@ -98,6 +98,20 @@ void main() {
       expect(h.bridge.log, ['pauseCapture', 'tone:sent', 'resumeCapture']);
     });
 
+    test('no tick or haptic while Waiting for you', () async {
+      await h.rebuild(withTones: true);
+      h.tones.gate = null;
+      await h.activate();
+      h.agent.holdSubmit = true;
+      await h.say('Hello');
+      h.agent.setThreadAttention(true);
+      h.tones.played.clear();
+      h.agent.submitted();
+      await pumpEventQueue();
+      expect(h.tones.played, isEmpty);
+      expect(h.haptics.calls, isEmpty);
+    });
+
     test('speech heard during a tone is not taken', () async {
       await h.rebuild(withTones: true);
       h.tones.gate = null;

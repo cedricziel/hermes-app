@@ -645,7 +645,7 @@ class VoiceCall extends ChangeNotifier {
       await agent.reply(
         text,
         onSubmitted: () {
-          if (_current(epoch)) {
+          if (_current(epoch) && !waitingForYou) {
             haptics?.submit();
             unawaited(_tone(CallTone.sent));
           }
@@ -706,6 +706,7 @@ class VoiceCall extends ChangeNotifier {
     if (ended || _ending) return;
     _requestedMute = value;
     _muteRequests++;
+    _notify();
     if (value) {
       _vad.reset();
       if (phase == CallPhase.sending) _dropTurn();

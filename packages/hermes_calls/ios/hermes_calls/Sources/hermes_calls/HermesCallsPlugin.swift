@@ -61,6 +61,9 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
             let name = args["name"] as? String else {
         result(failure("unavailable", "Another call is already active.")); return
       }
+      // A new call begins with capture neither paused nor stopped, whatever the
+      // last one left behind.
+      audio.endCall()
       startGeneration += 1
       let requestedGeneration = startGeneration
       AVAudioApplication.requestRecordPermission { [weak self] granted in
@@ -124,7 +127,9 @@ public final class HermesCallsPlugin: NSObject, FlutterPlugin, FlutterStreamHand
       catch { result(failure("audio", "Could not play call audio.")) }
     case "pauseCapture": audio.setCapturePaused(true); result(nil)
     case "resumeCapture": audio.setCapturePaused(false); result(nil)
-    case "stopCapture": audio.stopCapture(); result(nil)
+    // With no live call there is nothing to stop, and a flag set now would
+    // outlive the call that Dart is still tearing down.
+    case "stopCapture": if callID != nil { audio.stopCapture() }; result(nil)
     case "drain": audio.finish(result)
     case "stopPlayback": audio.stopPlayback(); result(nil)
     default: result(FlutterMethodNotImplemented)

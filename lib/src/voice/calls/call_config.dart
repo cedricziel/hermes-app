@@ -66,14 +66,20 @@ class VoiceCallConfig {
   /// "hey". No Unicode normalisation, as in Hermes.
   bool isStopPhrase(String transcript) {
     if (stopPhrases.isEmpty) return false;
-    var text = _clean(transcript);
-    // "Hey, Hermes, stop." takes two addresses off.
-    for (var previous = ''; previous != text;) {
-      previous = text;
-      text = _withoutAddress(text);
-    }
-    return stopPhrases.contains(text);
+    return stopPhrases.contains(_normalized(transcript));
   }
+}
+
+/// Lowercased, trimmed, and without leading addresses ("Hey, Hermes, stop."
+/// takes two off). A profile's phrases get the same treatment, so "ok stop"
+/// in a profile list matches the way a transcript of it is read.
+String _normalized(String text) {
+  var result = _clean(text);
+  for (var previous = ''; previous != result;) {
+    previous = result;
+    result = _withoutAddress(result);
+  }
+  return result;
 }
 
 String _clean(String text) => trimTranscriptPunctuation(text.toLowerCase());
@@ -101,7 +107,7 @@ bool _isWordCharacter(int unit) =>
 List<String> _phrases(Object? value) {
   List<String>? clean(Iterable<Object?> items) => [
     for (final item in items)
-      if (item is String && _clean(item).isNotEmpty) _clean(item),
+      if (item is String && _normalized(item).isNotEmpty) _normalized(item),
   ];
   switch (value) {
     case null:

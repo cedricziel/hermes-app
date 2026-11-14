@@ -252,7 +252,8 @@ void main() {
       await tester.pump();
       expect(flow.call!.mutedRequested, isTrue);
       expect(flow.call!.muted, isFalse, reason: 'not confirmed yet');
-      await tester.tap(find.bySemanticsLabel('Mute').first);
+      expect(find.text('Unmute'), findsOneWidget, reason: 'drawn at the tap');
+      await tester.tap(find.bySemanticsLabel('Unmute').first);
       await tester.pump();
       expect(flow.call!.mutedRequested, isFalse);
       flow.bridge.muteGate!.complete();
