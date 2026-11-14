@@ -4978,6 +4978,187 @@ model:
     });
   }, skip: skip);
 
+  group('a queued prompt on a scripted model (no paid model call)', () {
+    final profile = 'contract-queued-${DateTime.now().millisecondsSinceEpoch}';
+    late HttpServer model;
+
+    setUpAll(() async {
+      if (url == null) return;
+      // "Hold" makes the first model request of its turn one `sleep 15` tool
+      // call, which keeps the turn running for a while with no provider.
+      model = await _serveScriptedModel(
+        scripts: {
+          'Hold': [
+            [
+              {
+                'name': 'terminal',
+                'args': {'command': 'sleep 15'},
+              },
+            ],
+          ],
+        },
+      );
+      await client.raw.createProfileEndpointApiProfilesPost(
+        profileCreate: ProfileCreate(name: profile, noSkills: true),
+      );
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: profile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText:
+              '''
+model:
+  default: "scripted"
+  provider: "custom"
+  base_url: "http://127.0.0.1:${model.port}/v1"
+  api_key: "scripted"
+  context_length: 131072
+''',
+        ),
+      );
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      try {
+        await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+          name: profile,
+        );
+      } finally {
+        await model.close(force: true);
+      }
+    });
+
+    Future<_GatewayTap> openTap() async {
+      final tap = _GatewayTap(
+        GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        ),
+      );
+      addTearDown(tap.close);
+      return tap;
+    }
+
+    int completions(_GatewayTap tap, String sid) =>
+        tap.types(sid).where((t) => t == 'message.complete').length;
+
+    test(
+      'session.resume then prompt.submit with queued true: on an idle chat it '
+      'runs, on a running chat it waits for its turn and is never steered or '
+      'redirected',
+      () async {
+        // Idle: the first turn ended, a second connection resumes the chat
+        // (the notification's reply path) and submits queued.
+        final owner = await openTap();
+        final created = await owner.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final sid = created['session_id'] as String;
+        final stored = created['stored_session_id'] as String;
+        await owner.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Say hello.',
+        });
+        await owner.until(
+          () => owner.idleAfterComplete(sid),
+          'the first turn to settle',
+        );
+
+        final idleTap = await openTap();
+        final resumed = await idleTap.rpc.request('session.resume', {
+          'session_id': stored,
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        expect(resumed['session_id'], sid);
+        final idle = await idleTap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Say hello again.',
+          'queued': true,
+        });
+        // ignore: avoid_print
+        print('QUEUED-CHECK idle chat: status=${idle['status']}');
+        expect(idle['status'], 'streaming');
+        await owner.until(
+          () => completions(owner, sid) >= 2,
+          'the queued prompt on an idle chat to run',
+        );
+
+        // Running: a turn is held in a tool call; a second connection resumes
+        // it and submits queued.
+        final busy = await openTap();
+        final second = await busy.rpc.request('session.create', {
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final bsid = second['session_id'] as String;
+        final bstored = second['stored_session_id'] as String;
+        final first = await busy.rpc.request('prompt.submit', {
+          'session_id': bsid,
+          'text': 'Hold this turn.',
+        });
+        expect(first['status'], 'streaming');
+        await busy.until(
+          () => busy.types(bsid).contains('tool.start'),
+          'the held turn to reach its tool',
+        );
+        expect(completions(busy, bsid), 0);
+
+        final runningTap = await openTap();
+        await runningTap.rpc.request('session.resume', {
+          'session_id': bstored,
+          'profile': profile,
+          'source': 'hermes_app',
+        });
+        final running = await runningTap.rpc.request('prompt.submit', {
+          'session_id': bsid,
+          'text': 'Say hello once more.',
+          'queued': true,
+        });
+        // ignore: avoid_print
+        print('QUEUED-CHECK running chat: status=${running['status']}');
+        // Exactly `queued`: a turn that ended early would answer `streaming`
+        // and a fold would answer `steered` or `redirected`; both must fail.
+        expect(
+          running['status'],
+          'queued',
+          reason: 'notification-inline-reply design.md depends on it',
+        );
+        // The held turn ends on its own reply, and the queued prompt runs as
+        // a turn of its own after it.
+        await busy.until(
+          () => completions(busy, bsid) >= 2,
+          'the held turn and the queued prompt to complete',
+        );
+        // Order: the queued prompt's turn starts only after the held turn
+        // completed.
+        final types = busy.types(bsid);
+        final firstComplete = types.indexOf('message.complete');
+        expect(
+          types.take(firstComplete).where((t) => t == 'message.start'),
+          hasLength(1),
+          reason: 'no second turn starts before the held turn completes',
+        );
+        expect(
+          types.skip(firstComplete + 1),
+          contains('message.start'),
+          reason: 'the queued prompt runs as a turn of its own afterwards',
+        );
+        // ignore: avoid_print
+        print(
+          'QUEUED-CHECK running chat: ${completions(busy, bsid)} completions, '
+          'status=${running['status']}, second turn after first complete',
+        );
+      },
+      skip: skip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+  }, skip: skip);
+
   group('a throwaway profile on a scripted model (no paid model call)', () {
     final profile = 'contract-check-${DateTime.now().millisecondsSinceEpoch}';
     late Directory scratch;
