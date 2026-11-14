@@ -20,6 +20,8 @@ const String kServerPathFont = 'monospace';
 String elidePathMiddle(String path, bool Function(String) fits) {
   if (fits(path)) return path;
   final chars = path.characters.toList();
+  // Nothing to cut out of one or two characters.
+  if (chars.length < 3) return path;
   final last = path.lastIndexOf(
     RegExp(r'[/\\]'),
     path.length > 1 ? path.length - 2 : 0,
@@ -119,12 +121,18 @@ class PathCutText extends StatelessWidget {
         );
       },
     );
-    if (!tooltip) return text;
+    // The drawn text may be shortened; a screen reader gets all of it.
+    final labelled = Semantics(
+      label: '$path${suffix ?? ''}',
+      excludeSemantics: true,
+      child: text,
+    );
+    if (!tooltip) return labelled;
     return Tooltip(
       message: path,
       excludeFromSemantics: true,
       triggerMode: TooltipTriggerMode.longPress,
-      child: text,
+      child: labelled,
     );
   }
 }
@@ -135,8 +143,9 @@ class PathCutText extends StatelessWidget {
 /// By default it is one line cut in the middle (the last folder stays) with a
 /// long press showing the full path. At a large text size, or with [wrap], the
 /// whole path is shown and wraps, and "on your server" takes its own line at
-/// the largest sizes. With [selectable] the path can be selected and copied
-/// (⌘C on a Mac); the suffix is not part of what is copied.
+/// the largest sizes. With [selectable] the path is always shown in full and
+/// wraps (a shortened path could not be selected) and can be selected and
+/// copied (⌘C on a Mac); the suffix is not part of what is copied.
 ///
 /// A screen reader reads the full path and "on your server" as one label.
 class ServerPathText extends StatelessWidget {
@@ -169,7 +178,8 @@ class ServerPathText extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final large = isLargeText(context);
-    final wrapped = wrap ?? large;
+    // A selectable path shows in full: a shortened one cannot be selected.
+    final wrapped = wrap ?? (large || selectable);
     final base = DefaultTextStyle.of(context).style.merge(style);
     final suffix = serverPathSuffix(l10n.workspacesOnYourServer);
     final Widget text;
