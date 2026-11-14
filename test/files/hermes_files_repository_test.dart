@@ -815,6 +815,109 @@ void main() {
       expect(ok(await future).bytes, 4);
       expect(sink.bytes, [1, 2, 3, 4]);
     });
+
+    group('with a flush still pending', () {
+      late FsDownloadAdapter adapter;
+      late HermesFilesRepository repository;
+      late _BoundSink sink;
+
+      setUp(() {
+        adapter = FsDownloadAdapter(length: 100);
+        repository = HermesFilesRepository(adapter.client());
+        sink = _BoundSink();
+      });
+
+      late Future<FilesResult<FsDownload>> download;
+
+      Future<void> start(CancelToken? token) async {
+        download = repository.download(
+          p('/srv/p/out.bin'),
+          sink: sink,
+          cancelToken: token,
+        );
+        await pumpEventQueue();
+        adapter.chunks.add(Uint8List.fromList([1, 2]));
+        await pumpEventQueue();
+        expect(sink.flushes, hasLength(1), reason: 'the first flush is open');
+      }
+
+      test('a cancel waits for it and ends as cancelled', () async {
+        final token = CancelToken();
+        var finished = false;
+        await start(token);
+        unawaited(download.whenComplete(() => finished = true));
+
+        token.cancel();
+        await pumpEventQueue();
+        expect(finished, isFalse, reason: 'the sink is still bound');
+        expect(sink.flushes, hasLength(1), reason: 'no second flush');
+
+        sink.flushes.single.complete();
+        final result = await download;
+
+        expect(failure(result), FilesFailure.cancelled);
+        expect(sink.errors, isEmpty);
+        expect(sink.flushes, hasLength(1));
+        await sink.close();
+        expect(sink.closed, isTrue);
+        expect(sink.bytes, [1, 2], reason: 'nothing added after the cancel');
+      });
+
+      test('a cancel with no announced length is cancelled too', () async {
+        adapter = FsDownloadAdapter();
+        repository = HermesFilesRepository(adapter.client());
+        final token = CancelToken();
+        await start(token);
+        token.cancel();
+        await pumpEventQueue();
+        sink.flushes.single.complete();
+
+        expect(failure(await download), FilesFailure.cancelled);
+        expect(sink.errors, isEmpty);
+      });
+
+      test('an error while it is pending is a kind', () async {
+        await start(null);
+        adapter.chunks.addError(const SocketException('reset'));
+        await pumpEventQueue();
+        sink.flushes.single.complete();
+
+        expect(failure(await download), FilesFailure.unreachable);
+        expect(sink.errors, isEmpty);
+        await sink.close();
+        expect(sink.closed, isTrue);
+      });
+
+      test('a failing flush is a kind and the sink is free after', () async {
+        await start(null);
+        sink.flushes.single.completeError(const FileSystemException('full'));
+
+        expect(failure(await download), FilesFailure.unreadable);
+        expect(sink.errors, isEmpty);
+        await sink.close();
+        expect(sink.closed, isTrue);
+      });
+
+      test(
+        'a slow flush holds the body back and the download completes',
+        () async {
+          await start(null);
+          expect(adapter.chunks.isPaused, isTrue);
+          await pumpEventQueue();
+          expect(adapter.chunks.isPaused, isTrue, reason: 'still flushing');
+
+          sink.flushes.single.complete();
+          await pumpEventQueue();
+          expect(adapter.chunks.isPaused, isFalse);
+          sink.autoFlush = true;
+          adapter.chunks.add(Uint8List.fromList(List.filled(98, 7)));
+          await adapter.chunks.close();
+
+          expect(ok(await download).bytes, 100);
+          expect(sink.errors, isEmpty);
+        },
+      );
+    });
   });
 }
 
@@ -833,6 +936,51 @@ class _SlowSink implements IOSink {
     if (autoFlush) done.complete();
     flushes.add(done);
     return done.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// An [IOSink] that, like the real one, refuses add, flush and close while a
+/// flush is open, and finishes a flush only when the test says so.
+class _BoundSink implements IOSink {
+  final bytes = <int>[];
+  final flushes = <Completer<void>>[];
+  final errors = <StateError>[];
+  var autoFlush = false;
+  var closed = false;
+
+  bool get _bound => flushes.any((f) => !f.isCompleted);
+
+  void _check() {
+    if (_bound) {
+      final error = StateError('StreamSink is bound to a stream');
+      errors.add(error);
+      throw error;
+    }
+  }
+
+  @override
+  void add(List<int> data) {
+    _check();
+    bytes.addAll(data);
+  }
+
+  @override
+  Future<void> flush() {
+    _check();
+    final done = Completer<void>();
+    if (autoFlush) done.complete();
+    flushes.add(done);
+    return done.future;
+  }
+
+  @override
+  Future<void> close() {
+    _check();
+    closed = true;
+    return Future.value();
   }
 
   @override
