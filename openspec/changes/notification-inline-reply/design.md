@@ -89,7 +89,7 @@ Steps of `sendInlineReply`:
 
 No step retries. `prompt.submit` is never resent (gateway rule). The open chat sees the turn through its normal follow-up stream.
 
-`queued: true`: the prompt must not steer or redirect a turn that runs in the chat at that moment. If a server runs it as `redirected` anyway, that is the server's behaviour; the live-backend check (first task of PR 2) shows what it does.
+`queued: true`: the prompt must not steer or redirect a turn that runs in the chat at that moment. If a server runs it as `redirected` anyway, that is the server's behaviour; the live-backend check (task 3.1, `a queued prompt on a scripted model` in `test/real_backend_contract_test.dart`, run by `scripts/verify.sh contract` against Hermes at `openrpc/HERMES_REF`) observed: after `session.resume`, `prompt.submit` with `queued: true` on an idle chat answered `streaming` and ran as a turn; on a chat with a turn running (held in a tool call) it answered `queued` and ran as its own turn after the first one completed (two `message.complete`). It was never `steered` or `redirected` in either case, so the design stands. The `steered`/`redirected` handling (point 8) stays as a defence for other server versions.
 
 ### Exactly once
 
