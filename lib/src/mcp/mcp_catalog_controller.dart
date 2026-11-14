@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'hermes_mcp_repository.dart';
 import 'mcp_servers_controller.dart';
+import '../telemetry/report_bug.dart';
 
 enum McpCatalogFilter {
   all('All'),
@@ -87,7 +88,7 @@ class McpCatalogController extends ChangeNotifier {
     try {
       if (servers.servers == null || servers.failed) await servers.load();
       if (servers.servers == null || servers.failed) {
-        throw StateError('The active profile is unknown');
+        throw const McpProfileUnknown();
       }
       final catalog = await servers.repository.loadCatalog(
         profile: servers.profile,
@@ -95,7 +96,8 @@ class McpCatalogController extends ChangeNotifier {
       _entries = catalog.entries;
       _builds.removeWhere((name, _) => entryNamed(name)?.installed != false);
       _hasDiagnostics = catalog.hasDiagnostics;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP catalog');
       _failed = true;
     }
     _loading = false;

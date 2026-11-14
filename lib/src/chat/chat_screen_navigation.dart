@@ -58,6 +58,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
     final crumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
     if (_wide) {
       _rebuild(() => _activityOpen = !_activityOpen);
+      if (!_activityOpen) _agentSelection.clear();
       crumbs(_activityOpen ? 'chat.activity.opened' : 'chat.activity.closed', {
         'surface': 'inspector',
         if (_activityOpen) 'source': source,
@@ -67,7 +68,28 @@ extension _ChatScreenNavigation on _ChatScreenState {
     final thread = _chat.selectedThread;
     if (thread == null) return;
     crumbs('chat.activity.opened', {'surface': 'sheet', 'source': source});
+    final grower = _activitySheet = DraggableScrollableController();
+    void grow([int tries = 0]) {
+      // A detail needs the room: the sheet goes to its full height.
+      if (_agentSelection.key == null) return;
+      if (grower.isAttached) {
+        unawaited(
+          grower.animateTo(
+            1,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          ),
+        );
+      } else if (tries < 8 && mounted) {
+        // The sheet is still being pushed.
+        WidgetsBinding.instance.addPostFrameCallback((_) => grow(tries + 1));
+      }
+    }
+
+    _agentSelection.addListener(grow);
+    grow();
     final sheet = showKanbanDetentSheet(
+      sheet: grower,
       context,
       (controller) => ListenableBuilder(
         // The profile may change while the sheet is open, and with it the
@@ -79,17 +101,43 @@ extension _ChatScreenNavigation on _ChatScreenState {
           screen: _screen,
           onEnlargeScreen: () => _openViewer('card'),
           scrollController: controller,
+          selection: _agentSelection,
           onClose: () => Navigator.of(context).pop(),
         ),
       ),
     );
     unawaited(
-      sheet.then((_) => crumbs('chat.activity.closed', {'surface': 'sheet'})),
+      sheet.then((_) {
+        crumbs('chat.activity.closed', {'surface': 'sheet'});
+        if (mounted) {
+          _agentSelection
+            ..removeListener(grow)
+            ..clear();
+        }
+        _activitySheet = null;
+        grower.dispose();
+      }),
     );
   }
 
+  /// Shows an agent's details from the transcript's agent card: the Activity
+  /// panel opens at that agent (it only opens, never closes).
+  void _showAgentDetails(String agentId) {
+    final thread = _chat.selectedThread;
+    final roster = thread == null ? null : _chat.subagentsIn(thread);
+    if (roster == null) return;
+    // The sheet listens for a selection to grow, so it opens first.
+    if (_wide ? !_activityOpen : _activitySheet == null) {
+      _toggleActivity(source: 'transcript');
+    }
+    _agentSelection.select(agentKeyOf(roster, agentId), source: 'transcript');
+  }
+
   /// What the menu bar's File and Chat menus do here.
-  Map<MacCommand, MacCommandHandler> _menuCommands({required bool ios}) {
+  Map<MacCommand, MacCommandHandler> _menuCommands({
+    required bool ios,
+    required bool files,
+  }) {
     final thread = _chat.selectedThread;
     final housekeeping = _chat.housekeeping;
     final managed = thread != null && thread.remote && housekeeping != null;
@@ -136,7 +184,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
       MacCommand.deleteThread: MacCommandHandler(
         on(ThreadAction.delete, when: managed),
       ),
+      // Disabled while the server has no Files, or no chat is open.
+      MacCommand.showFiles: MacCommandHandler(
+        files && thread != null ? () => _showFiles(FilesOpenedFrom.menu) : null,
+      ),
     };
+  }
+
+  /// Opens the Files page of the chat in front.
+  void _showFiles(FilesOpenedFrom from) {
+    _closeDrawerIfNarrow();
+    unawaited(openFiles(context, _chat, from: from));
   }
 
   void _copyTranscript(ChatThread thread) => runThreadAction(
@@ -147,11 +205,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
   );
 
   /// "profile · model" under the chat's title, leaving out what is unknown.
-  String? _toolbarSubtitle() {
-    final model = (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
-    final parts = [?_chat.profile, ?model];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
+  String? _toolbarModelId() =>
+      (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
 
   void _selectThread(String id) {
     _showDetail();
@@ -250,6 +305,64 @@ extension _ChatScreenNavigation on _ChatScreenState {
             McpServersScreen(repository: _mcp!, profiles: _profiles),
       ),
     );
+  }
+
+  /// Whether the Tools entry shows: the server has answered a list.
+  bool get _toolsOffered =>
+      _tools != null && (_toolsAvailability?.offered ?? false);
+
+  Future<void> _openTools() async {
+    _closeDrawerIfNarrow();
+    final availability = _toolsAvailability;
+    // A chat on the server's default profile names none: use the profile the
+    // list was last asked for.
+    final profile =
+        _chat.profile ??
+        availability?.requestedProfile ??
+        availability?.profile;
+    final tools = profile == null ? null : _tools?.forProfile(profile);
+    if (tools == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ToolsScreen(
+          repository: tools,
+          availability: availability,
+          // A deleted profile: read the list of profiles again.
+          onProfileGone: _profiles == null
+              ? null
+              : () => unawaited(_loadRecipients()),
+        ),
+      ),
+    );
+    // Switches made there change what the entry and the count know.
+    if (mounted) unawaited(availability?.refresh(tools.profile));
+  }
+
+  /// Whether the Model providers entries show: the server answers the
+  /// model options the screen reads (a 404 there means an older Hermes).
+  bool get _providersOffered =>
+      _providers != null &&
+      _chat.modelOptionsState != ModelOptionsState.unsupported;
+
+  void _openProviders(ProvidersEntry source) {
+    final providers = _providers;
+    if (providers == null) return;
+    _closeDrawerIfNarrow();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => ProvidersScreen(
+              repository: providers,
+              profile: _chat.profile,
+              entry: source,
+              // The pill and the welcome view follow what the screen did.
+              onChanged: () => unawaited(_chat.refreshModelOptions()),
+            ),
+          ),
+        )
+        .then((_) {
+          if (mounted) unawaited(_chat.refreshModelOptions());
+        });
   }
 
   void _openHelperModels() {

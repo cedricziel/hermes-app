@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_decisions.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals_controller.dart';
@@ -51,8 +53,8 @@ void main() {
     'waiting is unknown until a read worked and empty when nothing waits',
     () async {
       expect(controller.waiting, isNull);
-      transport.script['/memory pending'] = StateError('socket');
-      transport.script['/skills pending'] = StateError('socket');
+      transport.script['/memory pending'] = const GatewayConnectionClosed();
+      transport.script['/skills pending'] = const GatewayConnectionClosed();
       bound();
       await controller.whenIdle;
       expect(controller.waiting, isNull);
@@ -159,7 +161,8 @@ void main() {
     () async {
       bound();
       await controller.whenIdle;
-      transport.script['/memory approve aa000001'] = StateError('socket');
+      transport.script['/memory approve aa000001'] =
+          const GatewayConnectionClosed();
       await controller.decideAll(approve: true);
       expect(transport.slashRuns.where((c) => c.contains('approve')), [
         '/memory approve aa000001',
@@ -254,7 +257,7 @@ void main() {
 
   test('a diff that fails can be asked for again', () async {
     transport.script['/skills pending'] = skillsPending;
-    transport.script['/skills diff cc000001'] = StateError('socket');
+    transport.script['/skills diff cc000001'] = const GatewayConnectionClosed();
     bound();
     await controller.whenIdle;
     final skill = controller.snapshot!.skills.proposals.first;
@@ -265,11 +268,28 @@ void main() {
     expect(controller.diffOf('cc000001')?.text, isNotNull);
   });
 
+  test('a bug while reading a diff shows as failed and is reported', () async {
+    final previous = FlutterError.onError;
+    final reported = <FlutterErrorDetails>[];
+    FlutterError.onError = reported.add;
+    addTearDown(() => FlutterError.onError = previous);
+    transport.script['/skills pending'] = skillsPending;
+    transport.script['/skills diff cc000001'] = StateError('bug');
+    bound();
+    await controller.whenIdle;
+    final skill = controller.snapshot!.skills.proposals.first;
+
+    await controller.showChanges(skill);
+
+    expect(controller.diffOf('cc000001')?.failed, isTrue);
+    expect(reported.map((d) => d.exception), [isA<StateError>()]);
+  });
+
   test('reading again keeps the list on screen while it reads, and a failed read shows as failed', () async {
     bound();
     await controller.whenIdle;
-    transport.script['/memory pending'] = StateError('socket');
-    transport.script['/skills pending'] = StateError('socket');
+    transport.script['/memory pending'] = const GatewayConnectionClosed();
+    transport.script['/skills pending'] = const GatewayConnectionClosed();
     final reading = controller.load();
     expect(controller.snapshot, isNotNull);
     await reading;

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/surfaces/widget_usage_reporter.dart';
@@ -15,13 +16,16 @@ void main() {
   late Object? Function() installed;
   late DateTime now;
 
-  WidgetUsageReporter reporter() => WidgetUsageReporter(
+  WidgetUsageReporter reporter({List<String>? kinds}) => WidgetUsageReporter(
     events: events.call,
+    androidKinds: kinds,
     prefs: SharedPreferencesAsync(),
     clock: () => now,
   );
 
   setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     events = RecordedEvents();
@@ -109,5 +113,51 @@ void main() {
     );
 
     await failing.report();
+  });
+
+  group('on Android', () {
+    setUp(() {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    });
+
+    test('reports zero while the app has no Android widget', () async {
+      installed = () => [
+        {'androidClassName': '.SomeoneElsesWidget', 'widgetId': 3},
+      ];
+
+      await reporter().report();
+
+      expect(events.named('widgets.installed'), [
+        {'widgets.count': 0, 'widgets.kinds': ''},
+      ]);
+    });
+
+    test('counts a widget that has only an Android class name', () async {
+      installed = () => [
+        {'androidClassName': '.HermesBoard', 'widgetId': 1},
+      ];
+
+      await reporter(kinds: const ['HermesBoard']).report();
+
+      expect(events.named('widgets.installed'), [
+        {'widgets.count': 1, 'widgets.kinds': 'HermesBoard/android=1'},
+      ]);
+    });
+
+    test('counts a kind by its provider class without the dot', () async {
+      installed = () => [
+        {'androidClassName': '.HermesBoard', 'widgetId': 1},
+        {'androidClassName': '.HermesBoard', 'widgetId': 2},
+        {'androidClassName': '.SomeoneElsesWidget', 'widgetId': 3},
+        {'kind': 'HermesBoard', 'family': 'systemSmall'},
+      ];
+      // A kind with an Android provider is in the list the report knows.
+      await reporter(kinds: const ['HermesBoard']).report();
+
+      expect(events.named('widgets.installed'), [
+        {'widgets.count': 2, 'widgets.kinds': 'HermesBoard/android=2'},
+      ]);
+    });
   });
 }

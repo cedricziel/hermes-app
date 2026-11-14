@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/windows/widgets/conversation_window_toolbar.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
@@ -329,5 +332,91 @@ void main() {
     expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(gatewayTransport.close);
+  });
+
+  testWidgets('shows the requests of its own chat only, and marks the '
+      'inspector button', (tester) async {
+    await pump(tester);
+    expect(find.byKey(const Key('needs-you-dock')), findsNothing);
+
+    await tester.enterText(composerField, 'Hello');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    final send = transport.sends.last;
+    send
+      ..emit(const ReplyStarted())
+      ..emit(const SessionReclaimed('rt-1', 's1', 'Opened elsewhere'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('needs-you-dock')), findsOneWidget);
+    expect(find.text('Session opened elsewhere'), findsOneWidget);
+    expect(find.text('1 of 2'), findsNothing);
+    expect(find.bySemanticsLabel('Show Inspector, 1 needs you'), findsOne);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('the toolbar subtitle carries this window\'s own working '
+      'sentence, and no line is drawn', (tester) async {
+    final otherLink = _FakeLink();
+    final otherTransport = FakeChatTransport();
+    addTearDown(otherLink.dispose);
+    tester.view.physicalSize = const Size(1800, 700);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    Widget window(_FakeLink link, FakeChatTransport transport) => Expanded(
+      child: ConversationWindowScreen(
+        args: _args,
+        link: link,
+        chat: HermesChatRepository(server.client().raw),
+        transport: transport,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
+        home: Row(
+          children: [
+            window(link, transport),
+            window(otherLink, otherTransport),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final status = find.byKey(const Key('mac-subtitle-status'));
+    expect(status, findsNothing);
+
+    await tester.enterText(composerField.first, 'Hello');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    transport.sends.last
+      ..emit(const ReplyStarted())
+      ..emit(
+        const SessionWaitUpdated(
+          'process',
+          'Waiting for background process',
+          runtimeId: 'rt-1',
+        ),
+      );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(status, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ConversationWindowToolbar).first,
+        matching: find.text('Waiting for background process'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(ActivityLine), findsNothing);
+
+    transport.sends.last.emit(
+      const SessionWaitUpdated('process', '', runtimeId: 'rt-1'),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(status, findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 }

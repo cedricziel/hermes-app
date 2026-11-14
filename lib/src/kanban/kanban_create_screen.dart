@@ -51,7 +51,7 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
         .then((names) {
           if (mounted) setState(() => _assignees = names);
         })
-        .catchError((_) {});
+        .catchError((Object _) {}, test: (e) => e is Exception);
     widget.repository.loadModelOptions().then((options) {
       if (mounted) setState(() => _modelOptions = options);
     });

@@ -241,13 +241,14 @@ class _ProfileChecklist extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: scheme.outlineVariant),
+        // `outline`, not `outlineVariant`: that is the dark sheet surface.
+        border: Border.all(color: scheme.outline),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
           for (final (i, profile) in profiles.indexed) ...[
-            if (i > 0) Divider(height: 1, color: scheme.outlineVariant),
+            if (i > 0) Divider(height: 1, color: scheme.outline),
             CheckboxListTile.adaptive(
               key: ValueKey('platform-hint-profile-$profile'),
               value: saved.contains(profile) || selected.contains(profile),

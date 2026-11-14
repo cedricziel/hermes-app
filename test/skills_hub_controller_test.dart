@@ -355,6 +355,30 @@ void main() {
       );
     });
 
+    test('an unknown source or trust level is logged as other', () async {
+      jobRoutes();
+      final c = hub();
+      await c.load();
+
+      c.install(
+        const HubSkill(
+          name: 'web-scraper',
+          identifier: 'github/web-scraper',
+          source: 'https://example.com/me/repo',
+          trustLevel: 'owner/repo',
+        ),
+        scanOf(InstallPolicy.allow),
+      );
+      await until(() => events.isNotEmpty);
+
+      expect(events.single.$2['source'], 'other');
+      expect(events.single.$2['trust_level'], 'other');
+      final text = events.single.$2.values.join(' ');
+      for (final part in ['example', 'me/repo', 'owner', 'https']) {
+        expect(text, isNot(contains(part)));
+      }
+    });
+
     test('a failed job is logged as failed and still refreshes', () async {
       jobRoutes(exitCode: 1);
       final c = hub();

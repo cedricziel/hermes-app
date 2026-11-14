@@ -132,6 +132,18 @@ void main() {
     expect(mainCommands, isEmpty);
   });
 
+  testWidgets('Show Files is disabled while a conversation window is key', (
+    tester,
+  ) async {
+    await pump(tester);
+    await windows.open('s1', profile: null, title: 'A');
+    await focus(tester, 'w0');
+
+    expect(registry.handlerFor(MacCommand.showFiles)?.enabled, isFalse);
+    expect(registry.invoke(MacCommand.showFiles), isFalse);
+    expect(host.commands, isEmpty);
+  });
+
   testWidgets('Pin reads Unpin for a pinned chat in the key window', (
     tester,
   ) async {

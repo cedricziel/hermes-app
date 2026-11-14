@@ -28,6 +28,7 @@ import '../agent_messages/agent_message_watcher.dart' show AgentMessageFinds;
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
 import '../bot_screen/bot_screen_controller.dart';
@@ -43,12 +44,19 @@ import '../handoff/handoff_activity.dart';
 import '../messaging/messaging_screen.dart';
 import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
+import '../files/files_telemetry.dart' show FilesOpenedFrom;
+import '../files/open_files.dart';
 import '../mcp/mcp_servers_screen.dart';
+import '../tools/hermes_tools_repository.dart';
+import '../tools/tools_availability.dart';
+import '../tools/tools_screen.dart';
 import '../memory/memory_destination.dart';
 import '../memory/memory_proposal_session.dart';
 import '../memory/memory_proposals_repository.dart';
 import '../memory/memory_waiting_count.dart';
+import '../../l10n/l10n.dart';
 import '../models/hermes_models_repository.dart';
+import '../models/model_options_state.dart';
 import '../models/widgets/model_setup_dialog.dart';
 import '../live_activities/live_activities.dart';
 import '../app_lock/app_lock_controller.dart';
@@ -64,6 +72,8 @@ import 'invalidation/change_invalidation_binding.dart';
 import 'invalidation/change_signal.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
+import '../providers/providers_repository.dart';
+import '../providers/providers_screen.dart';
 import '../settings/helper_models_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
@@ -73,6 +83,7 @@ import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
 import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
+import '../server_care/replies_in_progress.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
@@ -90,6 +101,7 @@ import '../windows/conversation_window_args.dart';
 import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
+import '../telemetry/report_bug.dart';
 import 'chat_controller.dart';
 import 'queue_storage/queue_persistence.dart';
 import 'chat_models.dart';
@@ -113,7 +125,10 @@ import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
+import 'activity/bound_activity_line.dart';
 import 'activity/bound_activity_panel.dart';
+import 'activity/bound_needs_you_dock.dart';
+import 'activity/needs_you_queue.dart';
 import 'activity/widgets/activity_panel.dart';
 import 'widgets/chat_app_bar.dart';
 import 'widgets/chat_header.dart';
@@ -151,10 +166,13 @@ class ChatScreen extends StatefulWidget {
     this.transport,
     this.profiles,
     this.models,
+    this.providers,
     this.messaging,
     this.skills,
     this.plugins,
     this.mcp,
+    this.tools,
+    this.toolsAvailability,
     this.onShowChat,
     this.onExternalNavigation,
     this.onShareEntry,
@@ -176,10 +194,22 @@ class ChatScreen extends StatefulWidget {
   final ChatTransport? transport;
   final HermesProfilesRepository? profiles;
   final HermesModelsRepository? models;
+
+  /// Reads and changes the model providers of the chat's profile; the Model
+  /// providers entries are absent without it.
+  final ProvidersRepository? providers;
   final HermesMessagingRepository? messaging;
   final HermesSkillsRepository? skills;
   final HermesPluginManagerRepository? plugins;
   final HermesMcpRepository? mcp;
+
+  /// The tools routes; the connected dashboard's when null. The Tools entry
+  /// shows only while [toolsAvailability] says the server offers them.
+  final HermesToolsRepository? tools;
+
+  /// Whether the server offers Tools; the shell's when null. Without either
+  /// there is no Tools entry.
+  final ToolsAvailability? toolsAvailability;
 
   /// Reads what the welcome view's starter prompts are built from; the
   /// connected dashboard's when null.
@@ -243,6 +273,16 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
 
+  /// Tells the update question how many replies this chat has running.
+  RepliesInProgress? _repliesCount;
+  int _runningReplies() => _chat.threads
+      .where((thread) => thread.remote && thread.isReplying)
+      .length;
+
+  /// The requests that wait on the user in the open chat, which dock above
+  /// the composer and mark the Activity button.
+  late final NeedsYouQueue _needsYou;
+
   /// How many staged memory changes wait in the chat's profile, for the
   /// Memory entry; null without a dashboard connection.
   MemoryWaitingCount? _memoryWaiting;
@@ -268,7 +308,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesSkillsRepository? _skills;
   HermesPluginManagerRepository? _plugins;
   HermesMcpRepository? _mcp;
+  HermesToolsRepository? _tools;
+  ToolsAvailability? _toolsAvailability;
   HermesModelsRepository? _models;
+  ProvidersRepository? _providers;
   HermesGatewayTransport? _ownedTransport;
 
   /// The Bot Screen of the chat's profile, and what it was made for.
@@ -339,6 +382,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Whether the Activity inspector is open; it stays open across chats.
   bool _activityOpen = false;
+
+  /// The agent whose detail the Activity panel shows; cleared when the chat
+  /// or the profile changes and when the panel closes.
+  final _agentSelection = ActivitySelection();
+
+  /// The sheet of the Activity panel on a phone, while it is open.
+  DraggableScrollableController? _activitySheet;
   bool _detailOpen = false;
   final _conversationNavigator = GlobalKey<NavigatorState>();
 
@@ -390,7 +440,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _skills = widget.skills ?? repositories?.skills;
     _plugins = widget.plugins ?? repositories?.pluginManager;
     _mcp = widget.mcp ?? repositories?.mcp;
+    _tools = widget.tools ?? repositories?.tools;
+    _toolsAvailability =
+        widget.toolsAvailability ?? _maybeRead<ToolsAvailability>();
+    _toolsAvailability?.addListener(_toolsAvailabilityChanged);
     _models = widget.models ?? repositories?.models;
+    _providers = widget.providers ?? repositories?.providers;
     _starterLoader =
         widget.starterContext ??
         (repositories == null ? null : StarterContextLoader(repositories));
@@ -462,6 +517,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       onDraft: _draftFromLink,
     )..addListener(_changed);
+    _repliesCount = _maybeRead<RepliesInProgress>()?..attach(_runningReplies);
+    _needsYou = needsYouQueueFor(
+      _chat,
+      breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
+      onArrived: (entry) {
+        if (mounted) announceNeedsYou(context, entry.kind);
+      },
+    );
     if (transport != null && _skills != null) {
       _memoryWaiting = MemoryWaitingCount(
         MemoryProposalsRepository(
@@ -637,6 +700,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
+  void _toolsAvailabilityChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _changed() {
     if (!mounted) return;
     _syncListChanges();
@@ -648,6 +715,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _wasLoadingThreads = loading;
     final thread = _chat.selectedThread;
     final owner = (_chat.profile, _chat.selectedId);
+    final picked = _agentSelection.key;
+    if (picked != null &&
+        (picked.threadId != _chat.selectedId ||
+            picked.profile != _chat.profile)) {
+      _agentSelection.clear();
+    }
     final savedOwner = _draftOwners[thread];
     if (savedOwner != null &&
         savedOwner != owner &&
@@ -753,7 +826,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         } else {
           _activeRefreshBackoff.failed();
         }
-      } on Object {
+      } on Object catch (e, stack) {
+        // refreshActive answers false on a failure, so this is a bug.
+        reportBug(e, stack, 'the running chats refresh');
         _activeRefreshBackoff.failed();
       } finally {
         _activeRefreshInFlight = false;
@@ -805,6 +880,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _agentSelection.dispose();
     _disposeBotScreen();
     _windowlessChanges?.cancel();
     _listChanges?.controller.removeListener(_invalidationsChanged);
@@ -828,11 +904,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _sessionActivity?.removeListener(_callOwnerChanged);
     _voiceCall?.removeListener(_callChanged);
     _voiceCall?.dispose();
+    _needsYou.dispose();
+    _repliesCount?.detach(_runningReplies);
     _chat
       ..removeListener(_changed)
       ..dispose();
     _avatarAuth?.removeListener(_checkAvatarOwner);
     _avatars?.dispose();
+    _toolsAvailability?.removeListener(_toolsAvailabilityChanged);
     _memoryWaiting
       ?..removeListener(_memoryWaitingChanged)
       ..dispose();
@@ -879,6 +958,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) => MacCommandScope(
     commands: _menuCommands(
       ios: platformChromeOf(context) == PlatformChrome.ios,
+      files: filesShown(context),
     ),
     child: _buildScreen(context),
   );

@@ -54,7 +54,9 @@ class ServerCareRepository {
 
   final DefaultApi _api;
 
-  /// `GET /api/status`, for [profile]'s gateway.
+  /// `GET /api/status`, for [profile]'s gateway. The profile is always sent:
+  /// without it Hermes answers for whichever profile it has active, which may
+  /// not be the one the person is looking at.
   Future<CareResult<ServerStatus>> status({required String profile}) => _run(
     () => _api.getStatusApiStatusGet(profile: profile),
     ServerStatus.parse,
@@ -82,8 +84,13 @@ class ServerCareRepository {
 
   /// `POST /api/hermes/update`. Destructive: tests against a real backend
   /// never call it.
-  Future<CareResult<UpdateStart>> startUpdate() =>
-      _run(() => _api.updateHermesApiHermesUpdatePost(), UpdateStart.parse);
+  Future<CareResult<UpdateStart>> startUpdate() => _run(
+    () => _api.updateHermesApiHermesUpdatePost(),
+    UpdateStart.parse,
+    // A page answered a POST that changes something: the answer is lost,
+    // the update may have started.
+    pageMeansMissing: false,
+  );
 
   /// `GET /api/actions/{name}/status`.
   Future<CareResult<ActionStatus>> actionStatus(
@@ -114,6 +121,7 @@ class ServerCareRepository {
       _run(
         () => _api.restartGatewayApiGatewayRestartPost(profile: profile),
         _actionStarted,
+        pageMeansMissing: false,
       );
 
   /// `POST /api/gateway/start` for [profile].
@@ -121,6 +129,7 @@ class ServerCareRepository {
       _run(
         () => _api.startGatewayApiGatewayStartPost(profile: profile),
         _actionStarted,
+        pageMeansMissing: false,
       );
 
   /// `POST /api/ops/doctor` for [profile]: the read-only check, without
@@ -184,13 +193,20 @@ class ServerCareRepository {
     T? Function(Object? json) parse, {
     bool noReceipt = false,
     int? storeStatus,
+    bool pageMeansMissing = true,
   }) async {
     try {
       final response = await call();
       final data = response.data;
       // A page or a proxy's error text answered where JSON was expected: the
-      // route is not here.
-      if (data is! Map && data is! List) return const CareUnsupported();
+      // route is not here. A POST that changes something is not served by a
+      // page fallback (that is for GETs), so there the answer is lost: the
+      // action may have run.
+      if (data is! Map && data is! List) {
+        return pageMeansMissing
+            ? const CareUnsupported()
+            : const CareFailed(CareFailureKind.unreadable);
+      }
       final T? value;
       try {
         value = parse(data);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../mcp/mcp_banner.dart';
+import '../../widgets/app_banner.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
@@ -39,8 +39,8 @@ class MemoryStorageSection extends StatelessWidget {
         if (status?.state == MemoryProviderState.missing)
           Padding(
             padding: const EdgeInsets.only(top: 16),
-            child: McpBanner(
-              tone: McpTone.error,
+            child: AppBanner(
+              tone: AppBannerTone.error,
               icon: AppIcons.error,
               title: 'Memory provider is missing',
               detail:
@@ -56,22 +56,27 @@ class MemoryStorageSection extends StatelessWidget {
               _providerRow(status)
             else if (providerFailed)
               GroupedRow(
+                wrapWhenStacked: true,
                 title: "Couldn't read the memory provider",
                 value: 'Retry',
                 onTap: onRetry,
               )
             else
-              const GroupedRow(title: 'Memory provider', value: 'Reading…'),
+              const GroupedRow(
+                wrapWhenStacked: true,
+                title: 'Memory provider',
+                value: 'Reading…',
+              ),
           ],
         ),
         if (notice != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: McpBanner(
+            child: AppBanner(
               tone: switch (notice.tone) {
-                MemoryNoticeTone.success => McpTone.success,
-                MemoryNoticeTone.warning => McpTone.warning,
-                MemoryNoticeTone.error => McpTone.error,
+                MemoryNoticeTone.success => AppBannerTone.success,
+                MemoryNoticeTone.warning => AppBannerTone.warning,
+                MemoryNoticeTone.error => AppBannerTone.error,
               },
               icon: notice.tone == MemoryNoticeTone.success
                   ? AppIcons.checkCircle
@@ -114,6 +119,7 @@ class MemoryStorageSection extends StatelessWidget {
   Widget _providerRow(MemoryProviderStatus status) {
     final builtin = status.state == MemoryProviderState.builtin;
     return GroupedRow(
+      wrapWhenStacked: true,
       title: 'Memory provider',
       value: builtin ? null : status.name,
       subtitle: builtin

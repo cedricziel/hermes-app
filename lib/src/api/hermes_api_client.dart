@@ -1,8 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../files/files_failure.dart';
+import '../files/files_models.dart' show FsDownload;
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
@@ -101,6 +106,171 @@ class HermesApiClient {
   /// [fetchKanbanAttachment]. The session goes in the header, never in the URL.
   Future<Uint8List> fetchManagedFile(String path) =>
       _getBytes('/api/files/download', {'path': path});
+
+  /// `GET /api/fs/download?path=&profile=` — streams a file on the server into
+  /// [sink], never holding it whole. The generated method decodes the body as
+  /// JSON, which would corrupt a binary file and read it all into memory, so
+  /// this asks for the stream like [fetchKanbanAttachment] asks for bytes.
+  ///
+  /// The headers arrive before the body: [onHeaders] gets the announced
+  /// `Content-Length` (null when the server sends none, as an SSH workspace
+  /// does) and returns false to stop there, with nothing written
+  /// ([FsDownload.declined]). It is synchronous on purpose: the Dio adapter
+  /// starts reading the body as soon as the headers are in, so a caller that
+  /// awaited something here would leave the body buffering in memory. The
+  /// body is read one chunk at a time, paused until the sink has taken it, so
+  /// a slow disk holds the connection back instead of filling memory.
+  /// [onProgress] gets the bytes written so far and that length. A gap of [idleTimeout] between two chunks fails the
+  /// download; the request has no total deadline, since a large file may take
+  /// long. [cancelToken] ends it at once. The caller closes [sink] and
+  /// deletes a partial file on a throw.
+  ///
+  /// Every failure is an [FsDownloadException] holding only a kind: a
+  /// [DioException] carries the request's URI and so the file's path, and
+  /// never leaves this method. A body shorter or longer than its
+  /// `Content-Length` is [FilesFailure.unreadable].
+  Future<FsDownload> downloadFsFile(
+    String path, {
+    String? profile,
+    required IOSink sink,
+    CancelToken? cancelToken,
+    void Function(int received, int? total)? onProgress,
+    bool Function(int? contentLength)? onHeaders,
+    Duration idleTimeout = const Duration(seconds: 30),
+  }) async {
+    final request = CancelToken();
+    unawaited(
+      cancelToken?.whenCancel.then((_) {
+        if (!request.isCancelled) request.cancel();
+      }),
+    );
+    FsDownloadException failed(FilesFailure kind) => FsDownloadException(
+      cancelToken?.isCancelled ?? false ? FilesFailure.cancelled : kind,
+    );
+    try {
+      final response = await _dio.get<ResponseBody>(
+        '/api/fs/download',
+        queryParameters: {'path': path, 'profile': ?profile},
+        cancelToken: request,
+        options: Options(
+          responseType: ResponseType.stream,
+          receiveTimeout: idleTimeout,
+          // The default validateStatus: a 401 must be a DioException so the
+          // auth interceptors refresh the session and retry.
+          // Hermes may compress; a body must match its Content-Length.
+          headers: {HttpHeaders.acceptEncodingHeader: 'identity'},
+          // Only a backstop: the idle timeout ends a stalled download.
+          extra: requestDeadlineExtra(const Duration(hours: 12)),
+        ),
+      );
+      final body = response.data!;
+      final announced = int.tryParse(
+        response.headers.value(Headers.contentLengthHeader) ?? '',
+      );
+      final length = announced != null && announced >= 0 ? announced : null;
+      if (onHeaders != null && !onHeaders(length)) {
+        request.cancel();
+        return FsDownload(bytes: 0, contentLength: length, declined: true);
+      }
+      var received = 0;
+      onProgress?.call(0, length);
+      final done = Completer<void>();
+      void end([Object? error]) {
+        if (done.isCompleted) return;
+        error == null ? done.complete() : done.completeError(error);
+      }
+
+      // The flush of the last chunk. An IOSink is bound while it runs and
+      // refuses add, flush and close, so nothing touches the sink again until
+      // this has finished, whatever ended the download. It never completes
+      // with an error: a failed flush goes to [end].
+      Future<void> flushing = Future<void>.value();
+      late final StreamSubscription<List<int>> subscription;
+      subscription = body.stream
+          .timeout(idleTimeout)
+          .listen(
+            (chunk) {
+              // A chunk already queued when the download ended is dropped.
+              if (done.isCompleted) return;
+              try {
+                sink.add(chunk);
+                received += chunk.length;
+                onProgress?.call(received, length);
+                // Take no more until the sink has written this one.
+                subscription.pause();
+                flushing = sink.flush().then((_) {
+                  if (!done.isCompleted) subscription.resume();
+                }, onError: end);
+              } on Object catch (error) {
+                end(error);
+              }
+            },
+            onError: end,
+            onDone: end,
+            cancelOnError: true,
+          );
+      unawaited(
+        request.whenCancel.then((_) => end(failed(FilesFailure.cancelled))),
+      );
+      try {
+        await done.future;
+      } finally {
+        try {
+          await subscription.cancel();
+        } finally {
+          // The caller closes the sink next, which a pending flush would
+          // refuse.
+          await flushing;
+        }
+      }
+      await sink.flush();
+      if (length != null && received != length) {
+        throw failed(FilesFailure.unreadable);
+      }
+      return FsDownload(bytes: received, contentLength: length);
+    } on FsDownloadException {
+      rethrow;
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      if (error.type == DioExceptionType.badResponse && data is ResponseBody) {
+        final detail = await _errorDetail(data, idleTimeout);
+        throw failed(
+          filesFailureForStatus(
+            error.response?.statusCode,
+            detail,
+            fileRoute: true,
+          ),
+        );
+      }
+      throw failed(filesFailureForDio(error, fileRoute: true));
+    } on TimeoutException {
+      throw failed(FilesFailure.unreachable);
+    } on SocketException {
+      throw failed(FilesFailure.unreachable);
+    } on HttpException {
+      throw failed(FilesFailure.unreachable);
+    } on Object {
+      throw failed(FilesFailure.unreadable);
+    }
+  }
+
+  /// The `detail` of an error body that was asked for as a stream, reading no
+  /// more than a few KB of it.
+  static Future<String?> _errorDetail(
+    ResponseBody body,
+    Duration timeout,
+  ) async {
+    try {
+      final bytes = <int>[];
+      await for (final chunk in body.stream.timeout(timeout)) {
+        bytes.addAll(chunk);
+        if (bytes.length > 8192) break;
+      }
+      return errorDetail(jsonDecode(utf8.decode(bytes, allowMalformed: true)));
+    } on Object {
+      return null;
+    }
+  }
 
   Future<Uint8List> _getBytes(String route, Map<String, dynamic> query) async {
     final response = await _dio.get<List<int>>(

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -51,6 +52,22 @@ void main() {
       expect(server.requestsTo('GET', '/api/skills').single.queryParameters, {
         'profile': 'work',
       });
+    });
+
+    test('a bug while listing shows failed and reaches the reporter', () async {
+      final previous = FlutterError.onError;
+      final reported = <FlutterErrorDetails>[];
+      FlutterError.onError = reported.add;
+      addTearDown(() => FlutterError.onError = previous);
+      final c = SkillsController(
+        repository: _BrokenList(server.client().raw),
+        chatProfile: 'work',
+      );
+
+      await c.load();
+
+      expect(c.status, SkillsStatus.failed);
+      expect(reported.single.exception, isA<StateError>());
     });
 
     test('a failure is reported and Retry can recover', () async {
@@ -479,6 +496,104 @@ void main() {
     expect(sent, ['work', 'work']);
   });
 
+  test('a stale reload landing after the last tap finished keeps it', () async {
+    server.on('PUT', '/api/skills/toggle', {'ok': true});
+    final c = controller();
+    await c.load();
+
+    final slow = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/skills', (_) => slow.future);
+    final reload = c.load(quiet: true);
+    expect(await c.toggle('zeta', false), isTrue);
+    slow.complete((
+      status: 200,
+      body: [skillRow(name: 'zeta', category: 'devops')],
+    ));
+    await reload;
+
+    expect(c.skill('zeta')!.enabled, isFalse);
+  });
+
+  test(
+    'a reload started after the last tap finished shows the server',
+    () async {
+      server.on('PUT', '/api/skills/toggle', {'ok': true});
+      final c = controller();
+      await c.load();
+      await c.toggle('zeta', false);
+
+      server.on('GET', '/api/skills', [
+        skillRow(name: 'zeta', category: 'devops'),
+      ]);
+      await c.load(quiet: true);
+
+      expect(c.skill('zeta')!.enabled, isTrue);
+    },
+  );
+
+  test('a tap in a new profile does not wait for the old profile', () async {
+    final gate = Completer<FakeResponse>();
+    final sent = <Object?>[];
+    server.onRequest('PUT', '/api/skills/toggle', (r) {
+      sent.add((jsonBody(r)! as Map)['profile']);
+      return sent.length == 1 ? gate.future : (status: 200, body: {'ok': true});
+    });
+    final c = controller();
+    await c.load();
+
+    final a = c.toggle('zeta', false);
+    await Future<void>.delayed(Duration.zero);
+    await c.selectProfile('home');
+    final b = c.toggle('zeta', false);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(sent, ['work', 'home']);
+    gate.complete((status: 200, body: {'ok': true}));
+    await Future.wait([a, b]);
+  });
+
+  test('a run of failed taps does not shield a skill from a reload', () async {
+    server.on('PUT', '/api/skills/toggle', {'detail': 'x'}, status: 500);
+    final c = controller();
+    await c.load();
+
+    final slow = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/skills', (_) => slow.future);
+    final reload = c.load(quiet: true);
+    expect(await c.toggle('zeta', false), isFalse);
+    expect(c.skill('zeta')!.enabled, isTrue);
+    // The failed request may still have reached the server.
+    slow.complete((
+      status: 200,
+      body: [skillRow(name: 'zeta', category: 'devops', enabled: false)],
+    ));
+    await reload;
+
+    expect(c.skill('zeta')!.enabled, isFalse);
+  });
+
+  test('switching away and back keeps taps on a skill in order', () async {
+    final gate = Completer<FakeResponse>();
+    final sent = <Object?>[];
+    server.onRequest('PUT', '/api/skills/toggle', (r) {
+      sent.add((jsonBody(r)! as Map)['enabled']);
+      return sent.length == 1 ? gate.future : (status: 200, body: {'ok': true});
+    });
+    final c = controller();
+    await c.load();
+
+    final a = c.toggle('zeta', false);
+    await c.selectProfile('home');
+    await c.selectProfile('work');
+    final b = c.toggle('zeta', true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(sent, [false]);
+    gate.complete((status: 200, body: {'ok': true}));
+    await Future.wait([a, b]);
+    expect(sent, [false, true]);
+  });
+
   test('profiles arriving after dispose do not notify', () async {
     final gate = Completer<FakeResponse>();
     server.onRequest('GET', '/api/profiles', (_) => gate.future);
@@ -492,4 +607,12 @@ void main() {
 
     await expectLater(done, completes);
   });
+}
+
+class _BrokenList extends HermesSkillsRepository {
+  _BrokenList(super.api);
+
+  @override
+  Future<List<HermesSkill>> list({String? profile}) =>
+      Future.error(StateError('bug'));
 }

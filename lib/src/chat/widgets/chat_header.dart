@@ -15,24 +15,32 @@ class ChatHeader extends StatelessWidget {
     super.key,
     this.avatar,
     this.callButton,
+    this.onShowFiles,
     required this.thread,
     this.housekeeping,
     this.displayTitle,
     required this.onShowConnection,
     required this.onNewChat,
     this.activityOpen = false,
+    this.activityWaiting = 0,
     this.onToggleActivity,
   });
 
   /// The open thread, or null before one is picked.
   final Widget? avatar;
   final Widget? callButton;
+
+  /// Opens the chat's Files page; null while the server has none.
+  final VoidCallback? onShowFiles;
   final ChatThread? thread;
   final ThreadHousekeeping? housekeeping;
   final String? displayTitle;
   final VoidCallback onShowConnection;
   final VoidCallback onNewChat;
   final bool activityOpen;
+
+  /// How many requests need the user; marks the Activity button.
+  final int activityWaiting;
 
   /// Opens or closes the Activity panel; null while no chat is open.
   final VoidCallback? onToggleActivity;
@@ -56,9 +64,14 @@ class ChatHeader extends StatelessWidget {
           thread: thread,
           housekeeping: housekeeping,
           includeCopyTranscript: true,
+          onShowFiles: onShowFiles,
         ),
       if (onToggleActivity case final toggle?)
-        ActivityButton(open: activityOpen, onPressed: toggle),
+        ActivityButton(
+          open: activityOpen,
+          waiting: activityWaiting,
+          onPressed: toggle,
+        ),
       ConnectionInfoButton(onPressed: onShowConnection),
       NewChatButton(onPressed: onNewChat),
     ];

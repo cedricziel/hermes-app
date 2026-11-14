@@ -41,7 +41,8 @@ class HermesMediaSource implements MediaSource {
   Future<Uint8List> image(String path) => _guard((api) async {
     try {
       final response = await api.raw.getMediaApiMediaGet(path: path);
-      return _decodeDataUrl((response.data as Map?)?['data_url']);
+      final data = response.data;
+      return _decodeDataUrl(data is Map ? data['data_url'] : null);
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       if (status != 403 && status != 415) rethrow;
@@ -67,7 +68,8 @@ class HermesMediaSource implements MediaSource {
         413 => MediaFailure.tooLarge,
         _ => MediaFailure.failed,
       });
-    } on Object {
+    } on Exception {
+      // Not a response the app can read; a bug is not hidden.
       throw const MediaFetchException(MediaFailure.failed);
     }
   }

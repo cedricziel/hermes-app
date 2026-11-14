@@ -9,6 +9,9 @@ import '../models/widgets/model_setup_dialog.dart';
 import '../share/shared_item.dart';
 import '../voice/dictation_controller.dart';
 import '../voice/voice_message_recording.dart';
+import 'activity/bound_activity_line.dart';
+import 'activity/bound_needs_you_dock.dart';
+import 'activity/needs_you_queue.dart';
 import 'attachments/attachment_source.dart';
 import 'chat_controller.dart';
 import 'widgets/queued_prompts.dart';
@@ -121,7 +124,11 @@ Widget? protectedQueueView(ChatController chat, ChatThread? t) =>
 /// ([editable]), branches a chat into a new one ([branchable]) and offers
 /// [starterPrompts], slash commands and a [header].
 /// A [screen] shows the Bot screen's preview under a running `computer_use`
-/// call, and a tap on it calls [onOpenScreen].
+/// call, and a tap on it calls [onOpenScreen]. With a [needsYou] queue (the
+/// screen owns it) the requests that wait on the user dock above the
+/// composer. [onOpenActivity] draws the activity line under the header and
+/// opens the Activity panel from it; without it no line is drawn (the Mac
+/// toolbar and the quick panel).
 ChatThreadView boundChatThreadView({
   required ChatController chat,
   required ChatThread? thread,
@@ -149,10 +156,17 @@ ChatThreadView boundChatThreadView({
   VoidCallback? onSetupModel,
   BotScreenController? screen,
   VoidCallback? onOpenScreen,
+  ValueChanged<String>? onShowAgentDetails,
+  NeedsYouQueue? needsYou,
+  VoidCallback? onOpenActivity,
 }) {
   final t = thread;
   return ChatThreadView(
     thread: t,
+    activityLine: t == null || onOpenActivity == null
+        ? null
+        : BoundActivityLine(chat: chat, thread: t, onOpen: onOpenActivity),
+    onShowAgentDetails: onShowAgentDetails,
     screenPreview: screen == null
         ? null
         : (run) => BoundBotScreenPreview(
@@ -162,21 +176,15 @@ ChatThreadView boundChatThreadView({
             startedAt: run.startedAt,
             onTap: onOpenScreen,
           ),
-    sessionState: t == null ? null : chat.sessionStateIn(t),
-    connectorOperations: t == null ? null : chat.connectorOperationsIn(t),
-    billingVerification: t == null ? null : chat.billingVerificationIn(t),
-    todoPlan: t == null ? null : chat.todoPlanIn(t),
+    dock: needsYou == null
+        ? null
+        : (context, compact) =>
+              BoundNeedsYouDock(chat: chat, queue: needsYou, compact: compact),
     reactionsFor: t == null ? null : (row) => chat.reactionsFor(t, row),
     onReactionDetails: t == null
         ? null
         : () => chat.reactionsIn(t)?.detailsOpened(),
-    moaProgress: t == null ? const [] : chat.moaIn(t),
-    onMoaDetails: chat.moaDetailsOpened,
-    processOutputs: t == null ? null : chat.processOutputsIn(t),
     memoryDecisions: t == null ? null : chat.memoryDecisionsIn(t),
-    onProcessOutputDetails: chat.processOutputDetailsOpened,
-    onSessionDetails: chat.sessionDetailsOpened,
-    onReopenSession: t == null ? null : () => chat.reopenSession(t),
     chatController: chat.controllerFor(t),
     composerController: composerController,
     composerFocus: composerFocus,

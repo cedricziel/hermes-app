@@ -46,7 +46,7 @@ abstract final class MacWindow {
       if (height > 0) titlebarHeight = height;
       enabled = true;
     } on Object catch (error, stack) {
-      debugPrint('Mac window setup failed: $error\n$stack');
+      debugPrint('Mac window setup failed: ${error.runtimeType}\n$stack');
     }
   }
 
@@ -60,7 +60,7 @@ abstract final class MacWindow {
       _conversation = true;
       enabled = true;
     } on Object catch (error) {
-      debugPrint('Conversation window setup failed: $error');
+      debugPrint('Conversation window setup failed: ${error.runtimeType}');
     }
   }
 
@@ -93,7 +93,7 @@ abstract final class MacWindow {
     try {
       await call();
     } on Object catch (error) {
-      debugPrint('Mac window $what failed: $error');
+      debugPrint('Mac window $what failed: ${error.runtimeType}');
     }
   }
 

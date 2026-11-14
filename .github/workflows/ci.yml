@@ -18,13 +18,18 @@ jobs:
   # always run everything. Only the paths no build or test reads count as
   # docs-only: docs/, openspec/ and Markdown files anywhere
   # (no test reads such a file from the repository). The watch tests depend on
-  # the two Swift packages they run and on this workflow.
+  # the two Swift packages they run and on this workflow. The platform builds
+  # on a pull request run only when a path they read changed (native folders,
+  # packages, dependencies, assets, the packaging script, fastlane or this
+  # workflow): Dart under lib/ and test/ is analyzed and tested on every code
+  # pull request; main's run alone builds it in release mode. A path a build starts to depend on must be added to `builds` below.
   changes:
     name: Changes
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
       watch: ${{ steps.filter.outputs.watch }}
+      builds: ${{ steps.filter.outputs.builds }}
     steps:
       # On a pull request HEAD is the merge commit and HEAD^1 the base branch.
       - uses: actions/checkout@v7
@@ -40,18 +45,24 @@ jobs:
           set -euo pipefail
           code=true
           watch=true
+          builds=true
           if [ "$EVENT_NAME" = pull_request ]; then
             # Fail closed: anything unexpected runs everything.
             if [ "$(git rev-list --parents -n1 HEAD | wc -w)" -ne 3 ]; then
               echo "::warning::HEAD is not a merge commit; running everything"
             else
-              files="$(git diff --name-only --no-renames HEAD^1 HEAD)"
-              if [ -z "$files" ]; then
+              # NUL-separated and unquoted, so a name with non-ASCII or control
+              # characters reaches the patterns below unchanged. A failed diff
+              # aborts the step (set -e).
+              list="$(mktemp)"
+              git -c core.quotePath=false diff --name-only -z --no-renames HEAD^1 HEAD > "$list"
+              if [ ! -s "$list" ]; then
                 echo "::warning::No changed files found; running everything"
               else
                 code=false
                 watch=false
-                while IFS= read -r file; do
+                builds=false
+                while IFS= read -r -d '' file; do
                   echo "changed: $file"
                   case "$file" in
                     docs/* | openspec/* | *.md) ;;
@@ -60,13 +71,20 @@ jobs:
                   case "$file" in
                     ios/HermesWatch/* | ios/HermesSurfaceKit/* | .github/workflows/ci.yml) watch=true ;;
                   esac
-                done <<< "$files"
+                  case "$file" in
+                    packages/hermes_api/lib/*) ;;
+                    android/* | ios/* | macos/* | linux/* | windows/* | web/* | packages/* | assets/* | fastlane/*) builds=true ;;
+                    pubspec.yaml | pubspec.lock | */pubspec.yaml | */pubspec.lock | .fvmrc) builds=true ;;
+                    scripts/package-linux.sh | design/icon-512.png | .github/workflows/ci.yml) builds=true ;;
+                  esac
+                done < "$list"
               fi
             fi
           fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "watch=$watch" >> "$GITHUB_OUTPUT"
-          echo "code=$code watch=$watch" >> "$GITHUB_STEP_SUMMARY"
+          echo "builds=$builds" >> "$GITHUB_OUTPUT"
+          echo "code=$code watch=$watch builds=$builds" >> "$GITHUB_STEP_SUMMARY"
 
   analyze:
     name: Analyze
@@ -121,7 +139,11 @@ jobs:
         run: flutter pub get
 
       - name: Test
-        run: scripts/test-shard.sh ${{ matrix.shard }} 4 --coverage
+        run: scripts/test-shard.sh ${{ matrix.shard }} 4 --coverage --file-reporter json:build/test-report.json
+
+      - name: List failed tests
+        if: failure()
+        run: python3 scripts/summarize_test_failures.py build/test-report.json
 
       - name: Upload coverage
         if: always()
@@ -209,7 +231,9 @@ jobs:
     name: Build Android (release)
     runs-on: ubuntu-latest
     needs: [changes, analyze-and-test]
-    if: needs.changes.outputs.code == 'true'
+    # Not the default success(): a skipped job upstream (the watch test on most
+    # pull requests) would skip the build too.
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -235,7 +259,9 @@ jobs:
     name: Build Windows
     runs-on: windows-latest
     needs: [changes, analyze-and-test]
-    if: needs.changes.outputs.code == 'true'
+    # Not the default success(): a skipped job upstream (the watch test on most
+    # pull requests) would skip the build too.
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -281,7 +307,9 @@ jobs:
     name: Build iOS (simulator)
     runs-on: macos-26
     needs: [changes, analyze-and-test]
-    if: needs.changes.outputs.code == 'true'
+    # Not the default success(): a skipped job upstream (the watch test on most
+    # pull requests) would skip the build too.
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -322,7 +350,9 @@ jobs:
     name: Build macOS (debug)
     runs-on: macos-26
     needs: [changes, analyze-and-test]
-    if: needs.changes.outputs.code == 'true'
+    # Not the default success(): a skipped job upstream (the watch test on most
+    # pull requests) would skip the build too.
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -337,13 +367,41 @@ jobs:
       - name: Build debug app with share extension
         run: flutter build macos --debug
 
+  # The only test of the real libmpv decoder path in lib/src/voice/. It runs
+  # for every code pull request, not only when a platform build does.
+  native-audio-test:
+    name: Test native audio (Linux)
+    runs-on: ubuntu-22.04
+    needs: [changes, analyze-and-test]
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install native audio dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev libmpv-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Test native voice codecs
+        run: flutter test test/voice/native_voice_player_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
+
   # Builds the release bundle and packages it exactly as the release workflow
   # does, so a broken tarball or .deb shows up on the PR instead of at release.
   build-linux:
     name: Build Linux (release)
     runs-on: ubuntu-22.04
     needs: [changes, analyze-and-test]
-    if: needs.changes.outputs.code == 'true'
+    # Not the default success(): a skipped job upstream (the watch test on most
+    # pull requests) would skip the build too.
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -359,9 +417,6 @@ jobs:
 
       - name: flutter pub get
         run: flutter pub get
-
-      - name: Test native voice codecs
-        run: flutter test test/voice/native_voice_player_test.dart --dart-define=HERMES_NATIVE_AUDIO_TEST=true
 
       - name: Build release bundle
         run: flutter build linux --release

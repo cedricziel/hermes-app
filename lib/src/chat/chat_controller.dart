@@ -35,6 +35,11 @@ import '../surfaces/surface_snapshot.dart'
 import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import '../watch/watch_complication.dart';
+import '../workspaces/hermes_workspaces_repository.dart';
+import '../workspaces/workspace_catalog_loader.dart';
+import '../workspaces/workspace_models.dart';
+import '../workspaces/workspace_paths.dart';
+import 'chat_workspace_state.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
@@ -43,9 +48,15 @@ import 'chat_transport.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
 import 'owned_session_transport.dart';
+import 'activity/working_summary.dart' show WorkingSummary;
+import 'activity/working_summary_source.dart';
 import 'todo_plan/todo_plan_state.dart';
 import 'moa_progress_state.dart';
 import 'session_usage/session_usage_controller.dart';
+import 'agent_work_transport.dart';
+import 'subagents/chat_roster_environment.dart';
+import 'subagents/subagent_repository.dart';
+import 'subagents/subagent_roster.dart';
 import 'side_results/side_result_state.dart';
 import 'connector_operation_controller.dart';
 import 'connector_operation_state.dart';
@@ -66,9 +77,12 @@ import 'queue_storage/durable_queue_store.dart';
 import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
+import 'thread_sections.dart' show sessionFolderPath;
 import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
+import '../telemetry/report_bug.dart';
 
 part 'chat_controller_billing.dart';
+part 'chat_controller_subagents.dart';
 part 'chat_controller_commands.dart';
 part 'chat_controller_connectors.dart';
 part 'chat_controller_history.dart';
@@ -81,6 +95,8 @@ part 'chat_controller_session_binding.dart';
 part 'chat_controller_session_state.dart';
 part 'chat_controller_streaming.dart';
 part 'chat_controller_surfaces.dart';
+part 'chat_controller_workspace.dart';
+part 'chat_controller_working.dart';
 
 const couldNotOpenChat = 'Could not open that chat.';
 
@@ -130,6 +146,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.billingBrowser,
     this.billingCopyCode,
     this.botChats,
+    this.workspaces,
     this.queueStore,
     this.queueScope,
     this.queueChanges,
@@ -223,6 +240,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _suspendActivity() {
+    _ChatControllerSubagents(this)._clearSubagents();
     search?.setActivity(false);
     housekeeping?.setActivity(false);
     _loadGeneration++;
@@ -304,12 +322,83 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _ChatControllerBilling(this)._billingVerificationInImpl(thread);
 
   final BotModeChatRepository? botChats;
+
+  /// Reads the server's projects and folders and moves a chat. Without one
+  /// no folder is offered and nothing is moved.
+  final HermesWorkspacesRepository? workspaces;
+  final _workspace = _WorkspaceData();
+
+  /// The folder picked for the selected new chat, or for the next one when
+  /// none is selected. Never stored.
+  WorkspaceChoice? get workspaceChoice =>
+      _ChatControllerWorkspace(this)._workspaceChoiceImpl;
+
+  /// Picks, or with null clears, the folder of the selected new chat. False
+  /// for a chat that exists already: its folder changes by
+  /// [moveWorkspace].
+  bool chooseWorkspace(WorkspaceChoice? choice) =>
+      _ChatControllerWorkspace(this)._chooseWorkspaceImpl(choice);
+
+  /// The profile's projects and git roots, read once and kept while the
+  /// welcome view shows; null without a repository. [profile] is the new
+  /// chat's recipient, the current profile when null.
+  WorkspaceCatalogLoader? workspaceCatalog({String? profile}) =>
+      _ChatControllerWorkspace(this)._catalogFor(profile);
+
+  /// What the row above a new chat's composer shows.
+  NewChatWorkspace newChatWorkspace({String? profile}) =>
+      _ChatControllerWorkspace(this)._newChatWorkspaceImpl(profile);
+
+  /// The server's project for [thread], from `info.project` of its creation.
+  WorkspaceProjectRef? workspaceProjectOf(ChatThread thread) =>
+      _workspace.projects[thread];
+
+  /// The one-time notice that Hermes started [thread] elsewhere than picked.
+  WorkspaceMismatch? workspaceMismatchOf(ChatThread thread) =>
+      _workspace.mismatches[thread];
+
+  void dismissWorkspaceMismatch(ChatThread thread) {
+    if (_workspace.mismatches.remove(thread) != null) notifyListeners();
+  }
+
+  /// Whether the server offers moving a chat's folder; false once it said
+  /// "unknown method" on this connection.
+  bool get workspaceMoveSupported =>
+      workspaces != null && !_workspace.moveUnsupported;
+
+  /// Why [thread]'s folder cannot be changed now, or null when it can.
+  WorkspaceMoveBlock? workspaceMoveBlock(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._moveBlockImpl(thread);
+
+  WorkspaceMoveState workspaceMoveOf(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._moveStateImpl(thread);
+
+  /// Moves the stored chat [thread] to [path] once, on the user's say-so.
+  /// Returns why nothing was sent, or null when the move was sent: its
+  /// outcome is [workspaceMoveOf]. The request is bound to [thread], not to
+  /// whatever is selected when the answer comes, and is never sent again.
+  Future<WorkspaceMoveBlock?> moveWorkspace(ChatThread thread, String path) =>
+      _ChatControllerWorkspace(this)._moveWorkspaceImpl(thread, path);
+
+  /// Reads [thread]'s row again after a move that could not be confirmed.
+  /// Sends nothing else.
+  Future<void> recheckWorkspaceMove(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._recheckWorkspaceMoveImpl(thread);
+
+  /// Drops the picks, the catalogs and the notices: sign-out and Change
+  /// Server, after which nothing of the folders is left for the next account.
+  void clearWorkspaceState() {
+    _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
+    notifyListeners();
+  }
+
   final Future<PromptQueueStore> Function()? queueStore;
   final QueueScope? Function(ChatThread thread, String? profile)? queueScope;
   final Listenable? queueChanges;
   final bool Function()? canShowQueues;
   bool get queuesVisible => _ChatControllerQueues(this)._queuesVisibleImpl;
   var _queueEpoch = 0;
+  final _protectedSends = Expando<_ProtectedQueuedSend>();
   final _restoredQueues = <ChatThread>{};
   final _loadedQueues = <ChatThread>{};
   final _queuePreparing = <ChatThread>{};
@@ -427,6 +516,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _ownedBindings = <ChatThread, OwnedSessionBinding>{};
   StreamSubscription<OwnedSessionChange>? _ownedSubscription;
 
+  final _subagents = <String, SubagentRoster>{};
+  ChatRosterEnvironment? _subagentEnvironment;
+
+  /// The agents the chat's replies delegated to, merged from their frames and
+  /// `subagent.list`; null for a chat that is not stored on the server or
+  /// when the controller is not active. It lives with the thread.
+  SubagentRoster? subagentsIn(ChatThread thread) =>
+      _ChatControllerSubagents(this)._subagentsInImpl(thread);
+
   final _moaStates = <ChatThread, MoaProgressState>{};
   final _moaBindings = <ChatThread, OwnedSessionBinding>{};
   final _moaForeground = <ChatThread, ChatMessage>{};
@@ -493,6 +591,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ConnectorOperationController? get connectionOperations =>
       _ChatControllerConnectors(this)._connectionOperationsImpl;
 
+  /// The time the chat's deadlines are read against.
+  DateTime get clockNow => _clock();
+
   void processOutputDetailsOpened() =>
       _ChatControllerSessionBinding(this)._processOutputDetailsOpenedImpl();
 
@@ -508,6 +609,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   ChatSessionState? sessionStateIn(ChatThread thread) =>
       _ChatControllerSessionState(this)._sessionStateInImpl(thread);
+
+  final _workingSource = WorkingSummarySource();
+
+  /// What [thread] is doing now, for the activity line and the Mac toolbar's
+  /// subtitle; null when nothing is working.
+  WorkingSummary? workingSummaryIn(ChatThread thread) =>
+      _workingSource.read(thread, workingInputsOf(this, thread));
+
+  /// Whether the status [kind] of [thread] belongs to the turn running now.
+  bool workingWaitIsCurrent(ChatThread thread, String kind) =>
+      _ChatControllerWorking(this)._waitIsCurrentImpl(thread, kind);
 
   void sessionDetailsOpened() =>
       _ChatControllerSessionState(this)._sessionDetailsOpenedImpl();
@@ -742,13 +854,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           threadListInvalidationBlocked) {
         _listRefreshPending = true;
       }
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the chat list refresh');
       // The next find, or opening the screen again, reads the list.
     }
   }
 
   @override
   void notifyListeners() {
+    if (!disposed) _ChatControllerWorking(this)._refreshImpl();
     super.notifyListeners();
     if (_listRefreshPending && !threadListInvalidationBlocked) {
       _listRefreshPending = false;
@@ -946,8 +1060,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final known = await profiles.list();
       if (!_currentActivity(epoch)) return null;
       if (known.any((p) => p.name == profile)) return profile;
-    } on Object {
+    } on Object catch (e, stack) {
       // Falls through: an unreadable list cannot vouch for the profile.
+      reportBug(e, stack, 'the profile check of a link');
     }
     if (!_currentActivity(epoch)) return null;
     breadcrumbs('deeplink.ignored', {'reason': 'unknown_profile'});
@@ -969,7 +1084,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final SurfaceSnapshot? snapshot;
     try {
       snapshot = await read();
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the stored request read');
       return false;
     }
     if (!_currentActivity(epoch)) return false;
@@ -1186,6 +1302,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _removeBilling((_profile, thread.id));
     _ownedBindings.remove(thread);
     _usage.remove(thread)?.dispose();
+    _ChatControllerSubagents(this)._dropSubagents(thread.id);
     _reactions.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
     _processOutputs.remove(thread)?.clear();
@@ -1248,6 +1365,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     activity?.removeListener(_activityChanged);
     appLock?.removeListener(_billingLockChanged);
     _activityEpoch++;
+    _ChatControllerSubagents(this)._clearSubagents();
+    _subagentEnvironment?.dispose();
     housekeeping?.setActivity(false);
     _replayEnds?.cancel();
     for (final reply in _replies) {
@@ -1263,6 +1382,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     for (final controller in _chatControllers.values) {
       controller.dispose();
     }
+    _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
     super.dispose();
   }
 
@@ -1314,6 +1434,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       modelChoice: _newChatModel,
     );
     _threads.insert(0, thread);
+    _ChatControllerWorkspace(this)._carryPendingChoice(thread);
     _selectedId = thread.id;
     notifyListeners();
   }
@@ -1543,6 +1664,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       report('Wait for the branch to finish. Your draft was kept.');
       return false;
     }
+    // Hermes lets a live agent follow a move, even mid-turn: nothing goes to
+    // a chat while its move is being settled.
+    if (_ChatControllerWorkspace(this)._moveHolds(selected)) return false;
     if (_queueUnavailable.contains(selected)) {
       report(_queueMissingTarget);
       return false;
@@ -1630,6 +1754,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId == thread.id) _selectedId = id;
     thread.id = id;
     thread.remote = true;
+    _ChatControllerWorkspace(this)._workspaceCreated(thread);
     _bound.add(thread);
     _finishQueueBinding(thread, true);
     notifyListeners();
@@ -1650,6 +1775,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);
     thread.id = id;
+    _ChatControllerSubagents(this)._rekeySubagents(previousId, id);
     if (controller != null) _chatControllers[id] = controller;
     _syncTodo(thread, _profile);
     notifyListeners();

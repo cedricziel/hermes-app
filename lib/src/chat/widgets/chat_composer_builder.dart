@@ -4,12 +4,14 @@ import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
+import '../../theme/material_ui_bridge.dart';
 import '../../bot_mode/bot_chat_context.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/dictation_view.dart';
 import '../../voice/voice_message_recording.dart';
+import '../activity/widgets/needs_you_dock.dart';
 import 'chat_composer.dart';
 
 /// Builds the Hermes [ChatComposer] for flutter_chat_ui's `Chat`, in place of
@@ -33,6 +35,7 @@ WidgetBuilder buildChatComposer({
   Widget? queueView,
   BotChatContext? botContext,
   Object? Function()? sendTarget,
+  NeedsYouDockBuilder? dock,
 }) {
   Widget composer(
     ValueChanged<String> onSend,
@@ -59,25 +62,78 @@ WidgetBuilder buildChatComposer({
     recording: voiceRecording?.view,
   );
   return (context) => _ComposerSlot(
-    builder: (onSend, onAttach) => ListenableBuilder(
-      listenable: Listenable.merge([dictation, voiceRecording]),
-      builder: (context, _) => composer(
-        onSend,
-        onAttach,
-        dictation?.available == true && voiceRecording?.busy != true
-            ? DictationView.of(
-                dictation!,
-                onSend: () => sendAfterDictation(
-                  dictation,
-                  controller,
-                  onSend,
-                  sendTarget,
-                ),
-              )
-            : null,
-      ),
-    ),
+    builder: (onSend, onAttach) {
+      final bar = ListenableBuilder(
+        listenable: Listenable.merge([dictation, voiceRecording]),
+        builder: (context, _) => composer(
+          onSend,
+          onAttach,
+          dictation?.available == true && voiceRecording?.busy != true
+              ? DictationView.of(
+                  dictation!,
+                  onSend: () => sendAfterDictation(
+                    dictation,
+                    controller,
+                    onSend,
+                    sendTarget,
+                  ),
+                )
+              : null,
+        ),
+      );
+      if (dock == null) return bar;
+      // The dock shares the composer's box, so the height reported for the
+      // transcript's padding includes it.
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ViewMetricsBuilder(
+            // The keyboard is not in the Scaffold body's own MediaQuery,
+            // which has consumed it, so ask the view.
+            builder: (context, media) =>
+                dock(context, needsYouCompactFor(media)),
+          ),
+          bar,
+        ],
+      );
+    },
   );
+}
+
+/// Builds with the view's own metrics, the keyboard included (a Scaffold body
+/// has consumed it from its own `MediaQuery`), and again when they change.
+class ViewMetricsBuilder extends StatefulWidget {
+  const ViewMetricsBuilder({super.key, required this.builder});
+
+  final Widget Function(BuildContext context, MediaQueryData media) builder;
+
+  @override
+  State<ViewMetricsBuilder> createState() => _ViewMetricsBuilderState();
+}
+
+class _ViewMetricsBuilderState extends State<ViewMetricsBuilder>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.builder(context, MediaQueryData.fromView(View.of(context)));
 }
 
 /// Ends [dictation] and sends the draft once its transcript is in place.
@@ -177,22 +233,11 @@ class FlyerMaterialScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Localizations.override(
       context: context,
       delegates: const [mui.DefaultMaterialLocalizations.delegate],
       child: mui.Theme(
-        data: mui.ThemeData(
-          colorScheme:
-              mui.ColorScheme.fromSeed(
-                seedColor: scheme.primary,
-                brightness: scheme.brightness,
-              ).copyWith(
-                primary: scheme.primary,
-                surface: scheme.surface,
-                onSurface: scheme.onSurface,
-              ),
-        ),
+        data: buildMaterialUiTheme(Theme.of(context).colorScheme),
         child: mui.Material(type: mui.MaterialType.transparency, child: child),
       ),
     );

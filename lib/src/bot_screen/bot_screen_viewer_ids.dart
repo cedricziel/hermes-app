@@ -35,6 +35,9 @@ class BotScreenViewerIds {
   void retain(String id) =>
       _users.update(hashOf(id), (count) => count + 1, ifAbsent: () => 1);
 
+  /// How many live viewers use the id whose lease hash is [hash].
+  int usersOf(String hash) => _users[hash] ?? 0;
+
   /// Ends a viewer's use of [id]. With [forget], for a release that did not get
   /// through, the id is dropped once no other viewer uses it: the lease it may
   /// still hold then names no id of this app, so it reads as someone else's and
@@ -51,11 +54,26 @@ class BotScreenViewerIds {
     if (!forget) return;
     _hashes.remove(hash);
     if (_latest == id) _latest = null;
+    _retired.remove(hash);
   }
 
+  /// Marks [id] as being given back by a viewer that is shutting down, so that
+  /// [latest] no longer offers it: a viewer opened meanwhile would share it, and
+  /// the closing viewer's release would then free the lease that viewer took.
+  void retire(String id) => _retired.add(hashOf(id));
+
+  /// Offers [id] as the latest again, once its release was answered.
+  void unretire(String id) => _retired.remove(hashOf(id));
+
+  final _retired = <String>{};
+
   /// The id added last, for the next observe to ask for: the server keeps it
-  /// when the same connection minted it and mints another otherwise.
-  String? get latest => _latest;
+  /// when the same connection minted it and mints another otherwise. Null when
+  /// that id is being given back (see [retire]).
+  String? get latest {
+    final id = _latest;
+    return id == null || _retired.contains(hashOf(id)) ? null : id;
+  }
 
   /// Whether [hash], a lease's `viewer_hash`, names an id held here.
   bool holds(String? hash) => hash != null && _hashes.contains(hash);

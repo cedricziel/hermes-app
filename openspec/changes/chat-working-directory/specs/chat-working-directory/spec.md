@@ -89,7 +89,7 @@ The system SHALL let the user pick a new chat's folder before the first message 
 #### Scenario: Offline
 
 - **WHEN** the device is offline
-- **THEN** the picker shows "You're offline. Connect to choose a folder on your server." with the Server default row still selected
+- **THEN** the picker shows "You're offline. Connect to choose a folder on your server." with the Server default row still selected, and Browse and Type are shown disabled with the reason "You're offline. Browse and Type need your server."
 
 #### Scenario: Profile switch
 
@@ -99,7 +99,7 @@ The system SHALL let the user pick a new chat's folder before the first message 
 
 #### Scenario: Search
 
-- **WHEN** more than eight project and recent rows exist
+- **WHEN** the project rows and recent rows together are more than eight
 - **THEN** a search field filters them on the device
 
 #### Scenario: Rescan
@@ -112,6 +112,17 @@ The system SHALL let the user pick a new chat's folder before the first message 
 
 - **WHEN** a scan finds three new folders
 - **THEN** they appear under Recent and the picker says "Found 3 new folders."
+
+#### Scenario: Rescan finds one folder
+
+- **WHEN** a scan finds one new folder
+- **THEN** the picker says "Found 1 new folder."
+
+#### Scenario: No folders to scan
+
+- **GIVEN** the profile's `desktop.repo_scan_roots`, read from `GET /api/config` with the profile, is empty
+- **WHEN** the user taps "Look for projects on your server"
+- **THEN** no scan is sent and the picker says "No folders to scan. Scan folders are set on the server."
 
 #### Scenario: Offline row
 
@@ -144,18 +155,44 @@ Browse SHALL list only the folders of one server directory at a time from `GET /
 
 #### Scenario: Unreadable folder
 
-- **WHEN** a level answers 200 with `error: "EACCES"`
-- **THEN** that level says "Couldn't open this folder. Hermes isn't allowed to read it." and the previous level stays reachable
+- **WHEN** a level answers 200 with `error: "EACCES"`, or an SSH profile answers 403 "File is not readable"
+- **THEN** that level says "Couldn't open this folder. Hermes isn't allowed to read it.", the previous level stays reachable, and "Use" stays enabled with "Hermes may not be able to work here." above it
 
 #### Scenario: Locked server
 
-- **WHEN** the first `fs/list` read answers 403 "Path is outside the managed read boundary"
+- **WHEN** the first `fs/list` read answers 403 whose `detail` contains "Path is outside the managed read boundary" (case-insensitive)
 - **THEN** Browse is hidden for the visit and Type still works with `complete.path`
+
+#### Scenario: Unrecognised 403
+
+- **WHEN** a `fs/list` read answers 403 with any other `detail`, or a `detail` that is not a string
+- **THEN** the app takes the least capable reading: on the first read Browse is hidden, on a later level "Use" is disabled
+
+#### Scenario: SSH folder missing
+
+- **GIVEN** the picker's probe of the server default listed successfully
+- **WHEN** an SSH profile's level answers 404 "File not found", or 400 for a path that is not a folder
+- **THEN** that level says "This folder doesn't exist on your server." with the way up, and the feature is not treated as unsupported
+
+#### Scenario: Probe tells an old server apart
+
+- **WHEN** the picker opens and its one `fs/list` probe of the server default answers 404
+- **THEN** Browse is treated as unsupported for the visit, not as a missing folder
 
 #### Scenario: One forbidden level
 
-- **WHEN** a later level answers 403 or `EACCES`
-- **THEN** that level says "Couldn't open this folder. Hermes isn't allowed to read it.", Browse stays available and "Use this folder" stays enabled for the folder being shown
+- **WHEN** a later level answers `EACCES`, or a 403 whose detail is not the managed read boundary
+- **THEN** that level says "Couldn't open this folder. Hermes isn't allowed to read it.", Browse stays available and "Use" stays enabled for the folder being shown
+
+#### Scenario: Later level outside the boundary
+
+- **WHEN** a later level answers 403 "Path is outside the managed read boundary"
+- **THEN** that level says "This folder is outside what this server lets you browse", offers the way back, disables "Use" for it, and Browse stays available for the visit
+
+#### Scenario: Use names the folder
+
+- **WHEN** Browse shows the folder `code`
+- **THEN** its action reads "Use “code”", and it is disabled only while the level is missing or outside the boundary
 
 #### Scenario: Connection lost while browsing
 
@@ -171,18 +208,6 @@ Browse SHALL list only the folders of one server directory at a time from `GET /
 
 - **WHEN** the user types `/home/me/co` and suggestions arrive for an earlier text after ones for the current text
 - **THEN** only the current text's suggestions are shown
-
-#### Scenario: Relative path
-- **WHEN** the typed text does not start with `/` or `~`
-- **THEN** "Use this folder" is disabled and the field says "Start with / or ~"
-
-#### Scenario: Many files hide folders
-- **WHEN** Hermes returns 30 suggestions
-- **THEN** the list says "Keep typing to narrow the list." and Browse remains the way to see every folder
-
-#### Scenario: Suggestion text
-- **WHEN** the user types an absolute path and taps a suggestion
-- **THEN** the field becomes the typed directory plus the suggestion's name and "/", whatever relative text Hermes returned
 
 #### Scenario: Relative path
 
@@ -203,6 +228,16 @@ Browse SHALL list only the folders of one server directory at a time from `GET /
 
 - **WHEN** the typed path lists with `ENOENT`
 - **THEN** "Use this folder" is disabled and the field says "This folder doesn't exist on your server."
+
+#### Scenario: Typed path not readable
+
+- **WHEN** the typed path lists with `EACCES`
+- **THEN** the field says "Hermes isn't allowed to read this folder." and "Use this folder" stays enabled with "Hermes may not be able to work here."
+
+#### Scenario: Thirty items and no folder
+
+- **WHEN** Hermes returns 30 items and none of them is a folder
+- **THEN** the list shows only "Keep typing to narrow the list."
 
 #### Scenario: Hidden names
 
@@ -226,12 +261,12 @@ A new chat's first send with a picked folder SHALL put `cwd` and `cwd_explicit: 
 #### Scenario: Server fell back
 
 - **WHEN** the picked folder was deleted meanwhile and the server answers `info.cwd` `/home/me`
-- **THEN** the header shows `me` and the notice "Hermes started in me instead of <picked folder>. The folder may not exist on your server, or this profile may use its own folder." appears once
+- **THEN** the header shows `me` and the notice "Hermes started in me instead of <picked folder>. The folder may not exist on your server." appears once
 
 #### Scenario: Older server rejects the flag
 
 - **WHEN** `session.create` answers error 4000 mentioning `cwd_explicit`
-- **THEN** the create is retried once without it, the chat is created, and a differing folder shows the notice
+- **THEN** the create is retried once without it, the chat is created, and a differing folder shows the notice with the added clause ", or this profile may use its own folder"
 
 #### Scenario: Quick panel and links
 
@@ -269,18 +304,54 @@ The system SHALL offer "Change folder…" for a stored chat that is not replying
 
 #### Scenario: Lost answer
 
-- **WHEN** the connection drops before the answer
-- **THEN** the app says "Couldn't change the folder. Checking…", re-reads the chat's row, shows whichever folder it holds, and does not resend
+- **WHEN** the connection drops before the answer, or no answer has come 10 s after the move was sent
+- **THEN** the app says "Couldn't change the folder. Checking…", re-reads the chat's row with `GET /api/sessions/{id}` and the chat's `profile`, and does not resend
+
+#### Scenario: Re-read shows the new folder
+
+- **WHEN** the re-read row's `cwd` is the picked folder
+- **THEN** the details say "Folder changed to <folder>." and the header and list follow the row the server returned
+
+#### Scenario: Re-read shows the old folder
+
+- **WHEN** the re-read row's `cwd` is still the old folder
+- **THEN** the details say "The folder wasn't changed. Try again." and the chat keeps its folder
 
 #### Scenario: Server error
 
 - **WHEN** the server answers `5007`
-- **THEN** the chat keeps its folder and the user sees "Couldn't change the folder." with Try again
+- **THEN** the app re-reads the chat's row first and then shows what the read found, as for a lost answer
+
+#### Scenario: Chat or profile gone
+
+- **WHEN** the move answers `4007` or `4064`
+- **THEN** the details say "This chat no longer exists on your server." or "This chat's profile no longer exists on your server." with "Nothing was changed."
+
+#### Scenario: Reply starts before confirming
+
+- **GIVEN** the picker opened while no reply ran
+- **WHEN** a reply has started by the time the user confirms
+- **THEN** the confirmation closes with "Wait for the reply to finish." and nothing is sent
+
+#### Scenario: Send held during the move
+
+- **WHEN** a move is in flight
+- **THEN** Send is held and the composer says "New messages wait until this is done." until the move or its re-read ends
 
 #### Scenario: Replying
 
 - **WHEN** a reply is running
-- **THEN** "Change folder…" is disabled with the reason
+- **THEN** "Change folder…" is disabled, "Wait for the reply to finish." is shown next to it and read as its description, and on the Mac the menu's "Change Folder…" is shown disabled rather than hidden
+
+#### Scenario: Confirmation actions
+
+- **WHEN** the confirmation is shown
+- **THEN** its body reads "Hermes will read files, edit them and run commands in <folder> for new messages. Nothing is moved or deleted. Files already written stay where they are." followed by "<path> · on your server", Cancel is the default action, "Change folder" is neither filled nor red, and on Android both are text buttons with Cancel first
+
+#### Scenario: Current folder not in a list
+
+- **WHEN** the chat's folder is neither a project folder nor a recent folder
+- **THEN** the picker adds it, checked and marked "Current", at the top of Projects when a project matches it and of Recent otherwise
 
 #### Scenario: Old server
 
@@ -312,9 +383,53 @@ The system SHALL offer "Change folder…" for a stored chat that is not replying
 - **WHEN** the chat is also open in a conversation window
 - **THEN** that window shows the new folder when it next reloads (when it becomes key)
 
+### Requirement: Every waiting state ends
+
+Every state that waits on the server SHALL end within 10 s of its request, measured on a monotonic clock, in a state that says what happened and offers the action again, and the system SHALL NOT resend anything by itself. An answer that arrives later SHALL still update the screen.
+
+#### Scenario: Default folder lookup
+
+- **WHEN** the row has shown "Looking up your folder…" for 10 s
+- **THEN** it reads "Runs in the server's default folder" without a path and opens the picker on a tap
+
+#### Scenario: Picker catalog
+
+- **WHEN** the picker's projects have been loading for 10 s
+- **THEN** it shows "Couldn't load your projects. You can still browse or type a path." with Try again
+
+#### Scenario: Browse level
+
+- **WHEN** a Browse level has shown "Opening <folder>…" for 10 s
+- **THEN** it says "Couldn't open this folder." with Try again
+
+#### Scenario: Typed path check
+
+- **WHEN** "Checking…" has shown for 10 s
+- **THEN** the field says "Couldn't check this folder." with "Check again" and "Use this folder" stays disabled
+
+#### Scenario: Scan
+
+- **WHEN** "Look for projects on your server" has had no answer for 10 s
+- **THEN** the progress stops, the list keeps what it had, and the picker says "Couldn't finish looking for projects. Try again."
+
+#### Scenario: Move request
+
+- **WHEN** `session.workspace.move` has had no answer for 10 s
+- **THEN** it is handled as a lost answer: the chat's row is re-read and the move is never sent again
+
+#### Scenario: Lost move answer
+
+- **WHEN** the re-read after a lost move answer has had no answer for 10 s
+- **THEN** the details say "Couldn't confirm the change" with "Check again", which only re-reads the chat's row, "Change folder…" is offered again, and the move was sent exactly once
+
+#### Scenario: Late answer
+
+- **WHEN** an answer arrives after its wait has ended
+- **THEN** the screen shows that answer instead of the timed-out state
+
 ### Requirement: Safety and privacy of paths
 
-Paths, folder names, project names and branches SHALL be held in memory only: never in preferences, secure storage, the surface snapshot, Spotlight, Handoff, widgets, the watch bridge, notifications, drag-out, spans, logs or breadcrumbs. Telemetry SHALL carry only fixed names and outcomes. Sign-out and Change Server SHALL clear the draft choice and catalog, and App Lock SHALL close an open picker and drop its state.
+Paths, folder names, project names and branches SHALL be held in memory only: never in preferences, secure storage, the surface snapshot, Spotlight, Handoff, widgets, the watch bridge, notifications, drag-out, spans, logs, breadcrumbs, crash reports or thrown messages. Recent folders SHALL come from the server only; nothing about folders SHALL be stored on the device. Sign-out and Change Server SHALL clear the draft choice and catalog, and App Lock SHALL close an open picker and drop its state.
 
 #### Scenario: Sign-out
 
@@ -336,6 +451,16 @@ Paths, folder names, project names and branches SHALL be held in memory only: ne
 - **WHEN** a folder is picked and a chat is moved
 - **THEN** the records hold only the fixed names and outcomes above
 
+#### Scenario: Failed request
+
+- **WHEN** a `fs/list`, catalog, session or move request fails with a path in its URL or error text
+- **THEN** the crash reporter, logs, spans, breadcrumbs and any thrown message carry only a failure kind, never the request URL (which carries `path`) or the server's error text (which can echo it)
+
+#### Scenario: Nothing stored on the device
+
+- **WHEN** the user picks folders and the app restarts
+- **THEN** no pick, recent folder or catalog was written to the device, and Recent comes from the server again
+
 #### Scenario: Surfaces
 
 - **WHEN** a chat has a folder, project and branch
@@ -348,7 +473,47 @@ Rows and controls SHALL be at least 44 pt (48 dp) with screen-reader labels nami
 #### Scenario: Large text
 
 - **WHEN** the system text size is at its largest accessibility setting
-- **THEN** the row shows the folder name over two lines and the full path remains in the details sheet
+- **THEN** no text is capped, the row wraps the folder name, stacks its tags, wraps the path in full and puts "on your server" on its own line, and the full path remains in the details sheet
+
+#### Scenario: Full path by touch
+
+- **WHEN** a path is cut in the row, a picker row or a header
+- **THEN** a long press shows the full path, the details sheet always holds it, and on the desktop it is selectable text
+
+#### Scenario: Breadcrumb segments
+
+- **WHEN** focus moves through the Browse breadcrumb
+- **THEN** each segment is a focusable button whose label is its full path
+
+#### Scenario: Pointer and touch targets
+
+- **WHEN** the picker, Browse, the breadcrumb or the toolbar folder button is shown
+- **THEN** touch targets are at least 44 pt (48 dp) and Mac pointer targets at least 28 pt
+
+#### Scenario: Labels and words
+
+- **WHEN** the search field, a tag or a status is shown
+- **THEN** the search field has a label, and every tag and status carries words, never colour or an icon alone
+
+#### Scenario: Header line at large text
+
+- **WHEN** the text size is an accessibility size
+- **THEN** the folder line leaves the header bar and is shown as a full-width row directly under it, with the same target and label
+
+#### Scenario: Details at large text
+
+- **WHEN** the details sheet is shown at an accessibility size
+- **THEN** each row stacks its label over its value and the sheet scrolls to "Change folder…"
+
+#### Scenario: Disabled reason
+
+- **WHEN** "Change folder…" is disabled
+- **THEN** its reason ("Wait for the reply to finish.", "You're offline.", "Changing the folder…" or "Checking the folder…") is shown next to it with an icon and exposed as its description
+
+#### Scenario: Paths cut in the middle
+
+- **WHEN** a path does not fit on one line in the row, a picker row or a folder section header
+- **THEN** it is cut in the middle, "· on your server" stays visible where it is shown, and the semantics label carries the full path
 
 #### Scenario: Screen reader
 
@@ -368,6 +533,11 @@ Every workspace, listing, completion and move request SHALL name the chat's prof
 
 - **WHEN** a chat of profile "work" opens the picker
 - **THEN** `GET /api/chat/workspaces` carries `profile=work`
+
+#### Scenario: Re-read scoping
+
+- **WHEN** the app re-reads a chat's row after a move
+- **THEN** `GET /api/sessions/{id}` carries the chat's `profile`
 
 #### Scenario: Unknown profile
 

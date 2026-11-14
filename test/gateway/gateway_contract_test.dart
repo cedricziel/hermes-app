@@ -242,6 +242,19 @@ Object? map(String type) => mapGatewayEvent(
   GatewayEvent(type: type, sessionId: 's', payload: samples[type] ?? const {}),
 );
 
+/// Methods the app calls, and what it uses each for. Each must exist in the
+/// contract, so a Hermes release that drops or renames one fails here.
+const calledMethods = {
+  'subagent.list': 'the agents a chat delegated to, and its failed delegations',
+  'subagent.tail': 'the recent output of one agent',
+  'subagent.interrupt': 'stops one agent the user confirmed',
+  'subagent.steer': 'sends one note to one agent',
+  'process.list':
+      "the chat session's background programs, to name and "
+      'state their cards',
+  'process.kill': 'stops one program the user confirmed',
+};
+
 void main() {
   final contract = jsonDecode(
     File('openrpc/hermes-gateway.openrpc.json').readAsStringSync(),
@@ -283,5 +296,16 @@ void main() {
 
   test('the registrable server requests are the registered ones', () {
     expect(registrableServerRequests, registeredRequests.keys.toSet());
+  });
+
+  test('every method the app calls is in the contract', () {
+    expect(names('methods'), containsAll(calledMethods.keys));
+  });
+
+  test('the server-wide program stop is never called', () {
+    // `process.stop` kills every program in the registry, whatever session
+    // started it; a chat only ever stops one with `process.kill`.
+    expect(names('methods'), contains('process.stop'));
+    expect(calledMethods.keys, isNot(contains('process.stop')));
   });
 }

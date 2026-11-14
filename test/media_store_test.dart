@@ -294,6 +294,167 @@ void main() {
     });
   });
 
+  group('a folder that cannot be deleted at lock time', () {
+    test('is deleted at the next sweep', () async {
+      var fail = true;
+      final store = MediaStore(
+        source: HermesMediaSource(() => server.client()),
+        cacheDirectory: () async => cache,
+        actions: actions,
+        quickLook: quickLook,
+        deleteFolder: (folder) async {
+          if (fail) throw const FileSystemException('held open');
+          await folder.delete(recursive: true);
+        },
+      );
+      await store.stage('fs:work:/a.txt', 'a.txt', () async => pdf);
+
+      await store.clearFileDownloads();
+      expect(filesUnder(cache), hasLength(1), reason: 'still held open');
+
+      fail = false;
+      await store.sweep(const Duration(days: 1));
+      for (var i = 0; i < 100 && filesUnder(cache).isNotEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(filesUnder(cache), isEmpty);
+    });
+
+    test('is deleted at the next launch too', () async {
+      var fail = true;
+      final store = MediaStore(
+        source: HermesMediaSource(() => server.client()),
+        cacheDirectory: () async => cache,
+        actions: actions,
+        quickLook: quickLook,
+        deleteFolder: (folder) async {
+          if (fail) throw const FileSystemException('held open');
+          await folder.delete(recursive: true);
+        },
+      );
+      await store.stage('fs:work:/a.txt', 'a.txt', () async => pdf);
+      await store.clearFileDownloads();
+      fail = false;
+
+      await store.wipeFileDownloads();
+
+      expect(filesUnder(cache), isEmpty);
+    });
+  });
+
+  group('clearFileDownloads', () {
+    test(
+      'deletes Files downloads and secret copies, keeps attachments',
+      () async {
+        final store = newStore();
+        await store.stage('fs:work:/a.txt', 'a.txt', () async => pdf);
+        await store.stage('fs-secret:work:/.env', '.env', () async => pdf);
+        final kept = await store.stage('chat:1', 'b.pdf', () async => pdf);
+        final closesBefore = quickLook.closes;
+
+        await store.clearFileDownloads();
+
+        expect(filesUnder(cache).map((f) => f.path), [kept.path]);
+        expect(quickLook.closes, closesBefore + 1);
+      },
+    );
+
+    test('a chat attachment downloading at lock time survives it', () async {
+      final store = newStore();
+      final gate = Completer<void>();
+      final pending = store.file('/chat/a.txt', 'a.txt');
+      server.onDownload('/chat/a.txt', pdf);
+      final other = store.stage('chat:2', 'b.pdf', () async {
+        await gate.future;
+        return pdf;
+      });
+      await store.clearFileDownloads();
+      gate.complete();
+
+      expect((await other).readAsBytesSync(), pdf);
+      expect((await pending).readAsBytesSync(), pdf);
+      // Nothing failed and stayed cached: asking again works.
+      expect((await store.file('/chat/a.txt', 'a.txt')).existsSync(), isTrue);
+      expect(
+        (await store.stage('chat:2', 'b.pdf', () async => pdf)).existsSync(),
+        isTrue,
+      );
+    });
+
+    test('a Files key asked for again after the lock is not hurt by the old '
+        'download', () async {
+      final store = newStore();
+      final oldGate = Completer<void>();
+      final old = store.stage('fs:work:/a.txt', 'a.txt', () async {
+        await oldGate.future;
+        return pdf;
+      });
+      final oldFailed = expectLater(old, throwsA(anything));
+      await store.clearFileDownloads();
+      final fresh = await store.stage(
+        'fs:work:/a.txt',
+        'a.txt',
+        () async => Uint8List.fromList([7, 7]),
+      );
+      oldGate.complete();
+      await oldFailed;
+
+      expect(fresh.readAsBytesSync(), [7, 7]);
+    });
+
+    test('a Files download in flight leaves nothing behind', () async {
+      final store = newStore();
+      final gate = Completer<void>();
+      final pending = store.stage('fs:work:/a.txt', 'a.txt', () async {
+        await gate.future;
+        return pdf;
+      });
+      final failed = expectLater(pending, throwsA(anything));
+      await store.clearFileDownloads();
+      gate.complete();
+      await failed;
+      expect(filesUnder(cache), isEmpty);
+    });
+  });
+
+  group('staged names', () {
+    test('direction marks are replaced', () {
+      expect(stagedFileName('a\u200eb\u200fc\u061cd.txt'), 'a_b_c_d.txt');
+    });
+
+    test('Windows device names stage under a safe name', () {
+      for (final name in [
+        'CON',
+        'nul.txt',
+        'Aux.tar.gz',
+        'COM1',
+        'lpt9.log',
+        'COM\u00b2.txt',
+        'con .txt',
+      ]) {
+        expect(stagedFileName(name), startsWith('_'), reason: name);
+      }
+      expect(stagedFileName('console.txt'), 'console.txt');
+      expect(stagedFileName('com10.txt'), 'com10.txt');
+    });
+
+    test('a cut name never ends in a new extension', () async {
+      final store = newStore();
+      final name = '${'x' * 176}.exe.${'a' * 20}';
+      final file = await store.stage('k1', name, () async => pdf);
+      final staged = file.uri.pathSegments.last;
+      expect(staged.toLowerCase(), isNot(endsWith('.exe')));
+      expect(staged.contains('.'), isFalse);
+      expect(stagedFileName(name), staged);
+    });
+
+    test('Unicode whitespace is trimmed as the file is staged', () {
+      for (final tail in ['\u00a0', '\u3000', '\u2028']) {
+        expect(stagedFileName('a.exe$tail'), 'a.exe');
+      }
+    });
+  });
+
   group('stage', () {
     test('shares the folder rule and the in-flight fetch with file', () async {
       final gate = Completer<void>();
@@ -452,6 +613,175 @@ void main() {
 
       expect(downloads(), 1);
       expect(quickLook.shown, opened.path);
+    });
+  });
+
+  group('stageDownload', () {
+    Future<void> write(IOSink sink, List<int> bytes) async => sink.add(bytes);
+
+    test('renames the part file when the download returns', () async {
+      final store = newStore();
+      Set<String>? during;
+      final file = await store.stageDownload('fs:a:/x', 'big.bin', (
+        sink,
+      ) async {
+        sink.add([1, 2, 3]);
+        await sink.flush();
+        during = filesUnder(cache).map((f) => f.path.split('/').last).toSet();
+        sink.add([4]);
+      });
+
+      expect(during!.single, endsWith('.part'));
+      expect(file.readAsBytesSync(), [1, 2, 3, 4]);
+      expect(file.path, endsWith('/big.bin'));
+      expect(filesUnder(cache), hasLength(1));
+    });
+
+    test(
+      'deletes the part file and rethrows when the download fails',
+      () async {
+        final store = newStore();
+        await expectLater(
+          store.stageDownload('k', 'a.bin', (sink) async {
+            sink.add([1]);
+            throw StateError('cancelled');
+          }),
+          throwsStateError,
+        );
+        expect(filesUnder(cache), isEmpty);
+        // Nothing is remembered: the next ask downloads again.
+        final file = await store.stageDownload(
+          'k',
+          'a.bin',
+          (s) => write(s, [9]),
+        );
+        expect(file.readAsBytesSync(), [9]);
+      },
+    );
+
+    test('shares one in-flight download per key', () async {
+      final store = newStore();
+      final gate = Completer<void>();
+      var runs = 0;
+      Future<void> download(IOSink sink) async {
+        runs++;
+        await gate.future;
+        sink.add([7]);
+      }
+
+      final first = store.stageDownload('k', 'a.bin', download);
+      final second = store.stageDownload('k', 'a.bin', download);
+      await Future<void>.delayed(Duration.zero);
+      gate.complete();
+
+      expect((await first).path, (await second).path);
+      expect(runs, 1);
+    });
+
+    test('a file already staged is not downloaded again', () async {
+      final store = newStore();
+      await store.stageDownload('k', 'a.bin', (s) => write(s, [1]));
+      var runs = 0;
+      await store.stageDownload('k', 'a.bin', (s) async => runs++);
+      expect(runs, 0);
+    });
+
+    test('a hostile name stays inside the cache folder', () async {
+      final file = await newStore().stageDownload(
+        'k',
+        '../../x',
+        (s) => write(s, [1]),
+      );
+      expect(file.path, startsWith('${cache.path}/hermes_media/'));
+      expect(file.path, isNot(contains('..')));
+    });
+
+    test('evict deletes the staged file so it downloads again', () async {
+      final store = newStore();
+      await store.stageDownload('k', 'a.bin', (s) => write(s, [1]));
+      await store.evict('k');
+      expect(filesUnder(cache), isEmpty);
+      final again = await store.stageDownload(
+        'k',
+        'a.bin',
+        (s) => write(s, [2]),
+      );
+      expect(again.readAsBytesSync(), [2]);
+    });
+
+    test('clear and the sweep remove it like any staged file', () async {
+      final store = newStore();
+      final file = await store.stageDownload(
+        'k',
+        'a.bin',
+        (s) => write(s, [1]),
+      );
+      file.setLastModifiedSync(
+        DateTime.now().subtract(const Duration(days: 2)),
+      );
+      await store.sweep(mediaCacheMaxAge);
+      expect(filesUnder(cache), isEmpty);
+
+      await store.stageDownload('k', 'a.bin', (s) => write(s, [1]));
+      await store.clear();
+      expect(filesUnder(cache), isEmpty);
+    });
+
+    test('a download that finishes after clear is not kept', () async {
+      final store = newStore();
+      final gate = Completer<void>();
+      final pending = store.stageDownload('k', 'a.bin', (sink) async {
+        await gate.future;
+        sink.add([1]);
+      });
+      final outcome = expectLater(pending, throwsA(isA<MediaFetchException>()));
+      await Future<void>.delayed(Duration.zero);
+      await store.clear();
+      gate.complete();
+      await outcome;
+      expect(filesUnder(cache), isEmpty);
+    });
+  });
+
+  group('saveFile', () {
+    test('hands the staged file to the system under its name', () async {
+      final store = newStore();
+      final file = await store.stageBytes('k', 'a.pdf', pdf);
+
+      expect(await store.saveFile('a.pdf', file), isTrue);
+
+      expect(actions.savedFiles.single, (name: 'a.pdf', path: file.path));
+    });
+
+    test('is false when the user cancels', () async {
+      actions.saves = false;
+      final file = await newStore().stageBytes('k', 'a.pdf', pdf);
+      expect(await newStore().saveFile('a.pdf', file), isFalse);
+    });
+  });
+
+  test('bidi controls in a name become underscores', () async {
+    final file = await newStore().stageBytes(
+      'k',
+      'invoice\u202Efdp.exe\u2066x',
+      pdf,
+    );
+    expect(file.uri.pathSegments.last, 'invoice_fdp.exe_x');
+  });
+
+  group('secret copies', () {
+    test('wipeSecretCopies deletes them and only them', () async {
+      final store = newStore();
+      await store.stageBytes(
+        '${kSecretCopyKeyPrefix}work:/a/.env',
+        '.env',
+        pdf,
+      );
+      final kept = await store.stageBytes('fs:work:/a/b.txt', 'b.txt', pdf);
+
+      await newStore().wipeSecretCopies();
+
+      expect(filesUnder(cache).map((f) => f.path), [kept.path]);
     });
   });
 

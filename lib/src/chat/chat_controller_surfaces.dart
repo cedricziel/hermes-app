@@ -118,7 +118,12 @@ extension _ChatControllerSurfaces on ChatController {
       });
     }
     unawaited(
-      _resumeRunningReplies(store, written, _pauses).catchError((Object _) {}),
+      _resumeRunningReplies(store, written, _pauses).catchError((
+        Object error,
+        StackTrace stack,
+      ) {
+        reportBug(error, stack, 'resuming running replies');
+      }),
     );
   }
 

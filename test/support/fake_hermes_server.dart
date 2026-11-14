@@ -8,6 +8,15 @@ import 'package:hermes_app/src/api/hermes_api_client.dart';
 
 typedef FakeResponse = ({int status, Object? body});
 
+/// A binary body that announces a `Content-Length` of its own, such as a
+/// 60 MB file whose headers arrive before any of it.
+class FakeFile {
+  const FakeFile(this.bytes, {required this.announcedLength});
+
+  final Uint8List bytes;
+  final int announcedLength;
+}
+
 /// Stands in for the Hermes dashboard at the HTTP layer, so tests drive the
 /// real generated client and the real Dio pipeline rather than a mock of it.
 class FakeHermesServer implements HttpClientAdapter {
@@ -98,6 +107,16 @@ class FakeHermesServer implements HttpClientAdapter {
             ),
           )
         : await answer;
+    if (body is FakeFile) {
+      return ResponseBody.fromBytes(
+        body.bytes,
+        status,
+        headers: {
+          Headers.contentTypeHeader: ['application/octet-stream'],
+          Headers.contentLengthHeader: ['${body.announcedLength}'],
+        },
+      );
+    }
     if (body is Uint8List) {
       return ResponseBody.fromBytes(
         body,
@@ -219,6 +238,7 @@ Map<String, Object?> messageRow({
   String? toolName,
   String? toolCallId,
   Object? reasoning,
+  String? finishReason,
   double timestamp = 1780000000,
 }) => {
   'id': id,
@@ -228,6 +248,7 @@ Map<String, Object?> messageRow({
   'tool_name': toolName,
   'tool_call_id': toolCallId,
   'reasoning': reasoning,
+  'finish_reason': finishReason,
   'timestamp': timestamp,
 };
 

@@ -68,6 +68,8 @@ extension _ChatControllerCommands on ChatController {
             modelChoice: _newChatModel,
           );
       if (selected == null) {
+        // The command made the session without the pick for the next chat.
+        _workspace.pending = null;
         _threads.insert(0, thread);
         _selectedId ??= thread.id;
       } else if (!selected.remote) {
@@ -148,9 +150,11 @@ extension _ChatControllerCommands on ChatController {
           !_threads.contains(thread)) {
         return;
       }
+      final kept = _heldAfterRefresh(thread, page);
       thread.messages
         ..clear()
-        ..addAll(page.messages);
+        ..addAll(_mergedWithPage(kept, thread.id, page.messages));
+      _reactionHistory(thread);
       _unloaded.remove(thread.id);
       if (page.hasMore) {
         _olderRows[thread.id] = page.rows;
@@ -165,6 +169,39 @@ extension _ChatControllerCommands on ChatController {
         report('Command ran, but this chat could not be refreshed.');
       }
     }
+  }
+
+  /// What [thread] holds that a command's re-read must not drop: rows only
+  /// this app has (command lines) and turns sent here, which may still be
+  /// streaming. Rows read from Hermes are left to [page], the truth after
+  /// the command, which may have undone some. A settled turn is dropped when
+  /// the page does not hold its stored row (undone, or older than the page,
+  /// which loading older messages brings back in place), or, without a receipt, when the page
+  /// holds a prompt with the same words.
+  List<ChatMessage> _heldAfterRefresh(ChatThread thread, MessagePage page) {
+    final stored = {for (final m in page.messages) m.id};
+    final storedPrompts = {
+      for (final m in page.messages)
+        if (m.role == ChatRole.user) m.content,
+    };
+    final kept = <ChatMessage>[];
+    for (final turn in _turns([
+      for (final m in thread.messages)
+        if (m.id.contains('-local-')) m,
+    ], stored: false)) {
+      final first = turn.first;
+      final settled = !turn.any((m) => m.isPending);
+      final row = first.canonicalRow?.rowId;
+      final gone = !settled
+          ? false
+          : row != null
+          ? !stored.contains('${thread.id}-$row')
+          : first.role == ChatRole.user &&
+                !turn.any((m) => m.status == MessageStatus.error) &&
+                storedPrompts.contains(first.content);
+      if (!gone) kept.addAll(turn);
+    }
+    return kept;
   }
 
   /// The last prompt of [thread], with or without text. A note Hermes wrote

@@ -32,6 +32,7 @@ class CatalogRow extends StatelessWidget {
       if (entry.description.isNotEmpty) entry.description,
     ].join(' · ');
     return GroupedRow(
+      wrapWhenStacked: true,
       key: ValueKey('catalog-row-${entry.name}'),
       title: entry.name,
       meta: entry.official ? 'Official' : null,

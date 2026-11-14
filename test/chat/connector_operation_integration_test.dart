@@ -13,6 +13,8 @@ import 'package:hermes_app/src/chat/todo_plan/todo_plan_state.dart';
 import 'package:hermes_app/src/chat/side_results/side_result_state.dart';
 import 'package:hermes_app/src/chat/session_usage/usage_snapshot.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/chat/activity/bound_needs_you_dock.dart';
 import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -450,8 +452,11 @@ void main() {
     final binding = transport.ownedSessionFor(thread.id, profile: 'work')!;
     gateway.drop();
     await pumpEventQueue();
-    expect(old.operations, isEmpty);
-    expect(chat.connectorOperationsIn(thread), isNull);
+    // Only a display-only model remains: no link, no authority.
+    expect(old.displayOnly, isTrue);
+    expect(old.operations.single.targets.single.connectUrl, isNull);
+    expect(old.canRespond(operation.key), isFalse);
+    expect(chat.connectorOperationsIn(thread), same(old));
     chat.submit('Reconnect through normal send', const []);
     await pumpEventQueue();
     request();
@@ -631,12 +636,16 @@ void main() {
     });
     final composer = TextEditingController(),
         focus = FocusNode(),
-        latest = LatestReply();
+        latest = LatestReply(),
+        queue = needsYouQueueFor(chat);
     addTearDown(composer.dispose);
     addTearDown(focus.dispose);
     addTearDown(latest.dispose);
+    addTearDown(queue.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: boundChatThreadView(
             chat: chat,
@@ -649,23 +658,15 @@ void main() {
             onRemoveAttachment: (_) {},
             onSend: (_) {},
             latestReply: latest,
+            needsYou: queue,
           ),
         ),
       ),
     );
-    // The account-wide operation is reference activity, in the panel.
-    expect(find.byType(ConnectorOperationCard), findsOneWidget);
-    final scoped = find.byType(ConnectorOperationCard);
-    final disclosure = find.descendant(
-      of: scoped,
-      matching: find.byType(ExpansionTile),
-    );
-    await tester.ensureVisible(disclosure);
-    await tester.tap(disclosure);
-    await tester.pumpAndSettle();
-    final continueAction = find.text('Continue');
-    await tester.ensureVisible(continueAction);
-    await tester.pumpAndSettle();
+    // The session's request docks above the composer; the account-wide
+    // operation is reference activity, in the panel.
+    expect(find.byType(ConnectorOperationCard), findsNothing);
+    final continueAction = find.byKey(const Key('needs-you-continue'));
     expect(continueAction.hitTestable(), findsOneWidget);
     expect(tester.getSize(find.byType(Chat)).height, greaterThan(150));
     expect(tester.takeException(), isNull);
@@ -718,6 +719,7 @@ void main() {
       expect(find.text('Skip'), findsNothing);
       expect(find.text('Continue'), findsNothing);
       expect(find.text('Open connection'), findsNothing);
+      await settleActivityPanel(tester);
     },
   );
 }

@@ -1,8 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 // 30 days ending 12 Nov: 8.4M in all, 812K on the 12th with 9 conversations,
 // the highest day 5 Nov at 1.2M.
@@ -27,7 +31,13 @@ Widget _host(
   double textScale = 1,
   bool reduceMotion = false,
   double width = 390,
+  Locale? locale,
+  ThemeData? theme,
 }) => MaterialApp(
+  locale: locale,
+  theme: theme,
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
   home: MediaQuery(
     data: MediaQueryData(
       size: Size(width, 800),
@@ -233,4 +243,99 @@ void main() {
       expect(tester.getSize(find.byType(CustomPaint).last).width, 90 * 44);
     },
   );
+
+  testWidgets('German locale: summary, label and bar labels', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(_host(_chart(), locale: const Locale('de')));
+    await tester.pumpAndSettle();
+
+    final node = tester.getSemantics(
+      find.bySemanticsLabel(RegExp('^Tokens pro Tag, letzte 30 Tage')),
+    );
+    expect(
+      node.label,
+      'Tokens pro Tag, letzte 30 Tage. Gesamt 8,4 Millionen. '
+      'Höchster Wert 1,2 Millionen am 5. November.',
+    );
+    expect(
+      _dayLabels(node).last,
+      '12. November: 812 Tausend Tokens, 9 Unterhaltungen',
+    );
+    expect(find.textContaining('12. Nov ·'), findsOneWidget);
+    handle.dispose();
+  });
+
+  testWidgets('selecting the bar that is already selected brings it back '
+      'into view in the 90 day window', (tester) async {
+    final days = [
+      for (var i = 0; i < 90; i++)
+        UsageChartDay(
+          day: DateTime(2026, 11, 12 - (89 - i)),
+          value: 100000.0 * (i % 7),
+          conversations: 1,
+        ),
+    ];
+    await tester.pumpWidget(
+      _host(_chart(days: days, window: UsageChartWindow.days90)),
+    );
+    await tester.pumpAndSettle();
+    final scrollable = tester.state<ScrollableState>(
+      find.byType(Scrollable).last,
+    );
+    expect(scrollable.position.pixels, 0);
+
+    // The newest day stays selected while the view moves to the oldest.
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pump();
+
+    final focusNode = Focus.of(tester.element(find.byType(CustomPaint).last));
+    focusNode.requestFocus();
+    await tester.pump();
+    // End selects the last bar again: no change of selection, but it reveals.
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pump();
+
+    expect(scrollable.position.pixels, 0);
+  });
+
+  for (final (name, theme) in [
+    ('light', buildHermesLightTheme()),
+    ('dark', buildHermesDarkTheme()),
+  ]) {
+    testWidgets('the selected day is outlined in the text colour ($name)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(_chart(), theme: theme));
+      await tester.pumpAndSettle();
+      final scheme = Theme.of(tester.element(find.byType(UsageChart)))
+          .colorScheme;
+      final plot = find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is UsageChartPlotPainter,
+      );
+      final box = tester.renderObject<RenderBox>(plot);
+      // One 2 px outline, drawn after the bars, around the selected slot;
+      // there is no tinted column any more.
+      // The 25 days with use draw a rounded bar each, then the outline.
+      final pattern = paints;
+      for (var i = 0; i < 25; i++) {
+        pattern.rrect();
+      }
+      pattern.rrect(
+        color: scheme.onSurface,
+        style: PaintingStyle.stroke,
+        strokeWidth: 2,
+      );
+      expect(box, pattern);
+      expect(
+        box,
+        isNot(paints..rect(color: scheme.primary.withValues(alpha: 0.12))),
+      );
+      // The line stands out from the plot by far more than 3:1.
+      double lum(Color c) => c.computeLuminance();
+      final fg = lum(scheme.onSurface);
+      final bg = lum(scheme.surface);
+      final ratio = (math.max(fg, bg) + 0.05) / (math.min(fg, bg) + 0.05);
+      expect(ratio, greaterThan(3));
+    });
+  }
 }

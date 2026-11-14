@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
@@ -5,6 +7,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 import '../core/safe_notifier.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_skills_repository.dart';
+import '../telemetry/report_bug.dart';
 
 enum SkillsStatus { loading, ready, failed, unsupported }
 
@@ -43,7 +46,11 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
   String _query = '';
   SkillFilter _filter = SkillFilter.all;
   int _generation = 0;
-  final _toggles = <String, Future<bool>>{};
+
+  /// Keyed by profile and skill, so a tap waits behind earlier writes to the
+  /// same skill of the same profile, however often the profile was switched.
+  final _toggles = <(String?, String), Future<bool>>{};
+  final _succeeded = <String>{};
 
   /// Per skill with taps in flight: the value the server last confirmed, and
   /// the newest tap, which alone may put that value back.
@@ -54,6 +61,11 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
   /// The load generation current when a write was last confirmed; a reload
   /// started before then may have read the value from before that write.
   final _confirmedAt = <String, int>{};
+
+  /// Per skill whose taps all finished: the value left on screen and the load
+  /// generation then current. A reload started before then may have read the
+  /// value from before the write, so it must not replace it.
+  final _settled = <String, (bool, int)>{};
   int _toggleCount = 0;
   int _profileEpoch = 0;
 
@@ -147,7 +159,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     } on SkillsUnsupported {
       if (generation != _generation) return;
       _status = SkillsStatus.unsupported;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the skills list');
       if (generation != _generation) return;
       if (quiet && _status == SkillsStatus.ready) return;
       _status = SkillsStatus.failed;
@@ -160,7 +173,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
       final overview = await profiles?.load();
       if (overview == null) return;
       _profiles = overview.profiles;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the skills profiles');
       _profiles = const [];
     }
     notifyListeners();
@@ -175,6 +189,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     _latestToggle.clear();
     _pending.clear();
     _confirmedAt.clear();
+    _settled.clear();
+    _succeeded.clear();
     return load();
   }
 
@@ -189,8 +205,11 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     _confirmed.putIfAbsent(name, () => current);
     _latestToggle[name] = tap;
     _pending[name] = enabled;
+    _settled.remove(name);
+    final key = (profile, name);
     _set(name, enabled);
-    final done = (_toggles[name] ?? Future<bool>.value(true)).then((_) async {
+    late final Future<bool> done;
+    done = (_toggles[key] ?? Future<bool>.value(true)).then((_) async {
       bool ok;
       try {
         await repository.setEnabled(name, enabled, profile: profile);
@@ -200,22 +219,27 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
         _log('toggle', 'error');
         ok = false;
       }
+      if (identical(_toggles[key], done)) unawaited(_toggles.remove(key));
       // A tap made for another profile says nothing about this one.
       if (epoch != _profileEpoch) return ok;
       if (ok) {
         _confirmed[name] = enabled;
         _confirmedAt[name] = _generation;
+        _succeeded.add(name);
       }
       if (_latestToggle[name] == tap) {
         _latestToggle.remove(name);
         _pending.remove(name);
         _confirmedAt.remove(name);
         final confirmed = _confirmed.remove(name)!;
+        // A run of failures may still have reached the server, so only a
+        // confirmed write is shielded from a stale reload.
+        if (_succeeded.remove(name)) _settled[name] = (confirmed, _generation);
         if (!ok) _set(name, confirmed);
       }
       return ok;
     });
-    _toggles[name] = done;
+    _toggles[key] = done;
     return done;
   }
 
@@ -226,7 +250,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     List<HermesSkill> skills,
     int generation,
   ) {
-    if (_pending.isEmpty) return skills;
+    _settled.removeWhere((_, s) => generation > s.$2);
+    if (_pending.isEmpty && _settled.isEmpty) return skills;
     for (final s in skills) {
       if (_pending.containsKey(s.name) &&
           generation > (_confirmedAt[s.name] ?? -1)) {
@@ -237,6 +262,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
       for (final s in skills)
         _pending.containsKey(s.name)
             ? s.copyWith(enabled: _pending[s.name])
+            : _settled.containsKey(s.name)
+            ? s.copyWith(enabled: _settled[s.name]!.$1)
             : s,
     ];
   }
@@ -270,7 +297,8 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
     } on SkillsRejected catch (e) {
       _log(op, 'rejected');
       return e.message;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a skill change');
       _log(op, 'error');
       return 'Could not reach the server';
     }

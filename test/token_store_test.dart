@@ -158,6 +158,99 @@ void main() {
     expect(storage.value, isNull);
   });
 
+  group('TokenStore.recordMinter', () {
+    const server = 'https://old.hermes.test';
+
+    test('binds a session stored before its server was recorded', () async {
+      final storage = _FakeStorage(value: _stored());
+
+      await TokenStore(storage: storage).recordMinter(server);
+
+      final stored = HermesSession.fromStorageJson(
+        jsonDecode(storage.value!) as Map<String, dynamic>,
+      );
+      expect(stored.serverUrl, server);
+      expect(stored.refreshToken, _session.refreshToken);
+    });
+
+    test('leaves a session whose server is recorded alone', () async {
+      final bound = jsonEncode(
+        _session.boundTo('https://minter.hermes.test').toStorageJson(),
+      );
+      final storage = _FakeStorage(value: bound);
+      final store = TokenStore(storage: storage);
+
+      await store.recordMinter(server);
+      await store.recordMinter(null);
+
+      expect(storage.value, bound);
+      expect(storage.writes, isEmpty);
+    });
+
+    test('throws on an unreadable keychain and writes nothing', () async {
+      final storage = _FakeStorage(
+        value: _stored(),
+        readError: PlatformException(code: '-25308'),
+      );
+
+      await expectLater(
+        TokenStore(storage: storage).recordMinter(server),
+        throwsStateError,
+      );
+      expect(storage.value, _stored());
+      expect(storage.writes, isEmpty);
+    });
+
+    test('removes an unbound session when no server is known', () async {
+      final storage = _FakeStorage(value: _stored());
+
+      await TokenStore(storage: storage).recordMinter(null);
+
+      expect(storage.value, isNull);
+    });
+
+    test('binds the newest pair when one was rotated in while it waited for '
+        'the lock', () async {
+      final dir = await Directory.systemTemp.createTemp('hermes-minter-');
+      addTearDown(() => dir.delete(recursive: true));
+      final path = '${dir.path}/lock.sqlite';
+      final storage = _FakeStorage(value: _stored());
+      final background = TokenStore(
+        storage: storage,
+        mutex: SqliteSessionMutex(path: path),
+      );
+      final foreground = TokenStore(
+        storage: storage,
+        mutex: SqliteSessionMutex(path: path),
+      );
+      final started = Completer<void>();
+      final release = Completer<void>();
+      storage.beforeWrite = () async {
+        storage.beforeWrite = null;
+        started.complete();
+        await release.future;
+      };
+      final rotated = HermesSession.fromStorageJson({
+        ..._session.toStorageJson(),
+        'accessToken': 'new-access',
+        'refreshToken': 'new-refresh',
+      });
+      final refresh = background.replace(_session, rotated);
+      await started.future;
+      final record = foreground.recordMinter(server);
+      release.complete();
+      expect(await refresh, isTrue);
+      await record;
+
+      final stored = HermesSession.fromStorageJson(
+        jsonDecode(storage.value!) as Map<String, dynamic>,
+      );
+      expect(stored.refreshToken, 'new-refresh');
+      expect(stored.accessToken, 'new-access');
+      expect(stored.serverUrl, server);
+    });
+  });
+
   for (final initial in [_stored(), '{invalid json']) {
     for (final replacement in [
       jsonEncode({
@@ -241,6 +334,22 @@ void main() {
       ]);
     },
   );
+
+  test('reports a stored session that cannot be parsed', () async {
+    final events = RecordedEvents();
+    final storage = _FakeStorage(value: '["private details"]');
+
+    final read = await TokenStore(
+      storage: storage,
+      events: events.call,
+    ).readState();
+
+    expect(read, isA<SessionEmpty>());
+    expect(events.named('auth.session.corrupt'), hasLength(1));
+    expect(events.named('auth.session.corrupt').single, {
+      'error.type': 'FormatException',
+    });
+  });
 
   test(
     'telemetry failure leaves an unreadable stored session untouched',

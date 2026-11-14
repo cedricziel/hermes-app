@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
-import 'command_row.dart';
+import '../../widgets/command_row.dart';
 import 'update_step_list.dart';
 
 /// Full-width buttons share one height: 44 on Apple platforms, 48 on Material.
@@ -100,16 +101,16 @@ class UpdateStatusCard extends StatelessWidget {
 
   final UpdateStatus status;
   final VoidCallback? onCheckNow;
+
+  /// Without it an available update shows no button and no restart note.
   final VoidCallback? onUpdate;
   final VoidCallback? onCopied;
-
-  static const restartNote =
-      'Hermes restarts during the update. It usually takes a few minutes.';
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final colors = context.hermesColors;
+    final l10n = context.l10n;
     final (icon, tint) = switch (status) {
       UpdateUpToDate() => (AppIcons.checkCircleFilled, colors.success),
       UpdateChecking() => (null, scheme.onSurface),
@@ -119,29 +120,34 @@ class UpdateStatusCard extends StatelessWidget {
       UpdateCannotApply() => (AppIcons.info, colors.subtleText),
     };
     final title = switch (status) {
-      UpdateUpToDate() => 'Hermes is up to date',
-      UpdateChecking() => 'Checking for updates…',
-      UpdateCheckFailed() => "Couldn't check",
-      UpdateAvailable() || UpdateRollback() => 'Update available',
-      UpdateCannotApply() => 'Update Hermes on the server',
+      UpdateUpToDate() => l10n.serverCareUpdateTitleUpToDate,
+      UpdateChecking() => l10n.serverCareUpdateTitleChecking,
+      UpdateCheckFailed() => l10n.serverCareUpdateCouldntCheck,
+      UpdateAvailable() || UpdateRollback() => l10n.serverCareUpdateAvailable,
+      UpdateCannotApply() => l10n.serverCareUpdateTitleOnServer,
     };
     final body = switch (status) {
       UpdateUpToDate(:final version, :final checkedAgo) =>
-        'Version $version. Checked $checkedAgo.',
+        l10n.serverCareUpdateBodyUpToDate(version, checkedAgo),
       UpdateChecking() => null,
       UpdateCheckFailed(:final message) => message,
       UpdateAvailable(:final changeCount, :final currentVersion) =>
-        '${_changes(changeCount)} since your version ($currentVersion).',
+        l10n.serverCareUpdateBodyChangesSince(
+          l10n.serverCareUpdateChanges(changeCount),
+          currentVersion,
+        ),
       UpdateRollback(:final changeCount, :final currentVersion) =>
         changeCount == null || currentVersion == null
             ? null
-            : '${_changes(changeCount)} since your version ($currentVersion).',
+            : l10n.serverCareUpdateBodyChangesSince(
+                l10n.serverCareUpdateChanges(changeCount),
+                currentVersion,
+              ),
       UpdateCannotApply(:final message) => message,
     };
     final warning = switch (status) {
       UpdateRollback(:final stableVersion) =>
-        'This build is newer than stable release v$stableVersion. '
-            'Updating moves it back to that release.',
+        l10n.serverCareUpdateRollbackWarning(stableVersion),
       _ => null,
     };
     final command = switch (status) {
@@ -153,26 +159,32 @@ class UpdateStatusCard extends StatelessWidget {
         OutlinedButton(
           style: _wide(context),
           onPressed: onCheckNow,
-          child: const Text('Check now'),
+          child: Text(l10n.serverCareCheckNow),
         ),
       ),
-      UpdateAvailable() => _fullWidth(
+      UpdateAvailable() when onUpdate != null => _fullWidth(
         FilledButton(
           style: _wide(context),
           onPressed: onUpdate,
-          child: const Text('Update Hermes'),
+          child: Text(l10n.serverCareUpdateNow),
         ),
       ),
-      UpdateRollback(:final stableVersion) => _fullWidth(
+      UpdateRollback(:final stableVersion) when onUpdate != null => _fullWidth(
         FilledButton(
           style: _wide(context),
           onPressed: onUpdate,
-          child: Text('Move to $stableVersion'),
+          child: Text(l10n.serverCareUpdateMoveTo(stableVersion)),
         ),
       ),
-      UpdateChecking() || UpdateCannotApply() => null,
+      UpdateChecking() ||
+      UpdateCannotApply() ||
+      UpdateAvailable() ||
+      UpdateRollback() => null,
     };
-    final showNote = status is UpdateAvailable || status is UpdateRollback;
+    // Without an action there is no restart to warn about.
+    final showNote =
+        onUpdate != null &&
+        (status is UpdateAvailable || status is UpdateRollback);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -246,7 +258,7 @@ class UpdateStatusCard extends StatelessWidget {
                 ?button,
                 if (showNote)
                   Text(
-                    restartNote,
+                    l10n.serverCareUpdateRestartNote,
                     style: TextStyle(fontSize: 13, color: colors.subtleText),
                   ),
               ],
@@ -255,7 +267,7 @@ class UpdateStatusCard extends StatelessWidget {
         ),
         if (command != null)
           GroupedSection(
-            header: 'Command',
+            header: l10n.serverCareUpdateCommandHeader,
             children: [
               Builder(
                 builder: (context) => Padding(
@@ -271,9 +283,6 @@ class UpdateStatusCard extends StatelessWidget {
       ],
     );
   }
-
-  static String _changes(int count) =>
-      count == 1 ? '1 change' : '$count changes';
 }
 
 /// "What's new": one row per change, summary as the title and "author · 3 days
@@ -285,7 +294,7 @@ class UpdateChangeList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GroupedSection(
-    header: "What's new",
+    header: context.l10n.serverCareUpdateWhatsNew,
     children: [
       for (final change in changes)
         GroupedRow(
@@ -305,6 +314,14 @@ enum UpdateOutcomeKind {
   unconfirmed,
   oldServerRunning,
   notBack,
+
+  /// The update has said "running" for a long time: the app cannot tell
+  /// whether it finished, and does not say Hermes is back.
+  stillRunning,
+
+  /// The update's status was refused with this sign-in; the update may still
+  /// be going.
+  unauthorized,
 }
 
 /// How an update ended: a centred 48 pt icon, a title and a body, then the
@@ -322,6 +339,7 @@ class UpdateOutcomeCard extends StatelessWidget {
     this.runningVersion,
     this.installedVersion,
     this.detailLines = const [],
+    this.detailsInitiallyOpen = false,
     this.onDone,
     this.onTryAgain,
     this.onCheckAgain,
@@ -335,6 +353,7 @@ class UpdateOutcomeCard extends StatelessWidget {
   final String? runningVersion;
   final String? installedVersion;
   final List<String> detailLines;
+  final bool detailsInitiallyOpen;
   final VoidCallback? onDone;
   final VoidCallback? onTryAgain;
   final VoidCallback? onCheckAgain;
@@ -345,34 +364,48 @@ class UpdateOutcomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final colors = context.hermesColors;
+    final l10n = context.l10n;
     final (icon, tint) = switch (kind) {
       UpdateOutcomeKind.success => (AppIcons.checkCircleFilled, colors.success),
       UpdateOutcomeKind.partial ||
       UpdateOutcomeKind.oldServerRunning ||
+      UpdateOutcomeKind.unauthorized ||
       UpdateOutcomeKind.notBack => (AppIcons.warningRounded, colors.warning),
       UpdateOutcomeKind.failed => (AppIcons.errorFilled, scheme.error),
-      UpdateOutcomeKind.unconfirmed => (AppIcons.info, colors.subtleText),
+      UpdateOutcomeKind.unconfirmed ||
+      UpdateOutcomeKind.stillRunning => (AppIcons.info, colors.subtleText),
     };
     final title = switch (kind) {
-      UpdateOutcomeKind.success => 'Hermes is up to date',
-      UpdateOutcomeKind.partial => 'Hermes updated, with one thing left to do',
-      UpdateOutcomeKind.failed => "The update didn't finish",
+      UpdateOutcomeKind.success => l10n.serverCareUpdateTitleUpToDate,
+      UpdateOutcomeKind.partial => l10n.serverCareUpdateOutcomePartialTitle,
+      UpdateOutcomeKind.failed => l10n.serverCareUpdateOutcomeFailedTitle,
       UpdateOutcomeKind.unconfirmed =>
-        "Hermes is back, but the app can't confirm the update",
+        l10n.serverCareUpdateOutcomeBackNotConfirmedTitle,
       UpdateOutcomeKind.oldServerRunning =>
-        'Hermes updated, but the server is still running the old version',
-      UpdateOutcomeKind.notBack => "Hermes hasn't come back yet",
+        l10n.serverCareUpdateOutcomeOldServerTitle,
+      UpdateOutcomeKind.notBack => l10n.serverCareUpdateOutcomeNotBackTitle,
+      UpdateOutcomeKind.stillRunning =>
+        l10n.serverCareUpdateOutcomeNotConfirmedTitle,
+      UpdateOutcomeKind.unauthorized =>
+        l10n.serverCareUpdateOutcomeUnauthorizedTitle,
     };
     final body = switch (kind) {
-      UpdateOutcomeKind.success ||
-      UpdateOutcomeKind.unconfirmed => 'Now running $version.',
+      UpdateOutcomeKind.success || UpdateOutcomeKind.unconfirmed =>
+        version == null
+            ? null
+            : l10n.serverCareUpdateOutcomeNowRunning(version!),
       UpdateOutcomeKind.partial => null,
-      UpdateOutcomeKind.failed => 'Hermes is still running $version.',
+      UpdateOutcomeKind.failed =>
+        version == null
+            ? null
+            : l10n.serverCareUpdateOutcomeStillRunning(version!),
       UpdateOutcomeKind.oldServerRunning =>
-        'Restart Hermes on the server to finish.',
-      UpdateOutcomeKind.notBack =>
-        'If you started Hermes by hand, it may need to be started again on '
-            'the server.',
+        l10n.serverCareUpdateOutcomeRestartToFinish,
+      UpdateOutcomeKind.notBack => l10n.serverCareUpdateOutcomeNotBackHint,
+      UpdateOutcomeKind.stillRunning =>
+        l10n.serverCareUpdateOutcomeNotConfirmedHint,
+      UpdateOutcomeKind.unauthorized =>
+        l10n.serverCareUpdateOutcomeUnauthorizedHint,
     };
     final buttons = <Widget>[
       switch (kind) {
@@ -383,21 +416,23 @@ class UpdateOutcomeCard extends StatelessWidget {
           FilledButton(
             style: _wide(context),
             onPressed: onDone,
-            child: const Text('Done'),
+            child: Text(l10n.serverCareUpdateOutcomeDone),
           ),
         ),
-        UpdateOutcomeKind.oldServerRunning => _fullWidth(
+        UpdateOutcomeKind.oldServerRunning ||
+        UpdateOutcomeKind.stillRunning ||
+        UpdateOutcomeKind.unauthorized => _fullWidth(
           FilledButton(
             style: _wide(context),
             onPressed: onCheckAgain,
-            child: const Text('Check again'),
+            child: Text(l10n.serverCareUpdateOutcomeCheckAgain),
           ),
         ),
         UpdateOutcomeKind.notBack => _fullWidth(
           FilledButton(
             style: _wide(context),
             onPressed: onKeepWaiting,
-            child: const Text('Keep waiting'),
+            child: Text(l10n.serverCareUpdateOutcomeKeepWaiting),
           ),
         ),
       },
@@ -406,15 +441,17 @@ class UpdateOutcomeCard extends StatelessWidget {
           TextButton(
             style: _wide(context),
             onPressed: onTryAgain,
-            child: const Text('Try again'),
+            child: Text(l10n.serverCareTryAgain),
           ),
         ),
-      if (kind == UpdateOutcomeKind.notBack)
+      if (kind == UpdateOutcomeKind.notBack ||
+          kind == UpdateOutcomeKind.stillRunning ||
+          kind == UpdateOutcomeKind.unauthorized)
         _fullWidth(
           TextButton(
             style: _wide(context),
             onPressed: onDismiss,
-            child: const Text('Dismiss'),
+            child: Text(l10n.serverCareUpdateOutcomeDismiss),
           ),
         ),
     ];
@@ -449,13 +486,26 @@ class UpdateOutcomeCard extends StatelessWidget {
         if (kind == UpdateOutcomeKind.oldServerRunning)
           GroupedSection(
             children: [
-              GroupedRow(title: 'Running now', value: runningVersion),
-              GroupedRow(title: 'Installed', value: installedVersion),
+              GroupedRow(
+                wrapWhenStacked: true,
+                title: l10n.serverCareUpdateOutcomeRunningNow,
+                value: runningVersion,
+              ),
+              GroupedRow(
+                wrapWhenStacked: true,
+                title: l10n.serverCareUpdateOutcomeInstalled,
+                value: installedVersion,
+              ),
             ],
           ),
         if (detailLines.isNotEmpty)
           GroupedSection(
-            children: [UpdateDetailsDisclosure(lines: detailLines)],
+            children: [
+              UpdateDetailsDisclosure(
+                lines: detailLines,
+                initiallyOpen: detailsInitiallyOpen,
+              ),
+            ],
           ),
         const SizedBox(height: 24),
         for (final (i, button) in buttons.indexed) ...[

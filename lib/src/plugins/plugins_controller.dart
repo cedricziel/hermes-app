@@ -5,6 +5,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 import '../core/safe_notifier.dart';
 import 'hermes_plugin_manager_repository.dart';
 import 'installed_plugin.dart';
+import '../telemetry/report_bug.dart';
 
 enum PluginsFailure { failed, unsupported }
 
@@ -56,7 +57,8 @@ class PluginsController extends ChangeNotifier with SafeNotifier {
       _apply(await _repository.load());
     } on PluginsUnsupported {
       _failure = PluginsFailure.unsupported;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the plugin list');
       _failure = PluginsFailure.failed;
     }
     _loading = false;
@@ -71,7 +73,8 @@ class PluginsController extends ChangeNotifier with SafeNotifier {
       _failure = null;
       notifyListeners();
       return true;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the plugin list');
       return false;
     }
   }
@@ -113,7 +116,7 @@ class PluginsController extends ChangeNotifier with SafeNotifier {
     final outcome = !result.ok
         ? 'error'
         : (action == 'update' && result.unchanged ? 'unchanged' : 'ok');
-    _events('plugins.$action.$outcome', {'plugin.name': name});
+    _events('plugins.$action.$outcome');
     if (result.ok) {
       await refresh();
     }

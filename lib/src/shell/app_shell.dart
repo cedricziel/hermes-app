@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
 
+import '../../l10n/l10n.dart';
 import '../agent_messages/agent_message_watcher.dart';
 import '../api/hermes_repositories.dart';
 import '../app_lock/app_lock_controller.dart';
@@ -45,6 +47,16 @@ import '../notifications/notification_settings.dart';
 import '../platform_hint/platform_hint_offer.dart';
 import '../platform_hint/show_platform_hint_prompt.dart';
 import '../profiles/chat_profiles.dart';
+import '../server_care/server_attention_mark.dart';
+import '../server_care/gateway_restart.dart';
+import '../server_care/hermes_update_run.dart';
+import '../server_care/replies_in_progress.dart';
+import '../server_care/update_banner.dart';
+import '../server_care/update_page.dart';
+import '../server_care/update_run_record.dart';
+import '../server_care/server_care_controller.dart';
+import '../server_care/server_care_scope.dart';
+import '../server_care/server_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/mac_profiles_page.dart';
 import '../profiles/widgets/mac_profile_switcher.dart';
@@ -55,6 +67,8 @@ import '../schedules/schedule_models.dart';
 import '../schedules/schedules_controller.dart';
 import '../schedules/schedules_screen.dart';
 import '../theme/app_icons.dart';
+import '../tools/toolset_installs.dart';
+import '../tools/tools_availability.dart';
 import '../theme/platform_chrome.dart';
 import '../windows/conversation_windows.dart';
 import 'app_presence.dart';
@@ -71,7 +85,7 @@ part 'app_shell_bots.dart';
 part 'app_shell_sudo_prompt.dart';
 part 'app_shell_profiles.dart';
 
-enum _Destination { chat, bots, kanban, schedules, profiles }
+enum _Destination { chat, bots, kanban, schedules, profiles, server }
 
 /// Top-level navigation between Chat and the destinations the server offers:
 /// Kanban while its plugin is on, Schedules while it has the cron routes.
@@ -117,6 +131,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// The installs of the desktop on the server the user started, which go on
   /// whatever page is up and ask for the sudo password over it.
   BotScreenInstalls? _installs;
+
+  /// Whether the server offers Tools, with the chat profile's rows; read on
+  /// connect and resume, and forgotten on sign-out. One per shell, so it ends
+  /// with the connection.
+  ToolsAvailability? _tools;
+
+  /// The one install step of this connection, which outlives the Tools
+  /// screen.
+  ToolsetInstalls? _toolInstalls;
+
+  /// The profile [_tools] was last asked about.
+  String? _toolsProfile;
   BotModeRosterRepository? _botsRepository;
   BotModeChatRepository? _botChats;
   HermesGroupsRepository? _groups;
@@ -125,6 +151,23 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// The profiles a Mac window switches between in its sidebar; listed on
   /// the first Mac build.
   ChatProfiles? _chatProfiles;
+
+  /// What the Server screen and the attention mark read; one per shell, so
+  /// it ends with the connection.
+  ServerCareController? _serverCare;
+
+  /// Restarts and starts the messaging gateway; owned here so a run goes on
+  /// when the Server screen is left.
+  GatewayRestart? _gatewayRun;
+
+  /// Updates Hermes and follows it to the receipt; owned here so it goes on
+  /// when the Server screen is left, and so the banner and the Mac sidebar
+  /// can say where it is.
+  HermesUpdateRun? _updateRun;
+  bool _updateWasBusy = false;
+
+  /// The replies the chat shows as running, for the update question.
+  final _replies = RepliesInProgress();
 
   /// The sidebar of a Mac window, which a pick in it closes when it lies
   /// over the page.
@@ -195,6 +238,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (_profiles case final profiles?) {
       _chatProfiles = ChatProfiles(profiles);
     }
+    if (repositories != null) {
+      _tools = ToolsAvailability(
+        repositories.tools,
+        telemetry: repositories.telemetry,
+      );
+      _toolInstalls = ToolsetInstalls(
+        // The open Tools screen reads its own config again; the list the
+        // entries hang on is read here.
+        requestReread: (_) => _refreshTools(),
+        telemetry: repositories.telemetry,
+      );
+    }
     final auth = _auth = _maybeRead<AuthController>();
     _ownerGeneration = auth?.ownerGeneration;
     _sessionAuthorized = _authorizedOwner;
@@ -238,6 +293,43 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       );
     }
     _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
+    if (repositories != null) {
+      final care = _serverCare = ServerCareController(
+        repository: repositories.serverCare,
+        telemetry: repositories.telemetry,
+        covered: () => _appLock?.covered ?? false,
+      );
+      _chatProfiles?.addListener(_followServerCareProfile);
+      care.lookUpProfile = _resolveServerCareProfile;
+      _gatewayRun = GatewayRestart(
+        covered: () => _appLock?.covered ?? false,
+        repository: repositories.serverCare,
+        care: care,
+        telemetry: repositories.telemetry,
+        breadcrumbs: _breadcrumbs,
+      );
+      final accountKey = auth?.accountKey;
+      final updateRun = _updateRun = HermesUpdateRun(
+        repository: repositories.serverCare,
+        store: accountKey == null
+            ? null
+            : UpdateRunStore(accountKey: accountKey),
+        care: care,
+        covered: () => _appLock?.covered ?? false,
+        probeConnection: _probeConnection,
+        telemetry: repositories.telemetry,
+        breadcrumbs: _breadcrumbs,
+      )..addListener(_updateRunChanged);
+      auth?.addListener(_resetUpdateOnDeparture);
+      // An update a previous launch started is picked up where it is.
+      unawaited(updateRun.resume());
+      care.addListener(_careSupportChanged);
+      _appLock?.addListener(_readServerCareAfterUnlock);
+      // The chat reports its profile after its threads load, and not at all
+      // when it works in the server's default, so the default is resolved by
+      // name here. Nothing is read before some profile is known.
+      unawaited(_resolveServerCareProfile());
+    }
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
     if (service != null && settings != null && _cron != null) {
@@ -247,6 +339,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         service: service,
         settings: settings,
         profiles: _profiles,
+        events: repositories?.telemetry.events ?? noopAppEventLogger,
         account: () => accounts?.accountKey ?? '',
       )..paused = !_sessionAuthorized;
     }
@@ -303,7 +396,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _detection++;
       _watcher?.paused = !authorized;
       _messages?.paused = !authorized;
-      if (authorized) unawaited(_detect());
+      if (authorized) {
+        unawaited(_detect());
+        _followToolsProfile(force: true);
+      } else {
+        // Sign-out or a server change: nothing of the old connection stays.
+        _tools?.clear();
+        _toolInstalls?.clear();
+        _toolsProfile = null;
+      }
     }
     _navigationQueue?.resume();
   }
@@ -332,6 +433,103 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _rebuild(VoidCallback update) => setState(update);
 
+  /// Whether the server has a status route, as last seen: the Mac sidebar
+  /// lists Server only while it does.
+  bool _careSupported = true;
+
+  void _careSupportChanged() {
+    final supported = _serverCare?.supported ?? true;
+    if (supported == _careSupported || !mounted) return;
+    setState(() {
+      _careSupported = supported;
+      // The row the person is on is leaving the sidebar: go back to Chat.
+      if (!supported && _current == _Destination.server) {
+        _current = _Destination.chat;
+      }
+    });
+  }
+
+  /// What an update that finished may have changed on the server: whether it
+  /// has Kanban and Schedules. It never touches `AuthController`: a connect
+  /// would swap the shell for the setup screen if it failed, and replace the
+  /// client the repositories hold. The status itself is read again by the run
+  /// through the care controller. A refusal changed nothing, so it reads
+  /// nothing.
+  Future<void> _probeConnection() async {
+    final phase = _updateRun?.phase;
+    if (phase != UpdatePhase.finished && phase != UpdatePhase.staleServer) {
+      return;
+    }
+    if (mounted) await _detect();
+  }
+
+  /// The care controller and the Mac sidebar say "Updating…" while it runs.
+  void _updateRunChanged() {
+    final busy = _updateRun?.busy ?? false;
+    if (busy == _updateWasBusy) return;
+    _updateWasBusy = busy;
+    _serverCare?.updating = busy;
+  }
+
+  /// Sign-out and a server change drop the update; an expired session does
+  /// not, so it is read again after sign-in.
+  void _resetUpdateOnDeparture() {
+    if (_auth?.ownerGeneration == _ownerGeneration) return;
+    unawaited(_updateRun?.reset());
+  }
+
+  /// The server's own default profile, by name; null until read.
+  String? _defaultProfile;
+
+  Future<void> _resolveServerCareProfile() async {
+    try {
+      final active = await _profiles?.loadActive();
+      if (active != null) {
+        final name = active.current.isNotEmpty ? active.current : active.active;
+        _defaultProfile = name.isEmpty ? null : name;
+      }
+    } on Object {
+      // The chat's own report is then what names the profile.
+    }
+    if (!mounted) return;
+    _followServerCareProfile();
+    _serverCare?.profileLookupEnded(
+      found: (_chatProfiles?.current ?? _defaultProfile) != null,
+    );
+  }
+
+  void _followServerCareProfile() {
+    _serverCare?.profileChanged(_chatProfiles?.current ?? _defaultProfile);
+    _followToolsProfile();
+  }
+
+  /// Reads the Tools list for the chat's profile, once per profile and again
+  /// when [force]d.
+  void _followToolsProfile({bool force = false}) {
+    final profile = _chatProfiles?.current ?? _defaultProfile;
+    if (profile == null || !_authorizedOwner) return;
+    if (profile == _toolsProfile && !force) return;
+    _toolsProfile = profile;
+    unawaited(_tools?.refresh(profile));
+  }
+
+  void _refreshTools() {
+    final profile = _toolsProfile;
+    if (profile == null || !_authorizedOwner) return;
+    unawaited(_tools?.refresh(profile));
+  }
+
+  /// A status read skipped under App Lock is made up for on unlock.
+  void _readServerCareAfterUnlock() {
+    if (_appLock?.covered ?? true) {
+      // Hermes' own words about a failed run are not kept while covered.
+      _gatewayRun?.forgetText();
+      _updateRun?.forgetText();
+      return;
+    }
+    unawaited(_serverCare?.resumed());
+  }
+
   T? _maybeRead<T>() {
     try {
       return context.read<T>();
@@ -353,11 +551,23 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _watcher?.dispose();
     _messages?.dispose();
     _finds.dispose();
+    _chatProfiles?.removeListener(_followServerCareProfile);
+    _appLock?.removeListener(_readServerCareAfterUnlock);
+    _gatewayRun?.dispose();
+    _auth?.removeListener(_resetUpdateOnDeparture);
+    _updateRun
+      ?..removeListener(_updateRunChanged)
+      ..dispose();
+    _serverCare
+      ?..removeListener(_careSupportChanged)
+      ..dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();
     _schedulesController?.dispose();
     _openRequests.dispose();
     _installs?.dispose();
+    _toolInstalls?.dispose();
+    _tools?.dispose();
     _gateway?.close();
     super.dispose();
   }
@@ -372,7 +582,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _appForeground = AppPresence.foreground(state);
     _syncSchedulesForeground();
     if (state == AppLifecycleState.resumed) {
+      // The default profile's name is still owed when the first lookup failed.
+      if (_serverCare != null &&
+          _defaultProfile == null &&
+          _chatProfiles?.current == null) {
+        unawaited(_resolveServerCareProfile());
+      }
+      unawaited(_serverCare?.resumed());
       _installs?.resumed();
+      _refreshTools();
       _detect();
     }
   }
@@ -414,6 +632,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       label: 'Profiles',
       caption: null,
     ),
+    // The label and the caption are filled in where it is listed.
+    _Destination.server: (
+      icon: AppIcons.server,
+      selected: AppIcons.server,
+      label: '',
+      caption: null,
+    ),
   };
 
   @override
@@ -428,8 +653,40 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         null => _build(context),
       },
     );
+    final care = _serverCare;
+    final gatewayRun = _gatewayRun;
+    final updateRun = _updateRun;
+    final tools = _tools;
+    final toolInstalls = _toolInstalls;
+    final hasCare = care != null && gatewayRun != null && updateRun != null;
+    final providers = <SingleChildWidget>[
+      if (hasCare) ...[
+        ChangeNotifierProvider<ServerCareController>.value(value: care),
+        ChangeNotifierProvider<GatewayRestart>.value(value: gatewayRun),
+        ChangeNotifierProvider<HermesUpdateRun>.value(value: updateRun),
+        Provider<RepliesInProgress>.value(value: _replies),
+      ],
+      if (tools != null && toolInstalls != null) ...[
+        ChangeNotifierProvider<ToolsAvailability>.value(value: tools),
+        ChangeNotifierProvider<ToolsetInstalls>.value(value: toolInstalls),
+      ],
+    ];
+    final provided = providers.isEmpty
+        ? built
+        : MultiProvider(
+            providers: providers,
+            // The banner shows in this window only, above every destination.
+            child: hasCare
+                ? Builder(
+                    builder: (context) => UpdateBannerLayer(
+                      onOpen: () => showUpdatePage(context),
+                      child: built,
+                    ),
+                  )
+                : built,
+          );
     final chrome = platformChromeOf(context);
-    if (!chrome.isApple) return built;
+    if (!chrome.isApple) return provided;
     final mac = chrome == PlatformChrome.macos;
     if (mac && !_macLoaded) {
       _macLoaded = true;
@@ -453,7 +710,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               : null,
         ),
       },
-      child: mac ? MacSidebarScope(controller: _sidebar, child: built) : built,
+      child: mac
+          ? MacSidebarScope(controller: _sidebar, child: provided)
+          : provided,
     );
   }
 
@@ -480,6 +739,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (_kanban) _Destination.kanban,
       if (_schedules) _Destination.schedules,
       if (mac && _chatProfiles != null) _Destination.profiles,
+      if (mac && _serverCare != null && _careSupported) _Destination.server,
     ];
     if (destinations.length == 1) return chat();
 
@@ -493,8 +753,28 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         final index = destinations.indexOf(_current);
         void select(int i) => _selectByUser(destinations[i]);
         final switcher = mac ? _profileSwitcher() : null;
+        // Only a Mac sidebar shows the caption; others need not rebuild.
+        final l10n = context.l10n;
+        final serverCaption = !mac || _serverCare == null
+            ? null
+            : serverMarkCaption(
+                l10n,
+                context.select<ServerCareController, ServerAttentionMark>(
+                  (care) => care.mark,
+                ),
+              );
         final shellNavigation = ShellNavigation(
-          destinations: [for (final d in destinations) _labels[d]!],
+          destinations: [
+            for (final d in destinations)
+              d == _Destination.server
+                  ? (
+                      icon: _labels[d]!.icon,
+                      selected: _labels[d]!.selected,
+                      label: l10n.serverCareTitle,
+                      caption: serverCaption,
+                    )
+                  : _labels[d]!,
+          ],
           selectedIndex: index,
           onSelected: select,
         );
@@ -535,6 +815,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               changeSource: _gateway,
               transport: _gateway,
             ),
+            _Destination.server => const ServerScreen(source: 'sidebar'),
           };
           if (!wide ||
               destination == _Destination.chat ||

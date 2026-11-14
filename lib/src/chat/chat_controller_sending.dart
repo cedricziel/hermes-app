@@ -17,7 +17,7 @@ extension _ChatControllerSending on ChatController {
       return false;
     }
     if (_sessionStates[selected]?.reclaimedReason != null) return false;
-    if (!active) return false;
+    if (!active || _moveHolds(selected)) return false;
     final epoch = _activityEpoch;
     final sizes = readyAttachments == null ? _sizesOrExplain(files) : <int>[];
     if (sizes == null) return false;
@@ -55,13 +55,22 @@ extension _ChatControllerSending on ChatController {
           modelChoice: _newChatModel,
         );
     if (selected == null) {
+      _carryPendingChoice(thread);
       _threads.insert(0, thread);
       _selectedId = thread.id;
     }
     // A chat that has a name keeps it, even when its messages are not loaded
     // or a retry or an edit emptied them; only a chat with none gets a title
     // made from the prompt, which is not a name.
-    if (protectedSend == null && thread.messages.isEmpty && !thread.named) {
+    // A stored chat whose first page is not read yet has no messages here
+    // either, so its emptiness says nothing.
+    final unread =
+        _unloaded.contains(thread.id) ||
+        _loadingMessages.containsKey(thread.id);
+    if (protectedSend == null &&
+        thread.messages.isEmpty &&
+        !thread.named &&
+        !unread) {
       thread
         ..title = label.length > 48 ? '${label.substring(0, 48)}…' : label
         ..named = false;
@@ -330,6 +339,7 @@ extension _ChatControllerSending on ChatController {
         attachments: attachments,
         model: thread.modelChoice,
         queued: queued,
+        workspace: _choiceForSend(thread, threadId),
       );
     } else {
       stream = (transport as QueueSubmissionTransport).sendQueued(

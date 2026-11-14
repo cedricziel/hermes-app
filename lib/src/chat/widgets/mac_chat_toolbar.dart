@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_sidebar.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../macos/mac_toolbar_search_field.dart';
@@ -12,7 +13,7 @@ import '../../widgets/named_popup_menu_button.dart';
 /// it a button that opens the field.
 const double kMacToolbarSearchFieldWidth = 1000;
 
-enum _More { copyTranscript, connection }
+enum _More { showFiles, copyTranscript, connection }
 
 /// The chat's toolbar in a Mac window: the chat's title over "profile ·
 /// model", then New Chat, Copy Transcript, Connection Details and search.
@@ -25,10 +26,13 @@ class MacChatToolbar extends StatelessWidget {
     this.avatar,
     required this.title,
     this.subtitle,
+    this.subtitleBuilder,
     required this.onNewChat,
     required this.onShowConnection,
     this.onCopyTranscript,
+    this.onShowFiles,
     this.activityOpen = false,
+    this.activityWaiting = 0,
     this.onToggleActivity,
     required this.searchQuery,
     required this.searchActive,
@@ -42,12 +46,22 @@ class MacChatToolbar extends StatelessWidget {
   final Widget? avatar;
   final String title;
   final String? subtitle;
+
+  /// Wraps the drawn [subtitle], e.g. to draw a `MacToolbarSubtitle` instead.
+  /// It runs only while [subtitle] is not null.
+  final Widget Function(BuildContext context, Widget subtitle)? subtitleBuilder;
   final VoidCallback onNewChat;
   final VoidCallback onShowConnection;
 
   /// Copies the open chat as Markdown; null while no chat is open.
   final VoidCallback? onCopyTranscript;
+
+  /// Opens the chat's Files page; null hides the item (an older server).
+  final VoidCallback? onShowFiles;
   final bool activityOpen;
+
+  /// How many requests need the user; marks the Activity button.
+  final int activityWaiting;
 
   /// Shows or hides the Activity inspector; null while no chat is open.
   final VoidCallback? onToggleActivity;
@@ -68,6 +82,7 @@ class MacChatToolbar extends StatelessWidget {
       leading: avatar,
       title: title,
       subtitle: subtitle,
+      subtitleBuilder: subtitleBuilder,
       actions: [
         MacToolbarButton(
           key: const Key('toolbar-new-chat'),
@@ -94,10 +109,21 @@ class MacChatToolbar extends StatelessWidget {
         ],
         MacToolbarButton(
           key: const Key('toolbar-activity'),
-          label: activityOpen ? 'Hide Inspector' : 'Show Inspector',
+          label: activityWaiting > 0
+              ? (activityOpen
+                    ? context.l10n.chatActivityInspectorHideWaiting(
+                        activityWaiting,
+                      )
+                    : context.l10n.chatActivityInspectorShowWaiting(
+                        activityWaiting,
+                      ))
+              : (activityOpen
+                    ? context.l10n.chatActivityInspectorHide
+                    : context.l10n.chatActivityInspectorShow),
           shortcut: '⌥⌘I',
           icon: AppIcons.inspector,
           selected: activityOpen,
+          marked: activityWaiting > 0,
           onPressed: onToggleActivity,
         ),
         if (showField)
@@ -136,10 +162,17 @@ class MacChatToolbar extends StatelessWidget {
       padding: EdgeInsets.zero,
       style: macToolbarButtonStyle(context),
       onSelected: (item) => switch (item) {
+        _More.showFiles => onShowFiles?.call(),
         _More.copyTranscript => onCopyTranscript?.call(),
         _More.connection => onShowConnection(),
       },
       itemBuilder: (_) => [
+        if (onShowFiles != null)
+          AdaptiveMenuItem(
+            value: _More.showFiles,
+            shortcut: '⇧⌘F',
+            child: const Text('Show Files'),
+          ),
         AdaptiveMenuItem(
           value: _More.copyTranscript,
           enabled: onCopyTranscript != null,

@@ -75,6 +75,10 @@ abstract final class AppIcons {
     Icons.call_split,
     CupertinoIcons.arrow_branch,
   );
+  static const folder = AppIconSet(
+    Icons.folder_outlined,
+    CupertinoIcons.folder,
+  );
   static const lock = AppIconSet(Icons.lock_outline, CupertinoIcons.lock);
   static const copy = AppIconSet(Icons.copy, CupertinoIcons.doc_on_doc);
   static const copyOutlined = AppIconSet(
@@ -140,6 +144,11 @@ abstract final class AppIcons {
   static const install = AppIconSet(
     Icons.system_update_alt,
     CupertinoIcons.arrow_down_to_line,
+  );
+  static const eye = AppIconSet(Icons.visibility_outlined, CupertinoIcons.eye);
+  static const eyeOff = AppIconSet(
+    Icons.visibility_off_outlined,
+    CupertinoIcons.eye_slash,
   );
   static const checkCircle = AppIconSet(
     Icons.check_circle_outline,
@@ -256,6 +265,10 @@ abstract final class AppIcons {
     Icons.view_sidebar_outlined,
     CupertinoIcons.sidebar_right,
   );
+  static const checklist = AppIconSet(
+    Icons.checklist,
+    CupertinoIcons.square_list,
+  );
   static const terminal = AppIconSet(
     Icons.terminal,
     CupertinoIcons.chevron_left_slash_chevron_right,
@@ -274,6 +287,7 @@ abstract final class AppIcons {
     CupertinoIcons.pin,
   );
   static const power = AppIconSet(Icons.power_outlined, CupertinoIcons.power);
+  static const wrench = AppIconSet(Icons.build_outlined, CupertinoIcons.wrench);
   static const photoLibrary = AppIconSet(
     Icons.photo_library_outlined,
     CupertinoIcons.photo_on_rectangle,
@@ -301,6 +315,10 @@ abstract final class AppIcons {
     CupertinoIcons.arrow_right_circle,
   );
   static const link = AppIconSet(Icons.link, CupertinoIcons.link);
+  static const billing = AppIconSet(
+    Icons.credit_card_outlined,
+    CupertinoIcons.creditcard,
+  );
   static const waiting = AppIconSet(
     Icons.hourglass_empty,
     CupertinoIcons.hourglass,
@@ -426,6 +444,31 @@ abstract final class AppIcons {
     CupertinoIcons.cursor_rays,
   );
 
+  static const warningFilled = AppIconSet(
+    Icons.warning,
+    CupertinoIcons.exclamationmark_triangle_fill,
+  );
+
+  /// SF Symbols has no key, so Apple platforms show the lock.
+  static const key = AppIconSet(Icons.key_outlined, CupertinoIcons.lock);
+  static const cloud = AppIconSet(Icons.cloud_outlined, CupertinoIcons.cloud);
+
+  /// A cross in a filled circle: a check that failed.
+  static const crossCircleFilled = AppIconSet(
+    Icons.cancel,
+    CupertinoIcons.xmark_circle_fill,
+  );
+
+  /// A question mark in a filled circle: a check that could not tell.
+  static const questionCircleFilled = AppIconSet(
+    Icons.help,
+    CupertinoIcons.question_circle_fill,
+  );
+  static const lockOpen = AppIconSet(
+    Icons.lock_open_outlined,
+    CupertinoIcons.lock_open,
+  );
+
   /// Every set by name, for the catalog and for tests.
   static const all = <String, AppIconSet>{
     'error': error,
@@ -440,6 +483,7 @@ abstract final class AppIcons {
     'chevronRight': chevronRight,
     'chevronLeft': chevronLeft,
     'refresh': refresh,
+    'folder': folder,
     'lock': lock,
     'copy': copy,
     'copyOutlined': copyOutlined,
@@ -461,6 +505,8 @@ abstract final class AppIcons {
     'edit': edit,
     'download': download,
     'install': install,
+    'eye': eye,
+    'eyeOff': eyeOff,
     'checkCircle': checkCircle,
     'checkCircleFilled': checkCircleFilled,
     'attach': attach,
@@ -494,6 +540,7 @@ abstract final class AppIcons {
     'sidebar': sidebar,
     'inspector': inspector,
     'terminal': terminal,
+    'checklist': checklist,
     'swap': swap,
     'pin': pin,
     'unpin': unpin,
@@ -507,6 +554,7 @@ abstract final class AppIcons {
     'menu': menu,
     'signIn': signIn,
     'link': link,
+    'billing': billing,
     'waiting': waiting,
     'help': help,
     'shieldWarning': shieldWarning,
@@ -543,5 +591,11 @@ abstract final class AppIcons {
     'paste': paste,
     'touch': touch,
     'pointer': pointer,
+    'warningFilled': warningFilled,
+    'key': key,
+    'cloud': cloud,
+    'crossCircleFilled': crossCircleFilled,
+    'questionCircleFilled': questionCircleFilled,
+    'lockOpen': lockOpen,
   };
 }

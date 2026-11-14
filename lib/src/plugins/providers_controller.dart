@@ -7,6 +7,7 @@ import 'hermes_plugin_manager_repository.dart';
 import 'installed_plugin.dart' show PluginActionResult;
 import 'plugins_controller.dart' show PluginsFailure;
 import 'provider_settings.dart';
+import '../telemetry/report_bug.dart';
 
 /// What the Providers tab shows and does: the server's memory provider and
 /// context engine settings, the user's unsaved choices, and saving them.
@@ -87,7 +88,8 @@ class ProvidersController extends ChangeNotifier with SafeNotifier {
       _apply(await _repository.loadProviders());
     } on PluginsUnsupported {
       _failure = PluginsFailure.unsupported;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the provider list');
       _failure = PluginsFailure.failed;
     }
     _loading = false;
@@ -102,7 +104,8 @@ class ProvidersController extends ChangeNotifier with SafeNotifier {
       _failure = null;
       notifyListeners();
       return true;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the provider list');
       return false;
     }
   }
@@ -131,9 +134,8 @@ class ProvidersController extends ChangeNotifier with SafeNotifier {
       notifyListeners();
     }
     _events('plugins.providers.save.${result.ok ? 'ok' : 'error'}', {
-      if (memory != null)
-        'memory.provider': memory.isEmpty ? 'builtin' : memory,
-      'context.engine': ?context,
+      if (memory != null) 'memory.changed': true,
+      if (context != null) 'context.changed': true,
     });
     if (result.ok) await refresh();
     notifyListeners();

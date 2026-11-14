@@ -250,6 +250,17 @@ class ConnectorOperationsState {
     return ConnectorSnapshotOutcome.applied;
   }
 
+  /// Drops every target's connect URL, for a display-only model.
+  void stripBrowserLinks() {
+    for (final entry in _operations.entries.toList()) {
+      _operations[entry.key] = entry.value.copyWith(
+        targets: List.unmodifiable(
+          entry.value.targets.map((target) => target.withoutBrowserLink()),
+        ),
+      );
+    }
+  }
+
   void markSettled(ConnectorOperationKey key) {
     final old = _operations[key];
     if (old != null) _operations[key] = old.copyWith(settled: true);

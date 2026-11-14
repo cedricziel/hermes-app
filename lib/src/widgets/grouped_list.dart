@@ -277,7 +277,8 @@ class GroupedSection extends StatelessWidget {
 /// trailing edge a muted [value] with a disclosure chevron, or [trailing]
 /// (a switch) in their place. Above the default text size, a [value] that
 /// would not fit beside the title (or would squeeze it) sits under it instead,
-/// ahead of the subtitle, and the title and subtitle wrap.
+/// ahead of the subtitle. The title and subtitle keep the line limits they
+/// were given, unless [wrapWhenStacked] lets them wrap there.
 class GroupedRow extends StatelessWidget {
   const GroupedRow({
     super.key,
@@ -286,14 +287,19 @@ class GroupedRow extends StatelessWidget {
     this.meta,
     this.subtitle,
     this.subtitleMaxLines = 1,
+    this.wrapWhenStacked = false,
     this.monospaceSubtitle = false,
     this.caption,
     this.warning,
     this.error,
+    this.details = const [],
+    this.titleWeight,
+    this.titleBadge,
     this.leading,
     this.value,
     this.trailing,
     this.separateTrailing = false,
+    this.trailingBelow = false,
     this.onTap,
     this.enabled = true,
     this.checked,
@@ -316,6 +322,11 @@ class GroupedRow extends StatelessWidget {
   /// null lets it wrap, for text with nowhere else to be read.
   final int? subtitleMaxLines;
 
+  /// Lets the title and subtitle wrap in full while the [value] is stacked
+  /// under the title, whatever [titleMaxLines] and [subtitleMaxLines] say.
+  /// Beside the value, and at the default text size, they keep those limits.
+  final bool wrapWhenStacked;
+
   /// Sets [subtitle] in a monospaced font, for a command line.
   final bool monospaceSubtitle;
 
@@ -328,6 +339,17 @@ class GroupedRow extends StatelessWidget {
   /// A line in the error colour, such as a rejected bot token.
   final String? error;
 
+  /// Further lines under the [error] line, inside the part of the row that
+  /// [onTap] opens, such as a [GroupedStatusLine] or a count with a spinner.
+  final List<Widget> details;
+
+  /// Overrides the title's weight, for a row whose name leads its lines.
+  final FontWeight? titleWeight;
+
+  /// A small tag after the title, such as an outlined "paid". It sits in the
+  /// title's line and wraps with it.
+  final Widget? titleBadge;
+
   /// An icon, or a [GroupedTile].
   final Widget? leading;
 
@@ -339,6 +361,10 @@ class GroupedRow extends StatelessWidget {
 
   /// Keeps trailing actions separate from a static row in accessibility.
   final bool separateTrailing;
+
+  /// Puts a separate [trailing] control on a line of its own under the text,
+  /// for the largest text sizes where it would squeeze the text beside it.
+  final bool trailingBelow;
   final VoidCallback? onTap;
 
   /// False ignores [onTap] while the row still reads as a button, a
@@ -378,15 +404,23 @@ class GroupedRow extends StatelessWidget {
     // Called from under the row's Material, so this is the style the row's
     // text is drawn in.
     final base = DefaultTextStyle.of(context).style;
-    double measure(String text, double size, {int? maxLines}) => (TextPainter(
-      text: TextSpan(
-        text: text,
-        style: base.merge(TextStyle(fontSize: size)),
-      ),
-      textDirection: direction,
-      textScaler: scaler,
-      maxLines: maxLines,
-    )..layout()).width;
+    double measure(String text, double size, {int? maxLines}) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: base.merge(TextStyle(fontSize: size)),
+        ),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: maxLines,
+      )..layout();
+      try {
+        return painter.width;
+      } finally {
+        painter.dispose();
+      }
+    }
+
     final valueWidth = measure(value, metrics.subtitleSize, maxLines: 1) + 8;
     // Room beside the title: the row less its leading, chevron and gaps.
     var room = width;
@@ -425,8 +459,10 @@ class GroupedRow extends StatelessWidget {
         trailing != null &&
         (onTap != null || separateTrailing) &&
         checked == null;
+    final below = trailingApart && trailingBelow;
     final titleStyle = TextStyle(
       fontSize: metrics.titleSize,
+      fontWeight: titleWeight,
       color: destructive ? scheme.error : scheme.onSurface,
     );
     Widget row({double? valueWidth, bool stacked = false}) => Row(
@@ -457,10 +493,19 @@ class GroupedRow extends StatelessWidget {
                             color: muted,
                           ),
                         ),
+                      if (titleBadge != null)
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.only(start: 8),
+                            child: titleBadge,
+                          ),
+                        ),
                     ],
                   ),
-                  maxLines: stacked ? null : titleMaxLines,
-                  overflow: titleMaxLines == null || stacked
+                  maxLines: stacked && wrapWhenStacked ? null : titleMaxLines,
+                  overflow:
+                      titleMaxLines == null || (stacked && wrapWhenStacked)
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
                   style: titleStyle,
@@ -479,8 +524,11 @@ class GroupedRow extends StatelessWidget {
                 if (subtitle != null)
                   Text(
                     subtitle,
-                    maxLines: stacked ? null : subtitleMaxLines,
-                    overflow: subtitleMaxLines == null || stacked
+                    maxLines: stacked && wrapWhenStacked
+                        ? null
+                        : subtitleMaxLines,
+                    overflow:
+                        subtitleMaxLines == null || (stacked && wrapWhenStacked)
                         ? null
                         : TextOverflow.ellipsis,
                     style: TextStyle(
@@ -502,19 +550,20 @@ class GroupedRow extends StatelessWidget {
                     ),
                   ),
                 if (warning != null)
-                  _StatusLine(
+                  GroupedStatusLine(
                     icon: AppIcons.warning,
                     text: warning,
                     color: colors.warning,
                     size: metrics.subtitleSize,
                   ),
                 if (error != null)
-                  _StatusLine(
+                  GroupedStatusLine(
                     icon: AppIcons.error,
                     text: error,
                     color: scheme.error,
                     size: metrics.subtitleSize,
                   ),
+                ...details,
               ],
             ),
           ),
@@ -554,7 +603,7 @@ class GroupedRow extends StatelessWidget {
       child: Padding(
         padding: EdgeInsetsDirectional.only(
           start: metrics.rowPadding,
-          end: trailingApart ? 0 : metrics.rowPadding,
+          end: trailingApart && !below ? 0 : metrics.rowPadding,
         ),
         child: value == null
             ? row()
@@ -581,6 +630,25 @@ class GroupedRow extends StatelessWidget {
     if (!trailingApart) {
       return merged(Material(color: color, child: ink));
     }
+    if (below) {
+      return Material(
+        color: color,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            merged(ink),
+            Padding(
+              padding: EdgeInsetsDirectional.only(
+                start: metrics.rowPadding,
+                end: metrics.rowPadding,
+                bottom: metrics.rowVerticalPadding,
+              ),
+              child: trailing,
+            ),
+          ],
+        ),
+      );
+    }
     return Material(
       color: color,
       child: Row(
@@ -596,6 +664,42 @@ class GroupedRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// The switch of a settings row: the platform's own, shrunk to the Mac's
+/// small size there. With a [label] it is its own accessibility node, which
+/// a row that opens details needs, since the row's text then reads apart.
+class GroupedSwitch extends StatelessWidget {
+  const GroupedSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.label,
+  });
+
+  final bool value;
+
+  /// Null disables the switch.
+  final ValueChanged<bool>? onChanged;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget control = Switch.adaptive(
+      value: value,
+      onChanged: onChanged,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    if (label != null) {
+      control = MergeSemantics(
+        child: Semantics(label: label, child: control),
+      );
+    }
+    // A Mac settings row holds the small switch.
+    return platformChromeOf(context) == PlatformChrome.macos
+        ? SizedBox(height: 22, child: FittedBox(child: control))
+        : control;
   }
 }
 
@@ -643,49 +747,41 @@ class GroupedSwitchRow extends StatelessWidget {
   final bool selected;
 
   @override
-  Widget build(BuildContext context) {
-    Widget control = Switch.adaptive(
-      value: value,
-      onChanged: onChanged,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
+  Widget build(BuildContext context) => GroupedRow(
+    title: title,
+    titleMaxLines: titleMaxLines,
+    subtitle: subtitle,
+    subtitleMaxLines: subtitleMaxLines,
+    monospaceSubtitle: monospaceSubtitle,
+    meta: meta,
+    caption: caption,
+    warning: warning,
+    error: error,
+    leading: leading,
+    onTap: onTap,
+    selected: selected,
+    chevron: false,
     // Beside a row that opens details the switch is its own node, so it
     // carries the title itself.
-    if (onTap != null) {
-      control = MergeSemantics(
-        child: Semantics(label: title, child: control),
-      );
-    }
-    return GroupedRow(
-      title: title,
-      titleMaxLines: titleMaxLines,
-      subtitle: subtitle,
-      subtitleMaxLines: subtitleMaxLines,
-      monospaceSubtitle: monospaceSubtitle,
-      meta: meta,
-      caption: caption,
-      warning: warning,
-      error: error,
-      leading: leading,
-      onTap: onTap,
-      selected: selected,
-      chevron: false,
-      // A Mac settings row holds the small switch.
-      trailing: platformChromeOf(context) == PlatformChrome.macos
-          ? SizedBox(height: 22, child: FittedBox(child: control))
-          : control,
-    );
-  }
+    trailing: GroupedSwitch(
+      value: value,
+      onChanged: onChanged,
+      label: onTap != null ? title : null,
+    ),
+  );
 }
 
 /// A warning or error line. It wraps, since it often says what to fix and
 /// the row has nowhere else to show it.
-class _StatusLine extends StatelessWidget {
-  const _StatusLine({
+class GroupedStatusLine extends StatelessWidget {
+  const GroupedStatusLine({
+    super.key,
     required this.icon,
     required this.text,
     required this.color,
     required this.size,
+    this.scaleIcon = false,
+    this.liveRegion = false,
   });
 
   final AppIconSet icon;
@@ -693,27 +789,43 @@ class _StatusLine extends StatelessWidget {
   final Color color;
   final double size;
 
+  /// Grows the icon with the text size, for lines that read at the largest
+  /// text sizes; off keeps the icon at [size].
+  final bool scaleIcon;
+
+  /// Announces the line to a screen reader when it appears or changes.
+  final bool liveRegion;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 2),
-    child: Row(
-      spacing: 4,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Level with the first line of text.
-        Padding(
-          padding: const EdgeInsets.only(top: 1),
-          child: AppIcon(icon, size: size, color: color),
-        ),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: size, color: color),
+  Widget build(BuildContext context) {
+    final line = Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        spacing: 4,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Level with the first line of text.
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: AppIcon(
+              icon,
+              size: scaleIcon
+                  ? MediaQuery.textScalerOf(context).scale(size)
+                  : size,
+              color: color,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: size, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+    return liveRegion ? Semantics(liveRegion: true, child: line) : line;
+  }
 }
 
 /// A row's leading picture in a rounded square, such as a platform's icon

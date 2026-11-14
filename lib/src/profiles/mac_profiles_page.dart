@@ -16,9 +16,15 @@ import '../memory/memory_proposals_repository.dart';
 import '../memory/memory_repository.dart';
 import '../plugins/installed_plugin.dart';
 import '../plugins/plugins_screen.dart';
+import '../providers/provider_results.dart';
+import '../providers/providers_screen.dart';
 import '../settings/helper_models_screen.dart';
 import '../skills/skills_screen.dart';
 import '../theme/app_icons.dart';
+import '../tools/hermes_tools_repository.dart';
+import '../tools/tools_availability.dart';
+import '../tools/tools_models.dart';
+import '../tools/tools_screen.dart';
 import '../widgets/state_message.dart';
 import 'chat_profiles.dart';
 import 'widgets/mac_profiles_view.dart';
@@ -58,7 +64,16 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
 
   /// The staged memory changes waiting, by profile.
   final _waiting = <String, int>{};
+
+  /// How many tools are on of how many, by profile, read when a profile is
+  /// selected and only while the server offers Tools.
+  final _tools = <String, ({int on, int total})>{};
+  ToolsAvailability? _availability;
+  final _toolsReading = <String>{};
   int _generation = 0;
+
+  /// False once the server answered 404 to its model options.
+  var _providersOffered = true;
 
   ChatProfiles get _profiles => widget.profiles;
 
@@ -66,13 +81,59 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   void initState() {
     super.initState();
     _profiles.addListener(_changed);
+    _availability = _maybeRead<ToolsAvailability>()
+      ?..addListener(_toolsOfferChanged);
     _changed();
+  }
+
+  T? _maybeRead<T>() {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
   }
 
   @override
   void dispose() {
     _profiles.removeListener(_changed);
+    _availability?.removeListener(_toolsOfferChanged);
     super.dispose();
+  }
+
+  /// The server's answer about Tools came or changed: show or hide the row,
+  /// and read the count the row waits for.
+  void _toolsOfferChanged() {
+    if (!mounted) return;
+    final name = _selected;
+    if (name != null && (_availability?.offered ?? false)) {
+      unawaited(_loadTools(name, _generation));
+    }
+    setState(() {});
+  }
+
+  /// Counts the selected profile's tools. A failed read leaves no count.
+  Future<void> _loadTools(String name, int generation) async {
+    final repositories = HermesRepositories.maybeOf(context);
+    if (repositories == null || !(_availability?.offered ?? false)) return;
+    // One read per profile at a time: a selection, an offer change and a
+    // return from the screen can come together.
+    if (!_toolsReading.add(name)) return;
+    final ToolsResult<ToolsetList> result;
+    try {
+      result = await repositories.tools.forProfile(name).list();
+    } finally {
+      _toolsReading.remove(name);
+    }
+    if (!mounted || generation != _generation) return;
+    if (result case ToolsOk<ToolsetList>(:final value)) {
+      setState(
+        () => _tools[name] = (
+          on: value.toolsets.where((t) => t.enabled).length,
+          total: value.toolsets.length,
+        ),
+      );
+    }
   }
 
   void _changed() {
@@ -113,6 +174,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     if (profile != null) put(ProfileSection.skills, profile.skillCount);
     if (repositories == null) return;
     await Future.wait([
+      _loadTools(name, generation),
       _loadWaiting(name, generation, repositories),
       count(
         ProfileSection.memory,
@@ -132,6 +194,17 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                 .slots
                 .length,
       ),
+      count(ProfileSection.providers, () async {
+        final snapshot = await repositories.providers.load(name);
+        if (snapshot is ProvidersUnsupported) {
+          // An older Hermes without model options: no such section.
+          if (mounted && _providersOffered) {
+            setState(() => _providersOffered = false);
+          }
+        }
+        if (snapshot is! ProvidersLoaded) throw StateError('not loaded');
+        return snapshot.catalog.connected.length;
+      }),
       count(
         ProfileSection.messaging,
         () async => (await repositories.messaging.forProfile(name).load())
@@ -191,6 +264,16 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         profiles: repositories.profiles,
         profile: name,
       ),
+      ProfileSection.providers => ProvidersScreen(
+        repository: repositories.providers,
+        profile: name,
+        entry: ProvidersEntry.profiles,
+      ),
+      ProfileSection.tools => ToolsScreen(
+        repository: repositories.tools.forProfile(name),
+        availability: _availability,
+        onProfileGone: () => unawaited(_profiles.load()),
+      ),
       ProfileSection.helperModels => HelperModelsScreen(
         repository: repositories.models,
         profile: name,
@@ -206,7 +289,16 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
       if (mounted) unawaited(_loadCounts(name));
       return;
     }
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => page));
+    // Connecting or removing a provider changes the count the row shows.
+    if (section == ProfileSection.providers && mounted) {
+      unawaited(_loadCounts(name));
+    }
+    // Switches made on the Tools screen change the count.
+    if (mounted && section == ProfileSection.tools) {
+      unawaited(_loadTools(name, _generation));
+    }
   }
 
   @override
@@ -249,7 +341,13 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     onSelect: _select,
                     counts: _counts[_selected] ?? const {},
                     memoryWaiting: _waiting[_selected],
+                    toolsCount: _tools[_selected],
                     onOpen: _open,
+                    hiddenSections: {
+                      if (!_providersOffered) ProfileSection.providers,
+                      if (!(_availability?.offered ?? false))
+                        ProfileSection.tools,
+                    },
                   ),
           ),
         ],

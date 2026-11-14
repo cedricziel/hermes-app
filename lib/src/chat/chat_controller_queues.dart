@@ -425,6 +425,8 @@ extension _ChatControllerQueues on ChatController {
 
   void _drainQueue(ChatThread thread) {
     if (!active || _queueUnavailable.contains(thread)) return;
+    // A move of the folder is being settled: the queue goes on after it.
+    if (_moveHolds(thread)) return;
     if (_sessionStates[thread]?.reclaimedReason != null ||
         _reclaimedQueueReview.contains(thread)) {
       return;
@@ -471,7 +473,8 @@ extension _ChatControllerQueues on ChatController {
       queuesVisible &&
       send.epoch == _queueEpoch &&
       profile == _profile &&
-      generation == _loadGeneration &&
+      (generation == _loadGeneration ||
+          send.carriedGeneration == _loadGeneration) &&
       _threads.contains(thread) &&
       _sameQueueOwner(queueScope?.call(thread, profile), send.scope) &&
       send.scope.conversationId == thread.id &&
@@ -561,7 +564,7 @@ extension _ChatControllerQueues on ChatController {
     ChatThread thread,
     QueuedPrompt prompt,
   ) async {
-    if (!_queueDispatching.add(thread)) return;
+    if (_moveHolds(thread) || !_queueDispatching.add(thread)) return;
     final scope = prompt.scope;
     final profile = _profile;
     final generation = _loadGeneration;
@@ -584,6 +587,7 @@ extension _ChatControllerQueues on ChatController {
         activityEpoch,
         sessionGeneration,
       );
+      _protectedSends[thread] = send;
       final attachments = <ChatAttachment>[];
       final outgoing = <OutgoingAttachment>[];
       for (final file in prompt.durable!.attachments) {
@@ -667,12 +671,13 @@ extension _ChatControllerQueues on ChatController {
     _drainQueue(thread);
   }
 
-  void _cancelSettleWaits() {
-    for (final timer in _settleTimers.values) {
-      timer.cancel();
+  void _cancelSettleWaits({Set<ChatThread> except = const {}}) {
+    for (final entry in _settleTimers.entries.toList()) {
+      if (except.contains(entry.key)) continue;
+      entry.value.cancel();
+      _settleTimers.remove(entry.key);
     }
-    _settleTimers.clear();
-    _refetch.clear();
+    _refetch.removeWhere((thread) => !except.contains(thread));
   }
 
   Future<bool> _enqueueProtected(
@@ -790,7 +795,12 @@ class _ProtectedQueuedSend {
   final QueuedPrompt prompt;
   final QueueScope scope;
   final PromptQueueStore store;
-  final int epoch;
+
+  /// Where the send stands in the queue's epoch and the thread list's
+  /// generation. A list read again that keeps this send's thread moves both
+  /// on, so the send stays current (the `kept` block of `_loadThreads`).
+  int epoch;
+  int? carriedGeneration;
   final int activityEpoch;
   final int sessionGeneration;
   final String claim;

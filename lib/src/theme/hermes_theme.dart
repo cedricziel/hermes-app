@@ -25,6 +25,22 @@ class HermesColors {
   static const zinc950 = Color(0xFF09090B);
 }
 
+/// The 1 px edge of a dialog or bottom sheet. On the dark scaffold the
+/// surface of an overlay and the scrim behind it are both near black, so the
+/// edge carries the boundary: zinc500 stands 4.2:1 off the scrimmed backdrop,
+/// where zinc800 (the border colour everywhere else) stands 1.4:1. Light
+/// overlays are white on a mid-grey scrim and need none.
+///
+/// Mirrors `--h-overlay-edge` in `design/web/src/styles/tokens.css`; change
+/// both together.
+BorderSide hermesOverlayEdge(ColorScheme scheme) =>
+    scheme.brightness == Brightness.dark
+    ? const BorderSide(color: HermesColors.zinc500)
+    : BorderSide.none;
+
+/// Corner radius of a Material dialog and the top of a bottom sheet.
+const double _kOverlayRadius = 28;
+
 /// Border radius used throughout the chat UI (composer, message chips,
 /// suggestion cards, sidebar rows) — assistant-ui leans on one consistent
 /// "rounded-xl" everywhere rather than mixing radii.
@@ -62,6 +78,7 @@ ThemeData buildHermesLightTheme({TargetPlatform? platform}) {
     subtleText: const Color(0xFF6B6B74),
     success: const Color(0xFF166534),
     warning: const Color(0xFF92400E),
+    link: const Color(0xFF1565C0),
     platform: platform,
   );
 }
@@ -88,6 +105,7 @@ ThemeData buildHermesDarkTheme({TargetPlatform? platform}) {
     subtleText: HermesColors.zinc400,
     success: const Color(0xFF4ADE80),
     warning: const Color(0xFFFBBF24),
+    link: const Color(0xFF90CAF9),
     platform: platform,
   );
 }
@@ -99,6 +117,7 @@ ThemeData _buildTheme({
   required Color subtleText,
   required Color success,
   required Color warning,
+  required Color link,
   TargetPlatform? platform,
 }) {
   final target = platform ?? defaultTargetPlatform;
@@ -119,6 +138,15 @@ ThemeData _buildTheme({
           fontSize: 13,
         )
       : null;
+  final dark = scheme.brightness == Brightness.dark;
+  final overlayEdge = hermesOverlayEdge(scheme);
+  // Dark dialogs and sheets sit on zinc900, one step above the scaffold, and
+  // dim the page with the design system's 0.6 scrim (`--h-scrim`). Not
+  // zinc800: the idle outline of a dialog's text field and an unselected
+  // effort segment are zinc800 and would vanish on it. Light keeps Material's
+  // own surface and scrim.
+  final overlaySurface = dark ? HermesColors.zinc900 : null;
+  const overlayRadius = Radius.circular(_kOverlayRadius);
   final fieldRadius = BorderRadius.circular(10);
   final appleFieldBorder = OutlineInputBorder(
     borderRadius: fieldRadius,
@@ -141,6 +169,7 @@ ThemeData _buildTheme({
         subtleText: subtleText,
         success: success,
         warning: warning,
+        link: link,
       ),
     ],
     appBarTheme: AppBarTheme(
@@ -213,6 +242,48 @@ ThemeData _buildTheme({
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     ),
+    dialogTheme: dark
+        ? DialogThemeData(
+            backgroundColor: overlaySurface,
+            surfaceTintColor: Colors.transparent,
+            barrierColor: const Color(0x99000000),
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(overlayRadius),
+              side: overlayEdge,
+            ),
+          )
+        : null,
+    bottomSheetTheme: dark
+        ? BottomSheetThemeData(
+            backgroundColor: overlaySurface,
+            surfaceTintColor: Colors.transparent,
+            modalBarrierColor: const Color(0x99000000),
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.vertical(top: overlayRadius),
+              side: overlayEdge,
+            ),
+          )
+        : null,
+    // Material's pickers take surface and shape from their own themes.
+    datePickerTheme: dark
+        ? DatePickerThemeData(
+            backgroundColor: overlaySurface,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(overlayRadius),
+              side: overlayEdge,
+            ),
+          )
+        : null,
+    timePickerTheme: dark
+        ? TimePickerThemeData(
+            backgroundColor: overlaySurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(overlayRadius),
+              side: overlayEdge,
+            ),
+          )
+        : null,
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(foregroundColor: scheme.onSurface),
     ),
@@ -241,14 +312,15 @@ ThemeData _buildTheme({
 
 /// Chat-specific colors that don't map onto [ColorScheme]'s fixed roles
 /// (a distinct sidebar tint, a de-emphasized "muted" text color used for
-/// timestamps and hints throughout the thread view, and the status colors for
-/// something that went well or needs a look).
+/// timestamps and hints throughout the thread view, the status colors for
+/// something that went well or needs a look, and the link colour).
 class HermesChatColors extends ThemeExtension<HermesChatColors> {
   const HermesChatColors({
     required this.sidebar,
     required this.subtleText,
     required this.success,
     required this.warning,
+    required this.link,
   });
 
   final Color sidebar;
@@ -256,18 +328,30 @@ class HermesChatColors extends ThemeExtension<HermesChatColors> {
   final Color success;
   final Color warning;
 
+  /// Mirrors `--h-link` in `design/web/src/styles/tokens.css` (#1565c0 light,
+  /// #90caf9 dark); change both together.
+  ///
+  /// Text and icons that read as a link or as information: the one hue in an
+  /// otherwise neutral palette, because `colorScheme.primary` is near-black
+  /// (near-white in dark) and does not look like a link. Not for primary
+  /// action fills (filled buttons, app bar actions, selected states): those
+  /// stay `colorScheme.primary`.
+  final Color link;
+
   @override
   HermesChatColors copyWith({
     Color? sidebar,
     Color? subtleText,
     Color? success,
     Color? warning,
+    Color? link,
   }) {
     return HermesChatColors(
       sidebar: sidebar ?? this.sidebar,
       subtleText: subtleText ?? this.subtleText,
       success: success ?? this.success,
       warning: warning ?? this.warning,
+      link: link ?? this.link,
     );
   }
 
@@ -279,6 +363,7 @@ class HermesChatColors extends ThemeExtension<HermesChatColors> {
       subtleText: Color.lerp(subtleText, other.subtleText, t)!,
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
+      link: Color.lerp(link, other.link, t)!,
     );
   }
 }

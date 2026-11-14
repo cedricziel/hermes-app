@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
@@ -311,6 +312,33 @@ void main() {
     expect(connects, hasLength(2));
     expect(connects.last.since, 9);
     expect(controller.live, isTrue);
+  });
+
+  test('a connect that throws a StateError is retried and reported', () async {
+    final previous = FlutterError.onError;
+    final reported = <FlutterErrorDetails>[];
+    FlutterError.onError = reported.add;
+    addTearDown(() => FlutterError.onError = previous);
+    serveBoard([kanbanTaskRow(id: 't1')], latest: 1);
+    var attempts = 0;
+    final retrying = KanbanBoardController(
+      repository: KanbanRepository(server.client()),
+      connect: ({required since, board}) async {
+        if (attempts++ == 0) throw StateError('bug');
+        final socket = StreamChannelController<String>();
+        sockets.add(socket);
+        return socket.foreign;
+      },
+      debounce: Duration.zero,
+      reconnectDelay: (_) => Duration.zero,
+    );
+    addTearDown(retrying.dispose);
+
+    await retrying.start();
+    await until(() => retrying.live);
+
+    expect(attempts, 2);
+    expect(reported.single.exception, isA<StateError>());
   });
 
   test('logs each reconnect with its attempt and backoff', () async {

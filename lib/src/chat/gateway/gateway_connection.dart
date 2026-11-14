@@ -67,6 +67,15 @@ typedef MixedSocketConnect = Future<StreamChannel<Object?>> Function([
 /// single-use ticket when the dashboard is gated ([authRequired]), else the
 /// page's session token. Credentials are fetched per connection, since a
 /// ticket works only once.
+/// The dashboard page carries no session token (a proxy or login page answered
+/// instead), so no socket can be opened. An expected failure, not a bug.
+class GatewayCredentialUnavailable implements Exception {
+  const GatewayCredentialUnavailable();
+
+  @override
+  String toString() => 'The dashboard page carries no session token';
+}
+
 Future<StreamChannel<T>> Function([Map<String, String> query])
 _dashboardSocketConnect<T>({
   required String baseUrl,
@@ -79,11 +88,14 @@ _dashboardSocketConnect<T>({
   Future<Map<String, String>> credential() async {
     if (authRequired) {
       final response = await api.raw.authWsTicketApiAuthWsTicketPost();
-      return {'ticket': (response.data as Map)['ticket'] as String};
+      final data = response.data;
+      final ticket = data is Map ? data['ticket'] : null;
+      if (ticket is! String) throw const GatewayCredentialUnavailable();
+      return {'ticket': ticket};
     }
     final token = await api.fetchSessionToken();
     if (token == null) {
-      throw StateError('The dashboard page carries no session token');
+      throw const GatewayCredentialUnavailable();
     }
     return {'token': token};
   }

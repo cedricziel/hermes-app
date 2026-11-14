@@ -51,6 +51,9 @@ class _GatedDashboard {
   /// Status the refresh route answers with instead of rotating, if set.
   int? refreshFailure;
 
+  /// The body sent with [refreshFailure].
+  Object refreshFailureBody = {'detail': 'refresh failed'};
+
   /// Whether the refresh route leaves `expires_at` out of its answer.
   bool omitExpiresAt = false;
 
@@ -111,12 +114,12 @@ class _GatedDashboard {
         await Future<void>.delayed(refreshDelay);
         final failure = refreshFailure;
         if (failure != null) {
-          return _json(request, failure, {'detail': 'refresh failed'});
+          return _json(request, failure, refreshFailureBody);
         }
         final replay =
             replayLastRotation && body['refresh_token'] == _rotatedAway;
         if (body['refresh_token'] != validRefresh && !replay) {
-          return _json(request, 401, {'detail': 'session_expired'});
+          return _json(request, 401, _sessionExpired);
         }
         if (!replay) {
           rotations++;
@@ -233,6 +236,12 @@ class _DeferredDeleteTokenStore extends MemoryTokenStore {
     session = null;
   }
 }
+
+/// What Hermes answers a refresh token it no longer accepts with.
+const _sessionExpired = {
+  'error': 'session_expired',
+  'detail': 'Refresh token expired or invalid; start a new sign-in.',
+};
 
 final _farFuture =
     DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000;
@@ -708,6 +717,173 @@ void main() {
     });
   }
 
+  test('a session stored before the server was recorded follows a redirect '
+      'of its saved address to another port on the same host', () async {
+    final front = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => front.close(force: true));
+    front.listen((request) {
+      request.response
+        ..statusCode = HttpStatus.movedPermanently
+        ..headers.set('Location', '${dashboard.url}${request.uri.path}')
+        ..close();
+    });
+    final saved = 'http://127.0.0.1:${front.port}';
+    await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
+    store = MemoryTokenStore(_session());
+    controller = AuthController(
+      tokenStore: store,
+      telemetry: events.connection,
+    );
+
+    await controller.bootstrap();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.baseUrl, dashboard.url);
+    expect(controller.savedServerUrl, dashboard.url);
+    expect(store.session?.serverUrl, dashboard.url);
+
+    final relaunched = AuthController(
+      tokenStore: store,
+      telemetry: events.connection,
+    );
+    addTearDown(relaunched.dispose);
+    await relaunched.bootstrap();
+
+    expect(relaunched.state, HermesConnectionState.ready);
+    expect(relaunched.baseUrl, dashboard.url);
+  });
+
+  test('a session stored before the server was recorded is not sent to a '
+      'new address typed while the saved one is unreachable', () async {
+    final gone = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final saved = 'http://127.0.0.1:${gone.port}';
+    await gone.close(force: true);
+    await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
+    store = MemoryTokenStore(_session());
+    controller = AuthController(
+      tokenStore: store,
+      telemetry: events.connection,
+    );
+    await controller.bootstrap();
+    expect(controller.state, HermesConnectionState.connectionError);
+
+    await controller.connect(dashboard.url);
+
+    expect(controller.baseUrl, dashboard.url);
+    expect(controller.state, HermesConnectionState.needsLogin);
+    expect(dashboard.authRequests, 0);
+    expect(dashboard.refreshCalls, 0);
+    expect(store.session?.refreshToken, 'refresh-1');
+    expect(store.session?.serverUrl, saved);
+  });
+
+  group('a session stored before the server was recorded, once the saved '
+      'address moved to a new one', () {
+    late String saved;
+
+    setUp(() async {
+      final gone = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      saved = 'http://127.0.0.1:${gone.port}';
+      await gone.close(force: true);
+      await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
+      store = MemoryTokenStore(_session());
+      controller = AuthController(
+        tokenStore: store,
+        telemetry: events.connection,
+      );
+      await controller.bootstrap();
+      await controller.connect(dashboard.url);
+      expect(controller.savedServerUrl, dashboard.url);
+    });
+
+    test('is not sent there by a second connect', () async {
+      await controller.connect(dashboard.url);
+
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(dashboard.authRequests, 0);
+      expect(dashboard.refreshCalls, 0);
+    });
+
+    test('is not sent there after a relaunch', () async {
+      final relaunched = AuthController(
+        tokenStore: store,
+        telemetry: events.connection,
+      );
+      addTearDown(relaunched.dispose);
+
+      await relaunched.bootstrap();
+
+      expect(relaunched.baseUrl, dashboard.url);
+      expect(relaunched.state, HermesConnectionState.needsLogin);
+      expect(dashboard.authRequests, 0);
+      expect(dashboard.refreshCalls, 0);
+      expect(store.session?.refreshToken, 'refresh-1');
+    });
+  });
+
+  test('the saved address stays when the server of a session stored before '
+      'it was recorded cannot be written', () async {
+    final gone = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final saved = 'http://127.0.0.1:${gone.port}';
+    await gone.close(force: true);
+    await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
+    store = MemoryTokenStore(_session());
+    controller = AuthController(
+      tokenStore: store,
+      telemetry: events.connection,
+    );
+    await controller.bootstrap();
+    store.failWrites = true;
+
+    await controller.connect(dashboard.url);
+
+    expect(controller.state, HermesConnectionState.needsLogin);
+    expect(controller.savedServerUrl, saved);
+    expect(await SharedPreferencesAsync().getString(kSavedServerUrlKey), saved);
+    expect(dashboard.authRequests + dashboard.refreshCalls, 0);
+  });
+
+  test(
+    'a session stored before the server was recorded, with no saved '
+    'address to belong to, is removed rather than sent to a new one',
+    () async {
+      store = MemoryTokenStore(_session());
+      controller = AuthController(
+        tokenStore: store,
+        telemetry: events.connection,
+      );
+
+      await controller.connect(dashboard.url);
+      await controller.connect(dashboard.url);
+
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(store.session, isNull);
+      expect(dashboard.authRequests + dashboard.refreshCalls, 0);
+    },
+  );
+
+  test('a session stored before the server was recorded still restores at '
+      'its address after the user tried another one', () async {
+    final other = await _GatedDashboard.start();
+    addTearDown(other.close);
+    await SharedPreferencesAsync().setString(kSavedServerUrlKey, dashboard.url);
+    store = MemoryTokenStore(_session());
+    controller = AuthController(
+      tokenStore: store,
+      telemetry: events.connection,
+    );
+    await controller.bootstrap();
+    expect(controller.state, HermesConnectionState.ready);
+
+    await controller.connect(other.url);
+    expect(controller.state, HermesConnectionState.needsLogin);
+    expect(other.authRequests + other.refreshCalls, 0);
+
+    await controller.connect(dashboard.url);
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-1');
+  });
+
   test('signs the user out when the refresh token is rejected', () async {
     await bootstrapWith(_session());
     dashboard
@@ -729,6 +905,60 @@ void main() {
       {'cause': 'refresh_rejected'},
     ]);
     expect(events.named('auth.state').last, {'state': 'needsLogin'});
+  });
+
+  test('keeps the session when a 403 to the refresh does not come from '
+      'Hermes', () async {
+    await bootstrapWith(_session());
+    dashboard
+      ..validAccess = 'revoked'
+      ..refreshFailure = 403
+      ..refreshFailureBody = {'detail': 'Forbidden'};
+
+    await expectLater(controller.api!.fetchMe(), throwsA(isA<DioException>()));
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-1');
+    expect(events.named('auth.session.refresh_failed'), [
+      {
+        'trigger': 'after_401',
+        'rejected': false,
+        'http.response.status_code': 403,
+      },
+    ]);
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('a proactive refresh answered with a 403 from a proxy keeps the '
+      'session and sends the request', () async {
+    dashboard.refreshExpiresAt = 1;
+    await bootstrapWith(_session(expiresAt: 1));
+    dashboard
+      ..refreshFailure = 403
+      ..refreshFailureBody = '<html>Access denied</html>';
+
+    await controller.api!.fetchMe();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-2');
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('signs the user out when a 403 to the refresh carries Hermes\' '
+      'session_expired', () async {
+    await bootstrapWith(_session());
+    dashboard
+      ..validAccess = 'revoked'
+      ..refreshFailure = 403
+      ..refreshFailureBody = _sessionExpired;
+
+    await expectLater(controller.api!.fetchMe(), throwsA(isA<DioException>()));
+
+    expect(controller.state, HermesConnectionState.needsLogin);
+    expect(store.session, isNull);
+    expect(events.named('auth.session.expired'), [
+      {'cause': 'refresh_rejected'},
+    ]);
   });
 
   test('keeps stored tokens when the session check fails for a transient '

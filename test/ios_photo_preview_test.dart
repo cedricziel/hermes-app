@@ -63,10 +63,14 @@ void main() {
       () => tester
           .widgetList<RawImage>(find.byType(RawImage))
           .any((image) => image.image != null),
+      reason: 'the photo thumbnail to decode',
     );
   }
 
-  Future<void> open(WidgetTester tester) async {
+  // Taps the photo and waits for what the tap is meant to cause: Quick Look
+  // asked to show the staged file, or, with [fails], the error message.
+  Future<void> open(WidgetTester tester, {bool fails = false}) async {
+    final before = native.previewed.length;
     // The tiny fixture is one pixel, so tap its centre.
     final point =
         tester.getTopLeft(find.byType(Image).first) + const Offset(.5, .5);
@@ -74,7 +78,20 @@ void main() {
     await tester.pump();
     await waitUntil(
       tester,
+      () => fails
+          ? find
+                .text('Could not open this photo. Try again.')
+                .evaluate()
+                .isNotEmpty
+          : native.previewed.length > before,
+      reason: fails
+          ? 'the preview failure message to show'
+          : 'Quick Look to be asked to preview the staged photo',
+    );
+    await waitUntil(
+      tester,
       () => find.byType(LinearProgressIndicator).evaluate().isEmpty,
+      reason: 'the preparing indicator to go away',
     );
   }
 
@@ -148,7 +165,7 @@ void main() {
           bytes: kTinyPng,
         ),
       );
-      await open(tester);
+      await open(tester, fails: true);
       expect(
         find.text('Could not open this photo. Try again.'),
         findsOneWidget,
@@ -204,6 +221,7 @@ void main() {
     await waitUntil(
       tester,
       () => cleared && find.byType(LinearProgressIndicator).evaluate().isEmpty,
+      reason: 'the store to clear and the preparing indicator to go away',
     );
     expect(cleared, isTrue);
     expect(native.previewed, isEmpty);

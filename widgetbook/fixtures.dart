@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/chat/activity/widgets/needs_you_models.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
@@ -786,3 +787,89 @@ final messengerLongThreads = [
     updatedAt: DateTime(2026, 10, 15),
   ),
 ];
+
+const needsYouBilling = NeedsYouItem(
+  id: 'billing',
+  kind: NeedsYouKind.billing,
+  body: BillingBodyModel(
+    code: 'WDJB-MJHT',
+    host: 'verify.example.com',
+    openable: true,
+  ),
+  actions: {NeedsYouAction.open, NeedsYouAction.copy},
+);
+
+const needsYouBillingInvalidLink = NeedsYouItem(
+  id: 'billing-invalid',
+  kind: NeedsYouKind.billing,
+  body: BillingBodyModel(code: 'WDJB-MJHT', host: null, openable: false),
+  actions: {NeedsYouAction.open, NeedsYouAction.copy},
+);
+
+const needsYouConnectorOne = NeedsYouItem(
+  id: 'connector-one',
+  kind: NeedsYouKind.connector,
+  body: ConnectorBodyModel(
+    targets: [
+      ConnectorTargetModel(
+        name: 'Notion',
+        status: ConnectorTargetStatus.waiting,
+        detail: 'Continue in the browser to approve access.',
+        openable: true,
+        skippable: true,
+      ),
+    ],
+    expiresIn: Duration(minutes: 4),
+  ),
+  actions: {
+    NeedsYouAction.open,
+    NeedsYouAction.skip,
+    NeedsYouAction.continueOn,
+  },
+);
+
+const needsYouConnectorThree = NeedsYouItem(
+  id: 'connector-three',
+  kind: NeedsYouKind.connector,
+  body: ConnectorBodyModel(
+    targets: [
+      ConnectorTargetModel(
+        name: 'Notion',
+        status: ConnectorTargetStatus.waiting,
+        detail: 'Continue in the browser to approve access.',
+        openable: true,
+        skippable: true,
+      ),
+      ConnectorTargetModel(
+        name: 'Google Calendar',
+        status: ConnectorTargetStatus.waiting,
+        openable: true,
+        skippable: true,
+      ),
+      ConnectorTargetModel(
+        name: 'GitHub',
+        status: ConnectorTargetStatus.signedIn,
+      ),
+    ],
+    expiresIn: Duration(minutes: 4),
+  ),
+  actions: {
+    NeedsYouAction.open,
+    NeedsYouAction.skip,
+    NeedsYouAction.continueOn,
+  },
+);
+
+const needsYouReclaimed = NeedsYouItem(
+  id: 'reclaim',
+  kind: NeedsYouKind.reclaim,
+  body: ReclaimBodyModel(reason: 'Opened by "Sam\'s iPad".'),
+  actions: {NeedsYouAction.reopen},
+);
+
+const needsYouRestoreFailed = NeedsYouItem(
+  id: 'resume',
+  kind: NeedsYouKind.resume,
+  body: ReclaimBodyModel(reason: 'The session store did not answer.'),
+  actions: {NeedsYouAction.reopen},
+);

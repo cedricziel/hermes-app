@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/l10n.dart';
+import '../../../server_care/widgets/server_attention_dot.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../../widgets/named_icon_button.dart';
@@ -19,7 +21,12 @@ class ActivityPanel extends StatelessWidget {
     this.session = const [],
     this.onClose,
     this.scrollController,
+    this.detail,
   });
+
+  /// One agent's detail, drawn in place of the sections. The sections stay
+  /// mounted behind it, so going back returns to the same scroll position.
+  final Widget? detail;
 
   final List<Widget> now;
   final Widget? plan;
@@ -33,7 +40,8 @@ class ActivityPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final plan = this.plan;
     final onClose = this.onClose;
-    return Column(
+    final detail = this.detail;
+    final list = Column(
       key: const Key('activity-panel'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -97,6 +105,22 @@ class ActivityPanel extends StatelessWidget {
         ),
       ],
     );
+    // The same structure with or without a detail, so the list keeps its
+    // scroll position while a detail is open over it.
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Offstage(
+            offstage: detail != null,
+            // The sheet's growing animation runs on this list's scrollable, so
+            // its tickers stay on while a detail covers it.
+            // Offstage hides the list but keeps its focus targets.
+            child: ExcludeFocus(excluding: detail != null, child: list),
+          ),
+        ),
+        if (detail != null) Positioned.fill(child: detail),
+      ],
+    );
   }
 }
 
@@ -123,22 +147,51 @@ class _SectionTitle extends StatelessWidget {
 }
 
 /// Opens the Activity panel, or closes the inspector when it is [open].
+///
+/// [waiting] counts the requests that need the user. While it is above zero
+/// the button wears the attention mark at its top right and its label says
+/// how many; the count is never colour alone.
 class ActivityButton extends StatelessWidget {
   const ActivityButton({
     super.key,
     required this.open,
     required this.onPressed,
+    this.waiting = 0,
   });
 
   final bool open;
   final VoidCallback onPressed;
+  final int waiting;
 
   @override
-  Widget build(BuildContext context) => NamedIconButton(
-    key: const Key('header-activity'),
-    label: open ? 'Hide activity' : 'Activity',
-    icon: AppIcons.inspector,
-    isSelected: open,
-    onPressed: onPressed,
-  );
+  Widget build(BuildContext context) {
+    final button = NamedIconButton(
+      key: const Key('header-activity'),
+      label: waiting > 0
+          ? (open
+                ? context.l10n.chatActivityButtonHideWaiting(waiting)
+                : context.l10n.chatActivityButtonWaiting(waiting))
+          : (open
+                ? context.l10n.chatActivityButtonHide
+                : context.l10n.chatActivityButtonShow),
+      icon: AppIcons.inspector,
+      isSelected: open,
+      onPressed: onPressed,
+    );
+    if (waiting <= 0) return button;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        button,
+        const PositionedDirectional(
+          top: 8,
+          end: 8,
+          child: IgnorePointer(
+            key: Key('activity-waiting-marker'),
+            child: ServerAttentionDot(),
+          ),
+        ),
+      ],
+    );
+  }
 }

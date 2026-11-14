@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_source_list.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
@@ -18,6 +19,14 @@ enum ProfileSection {
   messaging('Messaging', 'Chat platforms the agent answers on', AppIcons.bot),
   plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
   mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),
+
+  /// Worded through l10n where it is drawn; the English here is a fallback.
+  providers('Model providers', 'Keys, sign-ins and endpoints', AppIcons.hub),
+
+  /// Hidden through `hiddenSections` unless the server offers Tools. These
+  /// strings are never shown: the view takes the title and detail from the
+  /// localizations.
+  tools('Tools', 'What Hermes can do by itself', AppIcons.wrench),
   helperModels('Helper models', 'Models for side tasks', AppIcons.tune);
 
   const ProfileSection(this.label, this.detail, this.icon);
@@ -38,6 +47,8 @@ class MacProfilesView extends StatelessWidget {
     required this.counts,
     required this.onOpen,
     this.memoryWaiting,
+    this.hiddenSections = const {},
+    this.toolsCount,
   });
 
   final List<HermesProfile> profiles;
@@ -51,6 +62,13 @@ class MacProfilesView extends StatelessWidget {
 
   /// How many staged memory changes wait in the selected profile.
   final int? memoryWaiting;
+
+  /// Sections this server does not offer.
+  final Set<ProfileSection> hiddenSections;
+
+  /// How many of the selected profile's tools are on, and how many there are;
+  /// none while unread.
+  final ({int on, int total})? toolsCount;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +100,8 @@ class MacProfilesView extends StatelessWidget {
                   counts: counts,
                   onOpen: onOpen,
                   memoryWaiting: memoryWaiting,
+                  hiddenSections: hiddenSections,
+                  toolsCount: toolsCount,
                 ),
         ),
       ],
@@ -156,6 +176,8 @@ class MacProfileDetail extends StatelessWidget {
     required this.counts,
     required this.onOpen,
     this.memoryWaiting,
+    this.hiddenSections = const {},
+    this.toolsCount,
   });
 
   final HermesProfile profile;
@@ -164,9 +186,14 @@ class MacProfileDetail extends StatelessWidget {
 
   /// Shown for Memory in place of its entry count while changes wait.
   final int? memoryWaiting;
+  final Set<ProfileSection> hiddenSections;
+
+  /// The Tools row's "5 of 12 on" value.
+  final ({int on, int total})? toolsCount;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final metrics = GroupedMetrics.of(context);
     final path = profile.path;
     return GroupedListView(
@@ -217,17 +244,38 @@ class MacProfileDetail extends StatelessWidget {
               'sign-in are shared.',
           children: [
             for (final section in ProfileSection.values)
-              GroupedRow(
-                key: ValueKey('profile-section-${section.name}'),
-                title: section.label,
-                subtitle: section.detail,
-                leading: GroupedTile(child: AppIcon(section.icon)),
-                value:
-                    section == ProfileSection.memory && (memoryWaiting ?? 0) > 0
-                    ? '$memoryWaiting waiting'
-                    : counts[section]?.toString(),
-                onTap: () => onOpen(section),
-              ),
+              if (!hiddenSections.contains(section))
+                GroupedRow(
+                  wrapWhenStacked: true,
+                  key: ValueKey('profile-section-${section.name}'),
+                  title: switch (section) {
+                    ProfileSection.providers => l10n.providersListTitle,
+                    ProfileSection.tools => l10n.toolsTitle,
+                    _ => section.label,
+                  },
+                  subtitle: switch (section) {
+                    ProfileSection.providers =>
+                      l10n.providersProfileSectionDetail,
+                    ProfileSection.tools => l10n.toolsProfileDetail,
+                    _ => section.detail,
+                  },
+                  leading: GroupedTile(child: AppIcon(section.icon)),
+                  value: switch (section) {
+                    ProfileSection.memory when (memoryWaiting ?? 0) > 0 =>
+                      '$memoryWaiting waiting',
+                    ProfileSection.providers when counts[section] != null =>
+                      l10n.providersConnectedCount(counts[section]!),
+                    ProfileSection.tools => switch (toolsCount) {
+                      (:final on, :final total) => l10n.toolsProfilesCount(
+                        on,
+                        total,
+                      ),
+                      null => null,
+                    },
+                    _ => counts[section]?.toString(),
+                  },
+                  onTap: () => onOpen(section),
+                ),
           ],
         ),
       ],

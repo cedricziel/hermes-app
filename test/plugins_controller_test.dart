@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
@@ -190,7 +191,7 @@ void main() {
   group('telemetry', () {
     setUp(() => controller.load());
 
-    test('logs one event per action with only the plugin name', () async {
+    test('logs one event per action without the plugin name', () async {
       server
         ..on('POST', '/api/dashboard/agent-plugins/netbox/enable', {'ok': true})
         ..on('POST', '/api/dashboard/agent-plugins/netbox/disable', {
@@ -217,7 +218,7 @@ void main() {
         'plugins.hide.ok',
       ]);
       for (final (_, attributes) in events) {
-        expect(attributes, {'plugin.name': 'netbox'});
+        expect(attributes, isEmpty);
       }
     });
 
@@ -257,6 +258,23 @@ void main() {
     expect(heard, 2);
     c.dispose();
   });
+
+  test(
+    'a bug while loading shows a failure and reaches the reporter',
+    () async {
+      final previous = FlutterError.onError;
+      final reported = <FlutterErrorDetails>[];
+      FlutterError.onError = reported.add;
+      addTearDown(() => FlutterError.onError = previous);
+      final c = PluginsController(_Throwing(server.client().raw));
+
+      await c.load();
+
+      expect(c.failure, PluginsFailure.failed);
+      expect(reported.single.exception, isA<StateError>());
+      c.dispose();
+    },
+  );
 }
 
 class _Throwing extends HermesPluginManagerRepository {
@@ -265,4 +283,7 @@ class _Throwing extends HermesPluginManagerRepository {
   @override
   Future<PluginActionResult> setEnabled(String name, bool enabled) =>
       Future.error(StateError('boom'));
+
+  @override
+  Future<List<InstalledPlugin>> load() => Future.error(StateError('boom'));
 }

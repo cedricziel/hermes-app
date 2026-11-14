@@ -2,8 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../chat/activity/bound_activity_line.dart';
 import '../chat/activity/bound_activity_panel.dart';
+import '../chat/subagents/activity_selection.dart';
+import '../chat/activity/bound_needs_you_dock.dart';
+import '../chat/activity/needs_you_queue.dart';
 import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
@@ -18,6 +23,7 @@ import '../models/hermes_models_repository.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../share/shared_item.dart';
+import '../telemetry/breadcrumbs.dart';
 import '../widgets/inspector_layout.dart';
 import 'conversation_window_args.dart';
 import 'conversation_windows.dart' show kInspectorWindowCommand;
@@ -59,6 +65,7 @@ class ConversationWindowScreen extends StatefulWidget {
 class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   late final AttentionNotifier _attention;
   late final ChatController _chat;
+  late final NeedsYouQueue _needsYou;
   BrokerQueueStore? _protectedQueue;
   late final AttachmentSource _attachmentSource;
   late final _composerController = TextEditingController(
@@ -77,7 +84,24 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   /// Whether the Activity inspector is open.
   bool _activityOpen = false;
 
-  void _toggleActivity() => setState(() => _activityOpen = !_activityOpen);
+  /// The agent whose detail the window's Activity panel shows. A window holds
+  /// no session, so the detail only describes the agent: nothing is read from
+  /// the session and nothing can be stopped or sent from here.
+  final _agentSelection = ActivitySelection();
+
+  void _toggleActivity() {
+    setState(() => _activityOpen = !_activityOpen);
+    if (!_activityOpen) _agentSelection.clear();
+  }
+
+  void _showAgentDetails(String agentId) {
+    final thread = _thread;
+    final roster = thread == null ? null : _chat.subagentsIn(thread);
+    if (roster == null) return;
+    _agentSelection.select(agentKeyOf(roster, agentId), source: 'transcript');
+    if (!_activityOpen) _toggleActivity();
+  }
+
   ({String title, bool pinned})? _reported;
 
   ConversationWindowArgs get _args => widget.args;
@@ -121,6 +145,13 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       attention: _attention,
       report: _showMessage,
     )..addListener(_changed);
+    _needsYou = needsYouQueueFor(
+      _chat,
+      breadcrumbs: context.read<Breadcrumbs?>() ?? Breadcrumbs.none,
+      onArrived: (entry) {
+        if (mounted) announceNeedsYou(context, entry.kind);
+      },
+    );
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     unawaited(_chat.loadThreads(_args.profile));
     _chat.open(
@@ -227,18 +258,14 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     });
   }
 
-  String? _subtitle() {
-    final model = (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
-    final parts = [?_args.profile, ?model];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
-
   @override
   void dispose() {
+    _agentSelection.dispose();
     _protectedQueue?.dispose();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _needsYou.dispose();
     _chat
       ..removeListener(_changed)
       ..dispose();
@@ -254,9 +281,17 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     final chat = _chat;
     final thread = _thread;
     _latestReply.follow(chat, thread);
+    // This window's own chat decides, so another window's work never shows.
+    final subtitle = workingToolbarSubtitle(
+      chat,
+      thread,
+      profile: _args.profile,
+      model: (chat.modelChoice ?? chat.modelOptions?.current)?.modelId,
+    );
     final toolbar = ConversationWindowToolbar(
       title: thread?.title ?? _args.title,
-      subtitle: _subtitle(),
+      subtitle: subtitle.subtitle,
+      subtitleBuilder: subtitle.subtitleBuilder,
       pinned: thread?.pinned ?? false,
       onShowInMain: () => _link.showInMain(_args.threadId, _args.profile),
       onTogglePin: thread == null ? null : _togglePin,
@@ -264,6 +299,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
           ? null
           : (anchor) => _link.share(threadTranscript(thread.messages), anchor),
       activityOpen: _activityOpen,
+      activityWaiting: _needsYou.count,
       onToggleActivity: thread == null ? null : _toggleActivity,
       onAction: thread == null
           ? null
@@ -277,6 +313,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     final Widget body;
     if (thread != null) {
       body = boundChatThreadView(
+        onShowAgentDetails: _showAgentDetails,
         chat: chat,
         thread: thread,
         composerController: _composerController,
@@ -292,6 +329,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
         onSend: _send,
         commandRunning: _queueSending,
         latestReply: _latestReply,
+        needsYou: _needsYou,
       );
     } else if (_opened) {
       // Gone (deleted or archived); the window is closing.
@@ -329,7 +367,12 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
               child: InspectorLayout(
                 content: body,
                 shown: _activityOpen && thread != null,
-                inspector: BoundActivityPanel(chat: chat, thread: thread),
+                inspector: BoundActivityPanel(
+                  chat: chat,
+                  thread: thread,
+                  selection: _agentSelection,
+                  readOnly: true,
+                ),
                 panelKey: const Key('activity-inspector'),
                 onDismissOverlay: _toggleActivity,
               ),

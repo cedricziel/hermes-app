@@ -7,6 +7,7 @@ import 'catalog_entry.dart';
 import 'hermes_plugin_manager_repository.dart';
 import 'plugin_install_result.dart';
 import 'plugins_controller.dart' show PluginsFailure;
+import '../telemetry/report_bug.dart';
 
 /// What the Catalog tab shows and does: the catalog, the search, the open
 /// entry, and which entries have an install running.
@@ -85,7 +86,8 @@ class CatalogController extends ChangeNotifier with SafeNotifier {
       _apply(await _repository.loadCatalog());
     } on PluginsUnsupported {
       _failure = PluginsFailure.unsupported;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the plugin catalog');
       _failure = PluginsFailure.failed;
     }
     _loading = false;
@@ -100,7 +102,8 @@ class CatalogController extends ChangeNotifier with SafeNotifier {
       _failure = null;
       notifyListeners();
       return true;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the plugin catalog');
       return false;
     }
   }
@@ -124,7 +127,7 @@ class CatalogController extends ChangeNotifier with SafeNotifier {
       _installing.remove(name);
       notifyListeners();
     }
-    _events('plugins.install.${_outcome(result)}', {'plugin.name': name});
+    _events('plugins.install.${_outcome(result)}');
     await _afterInstall(result);
     return result;
   }

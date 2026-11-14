@@ -10,6 +10,7 @@ import 'reactions/reaction_state.dart';
 
 import '../models/model_provider_option.dart';
 import '../bot_mode/bot_chat_context.dart';
+import '../workspaces/workspace_models.dart' show WorkspaceChoice;
 import 'chat_warning_state.dart';
 import 'tool_label.dart';
 
@@ -542,6 +543,7 @@ class ChatMessage {
     this.submittedText,
     this.displayText,
     this.displayKind,
+    this.finishReason,
     required this.createdAt,
     this.status = MessageStatus.sent,
     this.toolCalls = const [],
@@ -576,6 +578,10 @@ class ChatMessage {
   /// kind Hermes wrote itself, such as `auto_continue` (the note that resumes
   /// an interrupted turn) or `model_switch`.
   final String? displayKind;
+
+  /// Why Hermes ended a stored assistant row (`finish_reason`), null for a
+  /// row from this app's own turns or one without it.
+  final String? finishReason;
 
   /// Whether this is a prompt the user wrote, the rows Hermes counts as turns
   /// when it undoes one: a user message that Hermes did not type, or a steer.
@@ -687,6 +693,8 @@ class ChatThread {
     required this.updatedAt,
     this.pinned = false,
     this.folderPath,
+    this.workingDirectory,
+    this.branch,
     this.remote = false,
     this.named = false,
     this.unread = false,
@@ -702,7 +710,18 @@ class ChatThread {
   String title;
   DateTime updatedAt;
   bool pinned;
-  final String? folderPath;
+  String? folderPath;
+
+  /// The folder the chat runs in as the server stored it (`cwd`), unlike
+  /// [folderPath], which is the git root when there is one.
+  String? workingDirectory;
+
+  /// The git branch stored with the chat (`git_branch`), when known.
+  String? branch;
+
+  /// The folder picked for this chat before it exists, kept in memory and
+  /// dropped once the chat is created. Never stored.
+  WorkspaceChoice? workspaceChoice;
 
   /// Whether the Hermes dashboard holds this thread, as opposed to a local
   /// draft or mock data.

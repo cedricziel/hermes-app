@@ -32,6 +32,7 @@ class PluginRow extends StatelessWidget {
       if (plugin.removedReason case final reason?) 'Removed: $reason',
     ].join(' · ');
     return GroupedRow(
+      wrapWhenStacked: true,
       key: ValueKey('plugin-row-${plugin.name}'),
       title: plugin.name,
       meta: plugin.version.isEmpty ? null : 'v${plugin.version}',

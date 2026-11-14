@@ -335,10 +335,14 @@ final _ansi = RegExp(r'\x1B\[[0-9;]*m');
 
 /// A unified diff, added lines green and removed ones red. Hermes colours
 /// it for a terminal; those codes are dropped.
+///
+/// With [framed] false the diff is drawn bare, for a page of its own: no rule,
+/// padding or height cap, and each line stays whole, scrolling sideways.
 class ToolDiffBody extends StatelessWidget {
-  const ToolDiffBody({super.key, required this.diff});
+  const ToolDiffBody({super.key, required this.diff, this.framed = true});
 
   final String diff;
+  final bool framed;
 
   @override
   Widget build(BuildContext context) {
@@ -352,36 +356,36 @@ class ToolDiffBody extends StatelessWidget {
         // Hermes heads its terminal rendering with a "┊ review diff" line.
         .where((line) => !line.trimLeft().startsWith('┊'))
         .toList();
-    return ToolBodyFrame(
-      child: SelectableText.rich(
-        TextSpan(
-          children: [
-            for (final (i, line) in lines.indexed)
-              TextSpan(
-                text: i == lines.length - 1 ? line : '$line\n',
-                style: switch (line) {
-                  _ when line.startsWith('+++') || line.startsWith('---') =>
-                    TextStyle(color: subtle, fontWeight: FontWeight.w600),
-                  _ when line.startsWith('@@') => TextStyle(color: subtle),
-                  _ when line.startsWith('+') => TextStyle(
-                    color: success,
-                    backgroundColor: success.withValues(alpha: 0.10),
-                  ),
-                  _ when line.startsWith('-') => TextStyle(
-                    color: scheme.error,
-                    backgroundColor: scheme.error.withValues(alpha: 0.10),
-                  ),
-                  _ when line.contains(' → ') && i == 0 => TextStyle(
-                    color: subtle,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  _ => null,
-                },
-              ),
-          ],
-        ),
-        style: _mono.copyWith(color: scheme.onSurface),
+    final text = SelectableText.rich(
+      TextSpan(
+        children: [
+          for (final (i, line) in lines.indexed)
+            TextSpan(
+              text: i == lines.length - 1 ? line : '$line\n',
+              style: switch (line) {
+                _ when line.startsWith('+++') || line.startsWith('---') =>
+                  TextStyle(color: subtle, fontWeight: FontWeight.w600),
+                _ when line.startsWith('@@') => TextStyle(color: subtle),
+                _ when line.startsWith('+') => TextStyle(
+                  color: success,
+                  backgroundColor: success.withValues(alpha: 0.10),
+                ),
+                _ when line.startsWith('-') => TextStyle(
+                  color: scheme.error,
+                  backgroundColor: scheme.error.withValues(alpha: 0.10),
+                ),
+                _ when line.contains(' → ') && i == 0 => TextStyle(
+                  color: subtle,
+                  fontWeight: FontWeight.w600,
+                ),
+                _ => null,
+              },
+            ),
+        ],
       ),
+      style: _mono.copyWith(color: scheme.onSurface),
     );
+    if (framed) return ToolBodyFrame(child: text);
+    return SingleChildScrollView(scrollDirection: Axis.horizontal, child: text);
   }
 }

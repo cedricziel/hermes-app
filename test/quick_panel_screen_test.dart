@@ -4,6 +4,10 @@ import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
+import 'package:hermes_app/src/chat/activity/widgets/needs_you_dock.dart';
+import 'package:hermes_app/src/chat/chat_session_state.dart'
+    show ResumeProgress;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
@@ -520,6 +524,63 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(link.holds, [true, false]);
+  });
+
+  testWidgets('the expanded panel docks a Needs-you request inside its fixed '
+      'height and the compact one shows none', (tester) async {
+    await pump(tester);
+    await show(tester);
+    expect(find.byKey(const Key('needs-you-dock')), findsNothing);
+
+    final send = await ask(tester, 'What is due today?');
+    send
+      ..emit(const ThreadBound('s9'))
+      ..emit(const ReplyStarted())
+      ..emit(
+        const SessionResumeProgress(
+          ResumeProgress('restore', 'failed'),
+          runtimeId: 'rt-1',
+        ),
+      );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('needs-you-dock')), findsOneWidget);
+    expect(find.text("This chat couldn't be restored"), findsOneWidget);
+    expect(find.byKey(const Key('needs-you-reopen')), findsOneWidget);
+    expect(link.heights.last, QuickPanelView.expandedHeight);
+    final dock = tester.getRect(find.byType(NeedsYouDock));
+    expect(dock.bottom, lessThanOrEqualTo(540));
+    expect(dock.top, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the expanded panel shows no working line or status', (
+    tester,
+  ) async {
+    await pump(tester);
+    await show(tester);
+    final send = await ask(tester, 'What is due today?');
+    send
+      ..emit(const ThreadBound('s9'))
+      ..emit(const ReplyStarted())
+      ..emit(
+        const SessionWaitUpdated(
+          'process',
+          'Waiting for background process',
+          runtimeId: 'rt-1',
+        ),
+      );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(ActivityLine), findsNothing);
+    expect(find.text('Waiting for background process'), findsNothing);
+    expect(find.byKey(const Key('mac-subtitle-status')), findsNothing);
+  });
+
+  testWidgets('the compact panel has no dock', (tester) async {
+    await pump(tester, height: 168);
+    await show(tester);
+    expect(find.byType(NeedsYouDock), findsNothing);
   });
 }
 

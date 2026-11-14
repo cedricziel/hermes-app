@@ -69,6 +69,25 @@ class TokenStore {
         return true;
       });
 
+  /// Records [serverUrl] as the minter of a session stored before minters
+  /// were recorded, before the saved address moves away from it. With no
+  /// [serverUrl] the session's minter can never be known, so it is removed.
+  /// A session whose minter is recorded is left alone. Read and write happen
+  /// under one lock, so a newer pair is never overwritten.
+  Future<void> recordMinter(String? serverUrl) => _exclusive(() async {
+    final stored = await readState(repair: false);
+    if (stored is SessionUnreadable) {
+      throw StateError('Secure storage is temporarily unreadable');
+    }
+    final current = stored.session;
+    if (current == null || current.serverUrl != null) return;
+    if (serverUrl == null) {
+      await clear();
+    } else {
+      await write(current.boundTo(serverUrl));
+    }
+  });
+
   /// On iOS the session stays readable while the phone is locked, once it has
   /// been unlocked since it started: a request from the watch wakes the phone
   /// app in the background, usually with the phone in a pocket.
@@ -123,7 +142,17 @@ class TokenStore {
       }
       final session = HermesSession.fromStorageJson(json);
       return SessionFound(session);
-    } on Object {
+    } on Object catch (error) {
+      // Any parse failure, a TypeError from a changed shape included, means
+      // the stored session cannot be used. Say so instead of looking like a
+      // clean sign-out.
+      try {
+        _events('auth.session.corrupt', {
+          'error.type': error.runtimeType.toString(),
+        });
+      } on Object {
+        // Telemetry failure must not change session restoration.
+      }
       return const SessionEmpty();
     }
   }

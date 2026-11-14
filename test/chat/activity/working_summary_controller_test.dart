@@ -1,0 +1,474 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/activity/working_summary.dart';
+import 'package:hermes_app/src/chat/chat_controller.dart';
+import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import '../../support/fake_gateway.dart';
+import '../../support/fake_hermes_server.dart';
+
+/// `ChatController.workingSummaryIn` against the real gateway transport and a
+/// scripted gateway: what each frame does to the summary.
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late FakeGateway gateway;
+  late HermesGatewayTransport transport;
+  late ChatController chat;
+  late AttentionNotifier attention;
+
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    gateway = FakeGateway()..activeSessions = {};
+    gateway.handlers['session.resume'] = (params) => {
+      'session_id': 'rt-1',
+      'stored_session_id': 'stored-1',
+      'session_key': 'stored-1',
+    };
+    transport = HermesGatewayTransport(connect: gateway.connect);
+    final server = FakeHermesServer()
+      ..on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 'stored-1', title: 'Working')]),
+      )
+      ..on(
+        'GET',
+        '/api/sessions/stored-1/messages',
+        messageListBody('stored-1', []),
+      );
+    attention = AttentionNotifier(
+      service: null,
+      settings: null,
+      onOpen: (_) {},
+    );
+    chat = ChatController(
+      repository: HermesChatRepository(server.client().raw),
+      transport: transport,
+      attention: attention,
+      report: (_) {},
+    );
+  });
+  tearDown(() async {
+    chat.dispose();
+    attention.dispose();
+    await transport.close();
+  });
+
+  Future<void> open() async {
+    await chat.loadThreads('work');
+    chat.select('stored-1');
+    await pumpEventQueue();
+    chat.submit('Start', const []);
+    await pumpEventQueue();
+  }
+
+  Future<void> openIdle() async {
+    await chat.loadThreads('work');
+    chat.select('stored-1');
+    await pumpEventQueue();
+  }
+
+  Future<void> emit(String type, Map<String, Object?> payload) async {
+    gateway.event(type, 'rt-1', payload);
+    await pumpEventQueue();
+  }
+
+  WorkingSummary? summary() => chat.workingSummaryIn(chat.selectedThread!);
+
+  test('nothing working yields null', () async {
+    await open();
+    expect(summary(), isNull);
+  });
+
+  test('a memory recall is the sentence until it clears', () async {
+    await open();
+    await emit('status.update', {
+      'kind': 'lifecycle',
+      'text': '🧠 robot-notes — recalled 5 memories',
+    });
+    expect(summary()!.sentence.kind, WorkingSentenceKind.status);
+    expect(summary()!.sentence.text, contains('recalled 5 memories'));
+    // The recall is not a wait: the panel keeps listing it as before.
+    expect(chat.sessionStateIn(chat.selectedThread!)!.waits, isEmpty);
+
+    await emit('status.update', {'kind': 'lifecycle', 'text': ''});
+    expect(summary(), isNull);
+  });
+
+  test('a wait is the sentence; a process after it is newer; closing '
+      'the processes brings the wait back', () async {
+    await open();
+    await emit('status.update', {
+      'kind': 'process',
+      'text': 'Waiting for background process',
+    });
+    expect(summary()!.sentence.text, 'Waiting for background process');
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    await emit('agent.terminal.output', {'process_id': 'b', 'chunk': 'y'});
+    expect(summary()!.sentence.kind, WorkingSentenceKind.processes);
+    expect(summary()!.sentence.count, 2);
+
+    await emit('terminal.close', {'process_id': 'a'});
+    expect(summary()!.sentence.count, 1);
+    await emit('terminal.close', {'process_id': 'b'});
+    expect(summary()!.sentence.text, 'Waiting for background process');
+  });
+
+  test('goal, loop and heartbeat sentences come from active sections only, '
+      'and a repeated snapshot is not newer', () async {
+    await open();
+    Map<String, Object?> control(String revision, {String heartbeat = 'a'}) => {
+      'control': {
+        'revision': revision,
+        'goal': {'title': 'Ship the weekly digest', 'status': 'active'},
+        'loop': {'prompt': 'Old loop', 'status': 'paused'},
+        'heartbeat': {'prompt': heartbeat, 'status': 'active'},
+      },
+    };
+    await emit('session.control.update', control('1', heartbeat: 'Ping'));
+    expect(summary()!.sentence.text, 'Ping');
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking hard'});
+    expect(summary()!.sentence.text, 'Thinking hard');
+    // A tick: new revision, same texts.
+    await emit('session.control.update', control('2', heartbeat: 'Ping'));
+    expect(summary()!.sentence.text, 'Thinking hard');
+    await emit('status.update', {'kind': 'status', 'text': ''});
+    expect(summary()!.sentence.text, 'Ping');
+  });
+
+  test('mixture-of-agents: asking, references counter and combining', () async {
+    await open();
+    await emit('moa.progress', {
+      'label': 'Advisor',
+      'refs_done': 1,
+      'refs_total': 3,
+    });
+    var s = summary()!;
+    expect(s.sentence.kind, WorkingSentenceKind.askingModels);
+    expect(s.sentence.count, 3);
+    // The sentence already says it, so no references counter.
+    expect(s.counters, isEmpty);
+    await emit('moa.aggregating', {'aggregator': 'Reporter'});
+    s = summary()!;
+    expect(s.sentence.kind, WorkingSentenceKind.combiningAnswers);
+  });
+
+  test('a plan: open task reads as the plan, with its counter; all done '
+      'drops it', () async {
+    await open();
+    await emit('todo.updated', {
+      'revision': 1,
+      'todos': [
+        {'id': 'a', 'content': 'Draft', 'status': 'completed'},
+        {'id': 'b', 'content': 'Review', 'status': 'in_progress'},
+        {'id': 'c', 'content': 'Ship', 'status': 'pending'},
+      ],
+    });
+    var s = summary()!;
+    expect(s.sentence.kind, WorkingSentenceKind.plan);
+    expect(s.counters.single.value, 1);
+    expect(s.counters.single.total, 3);
+    await emit('todo.updated', {
+      'revision': 2,
+      'todos': [
+        {'id': 'a', 'content': 'Draft', 'status': 'completed'},
+        {'id': 'b', 'content': 'Review', 'status': 'cancelled'},
+      ],
+    });
+    expect(summary(), isNull);
+  });
+
+  test('a plan counter rides beside a process sentence', () async {
+    await open();
+    await emit('todo.updated', {
+      'revision': 1,
+      'todos': [
+        {'id': 'a', 'content': 'Draft', 'status': 'completed'},
+        {'id': 'b', 'content': 'Review', 'status': 'pending'},
+      ],
+    });
+    await emit('status.update', {'kind': 'status', 'text': 'Recalled 2 notes'});
+    final s = summary()!;
+    expect(s.sentence.text, 'Recalled 2 notes');
+    expect(s.counters.single.kind, WorkingCounterKind.plan);
+  });
+
+  test('restoring while the resume loads, not after', () async {
+    await open();
+    await emit('session.resume_progress', {
+      'phase': 'history',
+      'status': 'loading',
+    });
+    expect(summary()!.sentence.kind, WorkingSentenceKind.restoring);
+    await emit('session.resume_progress', {
+      'phase': 'history',
+      'status': 'complete',
+    });
+    expect(summary(), isNull);
+  });
+
+  const recall = '🧠 robot-notes — recalled 5 memories';
+
+  for (final (name, status) in [
+    ('completes', 'complete'),
+    ('is interrupted', 'interrupted'),
+    ('fails', 'error'),
+  ]) {
+    test('the line folds away when the turn $name', () async {
+      await open();
+      await emit('status.update', {'kind': 'lifecycle', 'text': recall});
+      await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+      await emit('todo.updated', {
+        'revision': 1,
+        'todos': [
+          {'id': 'a', 'content': 'Draft', 'status': 'pending'},
+        ],
+      });
+      expect(summary(), isNotNull);
+      await emit('message.complete', {'text': 'Done', 'status': status});
+      expect(chat.selectedThread!.isReplying, isFalse);
+      // The server never clears a status with an empty text.
+      expect(summary(), isNull);
+    });
+  }
+
+  test('a wait of the last turn is not the sentence of the next one', () async {
+    await open();
+    await emit('status.update', {'kind': 'lifecycle', 'text': recall});
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    chat.submit('Again', const []);
+    await pumpEventQueue();
+    expect(chat.selectedThread!.isReplying, isTrue);
+    expect(summary(), isNull);
+    await emit('status.update', {'kind': 'lifecycle', 'text': recall});
+    expect(summary()!.sentence.text, contains('recalled 5 memories'));
+  });
+
+  test('an open process card does not keep the line up after the turn: the '
+      'backend reports no process exit', () async {
+    await open();
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    expect(summary()!.sentence.kind, WorkingSentenceKind.processes);
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    expect(chat.processOutputsIn(chat.selectedThread!)!.cards, hasLength(1));
+    expect(summary(), isNull);
+  });
+
+  test('a reclaimed session drops its process cards and the line', () async {
+    await open();
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    await emit('session.reclaimed', {
+      'session_id': 'rt-1',
+      'stored_session_id': 'stored-1',
+      'reason': 'Synthetic',
+    });
+    expect(chat.processOutputsIn(chat.selectedThread!)?.cards ?? [], isEmpty);
+    expect(summary(), isNull);
+  });
+
+  test('a status that comes ahead of a server-started turn counts', () async {
+    await chat.loadThreads('work');
+    chat.select('stored-1');
+    await pumpEventQueue();
+    await emit('status.update', {
+      'kind': 'process',
+      'text': 'Resuming interrupted turn…',
+    });
+    final thread = chat.selectedThread!;
+    await emit('message.start', {});
+    expect(thread.isReplying, isTrue);
+    expect(
+      chat.workingSummaryIn(thread)!.sentence.text,
+      'Resuming interrupted turn…',
+    );
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    expect(chat.workingSummaryIn(thread), isNull);
+  });
+
+  test('a queued turn that follows at once does not inherit the statuses of '
+      'the last one', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    chat.submit('Next', const []);
+    await pumpEventQueue();
+    gateway.event('message.complete', 'rt-1', {
+      'text': 'Done',
+      'status': 'complete',
+    });
+    gateway.event('message.start', 'rt-1', {});
+    await pumpEventQueue();
+    expect(summary(), isNull);
+    await emit('status.update', {'kind': 'status', 'text': 'Second turn'});
+    expect(summary()!.sentence.text, 'Second turn');
+  });
+
+  test('a status that repeats its text does not displace a newer process '
+      'sentence', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    expect(summary()!.sentence.kind, WorkingSentenceKind.processes);
+    expect(summary()!.sentence.count, 1);
+    // A changed text is newer again.
+    await emit('status.update', {'kind': 'status', 'text': 'Reading'});
+    expect(summary()!.sentence.text, 'Reading');
+  });
+
+  test('the same status text in a new turn becomes current again', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    chat.submit('Next', const []);
+    await pumpEventQueue();
+    expect(summary(), isNull);
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    expect(summary()!.sentence.text, 'Thinking');
+  });
+
+  test('stopping the reply folds the line away', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    expect(summary(), isNotNull);
+    final stopped = chat.stopReply(chat.selectedThread!);
+    await pumpEventQueue();
+    await emit('message.complete', {'text': '', 'status': 'interrupted'});
+    await stopped;
+    expect(summary(), isNull);
+  });
+
+  test('a lost connection fails the turn and the line folds away', () async {
+    await open();
+    final thread = chat.selectedThread!;
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    expect(chat.workingSummaryIn(thread), isNotNull);
+    gateway.drop();
+    await pumpEventQueue(times: 200);
+    expect(thread.isReplying, isFalse);
+    expect(chat.workingSummaryIn(thread), isNull);
+  });
+
+  test(
+    'a drop in the middle of a resume does not leave Restoring up',
+    () async {
+      await openIdle();
+      final thread = chat.selectedThread!;
+      await emit('session.resume_progress', {
+        'phase': 'history',
+        'status': 'loading',
+      });
+      expect(
+        chat.workingSummaryIn(thread)!.sentence.kind,
+        WorkingSentenceKind.restoring,
+      );
+      gateway.drop();
+      await pumpEventQueue(times: 200);
+      expect(chat.workingSummaryIn(thread), isNull);
+    },
+  );
+
+  test('a reclaim does not leave Restoring up', () async {
+    await openIdle();
+    await emit('session.resume_progress', {
+      'phase': 'history',
+      'status': 'loading',
+    });
+    await emit('session.reclaimed', {
+      'session_id': 'rt-1',
+      'stored_session_id': 'stored-1',
+      'reason': 'Synthetic',
+    });
+    expect(summary(), isNull);
+  });
+
+  test(
+    'a mixture-of-agents card left live does not outlast the turn',
+    () async {
+      await open();
+      await emit('moa.progress', {
+        'label': 'Advisor',
+        'refs_done': 1,
+        'refs_total': 3,
+      });
+      expect(summary()!.sentence.kind, WorkingSentenceKind.askingModels);
+      await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+      expect(summary(), isNull);
+    },
+  );
+
+  test(
+    'a mixture-of-agents card left live by a drop is gone with the turn',
+    () async {
+      await open();
+      final thread = chat.selectedThread!;
+      await emit('moa.progress', {
+        'label': 'Advisor',
+        'refs_done': 1,
+        'refs_total': 3,
+      });
+      gateway.drop();
+      await pumpEventQueue(times: 200);
+      expect(chat.workingSummaryIn(thread), isNull);
+    },
+  );
+
+  test('goal and heartbeat notices never feed the line, and a heartbeat '
+      'tick does not steal newest', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    await emit('status.update', {
+      'kind': 'heartbeat',
+      'text': '♥ heartbeat #4 firing…',
+    });
+    await emit('status.update', {
+      'kind': 'goal',
+      'text': '⊙ Goal paused: verdict text',
+    });
+    expect(summary()!.sentence.text, 'Thinking');
+  });
+
+  test(
+    'control sentences count during a turn only, and only while active',
+    () async {
+      await open();
+      await emit('session.control.update', {
+        'control': {
+          'revision': '1',
+          'goal': {'title': 'Ship it', 'status': 'paused'},
+          'heartbeat': {'prompt': 'Ping', 'status': 'active'},
+        },
+      });
+      expect(summary()!.sentence.text, 'Ping');
+      await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+      expect(summary(), isNull);
+    },
+  );
+
+  test('two frames landing before one read keep their arrival order', () async {
+    await open();
+    gateway.event('status.update', 'rt-1', {
+      'kind': 'lifecycle',
+      'text': recall,
+    });
+    gateway.event('status.update', 'rt-1', {'kind': 'status', 'text': 'Newer'});
+    await pumpEventQueue();
+    expect(summary()!.sentence.text, 'Newer');
+  });
+
+  test('a chat whose sources changed while it was not selected keeps '
+      'their order', () async {
+    await open();
+    final first = chat.selectedThread!;
+    await emit('status.update', {'kind': 'lifecycle', 'text': recall});
+    await emit('status.update', {'kind': 'status', 'text': 'Later'});
+    chat.select('elsewhere');
+    await pumpEventQueue();
+    expect(chat.workingSummaryIn(first)!.sentence.text, 'Later');
+  });
+}

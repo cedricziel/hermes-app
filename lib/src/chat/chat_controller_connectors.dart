@@ -6,17 +6,20 @@ extension _ChatControllerConnectors on ChatController {
     final owner = (_profile, thread.id), source = transport;
     final controller = _connectorOperations[owner],
         binding = _connectorBindings[owner];
+    // A controller kept display-only while the connection is lost stays
+    // reachable until the reconnect replaces it or a retirement removes it.
     return active &&
             _threads.contains(thread) &&
             source is OwnedSessionTransport &&
             binding != null &&
             controller != null &&
             controller.hasScope(binding) &&
-            (source as OwnedSessionTransport).ownedSessionFor(
-                  thread.id,
-                  profile: _profile,
-                ) ==
-                binding
+            (controller.displayOnly ||
+                (source as OwnedSessionTransport).ownedSessionFor(
+                      thread.id,
+                      profile: _profile,
+                    ) ==
+                    binding)
         ? controller
         : null;
   }
@@ -154,9 +157,16 @@ extension _ChatControllerConnectors on ChatController {
     final owner = (change.binding.profile, change.threadId);
     if (!change.connected) {
       if (_connectorBindings[owner] == change.binding) {
-        _removeConnector(owner);
-        notifyListeners();
+        // A drop keeps what the operations show, without a link or authority,
+        // until the reconnect replays them; a retirement releases them.
+        final kept = _connectorOperations[owner];
+        if (change.retired || kept == null) {
+          _removeConnector(owner);
+        } else {
+          kept.suspend();
+        }
       }
+      notifyListeners();
       if (identical(_connectorConnection, change.binding.connection)) {
         _clearConnectionOperations();
         notifyListeners();
@@ -241,8 +251,29 @@ extension _ChatControllerConnectors on ChatController {
           (change) {
             if (!current()) return;
             if (!change.connected) {
+              // Before anything is told, so no card sees a controller that
+              // has lost its session and still acts.
+              // A copy: a listener told by suspend() may retire an owner.
+              for (final entry in _connectorBindings.entries.toList()) {
+                if (identical(entry.value.connection, change.connection) &&
+                    _connectorBindings[entry.key] == entry.value) {
+                  _connectorOperations[entry.key]?.suspend();
+                }
+              }
+            }
+            if (!change.connected) {
+              // A resume cut off mid-way sends no more progress.
+              var cut = false;
+              for (final state in _sessionStates.values) {
+                if (state.resume?.status == 'loading') {
+                  state.resume = null;
+                  cut = true;
+                }
+              }
               if (identical(_connectorConnection, change.connection)) {
                 _clearConnectionOperations();
+                notifyListeners();
+              } else if (cut) {
                 notifyListeners();
               }
               return;

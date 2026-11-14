@@ -18,7 +18,13 @@ extension _ChatControllerHistory on ChatController {
         if (!_sending.containsKey(thread))
           thread: thread.messages.where((message) => message.isPending).toSet(),
     };
+    final sendingAtStart = _threads.where(_sending.containsKey).toSet();
     final generation = ++_loadGeneration;
+    // A send that is running stays current while this read is in flight; the
+    // commit keeps or drops its thread.
+    for (final thread in sendingAtStart) {
+      _protectedSends[thread]?.carriedGeneration = generation;
+    }
     // This load reads the list itself.
     _listRefreshPending = false;
     _loadingThreads = true;
@@ -90,17 +96,33 @@ extension _ChatControllerHistory on ChatController {
         notifyListeners();
         return;
       }
+      // A list read again for the profile in view must not drop the turn
+      // that is running in it.
+      final sameProfile = profile == previousProfile;
       final local = preserveSelection
           ? _threads.where((thread) => !thread.remote).toList()
-          : const <ChatThread>[];
-      final live = preserveSelection && profile == previousProfile
+          : sameProfile
           ? _threads
                 .where(
-                  (thread) => thread.remote && _sending.containsKey(thread),
+                  (thread) =>
+                      !thread.remote &&
+                      (_sending.containsKey(thread) ||
+                          sendingAtStart.contains(thread)),
+                )
+                .toList()
+          : const <ChatThread>[];
+      final live = sameProfile
+          ? _threads
+                .where(
+                  (thread) =>
+                      thread.remote &&
+                      (_sending.containsKey(thread) ||
+                          sendingAtStart.contains(thread)),
                 )
                 .toList()
           : const <ChatThread>[];
       final liveIds = {for (final thread in live) thread.id};
+      final kept = {...live, ...local};
       final currentRecoveries = recoveredQueues
           .where(
             (entry) =>
@@ -116,7 +138,11 @@ extension _ChatControllerHistory on ChatController {
                     !entry.value.any((prompt) => prompt.durable != null))
                   entry.key.id: entry.value,
             }
-          : <String, List<QueuedPrompt>>{};
+          : {
+              for (final entry in _queues.entries)
+                if (live.contains(entry.key) || local.contains(entry.key))
+                  entry.key.id: entry.value,
+            };
       if (preserveSelection) previousSelection = _selectedId;
       for (final (:source, :recovered) in currentRecoveries) {
         if (source.id == recovered.id) continue;
@@ -144,7 +170,13 @@ extension _ChatControllerHistory on ChatController {
         ),
       );
       // Another profile can hold a different session under the same id.
+      final keptState = (
+        sessions: {for (final t in kept) t: ?_sessionStates[t]},
+        actions: {for (final t in kept) t: ?_sessionActionGenerations[t]},
+      );
       _stopFollowing();
+      _sessionStates.addAll(keptState.sessions);
+      _sessionActionGenerations.addAll(keptState.actions);
       _active.clear();
       for (final controller in _chatControllers.values) {
         controller.dispose();
@@ -154,6 +186,7 @@ extension _ChatControllerHistory on ChatController {
       if (switched) {
         _modelOptions = null;
         _newChatModel = null;
+        _ChatControllerWorkspace(this)._workspaceProfileSwitched();
         search?.clear();
       }
       _carryReplies();
@@ -162,6 +195,7 @@ extension _ChatControllerHistory on ChatController {
           (message) => message.isPending && entry.value.contains(message),
         );
       }
+      if (switched) _ChatControllerSubagents(this)._clearSubagents();
       _profile = profile;
       breadcrumbs('chat.threads.loaded', {
         'switched': switched,
@@ -175,14 +209,43 @@ extension _ChatControllerHistory on ChatController {
           threads
               .where((t) => t.remote && !liveIds.contains(t.id))
               .map((t) => t.id),
-        );
-      _olderRows.clear();
-      _loadedQueues.clear();
-      _restoredQueues.clear();
+        )
+        // A first page cut off by this read is read again.
+        ..addAll(live.map((t) => t.id).where(_loadingMessages.containsKey));
+      final keptOlder = {for (final t in kept) t.id: ?_olderRows[t.id]};
+      _olderRows
+        ..clear()
+        ..addAll(keptOlder);
+      // What a kept thread's turn and queue stand on carries over; the rest
+      // is rebuilt for the list that was just read.
+      bool inKept(ChatThread t) => kept.contains(t);
+      final carried = (
+        loaded: _loadedQueues.where(inKept).toSet(),
+        restored: _restoredQueues.where(inKept).toSet(),
+        suspended: _suspendedQueues.where(inKept).toSet(),
+        ready: _queueTurnReady.where(inKept).toSet(),
+        settled: _queueSettled.where(inKept).toSet(),
+        restoring: {
+          for (final e in _queueRestoring.entries)
+            if (inKept(e.key)) e.key: e.value,
+        },
+      );
+      _loadedQueues
+        ..clear()
+        ..addAll(carried.loaded);
+      _restoredQueues
+        ..clear()
+        ..addAll(carried.restored);
       _queueEpoch++;
-      _queueRestoring.clear();
-      _queueTurnReady.clear();
-      _queueSettled.clear();
+      _queueRestoring
+        ..clear()
+        ..addAll(carried.restoring);
+      _queueTurnReady
+        ..clear()
+        ..addAll(carried.ready);
+      _queueSettled
+        ..clear()
+        ..addAll(carried.settled);
       _queues
         ..clear()
         ..addAll({
@@ -190,13 +253,23 @@ extension _ChatControllerHistory on ChatController {
         });
       _restoredQueues.addAll(
         _queues.keys.where(
-          (thread) => _queues[thread]!.any((prompt) => prompt.durable != null),
+          (thread) =>
+              !inKept(thread) &&
+              _queues[thread]!.any((prompt) => prompt.durable != null),
         ),
       );
       _suspendedQueues
         ..clear()
-        ..addAll(_queues.keys);
-      _cancelSettleWaits();
+        ..addAll(_queues.keys.where((t) => !inKept(t)))
+        ..addAll(carried.suspended);
+      _cancelSettleWaits(except: kept);
+      for (final thread in kept) {
+        if (_protectedSends[thread] case final send?) {
+          send
+            ..epoch = _queueEpoch
+            ..carriedGeneration = _loadGeneration;
+        }
+      }
       _bound
         ..clear()
         ..addAll(threads.where((thread) => thread.remote));
@@ -207,7 +280,10 @@ extension _ChatControllerHistory on ChatController {
           : null;
       _selectedId =
           launchedThread?.id ??
-          (preserveSelection && _threads.any((t) => t.id == previousSelection)
+          ((preserveSelection ||
+                      live.any((t) => t.id == previousSelection) ||
+                      local.any((t) => t.id == previousSelection)) &&
+                  _threads.any((t) => t.id == previousSelection)
               ? previousSelection
               : null);
       if (launchedThread != null) _markRead(launchedThread);
@@ -446,14 +522,28 @@ extension _ChatControllerHistory on ChatController {
     return merged;
   }
 
+  /// Why Hermes stores a candidate answer and goes on with the turn: a stop
+  /// gate (verify-on-stop, the `pre_verify` hook) keeps the answer as an
+  /// assistant row and nudges the model again. The kanban guard's value is
+  /// listed defensively: Hermes does not store its candidate. A turn that
+  /// ended on such a row (budget spent, interrupted) looks the same, so a
+  /// failed turn then keeps its error copy until the chat is read again.
+  static const _continuingFinishReasons = {
+    'verification_required',
+    'verify_hook_continue',
+    'kanban_terminal_required',
+  };
+
   /// Whether a stored [turn] ends on the final answer: an assistant row with
-  /// text and no tool calls. A row that only calls tools belongs to a turn
-  /// that may still be running.
+  /// text, no tool calls, and not a checkpoint a stop gate wrote mid-turn. A
+  /// row that only calls tools or is such a checkpoint belongs to a turn that
+  /// may still be running.
   bool _endsAnswered(List<ChatMessage> turn) => switch (turn.lastOrNull) {
     final ChatMessage last =>
       last.role == ChatRole.assistant &&
           last.toolCalls.isEmpty &&
-          last.content.trim().isNotEmpty,
+          last.content.trim().isNotEmpty &&
+          !_continuingFinishReasons.contains(last.finishReason),
     null => false,
   };
 
@@ -657,7 +747,8 @@ extension _ChatControllerHistory on ChatController {
       notifyListeners();
       if (stale()) return;
       await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a history re-read');
       // Keeps what it shows; the next refresh or open reads it again.
     }
   }

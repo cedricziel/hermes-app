@@ -166,7 +166,7 @@ For a server without the auth gate, the system SHALL send the session token embe
 
 ### Requirement: Gated servers load providers and check for a stored session
 
-When auth is required, the system SHALL load the sign-in options from `GET /api/auth/providers` (each with a name, a display name that falls back to the name, and whether it supports password). It SHALL then read the stored session, except that credentials left by a failed departure/expiry deletion SHALL be treated as absent until fresh sign-in replaces them. With no stored session the state SHALL be needs login. With a stored session the system SHALL verify it with `GET /api/auth/me` and go to ready with the returned identity.
+When auth is required, the system SHALL load the sign-in options from `GET /api/auth/providers` (each with a name, a display name that falls back to the name, and whether it supports password). It SHALL then read the stored session, except that credentials left by a failed departure/expiry deletion SHALL be treated as absent until fresh sign-in replaces them. A stored session SHALL be sent only to the server that issued it. One recorded as issued by another server SHALL be treated as absent and left in storage. One stored before the issuing server was recorded SHALL count as issued by the saved address (or the dev override): it SHALL be treated as absent when the connect is to any other address, and before the saved address is replaced by another, the system SHALL record that address (or, after a same-host redirect of it, the address redirected to) as its issuer in the secure storage, under the session lock and without overwriting a newer pair. If that cannot be recorded, the saved address SHALL NOT be replaced. When there is neither a saved address nor a dev override, such a session SHALL be removed instead, since its issuer can no longer be known. With no stored session the state SHALL be needs login. With a stored session the system SHALL verify it with `GET /api/auth/me` and go to ready with the returned identity.
 
 #### Scenario: No stored session
 
@@ -177,6 +177,13 @@ When auth is required, the system SHALL load the sign-in options from `GET /api/
 
 - **WHEN** auth is required and a stored session passes `GET /api/auth/me`
 - **THEN** the state is ready
+
+#### Scenario: A session without a recorded server stays with the saved address
+
+- **WHEN** a session stored before the issuing server was recorded is found, the saved address could not be reached, and the user submits a different address
+- **THEN** no request to the new address carries the stored tokens, on this connect, on a later connect to it, or after a relaunch that restores it as the saved address
+- **AND** the state is needs login
+- **AND** the stored tokens are kept and recorded as issued by the earlier saved address, so connecting to that address again restores the session
 
 #### Scenario: Providers cannot be loaded
 
@@ -433,7 +440,7 @@ Every request made through the authenticated client on a gated server SHALL carr
 
 ### Requirement: A 401 triggers one refresh and one retry
 
-When a request on a gated server is answered with 401 and a session exists, the system SHALL refresh the session and retry that request once with the new access token. If the retried request also gets 401, the system SHALL treat the session as expired. If the session has no refresh token, the system SHALL treat it as expired immediately. If the refresh endpoint answers 400, 401 or 403, the system SHALL treat the session as expired. If the refresh fails for any other reason, such as a network error or a 5xx answer, the system SHALL keep the session and let the original request fail. A 401 while no session exists SHALL NOT change the connection state.
+When a request on a gated server is answered with 401 and a session exists, the system SHALL refresh the session and retry that request once with the new access token. If the retried request also gets 401, the system SHALL treat the session as expired. If the session has no refresh token, the system SHALL treat it as expired immediately. If the refresh endpoint answers 400 or 401, or answers 403 with Hermes' own error body (a JSON object whose `error` is `session_expired`), the system SHALL treat the session as expired. Hermes refuses a refresh token with 401 `session_expired` and never answers the refresh with 403, so any other 403 comes from something in front of it, such as a proxy or firewall, and SHALL NOT end the session. If the refresh fails for any other reason, such as a network error, a 403 without that body or a 5xx answer, the system SHALL keep the session and let the original request fail. A 401 while no session exists SHALL NOT change the connection state.
 
 Treating the session as expired SHALL immediately disable protected requests and clear the in-memory session and identity, attempt stored-token deletion, announce account cleanup, and set the state to needs login. Successful deletion SHALL set the message "Your session expired. Please sign in again." Failed deletion SHALL report that the saved sign-in could not be removed while preserving recovery through fresh sign-in.
 
@@ -450,6 +457,19 @@ Treating the session as expired SHALL immediately disable protected requests and
 - **THEN** the stored tokens are cleared
 - **AND** the state is needs login
 - **AND** the request fails
+
+#### Scenario: Refresh refused by a proxy
+
+- **WHEN** a request gets 401 and the refresh endpoint answers 403 without an `error` of `session_expired`
+- **THEN** the request fails
+- **AND** the stored tokens are kept
+- **AND** the state stays ready
+
+#### Scenario: Refresh refused with 403 by Hermes
+
+- **WHEN** a request gets 401 and the refresh endpoint answers 403 with an `error` of `session_expired`
+- **THEN** the stored tokens are cleared
+- **AND** the state is needs login
 
 #### Scenario: Refresh endpoint unavailable
 

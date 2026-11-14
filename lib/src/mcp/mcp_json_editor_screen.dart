@@ -7,13 +7,14 @@ import '../widgets/grouped_list.dart';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
-import 'mcp_banner.dart';
+import '../widgets/app_banner.dart';
 import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_json_check.dart';
 import 'mcp_servers_controller.dart';
 import 'widgets/mcp_json_field.dart';
 import '../widgets/route_dismissal.dart';
+import '../telemetry/report_bug.dart';
 
 /// Edits the profile's whole `mcp_servers` map as JSON and replaces it on
 /// Save. Pops with true once Hermes has saved.
@@ -74,7 +75,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       _original = _indent.convert(loaded);
       _text.text = _original;
       setState(() => _loading = false);
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the MCP JSON editor');
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -230,8 +232,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const McpBanner(
-            tone: McpTone.warning,
+          const AppBanner(
+            tone: AppBannerTone.warning,
             icon: AppIcons.warning,
             title: 'Replaces all servers of this profile.',
             detail:
