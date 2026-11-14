@@ -160,19 +160,25 @@ class ProvidersRepository {
       final data = (await _within(
         checkBudget,
         (cancel) => _api.validateProviderCredentialApiProvidersValidatePost(
-          envVarUpdate: EnvVarUpdate(key: keyEnv, value: value),
+          envVarUpdate: EnvVarUpdate(
+            key: keyEnv,
+            value: value,
+            apiKey: null,
+            providerSetup: null,
+          ),
           cancelToken: cancel,
         ),
       )).data;
       if (data is! Map) return const KeyUnreachable();
-      final message = _safe(data['message'], value) ?? '';
       if (data['ok'] == true) {
         return data['reachable'] == true
             ? const KeyAccepted()
             : const KeyUnchecked();
       }
       if (data['reachable'] != true) return const KeyUnreachable();
-      return message.startsWith('Provider returned HTTP')
+      final raw = data['message'];
+      final message = _safe(raw, value) ?? '';
+      return raw is String && raw.startsWith('Provider returned HTTP')
           ? KeyProviderError(message)
           : KeyRejected(message);
     } on DioException catch (e) {
@@ -194,6 +200,7 @@ class ProvidersRepository {
           envVarUpdate: EnvVarUpdate(
             key: keyEnv,
             value: value,
+            apiKey: null,
             providerSetup: true,
           ),
           profile: profile,
@@ -303,6 +310,9 @@ class ProvidersRepository {
         scope: 'main',
         provider: provider,
         model: model,
+        task: null,
+        baseUrl: null,
+        apiKey: null,
         confirmExpensiveModel: confirmExpensive ? true : null,
       ),
       profile: profile,
