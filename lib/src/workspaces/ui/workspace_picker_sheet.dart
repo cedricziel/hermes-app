@@ -94,6 +94,10 @@ class _PickerSheetState extends State<_PickerSheet> {
   void initState() {
     super.initState();
     widget.guard.closed.addListener(_guardChanged);
+    // Opened over a change that already happened: close again at once.
+    if (widget.guard.closed.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _guardChanged());
+    }
   }
 
   @override

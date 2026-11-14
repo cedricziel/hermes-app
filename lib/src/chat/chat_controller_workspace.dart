@@ -338,6 +338,16 @@ extension _ChatControllerWorkspace on ChatController {
     }
     notifyListeners();
     if (!wasInFlight || state.inFlight) return;
+    // The chat runs elsewhere now: checkpoints belong to a working
+    // directory, so the open list is read again and counts are not trusted.
+    if (state.phase == WorkspaceMovePhase.changed) {
+      final moved = _threadFor(key);
+      if (moved != null) {
+        unawaited(
+          _actionsOf(moved)?.checkpoints?.turnEnded() ?? Future.value(),
+        );
+      }
+    }
     // Whatever waited for the move goes on.
     final thread = _threadFor(key);
     if (thread != null && active && _queues[thread] != null) {

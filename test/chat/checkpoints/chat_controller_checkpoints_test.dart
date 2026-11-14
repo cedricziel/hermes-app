@@ -1193,7 +1193,7 @@ void main() {
         await pumpEventQueue();
 
         expect(moves, ['session.workspace.move']);
-        expect(checkpoints2.restoreRefusal(), RestoreRefusal.replying);
+        expect(checkpoints2.restoreRefusal(), RestoreRefusal.folderMoving);
         expect(checkpoints2.beginRestore(_hash), isNull);
         expect(context2.compressRefusal, CompressRefusal.replying);
         expect(context2.beginCompress(), isNull);

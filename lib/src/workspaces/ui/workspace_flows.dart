@@ -38,6 +38,8 @@ Future<void> chooseNewChatFolder(
       chat: chat,
       guard: guard,
       onPick: (FolderPick pick) async {
+        // Opened over a switch that already happened: no pick lands.
+        if (guard.closed.value) return false;
         chat.chooseWorkspace(pick.choice);
         return true;
       },
@@ -103,6 +105,10 @@ class _DetailsSheetState extends State<_DetailsSheet> {
   var _pickerOpen = false;
   WorkspaceCatalogLoader? _loader;
 
+  /// A restore or a compression of the chat flips these, not the chat
+  /// controller: the reason next to the button follows them.
+  Listenable? _actions;
+
   ChatController get _chat => widget.chat;
 
   /// The chat as the controller holds it now: a reload replaces the objects.
@@ -115,8 +121,15 @@ class _DetailsSheetState extends State<_DetailsSheet> {
   void initState() {
     super.initState();
     widget.guard.closed.addListener(_guardChanged);
+    if (widget.guard.closed.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _guardChanged());
+    }
     // The project line needs the catalog; read it for the details.
     _loader = _chat.workspaceCatalog();
+    _actions = Listenable.merge([
+      ?_chat.checkpointsIn(_thread),
+      ?_chat.contextIn(_thread),
+    ]);
     if (widget.openPicker) {
       _loader?.addListener(_openPickerWhenKnown);
       WidgetsBinding.instance.addPostFrameCallback(
@@ -204,7 +217,7 @@ class _DetailsSheetState extends State<_DetailsSheet> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([_chat, ?_loader]),
+    listenable: Listenable.merge([_chat, ?_loader, ?_actions]),
     builder: (context, _) {
       final thread = _thread;
       final folder = threadFolderOf(_chat, thread);

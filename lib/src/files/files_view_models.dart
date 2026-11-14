@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'widgets/safe_path_text.dart';
+
 import 'package:flutter/painting.dart' show FileImage;
 
 import 'files_controller.dart';
@@ -158,8 +160,8 @@ FilesPreviewModel previewModelOf(
 /// of a filesystem root.
 String folderTitleOf(FilesController controller, String fallback) {
   final folder = controller.folder;
-  if (folder == null) return fallback;
-  return folder.isRoot ? folder.value : folder.name;
+  if (folder == null) return safePathText(fallback);
+  return safePathText(folder.isRoot ? folder.value : folder.name);
 }
 
 /// The file a [FileImage] shows, for a test.

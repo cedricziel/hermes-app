@@ -125,6 +125,10 @@ A search field filters projects and repos on the device when the project and rec
 - The scan's outcome is a line under the list (an inline bar that is announced when it appears), not a snackbar: the picker is its own sheet, so a toast over the chat would sit behind it. The host clears it.
 - "· on your server" is set with non-breaking spaces, so a wrapped path moves the whole suffix to the next line.
 
+**Safe path display (decided).** Every server path or name the app draws goes through one helper, `safePathText` (`lib/src/files/widgets/safe_path_text.dart`, shared with Files): bidi controls, C0/C1 controls (CR, LF, ESC), DEL, U+2028/2029, U+200B, U+2060 to U+2064, U+206A to U+206F and U+FEFF become a visible `⟨U+XXXX⟩` placeholder, never dropped; U+200C and U+200D stay (Persian, Indic). Tooltips and semantics use it too and shortening cuts between placeholders. Only the display changes; the sent and stored path is the original.
+
+**Move, restore and compression exclude each other (decided).** Checkpoints belong to a working directory and a compression rewrites the chat, so a move is refused while a full restore, a single-file restore or a compression runs (or Send is held for one), and none of them starts while a move is in flight; a move that ends changed reads the open checkpoint list again.
+
 **Why not `session.cwd.set` (decided).** It requires the runtime session id (the app resumes lazily and holds none for an idle chat), refuses a running session with `4009`, and for a stored chat the next `session.resume` reads the stored `cwd` anyway, which `workspace.move` writes.
 
 **Why not validate with `projects.for_cwd` (decided).** It falls back silently, so it cannot say "does not exist", and without `cwd_explicit` it answers with a named profile's own workspace rather than the asked folder. `GET /api/fs/list` says `ENOENT` and `ENOTDIR` directly; `complete.path` supplies the typed suggestions.

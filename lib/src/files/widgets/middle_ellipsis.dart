@@ -11,7 +11,7 @@ String elideMiddle(
   bool keepExtension = false,
 }) {
   text = safePathText(text);
-  final chars = text.characters;
+  final chars = safeTextUnits(text);
   if (chars.length <= maxChars || maxChars < 5) return text;
   final dot = text.lastIndexOf('.');
   final extension = dot > 0 ? text.substring(dot) : '';
@@ -21,7 +21,7 @@ String elideMiddle(
     tail = wanted < maxChars - 4 ? wanted : maxChars - 4;
   }
   final head = maxChars - 1 - tail;
-  return '${chars.take(head)}…${chars.takeLast(tail)}';
+  return '${chars.take(head).join()}…${chars.sublist(chars.length - tail).join()}';
 }
 
 /// A name drawn on at most [maxLines] lines, wrapped at word boundaries (a
@@ -78,7 +78,7 @@ class MiddleEllipsisText extends StatelessWidget {
 
   /// The longest `head…tail` that fits, found by bisection on the head.
   static String _cut(String text, bool Function(String) fits) {
-    final chars = text.characters.toList();
+    final chars = safeTextUnits(text);
     final dot = text.lastIndexOf('.');
     final extension = dot > 0 ? text.substring(dot) : '';
     final keep = extension.isNotEmpty && extension.length <= 8

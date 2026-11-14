@@ -273,12 +273,12 @@ class _LinkSegment extends StatelessWidget {
     final l10n = context.l10n;
     final link = context.hermesColors.link;
     return Tooltip(
-      message: path,
+      message: safePathText(path),
       excludeFromSemantics: true,
       child: MergeSemantics(
         child: Semantics(
           button: true,
-          label: l10n.filesPathSegmentLabel(path),
+          label: l10n.filesPathSegmentLabel(safePathText(path)),
           child: TextButton(
             onPressed: onPressed,
             style: TextButton.styleFrom(
@@ -317,10 +317,10 @@ class _CurrentSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: path,
+    message: safePathText(path),
     excludeFromSemantics: true,
     child: Semantics(
-      label: context.l10n.filesPathCurrentLabel(path),
+      label: context.l10n.filesPathCurrentLabel(safePathText(path)),
       excludeSemantics: true,
       child: Container(
         constraints: BoxConstraints(minHeight: height),

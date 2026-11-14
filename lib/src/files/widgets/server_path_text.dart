@@ -20,7 +20,7 @@ const String kServerPathFont = 'monospace';
 /// as much of the start as is left.
 String elidePathMiddle(String path, bool Function(String) fits) {
   if (fits(path)) return path;
-  final chars = path.characters.toList();
+  final chars = safeTextUnits(path);
   // Nothing to cut out of one or two characters.
   if (chars.length < 3) return path;
   final last = path.lastIndexOf(

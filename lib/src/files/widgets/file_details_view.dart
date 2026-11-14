@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'safe_path_text.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
@@ -41,6 +42,7 @@ class FileDetailsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final name = safePathText(this.name);
     final files = FilesMetrics.of(context);
     final scheme = Theme.of(context).colorScheme;
     final muted = context.hermesColors.subtleText;

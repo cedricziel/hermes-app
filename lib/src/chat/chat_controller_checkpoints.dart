@@ -170,6 +170,10 @@ extension _ChatControllerCheckpoints on ChatController {
               _moveHolds(thread) ||
               thread.messages.any((m) => m.awaitingInput));
     },
+    moveHolds: () {
+      final thread = _threadOf(actions);
+      return thread != null && _moveHolds(thread);
+    },
     refetchChat: ({bool historyRemoved = false}) async {
       final thread = _threadOf(actions);
       if (thread == null) throw StateError('The chat is gone');
