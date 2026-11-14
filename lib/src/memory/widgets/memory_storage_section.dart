@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Banner;
 
-import '../../mcp/mcp_banner.dart';
+import '../../widgets/banner.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
@@ -39,8 +39,8 @@ class MemoryStorageSection extends StatelessWidget {
         if (status?.state == MemoryProviderState.missing)
           Padding(
             padding: const EdgeInsets.only(top: 16),
-            child: McpBanner(
-              tone: McpTone.error,
+            child: Banner(
+              tone: BannerTone.error,
               icon: AppIcons.error,
               title: 'Memory provider is missing',
               detail:
@@ -67,11 +67,11 @@ class MemoryStorageSection extends StatelessWidget {
         if (notice != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: McpBanner(
+            child: Banner(
               tone: switch (notice.tone) {
-                MemoryNoticeTone.success => McpTone.success,
-                MemoryNoticeTone.warning => McpTone.warning,
-                MemoryNoticeTone.error => McpTone.error,
+                MemoryNoticeTone.success => BannerTone.success,
+                MemoryNoticeTone.warning => BannerTone.warning,
+                MemoryNoticeTone.error => BannerTone.error,
               },
               icon: notice.tone == MemoryNoticeTone.success
                   ? AppIcons.checkCircle

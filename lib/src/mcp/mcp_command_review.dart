@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Banner;
 
 import '../theme/app_icons.dart';
 import '../widgets/adaptive_sheet.dart';
-import 'mcp_banner.dart';
+import '../widgets/banner.dart';
 import 'mcp_command_review_items.dart';
 
 /// Shows [McpCommandReview] as a dialog on macOS and wide layouts, or a
@@ -75,8 +75,8 @@ class _McpCommandReviewState extends State<McpCommandReview> {
           ),
           const SizedBox(height: 12),
           for (final command in widget.commands) _Command(command),
-          const McpBanner(
-            tone: McpTone.warning,
+          const Banner(
+            tone: BannerTone.warning,
             icon: AppIcons.warning,
             title: 'Only add commands you recognise.',
             detail:

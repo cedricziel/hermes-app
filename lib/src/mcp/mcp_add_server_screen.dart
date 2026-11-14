@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Banner;
 
 import '../theme/app_icons.dart';
 import '../widgets/settings_scaffold.dart';
 import 'widgets/mcp_server_fields.dart';
 import 'hermes_mcp_repository.dart';
-import 'mcp_banner.dart';
+import '../widgets/banner.dart';
 import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_servers_controller.dart';
@@ -248,8 +248,8 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
               ),
               if (_error case final error?) ...[
                 const SizedBox(height: 16),
-                McpBanner(
-                  tone: McpTone.error,
+                Banner(
+                  tone: BannerTone.error,
                   icon: AppIcons.error,
                   title: error,
                 ),

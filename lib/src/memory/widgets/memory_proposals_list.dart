@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Banner;
 
-import '../../mcp/mcp_banner.dart';
+import '../../widgets/banner.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
@@ -74,8 +74,8 @@ class MemoryProposalsList extends StatelessWidget {
         if (notice != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: McpBanner(
-              tone: notice!.isError ? McpTone.error : McpTone.success,
+            child: Banner(
+              tone: notice!.isError ? BannerTone.error : BannerTone.success,
               icon: notice!.isError ? AppIcons.error : AppIcons.checkCircle,
               title: notice!.title,
               detail: notice!.detail ?? '',

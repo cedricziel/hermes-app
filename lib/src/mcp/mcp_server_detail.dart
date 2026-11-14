@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Banner;
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../theme/app_icons.dart';
@@ -6,7 +6,7 @@ import '../theme/hermes_theme.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import 'hermes_mcp_repository.dart';
-import 'mcp_banner.dart';
+import '../widgets/banner.dart';
 import 'mcp_presentation.dart';
 import 'mcp_servers_controller.dart';
 import 'mcp_sign_in_screen.dart';
@@ -165,8 +165,8 @@ class McpServerDetail extends StatelessWidget {
             if (controller.signInNoteOf(server.name) case final note?)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
-                child: McpBanner(
-                  tone: McpTone.error,
+                child: Banner(
+                  tone: BannerTone.error,
                   icon: AppIcons.error,
                   title: note,
                 ),
@@ -279,8 +279,8 @@ class _TestOutcome extends StatelessWidget {
     final (banner, tools) = switch (controller.testOf(server.name)) {
       null || McpTestRunning() => (null, const <HermesMcpTool>[]),
       McpTestUnavailable() => (
-        McpBanner(
-          tone: McpTone.error,
+        Banner(
+          tone: BannerTone.error,
           icon: AppIcons.error,
           title: 'Could not test ${server.name}',
           action: TextButton(
@@ -291,8 +291,8 @@ class _TestOutcome extends StatelessWidget {
         const <HermesMcpTool>[],
       ),
       McpTestFinished(:final result) when result.signInNeeded => (
-        McpBanner(
-          tone: McpTone.warning,
+        Banner(
+          tone: BannerTone.warning,
           icon: AppIcons.lock,
           title: 'Sign in needed',
           detail:
@@ -303,8 +303,8 @@ class _TestOutcome extends StatelessWidget {
         const <HermesMcpTool>[],
       ),
       McpTestFinished(:final result) when !result.ok => (
-        McpBanner(
-          tone: McpTone.error,
+        Banner(
+          tone: BannerTone.error,
           icon: AppIcons.error,
           title: 'Could not connect',
           detail: result.error,
@@ -312,8 +312,8 @@ class _TestOutcome extends StatelessWidget {
         const <HermesMcpTool>[],
       ),
       McpTestFinished(:final result) => (
-        McpBanner(
-          tone: McpTone.success,
+        Banner(
+          tone: BannerTone.success,
           icon: AppIcons.checkCircle,
           title: 'Connected',
           detail:
