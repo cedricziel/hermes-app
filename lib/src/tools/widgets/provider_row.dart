@@ -113,12 +113,13 @@ class ProviderRow extends StatelessWidget {
           ? null
           : RadioGroup<bool>(
               groupValue: picked,
-              // The picked row has no action but is not disabled: Material
-              // draws a disabled radio grey, which reads as unavailable.
+              // Never drawn disabled: Material draws a disabled radio grey,
+              // which reads as unavailable. A locked row is dimmed as a whole
+              // (and its [onPick] is null), so the radio is not dimmed twice.
               onChanged: (_) => onPick?.call(),
               child: Radio<bool>(
                 value: true,
-                enabled: enabled,
+                enabled: true,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),

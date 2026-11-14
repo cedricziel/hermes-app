@@ -46,17 +46,10 @@ class _ComputerUsePanelState extends State<ComputerUsePanel> {
   }
 
   @override
-  void didUpdateWidget(ComputerUsePanel old) {
-    super.didUpdateWidget(old);
-    if (old.env.repository.profile != widget.env.repository.profile) {
-      unawaited(_controller.load());
-    }
-  }
-
-  @override
   void dispose() {
     widget.env.refresh.remove(_controller.load);
     widget.env.installs.removeListener(_onInstalls);
+    _controller.acknowledge();
     super.dispose();
   }
 
@@ -115,7 +108,7 @@ class _ComputerUsePanelState extends State<ComputerUsePanel> {
               ],
               errorText: status.error,
               onOpenBotScreen: offered ? link.open : null,
-              onAllowAccess: _controller.canOfferGrant && !widget.env.switchBusy
+              onAllowAccess: _controller.canOfferGrant && !widget.env.locked
                   ? () => unawaited(_controller.grant())
                   : null,
             ),

@@ -55,6 +55,18 @@ class TerminalBackendsController extends ChangeNotifier with SafeNotifier {
   String? get active => _backends?.active;
   ToolsWriteState get pickState => _pick;
 
+  /// The user has seen how the last pick ended: a refusal or a failure does
+  /// not show again on a later visit. A pick still running is left alone.
+  void acknowledge() {
+    if (_writing ||
+        _pick == ToolsWriteState.saving ||
+        _pick == ToolsWriteState.checking) {
+      return;
+    }
+    _pick = ToolsWriteState.idle;
+    _detail = null;
+  }
+
   /// Hermes' own text when it refused the last pick.
   String? get refusalDetail => _detail;
 

@@ -28,11 +28,12 @@ import 'widgets/toolset_model_sheet.dart';
 ///
 /// It shows the [ToolsetSetupController] the screen's registry keeps (so a
 /// write goes on, and its result is waiting, when the panel is gone) and owns
-/// the one [TextEditingController] per key the form shows, and nothing else: typed keys live in those fields
-/// and in the controller's private map, are cleared by a successful save, a
-/// lost answer, App Lock, a provider or profile change and when the panel
-/// goes away, and are never read back out or logged. The install runs
-/// on the connection's `ToolsetInstalls`, which outlives the panel.
+/// the one [TextEditingController] per key the form shows, and nothing else:
+/// typed keys live in those fields and in the controller's private map, are
+/// cleared by a successful save, a lost answer, App Lock, a provider or
+/// profile change and when the panel goes away, and are never read back out
+/// or logged. The install runs on the connection's `ToolsetInstalls`, which
+/// outlives the panel.
 class ToolsetSetupPanel extends StatefulWidget {
   const ToolsetSetupPanel({
     super.key,
@@ -86,20 +87,6 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
   }
 
   @override
-  void didUpdateWidget(ToolsetSetupPanel old) {
-    super.didUpdateWidget(old);
-    if (old.env.repository.profile != widget.env.repository.profile) {
-      // Typed keys go with the profile they were typed for.
-      _replacing.clear();
-      _expanded = !widget.toolset.configured;
-      _advanced = false;
-      _modelsFor = null;
-      // The registry handed the controller to the new profile.
-      unawaited(_setup.load());
-    }
-  }
-
-  @override
   void dispose() {
     widget.env.refresh.remove(_refresh);
     widget.env.refresh.removeClear(_clearTyped);
@@ -112,7 +99,10 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
     // waits here. What was typed goes.
     _setup
       ..removeListener(_onSetup)
-      ..clearKeys();
+      ..clearKeys(notify: false);
+    // Seen: a later visit starts clean. A write still running keeps its
+    // result for the user's return.
+    if (!_writing) _setup.acknowledge();
     for (final field in _fields.values) {
       field
         ..clear()
@@ -146,7 +136,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
 
   /// Nothing may be picked, saved or installed: a setup write is out, or the
   /// toolset's own switch is being written.
-  bool get _locked => _writing || widget.env.switchBusy;
+  bool get _locked => _writing || widget.env.locked;
 
   TextEditingController _field(String key) =>
       _fields.putIfAbsent(key, TextEditingController.new);
@@ -426,7 +416,7 @@ class _ToolsetSetupPanelState extends State<ToolsetSetupPanel> {
               _setup.setKey(env.key, _field(env.key).text);
             }
           },
-          onSave: _setup.hasTypedKeys && !widget.env.switchBusy
+          onSave: _setup.hasTypedKeys && !widget.env.locked
               ? () => unawaited(_setup.saveKeys())
               : null,
           onReplace: (field) => setState(() {

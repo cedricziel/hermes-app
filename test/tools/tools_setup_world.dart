@@ -36,6 +36,9 @@ class SetupWorld {
   // Terminal.
   var backend = 'local';
 
+  /// Terminal also has a provider with a key, to type next to a backend pick.
+  var terminalKeys = false;
+
   // Computer use.
   var driverInstalled = false;
   var screenRecording = false;
@@ -292,7 +295,44 @@ class SetupWorld {
         '/api/tools/toolsets/computer_use/config',
         (_) => (status: 200, body: computerConfig()),
       )
-      ..on('GET', '/api/tools/toolsets/terminal/config', _plain('terminal'))
+      ..onRequest(
+        'GET',
+        '/api/tools/toolsets/terminal/config',
+        (_) => (
+          status: 200,
+          body: terminalKeys
+              ? {
+                  'name': 'terminal',
+                  'has_category': true,
+                  'active_provider': 'Term Co',
+                  'providers': [
+                    {
+                      'name': 'Term Co',
+                      'env_vars': [
+                        {
+                          'key': 'TERMCO_KEY',
+                          'prompt': 'Term Co key',
+                          'is_set': false,
+                        },
+                      ],
+                      'is_active': true,
+                      'status': 'needs_keys',
+                    },
+                  ],
+                }
+              : _plain('terminal'),
+        ),
+      )
+      ..onRequest('PUT', '/api/tools/toolsets/terminal/env', (_) {
+        return (
+          status: 200,
+          body: {
+            'ok': true,
+            'name': 'terminal',
+            'saved': ['TERMCO_KEY'],
+          },
+        );
+      })
       ..on('GET', '/api/tools/toolsets/todo/config', _plain('todo'))
       ..onRequest(
         'GET',

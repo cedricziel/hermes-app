@@ -66,6 +66,8 @@ void main() {
       final oldPrint = debugPrint;
       debugPrint = (message, {wrapWidth}) => printed.add('$message');
 
+      // Nothing in lib/src/tools records a crumb today, so this guards the
+      // sink: if a crumb is ever added on this path, it is checked below.
       final trail = BreadcrumbTrail();
       await h.pump(trail: trail);
       await h.openWeb();

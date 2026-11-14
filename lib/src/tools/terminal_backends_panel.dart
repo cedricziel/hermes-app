@@ -48,16 +48,9 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
   }
 
   @override
-  void didUpdateWidget(TerminalBackendsPanel old) {
-    super.didUpdateWidget(old);
-    if (old.env.repository.profile != widget.env.repository.profile) {
-      unawaited(_controller.load());
-    }
-  }
-
-  @override
   void dispose() {
     widget.env.refresh.remove(_controller.load);
+    _controller.acknowledge();
     super.dispose();
   }
 
@@ -85,7 +78,7 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
           ],
         );
       }
-      final writing = _writing || widget.env.switchBusy;
+      final writing = _writing || widget.env.locked;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -98,7 +91,7 @@ class _TerminalBackendsPanelState extends State<TerminalBackendsPanel> {
                 _choice(backend, picked: backend.name == _controller.active),
             ],
             onPick: (name) {
-              if (!widget.env.switchBusy) unawaited(_controller.pick(name));
+              if (!widget.env.locked) unawaited(_controller.pick(name));
             },
           ),
           ?_note(context),

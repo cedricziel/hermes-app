@@ -91,7 +91,7 @@ class ToolsPanelEnv {
     required this.onWritten,
     this.botScreen,
     this.lock,
-    this.switchBusy = false,
+    this.locked = false,
   });
 
   /// Bound to the profile whose toolset this is.
@@ -115,12 +115,13 @@ class ToolsPanelEnv {
   /// App Lock, which clears typed keys when it locks.
   final AppLockController? lock;
 
-  /// The toolset's own switch is being written (or checked): the panels take
-  /// no pick, save or grant until it ends, so a switch and a setup write
-  /// never overlap.
-  final bool switchBusy;
+  /// Some write of this toolset is out: its own switch, a setup write, a
+  /// backend pick or the permission grant (the count the registry keeps). The
+  /// panels take no pick, save, install or grant until every one has ended,
+  /// so writes of a toolset never overlap.
+  final bool locked;
 
-  ToolsPanelEnv withSwitchBusy({required bool busy}) => ToolsPanelEnv(
+  ToolsPanelEnv withLocked({required bool busy}) => ToolsPanelEnv(
     repository: repository,
     installs: installs,
     ask: ask,
@@ -130,6 +131,6 @@ class ToolsPanelEnv {
     onWritten: onWritten,
     botScreen: botScreen,
     lock: lock,
-    switchBusy: busy,
+    locked: busy,
   );
 }

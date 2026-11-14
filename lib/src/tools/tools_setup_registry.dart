@@ -7,7 +7,8 @@ import 'toolset_setup_controller.dart';
 import 'tools_write.dart';
 
 /// The controllers of the open Tools screen's setup, which outlive the
-/// details panels that show them.
+/// details panels that show them. There is one per toolset the user opened
+/// (so the list bounds it) and they are freed when the screen goes ([dispose]).
 ///
 /// A write belongs to its controller, not to the panel that started it: when
 /// the user opens another toolset mid-save the panel goes, the write runs on,
@@ -40,7 +41,7 @@ class ToolsSetupRegistry {
   TerminalBackendsController? _backends;
   ComputerUseController? _computer;
   final _busy = <String, bool>{};
-  final _wasBackendWrite = <bool>[false];
+  var _backendWriting = false;
   var _disposed = false;
 
   ToolsetSetupController setup(String toolset) =>
@@ -88,12 +89,10 @@ class ToolsSetupRegistry {
         c.pickState == ToolsWriteState.saving ||
         c.pickState == ToolsWriteState.checking;
     _report('backends', 'terminal', writing);
-    if (_wasBackendWrite[0] &&
-        !writing &&
-        c.pickState == ToolsWriteState.idle) {
+    if (_backendWriting && !writing && c.pickState == ToolsWriteState.idle) {
       onWritten();
     }
-    _wasBackendWrite[0] = writing;
+    _backendWriting = writing;
   }
 
   void _report(String key, String toolset, bool busy) {
@@ -106,6 +105,8 @@ class ToolsSetupRegistry {
   /// dropped, typed keys go, and every lock is released.
   void switchProfile(HermesToolsRepository next) {
     repository = next;
+    // A pick in flight is dropped, not landed: no second list read for it.
+    _backendWriting = false;
     for (final controller in _setups.values) {
       controller.switchProfile(next);
     }

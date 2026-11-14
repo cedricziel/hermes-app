@@ -221,10 +221,39 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
   }
 
   /// Drops every typed value: App Lock, the form closing, a profile switch.
-  void clearKeys() {
+  ///
+  /// With [notify] false the listeners are not told, for a caller that is
+  /// being torn down.
+  void clearKeys({bool notify = true}) {
     if (_typed.isEmpty) return;
     _typed.clear();
-    notifyListeners();
+    if (notify) notifyListeners();
+  }
+
+  /// The user has seen what the last writes ended with: the result states
+  /// (saved, failed, refused, unconfirmed, not applied), Hermes' texts, the
+  /// Nous flag and a provider that was only looked at go, so a later visit
+  /// does not show an old "Saved." A write that is still running is left
+  /// alone: its result waits for the user. Silent, like [clearKeys] with
+  /// `notify: false`, for the panel's dispose.
+  void acknowledge() {
+    bool busy(ToolsWriteState s) =>
+        s == ToolsWriteState.saving || s == ToolsWriteState.checking;
+    if (_writing ||
+        busy(_provider) ||
+        busy(_model) ||
+        _keys == ToolsetKeysState.saving ||
+        _keys == ToolsetKeysState.checking) {
+      return;
+    }
+    _keys = ToolsetKeysState.idle;
+    _lastRefusal = null;
+    _provider = ToolsWriteState.idle;
+    _providerDetail = null;
+    _needsNousAuth = false;
+    _model = ToolsWriteState.idle;
+    _modelDetail = null;
+    _selected = null;
   }
 
   /// Hands the controller to another profile and drops everything typed.

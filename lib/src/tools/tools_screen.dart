@@ -642,8 +642,8 @@ class _ToolsetDetailState extends State<_ToolsetDetail> {
       final desktop = toolsOnDesktop(context);
       final mac = platformChromeOf(context) == PlatformChrome.macos;
       final started = controller.postSetupStarted != null;
-      final env = widget.env.withSwitchBusy(
-        busy: controller.rowState(name).busy,
+      final env = widget.env.withLocked(
+        busy: controller.switchLocked(name) || controller.rowState(name).busy,
       );
       final body = ToolsetDetailBody(
         physics: mac ? null : const AlwaysScrollableScrollPhysics(),

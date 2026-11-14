@@ -102,6 +102,17 @@ class ComputerUseController extends ChangeNotifier with SafeNotifier {
   /// Reads of the grant's log are failing and being retried.
   bool get followFailing => _followFailing;
 
+  /// The user has seen how the last grant ended: a refusal, a failure or an
+  /// unconfirmed end does not show again on a later visit. A grant still
+  /// running is left alone.
+  void acknowledge() {
+    if (grantBusy) return;
+    _phase = ComputerUseGrantPhase.idle;
+    _detail = null;
+    _lines = const [];
+    _followLost = false;
+  }
+
   /// The follow gave up on failed reads; [checkAgain] resumes it.
   bool get followLost => _followLost && !grantBusy;
 
