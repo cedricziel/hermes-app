@@ -15,6 +15,8 @@ import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/inline_reply.dart';
 import 'package:hermes_app/src/notifications/local_notification_service.dart'
     show targetFromPayload, notificationPayload, notificationIdFor;
+import 'package:hermes_app/src/notifications/notification_service.dart';
+import 'package:hermes_app/src/notifications/notification_posting.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/notifications/request_notifications.dart'
     show accountHashFor;
@@ -56,6 +58,31 @@ class _HangingCloseTransport extends FakeChatTransport {
   Future<void> close() {
     closed = true;
     return Completer<void>().future;
+  }
+}
+
+/// Stalls `markAnnounced` until released.
+class _StalledRunning extends RunningReplies {
+  final gate = Completer<void>();
+
+  @override
+  Future<void> markAnnounced(Iterable<RunningReply> replies) async {
+    await gate.future;
+    return super.markAnnounced(replies);
+  }
+}
+
+/// Posts only after [delay].
+class _SlowNotifications extends FakeNotificationService {
+  _SlowNotifications(this.delay);
+  final Duration delay;
+
+  @override
+  Future<NotificationPostResult> post(
+    AttentionNotification notification,
+  ) async {
+    await Future<void>.delayed(delay);
+    return super.post(notification);
   }
 }
 
@@ -137,6 +164,9 @@ void main() {
     HeadlessDeps? deps,
     String engine = 'headless',
     bool withRunning = true,
+    RunningReplies? runner,
+    Future<bool> Function()? front,
+    NotificationService? service,
   }) => sendInlineReply(
     payload: body ?? payload(),
     input: text,
@@ -144,15 +174,15 @@ void main() {
     now: () => clock,
     route: route,
     platform: platform,
-    notifications: notifications,
+    notifications: service ?? notifications,
     settings: settings,
     appLockAtArrival: () async {
       if (appLockAtArrival == true) return true;
       return false;
     },
     appLockBeforePost: () async => appLockAtPost,
-    appInFront: () async => inFront,
-    running: withRunning ? running : null,
+    appInFront: front ?? () async => inFront,
+    running: withRunning ? (runner ?? running) : null,
     events: events.call,
     breadcrumbs: Breadcrumbs.of(trail),
     tracer: tracer,
@@ -287,6 +317,10 @@ void main() {
       expect(n.threadId, 'thread-1');
       expect(n.profile, 'work');
       expect(notificationPayload(n), isNot(contains('Yes, book it')));
+      // Only the chat id: it replaces the chat's notification, names no
+      // profile.
+      expect(payloadOf(n).containsKey('p'), isFalse);
+      expect(payloadOf(n)['t'], 'thread-1');
       // A run-less span.
       expect(tracer.spans, hasLength(1));
       expect(tracer.spans.single.name, 'background.task');
@@ -419,7 +453,7 @@ void main() {
       expect(transport.sends, isEmpty);
     });
 
-    test('a throwing body before the submit: "write it again"', () async {
+    test('a throwing body after the account check: "try again"', () async {
       final result = await reply('Yes', transportFor: _boom);
 
       expect(result.outcome, InlineReplyOutcome.failed);
@@ -427,8 +461,8 @@ void main() {
         events.named('notification.reply').single['outcome'],
         'unreachable',
       );
-      expect(only().body, kReplyNotSentBody);
-      expect(only().draft, isNull);
+      expect(only().body, kReplyNotSentKeptBody);
+      expect(only().draft, 'Yes');
     });
 
     test('the run ending with the prompt written and not acknowledged: '
@@ -496,17 +530,14 @@ void main() {
         expect(result.outcome, InlineReplyOutcome.failed);
         expect(result.ending, ReplyEnding.notSent);
         expect(result.endingPosted, isTrue);
-        expect(only().body, isIn([kReplyNotSentKeptBody, kReplyNotSentBody]));
+        expect(only().body, kReplyNotSentKeptBody);
         expect(transport.closed, isTrue);
 
         // A callback after the cutoff cannot flip what was decided.
         send.onSubmitting!();
         await Future<void>.delayed(const Duration(milliseconds: 30));
         expect(notifications.shown, hasLength(1));
-        expect(
-          notifications.shown.single.body,
-          isIn([kReplyNotSentKeptBody, kReplyNotSentBody]),
-        );
+        expect(notifications.shown.single.body, kReplyNotSentKeptBody);
       },
     );
 
@@ -517,7 +548,7 @@ void main() {
       final result = await run;
 
       expect(result.outcome, InlineReplyOutcome.failed);
-      expect(only().body, isIn([kReplyNotSentKeptBody, kReplyNotSentBody]));
+      expect(only().body, kReplyNotSentKeptBody);
     });
 
     test('written and not acknowledged at the cutoff: "Couldn\'t confirm" '
@@ -756,6 +787,77 @@ void main() {
       expect(await running.readAnnounced(), isEmpty);
       // Not announced, so the background check is told instead.
       expect(await running.read(), hasLength(1));
+    });
+
+    test('an announcement stalled in markAnnounced is undone after the run '
+        'ended', () async {
+      final stalled = _StalledRunning();
+      final run = reply(
+        'Yes',
+        left: const Duration(milliseconds: 150),
+        runner: stalled,
+      );
+      final send = await sent();
+      send.onSubmitting!();
+      transport.promptAccepted = true;
+      send.emit(const ReplyCompleted('Booked it.'));
+
+      final result = await run;
+      stalled.gate.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(result.outcome, InlineReplyOutcome.sent);
+      expect(notifications.shown, isEmpty);
+      expect(await stalled.readAnnounced(), isEmpty);
+      expect(await stalled.read(), hasLength(1));
+    });
+
+    test('a slow announcement finishes before the run returns, and is not '
+        'recorded', () async {
+      final slow = _SlowNotifications(const Duration(milliseconds: 130));
+      final run = reply(
+        'Yes',
+        left: const Duration(milliseconds: 100),
+        service: slow,
+        deps: HeadlessDeps(
+          tokenStore: store,
+          prefs: SharedPreferencesAsync(),
+          devServerUrl: '',
+          adapter: server,
+          closeGrace: const Duration(milliseconds: 400),
+        ),
+      );
+      final send = await sent();
+      send.onSubmitting!();
+      transport.promptAccepted = true;
+      send.emit(const ReplyCompleted('Booked it.'));
+
+      await run;
+
+      expect(slow.shown, hasLength(1));
+      expect(slow.shown.single.body, 'Booked it.');
+      expect(await running.read(), isEmpty);
+    });
+
+    test('an announcement that outlasts closeGrace does not hang the run '
+        'nor get recorded', () async {
+      final slow = _SlowNotifications(const Duration(milliseconds: 800));
+      final started = DateTime.now();
+      final run = reply(
+        'Yes',
+        left: const Duration(milliseconds: 100),
+        service: slow,
+      );
+      final send = await sent();
+      send.onSubmitting!();
+      transport.promptAccepted = true;
+      send.emit(const ReplyCompleted('Booked it.'));
+
+      await run;
+
+      expect(DateTime.now().difference(started).inMilliseconds, lessThan(700));
+      expect(await running.read(), isEmpty);
+      await _until(() => slow.shown.isNotEmpty);
     });
 
     test(

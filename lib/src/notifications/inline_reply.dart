@@ -336,6 +336,11 @@ class _InlineReply {
 
   /// An announcement of the answer is being posted or was.
   var _announcing = false;
+  Future<void>? _announcement;
+
+  /// The body compared the payload's account hash with the run's, and they
+  /// matched.
+  var _accountVerified = false;
 
   late final String _threadId;
   late final String? _profile;
@@ -365,20 +370,27 @@ class _InlineReply {
     // nothing it still does can be written to the server any more.
     await _closeTransport();
     _mark.freeze();
+    // An announcement under way gets to finish, so that a reply is never left
+    // neither recorded nor announced when the process is suspended.
+    try {
+      await _announcement?.timeout(_closeGrace);
+    } on Object {
+      // Gave up waiting; it goes on, or is dropped with the process.
+    }
     final (verdict, logged) = switch (outcome) {
       HeadlessDone(:final value) => (value, value.outcome),
       HeadlessSignedOut() => _byMark(
         InlineReplyOutcome.signedOut,
         keepText: false,
       ),
-      // The body may never have verified the account, so nothing is kept.
+      // Locked ends before the body, so the account was never verified.
       HeadlessLocked() => _byMark(
         InlineReplyOutcome.storeLocked,
         keepText: false,
       ),
       HeadlessUnreachable() => _byMark(
         InlineReplyOutcome.unreachable,
-        keepText: false,
+        keepText: _accountVerified,
       ),
     };
     // An answer already announced (or being) needs no record.
@@ -473,6 +485,7 @@ class _InlineReply {
         ending: ReplyEnding.notSent,
       );
     }
+    _accountVerified = true;
     final cutoff = hermes.untilDeadline;
     if (cutoff <= Duration.zero) return _cut();
     final transport = _transport =
@@ -547,7 +560,8 @@ class _InlineReply {
   }
 
   Future<_Verdict> _answered(String answer) async {
-    await _announce(answer);
+    final announcing = _announcement = _announce(answer);
+    await announcing;
     return const _Verdict(InlineReplyOutcome.answered);
   }
 
