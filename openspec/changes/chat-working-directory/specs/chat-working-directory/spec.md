@@ -154,8 +154,18 @@ Browse SHALL list only the folders of one server directory at a time from `GET /
 
 #### Scenario: One forbidden level
 
-- **WHEN** a later level answers 403 or `EACCES`
-- **THEN** that level says "Couldn't open this folder. Hermes isn't allowed to read it.", Browse stays available and "Use this folder" stays enabled for the folder being shown
+- **WHEN** a later level answers `EACCES`, or a 403 whose detail is not the managed read boundary
+- **THEN** that level says "Couldn't open this folder. Hermes isn't allowed to read it.", Browse stays available and "Use" stays enabled for the folder being shown
+
+#### Scenario: Later level outside the boundary
+
+- **WHEN** a later level answers 403 "Path is outside the managed read boundary"
+- **THEN** that level says "This folder is outside what this server lets you browse", offers the way back, disables "Use" for it, and Browse stays available for the visit
+
+#### Scenario: Use names the folder
+
+- **WHEN** Browse shows the folder `code`
+- **THEN** its action reads "Use “code”", and it is disabled only while the level is missing or outside the boundary
 
 #### Scenario: Connection lost while browsing
 
@@ -171,18 +181,6 @@ Browse SHALL list only the folders of one server directory at a time from `GET /
 
 - **WHEN** the user types `/home/me/co` and suggestions arrive for an earlier text after ones for the current text
 - **THEN** only the current text's suggestions are shown
-
-#### Scenario: Relative path
-- **WHEN** the typed text does not start with `/` or `~`
-- **THEN** "Use this folder" is disabled and the field says "Start with / or ~"
-
-#### Scenario: Many files hide folders
-- **WHEN** Hermes returns 30 suggestions
-- **THEN** the list says "Keep typing to narrow the list." and Browse remains the way to see every folder
-
-#### Scenario: Suggestion text
-- **WHEN** the user types an absolute path and taps a suggestion
-- **THEN** the field becomes the typed directory plus the suggestion's name and "/", whatever relative text Hermes returned
 
 #### Scenario: Relative path
 
@@ -280,7 +278,17 @@ The system SHALL offer "Change folder…" for a stored chat that is not replying
 #### Scenario: Replying
 
 - **WHEN** a reply is running
-- **THEN** "Change folder…" is disabled with the reason
+- **THEN** "Change folder…" is disabled, "Wait for the reply to finish." is shown next to it and read as its description, and on the Mac the menu's "Change Folder…" is shown disabled rather than hidden
+
+#### Scenario: Confirmation actions
+
+- **WHEN** the confirmation is shown
+- **THEN** Cancel is the default action, "Change folder" is neither filled nor red, and on Android both are text buttons with Cancel first
+
+#### Scenario: Current folder not in a list
+
+- **WHEN** the chat's folder is neither a project folder nor a recent folder
+- **THEN** the picker adds it, checked and marked "Current", at the top of Projects when a project matches it and of Recent otherwise
 
 #### Scenario: Old server
 
@@ -311,6 +319,45 @@ The system SHALL offer "Change folder…" for a stored chat that is not replying
 
 - **WHEN** the chat is also open in a conversation window
 - **THEN** that window shows the new folder when it next reloads (when it becomes key)
+
+### Requirement: Every waiting state ends
+
+Every state that waits on the server SHALL end within 10 s of its request, measured on a monotonic clock, in a state that says what happened and offers the action again, and the system SHALL NOT resend anything by itself. An answer that arrives later SHALL still update the screen.
+
+#### Scenario: Default folder lookup
+
+- **WHEN** the row has shown "Looking up your folder…" for 10 s
+- **THEN** it reads "Runs in the server's default folder" without a path and opens the picker on a tap
+
+#### Scenario: Picker catalog
+
+- **WHEN** the picker's projects have been loading for 10 s
+- **THEN** it shows "Couldn't load your projects. You can still browse or type a path." with Try again
+
+#### Scenario: Browse level
+
+- **WHEN** a Browse level has shown "Opening <folder>…" for 10 s
+- **THEN** it says "Couldn't open this folder." with Try again
+
+#### Scenario: Typed path check
+
+- **WHEN** "Checking…" has shown for 10 s
+- **THEN** the field says "Couldn't check this folder." with "Check again" and "Use this folder" stays disabled
+
+#### Scenario: Scan
+
+- **WHEN** "Look for projects on your server" has had no answer for 10 s
+- **THEN** the progress stops, the list keeps what it had, and the picker says "Couldn't finish looking for projects. Try again."
+
+#### Scenario: Lost move answer
+
+- **WHEN** the re-read after a lost move answer has had no answer for 10 s
+- **THEN** the details say "Couldn't confirm the change" with "Check again", which only re-reads the chat's row, "Change folder…" is offered again, and the move was sent exactly once
+
+#### Scenario: Late answer
+
+- **WHEN** an answer arrives after its wait has ended
+- **THEN** the screen shows that answer instead of the timed-out state
 
 ### Requirement: Safety and privacy of paths
 
@@ -348,7 +395,27 @@ Rows and controls SHALL be at least 44 pt (48 dp) with screen-reader labels nami
 #### Scenario: Large text
 
 - **WHEN** the system text size is at its largest accessibility setting
-- **THEN** the row shows the folder name over two lines and the full path remains in the details sheet
+- **THEN** no text is capped, the row wraps the folder name, stacks its tags, wraps the path in full and puts "on your server" on its own line, and the full path remains in the details sheet
+
+#### Scenario: Header line at large text
+
+- **WHEN** the text size is an accessibility size
+- **THEN** the folder line leaves the header bar and is shown as a full-width row directly under it, with the same target and label
+
+#### Scenario: Details at large text
+
+- **WHEN** the details sheet is shown at an accessibility size
+- **THEN** each row stacks its label over its value and the sheet scrolls to "Change folder…"
+
+#### Scenario: Disabled reason
+
+- **WHEN** "Change folder…" is disabled
+- **THEN** its reason ("Wait for the reply to finish.", "You're offline.", "Changing the folder…" or "Checking the folder…") is shown next to it with an icon and exposed as its description
+
+#### Scenario: Paths cut in the middle
+
+- **WHEN** a path does not fit on one line in the row, a picker row or a folder section header
+- **THEN** it is cut in the middle, "· on your server" stays visible where it is shown, and the semantics label carries the full path
 
 #### Scenario: Screen reader
 
