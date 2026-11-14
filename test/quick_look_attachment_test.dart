@@ -166,12 +166,14 @@ void main() {
       await select(tester);
 
       await pressSpace(tester);
+      await waitUntil(tester, () => quickLook.shown != null);
       await settle(tester);
       expect(downloads(), 1);
       expect(quickLook.shown, endsWith('/report.pdf'));
       expect(File(quickLook.shown!).readAsBytesSync(), pdf);
 
       await pressSpace(tester);
+      await waitUntil(tester, () => quickLook.shown == null);
       await settle(tester);
       expect(downloads(), 1);
       expect(quickLook.shown, isNull);
@@ -559,10 +561,11 @@ void main() {
       expect(selected(tester), isTrue);
       expect(actions.opened, isEmpty);
       await pressSpace(tester);
-      await settle(tester);
+      await waitUntil(tester, () => quickLook.shown != null);
       expect(quickLook.shown, isNotNull);
       await tester.pump(const Duration(seconds: 1));
       await doubleClick(tester, find.text('report.pdf'));
+      await waitUntil(tester, () => actions.opened.isNotEmpty);
       await settle(tester);
 
       expect(drags, isEmpty);
