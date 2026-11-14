@@ -94,6 +94,7 @@
   "chatActivityNeedsYouTargetWaiting": "Wartet auf Anmeldung",
   "chatActivityNeedsYouUnconfirmedNotice": "Deine Antwort konnte nicht bestätigt werden. Möglicherweise ist sie angekommen; prüfe das, bevor du es erneut versuchst.",
 
+  "chatActivityProcessesOmitted": "Frühere Prozesskarten ausgelassen.",
   "@@x-area-chat/attachments": "",
 
   "@@x-area-chat/gateway": "",

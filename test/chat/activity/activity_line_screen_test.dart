@@ -99,8 +99,14 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
+  // A process is what keeps the line up without a running turn; the server
+  // never clears a status with an empty text.
   Future<void> status(WidgetTester tester, String text) async {
-    gateway.event('status.update', 'rt-1', {'kind': 'status', 'text': text});
+    gateway.event(
+      text.isEmpty ? 'terminal.close' : 'agent.terminal.output',
+      'rt-1',
+      {'process_id': 'worker', if (text.isNotEmpty) 'chunk': text},
+    );
     await settle(tester);
   }
 
@@ -131,13 +137,10 @@ void main() {
       await pumpScreen(tester, size: size);
       expect(line, findsNothing);
 
-      await status(tester, 'Waiting for background process');
+      await status(tester, 'Process running');
       expect(line, findsOneWidget);
       expect(
-        find.descendant(
-          of: line,
-          matching: find.text('Waiting for background process'),
-        ),
+        find.descendant(of: line, matching: find.text('Process running')),
         findsOneWidget,
       );
       final header = tester.getRect(find.byType(ChatHeader));
@@ -158,7 +161,7 @@ void main() {
       );
       expect(
         trail.recent.any(
-          (c) => '${c.name} ${c.attributes}'.contains('background'),
+          (c) => '${c.name} ${c.attributes}'.contains('Process running'),
         ),
         isFalse,
       );
@@ -186,7 +189,7 @@ void main() {
       await pumpScreen(tester, platform: platform);
       tester.view.physicalSize = const Size(390, 844);
       await settle(tester);
-      await status(tester, 'Recalled 5 memories');
+      await status(tester, 'Process running');
       expect(line, findsOneWidget);
 
       await tester.tap(line);
@@ -196,7 +199,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(ActivityLine),
-          matching: find.text('Recalled 5 memories'),
+          matching: find.text('Process running'),
         ),
         findsOneWidget,
       );
@@ -211,12 +214,12 @@ void main() {
     expect(find.byType(MacChatToolbar), findsOneWidget);
     expect(find.byKey(const Key('mac-subtitle-status')), findsNothing);
 
-    await status(tester, 'Waiting for background process');
+    await status(tester, 'Process running');
     expect(find.byType(ActivityLine), findsNothing);
     expect(
       find.descendant(
         of: find.byType(MacChatToolbar),
-        matching: find.text('Waiting for background process'),
+        matching: find.text('Process running'),
       ),
       findsOneWidget,
     );

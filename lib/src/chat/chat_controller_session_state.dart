@@ -77,6 +77,12 @@ extension _ChatControllerSessionState on ChatController {
             state.waits.remove(state.waits.keys.first);
           }
         }
+        final after = state.recallWaits[kind] ?? state.waits[kind];
+        if (after == null) {
+          state.waitAt.remove(kind);
+        } else {
+          state.waitAt[kind] = _workingSource.next();
+        }
       case SessionResumeProgress(:final progress):
         state.resume = progress;
       case SessionReclaimed(:final reason):
@@ -86,6 +92,7 @@ extension _ChatControllerSessionState on ChatController {
         _finishQueueBinding(thread, false);
         state.waits.clear();
         state.recallWaits.clear();
+        state.waitAt.clear();
         _settleTimers.remove(thread)?.cancel();
         if (_queues[thread]?.isNotEmpty ?? false) {
           _reclaimedQueueReview.add(thread);

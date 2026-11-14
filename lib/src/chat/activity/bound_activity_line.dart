@@ -25,8 +25,8 @@ class BoundActivityLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: chat,
-    // The plan changes without the chat notifying, and its controller is
-    // replaced with the session, so it is looked up on every chat change.
+    // The plan is a notifier of its own, and the chat replaces it with the
+    // session, so it is looked up again on every chat change and listened to.
     builder: (context, _) => ListenableBuilder(
       listenable: chat.todoPlanIn(thread) ?? chat,
       builder: (context, _) {

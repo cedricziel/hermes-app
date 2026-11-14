@@ -3,22 +3,30 @@ import 'package:hermes_app/src/chat/activity/working_summary.dart';
 import 'package:hermes_app/src/chat/activity/working_summary_source.dart';
 
 void main() {
+  turnScoped();
   final scope = Object();
 
   test('nothing working yields null', () {
-    expect(WorkingSummarySource().read(scope, const WorkingInputs()), isNull);
+    expect(
+      WorkingSummarySource().read(scope, const WorkingInputs(replying: true)),
+      isNull,
+    );
   });
 
   test('the sentence that changed last is the newest', () {
     final source = WorkingSummarySource();
     var summary = source.read(
       scope,
-      const WorkingInputs(waits: {'status': 'Waiting for background process'}),
+      const WorkingInputs(
+        replying: true,
+        waits: {'status': 'Waiting for background process'},
+      ),
     )!;
     expect(summary.sentence.text, 'Waiting for background process');
     summary = source.read(
       scope,
       const WorkingInputs(
+        replying: true,
         waits: {'status': 'Waiting for background process'},
         processes: 2,
       ),
@@ -29,6 +37,7 @@ void main() {
     summary = source.read(
       scope,
       const WorkingInputs(
+        replying: true,
         waits: {'status': 'Waiting for background process'},
         processes: 2,
       ),
@@ -38,28 +47,37 @@ void main() {
     summary = source.read(
       scope,
       const WorkingInputs(
+        replying: true,
         waits: {'status': 'Recalled 5 memories'},
         processes: 2,
       ),
     )!;
     expect(summary.sentence.text, 'Recalled 5 memories');
     // It clears: the next active source takes over.
-    summary = source.read(scope, const WorkingInputs(processes: 2))!;
+    summary = source.read(
+      scope,
+      const WorkingInputs(replying: true, processes: 2),
+    )!;
     expect(summary.sentence.kind, WorkingSentenceKind.processes);
   });
 
   test('a goal tick that repeats its text does not steal newest', () {
     final source = WorkingSummarySource();
     const goal = 'Ship the weekly digest';
-    source.read(scope, const WorkingInputs(goal: goal));
+    source.read(scope, const WorkingInputs(replying: true, goal: goal));
     source.read(
       scope,
-      const WorkingInputs(goal: goal, waits: {'status': 'Recalled 2 memories'}),
+      const WorkingInputs(
+        replying: true,
+        goal: goal,
+        waits: {'status': 'Recalled 2 memories'},
+      ),
     );
     for (var tick = 0; tick < 3; tick++) {
       final summary = source.read(
         scope,
         const WorkingInputs(
+          replying: true,
           goal: goal,
           waits: {'status': 'Recalled 2 memories'},
         ),
@@ -70,15 +88,25 @@ void main() {
 
   test('loop and heartbeat are their own sources', () {
     final source = WorkingSummarySource();
-    source.read(scope, const WorkingInputs(loop: 'Check the build'));
+    source.read(
+      scope,
+      const WorkingInputs(replying: true, loop: 'Check the build'),
+    );
     final summary = source.read(
       scope,
-      const WorkingInputs(loop: 'Check the build', heartbeat: 'Ping'),
+      const WorkingInputs(
+        replying: true,
+        loop: 'Check the build',
+        heartbeat: 'Ping',
+      ),
     )!;
     expect(summary.sentence.text, 'Ping');
     expect(
       source
-          .read(scope, const WorkingInputs(loop: 'Check the build'))!
+          .read(
+            scope,
+            const WorkingInputs(replying: true, loop: 'Check the build'),
+          )!
           .sentence
           .text,
       'Check the build',
@@ -91,6 +119,7 @@ void main() {
     source.read(
       scope,
       const WorkingInputs(
+        replying: true,
         planOpen: true,
         planDone: 1,
         planTotal: 5,
@@ -101,6 +130,7 @@ void main() {
     final summary = source.read(
       scope,
       const WorkingInputs(
+        replying: true,
         planOpen: true,
         planDone: 2,
         planTotal: 5,
@@ -120,7 +150,12 @@ void main() {
   test('a plan with an open task and nothing else reads as the plan', () {
     final summary = WorkingSummarySource().read(
       scope,
-      const WorkingInputs(planOpen: true, planDone: 2, planTotal: 5),
+      const WorkingInputs(
+        replying: true,
+        planOpen: true,
+        planDone: 2,
+        planTotal: 5,
+      ),
     )!;
     expect(summary.sentence.kind, WorkingSentenceKind.plan);
     expect(summary.counters.single.value, 2);
@@ -130,7 +165,7 @@ void main() {
   test('a plan of unsupported tasks has no counter', () {
     final summary = WorkingSummarySource().read(
       scope,
-      const WorkingInputs(planOpen: true),
+      const WorkingInputs(replying: true, planOpen: true),
     )!;
     expect(summary.counters, isEmpty);
   });
@@ -139,7 +174,7 @@ void main() {
     expect(
       WorkingSummarySource().read(
         scope,
-        const WorkingInputs(planDone: 5, planTotal: 5),
+        const WorkingInputs(replying: true, planDone: 5, planTotal: 5),
       ),
       isNull,
     );
@@ -148,7 +183,10 @@ void main() {
   test('aggregating is combining answers, without a models count', () {
     final summary = WorkingSummarySource().read(
       scope,
-      const WorkingInputs(moa: MoaInput(combining: true, models: 3)),
+      const WorkingInputs(
+        replying: true,
+        moa: MoaInput(combining: true, models: 3),
+      ),
     )!;
     expect(summary.sentence.kind, WorkingSentenceKind.combiningAnswers);
     expect(summary.sentence.count, isNull);
@@ -157,15 +195,85 @@ void main() {
   test('chats keep their own stamps', () {
     final source = WorkingSummarySource();
     final other = Object();
-    source.read(scope, const WorkingInputs(restoring: true));
+    source.read(scope, const WorkingInputs(replying: true, restoring: true));
     final summary = source.read(
       other,
-      const WorkingInputs(waits: {'status': 'Hello'}),
+      const WorkingInputs(replying: true, waits: {'status': 'Hello'}),
     )!;
     expect(summary.sentence.text, 'Hello');
     expect(
-      source.read(scope, const WorkingInputs(restoring: true))!.sentence.kind,
+      source
+          .read(scope, const WorkingInputs(replying: true, restoring: true))!
+          .sentence
+          .kind,
       WorkingSentenceKind.restoring,
     );
+  });
+}
+
+void turnScoped() {
+  final scope = Object();
+
+  test('status, goal, heartbeat and plan count only while a turn runs', () {
+    final source = WorkingSummarySource();
+    const inputs = WorkingInputs(
+      waits: {'status': 'Recalled 5 memories'},
+      goal: 'Ship the digest',
+      heartbeat: 'Ping',
+      planOpen: true,
+      planDone: 1,
+      planTotal: 3,
+    );
+    expect(source.read(scope, inputs), isNull);
+    expect(
+      source.read(scope, const WorkingInputs(replying: true)),
+      isNull,
+      reason: 'a turn alone is not a sentence',
+    );
+  });
+
+  test('processes, mixture-of-agents and restoring outlive the turn', () {
+    final source = WorkingSummarySource();
+    expect(
+      source.read(scope, const WorkingInputs(processes: 1))!.sentence.kind,
+      WorkingSentenceKind.processes,
+    );
+    expect(source.read(scope, const WorkingInputs(restoring: true)), isNotNull);
+  });
+
+  test('a wait of an earlier turn does not come back with the next turn', () {
+    final source = WorkingSummarySource();
+    final old = source.next();
+    const waits = {'status': 'Recalled 5 memories'};
+    var summary = source.read(
+      scope,
+      WorkingInputs(replying: true, waits: waits, waitAt: {'status': old}),
+    );
+    // The turn began after the wait arrived.
+    expect(summary, isNull);
+    source.read(scope, const WorkingInputs());
+    source.read(scope, const WorkingInputs(replying: true));
+    final fresh = source.next();
+    summary = source.read(
+      scope,
+      WorkingInputs(replying: true, waits: waits, waitAt: {'status': fresh}),
+    );
+    expect(summary!.sentence.text, 'Recalled 5 memories');
+  });
+
+  test('arrival stamps decide newest, not the order of reads', () {
+    final source = WorkingSummarySource();
+    source.read(scope, const WorkingInputs(replying: true));
+    final recall = source.next();
+    final status = source.next();
+    final summary = source.read(
+      scope,
+      WorkingInputs(
+        replying: true,
+        waits: const {'lifecycle': 'Recalled 2 notes', 'status': 'Thinking'},
+        waitAt: {'lifecycle': recall, 'status': status},
+      ),
+    );
+    expect(summary!.sentence.text, 'Thinking');
   });
 }

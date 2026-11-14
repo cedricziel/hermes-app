@@ -87,7 +87,7 @@ WidgetBuilder buildChatComposer({
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ViewBuilder(
+          ViewMetricsBuilder(
             // The keyboard is not in the Scaffold body's own MediaQuery,
             // which has consumed it, so ask the view.
             builder: (context, media) =>
@@ -102,16 +102,18 @@ WidgetBuilder buildChatComposer({
 
 /// Builds with the view's own metrics, the keyboard included, and again when
 /// they change.
-class _ViewBuilder extends StatefulWidget {
-  const _ViewBuilder({required this.builder});
+/// Builds with the view's own metrics, which a Scaffold body has already
+/// consumed the keyboard from, and again when they change.
+class ViewMetricsBuilder extends StatefulWidget {
+  const ViewMetricsBuilder({super.key, required this.builder});
 
   final Widget Function(BuildContext context, MediaQueryData media) builder;
 
   @override
-  State<_ViewBuilder> createState() => _ViewBuilderState();
+  State<ViewMetricsBuilder> createState() => ViewMetricsBuilderState();
 }
 
-class _ViewBuilderState extends State<_ViewBuilder>
+class ViewMetricsBuilderState extends State<ViewMetricsBuilder>
     with WidgetsBindingObserver {
   @override
   void initState() {

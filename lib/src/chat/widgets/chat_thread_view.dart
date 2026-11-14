@@ -23,7 +23,8 @@ import 'chat_builders.dart';
 import 'memory_tool_body.dart';
 import '../../voice/dictation_controller.dart';
 import '../../voice/voice_message_recording.dart';
-import '../activity/widgets/needs_you_dock.dart' show NeedsYouDockBuilder;
+import '../activity/widgets/needs_you_dock.dart'
+    show NeedsYouDockBuilder, needsYouCompactFor;
 import 'chat_composer_builder.dart';
 import 'message_actions.dart' show TurnActionStatus;
 import '../reactions/reaction_state.dart';
@@ -228,7 +229,13 @@ class ChatThreadView extends StatelessWidget {
           if (platformChromeOf(context) != PlatformChrome.macos)
             const Divider(height: 1),
         ],
-        ?activityLine,
+        // The line gives way while the keyboard leaves a small phone little
+        // room, as the Needs-you card collapses then.
+        if (activityLine case final line?)
+          ViewMetricsBuilder(
+            builder: (context, media) =>
+                needsYouCompactFor(media) ? const SizedBox.shrink() : line,
+          ),
         if (botContext case final bot?) BotChatBanner(context: bot),
         Expanded(
           child: AttachmentSurface(

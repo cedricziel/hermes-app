@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' show MaterialPageRoute;
 import 'package:flutter/widgets.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../bot_screen/bot_screen_card_model.dart';
 import '../../bot_screen/bot_screen_controller.dart';
 import '../../bot_screen/widgets/bound_bot_screen_card.dart';
@@ -147,9 +148,9 @@ class BoundActivityPanel extends StatelessWidget {
                   onDetails: chat.processOutputDetailsOpened,
                 ),
               if (processes.omittedCards)
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text('Earlier process cards omitted.'),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(context.l10n.chatActivityProcessesOmitted),
                 ),
             ],
           ],

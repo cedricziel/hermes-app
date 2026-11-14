@@ -616,6 +616,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   WorkingSummary? workingSummaryIn(ChatThread thread) =>
       _workingSource.read(thread, workingInputsOf(this, thread));
 
+  /// Stamps every chat that has a Working source whenever the controller
+  /// changes, so arrival order does not depend on who reads when, or on
+  /// which chat is selected.
+  void _refreshWorking() {
+    try {
+      for (final thread in {
+        ..._sessionStates.keys,
+        ..._processOutputs.keys,
+        ..._moaStates.keys,
+        ?selectedThread,
+      }) {
+        workingSummaryIn(thread);
+      }
+    } on Object {
+      // The line is a convenience; it must not break a change.
+    }
+  }
+
   void sessionDetailsOpened() =>
       _ChatControllerSessionState(this)._sessionDetailsOpenedImpl();
 
@@ -857,6 +875,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   @override
   void notifyListeners() {
+    if (!disposed) _refreshWorking();
     super.notifyListeners();
     if (_listRefreshPending && !threadListInvalidationBlocked) {
       _listRefreshPending = false;

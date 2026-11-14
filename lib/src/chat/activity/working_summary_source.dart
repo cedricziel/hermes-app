@@ -8,7 +8,9 @@ import 'working_summary.dart';
 /// arrival order between reads.
 class WorkingInputs {
   const WorkingInputs({
+    this.replying = false,
     this.waits = const {},
+    this.waitAt = const {},
     this.goal,
     this.loop,
     this.heartbeat,
@@ -20,9 +22,19 @@ class WorkingInputs {
     this.planTotal,
   });
 
+  /// A turn is running (a reply is in flight). Status, goal, loop, heartbeat
+  /// and plan sentences are turn-scoped: they count only while it is true.
+  /// Processes, mixture-of-agents and a restoring chat keep their own
+  /// lifetimes.
+  final bool replying;
+
   /// Server text of each `status.update` kind that is not empty, memory
   /// recalls included.
   final Map<String, String> waits;
+
+  /// When each of [waits] arrived, from [WorkingSummarySource.next]; a wait
+  /// without one is stamped when its text first changes in a read.
+  final Map<String, int> waitAt;
 
   /// The goal's title, the loop's and the heartbeat's prompt while each is
   /// active; null when it is not.
@@ -62,12 +74,19 @@ class MoaInput {
 /// source clears. Stamps are kept per chat.
 class WorkingSummarySource {
   int _sequence = 0;
-  final _stamps = Expando<Map<String, (Object, int)>>('working stamps');
+  final _scopes = Expando<_Scope>('working scopes');
+
+  /// The next number of the controller-wide arrival sequence.
+  int next() => ++_sequence;
 
   /// The summary of [scope] (the chat's thread) for [inputs]; null when
   /// nothing is working.
   WorkingSummary? read(Object scope, WorkingInputs inputs) {
-    final stamps = _stamps[scope] ??= {};
+    final state = _scopes[scope] ??= _Scope();
+    if (inputs.replying && !state.replying) state.turnStart = next();
+    state.replying = inputs.replying;
+    final turn = inputs.replying;
+    final stamps = state.stamps;
     final seen = <String>{};
     int? at(String key, Object value) {
       seen.add(key);
@@ -89,17 +108,32 @@ class WorkingSummarySource {
       );
     }
 
-    for (final MapEntry(:key, :value) in inputs.waits.entries) {
-      if (value.trim().isEmpty) continue;
-      sentence('wait:$key', WorkingSentenceKind.status, text: value);
-    }
-    for (final (key, text) in [
-      ('goal', inputs.goal),
-      ('loop', inputs.loop),
-      ('heartbeat', inputs.heartbeat),
-    ]) {
-      if (text != null && text.trim().isNotEmpty) {
-        sentence(key, WorkingSentenceKind.goal, text: text);
+    if (turn) {
+      for (final MapEntry(:key, :value) in inputs.waits.entries) {
+        if (value.trim().isEmpty) continue;
+        final arrived = inputs.waitAt[key];
+        // A wait from an earlier turn stays in the panel, not on the line.
+        if (arrived != null && arrived < state.turnStart) continue;
+        if (arrived == null) {
+          sentence('wait:$key', WorkingSentenceKind.status, text: value);
+        } else {
+          sentences.add(
+            WorkingSentence(
+              WorkingSentenceKind.status,
+              at: arrived,
+              text: value,
+            ),
+          );
+        }
+      }
+      for (final (key, text) in [
+        ('goal', inputs.goal),
+        ('loop', inputs.loop),
+        ('heartbeat', inputs.heartbeat),
+      ]) {
+        if (text != null && text.trim().isNotEmpty) {
+          sentence(key, WorkingSentenceKind.goal, text: text);
+        }
       }
     }
     if (inputs.processes > 0) {
@@ -123,7 +157,8 @@ class WorkingSummarySource {
 
     final counters = <WorkingCounter>[];
     final planDone = inputs.planDone, planTotal = inputs.planTotal;
-    if (inputs.planOpen && planDone != null && planTotal != null) {
+    final planOpen = turn && inputs.planOpen;
+    if (planOpen && planDone != null && planTotal != null) {
       counters.add(
         WorkingCounter.plan(
           done: planDone,
@@ -152,10 +187,16 @@ class WorkingSummarySource {
     stamps.removeWhere((key, _) => !seen.contains(key));
     return WorkingSummary.compute(
       sentences: sentences,
-      planOpen: inputs.planOpen,
+      planOpen: planOpen,
       counters: counters,
     );
   }
+}
+
+class _Scope {
+  final stamps = <String, (Object, int)>{};
+  bool replying = false;
+  int turnStart = 0;
 }
 
 /// The Working sources of [thread] in [chat].
@@ -179,8 +220,19 @@ WorkingInputs workingInputsOf(ChatController chat, ChatThread thread) {
             entry.status != TodoStatus.cancelled,
       ) ??
       false;
+  // Goal, loop and heartbeat notices change with every tick; their
+  // sentences come from the control state instead.
+  const notices = {'goal', 'loop', 'heartbeat'};
   return WorkingInputs(
-    waits: {...?state?.waits, ...?state?.recallWaits},
+    replying: thread.isReplying,
+    waits: {
+      for (final MapEntry(:key, :value) in {
+        ...?state?.waits,
+        ...?state?.recallWaits,
+      }.entries)
+        if (!notices.contains(key)) key: value,
+    },
+    waitAt: {...?state?.waitAt},
     goal: active(control?.goal, 'title'),
     loop: active(control?.loop, 'prompt'),
     heartbeat: active(control?.heartbeat, 'prompt'),

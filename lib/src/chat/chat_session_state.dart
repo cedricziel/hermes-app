@@ -55,6 +55,10 @@ class ChatSessionState {
   /// Recalls are not waits, so they stay out of [waits] and [visible]; the
   /// activity line reads them from here.
   final recallWaits = <String, String>{};
+
+  /// When each status kind in [waits] or [recallWaits] last changed, from the
+  /// controller's working sequence (arrival order, not read order).
+  final waitAt = <String, int>{};
   final _memoryRecalls = <MemoryRecall>[];
   bool earlierRecallsOmitted = false;
 
@@ -93,6 +97,7 @@ class ChatSessionState {
     control = null;
     waits.clear();
     recallWaits.clear();
+    waitAt.clear();
     _memoryRecalls.clear();
     earlierRecallsOmitted = false;
     resume = null;

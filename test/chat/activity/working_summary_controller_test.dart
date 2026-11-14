@@ -204,4 +204,102 @@ void main() {
     });
     expect(summary(), isNull);
   });
+
+  const recall = '🧠 robot-notes — recalled 5 memories';
+
+  for (final (name, status) in [
+    ('completes', 'complete'),
+    ('is interrupted', 'interrupted'),
+    ('fails', 'error'),
+  ]) {
+    test('the line folds away when the turn $name', () async {
+      await open();
+      await emit('status.update', {'kind': 'lifecycle', 'text': recall});
+      await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+      await emit('todo.updated', {
+        'revision': 1,
+        'todos': [
+          {'id': 'a', 'content': 'Draft', 'status': 'pending'},
+        ],
+      });
+      expect(summary(), isNotNull);
+      await emit('message.complete', {'text': 'Done', 'status': status});
+      expect(chat.selectedThread!.isReplying, isFalse);
+      // The server never clears a status with an empty text.
+      expect(summary(), isNull);
+    });
+  }
+
+  test('a wait of the last turn is not the sentence of the next one', () async {
+    await open();
+    await emit('status.update', {'kind': 'lifecycle', 'text': recall});
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    chat.submit('Again', const []);
+    await pumpEventQueue();
+    expect(chat.selectedThread!.isReplying, isTrue);
+    expect(summary(), isNull);
+    await emit('status.update', {'kind': 'lifecycle', 'text': recall});
+    expect(summary()!.sentence.text, contains('recalled 5 memories'));
+  });
+
+  test('a process outlives the turn that started it', () async {
+    await open();
+    await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});
+    await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+    expect(summary()!.sentence.kind, WorkingSentenceKind.processes);
+  });
+
+  test('goal and heartbeat notices never feed the line, and a heartbeat '
+      'tick does not steal newest', () async {
+    await open();
+    await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
+    await emit('status.update', {
+      'kind': 'heartbeat',
+      'text': '♥ heartbeat #4 firing…',
+    });
+    await emit('status.update', {
+      'kind': 'goal',
+      'text': '⊙ Goal paused: verdict text',
+    });
+    expect(summary()!.sentence.text, 'Thinking');
+  });
+
+  test(
+    'control sentences count during a turn only, and only while active',
+    () async {
+      await open();
+      await emit('session.control.update', {
+        'control': {
+          'revision': '1',
+          'goal': {'title': 'Ship it', 'status': 'paused'},
+          'heartbeat': {'prompt': 'Ping', 'status': 'active'},
+        },
+      });
+      expect(summary()!.sentence.text, 'Ping');
+      await emit('message.complete', {'text': 'Done', 'status': 'complete'});
+      expect(summary(), isNull);
+    },
+  );
+
+  test('two frames landing before one read keep their arrival order', () async {
+    await open();
+    gateway.event('status.update', 'rt-1', {
+      'kind': 'lifecycle',
+      'text': recall,
+    });
+    gateway.event('status.update', 'rt-1', {'kind': 'status', 'text': 'Newer'});
+    await pumpEventQueue();
+    expect(summary()!.sentence.text, 'Newer');
+  });
+
+  test('a chat whose sources changed while it was not selected keeps '
+      'their order', () async {
+    await open();
+    final first = chat.selectedThread!;
+    await emit('status.update', {'kind': 'lifecycle', 'text': recall});
+    await emit('status.update', {'kind': 'status', 'text': 'Later'});
+    chat.select('elsewhere');
+    await pumpEventQueue();
+    expect(chat.workingSummaryIn(first)!.sentence.text, 'Later');
+  });
 }
