@@ -28,6 +28,29 @@ void main() {
       expect(File(target).readAsBytesSync(), List.filled(64, 7));
     });
 
+    test(
+      'copies onto the chosen file only, with no sibling temp file',
+      () async {
+        final dir = tempDir('save_direct');
+        final source = writeTemp(dir, 'a.bin', [5, 6]);
+        final target = '${dir.path}/chosen.bin';
+        final actions = PlatformMediaActions(
+          export: FileExport(
+            mobile: false,
+            pickDestination: (_) async => target,
+          ),
+        );
+
+        await actions.saveFile('x', source);
+
+        expect(File(target).readAsBytesSync(), [5, 6]);
+        expect(dir.listSync().map((e) => e.path).toSet(), {
+          source.path,
+          target,
+        });
+      },
+    );
+
     test('a failing copy leaves no temp file and keeps the old file', () async {
       final dir = tempDir('save_atomic');
       final target = File('${dir.path}/chosen.bin')..writeAsBytesSync([1]);

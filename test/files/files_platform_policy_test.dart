@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
@@ -46,6 +48,33 @@ void main() {
         'a.website',
         'a.diagcab',
         'a.iso',
+        'a.rdp',
+        'a.msu',
+        'a.mst',
+        'a.ps1xml',
+        'a.psd1',
+        'a.psc1',
+        'a.msh',
+        'a.msh1',
+        'a.msh2',
+        'a.mshxml',
+        'a.gadget',
+        'a.library-ms',
+        'a.search-ms',
+        'a.searchconnector-ms',
+        'a.wsb',
+        'a.py',
+        'a.pyw',
+        'a.pyz',
+        'a.mde',
+        'a.ade',
+        'a.adp',
+        'a.accde',
+        'a.hlp',
+        'a.shb',
+        'a.shs',
+        'a.xbap',
+        'a.cab',
         'a.img',
         'a.vhd',
         'a.vhdx',
@@ -71,9 +100,58 @@ void main() {
       }
     });
 
+    test('what the machine runs by name (PATHEXT) is blocked too', () {
+      final policy = FilesPlatformPolicy(
+        windows: true,
+        mark: (_) async {},
+        environment: {'PATHEXT': '.COM;.EXE;.PL;.RB'},
+      );
+      expect(policy.canOpenWith('a.pl'), isFalse);
+      expect(policy.canOpenWith('a.RB'), isFalse);
+      expect(policy.canOpenWith('a.txt'), isTrue);
+    });
+
     test('other platforms keep it for everything', () {
       expect(const FilesPlatformPolicy.none().canOpenWith('a.exe'), isTrue);
       expect(FilesPlatformPolicy(windows: false).canOpenWith('a.bat'), isTrue);
+    });
+  });
+
+  group('the controller with no policy given', () {
+    test('blocks and marks on Windows', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final source = FakeFilesSource();
+      final cache = tempDir('files_default_policy');
+      final actions = FakeMediaActions();
+      final media = MediaStore(
+        source: HermesMediaSource(() => FakeHermesServer().client()),
+        cacheDirectory: () async => cache,
+        actions: actions,
+      );
+      source.lists['/srv/p'] = () =>
+          listing([file('/srv/p/setup.exe'), file('/srv/p/doc.pdf')]);
+      source.gitRoots['/srv/p'] = () => ok(null);
+      source.downloads['/srv/p/doc.pdf'] = writes([1], length: 1);
+      source.downloads['/srv/p/setup.exe'] = writes([1], length: 1);
+      final controller = FilesController(
+        source: source,
+        media: media,
+        profile: 'work',
+        cwd: p('/srv/p'),
+      );
+      addTearDown(controller.dispose);
+      await controller.start();
+
+      await controller.select(controller.entries.first);
+      expect(controller.canOpenWith(controller.entries.first), isFalse);
+      await controller.openWith();
+      expect(actions.opened, isEmpty);
+
+      await controller.select(controller.entries.last);
+      await controller.openWith();
+      final opened = actions.opened.single;
+      expect(File('$opened:Zone.Identifier').existsSync(), isTrue);
     });
   });
 

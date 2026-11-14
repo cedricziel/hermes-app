@@ -13,9 +13,12 @@ class FilesLockCleanup {
   final MediaStore? _media;
   var _wasLocked = false;
 
+  /// The cleanup the last lock started, for a test to await.
+  Future<void>? pending;
+
   void _changed() {
     final locked = _lock.locked;
-    if (locked && !_wasLocked) _media?.clearFileDownloads();
+    if (locked && !_wasLocked) pending = _media?.clearFileDownloads();
     _wasLocked = locked;
   }
 

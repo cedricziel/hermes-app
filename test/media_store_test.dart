@@ -294,6 +294,54 @@ void main() {
     });
   });
 
+  group('a folder that cannot be deleted at lock time', () {
+    test('is deleted at the next sweep', () async {
+      var fail = true;
+      final store = MediaStore(
+        source: HermesMediaSource(() => server.client()),
+        cacheDirectory: () async => cache,
+        actions: actions,
+        quickLook: quickLook,
+        deleteFolder: (folder) async {
+          if (fail) throw const FileSystemException('held open');
+          await folder.delete(recursive: true);
+        },
+      );
+      await store.stage('fs:work:/a.txt', 'a.txt', () async => pdf);
+
+      await store.clearFileDownloads();
+      expect(filesUnder(cache), hasLength(1), reason: 'still held open');
+
+      fail = false;
+      await store.sweep(const Duration(days: 1));
+      for (var i = 0; i < 100 && filesUnder(cache).isNotEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(filesUnder(cache), isEmpty);
+    });
+
+    test('is deleted at the next launch too', () async {
+      var fail = true;
+      final store = MediaStore(
+        source: HermesMediaSource(() => server.client()),
+        cacheDirectory: () async => cache,
+        actions: actions,
+        quickLook: quickLook,
+        deleteFolder: (folder) async {
+          if (fail) throw const FileSystemException('held open');
+          await folder.delete(recursive: true);
+        },
+      );
+      await store.stage('fs:work:/a.txt', 'a.txt', () async => pdf);
+      await store.clearFileDownloads();
+      fail = false;
+
+      await store.wipeFileDownloads();
+
+      expect(filesUnder(cache), isEmpty);
+    });
+  });
+
   group('clearFileDownloads', () {
     test(
       'deletes Files downloads and secret copies, keeps attachments',
@@ -370,6 +418,26 @@ void main() {
   });
 
   group('staged names', () {
+    test('direction marks are replaced', () {
+      expect(stagedFileName('a\u200eb\u200fc\u061cd.txt'), 'a_b_c_d.txt');
+    });
+
+    test('Windows device names stage under a safe name', () {
+      for (final name in [
+        'CON',
+        'nul.txt',
+        'Aux.tar.gz',
+        'COM1',
+        'lpt9.log',
+        'COM\u00b2.txt',
+        'con .txt',
+      ]) {
+        expect(stagedFileName(name), startsWith('_'), reason: name);
+      }
+      expect(stagedFileName('console.txt'), 'console.txt');
+      expect(stagedFileName('com10.txt'), 'com10.txt');
+    });
+
     test('a cut name never ends in a new extension', () async {
       final store = newStore();
       final name = '${'x' * 176}.exe.${'a' * 20}';

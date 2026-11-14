@@ -46,8 +46,9 @@ class FilesController extends ChangeNotifier {
     FilesTelemetry? telemetry,
     this._answerTimeout = kFilesAnswerTimeout,
     this._share,
-    this._policy = const FilesPlatformPolicy.none(),
-  }) : _telemetry = telemetry ?? FilesTelemetry();
+    FilesPlatformPolicy? policy,
+  }) : _telemetry = telemetry ?? FilesTelemetry(),
+       _policy = policy ?? FilesPlatformPolicy();
 
   final FilesSource _source;
   final MediaStore _media;
