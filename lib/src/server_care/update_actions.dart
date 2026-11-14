@@ -100,6 +100,11 @@ UpdateRunView? updateRunViewOf(AppLocalizations l10n, HermesUpdateRun run) {
       message: run.refusalMessage ?? l10n.serverCareUpdateOnServer,
       command: run.refusalCommand,
     ),
+    // The update request itself was refused: nothing started, so this is a
+    // page with a way out, not a result that may still be coming.
+    UpdatePhase.unauthorized when run.nothingStarted => UpdateRunRefused(
+      message: l10n.serverCareUpdateNotStartedUnauthorized,
+    ),
     UpdatePhase.unauthorized => const UpdateRunOutcome(
       kind: UpdateOutcomeKind.unauthorized,
     ),

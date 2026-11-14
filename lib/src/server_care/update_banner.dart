@@ -71,6 +71,7 @@ class _UpdateBannerLayerState extends State<UpdateBannerLayer> {
     final inset = MediaQuery.paddingOf(context).top;
     final ready =
         _sawBanner &&
+        !run.resumedAfterLaunch &&
         !_readyClosed &&
         run.phase == UpdatePhase.finished &&
         run.result == UpdateResult.success &&

@@ -860,6 +860,7 @@
   "serverCareUpdateCouldntCheck": "Prüfung fehlgeschlagen",
   "serverCareUpdateDetailsShow": "Details anzeigen",
   "serverCareUpdateMoveTo": "Auf {version} wechseln",
+  "serverCareUpdateNotStartedUnauthorized": "Hermes akzeptiert diese Anmeldung gerade nicht, deshalb wurde das Update nicht gestartet. Melde dich neu an und versuche es dann noch einmal.",
   "serverCareUpdateNow": "Hermes aktualisieren",
   "serverCareUpdateOnServer": "Aktualisiere Hermes auf dem Server.",
   "serverCareUpdateOutcomeBackNotConfirmedTitle": "Hermes ist wieder da, aber die App kann das Update nicht bestätigen",

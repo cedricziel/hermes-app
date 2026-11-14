@@ -4273,6 +4273,10 @@
       }
     }
   },
+  "serverCareUpdateNotStartedUnauthorized": "Hermes isn't accepting this sign-in right now, so the update wasn't started. Sign in again, then try again.",
+  "@serverCareUpdateNotStartedUnauthorized": {
+    "description": "Message of the refused page when the update request itself was refused with this sign-in, so nothing was started."
+  },
   "serverCareUpdateNow": "Update Hermes",
   "@serverCareUpdateNow": {
     "description": "Button that starts the update."

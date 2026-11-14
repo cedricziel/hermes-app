@@ -325,6 +325,25 @@ void main() {
       expect(run.phase, UpdatePhase.idle);
     });
 
+    testWidgets('a refused sign-in on the update request says nothing was '
+        'started and offers a way out', (tester) async {
+      server.on('POST', '/api/hermes/update', {'detail': 'no'}, status: 401);
+      await pump(tester);
+      await openUpdate(tester);
+      await askAndConfirm(tester);
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining("so the update wasn't started"),
+        findsOneWidget,
+      );
+      expect(find.textContaining('may still be going'), findsNothing);
+      expect(find.text('Check again'), findsNothing);
+      expect(posts(), 1);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      expect(run.phase, UpdatePhase.idle);
+    });
+
     testWidgets('Try again after a failure asks the question again', (
       tester,
     ) async {
