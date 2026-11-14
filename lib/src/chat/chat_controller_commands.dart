@@ -148,9 +148,11 @@ extension _ChatControllerCommands on ChatController {
           !_threads.contains(thread)) {
         return;
       }
+      final kept = _heldAfterRefresh(thread, page);
       thread.messages
         ..clear()
-        ..addAll(page.messages);
+        ..addAll(_mergedWithPage(kept, thread.id, page.messages));
+      _reactionHistory(thread);
       _unloaded.remove(thread.id);
       if (page.hasMore) {
         _olderRows[thread.id] = page.rows;
@@ -165,6 +167,36 @@ extension _ChatControllerCommands on ChatController {
         report('Command ran, but this chat could not be refreshed.');
       }
     }
+  }
+
+  /// What [thread] holds that a command's re-read must not drop: rows only
+  /// this app has (command lines) and turns sent here, which may still be
+  /// streaming. Rows read from Hermes are left to [page], the truth after
+  /// the command, which may have undone some. A settled turn whose receipt
+  /// names a row the page should hold but does not was undone too.
+  List<ChatMessage> _heldAfterRefresh(ChatThread thread, MessagePage page) {
+    final oldest = page.hasMore
+        ? page.messages
+              .map((m) => int.tryParse(m.id.split('-').last))
+              .nonNulls
+              .fold<int?>(null, (a, b) => a == null ? b : min(a, b))
+        : 0;
+    final stored = {for (final m in page.messages) m.id};
+    final kept = <ChatMessage>[];
+    for (final turn in _turns([
+      for (final m in thread.messages)
+        if (m.id.contains('-local-')) m,
+    ], stored: false)) {
+      final row = turn.first.canonicalRow?.rowId;
+      final undone =
+          row != null &&
+          oldest != null &&
+          row >= oldest &&
+          !turn.any((m) => m.isPending) &&
+          !stored.contains('${thread.id}-$row');
+      if (!undone) kept.addAll(turn);
+    }
+    return kept;
   }
 
   /// The last prompt of [thread], with or without text. A note Hermes wrote
