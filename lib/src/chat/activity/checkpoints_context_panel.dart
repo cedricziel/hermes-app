@@ -158,6 +158,11 @@ class CheckpointsPanelPresence extends StatefulWidget {
 }
 
 class _CheckpointsPanelPresenceState extends State<CheckpointsPanelPresence> {
+  /// How many presences hold a controller open. A layout change replaces a
+  /// presence with a new one; the old one's delayed close must not shut what
+  /// its replacement has just opened.
+  static final _holders = Expando<int>('checkpoints panel presences');
+
   @override
   void initState() {
     super.initState();
@@ -180,11 +185,17 @@ class _CheckpointsPanelPresenceState extends State<CheckpointsPanelPresence> {
 
   /// Closing drops an open diff and notifies, so it waits for the build.
   void _close(CheckpointsController? controller) {
-    if (controller != null) scheduleMicrotask(controller.panelClosed);
+    if (controller == null) return;
+    scheduleMicrotask(() {
+      final left = (_holders[controller] ?? 1) - 1;
+      _holders[controller] = left;
+      if (left <= 0) controller.panelClosed();
+    });
   }
 
   void _open(CheckpointsController? controller) {
     if (controller == null) return;
+    _holders[controller] = (_holders[controller] ?? 0) + 1;
     // After the frame: opening notifies, and this runs while the panel
     // builds.
     WidgetsBinding.instance.addPostFrameCallback((_) {

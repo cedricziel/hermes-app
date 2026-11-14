@@ -117,7 +117,11 @@ extension _ChatControllerHistory on ChatController {
                   (thread) =>
                       thread.remote &&
                       (_sending.containsKey(thread) ||
-                          sendingAtStart.contains(thread)),
+                          sendingAtStart.contains(thread) ||
+                          // A full restore is running: its chat stays, or
+                          // the hold on Send would end with the list entry.
+                          _ChatControllerCheckpoints(this)
+                              ._actionHolds(thread)),
                 )
                 .toList()
           : const <ChatThread>[];
@@ -746,7 +750,12 @@ extension _ChatControllerHistory on ChatController {
       }
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
-      final failed = _failedTurn(thread, page.messages);
+      var failed = _failedTurn(thread, page.messages);
+      // A strict read is the server's answer after a full restore: a failed
+      // turn whose prompt it no longer holds is gone, not put back.
+      if (strict && failed.any((m) => m.role == ChatRole.user)) {
+        failed = const [];
+      }
       thread.messages
         ..clear()
         ..addAll(page.messages)

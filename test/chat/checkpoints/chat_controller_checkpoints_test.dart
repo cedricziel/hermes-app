@@ -526,6 +526,31 @@ void main() {
       expect(checkpoints.outcome?.lastMessageNotRemoved, isFalse);
     });
 
+    test('a failed turn the restore removed is not put back by the re-read, '
+        'and its prompt goes under the draft', () async {
+      final (opened, checkpoints) = await listed();
+      chat.submit('Try the failing step', const []);
+      await pumpEventQueue();
+      source.sends.last
+        ..emit(const ReplyCompleted('It broke', failed: true))
+        ..finish();
+      await pumpEventQueue();
+      source.fake.restore = const Restored(historyRemoved: 2);
+      server.on(
+        'GET',
+        '/api/sessions/stored-1/messages',
+        messageListBody('stored-1', _rows(withPrompt: false)),
+      );
+      await checkpoints.confirmRestore(checkpoints.beginRestore(_hash)!);
+      await pumpEventQueue();
+      expect(drafts, ['Try the failing step']);
+      expect(
+        opened.messages.where((m) => m.content == 'Try the failing step'),
+        isEmpty,
+      );
+      expect(opened.messages.where((m) => m.content == 'It broke'), isEmpty);
+    });
+
     test('the composer is left alone while the re-read chat still holds '
         'the prompt', () async {
       final (_, checkpoints) = await listed();
@@ -729,6 +754,22 @@ void main() {
       await pumpEventQueue();
     });
 
+    test('a turn of another client in the chat refuses a full restore and a '
+        'compress', () async {
+      final (opened, checkpoints) = await listed();
+      final context = chat.contextIn(opened)!;
+      expect(checkpoints.restoreRefusal(), isNull);
+      source.active['stored-1'] = 'working';
+      await chat.refreshActive();
+      expect(checkpoints.restoreRefusal(), RestoreRefusal.replying);
+      expect(context.compressRefusal, CompressRefusal.replying);
+      // A file restore is still allowed.
+      expect(checkpoints.restoreRefusal(filePath: 'a.txt'), isNull);
+      source.active.clear();
+      await chat.refreshActive();
+      expect(checkpoints.restoreRefusal(), isNull);
+    });
+
     test('a compress waits while a full restore runs', () async {
       final (opened, checkpoints) = await listed();
       final context = chat.contextIn(opened)!;
@@ -785,6 +826,26 @@ void main() {
       await confirming;
       expect(chat.outcomeLinesIn(same_), hasLength(1));
       expect(opened.id, same_.id);
+    });
+
+    test('a chat whose full restore runs stays listed, and held, when the '
+        'next list page no longer has it', () async {
+      final (opened, checkpoints) = await listed();
+      final gate = source.fake.restoreGate = Completer<void>();
+      final confirming = checkpoints.confirmRestore(
+        checkpoints.beginRestore(_hash)!,
+      );
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 'stored-2', title: 'Second')]),
+      );
+      await chat.loadThreads('work');
+      expect(chat.threads.any((t) => t.id == 'stored-1'), isTrue);
+      expect(chat.sendHeldIn(opened), isTrue);
+      gate.complete();
+      await confirming;
+      expect(chat.sendHeldIn(opened), isFalse);
     });
 
     test('dispose ends a hold without sending', () async {

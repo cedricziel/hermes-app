@@ -77,11 +77,14 @@ class _CheckpointsPageState extends State<CheckpointsPage>
   void _read() {
     final controller = this.controller;
     if (!mounted || controller == null || controller.locked) return;
-    if (controller.rowState == CheckpointsRowState.notChecked) {
-      unawaited(controller.openResuming());
-    } else if (!controller.panelOpen) {
+    // A page with no panel under it (a standalone route) keeps the list
+    // current for as long as it is open, so it holds the lifecycle itself.
+    if (!controller.panelOpen) {
       _openedHere = true;
       unawaited(controller.panelOpened());
+    }
+    if (controller.rowState == CheckpointsRowState.notChecked) {
+      unawaited(controller.openResuming());
     }
   }
 

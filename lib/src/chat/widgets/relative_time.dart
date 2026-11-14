@@ -31,8 +31,10 @@ String relativeTimeLabel(
   if (diff.inMinutes < 60) {
     return l10n.chatCheckpointsPageTimeMinutes(diff.inMinutes);
   }
-  final today = DateTime(current.year, current.month, current.day);
-  final day = DateTime(at.year, at.month, at.day);
+  // Calendar days, counted in UTC: local midnights can be 23 or 25 hours
+  // apart across a clock change.
+  final today = DateTime.utc(current.year, current.month, current.day);
+  final day = DateTime.utc(at.year, at.month, at.day);
   final days = today.difference(day).inDays;
   if (days == 0) return l10n.chatCheckpointsPageTimeHours(diff.inHours);
   if (days == 1) return l10n.chatCheckpointsPageTimeYesterday;

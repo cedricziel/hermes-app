@@ -6,6 +6,7 @@ import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/widgets/composer_status_line.dart';
 import 'package:hermes_app/src/chat/activity/activity_tier.dart';
 import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
+import 'package:hermes_app/src/chat/activity/checkpoints_context_panel.dart';
 import 'package:hermes_app/src/chat/activity/working_summary.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
 import 'package:hermes_app/src/chat/activity/widgets/needs_you_dock.dart';
@@ -210,6 +211,33 @@ void main() {
       final files = tester.getTopLeft(find.byType(FileCheckpointsRow));
       expect(context.dy, lessThan(files.dy));
       expect(source.fake.count('list'), 1);
+    });
+
+    testWidgets('a layout change replaces the panel presence without closing '
+        'the list its replacement just opened', (tester) async {
+      await tester.runAsync(() async {
+        await open();
+        await pumpEventQueue();
+      });
+      final controller = checkpointsOf();
+      Widget presence(Key key) => MaterialApp(
+        home: CheckpointsPanelPresence(
+          key: key,
+          controller: controller,
+          child: const SizedBox(),
+        ),
+      );
+      await tester.pumpWidget(presence(const ValueKey('docked')));
+      await tester.pump();
+      expect(controller.panelOpen, isTrue);
+      // The inspector turns to an overlay: one presence goes, one comes.
+      await tester.pumpWidget(presence(const ValueKey('overlay')));
+      await tester.pump();
+      await tester.pump();
+      expect(controller.panelOpen, isTrue);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      expect(controller.panelOpen, isFalse);
     });
 
     testWidgets('a stored chat with no runtime says "Not checked yet" and '

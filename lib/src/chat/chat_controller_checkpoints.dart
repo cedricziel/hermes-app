@@ -103,7 +103,8 @@ extension _ChatControllerCheckpoints on ChatController {
     final source = transport;
     if (!active ||
         !thread.remote ||
-        !_threads.contains(thread) ||
+        // By id: a sheet opened earlier holds the object a re-read replaced.
+        !_threads.any((t) => t.id == thread.id) ||
         (source is! CheckpointsTransport && source is! ContextTransport)) {
       return null;
     }
@@ -154,6 +155,8 @@ extension _ChatControllerCheckpoints on ChatController {
               // rewind a second turn or lose the one in flight.
               _undoing.containsKey(thread) ||
               _retrying.contains(thread) ||
+              // A turn of another client runs in this chat.
+              _active.contains(thread.id) ||
               _queueDispatching.contains(thread) ||
               _actionHolds(thread) ||
               thread.messages.any((m) => m.awaitingInput));
