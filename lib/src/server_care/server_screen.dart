@@ -16,7 +16,9 @@ import 'attention.dart';
 import 'care_result.dart';
 import 'gateway_actions.dart';
 import 'gateway_restart.dart';
+import 'server_care_repository.dart';
 import 'server_care_controller.dart';
+import 'server_logs_page.dart';
 import 'server_status.dart';
 import 'update_check_controller.dart';
 import 'update_page.dart';
@@ -139,6 +141,9 @@ class _ServerScreenState extends State<ServerScreen> {
         .push(MaterialPageRoute<void>(builder: (_) => _carry(care, run, page)));
   }
 
+  /// Opens the Logs page on [file], if the server has the route.
+  void _showLogs(CareLogFile file) => _open(ServerLogsPage(initialFile: file));
+
   String? _subtitle(AppLocalizations l10n, ServerCareController care) {
     final profile = care.profile;
     if (profile == null) return null;
@@ -190,15 +195,22 @@ class _ServerScreenState extends State<ServerScreen> {
       ..._hermes(l10n, care, showStatus ? status : null),
       if (showStatus) ..._gateway(l10n, status),
       if (showStatus) ..._machine(l10n, status),
-      if (care.offers(CarePart.usage))
+      if (care.offers(CarePart.usage) || care.offers(CarePart.logs))
         GroupedSection(
           header: l10n.serverCareToolsHeader,
           children: [
-            GroupedRow(
-              title: l10n.serverCareUsageTitle,
-              subtitle: l10n.serverCareUsageRowSubtitle,
-              onTap: () => _open(const UsagePage()),
-            ),
+            if (care.offers(CarePart.usage))
+              GroupedRow(
+                title: l10n.serverCareUsageTitle,
+                subtitle: l10n.serverCareUsageRowSubtitle,
+                onTap: () => _open(const UsagePage()),
+              ),
+            if (care.offers(CarePart.logs))
+              GroupedRow(
+                title: l10n.serverCareLogsTitle,
+                subtitle: l10n.serverCareLogsRowSubtitle,
+                onTap: () => _showLogs(CareLogFile.errors),
+              ),
           ],
         ),
       GroupedSection(
@@ -230,6 +242,13 @@ class _ServerScreenState extends State<ServerScreen> {
       label: l10n.serverCareGatewayRestart,
       onPressed: () => runGatewayAction(context, GatewayAction.restart),
     );
+    ServerStatusButton? showLogs(CareLogFile file) => care.offers(CarePart.logs)
+        ? ServerStatusButton(
+            label: l10n.serverCareShowLogs,
+            outlined: true,
+            onPressed: () => _showLogs(file),
+          )
+        : null;
     final retry = ServerStatusButton(
       label: l10n.serverCareTryAgain,
       onPressed: _refresh,
@@ -311,13 +330,19 @@ class _ServerScreenState extends State<ServerScreen> {
             : l10n.serverCareHeadlineDiskCritical(free),
         l10n.serverCareHeadlineDiskCriticalDetail,
       ),
+      // What happened before the restart is in the agent's own log; why a
+      // channel is offline is in the gateway's.
       Attention.unexpectedRestart => card(
         ServerStatusTone.warning,
         l10n.serverCareHeadlineRestarted,
+        null,
+        showLogs(CareLogFile.agent),
       ),
       Attention.channelsOffline => card(
         ServerStatusTone.warning,
         _channelsOffline(l10n, status),
+        null,
+        showLogs(CareLogFile.gateway),
       ),
       Attention.memoryLow => card(
         ServerStatusTone.info,
@@ -480,6 +505,12 @@ class _ServerScreenState extends State<ServerScreen> {
                     _run,
                     onTryAgain: () =>
                         _tryAgain(_run.action ?? GatewayAction.restart),
+                    onShowLogs:
+                        context.read<ServerCareController>().offers(
+                          CarePart.logs,
+                        )
+                        ? () => _showLogs(CareLogFile.gateway)
+                        : null,
                   ),
           ),
         ],

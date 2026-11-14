@@ -21,11 +21,14 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
   ServerLogsController({
     required this.repository,
     String? profile,
+    CareLogFile file = CareLogFile.errors,
     this.debounce = defaultDebounce,
     this.covered,
     this.onUnsupported,
     this.lookupFailed,
   }) : // A named parameter cannot be a private initializing formal.
+       // ignore: prefer_initializing_formals
+       _file = file,
        // ignore: prefer_initializing_formals
        _profile = profile;
 
@@ -48,7 +51,7 @@ class ServerLogsController extends ChangeNotifier with SafeNotifier {
   /// Whether looking up the profile failed.
   final bool Function()? lookupFailed;
 
-  CareLogFile _file = CareLogFile.errors;
+  CareLogFile _file;
   LogLevelFilter _level = LogLevelFilter.all;
   String _search = '';
   int _lines = initialLines;
