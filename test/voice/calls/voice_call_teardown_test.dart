@@ -120,6 +120,21 @@ void main() {
       });
     });
 
+    test('the speech socket closes only after the capture did', () async {
+      await h.activate();
+      await h.say('First');
+      h.agent.text!('An answer. ');
+      var closed = false;
+      unawaited(h.socket.local.sink.done.then((_) => closed = true));
+      h.bridge.stopCaptureGate = Completer<void>();
+      unawaited(h.call.end());
+      await pumpEventQueue();
+      expect(closed, isFalse, reason: 'capture is still closing');
+      h.bridge.stopCaptureGate!.complete();
+      await pumpEventQueue();
+      expect(closed, isTrue);
+    });
+
     test('ending twice runs the steps once', () async {
       await h.activate();
       await Future.wait([h.call.end(), h.call.end(), h.call.end('x')]);

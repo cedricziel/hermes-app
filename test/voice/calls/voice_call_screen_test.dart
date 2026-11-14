@@ -7,6 +7,7 @@ import 'package:hermes_app/src/voice/calls/call_readiness_checker.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
 import 'package:hermes_app/src/voice/calls/voice_model_route.dart';
 import 'package:hermes_app/src/voice/voice_call_screen.dart';
+import 'package:hermes_app/src/voice/widgets/voice_call_setup_view.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 
 import 'fakes.dart';
@@ -150,6 +151,20 @@ void main() {
     final flow = _Flow();
     await flow.open(tester);
     expect(find.textContaining('GPT-Live'), findsNothing);
+    await flow.dispose(tester);
+  });
+
+  testWidgets('a start without consent is refused even when called directly', (
+    tester,
+  ) async {
+    final flow = _Flow();
+    await flow.open(tester);
+    tester
+        .widget<VoiceCallSetupView>(find.byType(VoiceCallSetupView))
+        .onStart();
+    await tester.pump();
+    expect(flow.starts, 0);
+    expect(flow.call, isNull);
     await flow.dispose(tester);
   });
 
