@@ -39,9 +39,14 @@ The app SHALL ignore unknown fields, skip rows without `subagent_id`, read numbe
 - **WHEN** `subagent.list` returns a row with no `subagent_id`
 - **THEN** that row is skipped and the others are shown
 
+#### Scenario: A malformed list answer
+
+- **WHEN** `subagent.list` answers with `subagents` as a string
+- **THEN** the rows already shown stay as they were and the read counts as failed for the backoff
+
 ### Requirement: Agents are listed in the Activity panel
 
-The Activity panel SHALL list each delegated agent of the open chat as a row: running and starting agents under Now, ended agents and failed background delegations under This session. A row SHALL show the goal (at most two lines), the state as a word and an icon (Starting, Running, Finished, Failed, Stopped, Ended), what it is doing now while it runs, the tools used, and its run time. Nested agents SHALL be indented under their listed parent.
+The Activity panel SHALL list each delegated agent of the open chat as a row: running and starting agents under Now, ended agents and failed background delegations under This session. A row SHALL show the goal (at most two lines), the state as a word and an icon (Starting, Running, Finished, Failed, Stopped, Ended), what it is doing now while it runs, the tools used, and its run time. Nested agents SHALL be indented under their listed parent, at most three levels deep.
 
 #### Scenario: Two agents run and one finishes
 
@@ -52,6 +57,11 @@ The Activity panel SHALL list each delegated agent of the open chat as a row: ru
 
 - **WHEN** `subagent.list` returns a failed delegation with goal "Audit the dependency tree" and an error
 - **THEN** This session lists "Audit the dependency tree" as Failed, and its detail shows the error
+
+#### Scenario: Nested agents
+
+- **WHEN** an agent with id a1 is listed and another agent reports `parent_id: a1` at depth 2
+- **THEN** the second agent is drawn indented under a1; an agent whose parent is not listed is drawn at the top level
 
 ### Requirement: Rows merge frames and the list
 
@@ -67,6 +77,11 @@ Rows SHALL come from the chat's `subagent.*` frames and from `subagent.list`. A 
 - **WHEN** a list answer saying "running" arrives after a `subagent.complete` frame for the same agent
 - **THEN** the agent stays Finished
 
+#### Scenario: More than 20 ended agents
+
+- **WHEN** a chat has 23 ended agents
+- **THEN** This session lists the 20 newest and the line "3 earlier agents not shown"
+
 ### Requirement: The roster is read only while it is shown
 
 The app SHALL read `subagent.list` when the panel or an agent's detail becomes visible for a chat whose session is attached on the current connection, then every 5 seconds while it stays visible and an agent is running or starting. It SHALL NOT resume a session to read the list. Reads SHALL stop in the background, under App Lock and while the panel is hidden, back off after failures, and drop answers that arrive after the chat, profile, connection or account changed.
@@ -81,9 +96,14 @@ The app SHALL read `subagent.list` when the panel or an agent's detail becomes v
 - **WHEN** the user opens the Activity panel on an idle chat this device has not attached to
 - **THEN** no `session.resume` and no `subagent.list` is sent, and only agents known from frames are listed
 
+#### Scenario: The first read is slow or fails
+
+- **WHEN** the panel opens and the first `subagent.list` has not answered or answered with a server error
+- **THEN** the rows known from frames are shown at once without a spinner or error, and the next read follows the backoff
+
 ### Requirement: Agent detail
 
-Tapping an agent row SHALL open the agent's detail in the Activity panel, showing the full goal, the state, run time, tools used and the last tool, a Recent output section, and, once the agent ended, what it delivered (its completion summary or the failed delegation's error).
+Tapping an agent row SHALL open the agent's detail in the Activity panel, showing the full goal, the state, run time, tools used and the last tool, a Recent output section, and, once the agent ended, what it delivered (its completion summary or the failed delegation's error). Reading SHALL be the detail's main content; Stop agent SHALL be a secondary action placed after the output and the note field, never next to Back.
 
 #### Scenario: Opening a finished agent
 
@@ -92,16 +112,21 @@ Tapping an agent row SHALL open the agent's detail in the Activity panel, showin
 
 ### Requirement: Recent output
 
-The detail SHALL read `subagent.tail` when it opens and every 2 seconds while it is visible, in the foreground and unlocked, with one read in flight. Output SHALL be selectable plain monospaced text in a bounded scrolling area that follows the end until the user scrolls up; links SHALL NOT open and markup SHALL NOT be interpreted. At most 16 KiB SHALL be held, in memory only, and dropped when the detail closes.
+The detail SHALL read `subagent.tail` when it opens and every 2 seconds while it is visible, in the foreground and unlocked, with one read in flight. Output SHALL be selectable plain monospaced text in a bounded area that follows the end, with no links opened or markup interpreted. At most 16 KiB SHALL be held, in memory only, dropped when the detail closes. A truncated answer SHALL lose its partial first line; broken characters SHALL never show.
 
 #### Scenario: Reading a running agent's output
 
 - **WHEN** the user opens the detail of a running agent whose transcript holds 40 KiB
 - **THEN** the latest output is shown with "Showing the latest output", the partial first line is not shown, it refreshes every 2 seconds, and no more than 16 KiB is held
 
+#### Scenario: Output starting mid-character
+
+- **WHEN** the 16 KiB window begins inside a multi-byte character and `truncated` is true
+- **THEN** the text starts at the first whole line and contains no replacement or broken characters
+
 #### Scenario: No output yet
 
-- **WHEN** `subagent.tail` answers `available: false` for a running agent
+- **WHEN** `subagent.tail` answers `available: false` for a running agent the app can control
 - **THEN** the section says "No output yet"
 
 #### Scenario: Output that looks like a link
@@ -109,9 +134,46 @@ The detail SHALL read `subagent.tail` when it opens and every 2 seconds while it
 - **WHEN** the output contains a URL and Markdown
 - **THEN** both are shown as plain text and nothing is opened
 
+#### Scenario: A read fails
+
+- **WHEN** a `subagent.tail` read fails after output was shown
+- **THEN** the last output stays and the section says "Couldn't refresh the output." until a read succeeds
+
+### Requirement: Output that never becomes available
+
+A running agent whose `subagent.tail` still answers `available: false` 30 seconds after it started SHALL show "Output isn't available here." instead of "No output yet".
+
+#### Scenario: Output never available
+
+- **WHEN** an agent listed as started two minutes ago answers `subagent.tail` with `available: false`
+- **THEN** Recent output says "Output isn't available here." instead of "No output yet"
+
+### Requirement: Reading is not interrupted by refreshes
+
+While the user has a text selection in the output or has scrolled away from its end, the detail SHALL NOT replace the shown text: it SHALL say "Paused" and offer "Jump to latest", which clears the selection, shows the newest output and resumes following.
+
+#### Scenario: Selecting output
+
+- **WHEN** the user selects a line of output to copy and a newer tail arrives
+- **THEN** the selection and shown text stay, the section says Paused, and Jump to latest shows the newer output
+
+### Requirement: Some agents cannot be controlled from this device
+
+Hermes lists agents the chat owns through its history but controls only those of the session's current run on the server. When a re-read list still shows an agent running after `subagent.interrupt` answered `found: false`, or after `subagent.steer` answered `rejected` while `accepting_steer` was true, the app SHALL remove that agent's controls and say "Hermes doesn't let this device stop or redirect this agent. It keeps running."
+
+#### Scenario: A running agent listed after the server rebuilt the session
+
+- **WHEN** the list shows agent a1 running and the confirmed `subagent.interrupt` answers `found: false`, and the re-read list still shows a1 running
+- **THEN** the detail says Hermes doesn't let this device stop or redirect the agent, removes its controls, and does not say it finished
+
+#### Scenario: An agent that really finished
+
+- **WHEN** `subagent.interrupt` answers `found: false` and the re-read list no longer shows the agent, or a completion frame arrives
+- **THEN** the detail says "This agent had already finished."
+
 ### Requirement: Stop an agent
 
-The detail of a running agent SHALL offer Stop agent, which SHALL ask first with the title "Stop this agent?", the message "It stops after the step it's on. Work it already did stays, and Hermes gets what it had so far and goes on with the reply. Agents it started stop too; programs it started keep running.", a default Cancel and a destructive "Stop agent". Only the confirmed action SHALL send `subagent.interrupt`, once. Stopping an agent SHALL NOT stop the reply.
+The detail of a running agent SHALL offer Stop agent, which SHALL ask first with the title "Stop this agent?", the message "It stops after its current step, along with any agents it started. What it already did stays, and the reply goes on without the rest.", a default Cancel and a destructive "Stop agent". Only the confirmed action SHALL send `subagent.interrupt`, once. Stopping an agent SHALL NOT stop the reply. The detail SHALL say under the action "Programs it started keep running."
 
 #### Scenario: The user stops an agent
 
@@ -123,23 +185,38 @@ The detail of a running agent SHALL offer Stop agent, which SHALL ask first with
 - **WHEN** the user presses Stop agent and then Cancel
 - **THEN** nothing is sent and the agent keeps running
 
+#### Scenario: Stop from a row
+
+- **WHEN** the user swipes a running agent's row on iOS and taps "Stop agent", or chooses "Stop Agent…" from the row's context menu on the Mac
+- **THEN** the same confirmation opens, and nothing is sent unless the user confirms
+
 ### Requirement: Stop outcomes
 
-While a stop is in flight its control SHALL show progress and not be pressable. On `found: false` the detail SHALL say "This agent had already finished." and re-read the list. When the answer is lost (timeout or closed connection) it SHALL say "Couldn't confirm the stop. Checking…", re-read `subagent.list`, and SHALL NOT send the stop again by itself.
+While a stop is in flight its control SHALL show progress and not be pressable, and no second confirmation SHALL open. On `found: false` the app SHALL re-read the list before it says anything (see the requirement on agents that cannot be controlled). A lost answer SHALL say "Couldn't confirm the stop. Checking…", re-read `subagent.list`, and never resend. A server error or 4001 SHALL say "Couldn't stop the agent. Try again." and offer Stop agent again.
 
 #### Scenario: The answer is lost
 
 - **WHEN** `subagent.interrupt` times out
 - **THEN** the detail says it couldn't confirm the stop, `subagent.list` is read, and no second interrupt is sent
 
-#### Scenario: Already finished
+#### Scenario: Stop fails
 
-- **WHEN** `subagent.interrupt` answers `found: false`
-- **THEN** the detail says the agent had already finished
+- **WHEN** `subagent.interrupt` answers error 4001 after the app resumed the session
+- **THEN** the detail says it couldn't stop the agent, offers Stop agent again, and sends nothing more by itself
+
+#### Scenario: Double tap
+
+- **WHEN** the user confirms and taps Stop agent again before the answer
+- **THEN** no second confirmation opens and no second `subagent.interrupt` is sent
+
+#### Scenario: The agent ends while the stop is in flight
+
+- **WHEN** a `subagent.complete` frame with status `completed` arrives before the interrupt's answer
+- **THEN** the detail shows Finished, and the answer, when it comes, changes nothing and is logged as `already_ended`
 
 ### Requirement: Redirect an agent
 
-The detail of a running agent that accepts notes SHALL offer a note field titled "Redirect this agent", addressed "To: <goal>", with the placeholder "Tell this agent what to do differently", the helper "Goes only to this agent, after the step it's on. It isn't added to the chat." and a "Send to agent" button disabled while the text is blank or a note is in flight. The field SHALL sit inside the detail, look unlike the chat composer, and be hidden when `accepting_steer` is false.
+The detail of a running agent that accepts notes SHALL offer a note field titled "Redirect this agent", addressed "To: <goal>", with the helper "Goes only to this agent, after the step it's on. It isn't added to the chat." and a "Send to agent" button, disabled while the text is blank, over 4,000 characters, or in flight. The field SHALL sit in the detail, look unlike the composer, hide when `accepting_steer` is false,, with autofill, autocorrect, suggestions and keyboard learning off.
 
 #### Scenario: A note is queued
 
@@ -148,21 +225,40 @@ The detail of a running agent that accepts notes SHALL offer a note field titled
 
 #### Scenario: Composer and note stay apart
 
-- **WHEN** an agent's detail is open beside the chat and the user types in the note field
+- **WHEN** an agent's detail is open and the user types in the note field
 - **THEN** the chat composer's draft is unchanged and nothing is sent to the chat
+
+#### Scenario: A note that is too long
+
+- **WHEN** the note holds 4,001 characters
+- **THEN** the field shows "4,001 / 4,000" and Send to agent is disabled
 
 ### Requirement: Note outcomes
 
-A note SHALL be sent once with its trimmed text. On `rejected` the text SHALL stay and the detail SHALL say "This agent isn't taking notes now." On a lost answer the text SHALL stay with "Couldn't confirm the note was sent. Sending it again may deliver it twice." and SHALL NOT be resent by the app. When the agent's completion summary says a note did not land, the detail SHALL say "Your note arrived after the agent finished."
+A note SHALL be sent once with its trimmed text. `rejected` SHALL keep the text with "This agent isn't taking notes now." A lost answer SHALL keep the text, never resend, and say "Couldn't confirm the note was sent. Sending it again may deliver it twice." A server error or 4001 SHALL keep it with "Couldn't send the note. Try again."
 
 #### Scenario: The note is rejected
 
-- **WHEN** `subagent.steer` answers `rejected`
+- **WHEN** `subagent.steer` answers `rejected` for an agent the list shows with `accepting_steer: false`
 - **THEN** the typed text stays in the field and the detail says the agent isn't taking notes now
+
+#### Scenario: Sending fails
+
+- **WHEN** `subagent.steer` answers a server error
+- **THEN** the text stays and the detail says it couldn't send the note
+
+### Requirement: A note that arrives too late
+
+If the ended agent's completion summary or error contains "steer did not land", the detail SHALL say "Your note arrived after the agent finished."; otherwise it SHALL claim neither delivery nor loss.
 
 #### Scenario: A note that missed
 
-- **WHEN** a note was queued and the agent's `subagent.complete` summary contains "steer did not land"
+- **WHEN** a note was queued and the agent's `subagent.complete` summary contains "[steer did not land — the subagent finished before it could be delivered"
+- **THEN** the detail says the note arrived after the agent finished
+
+#### Scenario: A note that missed a failed agent
+
+- **WHEN** a note was queued and the agent's failure error contains "[steer did not land before the subagent stopped"
 - **THEN** the detail says the note arrived after the agent finished
 
 ### Requirement: An agent that ends while its detail is open
@@ -190,12 +286,17 @@ Every `subagent.*` call SHALL be sent on a connection on which the chat's sessio
 
 ### Requirement: A server without the calls
 
-A method answering method-not-found SHALL turn off only what needs it, for that connection: `subagent.list` leaves rows to frames, `subagent.tail` removes Recent output, and `subagent.interrupt` or `subagent.steer` removes its control after saying "This server can't stop agents." or "This server can't take notes for agents." once where it was pressed. None SHALL show as a chat failure; the next connection SHALL try again.
+Method-not-found SHALL turn off only what needs that method, for that connection: `subagent.list` leaves rows to frames; `subagent.tail` removes Recent output; `subagent.interrupt` or `subagent.steer` removes its control after saying "This server can't stop agents." or "This server can't take notes for agents." once where it was pressed. None SHALL show as a chat failure; the next connection SHALL try again.
 
 #### Scenario: An older gateway
 
 - **WHEN** every `subagent.*` method answers method-not-found
 - **THEN** agent rows still appear from frames, the detail shows the goal and state only, and no Stop, note field, or error is shown
+
+#### Scenario: Output missing, notes offered
+
+- **WHEN** `subagent.tail` answers method-not-found and `subagent.steer` answers `queued`
+- **THEN** the detail has no Recent output section and keeps the note field
 
 ### Requirement: Reaching an agent from the transcript
 
@@ -234,14 +335,33 @@ While App Lock covers the app, tail and list reads SHALL stop and held output SH
 - **WHEN** the user switches the chat to another profile with an agent's detail open
 - **THEN** the detail closes, its output and any unsent note are dropped, and a late tail answer is discarded
 
+#### Scenario: Sign-out
+
+- **WHEN** the user signs out while an agent's detail is open with an unsent note
+- **THEN** the detail, output, note and rows are dropped and no `subagent.*` call is sent afterwards
+
+#### Scenario: Server change
+
+- **WHEN** the user changes server while a list read is in flight
+- **THEN** its answer is discarded and the new server's chats show no rows from the old one
+
 ### Requirement: Accessible rows and controls
 
-Rows and controls SHALL have targets of at least 44 by 44 points on Apple platforms and 48 by 48 dp on Android. A row's screen-reader label SHALL read goal, state, tools used and run time in that order, and state SHALL be carried by a word, not colour alone. A state change of the agent whose detail is open SHALL be announced once, politely. Text SHALL scale to the largest accessibility size without cutting the goal or controls, and running indicators SHALL be still with reduced motion.
+Rows and controls SHALL have targets of at least 44 by 44 points on Apple platforms and 48 by 48 dp on Android. A row's screen-reader label SHALL read goal, state, tools used and run time, with the custom actions "Show details" and "Stop agent" named as the swipe and menu name them. State SHALL be a word, not colour alone.
 
 #### Scenario: VoiceOver on an agent row
 
 - **WHEN** VoiceOver focuses a running agent row
-- **THEN** it reads the goal, "Running", the number of tools used and the run time
+- **THEN** it reads the goal, "Running", the number of tools used and the run time, and offers the actions Show details and Stop agent
+
+#### Scenario: Android rows
+
+- **WHEN** the user swipes a running agent's row on Android
+- **THEN** nothing happens; a tap opens the detail, where Stop agent is offered
+
+### Requirement: Accessible detail and motion
+
+State changes of the agent whose detail is open SHALL be announced once, politely. Text SHALL scale to the largest accessibility size without cutting the goal or controls, and running indicators SHALL be still when reduced motion is on.
 
 #### Scenario: Reduced motion
 
@@ -250,7 +370,7 @@ Rows and controls SHALL have targets of at least 44 by 44 points on Apple platfo
 
 ### Requirement: Keyboard use
 
-On the Mac and other keyboard layouts the detail's focus order SHALL be back, goal, Stop agent, output, note field, Send to agent. Command-Return on Apple platforms and Control-Enter elsewhere SHALL send a note from the field; Return alone SHALL add a line.
+On the Mac and other keyboard layouts the detail's focus order SHALL follow the visual order: back, goal, output, note field, Send to agent, Stop agent. Command-Return on Apple platforms and Control-Enter elsewhere SHALL send a note from the field; Return alone SHALL add a line.
 
 #### Scenario: Sending with the keyboard on a Mac
 

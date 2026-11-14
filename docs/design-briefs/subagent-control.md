@@ -16,7 +16,7 @@ Everything is in the chat's existing **Activity panel**, opened with the Activit
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Panel        | Detent sheet (iOS) / modal bottom sheet (Android), opens at medium height                                                                 | Inspector beside the chat; over the chat below 760 pt                            | Inspector beside the chat; over it below 760 pt. Never a bottom sheet                                        |
 | Agent detail | Pushed inside the sheet with the platform push; the sheet grows to full height                                                            | Replaces the inspector's content; back chevron at top left                       | Same as iPad; Escape goes back, then closes an overlay inspector                                             |
-| Row actions  | iOS: swipe from the trailing edge reveals red "Stop"; long press lists Show Details, Stop Agent…. Android: tap opens the detail; no swipe | Pointer hover highlights the row; right click menu on Windows/Linux not required | Right click: Show Details, Stop Agent… (title case on the Mac); hover highlight                              |
+| Row actions  | iOS: swipe from the trailing edge reveals red "Stop agent" (opens the confirmation); long press lists Show details, Stop agent…. Android: tap only, on purpose: Material has no standard trailing swipe for a destructive action, and Stop lives in the detail | Pointer hover highlights the row; right click menu on Windows/Linux not required | Right click: Show Details, Stop Agent… (title case on the Mac; opens the confirmation); hover highlight                              |
 | Confirmation | Alert (Cupertino on iOS, Material dialog on Android)                                                                                      | Dialog                                                                           | Mac alert sheet style dialog (`AppAlertDialog`), Cancel is the default button (Return), Stop agent plain red |
 | Send a note  | Button below the field                                                                                                                    | Button; Control-Enter                                                            | Button; ⌘Return. Return adds a line                                                                          |
 
@@ -63,10 +63,12 @@ Mac conversation windows behave like the Mac main window. The Mac quick panel ha
 1. Header: back control "Activity"; title "Agent".
 2. Goal, full text, title style, selectable.
 3. Facts line: state glyph and word, run time, "4 tools", last tool. For a nested agent: "Started by another agent".
-4. Primary action, while running: **Stop agent** (destructive style, outlined or tinted red, full width on phones, trailing on wide layouts).
-5. **Recent output** section: section title, then the monospaced output box. Under the title, a subtle note when truncated: "Showing the latest output".
-6. **Redirect this agent** section (only while running and accepting notes): see Screen 3.
+4. **Recent output** section: the detail's main content. Section title, then the monospaced output box. Under the title, a subtle note when truncated: "Showing the latest output".
+5. **Redirect this agent** section (only while running and accepting notes): see Screen 3.
+6. Secondary action, while running: **Stop agent**, a tinted (not filled) destructive button, trailing-aligned at its natural width, after the output and the note section, with the subtle line "Programs it started keep running." under it. Never in the header, never next to Back.
 7. **What it delivered** (only once ended): the summary in body text, selectable; for a failed delegation the error under "What went wrong".
+
+Reading is the default job of this screen: there is no filled primary button. Send to agent is the only primary inside the note section.
 
 **States and their copy:**
 
@@ -76,9 +78,12 @@ Mac conversation windows behave like the Mac main window. The Mac quick panel ha
 | No output yet                  | Output box replaced by subtle text                     | "No output yet"                                            |
 | Output truncated               | Note under the section title                           | "Showing the latest output"                                |
 | Output read failed             | Subtle line under the box, last text kept              | "Couldn't refresh the output."                             |
+| User selected text or scrolled up | Refresh holds the shown text; pill above the box's bottom edge | "Paused" · "Jump to latest" (button) |
+| Output never available (30 s)  | Output box replaced by subtle text                     | "Output isn't available here."                             |
+| Can't be controlled here       | Stop, note section and output removed; info banner     | "Hermes doesn't let this device stop or redirect this agent. It keeps running." |
 | Stop in flight                 | Stop button shows a spinner, disabled                  | "Stopping…" (button label)                                 |
 | Stop accepted                  | Banner under the facts line, button gone               | "Stopping… The agent stops after the step it's on."        |
-| Already finished               | Banner                                                 | "This agent had already finished."                         |
+| Already finished (confirmed by a re-read) | Banner                                      | "This agent had already finished."                         |
 | Stop unconfirmed               | Banner, warning style                                  | "Couldn't confirm the stop. Checking…"                     |
 | Stop failed                    | Banner, error style, button back                       | "Couldn't stop the agent. Try again."                      |
 | Server can't stop              | Button removed, one-time line                          | "This server can't stop agents."                           |
@@ -97,7 +102,7 @@ Mac conversation windows behave like the Mac main window. The Mac quick panel ha
 
 **Purpose:** tell this one agent to change course without stopping it and without writing in the chat.
 
-**How it must not be confused with the chat composer:** it sits inside the agent's detail under its own section title; it names its recipient; its button says who gets it; it has none of the composer's controls; the chat composer stays where it is, unchanged.
+**How it must not be confused with the chat composer:** it sits inside the agent's detail under its own section title; it names its recipient; its button says who gets it; it has none of the composer's controls (no attach, model pill, microphone or round send button). Beside a wide inspector the composer stays visible and untouched; in the phone sheet at full height and in a Mac inspector drawn over a narrow window the composer is hidden, so the note field is the only text field on screen.
 
 **Copy:**
 
@@ -105,7 +110,9 @@ Mac conversation windows behave like the Mac main window. The Mac quick panel ha
 - Recipient line, subtle: "To: <goal, one line, ellipsis>"
 - Placeholder: "Tell this agent what to do differently"
 - Helper under the field: "Goes only to this agent, after the step it's on. It isn't added to the chat."
-- Button: "Send to agent" (disabled while blank or sending; spinner while sending)
+- Button: "Send to agent" (disabled while blank, over 4,000 characters or sending; spinner while sending)
+- Counter under the field from 3,500 characters: "3,612 / 4,000"; red over the limit.
+- The field may hold secrets: autofill, autocorrect, suggestions and keyboard learning are off (as the sudo password prompt does). It is not obscured.
 
 **Outcomes:**
 
@@ -115,7 +122,8 @@ Mac conversation windows behave like the Mac main window. The Mac quick panel ha
 | Rejected                           | Keeps text                                      | "This agent isn't taking notes now."                                                                                           |
 | Unconfirmed                        | Keeps text                                      | "Couldn't confirm the note was sent. Sending it again may deliver it twice."                                                   |
 | Failed                             | Keeps text                                      | "Couldn't send the note. Try again."                                                                                           |
-| Missed (seen at the end)           | —                                               | "Your note arrived after the agent finished."                                                                                  |
+| Missed (only when Hermes says so)  | —                                               | "Your note arrived after the agent finished." Without Hermes' word the screen claims neither delivery nor loss                 |
+| Can't be controlled here           | Section removed                                 | Banner from Screen 2                                                                                                           |
 | Server can't take notes            | Section removed after one line                  | "This server can't take notes for agents."                                                                                     |
 | Agent ended with text in the field | Field becomes read-only text with a Copy button | "Not sent"                                                                                                                     |
 
@@ -124,7 +132,8 @@ Mac conversation windows behave like the Mac main window. The Mac quick panel ha
 **Purpose:** make sure the person knows what stopping costs before it happens.
 
 - Title: "Stop this agent?"
-- Message: "It stops after the step it's on. Work it already did stays, and Hermes gets what it had so far and goes on with the reply. Agents it started stop too; programs it started keep running."
+- Message: "It stops after its current step, along with any agents it started. What it already did stays, and the reply goes on without the rest."
+- (Programs it started keep running: said under the Stop button in the detail, not in the alert.)
 - Buttons: "Cancel" (default, bold on Apple platforms), "Stop agent" (destructive red).
 - Mac: the alert dialog, not a sheet from the bottom. Escape cancels.
 
@@ -141,21 +150,23 @@ Mac conversation windows behave like the Mac main window. The Mac quick panel ha
 
 **Purpose:** know which program is running and stop one that runs away.
 
-- Row: command (monospaced, two lines max), state word and glyph (Running, Exited with code N, Stopped, Closed), run time. Expanding shows the output as today.
+- Row: command (monospaced, two lines max; a trailing "…" when Hermes cut it at 200 characters), state word and glyph, run time. Expanding shows the output as today.
+- State words: Running; Stopped (any program Hermes ended on request, whatever its exit code, never "Exited with code -15"); Exited with code N; Ended (exited, no code); Closed (frames only, no list entry). Exit code 0 still reads "Exited with code 0", not "Succeeded".
+- A card first filled from the list shows "Earlier output omitted" above its text.
 - Stop: "Stop program" text button in the expanded card while running.
-- Confirmation title: "Stop this program?"; message: "Hermes ends <command, one line>. Its output so far stays here. The agent won't be told the program finished."; buttons "Cancel" (default) and "Stop program" (destructive).
+- Confirmation title: "Stop this program?"; message: "Hermes ends <command, one line>. Its output so far stays here, and the agent won't be told it finished."; buttons "Cancel" (default) and "Stop program" (destructive).
 - Outcomes: "Stopped", "It had already ended.", "This program is no longer listed.", "Couldn't stop the program.", "Couldn't confirm the stop. Checking…".
 - A card without a command keeps today's "Process <id> · Output received" until the list fills it in.
 
 ## Accessibility (applies to every screen)
 
 - Targets: 44 × 44 pt on Apple platforms, 48 × 48 dp on Android, including the row chevron, back, Stop, Copy and Send.
-- Row label order: goal, state, tools used, run time ("Audit the dependency tree, Running, 4 tools, 1 minute 12 seconds"). Custom actions: Show details, Stop agent.
+- Row label order: goal, state, tools used, run time ("Audit the dependency tree, Running, 4 tools, 1 minute 12 seconds"). Custom actions: Show details, Stop agent (the same words as the swipe button and the context menu).
 - State is never colour only: glyph and word always.
 - Dynamic Type / font scale up to the largest accessibility size: goal wraps fully in the detail; rows may grow; buttons stack vertically when they do not fit side by side; the output box keeps a minimum of five lines.
 - Contrast: WCAG AA for the subtle secondary line and the monospaced output in both themes; the destructive red on the Stop button meets AA on its tinted background.
 - Reduced motion: no pulsing dot, no slide on the detail push (cross-fade or none).
-- Keyboard: focus order back, goal, Stop agent, output, note field, Send to agent; ⌘Return / Control-Enter sends; Escape goes back from the detail.
+- Keyboard: focus order back, goal, output, note field, Send to agent, Stop agent; ⌘Return / Control-Enter sends; Escape goes back from the detail.
 
 ## Privacy rules the design must keep
 
@@ -165,4 +176,4 @@ Mac conversation windows behave like the Mac main window. The Mac quick panel ha
 
 ## Use cases the catalog must have (both themes, phone, iPad and desktop widths)
 
-Panel: agents running under Now with the Bot screen card above; ended agents with the overflow line; nested agents; old server. Row: each state word; long goal; largest text size. Detail: every row of the Screen 2 and Screen 3 tables. Confirmations: agent and program. Program card: running, exited with code, stopped, closed without list entry.
+Panel: agents running under Now with the Bot screen card above; ended agents with the overflow line; nested agents; old server. Row: each state word; long goal; largest text size. Detail: every row of the Screen 2 and Screen 3 tables, including Paused with a selection and Can't be controlled here. Confirmations: agent and program. Program card: running, exited with code, stopped (killed), ended without code, closed without list entry, seeded with omitted output, stop in flight and every stop outcome.

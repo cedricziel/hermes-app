@@ -29,7 +29,7 @@ An activity that changes state SHALL move to the tier of its new state, for exam
 
 ### Requirement: No new backend contract
 
-The tiers SHALL be derived only from the existing dashboard `/api/ws` JSON-RPC frames and methods the agent-visibility capabilities already consume (OpenRPC baseline recorded in `openrpc/HERMES_REF`), plus the session-scoped `subagent.list` read that the subagent-control capability defines. No backend route, protocol extension or minimum Hermes version SHALL be introduced; a method a server does not offer SHALL leave the tiers derived from frames alone. A server that sends none of these frames SHALL show no activity other than the user-invoked entries whose support is still unknown: the idle Verify billing access action and the Session usage entry. These remain until the Activity panel offers them.
+The tiers SHALL be derived only from the existing dashboard `/api/ws` JSON-RPC frames and methods the agent-visibility capabilities already consume, plus the session-scoped `subagent.list` and `process.list` reads that the subagent-control and agent-process-output capabilities define. The current pinned contract SHALL be Hermes Agent commit `d923a5eb487a17c0a68801bba9ef0f56c81040a8`, recorded in `openrpc/HERMES_REF`. No backend route, protocol extension or minimum Hermes version SHALL be introduced; a method a server does not offer SHALL leave the tiers derived from frames alone. A server that sends none of these frames SHALL show no activity other than the user-invoked entries whose support is still unknown: the idle Verify billing access action and the Session usage entry. These remain until the Activity panel offers them.
 
 #### Scenario: A server sends no activity frames
 
@@ -42,6 +42,16 @@ The tiers SHALL be derived only from the existing dashboard `/api/ws` JSON-RPC f
 - **THEN** both agents are listed under Now from their `subagent.*` frames and nothing reports the missing method
 
 ## ADDED Requirements
+
+### Requirement: Agents stay out of the strip
+
+Delegated agents SHALL be listed in the Activity panel only. They SHALL NOT be drawn in the strip above the transcript, which keeps its current Working and Needs-you items; the reply's agent card in the transcript keeps showing them as before.
+
+#### Scenario: A reply delegates an agent
+
+- **WHEN** a reply starts a delegated agent
+- **THEN** nothing is added to the strip above the transcript, the reply's agent card shows the agent, and the Activity panel lists it under Now
+
 
 ### Requirement: Activity items can open a detail in the panel
 
