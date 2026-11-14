@@ -292,12 +292,20 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
     final installs = await _hasInstallStep(name);
     if (_stale(epoch)) return;
     if (installs == null) {
+      _queued.remove(name);
       // The setup could not be read, so what the switch may start is
       // unknown. Nothing is sent.
       _setRow(
         name,
         const ToolsRowState(error: ToolsRowError(ToolsRowErrorKind.failed)),
       );
+      notifyListeners();
+      return;
+    }
+    if (_confirmation != null) {
+      // Another toolset's question opened while this one read its setup.
+      _queued.remove(name);
+      _setRow(name, const ToolsRowState());
       notifyListeners();
       return;
     }
@@ -334,8 +342,8 @@ class ToolsController extends ChangeNotifier with SafeNotifier {
     _confirmation = null;
     _setRow(question.toolset.name, const ToolsRowState());
     _recordConfirmation(question.toolset.name, confirmed: false);
+    _queued.remove(question.toolset.name);
     notifyListeners();
-    _runQueued(question.toolset.name);
   }
 
   /// Whether any provider of [name] has an install step; null when its setup

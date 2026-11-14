@@ -411,4 +411,84 @@ void main() {
     expect(events.join(), isNot(contains('my_private_plugin')));
     expect(events.join(), contains('toolset: other'));
   });
+
+  group('questions and queued taps', () {
+    setUp(() {
+      server
+        ..on('GET', '/api/tools/toolsets/browser/config', {
+          'name': 'browser',
+          'has_category': true,
+          'providers': <Object?>[],
+        })
+        ..on('GET', '/api/tools/toolsets', [
+          ...catalog(),
+          {'name': 'browser', 'enabled': false, 'configured': true},
+        ]);
+    });
+
+    test('two quick taps on risky toolsets leave one question and no stuck '
+        'row', () async {
+      await controller.load();
+      final a = controller.requestSwitch('terminal', enabled: true);
+      final b = controller.requestSwitch('browser', enabled: true);
+      await Future.wait([a, b]);
+
+      expect(puts(), isEmpty);
+      final asked = controller.confirmation!.toolset.name;
+      final other = asked == 'terminal' ? 'browser' : 'terminal';
+      expect(controller.rowState(other).busy, isFalse);
+    });
+
+    test('cancel drops a tap queued behind the question', () async {
+      final first = controller.requestSwitch('terminal', enabled: true);
+      await controller.requestSwitch('terminal', enabled: true);
+      await first;
+      controller.cancel();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      expect(controller.confirmation, isNull);
+      expect(puts(), isEmpty);
+    });
+
+    test(
+      'a tap queued during a failed setup read does not fire later',
+      () async {
+        server.on('GET', '/api/tools/toolsets/terminal/config', {
+          'd': 'x',
+        }, status: 500);
+        final first = controller.requestSwitch('terminal', enabled: true);
+        await controller.requestSwitch('terminal', enabled: true);
+        await first;
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+
+        expect(controller.confirmation, isNull);
+        expect(puts(), isEmpty);
+      },
+    );
+
+    test('confirm twice sends once, and a queued "on" goes through the '
+        'question again', () async {
+      server.on('PUT', '/api/tools/toolsets/terminal', {
+        'ok': true,
+        'name': 'terminal',
+        'enabled': true,
+      });
+      await controller.requestSwitch('terminal', enabled: true);
+      await Future.wait([controller.confirm(), controller.confirm()]);
+
+      expect(puts(), hasLength(1));
+    });
+
+    test(
+      'a profile switch with a question open then confirm sends nothing',
+      () async {
+        await controller.requestSwitch('terminal', enabled: true);
+        controller.switchProfile(toolsRepository(server, profile: 'home'));
+        await controller.confirm();
+
+        expect(controller.confirmation, isNull);
+        expect(puts(), isEmpty);
+      },
+    );
+  });
 }

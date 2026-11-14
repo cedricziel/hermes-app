@@ -57,6 +57,7 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
   var _keys = ToolsetKeysState.idle;
   ToolsResult<ToolsetEnvSaved>? _lastRefusal;
   final _typed = <String, String>{};
+  String? _selected;
 
   ToolsetConfig? get config => _config;
   bool get loading => _loading;
@@ -106,9 +107,25 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     return false;
   }
 
+  /// The provider whose keys the form shows: the one the user picked, else
+  /// the active one.
+  String? get selectedProvider => _selected ?? _config?.activeProvider;
+
+  /// Picks the provider whose keys are shown. Values typed for another
+  /// provider are dropped, so they can never leave with this one's keys.
+  void selectProvider(String name) {
+    if (name == selectedProvider) return;
+    _selected = name;
+    _typed.clear();
+    notifyListeners();
+  }
+
   /// Keeps what the user typed for [key]. A value is never read back out.
   void setKey(String key, String value) {
-    if (_keys == ToolsetKeysState.saving) return;
+    if (_keys == ToolsetKeysState.saving ||
+        _keys == ToolsetKeysState.checking) {
+      return;
+    }
     if (value.isEmpty) {
       _typed.remove(key);
     } else {
@@ -134,15 +151,19 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
     _loadFailure = null;
     _keys = ToolsetKeysState.idle;
     _lastRefusal = null;
+    _loading = false;
+    _selected = null;
     notifyListeners();
   }
 
   /// The typed values that may be sent: only keys the toolset's providers
   /// list, and only non-blank ones.
   Map<String, String> _sendable() {
+    final chosen = selectedProvider;
     final known = {
       for (final provider in _config?.providers ?? const <ToolsetProvider>[])
-        for (final env in provider.envVars) env.key,
+        if (provider.name == chosen)
+          for (final env in provider.envVars) env.key,
     };
     return {
       for (final entry in _typed.entries)
@@ -179,7 +200,9 @@ class ToolsetSetupController extends ChangeNotifier with SafeNotifier {
       case ToolsOk():
         _typed.clear();
         _keys = ToolsetKeysState.saved;
-        _applyConfig(await _repository.config(toolset));
+        final fresh = await _repository.config(toolset);
+        if (_stale(epoch)) return;
+        if (fresh is ToolsOk<ToolsetConfig>) _applyConfig(fresh);
       case ToolsFailed(kind: ToolsFailure.unknownOutcome):
         _typed.clear();
         _keys = ToolsetKeysState.checking;

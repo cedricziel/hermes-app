@@ -234,4 +234,63 @@ void main() {
     expect(span.attributes['step'], 'env');
     expect(span.attributes['keys'], 1);
   });
+
+  test('a profile switch during the re-read after a save drops the old '
+      'matrix', () async {
+    server.on('PUT', _env, {
+      'ok': true,
+      'saved': [_key],
+      'skipped': [],
+    });
+    final gate = Completer<void>();
+    server.onRequest('GET', '/api/tools/toolsets/web/config', (_) async {
+      await gate.future;
+      return (status: 200, body: _config(isSet: true));
+    });
+    controller.setKey(_key, _secret);
+    final saving = controller.saveKeys();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    controller.switchProfile(toolsRepository(server, profile: 'home'));
+    gate.complete();
+    await saving;
+
+    expect(controller.config, isNull);
+  });
+
+  test('values typed for another provider are never sent with this '
+      "one's keys", () async {
+    server.on('PUT', _env, {
+      'ok': true,
+      'saved': [_key],
+      'skipped': [],
+    });
+    controller.setKey(_key, _secret);
+    controller.selectProvider('Local Driver');
+
+    expect(controller.hasTypedKeys, isFalse);
+    await controller.saveKeys();
+    expect(saves(), isEmpty);
+  });
+
+  test('typing is ignored while the lost answer is being checked', () async {
+    server.onRequest('PUT', _env, (r) {
+      throw DioException.receiveTimeout(
+        timeout: const Duration(seconds: 1),
+        requestOptions: r,
+      );
+    });
+    final gate = Completer<void>();
+    server.onRequest('GET', '/api/tools/toolsets/web/config', (_) async {
+      await gate.future;
+      return (status: 200, body: _config(isSet: false));
+    });
+    controller.setKey(_key, _secret);
+    final saving = controller.saveKeys();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    controller.setKey(_key, 'typed during the check');
+
+    expect(controller.typedLength(_key), 0);
+    gate.complete();
+    await saving;
+  });
 }
