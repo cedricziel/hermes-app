@@ -134,6 +134,8 @@ NotificationAnswer? answerFromAction(
 /// Whether [payload] is that of a notification that App Lock and a sign-out
 /// must withdraw: one whose buttons answer a request, one that offers a reply
 /// (`'y'`), or one that keeps the text of a reply that was not sent (`'u'`).
+/// Found by payload, so this covers iOS and macOS only; Android finds them by
+/// tag (`kAnswerableTag`).
 bool isWithdrawnPayload(String? payload) {
   if (payload == null) return false;
   final decoded = _decode(payload);
