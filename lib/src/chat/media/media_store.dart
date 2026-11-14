@@ -17,7 +17,19 @@ const _folder = 'hermes_media';
 /// deletes it.
 const mediaCacheMaxAge = Duration(hours: 24);
 
-final _unsafeInName = RegExp(r'[\x00-\x1f:*?"<>|/\\]');
+/// Control characters, what a file system rejects, and the bidirectional
+/// controls (U+202A to U+202E, U+2066 to U+2069) that make `fdp.exe` read as
+/// `exe.pdf`.
+final _unsafeInName = RegExp(
+  r'[\x00-\x1f:*?"<>|/\\\u202a-\u202e\u2066-\u2069]',
+);
+
+/// A key starting with this holds a copy the user was warned about (a file
+/// whose name looks secret). Its folder is marked, so [MediaStore.wipeSecretCopies]
+/// can delete every such copy at launch, also those an earlier run left.
+const kSecretCopyKeyPrefix = 'fs-secret:';
+
+const _secretFolderMark = 's';
 
 /// Keeps what the chat fetched from the server for files the agent sent:
 /// images in memory, other files in the app's cache directory. Nothing is
@@ -103,6 +115,43 @@ class MediaStore {
     } on Object {
       throw const MediaFetchException(MediaFailure.failed);
     }
+  });
+
+  /// A file in the cache directory under [name] that [download] streams into
+  /// the sink it is given, the first time [key] is asked for. The bytes go to
+  /// a `.part` file that is renamed when [download] returns, so a half-written
+  /// file is never taken for a downloaded one; when it throws, the `.part`
+  /// file is deleted and the error reaches the caller as it is. Asking for the
+  /// same [key] again, also while [download] runs, shares that one download.
+  Future<File> stageDownload(
+    String key,
+    String name,
+    Future<void> Function(IOSink sink) download,
+  ) => _stage(key, name, (part) async {
+    final IOSink sink;
+    try {
+      sink = part.openWrite();
+    } on Object {
+      throw const MediaFetchException(MediaFailure.failed);
+    }
+    try {
+      await download(sink);
+    } on Object {
+      await _quietly(sink.close);
+      rethrow;
+    }
+    try {
+      await sink.close();
+    } on Object {
+      throw const MediaFetchException(MediaFailure.failed);
+    }
+  });
+
+  /// Deletes the staged file for [key], so the next [stageDownload] fetches
+  /// it again. A download of [key] still running is not stopped.
+  Future<void> evict(String key) => _quietly(() async {
+    final folder = Directory('${(await _root()).path}/${_folderOf(key)}');
+    if (await folder.exists()) await folder.delete(recursive: true);
   });
 
   /// [bytes] the chat already holds, as a file in the cache directory.
@@ -194,8 +243,27 @@ class MediaStore {
     }
   }
 
-  static String _folderOf(String key) =>
-      sha256.convert(utf8.encode(key)).toString().substring(0, 16);
+  static String _folderOf(String key) {
+    final hash = sha256.convert(utf8.encode(key)).toString().substring(0, 16);
+    return key.startsWith(kSecretCopyKeyPrefix)
+        ? '$_secretFolderMark$hash'
+        : hash;
+  }
+
+  /// Deletes every copy staged under a [kSecretCopyKeyPrefix] key, such as
+  /// those an earlier run left when the app was killed. Best effort.
+  Future<void> wipeSecretCopies() => _quietly(() async {
+    final root = await _root();
+    if (!await root.exists()) return;
+    await for (final entry in root.list()) {
+      if (entry is! Directory) continue;
+      final name = entry.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
+      if (!name.startsWith(_secretFolderMark)) continue;
+      await _quietly(() async {
+        await entry.delete(recursive: true);
+      });
+    }
+  });
 
   /// Captures a preview intent before staging starts. A newer preview or a
   /// session clear invalidates it, so a late download cannot replace what the
@@ -221,6 +289,10 @@ class MediaStore {
   Future<bool> open(File file) => _actions.open(file.path);
 
   Future<bool> save(String name, Uint8List bytes) => _actions.save(name, bytes);
+
+  /// Asks the user where to keep the staged [file] as [name].
+  Future<bool> saveFile(String name, File file) =>
+      _actions.saveFile(name, file);
 
   /// Deletes every file downloaded so far, including those of an earlier
   /// run, and forgets the images.

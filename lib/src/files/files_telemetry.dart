@@ -1,7 +1,9 @@
 import 'package:flutter_otel/flutter_otel.dart' show Span, StatusCode;
 
+import '../telemetry/breadcrumbs.dart';
 import '../telemetry/telemetry.dart';
 import 'files_failure.dart';
+import 'files_preview_kind.dart';
 
 /// How many entries a listing held, in the buckets `files.list` carries.
 String filesEntriesBucket(int count) => switch (count) {
@@ -22,8 +24,14 @@ String filesSizeBucket(int bytes) => switch (bytes) {
 /// How a download ended, as `files.download` reports it.
 enum FilesDownloadOutcome { done, cancelled, failed, tooLarge }
 
-/// What the Files data layer tells telemetry: spans `files.list` and
-/// `files.download`, and log events `files.unsupported`, `files.list_failed`
+/// Where the user opened the Files page from, as `files.opened` reports it.
+enum FilesOpenedFrom { activity, header, menu }
+
+/// How a `files.preview` ended.
+enum FilesPreviewOutcome { ok, failed, cancelled, tooLarge }
+
+/// What the Files data layer tells telemetry: spans `files.list`,
+/// `files.download` and `files.preview`, and log events `files.unsupported`, `files.list_failed`
 /// and `files.download_failed`.
 ///
 /// Every value is a fixed name, a bucket or a flag, so no path, file or folder
@@ -32,9 +40,13 @@ enum FilesDownloadOutcome { done, cancelled, failed, tooLarge }
 ///
 /// Keep one per connection: `files.unsupported` is logged once for it.
 class FilesTelemetry {
-  FilesTelemetry([this.connection = const ConnectionTelemetry()]);
+  FilesTelemetry([
+    this.connection = const ConnectionTelemetry(),
+    this.breadcrumbs = Breadcrumbs.none,
+  ]);
 
   final ConnectionTelemetry connection;
+  final Breadcrumbs breadcrumbs;
   var _reportedUnsupported = false;
 
   /// The server has no `/api/fs` routes. Logged once.
@@ -50,6 +62,44 @@ class FilesTelemetry {
   void downloadFailed(FilesFailure kind) => _quiet(
     () => connection.events('files.download_failed', {'kind': kind.slug}),
   );
+
+  void opened(FilesOpenedFrom from) =>
+      _quiet(() => breadcrumbs('files.opened', {'source': from.name}));
+
+  void previewOpened(FilePreviewKind kind) =>
+      _quiet(() => breadcrumbs('files.preview.opened', {'kind': kind.slug}));
+
+  /// [action] is `save`, `share` or `open_with`.
+  void saved(String action) =>
+      _quiet(() => breadcrumbs('files.saved', {'action': action}));
+
+  void secretWarned() => _quiet(() => breadcrumbs('files.secret.warned'));
+
+  void hiddenToggled({required bool on}) =>
+      _quiet(() => breadcrumbs('files.hidden.toggled', {'on': on}));
+
+  Span? startPreview() => _start('files.preview');
+
+  /// Ends the `files.preview` span with the [kind], the size bucket of
+  /// [bytes] when it is known, and the [outcome].
+  void endPreview(
+    Span? span,
+    FilePreviewKind kind,
+    FilesPreviewOutcome outcome, {
+    int? bytes,
+  }) => _quiet(() {
+    span?.setAttributes({
+      'kind': kind.slug,
+      'outcome': switch (outcome) {
+        FilesPreviewOutcome.ok => 'ok',
+        FilesPreviewOutcome.failed => 'failed',
+        FilesPreviewOutcome.cancelled => 'cancelled',
+        FilesPreviewOutcome.tooLarge => 'too_large',
+      },
+      if (bytes != null) 'size': filesSizeBucket(bytes),
+    });
+    _finish(span, failed: outcome == FilesPreviewOutcome.failed);
+  });
 
   Span? startList() => _start('files.list');
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:hermes_app/src/chat/media/media_actions.dart';
@@ -12,13 +13,23 @@ class FakeMediaActions implements MediaActions {
   /// Whether the user confirms a save.
   bool saves;
 
+  /// Thrown by [saveFile] when set.
+  Exception? saveError;
+
+  /// Thrown by [open] when set.
+  Exception? openError;
+
   /// The paths handed to the system to open.
   final opened = <String>[];
 
   final saved = <({String name, Uint8List bytes})>[];
 
+  /// Names and paths handed to [saveFile].
+  final savedFiles = <({String name, String path})>[];
+
   @override
   Future<bool> open(String path) async {
+    if (openError != null) throw openError!;
     opened.add(path);
     return opens;
   }
@@ -27,6 +38,14 @@ class FakeMediaActions implements MediaActions {
   Future<bool> save(String name, Uint8List bytes) async {
     if (!saves) return false;
     saved.add((name: name, bytes: bytes));
+    return true;
+  }
+
+  @override
+  Future<bool> saveFile(String name, File file) async {
+    if (saveError != null) throw saveError!;
+    if (!saves) return false;
+    savedFiles.add((name: name, path: file.path));
     return true;
   }
 }
