@@ -57,3 +57,9 @@ and `verify-hermes-api-client.yml`). On main a run in progress finishes and a
 queued one is replaced by the newer one, so main's latest finished run is the
 one to read. `widgetbook.yml` still cancels on main: a Pages deploy is
 superseded by the next one.
+
+The platform builds must not rely on the default `success()`: it is false when
+any job upstream was skipped, and `Test watch core` is skipped on most pull
+requests. Their `if` therefore names `needs.analyze-and-test.result ==
+'success'` under `!cancelled()`. If builds show as skipped on a pull request that
+changes code, look there first.

@@ -443,6 +443,7 @@ extension _ChatControllerSending on ChatController {
                 index: flyerIndex < 0 ? null : flyerIndex,
               );
             }
+            _dropStoredCopy(thread, deferredUser);
           }
           _acceptedQueue(thread, protectedSend);
           return;
