@@ -54,8 +54,8 @@ class ServerCareRepository {
 
   final DefaultApi _api;
 
-  /// `GET /api/status`, for [profile]'s gateway.
-  Future<CareResult<ServerStatus>> status({required String profile}) => _run(
+  /// `GET /api/status`, for [profile]'s gateway (the machine's, when null).
+  Future<CareResult<ServerStatus>> status({String? profile}) => _run(
     () => _api.getStatusApiStatusGet(profile: profile),
     ServerStatus.parse,
   );

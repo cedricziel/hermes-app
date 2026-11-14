@@ -1,0 +1,185 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart' show Span;
+
+import '../core/safe_notifier.dart';
+import '../telemetry/telemetry.dart';
+import 'attention.dart';
+import 'care_result.dart';
+import 'server_attention_mark.dart';
+import 'server_care_repository.dart';
+import 'server_status.dart';
+
+/// The parts of the Server screen that hide themselves when the server lacks
+/// their route.
+enum CarePart { status, update, logs, check, usage }
+
+/// The latest server status for the chat's profile, and what it says needs
+/// attention. One per connection, owned by the shell.
+///
+/// It reads on open, on [refresh], when the app resumes (at most every
+/// [resumeInterval] otherwise), and on a profile switch; an answer to an
+/// earlier read is dropped. While App Lock covers the app nothing is read.
+class ServerCareController extends ChangeNotifier with SafeNotifier {
+  ServerCareController({
+    required this.repository,
+    this.telemetry = const ConnectionTelemetry(),
+    this.covered,
+    DateTime Function()? now,
+    this.resumeInterval = const Duration(minutes: 5),
+  }) : _now = now ?? DateTime.now;
+
+  final ServerCareRepository repository;
+  final ConnectionTelemetry telemetry;
+
+  /// Whether App Lock covers the app; the status is not read then.
+  final bool Function()? covered;
+  final Duration resumeInterval;
+  final DateTime Function() _now;
+
+  ServerStatus? _status;
+  CareFailureKind? _failure;
+  bool _loading = false;
+  bool _supported = true;
+  bool _gatewayBusy = false;
+  bool _updating = false;
+  bool _restarting = false;
+  String? _profile;
+  DateTime? _lastRead;
+  int _generation = 0;
+  final _reportedUnsupported = <CarePart>{};
+
+  /// The last status read, kept while a later read fails.
+  ServerStatus? get status => _status;
+
+  /// Why the last read failed; null when it succeeded or none ran.
+  CareFailureKind? get failure => _failure;
+  bool get loading => _loading;
+
+  /// False once the server answered that it has no status route.
+  bool get supported => _supported;
+
+  /// The headline's state; null until a read answered, or when the server
+  /// has no status route or failed in a way that says nothing about it.
+  Attention? get attention {
+    if (!_supported) return null;
+    if (_failure == CareFailureKind.offline) return Attention.offline;
+    final status = _status;
+    if (status == null) return null;
+    return Attention.of(status, gatewayBusy: _gatewayBusy);
+  }
+
+  ServerAttentionMark get mark => ServerAttentionMark.of(
+    attention: attention,
+    updating: _updating,
+    restarting: _restarting,
+  );
+
+  /// A gateway restart or start is running: the headline stops offering it.
+  set gatewayBusy(bool value) => _set(() => _gatewayBusy = value);
+
+  /// An update is running or checking its result.
+  set updating(bool value) => _set(() => _updating = value);
+
+  /// Hermes is restarting; the Mac sidebar says so.
+  set restarting(bool value) => _set(() => _restarting = value);
+
+  void _set(VoidCallback change) {
+    change();
+    notifyListeners();
+  }
+
+  /// Follows the chat's profile; a change reads again, and an answer still
+  /// on its way for the old one is dropped.
+  void profileChanged(String? profile) {
+    if (profile == _profile) return;
+    _profile = profile;
+    _generation++;
+    _status = null;
+    _failure = null;
+    _lastRead = null;
+    refresh();
+  }
+
+  /// Reads the status now.
+  Future<void> refresh() async {
+    if (disposed || (covered?.call() ?? false)) return;
+    final generation = ++_generation;
+    final profile = _profile;
+    _loading = true;
+    notifyListeners();
+    Span? span;
+    _quiet(
+      () => span = telemetry.tracer?.startSpan(
+        'server_care.status.fetch',
+        attributes: telemetry.serverAttributes,
+      ),
+    );
+    var outcome = 'obsolete';
+    try {
+      final result = await repository.status(profile: profile);
+      if (generation != _generation || disposed) return;
+      _lastRead = _now();
+      switch (result) {
+        case CareOk(:final value):
+          _status = value;
+          _failure = null;
+          _supported = true;
+          outcome = 'success';
+        case CareUnsupported():
+          _status = null;
+          _failure = null;
+          _supported = false;
+          outcome = 'unsupported';
+          reportUnsupported(CarePart.status);
+        case CareFailed(:final kind):
+          _failure = kind;
+          outcome = kind.name;
+      }
+    } finally {
+      _quiet(() => span?.setAttribute('outcome', outcome));
+      _quiet(() => span?.end());
+      if (generation == _generation && !disposed) {
+        _loading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// The app came back to the front: read again unless a read is recent. Dart
+  /// timers stop while iOS suspends the app, so this is what catches up.
+  Future<void> resumed() async {
+    final last = _lastRead;
+    if (last != null && _now().difference(last) < resumeInterval) return;
+    await refresh();
+  }
+
+  /// Logs once per part and connection that the server lacks a route. The
+  /// part is a fixed name; nothing about the server goes in the event.
+  void reportUnsupported(CarePart part) {
+    if (!_reportedUnsupported.add(part)) return;
+    _quiet(
+      () => telemetry.events('server_care.unsupported', {'part': part.name}),
+    );
+  }
+
+  /// Forgets everything: sign-out, a server change, or an App Lock that now
+  /// covers the app. A read still on its way is dropped.
+  void clear() {
+    _generation++;
+    _status = null;
+    _failure = null;
+    _lastRead = null;
+    _loading = false;
+    _supported = true;
+    _gatewayBusy = _updating = _restarting = false;
+    notifyListeners();
+  }
+
+  static void _quiet(void Function() action) {
+    try {
+      action();
+    } on Object {
+      return;
+    }
+  }
+}
