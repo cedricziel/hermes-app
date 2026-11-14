@@ -263,7 +263,9 @@ class HermesChatColors extends ThemeExtension<HermesChatColors> {
 
   /// Text and icons that read as a link or as information: the one hue in an
   /// otherwise neutral palette, because `colorScheme.primary` is near-black
-  /// (near-white in dark) and does not look like a link.
+  /// (near-white in dark) and does not look like a link. Not for primary
+  /// action fills (filled buttons, app bar actions, selected states): those
+  /// stay `colorScheme.primary`.
   final Color link;
 
   @override

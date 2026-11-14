@@ -7,6 +7,7 @@ import '../auth/connect_failure.dart';
 import '../auth/server_address.dart';
 import '../settings/report_bug_link.dart';
 import '../theme/app_icons.dart';
+import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'widgets/cleartext_server_alert.dart';
 import 'widgets/connection_setup_field.dart';
@@ -97,6 +98,9 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                     textAlign: TextAlign.center,
                   ),
                   TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: context.hermesColors.link,
+                    ),
                     onPressed: () => launchUrl(
                       _vpnGuide,
                       mode: LaunchMode.externalApplication,
