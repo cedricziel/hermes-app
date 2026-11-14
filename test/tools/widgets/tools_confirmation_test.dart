@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/toolset_copy.dart';
 import 'package:hermes_app/src/tools/widgets/tools_confirmation.dart';
 import 'package:hermes_app/src/tools/widgets/tools_difference_sheet.dart';
@@ -127,6 +128,72 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(answers, [false]);
   });
+
+  // A Cupertino alert stacks its two actions at this size and needs about
+  // 200 pt for them, so its window is taller than the Material one.
+  for (final (platform, height) in [
+    (TargetPlatform.iOS, 640.0),
+    (TargetPlatform.android, 480.0),
+  ]) {
+    testWidgets(
+      'at 3x in a short window the text scrolls and both actions stay in view '
+      '($platform)',
+      (t) async {
+        final answers = <bool>[];
+        const long = ToolsetQuestion(
+          title: 'Let Hermes control a computer, and install what it needs?',
+          body:
+              'It can see everything on the screen of the computer that runs '
+              'Hermes and use its mouse and keyboard. It may also install a '
+              'driver on the server. It applies to the profile "work". '
+              "Switching it off stops new actions. It doesn't undo what they "
+              'did.',
+          confirmLabel: 'Switch on',
+        );
+        t.view
+          ..physicalSize = Size(390, height)
+          ..devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        // The scale goes on the app's builder, so the dialog route gets it
+        // too (a scale set on the home page would not reach it).
+        await t.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(platform: platform),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(3)),
+              child: child!,
+            ),
+            home: Scaffold(body: _asker(answers, question: long)),
+          ),
+        );
+        await t.tap(find.text('ask'));
+        await t.pumpAndSettle();
+        expect(t.takeException(), isNull);
+        expect(
+          find.descendant(
+            of: find.byType(Dialog).evaluate().isNotEmpty
+                ? find.byType(Dialog)
+                : find.byType(CupertinoAlertDialog),
+            matching: find.byType(Scrollable),
+          ),
+          findsWidgets,
+          reason: 'the title and body scroll',
+        );
+        final screen = Offset.zero & Size(390, height);
+        for (final label in ['Cancel', 'Switch on']) {
+          final box = t.getRect(find.text(label));
+          expect(screen.contains(box.center), isTrue, reason: label);
+        }
+        // Both are hittable, not hidden behind the text.
+        await t.tap(find.text('Switch on'));
+        await t.pumpAndSettle();
+        expect(answers, [true]);
+      },
+    );
+  }
 
   testWidgets('Cancel follows the language', (t) async {
     await pumpTools(

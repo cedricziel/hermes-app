@@ -27,8 +27,11 @@ Widget _at(double scale, Widget Function() child) => Builder(
   ),
 );
 
+/// A screen-sized scrolling list. `fill`, not `frame`: the list scrolls
+/// itself and needs the viewport's height, which a scrolling frame would not
+/// give it.
 Widget _page(List<Widget> children) =>
-    Scaffold(body: GroupedListView(children: children));
+    fill(GroupedListView(children: children));
 
 /// A provider as the fixtures below describe it, with invented names.
 class _P {
@@ -134,7 +137,8 @@ class _PickGroupState extends State<_PickGroup> {
                   line: widget.items[i].line,
                   needsNousSignIn: widget.items[i].nous,
                   hermesText: widget.items[i].hermes,
-                  picked: widget.picked == i,
+                  // Each row has a group of its own, so each is the picked one.
+                  picked: true,
                   onPick: () {},
                 ),
               ],
@@ -409,6 +413,8 @@ class _KeyDemoState extends State<_KeyDemo> {
   late List<TextEditingController> _controllers = _make();
   late List<bool> _replacing = [for (final _ in widget.fields) false];
   late var _phase = widget.phase;
+  // Fields whose typed value was saved, so they read "Already set".
+  late List<bool> _saved = [for (final _ in widget.fields) false];
   Timer? _timer;
 
   List<TextEditingController> _make() => [
@@ -425,6 +431,7 @@ class _KeyDemoState extends State<_KeyDemo> {
     }
     _controllers = _make();
     _replacing = [for (final _ in widget.fields) false];
+    _saved = [for (final _ in widget.fields) false];
     _phase = widget.phase;
   }
 
@@ -442,10 +449,13 @@ class _KeyDemoState extends State<_KeyDemo> {
     _timer?.cancel();
     _timer = Timer(const Duration(seconds: 1), () {
       if (!mounted) return;
+      // Remember what was saved before the fields are cleared.
+      final saved = [for (final c in _controllers) c.text.trim().isNotEmpty];
       for (final controller in _controllers) {
         controller.clear();
       }
       setState(() {
+        _saved = [for (final (i, was) in saved.indexed) was || _saved[i]];
         _phase = ToolsetKeyFormPhase.saved;
         _replacing = [for (final _ in widget.fields) false];
       });
@@ -455,35 +465,33 @@ class _KeyDemoState extends State<_KeyDemo> {
   @override
   Widget build(BuildContext context) {
     final typed = _controllers.any((c) => c.text.trim().isNotEmpty);
-    return Scaffold(
-      body: GroupedListView(
-        children: [
-          ToolsetKeyForm(
-            provider: 'Brightfetch',
-            profile: 'work',
-            hideSignal: widget.hideSignal,
-            phase: _phase,
-            fields: [
-              for (final (i, field) in widget.fields.indexed)
-                ToolsetKeyField(
-                  label: field.$1,
-                  controller: _controllers[i],
-                  isSet: field.$3 && _phase != ToolsetKeyFormPhase.notSaved,
-                  replacing: _replacing[i],
-                  hasLink: field.$4,
-                ),
-            ],
-            onChanged: () => setState(() {}),
-            onSave: typed ? _save : null,
-            onReplace: (field) => setState(() {
-              final i = _controllers.indexOf(field.controller);
-              _replacing[i] = true;
-            }),
-            onGetKey: (_) {},
-          ),
+    return _page([
+      ToolsetKeyForm(
+        provider: 'Brightfetch',
+        profile: 'work',
+        hideSignal: widget.hideSignal,
+        phase: _phase,
+        fields: [
+          for (final (i, field) in widget.fields.indexed)
+            ToolsetKeyField(
+              label: field.$1,
+              controller: _controllers[i],
+              isSet:
+                  (field.$3 || _saved[i]) &&
+                  _phase != ToolsetKeyFormPhase.notSaved,
+              replacing: _replacing[i],
+              hasLink: field.$4,
+            ),
         ],
+        onChanged: () => setState(() {}),
+        onSave: typed ? _save : null,
+        onReplace: (field) => setState(() {
+          final i = _controllers.indexOf(field.controller);
+          _replacing[i] = true;
+        }),
+        onGetKey: (_) {},
       ),
-    );
+    ]);
   }
 }
 
@@ -845,17 +853,19 @@ const _models = [
   ),
 ];
 
-Widget _sheetBox(Widget child) => Align(
-  alignment: Alignment.bottomCenter,
-  child: ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: 440),
-    child: Builder(
-      builder: (context) => Material(
-        color: Theme.of(context).colorScheme.surface,
-        elevation: 6,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: child,
+Widget _sheetBox(Widget child) => fill(
+  Align(
+    alignment: Alignment.bottomCenter,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440),
+      child: Builder(
+        builder: (context) => Material(
+          color: Theme.of(context).colorScheme.surface,
+          elevation: 6,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          clipBehavior: Clip.antiAlias,
+          child: child,
+        ),
       ),
     ),
   ),
@@ -911,34 +921,30 @@ WidgetbookNode _modelComponent() => WidgetbookComponent(
     ...onEachPlatform('Models', (_) => const _SheetDemo()),
     WidgetbookUseCase(
       name: 'Opened from a row',
-      builder: (c) => Scaffold(
-        body: GroupedListView(
+      builder: (c) => _page([
+        GroupedSection(
           children: [
-            GroupedSection(
-              children: [
-                GroupedRow(
-                  title: c.l10n.toolsModelTitle,
-                  value: 'Bright Pro',
-                  onTap: () => showToolsetModelSheet(
-                    c,
-                    models: _models,
-                    current: 'bright-pro',
-                    defaultModel: 'bright-fast',
-                    provider: 'Brightfetch',
-                    onPick: (_) {},
-                  ),
-                ),
-              ],
+            GroupedRow(
+              title: c.l10n.toolsModelTitle,
+              value: 'Bright Pro',
+              onTap: () => showToolsetModelSheet(
+                c,
+                models: _models,
+                current: 'bright-pro',
+                defaultModel: 'bright-fast',
+                provider: 'Brightfetch',
+                onPick: (_) {},
+              ),
             ),
           ],
         ),
-      ),
+      ]),
     ),
   ],
 );
 
-Widget _backdrop(Widget dialog) => Builder(
-  builder: (context) => ColoredBox(
+Widget _backdrop(Widget dialog) => fill(
+  ColoredBox(
     color: Colors.black.withValues(alpha: 0.4),
     child: Center(child: dialog),
   ),

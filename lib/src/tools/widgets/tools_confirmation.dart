@@ -21,12 +21,10 @@ class ToolsetConfirmDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final apple = platformChromeOf(context).isApple;
     return AppAlertDialog(
+      // Title and body scroll as one region, the actions stay in view.
+      scrollable: true,
       title: Text(question.title),
-      // A Material dialog does not scroll its content by itself, so a long
-      // body at the largest text size would be cut.
-      content: apple
-          ? Text(question.body)
-          : SingleChildScrollView(child: Text(question.body)),
+      content: Text(question.body),
       actions: [
         AppDialogAction(
           // Apple marks the default action in bold; Material would fill it.

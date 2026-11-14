@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/tools/widgets/toolset_key_form.dart';
@@ -180,6 +181,37 @@ void main() {
       t.widget<EditableText>(find.byType(EditableText)).obscureText,
       isTrue,
     );
+  });
+
+  testWidgets('a shown key hides again when saving starts', (t) async {
+    final phase = ValueNotifier(ToolsetKeyFormPhase.idle);
+    addTearDown(phase.dispose);
+    await pumpTools(
+      t,
+      ValueListenableBuilder(
+        valueListenable: phase,
+        builder: (_, value, _) => _Form(phase: value, text: 'secret-value'),
+      ),
+    );
+    EditableText field() => t.widget<EditableText>(find.byType(EditableText));
+    expect(field().obscureText, isTrue);
+    await t.tap(
+      find.byIcon(Icons.visibility_outlined).evaluate().isNotEmpty
+          ? find.byIcon(Icons.visibility_outlined)
+          : find.byIcon(CupertinoIcons.eye),
+    );
+    await t.pump();
+    expect(field().obscureText, isFalse, reason: 'revealed');
+    phase.value = ToolsetKeyFormPhase.saving;
+    await t.pump();
+    expect(field().obscureText, isTrue, reason: 'hidden when saving starts');
+    // The reveal control is off while the save runs.
+    final toggle = find.ancestor(
+      of: find.byIcon(CupertinoIcons.eye),
+      matching: find.byType(IconButton),
+    );
+    expect(t.widget<IconButton>(toggle.first).onPressed, isNull);
+    expect(field().controller.text, 'secret-value', reason: 'text is kept');
   });
 
   testWidgets('saved: a banner, Already set and Replace, no field', (t) async {
