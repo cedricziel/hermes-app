@@ -60,6 +60,7 @@ import 'mcp_use_cases.dart';
 import 'provider_setup_use_cases.dart';
 import 'secret_field_use_cases.dart';
 import 'shared_widgets_use_cases.dart';
+import 'app_badge_use_cases.dart';
 import 'app_banner_use_cases.dart';
 import 'model_use_cases.dart';
 import 'palette_use_cases.dart';
@@ -189,6 +190,7 @@ final List<WidgetbookNode> directories = [
   pluginsNode(),
   pluginsScreensNode(),
   appBannerNode(),
+  appBadgeNode(),
   secretFieldNode(),
   providerSetupNode(),
   sharedWidgetsNode(),
