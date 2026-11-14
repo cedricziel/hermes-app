@@ -16,6 +16,8 @@ import '../memory/memory_proposals_repository.dart';
 import '../memory/memory_repository.dart';
 import '../plugins/installed_plugin.dart';
 import '../plugins/plugins_screen.dart';
+import '../providers/provider_results.dart';
+import '../providers/providers_screen.dart';
 import '../settings/helper_models_screen.dart';
 import '../skills/skills_screen.dart';
 import '../theme/app_icons.dart';
@@ -132,6 +134,11 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                 .slots
                 .length,
       ),
+      count(ProfileSection.providers, () async {
+        final snapshot = await repositories.providers.load(name);
+        if (snapshot is! ProvidersLoaded) throw StateError('not loaded');
+        return snapshot.catalog.connected.length;
+      }),
       count(
         ProfileSection.messaging,
         () async => (await repositories.messaging.forProfile(name).load())
@@ -191,6 +198,11 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         profiles: repositories.profiles,
         profile: name,
       ),
+      ProfileSection.providers => ProvidersScreen(
+        repository: repositories.providers,
+        profile: name,
+        entry: ProvidersEntry.profiles,
+      ),
       ProfileSection.helperModels => HelperModelsScreen(
         repository: repositories.models,
         profile: name,
@@ -206,7 +218,12 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
       if (mounted) unawaited(_loadCounts(name));
       return;
     }
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => page));
+    // Connecting or removing a provider changes the count the row shows.
+    if (section == ProfileSection.providers && mounted) {
+      unawaited(_loadCounts(name));
+    }
   }
 
   @override

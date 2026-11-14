@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_source_list.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
@@ -18,6 +19,9 @@ enum ProfileSection {
   messaging('Messaging', 'Chat platforms the agent answers on', AppIcons.bot),
   plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
   mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),
+
+  /// Worded through l10n where it is drawn; the English here is a fallback.
+  providers('Model providers', 'Keys, sign-ins and endpoints', AppIcons.hub),
   helperModels('Helper models', 'Models for side tasks', AppIcons.tune);
 
   const ProfileSection(this.label, this.detail, this.icon);
@@ -220,12 +224,19 @@ class MacProfileDetail extends StatelessWidget {
               GroupedRow(
                 wrapWhenStacked: true,
                 key: ValueKey('profile-section-${section.name}'),
-                title: section.label,
-                subtitle: section.detail,
+                title: section == ProfileSection.providers
+                    ? context.l10n.providersListTitle
+                    : section.label,
+                subtitle: section == ProfileSection.providers
+                    ? context.l10n.providersProfileSectionDetail
+                    : section.detail,
                 leading: GroupedTile(child: AppIcon(section.icon)),
                 value:
                     section == ProfileSection.memory && (memoryWaiting ?? 0) > 0
                     ? '$memoryWaiting waiting'
+                    : section == ProfileSection.providers &&
+                          counts[section] != null
+                    ? context.l10n.providersConnectedCount(counts[section]!)
                     : counts[section]?.toString(),
                 onTap: () => onOpen(section),
               ),
