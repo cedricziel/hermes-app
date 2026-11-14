@@ -237,16 +237,17 @@ class DictationController extends ChangeNotifier {
     try {
       await _begin(run);
     } on Object {
+      if (_pcm == null) {
+        // The recorder may be open although no listener took its stream,
+        // also when the run was superseded meanwhile.
+        _stopRecorderQuietly();
+      }
       if (!_current(run)) return;
       _stream?.cancel();
       _stream = null;
       unawaited(_partials?.cancel());
       _partials = null;
       _discardPcm();
-      if (_pcm == null) {
-        // The recorder may be open although no listener took its stream.
-        unawaited(_recorder.stop().catchError((Object _) {}));
-      }
       unawaited(_closeMicrophone().catchError((Object _) {}));
       _end(DictationPhase.failed, 'failed');
     }
@@ -285,6 +286,8 @@ class DictationController extends ChangeNotifier {
     try {
       pcm = await _recorder.start(sampleRate: sampleRate);
     } on Object {
+      // The recorder may have opened before it threw.
+      _stopRecorderQuietly();
       if (!_current(run)) return;
       _stream?.cancel();
       _stream = null;
@@ -363,8 +366,16 @@ class DictationController extends ChangeNotifier {
     if (!_active || _phase != DictationPhase.recording) return;
     final run = _run;
     _setPhase(DictationPhase.settling);
-    await _closeMicrophone();
+    final closed = await _closeMicrophoneQuietly();
     if (!_current(run)) return;
+    if (!closed) {
+      // Nothing is transcribed or sent from a recording that did not close.
+      _stream?.cancel();
+      _stream = null;
+      _clip = null;
+      _end(DictationPhase.failed, 'failed');
+      return;
+    }
     final clip = _clip?.takeBytes() ?? Uint8List(0);
     _clip = null;
     final live = await _stream?.finish();
@@ -471,7 +482,7 @@ class DictationController extends ChangeNotifier {
     _liveTranscript = '';
     _releaseLease();
     if (!_active) _discardPcm();
-    await _closeMicrophone();
+    await _closeMicrophoneQuietly();
     if (run != _run) return;
     if (wasBusy) {
       _end(DictationPhase.idle, 'cancelled');
@@ -514,16 +525,31 @@ class DictationController extends ChangeNotifier {
     if (pcm == null) return Future.value();
     return _closing = () async {
       try {
-        await _recorder.stop();
+        await Future.sync(_recorder.stop);
         await done?.future;
-        unawaited(pcm.cancel());
       } finally {
+        // A recorder that failed to stop must not leave its listener behind.
+        unawaited(pcm.cancel());
+        if (done != null && !done.isCompleted) done.complete();
         _pcm = null;
         _pcmDone = null;
         _closing = null;
       }
     }();
   }
+
+  /// Closes the microphone; false when the recorder threw doing so.
+  Future<bool> _closeMicrophoneQuietly() async {
+    try {
+      await _closeMicrophone();
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  void _stopRecorderQuietly() =>
+      unawaited(Future.sync(_recorder.stop).catchError((Object _) {}));
 
   void _discardPcm() {
     unawaited(_pcm?.cancel());
