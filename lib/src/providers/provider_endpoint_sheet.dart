@@ -226,6 +226,7 @@ class _ProviderEndpointSheetState extends State<ProviderEndpointSheet> {
             subtitle: services.profileLabel,
             cancel: true,
             macCancel: true,
+            shrinkTitle: true,
             formAction: endpointFormAction(
               l10n,
               data,

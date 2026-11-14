@@ -111,6 +111,7 @@ class _ProviderKeySheetState extends State<ProviderKeySheet> {
             subtitle: services.profileLabel,
             cancel: true,
             macCancel: true,
+            shrinkTitle: true,
             formAction: apiKeyFormAction(
               l10n,
               data,

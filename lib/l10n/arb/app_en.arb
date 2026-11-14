@@ -5878,6 +5878,10 @@
   "@@x-area-watch": "",
 
   "@@x-area-widgets": "",
+  "widgetsCancel": "Cancel",
+  "@widgetsCancel": {
+    "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+  },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {
     "description": "Muted line under a secret field, announced to screen readers, with how many characters were typed. The count is never stored.",

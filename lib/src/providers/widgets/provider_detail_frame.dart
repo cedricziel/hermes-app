@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
@@ -15,25 +17,39 @@ class ProviderDetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final metrics = GroupedMetrics.of(context);
-    final side = metrics.gutter + 4;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(side, 16, side, 0),
-      child: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: Semantics(
-          header: true,
-          child: Text(
-            name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.onSurface,
+    // The same inset as the detail under it: the list view centres its
+    // column at most `maxWidth` wide, and rows start `rowPadding` in.
+    return LayoutBuilder(
+      builder: (context, box) {
+        final side = math.max(
+          metrics.gutter,
+          (box.maxWidth - metrics.maxWidth) / 2,
+        );
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            side + metrics.rowPadding,
+            16,
+            side + metrics.rowPadding,
+            0,
+          ),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Semantics(
+              header: true,
+              child: Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

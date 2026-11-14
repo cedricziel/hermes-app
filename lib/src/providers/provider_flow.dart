@@ -241,6 +241,7 @@ class ProviderStepPage extends StatelessWidget {
       subtitle: services.profileLabel,
       cancel: true,
       macCancel: true,
+      shrinkTitle: true,
       body: step_widget.DefaultModelStep(
         data: data,
         onStartChatting: () {

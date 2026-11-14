@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -266,6 +268,7 @@ class GroupedTextFieldRow extends StatelessWidget {
     this.autofillHints,
     this.smartDashesType,
     this.smartQuotesType,
+    this.labelWidth,
   }) : assert(controller == null || initialValue == null);
 
   final String label;
@@ -300,6 +303,11 @@ class GroupedTextFieldRow extends StatelessWidget {
   final Iterable<String>? autofillHints;
   final SmartDashesType? smartDashesType;
   final SmartQuotesType? smartQuotesType;
+
+  /// The width of the label column on Apple platforms, so the fields of
+  /// several rows start at the same x (see [groupedLabelWidth]). Null leaves
+  /// the label and the field to share the row.
+  final double? labelWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -389,29 +397,23 @@ class GroupedTextFieldRow extends StatelessWidget {
         ],
       );
     } else if (apple && oneLine) {
-      // The label takes its own width up to 40% of the row, and the field the
-      // rest; two flexible children would split the room evenly and leave
-      // the field half of it.
-      content = LayoutBuilder(
-        builder: (context, box) => Row(
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: box.maxWidth * .4),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: metrics.titleSize,
-                  color: scheme.onSurface,
-                ),
-              ),
-            ),
-            SizedBox(width: metrics.leadingGap + 4),
-            Expanded(
-              child: Semantics(label: label, child: field),
-            ),
-            ?trailing,
-          ],
-        ),
+      final width = labelWidth;
+      final labelText = Text(
+        label,
+        style: TextStyle(fontSize: metrics.titleSize, color: scheme.onSurface),
+      );
+      content = Row(
+        children: [
+          if (width == null)
+            Flexible(child: labelText)
+          else
+            SizedBox(width: width, child: labelText),
+          SizedBox(width: metrics.leadingGap + 4),
+          Expanded(
+            child: Semantics(label: label, child: field),
+          ),
+          ?trailing,
+        ],
       );
     } else if (apple) {
       content = trailing == null
@@ -541,4 +543,33 @@ class GroupedFooter extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The label column to give every [GroupedTextFieldRow] of a form so their
+/// fields start at the same x: the widest of [labels] at the row's text size,
+/// at most [maxFraction] of [available].
+double groupedLabelWidth(
+  BuildContext context,
+  Iterable<String> labels, {
+  required double available,
+  double maxFraction = .4,
+}) {
+  final metrics = GroupedMetrics.of(context);
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  var widest = 0.0;
+  for (final label in labels) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(fontSize: metrics.titleSize),
+      ),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    if (painter.width > widest) widest = painter.width;
+    painter.dispose();
+  }
+  return math.min(widest.ceilToDouble() + 1, available * maxFraction);
 }

@@ -56,6 +56,7 @@ class ProviderSignInSheet extends StatelessWidget {
             subtitle: services.profileLabel,
             cancel: true,
             macCancel: true,
+            shrinkTitle: true,
             body: signIn.phase == SignInPhase.approved
                 // The default-model step follows in the same turn.
                 ? const Center(child: CircularProgressIndicator.adaptive())
