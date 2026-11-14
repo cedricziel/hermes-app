@@ -168,9 +168,16 @@ class ServerCheckView {
 }
 
 /// The first command Hermes quoted in a fix, such as `hermes setup telegram`
-/// from "Re-run 'hermes setup telegram'"; null when it quoted none.
-String? commandInFix(String text) =>
-    RegExp(r"'(hermes\s[^']+)'").firstMatch(text)?.group(1);
+/// from "Re-run 'hermes setup telegram'"; null when it quoted none, or only
+/// `hermes doctor --fix`, which the app never offers to copy.
+String? commandInFix(String text) {
+  for (final m in RegExp(r"'(hermes\s[^']+)'").allMatches(text)) {
+    final command = m.group(1)!;
+    // The app never offers `--fix` to copy: the page's footer explains it.
+    if (!command.contains('--fix')) return command;
+  }
+  return null;
+}
 
 /// The Server check page under its bar. Models and callbacks only; the page
 /// owns the controller.

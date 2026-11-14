@@ -44,6 +44,13 @@ void main() {
       expect(s.gatewayStateRaw, 'hibernating');
     });
 
+    test('a version Hermes does not know is no version', () {
+      for (final v in ['unknown', 'Unknown', '  ', '']) {
+        expect(status({'version': v}).version, isNull, reason: '"$v"');
+      }
+      expect(status({'version': ' 0.22.2 '}).version, '0.22.2');
+    });
+
     test('ill-typed fields never throw', () {
       final s = ServerStatus.parse({
         'version': 3,
