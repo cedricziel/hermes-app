@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../telemetry/report_bug.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../media/media_source.dart';
@@ -139,7 +140,8 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
         );
       }
       if (mounted) failedToFetch(e.reason);
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'an attachment action');
       if (mounted) {
         messenger?.showSnackBar(
           const SnackBar(content: Text('Something went wrong. Try again.')),

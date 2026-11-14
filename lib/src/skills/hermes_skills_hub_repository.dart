@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import 'hermes_skills_repository.dart';
+import '../telemetry/report_bug.dart';
 
 /// What the server's security scan says may be done with a skill. Anything it
 /// does not say in so many words counts as [block].
@@ -159,7 +160,8 @@ class HermesSkillsHubRepository {
           profile: profile,
         )).data,
       );
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the skills hub sources');
       // The catalog is still useful without the featured list.
     }
     final installed = sources?.installed ?? const <String>{};

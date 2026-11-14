@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 
 import '../../chat/gateway/gateway_rpc_client.dart';
+import '../../telemetry/report_bug.dart';
 
 /// Inject the authenticated shared gateway request method, retaining its tracing.
 typedef GroupsRpc = Future<Map<String, Object?>> Function(
@@ -357,7 +358,8 @@ class HermesGroupsRepository {
       );
     } on FormatException {
       return _probe = const GroupsProbe(GroupsAvailability.malformed);
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'the groups probe');
       return _probe = const GroupsProbe(GroupsAvailability.offline);
     }
   }

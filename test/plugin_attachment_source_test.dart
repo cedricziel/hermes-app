@@ -337,12 +337,32 @@ void main() {
     test('a clipboard the plugin cannot read yields nothing', () async {
       final source = PluginAttachmentSource(
         platform: TargetPlatform.macOS,
-        clipboardImage: () async => throw StateError('no pasteboard'),
-        clipboardFiles: () async => throw StateError('no pasteboard'),
+        clipboardImage: () async =>
+            throw PlatformException(code: 'no_pasteboard'),
+        clipboardFiles: () async =>
+            throw PlatformException(code: 'no_pasteboard'),
       );
 
       expect(await source.pasted(), isEmpty);
     });
+
+    test(
+      'a bug while reading the clipboard is reported, and reads nothing',
+      () async {
+        final previous = FlutterError.onError;
+        final reported = <FlutterErrorDetails>[];
+        FlutterError.onError = reported.add;
+        addTearDown(() => FlutterError.onError = previous);
+        final source = PluginAttachmentSource(
+          platform: TargetPlatform.macOS,
+          clipboardImage: () async => throw StateError('bug'),
+          clipboardFiles: () async => const [],
+        );
+
+        expect(await source.pasted(), isEmpty);
+        expect(reported.single.exception, isA<StateError>());
+      },
+    );
 
     test('paths that are folders are skipped', () async {
       final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
