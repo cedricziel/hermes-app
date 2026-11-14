@@ -11,13 +11,7 @@ extension _ChatControllerSubagents on ChatController {
         source is! AgentWorkTransport) {
       return null;
     }
-    // Rosters of threads a reload replaced are gone with them.
-    _subagents.removeWhere((owner, roster) {
-      final stale = !_threads.contains(owner);
-      if (stale) roster.dispose();
-      return stale;
-    });
-    final existing = _subagents[thread];
+    final existing = _subagents[thread.id];
     if (existing != null && existing.profile == _profile) {
       existing.retarget(thread.id);
       return existing;
@@ -38,7 +32,7 @@ extension _ChatControllerSubagents on ChatController {
       ),
       events: events,
     );
-    return _subagents[thread] = created;
+    return _subagents[thread.id] = created;
   }
 
   /// Gives a frame to the roster of its thread. A thread that is not a stored
@@ -48,8 +42,18 @@ extension _ChatControllerSubagents on ChatController {
     _subagentsInImpl(thread)?.applyFrame(subagent);
   }
 
-  void _dropSubagents(ChatThread thread) =>
-      _subagents.remove(thread)?.dispose();
+  void _dropSubagents(String threadId) =>
+      _subagents.remove(threadId)?.dispose();
+
+  /// A chat's stored id changed (a compression rotated it): its roster goes
+  /// with it, rows and all.
+  void _rekeySubagents(String from, String to) {
+    final roster = _subagents.remove(from);
+    if (roster == null) return;
+    _subagents.remove(to)?.dispose();
+    roster.retarget(to);
+    _subagents[to] = roster;
+  }
 
   /// Sign-out, profile switch, a suspended session: nothing of the old
   /// agents stays.

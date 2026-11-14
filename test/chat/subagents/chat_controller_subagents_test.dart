@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/gateway_connection_transport.dart';
 import 'package:hermes_app/src/chat/subagents/agent_detail_host.dart';
 import 'package:hermes_app/src/chat/subagents/agent_models.dart';
 import 'package:hermes_app/src/chat/subagents/agent_work_result.dart';
+import 'package:hermes_app/src/chat/subagents/chat_roster_environment.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -179,5 +180,48 @@ void main() {
     final answer = await reread;
     final view = (answer as WorkOk<AgentView?>).value;
     expect(view!.active, isFalse);
+  });
+
+  test('a roster follows a rotated stored id with its rows', () async {
+    final thread = await delegate();
+    final roster = chat.subagentsIn(thread)!;
+    transport.sends.last.emit(const SessionInfo(storedSessionId: 's2'));
+    await pumpEventQueue();
+    expect(thread.id, 's2');
+    expect(roster.threadId, 's2');
+    expect(identical(chat.subagentsIn(thread), roster), isTrue);
+    expect(roster.row('a1'), isNotNull);
+  });
+
+  group('environment', () {
+    test('App Lock, the background and the connection are what it reports', () {
+      final lock = ValueNotifier(false);
+      final active = ValueNotifier(true);
+      final env = ChatRosterEnvironment(
+        transport: transport,
+        activity: active,
+        covered: () => lock.value,
+        lockChanges: lock,
+      );
+      addTearDown(env.dispose);
+      var notified = 0;
+      env.addListener(() => notified++);
+      expect(env.unlocked, isTrue);
+      lock.value = true;
+      expect(env.unlocked, isFalse);
+      expect(notified, 1);
+      lock.value = false;
+      expect(env.foreground, isTrue);
+      env.didChangeAppLifecycleState(AppLifecycleState.paused);
+      expect(env.foreground, isFalse);
+      env.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      expect(env.foreground, isTrue);
+      active.value = false;
+      expect(env.foreground, isFalse);
+      final before = notified;
+      transport.replaceConnection();
+      expect(notified, before + 1);
+      expect(identical(env.connection, transport.token), isTrue);
+    });
   });
 }

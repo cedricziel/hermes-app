@@ -433,7 +433,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final _ownedBindings = <ChatThread, OwnedSessionBinding>{};
   StreamSubscription<OwnedSessionChange>? _ownedSubscription;
 
-  final _subagents = <ChatThread, SubagentRoster>{};
+  final _subagents = <String, SubagentRoster>{};
   ChatRosterEnvironment? _subagentEnvironment;
 
   /// The agents the chat's replies delegated to, merged from their frames and
@@ -1201,7 +1201,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _removeBilling((_profile, thread.id));
     _ownedBindings.remove(thread);
     _usage.remove(thread)?.dispose();
-    _ChatControllerSubagents(this)._dropSubagents(thread);
+    _ChatControllerSubagents(this)._dropSubagents(thread.id);
     _reactions.remove(thread)?.dispose();
     _sideResults.remove(thread)?.dispose();
     _processOutputs.remove(thread)?.clear();
@@ -1668,6 +1668,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_followingIds.remove(previousId)) _followingIds.add(id);
     if (_active.remove(previousId)) _active.add(id);
     thread.id = id;
+    _ChatControllerSubagents(this)._rekeySubagents(previousId, id);
     if (controller != null) _chatControllers[id] = controller;
     _syncTodo(thread, _profile);
     notifyListeners();

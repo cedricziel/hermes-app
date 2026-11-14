@@ -60,6 +60,10 @@ extension _ChatControllerStreaming on ChatController {
     final open = own.open;
     if (open == null) {
       // Nothing of the turn is on screen to carry it.
+      if (event is SubagentUpdated) {
+        // A background agent's frame still belongs in the roster.
+        _ChatControllerSubagents(this)._feedSubagent(thread, event.subagent);
+      }
       final last = own.last;
       switch (event) {
         case ReplyCompleted() when last?.settledWithoutCompletion ?? false:

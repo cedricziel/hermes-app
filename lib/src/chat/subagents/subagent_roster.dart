@@ -512,7 +512,7 @@ class _RosterHost implements AgentDetailHost {
       state: row.active ? listed.state : row.state,
       goal: row.goal,
       startedAt: row.startedAt,
-      acceptingSteer: listed.acceptingSteer,
+      acceptingSteer: listed.acceptingSteer ?? row.acceptingSteer,
       summary: row.summary,
       error: row.error,
     );

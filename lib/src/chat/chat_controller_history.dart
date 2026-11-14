@@ -162,6 +162,7 @@ extension _ChatControllerHistory on ChatController {
           (message) => message.isPending && entry.value.contains(message),
         );
       }
+      if (switched) _ChatControllerSubagents(this)._clearSubagents();
       _profile = profile;
       breadcrumbs('chat.threads.loaded', {
         'switched': switched,
