@@ -69,6 +69,7 @@ dependencies:
   gpt_markdown: ^1.4.1
   flyer_chat_text_message: ^2.6.1
   material_ui: ^1.11.0
+  cupertino_ui: ^1.1.6
   # OpenTelemetry logs and traces, exported to SignalDB.
   flutter_otel: ^0.1.9
   # Coarse device facts for the telemetry resource.

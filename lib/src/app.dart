@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
 import 'package:upgrader/upgrader.dart';
 
@@ -29,6 +28,7 @@ import 'screens/server_setup_screen.dart';
 import 'settings/theme_controller.dart';
 import 'shell/app_shell.dart';
 import 'theme/hermes_theme.dart';
+import 'theme/material_ui_bridge.dart';
 
 class HermesApp extends StatefulWidget {
   /// Prompts to update when [updateChecker] finds a newer release. Left off in
@@ -169,38 +169,38 @@ class _HermesAppState extends State<HermesApp> {
       debugShowCheckedModeBanner: false,
       localizationsDelegates: [
         ...AppLocalizations.localizationsDelegates,
-        // upgrader 14 builds its alert from material_ui, which reads its own
-        // localizations; until the app moves to material_ui's MaterialApp.
-        ...mui.GlobalMaterialLocalizations.delegates,
+        ...kMaterialUiLocalizationsDelegates,
       ],
       supportedLocales: kReleasedLocales,
       theme: widget.lightTheme ?? buildHermesLightTheme(),
       darkTheme: widget.darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-      builder: (context, child) => MenuBarExtraHost(
-        navigatorKey: _navigatorKey,
-        child: MacMenuBar(
+      builder: (context, child) => MaterialUiThemeScope(
+        child: MenuBarExtraHost(
           navigatorKey: _navigatorKey,
-          child: ConversationWindowsMenu(
-            child: DesktopNavigationHistoryScope(
-              history: _history,
-              child: Builder(
-                builder: (context) {
-                  final content = MacWindowChrome(
-                    child: AppLockGate(
-                      child: DockMenuGate(child: HandoffGate(child: child!)),
-                    ),
-                  );
-                  return switch (Theme.of(context).platform) {
-                    TargetPlatform.macOS ||
-                    TargetPlatform.windows ||
-                    TargetPlatform.linux => DesktopNavigationCommands(
-                      history: _history,
-                      child: content,
-                    ),
-                    _ => content,
-                  };
-                },
+          child: MacMenuBar(
+            navigatorKey: _navigatorKey,
+            child: ConversationWindowsMenu(
+              child: DesktopNavigationHistoryScope(
+                history: _history,
+                child: Builder(
+                  builder: (context) {
+                    final content = MacWindowChrome(
+                      child: AppLockGate(
+                        child: DockMenuGate(child: HandoffGate(child: child!)),
+                      ),
+                    );
+                    return switch (Theme.of(context).platform) {
+                      TargetPlatform.macOS ||
+                      TargetPlatform.windows ||
+                      TargetPlatform.linux => DesktopNavigationCommands(
+                        history: _history,
+                        child: content,
+                      ),
+                      _ => content,
+                    };
+                  },
+                ),
               ),
             ),
           ),
