@@ -26,7 +26,8 @@ void main() {
       dio.options.headers['X-Hermes-Session-Token'] = sessionToken;
       final status = await dio.get<Map<String, dynamic>>('/api/status');
       final expectedHome = Directory(
-        '${Directory.current.path}/.dart_tool/hermes-dev/home',
+        Platform.environment['HERMES_DEV_HOME'] ??
+            '${Directory.current.path}/.dart_tool/hermes-dev/home',
       ).absolute.path;
       expect(
         status.data!['hermes_home'],

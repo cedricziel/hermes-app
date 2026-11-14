@@ -9,7 +9,8 @@ import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 
-/// Run with HERMES_DEV_URL from scripts/dev-backend.sh. This test refuses a
+/// Run with HERMES_DEV_URL from scripts/dev-backend.sh (and HERMES_DEV_HOME
+/// when its state is elsewhere, as scripts/verify.sh does). This test refuses a
 /// backend outside this checkout's throwaway home before creating profiles.
 /// It never submits prompts, mirrors credentials, or switches the CLI default.
 void main() {
@@ -25,7 +26,8 @@ void main() {
     final http = Dio(BaseOptions(baseUrl: url));
     final status = (await http.get<Map<String, dynamic>>('/api/status')).data!;
     final expected = Directory(
-      '${Directory.current.path}/.dart_tool/hermes-dev/home',
+      Platform.environment['HERMES_DEV_HOME'] ??
+          '${Directory.current.path}/.dart_tool/hermes-dev/home',
     ).resolveSymbolicLinksSync();
     final actual = status['hermes_home'];
     if (actual is! String ||

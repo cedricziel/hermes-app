@@ -34,3 +34,5 @@ Other `lib/src/` directories and where they are described:
 - `core/`, `navigation/`, `screens/`, `theme/`, `update/`: not described yet.
 
 The API layers (generated client versus hand-written calls) stay in `CLAUDE.md`, since they apply to every change. Current behaviour as specified lives in `openspec/specs/`; design history in `openspec/changes/archive/`.
+
+Verification against real, throwaway instances: the `verify` skill (`.claude/skills/verify/SKILL.md`, `scripts/verify.sh`) on Linux and in cloud containers, `verify-in-app` on a Mac. Its "Covered behaviour" table lists what the PR checks exercise; a PR that adds behaviour in an area above adds its check there.

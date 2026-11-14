@@ -10,14 +10,16 @@
 # Safe to run from several checkouts/worktrees at once: state (throwaway
 # HERMES_HOME, pid, port, log) lives in this checkout's .dart_tool/hermes-dev/
 # and the OS picks the port. State survives `stop`, so restarts are quick;
-# delete the directory to start clean. Set HERMES_DEV_PORT to force a port.
+# delete the directory to start clean. Set HERMES_DEV_PORT to force a port,
+# and HERMES_DEV_STATE_DIR to keep the state somewhere else (scripts/verify.sh
+# puts it in a temporary directory outside the working tree).
 #
 # Never use `hermes dashboard --stop` here: it kills every Hermes web server
 # on the machine, including ones other sessions or the developer started.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STATE_DIR="$ROOT_DIR/.dart_tool/hermes-dev"
+STATE_DIR="${HERMES_DEV_STATE_DIR:-$ROOT_DIR/.dart_tool/hermes-dev}"
 HOME_DIR="$STATE_DIR/home"
 PID_FILE="$STATE_DIR/pid"
 PORT_FILE="$STATE_DIR/port"
@@ -41,6 +43,15 @@ base_url() { echo "http://127.0.0.1:$(cat "$PORT_FILE")"; }
 reported_home() {
   curl -fsS -m 5 "$(base_url)/api/status" |
     python3 -c 'import json,sys; print(json.load(sys.stdin).get("hermes_home",""))'
+}
+
+# A dashboard behind its password gate leaves hermes_home out of /api/status;
+# on Linux the listening process's own environment still says which home it
+# uses.
+process_home() {
+  local environ="/proc/$(cat "$PID_FILE")/environ"
+  [[ -r "$environ" ]] || return 0
+  tr '\0' '\n' <"$environ" | sed -n 's/^HERMES_HOME=//p' | head -n1
 }
 
 cmd_start() {
@@ -90,6 +101,7 @@ cmd_start() {
   # Confirm the backend is using the throwaway home, not the real one.
   local actual_home
   actual_home="$(reported_home)"
+  [[ -n "$actual_home" ]] || actual_home="$(process_home)"
   if [[ "$actual_home" != "$HOME_DIR" && "$actual_home" != "$(cd "$HOME_DIR" && pwd -P)" ]]; then
     echo "refusing: backend is using $actual_home, not $HOME_DIR" >&2
     cmd_stop

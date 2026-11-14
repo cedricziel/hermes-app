@@ -654,6 +654,10 @@ model:
 The macOS loop above does not run here; build the Linux app and drive it under
 Xvfb instead.
 
+For certifying a change before a PR, use the `verify` skill
+(`scripts/verify.sh`): it does all of the below in one command, isolated and
+cleaned up. The notes here are for driving the window by hand.
+
 - Packages: `libgtk-3-dev libsecret-1-dev libjsoncpp-dev` (as CI), plus
   `xdotool gnome-keyring dbus-x11 lsof` and ImageMagick's `import`.
 - Dart does not read `SSL_CERT_FILE`; behind a TLS-intercepting proxy
