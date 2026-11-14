@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../chat/activity/bound_activity_panel.dart';
 import '../chat/subagents/activity_selection.dart';
+import '../chat/activity/bound_needs_you_dock.dart';
+import '../chat/activity/needs_you_queue.dart';
 import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
@@ -19,6 +22,7 @@ import '../models/hermes_models_repository.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../share/shared_item.dart';
+import '../telemetry/breadcrumbs.dart';
 import '../widgets/inspector_layout.dart';
 import 'conversation_window_args.dart';
 import 'conversation_windows.dart' show kInspectorWindowCommand;
@@ -60,6 +64,7 @@ class ConversationWindowScreen extends StatefulWidget {
 class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   late final AttentionNotifier _attention;
   late final ChatController _chat;
+  late final NeedsYouQueue _needsYou;
   BrokerQueueStore? _protectedQueue;
   late final AttachmentSource _attachmentSource;
   late final _composerController = TextEditingController(
@@ -139,6 +144,13 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       attention: _attention,
       report: _showMessage,
     )..addListener(_changed);
+    _needsYou = needsYouQueueFor(
+      _chat,
+      breadcrumbs: context.read<Breadcrumbs?>() ?? Breadcrumbs.none,
+      onArrived: (entry) {
+        if (mounted) announceNeedsYou(context, entry.kind);
+      },
+    );
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     unawaited(_chat.loadThreads(_args.profile));
     _chat.open(
@@ -258,6 +270,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _needsYou.dispose();
     _chat
       ..removeListener(_changed)
       ..dispose();
@@ -283,6 +296,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
           ? null
           : (anchor) => _link.share(threadTranscript(thread.messages), anchor),
       activityOpen: _activityOpen,
+      activityWaiting: _needsYou.count,
       onToggleActivity: thread == null ? null : _toggleActivity,
       onAction: thread == null
           ? null
@@ -312,6 +326,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
         onSend: _send,
         commandRunning: _queueSending,
         latestReply: _latestReply,
+        needsYou: _needsYou,
       );
     } else if (_opened) {
       // Gone (deleted or archived); the window is closing.

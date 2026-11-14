@@ -171,6 +171,9 @@ class _Title extends StatelessWidget {
     final glyph = switch (info.status) {
       ProcessCardStatus.running => AgentState.running,
       ProcessCardStatus.stopped => AgentState.stopped,
+      // A non-zero exit has its own shape, apart from a plain end.
+      ProcessCardStatus.exited when (info.exitCode ?? 0) != 0 =>
+        AgentState.failed,
       ProcessCardStatus.exited || ProcessCardStatus.ended => AgentState.ended,
     };
     final command = info.command;

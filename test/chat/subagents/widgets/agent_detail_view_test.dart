@@ -354,6 +354,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (locale, word) in [
+    (const Locale('en'), 'Running'),
+    (const Locale('de'), 'Läuft'),
+  ]) {
+    testWidgets('the state word stays whole at 3x (${locale.languageCode})', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _m(),
+        locale: locale,
+        scale: 3,
+        size: const Size(320, 800),
+      );
+      expect(tester.takeException(), isNull);
+      final state = find.text(word);
+      expect(state, findsOneWidget);
+      // One line: the word is not broken inside.
+      final box = tester.getSize(state);
+      final style = tester.widget<Text>(state).style;
+      expect(box.height, lessThan(3 * 3 * (style?.fontSize ?? 16) * 1.6));
+      // The time line sits below it and does not start with a dot.
+      final time = find.textContaining('2m', skipOffstage: false);
+      expect(time, findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Text && (w.data ?? '').trimLeft().startsWith('·'),
+        ),
+        findsNothing,
+      );
+    });
+  }
+
   group('SubagentGroupCard details', () {
     const agents = [
       Subagent(

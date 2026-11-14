@@ -1,3 +1,4 @@
+import 'files_use_cases.dart';
 import 'voice_call_use_cases.dart';
 import 'messenger_identity_use_cases.dart';
 import 'reaction_use_cases.dart';
@@ -25,6 +26,10 @@ import 'activity_line_use_cases.dart';
 import 'moa_progress_use_cases.dart';
 import 'background_check_status_use_cases.dart';
 import 'queue_recovery_use_cases.dart';
+import 'chat_checkpoints_use_cases.dart';
+import 'chat_checkpoint_restore_use_cases.dart';
+import 'chat_context_use_cases.dart';
+import 'transcript_outcome_line_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
@@ -48,6 +53,7 @@ import 'mac_sidebar_use_cases.dart';
 import 'mac_toolbar_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
 import 'mcp_use_cases.dart';
+import 'provider_setup_use_cases.dart';
 import 'secret_field_use_cases.dart';
 import 'shared_widgets_use_cases.dart';
 import 'app_banner_use_cases.dart';
@@ -78,11 +84,13 @@ import 'schedules_use_cases.dart';
 import 'sudo_password_use_cases.dart';
 import 'voice_use_cases.dart';
 import 'grouped_row_use_cases.dart';
+import 'server_care_gateway_use_cases.dart';
 import 'server_care_status_use_cases.dart';
 import 'server_care_update_logs_use_cases.dart';
 import 'server_care_usage_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
+  filesNode(),
   voiceCallNode(),
   messengerIdentityNode(),
   reactionNode(),
@@ -110,6 +118,7 @@ final List<WidgetbookNode> directories = [
   busyBarNode(),
   groupedRowValueNode(),
   ...serverCareStatusNodes(),
+  ...serverCareGatewayNodes(),
   ...serverCareUpdateLogsNodes(),
   ...serverCareUsageNodes(),
   platformHintNode(),
@@ -128,6 +137,10 @@ final List<WidgetbookNode> directories = [
   memoryProposalsNode(),
   memoryToolNode(),
   sessionUsageNode(),
+  chatContextNode(),
+  chatCheckpointsNode(),
+  chatCheckpointRestoreNode(),
+  transcriptOutcomeLineNode(),
   connectorOperationNode(),
   sideResultNode(),
   processOutputNode(),
@@ -164,6 +177,7 @@ final List<WidgetbookNode> directories = [
   pluginsScreensNode(),
   appBannerNode(),
   secretFieldNode(),
+  providerSetupNode(),
   sharedWidgetsNode(),
   mcpNode(),
   mcpScreensNode(),

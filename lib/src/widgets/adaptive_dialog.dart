@@ -13,16 +13,25 @@ class AppAlertDialog extends StatelessWidget {
     this.title,
     this.content,
     this.actions = const [],
+    this.backgroundColor,
   });
 
   final Widget? title;
   final Widget? content;
   final List<Widget> actions;
 
+  /// The surface of the Material dialog; null keeps the theme's.
+  final Color? backgroundColor;
+
   @override
   Widget build(BuildContext context) {
     if (!platformChromeOf(context).isApple) {
-      return AlertDialog(title: title, content: content, actions: actions);
+      return AlertDialog(
+        title: title,
+        content: content,
+        actions: actions,
+        backgroundColor: backgroundColor,
+      );
     }
     // Material fields inside the content still need a Material ancestor.
     return CupertinoAlertDialog(
@@ -184,6 +193,11 @@ class AppDialogTextField extends StatelessWidget {
 /// user taps [confirmLabel]. Dismissing or cancelling answers false.
 ///
 /// On Material, [filled] picks a filled over a plain confirm button.
+///
+/// With [cancelIsDefault] Cancel is the default action on Apple platforms
+/// (drawn bold) and the confirm button is not, for a question whose safe
+/// answer is to stop; Material then shows two text buttons. This only picks
+/// what is emphasised: nothing here binds the Return key to it.
 Future<bool> showConfirmDialog(
   BuildContext context, {
   required String title,
@@ -192,24 +206,30 @@ Future<bool> showConfirmDialog(
   String cancelLabel = 'Cancel',
   bool destructive = false,
   bool filled = true,
+  bool cancelIsDefault = false,
+  ValueListenable<bool>? dismissWhen,
 }) async =>
     await showAppDialog<bool>(
       context: context,
-      builder: (dialog) => AppAlertDialog(
-        title: Text(title),
-        content: message == null ? null : Text(message),
-        actions: [
-          AppDialogAction(
-            onPressed: () => Navigator.pop(dialog, false),
-            child: Text(cancelLabel),
-          ),
-          AppDialogAction(
-            isDefault: filled,
-            isDestructive: destructive,
-            onPressed: () => Navigator.pop(dialog, true),
-            child: Text(confirmLabel),
-          ),
-        ],
+      builder: (dialog) => _DismissWhen(
+        when: dismissWhen,
+        child: AppAlertDialog(
+          title: Text(title),
+          content: message == null ? null : Text(message),
+          actions: [
+            AppDialogAction(
+              isDefault: cancelIsDefault && platformChromeOf(dialog).isApple,
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(cancelLabel),
+            ),
+            AppDialogAction(
+              isDefault: filled && !cancelIsDefault,
+              isDestructive: destructive,
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(confirmLabel),
+            ),
+          ],
+        ),
       ),
     ) ??
     false;
@@ -225,31 +245,17 @@ Future<bool> showDestructiveConfirm(
   required String confirmLabel,
   required String cancelLabel,
   ValueListenable<bool>? dismissWhen,
-}) async =>
-    await showAppDialog<bool>(
-      context: context,
-      builder: (dialog) => _DismissWhen(
-        when: dismissWhen,
-        child: AppAlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            AppDialogAction(
-              isDefault: true,
-              filledOnMaterial: false,
-              onPressed: () => Navigator.pop(dialog, false),
-              child: Text(cancelLabel),
-            ),
-            AppDialogAction(
-              isDestructive: true,
-              onPressed: () => Navigator.pop(dialog, true),
-              child: Text(confirmLabel),
-            ),
-          ],
-        ),
-      ),
-    ) ??
-    false;
+}) => showConfirmDialog(
+  context,
+  title: title,
+  message: message,
+  confirmLabel: confirmLabel,
+  cancelLabel: cancelLabel,
+  destructive: true,
+  filled: false,
+  cancelIsDefault: true,
+  dismissWhen: dismissWhen,
+);
 
 /// Closes the dialog it is in, answering false, once [when] turns true: the
 /// thing the dialog asks about is gone.
