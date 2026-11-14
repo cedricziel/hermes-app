@@ -29,6 +29,16 @@ The app SHALL offer a Files page for a chat from the Activity panel's "This sess
 - **WHEN** the stored `cwd` is `/tmp/p` and the server lists entries under `/private/tmp/p`
 - **THEN** the entries are shown, because the highest folder is the one the server resolved
 
+#### Scenario: Full path
+
+- **WHEN** the user opens the page's … menu in `/srv/projects/hermes-report/reports/2026`
+- **THEN** its first line is that full path, not a button, followed by Copy path, Show hidden files (checked when on), Refresh and About this list
+
+#### Scenario: Mac menu command
+
+- **WHEN** a Mac user presses ⇧⌘F in a chat on a server with the routes
+- **THEN** View > Show Files opens the Files page of that chat
+
 #### Scenario: Local profile without its own folder
 
 - **WHEN** a new chat on a local profile gets the dashboard's folder from `default-cwd`
@@ -75,7 +85,7 @@ Names starting with a dot SHALL be hidden until the user turns on "Show hidden f
 #### Scenario: Secret file
 
 - **WHEN** the user taps `.env.local` with hidden files shown
-- **THEN** the question appears and nothing is requested until the user chooses Show; Cancel requests nothing
+- **THEN** the question appears as an alert titled ".env.local" with Cancel as the default, and nothing is requested until the user chooses Show; Cancel requests nothing
 
 #### Scenario: Server refuses
 
@@ -132,12 +142,12 @@ An image file (png, jpg, jpeg, gif, webp, bmp, svg) SHALL be downloaded to the c
 
 ### Requirement: Other files
 
-A file that is neither text, an image nor a PDF SHALL show its name, its type, its size (once the headers are known) and the actions Save and Open with…, and Share on iOS and Android. The app SHALL NOT download it before one of those actions is chosen.
+A file that is neither text, an image nor a PDF SHALL show its name, its type, its size (once the headers are known) and the actions Save (the one filled action), Open with… on Android, macOS, Windows and Linux, and Share on iOS and Android. On iOS the share sheet stands in for Open with…. The app SHALL NOT download it before one of those actions is chosen.
 
 #### Scenario: Archive
 
 - **WHEN** the user opens `export.zip`
-- **THEN** the page shows the name, "ZIP archive" and Save, Share and Open with…, and no download has started
+- **THEN** the page shows the name, "ZIP archive" and Save with Share on iPhone, Save with Open with… and Share on Android, or Save with Open with… on a Mac, and no download has started
 
 ### Requirement: Save, share and open
 
@@ -147,6 +157,11 @@ Save SHALL open the system's save dialog with the file's name, as the file cards
 
 - **WHEN** the user chooses Save on `export.zip`
 - **THEN** the file downloads, then the save dialog opens with "export.zip"
+
+#### Scenario: Saved
+
+- **WHEN** the save dialog for `export.zip` closes with a destination
+- **THEN** a snack bar says "Saved export.zip."; after Share or Open with… nothing more is shown
 
 #### Scenario: Quick Look on a Mac
 
@@ -170,7 +185,7 @@ A download SHALL be written to disk as a stream, never held whole in memory, SHA
 #### Scenario: Large file
 
 - **WHEN** the headers of `video.mov` say 212 MB
-- **THEN** the app asks "This file is 212 MB. Download it anyway?" and downloads only after Download
+- **THEN** the app asks "This file is 212 MB. Download it anyway?" (a bottom sheet on phones, an alert on iPad and desktop, Download the default) and downloads only after Download
 
 #### Scenario: Incomplete SSH download
 
@@ -204,7 +219,7 @@ The page SHALL show a labelled loading state, an empty state with the one action
 #### Scenario: Empty folder
 
 - **WHEN** the folder has no entries
-- **THEN** the page says "Nothing here yet. Files the agent writes in this folder appear here." with Refresh, and adds "Hidden files are not shown." with a Show action when hidden files exist
+- **THEN** the page says "Nothing here yet. Files the agent writes in this folder appear here." with Refresh, and adds "Hidden files are not shown." with the action Show hidden files (instead of Refresh) when hidden files exist
 
 #### Scenario: Loading
 
@@ -219,7 +234,7 @@ The page SHALL show a labelled loading state, an empty state with the one action
 #### Scenario: File failures
 
 - **WHEN** a file cannot be read
-- **THEN** the page says, by status, 403 "Hermes doesn't share this file.", 404 "This file no longer exists.", 409 "This file is open in a database right now. Try again in a moment.", 413 "This file is too large to open here.", 400 "This item can't be opened as a file.", otherwise "Couldn't open this file." with Try again
+- **THEN** the page says, by status, 403 "Hermes doesn't share this file.", 404 "This file no longer exists.", 409 "This file is open in a database right now. Try again in a moment.", 400 "This item can't be opened as a file.", otherwise "Couldn't open this file." with Try again
 
 #### Scenario: Error code in a 200
 
@@ -249,7 +264,7 @@ The page SHALL show a labelled loading state, an empty state with the one action
 #### Scenario: Too large for text preview
 
 - **WHEN** `read-text` answers 413
-- **THEN** the file shows as an other file with Save
+- **THEN** the file shows as an other file with the note "This file is too large to open here." and Save
 
 #### Scenario: Hidden by Hermes
 
@@ -260,6 +275,16 @@ The page SHALL show a labelled loading state, an empty state with the one action
 
 - **WHEN** the device has no network when the page opens
 - **THEN** "Can't reach your Hermes server." and Try again appear, and a file already downloaded still opens
+
+#### Scenario: Refresh fails after a listing
+
+- **WHEN** a folder was listed and a later refresh cannot reach the server
+- **THEN** the list stays under a banner "Can't reach your Hermes server." / "This list may be out of date." with Try again, and a file already downloaded still opens
+
+#### Scenario: Gone at the top
+
+- **WHEN** the highest folder answers ENOENT
+- **THEN** "This folder no longer exists." offers Try again instead of Up
 
 #### Scenario: Late answer
 
