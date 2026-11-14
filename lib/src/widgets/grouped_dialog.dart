@@ -41,6 +41,7 @@ class GroupedDialog extends StatelessWidget {
           : const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius),
+        side: hermesOverlayEdge(theme.colorScheme),
       ),
       clipBehavior: Clip.antiAlias,
       child: Semantics(

@@ -25,13 +25,7 @@ class UpdateConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final apple = platformChromeOf(context).isApple;
-    final scheme = Theme.of(context).colorScheme;
     return AppAlertDialog(
-      // On the dark scaffold the default dialog surface is almost the scrim's
-      // black and its edge vanishes.
-      backgroundColor: !apple && scheme.brightness == Brightness.dark
-          ? scheme.surfaceContainerHighest
-          : null,
       title: Text(title),
       // Three lines at the largest text size outgrow a phone: scroll them.
       content: SingleChildScrollView(
