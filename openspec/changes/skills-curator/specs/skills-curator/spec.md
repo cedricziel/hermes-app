@@ -122,17 +122,22 @@ After the user confirms, the app SHALL send `POST /api/curator/run?profile=`, th
 
 ### Requirement: One run at a time, no resend
 
-While a run is shown as running, Run now SHALL be disabled, because Hermes does not guard against a second concurrent run. On open the app SHALL read the action status once for `running` only. A lost answer to the POST SHALL read "We couldn't tell if it started" with a Check status action and SHALL never be resent automatically.
+Run now SHALL be disabled while a pass is running or may be running (running, lost answer, progress lost, stopped, 15 minutes), until a status read shows `running` false, because Hermes does not guard against a second run. On open the app SHALL read the action status once for `running` only. A lost answer to the POST SHALL read "We couldn't tell if it started" with a Check status action and SHALL never be resent automatically.
 
 #### Scenario: Lost answer
 
 - **WHEN** the POST times out
 - **THEN** no new POST is sent; Check status reads `last_run_at` and the action status, and a new run needs a new confirmation
 
+#### Scenario: Unsure whether a pass runs
+
+- **WHEN** the answer to the start was lost, progress was lost, the pass stopped with no exit code, or 15 minutes passed
+- **THEN** Run now stays disabled and Check status is offered; it is enabled again when a read shows `running` false
+
 #### Scenario: A pass is already running
 
 - **WHEN** the section opens and the action status says `running: true`
-- **THEN** Run now is disabled with "A pass is running on this server" and no output lines are shown
+- **THEN** Run now is disabled with "A pass is running on this server" and a Check status action, and no output lines are shown
 
 ### Requirement: Finish proof
 
