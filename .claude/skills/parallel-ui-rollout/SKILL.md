@@ -84,30 +84,27 @@ the rework.
 
 ## When lead agents cannot spawn agents
 
-Learned from the November 2026 bug-fix and housekeeping run (#897 to #908). In a
-cloud session the lead agents had no Agent tool, so the hierarchy is two levels:
+In a cloud session a lead agent may have no Agent tool. The hierarchy is then two
+levels and the orchestrator does the reviewing:
 
-- The orchestrator runs the isolated reviewer for every PR itself, after the
-  lead hands back: a fresh agent that gets only the branch name and what the PR
-  claims, on a model sized to the diff (the larger one for auth, the send path
-  and lease logic). A lead's own "review" of its diff does not count. In this run
-  the isolated reviewers found a real problem in most PRs that their leads had
-  called done.
-- Send the reviewer's findings back to the same lead (it keeps its context),
-  then arm `--auto --squash`. Arm only after the lead's follow-up push, or the PR
-  can merge without the fix.
-- A CodeRabbit "review limit reached" comment is not a review.
-- Pushing a follow-up cancels the previous commit's CI run, and the required
-  check `Analyze & test` then reports **failure** for the old commit. Check the
-  `head_sha` of a failure event against the PR's current head before acting.
-- Give each lead a common brief file plus a stream brief file, with the list of
-  files it must not touch. Name one owner for `CLAUDE.md` and the
-  `docs/architecture/` files; a fix that needs a sentence there waits for that
-  owner's PR to merge, then rebases.
-- Agents' commits may carry a different co-author trailer than the
-  orchestrator's. The squash merge is what lands on `main`.
-- The container had 4 cores: four test-running leads at once, reviewers and
-  docs-only streams on top.
+- A lead's own read of its diff is not the review. After the lead hands back, the
+  orchestrator starts the isolated reviewer described under "Every PR", for every
+  PR, whether or not CodeRabbit also reviewed. Give it the branch name and what
+  the PR claims, nothing else, and use a stronger model when a wrong merge would
+  sign users out, lose a message or leak control of something (auth, the send
+  path, leases, App Lock). Why: reviewers started this way found a defect the
+  lead had missed in most PRs of the run that added this section.
+- The orchestrator sends the findings back to the same lead, which keeps its
+  context, and the lead writes the `## Review` section when it pushes the fixes.
+- Arm `--auto --squash` only after that follow-up push. Armed earlier, the PR can
+  merge without the fix.
+- A follow-up push cancels the previous commit's CI run, and `Analyze & test`
+  then reports failure for the old commit. Compare a failure event's `head_sha`
+  with the PR's current head before acting on it.
+- Give every lead the same common brief file plus its own stream brief, each
+  naming the files it must not touch. One stream owns `CLAUDE.md` and
+  `docs/architecture/`; a fix that needs a sentence there rebases after that
+  stream's PR merges.
 
 ## Afterwards
 
