@@ -387,7 +387,10 @@ class GatewayRpcClient {
     pending.timer?.cancel();
     final error = message['error'];
     if (error is Map) {
-      final code = (error['code'] as num?)?.toInt() ?? 0;
+      final code = switch (error['code']) {
+        final num code => code.toInt(),
+        _ => 0,
+      };
       _telemetry?.finishRequest(pending.span, errorCode: code);
       final data = error['data'];
       pending.completer.completeError(
@@ -398,10 +401,22 @@ class GatewayRpcClient {
         ),
       );
     } else {
-      _telemetry?.finishRequest(pending.span);
-      pending.completer.complete(
-        message['result'] as Map<String, Object?>? ?? const {},
-      );
+      switch (message['result']) {
+        case null:
+          _telemetry?.finishRequest(pending.span);
+          pending.completer.complete(const {});
+        case final Map<String, Object?> result:
+          _telemetry?.finishRequest(pending.span);
+          pending.completer.complete(result);
+        case _:
+          // A result that is not an object cannot be read; callers must not
+          // take it for a valid empty answer.
+          const code = -32603;
+          _telemetry?.finishRequest(pending.span, errorCode: code);
+          pending.completer.completeError(
+            const GatewayRpcException(code, 'malformed result'),
+          );
+      }
     }
   }
 
@@ -409,7 +424,10 @@ class GatewayRpcClient {
     if (params is! Map) return;
     _telemetry?.event(params['type']?.toString() ?? '');
     final type = params['type']?.toString() ?? '';
-    final payload = params['payload'] as Map<String, Object?>? ?? const {};
+    final payload = switch (params['payload']) {
+      final Map<String, Object?> payload => payload,
+      _ => const <String, Object?>{},
+    };
     final seq = params['seq'];
     var sessionId = params['session_id']?.toString() ?? '';
     // Session-less broadcasts such as approval.cancelled carry their session

@@ -86,7 +86,13 @@ const _minHeldRun = 8;
 const _finishingInterruptedTurn = 'Hermes is finishing the interrupted turn…';
 
 /// The `session.active_list` statuses of a session that still runs a turn.
-const _liveStatuses = {'working', 'waiting', 'starting'};
+const _liveStatuses = {
+  'starting',
+  'waiting',
+  'working',
+  'streaming',
+  'resuming',
+};
 
 /// An approval or clarify request the user still has to answer.
 class _OpenRequest {
