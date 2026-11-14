@@ -675,7 +675,7 @@ extension _ChatControllerQueues on ChatController {
       entry.value.cancel();
       _settleTimers.remove(entry.key);
     }
-    if (except.isEmpty) _refetch.clear();
+    _refetch.removeWhere((thread) => !except.contains(thread));
   }
 
   Future<bool> _enqueueProtected(
@@ -796,7 +796,7 @@ class _ProtectedQueuedSend {
 
   /// Where the send stands in the queue's epoch and the thread list's
   /// generation. A list read again that keeps this send's thread moves both
-  /// on, so the send stays current (`_carryProtectedSends`).
+  /// on, so the send stays current (the `kept` block of `_loadThreads`).
   int epoch;
   int? carriedGeneration;
   final int activityEpoch;

@@ -130,6 +130,32 @@ void main() {
     expect(transport.sends, hasLength(1));
   });
 
+  test('a queued send accepted while the list is being read keeps its '
+      'prompt text', () async {
+    await store.commit(_scope, 'Queued text');
+    await chat.loadThreads('work');
+    chat.select('stored');
+    await waitFor(() => !chat.queueBusy(thread()), 'restore');
+    final running = thread();
+    final accept = transport.acceptanceGate = Completer<void>();
+
+    chat.sendQueued(running);
+    await transport.prepared;
+    await pumpEventQueue();
+    final read = listGate = Completer<void>();
+    final loading = chat.loadThreads('work');
+    await pumpEventQueue();
+    accept.complete();
+    await pumpEventQueue();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    read.complete();
+    await loading;
+    await pumpEventQueue();
+
+    expect(contents(), containsAllInOrder(['Hi', 'Hello', 'Queued text']));
+    expect(transport.sends, hasLength(1));
+  });
+
   test('a prompt queued behind the running turn still sends once the turn '
       'ends after the list was read again', () async {
     final first = chat.submit('First', const []);

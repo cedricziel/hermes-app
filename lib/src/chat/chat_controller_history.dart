@@ -20,6 +20,11 @@ extension _ChatControllerHistory on ChatController {
     };
     final sendingAtStart = _threads.where(_sending.containsKey).toSet();
     final generation = ++_loadGeneration;
+    // A send that is running stays current while this read is in flight; the
+    // commit keeps or drops its thread.
+    for (final thread in sendingAtStart) {
+      _protectedSends[thread]?.carriedGeneration = generation;
+    }
     // This load reads the list itself.
     _listRefreshPending = false;
     _loadingThreads = true;
@@ -166,12 +171,10 @@ extension _ChatControllerHistory on ChatController {
       );
       // Another profile can hold a different session under the same id.
       final keptState = (
-        bindings: {for (final t in kept) t: ?_ownedBindings[t]},
         sessions: {for (final t in kept) t: ?_sessionStates[t]},
         actions: {for (final t in kept) t: ?_sessionActionGenerations[t]},
       );
       _stopFollowing();
-      _ownedBindings.addAll(keptState.bindings);
       _sessionStates.addAll(keptState.sessions);
       _sessionActionGenerations.addAll(keptState.actions);
       _active.clear();
@@ -204,8 +207,13 @@ extension _ChatControllerHistory on ChatController {
           threads
               .where((t) => t.remote && !liveIds.contains(t.id))
               .map((t) => t.id),
-        );
-      _olderRows.clear();
+        )
+        // A first page cut off by this read is read again.
+        ..addAll(live.map((t) => t.id).where(_loadingMessages.containsKey));
+      final keptOlder = {for (final t in kept) t.id: ?_olderRows[t.id]};
+      _olderRows
+        ..clear()
+        ..addAll(keptOlder);
       // What a kept thread's turn and queue stand on carries over; the rest
       // is rebuilt for the list that was just read.
       bool inKept(ChatThread t) => kept.contains(t);
