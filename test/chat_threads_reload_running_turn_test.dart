@@ -93,10 +93,21 @@ void main() {
   ChatThread thread() => chat.threads.singleWhere((t) => t.id == 'stored');
   List<String> contents() => [for (final m in thread().messages) m.content];
 
-  Future<void> waitFor(bool Function() done, [String what = '']) async {
-    final deadline = DateTime.now().add(const Duration(seconds: 5));
+  /// Gives real I/O (the durable queue store's files) wall-clock time until
+  /// [done] holds, and fails naming [reason] when it never does. The plain-test
+  /// counterpart of `waitUntil` in `support/wait_until.dart`.
+  Future<void> waitFor(
+    bool Function() done, {
+    required String reason,
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
     while (!done()) {
-      if (DateTime.now().isAfter(deadline)) fail('timed out $what');
+      if (!DateTime.now().isBefore(deadline)) {
+        throw TestFailure(
+          'timed out waiting for $reason after ${timeout.inMilliseconds} ms',
+        );
+      }
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
   }
@@ -106,7 +117,10 @@ void main() {
     await store.commit(_scope, 'Queued text');
     await chat.loadThreads('work');
     chat.select('stored');
-    await waitFor(() => !chat.queueBusy(thread()), 'restore');
+    await waitFor(
+      () => !chat.queueBusy(thread()),
+      reason: 'the queue to be restored',
+    );
     expect(chat.queueNeedsReview(thread()), isTrue);
     final running = thread();
     final gate = transport.acceptanceGate = Completer<void>();
@@ -119,7 +133,10 @@ void main() {
     expect(identical(thread(), running), isTrue);
 
     gate.complete();
-    await waitFor(() => contents().contains('Queued text'), 'text');
+    await waitFor(
+      () => contents().contains('Queued text'),
+      reason: 'the queued prompt in the transcript',
+    );
     transport.sends.single
       ..emit(const ReplyCompleted('Done'))
       ..finish();
@@ -135,7 +152,10 @@ void main() {
     await store.commit(_scope, 'Queued text');
     await chat.loadThreads('work');
     chat.select('stored');
-    await waitFor(() => !chat.queueBusy(thread()), 'restore');
+    await waitFor(
+      () => !chat.queueBusy(thread()),
+      reason: 'the queue to be restored',
+    );
     final running = thread();
     final accept = transport.acceptanceGate = Completer<void>();
 
@@ -146,8 +166,10 @@ void main() {
     final loading = chat.loadThreads('work');
     await pumpEventQueue();
     accept.complete();
-    await pumpEventQueue();
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await waitFor(
+      () => chat.queuedIn(running).isEmpty,
+      reason: 'the acceptance while the list is read',
+    );
     read.complete();
     await loading;
     await pumpEventQueue();
@@ -159,12 +181,15 @@ void main() {
   test('a prompt queued behind the running turn still sends once the turn '
       'ends after the list was read again', () async {
     final first = chat.submit('First', const []);
-    await pumpEventQueue();
+    await waitFor(() => transport.sends.isNotEmpty, reason: 'the first send');
     expect(await first, isTrue);
     final running = thread();
     expect(transport.sends, hasLength(1));
     await chat.submit('Next', const []);
-    await waitFor(() => chat.queuedIn(running).isNotEmpty);
+    await waitFor(
+      () => chat.queuedIn(running).isNotEmpty,
+      reason: 'the prompt to be queued',
+    );
 
     await chat.loadThreads('work');
     await pumpEventQueue();
@@ -175,11 +200,17 @@ void main() {
     transport.sends.first
       ..emit(const ReplyCompleted('One'))
       ..finish();
-    await waitFor(() => transport.sends.length == 2);
+    await waitFor(
+      () => transport.sends.length == 2,
+      reason: 'the queued prompt to be sent',
+    );
     transport.sends.last
       ..emit(const ReplyCompleted('Two'))
       ..finish();
-    await pumpEventQueue();
+    await waitFor(
+      () => chat.queuedIn(running).isEmpty && !running.isReplying,
+      reason: 'the second turn to end',
+    );
 
     expect(transport.sends.map((s) => s.text), ['First', 'Next']);
     expect(chat.queuedIn(running), isEmpty);
@@ -188,11 +219,14 @@ void main() {
   test('a turn that ends while the list is being read stays in the chat, '
       'selected, with its reply', () async {
     final sent = chat.submit('More', const []);
-    await pumpEventQueue();
+    await waitFor(() => transport.sends.isNotEmpty, reason: 'the send');
     final send = transport.sends.single;
     final running = thread();
     send.emit(const ReplyDelta('Par'));
-    await pumpEventQueue();
+    await waitFor(
+      () => contents().contains('Par'),
+      reason: 'the streamed text',
+    );
 
     final gate = listGate = Completer<void>();
     final loading = chat.loadThreads('work');
@@ -201,10 +235,12 @@ void main() {
       ..emit(const ReplyCompleted('Partial'))
       ..finish();
     await sent;
-    await pumpEventQueue();
+    await waitFor(
+      () => contents().contains('Partial'),
+      reason: 'the finished reply',
+    );
     gate.complete();
     await loading;
-    await pumpEventQueue();
 
     expect(identical(thread(), running), isTrue);
     expect(chat.selectedThread, same(running));
