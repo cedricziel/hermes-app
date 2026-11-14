@@ -131,7 +131,7 @@ void main() {
     },
   );
   test(
-    'speaks the new reply when the history arrives during the send',
+    'speaks the new reply when the history arrives above it mid-turn',
     () async {
       SharedPreferencesAsyncPlatform.instance =
           InMemorySharedPreferencesAsync.empty();
@@ -179,11 +179,19 @@ void main() {
         onText: spoken.add,
         onAttention: (_) {},
       );
+      await pumpEventQueue();
+      final send = transport.sends.single;
+      send.emit(const ReplyDelta('New answer.'));
+      await pumpEventQueue();
+
+      // The older turns land above the prompt while the reply streams.
       gate.complete();
       await pumpEventQueue();
-      transport.sends.single
-        ..emit(const ReplyDelta('New answer.'))
-        ..emit(const ReplyCompleted('New answer.'));
+      expect(
+        [for (final m in remote.threads.single.messages) m.content],
+        ['Hi', 'Old answer.', 'Voice', 'New answer.'],
+      );
+      send.emit(const ReplyCompleted('New answer.'));
       await done;
 
       expect(spoken.join(), 'New answer.');

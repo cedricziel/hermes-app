@@ -1,26 +1,32 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/owned_session_transport.dart';
+import 'package:hermes_app/src/live_activities/live_activities.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/notifications/notification_settings.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/fake_live_activity_service.dart';
 
-/// A chat's pages arrive while the user sends into it or it is read again:
-/// what arrives late must not land in the wrong place.
+/// A chat sends at once, while its first page is still being read: what the
+/// page holds is merged with what was sent, and must neither duplicate it nor
+/// land below it.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late FakeHermesServer server;
-  late FakeChatTransport transport;
+  late _OwnedTransport transport;
   late ChatController chat;
+  late AttentionNotifier attention;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
@@ -34,8 +40,8 @@ void main() {
         sessionRow(id: 's2', title: 'Other'),
       ]),
     );
-    transport = FakeChatTransport();
-    final attention = AttentionNotifier(
+    transport = _OwnedTransport();
+    attention = AttentionNotifier(
       service: null,
       settings: null,
       onOpen: (_) {},
@@ -58,121 +64,275 @@ void main() {
     for (final m in thread(id).messages) m.content,
   ];
 
-  test('a prompt sent while the first page loads goes after it', () async {
-    final gate = Completer<void>();
-    server.onRequest('GET', '/api/sessions/s1/messages', (_) async {
+  /// Answers the chat's first page once [gate] completes.
+  void gatePage(
+    Completer<void> gate,
+    List<Map<String, Object?>> Function() rows, {
+    String id = 's1',
+  }) {
+    server.onRequest('GET', '/api/sessions/$id/messages', (_) async {
       await gate.future;
-      return (
-        status: 200,
-        body: messageListBody('s1', [
-          messageRow(id: 1, role: 'user', content: 'Hi'),
-          messageRow(id: 2, role: 'assistant', content: 'Hello'),
-        ]),
-      );
+      return (status: 200, body: messageListBody(id, rows()));
     });
-    await chat.loadThreads();
+  }
+
+  void page(List<Map<String, Object?>> rows, {String id = 's1'}) =>
+      server.on('GET', '/api/sessions/$id/messages', messageListBody(id, rows));
+
+  void pageFails() => server.on('GET', '/api/sessions/s1/messages', {
+    'detail': 'boom',
+  }, status: 500);
+
+  /// The stored turn 1-2 every test starts from.
+  List<Map<String, Object?>> history() => [
+    messageRow(id: 1, role: 'user', content: 'Hi'),
+    messageRow(id: 2, role: 'assistant', content: 'Hello'),
+  ];
+
+  Future<void> open() async {
+    await chat.loadThreads('work');
     chat.select('s1');
+  }
+
+  /// Reads the first page again, as selecting the chat after another does.
+  Future<void> reread() async {
+    chat.select('s2');
+    chat.select('s1');
+    await pumpEventQueue();
+  }
+
+  void ack(FakeSend send, int row) => send.emit(
+    PromptAcknowledged(
+      row,
+      runtimeId: transport.binding.runtimeId,
+      connection: transport.binding.connection,
+    ),
+  );
+
+  test('a prompt sent before the first page arrives is sent at once', () async {
+    final gate = Completer<void>();
+    gatePage(gate, history);
+    await open();
 
     final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['More', '']);
+    expect(thread('s1').messages.last.isPending, isTrue);
+    expect(transport.sends.single.text, 'More');
+    expect(transport.sends.single.threadId, 's1');
+
     gate.complete();
     expect(await sent, isTrue);
     await pumpEventQueue();
 
     expect(contents('s1'), ['Hi', 'Hello', 'More', '']);
     expect(thread('s1').messages.map((m) => m.id).toSet(), hasLength(4));
-    expect(transport.sends.single.text, 'More');
-    expect(transport.sends.single.threadId, 's1');
+    expect(transport.sends, hasLength(1));
   });
 
-  test('a chat sent into after its first page failed reads it once', () async {
-    server.on('GET', '/api/sessions/s1/messages', {
-      'detail': 'boom',
-    }, status: 500);
-    await chat.loadThreads();
-    chat.select('s1');
+  test('the reply keeps streaming into its message when history lands '
+      'above it', () async {
+    final gate = Completer<void>();
+    gatePage(gate, history);
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    final reply = thread('s1').messages.last;
+    send.emit(const ReplyDelta('Par'));
     await pumpEventQueue();
 
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Par']);
+    expect(identical(thread('s1').messages.last, reply), isTrue);
+
+    send
+      ..emit(const ReplyDelta('tial'))
+      ..emit(const ReplyCompleted('Partial'))
+      ..finish();
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Partial']);
+    expect(identical(thread('s1').messages.last, reply), isTrue);
+    expect(reply.isPending, isFalse);
+    expect(reply.status, isNot(MessageStatus.error));
+  });
+
+  test('a page that already holds the sent prompt shows it once', () async {
+    final gate = Completer<void>();
+    gatePage(
+      gate,
+      () => [
+        ...history(),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(id: 4, role: 'assistant', content: 'Par'),
+      ],
+    );
+    await open();
+    final sent = chat.submit('More', const []);
+    await pumpEventQueue();
+    final send = transport.sends.single;
+    ack(send, 3);
+    send.emit(const ReplyDelta('Partial'));
+    await pumpEventQueue();
+    expect(thread('s1').messages.first.canonicalRow?.rowId, 3);
+
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
+
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Partial']);
+    expect(thread('s1').messages.map((m) => m.id).toSet(), hasLength(4));
+    send
+      ..emit(const ReplyCompleted('Partial answer'))
+      ..finish();
+    await pumpEventQueue();
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Partial answer']);
+  });
+
+  test('a turn that failed here but was stored and answered shows the stored '
+      'answer once', () async {
+    pageFails();
+    await open();
+    await pumpEventQueue();
     expect(await chat.submit('More', const []), isTrue);
-    transport.sends.single
+    final send = transport.sends.single;
+    ack(send, 3);
+    await pumpEventQueue();
+    send.fail();
+    await pumpEventQueue();
+    expect(thread('s1').messages.last.status, MessageStatus.error);
+
+    page([
+      ...history(),
+      messageRow(id: 3, role: 'user', content: 'More'),
+      messageRow(id: 4, role: 'assistant', content: 'Answer'),
+    ]);
+    await reread();
+
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Answer']);
+    expect(
+      thread('s1').messages.where((m) => m.status == MessageStatus.error),
+      isEmpty,
+    );
+  });
+
+  test('a failed turn without a receipt is kept after the page', () async {
+    pageFails();
+    await open();
+    await pumpEventQueue();
+    expect(await chat.submit('More', const []), isTrue);
+    transport.sends.single.fail();
+    await pumpEventQueue();
+
+    page([
+      ...history(),
+      messageRow(id: 3, role: 'user', content: 'More'),
+      messageRow(id: 4, role: 'assistant', content: 'Answer'),
+    ]);
+    await reread();
+
+    final messages = thread('s1').messages;
+    expect(
+      [for (final m in messages.take(4)) m.content],
+      ['Hi', 'Hello', 'More', 'Answer'],
+    );
+    expect(messages, hasLength(6));
+    expect(messages[4].content, 'More');
+    expect(messages.last.status, MessageStatus.error);
+  });
+
+  test('a prompt answered after the first page failed is shown once with its '
+      'receipt', () async {
+    pageFails();
+    await open();
+    await pumpEventQueue();
+    expect(await chat.submit('More', const []), isTrue);
+    final send = transport.sends.single;
+    ack(send, 3);
+    send
       ..emit(const ReplyCompleted('Answer'))
       ..finish();
     await pumpEventQueue();
     expect(contents('s1'), ['More', 'Answer']);
 
-    server.on(
-      'GET',
-      '/api/sessions/s1/messages',
-      messageListBody('s1', [
-        messageRow(id: 1, role: 'user', content: 'Hi'),
-        messageRow(id: 2, role: 'assistant', content: 'Hello'),
-        messageRow(id: 3, role: 'user', content: 'More'),
-        messageRow(id: 4, role: 'assistant', content: 'Answer'),
-      ]),
-    );
-    chat.select('s2');
-    chat.select('s1');
-    await pumpEventQueue();
+    page([
+      ...history(),
+      messageRow(id: 3, role: 'user', content: 'More'),
+      messageRow(id: 4, role: 'assistant', content: 'Answer'),
+    ]);
+    await reread();
 
     expect(contents('s1'), ['Hi', 'Hello', 'More', 'Answer']);
   });
 
-  test(
-    'a turn that failed after the first page failed keeps its prompt',
-    () async {
-      server.on('GET', '/api/sessions/s1/messages', {
-        'detail': 'boom',
-      }, status: 500);
-      await chat.loadThreads();
-      chat.select('s1');
-      await pumpEventQueue();
+  test('a prompt answered after the first page failed is kept after the '
+      'page without a receipt', () async {
+    pageFails();
+    await open();
+    await pumpEventQueue();
+    expect(await chat.submit('More', const []), isTrue);
+    transport.sends.single
+      ..emit(const ReplyCompleted('Answer'))
+      ..finish();
+    await pumpEventQueue();
 
-      expect(await chat.submit('Continue', const []), isTrue);
-      transport.sends.single
-        ..emit(const ReplyCompleted('', failed: true, error: 'boom'))
+    page([
+      ...history(),
+      messageRow(id: 3, role: 'user', content: 'More'),
+      messageRow(id: 4, role: 'assistant', content: 'Answer'),
+    ]);
+    await reread();
+
+    // Hermes may never have taken it: a repeat is shown, not hidden.
+    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Answer', 'More', 'Answer']);
+  });
+
+  test(
+    'a queued prompt that ran while the first page loaded is kept',
+    () async {
+      final gate = Completer<void>();
+      gatePage(gate, history);
+      await open();
+      final first = chat.submit('First', const []);
+      await pumpEventQueue();
+      final queued = chat.submit('Second', const []);
+      await pumpEventQueue();
+      expect(transport.sends, hasLength(1));
+      transport.sends.first
+        ..emit(const ReplyCompleted('One'))
         ..finish();
       await pumpEventQueue();
-      expect(thread('s1').messages.last.status, MessageStatus.error);
+      // The queue waits for the session to settle before it sends.
+      transport.followUpStreams['s1']!.emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+      expect(transport.sends, hasLength(2));
+      transport.sends.last
+        ..emit(const ReplyCompleted('Two'))
+        ..finish();
+      await pumpEventQueue();
+      expect(contents('s1'), ['First', 'One', 'Second', 'Two']);
 
-      // Hermes never stored this prompt; an earlier one has the same words.
-      server.on(
-        'GET',
-        '/api/sessions/s1/messages',
-        messageListBody('s1', [
-          messageRow(id: 1, role: 'user', content: 'Continue'),
-          messageRow(id: 2, role: 'assistant', content: 'Done'),
-        ]),
-      );
-      chat.select('s2');
-      chat.select('s1');
+      gate.complete();
+      await first;
+      await queued;
       await pumpEventQueue();
 
-      final messages = thread('s1').messages;
-      expect(
-        [for (final m in messages.take(3)) m.content],
-        ['Continue', 'Done', 'Continue'],
-      );
-      expect(messages, hasLength(4));
-      expect(messages.last.status, MessageStatus.error);
+      expect(contents('s1'), ['Hi', 'Hello', 'First', 'One', 'Second', 'Two']);
     },
   );
 
-  test('a command run while the first page loads goes after it', () async {
+  test('a command run while the first page loads keeps its lines', () async {
     final gate = Completer<void>();
-    server.onRequest('GET', '/api/sessions/s1/messages', (_) async {
-      await gate.future;
-      return (
-        status: 200,
-        body: messageListBody('s1', [
-          messageRow(id: 1, role: 'user', content: 'Hi'),
-          messageRow(id: 2, role: 'assistant', content: 'Hello'),
-        ]),
-      );
-    });
-    await chat.loadThreads();
-    chat.select('s1');
+    gatePage(gate, history);
+    await open();
 
     final ran = chat.runSlashCommand('/usage');
     await pumpEventQueue();
+    expect(contents('s1'), ['/usage', 'Done']);
     gate.complete();
     expect(await ran, isTrue);
     await pumpEventQueue();
@@ -180,53 +340,101 @@ void main() {
     expect(contents('s1'), ['Hi', 'Hello', '/usage', 'Done']);
   });
 
-  test('a first page that arrives mid-reply is read once it ends', () async {
-    server.on('GET', '/api/sessions/s1/messages', {
-      'detail': 'boom',
-    }, status: 500);
-    await chat.loadThreads();
-    chat.select('s1');
+  test('a prompt sent into a chat stays in it when another is opened while '
+      'its page loads', () async {
+    final gate = Completer<void>();
+    gatePage(gate, history);
+    page([], id: 's2');
+    await open();
+    final sent = chat.submit('More', const []);
     await pumpEventQueue();
-    expect(await chat.submit('More', const []), isTrue);
 
-    server.on(
-      'GET',
-      '/api/sessions/s1/messages',
-      messageListBody('s1', [
-        messageRow(id: 1, role: 'user', content: 'Hi'),
-        messageRow(id: 2, role: 'assistant', content: 'Hello'),
-        messageRow(id: 3, role: 'user', content: 'More'),
-        messageRow(id: 4, role: 'assistant', content: 'Answer'),
-      ]),
-    );
     chat.select('s2');
-    chat.select('s1');
     await pumpEventQueue();
-    expect(contents('s1'), ['More', '']);
+    gate.complete();
+    await sent;
+    await pumpEventQueue();
 
-    transport.sends.single
-      ..emit(const ReplyCompleted('Answer'))
+    expect(contents('s1'), ['Hi', 'Hello', 'More', '']);
+    expect(contents('s2'), isEmpty);
+    expect(transport.sends.single.threadId, 's1');
+  });
+
+  test('turns from another device go after the matched turn and before later '
+      'ones', () async {
+    final gate = Completer<void>();
+    gatePage(
+      gate,
+      () => [
+        ...history(),
+        messageRow(id: 3, role: 'user', content: 'More'),
+        messageRow(id: 4, role: 'assistant', content: 'Mine'),
+        messageRow(id: 5, role: 'user', content: 'Elsewhere'),
+        messageRow(id: 6, role: 'assistant', content: 'Theirs'),
+      ],
+    );
+    await open();
+    final first = chat.submit('More', const []);
+    await pumpEventQueue();
+    ack(transport.sends.first, 3);
+    transport.sends.first
+      ..emit(const ReplyCompleted('Mine'))
+      ..finish();
+    await pumpEventQueue();
+    final second = chat.submit('Later', const []);
+    await pumpEventQueue();
+    transport.sends.last
+      ..emit(const ReplyCompleted('Later answer'))
       ..finish();
     await pumpEventQueue();
 
-    expect(contents('s1'), ['Hi', 'Hello', 'More', 'Answer']);
+    gate.complete();
+    await first;
+    await second;
+    await pumpEventQueue();
+
+    expect(contents('s1'), [
+      'Hi',
+      'Hello',
+      'More',
+      'Mine',
+      'Elsewhere',
+      'Theirs',
+      'Later',
+      'Later answer',
+    ]);
+    expect(thread('s1').messages.map((m) => m.id).toSet(), hasLength(8));
   });
 
-  test('a profile switch while the first page loads drops the send', () async {
+  testWidgets('a Live Activity starts on the tap, before the page arrives', (
+    tester,
+  ) async {
+    final service = FakeLiveActivityService();
+    final settings = NotificationSettings();
+    await tester.runAsync(settings.load);
+    final activities = LiveActivities(service: service, settings: settings);
     final gate = Completer<void>();
-    server.onRequest('GET', '/api/sessions/s1/messages', (_) async {
-      await gate.future;
-      return (status: 200, body: messageListBody('s1', []));
+    gatePage(gate, history);
+    final live = ChatController(
+      repository: HermesChatRepository(server.client().raw),
+      transport: transport,
+      attention: attention,
+      liveActivities: activities,
+      report: (_) {},
+    );
+    addTearDown(activities.dispose);
+    await tester.runAsync(live.loadThreads);
+    live.select('s1');
+    live.submit('Any news?', const []);
+    await tester.pump();
+
+    expect(service.running, hasLength(1));
+    await tester.runAsync(() async {
+      gate.complete();
+      await pumpEventQueue();
     });
-    await chat.loadThreads();
-    chat.select('s1');
-
-    final sent = chat.submit('More', const []);
-    await chat.loadThreads('work');
-    gate.complete();
-
-    expect(await sent, isFalse);
-    expect(transport.sends, isEmpty);
+    live.dispose();
+    await tester.pump(const Duration(minutes: 5));
   });
 
   test(
@@ -275,4 +483,34 @@ void main() {
       expect(chat.hasOlder('s1'), isTrue);
     },
   );
+}
+
+/// A transport that owns every session, so prompt receipts are accepted.
+class _OwnedTransport extends FakeChatTransport
+    implements OwnedSessionTransport {
+  final binding = OwnedSessionBinding(
+    connection: Object(),
+    runtimeId: 'rt',
+    profile: 'work',
+  );
+  final _changes = StreamController<OwnedSessionChange>.broadcast(sync: true);
+
+  @override
+  Stream<OwnedSessionChange> get ownedSessions => _changes.stream;
+
+  @override
+  OwnedSessionBinding? ownedSessionFor(String threadId, {String? profile}) =>
+      profile == binding.profile ? binding : null;
+
+  @override
+  Future<Map<String, Object?>> readOwnedSession(
+    OwnedSessionBinding binding,
+    String method,
+  ) async => throw UnsupportedError(method);
+
+  @override
+  Future<void> close() async {
+    await _changes.close();
+    await super.close();
+  }
 }
