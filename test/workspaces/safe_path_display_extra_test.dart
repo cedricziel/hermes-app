@@ -5,6 +5,7 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/files/widgets/file_path_bar.dart';
+import 'package:hermes_app/src/files/widgets/files_activity_row.dart';
 import 'package:hermes_app/src/files/widgets/file_row.dart';
 import 'package:hermes_app/src/files/widgets/files_questions.dart';
 import 'package:hermes_app/src/files/widgets/middle_ellipsis.dart';
@@ -23,11 +24,11 @@ import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
 
 final _rlo = String.fromCharCode(0x202E);
-const _placeholder = r'⟨U\+[0-9A-F]{4,6}⟩';
+const _placeholder = r'<U\+[0-9A-F]{4,6}>';
 
-/// No `⟨` without its whole placeholder after it.
+/// No `<` without its whole placeholder after it.
 void _expectWholePlaceholders(String text) {
-  final opens = '⟨'.allMatches(text).length;
+  final opens = '<'.allMatches(text).length;
   final whole = RegExp(_placeholder).allMatches(text).length;
   expect(whole, opens, reason: text);
 }
@@ -55,7 +56,7 @@ void main() {
       final hex = code.toRadixString(16).toUpperCase().padLeft(4, '0');
       expect(
         safePathText('a${String.fromCharCode(code)}b'),
-        'a⟨U+$hex⟩b',
+        'a<U+$hex>b',
         reason: hex,
       );
     }
@@ -152,6 +153,17 @@ void main() {
     );
     await tester.tap(find.text('ask'));
     await tester.pumpAndSettle();
+    expect(find.textContaining('U+202E'), findsOneWidget);
+    expect(find.textContaining(_rlo), findsNothing);
+  });
+
+  testWidgets('the Activity panel Files row shows the folder safely', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(FilesActivityRow(folderName: 'a${_rlo}b', onTap: () {})),
+    );
+
     expect(find.textContaining('U+202E'), findsOneWidget);
     expect(find.textContaining(_rlo), findsNothing);
   });

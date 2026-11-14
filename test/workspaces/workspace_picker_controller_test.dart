@@ -99,6 +99,7 @@ void main() {
     String? current,
     String? picked,
     bool awaitCatalog = true,
+    Duration wait = _wait,
   }) {
     picker = WorkspacePickerController(
       repository: repository,
@@ -106,7 +107,7 @@ void main() {
       profile: 'work',
       current: current,
       picked: picked,
-      wait: _wait,
+      wait: wait,
       debounce: const Duration(milliseconds: 5),
       telemetry: WorkspaceTelemetry(
         const ConnectionTelemetry(),
@@ -164,12 +165,14 @@ void main() {
     test('is loading, then ready, with the server default first', () async {
       final gate = Completer<FakeResponse>();
       catalog = () => gate.future;
-      open();
+      // No stall timer here: this test is about the answer, and a slow
+      // first request must not turn it into a stall.
+      open(wait: const Duration(seconds: 30));
       expect(picker.status, WorkspacePickerStatus.loading);
       expect(picker.serverDefault, isNull);
 
       gate.complete(ok(_catalogBody));
-      await settle();
+      await settle(200);
 
       expect(picker.status, WorkspacePickerStatus.ready);
       expect(picker.serverDefault?.path, '/home/me');

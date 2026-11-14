@@ -97,7 +97,7 @@ FilesPreviewModel previewModelOf(
   FilesPlatformActions actions = const FilesPlatformActions.none(),
 }) {
   final entry = controller.selected;
-  final name = entry?.path.name ?? '';
+  final name = safePathText(entry?.path.name ?? '');
   switch (controller.preview) {
     case PreviewIdle():
       return const FilesPreviewEmpty();

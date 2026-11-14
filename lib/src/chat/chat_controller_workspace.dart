@@ -23,6 +23,10 @@ class _WorkspaceData {
   /// connection.
   var moveUnsupported = false;
 
+  /// Chats (profile, stored id) a slash command is running in: a move waits
+  /// for it, as it does for a reply.
+  final slashRunning = <(String, String)>{};
+
   /// Counts the times everything was dropped, for a picker or confirmation
   /// that must close when it changes.
   var epoch = 0;
@@ -247,6 +251,7 @@ extension _ChatControllerWorkspace on ChatController {
       ..projects.clear()
       ..mismatches.clear()
       ..moves.clear()
+      ..slashRunning.clear()
       ..moveUnsupported = false
       ..clearLoaders();
   }
@@ -301,6 +306,9 @@ extension _ChatControllerWorkspace on ChatController {
             actions.checkpoints?.restoring == true ||
             actions.context?.compressing == true)) {
       return WorkspaceMoveBlock.restoring;
+    }
+    if (_workspace.slashRunning.contains(_moveKey(thread))) {
+      return WorkspaceMoveBlock.replying;
     }
     if (_moveStateImpl(thread).inFlight) return WorkspaceMoveBlock.moving;
     if (path != null && !isServerPath(path)) {

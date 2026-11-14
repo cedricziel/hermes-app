@@ -166,6 +166,23 @@ class _PathEntryViewState extends State<PathEntryView> {
         : info == null
         ? null
         : Semantics(liveRegion: true, child: Text(info));
+    // The field holds what was typed or pasted; hidden or direction-changing
+    // characters would reorder it, so the path is also shown escaped.
+    final unsafe = safePathText(widget.text) != widget.text;
+    final Widget? fieldHelper = !unsafe
+        ? helper
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ?helper,
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  l10n.workspacesTypeEscaped(safePathText(widget.text)),
+                ),
+              ),
+            ],
+          );
     final field = Padding(
       padding: const EdgeInsets.only(top: 12),
       child: TextField(
@@ -188,7 +205,7 @@ class _PathEntryViewState extends State<PathEntryView> {
           hintText: l10n.workspacesTypeHint,
           hintStyle: TextStyle(fontFamily: kServerPathFont, color: muted),
           border: const OutlineInputBorder(),
-          helper: helper,
+          helper: fieldHelper,
           helperMaxLines: 6,
           error: error == null
               ? null

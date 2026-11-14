@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../files/widgets/safe_path_text.dart';
 
@@ -178,11 +181,27 @@ class WorkingDirectoryDetails extends StatelessWidget {
               ),
               _DetailRow(
                 label: l10n.workspacesDetailsPath,
-                child: ServerPathText.text(
-                  path,
-                  wrap: true,
-                  selectable: mac,
-                  style: TextStyle(fontSize: metrics.subtitleSize),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ServerPathText.text(
+                      path,
+                      wrap: true,
+                      selectable: mac,
+                      style: TextStyle(fontSize: metrics.subtitleSize),
+                    ),
+                    // A path that shows a placeholder cannot be selected;
+                    // this copies the original.
+                    if (safePathText(path) != path)
+                      TextButton(
+                        key: const Key('working-directory-copy-path'),
+                        onPressed: () => unawaited(
+                          Clipboard.setData(ClipboardData(text: path)),
+                        ),
+                        style: files.buttonStyle(),
+                        child: Text(l10n.filesActionCopyPath),
+                      ),
+                  ],
                 ),
               ),
               if (branch != null && branch!.isNotEmpty)

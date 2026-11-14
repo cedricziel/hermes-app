@@ -434,7 +434,7 @@ Paths, folder names, project names and branches SHALL be held in memory only: ne
 #### Scenario: A name that reorders or hides text
 
 - **WHEN** a folder, project or branch name (or a path) holds a bidi control, a C0/C1 control (CR, LF, ESC), U+2028, U+2029, U+200B, U+2060 to U+2064, U+206A to U+206F or U+FEFF
-- **THEN** every view that shows it, its tooltip and its semantics label draw each such character as a visible placeholder (`⟨U+202E⟩`), shortening never splits a placeholder, U+200C and U+200D are left as they are, and the path that is sent or stored is the original string
+- **THEN** every view that shows it, its tooltip and its semantics label draw each such character as a visible placeholder (`<U+202E>`), shortening never splits a placeholder, U+200C and U+200D are left as they are, and the path that is sent or stored is the original string
 
 #### Scenario: Sign-out
 

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart'
     show WorkspaceMoveBlock;
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
@@ -1156,6 +1157,75 @@ void main() {
     });
 
     test(
+      'a move in flight blocks slash commands, Retry, Edit and Branch',
+      () async {
+        final answer = Completer<Map<String, Object?>>();
+        chat.dispose();
+        moves = [];
+        chat = ChatController(
+          repository: HermesChatRepository(server.client().raw),
+          transport: source,
+          workspaces: HermesWorkspacesRepository(server.client().raw, (
+            method,
+            params, {
+            required timeout,
+          }) {
+            moves.add(method);
+            return answer.future;
+          }),
+          attention: attention,
+          appLock: lock,
+          report: (_) {},
+        );
+        final opened = await open();
+        source.own('stored-1');
+
+        expect(chat.canEditLastPrompt(opened), isTrue);
+        expect(chat.canBranch(opened), isTrue);
+        final move = chat.moveWorkspace(opened, '/srv/other');
+        await pumpEventQueue();
+
+        expect(await chat.runSlashCommand('/compress'), isFalse);
+        expect(source.slashRuns, isEmpty);
+        expect(chat.canEditLastPrompt(opened), isFalse);
+        expect(chat.canBranch(opened), isFalse);
+        await chat.retry(opened);
+        expect(source.undos, isEmpty);
+
+        answer.complete({'cwd': '/srv/other'});
+        await move;
+        await pumpEventQueue();
+        expect(chat.canEditLastPrompt(opened), isTrue);
+        expect(await chat.runSlashCommand('/help'), isTrue);
+      },
+    );
+
+    test('a slash command that runs makes a move wait, and nothing is '
+        'sent', () async {
+      withMoves();
+      final opened = await open();
+      source.own('stored-1');
+      source.slashGate = Completer<SlashCommandResult>();
+
+      final running = chat.runSlashCommand('/compress');
+      await pumpEventQueue();
+
+      expect(chat.workspaceMoveBlock(opened), WorkspaceMoveBlock.replying);
+      expect(
+        await chat.moveWorkspace(opened, '/srv/other'),
+        WorkspaceMoveBlock.replying,
+      );
+      expect(moves, isEmpty);
+
+      source.slashGate!.complete(
+        const SlashCommandResult(threadId: 'stored-1', output: 'Done'),
+      );
+      await running;
+      await pumpEventQueue();
+      expect(chat.workspaceMoveBlock(opened), isNull);
+    });
+
+    test(
       'a move in flight blocks a restore and a compress from starting',
       () async {
         withMoves();
@@ -1195,7 +1265,7 @@ void main() {
         expect(moves, ['session.workspace.move']);
         expect(checkpoints2.restoreRefusal(), RestoreRefusal.folderMoving);
         expect(checkpoints2.beginRestore(_hash), isNull);
-        expect(context2.compressRefusal, CompressRefusal.replying);
+        expect(context2.compressRefusal, CompressRefusal.folderMoving);
         expect(context2.beginCompress(), isNull);
         expect(source.fake.restoreRequests, isEmpty);
         expect(source.fake.compressRequests, isEmpty);

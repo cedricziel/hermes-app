@@ -1427,6 +1427,10 @@
   "@chatContextPageCompressDisconnected": {
     "description": "Caption under the disabled Compress conversation button while the connection is lost."
   },
+  "chatContextPageCompressFolderMoving": "Wait until the folder change is done.",
+  "@chatContextPageCompressFolderMoving": {
+    "description": "Caption under the disabled Compress conversation button while the chat's working folder is being changed."
+  },
   "chatContextPageCompressReplying": "Wait for the reply to finish.",
   "@chatContextPageCompressReplying": {
     "description": "Caption under the disabled Compress conversation button while the chat replies."
@@ -7153,6 +7157,15 @@
   "workspacesTypeCouldntCheck": "Couldn't check this folder.",
   "@workspacesTypeCouldntCheck": {
     "description": "Error under the Type a path field when the check had no answer for 10 seconds."
+  },
+  "workspacesTypeEscaped": "The path has hidden characters: {path}",
+  "@workspacesTypeEscaped": {
+    "description": "Note under the Type a path field when the typed or pasted path holds invisible or direction-changing characters, with the path shown so that they are visible.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   },
   "workspacesTypeFound": "Folder found.",
   "@workspacesTypeFound": {

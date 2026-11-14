@@ -265,6 +265,7 @@ void main() {
       ('android', phoneSize, TargetPlatform.android, 'Change folder'),
       ('desktop', desktopSize, TargetPlatform.windows, 'Change folder'),
       ('mac', desktopSize, TargetPlatform.macOS, 'Change folder'),
+      if (!dark) ('ios', phoneSize, TargetPlatform.iOS, 'Change folder'),
       if (!dark)
         ('ipad', const Size(820, 1180), TargetPlatform.iOS, 'Change folder'),
     ]) {
@@ -421,4 +422,42 @@ void main() {
       expect(find.text('field-notes'), findsWidgets);
     });
   }
+
+  testWidgets('a path with a bidi control, typed, confirmed and moved: shown '
+      'safely, sent as typed', (tester) async {
+    final rlo = String.fromCharCode(0x202E);
+    final typed = '/srv/${rlo}evil/gpj.exe';
+    final shots = ScreenshotRecorder('working-directory-android-bidi');
+    await pumpChat(tester, shots, size: phoneSize);
+    await tester.tap(find.byKey(const ValueKey('thread-s1')));
+    await tester.pumpAndSettle();
+    await idle(tester);
+    await openDetails(tester);
+    await tester.tap(find.byKey(const Key('working-directory-change')));
+    await idle(tester);
+    await tester.tap(find.byKey(const Key('workspace-picker-type')));
+    await idle(tester);
+    await tester.enterText(find.byType(TextField).last, typed);
+    await idle(tester);
+    await shots.capture(tester, 'type');
+    await tester.tap(find.text('Use this folder'));
+    await idle(tester);
+    await shots.capture(tester, 'confirm');
+    final dialog = find.byType(AlertDialog);
+    expect(
+      find.descendant(of: dialog, matching: find.textContaining('U+202E')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.textContaining(rlo)),
+      findsNothing,
+    );
+    await tester.tap(find.text('Change folder'));
+    await idle(tester);
+    await shots.capture(tester, 'moved');
+
+    final moves = rpcCalls.where((c) => c.$1 == 'session.workspace.move');
+    expect(moves, hasLength(1));
+    expect(moves.single.$2['cwd'], typed);
+  });
 }

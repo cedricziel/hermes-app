@@ -2,7 +2,7 @@ import 'package:characters/characters.dart';
 
 /// [text] made safe to show: a character that changes how text reads or that
 /// the terminal and the screen treat as a command is drawn as a visible
-/// placeholder, `⟨U+202E⟩`, never dropped and never obeyed.
+/// placeholder, `<U+202E>`, never dropped and never obeyed.
 ///
 /// This is for what a person looks at when deciding where an agent acts: a
 /// folder name with U+202E (right-to-left override) would otherwise show its
@@ -20,7 +20,7 @@ String safePathText(String text) {
     if (_unsafe(rune)) {
       changed = true;
       final hex = rune.toRadixString(16).toUpperCase().padLeft(4, '0');
-      out.write('⟨U+$hex⟩');
+      out.write('<U+$hex>');
     } else {
       out.writeCharCode(rune);
     }
@@ -48,17 +48,17 @@ bool _unsafe(int rune) =>
     (rune >= 0x206A && rune <= 0x206F) ||
     rune == 0xFEFF;
 
-final _placeholder = RegExp(r'^\u27E8U\+[0-9A-F]{4,6}\u27E9$');
+final _placeholder = RegExp(r'^<U\+[0-9A-F]{4,6}>$');
 
 /// [text] as the units a shortened display may cut between: every grapheme
 /// cluster, except that a placeholder from [safePathText] is one unit, so a
-/// cut never leaves `⟨U+20…`.
+/// cut never leaves `<U+20…`.
 List<String> safeTextUnits(String text) {
   final chars = text.characters.toList();
   final units = <String>[];
   for (var i = 0; i < chars.length; i++) {
-    if (chars[i] == '\u27E8') {
-      final end = chars.indexOf('\u27E9', i);
+    if (chars[i] == '<') {
+      final end = chars.indexOf('>', i);
       if (end > i && end - i <= 8) {
         final candidate = chars.sublist(i, end + 1).join();
         if (_placeholder.hasMatch(candidate)) {

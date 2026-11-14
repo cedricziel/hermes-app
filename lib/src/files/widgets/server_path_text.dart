@@ -180,6 +180,10 @@ class ServerPathText extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final path = safePathText(this.path);
+    // A path that shows a placeholder is never offered for selection: ⌘C
+    // would copy the escaped display string. The screen offers an explicit
+    // copy of the original instead.
+    final selectable = this.selectable && path == this.path;
     final large = isLargeText(context);
     // A selectable path shows in full: a shortened one cannot be selected.
     final wrapped = wrap ?? (large || selectable);

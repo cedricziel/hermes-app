@@ -25,12 +25,12 @@ Widget _app(Widget child) => MaterialApp(
 void main() {
   group('safePathText', () {
     test('shows each control as a marked placeholder and drops nothing', () {
-      expect(safePathText(_bidi), '/srv/⟨U+202E⟩evil/gpj.exe');
-      expect(safePathText(_isolate), '/srv/⟨U+2066⟩hidden/app');
-      expect(safePathText(_crlf), '/srv/a⟨U+000D⟩⟨U+000A⟩b');
-      expect(safePathText(_esc), '/srv/⟨U+001B⟩[2Jx');
+      expect(safePathText(_bidi), '/srv/<U+202E>evil/gpj.exe');
+      expect(safePathText(_isolate), '/srv/<U+2066>hidden/app');
+      expect(safePathText(_crlf), '/srv/a<U+000D><U+000A>b');
+      expect(safePathText(_esc), '/srv/<U+001B>[2Jx');
       expect(safePathText('a\u0085b\u007Fc؜d‏e'), contains('U+0085'));
-      expect(safePathText('a\u007Fb'), 'a⟨U+007F⟩b');
+      expect(safePathText('a\u007Fb'), 'a<U+007F>b');
     });
 
     test('leaves ordinary text, tabs and non-Latin names alone', () {
@@ -45,10 +45,10 @@ void main() {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(_app(const ServerPathText.text(_bidi)));
 
-    expect(find.textContaining('⟨U+202E⟩', findRichText: true), findsOneWidget);
+    expect(find.textContaining('<U+202E>', findRichText: true), findsOneWidget);
     expect(find.textContaining('\u202E', findRichText: true), findsNothing);
     final labels = tester.getSemantics(find.byType(ServerPathText)).label;
-    expect(labels, contains('⟨U+202E⟩'));
+    expect(labels, contains('<U+202E>'));
     expect(labels, isNot(contains('\u202E')));
     handle.dispose();
   });
@@ -84,12 +84,12 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('⟨U+202E⟩'), findsWidgets);
+    expect(find.textContaining('<U+202E>'), findsWidgets);
     expect(find.textContaining('\u202E'), findsNothing);
   });
 
   test('a folder label shows it, and the move sends the original', () async {
-    expect(folderLabelFor(_bidi), '/srv/⟨U+202E⟩evil/gpj.exe'.split('/').last);
+    expect(folderLabelFor(_bidi), '/srv/<U+202E>evil/gpj.exe'.split('/').last);
     final sent = <Map<String, Object?>>[];
     final repository = HermesWorkspacesRepository(
       FakeHermesServer().client().raw,

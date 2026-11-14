@@ -1700,8 +1700,25 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Runs a gateway command without putting it through prompt.submit or the
   /// reply queue. Display-only command output stays in this visit's chat.
-  Future<bool> runSlashCommand(String command) =>
-      _ChatControllerCommands(this)._runSlashCommandImpl(command);
+  Future<bool> runSlashCommand(String command) async {
+    final selected = selectedThread;
+    // Hermes lets a live agent follow a folder move: no command (a /compress
+    // rewrites the chat) goes to a chat while its move is being settled.
+    if (_ChatControllerWorkspace(this)._moveHolds(selected)) return false;
+    // A command that runs makes a move wait, as a reply does.
+    final key = selected != null && selected.remote
+        ? _ChatControllerWorkspace(this)._moveKey(selected)
+        : null;
+    if (key != null) _workspace.slashRunning.add(key);
+    try {
+      return await _ChatControllerCommands(this)._runSlashCommandImpl(command);
+    } finally {
+      if (key != null) {
+        _workspace.slashRunning.remove(key);
+        if (!disposed) notifyListeners();
+      }
+    }
+  }
 
   /// The text of the last prompt of [thread], or null when it had none (it
   /// was only files) or there is no prompt.
