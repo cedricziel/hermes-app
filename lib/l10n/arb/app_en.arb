@@ -6680,6 +6680,10 @@
   "@voiceCallHintSpeakingTalk": {
     "description": "Hint while Hermes speaks, on phones where speaking over the reply interrupts it. The orb is the round button in the middle of the screen."
   },
+  "voiceCallHintSpeakingTalkOnly": "Just talk to interrupt.",
+  "@voiceCallHintSpeakingTalkOnly": {
+    "description": "Hint while Hermes speaks when speaking over the reply interrupts it but the orb is not tappable."
+  },
   "voiceCallHintSpeakingTap": "Tap the orb to interrupt.",
   "@voiceCallHintSpeakingTap": {
     "description": "Hint while Hermes speaks, where only a tap interrupts. The orb is the round button in the middle of the screen."
@@ -6691,6 +6695,10 @@
   "voiceCallHintWaiting": "Hermes needs your answer (an approval or a question). Answer in the chat. Capture is paused; speaking does nothing.",
   "@voiceCallHintWaiting": {
     "description": "Hint under the state word while Hermes waits for an approval or an answer that is given in the chat."
+  },
+  "voiceCallHintWaitingNeutral": "Hermes needs your input in chat.",
+  "@voiceCallHintWaitingNeutral": {
+    "description": "Hint under the state word while Hermes waits for an answer in the chat and the microphone stays open."
   },
   "voiceCallMute": "Mute",
   "@voiceCallMute": {
@@ -6715,6 +6723,10 @@
   "voiceCallStateEnded": "Call ended",
   "@voiceCallStateEnded": {
     "description": "State word under the orb after the user ended the call."
+  },
+  "voiceCallStateInterrupted": "Call interrupted",
+  "@voiceCallStateInterrupted": {
+    "description": "State word under the orb after the call failed or was interrupted."
   },
   "voiceCallStateListening": "Listening",
   "@voiceCallStateListening": {
