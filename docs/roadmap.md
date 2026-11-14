@@ -53,7 +53,7 @@ Started 14 November 2026 from a full review of the app: structure, practice, bug
 | 3.1  | Split `HermesGatewayTransport` (about 3,150 lines) into connection and replay, turn lifecycle, and side requests, with no behaviour change and the existing tests untouched | queued |
 | 3.2  | Typed gateway bindings generated from `openrpc/hermes-gateway.openrpc.json`, replacing the 51 method names written as string literals across `lib/`                                                          | queued |
 | 3.3  | Composition root: group the 35 providers in `main.dart` by concern; move watchers and prompts out of `AppShell` into owners of their own                                    | queued |
-| 3.4  | Localization: `flutter gen-l10n` set up, every user-visible string extracted to English resources, German added as the first translation                                    | open #919 (scaffold and settings; the other areas follow) |
+| 3.4  | Localization: `flutter gen-l10n` set up, every user-visible string extracted to English resources, German added as the first translation                                    | queued |
 
 **Release R2** is cut when wave 3 is merged.
 

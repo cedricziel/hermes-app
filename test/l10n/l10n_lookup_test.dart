@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 
@@ -33,4 +33,25 @@ void main() {
       expect(l10nForPlatformLocale().localeName, 'en');
     });
   });
+
+  testWidgets(
+    'context.l10n under a MaterialApp without the delegate is English',
+    (tester) async {
+      late AppLocalizations l10n;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('de'),
+          home: Builder(
+            builder: (context) {
+              l10n = context.l10n;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+
+      expect(l10n.localeName, 'en');
+      expect(l10n.settingsTitle, 'Settings');
+    },
+  );
 }

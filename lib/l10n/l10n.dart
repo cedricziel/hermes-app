@@ -27,7 +27,7 @@ extension AppLocalizationsContext on BuildContext {
     if (kDebugMode && !_reportedFallback && !_inTest) {
       _reportedFallback = true;
       debugPrint(
-        'context.l10n: no AppLocalizations delegate above $widget; '
+        'context.l10n: no AppLocalizations delegate above ${widget.runtimeType}; '
         'showing English. Add AppLocalizations.localizationsDelegates to '
         'its MaterialApp.',
       );
