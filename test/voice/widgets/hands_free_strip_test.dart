@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/voice/widgets/hands_free_strip.dart';
 
 import 'voice_call_widgets_support.dart';
@@ -92,7 +95,9 @@ void main() {
     }
   });
 
-  testWidgets('stays one line at 1.5x text on a phone', (tester) async {
+  testWidgets('wraps at most to a few lines at 1.5x text on a phone', (
+    tester,
+  ) async {
     await pumpVoice(
       tester,
       Align(
@@ -106,6 +111,70 @@ void main() {
       size: const Size(360, 700),
     );
     expect(tester.takeException(), isNull);
-    expect(tester.getSize(find.byType(HandsFreeStrip)).height, lessThan(60));
+    expect(tester.getSize(find.byType(HandsFreeStrip)).height, lessThan(140));
+  });
+
+  testWidgets('each state has its own glyph, also without the second half', (
+    tester,
+  ) async {
+    await pumpVoice(
+      tester,
+      const HandsFreeStrip(microphone: HandsFreeMicrophone.muted),
+      scale: 2,
+    );
+    expect(find.byIcon(AppIcons.micOff.material), findsOneWidget);
+    await pumpVoice(
+      tester,
+      const HandsFreeStrip(microphone: HandsFreeMicrophone.paused),
+      scale: 2,
+    );
+    expect(find.byIcon(AppIcons.pause.material), findsOneWidget);
+  });
+
+  testWidgets('German states wrap instead of cutting words at 390 pt', (
+    tester,
+  ) async {
+    for (final mic in HandsFreeMicrophone.values) {
+      tester.view
+        ..physicalSize = const Size(390, 844)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('de'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: HandsFreeStrip(microphone: mic, onEnd: () {}),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      final text = tester.widget<RichText>(
+        find
+            .descendant(
+              of: find.byType(HandsFreeStrip),
+              matching: find.byType(RichText),
+            )
+            .first,
+      );
+      expect(text.overflow, isNot(TextOverflow.ellipsis));
+      final render = tester.renderObject<RenderParagraph>(
+        find
+            .descendant(
+              of: find.byType(HandsFreeStrip),
+              matching: find.byType(RichText),
+            )
+            .first,
+      );
+      expect(render.didExceedMaxLines, isFalse);
+      expect(
+        find.textContaining('Freihändig an', findRichText: true),
+        findsOneWidget,
+      );
+    }
   });
 }

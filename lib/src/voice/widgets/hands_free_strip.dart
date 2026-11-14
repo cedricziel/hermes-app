@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../theme/app_icons.dart';
 
 /// What the microphone is doing while a hands-free call runs.
 enum HandsFreeMicrophone { open, paused, muted, opening }
 
 /// The pill that keeps a running microphone in sight: a dot, "Hands-free on"
 /// and, after a middle dot, what the microphone is doing. The words carry the
-/// state; the dot only backs them up (a filled recording dot when open, a grey
-/// one when muted, a hollow one while paused or opening).
+/// state; the dot only backs them up (a filled recording dot when open, a pause mark
+/// while paused, a slashed microphone when muted, a hollow ring while opening).
 ///
 /// [onEnd] is the End action; null hides it, for a place where the call
 /// screen already has End. At large text sizes the second half is dropped so
@@ -74,8 +75,6 @@ class HandsFreeStrip extends StatelessWidget {
                             ],
                           ),
                           style: style,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -112,6 +111,10 @@ class HandsFreeStrip extends StatelessWidget {
   }
 }
 
+/// The glyph before the words. Its shape differs by state, so the state
+/// survives when the second half of the pill is dropped: a filled recording
+/// dot when open, a pause mark while paused, a slashed microphone when muted
+/// and a hollow ring while opening.
 class _Dot extends StatelessWidget {
   const _Dot(this.microphone, this.colors);
   final HandsFreeMicrophone microphone;
@@ -119,26 +122,39 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const size = 10.0;
-    return switch (microphone) {
-      HandsFreeMicrophone.open => DecoratedBox(
-        decoration: BoxDecoration(shape: BoxShape.circle, color: colors.error),
-        child: const SizedBox.square(dimension: size),
-      ),
-      HandsFreeMicrophone.muted => DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
+    const size = 14.0;
+    return SizedBox.square(
+      dimension: size,
+      child: switch (microphone) {
+        HandsFreeMicrophone.open => Center(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.error,
+            ),
+            child: const SizedBox.square(dimension: 10),
+          ),
+        ),
+        HandsFreeMicrophone.muted => Icon(
+          AppIcons.micOff.of(context),
+          size: size,
           color: colors.onSurfaceVariant,
         ),
-        child: const SizedBox.square(dimension: size),
-      ),
-      HandsFreeMicrophone.paused || HandsFreeMicrophone.opening => DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: colors.onSurfaceVariant, width: 2),
+        HandsFreeMicrophone.paused => Icon(
+          AppIcons.pause.of(context),
+          size: size,
+          color: colors.onSurfaceVariant,
         ),
-        child: const SizedBox.square(dimension: size),
-      ),
-    };
+        HandsFreeMicrophone.opening => Center(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: colors.onSurfaceVariant, width: 2),
+            ),
+            child: const SizedBox.square(dimension: 10),
+          ),
+        ),
+      },
+    );
   }
 }

@@ -43,6 +43,8 @@ class VoiceCallView extends StatelessWidget {
     this.endedByUser = false,
     this.onStartNew,
     this.footer = VoiceCallFooter.none,
+    this.capturePaused = false,
+    this.stoppedWord = false,
   });
   final CallPhase phase;
   final Duration elapsed;
@@ -84,6 +86,15 @@ class VoiceCallView extends StatelessWidget {
   final VoidCallback? onStartNew;
   final VoiceCallFooter footer;
 
+  /// Waiting for you pauses the microphone, so speaking does nothing. Only a
+  /// call that really pauses capture sets this; otherwise the hint stays
+  /// neutral.
+  final bool capturePaused;
+
+  /// Says "Stopped" instead of "Call ended" or "Call interrupted", as the
+  /// design does for the new stop reasons.
+  final bool stoppedWord;
+
   VoiceOrbState _orb(bool ended) {
     if (ended) return VoiceOrbState.stopped;
     if (sending) return VoiceOrbState.sending;
@@ -114,7 +125,11 @@ class VoiceCallView extends StatelessWidget {
       VoiceOrbState.speaking => l10n.voiceCallStateSpeaking,
       VoiceOrbState.waiting => l10n.voiceCallStateWaiting,
       VoiceOrbState.stopped =>
-        endedByUser ? l10n.voiceCallStateEnded : l10n.voiceCallStateStopped,
+        stoppedWord
+            ? l10n.voiceCallStateStopped
+            : phase == CallPhase.failed
+            ? l10n.voiceCallStateInterrupted
+            : l10n.voiceCallStateEnded,
     };
     final hint = switch (orb) {
       VoiceOrbState.connecting || VoiceOrbState.stopped => null,
@@ -123,11 +138,17 @@ class VoiceCallView extends StatelessWidget {
       VoiceOrbState.sending => l10n.voiceCallHintSending,
       VoiceOrbState.thinking => l10n.voiceCallHintThinking,
       VoiceOrbState.speaking => switch (speakingHint) {
-        VoiceSpeakingHint.tapOrTalk => l10n.voiceCallHintSpeakingTalk,
+        VoiceSpeakingHint.tapOrTalk =>
+          onInterrupt != null
+              ? l10n.voiceCallHintSpeakingTalk
+              : l10n.voiceCallHintSpeakingTalkOnly,
         VoiceSpeakingHint.tapOnly => l10n.voiceCallHintSpeakingTap,
         VoiceSpeakingHint.micPaused => l10n.voiceCallHintSpeakingPaused,
       },
-      VoiceOrbState.waiting => l10n.voiceCallHintWaiting,
+      VoiceOrbState.waiting =>
+        capturePaused
+            ? l10n.voiceCallHintWaiting
+            : l10n.voiceCallHintWaitingNeutral,
     };
     final time =
         '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
@@ -198,7 +219,11 @@ class VoiceCallView extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 5,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyLarge,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontStyle: orb == VoiceOrbState.sending
+                          ? FontStyle.italic
+                          : null,
+                    ),
                   ),
                 ],
                 if (notice != null) ...[const SizedBox(height: 16), notice!],
@@ -298,14 +323,8 @@ class _Control extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final background = filled
         ? colors.inverseSurface
-        : selected
-        ? colors.primaryContainer
         : colors.surfaceContainerHighest;
-    final foreground = filled
-        ? colors.onInverseSurface
-        : selected
-        ? colors.onPrimaryContainer
-        : colors.onSurface;
+    final foreground = filled ? colors.onInverseSurface : colors.onSurface;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -314,6 +333,10 @@ class _Control extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              // A selected toggle is ringed, so End stays the only solid one.
+              border: selected && !filled
+                  ? Border.all(color: colors.onSurface, width: 2)
+                  : null,
               color: onPressed == null
                   ? colors.surfaceContainerHighest
                   : background,

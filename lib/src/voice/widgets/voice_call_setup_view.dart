@@ -8,15 +8,14 @@ import 'voice_consent_row.dart';
 
 /// Plain readiness state and explicit actions, independent of call ownership.
 ///
-/// The body scrolls, and so does the platform footer in it. Once every check passed, the consent switch, Start
-/// call, "Use dictation instead" and the one-line note under them stay pinned
-/// below the body, so they remain reachable at the largest text size. The
-/// sentence about automatic sending sits with the switch, and moves into the
-/// body once the text is large enough that the pinned part would crowd it.
-/// Start
-/// call stays disabled until [consented] is true. Without [onConsentChanged]
-/// there is no consent card and Start call is enabled as soon as the checks
-/// pass.
+/// The body scrolls, and so does the platform footer in it. Once every check
+/// passed, the consent switch, Start call, "Use dictation instead" and the
+/// one-line note under them stay pinned below the body, so they remain
+/// reachable at the largest text size. The sentence about automatic sending
+/// sits with the switch, and moves into the body once the text is large enough
+/// that the pinned part would crowd it. Start call stays disabled until
+/// [consented] is true. Without [onConsentChanged] there is no consent card and
+/// Start call is enabled as soon as the checks pass.
 class VoiceCallSetupView extends StatelessWidget {
   const VoiceCallSetupView({
     super.key,

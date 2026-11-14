@@ -18,6 +18,8 @@ VoiceCallView _view({
   VoiceSpeakingHint hint = VoiceSpeakingHint.tapOrTalk,
   Widget? notice,
   bool endedByUser = false,
+  bool capturePaused = false,
+  bool stoppedWord = false,
   VoidCallback? onStartNew,
   VoidCallback? onInterrupt,
   VoidCallback? onEnd,
@@ -35,6 +37,8 @@ VoiceCallView _view({
   speakingHint: hint,
   notice: notice,
   endedByUser: endedByUser,
+  capturePaused: capturePaused,
+  stoppedWord: stoppedWord,
   onStartNew: onStartNew,
   onInterrupt: onInterrupt,
   footer: footer,
@@ -106,7 +110,7 @@ void main() {
         false,
         VoiceOrbState.speaking,
         'Speaking',
-        'Tap the orb, or just talk, to interrupt.',
+        'Just talk to interrupt.',
       ),
       (
         CallPhase.attention,
@@ -114,8 +118,7 @@ void main() {
         false,
         VoiceOrbState.waiting,
         'Waiting for you',
-        'Hermes needs your answer (an approval or a question). Answer in the '
-            'chat. Capture is paused; speaking does nothing.',
+        'Hermes needs your input in chat.',
       ),
     ];
     for (final (phase, muted, sending, orb, word, hint) in cases) {
@@ -267,7 +270,7 @@ void main() {
     );
     expect(_orb(tester), VoiceOrbState.stopped);
     expect(find.byIcon(AppIcons.stopRecording.material), findsOneWidget);
-    expect(find.text('Stopped'), findsOneWidget);
+    expect(find.text('Call interrupted'), findsOneWidget);
     expect(find.text('The microphone is closed.'), findsOneWidget);
     expect(find.text('Mute'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Back to chat'), findsOneWidget);
@@ -278,6 +281,82 @@ void main() {
     await tester.tap(find.text('Back to chat'));
     await tester.tap(find.text('Start a new call'));
     expect([back, again], [1, 1]);
+  });
+
+  testWidgets('the paused-capture hint needs the flag', (tester) async {
+    await pumpVoice(
+      tester,
+      _view(phase: CallPhase.attention, capturePaused: true),
+    );
+    expect(find.textContaining('Capture is paused'), findsOneWidget);
+    await pumpVoice(tester, _view(phase: CallPhase.attention));
+    expect(find.textContaining('Capture is paused'), findsNothing);
+    expect(find.text('Hermes needs your input in chat.'), findsOneWidget);
+  });
+
+  testWidgets('the tap hint needs an interrupt callback', (tester) async {
+    await pumpVoice(
+      tester,
+      _view(phase: CallPhase.speaking, onInterrupt: () {}),
+    );
+    expect(
+      find.text('Tap the orb, or just talk, to interrupt.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('stopped words: ended, interrupted, or Stopped when asked', (
+    tester,
+  ) async {
+    await pumpVoice(tester, _view(phase: CallPhase.ended));
+    expect(find.text('Call ended'), findsOneWidget);
+    expect(find.byIcon(AppIcons.check.material), findsNothing);
+    await pumpVoice(tester, _view(phase: CallPhase.failed));
+    expect(find.text('Call interrupted'), findsOneWidget);
+    expect(find.byIcon(AppIcons.stopRecording.material), findsOneWidget);
+    await pumpVoice(tester, _view(phase: CallPhase.failed, stoppedWord: true));
+    expect(find.text('Stopped'), findsOneWidget);
+  });
+
+  testWidgets('a selected Mute is ringed and End is the only filled circle', (
+    tester,
+  ) async {
+    await pumpVoice(tester, _view(muted: true));
+    final circles = tester
+        .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+        .map((d) => d.decoration)
+        .whereType<BoxDecoration>()
+        .where((d) => d.shape == BoxShape.circle)
+        .toList();
+    final theme = Theme.of(tester.element(find.byType(VoiceCallView)));
+    expect(
+      circles.where((d) => d.color == theme.colorScheme.inverseSurface),
+      hasLength(1),
+    );
+    expect(circles.where((d) => d.border != null), isNotEmpty);
+  });
+
+  testWidgets('the Sending caption is italic', (tester) async {
+    await pumpVoice(
+      tester,
+      VoiceCallView(
+        phase: CallPhase.transcribing,
+        sending: true,
+        caption: 'What is on today?',
+        elapsed: Duration.zero,
+        muted: false,
+        speaker: false,
+        route: 'iPhone',
+        onMute: () {},
+        onSpeaker: () {},
+        onEnd: () {},
+        onShowChat: () {},
+      ),
+    );
+    expect(
+      tester.widget<Text>(find.text('What is on today?')).style?.fontStyle,
+      FontStyle.italic,
+    );
   });
 
   testWidgets('ended by the user shows a check and "Call ended"', (

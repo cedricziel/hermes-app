@@ -292,6 +292,8 @@ Widget _call(
   String? error,
   Widget? notice,
   bool endedByUser = false,
+  bool stoppedWord = false,
+  bool capturePaused = false,
   bool startNew = false,
   VoiceCallFooter footer = VoiceCallFooter.none,
   String route = 'iPhone',
@@ -311,6 +313,8 @@ Widget _call(
     error: error,
     notice: notice,
     endedByUser: endedByUser,
+    stoppedWord: stoppedWord,
+    capturePaused: capturePaused,
     footer: footer,
     onStartNew: startNew ? () {} : null,
     onInterrupt: () {},
@@ -388,7 +392,7 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
     ),
     WidgetbookUseCase(
       name: 'Waiting for you',
-      builder: (c) => _call(c, phase: CallPhase.attention),
+      builder: (c) => _call(c, phase: CallPhase.attention, capturePaused: true),
     ),
     WidgetbookUseCase(
       name: 'Transcription failed',
@@ -416,6 +420,7 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
       builder: (c) => _call(
         c,
         phase: CallPhase.failed,
+        stoppedWord: true,
         startNew: true,
         notice: VoiceCallNotice(
           tone: VoiceCallNoticeTone.warning,
@@ -429,6 +434,7 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
       builder: (c) => _call(
         c,
         phase: CallPhase.ended,
+        stoppedWord: true,
         startNew: true,
         notice: VoiceCallNotice(
           title: c.l10n.voiceNoticeLeftTitle,
@@ -441,6 +447,7 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
       builder: (c) => _call(
         c,
         phase: CallPhase.ended,
+        stoppedWord: true,
         startNew: true,
         notice: VoiceCallNotice(
           title: c.l10n.voiceNoticeIdleTitle,
@@ -466,6 +473,7 @@ WidgetbookComponent _viewNode() => WidgetbookComponent(
       builder: (c) => _call(
         c,
         phase: CallPhase.failed,
+        stoppedWord: true,
         startNew: true,
         notice: VoiceCallNotice(
           tone: VoiceCallNoticeTone.warning,
