@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -580,6 +579,41 @@ void main() {
       recordedUsageOneTurn(),
     ];
 
+    // Every single-step mutation of [v], recursively: one key or element
+    // dropped, one field or element replaced by a scalar of another type, a
+    // scalar replaced by a map or a list, and the same inside every child.
+    Iterable<Object?> mutations(Object? v) sync* {
+      const scalars = <Object?>[null, 7, 'x', true];
+      final containers = <Object?>[
+        <String, Object?>{},
+        <Object?>[],
+        <Object?>[1],
+      ];
+      Iterable<Object?> replacements(Object? child) =>
+          child is Map || child is List ? scalars : [...containers, ...scalars];
+      if (v is Map) {
+        for (final key in v.keys) {
+          yield {...v}..remove(key);
+          for (final r in replacements(v[key])) {
+            yield {...v, key: r};
+          }
+          for (final inner in mutations(v[key])) {
+            yield {...v, key: inner};
+          }
+        }
+      } else if (v is List) {
+        for (var i = 0; i < v.length; i++) {
+          yield [...v]..removeAt(i);
+          for (final r in replacements(v[i])) {
+            yield [...v]..[i] = r;
+          }
+          for (final inner in mutations(v[i])) {
+            yield [...v]..[i] = inner;
+          }
+        }
+      }
+    }
+
     test('ill-typed values never throw', () {
       for (final entry in parsers.entries) {
         for (final fixture in fixtures) {
@@ -604,21 +638,47 @@ void main() {
       }
     });
 
-    test('truncated bodies never throw', () {
+    test('a field of the wrong shape never throws', () {
+      // Names the failing mutation: a map or list field made a scalar and
+      // a scalar made a map or a list, one at a time.
       for (final entry in parsers.entries) {
         for (final fixture in fixtures) {
-          final text = jsonEncode(fixture);
-          for (var n = 0; n < text.length; n += 7) {
-            Object? decoded;
-            try {
-              decoded = jsonDecode(text.substring(0, n));
-            } on FormatException {
-              decoded = text.substring(0, n);
-            }
-            expect(() => entry.value(decoded), returnsNormally);
+          for (final mutated in mutations(fixture)) {
+            expect(
+              () => entry.value(mutated),
+              returnsNormally,
+              reason: '${entry.key}: $mutated',
+            );
           }
         }
       }
+      final shapes = {
+        for (final m in mutations({'components': <String, Object?>{}})) '$m',
+        for (final m in mutations({
+          'commits': [1],
+        }))
+          '$m',
+      };
+      expect(shapes, containsAll(['{components: x}', '{commits: 7}']));
+    });
+
+    test('a body with keys or elements missing never throws', () {
+      for (final entry in parsers.entries) {
+        for (final fixture in fixtures) {
+          for (final mutated in mutations(fixture)) {
+            if (mutated is! Map && mutated is! List) continue;
+            expect(
+              () => entry.value(mutated),
+              returnsNormally,
+              reason: '${entry.key}: $mutated',
+            );
+          }
+        }
+      }
+      // The fixtures differ from their truncations, so the cases are real.
+      final truncated = mutations(updateCheckBehind())
+          .where((m) => m is Map && m.length < (updateCheckBehind().length));
+      expect(truncated, isNotEmpty);
     });
   });
 
