@@ -701,7 +701,7 @@ void main() {
 
     test('never clears the stored session', () async {
       store.session = _session(expiresAt: 1);
-      dashboard.refreshStatus = 403;
+      dashboard.refreshStatus = 401;
       var cleared = false;
       final probe = _ClearTrackingStore(store.session, () => cleared = true);
 
