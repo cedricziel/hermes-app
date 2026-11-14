@@ -64,6 +64,36 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   /// not kept then.
   final bool Function()? _covered;
 
+  Completer<void>? _wake;
+  bool _resumeOwed = false;
+
+  /// Waits [duration], or less when [appResumed] wakes it.
+  Future<void> _sleep(Duration duration) {
+    final wake = _wake = Completer<void>();
+    return Future.any([_delay(duration), wake.future]).whenComplete(() {
+      if (identical(_wake, wake)) _wake = null;
+    });
+  }
+
+  /// The app came back to the front: a poll that waits for a timer the
+  /// suspended app never ran reads now instead. Nothing is sent; the run only
+  /// reads. While App Lock covers the app nothing is read, and the wake is
+  /// owed until [appUnlocked].
+  void appResumed() {
+    if (_covered?.call() ?? false) {
+      _resumeOwed = true;
+      return;
+    }
+    _resumeOwed = false;
+    final wake = _wake;
+    if (wake != null && !wake.isCompleted) wake.complete();
+  }
+
+  /// App Lock lifted: makes up for a resume it held back.
+  void appUnlocked() {
+    if (_resumeOwed) appResumed();
+  }
+
   GatewayPhase _phase = GatewayPhase.idle;
   GatewayAction? _action;
   GatewayFailure? _failure;
@@ -150,6 +180,8 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
   @override
   void dispose() {
     if (busy) _care?.gatewayBusy = false;
+    final wake = _wake;
+    if (wake != null && !wake.isCompleted) wake.complete();
     super.dispose();
   }
 
@@ -292,7 +324,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
         }
       }
       if (_now().difference(waitStart) >= waitWindow) break;
-      await _delay(_actionPoll);
+      await _sleep(_actionPoll);
       if (disposed) return null;
     }
     return _awaitReturn(
@@ -353,7 +385,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       if (_now().difference(started) >= returnWindow) {
         return _slow(gatewayRunning: !sawDown && lastBack);
       }
-      await _delay(_actionPoll);
+      await _sleep(_actionPoll);
       if (disposed) return null;
     }
   }
@@ -404,7 +436,7 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       if (_now().difference(from) >= window) {
         return _slow(gatewayRunning: !sawDown && lastBack);
       }
-      await _delay(_statusPoll);
+      await _sleep(_statusPoll);
       if (disposed) return null;
     }
   }

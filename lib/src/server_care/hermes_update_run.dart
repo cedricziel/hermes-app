@@ -188,6 +188,36 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   /// check. The person dismisses and asks again; the request is never resent.
   bool get nothingStarted => _nothingStarted;
 
+  Completer<void>? _wake;
+  bool _resumeOwed = false;
+
+  /// Waits [duration], or less when [appResumed] wakes it.
+  Future<void> _sleep(Duration duration) {
+    final wake = _wake = Completer<void>();
+    return Future.any([_delay(duration), wake.future]).whenComplete(() {
+      if (identical(_wake, wake)) _wake = null;
+    });
+  }
+
+  /// The app came back to the front: a poll that waits for a timer the
+  /// suspended app never ran reads now instead. Nothing is sent; the run only
+  /// reads. While App Lock covers the app nothing is read, and the wake is
+  /// owed until [appUnlocked].
+  void appResumed() {
+    if (_covered?.call() ?? false) {
+      _resumeOwed = true;
+      return;
+    }
+    _resumeOwed = false;
+    final wake = _wake;
+    if (wake != null && !wake.isCompleted) wake.complete();
+  }
+
+  /// App Lock lifted: makes up for a resume it held back.
+  void appUnlocked() {
+    if (_resumeOwed) appResumed();
+  }
+
   bool get _isCovered => _covered?.call() ?? false;
 
   /// When the run started; null when idle.
@@ -311,6 +341,8 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
   void dispose() {
     _endOpenSpan();
     _generation++;
+    final wake = _wake;
+    if (wake != null && !wake.isCompleted) wake.complete();
     super.dispose();
   }
 
@@ -528,7 +560,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         return null;
       }
       notifyListeners();
-      await _delay(_poll);
+      await _sleep(_poll);
       if (_stale(generation)) return null;
     }
   }
@@ -604,7 +636,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
           if (status case CareOk(:final value) when value.running) {
             _setLines(value.lines);
             // A flapping proxy must not spin the two steps.
-            await _delay(_poll);
+            await _sleep(_poll);
             if (_stale(generation)) return null;
             return _Step.update;
           }
@@ -615,7 +647,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
           _settle(UpdatePhase.notBack, 'not_back');
           return null;
         }
-        await _delay(backoff);
+        await _sleep(backoff);
         if (_stale(generation)) return null;
         backoff = backoff * 2 > _lastBackoff ? _lastBackoff : backoff * 2;
       }
@@ -663,7 +695,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
               _finish(UpdateResult.unknown);
               return null;
             }
-            await _delay(_poll);
+            await _sleep(_poll);
             if (_stale(generation)) return null;
             return _Step.restart;
           }
@@ -674,7 +706,7 @@ class HermesUpdateRun extends ChangeNotifier with SafeNotifier {
         _finish(UpdateResult.unknown);
         return null;
       }
-      await _delay(_poll);
+      await _sleep(_poll);
       if (_stale(generation)) return null;
     }
   }

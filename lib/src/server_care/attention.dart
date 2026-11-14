@@ -29,6 +29,20 @@ enum Attention {
     memoryLow || diskLow || allGood => false,
   };
 
+  /// The headline's fixed name for the status span; never text.
+  String get slug => switch (this) {
+    offline => 'offline',
+    storageUnreadable => 'storage',
+    gatewayFailed => 'gateway_failed',
+    gatewayUnresponsive => 'gateway_stale',
+    gatewayOff => 'gateway_off',
+    diskCritical || diskLow => 'disk',
+    unexpectedRestart => 'oom',
+    channelsOffline => 'channels',
+    memoryLow => 'memory',
+    allGood => 'none',
+  };
+
   /// The ranking for a status read; [status] is null when the read failed
   /// because the server could not be reached.
   ///
