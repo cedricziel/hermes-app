@@ -8,6 +8,8 @@ import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/screens/home_screen.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
+import 'package:hermes_app/src/server_care/server_care_controller.dart';
+import 'package:hermes_app/src/server_care/server_check_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -452,6 +454,46 @@ void main() {
       await pump(tester, lock: await loadedLock(tester));
       expect(inSidebar(find.text('Server')), findsOneWidget);
       expect(inSidebar(find.text('Needs attention')), findsNothing);
+    });
+
+    testWidgets('a chat profile switch drops the server check result', (
+      tester,
+    ) async {
+      statusWithGatewayOff();
+      server
+        ..on('POST', '/api/ops/doctor', {
+          'ok': true,
+          'pid': 1,
+          'name': 'doctor',
+        })
+        ..on('GET', '/api/actions/doctor/status', {
+          'name': 'doctor',
+          'running': false,
+          'exit_code': 1,
+          'lines': [
+            '=== doctor started 2026-11-14 09:00:00 ===',
+            '◆ Messaging',
+            '  ✗ Telegram token rejected (401)',
+          ],
+        });
+      await pump(tester, lock: await loadedLock(tester));
+      final check = tester
+          .element(find.byType(ThreadSidebar))
+          .read<ServerCheckController>();
+      final profile = tester
+          .element(find.byType(ThreadSidebar))
+          .read<ServerCareController>()
+          .profile;
+      expect(profile, isNotNull);
+      await tester.runAsync(() => check.run(profile: profile!));
+      expect(check.report?.problems, 1);
+
+      await tester.tap(find.byKey(const Key('mac-profile-switcher')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('work').last);
+      await tester.pumpAndSettle();
+      expect(check.report, isNull);
+      expect(check.phase, CheckPhase.idle);
     });
 
     testWidgets('the Mac sidebar row says Updating… while an update runs, and '

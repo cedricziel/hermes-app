@@ -128,14 +128,17 @@ AttentionNotification? attentionFor({
 }) {
   if (!enabled) return null;
   if (appFocused && selectedThreadId == thread.id) return null;
+  if (event case ReplyCompleted(stopped: false, :final text, :final failed)) {
+    return replyReadyNotification(
+      threadId: thread.id,
+      title: thread.title,
+      text: text,
+      profile: profile,
+      failed: failed,
+      appLock: appLock,
+    );
+  }
   final body = switch (event) {
-    ReplyCompleted(stopped: true) => null,
-    ReplyCompleted(:final text, :final failed) =>
-      failed
-          ? kReplyFailedBody
-          : appLock || replyPreview(text).isEmpty
-          ? kReplyReadyBody
-          : replyPreview(text),
     ApprovalRequested() when appLock => kApprovalBody,
     ClarifyRequested() when appLock => kQuestionBody,
     ApprovalRequested(:final request) => _requestBody([
@@ -160,15 +163,11 @@ AttentionNotification? attentionFor({
     threadId: thread.id,
     title: thread.title,
     body: body,
-    bodyIsPlainText: event is ReplyCompleted,
     profile: profile,
     needsInput: event is VaultRequested || event is UnsupportedRequested,
-    category: switch (event) {
-      ReplyCompleted(failed: true) => replyFailedCategory,
-      ReplyCompleted() => replyReadyCategory,
-      _ =>
-        request == null ? null : requestCategoryFor(request, appLock: appLock),
-    },
+    category: request == null
+        ? null
+        : requestCategoryFor(request, appLock: appLock),
     request: request == null || appLock
         ? null
         : pendingRequestFor(
@@ -181,6 +180,30 @@ AttentionNotification? attentionFor({
           ),
   );
 }
+
+/// The notification for a reply that ended, [failed] or not, in the chat
+/// [threadId]: the one place that chooses its words, its category and its
+/// payload, for the app in front and for a background check alike. While
+/// [appLock] is on the body stays generic.
+AttentionNotification replyReadyNotification({
+  required String threadId,
+  required String title,
+  required String text,
+  String? profile,
+  bool failed = false,
+  bool appLock = false,
+}) => AttentionNotification(
+  threadId: threadId,
+  title: title,
+  body: failed
+      ? kReplyFailedBody
+      : appLock || replyPreview(text).isEmpty
+      ? kReplyReadyBody
+      : replyPreview(text),
+  bodyIsPlainText: true,
+  profile: profile,
+  category: failed ? replyFailedCategory : replyReadyCategory,
+);
 
 /// The first of [texts] that is not blank, cut at [kRequestBodyLength], or
 /// [fallback].

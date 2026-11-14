@@ -642,6 +642,26 @@ void main() {
       expect(forgotten, 1);
     });
 
+    test(
+      'withdraws answerable and replyable notifications on sign-out',
+      () async {
+        final signedOut = StreamController<void>();
+        addTearDown(signedOut.close);
+        final answers = RequestAnswers(
+          sender,
+          service: notifications,
+          signedOut: signedOut.stream,
+          forgetCategories: () async {},
+        )..start();
+        addTearDown(answers.dispose);
+
+        signedOut.add(null);
+        await pumpEventQueue();
+
+        expect(notifications.withdrawals, 1);
+      },
+    );
+
     test('sends what its notification service reports', () async {
       final answers = RequestAnswers(sender, service: notifications)..start();
       addTearDown(answers.dispose);

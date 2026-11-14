@@ -62,8 +62,8 @@ Six PRs, each under about 500 changed lines with tests, merged in order. Each en
 
 ## 6. PR 6 — `feat(tools): explain the difference and update the guides`
 
-- [ ] 6.1 Add the "What's the difference?" footer link to the Skills, Plugins, MCP servers and Helper models screens, with tests that each shows the same four sentences.
-- [ ] 6.2 Update `CLAUDE.md` (a Tools paragraph beside Plugins and MCP servers: repository, controllers, the risk table, secrets, installs, "next chat"), the `verify-in-app` skill (switching a toolset and a key on the dev backend, reading `config.yaml` back) and `design/web` if it has the sibling pages.
+- [x] 6.1 Add the "What's the difference?" footer link to the Skills, Plugins, MCP servers and Helper models screens, with tests that each shows the same four sentences.
+- [ ] 6.2 Update `CLAUDE.md` (a Tools paragraph beside Plugins and MCP servers: repository, controllers, the risk table, secrets, installs, "next chat"), the `verify-in-app` skill (switching a toolset and a key on the dev backend, reading `config.yaml` back) and `design/web` if it has the sibling pages. Done: the `CLAUDE.md` bullet and the `verify-in-app` scenario. design/web: needs a design port of the link (SkillsScreen, PluginsScreen, McpServersScreen, HelperModelsScreen) and of the Tools screen components; not done here.
 - [ ] 6.3 Run `/simplify`, format, analyze and the tests.
 
 ## Not verified on a device

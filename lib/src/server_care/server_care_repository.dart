@@ -138,6 +138,10 @@ class ServerCareRepository {
       _run(
         () => _api.runDoctorApiOpsDoctorPost(profile: profile),
         _actionStarted,
+        // A POST is not served by a page fallback: a page or a proxy's text
+        // answering it is a lost answer (the run may have started), never a
+        // missing route.
+        pageMeansMissing: false,
       );
 
   /// `GET /api/logs`: up to [lines] entries of [file], oldest first, grouped
