@@ -17,6 +17,7 @@ flutter test
 flutter test test/auth_controller_refresh_test.dart          # one file
 flutter test --plain-name "some test name"                   # one test
 flutter gen-l10n                  # regenerate strings after an ARB edit, pull, rebase or merge (test/analyze don't)
+                                  # `flutter pub get` does it too; analyze and the pre-commit hook fail until one of them ran after a pull that brings ARB changes
 dart run tool/setup_git_hooks.dart  # installs the dart_pre_commit hook (format + analyze on staged Dart files); once per clone, shared by worktrees
 flutter run -d macos -t widgetbook/main.dart   # component catalog (Widgetbook); see the `component-catalog` skill
 ```
