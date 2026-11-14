@@ -22,6 +22,7 @@ import '../gateway_connection_transport.dart';
 import '../connector_operation_transport.dart';
 import '../connector_operation_state.dart';
 import '../billing_verification_transport.dart';
+import '../agent_work_transport.dart';
 import '../slash_command.dart';
 import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
@@ -38,6 +39,7 @@ part 'hermes_gateway_transport_reconnect.dart';
 part 'hermes_gateway_transport_follow_ups.dart';
 part 'hermes_gateway_transport_requests.dart';
 part 'hermes_gateway_transport_branching.dart';
+part 'hermes_gateway_transport_agent_work.dart';
 part 'hermes_gateway_transport_checkpoints.dart';
 part 'hermes_gateway_transport_connection.dart';
 
@@ -127,6 +129,7 @@ class HermesGatewayTransport
         GatewayConnectionTransport,
         QueueSubmissionTransport,
         BillingVerificationTransport,
+        AgentWorkTransport,
         CheckpointsTransport,
         ContextTransport {
   HermesGatewayTransport({
@@ -233,6 +236,9 @@ class HermesGatewayTransport
   final _modelOf = <_ThreadOwner, ModelChoice>{};
 
   final _ownedBindings = <_ThreadOwner, OwnedSessionBinding>{};
+
+  /// The resumes agent actions wait on, so two at once attach a session once.
+  final _agentResumes = <_ThreadOwner, Future<(GatewayRpcClient, String)>>{};
   final _ownedSessions = StreamController<OwnedSessionChange>.broadcast(
     sync: true,
   );
@@ -281,6 +287,36 @@ class HermesGatewayTransport
     OwnedSessionBinding binding,
     String method,
   ) => _readOwnedSession(binding, method);
+
+  @override
+  Future<Map<String, Object?>?> readAttached(
+    String threadId, {
+    String? profile,
+    required String method,
+    Map<String, Object?> params = const {},
+    required Duration timeout,
+  }) => _readAttached(
+    threadId,
+    profile: profile,
+    method: method,
+    params: params,
+    timeout: timeout,
+  );
+
+  @override
+  Future<Map<String, Object?>> act(
+    String threadId, {
+    String? profile,
+    required String method,
+    Map<String, Object?> params = const {},
+    required Duration timeout,
+  }) => _actOnAgent(
+    threadId,
+    profile: profile,
+    method: method,
+    params: params,
+    timeout: timeout,
+  );
 
   /// Shared authenticated RPC for profile and Bot Mode repositories.
   @override
