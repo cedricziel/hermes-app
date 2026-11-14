@@ -31,8 +31,8 @@ String relativeTimeLabel(
   if (diff.inMinutes < 60) {
     return l10n.chatCheckpointsPageTimeMinutes(diff.inMinutes);
   }
-  // Calendar days, counted in UTC: local midnights can be 23 or 25 hours
-  // apart across a clock change.
+  // Calendar days: the local year, month and day fields, subtracted as UTC
+  // dates, so a 23- or 25-hour day across a clock change still counts as one.
   final today = DateTime.utc(current.year, current.month, current.day);
   final day = DateTime.utc(at.year, at.month, at.day);
   final days = today.difference(day).inDays;

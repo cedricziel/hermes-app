@@ -1562,6 +1562,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// through its pending reply.
   final _active = <String>{};
   var _activeRefresh = 0;
+
+  /// Whether [_active] was read since the thread list was last read; a list
+  /// read empties it until the next answer, and a restore or compress does
+  /// not go ahead on an empty guess about other clients' turns.
+  var _activeKnown = true;
   Set<String> get activeThreads => Set.unmodifiable(_active);
 
   /// Asks the transport which sessions are mid-turn and marks their threads,
@@ -1572,6 +1577,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (transport == null || !active) return true;
     final generation = _loadGeneration;
     final refresh = ++_activeRefresh;
+    try {
+      return await _applyActive(transport, generation, refresh);
+    } finally {
+      // The newest read's answer, or its failure (the poll goes on), ends
+      // not knowing.
+      if (refresh == _activeRefresh) _activeKnown = true;
+    }
+  }
+
+  Future<bool> _applyActive(
+    ChatTransport transport,
+    int generation,
+    int refresh,
+  ) async {
     final Map<String, String> statuses;
     try {
       statuses = await transport.activeStatuses();

@@ -247,6 +247,23 @@ class CheckpointsController extends ChangeNotifier {
     closeChanges();
   }
 
+  int _panelHolds = 0;
+
+  @visibleForTesting
+  int get panelHolds => _panelHolds;
+
+  /// A view that shows the list (the panel's presence, a standalone page)
+  /// takes a hold while it is on screen, so one leaving does not close the
+  /// list under another that is still there: a layout change swaps one for
+  /// the next, a page opens over the panel.
+  void holdPanel() => _panelHolds++;
+
+  /// Gives a hold back; the last one out closes the panel.
+  void releasePanel() {
+    if (_panelHolds > 0) _panelHolds--;
+    if (_panelHolds == 0) panelClosed();
+  }
+
   /// The user tapped the row of a stored chat that has no live session:
   /// this resumes it, as sending would, and lists.
   Future<void> openResuming() async {
@@ -498,7 +515,8 @@ class CheckpointsController extends ChangeNotifier {
     bool Function() live,
   ) async {
     Future<bool> relist() async => live() && await _relist();
-    Future<bool> refetch() async => live() && await _refetchChat();
+    Future<bool> refetch({bool historyRemoved = false}) async =>
+        live() && await _refetchChat(historyRemoved: historyRemoved);
 
     switch (result) {
       case Restored(:final historyRemoved):
@@ -512,7 +530,9 @@ class CheckpointsController extends ChangeNotifier {
             checkpoints.any((c) => c.hash == intent.hash)) {
           await openChanges(intent.hash);
         }
-        final refetched = await refetch();
+        final refetched = await refetch(
+          historyRemoved: intent.isFull && historyRemoved > 0,
+        );
         final added = listed && live()
             ? _addedSafetyCheckpoint(intent.hash, before)
             : null;
@@ -631,9 +651,9 @@ class CheckpointsController extends ChangeNotifier {
   }
 
   /// Re-reads the chat; false when that failed.
-  Future<bool> _refetchChat() async {
+  Future<bool> _refetchChat({bool historyRemoved = false}) async {
     try {
-      await bridge.refetchChat();
+      await bridge.refetchChat(historyRemoved: historyRemoved);
       return true;
     } on Object {
       return false;

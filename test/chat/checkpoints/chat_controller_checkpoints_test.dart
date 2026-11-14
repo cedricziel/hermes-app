@@ -545,11 +545,81 @@ void main() {
       await pumpEventQueue();
       expect(drafts, ['Try the failing step']);
       expect(
-        opened.messages.where((m) => m.content == 'Try the failing step'),
+        thread('stored-1').messages
+            .where((m) => m.content == 'Try the failing step'),
         isEmpty,
       );
-      expect(opened.messages.where((m) => m.content == 'It broke'), isEmpty);
+      expect(
+        thread('stored-1').messages
+            .where((m) => m.status == MessageStatus.error),
+        isEmpty,
+      );
     });
+
+    for (final (name, act)
+        in <
+          (
+            String,
+            Future<void> Function(CheckpointsController, ContextController),
+          )
+        >[
+          (
+            'a compress',
+            (checkpoints, context) async {
+              source.fake.compress = const Compressed();
+              await context.confirmCompress(context.beginCompress()!);
+            },
+          ),
+          (
+            'a restore that did not rewind the chat',
+            (checkpoints, context) async {
+              source.fake.restore = const RestoredHistoryNotRewound();
+              await checkpoints.confirmRestore(
+                checkpoints.beginRestore(_hash)!,
+              );
+            },
+          ),
+          (
+            'a restore whose answer is lost',
+            (checkpoints, context) async {
+              source.fake.restoreGate = Completer<void>()
+                ..completeError(StateError('connection dropped'));
+              await checkpoints.confirmRestore(
+                checkpoints.beginRestore(_hash)!,
+              );
+            },
+          ),
+        ]) {
+      test('a failed turn the server never held keeps its prompt and reply '
+          'after $name', () async {
+        final (opened, checkpoints) = await listed();
+        final context = chat.contextIn(opened)!;
+        chat.submit('Try the failing step', const []);
+        await pumpEventQueue();
+        source.sends.last
+          ..emit(const ReplyCompleted('It broke', failed: true))
+          ..finish();
+        await pumpEventQueue();
+        server.on(
+          'GET',
+          '/api/sessions/stored-1/messages',
+          messageListBody('stored-1', _rows(withPrompt: false)),
+        );
+        await act(checkpoints, context);
+        await pumpEventQueue();
+        expect(
+          thread('stored-1').messages
+              .where((m) => m.content == 'Try the failing step'),
+          hasLength(1),
+        );
+        expect(
+          thread('stored-1').messages
+              .where((m) => m.status == MessageStatus.error),
+          hasLength(1),
+        );
+        expect(drafts, isEmpty);
+      });
+    }
 
     test('the composer is left alone while the re-read chat still holds '
         'the prompt', () async {
@@ -770,6 +840,19 @@ void main() {
       expect(checkpoints.restoreRefusal(), isNull);
     });
 
+    test('right after a list read, before who is working was read again, a '
+        'full restore and a compress are refused', () async {
+      final (opened, checkpoints) = await listed();
+      final context = chat.contextIn(opened)!;
+      expect(checkpoints.restoreRefusal(), isNull);
+      await chat.loadThreads('work');
+      expect(checkpoints.restoreRefusal(), RestoreRefusal.replying);
+      expect(context.compressRefusal, CompressRefusal.replying);
+      await pumpEventQueue();
+      expect(checkpoints.restoreRefusal(), isNull);
+      expect(context.compressRefusal, isNull);
+    });
+
     test('a compress waits while a full restore runs', () async {
       final (opened, checkpoints) = await listed();
       final context = chat.contextIn(opened)!;
@@ -845,7 +928,20 @@ void main() {
       expect(chat.sendHeldIn(opened), isTrue);
       gate.complete();
       await confirming;
+      await pumpEventQueue();
       expect(chat.sendHeldIn(opened), isFalse);
+      // The server no longer lists it: the list is read again once the
+      // restore settled, and the chat goes.
+      expect(chat.threads.any((t) => t.id == 'stored-1'), isFalse);
+    });
+
+    test('a thread object a list read replaced still finds its controllers, '
+        'as a sheet opened earlier holds it', () async {
+      final (opened, checkpoints) = await listed();
+      await chat.loadThreads('work');
+      expect(identical(thread('stored-1'), opened), isFalse);
+      expect(chat.checkpointsIn(opened), same(checkpoints));
+      expect(chat.contextIn(opened), isNotNull);
     });
 
     test('dispose ends a hold without sending', () async {

@@ -15,6 +15,7 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoints_controller.dart';
+import 'package:hermes_app/src/chat/checkpoints/pages/checkpoints_page.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/changed_files_list.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/file_checkpoints_row.dart';
 import 'package:hermes_app/src/chat/context/context_controller.dart';
@@ -236,6 +237,57 @@ void main() {
       await tester.pump();
       expect(controller.panelOpen, isTrue);
       await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      expect(controller.panelOpen, isFalse);
+    });
+
+    testWidgets('a standalone page and a panel presence share one hold: the '
+        'page leaving does not close the list under the presence', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        await open();
+        await pumpEventQueue();
+      });
+      final controller = checkpointsOf();
+      final thread = chat.selectedThread!;
+      final navigator = GlobalKey<NavigatorState>();
+      final showPresence = ValueNotifier(false);
+      addTearDown(showPresence.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          home: ValueListenableBuilder<bool>(
+            valueListenable: showPresence,
+            builder: (_, shown, _) => shown
+                ? CheckpointsPanelPresence(
+                    controller: controller,
+                    child: const SizedBox(),
+                  )
+                : const SizedBox(),
+          ),
+        ),
+      );
+      unawaited(
+        navigator.currentState!.push(
+          CheckpointsPage.route(chat: chat, thread: thread),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(controller.panelOpen, isTrue);
+      // A resize mounts a panel under the page; then the page is popped.
+      showPresence.value = true;
+      await tester.pump();
+      await tester.pump();
+      navigator.currentState!.pop();
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      expect(controller.panelOpen, isTrue);
+      expect(controller.panelHolds, 1);
+      showPresence.value = false;
+      await tester.pump();
       await tester.pump();
       expect(controller.panelOpen, isFalse);
     });

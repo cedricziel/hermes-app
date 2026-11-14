@@ -125,6 +125,13 @@ extension _ChatControllerHistory on ChatController {
                 )
                 .toList()
           : const <ChatThread>[];
+      for (final thread in live) {
+        if (!_sending.containsKey(thread) && !sendingAtStart.contains(thread)) {
+          // Kept for its restore alone: the list is read again after it.
+          _ChatControllerCheckpoints(this)._actionsOf(thread)?.keptByHold =
+              true;
+        }
+      }
       final liveIds = {for (final thread in live) thread.id};
       final kept = {...live, ...local};
       final currentRecoveries = recoveredQueues
@@ -182,6 +189,9 @@ extension _ChatControllerHistory on ChatController {
       _sessionStates.addAll(keptState.sessions);
       _sessionActionGenerations.addAll(keptState.actions);
       _active.clear();
+      _activeKnown = false;
+      // A read of who is working that was already out is now stale.
+      _activeRefresh++;
       for (final controller in _chatControllers.values) {
         controller.dispose();
       }
@@ -718,7 +728,11 @@ extension _ChatControllerHistory on ChatController {
   /// With [strict] (a restore or compress re-reading the chat it changed)
   /// the messages are read even when the row looks unchanged, and a read
   /// that did not land throws instead of keeping what is shown.
-  Future<void> _refreshThreadImpl(String id, {bool strict = false}) async {
+  Future<void> _refreshThreadImpl(
+    String id, {
+    bool strict = false,
+    bool historyRemoved = false,
+  }) async {
     Never notRead() => throw StateError('The chat was not read again');
     if (!active) return strict ? notRead() : null;
     final repository = this.repository;
@@ -751,9 +765,10 @@ extension _ChatControllerHistory on ChatController {
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
       var failed = _failedTurn(thread, page.messages);
-      // A strict read is the server's answer after a full restore: a failed
-      // turn whose prompt it no longer holds is gone, not put back.
-      if (strict && failed.any((m) => m.role == ChatRole.user)) {
+      // After a full restore took history away, a failed turn whose prompt
+      // the server no longer holds is gone with it, not put back. Any other
+      // read keeps it, with its Retry.
+      if (historyRemoved && failed.any((m) => m.role == ChatRole.user)) {
         failed = const [];
       }
       thread.messages

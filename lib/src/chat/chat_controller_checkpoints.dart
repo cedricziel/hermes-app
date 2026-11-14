@@ -40,6 +40,11 @@ class _ThreadActions {
   /// hold ends. A queue that was already paused stays paused.
   bool drainAfterHold = false;
 
+  /// A list read kept this chat only because its restore was running, so the
+  /// list is read again once the restore settles and the chat goes if the
+  /// server no longer has it.
+  bool keptByHold = false;
+
   /// A removed prompt for a composer that was not showing this chat.
   String? handBack;
   bool disposed = false;
@@ -157,15 +162,19 @@ extension _ChatControllerCheckpoints on ChatController {
               _retrying.contains(thread) ||
               // A turn of another client runs in this chat.
               _active.contains(thread.id) ||
+              !_activeKnown ||
               _queueDispatching.contains(thread) ||
               _actionHolds(thread) ||
               thread.messages.any((m) => m.awaitingInput));
     },
-    refetchChat: () async {
+    refetchChat: ({bool historyRemoved = false}) async {
       final thread = _threadOf(actions);
       if (thread == null) throw StateError('The chat is gone');
-      await _ChatControllerHistory(this)
-          ._refreshThreadImpl(thread.id, strict: true);
+      await _ChatControllerHistory(this)._refreshThreadImpl(
+        thread.id,
+        strict: true,
+        historyRemoved: historyRemoved,
+      );
     },
     refreshUsage: () async {
       final thread = _threadOf(actions);
@@ -376,6 +385,10 @@ extension _ChatControllerCheckpoints on ChatController {
     actions.drainAfterHold = false;
     if (disposed) return;
     notifyListeners();
+    if (actions.keptByHold) {
+      actions.keptByHold = false;
+      if (active) unawaited(loadThreads(_profile));
+    }
     final thread = _threadOf(actions);
     // Whatever was queued during the hold goes on now, into the chat as it
     // is after the restore.

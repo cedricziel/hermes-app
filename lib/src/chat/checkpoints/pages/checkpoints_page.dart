@@ -48,7 +48,7 @@ class CheckpointsPage extends StatefulWidget {
 class _CheckpointsPageState extends State<CheckpointsPage>
     with ActivityPageBinding<CheckpointsPage, CheckpointsController> {
   /// Whether this page opened the list itself, outside a panel.
-  var _openedHere = false;
+  CheckpointsController? _held;
 
   @override
   ChatController get chat => widget.chat;
@@ -77,12 +77,11 @@ class _CheckpointsPageState extends State<CheckpointsPage>
   void _read() {
     final controller = this.controller;
     if (!mounted || controller == null || controller.locked) return;
-    // A page with no panel under it (a standalone route) keeps the list
-    // current for as long as it is open, so it holds the lifecycle itself.
-    if (!controller.panelOpen) {
-      _openedHere = true;
-      unawaited(controller.panelOpened());
-    }
+    // The page keeps the list current for as long as it is open, with or
+    // without a panel under it, so it takes a hold of its own.
+    _held = controller;
+    controller.holdPanel();
+    if (!controller.panelOpen) unawaited(controller.panelOpened());
     if (controller.rowState == CheckpointsRowState.notChecked) {
       unawaited(controller.openResuming());
     }
@@ -91,10 +90,8 @@ class _CheckpointsPageState extends State<CheckpointsPage>
   @override
   void dispose() {
     unbindController();
-    final controller = this.controller;
-    if (_openedHere && controller != null) {
-      scheduleMicrotask(controller.panelClosed);
-    }
+    final held = _held;
+    if (held != null) scheduleMicrotask(held.releasePanel);
     super.dispose();
   }
 
