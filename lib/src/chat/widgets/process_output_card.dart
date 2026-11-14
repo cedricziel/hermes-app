@@ -16,7 +16,8 @@ import 'tool_call_card.dart' show formatToolDuration;
 enum ProcessCardStatus { running, stopped, exited, ended }
 
 /// How the last Stop press went. [killed], [alreadyEnded] and [notListed] end
-/// the question; [failed] and [unconfirmed] bring Stop back.
+/// the question; [failed] and [unconfirmed] bring Stop back; [unsupported]
+/// (a server without `process.kill`) says so once and removes Stop.
 enum ProcessStopStatus {
   idle,
   sending,
@@ -26,6 +27,7 @@ enum ProcessStopStatus {
   notListed,
   failed,
   unconfirmed,
+  unsupported,
 }
 
 /// What Hermes' program list says about a card. A card without it keeps the
@@ -53,11 +55,20 @@ class ProcessCardInfo {
 /// Hermes cuts a command at this many characters.
 const kProcessCommandChars = 200;
 
+/// A command as a card shows it: cut with "…" at Hermes' 200 characters, and
+/// with non-breaking hyphens, so it wraps only at spaces and an argument
+/// such as `--port` never splits over two lines. Only the shown text changes.
 String processCommandLine(String command) {
   final runes = command.runes.toList();
-  if (runes.length < kProcessCommandChars) return command;
-  return '${String.fromCharCodes(runes.take(kProcessCommandChars))}…';
+  final cut = runes.length < kProcessCommandChars
+      ? command
+      : '${String.fromCharCodes(runes.take(kProcessCommandChars))}…';
+  return unbreakableHyphens(cut);
 }
+
+/// [text] with each hyphen-minus as a non-breaking hyphen (U+2011), for
+/// command text that is shown, never for what is copied or sent.
+String unbreakableHyphens(String text) => text.replaceAll('-', '\u2011');
 
 class ProcessOutputCard extends StatelessWidget {
   const ProcessOutputCard({
@@ -222,6 +233,10 @@ class _Controls extends StatelessWidget {
         tone: AppBannerTone.neutral,
         title: l10n.chatWidgetsProgramOutcomeNotListed,
       ),
+      ProcessStopStatus.unsupported => AppBanner(
+        tone: AppBannerTone.neutral,
+        title: l10n.chatWidgetsProgramOutcomeUnsupported,
+      ),
       ProcessStopStatus.failed => AppBanner(
         tone: AppBannerTone.error,
         title: l10n.chatWidgetsProgramOutcomeFailed,
@@ -241,7 +256,8 @@ class _Controls extends StatelessWidget {
     final ended =
         stop == ProcessStopStatus.killed ||
         stop == ProcessStopStatus.alreadyEnded ||
-        stop == ProcessStopStatus.notListed;
+        stop == ProcessStopStatus.notListed ||
+        stop == ProcessStopStatus.unsupported;
     final showStop =
         info.status == ProcessCardStatus.running && onStop != null && !ended;
     if (banner == null && !showStop) return const SizedBox.shrink();

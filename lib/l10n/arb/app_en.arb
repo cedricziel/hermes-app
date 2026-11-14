@@ -1919,6 +1919,10 @@
       }
     }
   },
+  "chatWidgetsProgramConfirmThisProgram": "this program",
+  "@chatWidgetsProgramConfirmThisProgram": {
+    "description": "Stands for the command in the stop confirmation's message when Hermes gave none (\"Hermes ends this program\")."
+  },
   "chatWidgetsProgramConfirmTitle": "Stop this program?",
   "@chatWidgetsProgramConfirmTitle": {
     "description": "Title of the confirmation before a background program is stopped."
@@ -1962,6 +1966,10 @@
   "chatWidgetsProgramOutcomeStopped": "Stopped",
   "@chatWidgetsProgramOutcomeStopped": {
     "description": "Banner once a program was stopped."
+  },
+  "chatWidgetsProgramOutcomeUnsupported": "This server can't stop programs.",
+  "@chatWidgetsProgramOutcomeUnsupported": {
+    "description": "Banner after Stop program was pressed on a server without process.kill; Stop is then gone."
   },
   "chatWidgetsProgramStateClosed": "Closed",
   "@chatWidgetsProgramStateClosed": {
