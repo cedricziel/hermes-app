@@ -216,6 +216,7 @@ class LocalNotificationService
     implements
         NotificationService,
         GuardedNotificationService,
+        ReplyingNotificationService,
         NotificationPoster {
   LocalNotificationService({
     FlutterLocalNotificationsPlugin? plugin,
@@ -229,6 +230,7 @@ class LocalNotificationService
   final bool _background;
   final _taps = StreamController<NotificationTarget>.broadcast();
   final _answers = StreamController<NotificationAnswer>.broadcast();
+  final _replies = StreamController<NotificationReply>.broadcast();
   Future<void>? _initialized;
   var _launchAnswered = false;
 
@@ -294,6 +296,12 @@ class LocalNotificationService
   }
 
   void _onResponse(NotificationResponse response) {
+    // A reply to a finished reply is never an answer: it goes to the reply
+    // handler, never to `answerFromResponse`, and never opens the chat.
+    if (response.actionId == kReplyChatAction) {
+      _replies.add(_replyOf(response));
+      return;
+    }
     final answer = answerFromResponse(response);
     if (answer != null) {
       _answers.add(answer);
@@ -321,6 +329,18 @@ class LocalNotificationService
 
   @override
   Stream<NotificationAnswer> get answers => _answers.stream;
+
+  @override
+  Stream<NotificationReply> get replies => _replies.stream;
+
+  /// Its budget starts now, when Dart received it: macOS adds no handover
+  /// time.
+  static NotificationReply _replyOf(NotificationResponse response) =>
+      NotificationReply(
+        payload: response.payload,
+        input: response.input,
+        receivedAt: DateTime.now(),
+      );
 
   static Future<NotificationPermission> _askDarwin(
     Future<bool?> Function({bool alert, bool badge, bool sound}) request,
@@ -537,8 +557,14 @@ class LocalNotificationService
       if (!_opensApp(response)) {
         // macOS starts the app for a button too; it is answered once, not
         // opened, however many screens ask for the launch target.
-        final answer = _launchAnswered ? null : answerFromResponse(response);
+        final first = !_launchAnswered;
         _launchAnswered = true;
+        if (first && response.actionId == kReplyChatAction) {
+          final reply = _replyOf(response);
+          scheduleMicrotask(() => _replies.add(reply));
+          return null;
+        }
+        final answer = first ? answerFromResponse(response) : null;
         if (answer != null) scheduleMicrotask(() => _answers.add(answer));
         return null;
       }
@@ -552,5 +578,6 @@ class LocalNotificationService
   Future<void> dispose() async {
     await _taps.close();
     await _answers.close();
+    await _replies.close();
   }
 }

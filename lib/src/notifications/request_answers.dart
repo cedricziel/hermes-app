@@ -10,6 +10,7 @@ import 'dart:ui' show IsolateNameServer;
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, TargetPlatform, ValueListenable, defaultTargetPlatform;
 import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
@@ -18,13 +19,17 @@ import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
 import '../background/entry_points.dart';
 import '../background/headless_hermes.dart';
+import '../background/running_replies.dart';
 import '../chat/chat_transport.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'attention_policy.dart';
+import 'inline_reply.dart';
 import 'local_notification_service.dart';
 import 'notification_service.dart';
+import 'notification_settings.dart';
+import 'request_notifications.dart' show kReplyChatAction;
 
 /// The name the running app's answer port is registered under, so the iOS or
 /// Android background isolate can hand it an answer.
@@ -248,9 +253,56 @@ class RequestAnswerSender {
   }
 }
 
+/// Sends the reply typed into a finished reply's notification: the running
+/// app's [sendInlineReply], whose `due` and [route] the caller decides.
+typedef InlineReplyRunner = Future<InlineReplyResult> Function({
+  required String? payload,
+  required String? input,
+  required DateTime due,
+  required InlineReplyRoute route,
+});
+
+bool _appResumed() =>
+    WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+
+/// What the app tells the background isolate about a reply it took over:
+/// `<what>:posted` or `<what>:none`, `what` being the ending the reply calls
+/// for (`notSent`, `unconfirmed`, `appLocked`) or else its outcome, and
+/// `posted` whether that ending was posted. No text, title or id.
+String replyReport(InlineReplyResult result) =>
+    '${result.ending?.name ?? result.outcome.wire}:'
+    '${result.endingPosted ? _posted : _none}';
+
+const _posted = 'posted';
+const _none = 'none';
+
+/// What a reply report says, null when it is none.
+({bool endingDue, bool posted, AnswerOutcome outcome})? _readReplyReport(
+  Object? report,
+) {
+  if (report is! String) return null;
+  final at = report.lastIndexOf(':');
+  if (at < 1) return null;
+  final what = report.substring(0, at);
+  final state = report.substring(at + 1);
+  if (state != _posted && state != _none) return null;
+  final endingDue = ReplyEnding.values.any((e) => e.name == what);
+  return (
+    endingDue: endingDue,
+    posted: state == _posted,
+    outcome: switch (what) {
+      'answered' || 'sent' => AnswerOutcome.ok,
+      'signed_out' => AnswerOutcome.signedOut,
+      'appLocked' || 'app_locked' => AnswerOutcome.locked,
+      _ => AnswerOutcome.failed,
+    },
+  );
+}
+
 /// The running app's end of the answer path: sends what its own
 /// notification service reports (macOS) and what the iOS background isolate
-/// hands it through [kRequestAnswersPort].
+/// hands it through [kRequestAnswersPort]. A reply typed into a finished
+/// reply's notification goes to [_reply], never to an answer.
 class RequestAnswers {
   RequestAnswers(
     this._sender, {
@@ -258,6 +310,7 @@ class RequestAnswers {
     this._signedOut,
     this._forgetCategories = forgetQuestionCategories,
     this._appLock,
+    this._reply,
   });
 
   /// Answers on a fresh connection of whoever is signed in on [auth].
@@ -266,6 +319,8 @@ class RequestAnswers {
     required NotificationService service,
     AppLockController? appLock,
     Breadcrumbs breadcrumbs = Breadcrumbs.none,
+    NotificationSettings? settings,
+    RunningReplies? running,
   }) => RequestAnswers(
     RequestAnswerSender(
       transport: () =>
@@ -279,6 +334,24 @@ class RequestAnswers {
     service: service,
     signedOut: auth.signedOut,
     appLock: appLock == null ? null : _AppLockOn(appLock),
+    // On the headless runtime, which coordinates with [auth], not on its
+    // transport.
+    reply: ({required payload, required input, required due, required route}) =>
+        sendInlineReply(
+          payload: payload,
+          input: input,
+          due: due,
+          route: route,
+          platform: defaultTargetPlatform,
+          notifications: service,
+          settings: settings,
+          appLockAtArrival: () => appLockOnNow(appLock),
+          appInFront: () async => _appResumed(),
+          running: running,
+          events: auth.connectionTelemetry.events,
+          breadcrumbs: breadcrumbs,
+          engine: 'foreground',
+        ),
   );
 
   final RequestAnswerSender _sender;
@@ -292,13 +365,18 @@ class RequestAnswers {
   /// Whether App Lock is on; when it goes on, notifications whose buttons
   /// would answer past it are withdrawn.
   final ValueListenable<bool>? _appLock;
+  final InlineReplyRunner? _reply;
   var _wasLocked = false;
+  StreamSubscription<NotificationReply>? _replies;
   StreamSubscription<NotificationAnswer>? _answers;
   StreamSubscription<void>? _signOuts;
   ReceivePort? _port;
 
   void start() {
     _answers = _service?.answers.listen((answer) => _sender.send(answer));
+    if (_service case final ReplyingNotificationService service) {
+      _replies = service.replies.listen(_onReply);
+    }
     _signOuts = _signedOut?.listen((_) {
       unawaited(_service?.withdrawAnswerable());
       unawaited(_forgetCategories());
@@ -317,6 +395,8 @@ class RequestAnswers {
     if (message is! List || message.length != 5) return;
     final [payload, actionId, input, deadline, reply] = message;
     if (reply is! SendPort || deadline is! int) return;
+    // Not offered without a handler: the isolate then replies alone.
+    if (actionId == kReplyChatAction && _reply == null) return;
     final confirm = ReceivePort();
     reply.send([_offer, confirm.sendPort]);
     // Until the deadline: a confirmation still on its way must not be
@@ -329,6 +409,18 @@ class RequestAnswers {
     );
     confirm.close();
     if (go != _go) return;
+    if (actionId == kReplyChatAction) {
+      // Never an answer: no request is looked for, none is answered.
+      reply.send(
+        await _runReply(
+          payload as String?,
+          input as String?,
+          due,
+          InlineReplyRoute.app,
+        ),
+      );
+      return;
+    }
     final answer = answerFromAction(
       payload as String?,
       actionId as String?,
@@ -338,6 +430,37 @@ class RequestAnswers {
         ? AnswerOutcome.failed
         : await _sender.send(answer, route: 'background', deadline: due);
     reply.send(outcome.name);
+  }
+
+  /// A reply typed into a notification that reached this isolate (macOS):
+  /// its budget starts when Dart received it.
+  void _onReply(NotificationReply reply) {
+    if (_reply == null) return;
+    unawaited(
+      _runReply(
+        reply.payload,
+        reply.input,
+        reply.receivedAt.add(kAnswerBudget),
+        InlineReplyRoute.mac,
+      ),
+    );
+  }
+
+  /// Sends the reply and says how it went as [replyReport] does. A reply that
+  /// cannot be told is reported as one that may not have been sent.
+  Future<String> _runReply(
+    String? payload,
+    String? input,
+    DateTime due,
+    InlineReplyRoute route,
+  ) async {
+    try {
+      return replyReport(
+        await _reply!(payload: payload, input: input, due: due, route: route),
+      );
+    } on Object {
+      return '${ReplyEnding.unconfirmed.name}:$_none';
+    }
   }
 
   void _onAppLock() {
@@ -350,6 +473,7 @@ class RequestAnswers {
     _appLock?.removeListener(_onAppLock);
     if (_appLock case final _AppLockOn own) own.dispose();
     _answers?.cancel();
+    _replies?.cancel();
     _signOuts?.cancel();
     final port = _port;
     if (port != null) {
@@ -379,6 +503,15 @@ const _go = 'go';
 /// posts any follow-up itself; this waits for its outcome until the deadline
 /// and [reportGrace] after, and calls [unanswered] when none came, so the
 /// user hears of an answer that may not have gone out.
+///
+/// A reply typed into a finished reply's notification ([kReplyChatAction]
+/// with the `'y'` marker) takes the same route, before any answer is looked
+/// for, through [aloneReply] and [unansweredReply]. The app reports
+/// `<what>:posted` or `<what>:none` ([replyReport]); [unansweredReply] (the
+/// isolate's own "Couldn't confirm") runs when no report came, or when it
+/// says an ending was due and none was posted, and never when one was, so a
+/// late report cannot replace it. A reply with no text, or that is not a chat
+/// reply's, is not routed at all.
 Future<AnswerOutcome> routeAnswer(
   NotificationResponse response, {
   required Future<AnswerOutcome> Function(
@@ -387,6 +520,9 @@ Future<AnswerOutcome> routeAnswer(
   )
   alone,
   required Future<void> Function(NotificationAnswer answer) unanswered,
+  Future<AnswerOutcome> Function(NotificationResponse reply, DateTime deadline)?
+  aloneReply,
+  Future<void> Function(NotificationResponse reply)? unansweredReply,
   SendPort? Function() lookup = _lookupApp,
   DateTime? deadline,
   Duration pollFor = const Duration(seconds: 3),
@@ -394,16 +530,29 @@ Future<AnswerOutcome> routeAnswer(
   Duration takeTimeout = const Duration(seconds: 3),
   Duration reportGrace = const Duration(seconds: 2),
 }) async {
-  final answer = answerFromResponse(response);
-  if (answer == null) return AnswerOutcome.failed;
+  final isReply = response.actionId == kReplyChatAction;
+  final answer = isReply ? null : answerFromResponse(response);
+  if (isReply
+      ? aloneReply == null ||
+            unansweredReply == null ||
+            !isInlineReplyResponse(
+              response.actionId,
+              response.payload,
+              response.input,
+            )
+      : answer == null) {
+    return AnswerOutcome.failed;
+  }
   final due = deadline ?? DateTime.now().add(kAnswerBudget);
+  Future<AnswerOutcome> goAlone() =>
+      isReply ? aloneReply!(response, due) : alone(answer!, due);
   var app = lookup();
   final searchEnds = DateTime.now().add(pollFor);
   while (app == null && DateTime.now().isBefore(searchEnds)) {
     await Future<void>.delayed(pollEvery);
     app = lookup();
   }
-  if (app == null) return alone(answer, due);
+  if (app == null) return goAlone();
   final reply = ReceivePort();
   final replies = StreamIterator(reply);
   try {
@@ -422,7 +571,7 @@ Future<AnswerOutcome> routeAnswer(
     if (offer is! List || offer.first != _offer || offer.last is! SendPort) {
       // A late offer must find no one listening.
       reply.close();
-      return await alone(answer, due);
+      return await goAlone();
     }
     (offer.last as SendPort).send(_go);
     final wait = due.difference(DateTime.now()) + reportGrace;
@@ -430,8 +579,17 @@ Future<AnswerOutcome> routeAnswer(
       wait.isNegative ? Duration.zero : wait,
       onTimeout: () => false,
     );
+    if (isReply) {
+      final report = reported ? _readReplyReport(replies.current) : null;
+      // Nothing known of an ending, or one due and not posted: the user is
+      // told it may not have been sent. One posted by the app stands.
+      if (report == null || (report.endingDue && !report.posted)) {
+        await unansweredReply!(response);
+      }
+      return report?.outcome ?? AnswerOutcome.failed;
+    }
     if (!reported) {
-      await unanswered(answer);
+      await unanswered(answer!);
       return AnswerOutcome.failed;
     }
     return AnswerOutcome.values.firstWhere(
@@ -454,8 +612,13 @@ class LoneAnswerer {
     NotificationService? notifications,
     Future<bool> Function()? locked,
     ChatTransport Function(HeadlessHermes hermes)? transportFor,
+    NotificationSettings? settings,
+    RunningReplies? running,
+    this._appInFront,
     this._deps,
-  }) : _locked = locked ?? AppLockController.savedEnabled,
+  }) : _settings = settings ?? NotificationSettings(),
+       _running = running ?? RunningReplies(),
+       _locked = locked ?? AppLockController.savedEnabled,
        _transportFor = transportFor ?? ((hermes) => hermes.transport()),
        _notifications =
            notifications ?? LocalNotificationService(background: true);
@@ -464,12 +627,65 @@ class LoneAnswerer {
   final NotificationService _notifications;
   final Future<bool> Function() _locked;
   final HeadlessDeps? _deps;
+  final NotificationSettings _settings;
+  final RunningReplies _running;
+  final Future<bool> Function()? _appInFront;
   Future<void> _last = Future.value();
 
-  Future<AnswerOutcome> answer(NotificationAnswer answer, DateTime deadline) {
-    final run = _last.then((_) => _answer(answer, deadline));
+  Future<AnswerOutcome> answer(NotificationAnswer answer, DateTime deadline) =>
+      _chain(() => _answer(answer, deadline));
+
+  /// Sends the reply typed into [response], in the same chain as answers, so
+  /// that two never refresh the token pair at once. Its budget ends at
+  /// [deadline]; the run's `timeout` is `deadline - now`.
+  Future<AnswerOutcome> reply(
+    NotificationResponse response,
+    DateTime deadline,
+  ) => _chain(() => _reply(response, deadline));
+
+  Future<AnswerOutcome> _chain(Future<AnswerOutcome> Function() task) {
+    final run = _last.then((_) => task());
     _last = run.then<void>((_) {}, onError: (Object _) {});
     return run;
+  }
+
+  Future<AnswerOutcome> _reply(
+    NotificationResponse response,
+    DateTime deadline,
+  ) async {
+    try {
+      final result = await sendInlineReply(
+        payload: response.payload,
+        input: response.input,
+        due: deadline,
+        route: InlineReplyRoute.lone,
+        platform: defaultTargetPlatform,
+        notifications: _notifications,
+        settings: _settings,
+        appLockAtArrival: _locked,
+        appLockBeforePost: _locked,
+        appInFront: _appInFront,
+        running: _running,
+        transportFor: _transportFor,
+        deps: _deps,
+      );
+      return switch (result.outcome) {
+        InlineReplyOutcome.answered ||
+        InlineReplyOutcome.sent => AnswerOutcome.ok,
+        InlineReplyOutcome.signedOut => AnswerOutcome.signedOut,
+        InlineReplyOutcome.appLocked => AnswerOutcome.locked,
+        _ => AnswerOutcome.failed,
+      };
+    } on Object {
+      // Whatever went wrong, the reply may have been sent.
+      await postReplyUnconfirmed(
+        payload: response.payload,
+        notifications: _notifications,
+        settings: _settings,
+        appLockOn: _locked,
+      );
+      return AnswerOutcome.failed;
+    }
   }
 
   /// Each answer starts from the saved server and session as they are now:
@@ -579,6 +795,19 @@ Future<void> answerRequestInBackground(NotificationResponse response) async {
         final notifications = LocalNotificationService(background: true);
         try {
           await RequestAnswerSender.tellFailed(notifications, answer);
+        } finally {
+          await notifications.dispose();
+        }
+      },
+      aloneReply: lone.reply,
+      unansweredReply: (response) async {
+        final notifications = LocalNotificationService(background: true);
+        try {
+          await postReplyUnconfirmed(
+            payload: response.payload,
+            notifications: notifications,
+            settings: NotificationSettings(),
+          );
         } finally {
           await notifications.dispose();
         }
