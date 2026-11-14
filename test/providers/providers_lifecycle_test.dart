@@ -25,6 +25,15 @@ class _MovingAuth extends CatalogAuth {
   @override
   String? get baseUrl => url;
 
+  int owner = 0;
+  int user = 0;
+
+  @override
+  int get ownerGeneration => owner;
+
+  @override
+  int get userGeneration => user;
+
   void move({HermesConnectionState? to, String? server}) {
     if (to != null) current = to;
     if (server != null) url = server;

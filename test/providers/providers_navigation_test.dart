@@ -5,7 +5,6 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/providers/provider_detail_pane.dart';
 import 'package:hermes_app/src/providers/providers_screen.dart';
-import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
@@ -141,6 +140,22 @@ void main() {
     ]);
   });
 
+  testWidgets('the sidebar lists it before Helper models', (tester) async {
+    await pump(
+      tester,
+      size: const Size(1200, 800),
+      platform: TargetPlatform.windows,
+    );
+    await openMore(tester);
+    final providers = find.text('Model providers');
+    final helper = find.text('Helper models');
+    expect(providers, findsOneWidget);
+    expect(
+      tester.getTopLeft(providers).dy,
+      lessThan(tester.getTopLeft(helper).dy),
+    );
+  });
+
   testWidgets('a server without model options has no entry', (tester) async {
     backend.server.on('GET', '/api/model/options', {
       'detail': 'Not Found',
@@ -213,11 +228,34 @@ void main() {
         ..signedIn.add('nous');
       await openProfiles(tester);
 
-      final names = [for (final s in ProfileSection.values) s.name];
-      expect(names.indexOf('providers'), names.indexOf('helperModels') - 1);
       final row = find.byKey(const ValueKey('profile-section-providers'));
       expect(
+        tester.getTopLeft(row).dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey('profile-section-helperModels')),
+              )
+              .dy,
+        ),
+      );
+      expect(
         find.descendant(of: row, matching: find.text('2 connected')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('is absent on a server without model options', (tester) async {
+      backend.server.on('GET', '/api/model/options', {
+        'detail': 'Not Found',
+      }, status: 404);
+      await openProfiles(tester);
+      expect(
+        find.byKey(const ValueKey('profile-section-providers')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('profile-section-helperModels')),
         findsOneWidget,
       );
     });
@@ -228,7 +266,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ProvidersScreen), findsOneWidget);
-      expect(find.text('work'), findsWidgets);
+      // The bar's subtitle names the profile the section was opened for.
+      expect(
+        find.descendant(
+          of: find.byType(ProvidersScreen),
+          matching: find.text('work'),
+        ),
+        findsOneWidget,
+      );
       expect(
         backend.server
             .requestsTo('GET', '/api/env')

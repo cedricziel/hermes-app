@@ -138,17 +138,66 @@ void main() {
       ..keys['OPENROUTER_API_KEY'] = FakeProviderBackend.redact(
         'sk-or-v1-test-aaaa-4f2a',
       )
+      ..signedIn.add('nous')
       ..defaultProvider = 'openrouter'
       ..defaultModel = 'example-model-a';
     await pump(tester, backend: backend);
+    // A key form, an account, an endpoint and a removal.
+    await tester.tap(find.byKey(const ValueKey('provider-row-anthropic')));
+    await _settle(tester);
+    await tester.tap(find.text('Cancel'));
+    await _settle(tester);
+    await tester.scrollUntilVisible(find.text('Custom endpoint'), 200);
+    await tester.tap(find.text('Custom endpoint'));
+    await _settle(tester);
+    await tester.tap(find.text('Cancel'));
+    await _settle(tester);
     await tester.tap(find.byKey(const ValueKey('provider-row-nous')));
     await _settle(tester);
+    await tester.scrollUntilVisible(find.text('Sign out'), 200);
+    await tester.tap(find.text('Sign out'));
+    await _settle(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CupertinoAlertDialog),
+        matching: find.text('Sign out'),
+      ),
+    );
+    await _settle(tester);
 
+    final names = {for (final c in trail.recent) c.name};
+    expect(
+      names,
+      containsAll([
+        'providers.opened',
+        'providers.connect.started',
+        'providers.remove.confirmed',
+      ]),
+    );
+    expect(crumbs('providers.remove.confirmed'), [
+      {'kind': 'account'},
+    ]);
     for (final c in trail.recent.where(
       (c) => c.name.startsWith('providers.'),
     )) {
+      expect(
+        c.attributes.keys,
+        anyOf([
+          equals(['source']),
+          equals(['method']),
+          equals(['kind']),
+        ]),
+        reason: c.name,
+      );
       final text = c.attributes.values.join(' ').toLowerCase();
-      for (final secret in ['openrouter', 'nous', 'work', 'example-model']) {
+      for (final secret in [
+        'openrouter',
+        'anthropic',
+        'nous',
+        'work',
+        'example',
+        'sk-or',
+      ]) {
         expect(text, isNot(contains(secret)), reason: c.name);
       }
     }

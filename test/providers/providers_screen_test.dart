@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/providers/provider_detail_pane.dart';
+import 'package:hermes_app/src/providers/widgets/provider_detail_frame.dart';
 import 'package:hermes_app/src/providers/widgets/provider_detail_view.dart';
 import 'package:hermes_app/src/providers/widgets/provider_list_view.dart';
 
@@ -83,6 +84,44 @@ void main() {
       });
     }
 
+    testWidgets('the pane beside the list names the provider', (tester) async {
+      final rig = ProvidersRig(backend: _two());
+      await rig.pump(tester, size: const Size(1000, 700));
+      final pane = find.byType(ProviderDetailPane);
+      expect(
+        find.descendant(
+          of: pane.hitTestable(),
+          matching: find.text('OpenRouter'),
+        ),
+        findsNothing,
+      );
+      expect(find.byType(ProviderDetailHeader), findsOneWidget);
+      expect(
+        tester
+            .widget<ProviderDetailHeader>(find.byType(ProviderDetailHeader))
+            .name,
+        'OpenRouter',
+      );
+      await tester.tap(_row('nous'));
+      await _settle(tester);
+      expect(
+        tester
+            .widget<ProviderDetailHeader>(find.byType(ProviderDetailHeader))
+            .name,
+        'Nous Portal',
+      );
+    });
+
+    testWidgets('the pane says where to start while nothing is connected', (
+      tester,
+    ) async {
+      final rig = ProvidersRig();
+      await rig.pump(tester, size: const Size(1000, 700));
+      expect(find.byType(ProviderDetailPlaceholder), findsOneWidget);
+      expect(find.text('Pick one in the list to connect it.'), findsOneWidget);
+      expect(find.byType(ProviderDetailHeader), findsNothing);
+    });
+
     testWidgets('the Add provider button scrolls to the providers to add', (
       tester,
     ) async {
@@ -124,6 +163,35 @@ void main() {
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.byType(Dialog), findsOneWidget);
       expect(find.text('Connect OpenRouter'), findsOneWidget);
+    });
+
+    testWidgets('a Mac dialog leads with Cancel, not a back chevron', (
+      tester,
+    ) async {
+      final rig = ProvidersRig();
+      await rig.pump(
+        tester,
+        size: const Size(1000, 800),
+        platform: TargetPlatform.macOS,
+      );
+      await _openKeyForm(tester);
+
+      final dialog = find.byType(Dialog);
+      expect(
+        find.descendant(of: dialog, matching: find.text('Cancel')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: dialog,
+          matching: find.byKey(const Key('settings-back')),
+        ),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const Key('settings-cancel')));
+      await _settle(tester);
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.byType(ProviderListView), findsOneWidget);
     });
 
     testWidgets('a narrow Mac window also opens a dialog', (tester) async {
