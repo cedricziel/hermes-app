@@ -60,7 +60,7 @@ void main() {
   });
 
   testWidgets(
-    'a selectable path on one line can be selected, without its suffix',
+    'a selectable path shows in full, can be selected, and leaves its suffix out',
     (tester) async {
       await pumpFiles(
         tester,
@@ -123,6 +123,28 @@ void main() {
     expect(editable().widget.focusNode.hasFocus, isTrue);
     expect(editable().widget.controller.text, '/home/me/co');
     expect(editable().widget.controller.selection, selection);
+  });
+
+  testWidgets('a capped answer with no folders is a centred live region', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpFiles(
+      tester,
+      const PathEntryView(text: '/home/me/a', capped: true),
+      size: const Size(500, 1200),
+    );
+    final hint = find.text('Keep typing to narrow the list.');
+    expect(hint, findsOneWidget);
+    expect(tester.widget<Text>(hint).textAlign, TextAlign.center);
+    expect(
+      tester.getSemantics(hint),
+      matchesSemantics(
+        label: 'Keep typing to narrow the list.',
+        isLiveRegion: true,
+      ),
+    );
+    handle.dispose();
   });
 
   group('Change folder… semantics', () {
