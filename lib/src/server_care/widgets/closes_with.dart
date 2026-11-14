@@ -42,8 +42,25 @@ class _ClosesWithState extends State<ClosesWith> {
     super.dispose();
   }
 
+  /// False while the element is out of the tree. A page that fires as it is
+  /// removed may find this popup already taken down in the same frame, where
+  /// its context can no longer be asked anything.
+  bool _active = true;
+
+  @override
+  void deactivate() {
+    _active = false;
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _active = true;
+  }
+
   void _close() {
-    if (!mounted) return;
+    if (!mounted || !_active) return;
     if (ModalRoute.of(context) is PopupRoute) dismissRoute(context);
   }
 

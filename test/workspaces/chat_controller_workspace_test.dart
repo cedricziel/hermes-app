@@ -212,6 +212,45 @@ void main() {
       expect(draft.workspaceChoice, pickOther);
     });
 
+    test('a draft runs in the catalog default, read nothing for it', () async {
+      chat.newThread();
+      // The catalog has not been read: nothing is known, nothing asked.
+      expect(chat.draftWorkingDirectory, isNull);
+      expect(
+        server.requests.where((r) => r.path == '/api/chat/workspaces'),
+        isEmpty,
+      );
+
+      chat.workspaceCatalog();
+      await pumpEventQueue();
+      expect(chat.draftWorkingDirectory, _demo);
+
+      chat.chooseWorkspace(pickOther);
+      expect(chat.draftWorkingDirectory, _other);
+    });
+
+    test('a draft expands a ~ pick with the catalog home', () async {
+      chat.newThread();
+      chat.workspaceCatalog();
+      await pumpEventQueue();
+      chat.chooseWorkspace(
+        const WorkspaceChoice(
+          path: '~/code/x',
+          projectName: 'X',
+          source: WorkspaceChoiceSource.project,
+        ),
+      );
+
+      expect(chat.draftWorkingDirectory, '/home/me/code/x');
+    });
+
+    test('only a new chat has a draft folder', () async {
+      chat.workspaceCatalog();
+      await pumpEventQueue();
+      chat.select('s1');
+      expect(chat.draftWorkingDirectory, isNull);
+    });
+
     test('is cleared on a profile switch, with the catalog', () async {
       chat.newThread();
       chat.chooseWorkspace(pickOther);

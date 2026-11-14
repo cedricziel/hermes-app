@@ -2521,6 +2521,10 @@
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsReplyFootnote": "On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on.",
+  "@notificationsReplyFootnote": {
+    "description": "Last sentence of the footer under the Notify me switch, shown on iOS and macOS: a finished reply's notification has a Reply button, and it is not offered while App Lock is on."
+  },
 
   "@@x-area-platform_hint": "",
 
@@ -4722,6 +4726,10 @@
   "serverCareSidebarCaptionUpdating": "Updating…",
   "@serverCareSidebarCaptionUpdating": {
     "description": "Caption after the Server row of the Mac sidebar while an update runs; keep it short."
+  },
+  "serverCareSplitEmpty": "Nothing more to show for this server.",
+  "@serverCareSplitEmpty": {
+    "description": "Shown in the right pane of the Server screen on a wide window when the server offers no page to show there."
   },
   "serverCareStorageMissingDetail": "Chats and usage may be missing until it's repaired.",
   "@serverCareStorageMissingDetail": {

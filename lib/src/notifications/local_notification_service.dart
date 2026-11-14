@@ -55,7 +55,8 @@ String notificationPayload(AttentionNotification notification) {
     'q': ?notification.prompt,
     'u': ?notification.draft,
     'a': ?notification.accountHash,
-    if (request != null) 'n': notification.title,
+    if (notification.offersReply) 'y': 1,
+    if (request != null || notification.offersReply) 'n': notification.title,
     if (request != null) 'r': request.toJson(),
   });
 }

@@ -201,6 +201,21 @@ extension _ChatControllerWorkspace on ChatController {
     return loader;
   }
 
+  String? get _draftWorkingDirectoryImpl {
+    final selected = selectedThread;
+    if (selected == null || !_isNewChat(selected)) return null;
+    final picked = _workspaceChoiceImpl?.path;
+    if (picked == null) return _workspace.loaders[_profileKey]?.defaultFolder;
+    final home = _homeImpl;
+    if (home != null && home.isNotEmpty) {
+      if (picked == '~') return home;
+      if (picked.startsWith('~/')) {
+        return '${home.replaceFirst(RegExp(r'/+$'), '')}/${picked.substring(2)}';
+      }
+    }
+    return picked;
+  }
+
   NewChatWorkspace _newChatWorkspaceImpl(String? profile) {
     final loader = _catalogFor(profile);
     final choice = _workspaceChoiceImpl;

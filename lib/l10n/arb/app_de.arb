@@ -533,6 +533,7 @@
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsReplyFootnote": "Auf iPhone, iPad und Mac kannst du direkt in der Mitteilung auf eine fertige Antwort antworten. Nicht, solange die App-Sperre aktiv ist.",
 
   "@@x-area-platform_hint": "",
 
@@ -954,6 +955,7 @@
   "serverCareSidebarCaptionNeedsAttention": "Braucht Aufmerksamkeit",
   "serverCareSidebarCaptionRestarting": "Startet neu …",
   "serverCareSidebarCaptionUpdating": "Wird aktualisiert …",
+  "serverCareSplitEmpty": "Für diesen Server gibt es nichts weiter anzuzeigen.",
   "serverCareStorageMissingDetail": "Chats und Nutzung fehlen möglicherweise, bis er repariert ist.",
   "serverCareTitle": "Server",
   "serverCareToolsHeader": "Werkzeuge",
