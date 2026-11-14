@@ -306,6 +306,10 @@
 
   "@@x-area-chat/attachments": "",
 
+  "@@x-area-chat/checkpoints": "",
+
+  "@@x-area-chat/context": "",
+
   "@@x-area-chat/gateway": "",
 
   "@@x-area-chat/invalidation": "",
