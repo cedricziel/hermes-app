@@ -4,7 +4,7 @@
 
 ### Requirement: Working activity folds into one line
 
-Outside macOS and outside the quick panel, while the open chat has a Working item that reports a sentence, the app SHALL show one activity line directly below the chat header (above a Bot Chat banner) and nowhere else. The line SHALL show the newest Working sentence, truncated at its end (on one line; from a text scale of 2 it MAY use two lines). Activating the line SHALL open the Activity panel. The line SHALL disappear when no Working item is left, and while the Activity inspector is docked beside the chat or drawn over it; on a phone the sheet covers the chat and the line stays beneath it.
+Outside macOS and outside the quick panel, while the open chat has a Working item that reports a sentence, the app SHALL show one activity line directly below the chat header (above a Bot Chat banner) and nowhere else. The line SHALL show the newest Working sentence, truncated at its end (on one line; from a text scale of 2 it MAY use two lines). Activating the line SHALL open the Activity panel. The line SHALL disappear when no Working item is left or the turn settles, and while the Activity inspector is docked beside the chat or drawn over it; on a phone the sheet covers the chat and the line stays beneath it.
 
 #### Scenario: Memory recall during a planned turn
 
@@ -113,3 +113,20 @@ The Activity panel SHALL list open background process cards and the omission not
 
 - **WHEN** the backend closes a process card
 - **THEN** the card is listed under This session
+
+## MODIFIED Requirements
+
+### Requirement: Activity panel
+
+The app SHALL offer an Activity panel for the open chat with three sections in this order: **Now** (Working items except the plan), **Plan** (the todo plan: its completed count and every supported task with its status), and **This session** (For reference items, closed process cards and the session status of a finished turn, plus the Verify billing access action while that action is offered). A section with no content SHALL be left out. When every section is empty the panel SHALL say that there is no activity for this chat. The panel SHALL follow the open chat: switching chats SHALL show the new chat's activity and never another chat's. Panel content SHALL follow the ownership, App Lock and retirement rules of each activity's own capability.
+
+#### Scenario: A chat with a plan and usage
+
+- **WHEN** the user opens the Activity panel on a chat with a plan of five tasks, two done, and a usage snapshot
+- **THEN** the panel shows Plan · 2 of 5 with the tasks, and This session with the token total
+- **AND** no Now section is drawn
+
+#### Scenario: The user switches chats with the panel open
+
+- **WHEN** the inspector is open and the user selects another chat
+- **THEN** the inspector stays open and shows only the newly selected chat's activity

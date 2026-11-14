@@ -32,7 +32,7 @@ When more than one item waits, the card SHALL show the oldest first, with its po
 #### Scenario: The shown item settles
 
 - **WHEN** the connector operation on the card reports a settled snapshot
-- **THEN** the card shows the billing details as "1 of 1" and the settled operation is listed under This session in the Activity panel
+- **THEN** the card shows the billing details without paging and the settled operation is listed under This session in the Activity panel
 
 ### Requirement: Each Needs-you item offers its own actions
 
@@ -84,7 +84,7 @@ Billing verification details SHALL leave the card when the connection is lost. R
 
 ### Requirement: Needs-you items are announced
 
-When an item becomes the one the card shows, the app SHALL announce it to assistive technology by its kind (for example "Billing access needs approval"), without reading a verification code, URL, target name or server-supplied reason, once per item. Items waiting behind the shown one, items a chat already held when it opened, and any item while the dock is not drawn (the compact quick panel) SHALL NOT be announced. The card's actions SHALL be reachable by keyboard and screen reader in the order they are drawn.
+When an item becomes the one the card shows, the app SHALL announce it to assistive technology by its kind (for example "Billing access needs approval"), without reading a verification code, URL, target name or server-supplied reason, once per item. An item the user reaches by paging SHALL NOT be announced again. Items waiting behind the shown one, items a chat already held when it opened, and any item while the dock is not drawn (the compact quick panel) SHALL NOT be announced. The card's actions SHALL be reachable by keyboard and screen reader in the order they are drawn.
 
 #### Scenario: A second item waits behind the first
 

@@ -29,5 +29,9 @@ Two PRs, in order, each about 500 changed lines or fewer. Every behaviour task s
 ## 4. Verify
 
 - [x] 4.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, all clean.
-- [ ] 4.2 Run the `verify-in-app` loop on macOS against a dev backend with a scripted turn that recalls memory and runs a plan: confirm the toolbar subtitle shows the status, the inspector lists details, and nothing stacks above the transcript; screenshot it. Phone and Material layouts are covered by the workflow tests; say so if no device was run.
-  Not run at archive time; see docs/roadmap.md
+
+## Not verified on a device
+
+These checks had not been run when the change was archived. The implementation and its tests are in the repository; see docs/roadmap.md.
+
+- 4.2 Run the `verify-in-app` loop on macOS against `scripts/dev-backend.sh` with a scripted turn that recalls memory and runs a plan: confirm the toolbar subtitle shows the status, the inspector lists details, and nothing stacks above the transcript; screenshot it.
