@@ -522,6 +522,100 @@ void main() {
     });
   });
 
+  group('scanning races', () {
+    test('a read that answers while the scan folders are read does not end '
+        'the scan', () async {
+      await loader.load();
+      final openRead = Completer<FakeResponse>();
+      final roots = Completer<FakeResponse>();
+      var reads = 0;
+      catalog = () {
+        reads++;
+        if (reads == 1) return openRead.future;
+        return ok({
+          ..._catalogBody,
+          'repos': [
+            ...(_catalogBody['repos']! as List),
+            {'root': '/home/me/code/fresh', 'sessions': 0, 'last_active': 1.0},
+          ],
+        });
+      };
+      config = () => roots.future;
+      open();
+      await settle(15);
+
+      unawaited(picker.scan());
+      await settle(15);
+      openRead.complete(ok(_catalogBody));
+      await settle(15);
+
+      expect(picker.scanning, isTrue);
+      expect(picker.scanOutcome, isNull);
+
+      roots.complete(
+        ok({
+          'desktop': {
+            'repo_scan_roots': ['/home/me/code'],
+          },
+        }),
+      );
+      await settle(15);
+
+      expect(picker.scanOutcome, WorkspacePickerScanOutcome.found);
+      expect(picker.scanFound, 1);
+    });
+
+    test('Try again during a scan reads nothing and leaves the scan its '
+        'answer', () async {
+      await loader.load();
+      final scanRead = Completer<FakeResponse>();
+      var reads = 0;
+      catalog = () {
+        reads++;
+        return reads <= 1 ? ok(_catalogBody) : scanRead.future;
+      };
+      open();
+      await settle(15);
+      final before = server.requestsTo('GET', '/api/chat/workspaces').length;
+
+      unawaited(picker.scan());
+      await settle(15);
+      final during = server.requestsTo('GET', '/api/chat/workspaces').length;
+      picker.retryCatalog();
+      await settle(15);
+
+      expect(
+        server.requestsTo('GET', '/api/chat/workspaces').length,
+        during,
+        reason: 'only the scan\'s read is out (was $before)',
+      );
+      expect(picker.scanning, isTrue);
+      scanRead.complete(ok(_catalogBody));
+      await settle(15);
+      expect(picker.scanOutcome, WorkspacePickerScanOutcome.nothingNew);
+    });
+  });
+
+  group('a lost probe', () {
+    test('does not disable Browse and Type after Try again reads the '
+        'projects', () async {
+      await loader.load();
+      var probes = 0;
+      fs['/home/me'] = () =>
+          ++probes == 1 ? throw Exception('down') : ok(_dir(['code']));
+      open();
+      await settle();
+      expect(picker.offline, isTrue);
+
+      picker.retryCatalog();
+      await settle();
+
+      expect(picker.offline, isFalse);
+      expect(picker.browseAccess, WorkspaceBrowseAccess.available);
+      expect(probes, 2);
+    });
+  });
+
   group('browsing', () {
     test('asks once when it opens, at the server default', () async {
       open();

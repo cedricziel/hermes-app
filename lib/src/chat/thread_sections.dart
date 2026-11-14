@@ -62,6 +62,15 @@ String? sessionFolderPath(Map<String, dynamic> row) {
   return null;
 }
 
+/// The folders the chat list names its sections after: the list folder of
+/// each chat that is not pinned. Section headers and an open chat's header
+/// line compare against this one set, so a folder gets one name in both.
+Set<String> folderLabelUniverse(Iterable<ChatThread> threads) => {
+  for (final thread in threads)
+    if (!thread.pinned)
+      if (thread.folderPath case final String path when path.isNotEmpty) path,
+};
+
 typedef FolderThreadSection = ({
   String id,
   String label,
@@ -81,7 +90,7 @@ List<FolderThreadSection> groupThreadsByFolder(Iterable<ChatThread> threads) {
       unassigned.add(thread);
     }
   }
-  final labels = folderLabels(folders.keys);
+  final labels = folderLabels(folderLabelUniverse(threads));
   return [
     if (pinned.isNotEmpty) (id: 'pinned', label: 'Pinned', threads: pinned),
     for (final entry in folders.entries)

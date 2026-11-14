@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../chat/chat_controller.dart';
 import '../../chat/chat_models.dart';
@@ -34,7 +35,9 @@ class WorkspaceGuard {
 
   void _check() {
     if (_closed.value || _disposed) return;
-    if (!chat.active ||
+    // Sign-out, Change Server, App Lock and a profile switch all bump the
+    // epoch; no separate "session ended" check lives here.
+    if (chat.disposed ||
         chat.workspaceEpoch != _epoch ||
         chat.profile != _profile ||
         (_threadId != null && chat.selectedId != _threadId)) {
@@ -48,4 +51,13 @@ class WorkspaceGuard {
     chat.removeListener(_check);
     _closed.dispose();
   }
+}
+
+/// Removes the route that [context] belongs to, wherever it sits in the
+/// stack. `Navigator.pop` would take the top route, which may be a
+/// confirmation or a picker opened over this one.
+void closeOwnRoute(BuildContext context) {
+  final route = ModalRoute.of(context);
+  if (route == null || !route.isActive) return;
+  route.navigator?.removeRoute(route);
 }

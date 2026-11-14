@@ -170,7 +170,9 @@ extension _ChatScreenNavigation on _ChatScreenState {
       ),
       // Disabled while the chat replies or the server cannot move it.
       MacCommand.changeFolder: MacCommandHandler(
-        thread != null && _chat.workspaceMoveBlock(thread) == null
+        thread != null &&
+                _chat.workspaceChangeOffered(thread) &&
+                _chat.workspaceMoveBlock(thread) == null
             ? () => _changeFolder(thread)
             : null,
       ),
@@ -206,7 +208,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
       return null;
     }
     final block = _chat.workspaceMoveBlock(thread);
-    if (block != null && block != WorkspaceMoveBlock.replying) return null;
+    if (!_chat.workspaceChangeOffered(thread)) return null;
     return ChangeFolderOffer(
       enabled: block == null,
       onSelected: () => _changeFolder(thread),

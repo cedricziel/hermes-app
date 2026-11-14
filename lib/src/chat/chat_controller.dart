@@ -396,6 +396,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// The server's home folder, when the profile's catalog was read.
   String? get workspaceHome => _ChatControllerWorkspace(this)._homeImpl;
 
+  /// Whether Change folder is offered for [thread]: see the details sheet, the
+  /// Mac command and the thread menu.
+  bool workspaceChangeOffered(ChatThread thread) =>
+      _ChatControllerWorkspace(this)._changeOfferedImpl(thread);
+
   /// Whether the profile's folders were last asked for with no answer from
   /// the server. Never starts a read.
   bool get workspaceOffline => _ChatControllerWorkspace(this)._offlineImpl;

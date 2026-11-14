@@ -143,6 +143,27 @@ extension _ChatControllerWorkspace on ChatController {
   /// The server's home folder, when the profile's catalog was read.
   String? get _homeImpl => _workspace.loaders[_profileKey]?.catalog?.home;
 
+  /// Whether "Change folder" is worth offering for [thread]: a stored chat
+  /// with a known folder, on a server that has the workspace routes. While the
+  /// catalog is still being read it is offered; it goes away once the read
+  /// says the server is older. A reply or a move in flight keeps it offered
+  /// (the control says why it is disabled).
+  bool _changeOfferedImpl(ChatThread thread) {
+    // Reads the catalog if nobody did: an older server answers "unsupported"
+    // and the control goes away.
+    _catalogFor(null);
+    final block = _moveBlockImpl(thread);
+    if (block != null &&
+        block != WorkspaceMoveBlock.replying &&
+        block != WorkspaceMoveBlock.moving) {
+      return false;
+    }
+    final path = thread.workingDirectory ?? thread.folderPath;
+    if (path == null || path.trim().isEmpty) return false;
+    return _workspace.loaders[_profileKey]?.status !=
+        WorkspaceCatalogStatus.unsupported;
+  }
+
   bool get _offlineImpl =>
       _workspace.loaders[_profileKey]?.status == WorkspaceCatalogStatus.offline;
 

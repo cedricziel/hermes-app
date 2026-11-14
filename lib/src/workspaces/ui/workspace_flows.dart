@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../chat/chat_controller.dart';
+import '../../widgets/app_banner.dart';
 import '../../chat/chat_models.dart';
 import '../../chat/chat_workspace_state.dart';
 import '../../widgets/adaptive_sheet.dart';
@@ -115,25 +117,48 @@ class _DetailsSheetState extends State<_DetailsSheet> {
     // The project line needs the catalog; read it for the details.
     _loader = _chat.workspaceCatalog();
     if (widget.openPicker) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_change());
-      });
+      _loader?.addListener(_openPickerWhenKnown);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _openPickerWhenKnown(),
+      );
     }
   }
 
   @override
   void dispose() {
     widget.guard.closed.removeListener(_guardChanged);
+    _loader?.removeListener(_openPickerWhenKnown);
     super.dispose();
   }
 
+  /// Own route only: a picker or confirmation opened over this sheet closes
+  /// by its own guard.
   void _guardChanged() {
-    if (widget.guard.closed.value && mounted) Navigator.of(context).pop();
+    if (widget.guard.closed.value && mounted) closeOwnRoute(context);
   }
 
+  /// "Change Folder…" from the menu opens the picker once the catalog has
+  /// said the server can move a chat: never on an older server.
+  void _openPickerWhenKnown() {
+    if (!mounted || _pickerAsked) return;
+    final status = _loader?.status;
+    if (status == WorkspaceCatalogStatus.idle ||
+        status == WorkspaceCatalogStatus.loading) {
+      return;
+    }
+    _pickerAsked = true;
+    _loader?.removeListener(_openPickerWhenKnown);
+    if (_chat.workspaceChangeOffered(_thread)) unawaited(_change());
+  }
+
+  /// Why the last confirmed move was not sent, shown over the details.
+  WorkspaceMoveBlock? _blocked;
+  var _pickerAsked = false;
+
   Future<void> _change() async {
-    if (_pickerOpen) return;
+    if (_pickerOpen || !_chat.workspaceChangeOffered(_thread)) return;
     _pickerOpen = true;
+    setState(() => _blocked = null);
     final thread = _thread;
     final guard = WorkspaceGuard(_chat, thread: thread);
     try {
@@ -152,10 +177,21 @@ class _DetailsSheetState extends State<_DetailsSheet> {
             dismissWhen: guard.closed,
           );
           if (!confirmed || guard.closed.value || !mounted) return false;
+          // The chat as it is now: a reload replaces the objects, and a reply
+          // may have started while the person chose.
+          final current = _thread;
+          final block = _chat.workspaceMoveBlock(current);
+          if (block != null) {
+            setState(() => _blocked = block);
+            return true;
+          }
           setState(() => _target = path);
-          // Sent once; the reply check runs again inside, and what came of
-          // it is [workspaceMoveOf].
-          unawaited(_chat.moveWorkspace(thread, path));
+          // Sent once; what came of it is [workspaceMoveOf].
+          unawaited(
+            _chat.moveWorkspace(current, path).then((late) {
+              if (late != null && mounted) setState(() => _blocked = late);
+            }),
+          );
           return true;
         },
       );
@@ -183,7 +219,7 @@ class _DetailsSheetState extends State<_DetailsSheet> {
           block != WorkspaceMoveBlock.botChat &&
           block != WorkspaceMoveBlock.notAvailable &&
           catalogStatus != WorkspaceCatalogStatus.unsupported;
-      return WorkingDirectoryDetails(
+      final details = WorkingDirectoryDetails(
         folderName: folder.name,
         path: folder.path,
         branch: folder.branch,
@@ -200,6 +236,28 @@ class _DetailsSheetState extends State<_DetailsSheet> {
         onTryAgain: () => unawaited(_change()),
         onCheckAgain: () => unawaited(_chat.recheckWorkspaceMove(thread)),
         onClose: () => Navigator.of(context).pop(),
+      );
+      final blocked = _blocked;
+      if (blocked == null) return details;
+      final l10n = context.l10n;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: AppBanner(
+              key: const Key('working-directory-blocked'),
+              tone: AppBannerTone.neutral,
+              title: switch (blocked) {
+                WorkspaceMoveBlock.replying => l10n.workspacesReasonReplying,
+                WorkspaceMoveBlock.moving => l10n.workspacesReasonChanging,
+                _ => l10n.workspacesMoveNotChanged,
+              },
+              detail: l10n.workspacesMoveNothingChanged,
+            ),
+          ),
+          Flexible(child: details),
+        ],
       );
     },
   );

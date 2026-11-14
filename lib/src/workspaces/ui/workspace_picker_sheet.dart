@@ -114,7 +114,13 @@ class _PickerSheetState extends State<_PickerSheet> {
 
   void _close([FolderPick? result]) {
     if (!mounted) return;
-    Navigator.of(context).pop(result);
+    // A pick resolves the sheet's future; a guard close removes the route
+    // without disturbing what was opened over it.
+    if (result != null) {
+      Navigator.of(context).pop(result);
+    } else {
+      closeOwnRoute(context);
+    }
   }
 
   Future<void> _take(FolderPick? pick) async {

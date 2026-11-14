@@ -1,5 +1,6 @@
 import '../../chat/chat_controller.dart';
 import '../../chat/chat_models.dart';
+import '../../chat/thread_sections.dart' show folderLabelUniverse;
 import '../folder_labels.dart';
 import '../workspace_paths.dart';
 
@@ -32,12 +33,8 @@ class ThreadFolder {
 ThreadFolder? threadFolderOf(ChatController chat, ChatThread thread) {
   final path = thread.workingDirectory ?? thread.folderPath;
   if (path == null || path.trim().isEmpty) return null;
-  final among = <String>{
-    for (final other in chat.threads) ...[
-      ?other.folderPath,
-      ?other.workingDirectory,
-    ],
-  };
+  // The same folders the list's section headers are named against.
+  final among = folderLabelUniverse(chat.threads);
   final home = chat.workspaceHome;
   return ThreadFolder(
     name: folderLabelFor(path, among: among),

@@ -221,7 +221,16 @@ class WorkspacePickerController extends ChangeNotifier {
 
   /// "Try again" after the projects could not be read.
   void retryCatalog() {
-    if (_dead) return;
+    // A scan owns the next read: reading again would replace its answer.
+    if (_dead || _scanning) return;
+    // A probe that was lost is asked again with the projects.
+    if (_probeUnreachable) {
+      _probeUnreachable = false;
+      _probeStarted = false;
+      _probeTimer?.cancel();
+      _probeTimer = null;
+      _startProbe();
+    }
     _readCatalog();
     _notify();
   }
@@ -233,7 +242,6 @@ class WorkspacePickerController extends ChangeNotifier {
       _stalled = false;
       _startProbe();
     }
-    if (_scanning) _scanAnswered();
     _notify();
   }
 
@@ -461,11 +469,16 @@ class WorkspacePickerController extends ChangeNotifier {
     if (_scanOutcome == WorkspacePickerScanOutcome.tooSlow) return;
     _lastRepos = _repoRoots(_loader.catalog);
     _stalled = false;
-    unawaited(_loader.reload(scan: true));
+    // This scan's own read: an answer of any other read never ends it.
+    await _loader.reload(scan: true);
+    if (_dead || run != _scanRun) return;
+    _scanAnswered();
+    _notify();
   }
 
   /// The scan's catalog arrived (maybe after the wait ended).
   void _scanAnswered() {
+    // Replaced by another read: that read decides, not the scan.
     if (_loader.loading) return;
     _scanTimer?.cancel();
     _scanning = false;

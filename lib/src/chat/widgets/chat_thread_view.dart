@@ -39,7 +39,9 @@ String? latestFinishedReplyId(ChatThread? thread) {
 }
 
 /// Whether [thread] is a chat that does not exist yet: the welcome view's.
-bool _isNewChat(ChatThread thread) => !thread.remote && thread.messages.isEmpty;
+bool _isNewChat(ChatThread thread) =>
+    !thread.remote &&
+    (thread.messages.isEmpty || thread.workspaceChoice != null);
 
 /// The open thread's messages and composer, in a column capped at
 /// [kChatColumnMaxWidth]: the content of the main window's chat and of a
