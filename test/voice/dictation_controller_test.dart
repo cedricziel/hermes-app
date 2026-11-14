@@ -284,6 +284,49 @@ void main() {
     },
   );
 
+  test('a connector that throws synchronously falls back to the upload, '
+      'with no async error', () async {
+    final errors = <Object>[];
+    await runZonedGuarded(() async {
+      final dictation = DictationController(
+        repository: HermesChatRepository(server.client().raw),
+        connect: ([query = const {}]) => throw StateError('no socket'),
+        recorder: recorder,
+        onTranscript: inserted.add,
+        onDevice: OnDeviceSpeech(),
+        locale: () => 'de-DE',
+      )..configure(profile: 'work', support: _live);
+
+      await dictation.start();
+      recorder.speak([1, 2, 3]);
+      await pumpEventQueue();
+      await dictation.stop();
+
+      expect(inserted, ['from the upload']);
+    }, (error, _) => errors.add(error));
+    expect(errors, isEmpty);
+  });
+
+  test('a recorder that fails to stop after a cancelled start ends quietly, '
+      'sending nothing', () async {
+    final gate = Completer<void>();
+    final failing = _StopFailingRecorder(gate);
+    recorder = failing;
+    final errors = <Object>[];
+    await runZonedGuarded(() async {
+      final dictation = controller(support: _uploadOnly);
+      final starting = dictation.start();
+      await pumpEventQueue();
+      unawaited(dictation.cancel());
+      gate.complete();
+      await starting;
+      await pumpEventQueue();
+      expect(inserted, isEmpty);
+      expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+    }, (error, _) => errors.add(error));
+    expect(errors, isEmpty);
+  });
+
   test('stops by itself after five minutes', () {
     fakeAsync((async) {
       final dictation = controller(support: _uploadOnly);
@@ -907,4 +950,19 @@ class _PlatformFailingSpeech extends OnDeviceSpeech {
     required String locale,
     required int sampleRate,
   }) async => throw PlatformException(code: 'boom');
+}
+
+class _StopFailingRecorder extends FakeVoiceRecorder {
+  _StopFailingRecorder(this.gate);
+
+  final Completer<void> gate;
+
+  @override
+  Future<Stream<Uint8List>> start({required int sampleRate}) async {
+    await gate.future;
+    return super.start(sampleRate: sampleRate);
+  }
+
+  @override
+  Future<void> stop() async => throw PlatformException(code: 'stop');
 }

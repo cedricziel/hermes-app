@@ -234,6 +234,23 @@ class DictationController extends ChangeNotifier {
       return;
     }
     if (!_current(run)) return;
+    try {
+      await _begin(run);
+    } on Object {
+      if (!_current(run)) return;
+      _stream?.cancel();
+      _stream = null;
+      unawaited(_partials?.cancel());
+      _partials = null;
+      _discardPcm();
+      unawaited(_closeMicrophone().catchError((Object _) {}));
+      _end(DictationPhase.failed, 'failed');
+    }
+  }
+
+  /// Everything of [_start] after the permission check; a throw is the
+  /// caller's failure.
+  Future<void> _begin(int run) async {
     final LiveTranscriber? stream;
     if (_onTheDevice) {
       stream = await _startOnDevice(run);

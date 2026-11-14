@@ -48,7 +48,13 @@ class TranscribeStream implements LiveTranscriber {
     Duration openTimeout,
   ) async {
     final StreamChannel<Object?> channel;
-    final opening = connect(query);
+    final Future<StreamChannel<Object?>> opening;
+    try {
+      opening = connect(query);
+    } on Object {
+      _fail();
+      return;
+    }
     try {
       channel = await opening.timeout(openTimeout);
     } on Object {
