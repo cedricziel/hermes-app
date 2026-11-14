@@ -45,6 +45,7 @@ import '../notifications/notification_settings.dart';
 import '../platform_hint/platform_hint_offer.dart';
 import '../platform_hint/show_platform_hint_prompt.dart';
 import '../profiles/chat_profiles.dart';
+import '../server_care/server_care_controller.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/mac_profiles_page.dart';
 import '../profiles/widgets/mac_profile_switcher.dart';
@@ -125,6 +126,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// The profiles a Mac window switches between in its sidebar; listed on
   /// the first Mac build.
   ChatProfiles? _chatProfiles;
+
+  /// What the Server screen and the attention mark read; one per shell, so
+  /// it ends with the connection.
+  ServerCareController? _serverCare;
 
   /// The sidebar of a Mac window, which a pick in it closes when it lies
   /// over the page.
@@ -238,6 +243,19 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       );
     }
     _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
+    if (repositories != null) {
+      _serverCare = ServerCareController(
+        repository: repositories.serverCare,
+        telemetry: repositories.telemetry,
+        covered: () => _appLock?.covered ?? false,
+      );
+      _chatProfiles?.addListener(_followServerCareProfile);
+      _appLock?.addListener(_readServerCareAfterUnlock);
+      // The chat reports its profile after its threads load, and not at all
+      // when it works in the server's default, so the default is resolved by
+      // name here. Nothing is read before some profile is known.
+      unawaited(_resolveServerCareProfile());
+    }
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
     if (service != null && settings != null && _cron != null) {
@@ -332,6 +350,30 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _rebuild(VoidCallback update) => setState(update);
 
+  /// The server's own default profile, by name; null until read.
+  String? _defaultProfile;
+
+  Future<void> _resolveServerCareProfile() async {
+    try {
+      final active = await _profiles?.loadActive();
+      if (active != null) {
+        final name = active.current.isNotEmpty ? active.current : active.active;
+        _defaultProfile = name.isEmpty ? null : name;
+      }
+    } on Object {
+      // The chat's own report is then what names the profile.
+    }
+    if (mounted) _followServerCareProfile();
+  }
+
+  void _followServerCareProfile() =>
+      _serverCare?.profileChanged(_chatProfiles?.current ?? _defaultProfile);
+
+  /// A status read skipped under App Lock is made up for on unlock.
+  void _readServerCareAfterUnlock() {
+    if (!(_appLock?.covered ?? true)) unawaited(_serverCare?.resumed());
+  }
+
   T? _maybeRead<T>() {
     try {
       return context.read<T>();
@@ -353,6 +395,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _watcher?.dispose();
     _messages?.dispose();
     _finds.dispose();
+    _chatProfiles?.removeListener(_followServerCareProfile);
+    _appLock?.removeListener(_readServerCareAfterUnlock);
+    _serverCare?.dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();
     _schedulesController?.dispose();
@@ -372,6 +417,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _appForeground = AppPresence.foreground(state);
     _syncSchedulesForeground();
     if (state == AppLifecycleState.resumed) {
+      unawaited(_serverCare?.resumed());
       _installs?.resumed();
       _detect();
     }
@@ -428,8 +474,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         null => _build(context),
       },
     );
+    final care = _serverCare;
+    final provided = care == null
+        ? built
+        : ChangeNotifierProvider<ServerCareController>.value(
+            value: care,
+            child: built,
+          );
     final chrome = platformChromeOf(context);
-    if (!chrome.isApple) return built;
+    if (!chrome.isApple) return provided;
     final mac = chrome == PlatformChrome.macos;
     if (mac && !_macLoaded) {
       _macLoaded = true;
@@ -453,7 +506,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               : null,
         ),
       },
-      child: mac ? MacSidebarScope(controller: _sidebar, child: built) : built,
+      child: mac
+          ? MacSidebarScope(controller: _sidebar, child: provided)
+          : provided,
     );
   }
 

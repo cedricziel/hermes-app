@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart' hide Banner;
+import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
-import 'package:hermes_app/src/widgets/banner.dart';
+import 'package:hermes_app/src/widgets/app_banner.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
@@ -16,16 +16,21 @@ WidgetbookUseCase _case(String name, Widget Function() banner) =>
 
 List<WidgetbookUseCase> _tone(
   String label,
-  BannerTone tone,
+  AppBannerTone tone,
   AppIconSet? icon,
 ) => [
   _case(
     label,
-    () => Banner(tone: tone, icon: icon, title: '$label note', detail: _detail),
+    () => AppBanner(
+      tone: tone,
+      icon: icon,
+      title: '$label note',
+      detail: _detail,
+    ),
   ),
   _case(
     '$label with action',
-    () => Banner(
+    () => AppBanner(
       tone: tone,
       icon: icon,
       title: '$label note',
@@ -35,28 +40,28 @@ List<WidgetbookUseCase> _tone(
   ),
   _case(
     '$label, title only',
-    () => Banner(tone: tone, icon: icon, title: '$label note'),
+    () => AppBanner(tone: tone, icon: icon, title: '$label note'),
   ),
 ];
 
-WidgetbookFolder bannerNode() => WidgetbookFolder(
-  name: 'Banner',
+WidgetbookFolder appBannerNode() => WidgetbookFolder(
+  name: 'AppBanner',
   children: [
     WidgetbookComponent(
-      name: 'Banner',
+      name: 'AppBanner',
       useCases: [
-        ..._tone('Success', BannerTone.success, null),
-        ..._tone('Warning', BannerTone.warning, null),
-        ..._tone('Error', BannerTone.error, null),
-        ..._tone('Neutral', BannerTone.neutral, null),
+        ..._tone('Success', AppBannerTone.success, null),
+        ..._tone('Warning', AppBannerTone.warning, null),
+        ..._tone('Error', AppBannerTone.error, null),
+        ..._tone('Neutral', AppBannerTone.neutral, null),
         WidgetbookUseCase(
           name: 'Largest text, with action',
           builder: (context) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: const TextScaler.linear(2)),
             child: frame(
-              Banner(
-                tone: BannerTone.neutral,
+              AppBanner(
+                tone: AppBannerTone.neutral,
                 title: 'You are offline',
                 detail: _detail,
                 action: _action(),
@@ -66,8 +71,8 @@ WidgetbookFolder bannerNode() => WidgetbookFolder(
         ),
         _case(
           'Custom icon',
-          () => const Banner(
-            tone: BannerTone.warning,
+          () => const AppBanner(
+            tone: AppBannerTone.warning,
             icon: AppIcons.lock,
             title: 'Sign-in needed',
             detail: 'Approve access in your browser.',

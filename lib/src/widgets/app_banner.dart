@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart' hide Banner;
+import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 /// How a banner reads: worked, needs attention, failed, or just a note.
-enum BannerTone { success, warning, error, neutral }
+enum AppBannerTone { success, warning, error, neutral }
 
 /// A tinted box with an icon, a title and optional detail and action.
 ///
@@ -11,8 +11,8 @@ enum BannerTone { success, warning, error, neutral }
 /// colour alone. The banner is a polite live region, so a screen reader
 /// announces one that appears or changes without taking focus. It takes plain
 /// values only: no controller and no lookups beyond the theme.
-class Banner extends StatelessWidget {
-  const Banner({
+class AppBanner extends StatelessWidget {
+  const AppBanner({
     super.key,
     required this.tone,
     this.icon,
@@ -21,7 +21,7 @@ class Banner extends StatelessWidget {
     this.action,
   });
 
-  final BannerTone tone;
+  final AppBannerTone tone;
 
   /// The icon beside the title; each tone has a default.
   final AppIconSet? icon;
@@ -29,21 +29,21 @@ class Banner extends StatelessWidget {
   final String detail;
   final Widget? action;
 
-  static AppIconSet defaultIcon(BannerTone tone) => switch (tone) {
-    BannerTone.success => AppIcons.checkCircle,
-    BannerTone.warning => AppIcons.warning,
-    BannerTone.error => AppIcons.error,
-    BannerTone.neutral => AppIcons.info,
+  static AppIconSet defaultIcon(AppBannerTone tone) => switch (tone) {
+    AppBannerTone.success => AppIcons.checkCircle,
+    AppBannerTone.warning => AppIcons.warning,
+    AppBannerTone.error => AppIcons.error,
+    AppBannerTone.neutral => AppIcons.info,
   };
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      BannerTone.success => context.hermesColors.success,
-      BannerTone.warning => context.hermesColors.warning,
-      BannerTone.error => scheme.error,
-      BannerTone.neutral => context.hermesColors.subtleText,
+      AppBannerTone.success => context.hermesColors.success,
+      AppBannerTone.warning => context.hermesColors.warning,
+      AppBannerTone.error => scheme.error,
+      AppBannerTone.neutral => context.hermesColors.subtleText,
     };
     final stacked =
         action != null && MediaQuery.textScalerOf(context).scale(14) > 21;
