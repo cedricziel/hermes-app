@@ -31,6 +31,21 @@ The app SHALL list File checkpoints under "For reference" when `rollback.list` a
 - **WHEN** `enabled` is true and the list is empty
 - **THEN** the page says "No checkpoints yet for this chat's folder. Hermes makes one just before it first edits a file in a turn."
 
+#### Scenario: Loading
+
+- **WHEN** the list is being read
+- **THEN** the page shows skeleton rows labelled "Loading checkpoints…"
+
+#### Scenario: Disconnected
+
+- **WHEN** the connection closes while the page is open
+- **THEN** the list stays, marked "Not up to date", and Restore actions are disabled
+
+#### Scenario: Stored chat without a live session
+
+- **WHEN** a chat was opened from history and nothing was sent
+- **THEN** the row reads "File checkpoints · Tap to check" and only a tap resumes the session and lists
+
 #### Scenario: List fails
 
 - **WHEN** the request fails or times out
@@ -98,6 +113,21 @@ The checkpoint page SHALL list checkpoints newest first, each with a plain sente
 - **WHEN** the chat is replying
 - **THEN** the action is available and the confirmation adds the warning
 
+#### Scenario: Stale checkpoint
+
+- **WHEN** the answer is `success: false` "Checkpoint not found"
+- **THEN** the app says "That checkpoint is gone." and re-lists
+
+#### Scenario: Name that cannot be restored alone
+
+- **WHEN** a file's name contains `[`, `]`, `*`, `?`, `\`, `:` or starts with `-`
+- **THEN** Restore this file is not offered for it and the page points to Restore all files
+
+#### Scenario: Workspace not covered on restore
+
+- **WHEN** the answer is `success: false` with the container-backend text
+- **THEN** the app says "Checkpoints don't cover this chat's workspace."
+
 #### Scenario: Server refuses
 
 - **WHEN** the answer is `success: false` with a nested-repository error
@@ -111,6 +141,31 @@ The checkpoint page SHALL list checkpoints newest first, each with a plain sente
 
 - **WHEN** the user confirms and the server answers `success: true` with `history_removed: 3`
 - **THEN** the chat reloads without its last message and answers, the composer holds that message, and the panel lists "Before a restore" first
+
+#### Scenario: Nothing removed from the chat
+
+- **WHEN** the server answers `success: true` with `history_removed: 0`
+- **THEN** the line reads "Restored N files", the composer is unchanged and no message is claimed removed
+
+#### Scenario: Previous state not saved
+
+- **WHEN** after a successful restore the re-listed top checkpoint is not "Before a restore"
+- **THEN** the note says "Hermes couldn't save the previous state first."
+
+#### Scenario: Backgrounded or switched during a restore
+
+- **WHEN** the app is backgrounded or the user opens another chat while a restore is in flight
+- **THEN** the request is not cancelled, and its result and a re-read land in the original chat's panel
+
+#### Scenario: A queued prompt
+
+- **WHEN** the app's send queue holds a prompt as a restore starts
+- **THEN** the queue is held until the restore settles
+
+#### Scenario: Restore during compression
+
+- **WHEN** the server answers 4009 because a compression runs
+- **THEN** the app says "Wait for the reply to finish, then try again."
 
 #### Scenario: History rewind fails
 
@@ -155,6 +210,11 @@ Checkpoint data SHALL be requested only for a confirmed runtime session and neve
 
 - **WHEN** the user signs out
 - **THEN** all checkpoint state is discarded
+
+#### Scenario: Conversation window and quick panel
+
+- **WHEN** a chat is open in a conversation window or the quick panel
+- **THEN** no checkpoint row or Mac menu action is offered there
 
 ### Requirement: Checkpoint accessibility
 

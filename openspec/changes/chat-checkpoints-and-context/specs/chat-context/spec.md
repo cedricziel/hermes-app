@@ -21,6 +21,11 @@ The app SHALL show a Context row under "For reference" in the Activity panel whe
 - **WHEN** the server has no `session.usage`, or the usage answer carries no context fields
 - **THEN** no Context row is drawn and chat remains usable
 
+#### Scenario: Stored chat without a live session
+
+- **WHEN** a chat was opened from history and no usage has been read
+- **THEN** no Context row is drawn and the app does not resume the session to fill it
+
 #### Scenario: Disconnected
 
 - **WHEN** the connection closes
@@ -146,6 +151,11 @@ Context details SHALL offer "Compress conversation…" while the chat is idle an
 
 - **WHEN** the server rotates the stored session (legacy, `in_place: false`)
 - **THEN** the thread follows the new id as for any rotation and the transcript line is added to the new thread
+
+#### Scenario: Backgrounded or switched during compression
+
+- **WHEN** the app is backgrounded or the user opens another chat while a compression is in flight
+- **THEN** the request is not cancelled, and its outcome line and re-read land in the original chat
 
 #### Scenario: Old server
 

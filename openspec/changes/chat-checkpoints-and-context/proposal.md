@@ -21,12 +21,12 @@ Both belong with the chat's Activity panel (`chat-activity`): reference informat
 **File checkpoints** (new capability `chat-checkpoints`)
 
 - A **File checkpoints** row in the Activity panel, under "For reference", only when the server reports checkpoints on (`rollback.list` answers `enabled: true`). A chat that changed files on a server where they are off gets the same row saying they are off and what turns them on.
-- **Checkpoint list**: newest first, each with a plain sentence for why it was taken ("Before editing `a.py`", "Before a terminal command", "Before a restore"), a relative time, and a count of the files that differ from now.
+- **Checkpoint list**: newest first, each with a plain sentence for why it was taken ("Before editing a file", "Before a terminal command", "Before a restore"), a relative time, and, for a checkpoint the user opens, how many files differ from now (Hermes sends no file counts, and each read is costly, so rows do not fetch them).
 - **Changes view**: the file list first (from the diff's `stat`), then one file at a time using the diff view the tool-call cards already draw (`ToolDiffBody`). Hermes cuts the diff at 4,000 characters without saying so; the app says so when it detects the cut.
 - **Restore**, two kinds, each behind a confirmation that states exactly what changes:
   - *Restore this file*: one file goes back to the checkpoint. The chat is untouched. Allowed while the agent works.
   - *Restore all files*: every file in the checkpoint goes back **and Hermes removes the chat's last message and everything after it** (this is what the server does, whichever checkpoint is chosen). Only while the chat is idle. The removed message is put back in the composer, unsent.
-- Hermes saves the current state as a new checkpoint before it restores. The app says so, labels that checkpoint "Before a restore", and shows it at the top of the list so the restore can be undone.
+- Hermes tries to save the current state as a new checkpoint before it restores, and does not report whether that worked. The app re-lists, labels that checkpoint "Before a restore", and says plainly when it is missing. It also says what a checkpoint can never bring back (`.env` files, logs, very large files).
 
 ## Non-goals
 
@@ -51,11 +51,11 @@ Both belong with the chat's Activity panel (`chat-activity`): reference informat
 
 ## Impact
 
-- Gateway transport gains `rollbackList`, `rollbackDiff`, `rollbackRestore`, `compressSession` and `contextBreakdown`, all over the existing connection and `_commandRuntime` (runtime session confirmed, never resumed just to read). No new route, no server change.
+- Gateway transport gains `rollbackList`, `rollbackDiff`, `rollbackRestore`, `compressSession` and `contextBreakdown` over the existing connection: reads use the owned-session path (a runtime the chat already holds, never resumed just to read); only an explicit tap, restore or compress may resume a stored chat. No new route, no server change.
 - New `lib/src/chat/context/` and `lib/src/chat/checkpoints/` (repository with lenient parsing and sealed results, controller, plain-model widgets); `BoundActivityPanel` gains two sources; `ChatController` gains `contextIn(thread)` and `checkpointsIn(thread)` next to `usageIn`.
 - `UsageSnapshot` also reads `context_source`; `status.update` kinds `compressing` and `compacted` get their own wording instead of falling through.
 - Widgetbook use cases for every state; a workflow test.
-- Ships as four PRs (tasks.md): contract and repositories; context and compression; checkpoints; wiring checks, workflow test and docs.
+- Ships as five PRs (tasks.md): contract and repositories; context and compression; checkpoint list and changes; restore; workflow test and docs.
 
 ## Security and privacy
 
