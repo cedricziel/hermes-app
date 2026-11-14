@@ -118,7 +118,7 @@ class _BoundProcessCardState extends State<BoundProcessCard> {
   }
 
   /// Stop program shows while the list says the program runs and a stop can
-  /// be asked for, and stays (busy) while one is sent or checked.
+  /// be asked for, and stays while one is asked, sent (busy) or checked.
   bool get _offersStop {
     final roster = widget.roster;
     if (widget.readOnly || roster == null) return false;
@@ -126,7 +126,10 @@ class _BoundProcessCardState extends State<BoundProcessCard> {
     if (controller == null) {
       return widget.output.running && roster.connection != null;
     }
+    // While the confirmation is open the button stays, so the card does not
+    // jump under the dialog; a press then does nothing.
     return controller.canStop ||
+        controller.phase == ProcessStopPhase.confirming ||
         controller.phase == ProcessStopPhase.sending ||
         controller.phase == ProcessStopPhase.checking;
   }
