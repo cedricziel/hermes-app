@@ -270,6 +270,23 @@ void main() {
     expect(windows.keyWindowId, isNull);
   });
 
+  test(
+    'a focus report that arrives before creation returns still counts',
+    () async {
+      final release = Completer<void>();
+      host.onCreate = (_) => release.future;
+      final opening = windows.open('s1', profile: null, title: 'A');
+      await pumpEventQueue();
+
+      final early = host.call('focused', {'window_id': 'w0', 'focused': true});
+      release.complete();
+      await opening;
+      await early;
+
+      expect(windows.keyWindowId, 'w0');
+    },
+  );
+
   test('a window that loses focus to another conversation window is not '
       'left key', () async {
     await windows.open('s1', profile: null, title: 'A');
@@ -564,6 +581,23 @@ void main() {
 
       expect(host.closedNatively, ['p0']);
       expect(host.panels.keys, ['p1']);
+    });
+
+    test('a shown event that arrives before creation returns counts', () async {
+      final release = Completer<void>();
+      host.onCreatePanel = () => release.future;
+      final toggling = windows.togglePanel();
+      await pumpEventQueue();
+
+      final early = host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+      release.complete();
+      await toggling;
+      await early;
+      host.presentedPanels.add('p0');
+
+      expect(await windows.togglePanel(), isTrue);
+      expect(host.panelToggles, 1);
+      expect(host.panels.keys, ['p0']);
     });
 
     test('without a connection there is no panel', () async {

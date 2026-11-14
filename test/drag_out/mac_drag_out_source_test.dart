@@ -604,6 +604,21 @@ void main() {
       await expectLater(fromNative('readFile', 1), throwsA(anything));
     });
 
+    testWidgets('a malformed call from native is ignored', (tester) async {
+      await begin(tester, DragOutFile(name: 'a.pdf', read: _noBytes));
+
+      expect(await fromNative('readTimedOut', 'x'), isNull);
+      expect(await fromNative('fileWritten', null), isNull);
+      expect(await fromNative('ended', 'x'), isNull);
+      await expectLater(
+        fromNative('readFile', 'x'),
+        throwsA(isA<PlatformException>().having((e) => e.code, 'code', 'gone')),
+      );
+
+      // The drag is still there.
+      expect(await fromNative('readFile', 1), isNotNull);
+    });
+
     testWidgets('only slugs reach telemetry', (tester) async {
       await begin(
         tester,

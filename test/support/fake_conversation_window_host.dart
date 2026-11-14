@@ -31,6 +31,7 @@ class FakeConversationWindowHost implements ConversationWindowHost {
 
   /// Runs while a window is being created, before its id comes back.
   Future<void> Function(ConversationWindowArgs args)? onCreate;
+  Future<void> Function()? onCreatePanel;
   Future<void> Function()? onCloseAll;
   Future<void> Function()? onFocus;
   Future<bool> Function()? onTogglePanel;
@@ -49,6 +50,7 @@ class FakeConversationWindowHost implements ConversationWindowHost {
 
   @override
   Future<String> createPanel(QuickPanelLaunch launch) async {
+    await onCreatePanel?.call();
     final id = 'p${_next++}';
     panels[id] = launch;
     return id;
