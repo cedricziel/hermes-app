@@ -9,6 +9,7 @@ import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer_controller.da
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/context/compress_entry.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/starter_context_loader.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
@@ -63,6 +64,7 @@ Future<void> pumpChatScreen(
   ThemeData? theme,
   Size size = const Size(1400, 900),
   ValueListenable<bool>? visible,
+  CompressConversationEntry? onCompressConversation,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -107,6 +109,7 @@ Future<void> pumpChatScreen(
           displaySocketOpener: displaySocketOpener,
           takeoverSetting: takeoverSetting,
           chatProfiles: chatProfiles,
+          onCompressConversation: onCompressConversation,
         ),
       ),
     ),

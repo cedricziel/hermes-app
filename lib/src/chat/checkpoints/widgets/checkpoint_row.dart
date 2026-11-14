@@ -94,6 +94,7 @@ class _CheckpointRowState extends State<CheckpointRow> {
         style: IconButton.styleFrom(
           minimumSize: Size.square(target),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.standard,
         ),
         onSelected: _select,
         itemBuilder: (context) => [

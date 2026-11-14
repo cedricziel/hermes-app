@@ -1,0 +1,88 @@
+{
+  "source_ref": "d923a5eb",
+  "note": "Invented content in the shapes of the Hermes gateway handlers and tests named in openspec/changes/chat-checkpoints-and-context/design.md. No real paths, hashes or messages.",
+  "source": "tui_gateway/methods_session.py::session.context_breakdown",
+  "cases": {
+    "eight_categories": {
+      "result": {
+        "categories": [
+          {
+            "id": "system_prompt",
+            "label": "System prompt",
+            "color": "var(--example)",
+            "tokens": 2100
+          },
+          {
+            "id": "tool_definitions",
+            "label": "Tool definitions",
+            "color": "var(--example)",
+            "tokens": 5400
+          },
+          {
+            "id": "rules",
+            "label": "Rules",
+            "color": "var(--example)",
+            "tokens": 800
+          },
+          {
+            "id": "skills",
+            "label": "Skills",
+            "color": "var(--example)",
+            "tokens": 1200
+          },
+          {
+            "id": "mcp",
+            "label": "MCP",
+            "color": "var(--example)",
+            "tokens": 600
+          },
+          {
+            "id": "subagent_definitions",
+            "label": "Subagents",
+            "color": "var(--example)",
+            "tokens": 300
+          },
+          {
+            "id": "memory",
+            "label": "Memory",
+            "color": "var(--example)",
+            "tokens": 450
+          },
+          {
+            "id": "conversation",
+            "label": "Conversation",
+            "color": "var(--example)",
+            "tokens": 18000
+          }
+        ],
+        "context_max": 200000,
+        "context_percent": 14,
+        "context_used": 28500,
+        "context_source": "provider_usage_plus_estimate",
+        "context_estimated": true,
+        "estimated_total": 28850,
+        "model": "example-model",
+        "context_files": [
+          {
+            "label": "Rules",
+            "path": "/srv/example/RULES.md",
+            "chars": 3200,
+            "est_tokens": 800,
+            "loaded": true,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    "before_agent_build": {
+      "result": {
+        "categories": [],
+        "context_max": 200000,
+        "context_percent": 0,
+        "context_used": 0,
+        "estimated_total": 0,
+        "context_files": []
+      }
+    }
+  }
+}

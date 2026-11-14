@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../share/shared_item.dart';
 import '../attachments/attachment_paste.dart';
 import '../../bot_mode/bot_chat_context.dart';
@@ -9,6 +10,7 @@ import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
 import 'queued_prompts.dart';
+import 'composer_status_line.dart';
 import 'composer_stop_button.dart';
 import 'chat_suggestions.dart';
 import '../../widgets/named_icon_button.dart';
@@ -31,8 +33,10 @@ const chatComposerFieldKey = Key('chat-composer-field');
 /// then sends an empty text through [onSend], which the caller pairs with its
 /// pending attachments. The composer never clears [controller]: the caller
 /// does once it accepts the send, so a refused send keeps the text. While
-/// [replying] a send is queued, so the hint says so. Enter sends and
-/// Shift+Enter breaks the line.
+/// [replying] a send is queued, so the hint says so. While [sendHeld] (a full
+/// restore is settling) Send and Enter do nothing and a line above says why;
+/// typing goes on. [draftHandedBack] shows the line that says the last message
+/// was put back into the field. Enter sends and Shift+Enter breaks the line.
 class ChatComposer extends StatefulWidget {
   const ChatComposer({
     super.key,
@@ -54,6 +58,8 @@ class ChatComposer extends StatefulWidget {
     this.botContext,
     this.dictation,
     this.recording,
+    this.sendHeld = false,
+    this.draftHandedBack = false,
   });
 
   final TextEditingController controller;
@@ -78,6 +84,12 @@ class ChatComposer extends StatefulWidget {
 
   /// Hold Send to attach audio without transcribing or sending it.
   final VoiceRecordingView? recording;
+
+  /// A full restore is settling: nothing is sent until it ends.
+  final bool sendHeld;
+
+  /// The last message was just put back into the field by a restore.
+  final bool draftHandedBack;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
@@ -156,7 +168,9 @@ class _ChatComposerState extends State<ChatComposer> {
         return KeyEventResult.handled;
       }
       if (_dictating) {
-        if (!widget.commandRunning) widget.dictation!.onSend?.call();
+        if (!widget.commandRunning && !widget.sendHeld) {
+          widget.dictation!.onSend?.call();
+        }
       } else {
         _send();
       }
@@ -220,6 +234,7 @@ class _ChatComposerState extends State<ChatComposer> {
 
   bool get _canSend =>
       !widget.commandRunning &&
+      !widget.sendHeld &&
       widget.dictation?.active != true &&
       widget.recording?.active != true &&
       (widget.controller.text.trim().isNotEmpty ||
@@ -273,6 +288,18 @@ class _ChatComposerState extends State<ChatComposer> {
           _AttachmentChips(
             attachments: widget.attachments,
             onRemove: widget.onRemoveAttachment,
+          ),
+        if (widget.sendHeld)
+          ComposerStatusLine(
+            key: const Key('composer-send-held'),
+            text: context.l10n.chatComposerHoldRestoring,
+            busy: true,
+          )
+        else if (widget.draftHandedBack)
+          ComposerStatusLine(
+            key: const Key('composer-handed-back'),
+            text: context.l10n.chatComposerHoldHandedBack,
+            icon: AppIcons.undo,
           ),
         if (dictation != null && DictationNotice.shows(dictation.phase))
           DictationNotice(
@@ -398,7 +425,9 @@ class _ChatComposerState extends State<ChatComposer> {
                             ? recording
                             : null,
                         onSend: dictating
-                            ? (widget.commandRunning ? null : dictation.onSend)
+                            ? (widget.commandRunning || widget.sendHeld
+                                  ? null
+                                  : dictation.onSend)
                             : _canSend
                             ? _send
                             : null,

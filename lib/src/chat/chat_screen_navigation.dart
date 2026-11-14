@@ -103,6 +103,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
           scrollController: controller,
           selection: _agentSelection,
           onClose: () => Navigator.of(context).pop(),
+          checkpointsAndContext: true,
         ),
       ),
     );
@@ -177,6 +178,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
       MacCommand.archiveThread: MacCommandHandler(
         on(ThreadAction.archive, when: managed),
       ),
+      if (!ios) MacCommand.compress: _ChatScreenCheckpoints(this)._compress(),
       MacCommand.toggleInspector: MacCommandHandler(
         thread == null ? null : () => _toggleActivity(source: 'menu'),
         title: _activityOpen ? 'Hide Inspector' : 'Show Inspector',
