@@ -21,14 +21,14 @@ Decisions taken in this pass:
 
 - One screen, not one route per step: the body switches by phase, as the Telegram pairing screen does. Back leaves the screen and cancels (best effort, once). There is no Done step: Finish closes both screens to the refreshed Messaging list.
 - The entry is the same outlined button as Telegram's (magic icon), labelled "Link WhatsApp", with the line "Or enter the details yourself." under it. It is a button, never a start: opening the pairing screen sends nothing.
-- Mode is two rows of the kit's choice row (Bot, Self-chat) with one line each, not a segmented control, because each needs a sentence. Bot is selected first. The numbers field is a text row with the phone keyboard.
+- Mode is two rows of the kit's choice row (Bot, Self-chat), not a segmented control, because each needs a sentence. The choice row's subtitle is one line, so each row carries a short subtitle ("Its own WhatsApp number", "Your own number") and the two full sentences go in the section footer. Bot is selected first. The numbers field is a text row with the phone keyboard; its label is the section header (see A).
 - Start is the screen's one filled button in A. In every later phase the one button that moves the setup on is filled (Show QR code, Finish, Start again), and where no retry exists the one button is the outlined Back. Cancel is always an outlined button, never filled, never red.
-- The code is a fixed 240 pt square (280 pt wide layouts) on a white tile with a 16 pt quiet zone, black modules, in light and dark alike. It never inverts, never takes theme colours and never scales with text size, because a scanner needs the contrast and the quiet zone. The tile sits on the surface colour with a 1 pt border in dark.
+- The code is a fixed 240 pt square (280 pt wide layouts) on a white tile with a quiet zone of at least 4 modules, black modules, in light and dark alike. It never inverts, never takes theme colours and never scales with text size, because a scanner needs the contrast and the quiet zone. The quiet zone is at least 4 modules: 24 pt at a 45-module code (the tile grows to 288 pt for the 240 pt code area; the renderer enforces the 4 modules whatever the payload size), and neither the code nor the quiet zone scales with text size. The tile has a 1 pt outline in the divider token in both themes, because a white tile on the white light page has no visible edge otherwise. The colours are fixed white and black, not themed tokens; the design system has none, so a `--h-qr-bg` and `--h-qr-fg` pair that never changes with theme is a design-system gap (below).
 - The hidden state keeps the tile's exact footprint (no layout jump) and shows an eye-off icon and the word "Hidden". On a handset it carries "Show QR code"; on a tablet or computer it carries the line "Shows again when the app is unlocked and in front." and no button.
 - The countdown counts the setup's 600 s, not the code's rotation (the server's `expires_at` is fixed at start and Baileys' rotation interval is not verified), so it reads "Setup closes in 8:42", not "Code expires". It turns into a warning banner with an icon for the last 60 s. It is announced to screen readers at 60, 30 and 10 seconds left, never every second.
 - "Waiting for a scan" is a spinner plus the words, a polite live region. A rotated code replaces the tile content at once with no animation and no announcement.
 - Handset notice (C): an `AppBanner` in the neutral tone with a phone icon, then the filled "Show QR code". After the tap the notice shrinks to one muted line above the code ("Scan this with the phone that has WhatsApp.") so the tap does not hide the instruction.
-- Linked (E): a success banner, then the account as rows (name as title, number as subtitle, because a long name must not be cut at half the row), then a "What Finish does" section. "Already linked" is a neutral banner, not a success one, and says the app cannot unlink or replace the account.
+- Linked (E): a success banner, then the account as two rows, "Name" and "Number", with the value at the trailing edge (a long name moves under the title and wraps; the number is never cut, see Largest text), then a "What Finish does" section. "Already linked" is a neutral banner, not a success one, and says the app cannot unlink or replace the account.
 - Failed texts are the server's own, shown in a surface-high box, selectable, wrapping (they can hold paths and 10 log lines), under a fixed title "WhatsApp setup stopped". No per-reason wording.
 - Finish confirmation is `showConfirmDialog(..., cancelIsDefault: true)` (`AppAlertDialog`: Cupertino alert, restrained Mac alert, Material dialog with two text buttons). The helper defaults to `filled: true, cancelIsDefault: false`, so the flag must be passed. Cancel is first and the default (bold on Apple platforms); "Save and restart" is plain, never red and never filled. By its doc comment the helper binds the Return key to neither button, so on the Mac Return is not bound; the brief does not claim it is Cancel's, and Escape cancels.
 - Finish result is shown on the Messaging list (`MessagingScreen`, titled "Messaging"; "Bots" is the Bot Mode tab, a different screen) as an `AppBanner` after the screens close: success tone when a restart was requested and `needs_restart` is false; warning tone otherwise. Neither says the gateway restarted.
@@ -90,8 +90,8 @@ Title "Link WhatsApp". Subtitle: none (the profile is shown only where it matter
 
 ### A. Setup
 
-- Section "Mode" with a footer line under it. Rows: "Bot" with "Hermes has its own WhatsApp number. The people you allow message that number."; "Self-chat" with "Hermes uses your own number. You talk to it in your chat with yourself." One selected (check at the trailing edge on Apple, leading radio on Material), as `GroupedChoiceRow`.
-- Section "Who may message it" holding the field "Allowed phone numbers" (phone keyboard, autocorrect and suggestions off). Footer: "Digits with country code, separated by commas. Leave it blank to keep the current list. In Self-chat a blank list means your own number."
+- Section "Mode" with a footer: "Bot: Hermes has its own WhatsApp number. The people you allow message that number. Self-chat: Hermes uses your own number. You talk to it in your chat with yourself." (the footer wraps; the usual-choice sentence is dropped). Rows: "Bot" with the one-line subtitle "Its own WhatsApp number"; "Self-chat" with "Your own number". One selected (check at the trailing edge on Apple, leading radio on Material), as `GroupedChoiceRow`.
+- Section "Allowed phone numbers" (the header is the field's label, because the Apple multi-line text row shows only its value or hint) holding one two-row field (a list of two numbers does not fit one half-width row) with the hint "+49 151 2345678, +41 79 1234567" and the phone keyboard, autocorrect and suggestions off. On Material the field also takes the label "Allowed phone numbers". Footer: "Digits with country code, separated by commas. Leave it blank to keep the current list. In Self-chat a blank list means your own number."
 - Button "Start" (filled, full width). Under it a muted line: "The server installs what it needs, then shows a code to scan."
 - Hierarchy: mode, numbers, Start. Start is the only filled button.
 
@@ -128,9 +128,9 @@ States:
 - `ScanSteps`: "1. Open WhatsApp on the phone that has your account." "2. Tap Settings, then Linked devices." "3. Tap Link a device." "4. Point the camera at this code."
 - Wide layout (content 640 pt or more): the tile left, a column right holding the status line, the countdown, the steps and Cancel.
 - Hidden: tile footprint kept, eye-off icon, "Hidden". Handset: "Show QR code". Tablet and computer: "Shows again when the app is unlocked and in front."
-- Rotated: the tile redraws at once; no animation, no announcement, the countdown is unchanged.
+- Rotated: the tile redraws at once; no animation, no announcement, the countdown is unchanged. It looks the same as the shown state, so it gets no board of its own; a widget test checks the tile repaints.
 - Countdown at 0:00 while offline: the end shows locally as soon as the countdown reaches zero (the screen cannot poll), the expired block of F with its "Start again", and no code is kept.
-- Expiring (last 60 s): the countdown line becomes an `AppBanner` warning "Setup closes soon." detail "Scan now, or start again after it closes." A warning icon with the words; the code stays.
+- Expiring (last 60 s): the countdown line becomes an `AppBanner` warning titled with the time left, "Setup closes in 0:42." (the countdown keeps its value), detail "Scan now, or start again after it closes." A warning icon with the words; the code stays.
 - Expired (status `expired` or a 410): the tile is replaced by an end state (F, "The code expired"). The code is not kept.
 - Offline: the code stays, with an `AppBanner` warning above it, "You're offline." detail "This code may be out of date." Polling continues.
 - App Lock and lifecycle: hidden as above. Polling is paused then; on return, once unlocked, the "Paused while the app was away." banner (neutral, pause icon, detail "Checking again now. The code may have changed.") shows above the code until the next poll answers. If the countdown ran out while paused, the expired block of F shows locally at once.
@@ -160,7 +160,7 @@ Start again returns to A with the earlier values, so nothing is retyped, and ask
 
 ### G. Finish
 
-- The confirmation, shown when Finish is pressed in E: title "Save and restart?", body "Save the WhatsApp setup and ask the messaging gateway to restart? Conversations on messaging channels will be interrupted.", buttons "Cancel" (first, default) and "Save and restart" (plain). The Mac alert is the restrained one at every width. Material shows the same two text buttons, Cancel first.
+- The confirmation, shown when Finish is pressed in E: title "Save and restart?", body "Save the WhatsApp setup and ask the messaging gateway to restart? Conversations on messaging channels will be interrupted.", buttons "Cancel" (first, default) and "Save and restart" (plain). The Apple alerts stack the two buttons (Cancel on top, bold; "Save and restart" under it), because side by side at 270 pt the second is cut to "Save and re..."; `AppAlertDialog` stacks or wraps its actions when a label does not fit. The Mac alert is the restrained one at every width. Material is built from two text buttons, Cancel first, not a filled confirming button.
 - Saving: Finish becomes a spinner row "Saving..."; the route cannot be popped until the answer or 10 s (system back and the iOS swipe included), and the Mac back chord, which goes through `MacCommandScope`, is disabled; no key handler is added. Leaving does not send Cancel while apply is in flight. Leaving after the lost-apply state sends nothing new either: no second apply and no `DELETE` (the record is most likely gone, and `DELETE` would not unlink anything).
 - Saved: the screens close to the Messaging list, which shows an `AppBanner` at the top, with a close button.
   - Restart started: success tone, "WhatsApp is set up." detail "A restart of the messaging gateway was requested."
@@ -179,7 +179,7 @@ Start again returns to A with the earlier values, so nothing is retyped, and ask
 
 - Handset (shortest side under 600 dp): C before D; stacked layout; buttons full width (handsets only).
 - Tablet and desktop: D at once; two columns at 640 pt or more; the same buttons at their natural width in a row (primary first).
-- Mac: the same `AppBar` chrome as every platform (no separate toolbar), ⌘[ back, 28 pt minimum targets, text buttons are standard Mac buttons. The Mac alert is restrained.
+- Mac: the same `AppBar` chrome as every platform (no separate toolbar), ⌘[ back, 28 pt minimum targets (the design system draws 32 to 40 px buttons, which clear it), text buttons are standard Mac buttons. The Mac alert is restrained.
 - Android: Material app bar, back button and the system back gesture both cancel. The Finish dialog is two text buttons. The code is not shielded from screenshots here: `FLAG_SECURE` is a follow-up outside this change (below).
 - Windows, Linux: the Mac layout with the same `AppBar`; no extra chords.
 
@@ -200,7 +200,7 @@ Start again returns to A with the earlier values, so nothing is retyped, and ask
 
 ## Largest text size
 
-The text honours the selected size with no cap. The QR tile stays 240 pt (it is a scan target, not text); the page scrolls. Buttons stay full width on handsets and wrap to two lines; at tablet and desktop width they keep their natural width in a row. `ScanSteps` and the notice wrap; the countdown moves under "Waiting for a scan". Account rows move the value under the title. At a text scale of 2 or more the two-column layout stacks regardless of width.
+The text honours the selected size with no cap. The QR tile stays 240 pt (it is a scan target, not text); the page scrolls. Buttons stay full width on handsets and wrap to two lines; at tablet and desktop width they keep their natural width in a row. `ScanSteps` and the notice wrap; the countdown moves under "Waiting for a scan". Account rows move the value under the title (`GroupedRow` does this in the app with `wrapWhenStacked`; the design-system row does not, so the canvas shows it cut). What may truncate at a text scale of 2: the bar title and the back label (the back label shortens to "Back" when the previous title does not fit), and a mode subtitle. What never truncates: the account number, the countdown, the error text, button labels (they wrap) and the footers. A long account name wraps. At a text scale of 2 or more the two-column layout stacks regardless of width.
 
 ## German
 
@@ -266,6 +266,23 @@ English strings are shorter than German; the long-string risks are: "Link WhatsA
 | Back          | Back button and swipe | Back button and system gesture | Back button             | Back, ⌘[                |
 | Targets       | 44 pt                 | 48 dp                          | 44 pt                   | 28 pt                   |
 
+## Local render review
+
+The canvas is staged locally and is not published: 26 boards and one parametric page, published after the quota resets on 2026-11-15. It was rendered in headless Chrome against the design-system bundle (version 1792838541-f89d) and every board was looked at in light and dark, at phone and desktop width and at text scale 1 and 2. The findings are folded into the sections above.
+
+Not checked: the claude.ai viewer, real devices, a scannable QR (the drawn pattern is invented), screen readers, live regions, focus order, Return and Escape on desktop, Mac targets at 28 pt, the App Lock cover, the animated countdown and its 60/30/10 s announcements, and a real Open Server target. Text scale 2 is CSS `zoom: 2`, harsher than a device because it also scales padding and gutters. Contrast was read from the bundle's tokens only (warning and muted pass AA on white; the banner tints were not measured). The German strings are the designer's own; WhatsApp's German labels are unconfirmed.
+
+Design-system gaps the canvas works around (plain markup with `var(--h-*)` tokens; the Flutter kit already has most of them):
+
+- `Banner` has no neutral tone (the app's `AppBanner` does); needed for the handset notice, Paused and Already linked.
+- No wrapping subtitle on `GroupedChoiceRow` or `GroupedRow` (the app's `GroupedRow` has `subtitleMaxLines`).
+- `AlertDialog` neither stacks its actions nor offers Material text buttons only.
+- No bare app bar: `SettingsScaffold` with `device="touch"` stands in for its bar, also on the Mac and iPad boards. `AppBar` plus `AdaptiveBackButton` is the app's real chrome.
+- No fixed QR colours (`--h-qr-bg`, `--h-qr-fg`); the Messaging list has no banner slot.
+- No `QrCodeCard`, `ScanSteps`, `PairingStageCard`, `PairingEnd` or `LinkedAccountCard`; all are drawn as plain markup.
+
+Widget changes this review asks of the PR 1 widgets: `WhatsAppSetupForm` puts the mode sentences in the footer and labels the numbers field by its section header; `QrCodeCard` has a 4-module quiet zone, an outline in both themes and fixed colours; `PairingEnd` and the Finish dialog stack their buttons when a label does not fit; `LinkedAccountCard` uses `GroupedRow` with `wrapWhenStacked`.
+
 ## Decided by the owner
 
 - App Lock pauses polling. Polling runs only while the app is in front and unlocked; on return once unlocked the "Paused while the app was away." line shows until the next answer (spec: Progress and polling).
@@ -278,7 +295,8 @@ English strings are shorter than German; the long-string risks are: "Link WhatsA
 
 ## Open questions for the owner
 
-1. Mode wording. design.md does not say what "Bot" and "Self-chat" do beyond the bridge's two modes. The one-liners above ("Hermes has its own WhatsApp number..." and "Hermes uses your own number...") are the designer's reading and need confirming against the bridge.
+1. Mode wording. design.md does not say what "Bot" and "Self-chat" do beyond the bridge's two modes. The Mode footer sentences ("Hermes has its own WhatsApp number..." and "Hermes uses your own number...") are the designer's reading and need confirming against the bridge.
 2. Check after a lost apply reads the platform list; which field there means "WhatsApp is on" is to be confirmed from the fixtures (task 2.1 in tasks.md). Finish records `enabled` before sending apply; if it was already on, Check cannot confirm a save and ends with "Couldn't confirm", and after a Check-confirmed save the banner makes no restart claim (see G).
 3. WhatsApp's German labels for Linked devices and Link a device, to be copied from a German install.
 4. A "Open Server" action on the not-restarted banner relies on the Server screen being reachable from the Messaging list; confirm it is, or drop the action and keep the words.
+5. Copy to confirm: the Mode footer wording and the two short mode subtitles, and the German strings (the designer's translation).
