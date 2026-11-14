@@ -7,7 +7,10 @@ import 'package:hermes_app/src/notifications/notification_posting.dart';
 /// A [NotificationService] the test drives by hand: every notification is
 /// recorded, and a tap is simulated with [tap].
 class FakeNotificationService
-    implements NotificationService, NotificationPoster {
+    implements
+        NotificationService,
+        ReplyingNotificationService,
+        NotificationPoster {
   FakeNotificationService({
     this.permission = NotificationPermission.granted,
     this.launchThread,
@@ -75,6 +78,15 @@ class FakeNotificationService
   @override
   Stream<NotificationAnswer> get answers => _answers.stream;
 
+  final _replies = StreamController<NotificationReply>.broadcast();
+
+  /// Simulates a reply typed into a notification that reached this isolate
+  /// (macOS).
+  void reply(NotificationReply reply) => _replies.add(reply);
+
+  @override
+  Stream<NotificationReply> get replies => _replies.stream;
+
   void tap(String threadId, {String? profile}) =>
       _taps.add(NotificationTarget(threadId: threadId, profile: profile));
 
@@ -126,5 +138,6 @@ class FakeNotificationService
   Future<void> dispose() async {
     await _taps.close();
     await _answers.close();
+    await _replies.close();
   }
 }

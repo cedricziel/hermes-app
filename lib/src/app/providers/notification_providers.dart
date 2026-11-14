@@ -6,6 +6,7 @@ import '../../app_lock/app_lock_controller.dart';
 import '../../auth/auth_controller.dart';
 import '../../background/background_check_controller.dart';
 import '../../background/background_scheduler.dart';
+import '../../background/running_replies.dart';
 import '../../live_activities/live_activities.dart';
 import '../../notifications/local_notification_service.dart';
 import '../../notifications/notification_service.dart';
@@ -51,6 +52,8 @@ List<SingleChildWidget> backgroundProviders(Telemetry telemetry) => [
         service: context.read<NotificationService>(),
         appLock: context.read<AppLockController>(),
         breadcrumbs: context.read<Breadcrumbs>(),
+        settings: context.read<NotificationSettings>(),
+        running: context.read<RunningReplies?>(),
       )..start();
     },
     dispose: (_, answers) => answers?.dispose(),

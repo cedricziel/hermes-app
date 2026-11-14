@@ -25,7 +25,7 @@ import 'local_notification_service.dart' show targetFromPayload;
 import 'notification_posting.dart';
 import 'notification_service.dart';
 import 'notification_settings.dart';
-import 'request_notifications.dart' show accountHashFor;
+import 'request_notifications.dart' show accountHashFor, kReplyChatAction;
 
 /// Where an inline reply is handled, which sets when its run is cut off and
 /// whether it may post after its budget.
@@ -179,6 +179,83 @@ Future<bool> postEnding({
 
 const _hermes = 'Hermes';
 
+/// What a finished reply's notification payload names.
+class ReplyPayload {
+  const ReplyPayload({
+    required this.threadId,
+    required this.profile,
+    required this.title,
+    required this.accountHash,
+  });
+
+  final String threadId;
+  final String? profile;
+
+  /// The chat's title, "Hermes" when the payload has none.
+  final String title;
+  final String? accountHash;
+}
+
+/// Reads a reply notification's payload: null when it is not a chat reply's
+/// (no `'y'` marker, a job or message target, a new-chat prompt, no chat).
+ReplyPayload? replyPayloadOf(String? payload) {
+  if (payload == null) return null;
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(payload);
+  } on FormatException {
+    return null;
+  }
+  if (decoded is! Map || decoded['y'] == null) return null;
+  final target = targetFromPayload(payload);
+  if (target == null ||
+      target.isJob ||
+      target.isMessage ||
+      target.prompt != null ||
+      target.threadId.isEmpty) {
+    return null;
+  }
+  final title = decoded['n'];
+  final account = decoded['a'];
+  return ReplyPayload(
+    threadId: target.threadId,
+    profile: target.profile,
+    title: title is String && title.isNotEmpty ? title : _hermes,
+    accountHash: account is String && account.isNotEmpty ? account : null,
+  );
+}
+
+/// Whether [response] is one the reply handler takes: the Reply action of a
+/// finished reply, with the `'y'` marker and a text that is not blank.
+bool isInlineReplyResponse(String? actionId, String? payload, String? input) =>
+    actionId == kReplyChatAction &&
+    (input?.trim().isNotEmpty ?? false) &&
+    replyPayloadOf(payload) != null;
+
+/// Tells the user, for the reply whose notification payload is [payload],
+/// that it may not have been sent: the isolate's own "Couldn't confirm",
+/// posted when the app took a reply over and no ending is known to have been
+/// posted. It goes through [postEnding] like every other ending. Returns
+/// whether it was posted.
+Future<bool> postReplyUnconfirmed({
+  required String? payload,
+  required NotificationService? notifications,
+  NotificationSettings? settings,
+  Future<bool> Function()? appLockOn,
+}) async {
+  final parsed = replyPayloadOf(payload);
+  if (parsed == null) return false;
+  return postEnding(
+    notifications: notifications,
+    settings: settings,
+    appLockOn: appLockOn ?? AppLockController.savedEnabled,
+    ending: ReplyEnding.unconfirmed,
+    threadId: parsed.threadId,
+    profile: parsed.profile,
+    title: parsed.title,
+  );
+}
+
 Future<bool> _lockedNow(Future<bool> Function() appLockOn) async {
   try {
     return await appLockOn();
@@ -191,8 +268,9 @@ Future<bool> _lockedNow(Future<bool> Function() appLockOn) async {
 Future<bool> _post(
   NotificationService? service,
   NotificationSettings? settings,
-  AttentionNotification notification,
-) async {
+  AttentionNotification notification, {
+  bool Function()? stillWanted,
+}) async {
   if (service == null) return false;
   try {
     if (settings != null) {
@@ -200,6 +278,7 @@ Future<bool> _post(
       if (!settings.enabled) return false;
     }
     if (await service.allowed() == false) return false;
+    if (stillWanted != null && !stillWanted()) return false;
     if (service is NotificationPoster) {
       final result = await (service as NotificationPoster).post(notification);
       return result.status == NotificationPostStatus.accepted;
@@ -367,16 +446,20 @@ class _InlineReply {
     // Whatever the body still does must not announce: the window is over.
     _muted = true;
     // The outcome is decided once, from the mark, with the transport closed:
-    // nothing it still does can be written to the server any more.
-    await _closeTransport();
-    _mark.freeze();
-    // An announcement under way gets to finish, so that a reply is never left
-    // neither recorded nor announced when the process is suspended.
+    // nothing it still does can be written to the server any more. An
+    // announcement under way gets to finish, so that a reply is never left
+    // neither recorded nor announced when the process is suspended. Both
+    // share one grace, so the decision is never later than the design's
+    // timing allows.
     try {
-      await _announcement?.timeout(_closeGrace);
+      await Future.wait<void>([
+        _closeTransport(),
+        _announcement?.catchError((Object _) {}) ?? Future<void>.value(),
+      ]).timeout(_closeGrace);
     } on Object {
-      // Gave up waiting; it goes on, or is dropped with the process.
+      // Gave up waiting; they go on, or are dropped with the process.
     }
+    _mark.freeze();
     final (verdict, logged) = switch (outcome) {
       HeadlessDone(:final value) => (value, value.outcome),
       HeadlessSignedOut() => _byMark(
@@ -406,29 +489,12 @@ class _InlineReply {
 
   /// Reads the payload; false when it is not a chat reply's.
   bool _parse() {
-    final raw = payload;
-    if (raw == null) return false;
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(raw);
-    } on FormatException {
-      return false;
-    }
-    if (decoded is! Map || decoded['y'] == null) return false;
-    final target = targetFromPayload(raw);
-    if (target == null ||
-        target.isJob ||
-        target.isMessage ||
-        target.prompt != null ||
-        target.threadId.isEmpty) {
-      return false;
-    }
-    _threadId = target.threadId;
-    _profile = target.profile;
-    final title = decoded['n'];
-    _title = title is String && title.isNotEmpty ? title : _hermes;
-    final account = decoded['a'];
-    _accountHash = account is String && account.isNotEmpty ? account : null;
+    final parsed = replyPayloadOf(payload);
+    if (parsed == null) return false;
+    _threadId = parsed.threadId;
+    _profile = parsed.profile;
+    _title = parsed.title;
+    _accountHash = parsed.accountHash;
     return true;
   }
 
@@ -592,8 +658,7 @@ class _InlineReply {
       }
       return;
     }
-    _announcing = true;
-    await _post(
+    final posted = await _post(
       notifications,
       settings,
       replyReadyNotification(
@@ -603,7 +668,21 @@ class _InlineReply {
         profile: _profile,
         appLock: locked,
       ),
+      // Past the cutoff the post is dropped, and the run records the chat.
+      stillWanted: () {
+        if (_muted) return false;
+        _announcing = true;
+        return true;
+      },
     );
+    if (!posted && !_announcing) {
+      // Dropped at the cutoff: the replay must still announce it.
+      try {
+        await running?.takeAnnounced(_profile, _threadId);
+      } on Object {
+        // Nothing more to undo.
+      }
+    }
   }
 
   /// The verdict for a failed send, by the step it reached.
@@ -712,7 +791,11 @@ class _InlineReply {
     }
   }
 
-  Future<void> _closeTransport() async {
+  /// Closed once, whoever asks first; later callers share the same wait.
+  Future<void> _closeTransport() => _closing ??= _close();
+  Future<void>? _closing;
+
+  Future<void> _close() async {
     final transport = _transport;
     if (transport == null) return;
     try {
