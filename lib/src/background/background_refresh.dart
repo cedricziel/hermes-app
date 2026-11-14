@@ -186,6 +186,18 @@ class AnnouncedRequests {
 
   Future<Set<String>> read() async => {...await _read(), ..._remembered};
 
+  /// Null when the stored marks cannot be read. A run then announces nothing:
+  /// treating them as empty would post every open request again, every run,
+  /// since [persist] refuses to write over an unreadable store.
+  Future<Set<String>?> tryRead() async {
+    try {
+      final stored = await _prefs.getStringList(_announcedKey) ?? const [];
+      return {...stored, ..._remembered};
+    } on Object {
+      return null;
+    }
+  }
+
   /// Remembers [ids] after persistence succeeds; storage failures propagate.
   Future<void> add(Iterable<String> ids) async {
     final added = ids.toSet();
@@ -442,7 +454,16 @@ class OpenRequestsStep extends BackgroundStep {
     report();
     if (!context.notificationsOn || waiting.isEmpty) return 0;
     if (await context.isAppInFront()) return 0;
-    final known = await context.announced.read();
+    final known = await context.announced.tryRead();
+    if (known == null) {
+      marksFailed++;
+      report();
+      recordFailure(
+        'background.request_alert.mark_failed',
+        reason: 'unreadable',
+      );
+      return 0;
+    }
     // A chat's notification is replaced by the next one posted for it, so a
     // chat whose announced approval is still open is left alone: its next
     // approval is announced once the earlier one has been answered.

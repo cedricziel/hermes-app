@@ -78,4 +78,15 @@ void main() {
     await announced.add(['new']).catchError((Object _) {});
     expect(await announced.read(), isNot(contains('new')));
   });
+
+  test('tryRead is null, not empty, when the marks cannot be read', () async {
+    expect(
+      await AnnouncedRequests(prefs: _FailingReadPrefs()).tryRead(),
+      isNull,
+    );
+    expect(
+      await AnnouncedRequests().tryRead(),
+      containsAll(['old-1', 'old-2']),
+    );
+  });
 }
