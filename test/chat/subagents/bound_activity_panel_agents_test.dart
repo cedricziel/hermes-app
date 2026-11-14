@@ -638,6 +638,44 @@ void main() {
       expect(calls('subagent.interrupt'), isEmpty);
       expect(find.text('Stop agent'), findsNothing);
     });
+    panelTest('an unconfirmed stop says so, offers Stop agent again and '
+        'resends nothing', (tester) async {
+      await arrange(tester);
+      var listFails = false;
+      gateway.handlers['subagent.interrupt'] = (_) {
+        listFails = true;
+        return {'found': false};
+      };
+      final answerList = gateway.handlers['subagent.list']!;
+      gateway.handlers['subagent.list'] = (params) {
+        if (listFails) throw const FakeRpcError(5000, 'read failed');
+        return answerList(params);
+      };
+      await openDetail(tester, 'a1');
+      await tapText(tester, 'Stop agent');
+      await tester.tap(dialogText('Stop agent'));
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 3));
+      await settle(tester);
+
+      expect(find.text("Couldn't confirm the stop."), findsOneWidget);
+      expect(find.text('It may still be running.'), findsOneWidget);
+      expect(find.text('Stop agent'), findsOneWidget);
+      expect(find.text('Stopping…'), findsNothing);
+      expect(calls('subagent.interrupt'), hasLength(1));
+
+      await tapText(tester, 'Stop agent');
+      expect(dialogText('Stop this agent?'), findsOneWidget);
+      expect(
+        calls('subagent.interrupt'),
+        hasLength(1),
+        reason: 'a second Stop asks again before anything is sent',
+      );
+      await tester.tap(dialogText('Cancel'));
+      await settle(tester);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(calls('subagent.interrupt'), hasLength(1));
+    });
   });
 
   group('notes', () {
@@ -671,6 +709,56 @@ void main() {
       expect(composer.text, 'a draft for the chat');
       expect(gateway.methods, isNot(contains('prompt.submit')));
       expect(chat.selectedThread!.messages, isEmpty);
+    });
+
+    panelTest('a note frozen by an accepted stop shows Not sent, Copy puts it '
+        'on the clipboard and sends nothing', (tester) async {
+      await tester.runAsync(() async {
+        await open('stored-1');
+        startAgent('a1', _audit);
+        await pumpEventQueue();
+      });
+      await pumpPanel(tester);
+      await openDetail(tester, 'a1');
+      await tester.ensureVisible(noteField());
+      await tester.enterText(noteField(), 'Check the lockfile first');
+      await tester.pump();
+      await tapText(tester, 'Send to agent');
+      expect(calls('subagent.steer'), hasLength(1));
+
+      await tester.ensureVisible(noteField());
+      await tester.enterText(noteField(), 'Only check the Go modules');
+      await tester.pump();
+      await tapText(tester, 'Stop agent');
+      await tester.tap(dialogText('Stop agent'));
+      await settle(tester);
+      expect(calls('subagent.interrupt'), hasLength(1));
+
+      expect(find.text('Not sent'), findsOneWidget);
+      expect(find.text('Only check the Go modules'), findsOneWidget);
+      expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('Send to agent'), findsNothing);
+
+      final copied = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tapText(tester, 'Copy');
+      expect(copied, ['Only check the Go modules']);
+      expect(calls('subagent.steer'), hasLength(1), reason: 'nothing resent');
+      expect(calls('subagent.interrupt'), hasLength(1));
     });
   });
 
@@ -706,6 +794,73 @@ void main() {
       panelShown.value = true;
       await settle(tester);
       expect(calls('subagent.list').length, greaterThan(hidden));
+    });
+  });
+
+  group('review fixes', () {
+    Future<void> arrangeOne(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        await open('stored-1');
+        startAgent('a1', _audit, tool: 'read_file');
+        outputs['a1'] = '10:02:11 tool    | read_file package-lock.json';
+        await pumpEventQueue();
+      });
+      await pumpPanel(tester);
+    }
+
+    panelTest('a detail torn down closes the open stop confirmation and '
+        'sends nothing', (tester) async {
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tapText(tester, 'Stop agent');
+      expect(find.byType(AlertDialog), findsOneWidget);
+
+      panelShown.value = false;
+      await settle(tester);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(calls('subagent.interrupt'), isEmpty);
+    });
+
+    panelTest('Escape in the note field with text only leaves the field', (
+      tester,
+    ) async {
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tester.ensureVisible(noteField());
+      await tester.tap(noteField());
+      await tester.enterText(noteField(), 'Only check the Go modules');
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      expect(find.byType(AgentNoteField), findsOneWidget, reason: 'still open');
+      expect(
+        tester.widget<TextField>(noteField()).controller!.text,
+        'Only check the Go modules',
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      expect(find.byType(AgentNoteField), findsNothing);
+    });
+
+    panelTest('an agent that ends while Stopping leaves no banner under '
+        'Stopped', (tester) async {
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tapText(tester, 'Stop agent');
+      await tester.tap(dialogText('Stop agent'));
+      await settle(tester);
+      expect(find.text('Stopping…'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        endAgent('a1', _audit, status: 'interrupted');
+        await pumpEventQueue();
+      });
+      await settle(tester);
+      expect(find.text('This agent was stopped.'), findsOneWidget);
+      expect(find.text('Stopping…'), findsNothing);
+      expect(find.textContaining('may be cut off'), findsNothing);
     });
   });
 

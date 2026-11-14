@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart'
-    show debugDefaultTargetPlatformOverride;
+    show debugDefaultTargetPlatformOverride, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -226,11 +226,15 @@ void main() {
   /// Mac.
   Future<void> leaveDetail(WidgetTester tester, {required bool phone}) async {
     if (phone) {
+      // Back is a text button on iOS and an icon button elsewhere.
+      final android = defaultTargetPlatform == TargetPlatform.android;
       await tester.tap(
-        find.descendant(
-          of: find.byType(AgentDetailView),
-          matching: find.text('Activity'),
-        ),
+        android
+            ? find.byTooltip('Back to Activity')
+            : find.descendant(
+                of: find.byType(AgentDetailView),
+                matching: find.text('Activity'),
+              ),
       );
     } else {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -272,16 +276,20 @@ void main() {
   for (final (name, size, platform) in [
     ('phone', phoneSize, TargetPlatform.iOS),
     ('desktop', desktopSize, TargetPlatform.macOS),
+    ('phone-android', phoneSize, TargetPlatform.android),
   ]) {
-    final phone = name == 'phone';
-    for (final dark in [false, true]) {
+    final phone = name.startsWith('phone');
+    final android = platform == TargetPlatform.android;
+    for (final dark in android ? [false] : [false, true]) {
       final mode = dark ? 'dark' : 'light';
       platformTest(
         '$name ($mode): stop one agent, send a note to the other, '
         'watch one finish',
         platform,
         (tester) async {
-          final shots = ScreenshotRecorder('subagent-control-$name-$mode');
+          final shots = ScreenshotRecorder(
+            android ? 'subagent-control-$name' : 'subagent-control-$name-$mode',
+          );
           await pumpChat(
             tester,
             shots,
@@ -328,6 +336,24 @@ void main() {
           expect(inDialog('Stop this agent?'), findsOneWidget);
           expect(calls('subagent.interrupt'), isEmpty);
           await shots.capture(tester, 'stop-confirmation');
+          if (android) {
+            final dialog = find.byType(AlertDialog);
+            expect(dialog, findsOneWidget);
+            expect(
+              find.descendant(of: dialog, matching: find.byType(FilledButton)),
+              findsNothing,
+              reason: 'a confirmation of a stop keeps both buttons plain',
+            );
+            expect(
+              find.descendant(of: dialog, matching: find.byType(TextButton)),
+              findsNWidgets(2),
+            );
+            expect(
+              tester.getTopLeft(inDialog('Cancel')).dx,
+              lessThan(tester.getTopLeft(inDialog('Stop agent')).dx),
+              reason: 'Cancel comes first',
+            );
+          }
 
           await tester.tap(inDialog('Stop agent'));
           await runFrames(tester);
@@ -359,7 +385,9 @@ void main() {
           await openAgentFromPanel(tester, _plan);
           await tester.ensureVisible(noteField());
           await tester.enterText(noteField(), _note);
+          // One frame to build the enabled button, one to run its colours out.
           await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
           await shots.capture(tester, 'note-typed');
           expect(
             calls('subagent.steer'),
