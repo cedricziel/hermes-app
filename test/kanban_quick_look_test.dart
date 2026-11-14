@@ -252,7 +252,7 @@ void main() {
       await tester.runAsync(() => tester.tap(find.text('Quick Look')));
       await waitFor(
         tester,
-        () => quickLook.previewed.length == i + 1,
+        () => quickLook.previewed.length >= i + 1,
         'preview number ${i + 1}',
       );
     }

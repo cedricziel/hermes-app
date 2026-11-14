@@ -299,6 +299,7 @@ void main() {
       await pump(tester, const AttachmentCard(attachment: remote));
       await select(tester);
       await pressSpace(tester);
+      await waitForText(tester, 'Downloading…');
       await waitUntil(
         tester,
         () => downloads() == 1,
@@ -307,7 +308,13 @@ void main() {
 
       await tester.runAsync(store.clear);
       gate.complete();
-      await settle(tester);
+      // The request ends, and the card stops being busy, only after the
+      // download has been staged or dropped.
+      await waitUntil(
+        tester,
+        () => find.text('Downloading…').evaluate().isEmpty,
+        reason: 'the cleared download to finish',
+      );
 
       expect(quickLook.previewed, isEmpty);
       expect(

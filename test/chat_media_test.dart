@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 import 'support/attachment_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
+import 'support/wait_until.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -178,7 +179,11 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Save'));
-      await settle(tester);
+      await waitUntil(
+        tester,
+        () => actions.saved.isNotEmpty,
+        reason: 'the photo to be saved',
+      );
 
       expect(actions.saved.single.name, 'a.png');
       expect(actions.saved.single.bytes, kTinyPng);
@@ -220,6 +225,11 @@ void main() {
 
       server.onMedia('/srv/a.png', kTinyPng);
       await tester.tap(find.text('a.png'));
+      await waitUntil(
+        tester,
+        () => anyImage.evaluate().isNotEmpty,
+        reason: 'the retried photo to load',
+      );
       await settle(tester);
 
       expect(anyImage, findsOneWidget);
