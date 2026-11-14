@@ -505,7 +505,11 @@ void main() {
       await shots.capture(tester, 'file-downloading');
 
       gate.complete();
-      await waitUntil(tester, () => actions.opened.isNotEmpty);
+      await waitUntil(
+        tester,
+        () => actions.opened.isNotEmpty,
+        reason: 'the downloaded file to be opened',
+      );
       expect(actions.opened, hasLength(1));
 
       await tester.runAsync(() async {

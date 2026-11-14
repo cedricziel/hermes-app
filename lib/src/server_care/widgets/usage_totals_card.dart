@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
 import 'usage_chart.dart';
@@ -40,23 +41,33 @@ class UsageTotalsCard extends StatelessWidget {
     final muted = context.hermesColors.subtleText;
     final metrics = GroupedMetrics.of(context);
     final cost = metric == UsageChartMetric.cost;
+    final l10n = context.l10n;
     final big = cost
-        ? '${formatDollars(estimatedCost)} estimated'
-        : formatTokens(tokens);
+        ? l10n.serverCareUsageEstimatedAmount(
+            formatDollars(l10n, estimatedCost),
+          )
+        : formatTokens(l10n, tokens);
     final bigSpoken = cost
-        ? '${formatDollars(estimatedCost)} estimated'
-        : formatTokensSpoken(tokens);
-    final window = this.window.phrase;
+        ? l10n.serverCareUsageEstimatedAmount(
+            formatDollars(l10n, estimatedCost),
+          )
+        : formatTokensSpoken(l10n, tokens);
+    final days = window.days;
+    final conversationsText = formatConversations(l10n, conversations);
     final period =
-        '${window[0].toUpperCase()}${window.substring(1)} · ${formatConversations(conversations)}';
-    final parts =
-        'Input ${formatCompact(inputTokens)} · Output ${formatCompact(outputTokens)} · '
-        'Cache reads ${formatCompact(cacheReadTokens)}';
-    final partsSpoken =
-        'Input ${formatCompactSpoken(inputTokens)}, output ${formatCompactSpoken(outputTokens)}, '
-        'cache reads ${formatCompactSpoken(cacheReadTokens)}';
+        '${l10n.serverCareUsagePeriodLast(days)} · $conversationsText';
+    final parts = l10n.serverCareUsagePartsText(
+      formatCompact(l10n, inputTokens),
+      formatCompact(l10n, outputTokens),
+      formatCompact(l10n, cacheReadTokens),
+    );
+    final partsSpoken = l10n.serverCareUsagePartsSpoken(
+      formatCompactSpoken(l10n, inputTokens),
+      formatCompactSpoken(l10n, outputTokens),
+      formatCompactSpoken(l10n, cacheReadTokens),
+    );
     final billed = cost && (billedCost ?? 0) > 0
-        ? 'Billed ${formatDollars(billedCost!)}'
+        ? l10n.serverCareUsageBilled(formatDollars(l10n, billedCost!))
         : null;
     final small = TextStyle(fontSize: metrics.subtitleSize, color: muted);
 
@@ -70,7 +81,7 @@ class UsageTotalsCard extends StatelessWidget {
         container: true,
         label: [
           bigSpoken,
-          period.replaceFirst(' · ', ', '),
+          '${l10n.serverCareUsagePeriodLast(days)}, $conversationsText',
           partsSpoken,
           ?billed,
         ].join('. '),

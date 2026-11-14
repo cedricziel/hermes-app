@@ -29,7 +29,7 @@ void main() {
     trail = BreadcrumbTrail();
   });
 
-  Future<void> pump(WidgetTester tester, {Size? size}) async {
+  Future<void> pump(WidgetTester tester, {Size? size, Locale? locale}) async {
     tester.view.physicalSize = size ?? const Size(420, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -48,6 +48,7 @@ void main() {
           Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
         ],
         child: MaterialApp(
+          locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(),
@@ -261,6 +262,26 @@ void main() {
       expect(find.text("Usage isn't available"), findsNothing);
       expect(find.text('Server'), findsWidgets);
       expect(find.text('Usage'), findsNothing);
+    });
+  });
+
+  group('sizes follow the language', () {
+    testWidgets('a German disk size uses a decimal comma', (tester) async {
+      server.on('GET', '/api/status', {
+        ...statusHealthy(),
+        'disk': {'pressure': 'ok', 'free_mb': 8600, 'used_percent': 91.0},
+      });
+      await pump(tester, locale: const Locale('de'));
+      expect(find.textContaining('8,6 GB'), findsWidgets);
+    });
+
+    testWidgets('an English one keeps the point', (tester) async {
+      server.on('GET', '/api/status', {
+        ...statusHealthy(),
+        'disk': {'pressure': 'ok', 'free_mb': 8600, 'used_percent': 91.0},
+      });
+      await pump(tester);
+      expect(find.textContaining('8.6 GB'), findsWidgets);
     });
   });
 
