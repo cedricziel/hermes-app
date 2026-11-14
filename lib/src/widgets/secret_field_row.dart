@@ -27,6 +27,7 @@ class SecretFieldRow extends StatefulWidget {
     required this.label,
     required this.controller,
     this.hint,
+    this.focusNode,
     this.enabled = true,
     this.busy = false,
     this.hideSignal,
@@ -39,6 +40,9 @@ class SecretFieldRow extends StatefulWidget {
 
   final String label;
   final TextEditingController controller;
+
+  /// Lets a form move focus into the field, such as "Edit key".
+  final FocusNode? focusNode;
   final String? hint;
 
   /// False while the form cannot be edited.
@@ -136,6 +140,7 @@ class _SecretFieldRowState extends State<SecretFieldRow>
           label: widget.label,
           hint: widget.hint,
           controller: widget.controller,
+          focusNode: widget.focusNode,
           enabled: widget.enabled,
           obscureText: !_shown || widget.busy,
           maxLines: 1,
