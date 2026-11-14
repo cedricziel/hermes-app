@@ -54,6 +54,7 @@ import '../server_care/update_banner.dart';
 import '../server_care/update_page.dart';
 import '../server_care/update_run_record.dart';
 import '../server_care/server_care_controller.dart';
+import '../server_care/server_check_controller.dart';
 import '../server_care/server_care_scope.dart';
 import '../server_care/server_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
@@ -150,6 +151,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// can say where it is.
   HermesUpdateRun? _updateRun;
   bool _updateWasBusy = false;
+
+  /// Runs the server check and keeps its result in memory; owned here so a
+  /// check goes on when its page is left, and so App Lock, a sign-out and a
+  /// profile switch can drop what it printed.
+  ServerCheckController? _serverCheck;
 
   /// The replies the chat shows as running, for the update question.
   final _replies = RepliesInProgress();
@@ -296,6 +302,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       auth?.addListener(_resetUpdateOnDeparture);
       // An update a previous launch started is picked up where it is.
       unawaited(updateRun.resume());
+      _serverCheck = ServerCheckController(
+        repository: repositories.serverCare,
+        telemetry: repositories.telemetry,
+        breadcrumbs: _breadcrumbs,
+      );
       care.addListener(_careSupportChanged);
       _appLock?.addListener(_readServerCareAfterUnlock);
       // The chat reports its profile after its threads load, and not at all
@@ -441,6 +452,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void _resetUpdateOnDeparture() {
     if (_auth?.ownerGeneration == _ownerGeneration) return;
     unawaited(_updateRun?.reset());
+    // What the check printed belongs to the account and server it ran on.
+    _serverCheck?.drop();
   }
 
   /// The server's own default profile, by name; null until read.
@@ -463,8 +476,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     );
   }
 
-  void _followServerCareProfile() =>
-      _serverCare?.profileChanged(_chatProfiles?.current ?? _defaultProfile);
+  void _followServerCareProfile() {
+    final profile = _chatProfiles?.current ?? _defaultProfile;
+    _serverCare?.profileChanged(profile);
+    _serverCheck?.profileChanged(profile);
+  }
 
   /// A status read skipped under App Lock is made up for on unlock.
   void _readServerCareAfterUnlock() {
@@ -472,6 +488,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       // Hermes' own words about a failed run are not kept while covered.
       _gatewayRun?.forgetText();
       _updateRun?.forgetText();
+      // The check's output goes too, and a check in flight is let go.
+      _serverCheck?.cover();
       return;
     }
     unawaited(_serverCare?.resumed());
@@ -501,6 +519,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _chatProfiles?.removeListener(_followServerCareProfile);
     _appLock?.removeListener(_readServerCareAfterUnlock);
     _gatewayRun?.dispose();
+    _serverCheck?.dispose();
     _auth?.removeListener(_resetUpdateOnDeparture);
     _updateRun
       ?..removeListener(_updateRunChanged)
@@ -534,6 +553,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         unawaited(_resolveServerCareProfile());
       }
       unawaited(_serverCare?.resumed());
+      _serverCheck?.resumed();
       _installs?.resumed();
       _detect();
     }
@@ -600,13 +620,21 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final care = _serverCare;
     final gatewayRun = _gatewayRun;
     final updateRun = _updateRun;
-    final provided = care == null || gatewayRun == null || updateRun == null
+    final serverCheck = _serverCheck;
+    final provided =
+        care == null ||
+            gatewayRun == null ||
+            updateRun == null ||
+            serverCheck == null
         ? built
         : MultiProvider(
             providers: [
               ChangeNotifierProvider<ServerCareController>.value(value: care),
               ChangeNotifierProvider<GatewayRestart>.value(value: gatewayRun),
               ChangeNotifierProvider<HermesUpdateRun>.value(value: updateRun),
+              ChangeNotifierProvider<ServerCheckController>.value(
+                value: serverCheck,
+              ),
               Provider<RepliesInProgress>.value(value: _replies),
             ],
             // The banner shows in this window only, above every destination.

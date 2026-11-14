@@ -246,6 +246,26 @@ void main() {
       );
     });
 
+    test('the status keeps the header of the latest run', () {
+      final s = ActionStatus.parse({
+        'running': false,
+        'lines': [
+          '=== doctor started 2026-11-14 08:00:00 ===',
+          'old',
+          '=== doctor started 2026-11-14 09:00:00 ===\r',
+          'new',
+        ],
+      })!;
+      expect(s.lines, ['new']);
+      expect(s.startHeader, '=== doctor started 2026-11-14 09:00:00 ===');
+      expect(
+        ActionStatus.parse({
+          'lines': ['a'],
+        })!.startHeader,
+        isNull,
+      );
+    });
+
     test('a header with an action id is recognised', () {
       expect(
         linesOfLatestRun([
@@ -299,6 +319,20 @@ void main() {
       expect(r.unknownLines, 1);
       expect(r.fixes, ["Re-run 'hermes setup telegram'", 'Migrate the config']);
       expect(r.allPassed, isFalse);
+    });
+
+    test('keeps lines after the list of fixes that are not fixes', () {
+      final r = DoctorReport.parse([
+        '◆ A',
+        '  ✗ Broken',
+        '  Found 1 issue(s) to address:',
+        '',
+        '  1. Do this',
+        '  and then something odd',
+      ]);
+      expect(r.fixes, ['Do this']);
+      expect(r.trailing, ['and then something odd']);
+      expect(r.unknownLines, 1);
     });
 
     test('an emoji-presentation warning marker leaves no invisible text', () {

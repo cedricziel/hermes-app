@@ -41,6 +41,7 @@ class DoctorReport {
   const DoctorReport({
     this.sections = const [],
     this.fixes = const [],
+    this.trailing = const [],
     this.allPassed = false,
     this.unknownLines = 0,
   });
@@ -49,6 +50,9 @@ class DoctorReport {
 
   /// The numbered lines after "Found N issue(s) to address:".
   final List<String> fixes;
+
+  /// Lines after "Found N issue(s)" that are not numbered fixes, as written.
+  final List<String> trailing;
   final bool allPassed;
 
   /// How many lines no rule matched.
@@ -64,6 +68,13 @@ class DoctorReport {
   );
 
   static final _ansi = RegExp(r'\x1B\[[0-9;?]*[ -/]*[@-~]');
+
+  /// [line] as the report reads it: no ANSI escapes, no emoji selectors, no
+  /// trailing space.
+  static String clean(String line) => line
+      .replaceAll(_ansi, '')
+      .replaceAll(RegExp('[\u200D\uFE0E\uFE0F]'), '')
+      .trimRight();
   static final _header = RegExp(r'^=== doctor started\b');
   static final _found = RegExp(r'Found \d+ issue', caseSensitive: false);
   static final _numbered = RegExp(r'^\s*\d+\.\s+(.*\S)\s*$');
@@ -77,6 +88,7 @@ class DoctorReport {
 
     final sections = <DoctorSection>[];
     final fixes = <String>[];
+    final trailing = <String>[];
     var allPassed = false;
     var unknown = 0;
     var inFixes = false;
@@ -95,10 +107,7 @@ class DoctorReport {
     }
 
     for (final raw in run) {
-      final line = raw
-          .replaceAll(_ansi, '')
-          .replaceAll(RegExp('[\u200D\uFE0E\uFE0F]'), '')
-          .trimRight();
+      final line = clean(raw);
       final text = line.trim();
       if (text.isEmpty || _rule.hasMatch(text)) continue;
       if (text.toLowerCase().contains('all checks passed')) {
@@ -114,6 +123,7 @@ class DoctorReport {
         if (m != null) {
           fixes.add(m.group(1)!);
         } else {
+          trailing.add(text);
           unknown++;
         }
         continue;
@@ -158,6 +168,7 @@ class DoctorReport {
     return DoctorReport(
       sections: sections,
       fixes: fixes,
+      trailing: trailing,
       allPassed: allPassed,
       unknownLines: unknown,
     );
