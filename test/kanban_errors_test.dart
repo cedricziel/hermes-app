@@ -51,6 +51,8 @@ void main() {
       await expectLater(action, completion(isFalse));
 
       expect(messengerKey.currentState, isNotNull);
+      // A bug goes to the crash reporter; a refusal from the plugin does not.
+      expect(tester.takeException(), error is Error ? same(error) : isNull);
     });
   }
 }

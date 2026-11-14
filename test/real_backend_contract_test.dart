@@ -14,7 +14,6 @@ import 'package:hermes_api/hermes_api.dart'
         MCPServerCreate,
         MoaConfigPayload,
         ProfileCreate,
-        ProfileModelUpdate,
         RawConfigUpdate,
         SessionRename,
         TTSSpeakRequest;
@@ -29,6 +28,8 @@ import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
+import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/subagents/agent_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -589,20 +590,14 @@ void main() {
       return;
     }
 
-    final raw = await client.raw
-        .updateProfileModelEndpointApiProfilesNameModelPut(
-          name: Uri.encodeComponent(profile),
-          profileModelUpdate: ProfileModelUpdate(
-            provider: current.providerId,
-            model: current.modelId,
-          ),
-        );
+    final warning = await HermesModelsRepository(client.raw)
+        .assignMain(current, profile: profile);
 
-    expect(raw.data, {
-      'ok': true,
-      'provider': current.providerId,
-      'model': current.modelId,
-    });
+    expect(warning, isNull);
+    final after = (await HermesModelsRepository(
+      client.raw,
+    ).load(profile: profile)).current;
+    expect(after, current);
   }, skip: skip);
 
   test('the app hint is saved per profile without touching the rest', () async {
@@ -3590,6 +3585,52 @@ approvals:
           prompts(await repository.loadMessages(whole!.id, profile: profile)),
           ['First question.', 'Second question.'],
         );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'checkpoints and the context breakdown answer in the shapes the app '
+      'reads (reads only: nothing is restored or compressed)',
+      () async {
+        final repository = HermesChatRepository(client.raw);
+        final transport = connect();
+        final events = await transport
+            .send(profile: profile, text: 'Contract check.')
+            .toList();
+        final thread = (events.first as ThreadBound).threadId;
+        addTearDown(() => repository.deleteThread(thread, profile: profile));
+        final binding = transport.ownedSessionFor(thread, profile: profile)!;
+
+        // Checkpoints are off unless the backend turned them on; an old
+        // backend has no `rollback.*`. Neither is a failure.
+        final list = await transport.listCheckpoints(binding);
+        expect(list, isNot(isA<CheckpointsFailed>()));
+        if (list is CheckpointsOn && list.checkpoints.isNotEmpty) {
+          expect(list.checkpoints.first.hash, hasLength(greaterThan(6)));
+          expect(
+            await transport.checkpointChanges(
+              binding,
+              list.checkpoints.first.hash,
+            ),
+            isNot(isA<ChangesFailed>()),
+          );
+        }
+
+        final breakdown = await transport.contextBreakdown(binding);
+        expect(breakdown, isNot(isA<BreakdownFailed>()));
+        if (breakdown is Breakdown) {
+          final percent = breakdown.percent;
+          if (percent != null) expect(percent, inInclusiveRange(0, 100));
+          expect(
+            breakdown.categories.map((c) => c.tokens),
+            orderedEquals(
+              breakdown.categories.map((c) => c.tokens).toList()
+                ..sort((a, b) => b.compareTo(a)),
+            ),
+          );
+        }
       },
       timeout: const Timeout(Duration(minutes: 2)),
       skip: skip,

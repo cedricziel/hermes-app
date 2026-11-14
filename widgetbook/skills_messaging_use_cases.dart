@@ -80,8 +80,7 @@ FakeHermesServer skillsServer() => FakeHermesServer()
       },
     ],
   })
-  ..on('PUT', '/api/profiles/default/model', {'ok': true})
-  ..on('PUT', '/api/profiles/work/model', {'ok': true})
+  ..on('POST', '/api/model/set', {'ok': true})
   ..on('GET', '/api/skills/hub/official', {
     'skills': [
       hubSkillRow(
