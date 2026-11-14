@@ -19,12 +19,28 @@ abstract final class SecretNames {
     '.htpasswd',
     '.pgpass',
     'kubeconfig',
+    '_netrc',
+    'auth.json',
+    'auth.lock',
+    '.anthropic_oauth.json',
+    'id_ecdsa',
+    'id_dsa',
   };
 
-  static const _prefixes = ['.env.', 'credentials', 'id_rsa', 'id_ed25519'];
+  static const _prefixes = [
+    '.env.',
+    '.env-',
+    '.env_',
+    'credentials',
+    'id_rsa',
+    'id_ed25519',
+    'id_ecdsa',
+    'id_dsa',
+  ];
 
   static const _suffixes = [
     '.pem',
+    '.ppk',
     '.key',
     '.p12',
     '.pfx',
@@ -40,28 +56,31 @@ abstract final class SecretNames {
   static const _fragments = ['token', 'secret', '.tfstate.'];
 
   /// Folders whose whole contents are treated as secret.
-  static const _folders = {'.ssh', '.aws', '.gnupg', 'mcp-tokens'};
+  static const _folders = {'.ssh', '.aws', '.gnupg', 'mcp-tokens', 'pairing'};
 
   /// Whether the file [name] alone looks secret.
   static bool looksSecretName(String name) {
     final lower = name.toLowerCase();
     if (lower == '.env' || _exact.contains(lower)) return true;
+    if (lower.startsWith('google_') && lower.endsWith('.json')) return true;
     return _prefixes.any(lower.startsWith) ||
         _suffixes.any(lower.endsWith) ||
         _fragments.any(lower.contains);
   }
 
   /// Whether the file at [path] looks secret: by its own name, by sitting
-  /// anywhere below `.ssh`, `.aws`, `.gnupg` or `mcp-tokens`, or as
-  /// `.docker/config.json`.
+  /// anywhere below `.ssh`, `.aws`, `.gnupg`, `mcp-tokens` or `pairing`, or as
+  /// `.docker/config.json` or `.kube/config`.
   static bool looksSecret(ServerPath path) {
     final segments = path.segments;
     if (segments.isEmpty) return false;
     if (looksSecretName(segments.last)) return true;
     final folders = segments.sublist(0, segments.length - 1);
     if (folders.any((s) => _folders.contains(s.toLowerCase()))) return true;
-    return folders.isNotEmpty &&
-        folders.last.toLowerCase() == '.docker' &&
-        segments.last.toLowerCase() == 'config.json';
+    if (folders.isEmpty) return false;
+    final parent = folders.last.toLowerCase();
+    final name = segments.last.toLowerCase();
+    return (parent == '.docker' && name == 'config.json') ||
+        (parent == '.kube' && name == 'config');
   }
 }

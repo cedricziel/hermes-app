@@ -102,15 +102,29 @@ class ServerPath {
   static bool _isDriveLetter(int unit) =>
       (unit >= 0x41 && unit <= 0x5A) || (unit >= 0x61 && unit <= 0x7A);
 
-  /// `\\server\share`: both parts are needed to name anything.
+  /// `\\server\share`: both parts are needed to name anything. Either
+  /// separator ends a part, a `.`, `..` or `?` part is refused (so are the
+  /// `\\?\` and `\\.\` device forms), and the share name must not be one.
   static ({int end, String key})? _uncRoot(String text) {
-    final serverEnd = text.indexOf(r'\', 2);
-    if (serverEnd <= 2) return null;
+    int nextSeparator(int from) {
+      for (var i = from; i < text.length; i++) {
+        final unit = text.codeUnitAt(i);
+        if (unit == 0x5C || unit == 0x2F) return i;
+      }
+      return text.length;
+    }
+
+    bool refused(String part) => part == '.' || part == '..' || part == '?';
+
+    final serverEnd = nextSeparator(2);
+    if (serverEnd <= 2 || serverEnd >= text.length) return null;
     final shareStart = serverEnd + 1;
-    var shareEnd = text.indexOf(r'\', shareStart);
-    if (shareEnd < 0) shareEnd = text.length;
+    final shareEnd = nextSeparator(shareStart);
     if (shareEnd <= shareStart) return null;
-    final key = text.substring(2, shareEnd).toLowerCase();
+    final server = text.substring(2, serverEnd);
+    final share = text.substring(shareStart, shareEnd);
+    if (refused(server) || refused(share)) return null;
+    final key = '${server.toLowerCase()}\\${share.toLowerCase()}';
     return (end: shareEnd, key: key);
   }
 
