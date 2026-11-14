@@ -116,7 +116,7 @@ class PluginsController extends ChangeNotifier with SafeNotifier {
     final outcome = !result.ok
         ? 'error'
         : (action == 'update' && result.unchanged ? 'unchanged' : 'ok');
-    _events('plugins.$action.$outcome', {'plugin.name': name});
+    _events('plugins.$action.$outcome');
     if (result.ok) {
       await refresh();
     }

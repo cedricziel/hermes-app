@@ -455,6 +455,175 @@ void main() {
     });
   });
 
+  group('stageDownload', () {
+    Future<void> write(IOSink sink, List<int> bytes) async => sink.add(bytes);
+
+    test('renames the part file when the download returns', () async {
+      final store = newStore();
+      Set<String>? during;
+      final file = await store.stageDownload('fs:a:/x', 'big.bin', (
+        sink,
+      ) async {
+        sink.add([1, 2, 3]);
+        await sink.flush();
+        during = filesUnder(cache).map((f) => f.path.split('/').last).toSet();
+        sink.add([4]);
+      });
+
+      expect(during!.single, endsWith('.part'));
+      expect(file.readAsBytesSync(), [1, 2, 3, 4]);
+      expect(file.path, endsWith('/big.bin'));
+      expect(filesUnder(cache), hasLength(1));
+    });
+
+    test(
+      'deletes the part file and rethrows when the download fails',
+      () async {
+        final store = newStore();
+        await expectLater(
+          store.stageDownload('k', 'a.bin', (sink) async {
+            sink.add([1]);
+            throw StateError('cancelled');
+          }),
+          throwsStateError,
+        );
+        expect(filesUnder(cache), isEmpty);
+        // Nothing is remembered: the next ask downloads again.
+        final file = await store.stageDownload(
+          'k',
+          'a.bin',
+          (s) => write(s, [9]),
+        );
+        expect(file.readAsBytesSync(), [9]);
+      },
+    );
+
+    test('shares one in-flight download per key', () async {
+      final store = newStore();
+      final gate = Completer<void>();
+      var runs = 0;
+      Future<void> download(IOSink sink) async {
+        runs++;
+        await gate.future;
+        sink.add([7]);
+      }
+
+      final first = store.stageDownload('k', 'a.bin', download);
+      final second = store.stageDownload('k', 'a.bin', download);
+      await Future<void>.delayed(Duration.zero);
+      gate.complete();
+
+      expect((await first).path, (await second).path);
+      expect(runs, 1);
+    });
+
+    test('a file already staged is not downloaded again', () async {
+      final store = newStore();
+      await store.stageDownload('k', 'a.bin', (s) => write(s, [1]));
+      var runs = 0;
+      await store.stageDownload('k', 'a.bin', (s) async => runs++);
+      expect(runs, 0);
+    });
+
+    test('a hostile name stays inside the cache folder', () async {
+      final file = await newStore().stageDownload(
+        'k',
+        '../../x',
+        (s) => write(s, [1]),
+      );
+      expect(file.path, startsWith('${cache.path}/hermes_media/'));
+      expect(file.path, isNot(contains('..')));
+    });
+
+    test('evict deletes the staged file so it downloads again', () async {
+      final store = newStore();
+      await store.stageDownload('k', 'a.bin', (s) => write(s, [1]));
+      await store.evict('k');
+      expect(filesUnder(cache), isEmpty);
+      final again = await store.stageDownload(
+        'k',
+        'a.bin',
+        (s) => write(s, [2]),
+      );
+      expect(again.readAsBytesSync(), [2]);
+    });
+
+    test('clear and the sweep remove it like any staged file', () async {
+      final store = newStore();
+      final file = await store.stageDownload(
+        'k',
+        'a.bin',
+        (s) => write(s, [1]),
+      );
+      file.setLastModifiedSync(
+        DateTime.now().subtract(const Duration(days: 2)),
+      );
+      await store.sweep(mediaCacheMaxAge);
+      expect(filesUnder(cache), isEmpty);
+
+      await store.stageDownload('k', 'a.bin', (s) => write(s, [1]));
+      await store.clear();
+      expect(filesUnder(cache), isEmpty);
+    });
+
+    test('a download that finishes after clear is not kept', () async {
+      final store = newStore();
+      final gate = Completer<void>();
+      final pending = store.stageDownload('k', 'a.bin', (sink) async {
+        await gate.future;
+        sink.add([1]);
+      });
+      final outcome = expectLater(pending, throwsA(isA<MediaFetchException>()));
+      await Future<void>.delayed(Duration.zero);
+      await store.clear();
+      gate.complete();
+      await outcome;
+      expect(filesUnder(cache), isEmpty);
+    });
+  });
+
+  group('saveFile', () {
+    test('hands the staged file to the system under its name', () async {
+      final store = newStore();
+      final file = await store.stageBytes('k', 'a.pdf', pdf);
+
+      expect(await store.saveFile('a.pdf', file), isTrue);
+
+      expect(actions.savedFiles.single, (name: 'a.pdf', path: file.path));
+    });
+
+    test('is false when the user cancels', () async {
+      actions.saves = false;
+      final file = await newStore().stageBytes('k', 'a.pdf', pdf);
+      expect(await newStore().saveFile('a.pdf', file), isFalse);
+    });
+  });
+
+  test('bidi controls in a name become underscores', () async {
+    final file = await newStore().stageBytes(
+      'k',
+      'invoice\u202Efdp.exe\u2066x',
+      pdf,
+    );
+    expect(file.uri.pathSegments.last, 'invoice_fdp.exe_x');
+  });
+
+  group('secret copies', () {
+    test('wipeSecretCopies deletes them and only them', () async {
+      final store = newStore();
+      await store.stageBytes(
+        '${kSecretCopyKeyPrefix}work:/a/.env',
+        '.env',
+        pdf,
+      );
+      final kept = await store.stageBytes('fs:work:/a/b.txt', 'b.txt', pdf);
+
+      await newStore().wipeSecretCopies();
+
+      expect(filesUnder(cache).map((f) => f.path), [kept.path]);
+    });
+  });
+
   group('sweep', () {
     File aged(String folder, String name, Duration age) {
       final file = File('${cache.path}/hermes_media/$folder/$name')

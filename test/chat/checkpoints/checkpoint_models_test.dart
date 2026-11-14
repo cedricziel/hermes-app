@@ -18,7 +18,7 @@ void main() {
           {'hash': 'b' * 40, 'message': 'before patch'},
           {
             'hash': 'c' * 40,
-            'message': 'pre-rollback snapshot (restoring to 1a2b3c4d5e6f)',
+            'message': 'pre-rollback snapshot (restoring to 1a2b3c4d)',
           },
           {'hash': 'd' * 40, 'message': 'something new'},
         ],
@@ -30,6 +30,20 @@ void main() {
         CheckpointReason.other,
       ]);
       expect(list.checkpoints[2].restoredFrom, '1a2b3c4d');
+      // The server names eight characters; a shorter or longer target is not
+      // taken for one.
+      for (final text in [
+        'restoring to 1a2b3c4',
+        'restoring to 1a2b3c4d5e6f',
+      ]) {
+        final other = parseCheckpointList({
+          'enabled': true,
+          'checkpoints': [
+            {'hash': 'e' * 40, 'message': 'pre-rollback snapshot ($text)'},
+          ],
+        }) as CheckpointsOn;
+        expect(other.checkpoints.single.restoredFrom, isNull, reason: text);
+      }
       expect(list.checkpoints[0].timestamp, DateTime.utc(2026, 9, 29, 10));
       expect(list.checkpoints[1].timestamp, isNull);
     });

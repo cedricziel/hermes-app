@@ -127,7 +127,7 @@ class CatalogController extends ChangeNotifier with SafeNotifier {
       _installing.remove(name);
       notifyListeners();
     }
-    _events('plugins.install.${_outcome(result)}', {'plugin.name': name});
+    _events('plugins.install.${_outcome(result)}');
     await _afterInstall(result);
     return result;
   }

@@ -23,6 +23,7 @@ import 'watch_context.dart';
 import 'watch_send_journal.dart';
 import 'watch_request_handler.dart';
 import 'watch_request_actions.dart';
+import '../telemetry/report_bug.dart';
 
 /// The Dart end of the watch relay. The iOS runner receives what the watch
 /// sends over WatchConnectivity and forwards each request here as a `request`
@@ -422,7 +423,8 @@ class WatchBridge {
         }
         try {
           return (await HermesProfilesRepository(api.raw).loadActive()).active;
-        } on Object {
+        } on Object catch (e, stack) {
+          reportBug(e, stack, 'the watch active profile');
           return null;
         }
       },

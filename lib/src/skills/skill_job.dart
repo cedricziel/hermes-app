@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../core/safe_notifier.dart';
 import 'hermes_skills_hub_repository.dart';
 import 'hermes_skills_repository.dart';
+import '../telemetry/report_bug.dart';
 
 enum JobState { starting, running, succeeded, failed, unknown }
 
@@ -49,7 +50,8 @@ class SkillJob extends ChangeNotifier with SafeNotifier {
     } on SkillsRejected catch (e) {
       _finish(JobState.failed, error: e.message);
       return;
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a skill job');
       _finish(JobState.failed, error: 'Could not start the job');
       return;
     }

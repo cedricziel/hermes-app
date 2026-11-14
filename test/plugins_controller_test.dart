@@ -191,7 +191,7 @@ void main() {
   group('telemetry', () {
     setUp(() => controller.load());
 
-    test('logs one event per action with only the plugin name', () async {
+    test('logs one event per action without the plugin name', () async {
       server
         ..on('POST', '/api/dashboard/agent-plugins/netbox/enable', {'ok': true})
         ..on('POST', '/api/dashboard/agent-plugins/netbox/disable', {
@@ -218,7 +218,7 @@ void main() {
         'plugins.hide.ok',
       ]);
       for (final (_, attributes) in events) {
-        expect(attributes, {'plugin.name': 'netbox'});
+        expect(attributes, isEmpty);
       }
     });
 

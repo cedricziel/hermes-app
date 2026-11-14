@@ -229,7 +229,7 @@ CheckpointList? parseCheckpointList(Map<String, Object?> result) {
   return CheckpointsOn(List.unmodifiable(checkpoints));
 }
 
-final _restoringTo = RegExp(r'restoring to ([0-9a-fA-F]{4,64})');
+final _restoringTo = RegExp(r'restoring to ([0-9a-f]{8})(?![0-9a-f])');
 
 (CheckpointReason, String?) _readReason(Object? message) {
   if (message is! String) return (CheckpointReason.other, null);
@@ -242,10 +242,7 @@ final _restoringTo = RegExp(r'restoring to ([0-9a-fA-F]{4,64})');
   }
   if (text.startsWith('pre-rollback snapshot')) {
     final target = _restoringTo.firstMatch(text)?.group(1);
-    return (
-      CheckpointReason.beforeRestore,
-      target?.substring(0, target.length < 8 ? target.length : 8),
-    );
+    return (CheckpointReason.beforeRestore, target);
   }
   return (CheckpointReason.other, null);
 }

@@ -39,6 +39,35 @@ void main() {
     expect(messages.single.content, 'internal process payload');
   });
 
+  group('working folder', () {
+    test('keeps cwd next to the git root a row also holds', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 's1', title: 'Both')
+            ..['cwd'] = '/srv/project/app'
+            ..['git_repo_root'] = '/srv/project',
+          sessionRow(id: 's2', title: 'Only cwd')..['cwd'] = '/srv/other/',
+          sessionRow(id: 's3', title: 'Blank')..['cwd'] = '  ',
+          sessionRow(id: 's5', title: 'Spaces')..['cwd'] = '/srv/a b ',
+          sessionRow(id: 's4', title: 'Neither'),
+        ]),
+      );
+
+      final threads = await repository.loadThreads();
+
+      expect(threads.map((t) => t.workingDirectory), [
+        '/srv/project/app',
+        '/srv/other/',
+        null,
+        '/srv/a b ',
+        null,
+      ]);
+      expect(threads.first.folderPath, '/srv/project');
+    });
+  });
+
   group('loadThreads', () {
     test('asks the dashboard for the most recently active sessions', () async {
       server.on('GET', '/api/sessions', sessionListBody([]));
