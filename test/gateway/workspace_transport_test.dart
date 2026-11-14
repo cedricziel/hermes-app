@@ -209,6 +209,55 @@ void main() {
       unawaited(stuck.close());
     });
   });
+  test('a flag dropped in one attempt does not leak into the next', () {
+    fakeAsync((async) {
+      final fresh = FakeGateway()
+        ..stampSeq = true
+        ..sendReady = true;
+      final retrying = HermesGatewayTransport(
+        connect: fresh.connect,
+        random: _Fixed(),
+      );
+      var explicit = 0;
+      fresh.handlers['session.create'] = (params) {
+        explicit++;
+        if (explicit == 1) {
+          // The retry without the flag reaches a socket that never answers.
+          fresh.silent.add('session.create');
+          throw const FakeRpcError(4000, 'unknown param cwd_explicit');
+        }
+        return {
+          'session_id': 'rt-1',
+          'stored_session_id': 'stored-1',
+          'info': {'cwd': '/home/me/code/other'},
+        };
+      };
+      fresh.turn = plainReply;
+      final seen = <ChatEvent>[];
+      Object? error;
+      retrying
+          .send(text: 'hi', workspace: picked)
+          .listen(seen.add, onError: (Object e) => error = e);
+
+      async.elapse(const Duration(seconds: 30));
+      fresh.silent.clear();
+      async.elapse(const Duration(seconds: 5));
+
+      expect(error, isNull);
+      final creates = [
+        for (final r in fresh.requests)
+          if (r['method'] == 'session.create') r['params']! as Map,
+      ];
+      expect(creates.map((c) => c.containsKey('cwd_explicit')), [
+        true,
+        false,
+        true,
+      ]);
+      final bound = seen.whereType<WorkspaceBound>().single;
+      expect(bound.retriedWithoutExplicit, isFalse);
+      unawaited(retrying.close());
+    });
+  });
 }
 
 class _Fixed implements Random {

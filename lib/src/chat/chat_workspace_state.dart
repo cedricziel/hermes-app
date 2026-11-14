@@ -129,7 +129,10 @@ class NewChatWorkspace {
 
   /// The default is being looked up and the row has nothing to show yet.
   bool get lookingUp =>
-      folder == null && status == WorkspaceCatalogStatus.loading && !stalled;
+      folder == null &&
+      (status == WorkspaceCatalogStatus.loading ||
+          status == WorkspaceCatalogStatus.idle) &&
+      !stalled;
 
   /// The row has nothing to say: an older server and no folder known.
   bool get hidden =>

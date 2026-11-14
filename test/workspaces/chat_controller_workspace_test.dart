@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/bot_chat_context.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
@@ -59,6 +60,7 @@ void main() {
   onMove;
   late List<(String, Map<String, Object>)> logged;
   late HermesWorkspacesRepository workspaces;
+  late ValueNotifier<bool> activity;
 
   /// What `GET /api/sessions/s1` answers for a re-read.
   late FakeResponse Function() reread;
@@ -68,6 +70,7 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
     rpcCalls = [];
     logged = [];
+    activity = ValueNotifier(true);
     onMove = (params) async => {'cwd': _other, 'git_repo_root': _other};
     reread = () => (status: 200, body: _row('s1'));
     transport = FakeChatTransport();
@@ -95,7 +98,8 @@ void main() {
       required timeout,
     }) {
       rpcCalls.add((method, params));
-      return onMove(params);
+      // As the real requester does: it gives up after `timeout`.
+      return onMove(params).timeout(timeout);
     });
     attention = AttentionNotifier(
       service: null,
@@ -105,6 +109,7 @@ void main() {
     chat = ChatController(
       repository: HermesChatRepository(server.client().raw),
       workspaces: workspaces,
+      activity: activity,
       transport: transport,
       attention: attention,
       report: (_) {},
@@ -232,19 +237,74 @@ void main() {
       expect(chat.workspaceCatalog(), isNot(same(loader)));
     });
 
-    test('is dropped with the controller', () async {
+    test('a catalog answer after the controller is gone is dropped', () async {
+      final gate = Completer<FakeResponse>();
+      server.onRequest('GET', '/api/chat/workspaces', (_) => gate.future);
       chat.clearSelection();
       final loader = chat.workspaceCatalog()!;
       await pumpEventQueue();
-      var notified = false;
-      loader.addListener(() => notified = true);
+      expect(loader.loading, isTrue);
 
       chat.dispose();
-      // Disposing a loader twice would throw; the tear-down disposes the
-      // controller again, which is a no-op for the loader.
-      expect(notified, isFalse);
+      gate.complete((status: 200, body: _catalogBody));
+      await pumpEventQueue();
+
+      expect(loader.catalog, isNull);
       chat = ChatController(attention: attention, report: (_) {});
     });
+
+    test(
+      'a draft that a slash command created is not shown as picked',
+      () async {
+        chat.newThread();
+        final draft = chat.selectedThread!;
+        chat.chooseWorkspace(pickOther);
+
+        await chat.runSlashCommand('/help');
+
+        expect(draft.workspaceChoice, isNull);
+        expect(chat.workspaceChoice, isNull);
+      },
+    );
+
+    test('a pending pick is dropped when a command makes the chat', () async {
+      chat.clearSelection();
+      chat.chooseWorkspace(pickOther);
+
+      await chat.runSlashCommand('/help');
+
+      expect(chat.workspaceChoice, isNull);
+      expect(chat.threads.first.workspaceChoice, isNull);
+    });
+
+    test(
+      'a profile switch drops notices, projects and settled moves',
+      () async {
+        final send = await startNewChat(pick: pickOther);
+        final draft = chat.selectedThread!;
+        send.emit(const ThreadBound('stored-9'));
+        send.emit(
+          const WorkspaceBound(
+            cwd: '/home/me',
+            project: WorkspaceProjectRef(name: 'P'),
+          ),
+        );
+        await pumpEventQueue();
+        final target = thread('s1');
+        await chat.moveWorkspace(target, _other);
+        expect(chat.workspaceMoveOf(target).phase, WorkspaceMovePhase.changed);
+
+        await chat.loadThreads('home');
+
+        expect(chat.workspaceMismatchOf(draft), isNull);
+        expect(chat.workspaceProjectOf(draft), isNull);
+        await chat.loadThreads('work');
+        expect(
+          chat.workspaceMoveOf(thread('s1')).phase,
+          WorkspaceMovePhase.idle,
+        );
+      },
+    );
   });
 
   group('where Hermes started the chat', () {
@@ -290,19 +350,61 @@ void main() {
       );
     });
 
-    test('the same folder, written differently, is no mismatch', () async {
+    test(
+      'trailing separators and a ~ with a known home are no mismatch',
+      () async {
+        chat.workspaceCatalog();
+        await pumpEventQueue();
+        expect(chat.workspaceCatalog()!.catalog!.home, '/home/me');
+
+        for (final (pick, reported) in [
+          ('$_other/', _other),
+          ('~/code/other', _other),
+          ('/home//me/code/other', _other),
+        ]) {
+          final send = await startNewChat(pick: WorkspaceChoice(path: pick));
+          final draft = chat.selectedThread!;
+          send.emit(ThreadBound('stored-$pick'));
+          send.emit(WorkspaceBound(cwd: reported));
+          await pumpEventQueue();
+
+          expect(chat.workspaceMismatchOf(draft), isNull, reason: pick);
+        }
+        expect(logged.where((e) => e.$1 == 'workspace.cwd_mismatch'), isEmpty);
+      },
+    );
+
+    test('a different folder is still a mismatch after normalising', () async {
+      chat.workspaceCatalog();
+      await pumpEventQueue();
       final send = await startNewChat(
         pick: const WorkspaceChoice(path: '~/code/other/'),
       );
+      final draft = chat.selectedThread!;
 
       send.emit(const ThreadBound('stored-9'));
-      send.emit(const WorkspaceBound(cwd: _other));
+      send.emit(const WorkspaceBound(cwd: '/home/me/code/demo'));
       await pumpEventQueue();
 
-      // `~` expands with the catalog's home, which is not loaded here; an
-      // unresolvable `~` is never reported as a mismatch.
-      expect(chat.workspaceMismatchOf(chat.selectedThread!), isNull);
+      expect(chat.workspaceMismatchOf(draft), isNotNull);
     });
+
+    test(
+      'the folder path is the git root when the server reports one',
+      () async {
+        final send = await startNewChat();
+        final draft = chat.selectedThread!;
+
+        send.emit(const ThreadBound('stored-9'));
+        send.emit(
+          const WorkspaceBound(cwd: '$_other/api', gitRepoRoot: _other),
+        );
+        await pumpEventQueue();
+
+        expect(draft.workingDirectory, '$_other/api');
+        expect(draft.folderPath, _other);
+      },
+    );
 
     test('no pick, no comparison', () async {
       final send = await startNewChat();
@@ -701,6 +803,133 @@ void main() {
     );
   });
 
+  group('a move across reloads and the background', () {
+    test(
+      'keeps the hold and shows the outcome on the reloaded thread',
+      () async {
+        final answer = Completer<Map<String, Object?>>();
+        onMove = (_) => answer.future;
+        final before = thread('s1');
+
+        final future = chat.moveWorkspace(before, _other);
+        await pumpEventQueue();
+        await chat.loadThreads('work');
+        final after = thread('s1');
+
+        expect(after, isNot(same(before)));
+        expect(chat.workspaceMoveOf(after).inFlight, isTrue);
+        expect(chat.workspaceMoveBlock(after), WorkspaceMoveBlock.moving);
+        expect(
+          await chat.moveWorkspace(after, '/third'),
+          WorkspaceMoveBlock.moving,
+        );
+        chat.select('s1');
+        expect(await chat.submit('wait', const []), isFalse);
+        expect(rpcCalls, hasLength(1));
+
+        answer.complete({'cwd': _other, 'git_repo_root': _other});
+        await future;
+
+        expect(chat.workspaceMoveOf(after).phase, WorkspaceMovePhase.changed);
+        expect(after.workingDirectory, _other);
+        expect(after.folderPath, _other);
+      },
+    );
+
+    test(
+      'an answer that arrives in the background is "could not confirm"',
+      () async {
+        final answer = Completer<Map<String, Object?>>();
+        onMove = (_) => answer.future;
+        final target = thread('s1');
+
+        final future = chat.moveWorkspace(target, _other);
+        await pumpEventQueue();
+        activity.value = false;
+        await pumpEventQueue();
+        answer.complete({'cwd': _other});
+        await future;
+
+        expect(
+          chat.workspaceMoveOf(target).phase,
+          WorkspaceMovePhase.couldNotConfirm,
+        );
+        expect(chat.workspaceMoveOf(target).inFlight, isFalse);
+        expect(rpcCalls, hasLength(1));
+
+        // Back in front: "check again" reads the row and settles it.
+        activity.value = true;
+        await pumpEventQueue();
+        reread = () => (status: 200, body: _row('s1', cwd: _other));
+        final again = thread('s1');
+        expect(chat.workspaceMoveBlock(again), isNull);
+        await chat.recheckWorkspaceMove(again);
+        await pumpEventQueue();
+
+        expect(chat.workspaceMoveOf(again).phase, WorkspaceMovePhase.changed);
+        expect(again.workingDirectory, _other);
+        expect(rpcCalls, hasLength(1));
+      },
+    );
+
+    test('a move that never answers while in the background still ends', () {
+      fakeAsync((async) {
+        onMove = (_) => Completer<Map<String, Object?>>().future;
+        final target = thread('s1');
+
+        unawaited(chat.moveWorkspace(target, _other));
+        async.flushMicrotasks();
+        activity.value = false;
+        async.elapse(const Duration(seconds: 11));
+        async.flushMicrotasks();
+
+        expect(chat.workspaceMoveOf(target).inFlight, isFalse);
+        expect(
+          chat.workspaceMoveOf(target).phase,
+          WorkspaceMovePhase.couldNotConfirm,
+        );
+      });
+    });
+  });
+
+  group('what keeps a chat from being moved', () {
+    test('a queued prompt and a settle wait block it', () async {
+      chat.select('s1');
+      await pumpEventQueue();
+      final target = thread('s1');
+      await chat.submit('first', const []);
+      await chat.submit('second', const []);
+      await pumpEventQueue();
+      expect(chat.workspaceMoveBlock(target), WorkspaceMoveBlock.replying);
+
+      transport.sends.single
+        ..emit(const ReplyStarted())
+        ..emit(const ReplyCompleted('done'));
+      await pumpEventQueue();
+
+      // The reply ended; the queue still waits for the session to settle.
+      expect(chat.workspaceMoveBlock(target), WorkspaceMoveBlock.replying);
+      expect(
+        await chat.moveWorkspace(target, _other),
+        WorkspaceMoveBlock.replying,
+      );
+      expect(rpcCalls, isEmpty);
+    });
+
+    test('a turn of another client blocks it', () async {
+      transport.active['s1'] = 'working';
+      await chat.refreshActive();
+      final target = thread('s1');
+
+      expect(chat.workspaceMoveBlock(target), WorkspaceMoveBlock.replying);
+      expect(
+        await chat.moveWorkspace(target, _other),
+        WorkspaceMoveBlock.replying,
+      );
+      expect(rpcCalls, isEmpty);
+    });
+  });
+
   group('a move that waits, on a fake clock', () {
     void withClock(void Function(FakeAsync async) body) {
       fakeAsync((async) {
@@ -807,6 +1036,80 @@ void main() {
         });
       },
     );
+
+    test('a late move answer during the re-read is not overruled by it', () {
+      withClock((async) {
+        final answer = Completer<Map<String, Object?>>();
+        onMove = (_) => answer.future;
+        final gate = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/sessions/s1', (_) => gate.future);
+        final target = thread('s1');
+
+        unawaited(chat.moveWorkspace(target, _other));
+        async.elapse(const Duration(seconds: 11));
+        expect(chat.workspaceMoveOf(target).phase, WorkspaceMovePhase.checking);
+
+        answer.complete({'cwd': _other, 'git_repo_root': _other});
+        async.elapse(const Duration(milliseconds: 5));
+        expect(chat.workspaceMoveOf(target).phase, WorkspaceMovePhase.changed);
+
+        // The re-read comes back with the row as it was before.
+        gate.complete((status: 200, body: _row('s1')));
+        async.elapse(const Duration(milliseconds: 5));
+
+        expect(chat.workspaceMoveOf(target).phase, WorkspaceMovePhase.changed);
+        expect(target.workingDirectory, _other);
+        expect(rpcCalls, hasLength(1));
+      });
+    });
+
+    test('"check again" does not drop a move answer still on its way', () {
+      withClock((async) {
+        final answer = Completer<Map<String, Object?>>();
+        onMove = (_) => answer.future;
+        final gates = <Completer<FakeResponse>>[];
+        server.onRequest('GET', '/api/sessions/s1', (_) {
+          final gate = Completer<FakeResponse>();
+          gates.add(gate);
+          return gate.future;
+        });
+        final target = thread('s1');
+
+        unawaited(chat.moveWorkspace(target, _other));
+        async.elapse(const Duration(seconds: 11));
+        async.elapse(const Duration(seconds: 11));
+        expect(
+          chat.workspaceMoveOf(target).phase,
+          WorkspaceMovePhase.couldNotConfirm,
+        );
+
+        unawaited(chat.recheckWorkspaceMove(target));
+        async.elapse(const Duration(milliseconds: 5));
+        expect(chat.workspaceMoveOf(target).phase, WorkspaceMovePhase.checking);
+
+        answer.complete({'cwd': _other});
+        async.elapse(const Duration(milliseconds: 5));
+
+        expect(chat.workspaceMoveOf(target).phase, WorkspaceMovePhase.changed);
+        expect(rpcCalls, hasLength(1));
+      });
+    });
+
+    test('the requester keeps the move longer than the 10 s wait', () {
+      withClock((async) {
+        final answer = Completer<Map<String, Object?>>();
+        onMove = (_) => answer.future;
+        final target = thread('s1');
+
+        unawaited(chat.moveWorkspace(target, _other));
+        async.elapse(const Duration(seconds: 30));
+        // Still not abandoned by the requester: the answer is the move's.
+        answer.complete({'cwd': _other});
+        async.elapse(const Duration(milliseconds: 5));
+
+        expect(chat.workspaceMoveOf(target).phase, WorkspaceMovePhase.changed);
+      });
+    });
 
     test('a late re-read answer replaces "could not confirm"', () {
       withClock((async) {

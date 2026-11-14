@@ -107,8 +107,10 @@ extension _Sending on HermesGatewayTransport {
     final fields = project is Map ? project : const <Object?, Object?>{};
     final projectId = fields['id'];
     final primaryPath = fields['primary_path'];
+    final root = info['git_repo_root'];
     return WorkspaceBound(
       cwd: cwd,
+      gitRepoRoot: root is String && root.trim().isNotEmpty ? root : null,
       branch: branch is String && branch.trim().isNotEmpty ? branch : null,
       project: name is String && name.trim().isNotEmpty
           ? WorkspaceProjectRef(
@@ -152,6 +154,8 @@ extension _Sending on HermesGatewayTransport {
     for (var attempt = 0; ; attempt++) {
       if (attempt > 0) await _sleep(reconnectDelay(attempt, _random));
       if (stopped.value) return;
+      // Each attempt decides on its own whether the flag was dropped.
+      retriedWithoutExplicit = false;
       step.name = 'connect';
       try {
         client = await _client();

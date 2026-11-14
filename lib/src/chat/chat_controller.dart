@@ -1625,9 +1625,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     // Hermes lets a live agent follow a move, even mid-turn: nothing goes to
     // a chat while its move is being settled.
-    if (selected != null && _workspace.moves[selected]?.inFlight == true) {
-      return false;
-    }
+    if (_ChatControllerWorkspace(this)._moveHolds(selected)) return false;
     if (_queueUnavailable.contains(selected)) {
       report(_queueMissingTarget);
       return false;
@@ -1715,6 +1713,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId == thread.id) _selectedId = id;
     thread.id = id;
     thread.remote = true;
+    _ChatControllerWorkspace(this)._workspaceCreated(thread);
     _bound.add(thread);
     _finishQueueBinding(thread, true);
     notifyListeners();

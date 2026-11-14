@@ -17,7 +17,7 @@ extension _ChatControllerSending on ChatController {
       return false;
     }
     if (_sessionStates[selected]?.reclaimedReason != null) return false;
-    if (!active) return false;
+    if (!active || _moveHolds(selected)) return false;
     final epoch = _activityEpoch;
     final sizes = readyAttachments == null ? _sizesOrExplain(files) : <int>[];
     if (sizes == null) return false;

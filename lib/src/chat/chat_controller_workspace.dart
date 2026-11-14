@@ -11,14 +11,10 @@ class _WorkspaceData {
   final sent = <ChatThread, WorkspaceChoice>{};
   final projects = <ChatThread, WorkspaceProjectRef>{};
   final mismatches = <ChatThread, WorkspaceMismatch>{};
-  final moves = <ChatThread, WorkspaceMoveState>{};
 
-  /// The folder each unsettled move asked for and the one the chat had.
-  final targets = <ChatThread, ({String path, String? previous})>{};
-
-  /// Which move of a thread the answers in flight belong to.
-  final runs = <ChatThread, int>{};
-  var runCount = 0;
+  /// Moves by (profile, stored id): the outcome and the hold on Send outlive
+  /// the thread objects a reload replaces.
+  final moves = <(String, String), _MoveRecord>{};
 
   /// One catalog per recipient profile, kept while the welcome view shows.
   final loaders = <String, WorkspaceCatalogLoader>{};
@@ -27,12 +23,35 @@ class _WorkspaceData {
   /// connection.
   var moveUnsupported = false;
 
+  /// What a profile switch drops: everything about the chats of the profile
+  /// before, except a move that is still being settled.
+  void profileSwitched() {
+    pending = null;
+    sent.clear();
+    projects.clear();
+    mismatches.clear();
+    moves.removeWhere((_, record) => !record.state.inFlight);
+    clearLoaders();
+  }
+
   void clearLoaders() {
     for (final loader in loaders.values) {
       loader.dispose();
     }
     loaders.clear();
   }
+}
+
+/// One chat's move: where it stands, what it asked for, and which move and
+/// which re-read the answers in flight belong to.
+class _MoveRecord {
+  WorkspaceMoveState state = WorkspaceMoveState.idle;
+
+  /// The folder asked for and the one the chat had, kept until settled.
+  String? target;
+  String? previous;
+  var moveRun = 0;
+  var readGen = 0;
 }
 
 /// The working directory of a chat: the folder picked for a new one, where
@@ -86,7 +105,12 @@ extension _ChatControllerWorkspace on ChatController {
     thread
       ..workingDirectory = event.cwd
       ..branch = event.branch
-      ..folderPath = sessionFolderPath({'cwd': event.cwd}) ?? event.cwd;
+      ..folderPath =
+          sessionFolderPath({
+            'git_repo_root': event.gitRepoRoot,
+            'cwd': event.cwd,
+          }) ??
+          event.cwd;
     if (event.project case final project?) {
       _workspace.projects[thread] = project;
     }
@@ -120,7 +144,9 @@ extension _ChatControllerWorkspace on ChatController {
       loader = WorkspaceCatalogLoader(repository: repository, profile: key)
         ..addListener(notifyListeners);
       _workspace.loaders[key] = loader;
-      unawaited(loader.load());
+      // Not now: this runs while a screen builds, and a read starting
+      // notifies its listeners.
+      scheduleMicrotask(loader.load);
     }
     return loader;
   }
@@ -145,11 +171,10 @@ extension _ChatControllerWorkspace on ChatController {
   /// A new chat's recipient changed profile: the pick and the catalog of the
   /// profile before are no longer about the recipient.
   void _workspaceProfileSwitched() {
-    _workspace.pending = null;
     for (final thread in _threads) {
       if (_isNewChat(thread)) thread.workspaceChoice = null;
     }
-    _workspace.clearLoaders();
+    _workspace.profileSwitched();
   }
 
   void _clearWorkspaceStateImpl() {
@@ -162,13 +187,28 @@ extension _ChatControllerWorkspace on ChatController {
       ..projects.clear()
       ..mismatches.clear()
       ..moves.clear()
-      ..targets.clear()
-      ..runs.clear()
       ..moveUnsupported = false
       ..clearLoaders();
   }
 
-  // Moving a chat.
+  // Moving a chat. Move state is kept by (profile, stored id), not by the
+  // thread object: a reload replaces every thread, and the outcome of a move
+  // and the hold on Send must survive that.
+
+  (String, String) _moveKey(ChatThread thread) => (_profileKey, thread.id);
+
+  /// The thread of the current profile that [key] names, whatever object
+  /// holds it now.
+  ChatThread? _threadFor((String, String) key) {
+    if (key.$1 != _profileKey) return null;
+    for (final thread in _threads) {
+      if (thread.id == key.$2 && thread.remote) return thread;
+    }
+    return null;
+  }
+
+  WorkspaceMoveState _moveStateImpl(ChatThread thread) =>
+      _workspace.moves[_moveKey(thread)]?.state ?? WorkspaceMoveState.idle;
 
   WorkspaceMoveBlock? _moveBlockImpl(ChatThread thread, {String? path}) {
     if (workspaces == null || _workspace.moveUnsupported) {
@@ -181,7 +221,16 @@ extension _ChatControllerWorkspace on ChatController {
         !_bound.contains(thread)) {
       return WorkspaceMoveBlock.notAvailable;
     }
-    if (thread.isReplying || _sending.containsKey(thread)) {
+    // Hermes lets a live agent follow a move, even mid-turn, so nothing may
+    // be running or about to run: a reply, a turn of another client, queued
+    // prompts, a queue waiting on a settle report, an undo or branch.
+    if (thread.isReplying ||
+        _sending.containsKey(thread) ||
+        _active.contains(thread.id) ||
+        (_queues[thread]?.isNotEmpty ?? false) ||
+        _settleTimers.containsKey(thread) ||
+        queueBusy(thread) ||
+        _undoing.containsKey(thread)) {
       return WorkspaceMoveBlock.replying;
     }
     if (_moveStateImpl(thread).inFlight) return WorkspaceMoveBlock.moving;
@@ -191,20 +240,37 @@ extension _ChatControllerWorkspace on ChatController {
     return null;
   }
 
-  WorkspaceMoveState _moveStateImpl(ChatThread thread) =>
-      _workspace.moves[thread] ?? WorkspaceMoveState.idle;
+  /// Whether a move of [thread] is being settled: nothing is sent to it then.
+  bool _moveHolds(ChatThread? thread) =>
+      thread != null && _moveStateImpl(thread).inFlight;
 
-  void _setMove(ChatThread thread, WorkspaceMoveState state) {
-    _workspace.moves[thread] = state;
+  void _setMove(
+    (String, String) key,
+    _MoveRecord record,
+    WorkspaceMoveState state,
+  ) {
+    final wasInFlight = record.state.inFlight;
+    record.state = state;
+    if (disposed) return;
     notifyListeners();
+    if (!wasInFlight || state.inFlight) return;
+    // Whatever waited for the move goes on.
+    final thread = _threadFor(key);
+    if (thread != null && active && _queues[thread] != null) {
+      _drainQueue(thread);
+    }
   }
 
-  /// Whether the move of [thread] in [run] is still the one in view: the app
-  /// is current, the chat is still in the list and no later move replaced it.
-  bool _moveCurrent(ChatThread thread, int run, int epoch) =>
-      _currentActivity(epoch) &&
-      _threads.contains(thread) &&
-      _workspace.runs[thread] == run;
+  /// The wait for a move or a re-read ended without anything to apply, as
+  /// when the app went to the background meanwhile: nothing is known.
+  void _unconfirmed((String, String) key, _MoveRecord record) {
+    if (!record.state.inFlight) return;
+    _setMove(
+      key,
+      record,
+      const WorkspaceMoveState(WorkspaceMovePhase.couldNotConfirm),
+    );
+  }
 
   /// The result of [call], or null when it has had no answer within the
   /// time a waiting state may last. [call] is not cancelled: its answer, when
@@ -227,40 +293,47 @@ extension _ChatControllerWorkspace on ChatController {
     final repository = workspaces!;
     final epoch = _activityEpoch;
     final profile = _profile;
-    final id = thread.id;
-    final run = ++_workspace.runCount;
-    _workspace.runs[thread] = run;
-    _workspace.targets[thread] = (
-      path: path,
-      previous: thread.workingDirectory,
-    );
-    _setMove(thread, const WorkspaceMoveState(WorkspaceMovePhase.moving));
+    final key = _moveKey(thread);
+    final record = _workspace.moves.putIfAbsent(key, _MoveRecord.new);
+    final run = ++record.moveRun;
+    record
+      ..target = path
+      ..previous = thread.workingDirectory;
+    _setMove(key, record, const WorkspaceMoveState(WorkspaceMovePhase.moving));
     // Sent once. Whatever comes of it, it is never sent again.
-    final request = repository.moveWorkspace(id, path, profile: profile);
+    final request = repository.moveWorkspace(key.$2, path, profile: profile);
     final answer = await _within(request);
-    if (!_moveCurrent(thread, run, epoch)) return null;
+    if (disposed || record.moveRun != run) return null;
+    if (!_currentActivity(epoch)) {
+      _unconfirmed(key, record);
+      return null;
+    }
     switch (answer) {
       case WorkspacesOk(:final value):
-        _applyMoved(thread, value);
+        _applyMoved(key, record, value);
       case WorkspacesUnsupported():
-        _workspace
-          ..moveUnsupported = true
-          ..moves.remove(thread)
-          ..targets.remove(thread);
+        _workspace.moveUnsupported = true;
+        _workspace.moves.remove(key);
         notifyListeners();
       case WorkspacesFailed(:final kind)
           when kind == WorkspacesFailure.notFound:
         _setMove(
-          thread,
+          key,
+          record,
           const WorkspaceMoveState(WorkspaceMovePhase.folderMissing),
         );
       case WorkspacesFailed(:final kind)
           when kind == WorkspacesFailure.sessionGone:
-        _setMove(thread, const WorkspaceMoveState(WorkspaceMovePhase.chatGone));
+        _setMove(
+          key,
+          record,
+          const WorkspaceMoveState(WorkspaceMovePhase.chatGone),
+        );
       case WorkspacesFailed(:final kind)
           when kind == WorkspacesFailure.unknownProfile:
         _setMove(
-          thread,
+          key,
+          record,
           const WorkspaceMoveState(WorkspaceMovePhase.profileGone),
         );
       case WorkspacesFailed() || null:
@@ -269,121 +342,155 @@ extension _ChatControllerWorkspace on ChatController {
         if (answer == null) {
           unawaited(
             request.then((late) {
-              if (!_moveCurrent(thread, run, epoch)) return;
+              if (disposed || record.moveRun != run || !active) return;
               if (late is WorkspacesOk<MovedWorkspace> &&
-                  _lateAnswerMayApply(thread)) {
-                _applyMoved(thread, late.value);
+                  _lateAnswerMayApply(record)) {
+                _applyMoved(key, record, late.value);
               }
             }),
           );
         }
-        await _recheck(thread, run, epoch, profile);
+        await _recheck(key, record, epoch, profile);
     }
     return null;
   }
 
   /// A move answer that came after its wait ended still decides the screen,
-  /// unless the chat's row already settled it.
-  bool _lateAnswerMayApply(ChatThread thread) =>
-      switch (_moveStateImpl(thread).phase) {
-        WorkspaceMovePhase.checking ||
-        WorkspaceMovePhase.couldNotConfirm ||
-        WorkspaceMovePhase.unchanged => true,
-        _ => false,
-      };
+  /// unless it was settled already.
+  bool _lateAnswerMayApply(_MoveRecord record) => switch (record.state.phase) {
+    WorkspaceMovePhase.checking ||
+    WorkspaceMovePhase.couldNotConfirm ||
+    WorkspaceMovePhase.unchanged => true,
+    _ => false,
+  };
 
-  void _applyMoved(ChatThread thread, MovedWorkspace moved) {
-    thread
-      ..workingDirectory = moved.cwd
-      ..branch = moved.branch
-      ..folderPath = moved.folderPath;
-    _workspace.projects.remove(thread);
-    _workspace.targets.remove(thread);
+  void _applyMoved(
+    (String, String) key,
+    _MoveRecord record,
+    MovedWorkspace moved,
+  ) {
+    final thread = _threadFor(key);
+    if (thread != null) {
+      thread
+        ..workingDirectory = moved.cwd
+        ..branch = moved.branch
+        ..folderPath = moved.folderPath;
+      _workspace.projects.remove(thread);
+    }
     _setMove(
-      thread,
+      key,
+      record,
       WorkspaceMoveState(WorkspaceMovePhase.changed, folder: moved.cwd),
     );
   }
 
   Future<void> _recheck(
-    ChatThread thread,
-    int run,
+    (String, String) key,
+    _MoveRecord record,
     int epoch,
     String? profile,
   ) async {
     final repository = workspaces!;
-    _setMove(thread, const WorkspaceMoveState(WorkspaceMovePhase.checking));
-    final read = repository.sessionFolder(thread.id, profile: profile);
+    final generation = ++record.readGen;
+    _setMove(
+      key,
+      record,
+      const WorkspaceMoveState(WorkspaceMovePhase.checking),
+    );
+    final read = repository.sessionFolder(key.$2, profile: profile);
     final result = await _within(read);
-    if (!_moveCurrent(thread, run, epoch)) return;
+    if (disposed || record.readGen != generation) return;
+    if (!_currentActivity(epoch)) {
+      _unconfirmed(key, record);
+      return;
+    }
     if (result == null) {
       _setMove(
-        thread,
+        key,
+        record,
         const WorkspaceMoveState(WorkspaceMovePhase.couldNotConfirm),
       );
       unawaited(
         read.then((late) {
-          if (!_moveCurrent(thread, run, epoch)) return;
-          if (_moveStateImpl(thread).phase !=
-              WorkspaceMovePhase.couldNotConfirm) {
+          if (disposed ||
+              !active ||
+              record.readGen != generation ||
+              record.state.phase != WorkspaceMovePhase.couldNotConfirm) {
             return;
           }
-          _settleRead(thread, late);
+          _settleRead(key, record, late);
         }),
       );
       return;
     }
-    _settleRead(thread, result);
+    _settleRead(key, record, result);
   }
 
   /// Decides a move from the chat's row. The row says where the chat runs;
-  /// what the app expected does not.
-  void _settleRead(ChatThread thread, WorkspacesResult<SessionFolder> result) {
-    final target = _workspace.targets[thread];
+  /// what the app expected does not. A move answer that already settled it
+  /// is not overruled.
+  void _settleRead(
+    (String, String) key,
+    _MoveRecord record,
+    WorkspacesResult<SessionFolder> result,
+  ) {
+    if (record.state.phase == WorkspaceMovePhase.changed) return;
+    final target = record.target;
     switch (result) {
       case WorkspacesOk(:final value):
         final cwd = value.cwd;
         if (cwd == null || target == null) {
           _setMove(
-            thread,
+            key,
+            record,
             const WorkspaceMoveState(WorkspaceMovePhase.couldNotConfirm),
           );
           return;
         }
-        if (_movedTo(target.path, cwd, target.previous)) {
-          thread
-            ..workingDirectory = cwd
-            ..branch = value.branch
-            ..folderPath =
-                sessionFolderPath({
-                  'git_repo_root': value.gitRepoRoot,
-                  'cwd': cwd,
-                }) ??
-                cwd;
-          _workspace.projects.remove(thread);
-          _workspace.targets.remove(thread);
+        if (_movedTo(target, cwd, record.previous)) {
+          final thread = _threadFor(key);
+          if (thread != null) {
+            thread
+              ..workingDirectory = cwd
+              ..branch = value.branch
+              ..folderPath =
+                  sessionFolderPath({
+                    'git_repo_root': value.gitRepoRoot,
+                    'cwd': cwd,
+                  }) ??
+                  cwd;
+            _workspace.projects.remove(thread);
+          }
           _setMove(
-            thread,
+            key,
+            record,
             WorkspaceMoveState(WorkspaceMovePhase.changed, folder: cwd),
           );
         } else {
           _setMove(
-            thread,
+            key,
+            record,
             const WorkspaceMoveState(WorkspaceMovePhase.unchanged),
           );
         }
       case WorkspacesFailed(:final kind)
           when kind == WorkspacesFailure.sessionGone:
-        _setMove(thread, const WorkspaceMoveState(WorkspaceMovePhase.chatGone));
+        _setMove(
+          key,
+          record,
+          const WorkspaceMoveState(WorkspaceMovePhase.chatGone),
+        );
       case WorkspacesFailed(:final kind)
           when kind == WorkspacesFailure.unknownProfile:
         _setMove(
-          thread,
+          key,
+          record,
           const WorkspaceMoveState(WorkspaceMovePhase.profileGone),
         );
       case WorkspacesFailed() || WorkspacesUnsupported():
         _setMove(
-          thread,
+          key,
+          record,
           const WorkspaceMoveState(WorkspaceMovePhase.couldNotConfirm),
         );
     }
@@ -402,14 +509,17 @@ extension _ChatControllerWorkspace on ChatController {
     return sameServerFolder(target, cwd, home: home);
   }
 
-  /// "Check again": reads the chat's row and nothing else.
+  /// "Check again": reads the chat's row and nothing else. A move answer or
+  /// read still on its way is not dropped by it.
   Future<void> _recheckWorkspaceMoveImpl(ChatThread thread) async {
     if (!active || !_threads.contains(thread)) return;
-    final state = _moveStateImpl(thread);
-    if (state.phase != WorkspaceMovePhase.couldNotConfirm) return;
-    if (_workspace.targets[thread] == null) return;
-    final run = ++_workspace.runCount;
-    _workspace.runs[thread] = run;
-    await _recheck(thread, run, _activityEpoch, _profile);
+    final key = _moveKey(thread);
+    final record = _workspace.moves[key];
+    if (record == null ||
+        record.state.phase != WorkspaceMovePhase.couldNotConfirm ||
+        record.target == null) {
+      return;
+    }
+    await _recheck(key, record, _activityEpoch, _profile);
   }
 }

@@ -176,10 +176,14 @@ final class WorkspaceBound extends ChatEvent {
     required this.cwd,
     this.branch,
     this.project,
+    this.gitRepoRoot,
     this.retriedWithoutExplicit = false,
   });
 
   final String cwd;
+
+  /// `info.git_repo_root` when the server reports it.
+  final String? gitRepoRoot;
   final String? branch;
   final WorkspaceProjectRef? project;
 
