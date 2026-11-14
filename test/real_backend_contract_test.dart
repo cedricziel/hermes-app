@@ -4881,7 +4881,7 @@ model:
 
     setUpAll(() async {
       if (url == null) return;
-      // "Hold" makes the first model request of its turn one `sleep 6` tool
+      // "Hold" makes the first model request of its turn one `sleep 15` tool
       // call, which keeps the turn running for a while with no provider.
       model = await _serveScriptedModel(
         scripts: {
@@ -4889,7 +4889,7 @@ model:
             [
               {
                 'name': 'terminal',
-                'args': {'command': 'sleep 6'},
+                'args': {'command': 'sleep 15'},
               },
             ],
           ],
@@ -4916,10 +4916,13 @@ model:
 
     tearDownAll(() async {
       if (url == null) return;
-      await client.raw.deleteProfileEndpointApiProfilesNameDelete(
-        name: profile,
-      );
-      await model.close(force: true);
+      try {
+        await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+          name: profile,
+        );
+      } finally {
+        await model.close(force: true);
+      }
     });
 
     Future<_GatewayTap> openTap() async {
@@ -4976,8 +4979,7 @@ model:
         });
         // ignore: avoid_print
         print('QUEUED-CHECK idle chat: status=${idle['status']}');
-        expect(idle['status'], isA<String>());
-        expect(idle['status'], isNot(anyOf('steered', 'redirected')));
+        expect(idle['status'], 'streaming');
         await owner.until(
           () => completions(owner, sid) >= 2,
           'the queued prompt on an idle chat to run',
@@ -5016,10 +5018,11 @@ model:
         });
         // ignore: avoid_print
         print('QUEUED-CHECK running chat: status=${running['status']}');
-        expect(running['status'], isA<String>());
+        // Exactly `queued`: a turn that ended early would answer `streaming`
+        // and a fold would answer `steered` or `redirected`; both must fail.
         expect(
           running['status'],
-          isNot(anyOf('steered', 'redirected')),
+          'queued',
           reason: 'notification-inline-reply design.md depends on it',
         );
         // The held turn ends on its own reply, and the queued prompt runs as
@@ -5028,10 +5031,24 @@ model:
           () => completions(busy, bsid) >= 2,
           'the held turn and the queued prompt to complete',
         );
+        // Order: the queued prompt's turn starts only after the held turn
+        // completed.
+        final types = busy.types(bsid);
+        final firstComplete = types.indexOf('message.complete');
+        expect(
+          types.take(firstComplete).where((t) => t == 'message.start'),
+          hasLength(1),
+          reason: 'no second turn starts before the held turn completes',
+        );
+        expect(
+          types.skip(firstComplete + 1),
+          contains('message.start'),
+          reason: 'the queued prompt runs as a turn of its own afterwards',
+        );
         // ignore: avoid_print
         print(
           'QUEUED-CHECK running chat: ${completions(busy, bsid)} completions, '
-          'status=${running['status']}',
+          'status=${running['status']}, second turn after first complete',
         );
       },
       skip: skip,
