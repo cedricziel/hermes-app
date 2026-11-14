@@ -134,6 +134,15 @@ class SecretFieldsLock {
   void dispose() => _lock?.removeListener(_check);
 }
 
+/// Pops the route [context] belongs to, but only while it is still the one on
+/// top: a sheet that was already closed (Cancel, Escape, Keep) must not pop
+/// again, or the second pop would close the screen under it.
+void popIfCurrent(BuildContext context, [Object? result]) {
+  if (ModalRoute.of(context)?.isCurrent == true) {
+    Navigator.of(context).pop(result);
+  }
+}
+
 /// Saves [model] of [providerId] as the profile's default. An expensive model
 /// asks first, with Hermes' own sentence; only "Use it anyway" resends.
 Future<DefaultSetOutcome> saveDefaultModel(
@@ -231,6 +240,7 @@ class ProviderStepPage extends StatelessWidget {
       title: entry?.name ?? '',
       subtitle: services.profileLabel,
       cancel: true,
+      macCancel: true,
       body: step_widget.DefaultModelStep(
         data: data,
         onStartChatting: () {
@@ -285,7 +295,7 @@ class ProviderStepSheet extends StatelessWidget {
       final step = services.controller.step;
       if (step == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) Navigator.of(context).maybePop();
+          if (context.mounted) popIfCurrent(context);
         });
         return const SizedBox.shrink();
       }

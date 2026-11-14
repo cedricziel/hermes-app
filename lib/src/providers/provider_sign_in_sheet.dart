@@ -40,7 +40,7 @@ class ProviderSignInSheet extends StatelessWidget {
             if (context.mounted &&
                 controller.signInFor(providerId)?.pending != true &&
                 !stepIsFor(controller, providerId)) {
-              Navigator.of(context).maybePop();
+              popIfCurrent(context);
             }
           });
           return const SizedBox.shrink();
@@ -55,6 +55,7 @@ class ProviderSignInSheet extends StatelessWidget {
             title: l10n.providersSignInTitle(name),
             subtitle: services.profileLabel,
             cancel: true,
+            macCancel: true,
             body: signIn.phase == SignInPhase.approved
                 // The default-model step follows in the same turn.
                 ? const Center(child: CircularProgressIndicator.adaptive())

@@ -2655,6 +2655,10 @@
       }
     }
   },
+  "providersDetailPlaceholder": "Pick one in the list to connect it.",
+  "@providersDetailPlaceholder": {
+    "description": "Text of the pane beside the providers list while nothing is connected."
+  },
   "providersDetailReplaceKey": "Replace key",
   "@providersDetailReplaceKey": {
     "description": "Button on a saved API key's row that opens the form to paste a new key."

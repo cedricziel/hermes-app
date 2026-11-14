@@ -25,6 +25,7 @@ import 'provider_sign_in_sheet.dart';
 import 'provider_view_mapper.dart';
 import 'providers_repository.dart';
 import 'widgets/provider_alerts.dart';
+import 'widgets/provider_detail_frame.dart';
 import 'widgets/provider_detail_view.dart' show providerDetailBarActions;
 import 'widgets/provider_list_view.dart';
 import 'widgets/provider_view_models.dart';
@@ -96,6 +97,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   var _stepQueued = false;
   var _changes = 0;
   var _left = false;
+  Timer? _stepRetry;
 
   AuthController? _auth;
   AppLockController? _appLock;
@@ -152,6 +154,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
 
   @override
   void dispose() {
+    _stepRetry?.cancel();
     _auth?.removeListener(_authChanged);
     _controller
       ..removeListener(_changed)
@@ -241,6 +244,14 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _stepQueued = false;
       if (!mounted || _sheets > 0 || _controller.step == null) return;
+      // Something else is over the screen (the model picker, a question such
+      // as "Stop signing in?", a detail page): the step waits until it is
+      // closed instead of opening on top of it.
+      if (_route?.isCurrent != true) {
+        _stepRetry?.cancel();
+        _stepRetry = Timer(const Duration(milliseconds: 300), _maybeOpenStep);
+        return;
+      }
       await _sheet((_) => ProviderStepSheet(services: _services));
       _controller.dismissStep();
       _maybeOpenStep();
@@ -555,13 +566,26 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                         const VerticalDivider(width: 1),
                         Expanded(
                           child: selectedId == null
-                              ? const SizedBox.shrink()
-                              : ProviderDetailPane(
-                                  key: ValueKey(selectedId),
-                                  controller: _controller,
-                                  providerId: selectedId,
-                                  profile: _profileLabel,
-                                  actions: _actions,
+                              ? (loaded
+                                    ? const ProviderDetailPlaceholder()
+                                    : const SizedBox.shrink())
+                              : Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    ProviderDetailHeader(
+                                      name: selectedEntry?.name ?? '',
+                                    ),
+                                    Expanded(
+                                      child: ProviderDetailPane(
+                                        key: ValueKey(selectedId),
+                                        controller: _controller,
+                                        providerId: selectedId,
+                                        profile: _profileLabel,
+                                        actions: _actions,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                         ),
                       ],

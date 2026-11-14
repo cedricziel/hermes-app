@@ -389,23 +389,29 @@ class GroupedTextFieldRow extends StatelessWidget {
         ],
       );
     } else if (apple && oneLine) {
-      content = Row(
-        children: [
-          Flexible(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: metrics.titleSize,
-                color: scheme.onSurface,
+      // The label takes its own width up to 40% of the row, and the field the
+      // rest; two flexible children would split the room evenly and leave
+      // the field half of it.
+      content = LayoutBuilder(
+        builder: (context, box) => Row(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: box.maxWidth * .4),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: metrics.titleSize,
+                  color: scheme.onSurface,
+                ),
               ),
             ),
-          ),
-          SizedBox(width: metrics.leadingGap + 4),
-          Expanded(
-            child: Semantics(label: label, child: field),
-          ),
-          ?trailing,
-        ],
+            SizedBox(width: metrics.leadingGap + 4),
+            Expanded(
+              child: Semantics(label: label, child: field),
+            ),
+            ?trailing,
+          ],
+        ),
       );
     } else if (apple) {
       content = trailing == null

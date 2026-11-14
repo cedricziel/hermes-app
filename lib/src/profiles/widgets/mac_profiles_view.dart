@@ -42,6 +42,7 @@ class MacProfilesView extends StatelessWidget {
     required this.counts,
     required this.onOpen,
     this.memoryWaiting,
+    this.hiddenSections = const {},
   });
 
   final List<HermesProfile> profiles;
@@ -55,6 +56,9 @@ class MacProfilesView extends StatelessWidget {
 
   /// How many staged memory changes wait in the selected profile.
   final int? memoryWaiting;
+
+  /// Sections this server does not offer.
+  final Set<ProfileSection> hiddenSections;
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +90,7 @@ class MacProfilesView extends StatelessWidget {
                   counts: counts,
                   onOpen: onOpen,
                   memoryWaiting: memoryWaiting,
+                  hiddenSections: hiddenSections,
                 ),
         ),
       ],
@@ -160,6 +165,7 @@ class MacProfileDetail extends StatelessWidget {
     required this.counts,
     required this.onOpen,
     this.memoryWaiting,
+    this.hiddenSections = const {},
   });
 
   final HermesProfile profile;
@@ -168,6 +174,7 @@ class MacProfileDetail extends StatelessWidget {
 
   /// Shown for Memory in place of its entry count while changes wait.
   final int? memoryWaiting;
+  final Set<ProfileSection> hiddenSections;
 
   @override
   Widget build(BuildContext context) {
@@ -221,25 +228,27 @@ class MacProfileDetail extends StatelessWidget {
               'sign-in are shared.',
           children: [
             for (final section in ProfileSection.values)
-              GroupedRow(
-                wrapWhenStacked: true,
-                key: ValueKey('profile-section-${section.name}'),
-                title: section == ProfileSection.providers
-                    ? context.l10n.providersListTitle
-                    : section.label,
-                subtitle: section == ProfileSection.providers
-                    ? context.l10n.providersProfileSectionDetail
-                    : section.detail,
-                leading: GroupedTile(child: AppIcon(section.icon)),
-                value:
-                    section == ProfileSection.memory && (memoryWaiting ?? 0) > 0
-                    ? '$memoryWaiting waiting'
-                    : section == ProfileSection.providers &&
-                          counts[section] != null
-                    ? context.l10n.providersConnectedCount(counts[section]!)
-                    : counts[section]?.toString(),
-                onTap: () => onOpen(section),
-              ),
+              if (!hiddenSections.contains(section))
+                GroupedRow(
+                  wrapWhenStacked: true,
+                  key: ValueKey('profile-section-${section.name}'),
+                  title: section == ProfileSection.providers
+                      ? context.l10n.providersListTitle
+                      : section.label,
+                  subtitle: section == ProfileSection.providers
+                      ? context.l10n.providersProfileSectionDetail
+                      : section.detail,
+                  leading: GroupedTile(child: AppIcon(section.icon)),
+                  value:
+                      section == ProfileSection.memory &&
+                          (memoryWaiting ?? 0) > 0
+                      ? '$memoryWaiting waiting'
+                      : section == ProfileSection.providers &&
+                            counts[section] != null
+                      ? context.l10n.providersConnectedCount(counts[section]!)
+                      : counts[section]?.toString(),
+                  onTap: () => onOpen(section),
+                ),
           ],
         ),
       ],

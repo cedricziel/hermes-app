@@ -72,7 +72,7 @@ class _ProviderEndpointSheetState extends State<ProviderEndpointSheet> {
   }
 
   void _close() {
-    if (_closing) return;
+    if (_closing || ModalRoute.of(context)?.isCurrent != true) return;
     _closing = true;
     Navigator.of(context).pop(ProviderSheetResult.closed);
   }
@@ -138,7 +138,12 @@ class _ProviderEndpointSheetState extends State<ProviderEndpointSheet> {
         context,
         address: hostOfAddress(address),
       );
-      if (confirmed && mounted) await _save(confirmedCleartext: true);
+      // App Lock may have locked while the question was up and cleared the
+      // key: saving then would drop it silently, so nothing is sent.
+      final keyLost = typedKey.isNotEmpty && _key.text.isEmpty;
+      if (confirmed && mounted && !keyLost) {
+        await _save(confirmedCleartext: true);
+      }
     }
     // The saved key's text must not outlive a save; a lost answer clears
     // it in the form.
@@ -220,6 +225,7 @@ class _ProviderEndpointSheetState extends State<ProviderEndpointSheet> {
             title: endpointFormTitle(l10n, data),
             subtitle: services.profileLabel,
             cancel: true,
+            macCancel: true,
             formAction: endpointFormAction(
               l10n,
               data,

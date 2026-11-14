@@ -560,6 +560,7 @@
   "providersDetailEdit": "Bearbeiten",
   "providersDetailManageOnServer": "Verwalte diesen Schlüssel auf deinem Server mit hermes auth.",
   "providersDetailModelsHeader": "{count, plural, =1{1 Modell} other{{count} Modelle}}",
+  "providersDetailPlaceholder": "Wähle in der Liste einen Anbieter aus, um ihn zu verbinden.",
   "providersDetailReplaceKey": "Schlüssel ersetzen",
   "providersDetailReplaceKeySemantics": "Schlüssel für {provider} ersetzen",
   "providersDetailSavedKey": "Gespeicherter Schlüssel",

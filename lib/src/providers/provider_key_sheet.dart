@@ -49,7 +49,7 @@ class _ProviderKeySheetState extends State<ProviderKeySheet> {
   }
 
   void _close([ProviderSheetResult result = ProviderSheetResult.closed]) {
-    if (_closing) return;
+    if (_closing || ModalRoute.of(context)?.isCurrent != true) return;
     _closing = true;
     Navigator.of(context).pop(result);
   }
@@ -110,6 +110,7 @@ class _ProviderKeySheetState extends State<ProviderKeySheet> {
             title: apiKeyFormTitle(l10n, data),
             subtitle: services.profileLabel,
             cancel: true,
+            macCancel: true,
             formAction: apiKeyFormAction(
               l10n,
               data,

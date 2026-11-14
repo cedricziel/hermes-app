@@ -183,6 +183,7 @@ class SettingsScaffold extends StatelessWidget {
     this.search,
     this.formAction,
     this.cancel = false,
+    this.macCancel = false,
     required this.body,
   });
 
@@ -207,6 +208,10 @@ class SettingsScaffold extends StatelessWidget {
   /// Leads with Cancel (iOS) or a close button (Material) instead of back,
   /// for a form; the Mac keeps its back button.
   final bool cancel;
+
+  /// A Mac form in a dialog leads with a "Cancel" text button instead of
+  /// the back chevron of a pushed page.
+  final bool macCancel;
   final Widget body;
 
   @override
@@ -246,7 +251,26 @@ class SettingsScaffold extends StatelessWidget {
               // A page pushed over the whole window sits under the title bar.
               clearTrafficLights:
                   MacWindow.enabled && MediaQuery.paddingOf(context).top > 0,
-              leading: canPop
+              leading: macCancel
+                  ? TextButton(
+                      key: const Key('settings-cancel'),
+                      onPressed: back,
+                      style: TextButton.styleFrom(
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        textStyle: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                      child: const Text('Cancel'),
+                    )
+                  : canPop
                   ? MacToolbarButton(
                       key: const Key('settings-back'),
                       label: 'Back',

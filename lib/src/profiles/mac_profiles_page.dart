@@ -62,6 +62,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   final _waiting = <String, int>{};
   int _generation = 0;
 
+  /// False once the server answered 404 to its model options.
+  var _providersOffered = true;
+
   ChatProfiles get _profiles => widget.profiles;
 
   @override
@@ -136,6 +139,12 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
       ),
       count(ProfileSection.providers, () async {
         final snapshot = await repositories.providers.load(name);
+        if (snapshot is ProvidersUnsupported) {
+          // An older Hermes without model options: no such section.
+          if (mounted && _providersOffered) {
+            setState(() => _providersOffered = false);
+          }
+        }
         if (snapshot is! ProvidersLoaded) throw StateError('not loaded');
         return snapshot.catalog.connected.length;
       }),
@@ -267,6 +276,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     counts: _counts[_selected] ?? const {},
                     memoryWaiting: _waiting[_selected],
                     onOpen: _open,
+                    hiddenSections: {
+                      if (!_providersOffered) ProfileSection.providers,
+                    },
                   ),
           ),
         ],
