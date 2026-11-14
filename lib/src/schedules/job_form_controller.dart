@@ -181,7 +181,10 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
     if (!active) throw const JobFormActivityCancelled();
     if (_saving) return null;
     final epoch = _activityEpoch;
-    final problem = draft.validate(_now());
+    final problem = draft.validate(
+      _now(),
+      checkSchedule: editing == null || _whenTouched,
+    );
     if (problem != null) {
       _error = problem;
       if (!_notifyFor(epoch)) throw const JobFormActivityCancelled();
