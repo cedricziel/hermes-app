@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'safe_path_text.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/grouped_list.dart';
@@ -26,7 +27,7 @@ class FilesActivityRow extends StatelessWidget {
             key: const Key('activity-files-row'),
             leading: GroupedTile(child: AppIcon(FileGlyph.folder.icon)),
             title: context.l10n.filesEntryLabel,
-            value: folderName,
+            value: folderName == null ? null : safePathText(folderName!),
             onTap: onTap,
           ),
         ],

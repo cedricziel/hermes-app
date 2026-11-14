@@ -35,6 +35,9 @@ class AppAlertDialog extends StatelessWidget {
         // Stacked at a large text size, the actions line up at the end.
         actionsOverflowAlignment: OverflowBarAlignment.end,
         scrollable: scrollable,
+        // A long line (a server path) must not stretch the dialog across a
+        // wide desktop window.
+        constraints: const BoxConstraints(minWidth: 280, maxWidth: 560),
       );
     }
     // Material fields inside the content still need a Material ancestor.

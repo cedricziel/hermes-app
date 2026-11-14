@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../files/widgets/safe_path_text.dart';
+
 import '../../../l10n/l10n.dart';
 import '../../files/widgets/files_lazy_list.dart';
 import '../../files/widgets/files_metrics.dart';
@@ -164,6 +166,23 @@ class _PathEntryViewState extends State<PathEntryView> {
         : info == null
         ? null
         : Semantics(liveRegion: true, child: Text(info));
+    // The field holds what was typed or pasted; hidden or direction-changing
+    // characters would reorder it, so the path is also shown escaped.
+    final unsafe = safePathText(widget.text) != widget.text;
+    final Widget? fieldHelper = !unsafe
+        ? helper
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ?helper,
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  l10n.workspacesTypeEscaped(safePathText(widget.text)),
+                ),
+              ),
+            ],
+          );
     final field = Padding(
       padding: const EdgeInsets.only(top: 12),
       child: TextField(
@@ -186,7 +205,7 @@ class _PathEntryViewState extends State<PathEntryView> {
           hintText: l10n.workspacesTypeHint,
           hintStyle: TextStyle(fontFamily: kServerPathFont, color: muted),
           border: const OutlineInputBorder(),
-          helper: helper,
+          helper: fieldHelper,
           helperMaxLines: 6,
           error: error == null
               ? null
@@ -285,11 +304,11 @@ class _PathEntryViewState extends State<PathEntryView> {
           onTap: () => widget.onPickSuggestion?.call(item),
           details: [
             Semantics(
-              label: item.path,
+              label: safePathText(item.path),
               excludeSemantics: true,
               child: large
                   ? Text(
-                      item.path,
+                      safePathText(item.path),
                       style: pathStyle.copyWith(fontFamily: kServerPathFont),
                     )
                   : PathCutText(item.path, style: pathStyle),

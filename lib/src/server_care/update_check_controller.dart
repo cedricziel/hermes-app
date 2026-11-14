@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart';
 
 import '../core/safe_notifier.dart';
+import '../telemetry/telemetry.dart';
 import 'care_result.dart';
 import 'server_care_repository.dart';
 import 'update_check.dart';
@@ -11,10 +13,12 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
   UpdateCheckController({
     required this.repository,
     this.onUnsupported,
+    this.telemetry = const ConnectionTelemetry(),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
   final ServerCareRepository repository;
+  final ConnectionTelemetry telemetry;
 
   /// Called once when the server has no update route.
   final VoidCallback? onUnsupported;
@@ -46,25 +50,64 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
     _everChecked = true;
     _loading = true;
     notifyListeners();
-    final result = await repository.checkUpdate(force: force);
-    if (generation != _generation || disposed) return;
-    switch (result) {
-      case CareOk(:final value):
-        _check = value;
-        _failure = null;
-        _supported = true;
-        _checkedAt = _now();
-      case CareUnsupported():
-        final first = _supported;
-        _check = null;
-        _failure = null;
-        _supported = false;
-        if (first) onUnsupported?.call();
-      case CareFailed():
-        _failure = result;
+    // Flags and fixed names only: no version, command or commit.
+    Span? span;
+    _quiet(
+      () => span = telemetry.tracer?.startSpan(
+        'server_care.update.check',
+        attributes: {...telemetry.serverAttributes, 'forced': force},
+      ),
+    );
+    var outcome = 'obsolete';
+    try {
+      final result = await repository.checkUpdate(force: force);
+      if (generation != _generation || disposed) return;
+      switch (result) {
+        case CareOk(:final value):
+          _check = value;
+          _failure = null;
+          _supported = true;
+          _checkedAt = _now();
+          outcome = 'success';
+          _quiet(() {
+            span?.setAttribute('update_available', value.updateAvailable);
+            span?.setAttribute('can_apply', value.canApply);
+            span?.setAttribute(
+              'install_method',
+              _methodSlug(value.installMethod),
+            );
+          });
+        case CareUnsupported():
+          final first = _supported;
+          _check = null;
+          _failure = null;
+          _supported = false;
+          outcome = 'unsupported';
+          if (first) onUnsupported?.call();
+        case CareFailed(:final kind):
+          _failure = result;
+          outcome = kind.name;
+      }
+      _loading = false;
+      notifyListeners();
+    } finally {
+      _quiet(() => span?.setAttribute('outcome', outcome));
+      _quiet(() => span?.end());
     }
-    _loading = false;
-    notifyListeners();
+  }
+
+  static String _methodSlug(InstallMethod method) => switch (method) {
+    InstallMethod.managedRuntime => 'managed_runtime',
+    InstallMethod.desktopApp => 'desktop_app',
+    _ => method.name,
+  };
+
+  static void _quiet(void Function() action) {
+    try {
+      action();
+    } on Object {
+      return;
+    }
   }
 
   /// What the check says, or null when the server has no update route or the
@@ -90,7 +133,7 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
   }
 
   UpdateState _stateOf(UpdateCheck check, String? fallbackVersion) {
-    final version = check.currentVersion ?? fallbackVersion ?? '';
+    final version = check.currentVersion ?? fallbackVersion;
     final behind = check.behind;
     if (check.updateAvailable) {
       final stable = check.rollbackTo;
@@ -101,7 +144,7 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
         return UpdateStateRollback(
           stableVersion: stable,
           changeCount: count,
-          currentVersion: version.isEmpty ? null : version,
+          currentVersion: version,
         );
       }
       if (!check.canApply) {
@@ -123,7 +166,7 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
         reason: UpdateFailureReason.noResult,
       );
     }
-    return UpdateStateUpToDate(version: version, checkedAgo: _ago());
+    return UpdateStateUpToDate(version: version ?? '', checkedAgo: _ago());
   }
 
   Elapsed _ago() {
@@ -228,13 +271,10 @@ class UpdateStateFailed extends UpdateState {
 }
 
 class UpdateStateAvailable extends UpdateState {
-  const UpdateStateAvailable({
-    required this.changeCount,
-    required this.currentVersion,
-  });
+  const UpdateStateAvailable({required this.changeCount, this.currentVersion});
 
   final int changeCount;
-  final String currentVersion;
+  final String? currentVersion;
 }
 
 class UpdateStateRollback extends UpdateState {

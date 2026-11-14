@@ -128,6 +128,7 @@ class ContextController extends ChangeNotifier {
     if (_locked) return CompressRefusal.locked;
     if (!_connected) return CompressRefusal.disconnected;
     if (compressing) return CompressRefusal.compressing;
+    if (bridge.moveHolds()) return CompressRefusal.folderMoving;
     if (bridge.isReplying()) return CompressRefusal.replying;
     return null;
   }

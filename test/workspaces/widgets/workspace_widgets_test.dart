@@ -812,8 +812,8 @@ void main() {
         "This folder doesn't exist on your server.",
         false,
       ),
-      (FolderBrowserLevel.unreachable, "Couldn't open this folder.", true),
-      (FolderBrowserLevel.opening, 'Opening code…', true),
+      (FolderBrowserLevel.unreachable, "Couldn't open this folder.", false),
+      (FolderBrowserLevel.opening, 'Opening code…', false),
     ]) {
       testWidgets(
         '${level.name}: "$title", Use ${enabled ? 'enabled' : 'disabled'}',

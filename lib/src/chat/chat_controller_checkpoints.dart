@@ -165,7 +165,14 @@ extension _ChatControllerCheckpoints on ChatController {
               !_activeKnown ||
               _queueDispatching.contains(thread) ||
               _actionHolds(thread) ||
+              // A folder move is being settled: Hermes lets a live agent
+              // follow it, so nothing else rewrites the chat meanwhile.
+              _moveHolds(thread) ||
               thread.messages.any((m) => m.awaitingInput));
+    },
+    moveHolds: () {
+      final thread = _threadOf(actions);
+      return thread != null && _moveHolds(thread);
     },
     refetchChat: ({bool historyRemoved = false}) async {
       final thread = _threadOf(actions);

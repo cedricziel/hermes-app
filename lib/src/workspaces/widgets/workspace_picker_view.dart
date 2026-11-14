@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import '../../files/widgets/safe_path_text.dart';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -114,7 +116,7 @@ class WorkspacePickerView extends StatelessWidget {
   const WorkspacePickerView({
     super.key,
     required this.selectedId,
-    required this.serverDefault,
+    this.serverDefault,
     this.projects = const [],
     this.recent = const [],
     this.catalog = WorkspacePickerCatalog.ready,
@@ -135,7 +137,10 @@ class WorkspacePickerView extends StatelessWidget {
   });
 
   final String selectedId;
-  final WorkspacePickerRow serverDefault;
+
+  /// The profile's default folder; null leaves the row out (a move cannot go
+  /// to a default that is not known).
+  final WorkspacePickerRow? serverDefault;
   final List<WorkspacePickerRow> projects;
   final List<WorkspacePickerRow> recent;
   final WorkspacePickerCatalog catalog;
@@ -418,7 +423,8 @@ class _PickerList extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ..._section(context, null, [view.serverDefault]),
+                    if (view.serverDefault case final row?)
+                      ..._section(context, null, [row]),
                     if (catalog == WorkspacePickerCatalog.loading)
                       ..._loadingSection(context),
                     if (catalog == WorkspacePickerCatalog.ready) ...[
@@ -654,14 +660,17 @@ class _PickerRowTile extends StatelessWidget {
     final metrics = GroupedMetrics.of(context);
     final muted = context.hermesColors.subtleText;
     final large = isLargeText(context);
+    // The title already says "default" when the folder is not known.
+    final tagged =
+        serverDefault && row.title != l10n.workspacesPickerDefaultUnknown;
     final meta = [
-      if (serverDefault) l10n.workspacesTagServerDefault,
+      if (tagged) l10n.workspacesTagServerDefault,
       if (serverDefault && row.projectName != null) row.projectName!,
       if (row.label != null) row.label!,
       if (row.chatCount != null) l10n.workspacesMetaChats(row.chatCount!),
       if (row.isNew) l10n.workspacesMetaNew,
       if (row.isCurrent) l10n.workspacesMetaCurrent,
-    ].join(' · ');
+    ].map(safePathText).join(' · ');
     final style = TextStyle(fontSize: metrics.subtitleSize, color: muted);
     return GroupedChoiceRow<String>(
       value: row.id,
@@ -670,11 +679,11 @@ class _PickerRowTile extends StatelessWidget {
       meta: meta.isEmpty ? null : meta,
       details: [
         Semantics(
-          label: row.path,
+          label: safePathText(row.path),
           excludeSemantics: true,
           child: large
               ? Text(
-                  row.path,
+                  safePathText(row.path),
                   style: style.copyWith(fontFamily: kServerPathFont),
                 )
               : PathCutText(row.path, style: style),

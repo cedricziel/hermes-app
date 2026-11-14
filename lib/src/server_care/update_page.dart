@@ -128,6 +128,7 @@ class _UpdatePageState extends State<UpdatePage> {
       _own = UpdateCheckController(
         repository: HermesRepositories.of(context).serverCare,
         onUnsupported: () => care.reportUnsupported(CarePart.update),
+        telemetry: HermesRepositories.of(context).telemetry,
       );
       // What the page checked is stale once an update ended.
       _run.addListener(_runChanged);
