@@ -131,7 +131,9 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
     if (disposed) return;
     final wasBusy = busy;
     _phase = phase;
-    if (wasBusy != busy) _care?.gatewayBusy = busy;
+    // Cleared by the run itself after the status was read again, so the
+    // headline never flips back to the old state in between.
+    if (!wasBusy && busy) _care?.gatewayBusy = true;
     notifyListeners();
   }
 
@@ -178,7 +180,9 @@ class GatewayRestart extends ChangeNotifier with SafeNotifier {
       }),
     );
     final care = _care;
-    if (care != null) unawaited(care.refresh());
+    if (care == null) return;
+    await care.refresh();
+    if (!disposed) care.gatewayBusy = false;
   }
 
   /// Runs to the end and returns the outcome name; null when disposed.

@@ -76,7 +76,11 @@ class _ServerScreenState extends State<ServerScreen> {
     }
     crumbs('server_care.opened', {'source': widget.source});
     // A run that finished while the screen was closed has said its piece.
-    if (_run.phase == GatewayPhase.done) _run.dismiss();
+    if (_run.phase == GatewayPhase.done) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _run.phase == GatewayPhase.done) _run.dismiss();
+      });
+    }
     _update = UpdateCheckController(
       repository: HermesRepositories.of(context).serverCare,
       onUnsupported: () => care.reportUnsupported(CarePart.update),
@@ -98,6 +102,11 @@ class _ServerScreenState extends State<ServerScreen> {
 
   /// "Running again" stays for a moment, then the row goes back to its action.
   void _runChanged() {
+    if (_run.phase != GatewayPhase.done) {
+      // A new run must not be cleared by an earlier run's timer.
+      _doneTimer?.cancel();
+      _doneTimer = null;
+    }
     if (_run.phase == GatewayPhase.done && _doneTimer == null) {
       _doneTimer = Timer(const Duration(seconds: 4), () {
         _doneTimer = null;
@@ -527,4 +536,4 @@ class _ServerScreenState extends State<ServerScreen> {
 /// A gateway that is running, or one that failed to start, is restarted (after
 /// a question); only one that is off is started.
 bool _restartsGateway(ServerStatus status) =>
-    status.gatewayRunning || status.gatewayState == GatewayState.startupFailed;
+    status.gatewayRunning || Attention.of(status) == Attention.gatewayFailed;

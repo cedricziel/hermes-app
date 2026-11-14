@@ -290,6 +290,7 @@ void main() {
         gatewayStatus(running: true, shared: ['default', 'work']),
       );
     await until(tester, 'Running again');
+    expect(find.text('Running again'), findsOneWidget);
     await shots.capture(tester, 'done');
     expect(find.text('Running again'), findsOneWidget);
     await tester.pump(const Duration(seconds: 6));
@@ -338,6 +339,7 @@ void main() {
       )
       ..on('GET', '/api/status', gatewayStatus(running: true));
     await until(tester, 'Running again');
+    expect(find.text('Running again'), findsOneWidget);
     await shots.capture(tester, 'done');
     await tester.pump(const Duration(seconds: 6));
     await letSocketsIdle(tester);

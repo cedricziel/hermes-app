@@ -41,10 +41,14 @@ void main() {
       profile: 'default',
     );
     addTearDown(care.dispose);
+    // A clock that moves with the waits, so a gateway that never comes back
+    // ends as slow in a few calls, not in 90 real seconds.
+    var clock = DateTime(2026, 11, 14, 9);
     gateway = GatewayRestart(
       repository: repositories.serverCare,
       care: care,
-      delay: (_) async {},
+      now: () => clock,
+      delay: (d) async => clock = clock.add(d),
     );
     addTearDown(gateway.dispose);
     // As in the app, the controller is provided below the root Navigator, so
@@ -298,6 +302,38 @@ void main() {
         greaterThan(before),
       );
       expect(find.text('Running again'), findsOneWidget);
+    });
+
+    testWidgets('a run that finished while the screen was closed is gone when '
+        'it opens again', (tester) async {
+      answers();
+      await pump(tester);
+      await tester.runAsync(
+        () => gateway.run(GatewayAction.restart, profile: 'default'),
+      );
+      expect(gateway.phase, GatewayPhase.done);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<HermesRepositories>.value(
+              value: HermesRepositories(server.client()),
+            ),
+            ChangeNotifierProvider<ServerCareController>.value(value: care),
+            ChangeNotifierProvider<GatewayRestart>.value(value: gateway),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(),
+            home: const ServerScreen(source: 'test'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(gateway.phase, GatewayPhase.idle);
+      expect(find.text('Running again'), findsNothing);
     });
 
     testWidgets('a refusal shows Hermes\' own text and sends nothing again', (
