@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../widgets/app_badge.dart';
 import '../tools_models.dart';
 
 /// What a provider or a terminal backend can do now, as the Tools screens
@@ -68,46 +69,9 @@ class StatusChip extends StatelessWidget {
   final ToolsStatus status;
 
   @override
-  Widget build(BuildContext context) {
-    final color = status.color(context);
-    final label = status.label(context.l10n);
-    // Not a container, so a row that reads as one element includes it.
-    return Semantics(
-      label: label,
-      child: ExcludeSemantics(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: AppIcon(
-                  status.icon,
-                  size: MediaQuery.textScalerOf(context).scale(14),
-                  color: color,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AppBadge.tinted(
+    label: status.label(context.l10n),
+    color: status.color(context),
+    icon: status.icon,
+  );
 }
