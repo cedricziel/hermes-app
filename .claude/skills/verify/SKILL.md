@@ -72,8 +72,9 @@ builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
    password per run) and a scripted model (`scripts/verify_scripted_model.py`,
    fixed reply, no key). The app signs in through its real RFC 8252 loopback
    - PKCE flow: `scripts/verify_browser.py`, registered as the http handler,
-     plays the browser. Then it sends a prompt and waits for the reply.
-     Then it opens the Server screen from the account menu. Screenshots: `01-sign-in`, `02-signed-in`, `03-reply`, `04-server`.
+     plays the browser. Then it sends a prompt and waits for the reply, and
+     opens the Server screen from the account menu. Screenshots: `01-sign-in`,
+     `02-signed-in`, `03-reply`, `04-server`.
 
 **Not proven here:** anything native outside Linux desktop: iOS, macOS,
 Android, Windows builds and behaviour; notifications, Home Screen widgets,
@@ -157,4 +158,4 @@ Then add a row to "Covered behaviour" below and run `scripts/verify.sh` twice.
 | Connect to a password-gated server from `HERMES_SERVER_URL`                                                 | app      | `verify_flow_test.dart` step 1                                            |
 | Password sign-in via loopback + PKCE, session stored in secure storage (keyring)                                     | app      | step 2                                                                    |
 | Send a prompt, receive the streamed reply in the chat                                                       | app      | step 3                                                                    |
-| Server screen: account menu, Server, status read from the dashboard (headline card and Version row render, no read-failed or loading state) | app | step 4 (`04-server`) |
+| Server screen: account menu, Server, status read from the dashboard (headline card and gateway state row render, no read-failed or loading state) | app | step 4 (`04-server`) |

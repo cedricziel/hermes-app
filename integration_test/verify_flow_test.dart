@@ -7,6 +7,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/main.dart' as app;
 import 'package:hermes_app/src/auth/token_store.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
+import 'package:hermes_app/src/server_care/widgets/server_attention_dot.dart';
 import 'package:hermes_app/src/server_care/widgets/server_status_card.dart';
 import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
 import 'package:integration_test/integration_test.dart';
@@ -135,24 +136,26 @@ void main() {
 
     // 4. The Server screen: account menu, Server, status read from the
     // dashboard. Which headline shows depends on the backend's gateway and
-    // disk, so only the card, the row and the absence of a failure are
+    // disk, so only the card, the gateway row and the absence of a failure are
     // asserted.
     final l10n = lookupAppLocalizations(const Locale('en'));
     await tester.tap(find.byTooltip('Account'));
     await settle(tester);
-    final serverItem = find.text(l10n.serverCareTitle);
+    final serverItem = find.byType(ServerMenuItemLabel);
     await waitFor(
       tester,
       serverItem,
       const Duration(seconds: 10),
       'the account menu has no Server entry',
     );
-    await tester.tap(serverItem.last);
+    await tester.tap(
+      find.descendant(of: serverItem, matching: find.byType(Text)).first,
+    );
     await waitFor(
       tester,
-      find.text(l10n.serverCareVersionRow),
+      find.text(l10n.serverCareGatewayStateRow),
       const Duration(seconds: 30),
-      'the Server screen did not show the Hermes version row',
+      'the Server screen did not show the gateway state row',
     );
     await settle(tester, 2);
     expect(find.byType(ServerStatusCard), findsOneWidget);
