@@ -479,6 +479,62 @@ void main() {
     expect(sent, ['work', 'work']);
   });
 
+  test('a stale reload landing after the last tap finished keeps it', () async {
+    server.on('PUT', '/api/skills/toggle', {'ok': true});
+    final c = controller();
+    await c.load();
+
+    final slow = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/skills', (_) => slow.future);
+    final reload = c.load(quiet: true);
+    expect(await c.toggle('zeta', false), isTrue);
+    slow.complete((
+      status: 200,
+      body: [skillRow(name: 'zeta', category: 'devops')],
+    ));
+    await reload;
+
+    expect(c.skill('zeta')!.enabled, isFalse);
+  });
+
+  test(
+    'a reload started after the last tap finished shows the server',
+    () async {
+      server.on('PUT', '/api/skills/toggle', {'ok': true});
+      final c = controller();
+      await c.load();
+      await c.toggle('zeta', false);
+
+      server.on('GET', '/api/skills', [
+        skillRow(name: 'zeta', category: 'devops'),
+      ]);
+      await c.load(quiet: true);
+
+      expect(c.skill('zeta')!.enabled, isTrue);
+    },
+  );
+
+  test('a tap in a new profile does not wait for the old profile', () async {
+    final gate = Completer<FakeResponse>();
+    final sent = <Object?>[];
+    server.onRequest('PUT', '/api/skills/toggle', (r) {
+      sent.add((jsonBody(r)! as Map)['profile']);
+      return sent.length == 1 ? gate.future : (status: 200, body: {'ok': true});
+    });
+    final c = controller();
+    await c.load();
+
+    final a = c.toggle('zeta', false);
+    await Future<void>.delayed(Duration.zero);
+    await c.selectProfile('home');
+    final b = c.toggle('zeta', false);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(sent, ['work', 'home']);
+    gate.complete((status: 200, body: {'ok': true}));
+    await Future.wait([a, b]);
+  });
+
   test('profiles arriving after dispose do not notify', () async {
     final gate = Completer<FakeResponse>();
     server.onRequest('GET', '/api/profiles', (_) => gate.future);
