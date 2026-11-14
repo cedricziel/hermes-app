@@ -47,11 +47,19 @@ class HermesWorkspacesRepository {
     this._api,
     this._rpc, {
     this.timeout = kWorkspaceRpcTimeout,
-  });
+    Duration? moveTimeout,
+  }) : moveTimeout = moveTimeout ?? timeout * 6;
 
   final DefaultApi _api;
   final WorkspaceRpc _rpc;
   final Duration timeout;
+
+  /// How long the requester may keep a move's request, longer than [timeout]
+  /// on purpose: callers give up waiting after [timeout] and read the chat
+  /// again, and an answer that comes later is still the move's answer. A
+  /// requester that abandoned the request at [timeout] would turn a slow
+  /// answer into a lost one.
+  final Duration moveTimeout;
 
   /// The projects and git roots of [profile], and the folder a chat runs in
   /// when none is picked. With [scan] the server also walks the profile's
@@ -160,6 +168,7 @@ class HermesWorkspacesRepository {
       // Any 5xxx may follow a stored update (`move failed: ...`), so none of
       // them says the chat is unchanged.
       serverErrorsBusy: true,
+      timeout: moveTimeout,
       // An answer that does not fit may be one the server gave after moving.
       malformed: WorkspacesFailure.unreachable,
     );
@@ -257,9 +266,14 @@ class HermesWorkspacesRepository {
     Map<int, WorkspacesFailure> codes = const {},
     WorkspacesFailure malformed = WorkspacesFailure.unknown,
     bool serverErrorsBusy = false,
+    Duration? timeout,
   }) async {
     try {
-      final result = await _rpc(method, params, timeout: timeout);
+      final result = await _rpc(
+        method,
+        params,
+        timeout: timeout ?? this.timeout,
+      );
       final value = parse(result);
       return value == null ? WorkspacesFailed(malformed) : WorkspacesOk(value);
     } on GatewayRpcException catch (error) {

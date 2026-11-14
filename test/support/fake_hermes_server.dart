@@ -219,6 +219,7 @@ Map<String, Object?> messageRow({
   String? toolName,
   String? toolCallId,
   Object? reasoning,
+  String? finishReason,
   double timestamp = 1780000000,
 }) => {
   'id': id,
@@ -228,6 +229,7 @@ Map<String, Object?> messageRow({
   'tool_name': toolName,
   'tool_call_id': toolCallId,
   'reasoning': reasoning,
+  'finish_reason': finishReason,
   'timestamp': timestamp,
 };
 
