@@ -632,7 +632,8 @@ void main() {
       },
     );
 
-    test('announces a second approval of the same turn', () async {
+    test('keeps the first approval\'s notification while it is open, '
+        'and announces a second one of the same turn after it', () async {
       sessions = {
         'work': [_session('chat-a')],
       };
@@ -646,7 +647,33 @@ void main() {
 
       await refresh();
 
+      expect(notifications.shown, hasLength(1));
+      expect(notifications.shown.single.request?.requestId, 'r1');
+
+      approvals = {
+        'rt-chat-a': [_approval('r2')],
+      };
+      await refresh();
+
       expect(notifications.shown, hasLength(2));
+      expect(notifications.shown.last.request?.requestId, 'r2');
+    });
+
+    test('does not replace an open approval\'s notification with the next '
+        'one of the chat', () async {
+      sessions = {
+        'work': [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1'), _approval('r2')],
+      };
+
+      await refresh();
+      await refresh();
+
+      expect(notifications.shown, hasLength(1));
+      expect(notifications.shown.single.request?.requestId, 'r1');
+      expect(await announced.read(), isNot(contains('r2')));
     });
 
     test(

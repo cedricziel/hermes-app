@@ -425,9 +425,17 @@ class OpenRequestsStep extends BackgroundStep {
     if (!context.notificationsOn || waiting.isEmpty) return 0;
     if (await context.isAppInFront()) return 0;
     final known = await context.announced.read();
+    // A chat's notification is replaced by the next one posted for it, so a
+    // chat whose announced approval is still open is left alone: its next
+    // approval is announced once the earlier one has been answered.
+    final showing = {
+      for (final w in waiting)
+        if (w.approval != null && known.contains(w.requestId))
+          (w.profile, w.key),
+    };
     final fresh = [
       for (final w in waiting)
-        if (_isNew(w, known)) w,
+        if (!showing.contains((w.profile, w.key)) && _isNew(w, known)) w,
     ];
     if (fresh.isEmpty) return 0;
     final lockOn = await context.appLockOn();
