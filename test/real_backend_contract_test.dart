@@ -1159,13 +1159,19 @@ void main() {
       expect(infoOf(fell)['cwd'], isNot(bad));
     }, skip: skip);
 
-    test('a chat can be moved, a relative path is refused, and the row shows '
-        'the new folder', () async {
+    test('a draft chat can be moved, a relative path is refused, and it has '
+        'no stored row yet', () async {
       final created = await create({'cwd': root.path, 'cwd_explicit': true});
       final stored = created['stored_session_id'] as String;
 
       expect(value(await workspaces.moveWorkspace(stored, inner)).cwd, inner);
-      expect(value(await workspaces.sessionFolder(stored)).cwd, inner);
+      // A draft has no stored row until its first message (the server moves
+      // it live: "A draft has no row yet; the live re-home still applies"),
+      // so the stored chat reads as gone, not as a chat in the new folder.
+      failedWith(
+        await workspaces.sessionFolder(stored),
+        WorkspacesFailure.sessionGone,
+      );
 
       // Not through the repository, which would refuse it without asking.
       await expectLater(
