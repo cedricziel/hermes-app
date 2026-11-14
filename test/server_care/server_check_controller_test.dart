@@ -743,21 +743,34 @@ void main() {
     });
 
     for (final (name, code) in [('non-zero', 2), ('no exit code', null)]) {
-      test('a run that stopped part-way ($name) is not a report', () async {
-        server.on(
-          'GET',
-          '/api/actions/doctor/status',
-          action(
-            exit: code,
-            lines: const ['◆ Configuration', '  ✓ config.yaml found'],
-          ),
-        );
-        await check.run(profile: 'work');
-        expect(check.phase, CheckPhase.failed);
-        expect(check.failure, CheckFailure.exited);
-        expect(check.report, isNull);
-      });
+      test(
+        'a run that stopped part-way ($name) is partial, not a report',
+        () async {
+          server.on(
+            'GET',
+            '/api/actions/doctor/status',
+            action(
+              exit: code,
+              lines: const ['◆ Configuration', '  ✓ config.yaml found'],
+            ),
+          );
+          await check.run(profile: 'work');
+          expect(check.phase, CheckPhase.failed);
+          expect(check.failure, CheckFailure.incomplete);
+        },
+      );
     }
+
+    test('a run that stopped with nothing readable is exited', () async {
+      server.on(
+        'GET',
+        '/api/actions/doctor/status',
+        action(exit: 2, lines: const ['Traceback', 'boom']),
+      );
+      await check.run(profile: 'work');
+      expect(check.failure, CheckFailure.exited);
+      expect(check.report, isNull);
+    });
 
     test('findings with a non-zero exit are a report', () async {
       await check.run(profile: 'work');
@@ -779,6 +792,78 @@ void main() {
       await check.run(profile: 'work');
       expect(check.phase, CheckPhase.timedOut);
       expect(waits, lessThan(5));
+    });
+  });
+
+  group('review round', () {
+    for (final (name, code) in [
+      ('killed (137)', 137),
+      ('no exit code', null),
+    ]) {
+      test('a doctor $name after one warning did not finish', () async {
+        server.on(
+          'GET',
+          '/api/actions/doctor/status',
+          action(exit: code, lines: const ['◆ Configuration', '  ⚠ Low disk']),
+        );
+        await check.run(profile: 'work');
+        expect(check.phase, CheckPhase.failed);
+        expect(check.failure, CheckFailure.incomplete);
+        // What was read stays, to be shown as partial.
+        expect(check.report!.warnings, 1);
+        expect(check.lines, contains('  ⚠ Low disk'.trimRight()));
+      });
+    }
+
+    test('exit 1 with findings and exit 0 are reports', () async {
+      await check.run(profile: 'work');
+      expect(check.phase, CheckPhase.finished);
+      server.on('GET', '/api/actions/doctor/status', {
+        ...action(exit: 0, lines: doctorAllPassed.sublist(1)),
+      });
+      await check.run(profile: 'work');
+      expect(check.phase, CheckPhase.finished);
+    });
+
+    test('drop forgets a partial report too', () async {
+      server.on(
+        'GET',
+        '/api/actions/doctor/status',
+        action(exit: 137, lines: const ['◆ A', '  ⚠ Low disk']),
+      );
+      await check.run(profile: 'work');
+      check.drop();
+      expect(check.report, isNull);
+      expect(check.lines, isEmpty);
+    });
+
+    test('a baseline that could not be read is taken at the first read '
+        'after a lost answer', () async {
+      server.onRequest('POST', '/api/ops/doctor', (r) {
+        throw DioException.connectionError(requestOptions: r, reason: 'drop');
+      });
+      var reads = 0;
+      server.onRequest('GET', '/api/actions/doctor/status', (r) {
+        reads++;
+        // The first read, before the request, fails.
+        if (reads == 1) {
+          throw DioException.connectionError(requestOptions: r, reason: 'x');
+        }
+        return (
+          status: 200,
+          body: reads == 2
+              ? action(exit: 0, lines: const ['◆ Old', '  ✓ old'])
+              : action(
+                  exit: 1,
+                  head: '=== doctor started 2026-11-14 09:05:00 ===',
+                  lines: doctorProblems,
+                ),
+        );
+      });
+      await check.run(profile: 'work');
+      expect(check.phase, CheckPhase.finished);
+      expect(check.report!.problems, 1);
+      expect(posts(), 1);
     });
   });
 }

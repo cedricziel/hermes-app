@@ -3757,6 +3757,14 @@
   "@serverCareCheckFooter": {
     "description": "Footnote under a Server check result."
   },
+  "serverCareCheckIncompleteDetail": "Hermes ended it early. What it had read is shown below.",
+  "@serverCareCheckIncompleteDetail": {
+    "description": "Second line of the Server check summary when the check ended without finishing; what it had read follows."
+  },
+  "serverCareCheckIncompleteTitle": "The check did not finish",
+  "@serverCareCheckIncompleteTitle": {
+    "description": "Title of the Server check summary when the check ended without finishing."
+  },
   "serverCareCheckIntroDetail": "Hermes checks its configuration, connections and storage. It changes nothing and takes up to a minute.",
   "@serverCareCheckIntroDetail": {
     "description": "Body of the Server check page before a run."

@@ -286,6 +286,27 @@ List<WidgetbookNode> serverCareCheckNodes() => [
           ),
         ),
       ),
+      ...onEachPlatform(
+        'Did not finish, partial result',
+        (_) => _page(
+          const ServerCheckView.result(
+            warnings: _warnings,
+            passed: _passed,
+            incomplete: true,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Did not finish, largest text',
+        builder: (_) => _page(
+          const ServerCheckView.result(
+            warnings: _warnings,
+            passed: _passed,
+            incomplete: true,
+          ),
+          largest: true,
+        ),
+      ),
       WidgetbookUseCase(
         name: 'Problems, largest text',
         builder: (_) => _page(_problemsView(), largest: true),

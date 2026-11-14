@@ -30,6 +30,7 @@ ServerCheckView serverCheckResultOf(
   DoctorReport report,
   List<String> lines, {
   String? checkedAgo,
+  bool incomplete = false,
 }) {
   final problems = <CheckFinding>[];
   final warnings = <CheckFinding>[];
@@ -85,6 +86,7 @@ ServerCheckView serverCheckResultOf(
     unknown: unknown,
     allPassed: report.allPassed,
     checkedAgo: checkedAgo,
+    incomplete: incomplete,
   );
 }
 
@@ -114,6 +116,9 @@ class _ServerCheckPageState extends State<ServerCheckPage> {
   late final Listenable _changes;
   void Function()? _releaseSecure;
   bool _left = false;
+
+  // A run asked for before any profile was known: it goes out once, when one is.
+  bool _runWhenKnown = false;
 
   @override
   void initState() {
@@ -160,8 +165,15 @@ class _ServerCheckPageState extends State<ServerCheckPage> {
   /// (the controller reported it), and the page closes rather than explain a
   /// missing part.
   void _checkChanged() {
-    if (_left || !_missing) return;
-    _leave();
+    if (_left) return;
+    if (_missing) {
+      _leave();
+      return;
+    }
+    if (_runWhenKnown && _care.profile != null) {
+      _runWhenKnown = false;
+      _run();
+    }
   }
 
   void _leave() {
@@ -177,7 +189,8 @@ class _ServerCheckPageState extends State<ServerCheckPage> {
   void _run() {
     final profile = _care.profile;
     if (profile == null) {
-      // No profile is known yet: look one up; the next press runs.
+      // No profile is known yet: look one up, and run once it is.
+      _runWhenKnown = true;
       _care.refresh();
       return;
     }
@@ -194,6 +207,10 @@ class _ServerCheckPageState extends State<ServerCheckPage> {
       case CheckPhase.timedOut:
         return const ServerCheckView.timeout();
       case CheckPhase.failed:
+        final partial = check.report;
+        if (check.failure == CheckFailure.incomplete && partial != null) {
+          return serverCheckResultOf(partial, check.lines, incomplete: true);
+        }
         return ServerCheckView.failed(
           failure: switch (check.failure) {
             CheckFailure.refused => ServerCheckFailureKind.refused,

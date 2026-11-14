@@ -46,6 +46,11 @@ enum CheckFailure {
 
   /// The check stopped with no output the app can read.
   exited,
+
+  /// The check ended without finishing (killed, or no exit code) after
+  /// output the app could read: [ServerCheckController.report] holds what
+  /// was read, to be shown as partial.
+  incomplete,
 }
 
 /// Runs Hermes' read-only `doctor` and follows it to its report.
@@ -368,7 +373,13 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
       if (_stale(id)) return null;
       switch (result) {
         case CareOk(:final value):
-          if (_isThisRun(value)) {
+          if (_lost && !_baselineRead && !value.running) {
+            // The read before the request failed, so nothing says which run
+            // this log is. Take it as the log before the run, and wait for a
+            // run that differs from it.
+            _baselineRead = true;
+            _baselineHeader = value.startHeader;
+          } else if (_isThisRun(value)) {
             if (value.running) {
               _count(value);
             } else {
@@ -438,11 +449,21 @@ class ServerCheckController extends ChangeNotifier with SafeNotifier {
     ];
     final report = DoctorReport.parse(status.lines);
     final code = status.exitCode;
-    // Hermes exits 0 when nothing needs attention and 1 with something to
-    // address, which it lists. Any other end, or none, with nothing found is
-    // a check that stopped part-way, not a report.
     final found =
         report.problems > 0 || report.warnings > 0 || report.fixes.isNotEmpty;
+    // Hermes exits 0 when nothing needs attention and 1 with something to
+    // address, which it lists. Any other end (killed, or none known) did not
+    // finish: what was read is kept as partial, or, with nothing readable,
+    // the run only stopped.
+    if (code != 0 && code != 1) {
+      if (report.sections.isEmpty && !found && !report.allPassed) {
+        return _fail(CheckFailure.exited, _tail(output));
+      }
+      _report = report;
+      _output = List.unmodifiable(output);
+      return _fail(CheckFailure.incomplete, _tail(output));
+    }
+    // Exit 1 with nothing listed is a check that stopped, not a report.
     final complete =
         report.allPassed || found || (code == 0 && output.isNotEmpty);
     if (!complete) return _fail(CheckFailure.exited, _tail(output));

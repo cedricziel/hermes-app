@@ -85,6 +85,7 @@ class ServerCheckView {
       unknown = const [],
       allPassed = false,
       checkedAgo = null,
+      incomplete = false,
       failure = null,
       message = null;
 
@@ -97,6 +98,7 @@ class ServerCheckView {
       unknown = const [],
       allPassed = false,
       checkedAgo = null,
+      incomplete = false,
       failure = null,
       message = null;
 
@@ -108,6 +110,7 @@ class ServerCheckView {
     this.unknown = const [],
     this.allPassed = false,
     this.checkedAgo,
+    this.incomplete = false,
   }) : stage = ServerCheckStage.result,
        checksSoFar = 0,
        failure = null,
@@ -123,6 +126,7 @@ class ServerCheckView {
       unknown = const [],
       allPassed = false,
       checkedAgo = null,
+      incomplete = false,
       failure = null,
       message = null;
 
@@ -135,6 +139,7 @@ class ServerCheckView {
       passed = const [],
       unknown = const [],
       allPassed = false,
+      incomplete = false,
       checkedAgo = null;
 
   final ServerCheckStage stage;
@@ -147,6 +152,10 @@ class ServerCheckView {
   final List<CheckPassedGroup> passed;
   final List<CheckUnknownLine> unknown;
   final bool allPassed;
+
+  /// With a result: the check ended without finishing, so this is only what
+  /// it had read.
+  final bool incomplete;
 
   /// "just now", "5 minutes ago": fills "Checked …".
   final String? checkedAgo;
@@ -281,7 +290,13 @@ class ServerCheckBody extends StatelessWidget {
     final l10n = context.l10n;
     final problems = view.problems.length;
     final warnings = view.warnings.length;
-    final (tone, title, detail) = view.allPassed
+    final (tone, title, detail) = view.incomplete
+        ? (
+            ServerStatusTone.warning,
+            l10n.serverCareCheckIncompleteTitle,
+            l10n.serverCareCheckIncompleteDetail,
+          )
+        : view.allPassed
         ? (ServerStatusTone.healthy, l10n.serverCareCheckAllPassed, null)
         : problems > 0 || warnings > 0
         ? (
@@ -307,7 +322,9 @@ class ServerCheckBody extends StatelessWidget {
           button: onRun == null
               ? null
               : ServerStatusButton(
-                  label: l10n.serverCareCheckRunAgain,
+                  label: view.incomplete
+                      ? l10n.serverCareTryAgain
+                      : l10n.serverCareCheckRunAgain,
                   outlined: true,
                   onPressed: onRun!,
                 ),

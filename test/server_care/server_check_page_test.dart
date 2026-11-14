@@ -330,6 +330,69 @@ void main() {
     });
   });
 
+  pageTest('with no profile known yet, Run a check runs once when it is', (
+    tester,
+  ) async {
+    care.dispose();
+    care = ServerCareController(
+      repository: ServerCareRepository(server.client()),
+    );
+    await pump(tester, runOnOpen: true);
+    expect(posts(), 0);
+    care.profileChanged('default');
+    await tester.pumpAndSettle();
+    expect(posts(), 1);
+    // A later change of the care controller does not run it again.
+    care.profileChanged('work');
+    await tester.pumpAndSettle();
+    expect(posts(), 1);
+  });
+
+  pageTest('a check that did not finish shows what it had read', (
+    tester,
+  ) async {
+    server.on('GET', '/api/actions/doctor/status', {
+      ...finished(doctorProblems, exit: 137),
+    });
+    await pump(tester, runOnOpen: true);
+    expect(find.text('The check did not finish'), findsOneWidget);
+    expect(find.text('Telegram token rejected (401)'), findsOneWidget);
+    expect(find.text('All checks passed'), findsNothing);
+    expect(find.text('Try again'), findsOneWidget);
+  });
+
+  pageTest('the command beside Copy is what Copy puts on the clipboard', (
+    tester,
+  ) async {
+    String? clipboard;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    server.on(
+      'GET',
+      '/api/actions/doctor/status',
+      finished(const [
+        '◆ A',
+        '  ✗ Bad',
+        '  Found 1 issue(s) to address:',
+        "  1. Run 'hermes \x1B]8;;http://x\x07setup\x1B]8;;\x07\b telegram\r\n'",
+      ]),
+    );
+    await pump(tester, runOnOpen: true);
+    expect(find.text('hermes setup telegram'), findsOneWidget);
+    await tester.tap(find.text('Copy'));
+    await tester.pump();
+    expect(clipboard, 'hermes setup telegram');
+  });
+
   group('privacy', () {
     for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
       pageTest('draws no text while inactive on $platform', (tester) async {

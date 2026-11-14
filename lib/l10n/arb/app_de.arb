@@ -764,6 +764,8 @@
   "serverCareCheckFailedStartTitle": "Die Prüfung konnte nicht gestartet werden",
   "serverCareCheckFixesHeader": "Zu beheben",
   "serverCareCheckFooter": "Um automatisch behebbare Probleme zu beheben, führe 'hermes doctor --fix' auf dem Server aus.",
+  "serverCareCheckIncompleteDetail": "Hermes hat sie vorzeitig beendet. Was es gelesen hat, steht unten.",
+  "serverCareCheckIncompleteTitle": "Die Prüfung wurde nicht beendet",
   "serverCareCheckIntroDetail": "Hermes prüft seine Konfiguration, Verbindungen und seinen Speicher. Es ändert nichts und dauert bis zu einer Minute.",
   "serverCareCheckIntroTitle": "Hermes auf Probleme prüfen",
   "serverCareCheckKeepWaiting": "Weiter warten",
