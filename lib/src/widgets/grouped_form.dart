@@ -261,6 +261,10 @@ class GroupedTextFieldRow extends StatelessWidget {
     this.textInputAction,
     this.errorText,
     this.errorMaxLines,
+    this.trailing,
+    this.autofillHints,
+    this.smartDashesType,
+    this.smartQuotesType,
   }) : assert(controller == null || initialValue == null);
 
   final String label;
@@ -285,6 +289,15 @@ class GroupedTextFieldRow extends StatelessWidget {
   final TextInputAction? textInputAction;
   final String? errorText;
   final int? errorMaxLines;
+
+  /// A control at the end of the row, such as a Show/Hide button.
+  final Widget? trailing;
+
+  /// What the platform may autofill. Null, the default, turns autofill off;
+  /// any list, even an empty one, opts the field in.
+  final Iterable<String>? autofillHints;
+  final SmartDashesType? smartDashesType;
+  final SmartQuotesType? smartQuotesType;
 
   @override
   Widget build(BuildContext context) {
@@ -311,6 +324,7 @@ class GroupedTextFieldRow extends StatelessWidget {
         hintText: hint,
         hintStyle: hintStyle,
         filled: false,
+        suffixIcon: trailing,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
@@ -335,6 +349,9 @@ class GroupedTextFieldRow extends StatelessWidget {
       autofocus: autofocus,
       autocorrect: autocorrect,
       enableSuggestions: enableSuggestions,
+      autofillHints: autofillHints,
+      smartDashesType: smartDashesType,
+      smartQuotesType: smartQuotesType,
       style: style,
       decoration: decoration.copyWith(
         errorText: errorText,
@@ -360,10 +377,21 @@ class GroupedTextFieldRow extends StatelessWidget {
           Expanded(
             child: Semantics(label: label, child: field),
           ),
+          ?trailing,
         ],
       );
     } else if (apple) {
-      content = Semantics(label: label, child: field);
+      content = trailing == null
+          ? Semantics(label: label, child: field)
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Semantics(label: label, child: field),
+                ),
+                trailing!,
+              ],
+            );
     } else {
       content = field;
     }
