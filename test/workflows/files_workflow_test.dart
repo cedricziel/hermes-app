@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +34,7 @@ Map<String, Object?> _entry(
 /// empty folder and a folder the server cannot reach.
 void main() {
   late FakeHermesServer server;
+  late Completer<FakeResponse> slowListing;
   late MediaStore media;
 
   void list(String path, List<Map<String, Object?>> entries) => server.on(
@@ -72,10 +75,13 @@ void main() {
         query: {'path': _root, 'profile': 'default'},
       );
     list(_root, [
+      _entry('analysis.py'),
       _entry('empty', dir: true),
+      _entry('offline', dir: true),
+      _entry('slow', dir: true),
       _entry('offsite', dir: true),
       _entry('reports', dir: true),
-      _entry('analysis.py'),
+      _entry('big.png'),
       _entry('api_token.txt'),
       _entry('deploy.pem'),
       _entry('chart.png'),
@@ -87,6 +93,27 @@ void main() {
       _entry('2026', dir: true, at: '$_root/reports'),
     ]);
     list('$_root/empty', const []);
+    slowListing = Completer<FakeResponse>();
+    server
+      ..onRequest(
+        'GET',
+        '/api/fs/list',
+        (_) => slowListing.future,
+        query: {'path': '$_root/slow', 'profile': 'default'},
+      )
+      ..on(
+        'GET',
+        '/api/fs/list',
+        {'detail': 'Bad gateway'},
+        status: 502,
+        query: {'path': '$_root/offline', 'profile': 'default'},
+      )
+      ..on(
+        'GET',
+        '/api/fs/download',
+        FakeFile(Uint8List(8), announcedLength: 60 * 1024 * 1024),
+        query: {'path': '$_root/big.png', 'profile': 'default'},
+      );
     server
       ..on(
         'GET',
@@ -179,13 +206,17 @@ void main() {
     );
   }
 
-  Future<void> openFiles(WidgetTester tester) async {
+  Future<void> openFiles(
+    WidgetTester tester, [
+    ScreenshotRecorder? shots,
+  ]) async {
     await openSidebar(tester);
     await tester.tap(find.byKey(const ValueKey('thread-s1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('header-activity')));
     await tester.pumpAndSettle();
     await idle(tester);
+    await shots?.capture(tester, 'activity-row');
     await tester.tap(find.byKey(const Key('activity-files-row')));
     await idle(tester);
   }
@@ -207,7 +238,7 @@ void main() {
       ) async {
         final shots = ScreenshotRecorder('files-$name-$mode');
         await pumpChat(tester, shots, size: size, brightness: brightness);
-        await openFiles(tester);
+        await openFiles(tester, shots);
         expect(find.text('field-notes'), findsWidgets);
         expect(find.text('README.md'), findsOneWidget);
         await shots.capture(tester, 'list');
@@ -274,7 +305,61 @@ void main() {
         await tapRow(tester, 'offsite');
         expect(find.text('Try again'), findsOneWidget);
         await shots.capture(tester, 'error');
+        await tester.tap(find.text('field-notes').first);
+        await idle(tester);
+
+        await tapRow(tester, 'offline');
+        expect(find.text("Can't reach your Hermes server."), findsOneWidget);
+        await shots.capture(tester, 'offline');
+        await tester.tap(find.text('field-notes').first);
+        await idle(tester);
+
+        await tester.tap(find.text('slow').first);
+        for (var i = 0; i < 3; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(find.text('Loading folder…'), findsOneWidget);
+        await shots.capture(tester, 'loading');
+        slowListing.complete((status: 200, body: {'entries': const []}));
+        await idle(tester);
+        await tester.tap(find.text('field-notes').first);
+        await idle(tester);
+
+        await tapRow(tester, 'big.png');
+        expect(find.textContaining('Download it anyway?'), findsOneWidget);
+        await shots.capture(tester, 'size-question');
+        await tester.tap(find.text('Cancel'));
+        await idle(tester);
       });
     }
   }
+
+  testWidgets('phone (German): list, other file, question, offline', (
+    tester,
+  ) async {
+    tester.platformDispatcher.localesTestValue = const [Locale('de')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+    final shots = ScreenshotRecorder('files-phone-de');
+    await pumpChat(
+      tester,
+      shots,
+      size: phoneSize,
+      brightness: Brightness.light,
+    );
+    await openFiles(tester, shots);
+    await shots.capture(tester, 'list');
+
+    await tapRow(tester, 'export.zip');
+    await shots.capture(tester, 'other-file');
+    await popRoute(tester);
+    await idle(tester);
+
+    await tapRow(tester, 'api_token.txt');
+    await shots.capture(tester, 'secret-question');
+    await tester.tap(find.text('Abbrechen'));
+    await idle(tester);
+
+    await tapRow(tester, 'offline');
+    await shots.capture(tester, 'offline');
+  });
 }

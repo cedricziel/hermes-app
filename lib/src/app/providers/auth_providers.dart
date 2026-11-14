@@ -59,11 +59,16 @@ SingleChildWidget filesAvailabilityProvider() =>
     ChangeNotifierProxyProvider<HermesRepositories?, FilesAvailability?>(
       create: (_) => null,
       update: (_, repositories, previous) {
-        if (repositories == null) return null;
+        if (repositories == null) {
+          previous?.dispose();
+          return null;
+        }
         if (previous != null &&
             identical(previous.connection, repositories.api)) {
           return previous;
         }
+        // A probe of the old connection must not answer for the new one.
+        previous?.dispose();
         return FilesAvailability.forRepositories(repositories);
       },
     );

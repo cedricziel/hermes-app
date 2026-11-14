@@ -29,6 +29,8 @@ const _mainEngineOnly = {
   'AppBadgePlusPlugin',
   // Only the main engine opens hermes:// links; a window has no stream of them.
   'AppLinksMacosPlugin',
+  // Files is not offered in a conversation window (see the Files page notes).
+  'SharePlusMacosPlugin',
   'ConnectivityPlusPlugin',
   'DeviceInfoPlusMacosPlugin',
   'FlutterAppGroupDirectoryPlugin',

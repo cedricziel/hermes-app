@@ -616,6 +616,10 @@ class FilesController extends ChangeNotifier {
     return name;
   }
 
+  /// Drags still under way.
+  @visibleForTesting
+  int get activeDrags => _drags.length;
+
   /// Changes with every question the page asks (secret or size).
   int get questionSerial => _questionSerial;
 
@@ -854,16 +858,21 @@ class FilesController extends ChangeNotifier {
 
   // -- Plumbing --------------------------------------------------------------
 
-  String _key(ServerPath path) => _keyOf(path.value);
+  String _key(ServerPath path, {bool drag = false}) =>
+      _keyOf(path.value, drag: drag);
 
   /// A copy of a file whose name looks secret goes under a key the next
   /// launch wipes, in case the app is killed before this page deletes it.
-  String _keyOf(String path) {
+  ///
+  /// A drag has a key of its own: the store shares one download per key, so a
+  /// drag given up would otherwise cancel the preview's download of the same
+  /// file.
+  String _keyOf(String path, {bool drag = false}) {
     final secret = ServerPath.tryParse(path);
     final prefix = secret != null && SecretNames.looksSecret(secret)
         ? kSecretCopyKeyPrefix
         : kFilesCopyKeyPrefix;
-    return '$prefix$_profile:$path';
+    return '$prefix${drag ? 'drag:' : ''}$_profile:$path';
   }
 
   /// Streams [entry] into the cache and says how it went. A fetch of the same
@@ -1062,13 +1071,15 @@ class FilesDrag {
 
   /// The staged copy, or null when the download failed, was cancelled or
   /// needs the size question.
-  Future<File?> file() => _file ??= _stage();
+  Future<File?> file() => _file ??= _stage().whenComplete(() {
+    _controller._drags.remove(this);
+  });
 
   Future<File?> _stage() async {
     final c = _controller;
     final result = await c._run(
       _entry,
-      c._key(_entry.path),
+      c._key(_entry.path, drag: true),
       c._fileGen,
       allowLarge: c._largeOk.contains(_entry.path.value),
       fetchToken: _token,

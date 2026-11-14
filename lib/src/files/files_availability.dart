@@ -52,6 +52,8 @@ class FilesAvailability extends ChangeNotifier {
 
   FilesSupport get support => _support;
 
+  bool get isDisposed => _disposed;
+
   /// Whether the Files row, menu item and menu command are shown.
   bool get shown => _support == FilesSupport.supported;
 

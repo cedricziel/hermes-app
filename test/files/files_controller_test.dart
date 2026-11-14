@@ -12,7 +12,9 @@ import 'package:hermes_app/src/files/files_failure.dart';
 import 'package:hermes_app/src/files/files_models.dart';
 import 'package:hermes_app/src/files/files_state.dart';
 import 'package:hermes_app/src/files/files_telemetry.dart';
+import 'package:hermes_app/src/files/files_view_models.dart';
 import 'package:hermes_app/src/files/server_path.dart';
+import 'package:hermes_app/src/files/widgets/files_browser_view.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
@@ -1452,6 +1454,59 @@ void main() {
       controller.dispose();
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(quickLook.closes, 0);
+    });
+
+    test('giving a drag up does not cancel the preview download', () async {
+      folder([file('/srv/p/a.zip')]);
+      final gate = Completer<void>();
+      final tokens = <CancelToken?>[];
+      final hold = holds(gate);
+      source.downloads['/srv/p/a.zip'] = (sink, t, l, p) {
+        tokens.add(t);
+        return hold(sink, t, l, p);
+      };
+      await build().start();
+      await controller.select(controller.entries.single);
+      final saving = controller.save();
+      await until(() => tokens.length == 1);
+      final drag = controller.beginDrag(controller.entries.single)!;
+      final dragged = drag.file();
+      await until(() => tokens.length == 2);
+
+      drag.cancel();
+      await dragged;
+
+      expect(tokens[0]!.isCancelled, isFalse, reason: 'the preview download');
+      expect(tokens[1]!.isCancelled, isTrue);
+      gate.complete();
+      await saving;
+      expect(actions.savedFiles, hasLength(1));
+    });
+
+    test('a finished drag is forgotten', () async {
+      folder([file('/srv/p/a.zip')]);
+      source.downloads['/srv/p/a.zip'] = writes([1], length: 1);
+      await build().start();
+      final drag = controller.beginDrag(controller.entries.single)!;
+      expect(controller.activeDrags, 1);
+
+      await drag.file();
+
+      expect(controller.activeDrags, 0);
+    });
+
+    test('folders come first, a file sent first or not', () async {
+      folder([
+        file('/srv/p/a.txt'),
+        folderEntry('/srv/p/z'),
+        file('/srv/p/b.txt'),
+        folderEntry('/srv/p/m'),
+      ]);
+      await build().start();
+
+      final rows = (folderViewStateOf(controller) as FolderViewReady).rows;
+
+      expect(rows.map((r) => r.name), ['z', 'm', 'a.txt', 'b.txt']);
     });
 
     test('each question has its own serial', () async {

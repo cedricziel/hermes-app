@@ -68,6 +68,9 @@ If PR 1 passes about 500 lines, split it after 1.4 (repository) and 1.5 (streami
 
 ## Roadmap (not done in this change)
 
+- The dark `showConfirmDialog` surface barely differs from the scrim (a shared theme issue, seen in the Files workflow screenshots).
+- AppShell-level coverage of the Files page (the workflow test drives `ChatScreen`).
+- The page subtitle and the English-only Mac labels (see the deviations above).
 - The Quick Look panels of other Mac conversation windows and of the quick panel do not close when App Lock locks (only the main window's `MediaStore` is cleared).
 
 ## Known limits of path-based Save (not patched; the plugin is not ours)

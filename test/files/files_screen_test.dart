@@ -11,6 +11,7 @@ import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/quick_look_target.dart';
 import 'package:hermes_app/src/files/files_models.dart';
+import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:hermes_app/src/files/files_preview_page.dart';
 import 'package:hermes_app/src/files/files_screen.dart';
 import 'package:hermes_app/src/files/server_path.dart';
@@ -319,6 +320,33 @@ void main() {
         expect(find.text('chat'), findsOneWidget);
       });
     }
+  });
+
+  group('action order', () {
+    List<String> labels(WidgetTester tester) => [
+      for (final b in tester.widgetList<NamedIconButton>(
+        find.byType(NamedIconButton),
+      ))
+        if (b.label == 'Save' || b.label == 'Share') b.label,
+    ];
+
+    testWidgets('is Save then Share on a phone', (tester) async {
+      await pump(tester, share: (file, _) async {});
+      await tester.tap(find.text('notes.txt'));
+      await settle(tester);
+      expect(labels(tester), ['Save', 'Share']);
+    });
+
+    testWidgets('is Save then Share beside the list', (tester) async {
+      await pump(
+        tester,
+        size: const Size(1100, 800),
+        share: (file, _) async {},
+      );
+      await tester.tap(find.text('notes.txt'));
+      await settle(tester);
+      expect(labels(tester), ['Save', 'Share']);
+    });
   });
 
   group('wide', () {

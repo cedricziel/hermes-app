@@ -44,7 +44,12 @@ FolderViewState folderViewStateOf(FilesController controller) {
         atHighest: !controller.canGoUp,
       );
     case FolderReady():
-      final shown = controller.shownEntries;
+      // Folders first, as the page promises, whatever order the server sent;
+      // stable within each group.
+      final shown = [
+        ...controller.shownEntries.where((e) => e.isDirectory),
+        ...controller.shownEntries.where((e) => !e.isDirectory),
+      ];
       final total = controller.entryCount;
       return FolderViewReady(
         rows: [for (final e in shown) rowModelOf(controller, e)],

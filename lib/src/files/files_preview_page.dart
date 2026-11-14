@@ -157,8 +157,8 @@ class FilesPreviewPane extends StatelessWidget {
 }
 
 /// The preview pushed over the list on a phone, on the settings page bar:
-/// the file's name over its type, and Share, Save and … (iPhone) or Save,
-/// Share and ⋮ (Android).
+/// the file's name over its type, and Save, Share and … in that order, the
+/// same as the pane's header.
 class FilesPreviewPage extends StatelessWidget {
   const FilesPreviewPage({
     super.key,
