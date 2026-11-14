@@ -52,7 +52,7 @@ class ServerStatusCard extends StatelessWidget {
     final iconColor = switch (tone) {
       ServerStatusTone.loading => colors.subtleText,
       ServerStatusTone.healthy => colors.success,
-      ServerStatusTone.info => scheme.primary,
+      ServerStatusTone.info => colors.link,
       ServerStatusTone.warning => colors.warning,
       ServerStatusTone.error => scheme.error,
     };

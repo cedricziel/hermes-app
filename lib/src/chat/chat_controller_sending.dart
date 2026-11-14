@@ -62,7 +62,15 @@ extension _ChatControllerSending on ChatController {
     // A chat that has a name keeps it, even when its messages are not loaded
     // or a retry or an edit emptied them; only a chat with none gets a title
     // made from the prompt, which is not a name.
-    if (protectedSend == null && thread.messages.isEmpty && !thread.named) {
+    // A stored chat whose first page is not read yet has no messages here
+    // either, so its emptiness says nothing.
+    final unread =
+        _unloaded.contains(thread.id) ||
+        _loadingMessages.containsKey(thread.id);
+    if (protectedSend == null &&
+        thread.messages.isEmpty &&
+        !thread.named &&
+        !unread) {
       thread
         ..title = label.length > 48 ? '${label.substring(0, 48)}…' : label
         ..named = false;

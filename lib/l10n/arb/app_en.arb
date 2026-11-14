@@ -20,6 +20,58 @@
   "@@x-area-api": "",
 
   "@@x-area-app_lock": "",
+  "appLockFooterAndroid": "Hermes asks for your fingerprint, face or screen lock when you open it and when you come back to it.",
+  "@appLockFooterAndroid": {
+    "description": "Explains App Lock on Android, under its switch."
+  },
+  "appLockFooterApple": "Hermes asks for Face ID, Touch ID or your device passcode when you open it and when you come back to it.",
+  "@appLockFooterApple": {
+    "description": "Explains App Lock on iOS and macOS, under its switch."
+  },
+  "appLockFooterLinux": "App Lock would ask your system to confirm it is you when you open Hermes.",
+  "@appLockFooterLinux": {
+    "description": "Explains App Lock on Linux, under its switch."
+  },
+  "appLockFooterWindows": "Hermes asks for Windows Hello (face, fingerprint or PIN) when you open it and when you come back to it.",
+  "@appLockFooterWindows": {
+    "description": "Explains App Lock on Windows, under its switch."
+  },
+  "appLockSetupAndroid": "Set up a screen lock or fingerprint in system settings to use App Lock. This device does not offer one right now.",
+  "@appLockSetupAndroid": {
+    "description": "Note shown on Android when the device has no screen lock or biometrics."
+  },
+  "appLockSetupApple": "Set up Face ID, Touch ID or a passcode in system settings to use App Lock. This device does not offer one right now.",
+  "@appLockSetupApple": {
+    "description": "Note shown on iOS and macOS when the device has no passcode or biometrics."
+  },
+  "appLockSetupWindows": "Set up Windows Hello or a PIN in Windows settings under Accounts > Sign-in options to use App Lock. This device does not offer one right now.",
+  "@appLockSetupWindows": {
+    "description": "Note shown on Windows when Windows Hello is not set up."
+  },
+  "appLockSwitchAndroid": "Require fingerprint or screen lock",
+  "@appLockSwitchAndroid": {
+    "description": "Label of the App Lock switch on Android."
+  },
+  "appLockSwitchApple": "Require Face ID or Touch ID",
+  "@appLockSwitchApple": {
+    "description": "Label of the App Lock switch on iOS and macOS."
+  },
+  "appLockSwitchLinux": "Require system unlock",
+  "@appLockSwitchLinux": {
+    "description": "Label of the App Lock switch on Linux, where it stays off."
+  },
+  "appLockSwitchWindows": "Require Windows Hello",
+  "@appLockSwitchWindows": {
+    "description": "Label of the App Lock switch on Windows."
+  },
+  "appLockTitle": "App Lock",
+  "@appLockTitle": {
+    "description": "Title of the App Lock dialog."
+  },
+  "appLockUnavailableLinux": "App Lock is not available on Linux: there is no system prompt Hermes can use to confirm it is you.",
+  "@appLockUnavailableLinux": {
+    "description": "Note shown on Linux, where App Lock cannot be turned on."
+  },
 
   "@@x-area-auth": "",
 
@@ -32,6 +84,225 @@
   "@@x-area-chat": "",
 
   "@@x-area-chat/activity": "",
+  "chatActivityButtonHide": "Hide activity",
+  "@chatActivityButtonHide": {
+    "description": "Accessibility label and tooltip of the Activity button while the Activity panel is open."
+  },
+  "chatActivityButtonHideWaiting": "{count, plural, =1{Hide activity, 1 needs you} other{Hide activity, {count} need you}}",
+  "@chatActivityButtonHideWaiting": {
+    "description": "Label of the Activity button while the panel is open and requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityButtonShow": "Activity",
+  "@chatActivityButtonShow": {
+    "description": "Accessibility label and tooltip of the button that opens the Activity panel."
+  },
+  "chatActivityButtonWaiting": "{count, plural, =1{Activity, 1 needs you} other{Activity, {count} need you}}",
+  "@chatActivityButtonWaiting": {
+    "description": "Accessibility label of the Activity button while requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityInspectorHide": "Hide Inspector",
+  "@chatActivityInspectorHide": {
+    "description": "Mac toolbar button that closes the Activity inspector; macOS View menu wording."
+  },
+  "chatActivityInspectorHideWaiting": "{count, plural, =1{Hide Inspector, 1 needs you} other{Hide Inspector, {count} need you}}",
+  "@chatActivityInspectorHideWaiting": {
+    "description": "Mac toolbar button label that closes the Activity inspector while requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityInspectorShow": "Show Inspector",
+  "@chatActivityInspectorShow": {
+    "description": "Mac toolbar button that opens the Activity inspector; macOS View menu wording."
+  },
+  "chatActivityInspectorShowWaiting": "{count, plural, =1{Show Inspector, 1 needs you} other{Show Inspector, {count} need you}}",
+  "@chatActivityInspectorShowWaiting": {
+    "description": "Mac toolbar button label that opens the Activity inspector while requests wait for the user. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityNeedsYouBillingCopy": "Copy code",
+  "@chatActivityNeedsYouBillingCopy": {
+    "description": "Button on the Needs-you card that copies the billing verification code."
+  },
+  "chatActivityNeedsYouBillingIntro": "Verify this request on your billing page, then come back. Enter this code there:",
+  "@chatActivityNeedsYouBillingIntro": {
+    "description": "Body text of the Needs-you card for billing verification; the code follows it."
+  },
+  "chatActivityNeedsYouBillingOpen": "Open verification page",
+  "@chatActivityNeedsYouBillingOpen": {
+    "description": "Button on the Needs-you card that opens the billing verification page in the browser."
+  },
+  "chatActivityNeedsYouBillingTitle": "Billing access needs approval",
+  "@chatActivityNeedsYouBillingTitle": {
+    "description": "Title of the Needs-you card for a billing verification request. Wraps to two lines."
+  },
+  "chatActivityNeedsYouCodeLabel": "Verification code",
+  "@chatActivityNeedsYouCodeLabel": {
+    "description": "Accessibility label of the box that shows the billing verification code; the code itself is read after it."
+  },
+  "chatActivityNeedsYouConnectManyTitle": "Connect {count} services to continue",
+  "@chatActivityNeedsYouConnectManyTitle": {
+    "description": "Title of the Needs-you card when several services wait for a sign-in. {count} is how many (two or more).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityNeedsYouConnectTitle": "Connect {name} to continue",
+  "@chatActivityNeedsYouConnectTitle": {
+    "description": "Title of the Needs-you card when one service waits for a sign-in. {name} is the service's name as the server reports it.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Notion"
+      }
+    }
+  },
+  "chatActivityNeedsYouConnectorContinue": "Continue",
+  "@chatActivityNeedsYouConnectorContinue": {
+    "description": "Button on the Needs-you card that tells the agent to go on without waiting for the sign-in. Keep it short."
+  },
+  "chatActivityNeedsYouConnectorOpen": "Open",
+  "@chatActivityNeedsYouConnectorOpen": {
+    "description": "Button on the Needs-you card that opens a service's sign-in page in the browser. Keep it short."
+  },
+  "chatActivityNeedsYouConnectorSkip": "Skip",
+  "@chatActivityNeedsYouConnectorSkip": {
+    "description": "Button on the Needs-you card that skips a service's sign-in. Keep it short."
+  },
+  "chatActivityNeedsYouDockLabel": "{count, plural, =1{1 request needs you} other{{count} requests need you}}",
+  "@chatActivityNeedsYouDockLabel": {
+    "description": "Accessibility label of the Needs-you card above the composer. {count} is how many requests wait.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityNeedsYouExpires": "Expires in {minutes} min",
+  "@chatActivityNeedsYouExpires": {
+    "description": "Line on the Needs-you card saying how long a sign-in stays open. {minutes} is whole minutes, rounded up.",
+    "placeholders": {
+      "minutes": {
+        "type": "int",
+        "example": "4"
+      }
+    }
+  },
+  "chatActivityNeedsYouExpiresSoon": "Expires in under a minute",
+  "@chatActivityNeedsYouExpiresSoon": {
+    "description": "Line on the Needs-you card when a sign-in has less than a minute left."
+  },
+  "chatActivityNeedsYouLinkUnavailable": "This link can't be opened here.",
+  "@chatActivityNeedsYouLinkUnavailable": {
+    "description": "Line on the billing Needs-you card when the verification link is not a safe web address, so Open is disabled."
+  },
+  "chatActivityNeedsYouNext": "Next request",
+  "@chatActivityNeedsYouNext": {
+    "description": "Accessibility label and tooltip of the button that shows the next request on the Needs-you card."
+  },
+  "chatActivityNeedsYouOfflineNotice": "Offline. These actions come back when you're connected.",
+  "@chatActivityNeedsYouOfflineNotice": {
+    "description": "Warning line on the Needs-you card while the connection is lost and its buttons are disabled."
+  },
+  "chatActivityNeedsYouOpensHost": "Opens {host}",
+  "@chatActivityNeedsYouOpensHost": {
+    "description": "Line on the billing Needs-you card naming the website the verification page is on. {host} is a host name.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "verify.example.com"
+      }
+    }
+  },
+  "chatActivityNeedsYouPosition": "{position} of {count}",
+  "@chatActivityNeedsYouPosition": {
+    "description": "Position of the shown request on the Needs-you card when several wait.",
+    "placeholders": {
+      "position": {
+        "type": "int",
+        "example": "1"
+      },
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "chatActivityNeedsYouPrevious": "Previous request",
+  "@chatActivityNeedsYouPrevious": {
+    "description": "Accessibility label and tooltip of the button that shows the previous request on the Needs-you card."
+  },
+  "chatActivityNeedsYouReclaimBody": "This chat was opened on another device.",
+  "@chatActivityNeedsYouReclaimBody": {
+    "description": "Body of the Needs-you card for a chat another device took over."
+  },
+  "chatActivityNeedsYouReclaimTitle": "Session opened elsewhere",
+  "@chatActivityNeedsYouReclaimTitle": {
+    "description": "Title of the Needs-you card for a chat another device took over."
+  },
+  "chatActivityNeedsYouRefusedNotice": "The server refused your answer.",
+  "@chatActivityNeedsYouRefusedNotice": {
+    "description": "Warning line on the Needs-you card when the server answered a response with a refusal."
+  },
+  "chatActivityNeedsYouReopen": "Reopen session",
+  "@chatActivityNeedsYouReopen": {
+    "description": "Button on the Needs-you card that reopens a chat that was taken over or could not be restored."
+  },
+  "chatActivityNeedsYouResumeBody": "Your history is still available. Reopen to try restoring this chat.",
+  "@chatActivityNeedsYouResumeBody": {
+    "description": "Body of the Needs-you card for a chat whose restore failed."
+  },
+  "chatActivityNeedsYouResumeTitle": "This chat couldn't be restored",
+  "@chatActivityNeedsYouResumeTitle": {
+    "description": "Title of the Needs-you card for a chat whose restore failed."
+  },
+  "chatActivityNeedsYouSendingNotice": "Sending your answer…",
+  "@chatActivityNeedsYouSendingNotice": {
+    "description": "Line on the Needs-you card while an answer is on its way."
+  },
+  "chatActivityNeedsYouSignInsWaiting": "{count, plural, =1{1 sign-in waiting} other{{count} sign-ins waiting}}",
+  "@chatActivityNeedsYouSignInsWaiting": {
+    "description": "Summary line of the collapsed Needs-you card. {count} is how many sign-ins wait.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatActivityNeedsYouTargetFailed": "Couldn't sign in",
+  "@chatActivityNeedsYouTargetFailed": {
+    "description": "State of one service on the Needs-you card: the sign-in failed."
+  },
+  "chatActivityNeedsYouTargetSignedIn": "Signed in",
+  "@chatActivityNeedsYouTargetSignedIn": {
+    "description": "State of one service on the Needs-you card: the sign-in is done."
+  },
+  "chatActivityNeedsYouTargetWaiting": "Waiting for sign-in",
+  "@chatActivityNeedsYouTargetWaiting": {
+    "description": "State of one service on the Needs-you card: it waits for the user to sign in."
+  },
+  "chatActivityNeedsYouUnconfirmedNotice": "Couldn't confirm your answer. It may have gone through; check before trying again.",
+  "@chatActivityNeedsYouUnconfirmedNotice": {
+    "description": "Warning line on the Needs-you card when no confirmation of an answer arrived in time."
+  },
 
   "@@x-area-chat/attachments": "",
 
