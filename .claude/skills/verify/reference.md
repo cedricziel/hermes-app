@@ -38,7 +38,8 @@ keyring while debugging. Also needed: Flutter at `.fvmrc` (`flutter` on PATH),
              data/keyrings/         the throwaway keyring
              data/applications/hermes-verify-browser.desktop
              config/mimeapps.list   makes it the http/https handler
-build/verify/<time>-<id>/           kept: shots/, *-test.log, *-dashboard.log, browser.log
+  tmp/                              TMPDIR of the contract tests
+build/verify/<time>-<id>/           kept (newest ten): shots/, *-test.log, *-dashboard.log, browser.log
 ```
 
 Every process the run starts inherits `HERMES_VERIFY_RUN=<RUN_DIR>`.
@@ -124,9 +125,13 @@ fails the run if a marked process survives.
 ## Proving cleanup by hand
 
 ```bash
-scripts/verify.sh app & sleep 120; pkill -TERM -x flutter_tester   # or: kill -TERM %1
-wait
-pgrep -af 'hermes|Xvfb|gnome-keyring|dbus-daemon|hermes_app'   # nothing of the run
+scripts/verify.sh app & V=$!
+# once the app window is up, kill this run's app (and only this run's):
+until P=$(pgrep -x hermes_app); do sleep 1; done
+grep -qz HERMES_VERIFY_RUN= /proc/$P/environ && kill -9 "$P"
+wait $V                                                         # non-zero: app tier failed
+# or instead: kill -TERM $V  (the trap stops everything at once)
+pgrep -af 'hermes|Xvfb|gnome-keyring|dbus-daemon|hermes_app'    # nothing of the run
 ss -ltnp                                                        # no dashboard/model port
-ls -d /tmp/hermes-verify.*                                      # none
+ls -d /tmp/hermes-verify.* /tmp/hermes-contract-*               # none
 ```

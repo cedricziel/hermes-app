@@ -30,15 +30,18 @@ of the run in the PR body.
 
 ```bash
 scripts/verify.sh            # both tiers (about 5 min warm, 10 cold)
-scripts/verify.sh contract   # tier 1+2 only
-scripts/verify.sh app        # tier 3 only
+scripts/verify.sh contract   # backend + contract tests only
+scripts/verify.sh app        # backend + app only
 scripts/verify.sh clean      # sweep runs left by a verify.sh killed with SIGKILL
 ```
 
 Exit 0 and `[verify] verify all passed` mean every tier passed. Screenshots
 and logs are in `build/verify/<time>-<id>/` (not committed): read
 `shots/*.png` with the Read tool. First time in a container, install the
-packages in [reference.md](reference.md#packages) (one `apt-get` line).
+packages in [reference.md](reference.md#packages) (one `apt-get` line). Run `flutter pub get`
+once beforehand (Flutter runs with `--no-pub`). The first run needs network
+access to GitHub, npm and PyPI to install Hermes (cached afterwards) and
+builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
 
 ## What each tier proves
 

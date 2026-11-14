@@ -161,13 +161,19 @@ run_contract() {
   start_backend contract 0
   local url="$BACKEND_URL"
   log "contract tier: real backend, Bot Mode chat and hosted group contracts"
-  (cd "$ROOT_DIR" && HERMES_DEV_URL="$url" HERMES_DEV_HOME="$RUN_DIR/contract/home" \
+  # The tests' own temp dirs go into the run dir too, so a test that dies
+  # before its teardown leaves nothing in /tmp.
+  mkdir -p "$RUN_DIR/tmp"
+  local status=0
+  # In the background and waited for, so TERM or INT to this script runs the
+  # trap at once instead of after the tests finish.
+  (cd "$ROOT_DIR" && TMPDIR="$RUN_DIR/tmp" HERMES_DEV_URL="$url" HERMES_DEV_HOME="$RUN_DIR/contract/home" \
     flutter test --no-pub --concurrency=1 \
     test/real_backend_contract_test.dart \
     test/bot_mode_chat_contract_test.dart \
-    test/bot_mode/group_protocol/real_groups_contract_test.dart) 2>&1 |
-    tee "$RUN_DIR/contract-test.log" | tail -n 60 >&2
-  local status="${PIPESTATUS[0]}"
+    test/bot_mode/group_protocol/real_groups_contract_test.dart) >"$RUN_DIR/contract-test.log" 2>&1 &
+  wait "$!" || status=$?
+  tail -n 60 "$RUN_DIR/contract-test.log" >&2
   HERMES_DEV_STATE_DIR="$RUN_DIR/contract" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
   ((status == 0)) || die "contract tier failed (log: $OUT_DIR/contract-test.log)"
   log "contract tier passed"
@@ -269,7 +275,8 @@ EOF
       exec "$@"' bash \
     flutter test --no-pub --suppress-analytics -d linux integration_test/verify_flow_test.dart \
     --dart-define=HERMES_SERVER_URL="$url" \
-    --dart-define=HERMES_VERIFY_SHOTS="$OUT_DIR/shots") >"$RUN_DIR/app-test.log" 2>&1 || status=$?
+    --dart-define=HERMES_VERIFY_SHOTS="$OUT_DIR/shots") >"$RUN_DIR/app-test.log" 2>&1 &
+  wait "$!" || status=$?
   tail -n 40 "$RUN_DIR/app-test.log" >&2
   HERMES_DEV_STATE_DIR="$RUN_DIR/app" "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
   ((status == 0)) || die "app tier failed (exit $status; log: $OUT_DIR/app-test.log)"
@@ -292,6 +299,13 @@ cleanup() {
     [[ -f "$RUN_DIR/$state" ]] && cp "$RUN_DIR/$state" "$OUT_DIR/${state//\//-}"
   done
   rm -rf "$RUN_DIR"
+  # Keep the newest ten runs' screenshots and logs.
+  local verify_out="$ROOT_DIR/build/verify" old_run
+  if [[ "$(dirname "$OUT_DIR")" == "$verify_out" ]]; then
+    while IFS= read -r old_run; do
+      [[ -n "$old_run" ]] && rm -rf "${verify_out:?}/$old_run"
+    done < <(ls -1t "$verify_out" | tail -n +11)
+  fi
   if [[ -n "$(marked_pids "$RUN_DIR")" ]]; then
     log "WARNING: processes of this run survived: $(marked_pids "$RUN_DIR" | tr '\n' ' ')"
     status=1
@@ -324,7 +338,8 @@ ORIG_HOME="$HOME"
 cmd_clean
 HERMES_DIR="$(cd "$ROOT_DIR" && scripts/install-hermes.sh)"
 
-mkdir -p "$TMP_ROOT"
+[[ -d "$TMP_ROOT" ]] || die "HERMES_VERIFY_TMP=$TMP_ROOT does not exist"
+free_of_tree "$TMP_ROOT"
 RUN_DIR="$(mktemp -d "$TMP_ROOT/hermes-verify.XXXXXX")"
 RUN_DIR="$(cd "$RUN_DIR" && pwd -P)"
 OUT_DIR="${HERMES_VERIFY_OUT:-$ROOT_DIR/build/verify/$(date +%Y%m%d-%H%M%S)-${RUN_DIR##*.}}"
