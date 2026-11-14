@@ -641,7 +641,10 @@ class FilesController extends ChangeNotifier {
   ) async {
     try {
       final done = switch (action) {
-        FileAction.save => await _media.saveFile(entry.path.name, file),
+        FileAction.save => await _media.saveFile(
+          file.uri.pathSegments.last,
+          file,
+        ),
         FileAction.openWith => await _openMarked(file),
         FileAction.share => await _shared(file),
       };
@@ -655,6 +658,11 @@ class FilesController extends ChangeNotifier {
   /// Opens [file] after marking it as downloaded; a file that cannot be
   /// marked is not opened.
   Future<bool> _openMarked(File file) async {
+    // The file is opened by its staged name, which can differ from the one
+    // the server sent.
+    if (!_policy.canOpenWith(file.uri.pathSegments.last)) {
+      throw const FileSystemException('not opened');
+    }
     await _policy.markDownloaded(file);
     return _media.open(file);
   }
@@ -766,7 +774,7 @@ class FilesController extends ChangeNotifier {
     final secret = ServerPath.tryParse(path);
     final prefix = secret != null && SecretNames.looksSecret(secret)
         ? kSecretCopyKeyPrefix
-        : 'fs:';
+        : kFilesCopyKeyPrefix;
     return '$prefix$_profile:$path';
   }
 

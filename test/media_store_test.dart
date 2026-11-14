@@ -311,6 +311,49 @@ void main() {
       },
     );
 
+    test('a chat attachment downloading at lock time survives it', () async {
+      final store = newStore();
+      final gate = Completer<void>();
+      final pending = store.file('/chat/a.txt', 'a.txt');
+      server.onDownload('/chat/a.txt', pdf);
+      final other = store.stage('chat:2', 'b.pdf', () async {
+        await gate.future;
+        return pdf;
+      });
+      await store.clearFileDownloads();
+      gate.complete();
+
+      expect((await other).readAsBytesSync(), pdf);
+      expect((await pending).readAsBytesSync(), pdf);
+      // Nothing failed and stayed cached: asking again works.
+      expect((await store.file('/chat/a.txt', 'a.txt')).existsSync(), isTrue);
+      expect(
+        (await store.stage('chat:2', 'b.pdf', () async => pdf)).existsSync(),
+        isTrue,
+      );
+    });
+
+    test('a Files key asked for again after the lock is not hurt by the old '
+        'download', () async {
+      final store = newStore();
+      final oldGate = Completer<void>();
+      final old = store.stage('fs:work:/a.txt', 'a.txt', () async {
+        await oldGate.future;
+        return pdf;
+      });
+      final oldFailed = expectLater(old, throwsA(anything));
+      await store.clearFileDownloads();
+      final fresh = await store.stage(
+        'fs:work:/a.txt',
+        'a.txt',
+        () async => Uint8List.fromList([7, 7]),
+      );
+      oldGate.complete();
+      await oldFailed;
+
+      expect(fresh.readAsBytesSync(), [7, 7]);
+    });
+
     test('a Files download in flight leaves nothing behind', () async {
       final store = newStore();
       final gate = Completer<void>();
@@ -323,6 +366,24 @@ void main() {
       gate.complete();
       await failed;
       expect(filesUnder(cache), isEmpty);
+    });
+  });
+
+  group('staged names', () {
+    test('a cut name never ends in a new extension', () async {
+      final store = newStore();
+      final name = '${'x' * 176}.exe.${'a' * 20}';
+      final file = await store.stage('k1', name, () async => pdf);
+      final staged = file.uri.pathSegments.last;
+      expect(staged.toLowerCase(), isNot(endsWith('.exe')));
+      expect(staged.contains('.'), isFalse);
+      expect(stagedFileName(name), staged);
+    });
+
+    test('Unicode whitespace is trimmed as the file is staged', () {
+      for (final tail in ['\u00a0', '\u3000', '\u2028']) {
+        expect(stagedFileName('a.exe$tail'), 'a.exe');
+      }
     });
   });
 

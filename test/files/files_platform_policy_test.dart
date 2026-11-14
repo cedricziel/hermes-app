@@ -31,6 +31,25 @@ void main() {
         'a.exe.',
         'a.exe ',
         'archive.tar.exe',
+        'a.exe\u00a0',
+        'a.exe\u3000',
+        'a.exe\u2028',
+        'a.chm',
+        'a.xll',
+        'a.ws',
+        'a.wsc',
+        'a.vb',
+        'a.scf',
+        'a.application',
+        'a.appref-ms',
+        'a.settingcontent-ms',
+        'a.website',
+        'a.diagcab',
+        'a.iso',
+        'a.img',
+        'a.vhd',
+        'a.vhdx',
+        '/srv/dir/evil.EXE',
       ]) {
         expect(windows.canOpenWith(name), isFalse, reason: name);
       }
@@ -45,6 +64,8 @@ void main() {
         'Makefile',
         '.env',
         'a.json',
+        // Cut when staged, so what is opened has no extension left.
+        '${'x' * 176}.exe.${'a' * 20}',
       ]) {
         expect(windows.canOpenWith(name), isTrue, reason: name);
       }
@@ -113,15 +134,49 @@ void main() {
       expect(source.count('download'), 0);
     });
 
-    test('a downloaded file carries the mark before it is opened', () async {
-      final controller = build();
+    test('the mark is written before every open', () async {
+      final events = <String>[];
+      final ordered = _OrderedActions(events);
+      media = MediaStore(
+        source: HermesMediaSource(() => FakeHermesServer().client()),
+        cacheDirectory: () async => cache,
+        actions: ordered,
+      );
+      final controller = FilesController(
+        source: source,
+        media: media,
+        profile: 'work',
+        cwd: p('/srv/p'),
+        policy: FilesPlatformPolicy(
+          windows: true,
+          mark: (file) async => events.add('mark'),
+        ),
+      );
+      addTearDown(controller.dispose);
       await controller.start();
       await controller.select(controller.entries.last);
+      events.clear();
+      await controller.openWith();
       await controller.openWith();
 
-      expect(marked, isNotEmpty);
-      expect(actions.opened, hasLength(1));
-      expect(marked.last, actions.opened.single);
+      expect(events.where((e) => e == 'open'), hasLength(2));
+      for (var i = 0; i < events.length; i++) {
+        if (events[i] == 'open') {
+          expect(events[i - 1], 'mark', reason: 'before the open at $i');
+        }
+      }
+    });
+
+    test('a hostile name is saved under its staged name', () async {
+      source.lists['/srv/p'] = () => listing([file('/srv/p/fdp\u202eexe.pdf')]);
+      source.downloads['/srv/p/fdp\u202eexe.pdf'] = writes([1], length: 1);
+      final controller = build();
+      await controller.start();
+      await controller.select(controller.entries.single);
+      await controller.save();
+
+      expect(actions.savedFiles.single.name, isNot(contains('\u202e')));
+      expect(actions.savedFiles.single.name, 'fdp_exe.pdf');
     });
 
     test('a file that cannot be marked is not opened', () async {
@@ -134,4 +189,16 @@ void main() {
       expect(actions.opened, isEmpty);
     });
   });
+}
+
+class _OrderedActions extends FakeMediaActions {
+  _OrderedActions(this.events);
+
+  final List<String> events;
+
+  @override
+  Future<bool> open(String path) {
+    events.add('open');
+    return super.open(path);
+  }
 }

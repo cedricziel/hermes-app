@@ -9,7 +9,8 @@ import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 typedef PickSaveDestination = Future<String?> Function(String name);
 
 /// Hands the file at a path to the system's export sheet and returns the
-/// saved path, or null when they cancel.
+/// saved path, or null when they cancel. The name is the staged file's own;
+/// the real export does not pass it on.
 typedef ExportFromPath = Future<String?> Function(String name, String path);
 
 /// Copies a file on disk to a place the user picks, never reading it into
@@ -38,15 +39,33 @@ class FileExport {
     if (_mobile) return await _exportFromPath(name, source.path) != null;
     final destination = await _pickDestination(name);
     if (destination == null) return false;
-    await source.copy(destination);
+    // Copied beside the destination and renamed over it, so a failed or
+    // interrupted copy never leaves a half-written file where the user chose.
+    final temp = File('$destination.hermes-$pid.part');
+    try {
+      await source.copy(temp.path);
+      await temp.rename(destination);
+    } on Object {
+      try {
+        if (await temp.exists()) await temp.delete();
+      } on Object {
+        // Best effort.
+      }
+      rethrow;
+    }
     return true;
   }
 
   static Future<String?> _pickWithSelector(String name) async =>
       (await selector.getSaveLocation(suggestedName: name))?.path;
 
+  // No `fileName`: with one, the plugin on iOS first copies the whole file to
+  // `NSTemporaryDirectory()/<name>`, outside the media cache, where it
+  // outlives App Lock and a kill. Without it the staged file is exported
+  // as it is (iOS) and Android names the document after the staged file, whose
+  // name is already the safe one.
   static Future<String?> _exportWithDialog(String name, String path) =>
       FlutterFileDialog.saveFile(
-        params: SaveFileDialogParams(sourceFilePath: path, fileName: name),
+        params: SaveFileDialogParams(sourceFilePath: path),
       );
 }
