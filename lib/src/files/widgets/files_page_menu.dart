@@ -12,13 +12,17 @@ enum FilesMenuChoice { copyPath, toggleHidden, refresh, about }
 
 /// The items of the page menu, in the order the design fixes: the full path
 /// (an info row, not a button), Copy path, a divider, Show hidden files
-/// (checked when on), Refresh and About this list.
+/// (checked when on), Refresh and About this list. With [onChoice] each
+/// item acts through its own `onTap`, for a bar that has no `onSelected`.
 List<PopupMenuEntry<FilesMenuChoice>> filesPageMenuItems(
   BuildContext context, {
   required ServerPath path,
   required bool showHidden,
+  ValueChanged<FilesMenuChoice>? onChoice,
 }) {
   final l10n = context.l10n;
+  VoidCallback? tap(FilesMenuChoice choice) =>
+      onChoice == null ? null : () => onChoice(choice);
   final scheme = Theme.of(context).colorScheme;
   return [
     PopupMenuItem<FilesMenuChoice>(
@@ -34,20 +38,24 @@ List<PopupMenuEntry<FilesMenuChoice>> filesPageMenuItems(
     ),
     PopupMenuItem<FilesMenuChoice>(
       value: FilesMenuChoice.copyPath,
+      onTap: tap(FilesMenuChoice.copyPath),
       child: Text(l10n.filesActionCopyPath),
     ),
     const PopupMenuDivider(),
     CheckedPopupMenuItem<FilesMenuChoice>(
       value: FilesMenuChoice.toggleHidden,
       checked: showHidden,
+      onTap: tap(FilesMenuChoice.toggleHidden),
       child: Text(l10n.filesActionShowHidden),
     ),
     PopupMenuItem<FilesMenuChoice>(
       value: FilesMenuChoice.refresh,
+      onTap: tap(FilesMenuChoice.refresh),
       child: Text(l10n.filesActionRefresh),
     ),
     PopupMenuItem<FilesMenuChoice>(
       value: FilesMenuChoice.about,
+      onTap: tap(FilesMenuChoice.about),
       child: Text(l10n.filesAboutList),
     ),
   ];

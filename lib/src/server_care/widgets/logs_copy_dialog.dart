@@ -21,19 +21,37 @@ class LogsCopyDialog extends StatelessWidget {
   final String cancelLabel;
 
   @override
-  Widget build(BuildContext context) => AppAlertDialog(
-    title: Text(title),
-    content: Text(message),
-    actions: [
-      AppDialogAction(
-        isDefault: platformChromeOf(context).isApple,
-        onPressed: () => Navigator.pop(context, false),
-        child: Text(cancelLabel),
-      ),
-      AppDialogAction(
-        onPressed: () => Navigator.pop(context, true),
-        child: Text(confirmLabel),
-      ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    // A Material dialog shrinks its padding as the text grows, down to a third
+    // at twice the size, which leaves the text touching the edge; give back
+    // what it took.
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final side = platformChromeOf(context).isApple
+        ? 0.0
+        : 16 * (scale - 1).clamp(0.0, 1.0);
+    Widget padded(Widget child) => side == 0
+        ? child
+        : Padding(
+            padding: EdgeInsets.symmetric(horizontal: side),
+            child: child,
+          );
+    return _dialog(context, padded);
+  }
+
+  Widget _dialog(BuildContext context, Widget Function(Widget) padded) =>
+      AppAlertDialog(
+        title: padded(Text(title)),
+        content: padded(Text(message)),
+        actions: [
+          AppDialogAction(
+            isDefault: platformChromeOf(context).isApple,
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(cancelLabel),
+          ),
+          AppDialogAction(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      );
 }

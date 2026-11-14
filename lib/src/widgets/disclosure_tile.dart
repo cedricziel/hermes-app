@@ -21,6 +21,7 @@ class DisclosureTile extends StatefulWidget {
     this.tilePadding,
     this.childrenPadding,
     this.expandedCrossAxisAlignment,
+    this.expandedAlignment,
     this.minTileHeight,
     this.iconColor,
     this.collapsedIconColor,
@@ -39,6 +40,9 @@ class DisclosureTile extends StatefulWidget {
   final EdgeInsetsGeometry? tilePadding;
   final EdgeInsetsGeometry? childrenPadding;
   final CrossAxisAlignment? expandedCrossAxisAlignment;
+
+  /// Where the children sit across the tile; centred when null.
+  final AlignmentGeometry? expandedAlignment;
   final double? minTileHeight;
   final Color? iconColor;
   final Color? collapsedIconColor;
@@ -75,6 +79,7 @@ class _DisclosureTileState extends State<DisclosureTile> {
     tilePadding: widget.tilePadding,
     childrenPadding: widget.childrenPadding,
     expandedCrossAxisAlignment: widget.expandedCrossAxisAlignment,
+    expandedAlignment: widget.expandedAlignment,
     minTileHeight: widget.minTileHeight,
     iconColor: widget.iconColor,
     collapsedIconColor: widget.collapsedIconColor,

@@ -13,7 +13,7 @@ import '../../widgets/named_popup_menu_button.dart';
 /// it a button that opens the field.
 const double kMacToolbarSearchFieldWidth = 1000;
 
-enum _More { copyTranscript, connection }
+enum _More { showFiles, copyTranscript, connection }
 
 /// The chat's toolbar in a Mac window: the chat's title over "profile ·
 /// model", then New Chat, Copy Transcript, Connection Details and search.
@@ -30,6 +30,7 @@ class MacChatToolbar extends StatelessWidget {
     required this.onNewChat,
     required this.onShowConnection,
     this.onCopyTranscript,
+    this.onShowFiles,
     this.activityOpen = false,
     this.activityWaiting = 0,
     this.onToggleActivity,
@@ -54,6 +55,9 @@ class MacChatToolbar extends StatelessWidget {
 
   /// Copies the open chat as Markdown; null while no chat is open.
   final VoidCallback? onCopyTranscript;
+
+  /// Opens the chat's Files page; null hides the item (an older server).
+  final VoidCallback? onShowFiles;
   final bool activityOpen;
 
   /// How many requests need the user; marks the Activity button.
@@ -158,10 +162,17 @@ class MacChatToolbar extends StatelessWidget {
       padding: EdgeInsets.zero,
       style: macToolbarButtonStyle(context),
       onSelected: (item) => switch (item) {
+        _More.showFiles => onShowFiles?.call(),
         _More.copyTranscript => onCopyTranscript?.call(),
         _More.connection => onShowConnection(),
       },
       itemBuilder: (_) => [
+        if (onShowFiles != null)
+          AdaptiveMenuItem(
+            value: _More.showFiles,
+            shortcut: '⇧⌘F',
+            child: const Text('Show Files'),
+          ),
         AdaptiveMenuItem(
           value: _More.copyTranscript,
           enabled: onCopyTranscript != null,

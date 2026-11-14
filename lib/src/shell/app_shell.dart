@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
 
 import '../../l10n/l10n.dart';
 import '../agent_messages/agent_message_watcher.dart';
@@ -67,6 +68,8 @@ import '../schedules/schedule_models.dart';
 import '../schedules/schedules_controller.dart';
 import '../schedules/schedules_screen.dart';
 import '../theme/app_icons.dart';
+import '../tools/toolset_installs.dart';
+import '../tools/tools_availability.dart';
 import '../theme/platform_chrome.dart';
 import '../windows/conversation_windows.dart';
 import 'app_presence.dart';
@@ -129,6 +132,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// The installs of the desktop on the server the user started, which go on
   /// whatever page is up and ask for the sudo password over it.
   BotScreenInstalls? _installs;
+
+  /// Whether the server offers Tools, with the chat profile's rows; read on
+  /// connect and resume, and forgotten on sign-out. One per shell, so it ends
+  /// with the connection.
+  ToolsAvailability? _tools;
+
+  /// The one install step of this connection, which outlives the Tools
+  /// screen.
+  ToolsetInstalls? _toolInstalls;
+
+  /// The profile [_tools] was last asked about.
+  String? _toolsProfile;
   BotModeRosterRepository? _botsRepository;
   BotModeChatRepository? _botChats;
   HermesGroupsRepository? _groups;
@@ -228,6 +243,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _profiles = repositories?.profiles;
     if (_profiles case final profiles?) {
       _chatProfiles = ChatProfiles(profiles);
+    }
+    if (repositories != null) {
+      _tools = ToolsAvailability(
+        repositories.tools,
+        telemetry: repositories.telemetry,
+      );
+      _toolInstalls = ToolsetInstalls(
+        // The open Tools screen reads its own config again; the list the
+        // entries hang on is read here.
+        requestReread: (_) => _refreshTools(),
+        telemetry: repositories.telemetry,
+      );
     }
     final auth = _auth = _maybeRead<AuthController>();
     _ownerGeneration = auth?.ownerGeneration;
@@ -380,7 +407,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _detection++;
       _watcher?.paused = !authorized;
       _messages?.paused = !authorized;
-      if (authorized) unawaited(_detect());
+      if (authorized) {
+        unawaited(_detect());
+        _followToolsProfile(force: true);
+      } else {
+        // Sign-out or a server change: nothing of the old connection stays.
+        _tools?.clear();
+        _toolInstalls?.clear();
+        _toolsProfile = null;
+      }
     }
     _navigationQueue?.resume();
   }
@@ -480,6 +515,23 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final profile = _chatProfiles?.current ?? _defaultProfile;
     _serverCare?.profileChanged(profile);
     _serverCheck?.profileChanged(profile);
+    _followToolsProfile();
+  }
+
+  /// Reads the Tools list for the chat's profile, once per profile and again
+  /// when [force]d.
+  void _followToolsProfile({bool force = false}) {
+    final profile = _chatProfiles?.current ?? _defaultProfile;
+    if (profile == null || !_authorizedOwner) return;
+    if (profile == _toolsProfile && !force) return;
+    _toolsProfile = profile;
+    unawaited(_tools?.refresh(profile));
+  }
+
+  void _refreshTools() {
+    final profile = _toolsProfile;
+    if (profile == null || !_authorizedOwner) return;
+    unawaited(_tools?.refresh(profile));
   }
 
   /// A status read skipped under App Lock is made up for on unlock.
@@ -532,6 +584,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _schedulesController?.dispose();
     _openRequests.dispose();
     _installs?.dispose();
+    _toolInstalls?.dispose();
+    _tools?.dispose();
     _gateway?.close();
     super.dispose();
   }
@@ -555,6 +609,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       unawaited(_serverCare?.resumed());
       _serverCheck?.resumed();
       _installs?.resumed();
+      _refreshTools();
       _detect();
     }
   }
@@ -620,30 +675,40 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final care = _serverCare;
     final gatewayRun = _gatewayRun;
     final updateRun = _updateRun;
+    final tools = _tools;
+    final toolInstalls = _toolInstalls;
     final serverCheck = _serverCheck;
-    final provided =
-        care == null ||
-            gatewayRun == null ||
-            updateRun == null ||
-            serverCheck == null
+    final hasCare =
+        care != null &&
+        gatewayRun != null &&
+        updateRun != null &&
+        serverCheck != null;
+    final providers = <SingleChildWidget>[
+      if (hasCare) ...[
+        ChangeNotifierProvider<ServerCareController>.value(value: care),
+        ChangeNotifierProvider<GatewayRestart>.value(value: gatewayRun),
+        ChangeNotifierProvider<HermesUpdateRun>.value(value: updateRun),
+        ChangeNotifierProvider<ServerCheckController>.value(value: serverCheck),
+        Provider<RepliesInProgress>.value(value: _replies),
+      ],
+      if (tools != null && toolInstalls != null) ...[
+        ChangeNotifierProvider<ToolsAvailability>.value(value: tools),
+        ChangeNotifierProvider<ToolsetInstalls>.value(value: toolInstalls),
+      ],
+    ];
+    final provided = providers.isEmpty
         ? built
         : MultiProvider(
-            providers: [
-              ChangeNotifierProvider<ServerCareController>.value(value: care),
-              ChangeNotifierProvider<GatewayRestart>.value(value: gatewayRun),
-              ChangeNotifierProvider<HermesUpdateRun>.value(value: updateRun),
-              ChangeNotifierProvider<ServerCheckController>.value(
-                value: serverCheck,
-              ),
-              Provider<RepliesInProgress>.value(value: _replies),
-            ],
+            providers: providers,
             // The banner shows in this window only, above every destination.
-            child: Builder(
-              builder: (context) => UpdateBannerLayer(
-                onOpen: () => showUpdatePage(context),
-                child: built,
-              ),
-            ),
+            child: hasCare
+                ? Builder(
+                    builder: (context) => UpdateBannerLayer(
+                      onOpen: () => showUpdatePage(context),
+                      child: built,
+                    ),
+                  )
+                : built,
           );
     final chrome = platformChromeOf(context);
     if (!chrome.isApple) return provided;

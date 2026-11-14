@@ -548,6 +548,17 @@ class FakeGateway {
           'id': id,
           'result': {'subagents': [], 'delegations': []},
         });
+      case 'process.list' when !unknownMethods.contains('process.list'):
+        // The same for the session's programs.
+        _send({
+          'id': id,
+          'result': {'processes': []},
+        });
+      case 'process.list' || 'subagent.list':
+        _send({
+          'id': id,
+          'error': {'code': -32601, 'message': 'unknown method'},
+        });
       case 'prompt.submit' when rejectSubmit:
         _send({
           'id': id,

@@ -20,11 +20,15 @@ class FolderPickList extends StatelessWidget {
     required this.rows,
     required this.onTap,
     this.selected,
+    this.leading = const [],
   });
 
   final List<FileRowModel> rows;
   final ValueChanged<FileRowModel> onTap;
   final ServerPath? selected;
+
+  /// Widgets above the first row, outside the card (an "up one folder" row).
+  final List<Widget> leading;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +40,7 @@ class FolderPickList extends StatelessWidget {
     if (folders.isEmpty) {
       return GroupedListView(
         children: [
+          ...leading,
           Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
@@ -48,6 +53,7 @@ class FolderPickList extends StatelessWidget {
       );
     }
     return FilesLazyList(
+      leading: leading,
       dividerIndent: metrics.indentAfterLeading,
       itemCount: folders.length,
       itemBuilder: (context, i) {

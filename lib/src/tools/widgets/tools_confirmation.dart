@@ -42,13 +42,19 @@ class ToolsetConfirmDialog extends StatelessWidget {
 }
 
 /// Asks [question] and answers true only when the user confirms; cancelling
-/// and dismissing answer false.
+/// and dismissing answer false. [onRoute] receives the dialog's route, so a
+/// caller can take the question down itself.
 Future<bool> showToolsetConfirmation(
   BuildContext context,
-  ToolsetQuestion question,
-) async =>
+  ToolsetQuestion question, {
+  void Function(Route<dynamic> route)? onRoute,
+}) async =>
     await showAppDialog<bool>(
       context: context,
-      builder: (_) => ToolsetConfirmDialog(question: question),
+      builder: (dialog) {
+        final route = ModalRoute.of(dialog);
+        if (route != null) onRoute?.call(route);
+        return ToolsetConfirmDialog(question: question);
+      },
     ) ??
     false;

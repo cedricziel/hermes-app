@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,6 +81,7 @@ void main() {
     required Size size,
     required TargetPlatform platform,
     required Brightness brightness,
+    Locale? locale,
   }) async {
     await shots.start(tester, size);
     // The status is not read until App Lock has loaded its setting.
@@ -97,6 +100,7 @@ void main() {
           lock: lock,
           MaterialApp(
             debugShowCheckedModeBanner: false,
+            locale: locale,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: withScreenshotFont(theme),
@@ -583,6 +587,190 @@ void main() {
       await openUsage(tester, shots);
       await back(tester);
       await logsAndCheck(tester, shots);
+      await letSocketsIdle(tester);
+    });
+  }
+
+  // Logs: the lines, the tabs and filters, loading, no match, refused, offline
+  // and the Copy question, on a phone and a Mac, in light and dark, and once
+  // in German.
+  for (final (name, platform, size, brightness, locale) in [
+    (
+      'phone',
+      TargetPlatform.android,
+      const Size(390, 844),
+      Brightness.light,
+      null,
+    ),
+    (
+      'phone-dark',
+      TargetPlatform.android,
+      const Size(390, 844),
+      Brightness.dark,
+      null,
+    ),
+    (
+      'phone-de',
+      TargetPlatform.android,
+      const Size(390, 844),
+      Brightness.light,
+      const Locale('de'),
+    ),
+    (
+      'mac',
+      TargetPlatform.macOS,
+      const Size(1160, 760),
+      Brightness.light,
+      null,
+    ),
+    (
+      'mac-dark',
+      TargetPlatform.macOS,
+      const Size(1160, 760),
+      Brightness.dark,
+      null,
+    ),
+  ]) {
+    testWidgets('$name: logs, filters, states and the copy question', (
+      tester,
+    ) async {
+      final german = locale != null;
+      String t(String en, String de) => german ? de : en;
+      final shots = ScreenshotRecorder('server-care-logs-$name');
+      Completer<void>? hold = Completer<void>();
+      var mode = 'lines';
+      server.onRequest('GET', '/api/logs', (o) async {
+        final gate = hold;
+        if (gate != null) await gate.future;
+        if (mode == 'offline') {
+          throw DioException.connectionError(requestOptions: o, reason: 'down');
+        }
+        if (mode == 'refused') {
+          return (
+            status: 400,
+            body: {'detail': 'The log file cannot be read by the dashboard.'},
+          );
+        }
+        final search = o.queryParameters['search'];
+        return (
+          status: 200,
+          body: {
+            'lines': search == 'zzz'
+                ? <String>[]
+                : [
+                    '2026-11-13 21:40:12,731 CRITICAL sessions.store: The session store could not be opened',
+                    '2026-11-14 09:11:40,010 INFO gateway.run: Connected to 2 channels',
+                    ...logsErrors,
+                  ],
+          },
+        );
+      });
+      await pumpShell(
+        tester,
+        shots,
+        size: size,
+        platform: platform,
+        brightness: brightness,
+        locale: locale,
+      );
+      if (platform == TargetPlatform.macOS) {
+        await tester.tap(find.text('Server').first);
+        await tester.pump(const Duration(milliseconds: 600));
+        await answered(tester);
+      } else {
+        await openServer(tester);
+      }
+      await tester.scrollUntilVisible(
+        find.text(t('Logs', 'Protokolle')),
+        300,
+        scrollable: find
+            .ancestor(
+              of: find.text(t('Messaging gateway', 'Messaging-Gateway')).first,
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.ensureVisible(find.text(t('Logs', 'Protokolle')));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(t('Logs', 'Protokolle')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      await shots.capture(tester, 'loading');
+      expect(
+        find.bySemanticsLabel(t('Loading logs', 'Protokolle werden geladen')),
+        findsWidgets,
+      );
+
+      hold.complete();
+      hold = null;
+      await answered(tester);
+      await shots.capture(tester, 'lines');
+      expect(find.text('Telegram failed'), findsOneWidget);
+
+      await tester.tap(find.text('Agent'));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'agent');
+      expect(
+        server
+            .requestsTo('GET', '/api/logs')
+            .any((r) => r.queryParameters['file'] == 'agent'),
+        isTrue,
+      );
+
+      await tester.enterText(find.byType(TextField).last, 'zzz');
+      await tester.pump(const Duration(milliseconds: 500));
+      await answered(tester);
+      await shots.capture(tester, 'no-match');
+      expect(
+        find.text(t('No lines match', 'Keine passenden Zeilen')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text(t('Clear filters', 'Filter zurücksetzen')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+
+      mode = 'refused';
+      await tester.tap(find.byKey(const Key('logs-refresh')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'refused');
+      expect(
+        find.text('The log file cannot be read by the dashboard.'),
+        findsOneWidget,
+      );
+
+      mode = 'offline';
+      await tester.tap(find.text(t('Try again', 'Erneut versuchen')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await shots.capture(tester, 'offline');
+      expect(
+        find.text(t("Can't reach Hermes", 'Hermes ist nicht erreichbar')),
+        findsOneWidget,
+      );
+
+      mode = 'lines';
+      await tester.tap(find.text(t('Try again', 'Erneut versuchen')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await answered(tester);
+      await tester.tap(find.byKey(const Key('logs-more')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.tap(
+        find.text(t('Copy shown lines', 'Angezeigte Zeilen kopieren')),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      await shots.capture(tester, 'copy-question');
+      expect(
+        find.text(
+          t('Copy these log lines?', 'Diese Protokollzeilen kopieren?'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text(t('Cancel', 'Abbrechen')));
+      await tester.pump(const Duration(milliseconds: 600));
       await letSocketsIdle(tester);
     });
   }

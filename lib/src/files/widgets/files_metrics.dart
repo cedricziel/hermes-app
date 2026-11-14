@@ -63,6 +63,7 @@ class FilesMetrics {
   /// An icon button of exactly [target] on each side, not Material's padded 48.
   ButtonStyle iconButtonStyle() => IconButton.styleFrom(
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.standard,
     fixedSize: Size.square(target),
     minimumSize: Size.square(target),
     padding: EdgeInsets.zero,
@@ -74,6 +75,7 @@ class FilesMetrics {
       Size(fullWidth ? double.infinity : target, target),
     ),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.standard,
     padding: WidgetStatePropertyAll(
       EdgeInsets.symmetric(horizontal: pointer ? 12 : 16),
     ),

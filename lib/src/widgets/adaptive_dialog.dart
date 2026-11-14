@@ -32,6 +32,8 @@ class AppAlertDialog extends StatelessWidget {
         title: title,
         content: content,
         actions: actions,
+        // Stacked at a large text size, the actions line up at the end.
+        actionsOverflowAlignment: OverflowBarAlignment.end,
         scrollable: scrollable,
       );
     }
@@ -216,6 +218,9 @@ Future<bool> showConfirmDialog(
       builder: (dialog) => _DismissWhen(
         when: dismissWhen,
         child: AppAlertDialog(
+          // At a large text size the title and text scroll together and the
+          // actions stay in view.
+          scrollable: true,
           title: Text(title),
           content: message == null ? null : Text(message),
           actions: [
