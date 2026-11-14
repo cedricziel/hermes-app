@@ -131,6 +131,23 @@ void main() {
     expect(files, hasLength(1));
   });
 
+  test('release while permission is pending, then denied, shows only the '
+      'permission notice', () async {
+    final pending = _PendingPermission();
+    recorder = pending;
+    create();
+    final starting = recording.start();
+    await pumpAudio();
+    final finishing = recording.finish();
+    pending.gate.complete(false);
+    await starting;
+    await finishing;
+    expect(errors, hasLength(1));
+    expect(errors.single, contains('Microphone access'));
+    expect(files, isEmpty);
+    expect(recording.busy, isFalse);
+  });
+
   test('short recordings are discarded', () async {
     create();
     await recording.start();

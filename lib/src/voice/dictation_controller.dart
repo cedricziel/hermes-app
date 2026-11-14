@@ -222,7 +222,14 @@ class DictationController extends ChangeNotifier {
   Future<void> _start() async {
     final run = ++_run;
     _keptClip = null;
-    if (!await _recorder.requestPermission()) {
+    final bool granted;
+    try {
+      granted = await _recorder.requestPermission();
+    } on Object {
+      if (_current(run)) _end(DictationPhase.failed, 'failed');
+      return;
+    }
+    if (!granted) {
       if (_current(run)) _end(DictationPhase.denied, 'denied');
       return;
     }
@@ -368,6 +375,8 @@ class DictationController extends ChangeNotifier {
       } else {
         _end(DictationPhase.failed, 'failed', path: 'device');
       }
+    } on Object {
+      if (_current(run)) _end(DictationPhase.failed, 'failed', path: 'device');
     }
     return null;
   }
@@ -580,8 +589,12 @@ class DictationController extends ChangeNotifier {
     _lastOutcome = 'cancelled';
     _completeSettledWaiters();
     unawaited(() async {
-      await cancel();
-      await _starting;
+      try {
+        await cancel();
+        await _starting;
+      } on Object {
+        // The recorder is released below whatever the start did.
+      }
       await _recorder.dispose();
     }());
     super.dispose();

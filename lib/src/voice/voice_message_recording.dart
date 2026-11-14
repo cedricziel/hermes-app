@@ -86,7 +86,7 @@ class VoiceMessageRecording extends ChangeNotifier with WidgetsBindingObserver {
       await _focus.pausePlayers(except: _pauseForCall);
       if (!_held || epoch != _epoch || !_allowed) return;
       final permission = await _recorder.requestPermission();
-      if (!_held || epoch != _epoch || !_allowed) return;
+      if (epoch != _epoch || !_allowed) return;
       if (!permission) {
         _held = false;
         phase = VoiceRecordingPhase.idle;
@@ -96,6 +96,7 @@ class VoiceMessageRecording extends ChangeNotifier with WidgetsBindingObserver {
         _notify();
         return;
       }
+      if (!_held) return;
       final stream = await _recorder.start(sampleRate: sampleRate);
       _drained = Completer<void>();
       _subscription = stream.listen(
@@ -155,6 +156,8 @@ class VoiceMessageRecording extends ChangeNotifier with WidgetsBindingObserver {
     // Awaiting start also covers release while the platform is opening audio.
     try {
       await _starting;
+      // A start that already ended (denied, failed) has said why.
+      if (phase == VoiceRecordingPhase.idle) return;
       phase = VoiceRecordingPhase.attaching;
       _ticker?.cancel();
       _clock.stop();
