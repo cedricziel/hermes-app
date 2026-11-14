@@ -1153,8 +1153,9 @@ void main() {
     /// same screen controller, as the chat screen's viewers do, and takes the
     /// lease with a new id. Runs [answer] while A's release is still pending.
     void closingThenReopened(
-      void Function(Map<String, Object?> release) answer,
-    ) {
+      void Function(Map<String, Object?> release) answer, {
+      bool noObserve = false,
+    }) {
       unawaited(viewer.takeOver());
       settle();
       gateway.silent.add('display.lease.release');
@@ -1183,6 +1184,7 @@ void main() {
         handshake();
         expect(server.holderId, 'viewer-2');
         final acquiresBefore = server.acquired.length;
+        final observesBefore = server.observedWith.length;
 
         answer(release);
         settle();
@@ -1193,6 +1195,9 @@ void main() {
         expect(server.holderId, 'viewer-2');
         expect(server.acquired.length, acquiresBefore);
         expect(server.released, isNot(contains('viewer-3')));
+        // The answer names a live viewer's id, so the closing viewer stops
+        // there instead of observing again to take the lease over.
+        if (noObserve) expect(server.observedWith.length, observesBefore);
       } finally {
         other.dispose();
       }
@@ -1209,7 +1214,7 @@ void main() {
               release['params'] as Map<String, Object?>,
             ) as Map<String, Object?>,
           );
-        });
+        }, noObserve: true);
       });
     });
 
@@ -1243,10 +1248,91 @@ void main() {
 
         unawaited(viewer.shutDown('close'));
         settle();
+        // Still inside the budget: the unanswered release keeps the id from
+        // being offered to a viewer opened meanwhile.
+        expect(ids.latest, isNull);
         async.elapse(kViewerReleaseBudget);
         settle();
 
         expect(ids.latest, isNull);
+      });
+    });
+
+    test('a lease left by a dead viewer is still freed by a viewer shutting '
+        'down on a new connection', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        viewer.foreground = false;
+        settle();
+        // A viewer that is gone left its id on the lease; nobody uses it.
+        ids
+          ..add('stale')
+          ..add('viewer-1');
+        server.takeBy('stale');
+        settle();
+        expect(screen.inControlHere, isTrue);
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(server.holder, 'agent');
+      });
+    });
+
+    test('a new id minted to give the lease back is not offered to a viewer '
+        'opened meanwhile, and is offered again once released', () {
+      scenario(() {
+        pausedOnDeadConnection();
+        gateway.silent.add('display.lease.release');
+        unawaited(viewer.shutDown('close'));
+        settle();
+        // The new id (viewer-2) took the lease and its release is pending.
+        expect(server.holderId, 'viewer-2');
+        final otherScreen = BotScreenController(
+          repository,
+          transport.connectionEvents,
+          profile: 'work',
+          viewerIds: ids,
+          events: telemetry.events,
+        );
+        final other = BotScreenViewerController(
+          repository: repository,
+          screen: otherScreen,
+          openSocket: (path, ticket) async {
+            final next = server.openStream(ticket);
+            channels.add(next);
+            return next;
+          },
+          profile: 'work',
+          random: _Fixed(),
+          telemetry: telemetry,
+          platform: TargetPlatform.macOS,
+        );
+        try {
+          other.start();
+          settle();
+          expect(server.observedWith.last, isNull);
+        } finally {
+          other.dispose();
+          otherScreen.dispose();
+        }
+      });
+    });
+
+    test('a release answered on a new connection offers that id again', () {
+      scenario(() {
+        pausedOnDeadConnection();
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(server.holder, 'agent');
+        expect(ids.latest, 'viewer-2');
       });
     });
 

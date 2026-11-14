@@ -926,7 +926,7 @@ class BotScreenViewerController extends ChangeNotifier {
     _dropInput();
     if (screen.inControlHere) {
       if (_viewerId case final id?) {
-        _retiredId = id;
+        _retiredIds.add(id);
         _ids.retire(id);
       }
       var released = false;
@@ -940,7 +940,7 @@ class BotScreenViewerController extends ChangeNotifier {
       // A release the server answered leaves nothing for the id to name, so
       // the next viewer may ask for it again.
       if (released && _releaseAnswered) {
-        if (_retiredId case final id?) _ids.unretire(id);
+        _retiredIds.forEach(_ids.unretire);
       }
     }
     dispose();
@@ -955,14 +955,19 @@ class BotScreenViewerController extends ChangeNotifier {
   /// The ids this viewer used, for [dispose] to let go of.
   final _mine = <String>{};
 
-  String? _retiredId;
+  /// The ids this viewer retired while shutting down.
+  final _retiredIds = <String>{};
   var _releaseAnswered = false;
 
-  /// Whether [lease] names an id this viewer used, as opposed to one that
-  /// another viewer of the app holds now.
-  bool _ownsLease(BotScreenLease lease) =>
-      lease.holder == BotScreenHolder.human &&
-      _mine.any((id) => BotScreenViewerIds.hashOf(id) == lease.viewerHash);
+  /// Whether [lease] names an id that another live viewer of the app uses,
+  /// so it is that viewer's to give back. An id nobody uses (one a dead viewer
+  /// left) is not: it is stranded and a release may still free it.
+  bool _heldByAnotherViewer(BotScreenLease lease) {
+    final hash = lease.viewerHash;
+    if (lease.holder != BotScreenHolder.human || hash == null) return false;
+    final own = _mine.any((id) => BotScreenViewerIds.hashOf(id) == hash);
+    return _ids.usersOf(hash) > (own ? 1 : 0);
+  }
 
   /// Set when a shut-down release did not get through: [dispose] then forgets
   /// this viewer's ids unless another viewer uses them.
@@ -987,7 +992,7 @@ class BotScreenViewerController extends ChangeNotifier {
       connection: connection,
     );
     if (result case BotScreenOk(:final value)
-        when _holdsLease(value) && !_ownsLease(value)) {
+        when _holdsLease(value) && _heldByAnotherViewer(value)) {
       // Another viewer of this app holds the lease now: not this one's to give
       // back, and taking it over would evict that viewer.
       screen.adoptLease(value);
@@ -1022,10 +1027,13 @@ class BotScreenViewerController extends ChangeNotifier {
     // that names no id of this app.
     if (!_disposed) {
       _remember(id);
+      _retiredIds.add(id);
       _ids.retire(id);
     }
     final lease = fresh.status.lease;
-    if (_holdsLease(lease) && !_ownsLease(lease) && lease.viewerHash != hash) {
+    if (_holdsLease(lease) &&
+        _heldByAnotherViewer(lease) &&
+        lease.viewerHash != hash) {
       // Another viewer of this app took the lease meanwhile.
       return _Step.done;
     }

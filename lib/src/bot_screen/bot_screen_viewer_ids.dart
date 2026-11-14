@@ -35,6 +35,9 @@ class BotScreenViewerIds {
   void retain(String id) =>
       _users.update(hashOf(id), (count) => count + 1, ifAbsent: () => 1);
 
+  /// How many live viewers use the id whose lease hash is [hash].
+  int usersOf(String hash) => _users[hash] ?? 0;
+
   /// Ends a viewer's use of [id]. With [forget], for a release that did not get
   /// through, the id is dropped once no other viewer uses it: the lease it may
   /// still hold then names no id of this app, so it reads as someone else's and
