@@ -48,17 +48,41 @@ class HermesModelsRepository {
     ModelChoice? choice, {
     String? profile,
     bool confirmExpensive = false,
-  }) async {
+  }) => _assign(
+    ModelAssignment(
+      scope: 'auxiliary',
+      task: task,
+      provider: choice?.providerId ?? 'auto',
+      model: choice?.modelId ?? '',
+      reasoningEffort: choice?.effort,
+      confirmExpensiveModel: confirmExpensive,
+    ),
+    profile,
+  );
+
+  /// Makes [choice] the default model of [profile], for chats started
+  /// afterwards, without touching the server's active profile. Hermes keeps no
+  /// default effort for the main model, so [ModelChoice.effort] is not sent.
+  /// Returns Hermes' warning when the model is expensive and was not confirmed
+  /// with [confirmExpensive]; nothing is saved then.
+  Future<String?> assignMain(
+    ModelChoice choice, {
+    required String profile,
+    bool confirmExpensive = false,
+  }) => _assign(
+    ModelAssignment(
+      scope: 'main',
+      provider: choice.providerId,
+      model: choice.modelId,
+      confirmExpensiveModel: confirmExpensive,
+    ),
+    profile,
+  );
+
+  Future<String?> _assign(ModelAssignment assignment, String? profile) async {
     final response = await _api.setModelAssignmentApiModelSetPost(
       profile: profile,
-      modelAssignment: ModelAssignment(
-        scope: 'auxiliary',
-        task: task,
-        provider: choice?.providerId ?? 'auto',
-        model: choice?.modelId ?? '',
-        reasoningEffort: choice?.effort,
-        confirmExpensiveModel: confirmExpensive,
-      ),
+      modelAssignment: assignment,
     );
     final body = response.data;
     if (body is Map && body['confirm_required'] == true) {

@@ -15,6 +15,7 @@ import 'hermes_messaging_repository.dart';
 import 'messaging_setup_screen.dart';
 import '../chat/gateway_connection_transport.dart';
 import 'widgets/messaging_platform_row.dart';
+import '../telemetry/report_bug.dart';
 
 /// Lists the messaging platforms Hermes can run as platforms and switches them
 /// on or off. A platform that lacks credentials offers "Set Up" in place of
@@ -110,7 +111,8 @@ class _MessagingScreenState extends State<MessagingScreen> {
         return;
       }
       setState(() => _platforms = platforms);
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a messaging screen');
       if (mounted &&
           generation == _generation &&
           (owner == null || _changes!.ownsPeriod(owner))) {
@@ -130,7 +132,8 @@ class _MessagingScreenState extends State<MessagingScreen> {
     try {
       await _repository.setEnabled(platform.id, enabled);
       if (mounted) await _load();
-    } on Object {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a messaging screen');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
