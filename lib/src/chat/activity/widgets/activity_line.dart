@@ -77,11 +77,16 @@ class _ActivityLineState extends State<ActivityLine>
       if (model == null || (widget.model == null && _size.value == 0)) {
         return const SizedBox.shrink();
       }
+      Widget line = _Line(model: model, onOpen: widget.onOpen);
+      if (widget.model == null) {
+        // Folding away: no taps, nothing for a screen reader.
+        line = IgnorePointer(child: ExcludeSemantics(child: line));
+      }
       return ClipRect(
         child: Align(
           alignment: Alignment.topCenter,
           heightFactor: _size.value,
-          child: _Line(model: model, onOpen: widget.onOpen),
+          child: line,
         ),
       );
     },
@@ -99,7 +104,9 @@ class _Line extends StatelessWidget {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final scaler = MediaQuery.textScalerOf(context);
-    final twoRows = scaler.scale(1) >= kActivityLineTwoRowScale;
+    final twoRows =
+        scaler.scale(_kSentenceSize) / _kSentenceSize >=
+        kActivityLineTwoRowScale;
     final sentenceLine = scaler.scale(_kSentenceSize) * 1.3;
     final chipLine = scaler.scale(_kChipSize) * 1.25 + 6;
     final minHeight = platformChromeOf(context).isApple
@@ -136,9 +143,9 @@ class _Line extends StatelessWidget {
       container: true,
       button: true,
       label: spoken.isEmpty
-          ? l10n.chatActivityLineLabel(model.sentence)
+          ? l10n.chatActivityLineLabel(model.spokenSentence)
           : l10n.chatActivityLineLabelCounters(
-              model.sentence,
+              model.spokenSentence,
               spoken.join(', '),
             ),
       onTap: onOpen,

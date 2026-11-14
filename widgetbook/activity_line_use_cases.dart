@@ -181,8 +181,8 @@ WidgetbookNode activityLineNode() => WidgetbookComponent(
                 _line(context, _with(recall, [_plan, _processes])),
               ),
               (
-                'Models and plan',
-                _line(context, _with(_sources[3].$2, [_references, _plan])),
+                'Models answered and plan',
+                _line(context, _with(_sources[0].$2, [_references, _plan])),
               ),
               (
                 'Three known, the two newest shown',
@@ -278,22 +278,26 @@ WidgetbookNode activityLineNode() => WidgetbookComponent(
         ),
       ),
     ),
-    WidgetbookUseCase(
-      name: 'Reduced motion',
-      builder: (_) => _at(
-        390,
-        _still(
-          Builder(
-            builder: (context) => _column([
-              (
-                'Static indicator, no size transition',
-                _line(context, _with(_sources[3].$2, [_references])),
+    for (final (name, scale) in [('', 1.0), (', text 2x', 2.0)])
+      WidgetbookUseCase(
+        name: 'Reduced motion$name',
+        builder: (_) => _at(
+          390,
+          _still(
+            _scaled(
+              scale,
+              Builder(
+                builder: (context) => _column([
+                  (
+                    'Static indicator, no size transition',
+                    _line(context, _with(_sources[0].$2, [_references, _plan])),
+                  ),
+                ]),
               ),
-            ]),
+            ),
           ),
         ),
       ),
-    ),
     WidgetbookUseCase(
       name: 'Appears and disappears',
       builder: (_) => _at(390, const _Appearing()),

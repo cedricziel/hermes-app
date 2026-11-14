@@ -31,6 +31,16 @@ class ActivityLineModel {
   /// Whether the progress indicator is drawn.
   final bool busy;
 
+  /// The sentence for a screen reader: a closing ellipsis or full stop would
+  /// only be read as a pause before ", plan 2 of 5" or ". Opens activity.".
+  String get spokenSentence {
+    final trimmed = sentence.replaceFirst(
+      RegExp(r'(\s*(…|\.\.\.|\.))+\s*$'),
+      '',
+    );
+    return trimmed.isEmpty ? sentence : trimmed;
+  }
+
   /// The line for [summary]. [AppLocalizations] is the only place the
   /// sentence kinds become words.
   factory ActivityLineModel.fromSummary(

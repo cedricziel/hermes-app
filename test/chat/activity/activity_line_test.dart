@@ -104,6 +104,55 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets(
+    'the name drops a closing ellipsis or full stop of the sentence',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      for (final (sentence, spoken) in [
+        ('Restoring the chat…', 'Restoring the chat'),
+        ('Restoring the chat...', 'Restoring the chat'),
+        ('Waiting for the build.', 'Waiting for the build'),
+        ('Version 1.2', 'Version 1.2'),
+      ]) {
+        await _pump(
+          tester,
+          ActivityLine(
+            model: _model(sentence: sentence, counters: false),
+            onOpen: () {},
+          ),
+        );
+        expect(
+          tester
+              .getSemantics(find.bySemanticsLabel(RegExp('^Hermes is working')))
+              .label,
+          'Hermes is working: $spoken. Opens activity.',
+        );
+        // The drawn sentence is untouched.
+        expect(find.text(sentence), findsOneWidget);
+      }
+      handle.dispose();
+    },
+  );
+
+  testWidgets('a line that is folding away takes no taps and is not spoken', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    var opened = 0;
+    await _pump(tester, ActivityLine(model: _model(), onOpen: () => opened++));
+    await _pump(tester, ActivityLine(model: null, onOpen: () => opened++));
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(find.byKey(const Key('activity-line')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('^Hermes is working')), findsNothing);
+    await tester.tap(
+      find.byKey(const Key('activity-line')),
+      warnIfMissed: false,
+    );
+    expect(opened, 0);
+    await tester.pump(const Duration(milliseconds: 300));
+    handle.dispose();
+  });
+
   testWidgets('is a 44 pt target on Apple and 48 dp on Material', (
     tester,
   ) async {
@@ -268,13 +317,14 @@ void main() {
       planOpen: true,
       counters: [
         WorkingCounter.plan(done: 2, total: 5, at: 2),
-        WorkingCounter.processes(running: 2, at: 1),
+        WorkingCounter.references(done: 3, total: 5, at: 1),
       ],
     )!;
     final model = ActivityLineModel.fromSummary(l10n, summary);
     expect(model.sentence, '2 Prozesse laufen');
-    expect(model.counters.map((c) => c.text), ['2/5', '2 laufen']);
+    expect(model.counters.map((c) => c.text), ['2/5', '3/5']);
     expect(model.counters.first.label, 'Plan 2 von 5');
+    expect(model.counters.last.label, '3 von 5 Modellen haben geantwortet');
   });
 
   group('MacToolbarSubtitle', () {
