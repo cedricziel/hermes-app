@@ -15,15 +15,15 @@ Two PRs, in order, each about 500 changed lines or fewer. Every behaviour task s
 
 ## 2. PR 2: `feat(chat): show working activity in one line`
 
-- [ ] 2.1 Write failing widget tests: on phone, tablet and Material desktop the line sits below the header (above a Bot Chat banner) while something works, opens the Activity panel on tap, hides while the inspector is open and disappears when the turn settles; on macOS no line is drawn and the toolbar subtitle carries the sentence in the main window and in a conversation window independently; the quick panel shows neither.
-- [ ] 2.2 Draw the line in `ChatThreadView`, pass the summary to `MacChatToolbar` from `ChatScreen` and to `ConversationWindowToolbar` from `ConversationWindowScreen`, and verify 2.1 passes.
-- [ ] 2.3 Write a failing test that with a plan, a process, usage and a pending billing verification together, only the activity line sits between header and transcript, billing is docked above the composer, and the rest is in the Activity panel.
-- [ ] 2.4 Write a failing `BoundActivityPanel` test that process output cards are under Now and not This session; move them; update the session-state, todo, process-output and mixture-of-agents widget tests for their panel location; verify 2.3 and the whole suite pass.
-- [ ] 2.5 Write a failing test that opening the panel from the line records `chat.activity.opened` with `source: line` and nothing else new; implement and verify it passes.
+- [x] 2.1 Write failing widget tests: on phone, tablet and Material desktop the line sits below the header (above a Bot Chat banner) while something works, opens the Activity panel on tap, hides while the inspector is open and disappears when the turn settles; on macOS no line is drawn and the toolbar subtitle carries the sentence in the main window and in a conversation window independently; the quick panel shows neither.
+- [x] 2.2 Draw the line in `ChatThreadView`, pass the summary to `MacChatToolbar` from `ChatScreen` and to `ConversationWindowToolbar` from `ConversationWindowScreen`, and verify 2.1 passes.
+- [x] 2.3 Write a failing test that with a plan, a process, usage and a pending billing verification together, only the activity line sits between header and transcript, billing is docked above the composer, and the rest is in the Activity panel.
+- [x] 2.4 Write a failing `BoundActivityPanel` test that process output cards are under Now and not This session; move them; update the session-state, todo, process-output and mixture-of-agents widget tests for their panel location; verify 2.3 and the whole suite pass.
+- [x] 2.5 Write a failing test that opening the panel from the line records `chat.activity.opened` with `source: line` and nothing else new; implement and verify it passes.
 
 ## 3. Docs and skills
 
-- [ ] 3.1 Update `docs/architecture/chat.md` (the activity paragraph: line, toolbar subtitle, process output in Now) and the Chat paragraph of `CLAUDE.md` if it needs it, the `component-catalog` skill if it lists changed cards, and refresh the chat workflow screenshots per the `workflow-screenshots` skill.
+- [x] 3.1 Update `docs/architecture/chat.md` (the activity paragraph: line, toolbar subtitle, process output in Now) and the Chat paragraph of `CLAUDE.md` if it needs it, the `component-catalog` skill if it lists changed cards, and refresh the chat workflow screenshots per the `workflow-screenshots` skill.
 - [ ] 3.2 After this change is merged, archive the `chat-activity-*` changes in order (needs-you, line) so the `chat-activity` spec builds up correctly.
 
 ## 4. Verify

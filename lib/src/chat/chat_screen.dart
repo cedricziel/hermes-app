@@ -116,6 +116,7 @@ import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
+import 'activity/bound_activity_line.dart';
 import 'activity/bound_activity_panel.dart';
 import 'activity/bound_needs_you_dock.dart';
 import 'activity/needs_you_queue.dart';

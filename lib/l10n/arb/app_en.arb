@@ -452,6 +452,10 @@
     "description": "Warning line on the Needs-you card when no confirmation of an answer arrived in time."
   },
 
+  "chatActivityProcessesOmitted": "Earlier process cards omitted.",
+  "@chatActivityProcessesOmitted": {
+    "description": "Note under the process output cards in the Activity panel when older cards were dropped."
+  },
   "@@x-area-chat/attachments": "",
 
   "@@x-area-chat/checkpoints": "",

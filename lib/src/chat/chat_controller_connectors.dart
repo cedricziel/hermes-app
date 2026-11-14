@@ -262,8 +262,18 @@ extension _ChatControllerConnectors on ChatController {
               }
             }
             if (!change.connected) {
+              // A resume cut off mid-way sends no more progress.
+              var cut = false;
+              for (final state in _sessionStates.values) {
+                if (state.resume?.status == 'loading') {
+                  state.resume = null;
+                  cut = true;
+                }
+              }
               if (identical(_connectorConnection, change.connection)) {
                 _clearConnectionOperations();
+                notifyListeners();
+              } else if (cut) {
                 notifyListeners();
               }
               return;
