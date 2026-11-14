@@ -37,6 +37,15 @@ class _UsagePageState extends State<UsagePage> {
   String? _careProfile;
   bool _asTable = false;
 
+  /// The server has no usage route: the row on the Server screen goes, and a
+  /// page opened from it closes rather than explain a missing part.
+  void _usageMissing() {
+    _care.reportUnsupported(CarePart.usage);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -45,7 +54,7 @@ class _UsagePageState extends State<UsagePage> {
     _controller = UsageController(
       repository: HermesRepositories.of(context).serverCare,
       profile: _careProfile,
-      onUnsupported: () => _care.reportUnsupported(CarePart.usage),
+      onUnsupported: _usageMissing,
     );
     _care.addListener(_followChatProfile);
     Breadcrumbs crumbs;

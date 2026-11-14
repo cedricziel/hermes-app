@@ -170,6 +170,52 @@ void main() {
     });
   });
 
+  group('a missing or failing part', () {
+    testWidgets('a failed re-check says so instead of keeping the old answer', (
+      tester,
+    ) async {
+      await pump(tester);
+      await tester.tap(find.text('Updates'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hermes is up to date'), findsOneWidget);
+
+      server.on('GET', '/api/hermes/update/check', {}, status: 500);
+      await tester.tap(find.text('Check now'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hermes is up to date'), findsNothing);
+      expect(find.text("Couldn't check"), findsWidgets);
+    });
+
+    testWidgets('Usage goes from Tools once the server has no usage route', (
+      tester,
+    ) async {
+      await pump(tester);
+      expect(find.text('Usage'), findsOneWidget);
+      care.reportUnsupported(CarePart.usage);
+      await tester.pumpAndSettle();
+      expect(find.text('Usage'), findsNothing);
+      expect(find.text('Tools'), findsNothing);
+    });
+  });
+
+  group('Usage on a server without the route', () {
+    testWidgets('closes the page it opened and hides the row', (tester) async {
+      server.on('GET', '/api/analytics/usage', {
+        'detail': 'Not Found',
+      }, status: 404);
+      await pump(tester);
+      await tester.tap(find.text('Usage'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text("Usage isn't available"), findsNothing);
+      expect(find.text('Server'), findsWidgets);
+      expect(find.text('Usage'), findsNothing);
+    });
+  });
+
   group('Server section', () {
     testWidgets('shows the free space with the share used under it', (
       tester,

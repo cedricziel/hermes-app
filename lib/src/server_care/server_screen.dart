@@ -128,16 +128,17 @@ class _ServerScreenState extends State<ServerScreen> {
       if (showStatus || !care.supported) ..._hermes(care, status),
       if (showStatus) ..._gateway(status),
       if (showStatus) ..._machine(status),
-      GroupedSection(
-        header: 'Tools',
-        children: [
-          GroupedRow(
-            title: 'Usage',
-            subtitle: 'Tokens and cost by day and model',
-            onTap: () => _open(const UsagePage()),
-          ),
-        ],
-      ),
+      if (care.offers(CarePart.usage))
+        GroupedSection(
+          header: 'Tools',
+          children: [
+            GroupedRow(
+              title: 'Usage',
+              subtitle: 'Tokens and cost by day and model',
+              onTap: () => _open(const UsagePage()),
+            ),
+          ],
+        ),
       GroupedSection(
         children: [
           GroupedRow(

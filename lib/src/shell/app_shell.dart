@@ -557,9 +557,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         final index = destinations.indexOf(_current);
         void select(int i) => _selectByUser(destinations[i]);
         final switcher = mac ? _profileSwitcher() : null;
-        final serverCaption = _serverCare == null
+        // Only a Mac sidebar shows the caption; others need not rebuild.
+        final serverCaption = !mac || _serverCare == null
             ? null
-            : context.watch<ServerCareController>().mark.caption;
+            : context.select<ServerCareController, String?>(
+                (care) => care.mark.caption,
+              );
         final shellNavigation = ShellNavigation(
           destinations: [
             for (final d in destinations)

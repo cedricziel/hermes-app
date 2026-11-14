@@ -55,6 +55,10 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   /// The chat's profile this controller reads for; null until one is known.
   String? get profile => _profile;
 
+  /// Whether the server has the route of [part], as far as it is known: true
+  /// until a read of it was answered with a missing route.
+  bool offers(CarePart part) => !_reportedUnsupported.contains(part);
+
   /// The last status read, kept while a later read fails.
   ServerStatus? get status => _status;
 
@@ -176,6 +180,7 @@ class ServerCareController extends ChangeNotifier with SafeNotifier {
   /// part is a fixed name; nothing about the server goes in the event.
   void reportUnsupported(CarePart part) {
     if (!_reportedUnsupported.add(part)) return;
+    notifyListeners();
     _quiet(
       () => telemetry.events('server_care.unsupported', {'part': part.name}),
     );

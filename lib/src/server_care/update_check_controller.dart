@@ -74,7 +74,9 @@ class UpdateCheckController extends ChangeNotifier with SafeNotifier {
     if (!_supported) return null;
     if (_loading && _check == null) return const UpdateChecking();
     final failure = _failure;
-    if (failure != null && _check == null) {
+    // A failed check is said even when an earlier one succeeded: the old
+    // answer is not what the server says now.
+    if (failure != null && !_loading) {
       return UpdateCheckFailed(message: _failureText(failure));
     }
     final check = _check;
