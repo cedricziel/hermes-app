@@ -253,10 +253,9 @@ void main() {
 
     expect(read, isA<SessionEmpty>());
     expect(events.named('auth.session.corrupt'), hasLength(1));
-    expect(
-      events.named('auth.session.corrupt').single['error.type'],
-      isNotEmpty,
-    );
+    expect(events.named('auth.session.corrupt').single, {
+      'error.type': 'FormatException',
+    });
   });
 
   test(

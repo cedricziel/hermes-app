@@ -20,6 +20,11 @@ class PageToken {
     } on DioException {
       _cached = null;
       return null;
+    } on Object {
+      // Not a failed request: forget the cached future so a later call asks
+      // again, and let the bug surface.
+      _cached = null;
+      rethrow;
     }
   }
 

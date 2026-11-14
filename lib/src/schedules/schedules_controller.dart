@@ -488,8 +488,7 @@ class SchedulesController extends ChangeNotifier {
         return null;
       }
       return job;
-    } on DioException {
-      // Offline or a server error: the job on screen stays as it was.
+    } on Object {
       _requireCurrent(epoch);
       return job;
     }
@@ -507,8 +506,7 @@ class SchedulesController extends ChangeNotifier {
       return [
         for (final p in overview?.profiles ?? const <HermesProfile>[]) p.name,
       ];
-    } on DioException {
-      // The picker offers the default profile only.
+    } on Object {
       _requireCurrent(epoch);
       return const [];
     }

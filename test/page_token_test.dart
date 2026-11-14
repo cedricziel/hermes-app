@@ -31,5 +31,6 @@ void main() {
     final token = PageToken(_Page(() async => throw StateError('bug')));
 
     await expectLater(token.get(), throwsStateError);
+    await expectLater(token.get(), throwsStateError);
   });
 }

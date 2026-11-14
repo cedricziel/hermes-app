@@ -271,6 +271,7 @@ class ScheduleWatcher with WidgetsBindingObserver {
       // Before the alerts, so that a baseline that cannot be saved announces
       // nothing now rather than once more at every look.
       await _baseline.write(account, pass.baseline);
+      _reported.clear();
       if (!_current(epoch) || _inFront) return;
       final alerts = alertsFor(unmuted, activeProfile: activeProfile);
       for (final alert in alerts) {
@@ -284,7 +285,6 @@ class ScheduleWatcher with WidgetsBindingObserver {
           await service.show(alert);
         }
       }
-      _reported.clear();
     } on Object catch (error) {
       // A look that failed is tried again on the next tick; the failure is
       // reported once per error type until a look succeeds.
