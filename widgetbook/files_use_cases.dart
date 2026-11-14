@@ -910,6 +910,14 @@ WidgetbookComponent _previewViewComponent() => WidgetbookComponent(
     ),
     _case('Markdown, rendered', (_) => _view(const MarkdownContent(_markdown))),
     _case(
+      'Markdown, control and bidi characters shown',
+      (_) => _view(
+        const MarkdownContent(
+          'Looks safe\u202E but is not\u001B[2J.\n\n```python\nx = "a\u202Eb"\n```',
+        ),
+      ),
+    ),
+    _case(
       'Markdown, source',
       (_) => _view(const MarkdownContent(_markdown, showSource: true)),
     ),

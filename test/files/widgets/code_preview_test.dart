@@ -89,25 +89,80 @@ void main() {
       expect(_spans(tester), hasLength(1));
     });
 
-    testWidgets('above the cap nothing is coloured', (tester) async {
+    testWidgets('above the cap nothing is coloured and no worker starts', (
+      tester,
+    ) async {
       final big = 'x = 1\n' * (kCodeHighlightMaxChars ~/ 6 + 1);
       await pumpFiles(tester, CodePreview(text: big, language: 'python'));
       expect(_spans(tester), hasLength(1));
+      expect(CodeHighlightWorker.alive, 0);
     });
 
-    testWidgets('a long file shows plain at once, coloured from an isolate', (
+    testWidgets('text and plaintext start no worker and no highlighter', (
       tester,
     ) async {
-      final long = 'x = 1\n' * (kCodeHighlightInlineChars ~/ 6 + 100);
+      final long = 'x = 1\n' * 600;
+      await pumpFiles(tester, CodePreview(text: long, language: 'plaintext'));
+      expect(_spans(tester), hasLength(1));
+      expect(CodeHighlightWorker.alive, 0);
+    });
+
+    testWidgets('a larger file shows plain at once, coloured from a worker', (
+      tester,
+    ) async {
+      final long = 'x = 1\n' * 600;
+      expect(isInlineSafe(long), isFalse);
       await pumpFiles(tester, CodePreview(text: long, language: 'python'));
       expect(_spans(tester), hasLength(1), reason: 'plain until ready');
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(seconds: 3)),
+        () => _settle(() => CodeHighlightWorker.alive == 0),
       );
       await tester.pump();
       final spans = _spans(tester);
       expect(spans.length, greaterThan(1));
       expect(spans.map((s) => s.$1).join(), long);
+    });
+
+    testWidgets('a crafted slow file never runs on the UI isolate', (
+      tester,
+    ) async {
+      final crafted = 'a${' ' * 20000}';
+      final clock = Stopwatch()..start();
+      await pumpFiles(
+        tester,
+        CodePreview(text: crafted, language: 'typescript'),
+      );
+      expect(clock.elapsedMilliseconds, lessThan(1500));
+      expect(_spans(tester), hasLength(1));
+      expect(CodeHighlightWorker.alive, 1, reason: 'one worker, off-thread');
+      // Closing the preview kills the worker; nothing arrives late.
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(
+        () => _settle(() => CodeHighlightWorker.alive == 0),
+      );
+      expect(CodeHighlightWorker.alive, 0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a new text kills the old worker', (tester) async {
+      final crafted = 'a${' ' * 20000}';
+      await pumpFiles(
+        tester,
+        CodePreview(text: crafted, language: 'typescript'),
+      );
+      expect(CodeHighlightWorker.alive, 1);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: const Scaffold(
+            body: CodePreview(text: 'x = 1', language: 'python'),
+          ),
+        ),
+      );
+      await tester.runAsync(
+        () => _settle(() => CodeHighlightWorker.alive == 0),
+      );
+      expect(CodeHighlightWorker.alive, 0);
     });
 
     testWidgets('a new file replaces the colours of the old one', (
@@ -168,6 +223,34 @@ void main() {
         });
       }
       expect(colours, contains(palette.keyword));
+    });
+
+    testWidgets('many fences share one budget and start no worker', (
+      tester,
+    ) async {
+      final fences = List.generate(
+        26,
+        (i) => '```python\ndef f$i(): pass\n```',
+      ).join('\n\n');
+      await pumpFiles(tester, MarkdownPreview(text: fences));
+      var coloured = 0;
+      for (final rich in tester.widgetList<RichText>(find.byType(RichText))) {
+        rich.text.visitChildren((span) {
+          if (span is TextSpan && span.text == 'def') coloured++;
+          return true;
+        });
+      }
+      expect(coloured, greaterThan(0));
+      expect(coloured, lessThanOrEqualTo(8));
+      expect(CodeHighlightWorker.alive, 0);
+    });
+
+    testWidgets('a fence with a crafted slow body stays plain', (tester) async {
+      final text = '```javascript\na${' ' * 20000}\n```';
+      final clock = Stopwatch()..start();
+      await pumpFiles(tester, MarkdownPreview(text: text));
+      expect(clock.elapsedMilliseconds, lessThan(1500));
+      expect(CodeHighlightWorker.alive, 0);
     });
 
     testWidgets('bidi controls in rendered Markdown are shown', (tester) async {
@@ -252,6 +335,17 @@ void main() {
       },
     );
 
+    test('both themes register the palette themselves', () {
+      expect(
+        buildHermesLightTheme().extension<HermesCodeColors>(),
+        HermesCodeColors.light,
+      );
+      expect(
+        buildHermesDarkTheme().extension<HermesCodeColors>(),
+        HermesCodeColors.dark,
+      );
+    });
+
     testWidgets('the theme carries the palette of its brightness', (
       tester,
     ) async {
@@ -269,4 +363,10 @@ void main() {
       expect(context.codeColors.keyword, HermesCodeColors.dark.keyword);
     });
   });
+}
+
+Future<void> _settle(bool Function() done) async {
+  for (var i = 0; i < 100 && !done(); i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
 }

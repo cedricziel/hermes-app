@@ -88,10 +88,111 @@ def hello(name):
     });
   });
 
-  test('highlightCodeIn is highlightCode for an isolate', () {
-    expect(
-      highlightCodeIn((python, 'python')),
-      highlightCode(python, 'python'),
-    );
+  test('text and plaintext need no highlighter', () {
+    for (final name in ['text', 'plaintext', 'TXT', 'plain']) {
+      expect(hasCodeGrammar(name), isFalse, reason: name);
+      expect(highlightCode(python, name), [(python, null)]);
+    }
+    expect(hasCodeGrammar('python'), isTrue);
   });
+
+  group('isInlineSafe', () {
+    test('a small, plainly shaped text is', () {
+      expect(isInlineSafe(python), isTrue);
+      expect(isInlineSafe(''), isTrue);
+    });
+
+    test('a long text, a long line or a long blank run is not', () {
+      expect(isInlineSafe('x\n' * kCodeHighlightInlineChars), isFalse);
+      expect(isInlineSafe('a' * (kCodeHighlightInlineLine + 1)), isFalse);
+      expect(isInlineSafe('a' * kCodeHighlightInlineLine), isTrue);
+      expect(
+        isInlineSafe('a${' ' * (kCodeHighlightInlineSpaceRun + 1)}b'),
+        isFalse,
+      );
+      expect(
+        isInlineSafe('a${'\t' * (kCodeHighlightInlineSpaceRun + 1)}b'),
+        isFalse,
+      );
+      expect(
+        isInlineSafe('${'a' * 200}\n${'b' * 200}\n${'c' * 200}'),
+        isTrue,
+        reason: 'the line counter resets at a line feed',
+      );
+    });
+  });
+
+  group('CodeHighlightBudget', () {
+    test('covers a few small blocks, then nothing', () {
+      final budget = CodeHighlightBudget();
+      var taken = 0;
+      for (var i = 0; i < 26; i++) {
+        if (budget.take('def f(): pass')) taken++;
+      }
+      expect(taken, 8);
+    });
+
+    test('refuses a block that is not inline safe', () {
+      expect(CodeHighlightBudget().take('a${' ' * 500}'), isFalse);
+    });
+
+    test('is spent by characters too', () {
+      final budget = CodeHighlightBudget(chars: 100, blocks: 50);
+      expect(budget.take('x' * 60), isTrue);
+      expect(budget.take('x' * 60), isFalse);
+    });
+  });
+
+  group('CodeHighlightWorker', () {
+    // `a` then blanks: quadratic in about twenty grammars of val_highlight.
+    final crafted = 'a${' ' * 20000}';
+
+    test('answers what highlightCode answers', () async {
+      final worker = CodeHighlightWorker();
+      expect(
+        await worker.highlight(python, 'python'),
+        highlightCode(python, 'python'),
+      );
+    });
+
+    test(
+      'gives up on a slow text at the timeout and ends its isolate',
+      () async {
+        final worker = CodeHighlightWorker();
+        final clock = Stopwatch()..start();
+        final runs = await worker.highlight(
+          crafted,
+          'javascript',
+          timeout: const Duration(milliseconds: 300),
+        );
+        expect(runs, isNull);
+        expect(clock.elapsedMilliseconds, lessThan(1500));
+        await _until(() => CodeHighlightWorker.alive == 0);
+      },
+    );
+
+    test('kill ends the isolate and answers null', () async {
+      final worker = CodeHighlightWorker();
+      final pending = worker.highlight(crafted, 'javascript');
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      worker.kill();
+      expect(await pending, isNull);
+      await _until(() => CodeHighlightWorker.alive == 0);
+    });
+
+    test('kill before the isolate started still ends it', () async {
+      final worker = CodeHighlightWorker();
+      final pending = worker.highlight(crafted, 'javascript');
+      worker.kill();
+      expect(await pending, isNull);
+      await _until(() => CodeHighlightWorker.alive == 0);
+    });
+  });
+}
+
+Future<void> _until(bool Function() done) async {
+  for (var i = 0; i < 100 && !done(); i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  expect(done(), isTrue);
 }
