@@ -336,7 +336,7 @@ On macOS the bottom of the sidebar SHALL show the signed-in user's initials and 
 
 ### Requirement: Changing a profile's default model
 
-The system SHALL let the user change the default model of any listed profile from the Profiles screen, without switching to that profile. It SHALL offer the models of every authenticated provider that profile can use, grouped by provider, with the profile's current model checked, and SHALL say that the default applies to chats started afterwards while open chats keep their model. It SHALL NOT offer a reasoning effort. Saving SHALL send `PUT /api/profiles/{name}/model` with the body `{"provider": <provider slug>, "model": <model id>}`, with the profile name percent-encoded in the path. The server answers `{"ok": true, "provider", "model"}`, and 400 when the pair is not usable. The route and `GET /api/model/options?profile=` exist in the Hermes version pinned by `HERMES_REF`.
+The system SHALL let the user change the default model of any listed profile from the Profiles screen, without switching to that profile. It SHALL offer the models of every authenticated provider that profile can use, grouped by provider, with the profile's current model checked, and SHALL say that the default applies to chats started afterwards while open chats keep their model. It SHALL NOT offer a reasoning effort. Saving SHALL send `POST /api/model/set?profile=<name>` with the body `{"scope": "main", "provider": <provider slug>, "model": <model id>}`, so Hermes' expensive-model confirmation applies. When the answer carries `confirm_required: true`, the system SHALL show its `confirm_message` in a confirmation dialog and resend the same body with `confirm_expensive_model: true` only when the user confirms; otherwise nothing is saved and no error is shown. The server answers 400 when the pair is not usable. The route and `GET /api/model/options?profile=` exist in the Hermes version pinned by `HERMES_REF`.
 
 #### Scenario: Opening the picker
 
@@ -346,7 +346,17 @@ The system SHALL let the user change the default model of any listed profile fro
 #### Scenario: Saving a new default
 
 - **WHEN** the user picks `gpt-5` under the provider `openrouter` for the profile `work`
-- **THEN** the picker closes, `PUT /api/profiles/work/model` is sent with `{"provider": "openrouter", "model": "gpt-5"}`, the profile list reloads, and a message says new chats in that profile use `gpt-5`
+- **THEN** the picker closes, `POST /api/model/set?profile=work` is sent with `{"scope": "main", "provider": "openrouter", "model": "gpt-5"}`, the profile list reloads, and a message says new chats in that profile use `gpt-5`
+
+#### Scenario: Expensive model confirmed
+
+- **WHEN** the server answers `{"ok": false, "confirm_required": true, "confirm_message": "…"}` and the user confirms the dialog showing the message
+- **THEN** the same request is sent again with `confirm_expensive_model: true`, and the list reloads and the message names the new default once it is accepted
+
+#### Scenario: Expensive model declined
+
+- **WHEN** the server answers `confirm_required: true` and the user cancels the dialog
+- **THEN** nothing further is sent, the row keeps its old model, and no error is shown
 
 #### Scenario: Picking the current model
 
