@@ -1029,7 +1029,7 @@ void main() {
         pausedOnDeadConnection();
         gateway.silent.add('display.lease.release');
 
-        unawaited(viewer.shutDown('sign_out'));
+        unawaited(viewer.shutDown('close'));
         settle();
         async.elapse(kViewerReleaseBudget);
         settle();
@@ -1037,6 +1037,55 @@ void main() {
         expect(server.holderId, 'viewer-2');
         expect(ids.holds(BotScreenViewerIds.hashOf('viewer-2')), isFalse);
         expect(ids.holds(BotScreenViewerIds.hashOf('viewer-1')), isFalse);
+        expect(screen.inControlHere, isFalse);
+        expect(screen.someoneElseInControl, isTrue);
+      });
+    });
+
+    test('an acquire for the new id answered after the budget is still '
+        'released', () {
+      scenario(() {
+        pausedOnDeadConnection();
+        gateway.silent.add('display.lease.acquire');
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+        final acquire = gateway.requests.lastWhere(
+          (r) => r['method'] == 'display.lease.acquire',
+        );
+        gateway.silent.remove('display.lease.acquire');
+        gateway.replyTo(
+          acquire,
+          gateway.handlers['display.lease.acquire']!(
+            acquire['params'] as Map<String, Object?>,
+          ) as Map<String, Object?>,
+        );
+        settle();
+        async.elapse(const Duration(seconds: 30));
+
+        expect(requested('display.lease.release'), ['viewer-2']);
+        expect(server.holder, isNot('human'));
+      });
+    });
+
+    test('an id another viewer uses is not forgotten when this one gives up '
+        'its release', () {
+      scenario(() {
+        unawaited(viewer.takeOver());
+        settle();
+        final id = server.holderId!;
+        // What a viewer reopened during the budget does with the same id.
+        ids.retain(id);
+        gateway.silent.add('display.lease.release');
+
+        unawaited(viewer.shutDown('close'));
+        settle();
+        async.elapse(kViewerReleaseBudget);
+        settle();
+
+        expect(ids.holds(BotScreenViewerIds.hashOf(id)), isTrue);
       });
     });
 
