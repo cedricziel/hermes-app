@@ -40,7 +40,7 @@ Delivery: two PRs (see tasks.md), the first with the plumbing and Recent chats, 
 
 ## Impact
 
-- Code (Dart): `lib/src/surfaces/surface_snapshot_store.dart` (reload by platform name), `widget_kinds.dart` (the kinds that have an Android provider), `widget_usage_reporter.dart` (Android class names). Tests in `test/surfaces/`.
+- Code (Dart): `lib/src/surfaces/surface_snapshot_store.dart` (reload by platform name), `widget_kinds.dart` (the kinds that have an Android provider), `widget_usage_reporter.dart` (Android class names), `app/providers/surface_providers.dart` (the usage reporter is created on iOS only today; it gains Android and its comment is corrected). Tests in `test/surfaces/`.
 - Native (Android): new Kotlin widgets and pure models under `android/app/src/main/kotlin/com/cedricziel/hermes_app/widgets/`, three `<receiver>` entries and `res/xml`, `res/layout`, `res/values` (en and de strings) resources, backup rule files, the Compose compiler plugin and unit-test setup in `android/app/build.gradle.kts`. No new permission. No iOS, macOS, Windows, Linux or watchOS change.
 - Dependencies: none new. `home_widget` 0.10.0 is already a direct dependency and the latest release.
 - CI: a step that runs the Android JVM unit tests (`./gradlew testDebugUnitTest`).

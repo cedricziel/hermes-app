@@ -56,7 +56,7 @@ The Needs you widget SHALL come in small and medium sizes and show the number of
 
 ### Requirement: Board widget
 
-The Board widget SHALL come in small and medium sizes and show, in this order, the last failed scheduled job (name, age, an icon and "Failed"), the Kanban counts of blocked and in-review tasks, and the next run. Small shows the first two parts the server offers, medium up to three. A part whose feature the server lacks SHALL be left out. Each part SHALL open its place in the app.
+The Board widget SHALL come in small and medium sizes and show, in this order, the last failed scheduled job (name, age, an icon and "Failed"), the Kanban counts of blocked and in-review tasks, and the next run. Small shows the first two parts the server offers, medium up to three. A part whose feature the server lacks SHALL be left out, and a server with schedules but nothing scheduled and no Kanban SHALL show "Nothing scheduled". Each part SHALL open its place in the app.
 
 #### Scenario: Failed job
 
@@ -67,6 +67,11 @@ The Board widget SHALL come in small and medium sizes and show, in this order, t
 
 - **WHEN** the snapshot's `kanban` is null
 - **THEN** the widget shows only the schedules parts
+
+#### Scenario: Nothing scheduled
+
+- **WHEN** the server has schedules but no next run, no failure and no Kanban
+- **THEN** the widget shows "Nothing scheduled"
 
 #### Scenario: Neither feature
 
@@ -80,7 +85,7 @@ The Board widget SHALL come in small and medium sizes and show, in this order, t
 
 ### Requirement: Redacted rows while App Lock is on
 
-While App Lock is on the snapshot holds no titles, snippets or job names. The widgets SHALL then draw a placeholder bar where a title, snippet or job name would be, never an invented title, and SHALL describe it to screen readers as "Hidden". Counts, ages, kind words and taps SHALL work as without App Lock, and a tap SHALL open the app, which asks for App Lock before showing the chat.
+While App Lock is on the snapshot holds no titles, snippets or job names. The widgets SHALL then draw a placeholder bar where a title, snippet or job name would be, never an invented title, and SHALL describe it to screen readers as "Hidden". Profile names, counts, ages, kind words and taps SHALL work as without App Lock, and a tap SHALL open the app, which asks for App Lock before showing the chat.
 
 #### Scenario: Recent chats with App Lock on
 
@@ -89,7 +94,7 @@ While App Lock is on the snapshot holds no titles, snippets or job names. The wi
 
 #### Scenario: Needs you with App Lock on
 
-- **WHEN** App Lock is on and two approvals are open
+- **WHEN** App Lock is on and two approvals are open in two chats
 - **THEN** the widget shows 2 and two rows labelled "Approval" with placeholder bars
 
 ### Requirement: Home screen only and sample content in the picker
@@ -108,7 +113,7 @@ The widgets SHALL be declared for the home screen only and SHALL NOT be offered 
 
 ### Requirement: Sizes, rows and touch targets
 
-Every tappable row SHALL be at least 48 dp tall. A widget SHALL show as many of its rows as fit at that height and drop the rest from the bottom, never shrinking a row below 48 dp. At a text scale over 130% the snippet SHALL be dropped before any row. Titles SHALL wrap to two lines before they are cut, and text SHALL honour the system text size with no cap.
+Every tappable row SHALL be at least 48 dp tall. A widget SHALL show as many of its rows as fit at that height and drop the rest from the bottom, never shrinking a row below 48 dp. At a text scale over 130% the snippet SHALL be dropped before any row. A row title SHALL be one line, or two at a text scale over 130%, before it is cut; the small Recent chats title SHALL take up to three lines (two over 130%). Text SHALL honour the system text size with no cap.
 
 #### Scenario: Resized shorter
 
@@ -118,7 +123,7 @@ Every tappable row SHALL be at least 48 dp tall. A widget SHALL show as many of 
 #### Scenario: Largest text size
 
 - **WHEN** the system text size is the largest and the widget is medium
-- **THEN** the snippet is gone and the rows that still fit at 48 dp are shown with titles on up to two lines
+- **THEN** the snippet is gone and the rows that still fit at 48 dp are shown with row titles on up to two lines
 
 ### Requirement: Appearance and accessibility
 
@@ -136,7 +141,7 @@ The widgets SHALL follow the system light or dark theme. On Android 12 and newer
 
 ### Requirement: Taps open snapshot links
 
-A tap SHALL open the app at the `hermes://` link the snapshot holds for that row, unchanged, as the iPhone widgets do. A link of another scheme SHALL never be followed, and such a row SHALL be skipped. Signed out, a tap SHALL open the app as it is. If Hermes is not running the tap SHALL start it and deliver the link once the app is up.
+A tap SHALL open the app at the `hermes://` link the snapshot holds for that row, unchanged, or, where it holds none (a new chat, the Kanban tab, the Schedules tab, the chat list), at the link the widget builds with the app's link format, as the iPhone widgets do. A link of another scheme SHALL never be followed, and such a row SHALL be skipped. Signed out, a tap SHALL open the app as it is. If Hermes is not running the tap SHALL start it and deliver the link once the app is up.
 
 #### Scenario: Cold start
 
@@ -164,7 +169,7 @@ After each snapshot write the app SHALL ask the system to redraw the widgets. Th
 
 ### Requirement: Telemetry without content
 
-At most once a day the app SHALL log `widgets.installed` with the Android widgets' kinds and counts (family `android`). A widget that cannot be redrawn after a snapshot write SHALL be logged as `widgets.reload_failed` with the kind and the error type. Neither SHALL contain titles, snippets, ids or profile names, and neither SHALL affect the app.
+At most once a day the app SHALL log `widgets.installed` with the Android widgets' kinds and counts (family `android`). A widget kind whose reload request fails after a snapshot write SHALL be logged as `widgets.reload_failed` with the kind and the error type. Neither SHALL contain titles, snippets, ids or profile names, and neither SHALL affect the app.
 
 #### Scenario: Two widgets installed
 
