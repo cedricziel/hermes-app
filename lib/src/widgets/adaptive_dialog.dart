@@ -12,16 +12,25 @@ class AppAlertDialog extends StatelessWidget {
     this.title,
     this.content,
     this.actions = const [],
+    this.backgroundColor,
   });
 
   final Widget? title;
   final Widget? content;
   final List<Widget> actions;
 
+  /// The surface of the Material dialog; null keeps the theme's.
+  final Color? backgroundColor;
+
   @override
   Widget build(BuildContext context) {
     if (!platformChromeOf(context).isApple) {
-      return AlertDialog(title: title, content: content, actions: actions);
+      return AlertDialog(
+        title: title,
+        content: content,
+        actions: actions,
+        backgroundColor: backgroundColor,
+      );
     }
     // Material fields inside the content still need a Material ancestor.
     return CupertinoAlertDialog(
@@ -44,12 +53,17 @@ class AppDialogAction extends StatelessWidget {
     required this.child,
     this.isDefault = false,
     this.isDestructive = false,
+    this.filledOnMaterial = true,
   });
 
   final VoidCallback? onPressed;
   final Widget child;
   final bool isDefault;
   final bool isDestructive;
+
+  /// Whether the default action is a filled button on Material. A
+  /// confirmation of a destructive action keeps both buttons plain text.
+  final bool filledOnMaterial;
 
   @override
   Widget build(BuildContext context) {
@@ -72,9 +86,18 @@ class AppDialogAction extends StatelessWidget {
         child: child,
       );
     }
-    return isDefault
-        ? FilledButton(onPressed: onPressed, child: child)
-        : TextButton(onPressed: onPressed, child: child);
+    if (isDefault && filledOnMaterial) {
+      return FilledButton(onPressed: onPressed, child: child);
+    }
+    return TextButton(
+      onPressed: onPressed,
+      style: isDestructive
+          ? TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            )
+          : null,
+      child: child,
+    );
   }
 }
 
@@ -169,6 +192,11 @@ class AppDialogTextField extends StatelessWidget {
 /// user taps [confirmLabel]. Dismissing or cancelling answers false.
 ///
 /// On Material, [filled] picks a filled over a plain confirm button.
+///
+/// With [cancelIsDefault] Cancel is the default action on Apple platforms
+/// (drawn bold) and the confirm button is not, for a question whose safe
+/// answer is to stop; Material then shows two text buttons. This only picks
+/// what is emphasised: nothing here binds the Return key to it.
 Future<bool> showConfirmDialog(
   BuildContext context, {
   required String title,
@@ -177,6 +205,7 @@ Future<bool> showConfirmDialog(
   String cancelLabel = 'Cancel',
   bool destructive = false,
   bool filled = true,
+  bool cancelIsDefault = false,
 }) async =>
     await showAppDialog<bool>(
       context: context,
@@ -185,12 +214,46 @@ Future<bool> showConfirmDialog(
         content: message == null ? null : Text(message),
         actions: [
           AppDialogAction(
+            isDefault: cancelIsDefault && platformChromeOf(dialog).isApple,
             onPressed: () => Navigator.pop(dialog, false),
             child: Text(cancelLabel),
           ),
           AppDialogAction(
-            isDefault: filled,
+            isDefault: filled && !cancelIsDefault,
             isDestructive: destructive,
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    ) ??
+    false;
+
+/// Asks whether to go through with a destructive action: Cancel is the
+/// default (bold on Apple platforms, Return on the Mac) and [confirmLabel] is
+/// the destructive button, red, never filled. On Material both are plain text
+/// buttons, Cancel first. Answers true only when the user confirmed.
+Future<bool> showDestructiveConfirm(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String confirmLabel,
+  required String cancelLabel,
+}) async =>
+    await showAppDialog<bool>(
+      context: context,
+      builder: (dialog) => AppAlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          AppDialogAction(
+            isDefault: true,
+            filledOnMaterial: false,
+            onPressed: () => Navigator.pop(dialog, false),
+            child: Text(cancelLabel),
+          ),
+          AppDialogAction(
+            isDestructive: true,
             onPressed: () => Navigator.pop(dialog, true),
             child: Text(confirmLabel),
           ),

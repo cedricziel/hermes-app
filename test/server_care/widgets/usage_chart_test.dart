@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/widgets/usage_chart.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 // 30 days ending 12 Nov: 8.4M in all, 812K on the 12th with 9 conversations,
 // the highest day 5 Nov at 1.2M.
@@ -29,8 +32,10 @@ Widget _host(
   bool reduceMotion = false,
   double width = 390,
   Locale? locale,
+  ThemeData? theme,
 }) => MaterialApp(
   locale: locale,
+  theme: theme,
   localizationsDelegates: AppLocalizations.localizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: MediaQuery(
@@ -292,4 +297,45 @@ void main() {
 
     expect(scrollable.position.pixels, 0);
   });
+
+  for (final (name, theme) in [
+    ('light', buildHermesLightTheme()),
+    ('dark', buildHermesDarkTheme()),
+  ]) {
+    testWidgets('the selected day is outlined in the text colour ($name)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(_chart(), theme: theme));
+      await tester.pumpAndSettle();
+      final scheme = Theme.of(tester.element(find.byType(UsageChart)))
+          .colorScheme;
+      final plot = find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is UsageChartPlotPainter,
+      );
+      final box = tester.renderObject<RenderBox>(plot);
+      // One 2 px outline, drawn after the bars, around the selected slot;
+      // there is no tinted column any more.
+      // The 25 days with use draw a rounded bar each, then the outline.
+      final pattern = paints;
+      for (var i = 0; i < 25; i++) {
+        pattern.rrect();
+      }
+      pattern.rrect(
+        color: scheme.onSurface,
+        style: PaintingStyle.stroke,
+        strokeWidth: 2,
+      );
+      expect(box, pattern);
+      expect(
+        box,
+        isNot(paints..rect(color: scheme.primary.withValues(alpha: 0.12))),
+      );
+      // The line stands out from the plot by far more than 3:1.
+      double lum(Color c) => c.computeLuminance();
+      final fg = lum(scheme.onSurface);
+      final bg = lum(scheme.surface);
+      final ratio = (math.max(fg, bg) + 0.05) / (math.min(fg, bg) + 0.05);
+      expect(ratio, greaterThan(3));
+    });
+  }
 }
