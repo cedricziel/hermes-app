@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
+import '../api/hermes_repositories.dart';
 import '../theme/app_icons.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
+import 'hermes_update_run.dart';
+import 'replies_in_progress.dart';
+import 'server_care_controller.dart';
+import 'update_actions.dart';
 import 'update_check_controller.dart';
+import 'widgets/update_run_view.dart';
 import 'widgets/update_status_card.dart';
 
 /// Words an [Elapsed] for [l10n]: "just now", "2 hours ago", "today".
@@ -55,13 +62,40 @@ UpdateStatus updateStatusOf(
   ),
 };
 
-/// What the Updates row opens: whether Hermes is up to date, what changed,
-/// and Check now. Applying an update is not offered here yet.
-class UpdatePage extends StatefulWidget {
-  const UpdatePage({super.key, required this.controller, this.version});
+/// Pushes the Update page over the current route, for a link that does not
+/// start from the Server screen (the restart banner). The pushed route sits
+/// above the shell's providers, so they go with it.
+Future<void> showUpdatePage(BuildContext context) {
+  // One page: a second tap on the banner leaves the open one in front.
+  if (_UpdatePageState.open > 0) return Future.value();
+  final care = context.read<ServerCareController>();
+  final run = context.read<HermesUpdateRun>();
+  final replies = maybeRepliesInProgress(context);
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ServerCareController>.value(value: care),
+          ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
+          if (replies != null)
+            Provider<RepliesInProgress>.value(value: replies),
+        ],
+        child: const UpdatePage(),
+      ),
+    ),
+  );
+}
 
-  /// Shared with the Server screen, which owns it.
-  final UpdateCheckController controller;
+/// What the Updates row opens: whether Hermes is up to date, what changed,
+/// Check now and Update Hermes, and, once an update was confirmed, its
+/// progress and outcome. The run belongs to the shell, so leaving the page
+/// never cancels it and returning shows where it is.
+class UpdatePage extends StatefulWidget {
+  const UpdatePage({super.key, this.controller, this.version});
+
+  /// Shared with the Server screen, which owns it. A page opened without one
+  /// (from the restart banner) checks for itself.
+  final UpdateCheckController? controller;
 
   /// The version the server's status reported, for a check that names none.
   final String? version;
@@ -71,22 +105,67 @@ class UpdatePage extends StatefulWidget {
 }
 
 class _UpdatePageState extends State<UpdatePage> {
+  /// How many Update pages are on screen; the banner opens none while one is.
+  static int open = 0;
+
+  UpdateCheckController? _own;
+  late final HermesUpdateRun _run;
+  UpdatePhase? _lastPhase;
+
+  UpdateCheckController get _controller => widget.controller ?? _own!;
+
   @override
   void initState() {
     super.initState();
-    if (!widget.controller.everChecked) {
+    open++;
+    _run = context.read<HermesUpdateRun>();
+    _lastPhase = _run.phase;
+    if (widget.controller == null) {
+      final care = context.read<ServerCareController>();
+      _own = UpdateCheckController(
+        repository: HermesRepositories.of(context).serverCare,
+        onUnsupported: () => care.reportUnsupported(CarePart.update),
+      );
+      // What the page checked is stale once an update ended.
+      _run.addListener(_runChanged);
+    }
+    if (!_controller.everChecked) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) widget.controller.check();
+        if (mounted) _controller.check();
       });
     }
   }
 
+  void _runChanged() {
+    final phase = _run.phase;
+    final ended =
+        _lastPhase != UpdatePhase.finished && phase == UpdatePhase.finished;
+    _lastPhase = phase;
+    if (ended && mounted) _controller.check(force: true);
+  }
+
+  @override
+  void dispose() {
+    open--;
+    if (_own != null) {
+      _run.removeListener(_runChanged);
+      _own!.dispose();
+    }
+    super.dispose();
+  }
+
+  void _tryAgain() {
+    _run.dismiss();
+    runUpdate(context);
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.controller,
+    listenable: Listenable.merge([_controller, _run]),
     builder: (context, _) {
-      final controller = widget.controller;
+      final controller = _controller;
       final l10n = context.l10n;
+      final view = updateRunViewOf(l10n, _run);
       final state = controller.state(fallbackVersion: widget.version);
       final status = state == null ? null : updateStatusOf(l10n, state);
       final checking = state is UpdateStateChecking;
@@ -100,6 +179,8 @@ class _UpdatePageState extends State<UpdatePage> {
             ].join(' · '),
           ),
       ];
+      final canApply =
+          state is UpdateStateAvailable || state is UpdateStateRollback;
       return SettingsScaffold(
         title: l10n.serverCareUpdatePageTitle,
         previousTitle: l10n.serverCareTitle,
@@ -108,20 +189,34 @@ class _UpdatePageState extends State<UpdatePage> {
             key: const Key('update-refresh'),
             label: l10n.serverCareCheckNow,
             icon: AppIcons.refresh,
-            onPressed: checking ? null : () => controller.check(force: true),
+            onPressed: checking || view != null
+                ? null
+                : () => controller.check(force: true),
           ),
         ],
         body: GroupedListView(
           children: [
-            if (status != null)
-              UpdateStatusCard(
-                status: status,
-                onCheckNow: checking
-                    ? null
-                    : () => controller.check(force: true),
-              ),
-            if (state is UpdateStateAvailable || state is UpdateStateRollback)
-              if (changes.isNotEmpty) UpdateChangeList(changes: changes),
+            if (view != null)
+              UpdateRunBody(
+                view: view,
+                onDone: _run.dismiss,
+                onTryAgain: _tryAgain,
+                onCheckAgain: _run.checkAgain,
+                onKeepWaiting: _run.keepWaiting,
+                onDismiss: _run.dismiss,
+              )
+            else ...[
+              if (status != null)
+                UpdateStatusCard(
+                  status: status,
+                  onCheckNow: checking
+                      ? null
+                      : () => controller.check(force: true),
+                  onUpdate: canApply ? () => runUpdate(context) : null,
+                ),
+              if (canApply && changes.isNotEmpty)
+                UpdateChangeList(changes: changes),
+            ],
           ],
         ),
       );

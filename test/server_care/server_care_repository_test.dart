@@ -23,6 +23,12 @@ void main() {
   Map<String, dynamic> query(String method, String path) =>
       server.requestsTo(method, path).single.queryParameters;
 
+  test('a 200 page answering the update POST is a lost answer', () async {
+    server.on('POST', '/api/hermes/update', '<html>spa</html>');
+    final result = await repo.startUpdate();
+    expect(failed(result).kind, CareFailureKind.unreadable);
+  });
+
   group('queries', () {
     test('status sends the explicit profile', () async {
       server.on('GET', '/api/status', statusHealthy());

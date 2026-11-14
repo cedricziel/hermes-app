@@ -6,7 +6,13 @@ import 'package:hermes_app/src/kanban/kanban_errors.dart';
 import 'package:hermes_app/src/kanban/kanban_files.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
+import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_sheet.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart';
+import 'package:hermes_app/src/models/widgets/model_picker.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/adaptive_sheet.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/plugins/install_report.dart';
 import 'package:hermes_app/src/plugins/plugin_install_result.dart';
 import 'package:hermes_app/src/skills/skill_job.dart';
@@ -29,6 +35,34 @@ WidgetbookUseCase _open(
 WidgetbookUseCase _report(String name, PluginInstallResult result) =>
     _open(name, (context) => reportInstall(context, result));
 
+/// The Material dialog or sheet whatever the viewport's platform is, since the
+/// shared edge and surface belong to Material; Apple alerts keep the system
+/// look.
+WidgetbookUseCase _material(
+  String name,
+  Future<void> Function(BuildContext context) open,
+) => WidgetbookUseCase(
+  name: name,
+  builder: (context) => Theme(
+    data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+    child: Builder(builder: (context) => openOnShow(open)),
+  ),
+);
+
+const _surfaceModels = ModelOptions(
+  current: ModelChoice('acme', 'atlas-1'),
+  providers: [
+    ModelProviderOption(
+      id: 'acme',
+      label: 'Acme',
+      models: [
+        ModelOption(id: 'atlas-1', canDisableReasoning: true),
+        ModelOption(id: 'atlas-mini'),
+      ],
+    ),
+  ],
+);
+
 class _NoFiles implements KanbanFiles {
   @override
   Future<KanbanPickedFile?> pick() async => null;
@@ -40,6 +74,87 @@ class _NoFiles implements KanbanFiles {
 WidgetbookNode dialogsNode() => WidgetbookFolder(
   name: 'Dialogs and sheets',
   children: [
+    // The edge and surface of every Material dialog and sheet come from the
+    // theme. Switch to Dark and look at the boundary against the scrim.
+    WidgetbookComponent(
+      name: 'Overlay surface',
+      useCases: [
+        _material(
+          'Confirm dialog',
+          (context) => showConfirmDialog(
+            context,
+            title: 'Restart the gateway?',
+            message: 'Running chats stop and reconnect.',
+            confirmLabel: 'Restart',
+          ),
+        ),
+        _material(
+          'Text field dialog',
+          (context) => showAppDialog<void>(
+            context: context,
+            builder: (dialog) => AppAlertDialog(
+              title: const Text('New board'),
+              content: AppDialogTextField(
+                controller: TextEditingController(),
+                hint: 'Name',
+              ),
+              actions: [
+                AppDialogAction(
+                  onPressed: () => Navigator.pop(dialog),
+                  child: const Text('Cancel'),
+                ),
+                AppDialogAction(
+                  isDefault: true,
+                  onPressed: () => Navigator.pop(dialog),
+                  child: const Text('Create'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        _material(
+          'Model picker',
+          (context) => showModelPicker(
+            context,
+            options: _surfaceModels,
+            selected: const ModelChoice('acme', 'atlas-1', effort: 'medium'),
+            onChanged: (_) {},
+          ),
+        ),
+        _material(
+          'Date picker',
+          (context) => showDatePicker(
+            context: context,
+            initialDate: DateTime(2030, 5, 14),
+            firstDate: DateTime(2030),
+            lastDate: DateTime(2031),
+          ),
+        ),
+        _material(
+          'Kanban phone sheet (through its route)',
+          (context) => showKanbanDetentSheet(
+            context,
+            (controller) => ListView(
+              controller: controller,
+              padding: const EdgeInsets.all(24),
+              children: const [Text('Row one'), Text('Row two')],
+            ),
+          ),
+        ),
+        _material(
+          'Adaptive sheet',
+          (context) => showAdaptiveSheet<void>(
+            context,
+            builder: (_) => const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'A sheet with a question and nothing else around it.',
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
     WidgetbookComponent(
       name: 'New profile',
       useCases: onEachPlatform(
