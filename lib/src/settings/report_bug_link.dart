@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/l10n.dart';
+import '../theme/hermes_theme.dart';
 
 typedef LinkOpener = Future<bool> Function(Uri uri);
 
@@ -18,6 +19,7 @@ class ReportBugLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextButton(
+    style: TextButton.styleFrom(foregroundColor: context.hermesColors.link),
     onPressed: () => openIssueTracker(openLink),
     child: Text(context.l10n.settingsReportBug),
   );

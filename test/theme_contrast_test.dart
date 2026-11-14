@@ -35,6 +35,7 @@ void main() {
       for (final (label, fg) in [
         ('success', colors.success),
         ('warning', colors.warning),
+        ('link', colors.link),
         ('subtle text', colors.subtleText),
         ('error', scheme.error),
         ('muted text', muted),
@@ -50,15 +51,20 @@ void main() {
       ('success', colors.success, colors.success, 0.1),
       ('warning', colors.warning, colors.warning, 0.15),
       ('error', scheme.error, scheme.error, 0.12),
+      ('link', colors.link, colors.link, 0.08),
       ('muted text', muted, scheme.onSurface, 0.1),
     ]) {
-      test('$name: $label on its own tint meets 4.5:1', () {
-        final bg = Color.alphaBlend(
-          tint.withValues(alpha: alpha),
-          scheme.surface,
-        );
-        _expectReadable(fg, bg);
-      });
+      for (final (where, base) in [
+        ('card', scheme.surface),
+        ('fill', scheme.surfaceContainerHighest),
+      ]) {
+        test('$name: $label on its own tint over $where meets 4.5:1', () {
+          _expectReadable(
+            fg,
+            Color.alphaBlend(tint.withValues(alpha: alpha), base),
+          );
+        });
+      }
     }
   }
 }
