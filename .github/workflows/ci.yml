@@ -18,13 +18,18 @@ jobs:
   # always run everything. Only the paths no build or test reads count as
   # docs-only: docs/, openspec/ and Markdown files anywhere
   # (no test reads such a file from the repository). The watch tests depend on
-  # the two Swift packages they run and on this workflow.
+  # the two Swift packages they run and on this workflow. The platform builds
+  # on a pull request run only when a path they read changed (native folders,
+  # packages, dependencies, assets, the packaging script, fastlane or this
+  # workflow): Dart under lib/ and test/ is already compiled by analyze and the
+  # tests. A path a build starts to depend on must be added to `builds` below.
   changes:
     name: Changes
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
       watch: ${{ steps.filter.outputs.watch }}
+      builds: ${{ steps.filter.outputs.builds }}
     steps:
       # On a pull request HEAD is the merge commit and HEAD^1 the base branch.
       - uses: actions/checkout@v7
@@ -40,6 +45,7 @@ jobs:
           set -euo pipefail
           code=true
           watch=true
+          builds=true
           if [ "$EVENT_NAME" = pull_request ]; then
             # Fail closed: anything unexpected runs everything.
             if [ "$(git rev-list --parents -n1 HEAD | wc -w)" -ne 3 ]; then
@@ -51,6 +57,7 @@ jobs:
               else
                 code=false
                 watch=false
+                builds=false
                 while IFS= read -r file; do
                   echo "changed: $file"
                   case "$file" in
@@ -60,13 +67,20 @@ jobs:
                   case "$file" in
                     ios/HermesWatch/* | ios/HermesSurfaceKit/* | .github/workflows/ci.yml) watch=true ;;
                   esac
+                  case "$file" in
+                    packages/hermes_api/lib/*) ;;
+                    android/* | ios/* | macos/* | linux/* | windows/* | web/* | packages/* | assets/* | fastlane/* | .github/actions/*) builds=true ;;
+                    pubspec.yaml | pubspec.lock | */pubspec.yaml | */pubspec.lock | .fvmrc) builds=true ;;
+                    scripts/package-linux.sh | .github/workflows/ci.yml) builds=true ;;
+                  esac
                 done <<< "$files"
               fi
             fi
           fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "watch=$watch" >> "$GITHUB_OUTPUT"
-          echo "code=$code watch=$watch" >> "$GITHUB_STEP_SUMMARY"
+          echo "builds=$builds" >> "$GITHUB_OUTPUT"
+          echo "code=$code watch=$watch builds=$builds" >> "$GITHUB_STEP_SUMMARY"
 
   analyze:
     name: Analyze
@@ -211,7 +225,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -239,7 +253,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -287,7 +301,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -330,7 +344,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -353,7 +367,7 @@ jobs:
     needs: [changes, analyze-and-test]
     # Not the default success(): a skipped job upstream (the watch test on most
     # pull requests) would skip the build too.
-    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' }}
+    if: ${{ !cancelled() && needs.analyze-and-test.result == 'success' && needs.changes.outputs.code == 'true' && needs.changes.outputs.builds == 'true' }}
     steps:
       - uses: actions/checkout@v7
 

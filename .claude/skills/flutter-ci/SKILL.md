@@ -51,6 +51,18 @@ still fails it. A skipped build or test on a PR is therefore normal, not a
 missing check. If a test starts reading a file under a docs-only path, remove
 that path from the `case` in the `Changes` job.
 
+`Changes` also outputs `builds`, which the five platform builds need besides
+`code`. On a pull request it is true when a changed file is under `android/`,
+`ios/`, `macos/`, `linux/`, `windows/`, `web/`, `assets/`, `fastlane/`,
+`.github/actions/` or `packages/` (except `packages/hermes_api/lib/`), is any
+`pubspec.yaml` or `pubspec.lock`, `.fvmrc`, `scripts/package-linux.sh` or
+`ci.yml`. Dart under `lib/` and `test/`, ARB files, `analysis_options.yaml` and
+`l10n.yaml` do not trigger builds, since analyze and the tests already cover
+them. Push to main and `workflow_dispatch` build everything, so a build break
+that only a platform compiler sees shows on main. When a build starts to read a
+new path (a script it calls, a new asset folder), add it to the `builds` case in
+the `Changes` job, or PRs that touch only that path will skip the build.
+
 Only pull-request runs are cancelled by a newer push (`cancel-in-progress` is
 conditional in `ci.yml`, `messenger-plugin.yml`, `real-backend-contract.yml`
 and `verify-hermes-api-client.yml`). On main a run in progress finishes and a
