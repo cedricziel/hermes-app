@@ -64,6 +64,66 @@ void main() {
       expect(callDurationBucket(const Duration(seconds: 30)), '10-60s');
       expect(callDurationBucket(const Duration(minutes: 9)), '>5m');
     });
+
+    test('buckets latencies at every edge', () {
+      const ms = Duration(milliseconds: 1);
+      expect(callLatencyBucket(null), 'none');
+      expect(callLatencyBucket(Duration.zero), '<0.5s');
+      expect(
+        callLatencyBucket(const Duration(milliseconds: 500) - ms),
+        '<0.5s',
+      );
+      expect(callLatencyBucket(const Duration(milliseconds: 500)), '0.5-1s');
+      expect(callLatencyBucket(const Duration(seconds: 1)), '1-2s');
+      expect(callLatencyBucket(const Duration(seconds: 2)), '2-5s');
+      expect(callLatencyBucket(const Duration(seconds: 5)), '5-10s');
+      expect(callLatencyBucket(const Duration(seconds: 10)), '10-30s');
+      expect(callLatencyBucket(const Duration(seconds: 30)), '>30s');
+      expect(callLatencyBucket(const Duration(minutes: 4)), '>30s');
+    });
+
+    test('only a passing failure of a speech open is retried', () {
+      final options = RequestOptions(path: '/api/audio/speak-stream');
+      DioException status(int code) => DioException(
+        requestOptions: options,
+        response: Response(requestOptions: options, statusCode: code),
+      );
+      for (final code in [500, 502, 503, 504]) {
+        expect(
+          isTransientSpeechOpenError(status(code)),
+          isTrue,
+          reason: '$code',
+        );
+      }
+      for (final code in [400, 401, 403, 404, 405]) {
+        expect(
+          isTransientSpeechOpenError(status(code)),
+          isFalse,
+          reason: '$code',
+        );
+      }
+      expect(
+        isTransientSpeechOpenError(
+          WebSocketChannelException.from(const WebSocketException('x', 502)),
+        ),
+        isTrue,
+      );
+      expect(
+        isTransientSpeechOpenError(
+          WebSocketChannelException.from(const WebSocketException('x', 403)),
+        ),
+        isFalse,
+      );
+      expect(isTransientSpeechOpenError(TimeoutException('slow')), isFalse);
+      expect(isTransientSpeechOpenError(const SocketException('down')), isTrue);
+      expect(
+        isTransientSpeechOpenError(
+          DioException(requestOptions: options, type: DioExceptionType.cancel),
+        ),
+        isFalse,
+      );
+      expect(isTransientSpeechOpenError(StateError('x')), isFalse);
+    });
   });
 
   test('readiness logs each check and the kind of a failure', () async {
@@ -190,6 +250,7 @@ void main() {
         'connected': true,
         'turns': '1',
         'speech_fallbacks': '0',
+        'speech_retries': '0',
         'duration': '<10s',
       });
     });
