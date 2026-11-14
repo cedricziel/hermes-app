@@ -136,22 +136,6 @@
       }
     }
   },
-  "chatActivityNeedsYouAnnounceBilling": "Billing access needs approval",
-  "@chatActivityNeedsYouAnnounceBilling": {
-    "description": "Screen reader announcement when a billing verification request reaches the Needs-you card. Never includes the code or the link."
-  },
-  "chatActivityNeedsYouAnnounceConnector": "A connection needs you",
-  "@chatActivityNeedsYouAnnounceConnector": {
-    "description": "Screen reader announcement when a connector sign-in reaches the Needs-you card. Never names the service."
-  },
-  "chatActivityNeedsYouAnnounceReclaim": "This chat was opened elsewhere",
-  "@chatActivityNeedsYouAnnounceReclaim": {
-    "description": "Screen reader announcement when another client took over the chat. Never includes the server's reason."
-  },
-  "chatActivityNeedsYouAnnounceResume": "This chat couldn't be restored",
-  "@chatActivityNeedsYouAnnounceResume": {
-    "description": "Screen reader announcement when restoring the chat failed. Never includes the server's reason."
-  },
   "chatActivityLineAsking": "{count, plural, =1{Asking 1 model} other{Asking {count} models}}",
   "@chatActivityLineAsking": {
     "description": "Activity line sentence while a mixture-of-agents turn collects answers from several models. {count} is how many.",
@@ -283,6 +267,22 @@
   "chatActivityLineRestoring": "Restoring the chat…",
   "@chatActivityLineRestoring": {
     "description": "Activity line sentence while a chat is being restored on the server."
+  },
+  "chatActivityNeedsYouAnnounceBilling": "Billing access needs approval",
+  "@chatActivityNeedsYouAnnounceBilling": {
+    "description": "Screen reader announcement when a billing verification request reaches the Needs-you card. Never includes the code or the link."
+  },
+  "chatActivityNeedsYouAnnounceConnector": "A connection needs you",
+  "@chatActivityNeedsYouAnnounceConnector": {
+    "description": "Screen reader announcement when a connector sign-in reaches the Needs-you card. Never names the service."
+  },
+  "chatActivityNeedsYouAnnounceReclaim": "This chat was opened elsewhere",
+  "@chatActivityNeedsYouAnnounceReclaim": {
+    "description": "Screen reader announcement when another client took over the chat. Never includes the server's reason."
+  },
+  "chatActivityNeedsYouAnnounceResume": "This chat couldn't be restored",
+  "@chatActivityNeedsYouAnnounceResume": {
+    "description": "Screen reader announcement when restoring the chat failed. Never includes the server's reason."
   },
   "chatActivityNeedsYouBillingCopy": "Copy code",
   "@chatActivityNeedsYouBillingCopy": {
