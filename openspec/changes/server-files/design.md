@@ -141,6 +141,12 @@ Spans (each carries the connection's `hermes.*` attributes from `Telemetry.forCo
 
 Entry points are built from `FilesAvailability` (connection-scoped, from the first `default-cwd` answer). Method-not-found (404 or 405) is "unsupported": no row, no menu item, no error, one log event. A server that answers `/api/fs` but returns 403 on every folder (a locked deployment whose root excludes this chat's folder) shows the page with "Hermes only shares files from a fixed folder on this server." instead; the page is not hidden, because the user can still reach other chats' folders.
 
+## Deviations from the shared widgets (widget PR)
+
+- **Loading skeleton.** The folder list does not use the shared `LoadingSkeleton`. The design pass fixed eight still rows with no shimmer, so reduced motion needs no variant, and each row has a leading block for the icon and a name bar. The shared widget pulses (it only stops under reduced motion), draws bare full-width bars and has no leading block. `FilesBrowserView` draws its own still rows under the spinner and "Loading folder…".
+- **Lazy list.** A folder can hold 2,000 rows. `GroupedSection` builds all its children, so the list uses `FilesLazyList`: one `ListView.builder` whose rows each paint their slice of the same card (corner radius on the first and last, hairline sides, inset separator), so only the rows on screen are built.
+- **Markdown.** Rendered Markdown runs with `html: false`, its own heading and code block styles and the app's link colour, because the package takes headings and code blocks from its own light and dark text theme.
+
 ## Later (separate changes, with the server facts they rest on)
 
 - **Upload** (`/api/files/upload-stream`, multipart, `path` plus `file` plus `overwrite`): host-local only, 100 MB, requires the target inside the managed root. Send `overwrite=false` and treat 409 `File already exists` as "Replace?" confirm; the form field defaults to true, so relying on the default would overwrite silently. Build the target through `ServerPath.child`. Needs a picker (`file_picker` is already a dependency) and shows nothing on an SSH profile.

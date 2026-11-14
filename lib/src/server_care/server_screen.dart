@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -12,12 +14,15 @@ import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
 import 'attention.dart';
 import 'care_result.dart';
+import 'gateway_actions.dart';
+import 'gateway_restart.dart';
 import 'server_care_controller.dart';
 import 'server_status.dart';
 import 'update_check_controller.dart';
 import 'update_page.dart';
 import 'usage_page.dart';
 import 'widgets/care_row_value.dart';
+import 'widgets/grouped_action_row.dart';
 import 'widgets/server_status_card.dart';
 
 /// Pushes the Server screen as a settings page. [source] says where the
@@ -25,15 +30,22 @@ import 'widgets/server_status_card.dart';
 Future<void> showServerScreen(BuildContext context, {required String source}) {
   // The pushed route sits above the shell's provider, so it is passed on.
   final care = context.read<ServerCareController>();
+  final run = context.read<GatewayRestart>();
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => ChangeNotifierProvider<ServerCareController>.value(
-        value: care,
-        child: ServerScreen(source: source),
-      ),
+      builder: (_) => _carry(care, run, ServerScreen(source: source)),
     ),
   );
 }
+
+Widget _carry(ServerCareController care, GatewayRestart run, Widget page) =>
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ServerCareController>.value(value: care),
+        ChangeNotifierProvider<GatewayRestart>.value(value: run),
+      ],
+      child: page,
+    );
 
 /// Is Hermes OK, and what is it running on: a headline, then the Hermes
 /// version and updates, the messaging gateway, the machine, and the tools.
@@ -48,11 +60,14 @@ class ServerScreen extends StatefulWidget {
 
 class _ServerScreenState extends State<ServerScreen> {
   late final UpdateCheckController _update;
+  late final GatewayRestart _run;
+  Timer? _doneTimer;
 
   @override
   void initState() {
     super.initState();
     final care = context.read<ServerCareController>();
+    _run = context.read<GatewayRestart>()..addListener(_runChanged);
     Breadcrumbs crumbs;
     try {
       crumbs = context.read<Breadcrumbs>();
@@ -60,6 +75,12 @@ class _ServerScreenState extends State<ServerScreen> {
       crumbs = Breadcrumbs.none;
     }
     crumbs('server_care.opened', {'source': widget.source});
+    // A run that finished while the screen was closed has said its piece.
+    if (_run.phase == GatewayPhase.done) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _run.phase == GatewayPhase.done) _run.dismiss();
+      });
+    }
     _update = UpdateCheckController(
       repository: HermesRepositories.of(context).serverCare,
       onUnsupported: () => care.reportUnsupported(CarePart.update),
@@ -73,8 +94,35 @@ class _ServerScreenState extends State<ServerScreen> {
 
   @override
   void dispose() {
+    _doneTimer?.cancel();
+    _run.removeListener(_runChanged);
     _update.dispose();
     super.dispose();
+  }
+
+  /// "Running again" stays for a moment, then the row goes back to its action.
+  void _runChanged() {
+    if (_run.phase != GatewayPhase.done) {
+      // A new run must not be cleared by an earlier run's timer.
+      _doneTimer?.cancel();
+      _doneTimer = null;
+    }
+    if (_run.phase == GatewayPhase.done && _doneTimer == null) {
+      _doneTimer = Timer(const Duration(seconds: 4), () {
+        _doneTimer = null;
+        if (_run.phase == GatewayPhase.done) _run.dismiss();
+      });
+    }
+  }
+
+  /// The run belongs to the profile shown; one for another profile says
+  /// nothing here.
+  bool _runIsHere(ServerCareController care) =>
+      _run.profile == null || _run.profile == care.profile;
+
+  void _tryAgain(GatewayAction action) {
+    _run.dismiss();
+    runGatewayAction(context, action);
   }
 
   Future<void> _refresh() async {
@@ -86,14 +134,9 @@ class _ServerScreenState extends State<ServerScreen> {
   /// with them.
   void _open(Widget page) {
     final care = context.read<ServerCareController>();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChangeNotifierProvider<ServerCareController>.value(
-          value: care,
-          child: page,
-        ),
-      ),
-    );
+    final run = context.read<GatewayRestart>();
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => _carry(care, run, page)));
   }
 
   String? _subtitle(AppLocalizations l10n, ServerCareController care) {
@@ -108,6 +151,8 @@ class _ServerScreenState extends State<ServerScreen> {
   @override
   Widget build(BuildContext context) {
     final care = context.watch<ServerCareController>();
+    // The rows read the run's state; the screen rebuilds with it.
+    context.watch<GatewayRestart>();
     final l10n = context.l10n;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final body = ListenableBuilder(
@@ -170,6 +215,19 @@ class _ServerScreenState extends State<ServerScreen> {
   Widget _headline(AppLocalizations l10n, ServerCareController care) {
     final status = care.status;
     final attention = care.attention;
+    // While a restart or start runs, the headline says so, with no button.
+    if (_run.busy && _runIsHere(care)) {
+      return ServerStatusCard(
+        tone: ServerStatusTone.loading,
+        title: _run.action == GatewayAction.start
+            ? l10n.serverCareGatewayHeadlineStarting
+            : l10n.serverCareGatewayHeadlineRestarting,
+      );
+    }
+    ServerStatusButton restartButton() => ServerStatusButton(
+      label: l10n.serverCareGatewayRestart,
+      onPressed: () => runGatewayAction(context, GatewayAction.restart),
+    );
     final retry = ServerStatusButton(
       label: l10n.serverCareTryAgain,
       onPressed: _refresh,
@@ -227,16 +285,22 @@ class _ServerScreenState extends State<ServerScreen> {
         ServerStatusTone.error,
         l10n.serverCareHeadlineGatewayFailed,
         l10n.serverCareHeadlineGatewayFailedDetail,
+        restartButton(),
       ),
       Attention.gatewayUnresponsive => card(
         ServerStatusTone.warning,
         l10n.serverCareHeadlineGatewayUnresponsive,
         _staleDetail(l10n, status),
+        restartButton(),
       ),
       Attention.gatewayOff => card(
         ServerStatusTone.warning,
         l10n.serverCareHeadlineGatewayOff,
         l10n.serverCareHeadlineGatewayOffDetail,
+        ServerStatusButton(
+          label: l10n.serverCareGatewayStart,
+          onPressed: () => runGatewayAction(context, GatewayAction.start),
+        ),
       ),
       Attention.diskCritical => card(
         ServerStatusTone.error,
@@ -396,6 +460,26 @@ class _ServerScreenState extends State<ServerScreen> {
               title: l10n.serverCareGatewaySharedWith,
               value: shared.join(', '),
             ),
+          GroupedActionRow(
+            title: _restartsGateway(status)
+                ? l10n.serverCareGatewayRestart
+                : l10n.serverCareGatewayStart,
+            icon: _restartsGateway(status) ? AppIcons.refresh : AppIcons.play,
+            onPressed: () => runGatewayAction(
+              context,
+              _restartsGateway(status)
+                  ? GatewayAction.restart
+                  : GatewayAction.start,
+            ),
+            status: !_runIsHere(context.read<ServerCareController>())
+                ? null
+                : gatewayRowStatus(
+                    l10n,
+                    _run,
+                    onTryAgain: () =>
+                        _tryAgain(_run.action ?? GatewayAction.restart),
+                  ),
+          ),
         ],
       ),
     ];
@@ -448,3 +532,8 @@ class _ServerScreenState extends State<ServerScreen> {
           ];
   }
 }
+
+/// A gateway that is running, or one that failed to start, is restarted (after
+/// a question); only one that is off is started.
+bool _restartsGateway(ServerStatus status) =>
+    status.gatewayRunning || Attention.of(status) == Attention.gatewayFailed;

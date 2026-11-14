@@ -11,10 +11,13 @@ bool reduceMotionOf(BuildContext context) =>
 /// reduce motion. With no [value] it then shows a full, dimmed bar: still
 /// "working", but nothing moves.
 class BusyBar extends StatefulWidget {
-  const BusyBar({super.key, this.value, this.minHeight});
+  const BusyBar({super.key, this.value, this.minHeight, this.backgroundColor});
 
   final double? value;
   final double? minHeight;
+
+  /// The track behind the fill; the theme's by default.
+  final Color? backgroundColor;
 
   @override
   State<BusyBar> createState() => _BusyBarState();
@@ -57,6 +60,7 @@ class _BusyBarState extends State<BusyBar> with WidgetsBindingObserver {
     return LinearProgressIndicator(
       value: widget.value,
       minHeight: widget.minHeight,
+      backgroundColor: widget.backgroundColor,
     );
   }
 }

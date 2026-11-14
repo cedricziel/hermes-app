@@ -5,9 +5,23 @@
 /// them with a live backend. Model ids are placeholders.
 library;
 
-Map<String, dynamic> statusHealthy() => {
+/// `YYYY-MM-DD` of [days] before [now] (the real clock unless a test gives
+/// its own), so a fixture never goes stale.
+String _daysBack(DateTime now, int days) {
+  final d = now.subtract(Duration(days: days));
+  return '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+}
+
+/// Unix seconds [days] (and a half) before [now].
+int _secondsBack(DateTime now, int days) =>
+    now.subtract(Duration(days: days, hours: 12)).millisecondsSinceEpoch ~/
+    1000;
+
+Map<String, dynamic> statusHealthy({DateTime? now}) => {
   'version': '0.22.2',
-  'release_date': '2026-11-02',
+  'release_date': _daysBack(now ?? DateTime.now(), 12),
   'config_version': 31,
   'latest_config_version': 31,
   'can_update_hermes': true,
@@ -42,7 +56,9 @@ Map<String, dynamic> statusOld() => {
   'profiles': ['default'],
 };
 
-Map<String, dynamic> updateCheckBehind() => {
+/// The commits are 2 and 5 days (and a half) old at [now], so the Update page
+/// reads "2 days ago" on any date.
+Map<String, dynamic> updateCheckBehind({DateTime? now}) => {
   'install_method': 'git',
   'current_version': '0.22.2',
   'behind': 2,
@@ -55,13 +71,13 @@ Map<String, dynamic> updateCheckBehind() => {
       'sha': '1a2b3c4',
       'summary': 'Fix a thing',
       'author': 'Ada',
-      'at': 1762000000,
+      'at': _secondsBack(now ?? DateTime.now(), 2),
     },
     {
       'sha': '5d6e7f8',
       'summary': 'Add another',
       'author': 'Bo',
-      'at': 1762000100,
+      'at': _secondsBack(now ?? DateTime.now(), 5),
     },
     {'summary': 'no sha'},
     'junk',
@@ -175,10 +191,13 @@ const logsErrors = [
   '2026-11-14 09:12:04,001 WARNING agent.loop: retrying',
 ];
 
-Map<String, dynamic> usage30() => {
+/// Two days of use, the newest 2 days before [today]. The default is the day
+/// the controller and repository tests inject, so their expectations hold;
+/// a test that reads the real clock passes `today: DateTime.now()`.
+Map<String, dynamic> usage30({DateTime? today}) => {
   'daily': [
     {
-      'day': '2026-11-12',
+      'day': _daysBack(today ?? DateTime(2026, 11, 14), 2),
       'input_tokens': 812000,
       'output_tokens': 64000,
       'cache_read_tokens': 410000,
@@ -189,7 +208,7 @@ Map<String, dynamic> usage30() => {
       'api_calls': 41,
     },
     {
-      'day': '2026-11-10',
+      'day': _daysBack(today ?? DateTime(2026, 11, 14), 4),
       'input_tokens': 1000,
       'output_tokens': 500,
       'sessions': 1,
