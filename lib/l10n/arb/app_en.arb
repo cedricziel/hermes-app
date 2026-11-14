@@ -4127,6 +4127,501 @@
 
   "@@x-area-theme": "",
 
+  "@@x-area-tools": "",
+  "toolsActionCount": "{count, plural, =1{1 action} other{{count} actions}}",
+  "@toolsActionCount": {
+    "description": "Under a tool's sentence: how many separate actions the tool gives Hermes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolsBannerInstallerDetail": "Hermes started an installer on your server. Applies from your next chat.",
+  "@toolsBannerInstallerDetail": {
+    "description": "Detail of the banner shown after switching on a tool started an installer on the server."
+  },
+  "toolsBannerInstallerTitle": "{name} is on.",
+  "@toolsBannerInstallerTitle": {
+    "description": "Title of the banner shown after switching on a tool started an installer on the server.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsBannerLoadFailedDetail": "The list below may be out of date.",
+  "@toolsBannerLoadFailedDetail": {
+    "description": "Detail of the error banner above the tools list when reloading failed; the rows already loaded stay."
+  },
+  "toolsBannerLoadFailedTitle": "Couldn't load tools.",
+  "@toolsBannerLoadFailedTitle": {
+    "description": "Title of the error banner above the tools list when reading it failed."
+  },
+  "toolsBannerOfflineDetail": "Couldn't load tools. Switches show what was last saved.",
+  "@toolsBannerOfflineDetail": {
+    "description": "Detail of the warning banner above the tools list when the device is offline."
+  },
+  "toolsBannerOfflineTitle": "You're offline.",
+  "@toolsBannerOfflineTitle": {
+    "description": "Title of the warning banner above the tools list when the device is offline."
+  },
+  "toolsBannerShow": "Show",
+  "@toolsBannerShow": {
+    "description": "Button in the installer banner that opens the tool's details."
+  },
+  "toolsChipCantUse": "Can't be used",
+  "@toolsChipCantUse": {
+    "description": "Status badge: a tool or backend that cannot work on this server. Keep it short."
+  },
+  "toolsChipNeedsInstall": "Needs install",
+  "@toolsChipNeedsInstall": {
+    "description": "Status badge: the provider needs an installer run on the server. Keep it short."
+  },
+  "toolsChipNeedsKey": "Needs a key",
+  "@toolsChipNeedsKey": {
+    "description": "Status badge: the provider needs an API key. Keep it short."
+  },
+  "toolsChipNeedsSignIn": "Needs a sign-in on the server",
+  "@toolsChipNeedsSignIn": {
+    "description": "Status badge: the provider needs someone to sign in on the Hermes server; the app cannot do it."
+  },
+  "toolsChipReady": "Ready",
+  "@toolsChipReady": {
+    "description": "Status badge: the provider or backend works now. Keep it short."
+  },
+  "toolsConfirmApplies": "It applies to the profile \"{profile}\".",
+  "@toolsConfirmApplies": {
+    "description": "Sentence in a confirmation question: which profile the change applies to.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "work"
+      }
+    }
+  },
+  "toolsConfirmBrowserLead": "It can open web pages, click and type in them, and may install a browser on the server.",
+  "@toolsConfirmBrowserLead": {
+    "description": "First sentence of the question asked before the browser tool is switched on."
+  },
+  "toolsConfirmBrowserTitle": "Let Hermes use a browser?",
+  "@toolsConfirmBrowserTitle": {
+    "description": "Title of the question asked before the browser tool is switched on."
+  },
+  "toolsConfirmCodeExecutionLead": "It can write and run programs on the machine where Hermes runs.",
+  "@toolsConfirmCodeExecutionLead": {
+    "description": "First sentence of the question asked before the code execution tool is switched on."
+  },
+  "toolsConfirmCodeExecutionTitle": "Let Hermes run programs?",
+  "@toolsConfirmCodeExecutionTitle": {
+    "description": "Title of the question asked before the code execution tool is switched on."
+  },
+  "toolsConfirmComputerUseDriver": "It may also install a driver on the server.",
+  "@toolsConfirmComputerUseDriver": {
+    "description": "Sentence added to the computer use question: switching it on may install a driver."
+  },
+  "toolsConfirmComputerUseLead": "It can see everything on the screen of the computer that runs Hermes and use its mouse and keyboard.",
+  "@toolsConfirmComputerUseLead": {
+    "description": "First sentence of the question asked before the computer use tool is switched on."
+  },
+  "toolsConfirmComputerUseTitle": "Let Hermes control a computer?",
+  "@toolsConfirmComputerUseTitle": {
+    "description": "Title of the question asked before the computer use tool is switched on."
+  },
+  "toolsConfirmInstallBody": "Switching {name} on may run an installer on the server. It may download software.",
+  "@toolsConfirmInstallBody": {
+    "description": "Body of the question asked before switching on a tool that may start an installer on the server.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsConfirmInstallTitle": "Install on your server?",
+  "@toolsConfirmInstallTitle": {
+    "description": "Title of the question asked before switching on a tool that may start an installer on the server."
+  },
+  "toolsConfirmOffActions": "Switching it off stops new actions. It doesn't undo what they did.",
+  "@toolsConfirmOffActions": {
+    "description": "Last sentences of a confirmation question for tools that act on web pages or a computer."
+  },
+  "toolsConfirmOffCommands": "Switching it off stops new commands. It doesn't undo what they did.",
+  "@toolsConfirmOffCommands": {
+    "description": "Last sentences of a confirmation question for tools that run commands or programs."
+  },
+  "toolsConfirmTerminalLead": "It can run commands on the machine where Hermes runs.",
+  "@toolsConfirmTerminalLead": {
+    "description": "First sentence of the question asked before the terminal tool is switched on."
+  },
+  "toolsConfirmTerminalTitle": "Let Hermes run commands?",
+  "@toolsConfirmTerminalTitle": {
+    "description": "Title of the question asked before the terminal tool is switched on."
+  },
+  "toolsEmptyDetail": "Tools Hermes offers for this profile will show here.",
+  "@toolsEmptyDetail": {
+    "description": "Detail under the empty state of the tools list."
+  },
+  "toolsEmptyTitle": "This profile has no tools to set up.",
+  "@toolsEmptyTitle": {
+    "description": "Title of the empty state of the tools list."
+  },
+  "toolsErrorFailed": "Couldn't change {name}. Try again.",
+  "@toolsErrorFailed": {
+    "description": "Error line on a tool's row after a change failed for any other reason.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsErrorNotAllowed": "You can't change tools on this server.",
+  "@toolsErrorNotAllowed": {
+    "description": "Error line on a tool's row when the server refused the change as not allowed."
+  },
+  "toolsErrorOffline": "You're offline. Couldn't change {name}.",
+  "@toolsErrorOffline": {
+    "description": "Error line on a tool's row when a change failed because the device is offline.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      }
+    }
+  },
+  "toolsFooterBody": "Switching a tool on or off applies from your next chat. A chat that is already open keeps the tools it started with.",
+  "@toolsFooterBody": {
+    "description": "Footer under the tools list."
+  },
+  "toolsFooterLink": "What's the difference?",
+  "@toolsFooterLink": {
+    "description": "Link under the tools list that explains tools, skills, plugins and MCP servers."
+  },
+  "toolsHeaderOffNeedsSetup": "Off · needs setup",
+  "@toolsHeaderOffNeedsSetup": {
+    "description": "State line in a tool's detail header: the tool is off and has not been set up."
+  },
+  "toolsHeaderOnNeedsSetup": "On · needs setup",
+  "@toolsHeaderOnNeedsSetup": {
+    "description": "State line in a tool's detail header: the tool is on but has not been set up."
+  },
+  "toolsLabelBrowser": "Browser",
+  "@toolsLabelBrowser": {
+    "description": "Display name of the built-in tool \"Browser\" in the tools list; keep it short."
+  },
+  "toolsLabelClarify": "Clarifying questions",
+  "@toolsLabelClarify": {
+    "description": "Display name of the built-in tool \"Clarifying questions\" in the tools list; keep it short."
+  },
+  "toolsLabelCodeExecution": "Code execution",
+  "@toolsLabelCodeExecution": {
+    "description": "Display name of the built-in tool \"Code execution\" in the tools list; keep it short."
+  },
+  "toolsLabelComputerUse": "Computer use",
+  "@toolsLabelComputerUse": {
+    "description": "Display name of the built-in tool \"Computer use\" in the tools list; keep it short."
+  },
+  "toolsLabelConnections": "Connections",
+  "@toolsLabelConnections": {
+    "description": "Display name of the built-in tool \"Connections\" in the tools list; keep it short."
+  },
+  "toolsLabelContextEngine": "Context engine",
+  "@toolsLabelContextEngine": {
+    "description": "Display name of the built-in tool \"Context engine\" in the tools list; keep it short."
+  },
+  "toolsLabelCronjob": "Scheduled tasks",
+  "@toolsLabelCronjob": {
+    "description": "Display name of the built-in tool \"Scheduled tasks\" in the tools list; keep it short."
+  },
+  "toolsLabelDelegation": "Delegation",
+  "@toolsLabelDelegation": {
+    "description": "Display name of the built-in tool \"Delegation\" in the tools list; keep it short."
+  },
+  "toolsLabelDiscord": "Discord",
+  "@toolsLabelDiscord": {
+    "description": "Display name of the built-in tool \"Discord\" in the tools list; keep it short."
+  },
+  "toolsLabelDiscordAdmin": "Discord admin",
+  "@toolsLabelDiscordAdmin": {
+    "description": "Display name of the built-in tool \"Discord admin\" in the tools list; keep it short."
+  },
+  "toolsLabelFile": "Files",
+  "@toolsLabelFile": {
+    "description": "Display name of the built-in tool \"Files\" in the tools list; keep it short."
+  },
+  "toolsLabelImageGen": "Image generation",
+  "@toolsLabelImageGen": {
+    "description": "Display name of the built-in tool \"Image generation\" in the tools list; keep it short."
+  },
+  "toolsLabelKanban": "Kanban",
+  "@toolsLabelKanban": {
+    "description": "Display name of the built-in tool \"Kanban\" in the tools list; keep it short."
+  },
+  "toolsLabelMemory": "Memory",
+  "@toolsLabelMemory": {
+    "description": "Display name of the built-in tool \"Memory\" in the tools list; keep it short."
+  },
+  "toolsLabelSessionSearch": "Session search",
+  "@toolsLabelSessionSearch": {
+    "description": "Display name of the built-in tool \"Session search\" in the tools list; keep it short."
+  },
+  "toolsLabelSkills": "Skills",
+  "@toolsLabelSkills": {
+    "description": "Display name of the built-in tool \"Skills\" in the tools list; keep it short."
+  },
+  "toolsLabelStt": "Speech to text",
+  "@toolsLabelStt": {
+    "description": "Display name of the built-in tool \"Speech to text\" in the tools list; keep it short."
+  },
+  "toolsLabelTerminal": "Terminal",
+  "@toolsLabelTerminal": {
+    "description": "Display name of the built-in tool \"Terminal\" in the tools list; keep it short."
+  },
+  "toolsLabelTodo": "Task planning",
+  "@toolsLabelTodo": {
+    "description": "Display name of the built-in tool \"Task planning\" in the tools list; keep it short."
+  },
+  "toolsLabelTts": "Text to speech",
+  "@toolsLabelTts": {
+    "description": "Display name of the built-in tool \"Text to speech\" in the tools list; keep it short."
+  },
+  "toolsLabelVideoAnalysis": "Video analysis",
+  "@toolsLabelVideoAnalysis": {
+    "description": "Display name of the built-in tool \"Video analysis\" in the tools list; keep it short."
+  },
+  "toolsLabelVideoGen": "Video generation",
+  "@toolsLabelVideoGen": {
+    "description": "Display name of the built-in tool \"Video generation\" in the tools list; keep it short."
+  },
+  "toolsLabelVision": "Image analysis",
+  "@toolsLabelVision": {
+    "description": "Display name of the built-in tool \"Image analysis\" in the tools list; keep it short."
+  },
+  "toolsLabelWeb": "Web search and scraping",
+  "@toolsLabelWeb": {
+    "description": "Display name of the built-in tool \"Web search and scraping\" in the tools list; keep it short."
+  },
+  "toolsLabelXSearch": "X search",
+  "@toolsLabelXSearch": {
+    "description": "Display name of the built-in tool \"X search\" in the tools list; keep it short."
+  },
+  "toolsLoading": "Loading tools…",
+  "@toolsLoading": {
+    "description": "Shown with a spinner while the tools list loads."
+  },
+  "toolsNeedsSetup": "Needs setup",
+  "@toolsNeedsSetup": {
+    "description": "Status badge, list section header and a row's state line: the tool has not been set up yet, or its status is unknown."
+  },
+  "toolsOldServerDetail": "Updating Hermes on the server adds them.",
+  "@toolsOldServerDetail": {
+    "description": "Detail under the message that the server has no tools settings."
+  },
+  "toolsOldServerTitle": "This server doesn't offer tools settings.",
+  "@toolsOldServerTitle": {
+    "description": "Title of the state shown when the Hermes server is too old to have tools settings."
+  },
+  "toolsRiskActOnItsOwnSentence": "Hermes can start work later, or hand it to helper agents, without you watching each step.",
+  "@toolsRiskActOnItsOwnSentence": {
+    "description": "Risk note sentence for scheduled tasks and delegation."
+  },
+  "toolsRiskActOnItsOwnTitle": "Can act on its own",
+  "@toolsRiskActOnItsOwnTitle": {
+    "description": "Risk note title for scheduled tasks and delegation."
+  },
+  "toolsRiskActOnWebPagesSentence": "Hermes can open web pages and click and type in them, such as filling in and sending forms.",
+  "@toolsRiskActOnWebPagesSentence": {
+    "description": "Risk note sentence for the browser tool."
+  },
+  "toolsRiskActOnWebPagesTitle": "Can act on web pages for you",
+  "@toolsRiskActOnWebPagesTitle": {
+    "description": "Risk note title for the browser tool."
+  },
+  "toolsRiskAsks": "Hermes asks before you switch it on.",
+  "@toolsRiskAsks": {
+    "description": "Last sentence of the risk note of a tool that asks for confirmation before it is switched on."
+  },
+  "toolsRiskChangeFilesSentence": "Hermes can read, create and change any file on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskChangeFilesSentence": {
+    "description": "Risk note sentence for the files tool."
+  },
+  "toolsRiskChangeThingsTitle": "Can change things on your server",
+  "@toolsRiskChangeThingsTitle": {
+    "description": "Risk note title for the terminal, code execution and files tools."
+  },
+  "toolsRiskControlComputerSentence": "Hermes can see everything on the screen of the computer that runs Hermes, and use its mouse and keyboard. Switch it on only for a profile you trust with that.",
+  "@toolsRiskControlComputerSentence": {
+    "description": "Risk note sentence for the computer use tool."
+  },
+  "toolsRiskControlComputerTitle": "Can see and control a computer",
+  "@toolsRiskControlComputerTitle": {
+    "description": "Risk note title for the computer use tool."
+  },
+  "toolsRiskManageDiscordSentence": "Hermes can change the channels and roles of the Discord server it works in.",
+  "@toolsRiskManageDiscordSentence": {
+    "description": "Risk note sentence for the Discord admin tool."
+  },
+  "toolsRiskManageDiscordTitle": "Can change your Discord server",
+  "@toolsRiskManageDiscordTitle": {
+    "description": "Risk note title for the Discord admin tool."
+  },
+  "toolsRiskRunCommandsSentence": "Hermes can run any command on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskRunCommandsSentence": {
+    "description": "Risk note sentence for the terminal tool."
+  },
+  "toolsRiskRunProgramsSentence": "Hermes can write and run any program on the machine where Hermes runs, with that machine's permissions.",
+  "@toolsRiskRunProgramsSentence": {
+    "description": "Risk note sentence for the code execution tool."
+  },
+  "toolsRowCanChangeThings": "Can change things",
+  "@toolsRowCanChangeThings": {
+    "description": "Line in a tool's row with a shield icon: the tool can change things on the server."
+  },
+  "toolsRowChecking": "May have changed. Checking…",
+  "@toolsRowChecking": {
+    "description": "Under a tool's row while the app checks whether a switch took effect after its answer was lost. Shown with a spinner."
+  },
+  "toolsRowUnconfirmedPull": "Couldn't confirm. Pull to refresh.",
+  "@toolsRowUnconfirmedPull": {
+    "description": "Line in a tool's row when the app could not confirm a switch; on touch screens the list is refreshed by pulling down."
+  },
+  "toolsRowUnconfirmedRetry": "Couldn't confirm. Try again.",
+  "@toolsRowUnconfirmedRetry": {
+    "description": "Line in a tool's row when the app could not confirm a switch; a Try again button follows it where there is no pull to refresh."
+  },
+  "toolsSentenceBrowser": "Open web pages, click and type in them.",
+  "@toolsSentenceBrowser": {
+    "description": "One plain sentence under the name of the built-in tool \"Browser\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceClarify": "Ask you a question when something is unclear.",
+  "@toolsSentenceClarify": {
+    "description": "One plain sentence under the name of the built-in tool \"Clarifying questions\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceCodeExecution": "Write and run programs on the machine where Hermes runs.",
+  "@toolsSentenceCodeExecution": {
+    "description": "One plain sentence under the name of the built-in tool \"Code execution\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceComputerUse": "See a desktop's screen and move its mouse and keyboard.",
+  "@toolsSentenceComputerUse": {
+    "description": "One plain sentence under the name of the built-in tool \"Computer use\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceConnections": "Use accounts you have connected.",
+  "@toolsSentenceConnections": {
+    "description": "One plain sentence under the name of the built-in tool \"Connections\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceContextEngine": "Use the add-on that manages long chats.",
+  "@toolsSentenceContextEngine": {
+    "description": "One plain sentence under the name of the built-in tool \"Context engine\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceCronjob": "Create tasks that run later without you.",
+  "@toolsSentenceCronjob": {
+    "description": "One plain sentence under the name of the built-in tool \"Scheduled tasks\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDelegation": "Start helper agents that work on their own.",
+  "@toolsSentenceDelegation": {
+    "description": "One plain sentence under the name of the built-in tool \"Delegation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDiscord": "Read and join Discord conversations.",
+  "@toolsSentenceDiscord": {
+    "description": "One plain sentence under the name of the built-in tool \"Discord\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceDiscordAdmin": "Manage a Discord server's channels and roles.",
+  "@toolsSentenceDiscordAdmin": {
+    "description": "One plain sentence under the name of the built-in tool \"Discord admin\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceFile": "Read, create and change files on the machine where Hermes runs.",
+  "@toolsSentenceFile": {
+    "description": "One plain sentence under the name of the built-in tool \"Files\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceImageGen": "Make pictures from a description.",
+  "@toolsSentenceImageGen": {
+    "description": "One plain sentence under the name of the built-in tool \"Image generation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceKanban": "Use the task board.",
+  "@toolsSentenceKanban": {
+    "description": "One plain sentence under the name of the built-in tool \"Kanban\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceMemory": "Remember things between chats.",
+  "@toolsSentenceMemory": {
+    "description": "One plain sentence under the name of the built-in tool \"Memory\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceSessionSearch": "Search your past chats.",
+  "@toolsSentenceSessionSearch": {
+    "description": "One plain sentence under the name of the built-in tool \"Session search\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceSkills": "Find and use the skills you have.",
+  "@toolsSentenceSkills": {
+    "description": "One plain sentence under the name of the built-in tool \"Skills\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceStt": "Turn voice messages into text.",
+  "@toolsSentenceStt": {
+    "description": "One plain sentence under the name of the built-in tool \"Speech to text\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTerminal": "Run commands on the machine where Hermes runs.",
+  "@toolsSentenceTerminal": {
+    "description": "One plain sentence under the name of the built-in tool \"Terminal\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTodo": "Keep a to-do list while working.",
+  "@toolsSentenceTodo": {
+    "description": "One plain sentence under the name of the built-in tool \"Task planning\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceTts": "Read answers aloud.",
+  "@toolsSentenceTts": {
+    "description": "One plain sentence under the name of the built-in tool \"Text to speech\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVideoAnalysis": "Watch videos and describe them.",
+  "@toolsSentenceVideoAnalysis": {
+    "description": "One plain sentence under the name of the built-in tool \"Video analysis\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVideoGen": "Make short videos from a description.",
+  "@toolsSentenceVideoGen": {
+    "description": "One plain sentence under the name of the built-in tool \"Video generation\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceVision": "Look at pictures and describe them.",
+  "@toolsSentenceVision": {
+    "description": "One plain sentence under the name of the built-in tool \"Image analysis\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceWeb": "Look things up on the web and read pages.",
+  "@toolsSentenceWeb": {
+    "description": "One plain sentence under the name of the built-in tool \"Web search and scraping\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSentenceXSearch": "Search posts on X.",
+  "@toolsSentenceXSearch": {
+    "description": "One plain sentence under the name of the built-in tool \"X search\" in the tools list; sentence case, no full stop needed beyond the one given."
+  },
+  "toolsSwitchLabel": "{name}, {state, select, on{on} other{off}}",
+  "@toolsSwitchLabel": {
+    "description": "Accessibility label of a tool's switch: the tool's name and whether it is on or off.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "toolsSwitchLabelSaving": "{name}, {state, select, on{on} other{off}}, saving",
+  "@toolsSwitchLabelSaving": {
+    "description": "Accessibility label of a tool's switch while the change is being saved: name, new state, then that it is saving.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Terminal"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "toolsTryAgain": "Try again",
+  "@toolsTryAgain": {
+    "description": "Button that repeats a failed load or a change of a tool."
+  },
+
   "@@x-area-update": "",
 
   "@@x-area-voice": "",
