@@ -48,7 +48,7 @@ For the selected provider each env var SHALL be a masked field labelled with its
 #### Scenario: Field behaviour
 
 - **WHEN** a key field is shown
-- **THEN** it disables autocorrect, suggestions, keyboard learning and autofill, and says "Saved on your server for <profile>. The app doesn't keep it."
+- **THEN** it disables autocorrect, suggestions, keyboard learning and autofill, offers no control that shows the typed value, and says "Saved on your server for <profile>. The app doesn't keep it."
 
 #### Scenario: Cleared on leaving
 
@@ -63,7 +63,7 @@ For the selected provider each env var SHALL be a masked field labelled with its
 #### Scenario: Failure clears too
 
 - **WHEN** the save fails
-- **THEN** the message says "Couldn't save the key. Type it again." and the field is empty
+- **THEN** the message says "Couldn't save the key. Type it again.", the field is empty, and Save stays disabled until something is typed
 
 #### Scenario: Blank is not sent
 
@@ -98,7 +98,17 @@ When the selected provider has `post_setup`, the screen SHALL offer an install s
 #### Scenario: Progress
 
 - **WHEN** an install runs
-- **THEN** the last six log lines show and keep updating after the user leaves the screen and returns
+- **THEN** the last six log lines show as selectable text, the screen says "You can leave this screen. The install keeps going.", and the lines keep updating after the user leaves the screen and returns
+
+#### Scenario: Install is the main action
+
+- **WHEN** the selected provider's install step has not run and the toolset does not work without it
+- **THEN** "Install on server" is the filled button of the section, with "Needed before this works. Hermes asks before it runs anything."
+
+#### Scenario: Installer started from the list
+
+- **WHEN** switching a toolset on from the list answers `post_setup_started`
+- **THEN** the list shows a banner "<name> is on." with "Hermes started an installer on your server. Applies from your next chat." and a Show button that opens the detail's install section
 
 #### Scenario: Install succeeds
 

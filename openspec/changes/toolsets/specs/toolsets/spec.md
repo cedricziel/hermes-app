@@ -36,12 +36,22 @@ The Tools screen SHALL show the profile's toolsets in the settings kit (`Setting
 #### Scenario: On but not configured
 
 - **WHEN** a toolset is on and `configured` is false
-- **THEN** its row sits under "Needs setup", the switch shows on, and the subtitle reads "On · needs setup"
+- **THEN** its row sits under "Needs setup", the switch shows on, the row shows the line "Needs setup" with a warning icon, and the detail's state line reads "On · needs setup"
 
 #### Scenario: Sentence and order
 
 - **WHEN** a row has a built-in name
 - **THEN** it shows the app's own sentence, not the server's `description`, and a "Needs setup" row adds the line "Needs setup"
+
+#### Scenario: Risk line
+
+- **WHEN** a row's toolset is in the risk table at either level
+- **THEN** the row shows "Can change things" with a shield icon under its sentence, and a toolset outside the table shows no such line
+
+#### Scenario: Row and switch are separate targets
+
+- **WHEN** the user taps a row's text
+- **THEN** the detail opens and the switch does not change; tapping the switch changes it and does not open the detail
 
 #### Scenario: Unknown toolset from a plugin
 
@@ -68,6 +78,11 @@ The Tools screen SHALL show the profile's toolsets in the settings kit (`Setting
 ### Requirement: Detail
 
 Selecting a row SHALL open its detail, as a pane beside the list at 900 points or wider and as a pushed page below, showing in order: name, sentence and switch; the state line; what it lets Hermes do (risky toolsets); Set up; where it applies; and a collapsed "What's inside (N)".
+
+#### Scenario: Setup needed opens in place
+
+- **WHEN** the detail of a toolset that needs setup opens
+- **THEN** the Set up section is open under the header and the risk note, there is no separate "Set up" button, and the key form's Save is the only filled button
 
 #### Scenario: Order of the detail
 
@@ -99,6 +114,16 @@ Switching a toolset SHALL send `PUT /api/tools/toolsets/{name}` with `enabled` a
 
 - **WHEN** the user switches Web search on and the server answers ok
 - **THEN** the row moves to On (or Needs setup), the note about the next chat shows, and the list was read again
+
+#### Scenario: Write in flight
+
+- **WHEN** the user flips a switch and the answer has not arrived
+- **THEN** the switch shows the new position, is disabled with a small progress beside it, and the row stays in its group until the list is read again
+
+#### Scenario: Failure shown on the row
+
+- **WHEN** a write is refused or fails
+- **THEN** the message shows as an error line on the row that was flipped, not only in a banner
 
 #### Scenario: Effect on chats
 
@@ -218,7 +243,7 @@ Rows, switches and detail controls SHALL be at least 44 points (iOS, macOS) or 4
 #### Scenario: Large text
 
 - **WHEN** the system text size is the largest accessibility size
-- **THEN** every sentence is shown in full and no control is cut off
+- **THEN** every sentence is shown in full, no control is cut off, and each row's switch moves under its text with the state in words ("On" or "Off")
 
 #### Scenario: Keyboard
 

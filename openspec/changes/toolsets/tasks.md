@@ -1,6 +1,6 @@
 # Tasks
 
-Six PRs, each under about 500 changed lines with tests, merged in order. Each ends with its own verify task. The Claude Design pass (task 3.0) runs from `docs/design-briefs/toolsets.md` between PR 3 and PR 4.
+Six PRs, each under about 500 changed lines with tests, merged in order. Each ends with its own verify task. The Claude Design pass (task 4.0) ran from `docs/design-briefs/toolsets.md` between PR 3 and PR 4.
 
 ## 1. PR 1 — `feat(tools): read toolsets and their setup`
 
@@ -32,10 +32,22 @@ Six PRs, each under about 500 changed lines with tests, merged in order. Each en
 
 ## 4. PR 4 — `feat(tools): add the tools widgets`
 
-- [ ] 4.0 Claude Design pass from `docs/design-briefs/toolsets.md`; record the result in `design/web` if it holds the other settings pages.
-- [ ] 4.1 Add Widgetbook use cases as plain-model widgets in `lib/src/tools/widgets/`, each in both themes at phone, iPad and desktop width, every state: list (loading, empty, error, grouped, large text), row (off, on, needs setup, risky, unknown toolset), detail (every section, "What's inside" open), provider list (every status chip, Nous note, advanced web), key fields (empty, already set, typed, saving, saved, failed), install progress (running, done, failed, unknown), model list, terminal backends (every status, Local confirmation), computer-use readiness (macOS missing a permission, Linux, unknown, with and without the bot screen link), the four confirmations, the "What's the difference?" sheet and popover.
+- [x] 4.0 Claude Design pass from `docs/design-briefs/toolsets.md`: https://claude.ai/artifact/KsLQJVL4D6Xo3PGdgxC7AL (39 artboards); decisions, corrections and added copy are in the brief's "Design (done)" section, which the widgets below follow. `design/web` holds the sibling settings pages, so the new components are added there in 4.3.
+- [ ] 4.1 Build these plain-model widgets in `lib/src/tools/widgets/` (models and callbacks only, no controller or repository), each with Widgetbook use cases in `widgetbook/tools_use_cases.dart` before any screen uses it, in both themes, at phone, iPad and desktop width, with Apple and Material chrome and at the largest text size. Verify `flutter test test/widgetbook_test.dart` passes.
+  - `ToolsetRow`: name, sentence (up to three lines), "Can change things" line, "Needs setup" line, action count, trailing switch; the text opens the detail, the switch is separate. Use cases: off, on, on needing setup, off needing setup, risky (confirm and explain level), unknown plugin toolset (server label and description, no risk line), saving (new position, dimmed, spinner, still in its group), failed and rolled back ("Couldn't change <name>. Try again."), not allowed ("You can't change tools on this server."), answer lost ("May have changed. Checking…"), selected in a pane, largest text (switch under the text with "On"/"Off").
+  - Tools list states with the kit's `Banner` and `StateMessage`: grouped (Needs setup, On, Off, empty groups left out), all on, loading ("Loading tools…"), empty ("This profile has no tools to set up."), couldn't load (banner with Try again, rows stay), offline (banner "You're offline."), old server (Back), installer started (success banner with Show), and the footer with "What's the difference?".
+  - `ToolsetHeader`: name, switch, sentence, state line. Use cases: "On", "Off", "On · needs setup", saving.
+  - `RiskNote`: icon, title, sentence, and for confirm levels "Hermes asks before you switch it on." Use cases: each title of the risk table.
+  - `StatusChip`: the kit's badge with icon for Ready, Needs a key, Needs a sign-in on the server, Needs install, Needs setup (also any unknown status) and Can't be used.
+  - `ProviderRow`: radio row with name, badge tag, tag line or description, status chip and an optional note; Apple check mark, Material leading radio. Use cases: every chip, picked and not, the Nous Portal sign-in note, a backend with "From Hermes:" text, a picked backend that needs setup ("Commands will fail until this is set up on your server."), Web's Advanced open with the Search and Extract choices, setup loading ("Loading setup…") and couldn't load (Try again).
+  - `SecretField`: label, obscured field with autocorrect, suggestions and autofill off and no show/hide control, helper "Saved on your server for <profile>. The app doesn't keep it.", "Get a key", Save, "To remove a key, edit it on your server." Use cases: empty, typed, saving, saved banner with "Already set" and Replace, failed ("Couldn't save the key. Type it again.", Save disabled while empty), answer lost ("May have saved. Checking…").
+  - `InstallProgress`: running (spinner, title, "You can leave this screen. The install keeps going.", six selectable monospace lines, live region), switch-started ("Hermes is installing the driver on your server."), done ("Installed."), failed ("The install didn't finish.", lines, Try again), unknown ("Couldn't tell whether it finished."), another install running (button disabled), reduced motion (no spinner animation). Also the "Install on server" button with its helper.
+  - `ReadinessRow`: label and value with a filled icon (allowed, not allowed, couldn't tell). Use cases: a macOS server missing screen recording with Allow access, a macOS server without the driver (Install on server, no Allow access), a Linux server (driver and Ready rows only), unknown readiness with Hermes' error text, with and without "Open the bot's screen".
+  - The model picker (the kit's choice rows in a sheet, a popover on a Mac): default marked, speed, strengths and price on the second line.
+  - The four confirmations (Terminal, Code execution, Computer use, Browser) and the Local, Install and Allow access questions, Apple alert and Material dialog; the "What's the difference?" sheet and popover.
 - [ ] 4.2 Write failing widget tests for the copy (rows, sentences, chips, notes, confirmations, errors) and accessibility (labels, 44 pt targets, large text). Then make them pass.
-- [ ] 4.3 Run `/simplify`, format, analyze and the tests (`test/widgetbook_test.dart` builds every use case in both themes).
+- [ ] 4.3 Add `ToolsetRow`, `ToolsetHeader`, `RiskNote`, `ProviderRow`, `SecretField`, `InstallProgress` and `ReadinessRow` to `design/web` beside the sibling settings components, so the Hermes App design system carries them.
+- [ ] 4.4 Run `/simplify`, format, analyze and the tests (`test/widgetbook_test.dart` builds every use case in both themes).
 
 ## 5. PR 5 — `feat(tools): add the Tools screen`
 

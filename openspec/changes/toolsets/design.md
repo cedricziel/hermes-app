@@ -178,7 +178,7 @@ The REST writes change `config.yaml` and `.env` only; they do not reach into run
 | `delegation`     | explain | Start helper agents that work on their own.                  |
 | `discord_admin`  | explain | Manage a Discord server's channels and roles.                |
 
-"Confirm" levels ask before switching on (a switch can start an installer for any provider of the toolset, and the answer names none); "explain" levels show the sentence in the row and detail but do not ask; everything else shows neither. The table is the one place to extend, and a test pins that every name in it is a name the server's catalog uses (Task 1.1 records the catalog).
+"Confirm" levels ask before switching on (a switch can start an installer for any provider of the toolset, and the answer names none); "explain" levels show the sentence in the row and detail but do not ask; everything else shows neither. Both levels give the row the line "Can change things" and the detail a risk note; the table also holds each note's title: "Can change things on your server" (terminal, code_execution, file, computer_use), "Can act on web pages for you" (browser), "Can act on its own" (cronjob, delegation), "Can change your Discord server" (discord_admin). Confirm levels add "Hermes asks before you switch it on." to the note. The table is the one place to extend, and a test pins that every name in it is a name the server's catalog uses (Task 1.1 records the catalog).
 
 **Safety confirmations.** Switching on a "confirm" toolset opens the platform's alert (a dialog on Mac and wide windows, the iOS/Material alert elsewhere; `confirmDestructive`-style helper) titled "Let Hermes run commands?", body the risk sentence plus "It applies to <profile>. You can switch it off again here.", actions Cancel (default) and "Switch on". It asks every time it is switched on, not once. Switching off never asks. Choosing the Local terminal backend asks "Run commands directly on your server?" with "Commands will run on the same machine as Hermes, not in a container." Starting an install step asks "Install on your server?" with "Hermes will run an installer on the server. It may download software." Starting the macOS permission grant asks "Allow access on the server's Mac?" with "A permission window will open on the computer that runs Hermes. Someone there has to approve it." Each confirmation says exactly what will happen and can be cancelled; none is a one-tap undoable surprise.
 
@@ -188,7 +188,7 @@ The REST writes change `config.yaml` and `.env` only; they do not reach into run
 2. **Keys.** For the selected provider's `env_vars`: a masked field per key labelled with `prompt` (falling back to the key text), a "Get a key" link from `url` that opens in the external browser, and "Already set" when `is_set`, with "Replace" revealing the field. Blank fields are not sent. Save sends only typed fields to `/env`, then clears them whatever the outcome.
 3. **Install.** When the selected provider has `post_setup`, an "Install on server" button is the main action if its status is `needs_setup`, and sits under "Advanced" as "Run the install step again" otherwise (a provider with keys never reports `needs_setup`, so its status cannot be trusted); an "Install on server" button after the confirmation sends `/post-setup` and follows `/api/actions/tools-post-setup/status` every 2 s: the last 6 log lines, a Done / Failed result from `exit_code`, and it survives leaving the screen because `ToolsAvailability`-level state (`ToolsetInstalls`, owned by `AppShell` and keyed by connection) holds it, like `BotScreenInstalls`. 22 minutes without an end reads as "unknown" and the setup is read again.
 4. **Model** (`image_gen`, `video_gen`). A "Model" row opens a list sheet (`display`, `speed`, `strengths`, `price`, the default marked); a pick sends `/model`.
-5. **Done.** After every write the list and the config are read again; the state line becomes "Ready" or says what is still missing. A provider the app cannot complete (sign-in, a setting in `config.yaml`) says so and names nothing the user has to guess.
+5. **Done.** After every write the list and the config are read again; the state line becomes "On" (or "Off") or says what is still missing. A provider the app cannot complete (sign-in, a setting in `config.yaml`) says so and names nothing the user has to guess.
 
 **Terminal: where commands run.** The Terminal detail has a "Where commands run" section. It lists the backends with their label, description, a status chip and, for a backend that is not ready, Hermes' `detail` text under "From Hermes:". The active backend is marked. Choosing a backend that needs setup is allowed (Hermes allows it) and the row says "Commands will fail until this is set up on your server." The app does not offer to edit SSH hosts, Docker or Modal settings.
 
@@ -209,6 +209,15 @@ The REST writes change `config.yaml` and `.env` only; they do not reach into run
 
 **Accessibility.** Rows and detail follow the settings kit's 44 pt / 48 dp targets and scale to the largest text size by wrapping, never by cutting a sentence. The switch has the label "<toolset>, <state>", status chips carry text and an icon, not colour alone, and the risk sentence is part of the row's semantics. A confirmation announces its title; the install and grant progress is a live region; reduced motion removes the progress animation. The list and detail pane have a defined focus order (list, then detail) and Mac keyboard handling like Plugins.
 
+**Design pass.** Claude Design canvas "Hermes: Toolsets": https://claude.ai/artifact/KsLQJVL4D6Xo3PGdgxC7AL (private), 39 artboards; the decisions, corrections and added copy are in `docs/design-briefs/toolsets.md` under "Design (done)". The ones that change behaviour, not only looks:
+
+- A switch shows the new position at once (dimmed, with a spinner) but the row keeps its group until the write is confirmed and the list is read again; rows never move under the finger.
+- A refused or failed write is reported on the row that was flipped (error line), not in a banner; failures to read (the list, the offline state) are a banner above the rows that stay.
+- A detail that needs setup has no separate "Set up" button: the Set up section is open under the header, so the key form's Save is the one filled button.
+- The key field has no show/hide control.
+- The risk note comes before any setting in the detail; at the largest text size the row's switch moves under the text with the state in words.
+- "Install on server" is a filled button when the toolset does not work without it, and the switch-started install opens the detail's install section from a "Show" button in the list's banner.
+
 ## Risks / Trade-offs
 
 - **The toggle may not reach a chat that is already open.** The copy says so, and Task 1.1 checks it. If Hermes starts refreshing live sessions on a config change, the sentence becomes shorter.
@@ -225,9 +234,9 @@ No data, no setting and no stored state is added. Rollout is by the server: a se
 ## Open Questions
 
 1. **Does a toggle reach open chats?** Recommendation: assume not, say "next chat", verify in Task 1.1.
-2. **Confirm "browser" and "file"?** Recommendation: explain, do not ask; they are the defaults most people expect. Revisit if the owner wants a stricter line.
+2. **Confirm "file"?** Recommendation: explain, do not ask; it is a default most people expect. Browser asks (the risk table), because switching it on can install a browser on the server. Revisit if the owner wants a stricter line.
 3. **Sections by state or by kind?** Recommendation: Needs setup, On, Off. The user's question is "what works", not "what category".
 4. **Show the tool names of a group?** Recommendation: yes, under "What's inside" in the detail only; they match the names on tool cards in a chat.
-5. **Should switching on a toolset that needs setup be blocked?** Recommendation: no, Hermes allows it. The row says "On · needs setup" and the detail opens at the Set up section.
+5. **Should switching on a toolset that needs setup be blocked?** Recommendation: no, Hermes allows it. The row sits under "Needs setup" with its switch on, the detail's state line says "On · needs setup", and the Set up section is open under the header.
 6. **Remove a saved key?** Not possible through the route (blank is skipped). Recommendation: say "To remove a key, edit it on your server" and leave it.
 7. **Tools in a chat (`tools.show`).** Recommendation: a follow-up change that adds "Tools in this chat" to the Activity panel; not part of this one.
