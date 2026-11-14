@@ -22,7 +22,8 @@ import '../widgets/session_status_card.dart';
 import 'activity_tier.dart';
 import 'widgets/activity_panel.dart';
 
-/// The [ActivityPanel] of [thread] in [chat]: Working items under Now, the
+/// The [ActivityPanel] of [thread] in [chat]: Working items (the session
+/// status, process output, live mixture-of-agents progress) under Now, the
 /// plan, and the For reference items under This session.
 ///
 /// With a [screen] (the chat's profile's Bot Screen) the panel also lists the
@@ -138,18 +139,6 @@ class BoundActivityPanel extends StatelessWidget {
                 progress: progress,
                 onDetails: chat.moaDetailsOpened,
               ),
-          ],
-          plan: plan != null && plan.hasPlan
-              ? TodoPlanCard(state: plan, initiallyOpen: true)
-              : null,
-          session: [
-            if (state != null &&
-                state.visible &&
-                sessionStateTier(state) == ActivityTier.reference)
-              SessionStatusCard(
-                state: state,
-                onDetails: chat.sessionDetailsOpened,
-              ),
             if (processes != null) ...[
               for (final process in processes.cards)
                 ProcessOutputCard(
@@ -163,7 +152,18 @@ class BoundActivityPanel extends StatelessWidget {
                   child: Text('Earlier process cards omitted.'),
                 ),
             ],
-
+          ],
+          plan: plan != null && plan.hasPlan
+              ? TodoPlanCard(state: plan, initiallyOpen: true)
+              : null,
+          session: [
+            if (state != null &&
+                state.visible &&
+                sessionStateTier(state) == ActivityTier.reference)
+              SessionStatusCard(
+                state: state,
+                onDetails: chat.sessionDetailsOpened,
+              ),
             for (final progress
                 in chat.moaIn(t).where((progress) => !progress.live))
               MoaProgressCard(
