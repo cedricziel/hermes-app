@@ -144,7 +144,7 @@ Before saving, the app SHALL check the key with `POST /api/providers/validate` (
 #### Scenario: Provider down
 
 - **WHEN** Hermes' check answers `ok: false, reachable: true` with "Provider returned HTTP 503 for this key."
-- **THEN** nothing is saved yet, the form reads "<provider> didn't answer normally" with Hermes' message, and offers "Save anyway" and "Try again"
+- **THEN** nothing is saved yet, the bar's Save is hidden, and the form reads "<provider> didn't answer normally" with Hermes' message, with "Save anyway" as the filled button and "Try again" as the outlined one
 
 #### Scenario: Check cannot reach the provider
 
@@ -157,15 +157,27 @@ Before saving, the app SHALL check the key with `POST /api/providers/validate` (
 - **WHEN** the form shows the rejection
 - **THEN** the bar's Save is hidden, "Edit key" is the filled button and "Save anyway" the outlined one, and changing the key shows Save again
 
+#### Scenario: Return after a rejection
+
+- **GIVEN** the form shows a rejected key on a desktop
+- **WHEN** the person presses Return
+- **THEN** "Edit key" is triggered and the field takes focus; nothing is sent
+
+#### Scenario: Save anyway after a rejection
+
+- **GIVEN** the form shows a rejected key
+- **WHEN** the person taps "Save anyway" and the save succeeds
+- **THEN** the default-model step opens with the note "Saved. Your first chat will show whether the key works.", never a plain "You're ready"
+
 ### Requirement: Key save failures
 
-A refusal of `PUT /api/env` SHALL show Hermes' reason and SHALL NOT be retried automatically. A save whose answer is lost SHALL NOT be resent; the app SHALL read the providers again. A replacement SHALL always stay unknown after a lost answer, since the server's data cannot identify the submitted key, and the app SHALL say "Couldn't tell whether the new key was saved. Paste it again to be sure."
+A refusal of `PUT /api/env` SHALL show Hermes' reason and SHALL NOT be retried automatically. A save whose answer is lost SHALL NOT be resent; the app SHALL read the providers again. A replacement SHALL always stay unknown after a lost answer, since the server's data cannot identify the submitted key, and the app SHALL clear the field and say "Couldn't tell whether the key was saved. Paste it again to be sure."
 
 #### Scenario: Replacement answer lost
 
 - **GIVEN** OpenRouter is connected with a key ending in "4f2a"
 - **WHEN** the answer to a replacement ending in "9c1d" is lost and the re-read still shows "4f2a"
-- **THEN** the app says "Couldn't tell whether the new key was saved. Paste it again to be sure." and does not report success
+- **THEN** the app clears the field, says "Couldn't tell whether the key was saved. Paste it again to be sure." and does not report success
 
 #### Scenario: Replacement with the same last four characters
 
@@ -199,7 +211,7 @@ For a provider listed with `flow: device_code` in `GET /api/providers/oauth`, th
 
 ### Requirement: Following a sign-in
 
-The app SHALL poll `GET /api/providers/oauth/{id}/poll/{session}` at the server's interval, kept between 2 and 10 seconds, and at once when the app returns to the foreground. Failed polls SHALL back off and show "Can't reach your server. Still waiting…" without ending the sign-in. Leaving the sign-in page or the app SHALL NOT cancel it; the provider row SHALL read "Waiting for sign-in…" with Continue and Cancel while the screen exists.
+The app SHALL poll `GET /api/providers/oauth/{id}/poll/{session}` at the server's interval, kept between 2 and 10 seconds. Failed polls SHALL back off and show "Can't reach your server. Still waiting…" without ending the sign-in. Leaving the sign-in page or the app SHALL NOT cancel it; the provider row SHALL read "Waiting for sign-in…" with "Continue" and "Stop" while the screen exists.
 
 #### Scenario: Leaving and coming back
 
@@ -216,7 +228,23 @@ The app SHALL poll `GET /api/providers/oauth/{id}/poll/{session}` at the server'
 
 - **GIVEN** a pending ChatGPT sign-in and the sign-in step closed
 - **WHEN** the list shows
-- **THEN** the ChatGPT row reads "Waiting for sign-in…" with "Cancel" and "Continue"; Continue reopens the step with the same code, and Cancel asks "Stop signing in to ChatGPT?" with "Keep waiting" as the default and "Stop"
+- **THEN** the ChatGPT row reads "Waiting for sign-in…" with "Stop" and "Continue"; Continue reopens the step with the same code, and Stop asks "Stop signing in to ChatGPT?" with "Keep waiting" as the default and "Stop"
+
+### Requirement: Sign-in polling lifecycle
+
+Polling SHALL stop when the Model providers screen closes (without cancelling the sign-in). On iOS and Android the timer SHALL pause while the app is in the background and resume with one immediate poll when it returns to the foreground.
+
+#### Scenario: Phone in the background
+
+- **GIVEN** a pending sign-in on an iPhone
+- **WHEN** the app goes to the background and returns a minute later
+- **THEN** no poll is sent while it is in the background, and one poll is sent at once on return before the timer resumes
+
+#### Scenario: Screen closed
+
+- **GIVEN** a pending sign-in
+- **WHEN** the person closes Model providers
+- **THEN** polling stops and no cancel request is sent
 
 ### Requirement: Ending a sign-in
 
@@ -229,7 +257,7 @@ A sign-in SHALL end on `approved` (read the providers again and open the default
 
 #### Scenario: Cancelled
 
-- **WHEN** the person taps Cancel on a pending sign-in
+- **WHEN** the person taps Stop on a pending sign-in and confirms "Stop"
 - **THEN** the session is cancelled on the server and the provider is listed under "Add a provider" again
 
 #### Scenario: Server restarted
@@ -279,6 +307,22 @@ Save SHALL send `POST /api/providers/custom-endpoints` for the profile with the 
 - **WHEN** the person changes only its name and saves
 - **THEN** the request carries no API key and the saved key stays
 
+### Requirement: Unencrypted endpoint addresses
+
+When the address is `http://` to a host that is not local by the app's `isLocalHost` rule and an API key is typed, the form SHALL warn "This address isn't encrypted. Your key would be sent to it in plain text." and Save SHALL ask "Send the key unencrypted?" before sending. "Local" means local to the Hermes server, since the server makes the call.
+
+#### Scenario: Unencrypted address with a key
+
+- **GIVEN** the address "http://models.example.net/v1" and a typed API key
+- **WHEN** the person taps Save
+- **THEN** the form already shows "This address isn't encrypted. Your key would be sent to it in plain text.", Save asks "Send the key unencrypted?" with Cancel as the default, and nothing is sent until "Save anyway"
+
+#### Scenario: Address local to the server
+
+- **GIVEN** the address "http://localhost:8000" and a typed API key
+- **WHEN** the person taps Save
+- **THEN** no warning is shown and the endpoint is saved, since Hermes reaches localhost on its own machine
+
 ### Requirement: Default model after connecting
 
 After a provider connects, the app SHALL ask `GET /api/model/recommended-default` for it. With no usable default before, it SHALL save the recommended model at once and say "New chats use <model>". Otherwise it SHALL ask "Use <model> for new chats?" with "Choose another model…" and "Keep <current model>". With no recommendation it SHALL save nothing and ask the person to choose, never taking the provider's first listed model.
@@ -313,7 +357,7 @@ After a provider connects, the app SHALL ask `GET /api/model/recommended-default
 
 ### Requirement: Saving the default model
 
-The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for the profile. When Hermes answers `confirm_required`, the app SHALL show its message with "Use it anyway" and Cancel and resend with `confirm_expensive_model` only after "Use it anyway". The screen's default-model row SHALL show the model's display name (its id as secondary text when they differ) and open the shared model picker over all connected providers, without reasoning effort.
+The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for the profile. The screen's default-model row SHALL show the model's display name (its id as secondary text when they differ) and open the shared model picker over all connected providers, without reasoning effort.
 
 #### Scenario: Nous moved the default itself
 
@@ -332,6 +376,10 @@ The default model SHALL be saved with `POST /api/model/set` (`scope: main`) for 
 - **GIVEN** a profile whose default is a model the person chose
 - **WHEN** a plain Nous Portal sign-in is approved and the poll answer's `model` is that same default
 - **THEN** the step offers Nous' recommended model and "Keep <current model>", and nothing is saved until the person chooses
+
+### Requirement: Expensive model confirmation
+
+When Hermes answers `confirm_required`, the app SHALL show an alert titled "Use this model?" with Hermes' message as its body, "Use it anyway" and Cancel and resend with `confirm_expensive_model` only after "Use it anyway".
 
 #### Scenario: Expensive model
 
@@ -442,7 +490,7 @@ When a provider is connected or removed, or when the default model changes, and 
 
 ### Requirement: Key entry
 
-A key SHALL be typed into an obscured field with Show and Hide, with autocorrect, suggestions, keyboard learning, smart punctuation and autofill off. A shown key SHALL be hidden again whenever the app leaves the foreground, so the app switcher never shows it. The field SHALL be cleared after a successful save and when the form closes.
+Every secret field SHALL follow the app-wide secret field rule (`docs/architecture/settings-screens.md`, "Secret fields"). A key SHALL be typed into an obscured field with a Show/Hide control labelled "Show key" / "Hide key" (44 pt on iOS and iPadOS, 48 dp on Android, a standard Mac button), with autocorrect, suggestions, keyboard learning, smart punctuation and autofill off, and a muted, announced "<N> characters entered" line under it that is never stored.
 
 #### Scenario: App switcher
 
@@ -450,11 +498,47 @@ A key SHALL be typed into an obscured field with Show and Hide, with autocorrect
 - **WHEN** they open the app switcher
 - **THEN** the field is obscured before the system takes its snapshot
 
+#### Scenario: Characters entered
+
+- **WHEN** the person pastes a 24-character key
+- **THEN** the field shows dots and the line under it reads "24 characters entered"
+
+### Requirement: Keeping or clearing a typed key
+
+Going inactive or to the background SHALL only hide a shown key; the typed text SHALL be cleared only when App Lock locks the app, when the form closes, and when the answer to a save is lost. After a plain failed save the typed key SHALL stay in the field, hidden.
+
 #### Scenario: Copying the key from another app
 
 - **GIVEN** a partly typed key
 - **WHEN** the person switches to the browser and back
 - **THEN** the typed key is still in the field, obscured
+
+#### Scenario: Failed save
+
+- **GIVEN** a shown key
+- **WHEN** `PUT /api/env` is refused
+- **THEN** the key stays in the field, obscured, and can be edited
+
+#### Scenario: Lost answer
+
+- **WHEN** the answer to `PUT /api/env` is lost
+- **THEN** the field is cleared and the form says "Couldn't tell whether the key was saved. Paste it again to be sure."
+
+#### Scenario: App Lock
+
+- **GIVEN** a partly typed key
+- **WHEN** App Lock locks the app
+- **THEN** the typed key is cleared
+
+### Requirement: Hiding a shown key
+
+A shown key SHALL be hidden again when the lifecycle leaves `resumed` (`inactive` included), when a check or save starts, after any failed save and when the form closes, and the shown state SHALL NOT be persisted or restored.
+
+#### Scenario: Hidden when the check starts
+
+- **GIVEN** the person tapped Show
+- **WHEN** they tap Save and the check starts
+- **THEN** the key is obscured again
 
 ### Requirement: Keys are never kept or shown
 
@@ -543,7 +627,16 @@ Every control SHALL be at least 44 by 44 points on iOS and iPadOS and 48 by 48 d
 
 ### Requirement: Screen reader and text size
 
-Screen readers SHALL read a provider row as "<provider>, <state>" and a device code character by character, and SHALL announce "Checking key", "Waiting for sign-in" and the code's arrival once. Text SHALL scale to the largest accessibility size without cutting off a provider name, state or code. Motion SHALL follow reduced-motion.
+Screen readers SHALL read a provider row as "<provider>, <state>", the pending row's buttons as "Continue sign-in to <provider>" and "Cancel sign-in to <provider>", and a device code character by character, and SHALL announce "Checking key", "Waiting for sign-in" and the code's arrival once. Motion SHALL follow reduced-motion.
+
+#### Scenario: VoiceOver row
+
+- **WHEN** VoiceOver focuses the OpenRouter row
+- **THEN** it reads "OpenRouter, API key ending in 4 f 2 a, default model"
+
+### Requirement: Largest text and Mac layout
+
+Text SHALL scale to the largest accessibility size without cutting off a provider name, state or code: rows wrap, "Default" gets its own line, a credential row's button and the pending row's Continue and Stop move below the text at full width, and the buttons of forms and steps stack full width. On a Mac the pending row shows Continue and Stop as small (28 pt) push buttons after its text.
 
 #### Scenario: Largest text size
 
@@ -551,10 +644,16 @@ Screen readers SHALL read a provider row as "<provider>, <state>" and a device c
 - **WHEN** the sign-in step shows an eight-character code
 - **THEN** the code is fully visible, wrapped in its groups, and Copy stays reachable
 
-#### Scenario: VoiceOver row
+#### Scenario: Pending row at the largest text size
 
-- **WHEN** VoiceOver focuses the OpenRouter row
-- **THEN** it reads "OpenRouter, API key ending in 4 f 2 a, default model"
+- **GIVEN** a pending ChatGPT sign-in and the largest accessibility text size on an iPhone
+- **WHEN** the list shows
+- **THEN** the row's text wraps and "Continue" and "Stop" sit below it at full width, each at least 44 points tall
+
+#### Scenario: Pending row on a Mac
+
+- **WHEN** the list shows a pending sign-in in a Mac window
+- **THEN** "Stop" and "Continue" are 28 pt push buttons after the row's text, reachable with the keyboard
 
 ### Requirement: Provider setup backend contract
 
