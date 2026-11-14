@@ -966,6 +966,16 @@ void main() {
         'subagent.stop.confirmed {}',
         'subagent.detail.closed {}',
       ]);
+      expect(
+        [
+          for (final (name, attributes) in events)
+            if (name.startsWith('subagent.')) '$name $attributes',
+        ],
+        [
+          'subagent.redirect {outcome: queued}',
+          'subagent.stop {outcome: stopped}',
+        ],
+      );
       // Events carry only a fixed outcome word.
       const outcomes = {
         'queued',

@@ -1248,18 +1248,18 @@ The Activity panel lists a chat's delegated agents (Now, This session), opens on
 flutter test test/chat/subagents test/chat/activity test/workflows/subagent_control_workflow_test.dart test/gateway/agent_work_transport_test.dart
 ```
 
-The workflow test drives the real `ChatScreen` on a phone (iOS and Android) and a Mac, light and dark, and writes `build/workflow_screenshots/subagent-control-*`. Look at them: the detail's state line (Running · time · tools), Recent output with its hanging indent, the note field with a visible "Send to agent" label, the tinted Stop agent button, the confirmation (Cancel first, red Stop agent, two text buttons on Android) and, after the stop, "This agent was stopped." with no "Stopping…" under it.
+The workflow test drives the real `ChatScreen` on an iPhone and a Mac (light and dark) and on an Android phone (light), and writes `build/workflow_screenshots/subagent-control-*`. Look at them: the detail's state line (Running · time · tools), Recent output with its hanging indent, the note field with a visible "Send to agent" label, the tinted Stop agent button, the confirmation (Cancel first, red Stop agent, two text buttons on Android) and, after the stop, "This agent was stopped." with no "Stopping…" under it.
 
 Against a real backend, only the throwaway dashboard from `scripts/dev-backend.sh` (never the real `~/.hermes`):
 
 1. Hermes needs a model that makes the parent call `delegate_task` with two goals, and whose child turns (told apart by their system prompt) run a `terminal` `sleep 30` before answering. `scripts/fake_tool_model.py` has no such turn yet and the contract test's `_serveScriptedModel` only runs one terminal call; add the delegating turn there first. This section was written from the Hermes source in design.md and has not been run against a backend. Use `HERMES_DEV_MODEL_CALLS=1` with a paid model only if the user allows it.
 2. Send a prompt that delegates. Two rows appear under Now with a running dot. Open one (row, or the transcript card's chevron): the detail shows Recent output and refreshes every 2 s.
-3. Stop agent asks first; Cancel sends nothing. Confirm: exactly one `subagent.interrupt`, "Stopping…", then "Stopped" while the parent goes on. Check the lineage case too: a running agent that `subagent.list` still shows after the session's runtime was rebuilt answers `found: false`, and the detail must say "can't be controlled here", not "finished".
-4. Type a note to the other agent and press Send to agent: one `subagent.steer`, the composer's draft is untouched, and nothing is added to the chat. A note that arrives too late ends as "Not sent" with Copy.
+3. Stop agent asks first; Cancel sends nothing. Confirm: exactly one `subagent.interrupt`, "Stopping…", then "Stopped" while the parent goes on. Check the lineage case too: a running agent that `subagent.list` still shows after the session's runtime was rebuilt answers `found: false`, and the detail must say "Hermes doesn't let this device stop or redirect this agent. It keeps running." and not "This agent had already finished."
+4. Type a note to the other agent and press Send to agent: one `subagent.steer`, the composer's draft is untouched, and nothing is added to the chat. A note that lands after the agent's last tool batch is reported as "Your note didn't reach the agent. It had finished first."; typed text still unsent when a stop is accepted or the agent ends reads "Not sent" with Copy.
 5. A conversation window (a second window on the same chat) lists the agents but offers no Stop or note, and reads nothing.
-6. An older Hermes without `subagent.*`: rows from frames, no controls, no error.
+6. An older Hermes without `subagent.*`: rows still come from frames and nothing shows an error. The app never probes, so Stop and the note field are offered; pressing one shows "This server can't stop agents." (or the note equivalent) and removes that control.
 
-Goals, tool names, output and notes must never appear in breadcrumbs, spans or logs; the privacy test in `test/chat/subagents/bound_activity_panel_agents_test.dart` checks this, and `Exported telemetry` below shows how to read what was exported.
+Goals, tool names, output and notes must never appear in breadcrumbs, spans or logs; the privacy test in `test/chat/subagents/bound_activity_panel_agents_test.dart` checks this for breadcrumbs and app events, and `subagent_repository_test.dart` checks the `subagent.rpc` span; `Exported telemetry` above shows how to read what was exported.
 
 ## Background request alert retry
 
